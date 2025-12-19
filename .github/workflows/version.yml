@@ -1,0 +1,42 @@
+name: Version
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      semver:
+        description: 'Semantic version'
+        value: ${{ jobs.version.outputs.semver }}
+      majorminorpatch:
+        description: 'Major.Minor.Patch'
+        value: ${{ jobs.version.outputs.majorminorpatch }}
+      label:
+        description: 'Prerelease label (alpha, rc, etc)'
+        value: ${{ jobs.version.outputs.label }}
+
+permissions:
+  contents: write 
+  packages: read   
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      semver: ${{ steps.version.outputs.semVer }}
+      majorminorpatch: ${{ steps.version.outputs.majorMinorPatch }}
+      label: ${{ steps.version.outputs.preReleaseLabel }}
+
+    steps:
+      - name: Checkout Full History
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v4.2.0
+
+      - name: Calculate Version
+        id: version
+        uses: gittools/actions/gitversion/execute@v4.2.0

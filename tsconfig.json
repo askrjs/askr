@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM"],
+    "jsx": "preserve",
+    "jsxImportSource": "askr-jsx",
+    "paths": {
+      "askr-jsx": ["./src/jsx"],
+      "askr-jsx/*": ["./src/jsx/*"]
+    },
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node"
+  },
+  "include": ["src/**/*", "benches/**/*", "tests/**/*", "examples/**/*"]
+}

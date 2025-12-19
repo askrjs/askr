@@ -1,0 +1,55 @@
+{
+  "name": "@askrjs/askr",
+  "version": "0.0.1",
+  "description": "Actor-backed deterministic UI framework",
+  "type": "module",
+  "packageManager": "npm",
+  "license": "Apache-2.0",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/jsx"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./jsx-runtime": {
+      "import": "./src/jsx/jsx-runtime.ts",
+      "types": "./src/jsx/jsx-runtime.ts"
+    },
+    "./jsx-dev-runtime": {
+      "import": "./src/jsx/jsx-dev-runtime.ts",
+      "types": "./src/jsx/jsx-dev-runtime.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:types": "npm run build && tsd",
+    "bench": "cross-env NODE_ENV=production vitest bench --run --reporter=default --config vitest.bench.config.ts",
+    "check:benches": "node ./scripts/check-bench-awaits.js",
+    "fmt": "prettier --write .",
+    "lint": "eslint src tests examples benches --ext .ts,.tsx"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.3",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "jiti": "^2.6.1",
+    "jsdom": "^27.3.0",
+    "prettier": "^3.7.4",
+    "tsup": "^8.5.1",
+    "tsd": "^0.33.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.50.0",
+    "vitest": "^4.0.16"
+  }
+}
