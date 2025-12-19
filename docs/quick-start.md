@@ -89,6 +89,7 @@ navigate(window.location.pathname);
 ```
 
 **Notes:**
+
 - Route handlers receive `params` for path parameters: `({ id }) => ...`.
 - Handlers may be synchronous or async; the router provides an AbortSignal (see Async routes below).
 
@@ -160,14 +161,16 @@ npm run dev
 ---
 
 If you'd like, I can also:
+
 - Add a short `Link` accessibility example (aria-current/data-active) and unit tests ✅
 - Add a Vite lazy-loading snippet using `import.meta.glob` and prefetch tips ✨
 
 ---
 
-*This quick start keeps the core small so your routing logic stays explicit and testable.*
-   - `route()` with no args → render-time snapshot accessor
-   - `route(path, handler)` → registers a route handler
+_This quick start keeps the core small so your routing logic stays explicit and testable._
+
+- `route()` with no args → render-time snapshot accessor
+- `route(path, handler)` → registers a route handler
 
 2. **Paths are typically absolute for top-level registrations**
    - Register grouped routes by using explicit absolute paths with `route()`; descriptor-style helpers are discouraged.
@@ -240,5 +243,3 @@ const r = route();
 > **`route(path, handler)` defines structure; `route()` (no args) exposes live state.**
 
 This gives you a router that’s **powerful, boring, and hard to misuse** — exactly what you want.
-
-

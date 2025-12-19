@@ -35,7 +35,7 @@
     "bench": "cross-env NODE_ENV=production vitest bench --run --reporter=default --config vitest.bench.config.ts",
     "check:benches": "node ./scripts/check-bench-awaits.js",
     "fmt": "prettier --write .",
-    "lint": "eslint src tests examples benches --ext .ts,.tsx"
+    "lint": "eslint src tests benches --ext .ts,.tsx"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

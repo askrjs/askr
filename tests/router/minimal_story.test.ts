@@ -5,12 +5,12 @@ import { route } from '../../src/index';
 
 // Minimal testing window helper
 function setGlobalWindow(path: string) {
-  (global as any).window = {
-    location: { pathname: path, search: '', hash: '' },
-    history: { pushState() {} },
+  (global as unknown as { window?: Window }).window = {
+    location: { pathname: path, search: '', hash: '' } as Location,
+    history: { pushState() {} } as unknown as History,
     addEventListener() {},
     removeEventListener() {},
-  };
+  } as unknown as Window;
 }
 
 describe('Minimal router story (authoritative)', () => {
@@ -26,8 +26,10 @@ describe('Minimal router story (authoritative)', () => {
   afterEach(() => {
     cleanup();
     try {
-      delete (global as any).window;
-    } catch {}
+      delete (global as unknown as { window?: Window }).window;
+    } catch {
+      // ignore: test helper window may not be present
+    }
   });
 
   it('should activate only the single best match (longest-match wins)', async () => {
@@ -50,7 +52,10 @@ describe('Minimal router story (authoritative)', () => {
 
     // initial window
     setGlobalWindow('/');
-    createApp({ root: container, component: () => ({ type: 'div', props: {}, children: ['App'] }) });
+    createApp({
+      root: container,
+      component: () => ({ type: 'div', props: {}, children: ['App'] }),
+    });
 
     // navigate to the deeper path
     navigate('/parent/child');
@@ -66,17 +71,20 @@ describe('Minimal router story (authoritative)', () => {
     route('/layout/a', () => ({
       type: 'div',
       props: { class: 'layout' },
-      children: [ { type: 'div', props: { class: 'inner' }, children: ['A'] } ],
+      children: [{ type: 'div', props: { class: 'inner' }, children: ['A'] }],
     }));
 
     route('/layout/b', () => ({
       type: 'div',
       props: { class: 'layout' },
-      children: [ { type: 'div', props: { class: 'inner' }, children: ['B'] } ],
+      children: [{ type: 'div', props: { class: 'inner' }, children: ['B'] }],
     }));
 
     setGlobalWindow('/layout/a');
-    createApp({ root: container, component: () => ({ type: 'div', props: {}, children: ['App'] }) });
+    createApp({
+      root: container,
+      component: () => ({ type: 'div', props: {}, children: ['App'] }),
+    });
 
     navigate('/layout/a');
     await flushScheduler();

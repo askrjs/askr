@@ -20,12 +20,21 @@ describe('layout helper (ROUTER)', () => {
 
   it('should support zero-arg factory passed to layout()', async () => {
     // Zero-arg factory that returns a layout element
-    const ParentLayout = () => ({ type: 'div', props: { class: 'parent' }, children: [] });
+    const ParentLayout = () => ({
+      type: 'div',
+      props: { class: 'parent' },
+      children: [],
+    });
     const parent = layout(() => ParentLayout());
 
-    route('/p', () => parent({ type: 'div', props: { class: 'child' }, children: ['C'] }));
+    route('/p', () =>
+      parent({ type: 'div', props: { class: 'child' }, children: ['C'] })
+    );
 
-    createApp({ root: container, component: () => ({ type: 'div', props: {}, children: ['App'] }) });
+    createApp({
+      root: container,
+      component: () => ({ type: 'div', props: {}, children: ['App'] }),
+    });
 
     navigate('/p');
     await flushScheduler();

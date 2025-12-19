@@ -15,8 +15,8 @@ on:
         value: ${{ jobs.version.outputs.label }}
 
 permissions:
-  contents: write 
-  packages: read   
+  contents: write
+  packages: read
 
 jobs:
   version:
