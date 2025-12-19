@@ -1,18 +1,19 @@
 # Askr
 
-## Askr exists to disappear.
+> **Askr exists to disappear.**
 
-Askr is a framework designed for humans who are no longer the only authors.
+Askr is a deterministic frontend runtime for humans who are no longer the only authors.
 
-## JSX runtime
-
-- Exported subpath: `@askrjs/askr/jsx-runtime` (re-exports `jsx`, `jsxs`, and `Fragment`).
-- For TypeScript projects, set `jsxImportSource` to `@askrjs/askr` (or `@askrjs/askr/jsx-runtime`) in `tsconfig.json` to ensure the automatic JSX transform resolves to this runtime.
-
-Askr is a frontend runtime designed to be **invisible**.
 If you can write TypeScript functions and basic HTML, you already know Askr.
 
-We believe the best frameworks are the ones you stop thinking about.
+- **Write normal code.** Control flow is JavaScript.
+- **Let the runtime handle time.** Async, routing, rendering, SSR/hydration, and cleanup are runtime responsibilities.
+- **Use platform primitives.** Cancellation is `AbortController`/`AbortSignal`, not a framework invention.
+
+Quick links:
+
+- [docs/quick-start.md](docs/quick-start.md)
+- [tests/README.md](tests/README.md)
 
 ## Our North Star
 
@@ -20,12 +21,92 @@ We believe the best frameworks are the ones you stop thinking about.
 
 Askr exists to remove framework-shaped thinking from application code.
 Async, routing, rendering, SSR, hydration, and cleanup are _runtime responsibilities_.
-
 Developers should only think about:
 
 - functions
 - state
 - HTML
+
+## Quick start (tiny)
+
+Install:
+
+```sh
+npm i @askrjs/askr
+```
+
+TypeScript JSX setup (`tsconfig.json`):
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "@askrjs/askr"
+  }
+}
+```
+
+Tiny app (routing + state):
+
+```ts
+import { createApp, Link, navigate, route, state } from '@askrjs/askr';
+
+function Home() {
+  const count = state(0);
+  return (
+    <div>
+      <h1>Home</h1>
+      <p>Count: {count()}</p>
+      <button onClick={() => count.set(count() + 1)}>Increment</button>
+      <p>
+        <Link href="/users/42">User 42</Link>
+      </p>
+    </div>
+  );
+}
+
+function User({ id }: { id: string }) {
+  return (
+    <div>
+      <h1>User {id}</h1>
+      <Link href="/">Back</Link>
+    </div>
+  );
+}
+
+// Register routes at module-load time
+route('/', () => <Home />);
+route('/users/{id}', ({ id }) => <User id={id} />);
+
+createApp({ root: 'app', component: () => <div /> });
+navigate(window.location.pathname);
+```
+
+Note: `root` is an element id string (or an `Element`).
+
+## JSX runtime
+
+- Exported subpath: `@askrjs/askr/jsx-runtime` (re-exports `jsx`, `jsxs`, and `Fragment`).
+- For TypeScript projects, set `jsxImportSource` to `@askrjs/askr` (or `@askrjs/askr/jsx-runtime`) in `tsconfig.json` to ensure the automatic JSX transform resolves to this runtime.
+
+We believe the best frameworks are the ones you stop thinking about.
+
+## Cancellation is not a feature
+
+Askr doesn’t introduce a new cancellation concept.
+When work becomes stale (unmount, route replacement), the runtime aborts an `AbortController`.
+You forward the provided `signal` into normal APIs:
+
+```ts
+import { route } from '@askrjs/askr';
+
+route('/user/{id}', async (params, ctx) => {
+  const user = await fetch(`/api/users/${params.id}`, {
+    signal: ctx?.signal,
+  }).then((r) => r.json());
+  return <pre>{JSON.stringify(user, null, 2)}</pre>;
+});
+```
 
 ## Principles
 
