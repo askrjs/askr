@@ -12,7 +12,6 @@ import {
   flushScheduler,
   waitForNextEvaluation,
 } from '../../tests/helpers/test_renderer';
-import { benchN, benchIterations } from '../helpers/bench_config';
 
 describe('long session', () => {
   describe('1000 extended operations', () => {
@@ -74,8 +73,8 @@ describe('long session', () => {
     let cleanup: () => void;
     let updateInstances: (() => void) | null = null;
 
-    const INSTANCES = benchN(100);
-    const INNER = benchN(1000);
+    const INSTANCES = 100;
+    const INNER = 1000;
 
     beforeEach(() => {
       const res = createTestContainer();
@@ -126,8 +125,8 @@ describe('long session', () => {
     });
   });
 
-  const GC_SIZE = benchN(10000);
-  const GC_ITERS = benchIterations(10000);
+  const GC_SIZE = 10000;
+  const GC_ITERS = 10000;
 
   describe('10000 gc pressure cycles', () => {
     let container: HTMLElement;

@@ -6,7 +6,6 @@ import {
   flushScheduler,
   waitForNextEvaluation,
 } from '../../tests/helpers/test_renderer';
-import { benchN } from '../helpers/bench_config';
 
 function setup(disableFastlane: boolean) {
   const ctx = createTestContainer();
@@ -25,7 +24,7 @@ function setup(disableFastlane: boolean) {
   let items!: State<Array<{ id: number; text: string }>>;
 
   const Component = () => {
-    const N = benchN(10000);
+    const N = 10000;
     items = state(
       Array.from({ length: N }, (_, i) => ({
         id: i + 1,

@@ -18,7 +18,6 @@ import {
   flushScheduler,
   waitForNextEvaluation,
 } from '../../tests/helpers/test_renderer';
-import { benchIterations } from '../helpers/bench_config';
 
 describe('keyed list reorder (transactional)', () => {
   describe('5 items - 100 batched state mutations (single commit, transactional)', () => {
@@ -26,7 +25,7 @@ describe('keyed list reorder (transactional)', () => {
     let cleanup: () => void;
     let items!: State<Array<{ id: number; text: string }>>;
 
-    const ITERS = benchIterations(100);
+    const ITERS = 100;
 
     beforeAll(async () => {
       const ctx = createTestContainer();

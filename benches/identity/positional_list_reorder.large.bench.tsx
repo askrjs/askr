@@ -16,14 +16,13 @@ import {
   flushScheduler,
   waitForNextEvaluation,
 } from '../../tests/helpers/test_renderer';
-import { benchN, benchIterations } from '../helpers/bench_config';
 
 describe('positional list reorder (large, transactional)', () => {
   // Removed intermediate large sizes (1k, 5k) to keep only the representative large-case (10k).
   // These intermediate sizes added noise without exposing distinct algorithmic paths.
 
-  const POS10K = benchN(10000);
-  const POS10K_ITERS = benchIterations(2);
+  const POS10K = 10000;
+  const POS10K_ITERS = 2;
 
   describe('10000 items - 2 batched state mutations (single commit, transactional)', () => {
     let container: HTMLElement;
