@@ -57,7 +57,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
             type: 'text',
             placeholder: 'Enter',
             value: 'default',
-            className: 'input-field',
+            class: 'input-field',
             disabled: false,
           };
         }

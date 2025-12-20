@@ -100,7 +100,7 @@ describe('runtime fast-lane', () => {
             key: item.id,
             props: {
               'data-key': String(item.id),
-              className: String(item.togg),
+              class: String(item.togg),
             },
             children: [item.text],
           })),
@@ -113,7 +113,7 @@ describe('runtime fast-lane', () => {
     });
 
     it('should decline fast-path when props differ', async () => {
-      // Reverse: but props (className) are constant until we change toggles
+      // Reverse: but props (`class`) are constant until we change toggles
       items.set([...items()].reverse());
       flushScheduler();
       await waitForNextEvaluation();

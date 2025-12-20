@@ -20,5 +20,5 @@ declare namespace JSX {
 }
 
 // Ensure Props accepts common attributes
-const p: Props = { id: 'test', className: 'c', children: 'x' };
+const p: Props = { id: 'test', class: 'c', children: 'x' };
 expectType<Props>(p);

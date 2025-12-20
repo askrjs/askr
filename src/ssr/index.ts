@@ -118,8 +118,8 @@ function renderAttrs(props?: Props): string {
       continue;
     }
 
-    // Normalize class attribute
-    const attrName = key === 'className' ? 'class' : key;
+    // Normalize class attribute (`class` preferred, accept `className` for compatibility)
+    const attrName = key === 'class' || key === 'className' ? 'class' : key;
 
     // Boolean attributes
     if (value === true) {

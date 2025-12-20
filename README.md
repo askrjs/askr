@@ -89,6 +89,30 @@ Note: `root` is an element id string (or an `Element`).
 - Exported subpath: `@askrjs/askr/jsx-runtime` (re-exports `jsx`, `jsxs`, and `Fragment`).
 - For TypeScript projects, set `jsxImportSource` to `@askrjs/askr` (or `@askrjs/askr/jsx-runtime`) in `tsconfig.json` to ensure the automatic JSX transform resolves to this runtime.
 
+- Use `class` in JSX attributes (e.g., `<div class="x">`) — the runtime accepts `class` and maps it to the element class name during rendering instead of `className`.
+
+### Vite support ✅
+
+If you want Vite to work with Askr without extra config, install the plugin and add it to your `vite.config.ts`:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { askrVitePlugin } from '@askrjs/askr/vite';
+
+export default defineConfig({
+  plugins: [askrVitePlugin()],
+});
+```
+
+The plugin configures esbuild to inject Askr's JSX runtime and adds the runtime to `optimizeDeps`.
+
+By default the plugin also enables a small built-in JSX transform (esbuild-based) that rewrites `.jsx`/`.tsx` files to use Askr's automatic JSX runtime. This means you don't need an external JSX plugin to get JSX working and the plugin avoids adding dependencies that reference other frameworks. If you prefer to use your own toolchain, disable it with:
+
+```ts
+askrVitePlugin({ transformJsx: false });
+```
+
 We believe the best frameworks are the ones you stop thinking about.
 
 ## Cancellation is not a feature

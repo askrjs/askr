@@ -24,6 +24,10 @@
     "./jsx-dev-runtime": {
       "import": "./src/jsx/jsx-dev-runtime.ts",
       "types": "./src/jsx/jsx-dev-runtime.ts"
+    },
+    "./vite": {
+      "import": "./src/dev/vite-plugin-askr.ts",
+      "types": "./src/dev/vite-plugin-askr.ts"
     }
   },
   "scripts": {
@@ -50,6 +54,7 @@
     "tsd": "^0.33.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.16",
+    "vite": "^5.2.0"
   }
 }
