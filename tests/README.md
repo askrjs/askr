@@ -292,7 +292,7 @@ Which directory best fits?
 
 ```typescript
 describe('render_transactions', () => {
-  it('MUST ensure BUILD and COMMIT phases are separate (SPEC 2.1)', async () => {
+  it('should ensure BUILD and COMMIT phases are separate (SPEC 2.1)', async () => {
     // Setup
     const component = () => ({ type: 'div' });
 

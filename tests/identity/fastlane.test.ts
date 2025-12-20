@@ -48,14 +48,30 @@ describe('runtime fast-lane', () => {
       await waitForNextEvaluation();
 
       // The renderer emits trace stats for fast-path into globalThis
+      type FastPathStats = {
+        n?: number;
+        moves?: number;
+        lisLen?: number;
+        t_lookup?: number;
+        t_fragment?: number;
+        t_commit?: number;
+        t_bookkeeping?: number;
+        fragmentAppendCount?: number;
+        mapLookups?: number;
+        createdNodes?: number;
+        reusedCount?: number;
+        reused?: boolean;
+      };
+
       const _g = globalThis as unknown as {
-        __ASKR_LAST_FASTPATH_STATS?: { n?: number };
+        __ASKR_LAST_FASTPATH_STATS?: FastPathStats;
         __ASKR_LAST_FASTPATH_REUSED?: unknown;
         __ASKR_LAST_FASTPATH_COMMIT_COUNT?: number;
         __ASKR_LAST_FASTLANE_INVARIANTS?: {
           mountOps: number;
           cleanupFns: number;
         };
+        __ASKR_LAST_FASTPATH_HISTORY?: FastPathStats[];
       };
       const stats =
         _g.__ASKR_LAST_FASTPATH_STATS ??
