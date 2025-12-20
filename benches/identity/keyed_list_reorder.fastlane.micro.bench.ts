@@ -25,7 +25,7 @@ function setup(disableFastlane: boolean) {
   let items!: State<Array<{ id: number; text: string }>>;
 
   const Component = () => {
-    const N = benchN(10_000, 2_000);
+    const N = benchN(10000);
     items = state(
       Array.from({ length: N }, (_, i) => ({
         id: i + 1,

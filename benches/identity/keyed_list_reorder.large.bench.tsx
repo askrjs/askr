@@ -24,8 +24,8 @@ describe('keyed list reorder (large)', () => {
     // Removed intermediate large transactional sizes (1k, 5k) to keep only the representative large-case (10k).
     // Also removed duplicate 'reorder-only-fastlane' which duplicated the 10k measurement.
 
-    const ITEMS_10K = benchN(10000, 2000);
-    const ITER_10K = benchIterations(1, 1);
+    const ITEMS_10K = benchN(10000);
+    const ITER_10K = benchIterations(1);
 
     describe('10000 items - 1 batched state mutation (single commit, transactional)', () => {
       let container: HTMLElement;
