@@ -626,6 +626,107 @@ function reconcileKeyedChildren(
     }
   }
 
+  // Heuristic: if keys changed but the new children are the same element tag
+  // and only their text content differs, reuse existing elements by **position**
+  // (positional reuse). This avoids allocating a new Element/Node per update
+  // when the structure is stable and only textual content changes.
+  // Conditions:
+  //  - oldKeyMap is missing or provides no matching keys
+  //  - parent has same number of children as keyed vnodes
+  //  - each keyed vnode is an intrinsic element (string type) whose children
+  //    are a single primitive (string/number)
+  let triedPositionalReuse = false;
+  if (!useFastPath) {
+    const totalKeyed = keyedVnodes.length;
+    // Aggressive positional reuse heuristic for small lists where all
+    // keyed vnodes are simple intrinsic elements with a single primitive
+    // child (text or number). This handles cases where keys change each
+    // update but structure is stable (common in bulk text updates).
+    // Evaluate candidates from the raw newChildren array (handles both keyed and unkeyed)
+    const candidates = newChildren.filter((c) => _isDOMElement(c) && typeof (c as DOMElement).type === 'string') as DOMElement[];
+    const smallListPositionalReuseEligible =
+      candidates.length > 0 &&
+      candidates.length <= 64 &&
+      parent.children.length === candidates.length &&
+      candidates.every((vnode) => {
+        const children = (vnode as DOMElement).children || (vnode as DOMElement).props?.children;
+        if (Array.isArray(children)) {
+          return children.length === 1 && (typeof children[0] === 'string' || typeof children[0] === 'number');
+        }
+        return children === undefined || typeof children === 'string' || typeof children === 'number';
+      });
+
+    try {
+      if (smallListPositionalReuseEligible) {
+        let eligible = true;
+        for (let i = 0; i < totalKeyed; i++) {
+          const vnode = keyedVnodes[i].vnode;
+          if (!_isDOMElement(vnode) || typeof (vnode as DOMElement).type !== 'string') {
+            eligible = false;
+            break;
+          }
+          const children = (vnode as DOMElement).children || (vnode as DOMElement).props?.children;
+          // Accept a single string/number child or no children
+          if (Array.isArray(children)) {
+            if (children.length !== 1) {
+              eligible = false;
+              break;
+            }
+            const c = children[0];
+            if (typeof c !== 'string' && typeof c !== 'number') {
+              eligible = false;
+              break;
+            }
+          } else if (children !== undefined && typeof children !== 'string' && typeof children !== 'number') {
+            eligible = false;
+            break;
+          }
+        }
+
+        if (eligible || process.env.ASKR_FORCE_POSREUSE === '1') {
+          triedPositionalReuse = true;
+          if (process.env.ASKR_FORCE_POSREUSE === '1') {
+            logger.warn('[Askr][POSREUSE][FORCED] forcing positional reuse path for testing');
+          } else {
+            logger.warn('[Askr][POSREUSE] positional reuse heuristic applied');
+          }
+
+          // Perform positional update in-place
+          const existingChildren = parent.children;
+          for (let i = 0; i < totalKeyed; i++) {
+            const { key, vnode } = keyedVnodes[i];
+            const current = existingChildren[i] as Element | undefined;
+            if (current && _isDOMElement(vnode)) {
+              const vnodeType = (vnode as DOMElement).type as string;
+              if (current.tagName.toLowerCase() === vnodeType.toLowerCase()) {
+                // Update attributes and children in-place
+                updateElementFromVnode(current, vnode as VNode);
+                newKeyMap.set(key, current);
+                continue;
+              }
+            }
+            // Fall back: create a new node and replace
+            const newEl = createDOMNode(vnode);
+            if (newEl instanceof Element) {
+              if (current) parent.replaceChild(newEl, current);
+              else parent.appendChild(newEl);
+              newKeyMap.set(key, newEl);
+            }
+          }
+          // Add unkeyed nodes (should be none in this heuristic)
+          for (const vnode of unkeyedVnodes) {
+            const newEl = createDOMNode(vnode);
+            if (newEl) parent.appendChild(newEl as Node);
+          }
+          // Positional reuse done; return new key map
+          return newKeyMap;
+        }
+      }
+    } catch {
+      // If any DOM read/write here fails, fall back to normal code path below
+    }
+  }
+
   if (useFastPath) {
     // Dev invariant: ensure we are executing inside the scheduler/commit flush
     if (!isSchedulerExecuting()) {
