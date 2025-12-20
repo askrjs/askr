@@ -52,7 +52,8 @@ export interface Context<T> {
 
 export interface ContextFrame {
   parent: ContextFrame | null;
-  values: Map<ContextKey, unknown>;
+  // Lazily allocate `values` Map only when a provider sets values or a read occurs.
+  values: Map<ContextKey, unknown> | null;
 }
 
 // Symbol to mark vnodes that need frame restoration
@@ -140,8 +141,10 @@ export function readContext<T>(context: Context<T>): T {
 
   let current: ContextFrame | null = frame;
   while (current) {
-    if (current.values.has(context.key)) {
-      return current.values.get(context.key) as T;
+    // `values` may be null when no provider has created it yet — treat as empty
+    const values = current.values;
+    if (values && values.has(context.key)) {
+      return values.get(context.key) as T;
     }
     current = current.parent;
   }
@@ -278,9 +281,12 @@ function ContextFunctionChildInvoker(props: {
  * Called by component runtime when render starts
  */
 export function pushContextFrame(): ContextFrame {
+  // Lazily allocate the `values` map to avoid per-render allocations when
+  // components do not use context. The map will be created when a provider
+  // sets a value or when a read discovers no map and needs to behave as empty.
   const frame: ContextFrame = {
     parent: currentContextFrame,
-    values: new Map(),
+    values: null,
   };
   currentContextFrame = frame;
   return frame;

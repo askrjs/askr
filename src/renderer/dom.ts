@@ -1113,7 +1113,9 @@ function updateElementFromVnode(
 
   // Remove any remaining listeners not desired by current props
   if (existingListeners) {
-    for (const [eventName, entry] of Array.from(existingListeners)) {
+    // Iterate over keys to avoid allocating a transient array via Array.from
+    for (const eventName of existingListeners.keys()) {
+      const entry = existingListeners.get(eventName)!;
       if (!desiredEventNames.has(eventName)) {
         el.removeEventListener(eventName, entry.handler);
         existingListeners.delete(eventName);
