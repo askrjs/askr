@@ -62,7 +62,12 @@ export function resource<T>(
     _resourceFrame: ContextFrame | null; // Captured once at creation, never rewritten
     // Reused snapshot object returned from `resource()` to avoid allocating a new
     // object on every render call. We update its fields in-place when state changes.
-    _snapshot: { value: T | null; pending: boolean; error: Error | null; refresh: () => void };
+    _snapshot: {
+      value: T | null;
+      pending: boolean;
+      error: Error | null;
+      refresh: () => void;
+    };
   };
 
   const internalState = state<Internal>({
@@ -94,7 +99,12 @@ export function resource<T>(
     _deps: null,
     _started: false,
     _resourceFrame: getCurrentContextFrame(), // Capture once, never rewritten
-    _snapshot: { value: null, pending: true, error: null, refresh: () => internalState().refresh() },
+    _snapshot: {
+      value: null,
+      pending: true,
+      error: null,
+      refresh: () => internalState().refresh(),
+    },
   });
 
   function startExecution() {

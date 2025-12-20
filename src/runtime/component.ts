@@ -311,10 +311,12 @@ function executeComponentSync(
 
     // Execute component within its owner frame (provider chain).
     // This ensures all context reads see the correct provider values.
-    // We create a new execution frame whose parent is the ownerFrame.
+    // We create a new execution frame whose parent is the ownerFrame. The
+    // `values` map is lazily allocated to avoid per-render Map allocations
+    // for components that do not use context.
     const executionFrame: ContextFrame = {
       parent: instance.ownerFrame,
-      values: new Map(),
+      values: null,
     };
     const result = withContext(executionFrame, () =>
       instance.fn(instance.props, context)
