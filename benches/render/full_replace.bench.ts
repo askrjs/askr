@@ -10,6 +10,7 @@ import { createApp, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
+  waitForNextEvaluation,
 } from '../../tests/helpers/test_renderer';
 
 describe('full replace', () => {
