@@ -24,7 +24,10 @@ import { logger } from '../dev/logger';
 const MAX_RENDER_DEPTH = 25; // Prevent infinite render loops
 
 export class Scheduler {
+  // Simple queue implemented with head index to avoid calling `Array.shift()` in the hot loop
+  // Shift() causes the array to move elements which allocates; using a head index avoids that work.
   private queue: (() => void)[] = [];
+  private queueHead = 0;
   private running = false;
   private depth = 0;
   private executionDepth = 0; // Track whether we are inside scheduler execution
@@ -83,7 +86,7 @@ export class Scheduler {
    */
   getState() {
     return {
-      queueLength: this.queue.length,
+      queueLength: this.queue.length - this.queueHead,
       running: this.running,
       depth: this.depth,
       executionDepth: this.executionDepth,
@@ -107,7 +110,8 @@ export class Scheduler {
     let fatalError: unknown = null;
 
     try {
-      while (this.queue.length > 0) {
+      // Use head pointer to iterate without shifting the array (avoids allocations)
+      while (this.queueHead < this.queue.length) {
         this.depth++;
 
         // INVARIANT: Detect infinite render loops
@@ -125,12 +129,12 @@ export class Scheduler {
           );
         }
 
-        const task = this.queue.shift();
+        const task = this.queue[this.queueHead++];
 
-        // INVARIANT: task always exists if queue.length > 0
+        // INVARIANT: task always exists if queueHead < queue.length
         invariant(
           task !== undefined,
-          '[Scheduler] Task should exist after queue.length check'
+          '[Scheduler] Task should exist after queue length check'
         );
 
         this.executionDepth++;
@@ -164,6 +168,18 @@ export class Scheduler {
       this.running = false;
       this.depth = 0;
       this.executionDepth = 0;
+
+      // Compact the queue if we've consumed a prefix; avoid leaving the head growing unbounded
+      if (this.queueHead >= this.queue.length) {
+        // We consumed everything; reset to empty
+        this.queue.length = 0;
+        this.queueHead = 0;
+      } else if (this.queueHead > 0) {
+        // There are remaining tasks (should be unusual), copy them down to the start
+        // This keeps memory bounded and keeps indices small
+        this.queue = this.queue.slice(this.queueHead);
+        this.queueHead = 0;
+      }
     }
 
     // Re-throw after cleanup to preserve error semantics
