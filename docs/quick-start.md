@@ -21,6 +21,33 @@ Add this to your `tsconfig.json` so TypeScript uses Askr's JSX runtime:
 }
 ```
 
+### Vite (zero-config)
+
+If you're using Vite, Askr ships a small plugin that makes JSX work with no extra config: it applies an esbuild transform and injects Askr's JSX runtime so you can write `class` in JSX and avoid any React-related aliases.
+
+Make sure your `tsconfig.json` is set to use `jsx: "preserve"` and `jsxImportSource: "@askrjs/askr"` so the plugin's transform behaves as expected (example shown below):
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "@askrjs/askr"
+  }
+}
+```
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { askr } from '@askrjs/askr/vite';
+
+export default defineConfig({
+  plugins: [askr()], // handles esbuild transform & injection
+});
+```
+
+If you prefer TypeScript to perform the transform at compile-time (no runtime transform step), set `jsx: "react-jsx"` with `jsxImportSource: "@askrjs/askr"` in `tsconfig.json`. Both approaches work; using the plugin is the simplest for Vite projects.
+
 ### Minimal HTML
 
 `index.html`

@@ -6,6 +6,7 @@
 import { globalScheduler, isSchedulerExecuting } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
 import type { Props } from '../shared/types';
+import { Fragment } from '../jsx/jsx-runtime';
 import {
   CONTEXT_FRAME_SYMBOL,
   type ContextFrame,
@@ -288,7 +289,7 @@ export function evaluate(
               });
               continue;
             }
-            if (key === 'className') {
+            if (key === 'class' || key === 'className') {
               el.className = String(value);
             } else if (key === 'value' || key === 'checked') {
               (el as HTMLElement & Props)[key] = value;
@@ -427,7 +428,7 @@ export function isKeyedReorderFastPathEligible(
       if (k.startsWith('on') && k.length > 2) continue;
       const v = (props as Record<string, unknown>)[k];
       try {
-        if (k === 'className') {
+        if (k === 'class' || k === 'className') {
           if (el.className !== String(v)) {
             hasPropChanges = true;
             break;
@@ -541,10 +542,10 @@ function reconcileKeyedChildren(
         // reorder). Treat presence of a handler as non-blocking for fast-path.
         continue;
       }
-      // Check className, value, checked, attribute differences conservatively
+      // Check `class`, `value`, `checked`, attribute differences conservatively
       const v = (props as Record<string, unknown>)[k];
       try {
-        if (k === 'className') {
+        if (k === 'class' || k === 'className') {
           if (el.className !== String(v)) {
             logger.warn('[Askr][FASTPATH][DEV] prop mismatch', {
               key,
@@ -1037,7 +1038,7 @@ function updateElementFromVnode(
 
     // Handle removal cases
     if (value === undefined || value === null || value === false) {
-      if (key === 'className') {
+      if (key === 'class' || key === 'className') {
         el.className = '';
       } else if (key.startsWith('on') && key.length > 2) {
         const eventName =
@@ -1054,7 +1055,7 @@ function updateElementFromVnode(
       continue;
     }
 
-    if (key === 'className') {
+    if (key === 'class' || key === 'className') {
       el.className = String(value);
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
@@ -1301,7 +1302,7 @@ export function createDOMNode(node: unknown): Node | null {
             handler: wrappedHandler,
             original: value as EventListener,
           });
-        } else if (key === 'className') {
+        } else if (key === 'class' || key === 'className') {
           el.className = String(value);
         } else if (key === 'value' || key === 'checked') {
           (el as HTMLElement & Props)[key] = value;
@@ -1437,11 +1438,10 @@ export function createDOMNode(node: unknown): Node | null {
     }
 
     // Fragment support: render children without wrapper element
-    // Supports both Askr's Fragment and React's Fragment symbol
+    // Uses Askr's Fragment symbol
     if (
       typeof type === 'symbol' &&
-      (type === Symbol.for('React.Fragment') ||
-        String(type) === 'Symbol(Fragment)')
+      (type === Fragment || String(type) === 'Symbol(Fragment)')
     ) {
       const fragment = document.createDocumentFragment();
       const children = props.children || (node as DOMElement).children;

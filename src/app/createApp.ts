@@ -210,7 +210,7 @@ export async function hydrate(config: AppConfig): Promise<void> {
   const serverHTML = rootElement.innerHTML;
 
   // Hydration: Re-renders the component deterministically over existing SSR-rendered DOM.
-  // Unlike React, this does NOT attempt to reuse or diff the existing DOM.
+  // Unlike VDOM frameworks, this does NOT attempt to reuse or diff the existing DOM.
   // Instead, it re-executes the component function from scratch, which produces
   // identical output to the server render (deterministic by construction).
   //

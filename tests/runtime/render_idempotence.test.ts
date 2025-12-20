@@ -7,7 +7,7 @@ describe('Render idempotence', () => {
     const Component = () =>
       ({
         type: 'div',
-        props: { className: 'x' },
+        props: { class: 'x' },
         children: ['a'],
       }) as JSXElement;
 

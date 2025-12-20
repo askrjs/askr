@@ -11,7 +11,7 @@ export interface Props {
   key?: string | number | symbol;
   /** Optional children slot */
   children?: unknown;
-  /** Allow additional arbitrary attributes (e.g., className, id, data-*) */
+  /** Allow additional arbitrary attributes (e.g., class, id, data-*) */
   [attr: string]: unknown;
 }
 

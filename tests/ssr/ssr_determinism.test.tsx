@@ -6,7 +6,7 @@ describe('SSR determinism (SSR)', () => {
   it('should render same HTML every time when component is the same', async () => {
     const Component = () => ({
       type: 'div',
-      props: { className: 'x' },
+      props: { class: 'x' },
       children: ['hello'],
     });
 

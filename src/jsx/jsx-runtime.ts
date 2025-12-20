@@ -32,5 +32,5 @@ export function jsxs(
 }
 
 // Fragment for rendering multiple elements without wrapper
-// Compatible with both Askr's Symbol and React's Fragment pattern
-export const Fragment = Symbol.for('React.Fragment');
+// Unique fragment symbol for Askr
+export const Fragment = Symbol.for('@askrjs/askr.Fragment');
