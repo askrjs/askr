@@ -1,9 +1,8 @@
 /**
- * Bench helpers — fast mode removed
+ * Bench helpers
  *
- * Previous versions supported a local "fast" mode (BENCH_FAST / BENCH_QUICK)
- * to scale down iteration counts for local experimentation. That feature has
- * been removed to keep benchmark runs consistent and reproducible.
+ * Local fast-mode support was removed to keep benchmark runs consistent and
+ * reproducible across machines and CI.
  */
 
 export function benchN(defaultN: number): number {
