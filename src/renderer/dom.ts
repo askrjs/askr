@@ -634,32 +634,46 @@ function reconcileKeyedChildren(
       );
     }
 
-    // Build a local map of existing keyed elements from DOM as a robust
-    // fallback (avoids relying on cached WeakMap entries which may be
-    // missing in some render paths). This requires a small DOM read but
-    // keeps the fast-path robust.
-    const localOldKeyMap = new Map<string | number, Element>();
-    try {
-      const parentChildren = Array.from(parent.children);
-      for (let i = 0; i < parentChildren.length; i++) {
-        const ch = parentChildren[i] as Element;
-        const k = ch.getAttribute('data-key');
-        if (k !== null) {
-          localOldKeyMap.set(k, ch);
-          // also store numeric form for numeric keys
-          const n = Number(k);
-          if (!Number.isNaN(n)) localOldKeyMap.set(n, ch);
-        }
+    // Build either a small linear scan cache or a map depending on size.
+    // For small keyed lists (<= 20) we prefer linear scans to avoid Map
+    // allocations and HashTable churn — O(N^2) is acceptable for small N.
+    let parentChildrenArr: Element[] | undefined;
+    let localOldKeyMap: Map<string | number, Element> | undefined;
+
+    if (totalKeyed <= 20) {
+      try {
+        const pc = parent.children;
+        parentChildrenArr = new Array(pc.length);
+        for (let i = 0; i < pc.length; i++)
+          parentChildrenArr[i] = pc[i] as Element;
+      } catch {
+        parentChildrenArr = undefined;
       }
-    } catch {
-      // ignore DOM read failures; we'll fall back to creation
+    } else {
+      localOldKeyMap = new Map<string | number, Element>();
+      try {
+        const parentChildren = Array.from(parent.children);
+        for (let i = 0; i < parentChildren.length; i++) {
+          const ch = parentChildren[i] as Element;
+          const k = ch.getAttribute('data-key');
+          if (k !== null) {
+            localOldKeyMap.set(k, ch);
+            // also store numeric form for numeric keys
+            const n = Number(k);
+            if (!Number.isNaN(n)) localOldKeyMap.set(n, ch);
+          }
+        }
+      } catch {
+        // ignore DOM read failures; we'll fall back to creation
+        localOldKeyMap = undefined;
+      }
     }
 
     logger.warn(
       '[Askr][FASTPATH] oldKeyMap size:',
       oldKeyMap?.size ?? 0,
       'localOldKeyMap size:',
-      localOldKeyMap.size
+      localOldKeyMap?.size
     );
 
     // Build the final node array WITHOUT touching the DOM. For existing
@@ -677,8 +691,24 @@ function reconcileKeyedChildren(
     for (let i = 0; i < keyedVnodes.length; i++) {
       const { key, vnode } = keyedVnodes[i];
       mapLookups++;
-      const el =
-        localOldKeyMap.get(key as string | number) ?? oldKeyMap?.get(key);
+
+      let el: Element | undefined;
+      if (totalKeyed <= 20 && parentChildrenArr) {
+        // Linear scan lookup for small lists (avoid Map allocation)
+        const ks = String(key);
+        for (let j = 0; j < parentChildrenArr.length; j++) {
+          const ch = parentChildrenArr[j];
+          const k = ch.getAttribute('data-key');
+          if (k !== null && (k === ks || Number(k) === (key as number))) {
+            el = ch;
+            break;
+          }
+        }
+        // Fallback to cached map if present
+        if (!el) el = oldKeyMap?.get(key);
+      } else {
+        el = localOldKeyMap?.get(key as string | number) ?? oldKeyMap?.get(key);
+      }
 
       if (el) {
         finalNodes.push(el);

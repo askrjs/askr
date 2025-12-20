@@ -137,6 +137,9 @@ export function state<T>(initialValue: T): State<T> {
       return;
     }
 
+    // Skip work if value didn't change
+    if (Object.is(value, newValue)) return;
+
     // INVARIANT: Update the value
     value = newValue;
 
@@ -155,10 +158,15 @@ export function state<T>(initialValue: T): State<T> {
     if (!instance.hasPendingUpdate) {
       instance.hasPendingUpdate = true;
       // INVARIANT: All state updates go through scheduler
-      globalScheduler.enqueue(() => {
-        instance.hasPendingUpdate = false;
-        instance.notifyUpdate?.();
-      });
+      // Use prebound task to avoid allocating a closure per update
+      // Fallback to a safe closure if the prebound task is not present
+      const task = instance._pendingFlushTask;
+      if (task) globalScheduler.enqueue(task);
+      else
+        globalScheduler.enqueue(() => {
+          instance.hasPendingUpdate = false;
+          instance.notifyUpdate?.();
+        });
     }
   };
 

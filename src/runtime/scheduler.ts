@@ -175,9 +175,19 @@ export class Scheduler {
         this.queue.length = 0;
         this.queueHead = 0;
       } else if (this.queueHead > 0) {
-        // There are remaining tasks (should be unusual), copy them down to the start
-        // This keeps memory bounded and keeps indices small
-        this.queue = this.queue.slice(this.queueHead);
+        // There are remaining tasks. Avoid allocating a new array for small shifts by
+        // moving items down in-place. For large prefixes, use slice to keep runtime fast.
+        const remaining = this.queue.length - this.queueHead;
+        if (this.queueHead > 1024 || this.queueHead > remaining) {
+          // Large consumed prefix, allocate new compacted array
+          this.queue = this.queue.slice(this.queueHead);
+        } else {
+          // Small consumed prefix — move items down in-place (allocation-free)
+          for (let i = 0; i < remaining; i++) {
+            this.queue[i] = this.queue[this.queueHead + i];
+          }
+          this.queue.length = remaining;
+        }
         this.queueHead = 0;
       }
     }

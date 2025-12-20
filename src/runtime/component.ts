@@ -37,6 +37,10 @@ export interface ComponentInstance {
   stateValues: State<unknown>[]; // Persistent state storage across renders
   evaluationGeneration: number; // Prevents stale async evaluation completions
   notifyUpdate: (() => void) | null; // Callback for state updates (persisted on instance)
+  // Internal: prebound helpers to avoid per-update closures (allocation hot-path)
+  _pendingFlushTask?: () => void; // Clears hasPendingUpdate and triggers notifyUpdate
+  _pendingRunTask?: () => void; // Clears hasPendingUpdate and runs component
+  _enqueueRun?: () => void; // Batches run requests and enqueues _pendingRunTask
   stateIndexCheck: number; // Track state indices to catch conditional calls
   expectedStateIndices: number[]; // Expected sequence of state indices (frozen after first render)
   firstRenderComplete: boolean; // Flag to detect transition from first to subsequent renders
@@ -55,7 +59,7 @@ export function createComponentInstance(
   props: Props,
   target: Element | null
 ): ComponentInstance {
-  return {
+  const instance: ComponentInstance = {
     id,
     fn,
     props,
@@ -65,6 +69,10 @@ export function createComponentInstance(
     stateValues: [],
     evaluationGeneration: 0,
     notifyUpdate: null,
+    // Prebound helpers (initialized below) to avoid per-update allocations
+    _pendingFlushTask: undefined,
+    _pendingRunTask: undefined,
+    _enqueueRun: undefined,
     stateIndexCheck: -1,
     expectedStateIndices: [],
     firstRenderComplete: false,
@@ -75,6 +83,31 @@ export function createComponentInstance(
     ssr: false,
     isRoot: false,
   };
+
+  // Initialize prebound helper tasks once per instance to avoid allocations
+  instance._pendingRunTask = () => {
+    // Clear pending flag when the run task executes
+    instance.hasPendingUpdate = false;
+    // Execute component run (will set up notifyUpdate before render)
+    runComponent(instance);
+  };
+
+  instance._enqueueRun = () => {
+    if (!instance.hasPendingUpdate) {
+      instance.hasPendingUpdate = true;
+      // Enqueue single run task (coalesces multiple writes)
+      globalScheduler.enqueue(instance._pendingRunTask!);
+    }
+  };
+
+  instance._pendingFlushTask = () => {
+    // Called by state.set() when we want to flush a pending update
+    instance.hasPendingUpdate = false;
+    // Trigger a run via enqueue helper — this will schedule the component run
+    instance._enqueueRun?.();
+  };
+
+  return instance;
 }
 
 let currentInstance: ComponentInstance | null = null;
@@ -168,9 +201,8 @@ export function mountInstanceInline(
   instance.target = target;
   // Ensure notifyUpdate is available for async resource completions that may
   // try to trigger re-render. This mirrors the setup in executeComponent().
-  instance.notifyUpdate = () => {
-    globalScheduler.enqueue(() => runComponent(instance));
-  };
+  // Use prebound enqueue helper to avoid allocating a new closure
+  instance.notifyUpdate = instance._enqueueRun!;
 
   const wasFirstMount = !instance.mounted;
   instance.mounted = true;
@@ -189,17 +221,8 @@ export function mountInstanceInline(
 function runComponent(instance: ComponentInstance): void {
   // CRITICAL: Ensure notifyUpdate is available for state.set() calls during this render.
   // This must be set before executeComponentSync() runs, not after.
-  instance.notifyUpdate = () => {
-    // OPTIMIZATION: Batch state updates from the same component within the same event loop tick
-    if (!instance.hasPendingUpdate) {
-      instance.hasPendingUpdate = true;
-      // INVARIANT: All state updates go through scheduler
-      globalScheduler.enqueue(() => {
-        instance.hasPendingUpdate = false;
-        runComponent(instance);
-      });
-    }
-  };
+  // Use prebound enqueue helper to avoid allocating per-render closures
+  instance.notifyUpdate = instance._enqueueRun!;
 
   // Atomic rendering: capture DOM state for rollback on error
   const domSnapshot = instance.target ? instance.target.innerHTML : '';
@@ -368,10 +391,8 @@ export function executeComponent(instance: ComponentInstance): void {
   // (old one may have been aborted during previous cleanup)
   instance.abortController = new AbortController();
 
-  // Setup notifyUpdate callback: enqueues re-render, never executes directly
-  instance.notifyUpdate = () => {
-    globalScheduler.enqueue(() => runComponent(instance));
-  };
+  // Setup notifyUpdate callback using prebound helper to avoid per-call closures
+  instance.notifyUpdate = instance._enqueueRun!;
 
   // Enqueue the initial component run
   globalScheduler.enqueue(() => runComponent(instance));
