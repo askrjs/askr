@@ -48,7 +48,7 @@ describe('rapid events 1kps', () => {
 
     import { benchN } from '../helpers/bench_config';
 
-    const SUSTAINED = benchN(1000, 100);
+    const SUSTAINED = benchN(1000);
 
     bench('1000 sustained events (state only)', () => {
       for (let i = 0; i < SUSTAINED; i++) {

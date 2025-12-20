@@ -26,7 +26,7 @@ describe('keyed list reorder (transactional)', () => {
     let cleanup: () => void;
     let items!: State<Array<{ id: number; text: string }>>;
 
-    const ITERS = benchIterations(100, 10);
+    const ITERS = benchIterations(100);
 
     beforeAll(async () => {
       const ctx = createTestContainer();

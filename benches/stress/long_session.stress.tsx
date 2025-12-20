@@ -74,8 +74,8 @@ describe('long session', () => {
     let cleanup: () => void;
     let updateInstances: (() => void) | null = null;
 
-    const INSTANCES = benchN(100, 30);
-    const INNER = benchN(1000, 100);
+    const INSTANCES = benchN(100);
+    const INNER = benchN(1000);
 
     beforeEach(() => {
       const res = createTestContainer();
@@ -126,8 +126,8 @@ describe('long session', () => {
     });
   });
 
-  const GC_SIZE = benchN(10000, 2000);
-  const GC_ITERS = benchIterations(10000, 500);
+  const GC_SIZE = benchN(10000);
+  const GC_ITERS = benchIterations(10000);
 
   describe('10000 gc pressure cycles', () => {
     let container: HTMLElement;
