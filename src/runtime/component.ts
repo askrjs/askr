@@ -51,6 +51,12 @@ export interface ComponentInstance {
   hasPendingUpdate: boolean; // Flag to batch state updates (coalescing)
   ownerFrame: ContextFrame | null; // Provider chain for this component (set by Scope, never overwritten)
   isRoot?: boolean;
+
+  // Render-tracking for precise subscriptions (internal)
+  _currentRenderToken?: number; // Token for the in-progress render (set before render)
+  lastRenderToken?: number; // Token of the last *committed* render
+  _pendingReadStates?: Set<State<unknown>>; // States read during the in-progress render
+  _lastReadStates?: Set<State<unknown>>; // States read during the last committed render
 }
 
 export function createComponentInstance(
@@ -82,6 +88,12 @@ export function createComponentInstance(
     ownerFrame: null, // Will be set by renderer when vnode is marked
     ssr: false,
     isRoot: false,
+
+    // Render-tracking (for precise state subscriptions)
+    _currentRenderToken: undefined,
+    lastRenderToken: 0,
+    _pendingReadStates: new Set(),
+    _lastReadStates: new Set(),
   };
 
   // Initialize prebound helper tasks once per instance to avoid allocations
@@ -218,11 +230,17 @@ export function mountInstanceInline(
  *
  * ACTOR INVARIANT: This function is enqueued as a task, never called directly.
  */
+let _globalRenderCounter = 0;
+
 function runComponent(instance: ComponentInstance): void {
   // CRITICAL: Ensure notifyUpdate is available for state.set() calls during this render.
   // This must be set before executeComponentSync() runs, not after.
   // Use prebound enqueue helper to avoid allocating per-render closures
   instance.notifyUpdate = instance._enqueueRun!;
+
+  // Assign a token for this in-progress render and start a fresh pending-read set
+  instance._currentRenderToken = ++_globalRenderCounter;
+  instance._pendingReadStates = new Set();
 
   // Atomic rendering: capture DOM state for rollback on error
   const domSnapshot = instance.target ? instance.target.innerHTML : '';
@@ -273,6 +291,11 @@ function runComponent(instance: ComponentInstance): void {
             currentInstance = oldInstance;
           }
 
+          // Commit succeeded — finalize recorded state reads so subscriptions reflect
+          // the last *committed* render. This updates per-state reader maps
+          // deterministically and synchronously with the commit.
+          finalizeReadSubscriptions(instance);
+
           instance.mounted = true;
           // Execute mount operations after first mount (do NOT run these with
           // currentInstance set - they may perform state mutations/registrations)
@@ -312,6 +335,9 @@ function executeComponentSync(
       state._hasBeenRead = false;
     }
   }
+
+  // Prepare pending read set for this render (reads will be finalized on commit)
+  instance._pendingReadStates = new Set();
 
   currentInstance = instance;
   stateIndex = 0;
@@ -453,6 +479,52 @@ export function getSignal(): AbortSignal {
   return currentInstance.abortController.signal;
 }
 
+/**
+ * Finalize read subscriptions for an instance after a successful commit.
+ * - Update per-state readers map to point to this instance's last committed token
+ * - Remove this instance from states it no longer reads
+ * This is deterministic and runs synchronously with commit to ensure
+ * subscribers are only notified when they actually read a state in their
+ * last committed render.
+ */
+function finalizeReadSubscriptions(instance: ComponentInstance): void {
+  const newSet = instance._pendingReadStates ?? new Set();
+  const oldSet = instance._lastReadStates ?? new Set();
+  const token = instance._currentRenderToken;
+
+  if (token === undefined) return;
+
+  // Remove subscriptions for states that were read previously but not in this render
+  for (const s of oldSet) {
+    if (!newSet.has(s)) {
+      const readers = (
+        s as unknown as { _readers?: Map<ComponentInstance, number> }
+      )?._readers;
+      if (readers) readers.delete(instance);
+    }
+  }
+
+  // Commit token becomes the authoritative token for this instance's last render
+  instance.lastRenderToken = token;
+
+  // Record subscriptions for states read during this render
+  for (const s of newSet) {
+    let readers = (
+      s as unknown as { _readers?: Map<ComponentInstance, number> }
+    )?._readers;
+    if (!readers) {
+      readers = new Map();
+      // s is a State object; assign its _readers map
+      (s as State<unknown>)._readers = readers;
+    }
+    readers.set(instance, instance.lastRenderToken ?? 0);
+  }
+
+  instance._lastReadStates = newSet;
+  instance._pendingReadStates = new Set();
+  instance._currentRenderToken = undefined;
+}
+
 export function getNextStateIndex(): number {
   return stateIndex++;
 }
@@ -476,6 +548,17 @@ export function cleanupComponent(instance: ComponentInstance): void {
     cleanup();
   }
   instance.cleanupFns = [];
+
+  // Remove deterministic state subscriptions for this instance
+  if (instance._lastReadStates) {
+    for (const s of instance._lastReadStates) {
+      const readers = (
+        s as unknown as { _readers?: Map<ComponentInstance, number> }
+      )?._readers;
+      if (readers) readers.delete(instance);
+    }
+    instance._lastReadStates = new Set();
+  }
 
   // Abort all pending operations
   instance.abortController.abort();

@@ -11,6 +11,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
+  trackDOMMutations,
 } from '../../tests/helpers/test_renderer';
 
 describe('text node updates', () => {
@@ -96,6 +97,85 @@ describe('text node updates', () => {
       // Perform text content changes
       for (let i = 0; i < 100; i++) {
         text!.set(text!() === 'Hello' ? 'World' : 'Hello');
+      }
+      flushScheduler();
+      await waitForNextEvaluation();
+
+      cleanup();
+    }
+  );
+
+  // Instrumented variant: record DOM mutation counts for the bulk update path
+  bench(
+    'framework::text-node-updates::100::batched-state-mutations-bulk-instrumented',
+    async () => {
+      const { container, cleanup } = createTestContainer();
+
+      let items: State<number[]> | null = null;
+
+      const Component = () => {
+        items = state([1, 2, 3, 4, 5]);
+
+        return (
+          <ul>
+            {items().map((item) => (
+              <li key={item}>Item {item}</li>
+            ))}
+          </ul>
+        );
+      };
+
+      createApp({ root: container, component: Component });
+      flushScheduler();
+      await waitForNextEvaluation();
+
+      const mutations = trackDOMMutations(container, () => {
+        for (let i = 0; i < 100; i++) {
+          items!.set(items!().map((x) => x + 1));
+        }
+        flushScheduler();
+      });
+
+      await waitForNextEvaluation();
+
+      // Emit mutation counts to stdout so the test runner (bundled environment) captures them
+      // This avoids file system writes which may be externalized by Vite in some environments
+      // Example token to search logs: BULK_MUTATIONS
+      // eslint-disable-next-line no-console
+      console.log('BULK_MUTATIONS:' + JSON.stringify(mutations));
+
+      cleanup();
+    }
+  );
+
+  // Larger bulk variant to magnify allocation costs
+  bench(
+    'framework::text-node-updates::200::batched-state-mutations-bulk-large',
+    async () => {
+      const { container, cleanup } = createTestContainer();
+
+      let items: State<number[]> | null = null;
+
+      const Component = () => {
+        items = state(Array.from({ length: 200 }, (_, i) => i));
+
+        return (
+          <ul>
+            {items().map((item) => (
+              <li key={item}>
+                Item {item} - some long text to increase workload
+              </li>
+            ))}
+          </ul>
+        );
+      };
+
+      createApp({ root: container, component: Component });
+      flushScheduler();
+      await waitForNextEvaluation();
+
+      for (let i = 0; i < 100; i++) {
+        items!.set(items!().map((x) => x + 1));
       }
       flushScheduler();
       await waitForNextEvaluation();

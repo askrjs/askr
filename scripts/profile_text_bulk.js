@@ -44,7 +44,9 @@ async function run() {
       }
     };
 
-    const observer = new MutationObserver((mutations) => processRecords(mutations));
+    const observer = new MutationObserver((mutations) =>
+      processRecords(mutations)
+    );
     observer.observe(node, {
       childList: true,
       attributes: true,
@@ -75,7 +77,11 @@ async function run() {
   const Component = () => {
     items = state([1, 2, 3, 4, 5]);
     return jsx('ul', {
-      children: items().map((item) => ({ type: 'li', props: { children: `Item ${item}` }, key: item })),
+      children: items().map((item) => ({
+        type: 'li',
+        props: { children: `Item ${item}` },
+        key: item,
+      })),
     });
   };
 
@@ -92,7 +98,10 @@ async function run() {
     }
   });
 
-  fs.writeFileSync('bench-profiles/profile_text_bulk_mutations.json', JSON.stringify(mutations, null, 2));
+  fs.writeFileSync(
+    'bench-profiles/profile_text_bulk_mutations.json',
+    JSON.stringify(mutations, null, 2)
+  );
   console.log('WROTE bench-profiles/profile_text_bulk_mutations.json');
 }
 

@@ -635,7 +635,7 @@ function reconcileKeyedChildren(
   //  - parent has same number of children as keyed vnodes
   //  - each keyed vnode is an intrinsic element (string type) whose children
   //    are a single primitive (string/number)
-  let triedPositionalReuse = false;
+  let _triedPositionalReuse = false;
   if (!useFastPath) {
     const totalKeyed = keyedVnodes.length;
     // Aggressive positional reuse heuristic for small lists where all
@@ -643,17 +643,28 @@ function reconcileKeyedChildren(
     // child (text or number). This handles cases where keys change each
     // update but structure is stable (common in bulk text updates).
     // Evaluate candidates from the raw newChildren array (handles both keyed and unkeyed)
-    const candidates = newChildren.filter((c) => _isDOMElement(c) && typeof (c as DOMElement).type === 'string') as DOMElement[];
+    const candidates = newChildren.filter(
+      (c) => _isDOMElement(c) && typeof (c as DOMElement).type === 'string'
+    ) as DOMElement[];
     const smallListPositionalReuseEligible =
       candidates.length > 0 &&
       candidates.length <= 64 &&
       parent.children.length === candidates.length &&
       candidates.every((vnode) => {
-        const children = (vnode as DOMElement).children || (vnode as DOMElement).props?.children;
+        const children =
+          (vnode as DOMElement).children ||
+          (vnode as DOMElement).props?.children;
         if (Array.isArray(children)) {
-          return children.length === 1 && (typeof children[0] === 'string' || typeof children[0] === 'number');
+          return (
+            children.length === 1 &&
+            (typeof children[0] === 'string' || typeof children[0] === 'number')
+          );
         }
-        return children === undefined || typeof children === 'string' || typeof children === 'number';
+        return (
+          children === undefined ||
+          typeof children === 'string' ||
+          typeof children === 'number'
+        );
       });
 
     try {
@@ -661,11 +672,16 @@ function reconcileKeyedChildren(
         let eligible = true;
         for (let i = 0; i < totalKeyed; i++) {
           const vnode = keyedVnodes[i].vnode;
-          if (!_isDOMElement(vnode) || typeof (vnode as DOMElement).type !== 'string') {
+          if (
+            !_isDOMElement(vnode) ||
+            typeof (vnode as DOMElement).type !== 'string'
+          ) {
             eligible = false;
             break;
           }
-          const children = (vnode as DOMElement).children || (vnode as DOMElement).props?.children;
+          const children =
+            (vnode as DOMElement).children ||
+            (vnode as DOMElement).props?.children;
           // Accept a single string/number child or no children
           if (Array.isArray(children)) {
             if (children.length !== 1) {
@@ -677,16 +693,31 @@ function reconcileKeyedChildren(
               eligible = false;
               break;
             }
-          } else if (children !== undefined && typeof children !== 'string' && typeof children !== 'number') {
+          } else if (
+            children !== undefined &&
+            typeof children !== 'string' &&
+            typeof children !== 'number'
+          ) {
             eligible = false;
             break;
           }
         }
 
+        // Safety guard: do not apply positional reuse when existing DOM keys match
+        // incoming vnode keys. That indicates this is a keyed list reorder, and
+        // identity must be preserved by key rather than by position.
+        const anyKeyMatches =
+          !!oldKeyMap && keyedVnodes.some((kv) => oldKeyMap!.has(kv.key));
+        if (anyKeyMatches) {
+          eligible = false;
+        }
+
         if (eligible || process.env.ASKR_FORCE_POSREUSE === '1') {
-          triedPositionalReuse = true;
+          _triedPositionalReuse = true;
           if (process.env.ASKR_FORCE_POSREUSE === '1') {
-            logger.warn('[Askr][POSREUSE][FORCED] forcing positional reuse path for testing');
+            logger.warn(
+              '[Askr][POSREUSE][FORCED] forcing positional reuse path for testing'
+            );
           } else {
             logger.warn('[Askr][POSREUSE] positional reuse heuristic applied');
           }
@@ -1036,12 +1067,21 @@ function reconcileKeyedChildren(
           reusedCount,
         } as const;
         if (typeof globalThis !== 'undefined') {
-          (globalThis as unknown as Record<string, unknown>)[
-            '__ASKR_LAST_FASTPATH_STATS'
-          ] = stats;
-          (globalThis as unknown as Record<string, unknown>)[
-            '__ASKR_LAST_FASTPATH_REUSED'
-          ] = reusedCount > 0;
+          const _g = globalThis as unknown as Record<string, unknown>;
+          _g['__ASKR_LAST_FASTPATH_STATS'] = stats;
+          _g['__ASKR_LAST_FASTPATH_REUSED'] = reusedCount > 0;
+          // Maintain a simple history for tooling/tests so we can assert
+          // that fast-path was used at least once during a series of updates
+          // even if subsequent non-fast-path updates clear the most recent
+          // diagnostic fields. Use a typed temporary for the history array to
+          // avoid explicit `any` in typings.
+          const historyKey = '__ASKR_LAST_FASTPATH_HISTORY';
+          let hist = _g[historyKey] as unknown[] | undefined;
+          if (!hist) {
+            hist = [];
+            _g[historyKey] = hist;
+          }
+          hist.push(stats as unknown);
         }
         logger.warn('[Askr][FASTPATH]', JSON.stringify(stats));
       }
@@ -1164,7 +1204,8 @@ function updateElementFromVnode(
   const existingListeners = elementListeners.get(el);
   const desiredEventNames = new Set<string>();
 
-  for (const [key, value] of Object.entries(props)) {
+  for (const key in props) {
+    const value = (props as Record<string, unknown>)[key];
     if (key === 'children' || key === 'key') continue;
 
     // Handle removal cases
@@ -1191,11 +1232,6 @@ function updateElementFromVnode(
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
     } else if (key.startsWith('on') && key.length > 2) {
-      // Event handlers: convert camelCase to lowercase event names
-      // onClick → click, onMouseMove → mousemove, onDoubleClick → doubleclick
-      // All event handlers are automatically wrapped by the scheduler to ensure
-      // deterministic, serialized execution. This prevents race conditions where
-      // multiple rapid events might read stale state.
       const eventName =
         key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
 
@@ -1212,17 +1248,11 @@ function updateElementFromVnode(
         el.removeEventListener(eventName, existing.handler);
       }
 
-      // Note: DOM event handlers run synchronously, but while in the
-      // handler we mark the scheduler as "in handler" to defer any scheduled
-      // flushes until the handler completes. This preserves synchronous
-      // handler semantics (immediate reads observe state changes), while
-      // keeping commits atomic and serialized.
       const wrappedHandler = (event: Event) => {
         globalScheduler.setInHandler(true);
         try {
           (value as EventListener)(event);
         } catch (error) {
-          // Log event handler errors
           logger.error('[Askr] Event handler error:', error);
         } finally {
           globalScheduler.setInHandler(false);
@@ -1391,34 +1421,25 @@ export function createDOMNode(node: unknown): Node | null {
     if (typeof type === 'string') {
       const el = document.createElement(type);
 
-      // Set attributes and event handlers in single pass
-      for (const [key, value] of Object.entries(props)) {
+      // Set attributes and event handlers in single pass (allocation-free)
+      for (const key in props) {
+        const value = (props as Record<string, unknown>)[key];
         // Skip special keys
         if (key === 'children' || key === 'key') continue;
         if (value === undefined || value === null || value === false) continue;
 
-        // Event handlers: convert camelCase to lowercase event names
-        // onClick → click, onMouseMove → mousemove, onDoubleClick → doubleclick
-        // All event handlers are automatically wrapped by the scheduler to ensure
-        // deterministic, serialized execution. This prevents race conditions where
-        // multiple rapid events might read stale state.
         if (key.startsWith('on') && key.length > 2) {
-          // Extract event name: 'onClick' → 'click'
           const eventName =
             key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
-          // Wrap handler to execute through scheduler
           const wrappedHandler = (event: Event) => {
             globalScheduler.setInHandler(true);
             try {
               (value as EventListener)(event);
             } catch (error) {
-              // Log event handler errors
               logger.error('[Askr] Event handler error:', error);
             } finally {
               globalScheduler.setInHandler(false);
             }
-            // After handler completes, flush any pending tasks
-            // globalScheduler.flush(); // Defer flush to manual control for testing
           };
           logger.debug(
             'Attaching event listener in createDOMNode:',
@@ -1426,7 +1447,6 @@ export function createDOMNode(node: unknown): Node | null {
             'to element:',
             el
           );
-          // Attach and track listener
           el.addEventListener(eventName, wrappedHandler);
           if (!elementListeners.has(el)) {
             elementListeners.set(el, new Map());
@@ -1441,7 +1461,6 @@ export function createDOMNode(node: unknown): Node | null {
           (el as HTMLElement & Props)[key] = value;
           el.setAttribute(key, String(value));
         } else {
-          // Generic attribute handling (id, placeholder, data-*, aria-*, etc.)
           el.setAttribute(key, String(value));
         }
       }

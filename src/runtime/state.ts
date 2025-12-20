@@ -12,7 +12,11 @@
  */
 
 import { globalScheduler } from './scheduler';
-import { getCurrentInstance, getNextStateIndex } from './component';
+import {
+  getCurrentInstance,
+  getNextStateIndex,
+  type ComponentInstance,
+} from './component';
 import { invariant } from '../dev/invariant';
 import { logger } from '../dev/logger';
 
@@ -27,6 +31,7 @@ export interface State<T> {
   (): T;
   set(value: T): void;
   _hasBeenRead?: boolean; // Internal: track if state has been read during render
+  _readers?: Map<ComponentInstance, number>; // Internal: map of readers -> last committed token
 }
 
 /**
@@ -112,11 +117,25 @@ export function state<T>(initialValue: T): State<T> {
   // Create new state (slow path, only on first render)
   let value = initialValue;
 
+  // Per-state reader map: component -> last-committed render token
+  const readers = new Map<ComponentInstance, number>();
+
   // Use a function as the state object (callable directly)
   function read(): T {
     (read as State<T>)._hasBeenRead = true;
+
+    // Record that the current instance read this state during its in-progress render
+    const inst = getCurrentInstance();
+    if (inst && inst._currentRenderToken !== undefined) {
+      if (!inst._pendingReadStates) inst._pendingReadStates = new Set();
+      inst._pendingReadStates.add(read as State<T>);
+    }
+
     return value;
   }
+
+  // Attach the readers map to the callable so other runtime parts can access it
+  (read as State<T>)._readers = readers;
 
   // Attach set method directly to function
   read.set = (newValue: T): void => {
@@ -151,6 +170,29 @@ export function state<T>(initialValue: T): State<T> {
       logger.warn(
         '[Askr] notifyUpdate callback is not available yet for this component. Update will be applied when the scheduler runs.'
       );
+    }
+
+    // After value change, notify only components that *read* this state in their last committed render
+    const readersMap = (read as State<T>)._readers as
+      | Map<ComponentInstance, number>
+      | undefined;
+    if (readersMap) {
+      for (const [subInst, token] of readersMap) {
+        // Only notify if the component's last committed render token matches the token recorded
+        // when it last read this state. This ensures we only wake components that actually
+        // observed the state in their most recent render.
+        if (subInst.lastRenderToken !== token) continue;
+        if (!subInst.hasPendingUpdate) {
+          subInst.hasPendingUpdate = true;
+          const subTask = subInst._pendingFlushTask;
+          if (subTask) globalScheduler.enqueue(subTask);
+          else
+            globalScheduler.enqueue(() => {
+              subInst.hasPendingUpdate = false;
+              subInst.notifyUpdate?.();
+            });
+        }
+      }
     }
 
     // OPTIMIZATION: Batch state updates from the same component within the same event loop tick
