@@ -60,6 +60,9 @@ export function resource<T>(
     _deps: unknown[] | null;
     _started: boolean;
     _resourceFrame: ContextFrame | null; // Captured once at creation, never rewritten
+    // Reused snapshot object returned from `resource()` to avoid allocating a new
+    // object on every render call. We update its fields in-place when state changes.
+    _snapshot: { value: T | null; pending: boolean; error: Error | null; refresh: () => void };
   };
 
   const internalState = state<Internal>({
@@ -73,6 +76,9 @@ export function resource<T>(
       s._controller?.abort();
       s.pending = true;
       s.error = null;
+      // Keep snapshot in sync
+      s._snapshot.pending = true;
+      s._snapshot.error = null;
       // Start immediately if mounted, otherwise register for mount
       if (instance.mounted) {
         startExecution();
@@ -88,6 +94,7 @@ export function resource<T>(
     _deps: null,
     _started: false,
     _resourceFrame: getCurrentContextFrame(), // Capture once, never rewritten
+    _snapshot: { value: null, pending: true, error: null, refresh: () => internalState().refresh() },
   });
 
   function startExecution() {
@@ -128,6 +135,10 @@ export function resource<T>(
           s.value = result as T;
           s.pending = false;
           s.error = null;
+          // Keep snapshot in sync and return it (avoid allocating)
+          s._snapshot.value = s.value;
+          s._snapshot.pending = s.pending;
+          s._snapshot.error = s.error;
           internalState.set(s);
           return;
         }
@@ -143,6 +154,8 @@ export function resource<T>(
       } catch (err) {
         s.pending = false;
         s.error = err as Error;
+        s._snapshot.pending = s.pending;
+        s._snapshot.error = s.error;
         internalState.set(s);
         try {
           logger.error('[Askr] Async resource error:', err);
@@ -157,6 +170,10 @@ export function resource<T>(
         s.value = result as T;
         s.pending = false;
         s.error = null;
+        // Keep snapshot in sync
+        s._snapshot.value = s.value;
+        s._snapshot.pending = s.pending;
+        s._snapshot.error = s.error;
         internalState.set(s);
         return;
       }
@@ -178,6 +195,10 @@ export function resource<T>(
               curr.value = val;
               curr.pending = false;
               curr.error = null;
+              // Keep snapshot in sync
+              curr._snapshot.value = curr.value;
+              curr._snapshot.pending = curr.pending;
+              curr._snapshot.error = curr.error;
               internalState.set(curr);
               try {
                 logger.debug(
@@ -213,6 +234,9 @@ export function resource<T>(
             }
             curr.pending = false;
             curr.error = err as Error;
+            // Keep snapshot in sync
+            curr._snapshot.pending = curr.pending;
+            curr._snapshot.error = curr.error;
             internalState.set(curr);
             // Log error so it's visible and can be asserted in tests
             try {
@@ -294,30 +318,21 @@ export function resource<T>(
         s.value = result as T;
         s.pending = false;
         s.error = null;
+        // Keep snapshot in sync
+        s._snapshot.value = s.value;
+        s._snapshot.pending = s.pending;
+        s._snapshot.error = s.error;
         internalState.set(s);
       } catch (err) {
         s.pending = false;
         s.error = err as Error;
+        s._snapshot.pending = s.pending;
+        s._snapshot.error = s.error;
         internalState.set(s);
       }
 
       // Return snapshot in SSR mode
-      return {
-        value: s.value,
-        pending: s.pending,
-        error: s.error,
-        refresh: internalState().refresh,
-      };
-    }
-
-    // Defer abort/start work until after render to avoid side-effects during render
-    if (instance.mounted) {
-      globalScheduler.enqueue(() => {
-        // Abort any previous controller and start a new execution
-        const cur = internalState();
-        cur._controller?.abort();
-        startExecution();
-      });
+      return s._snapshot;
     } else {
       // Schedule startExecution to run when component mounts and ensure cleanup
       if (instance.isRoot) {
@@ -363,14 +378,8 @@ export function resource<T>(
   // context snapshot from its creation point, unaffected by subsequent renders
   // or other concurrent resources.
 
-  // Return a snapshot of the current state (the pattern in tests expects a plain object)
-  const snapshot = {
-    value: s.value,
-    pending: s.pending,
-    error: s.error,
-    refresh: internalState().refresh,
-  };
-  return snapshot;
+  // Return the reused snapshot object (avoid allocating a new object each call)
+  return s._snapshot;
 }
 
 export function derive<TIn, TOut>(
