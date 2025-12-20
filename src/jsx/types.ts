@@ -5,9 +5,7 @@
 import type { Props } from '../shared/types';
 
 export interface JSXElement {
-  type:
-    | string
-    | ((props: Props) => JSXElement | null | Promise<JSXElement | null>);
+  type: string | ((props: Props) => JSXElement | null);
   props: Props;
   key?: string | number;
 }
@@ -15,7 +13,8 @@ export interface JSXElement {
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
-    type Element = JSXElement | Promise<JSXElement | null>;
+    // Components must be synchronous; do not allow Promise in JSX.Element.
+    type Element = JSXElement;
     interface IntrinsicElements {
       [elem: string]: Props;
     }

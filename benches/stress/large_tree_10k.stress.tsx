@@ -10,8 +10,8 @@ import { createApp, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
+  waitForNextEvaluation,
 } from '../../tests/helpers/test_renderer';
-import { benchN } from '../helpers/bench_config';
 
 describe('large tree 10k', () => {
   bench('100x100 initial render (behavioral)', async () => {
@@ -19,8 +19,8 @@ describe('large tree 10k', () => {
 
     const Component = () => {
       // Create a large tree with ~10k nodes
-      const W = benchN(100);
-      const H = benchN(100);
+      const W = 100;
+      const H = 100;
 
       const createLargeTree = () => {
         const children = [];
@@ -68,8 +68,8 @@ describe('large tree 10k', () => {
 
         // Create a large tree with one dynamic value
         const children = [];
-        const W = benchN(100);
-        const H = benchN(100);
+        const W = 100;
+        const H = 100;
 
         for (let i = 0; i < W; i++) {
           const sectionChildren = [];
@@ -137,8 +137,8 @@ describe('large tree 10k', () => {
 
         // Create a large tree with many dynamic values
         const children = [];
-        const W = benchN(50);
-        const H = benchN(50);
+        const W = 50;
+        const H = 50;
 
         for (let i = 0; i < W; i++) {
           const sectionChildren = [];

@@ -6,14 +6,13 @@
 
 import { bench, describe } from 'vitest';
 import { captureSSRSnapshot } from '../../tests/helpers/test_renderer';
-import { benchN, benchIterations } from '../helpers/bench_config';
 
 describe('ssr render (large)', () => {
   // Removed smaller large-tree SSR cases (500, 2000 sections) to keep one representative large-case.
   // These cases were redundant and made the SSR bench output noisy; keeping the 10k case focuses on the performance cliff.
 
-  const HUGE_10K = benchN(10000);
-  const HUGE_ITERS = benchIterations(20);
+  const HUGE_10K = 10000;
+  const HUGE_ITERS = 20;
 
   bench('20 huge tree SSRs (10000 sections)', async () => {
     const Huge = () => ({
