@@ -40,7 +40,12 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
       } as const;
     },
 
-    async transform(code, id) {
+    async transform(
+      this: import('rollup').PluginContext,
+      code: string,
+      id: string,
+      _options?: { ssr?: boolean }
+    ): Promise<import('rollup').TransformResult | null> {
       // Provide an optional esbuild-based transform for .jsx/.tsx files so users don't need extra JSX tooling
       if (!shouldTransform) return null;
       if (!/\.(jsx|tsx)$/.test(id)) return null;
@@ -80,7 +85,7 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
 
         return {
           code: result.code,
-          map: result.map as unknown,
+          map: result.map as unknown as import('rollup').SourceMapInput,
         };
       } catch {
         // If esbuild isn't available or fails, bail and let Vite handle it. Do not rely on framework-specific dev deps.
