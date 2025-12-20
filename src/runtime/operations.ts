@@ -221,17 +221,16 @@ export function resource<T>(
                 // ignore logging errors
               }
               // Schedule a re-render for the owning component so it can observe new value
-              globalScheduler.enqueue(() => {
-                try {
-                  logger.debug(
-                    '[Askr] resource enqueue notifyUpdate for',
-                    instance.id
-                  );
-                } catch {
-                  // ignore logging errors
-                }
-                instance.notifyUpdate?.();
-              });
+              try {
+                logger.debug(
+                  '[Askr] resource enqueue notifyUpdate for',
+                  instance.id
+                );
+              } catch {
+                // ignore logging errors
+              }
+              // Enqueue the prebound helper to avoid allocating a closure per resolution
+              globalScheduler.enqueue(instance._enqueueRun!);
             }
           })
         )
@@ -254,9 +253,7 @@ export function resource<T>(
             } catch {
               // ignore logging errors
             }
-            globalScheduler.enqueue(() => {
-              instance.notifyUpdate?.();
-            });
+            globalScheduler.enqueue(instance._enqueueRun!);
           })
         );
     };
@@ -272,13 +269,14 @@ export function resource<T>(
           ? queueMicrotask
           : (cb: () => void) => Promise.resolve().then(cb);
 
+      const doStartIfCurrent = () => {
+        const cur = internalState();
+        if (cur._generation !== s._generation) return;
+        doStart();
+      };
+
       scheduleMicrotask(() => {
-        globalScheduler.enqueue(() => {
-          // It's still possible the generation changed between scheduling and run
-          const cur = internalState();
-          if (cur._generation !== s._generation) return;
-          doStart();
-        });
+        globalScheduler.enqueue(doStartIfCurrent);
       });
       return;
     }

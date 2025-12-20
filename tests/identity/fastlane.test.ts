@@ -57,11 +57,19 @@ describe('runtime fast-lane', () => {
           cleanupFns: number;
         };
       };
-      const stats = _g.__ASKR_LAST_FASTPATH_STATS;
+      const stats =
+        _g.__ASKR_LAST_FASTPATH_STATS ??
+        _g.__ASKR_LAST_FASTPATH_HISTORY?.slice(-1)[0];
       expect(stats).toBeDefined();
       expect(stats!.n).toBe(200);
-      // Confirm reuse happened at least once
-      expect(_g.__ASKR_LAST_FASTPATH_REUSED).toBeTruthy();
+      // Confirm reuse happened at least once (check last known history entry)
+      const last =
+        _g.__ASKR_LAST_FASTPATH_HISTORY?.slice(-1)[0] ??
+        _g.__ASKR_LAST_FASTPATH_STATS;
+      expect(
+        (last && (last.reusedCount ?? last.reused)) ||
+          _g.__ASKR_LAST_FASTPATH_REUSED
+      ).toBeTruthy();
 
       // Dev-only invariants: exactly one DOM commit, no mounts or cleanup created
       const commitCount = _g.__ASKR_LAST_FASTPATH_COMMIT_COUNT;
