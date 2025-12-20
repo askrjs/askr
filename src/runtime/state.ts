@@ -196,8 +196,14 @@ export function state<T>(initialValue: T): State<T> {
     }
 
     // OPTIMIZATION: Batch state updates from the same component within the same event loop tick
-    // Only enqueue if we don't already have a pending update
-    if (!instance.hasPendingUpdate) {
+    // Only enqueue the owner component if it actually read this state during its last committed render
+    const readersMapForOwner = readersMap;
+    const ownerRecordedToken = readersMapForOwner?.get(instance);
+    const ownerShouldEnqueue =
+      ownerRecordedToken !== undefined &&
+      instance.lastRenderToken === ownerRecordedToken;
+
+    if (ownerShouldEnqueue && !instance.hasPendingUpdate) {
       instance.hasPendingUpdate = true;
       // INVARIANT: All state updates go through scheduler
       // Use prebound task to avoid allocating a closure per update

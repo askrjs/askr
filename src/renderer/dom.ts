@@ -17,11 +17,57 @@ import {
   createComponentInstance,
   renderComponentInline,
   mountInstanceInline,
+  cleanupComponent,
 } from '../runtime/component';
 import type {
   ComponentFunction,
   ComponentInstance,
 } from '../runtime/component';
+
+type InstanceHost = Element & { __ASKR_INSTANCE?: ComponentInstance };
+
+// Helpers to clean up component instances when their host DOM nodes are removed
+function cleanupInstanceIfPresent(node: Node | null): void {
+  if (!node) return;
+  if (!(node instanceof Element)) return;
+  try {
+    const inst = (node as InstanceHost).__ASKR_INSTANCE;
+    if (inst) {
+      cleanupComponent(inst);
+      try {
+        delete (node as InstanceHost).__ASKR_INSTANCE;
+      } catch (e) {
+        void e;
+      }
+    }
+  } catch (err) {
+    // Swallow cleanup errors but keep a reference to avoid empty-block lint error
+    void err;
+  }
+
+  // Also attempt to clean up any nested instances that may be attached
+  // on descendants (defensive: some components may attach to deeper nodes)
+  try {
+    const descendants = node.querySelectorAll('*');
+    for (const d of Array.from(descendants)) {
+      try {
+        const inst = (d as InstanceHost).__ASKR_INSTANCE;
+        if (inst) {
+          cleanupComponent(inst);
+          try {
+            delete (d as InstanceHost).__ASKR_INSTANCE;
+          } catch (e) {
+            void e;
+          }
+        }
+      } catch (err) {
+        void err;
+      }
+    }
+  } catch (err) {
+    void err;
+  }
+}
 
 interface DOMElement {
   type: string | ((props: Props) => unknown);
@@ -739,8 +785,11 @@ function reconcileKeyedChildren(
             // Fall back: create a new node and replace
             const newEl = createDOMNode(vnode);
             if (newEl instanceof Element) {
-              if (current) parent.replaceChild(newEl, current);
-              else parent.appendChild(newEl);
+              if (current) {
+                // Clean up any component instance that owned the existing node
+                cleanupInstanceIfPresent(current);
+                parent.replaceChild(newEl, current);
+              } else parent.appendChild(newEl);
               newKeyMap.set(key, newEl);
             }
           }
@@ -979,6 +1028,22 @@ function reconcileKeyedChildren(
       // Count commits explicitly in code (no prototype monkey-patching)
       let commitCount = 0;
       commitCount++;
+      // Clean up any mounted component instances that will be removed by
+      // the atomic replaceChildren commit to avoid leaking subscriptions.
+      try {
+        const existing = Array.from(parent.childNodes);
+        for (const n of existing) cleanupInstanceIfPresent(n);
+      } catch {
+        /* ignore cleanup errors */
+      }
+      // Clean up any mounted component instances that will be removed by
+      // the atomic replaceChildren commit to avoid leaking subscriptions.
+      try {
+        const existing = Array.from(parent.childNodes);
+        for (const n of existing) cleanupInstanceIfPresent(n);
+      } catch {
+        /* ignore cleanup errors */
+      }
       parent.replaceChildren(fragment);
       // Export commit count for dev diagnostics
       if (typeof globalThis !== 'undefined') {
@@ -1348,6 +1413,8 @@ function updateUnkeyedChildren(parent: Element, newChildren: unknown[]): void {
 
     // Remove extra existing children
     if (next === undefined && current) {
+      // Clean up any component instance mounted on this node
+      cleanupInstanceIfPresent(current);
       current.remove();
       continue;
     }
@@ -1372,18 +1439,25 @@ function updateUnkeyedChildren(parent: Element, newChildren: unknown[]): void {
         } else {
           const dom = createDOMNode(next);
           if (dom) {
+            cleanupInstanceIfPresent(current);
             parent.replaceChild(dom, current);
           }
         }
       } else {
         // Non-string types: replace conservatively
         const dom = createDOMNode(next);
-        if (dom) parent.replaceChild(dom, current);
+        if (dom) {
+          cleanupInstanceIfPresent(current);
+          parent.replaceChild(dom, current);
+        }
       }
     } else {
       // Fallback for other types: replace
       const dom = createDOMNode(next);
-      if (dom) parent.replaceChild(dom, current);
+      if (dom) {
+        cleanupInstanceIfPresent(current);
+        parent.replaceChild(dom, current);
+      }
     }
   }
 }

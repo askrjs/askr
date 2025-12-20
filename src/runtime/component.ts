@@ -211,6 +211,17 @@ export function mountInstanceInline(
   target: Element | null
 ): void {
   instance.target = target;
+  // Record backref on host element so renderer can clean up when the
+  // node is removed. Avoids leaks if the node is detached or replaced.
+  try {
+    if (target instanceof Element)
+      (
+        target as Element & { __ASKR_INSTANCE?: ComponentInstance }
+      ).__ASKR_INSTANCE = instance;
+  } catch (err) {
+    void err;
+  }
+
   // Ensure notifyUpdate is available for async resource completions that may
   // try to trigger re-render. This mirrors the setup in executeComponent().
   // Use prebound enqueue helper to avoid allocating a new closure
@@ -320,7 +331,32 @@ function runComponent(instance: ComponentInstance): void {
 export function renderComponentInline(
   instance: ComponentInstance
 ): unknown | Promise<unknown> {
-  return executeComponentSync(instance);
+  // Ensure inline executions (rendered during parent's evaluate) still
+  // receive a render token and have their state reads finalized so
+  // subscriptions are correctly recorded. If this function is called
+  // as part of a scheduled run, the token will already be set by
+  // runComponent and we should not overwrite it.
+  const hadToken = instance._currentRenderToken !== undefined;
+  if (!hadToken) {
+    instance._currentRenderToken = ++_globalRenderCounter;
+    instance._pendingReadStates = new Set();
+  }
+
+  try {
+    const result = executeComponentSync(instance);
+    // If we set the token for inline execution, finalize subscriptions now
+    // because the component is effectively committed as part of the parent's
+    // synchronous evaluation.
+    if (!hadToken) {
+      finalizeReadSubscriptions(instance);
+    }
+    return result;
+  } finally {
+    if (!hadToken) {
+      instance._pendingReadStates = new Set();
+      instance._currentRenderToken = undefined;
+    }
+  }
 }
 
 function executeComponentSync(
