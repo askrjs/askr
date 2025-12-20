@@ -1,26 +1,42 @@
 import { describe, it, expect } from 'vitest';
-import type { ConfigEnv } from 'vite';
+import type { ConfigEnv, UserConfig, ConfigPluginContext } from 'vite';
 import { askrVitePlugin } from '../../src/dev/vite-plugin-askr';
 
 describe('askrVitePlugin', () => {
-  it('should configure esbuild injection and include runtime in optimizeDeps', () => {
+  it('should configure esbuild injection and include runtime in optimizeDeps', async () => {
     const plugin = askrVitePlugin();
-    const cfg = plugin.config
-      ? plugin.config({}, {
+
+    let cfg: unknown;
+    if (plugin.config) {
+      // plugin.config can be either a function or an object with a handler
+      if (typeof plugin.config === 'function') {
+        cfg = await plugin.config.call({} as ConfigPluginContext, {}, {
           command: 'serve',
           mode: 'development',
-        } as ConfigEnv)
-      : undefined;
+        } as ConfigEnv);
+      } else if (
+        typeof plugin.config === 'object' &&
+        'handler' in plugin.config &&
+        typeof plugin.config.handler === 'function'
+      ) {
+        cfg = await plugin.config.handler.call({} as ConfigPluginContext, {}, {
+          command: 'serve',
+          mode: 'development',
+        } as ConfigEnv);
+      }
+    }
 
     expect(cfg).toBeDefined();
 
-    const esbuild = cfg?.esbuild as unknown as { jsxInject?: string };
+    const userCfg = cfg as UserConfig;
+
+    const esbuild = userCfg?.esbuild as unknown as { jsxInject?: string };
     expect(esbuild).toBeDefined();
     expect(String(esbuild.jsxInject).includes('@askrjs/askr/jsx-runtime')).toBe(
       true
     );
 
-    const includes = cfg?.optimizeDeps?.include ?? [];
+    const includes = userCfg?.optimizeDeps?.include ?? [];
     expect(includes.includes('@askrjs/askr/jsx-runtime')).toBe(true);
   });
 });
