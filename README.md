@@ -78,8 +78,14 @@ function User({ id }: { id: string }) {
 route('/', () => <Home />);
 route('/users/{id}', ({ id }) => <User id={id} />);
 
-createApp({ root: 'app', component: () => <div /> });
-navigate(window.location.pathname);
+// App root component — render `Home` by default; registered routes will take over on navigation
+function App() {
+  // Default page when app loads
+  return <Home />;
+}
+
+// Create the app. Click the "User 42" link above to navigate to `/users/42`.
+createApp({ root: 'app', component: () => <App /> });
 ```
 
 Note: `root` is an element id string (or an `Element`).
