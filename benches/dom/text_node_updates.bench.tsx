@@ -138,11 +138,7 @@ describe('text node updates', () => {
 
       await waitForNextEvaluation();
 
-      // Emit mutation counts to stdout so the test runner (bundled environment) captures them
-      // This avoids file system writes which may be externalized by Vite in some environments
-      // Example token to search logs: BULK_MUTATIONS
-      // eslint-disable-next-line no-console
-      console.log('BULK_MUTATIONS:' + JSON.stringify(mutations));
+      // Instrumentation disabled: mutation counts are no longer emitted to stdout.
 
       cleanup();
     }
