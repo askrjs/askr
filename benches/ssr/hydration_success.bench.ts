@@ -34,7 +34,7 @@ describe('hydration success', () => {
       ],
     });
 
-    const html = await renderToString(Complex);
+    const html = renderToStringSync(Complex);
     container.innerHTML = html;
 
     await hydrate({ root: container, component: Complex });

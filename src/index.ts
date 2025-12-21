@@ -84,14 +84,8 @@ export {
   tryWithLogging,
 } from './stdlib';
 
-// SSR - Server-side rendering
-export {
-  renderToString,
-  renderToStringBatch,
-  renderToStringSync,
-  renderToStringForUrl,
-  renderToStringSyncForUrl,
-} from './ssr';
+// SSR - Server-side rendering (sync-only APIs)
+export { renderToStringSync, renderToStringSyncForUrl } from './ssr';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
 export { jsx, jsxs, Fragment } from './jsx/jsx-runtime';

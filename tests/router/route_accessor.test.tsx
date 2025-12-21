@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   createSPA,
-  renderToString,
+  renderToStringSync,
   navigate,
   setServerLocation,
   type RouteSnapshot,
@@ -159,7 +159,7 @@ describe('route accessor (public)', () => {
       ],
     });
 
-    const html = await renderToString(ServerComp);
+    const html = renderToStringSync(ServerComp);
 
     expect(html).toContain('/items/99');
     expect(html).toContain('abc');

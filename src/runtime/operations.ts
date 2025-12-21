@@ -11,6 +11,13 @@ import {
 import { state } from './state';
 import { getDeriveCache } from '../shared/derive_cache';
 import { globalScheduler } from './scheduler';
+import { getCurrentSSRContext, SSRDataMissingError } from '../ssr/context';
+import {
+  isCollecting,
+  registerResourceIntent,
+  getCurrentRenderData,
+  getNextKey,
+} from '../ssr/data';
 
 // Memoization cache for derive() (centralized)
 
@@ -34,19 +41,52 @@ export function resource<T>(
   fn: (opts: { signal: AbortSignal }) => Promise<T> | T,
   deps: unknown[] = []
 ): DataResult<T> {
-  const instance = getCurrentComponentInstance()!;
+  const instance = getCurrentComponentInstance();
   if (!instance) {
-    throw new Error('resource() can only be called during component render.');
-  }
-  try {
-    logger.debug(
-      '[Askr] resource() called in instance',
-      instance.id,
-      'ssr?',
-      !!instance.ssr
-    );
-  } catch {
-    // ignore logging errors
+    // Allow calling resource() during collection prepass even outside a
+    // component render; register a declarative intent instead of executing.
+    if (isCollecting()) {
+      const key = registerResourceIntent(fn as any, deps);
+      return {
+        value: null,
+        pending: true,
+        error: null,
+        refresh: () => {},
+      } as DataResult<T>;
+    }
+
+    // If we're in a synchronous SSR render that has resolved data, use it.
+    const renderData = getCurrentRenderData();
+    if (renderData) {
+      const key = getNextKey();
+      if (!(key in renderData)) {
+        throw new SSRDataMissingError();
+      }
+      const val = renderData[key] as T;
+      return {
+        value: val,
+        pending: false,
+        error: null,
+        refresh: () => {},
+      } as DataResult<T>;
+    }
+
+    // If we are in an SSR render pass without supplied data, throw for clarity.
+    const ssrCtx = getCurrentSSRContext();
+    if (ssrCtx) {
+      throw new SSRDataMissingError();
+    }
+
+    // No active component instance and not in collection or SSR render with data.
+    // This can happen when a route handler calls `resource()` outside a component
+    // render during a non-collection server render — treat as benign and return
+    // a pending snapshot rather than throwing to allow final render to proceed.
+    return {
+      value: null,
+      pending: true,
+      error: null,
+      refresh: () => {},
+    } as DataResult<T>;
   }
 
   // Internal persistent container for this resource
@@ -107,6 +147,54 @@ export function resource<T>(
     },
   });
 
+  // If a collection prepass is active, register intent and return a placeholder
+  if (isCollecting()) {
+    // Register the intent with a stable key and don't execute the function.
+    const key = registerResourceIntent(fn as any, deps);
+    // Provide a snapshot-like object (pending) so consuming code during collection
+    // can safely call value/pending/error but no real data is present.
+    return {
+      value: null,
+      pending: true,
+      error: null,
+      refresh: () => {},
+    } as DataResult<T>;
+  }
+
+  // If we're in a synchronous SSR render that was supplied resolved data, use it
+  const renderData = getCurrentRenderData();
+  if (renderData) {
+    // Deterministic key generation: the collection step and render step use
+    // the same incremental key generation to align resources.
+    const key = getNextKey();
+    if (!(key in renderData)) {
+      throw new SSRDataMissingError();
+    }
+
+    // Commit synchronous value from render data and return snapshot
+    const val = renderData[key] as T;
+
+    const s = internalState();
+    s.value = val;
+    s.pending = false;
+    s.error = null;
+    s._snapshot.value = s.value;
+    s._snapshot.pending = s.pending;
+    s._snapshot.error = s.error;
+    internalState.set(s);
+    return s._snapshot;
+  }
+  try {
+    logger.debug(
+      '[Askr] resource() called in instance',
+      instance.id,
+      'ssr?',
+      !!instance.ssr
+    );
+  } catch {
+    // ignore logging errors
+  }
+
   function startExecution() {
     const s = internalState();
     const generation = s._generation;
@@ -139,7 +227,7 @@ export function resource<T>(
             fn({ signal: controller.signal })
           );
           if (result instanceof Promise) {
-            throw new Error('SSR does not allow async resource execution');
+            throw new SSRDataMissingError();
           }
           // Synchronous result — commit immediately
           s.value = result as T;
@@ -321,7 +409,7 @@ export function resource<T>(
       try {
         const result = fn({ signal: new AbortController().signal });
         if (result instanceof Promise) {
-          throw new Error('SSR does not allow async resource execution');
+          throw new SSRDataMissingError();
         }
         s.value = result as T;
         s.pending = false;
@@ -332,6 +420,12 @@ export function resource<T>(
         s._snapshot.error = s.error;
         internalState.set(s);
       } catch (err) {
+        // If this was the SSRDataMissingError sentinel, rethrow it so the
+        // caller sees the explicit SSR error instead of our state mutation
+        // handling which would call state.set() during render (forbidden).
+        if (err instanceof SSRDataMissingError) {
+          throw err;
+        }
         s.pending = false;
         s.error = err as Error;
         s._snapshot.pending = s.pending;

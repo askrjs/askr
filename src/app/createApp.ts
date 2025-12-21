@@ -349,7 +349,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   // renderToStringSync takes a zero-arg component factory; wrap the handler to pass params
   const expectedHTML = renderToStringSync(() => {
     const out = resolved.handler(resolved.params);
-    return (out ?? { type: 'div', children: [] }) as ReturnType<ComponentFunction>;
+    return (out ?? {
+      type: 'div',
+      children: [],
+    }) as ReturnType<ComponentFunction>;
   });
 
   // Prefer a DOM-based comparison to avoid false positives from attribute order

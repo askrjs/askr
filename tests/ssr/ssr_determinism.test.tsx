@@ -1,6 +1,6 @@
 // tests/ssr/ssr_determinism.test.ts
 import { describe, it, expect } from 'vitest';
-import { renderToString } from '../../src/index';
+import { renderToStringSync } from '../../src/index';
 
 describe('SSR determinism (SSR)', () => {
   it('should render same HTML every time when component is the same', async () => {
@@ -10,22 +10,17 @@ describe('SSR determinism (SSR)', () => {
       children: ['hello'],
     });
 
-    const a = await renderToString(Component);
-    const b = await renderToString(Component);
-    const c = await renderToString(Component);
+    const a = renderToStringSync(Component);
+    const b = renderToStringSync(Component);
+    const c = renderToStringSync(Component);
 
     expect(a).toBe(b);
     expect(b).toBe(c);
   });
 
-  it('should produce same sequence on repeat when using random numbers', async () => {
+  it('should throw when using nondeterministic globals like Math.random', async () => {
     const Random = () => ({ type: 'div', children: [`${Math.random()}`] });
-    const a = await renderToString(Random);
-    const b = await renderToString(Random);
-
-    // Spec requirement: deterministic output for same inputs.
-    // (This assertion is expected to fail until a deterministic RNG strategy exists.)
-    expect(a).toBe(b);
+    expect(() => renderToStringSync(Random)).toThrow(/Math.random.*SSR/i);
   });
 
   it('should have no side effects during SSR render', async () => {
@@ -35,7 +30,7 @@ describe('SSR determinism (SSR)', () => {
       return { type: 'div', children: ['x'] };
     };
 
-    await renderToString(SideEffectful);
+    renderToStringSync(SideEffectful);
 
     // SSR executes the component, so side effects occur during rendering
     expect(sideEffects).toBe(1);

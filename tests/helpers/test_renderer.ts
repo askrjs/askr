@@ -9,7 +9,7 @@
  */
 
 import { globalScheduler } from '../../src/runtime/scheduler';
-import { renderToString } from '../../src/ssr';
+import { renderToStringSync } from '../../src/ssr';
 import type { Component as SSRComponent } from '../../src/ssr';
 
 /**
@@ -339,10 +339,8 @@ export const injectFailure = {
  * Only for SSR HTML strings and error messages
  */
 
-export async function captureSSRSnapshot(
-  component: SSRComponent
-): Promise<string> {
-  return renderToString(component);
+export function captureSSRSnapshot(component: SSRComponent): string {
+  return renderToStringSync(component as any);
 }
 
 /**
