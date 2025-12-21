@@ -65,38 +65,7 @@ export function createApp(config: AppConfig | SPAConfig): void {
   });
 }
 
-// Shared mounting utilities used by the new startup APIs
-function detectInvalidStateUsage(fn: ComponentFunction): string | null {
-  try {
-    const src = fn.toString();
-    const returnPos = src.indexOf('return');
-    const statePos = (() => {
-      const direct = src.indexOf('state(');
-      if (direct !== -1) return direct;
-      const namespaced = src.indexOf('.state(');
-      if (namespaced !== -1) return namespaced;
-      const loose = src.indexOf('state');
-      return loose;
-    })();
-    if (returnPos !== -1 && statePos !== -1 && statePos > returnPos) {
-      return 'Invalid state() call after return: state() must be at the top level before any early returns.';
-    }
-    const hasTry = src.includes('try');
-    const hasCatch = src.includes('catch');
-    const mentionsState = src.includes('state') || src.includes('.state');
-    if (hasTry && hasCatch && mentionsState) {
-      const tryIndex = src.indexOf('try');
-      const catchIndex = src.indexOf('catch');
-      const stateCallIndex = src.indexOf('state(');
-      if (stateCallIndex > tryIndex && stateCallIndex < catchIndex) {
-        return 'Invalid state() usage inside try/catch: state() must be called at the top level without control flow.';
-      }
-    }
-  } catch {
-    // If toString() is unavailable (minified/native), skip heuristics
-  }
-  return null;
-}
+
 
 function attachCleanupForRoot(
   rootElement: Element,
@@ -151,11 +120,6 @@ function mountOrUpdate(rootElement: Element, componentFn: ComponentFunction) {
     removeAllListeners(rootElement);
     cleanupComponent(instance);
 
-    const structuralErrorUpdate = detectInvalidStateUsage(componentFn);
-    if (structuralErrorUpdate) {
-      throw new Error(structuralErrorUpdate);
-    }
-
     instance.fn = componentFn;
     instance.evaluationGeneration++;
     instance.mounted = false;
@@ -163,11 +127,6 @@ function mountOrUpdate(rootElement: Element, componentFn: ComponentFunction) {
     instance.firstRenderComplete = false;
     instance.isRoot = true;
   } else {
-    const structuralError = detectInvalidStateUsage(componentFn);
-    if (structuralError) {
-      throw new Error(structuralError);
-    }
-
     const componentId = String(++componentIdCounter);
     instance = createComponentInstance(
       componentId,

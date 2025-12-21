@@ -31,16 +31,16 @@ describe('conditional state errors (STATE)', () => {
     }).toThrow(/hook order|conditionally/i);
   });
 
-  it('should throw error when state() is called after return', () => {
+  it('should not throw when unreachable state() calls exist after return (static heuristics removed)', () => {
     const Component = () => {
       return { type: 'div', children: ['early'] };
-      // Unreachable state call - should be detected as invalid structure.
+      // Unreachable state call - unreachable and not executed at runtime.
       state('nope');
     };
 
     expect(() =>
       createIsland({ root: container, component: Component })
-    ).toThrow();
+    ).not.toThrow();
   });
 
   it('should not throw error when state() is called in try/catch', () => {

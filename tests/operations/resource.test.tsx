@@ -130,7 +130,8 @@ describe('resource() (unified async primitive) — gaps', () => {
 
       // Simulate click to refresh
       (container.firstChild as HTMLElement).click();
-      await waitForNextEvaluation();
+      // Allow microtasks/promises to settle, then flush pending scheduler work
+      await new Promise((r) => setTimeout(r, 0));
       flushScheduler();
 
       // Refresh should re-execute the resource function and update value

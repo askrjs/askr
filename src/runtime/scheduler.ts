@@ -371,6 +371,21 @@ export function scheduleEventHandler(handler: EventListener): EventListener {
       logger.error('[Askr] Event handler error:', error);
     } finally {
       globalScheduler.setInHandler(false);
+      // If the handler enqueued tasks while we disallowed microtask kicks,
+      // ensure we schedule a microtask to flush them now that the handler
+      // has completed. This avoids tests timing out waiting for flush.
+      const state = globalScheduler.getState();
+      if ((state.queueLength ?? 0) > 0 && !state.running) {
+        queueMicrotask(() => {
+          try {
+            if (!globalScheduler.isExecuting()) globalScheduler.flush();
+          } catch (err) {
+            setTimeout(() => {
+              throw err;
+            });
+          }
+        });
+      }
     }
   };
 }

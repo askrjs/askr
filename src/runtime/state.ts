@@ -115,7 +115,20 @@ export function state<T>(initialValue: T): State<T> {
     return stateValues[index] as State<T>;
   }
 
-  // Create new state (slow path, only on first render)
+  // Create new state (slow path, only on first render) — delegated to helper
+  const cell = createStateCell(initialValue, instance);
+
+  // INVARIANT: Store state in instance for persistence across renders
+  stateValues[index] = cell;
+
+  return cell;
+}
+
+/**
+ * Internal helper: create the backing state cell (value + readers + set semantics)
+ * This extraction makes it easier to later split hook wiring from storage.
+ */
+function createStateCell<T>(initialValue: T, instance: ComponentInstance): State<T> {
   let value = initialValue;
 
   // Per-state reader map: component -> last-committed render token
@@ -215,15 +228,7 @@ export function state<T>(initialValue: T): State<T> {
     const ownerRecordedToken = readersMapForOwner?.get(instance);
     const ownerShouldEnqueue =
       // Normal case: owner read this state in last committed render
-      (ownerRecordedToken !== undefined &&
-        instance.lastRenderToken === ownerRecordedToken) ||
-      // Fallback: owner token missing but owner is mounted and the owner
-      // itself previously read this state in its last committed render.
-      // This avoids enqueuing the owner merely because some other component
-      // read the state (which would cause extra re-renders).
-      (ownerRecordedToken === undefined &&
-        instance.mounted &&
-        instance._lastReadStates?.has(read as State<T>) === true);
+      ownerRecordedToken !== undefined && instance.lastRenderToken === ownerRecordedToken;
 
     if (ownerShouldEnqueue && !instance.hasPendingUpdate) {
       instance.hasPendingUpdate = true;
@@ -239,9 +244,6 @@ export function state<T>(initialValue: T): State<T> {
         });
     }
   };
-
-  // INVARIANT: Store state in instance for persistence across renders
-  stateValues[index] = read as State<T>;
 
   return read as State<T>;
 }

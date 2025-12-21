@@ -30,13 +30,14 @@ export interface DataResult<T> {
 }
 
 /**
- * Resource primitive — single unified async construct
+ * Resource primitive — simple, deterministic async primitive
  * Usage: resource(fn, deps)
  * - fn receives { signal }
- * - starts on mount
- * - re-executes when deps change
- * - aborts on unmount or invalidation
+ * - captures execution context once at creation (synchronous step only)
+ * - executes at most once per generation; stale async results are ignored
+ * - refresh() cancels in-flight execution, increments generation and re-runs
  * - exposes { value, pending, error, refresh }
+ * - during SSR, async results are disallowed and will throw synchronously
  */
 export function resource<T>(
   fn: (opts: { signal: AbortSignal }) => Promise<T> | T,
@@ -96,63 +97,128 @@ export function resource<T>(
 
 
 
-  // Internal persistent container for this resource
-  type Internal = {
-    value: T | null;
-    pending: boolean;
-    error: Error | null;
-    refresh: () => void;
-    _generation: number;
-    _controller: AbortController | null;
-    _deps: unknown[] | null;
-    _started: boolean;
-    _resourceFrame: ContextFrame | null; // Captured once at creation, never rewritten
-    // Reused snapshot object returned from `resource()` to avoid allocating a new
-    // object on every render call. We update its fields in-place when state changes.
-    _snapshot: {
-      value: T | null;
+  // Internal ResourceCell — pure state machine with a single, stable
+  // snapshot object. It captures the execution frame once at construction
+  // and never attempts to re-enter or restore a frame across async
+  // continuations. This implementation is intentionally small and boring.
+  class ResourceCell<U> {
+    value: U | null = null;
+    pending = true;
+    error: Error | null = null;
+    generation = 0;
+    controller: AbortController | null = null;
+    deps: unknown[] | null = null;
+    resourceFrame: ContextFrame | null = null;
+
+    private subscribers = new Set<() => void>();
+
+    readonly snapshot: {
+      value: U | null;
       pending: boolean;
       error: Error | null;
       refresh: () => void;
     };
-  };
 
-  const internalState = state<Internal>({
-    value: null,
-    pending: true,
-    error: null,
-    refresh: () => {
-      const s = internalState();
-      s._generation++;
-      // abort previous
-      s._controller?.abort();
-      s.pending = true;
-      s.error = null;
-      // Keep snapshot in sync
-      s._snapshot.pending = true;
-      s._snapshot.error = null;
-      // Start immediately if mounted, otherwise register for mount
-      if (inst.mounted) {
-        startExecution();
-      } else {
-        registerMountOperation(() => {
-          startExecution();
-        });
+    private readonly fn: (opts: { signal: AbortSignal }) => Promise<U> | U;
+
+    constructor(
+      fn: (opts: { signal: AbortSignal }) => Promise<U> | U,
+      deps: unknown[] | null,
+      resourceFrame: ContextFrame | null
+    ) {
+      this.fn = fn;
+      this.deps = deps ? deps.slice() : null;
+      this.resourceFrame = resourceFrame;
+      this.snapshot = {
+        value: null,
+        pending: true,
+        error: null,
+        refresh: () => this.refresh(),
+      };
+    }
+
+    subscribe(cb: () => void): () => void {
+      this.subscribers.add(cb);
+      return () => this.subscribers.delete(cb);
+    }
+
+    private notifySubscribers() {
+      this.snapshot.value = this.value;
+      this.snapshot.pending = this.pending;
+      this.snapshot.error = this.error;
+      for (const cb of this.subscribers) cb();
+    }
+
+    start(ssr = false, notify = true) {
+      const generation = this.generation;
+
+      this.controller?.abort();
+      const controller = new AbortController();
+      this.controller = controller;
+      this.pending = true;
+      this.error = null;
+      if (notify) this.notifySubscribers();
+
+      let result: Promise<U> | U;
+      try {
+        // Execute the function inside the frozen resource frame for the
+        // synchronous step only. Continuations (post-await) will not see
+        // the frame.
+        result = withAsyncResourceContext(this.resourceFrame, () =>
+          this.fn({ signal: controller.signal })
+        );
+      } catch (err) {
+        this.pending = false;
+        this.error = err as Error;
+        if (notify) this.notifySubscribers();
+        return;
       }
-      internalState.set(s);
-    },
-    _generation: 0,
-    _controller: null,
-    _deps: null,
-    _started: false,
-    _resourceFrame: getCurrentContextFrame(), // Capture once, never rewritten
-    _snapshot: {
-      value: null,
-      pending: true,
-      error: null,
-      refresh: () => internalState().refresh(),
-    },
-  });
+
+      if (!(result instanceof Promise)) {
+        this.value = result as U;
+        this.pending = false;
+        this.error = null;
+        if (notify) this.notifySubscribers();
+        return;
+      }
+
+      if (ssr) {
+        // During SSR async results are not allowed.
+        throw new SSRDataMissingError();
+      }
+
+      (result as Promise<U>)
+        .then((val) => {
+          if (this.generation !== generation) return;
+          if (this.controller !== controller) return;
+          this.value = val;
+          this.pending = false;
+          this.error = null;
+          this.notifySubscribers();
+        })
+        .catch((err) => {
+          if (this.generation !== generation) return;
+          this.pending = false;
+          this.error = err as Error;
+          try {
+            logger.error('[Askr] Async resource error:', err);
+          } catch {
+            /* ignore logging errors */
+          }
+          this.notifySubscribers();
+        });
+    }
+
+    refresh() {
+      this.generation++;
+      this.controller?.abort();
+      this.start();
+    }
+
+    abort() {
+      this.controller?.abort();
+    }
+  }
 
   // If a collection prepass is active, register intent and return a placeholder
   if (isCollecting()) {
@@ -178,314 +244,130 @@ export function resource<T>(
       throw new SSRDataMissingError();
     }
 
-    // Commit synchronous value from render data and return snapshot
+    // Commit synchronous value from render data and return a stable snapshot
     const val = renderData[key] as T;
 
-    const s = internalState();
-    s.value = val;
-    s.pending = false;
-    s.error = null;
-    s._snapshot.value = s.value;
-    s._snapshot.pending = s.pending;
-    s._snapshot.error = s.error;
-    internalState.set(s);
-    return s._snapshot;
-  }
-  try {
-    logger.debug(
-      '[Askr] resource() called in instance',
-      inst.id,
-      'ssr?',
-      !!inst.ssr
+    const holder = state<{ cell?: ResourceCell<T>; snapshot: DataResult<T> }>(
+      {
+        cell: undefined,
+        snapshot: {
+          value: val,
+          pending: false,
+          error: null,
+          refresh: () => {},
+        },
+      }
     );
-  } catch {
-    // ignore logging errors
+
+    const h = holder();
+    h.snapshot.value = val;
+    h.snapshot.pending = false;
+    h.snapshot.error = null;
+    holder.set(h);
+    return h.snapshot;
   }
 
-  function startExecution() {
-    const s = internalState();
-    const generation = s._generation;
-
-    // Abort any previous controller
-    s._controller?.abort();
-    const controller = new AbortController();
-    s._controller = controller;
-    s._started = true;
-    s.pending = true;
-    internalState.set(s);
-
-    // Defer the actual invocation for non-root instances to allow sibling
-    // re-renders to update captured snapshots first. This avoids a race where
-    // startExecution runs before the most recent render updated
-    // internalState()._resourceFrame.
-    const doStart = () => {
-      // SNAPSHOT SEMANTIC:
-      // Capture the resource's frozen context frame. This frame is set once
-      // at resource creation time and never changes, ensuring deterministic
-      // behavior regardless of scheduling or interleaving.
-      const resourceFrame = s._resourceFrame;
-
-      let result: Promise<T> | T;
-
-      try {
-        // SSR: disallow async execution
-        if (inst.ssr) {
-          result = withAsyncResourceContext(resourceFrame, () =>
-            fn({ signal: controller.signal })
-          );
-          if (result instanceof Promise) {
-            throw new SSRDataMissingError();
-          }
-          // Synchronous result — commit immediately
-          s.value = result as T;
-          s.pending = false;
-          s.error = null;
-          // Keep snapshot in sync and return it (avoid allocating)
-          s._snapshot.value = s.value;
-          s._snapshot.pending = s.pending;
-          s._snapshot.error = s.error;
-          internalState.set(s);
-          return;
-        }
-
-        // Execute the resource function within the captured frame.
-        // INVARIANT: The frame is set for the initial synchronous execution step,
-        // then cleared. Each continuation after an await will NOT have the frame
-        // set globally, but can still call readContext() because JavaScript closures
-        // capture the necessary scope, and we wrap promise handlers below.
-        result = withAsyncResourceContext(resourceFrame, () =>
-          fn({ signal: controller.signal })
-        );
-      } catch (err) {
-        s.pending = false;
-        s.error = err as Error;
-        s._snapshot.pending = s.pending;
-        s._snapshot.error = s.error;
-        internalState.set(s);
-        try {
-          logger.error('[Askr] Async resource error:', err);
-        } catch {
-          // ignore logging errors
-        }
-        return;
-      }
-
-      if (!(result instanceof Promise)) {
-        // Synchronous result — commit immediately
-        s.value = result as T;
-        s.pending = false;
-        s.error = null;
-        // Keep snapshot in sync
-        s._snapshot.value = s.value;
-        s._snapshot.pending = s.pending;
-        s._snapshot.error = s.error;
-        internalState.set(s);
-        return;
-      }
-
-      // Async result — wrap handlers to restore context for each continuation step
-      // CRITICAL: We don't keep the frame active across await. Instead, we wrap
-      // each then/catch handler so they execute within the resource's frame.
-      const promise = result as Promise<T>;
-      promise
-        .then((val) =>
-          // Wrap the resolution handler to restore context
-          withAsyncResourceContext(resourceFrame, () => {
-            const curr = internalState();
-            // drop stale completions
-            if (curr._generation !== generation) {
-              return;
-            }
-            if (curr._controller === controller) {
-              curr.value = val;
-              curr.pending = false;
-              curr.error = null;
-              // Keep snapshot in sync
-              curr._snapshot.value = curr.value;
-              curr._snapshot.pending = curr.pending;
-              curr._snapshot.error = curr.error;
-              internalState.set(curr);
-              try {
-                logger.debug(
-                  '[Askr] resource resolved for',
-                  inst.id,
-                  'value:',
-                  val
-                );
-              } catch {
-                // ignore logging errors
-              }
-              // Schedule a re-render for the owning component so it can observe new value
-              try {
-                logger.debug(
-                  '[Askr] resource enqueue notifyUpdate for',
-                  inst.id
-                );
-              } catch {
-                // ignore logging errors
-              }
-              // Enqueue the prebound helper to avoid allocating a closure per resolution
-              globalScheduler.enqueue(inst._enqueueRun!);
-            }
-          })
-        )
-        .catch((err) =>
-          // Wrap the error handler to restore context
-          withAsyncResourceContext(resourceFrame, () => {
-            const curr = internalState();
-            if (curr._generation !== generation) {
-              return;
-            }
-            curr.pending = false;
-            curr.error = err as Error;
-            // Keep snapshot in sync
-            curr._snapshot.pending = curr.pending;
-            curr._snapshot.error = curr.error;
-            internalState.set(curr);
-            // Log error so it's visible and can be asserted in tests
-            try {
-              logger.error('[Askr] Async resource error:', err);
-            } catch (e) {
-              void e;
-            }
-            globalScheduler.enqueue(inst._enqueueRun!);
-          })
-        );
-    };
-
-    // For non-root instances defer the actual execution one tick so sibling
-    // renders can update captured snapshots
-    if (!inst.isRoot) {
-      // IMPORTANT: use a microtask boundary so state updates performed
-      // immediately after mount (in the same call stack) can settle before the
-      // resource function runs its initial synchronous reads.
-      const scheduleMicrotask =
-        typeof queueMicrotask === 'function'
-          ? queueMicrotask
-          : (cb: () => void) => Promise.resolve().then(cb);
-
-      const doStartIfCurrent = () => {
-        const cur = internalState();
-        if (cur._generation !== s._generation) return;
-        doStart();
-      };
-
-      scheduleMicrotask(() => {
-        globalScheduler.enqueue(doStartIfCurrent);
-      });
-      return;
+  // Persist a holder so the snapshot identity is stable across renders.
+  const holder = state<{ cell?: ResourceCell<T>; snapshot: DataResult<T> }>(
+    {
+      cell: undefined,
+      snapshot: {
+        value: null,
+        pending: true,
+        error: null,
+        refresh: () => {},
+      },
     }
+  );
 
-    doStart();
+  const h = holder();
+
+  // Initialize cell on first call
+  if (!h.cell) {
+    const frame = getCurrentContextFrame();
+    const cell = new ResourceCell<T>(fn, deps, frame);
+    h.cell = cell;
+    h.snapshot = cell.snapshot as DataResult<T>;
+
+    // Subscribe and schedule component updates when cell changes
+    const unsubscribe = cell.subscribe(() => {
+      const cur = holder();
+      cur.snapshot.value = cell.snapshot.value;
+      cur.snapshot.pending = cell.snapshot.pending;
+      cur.snapshot.error = cell.snapshot.error;
+      holder.set(cur);
+      try {
+        inst._enqueueRun?.();
+      } catch {
+        // ignore
+      }
+    });
+
+    // Cleanup on unmount
+    inst.cleanupFns.push(() => {
+      unsubscribe();
+      cell.abort();
+    });
+
+    // Start immediately (not tied to mount timing); SSR will throw if async
+    try {
+      // Avoid notifying subscribers synchronously during render — update
+      // holder.snapshot in-place instead to prevent state.set() during render.
+      cell.start(inst.ssr ?? false, false);
+      // If the run completed synchronously, reflect the result into the holder
+      if (!cell.pending) {
+        const cur = holder();
+        cur.snapshot.value = cell.value;
+        cur.snapshot.pending = cell.pending;
+        cur.snapshot.error = cell.error;
+        // Do not call holder.set() here — we are still in render; the host
+        // component will read the snapshot immediately.
+      }
+    } catch (err) {
+      if (err instanceof SSRDataMissingError) throw err;
+      // Synchronous error — reflect into snapshot
+      cell.error = err as Error;
+      cell.pending = false;
+      const cur = holder();
+      cur.snapshot.value = cell.value;
+      cur.snapshot.pending = cell.pending;
+      cur.snapshot.error = cell.error;
+      // Do not call holder.set() here for the same reason as above
+    }
   }
 
-  // Initialize or refresh if deps changed
-  const s = internalState();
+  const cell = h.cell!;
+
+  // Detect dependency changes and refresh immediately
   const depsChanged =
-    !s._deps ||
-    s._deps.length !== deps.length ||
-    s._deps.some((d, i) => d !== deps[i]);
-
-  try {
-    logger.debug(
-      '[Askr] resource deps check:',
-      inst.id,
-      deps,
-      'changed:',
-      depsChanged
-    );
-  } catch {
-    // ignore logging errors
-  }
+    !cell.deps || cell.deps.length !== deps.length || cell.deps.some((d, i) => d !== deps[i]);
 
   if (depsChanged) {
-    // Mutate internal object in-place to avoid calling state.set() during render.
-    // State mutations that need to be observed are scheduled later through the
-    // scheduler when async work completes.
-    s._deps = deps.slice();
-    s._generation++;
-    // Mark pending for consumers (in-place mutation is safe for object identity)
-    s.pending = true;
-    s.error = null;
-
-    // SSR: execute synchronously and disallow async resource fn
-    if (inst.ssr) {
-      try {
-        const result = fn({ signal: new AbortController().signal });
-        if (result instanceof Promise) {
-          throw new SSRDataMissingError();
-        }
-        s.value = result as T;
-        s.pending = false;
-        s.error = null;
-        // Keep snapshot in sync
-        s._snapshot.value = s.value;
-        s._snapshot.pending = s.pending;
-        s._snapshot.error = s.error;
-        internalState.set(s);
-      } catch (err) {
-        // If this was the SSRDataMissingError sentinel, rethrow it so the
-        // caller sees the explicit SSR error instead of our state mutation
-        // handling which would call state.set() during render (forbidden).
-        if (err instanceof SSRDataMissingError) {
-          throw err;
-        }
-        s.pending = false;
-        s.error = err as Error;
-        s._snapshot.pending = s.pending;
-        s._snapshot.error = s.error;
-        internalState.set(s);
+    cell.deps = deps.slice();
+    cell.generation++;
+    cell.pending = true;
+    cell.error = null;
+    try {
+      cell.start(inst.ssr ?? false, false);
+      if (!cell.pending) {
+        const cur = holder();
+        cur.snapshot.value = cell.value;
+        cur.snapshot.pending = cell.pending;
+        cur.snapshot.error = cell.error;
       }
-
-      // Return snapshot in SSR mode
-      return s._snapshot;
-    } else {
-      // Schedule startExecution to run when component mounts and ensure cleanup
-      if (inst.isRoot) {
-        registerMountOperation(() => {
-          // Defer starting execution to the scheduler so sibling re-renders that
-          // occur immediately after mount can update captured snapshots first.
-          globalScheduler.enqueue(() => {
-            startExecution();
-          });
-          return () => {
-            const cur = internalState();
-            cur._controller?.abort();
-          };
-        });
-      } else {
-        // For non-root instances, execute startExecution on the next tick so
-        // resources start for child components even though child mount
-        // operations are not executed (ownership contract). Register an
-        // explicit cleanup on the instance so unmount aborts the controller.
-        globalScheduler.enqueue(() => {
-          startExecution();
-        });
-        // Register cleanup directly on inst.cleanupFns so cleanupComponent
-        // will abort controllers on unmount even if mount ops were not executed.
-        const cur = internalState();
-        inst.cleanupFns.push(() => {
-          cur._controller?.abort();
-        });
-      }
+    } catch (err) {
+      if (err instanceof SSRDataMissingError) throw err;
+      cell.error = err as Error;
+      cell.pending = false;
+      const cur = holder();
+      cur.snapshot.value = cell.value;
+      cur.snapshot.pending = cell.pending;
+      cur.snapshot.error = cell.error;
     }
   }
 
-  // Ensure we register unmount cleanup to abort current controller
-  registerMountOperation(() => {
-    return () => {
-      const cur = internalState();
-      cur._controller?.abort();
-    };
-  });
-
-  // The captured snapshot is set once at resource creation and preserved
-  // for the resource's entire lifetime. Each resource sees a consistent
-  // context snapshot from its creation point, unaffected by subsequent renders
-  // or other concurrent resources.
-
-  // Return the reused snapshot object (avoid allocating a new object each call)
-  return s._snapshot;
+  // Return the stable snapshot object owned by the cell
+  return h.snapshot;
 }
 
 export function derive<TIn, TOut>(
@@ -533,9 +415,11 @@ export function on(
 ): void {
   const ownerIsRoot = getCurrentComponentInstance()?.isRoot ?? false;
   // Register the listener to be attached on mount. If the owner is not the
-  // root app instance, do not attach (per contract tests).
+  // root app instance, fail loudly to prevent silent no-op behavior.
   registerMountOperation(() => {
-    if (!ownerIsRoot) return;
+    if (!ownerIsRoot) {
+      throw new Error('[Askr] on() may only be used in root components');
+    }
     target.addEventListener(event, handler);
     // Return cleanup function
     return () => {
@@ -546,10 +430,12 @@ export function on(
 
 export function timer(intervalMs: number, fn: () => void): void {
   const ownerIsRoot = getCurrentComponentInstance()?.isRoot ?? false;
-  // Register the timer to be started on mount. Only start timers for root
-  // instance to satisfy ownership contract tests.
+  // Register the timer to be started on mount. Fail loudly when used outside
+  // of the root component to avoid silent no-ops.
   registerMountOperation(() => {
-    if (!ownerIsRoot) return;
+    if (!ownerIsRoot) {
+      throw new Error('[Askr] timer() may only be used in root components');
+    }
     const id = setInterval(fn, intervalMs);
     // Return cleanup function
     return () => {
@@ -570,9 +456,12 @@ export function task(
   fn: () => void | (() => void) | Promise<void | (() => void)>
 ): void {
   const ownerIsRoot = getCurrentComponentInstance()?.isRoot ?? false;
-  // Register the task to run on mount. Only execute for root instance.
+  // Register the task to run on mount. Fail loudly when used outside the root
+  // component so callers get immediate feedback rather than silent no-op.
   registerMountOperation(async () => {
-    if (!ownerIsRoot) return;
+    if (!ownerIsRoot) {
+      throw new Error('[Askr] task() may only be used in root components');
+    }
     // Execute the task (may be async) and return its cleanup
     return await fn();
   });
