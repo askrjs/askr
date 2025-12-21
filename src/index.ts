@@ -15,15 +15,7 @@ export { defineContext, readContext } from './runtime/context';
 export type { Context } from './runtime/context';
 
 // Bindings (spec-defined, currently stubbed)
-export {
-  resource,
-  derive,
-  on,
-  timer,
-  task,
-  stream,
-  capture,
-} from './runtime/operations';
+export { resource } from './runtime/operations';
 export type { DataResult } from './runtime/operations';
 
 // App bootstrap (explicit startup APIs)
@@ -66,23 +58,7 @@ export type { Route, RouteHandler } from './router/route';
 export { Link } from './components/Link';
 export type { LinkProps } from './components/Link';
 
-// Standard library — timing utilities
-export {
-  debounce,
-  throttle,
-  once,
-  defer,
-  raf,
-  idle,
-  timeout,
-  retry,
-  type DebounceOptions,
-  type ThrottleOptions,
-  type RetryOptions,
-  handle,
-  catchError,
-  tryWithLogging,
-} from './stdlib';
+// Standard library helpers are unstable and not re-exported from core.
 
 // SSR - Server-side rendering (sync-only APIs)
 export {
