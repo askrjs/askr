@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { createIsland, cleanupApp } from '../../src/index';
 import { createTestContainer } from '../helpers/test_renderer';
+import { registerMountOperation } from '../../src/runtime/component';
 
 describe('createApp cleanup', () => {
-  it('cleanupApp runs component cleanup functions', () => {
+  it('should run component cleanup functions when cleanupApp is called', () => {
     const { container, cleanup } = createTestContainer();
     let cleaned = false;
-
-    import { registerMountOperation } from '../../src/runtime/component';
 
     const Component = () => {
       // Register mount operation that returns a cleanup function
