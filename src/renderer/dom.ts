@@ -23,6 +23,7 @@ import {
   renderComponentInline,
   mountInstanceInline,
   cleanupComponent,
+  getCurrentInstance,
 } from '../runtime/component';
 import type {
   ComponentFunction,
@@ -2777,8 +2778,25 @@ export function createDOMNode(node: unknown): Node | null {
         } else if (key === 'class' || key === 'className') {
           el.className = String(value);
         } else if (key === 'value' || key === 'checked') {
-          (el as HTMLElement & Props)[key] = value;
-          el.setAttribute(key, String(value));
+          // Only set `value`/`checked` on form controls where it's meaningful
+          const tag = type.toLowerCase();
+          if (key === 'value') {
+            if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+              (el as HTMLInputElement & Props).value = String(value);
+              el.setAttribute('value', String(value));
+            } else {
+              // Fallback to attribute for non-form elements
+              el.setAttribute('value', String(value));
+            }
+          } else {
+            // checked
+            if (tag === 'input') {
+              (el as HTMLInputElement & Props).checked = Boolean(value);
+              el.setAttribute('checked', String(Boolean(value)));
+            } else {
+              el.setAttribute('checked', String(Boolean(value)));
+            }
+          }
         } else {
           el.setAttribute(key, String(value));
         }
@@ -2811,9 +2829,17 @@ export function createDOMNode(node: unknown): Node | null {
             }
             if (hasElements && !hasKeys) {
               if (typeof console !== 'undefined') {
-                logger.warn(
-                  'Missing keys on dynamic lists. Each child in a list should have a unique "key" prop.'
-                );
+                try {
+                  const inst = getCurrentInstance && getCurrentInstance();
+                  const name = inst?.fn?.name || '<anonymous>';
+                  logger.warn(
+                    `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
+                  );
+                } catch {
+                  logger.warn(
+                    'Missing keys on dynamic lists. Each child in a list should have a unique "key" prop.'
+                  );
+                }
               }
             }
           }

@@ -18,6 +18,9 @@ export class ResourceCell<U> {
   deps: unknown[] | null = null;
   resourceFrame: ContextFrame | null = null;
 
+  // Optional debug label set by caller (component name) to improve logs
+  ownerName?: string;
+
   private subscribers = new Set<() => void>();
 
   readonly snapshot: {
@@ -107,7 +110,14 @@ export class ResourceCell<U> {
         this.pending = false;
         this.error = err as Error;
         try {
-          logger.error('[Askr] Async resource error:', err);
+          if (this.ownerName) {
+            logger.error(
+              `[Askr] Async resource error in ${this.ownerName}:`,
+              err
+            );
+          } else {
+            logger.error('[Askr] Async resource error:', err);
+          }
         } catch {
           /* ignore logging errors */
         }
