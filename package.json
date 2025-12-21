@@ -2,6 +2,26 @@
   "name": "@askrjs/askr",
   "version": "0.0.1",
   "description": "Actor-backed deterministic UI framework",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askrjs/askr"
+  },
+  "homepage": "https://github.com/askrjs/askr#readme",
+  "bugs": {
+    "url": "https://github.com/askrjs/askr/issues"
+  },
+  "author": {
+    "name": "askrjs",
+    "url": "https://github.com/askrjs"
+  },
+  "keywords": [
+    "askr",
+    "ui",
+    "framework",
+    "jsx",
+    "ssr",
+    "library"
+  ],
   "type": "module",
   "packageManager": "npm",
   "license": "Apache-2.0",
@@ -12,6 +32,9 @@
     "dist",
     "src/jsx"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
