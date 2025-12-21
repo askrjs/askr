@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createIsland, cleanupApp } from '../../src/index';
 import { createTestContainer } from '../helpers/test_renderer';
 import { registerMountOperation } from '../../src/runtime/component';
+import type { JSXElement } from '../../src/jsx/types';
 
 describe('createApp cleanup', () => {
   it('should run component cleanup functions when cleanupApp is called', () => {
@@ -15,7 +16,7 @@ describe('createApp cleanup', () => {
           cleaned = true;
         };
       });
-      return { type: 'div', children: [] } as unknown as any;
+      return { type: 'div', children: [] } as unknown as JSXElement;
     };
 
     // Simulate mounting by creating island and then cleanupApp

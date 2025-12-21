@@ -4,7 +4,7 @@
  */
 
 import { type State } from './state';
-import { evaluate } from '../renderer/dom';
+import { evaluate, cleanupInstancesUnder } from '../renderer/dom';
 import { globalScheduler } from './scheduler';
 import type { JSXElement } from '../jsx/types';
 import type { Props } from '../shared/types';
@@ -271,6 +271,10 @@ function runComponent(instance: ComponentInstance): void {
     // Fallback: enqueue the render/commit normally
     globalScheduler.enqueue(() => {
       if (instance.target) {
+        // Keep `oldChildren` in the outer scope so rollback handlers can
+        // reference the original node list even if the inner try block
+        // throws. This preserves listeners and instance backrefs on rollback.
+        let oldChildren: Node[] = [];
         try {
           const wasFirstMount = !instance.mounted;
           // Ensure nested component executions during evaluation have access to
@@ -279,35 +283,36 @@ function runComponent(instance: ComponentInstance): void {
           // rely on `getCurrentComponentInstance()` being available.
           const oldInstance = currentInstance;
           currentInstance = instance;
-          try {
-            // Transactional rendering: render into a temporary container to avoid
-            // mutating the live DOM until we're sure the render succeeded.
-            const temp = document.createElement('div');
-            evaluate(result, temp);
+          // Capture snapshot of current children (by reference) so we can
+          // restore them on render failure without losing event listeners or
+          // instance attachments.
+          oldChildren = Array.from(instance.target.childNodes);
 
-            // If evaluate succeeded, atomically swap content into the real target.
-            // First, cleanup any nested instances under nodes that will be removed.
-            const oldChildren = Array.from(instance.target.childNodes);
-            for (const c of oldChildren) {
-              try {
-                // Avoid cycle import at top-level; require the module here.
-                // This will call the exported cleanup helper to teardown nested instances.
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const domModule = require('../renderer/dom');
-                if (typeof domModule.cleanupInstancesUnder === 'function') {
-                  domModule.cleanupInstancesUnder(c);
-                }
-              } catch (e) {
-                if (process.env.NODE_ENV !== 'production') {
-                  // eslint-disable-next-line no-console
-                  console.warn('[Askr] error cleaning up old child during commit:', e);
+          try {
+            evaluate(result, instance.target);
+          } catch (e) {
+            // If evaluation failed, attempt to cleanup any partially-added nodes
+            // and restore the old children to preserve listeners and instances.
+            try {
+              const newChildren = Array.from(instance.target.childNodes);
+              for (const n of newChildren) {
+                try {
+                  cleanupInstancesUnder(n);
+                } catch (err) {
+                  logger.warn(
+                    '[Askr] error cleaning up failed commit children:',
+                    err
+                  );
                 }
               }
+            } catch (_err) {
+              void _err;
             }
 
-            // Replace children atomically. Using replaceChildren ensures the
-            // target receives the new nodes in one operation.
-            instance.target.replaceChildren(...Array.from(temp.childNodes));
+            // Restore original children by re-inserting the old node references
+            // this preserves attached listeners and instance backrefs.
+            instance.target.replaceChildren(...oldChildren);
+            throw e;
           } finally {
             currentInstance = oldInstance;
           }
@@ -324,8 +329,31 @@ function runComponent(instance: ComponentInstance): void {
             executeMountOperations(instance);
           }
         } catch (renderError) {
-          // Atomic rendering: rollback on render error
-          instance.target.innerHTML = domSnapshot;
+          // Atomic rendering: rollback on render error. Attempt non-lossy restore of
+          // original child node references to preserve listeners/instances.
+          try {
+            const currentChildren = Array.from(instance.target.childNodes);
+            for (const n of currentChildren) {
+              try {
+                cleanupInstancesUnder(n);
+              } catch (err) {
+                logger.warn(
+                  '[Askr] error cleaning up partial children during rollback:',
+                  err
+                );
+              }
+            }
+          } catch (_err) {
+            void _err;
+          }
+
+          try {
+            instance.target.replaceChildren(...oldChildren);
+          } catch {
+            // Fallback to innerHTML restore if replaceChildren fails for some reason.
+            instance.target.innerHTML = domSnapshot;
+          }
+
           throw renderError;
         }
       }
@@ -411,15 +439,13 @@ function executeComponentSync(
       instance.fn(instance.props, context)
     );
 
-    // Check render time in dev mode
-    if (process.env.NODE_ENV !== 'production') {
-      const renderTime = Date.now() - renderStartTime;
-      if (renderTime > 5) {
-        // Warn if render takes more than 5ms
-        logger.warn(
-          `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
-        );
-      }
+    // Check render time
+    const renderTime = Date.now() - renderStartTime;
+    if (renderTime > 5) {
+      // Warn if render takes more than 5ms
+      logger.warn(
+        `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
+      );
     }
 
     // Mark first render complete after successful execution
@@ -428,21 +454,19 @@ function executeComponentSync(
       instance.firstRenderComplete = true;
     }
 
-    // Check for unused state in dev mode
-    if (process.env.NODE_ENV !== 'production') {
-      for (let i = 0; i < instance.stateValues.length; i++) {
-        const state = instance.stateValues[i];
-        if (state && !state._hasBeenRead) {
-          try {
-            const name = instance.fn?.name || '<anonymous>';
-            logger.warn(
-              `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
-            );
-          } catch {
-            logger.warn(
-              `[askr] Unused state variable detected. State should be read during render or removed.`
-            );
-          }
+    // Check for unused state
+    for (let i = 0; i < instance.stateValues.length; i++) {
+      const state = instance.stateValues[i];
+      if (state && !state._hasBeenRead) {
+        try {
+          const name = instance.fn?.name || '<anonymous>';
+          logger.warn(
+            `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
+          );
+        } catch {
+          logger.warn(
+            `[askr] Unused state variable detected. State should be read during render or removed.`
+          );
         }
       }
     }

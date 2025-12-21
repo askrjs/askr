@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 import { registerMountOperation } from '../../src/runtime/component';
+import type { JSXElement } from '../../src/jsx/types';
 
 describe('rollback behavior', () => {
   it('should preserve existing DOM and listeners when a render throws', () => {
@@ -39,7 +40,7 @@ describe('rollback behavior', () => {
             children: ['click'],
           },
         ],
-      } as unknown as any;
+      } as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Component });
@@ -54,12 +55,14 @@ describe('rollback behavior', () => {
     clicked = false;
 
     // Trigger failing render
-    if (setThrow) setThrow(true);
+    setThrow?.(true);
     // Flush scheduler; commit should attempt and fail
     expect(() => flushScheduler()).toThrow();
 
     // DOM should be unchanged and listener should still work
-    const btnAfter = container.querySelector('#btn') as HTMLButtonElement | null;
+    const btnAfter = container.querySelector(
+      '#btn'
+    ) as HTMLButtonElement | null;
     expect(btnAfter).not.toBeNull();
     btnAfter!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(clicked).toBe(true);

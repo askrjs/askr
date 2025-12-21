@@ -70,13 +70,19 @@ function cleanupInstanceIfPresent(node: Node | null): void {
         }
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
-          logger.warn('[Askr] cleanupInstanceIfPresent descendant cleanup failed:', err);
+          logger.warn(
+            '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
+            err
+          );
         }
       }
     }
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
-      logger.warn('[Askr] cleanupInstanceIfPresent descendant query failed:', err);
+      logger.warn(
+        '[Askr] cleanupInstanceIfPresent descendant query failed:',
+        err
+      );
     }
   }
 }

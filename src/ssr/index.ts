@@ -147,8 +147,6 @@ function escapeAttr(value: string): string {
 function renderAttrs(props?: Props): string {
   if (!props || typeof props !== 'object') return '';
 
-
-
   let result = '';
   for (const [key, value] of Object.entries(props)) {
     // Skip event handlers (onClick, onChange, etc.)
@@ -248,8 +246,6 @@ function executeComponentSync(
   // We avoid clobbering globals permanently by pushing the original functions
   // onto a stack and restoring them on exit. This is safer for nested or
   // stacked SSR render invocations.
-  const originalRandom = Math.random;
-  const originalDateNow = Date.now;
 
   try {
     if (process.env.NODE_ENV !== 'production') {

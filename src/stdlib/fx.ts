@@ -7,9 +7,15 @@ export type CancelFn = () => void;
 // Platform-specific timer handle types
 type TimeoutHandle = ReturnType<typeof setTimeout> | null;
 // rAF may fall back to setTimeout in some environments/tests, include both
-type RafHandle = ReturnType<typeof requestAnimationFrame> | ReturnType<typeof setTimeout> | null;
+type RafHandle =
+  | ReturnType<typeof requestAnimationFrame>
+  | ReturnType<typeof setTimeout>
+  | null;
 // requestIdleCallback may be unavailable; allow setTimeout fallback handle
-type IdleHandle = ReturnType<typeof requestIdleCallback> | ReturnType<typeof setTimeout> | null;
+type IdleHandle =
+  | ReturnType<typeof requestIdleCallback>
+  | ReturnType<typeof setTimeout>
+  | null;
 
 function throwIfDuringRender(): void {
   const inst = getCurrentComponentInstance();
@@ -47,10 +53,8 @@ export function debounceEvent(
   // On SSR, event handlers are inert
   if (inst && inst.ssr) {
     // Explicit typed noop to avoid double-casts and preserve typing
-    const noop: EventListener & { cancel(): void; flush(): void } = Object.assign(
-      (ev?: Event) => {},
-      { cancel() {}, flush() {} }
-    );
+    const noop: EventListener & { cancel(): void; flush(): void } =
+      Object.assign((_ev?: Event) => {}, { cancel() {}, flush() {} });
     return noop;
   }
 
@@ -124,7 +128,10 @@ export function throttleEvent(
 
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) {
-    const noop: EventListener & { cancel(): void } = Object.assign((ev?: Event) => {}, { cancel() {} });
+    const noop: EventListener & { cancel(): void } = Object.assign(
+      (_ev?: Event) => {},
+      { cancel() {} }
+    );
     return noop;
   }
 
@@ -183,7 +190,10 @@ export function rafEvent(
 ): EventListener & { cancel(): void } {
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) {
-    const noop: EventListener & { cancel(): void } = Object.assign((ev?: Event) => {}, { cancel() {} });
+    const noop: EventListener & { cancel(): void } = Object.assign(
+      (_ev?: Event) => {},
+      { cancel() {} }
+    );
     return noop;
   }
 
@@ -216,7 +226,10 @@ export function rafEvent(
     if (frameId !== null) {
       // If frameId is numeric and cancelAnimationFrame is available, use it;
       // otherwise fall back to clearTimeout for the setTimeout fallback.
-      if (typeof cancelAnimationFrame !== 'undefined' && typeof frameId === 'number') {
+      if (
+        typeof cancelAnimationFrame !== 'undefined' &&
+        typeof frameId === 'number'
+      ) {
         cancelAnimationFrame(frameId);
       } else {
         clearTimeout(frameId as ReturnType<typeof setTimeout>);
@@ -282,7 +295,11 @@ export function scheduleIdle(
   const cancel = () => {
     if (id !== null) {
       // If using requestIdleCallback and available, call cancelIdleCallback for numeric ids.
-      if (usingRIC && typeof cancelIdleCallback !== 'undefined' && typeof id === 'number') {
+      if (
+        usingRIC &&
+        typeof cancelIdleCallback !== 'undefined' &&
+        typeof id === 'number'
+      ) {
         cancelIdleCallback(id);
       } else {
         clearTimeout(id as ReturnType<typeof setTimeout>);
