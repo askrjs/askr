@@ -110,9 +110,18 @@ export function state<T>(initialValue: T): State<T> {
   }
 
   // INVARIANT: Reuse existing state if it exists (fast path on re-renders)
-  // This ensures state identity and persistence
+  // This ensures state identity and persistence and enforces ownership stability
   if (stateValues[index]) {
-    return stateValues[index] as State<T>;
+    const existing = stateValues[index] as State<T> & { _owner?: ComponentInstance };
+    // Ownership must be stable: the state cell belongs to the instance that
+    // created it and must never change. This checks for accidental reuse.
+    if (existing._owner !== instance) {
+      throw new Error(
+        `State ownership violation: state() called at index ${index} is owned by a different component instance. ` +
+          `State ownership is positional and immutable.`
+      );
+    }
+    return existing as State<T>;
   }
 
   // Create new state (slow path, only on first render) — delegated to helper
@@ -151,6 +160,11 @@ function createStateCell<T>(initialValue: T, instance: ComponentInstance): State
   // Attach the readers map to the callable so other runtime parts can access it
   (read as State<T>)._readers = readers;
 
+  // Record explicit ownership of this state cell. Ownership is the component
+  // instance that created the state cell and must never change for the life
+  // of the cell. We expose this for runtime invariant checks/tests.
+  (read as unknown as { _owner?: ComponentInstance })._owner = instance;
+
   // Attach set method directly to function
   read.set = (newValue: T): void => {
     // INVARIANT: State cannot be mutated during component render
@@ -176,26 +190,20 @@ function createStateCell<T>(initialValue: T, instance: ComponentInstance): State
     // If a bulk commit is active, update backing value only and DO NOT notify or enqueue.
     // Bulk commits must be side-effect silent with respect to runtime notifications.
     if (isBulkCommitActive()) {
+      // In bulk commit mode we must be side-effect free: update backing
+      // value only and do not notify, enqueue, or log.
       value = newValue;
-      // eslint-disable-next-line no-console
-      console.log(
-        '[DEBUG][state] bulk commit active - updated backing value only'
-      );
       return;
     }
 
     // INVARIANT: Update the value
     value = newValue;
 
-    // NOTE: notifyUpdate should be available, but during hydration or edge
-    // cases it may be temporarily null. We tolerate that by warning in dev-mode
-    // but still enqueue a scheduler task to process the update. This ensures
-    // user event handlers (e.g., input during hydration) still cause updates.
-    if (!instance.notifyUpdate && process.env.NODE_ENV !== 'production') {
-      logger.warn(
-        '[Askr] notifyUpdate callback is not available yet for this component. Update will be applied when the scheduler runs.'
-      );
-    }
+    // notifyUpdate may be temporarily unavailable (e.g. during hydration).
+    // We intentionally avoid logging here to keep the state mutation path
+    // side-effect free. The scheduler will process updates when the system
+    // is stable.
+
 
     // After value change, notify only components that *read* this state in their last committed render
     const readersMap = (read as State<T>)._readers as
