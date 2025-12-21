@@ -69,7 +69,7 @@ If you prefer TypeScript to perform the transform at compile-time (no runtime tr
 `src/main.tsx`
 
 ```ts
-import { createApp, Link, state, navigate, route } from '@askrjs/askr';
+import { createSPA, getRoutes, Link, state, navigate, route } from '@askrjs/askr';
 
 function Home() {
   const count = state(0);
@@ -111,7 +111,7 @@ route('/about', () => <About />);
 route('/users/{id}', ({ id }: Record<string, string>) => <User id={id} />);
 
 // Mount app and resolve initial route
-createApp({ root: '#app', component: () => <div /> });
+createSPA({ root: '#app', routes: getRoutes() });
 navigate(window.location.pathname);
 ```
 

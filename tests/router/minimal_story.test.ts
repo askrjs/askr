@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, navigate } from '../../src/index';
+import { createSPA, navigate } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 import { route } from '../../src/index';
 
@@ -35,27 +35,33 @@ describe('Minimal router story (authoritative)', () => {
   it('should activate only the single best match (longest-match wins)', async () => {
     const calls: string[] = [];
 
-    route('/parent', () => {
-      calls.push('parent');
-      return { type: 'div', props: {}, children: ['parent'] };
-    });
-
-    route('/parent/*', () => {
-      calls.push('parent-wildcard');
-      return { type: 'div', props: {}, children: ['parent-wildcard'] };
-    });
-
-    route('/parent/child', () => {
-      calls.push('child');
-      return { type: 'div', props: {}, children: ['child'] };
-    });
+    const routes = [
+      {
+        path: '/parent',
+        handler: () => {
+          calls.push('parent');
+          return { type: 'div', props: {}, children: ['parent'] };
+        },
+      },
+      {
+        path: '/parent/*',
+        handler: () => {
+          calls.push('parent-wildcard');
+          return { type: 'div', props: {}, children: ['parent-wildcard'] };
+        },
+      },
+      {
+        path: '/parent/child',
+        handler: () => {
+          calls.push('child');
+          return { type: 'div', props: {}, children: ['child'] };
+        },
+      },
+    ];
 
     // initial window
     setGlobalWindow('/');
-    createApp({
-      root: container,
-      component: () => ({ type: 'div', props: {}, children: ['App'] }),
-    });
+    await createSPA({ root: container, routes });
 
     // navigate to the deeper path
     navigate('/parent/child');
@@ -81,10 +87,7 @@ describe('Minimal router story (authoritative)', () => {
     }));
 
     setGlobalWindow('/layout/a');
-    createApp({
-      root: container,
-      component: () => ({ type: 'div', props: {}, children: ['App'] }),
-    });
+    await createSPA({ root: container, routes: getRoutes() });
 
     navigate('/layout/a');
     await flushScheduler();

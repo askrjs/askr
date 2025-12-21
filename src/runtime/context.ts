@@ -92,22 +92,23 @@ export function withContext<T>(frame: ContextFrame | null, fn: () => T): T {
 /**
  * Execute an async resource step within its frozen context snapshot.
  *
- * CRITICAL: This wrapper is applied to each synchronous execution step
- * of an async resource (before await, after await). The frame is never
- * held across await boundaries—it's set, fn executes, then it's cleared.
- *
- * This allows readContext() to work in async resources while maintaining
- * the invariant that no global frame remains active across await.
+ * CRITICAL: This wrapper is applied only to synchronous execution steps of
+ * an async resource (the initial call). We intentionally DO NOT restore
+ * the resource frame for post-await continuations — continuations must not
+ * observe or rely on a live resource frame. This keeps semantics simple and
+ * deterministic: async resources see only their creation-time snapshot.
  */
 export function withAsyncResourceContext<T>(
   frame: ContextFrame | null,
   fn: () => T
 ): T {
   const oldFrame = currentAsyncResourceFrame;
+  // Only set the frame for the synchronous execution step
   currentAsyncResourceFrame = frame;
   try {
     return fn();
   } finally {
+    // Clear the frame to avoid exposing it across await boundaries
     currentAsyncResourceFrame = oldFrame;
   }
 }
@@ -123,7 +124,7 @@ export function defineContext<T>(defaultValue: T): Context<T> {
       return {
         type: ContextScopeComponent,
         props: { key, value: props.value, children: props.children },
-      } as JSXElement;
+      } as unknown as JSXElement;
     },
   };
 }

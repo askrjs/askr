@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
-import { createApp, state, capture } from '../../src/index';
+import { createIsland, state } from '../../src/index';
+import { capture } from '../../src/runtime/operations';
 
 describe('Event causality across async boundaries', () => {
   it('should observe state at scheduling time given events scheduled by async continuations', async () => {
@@ -41,10 +42,10 @@ describe('Event causality across async boundaries', () => {
               children: ['inc'],
             },
           ],
-        } as JSXElement;
+        } as unknown as JSXElement;
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       const observeBtn = container.querySelector(

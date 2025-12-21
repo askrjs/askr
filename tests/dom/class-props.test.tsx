@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp } from '../../src/index';
+import { createIsland } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -27,7 +27,7 @@ describe('class / className interoperability', () => {
       children: ['x'],
     });
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const div = container.querySelector('div') as HTMLElement;
@@ -42,7 +42,7 @@ describe('class / className interoperability', () => {
       children: ['y'],
     });
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const div = container.querySelector('div') as HTMLElement;

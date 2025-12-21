@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, navigate } from '../../src/index';
+import { createSPA, navigate } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
-import { route } from '../../src/index';
 import { layout } from '../../src/index';
 
 describe('layout helper (ROUTER)', () => {
@@ -18,23 +17,24 @@ describe('layout helper (ROUTER)', () => {
     cleanup();
   });
 
-  it('should support zero-arg factory passed to layout()', async () => {
-    // Zero-arg factory that returns a layout element
-    const ParentLayout = () => ({
+  it('should pass children to a layout component', async () => {
+    // Layout defined as a component that accepts children and returns a vnode-like object
+    const ParentLayout = ({ children }: { children?: unknown }) => ({
       type: 'div',
       props: { class: 'parent' },
-      children: [],
+      children: Array.isArray(children) ? children : children ? [children] : [],
     });
-    const parent = layout(() => ParentLayout());
+    const parent = layout(ParentLayout);
 
-    route('/p', () =>
-      parent({ type: 'div', props: { class: 'child' }, children: ['C'] })
-    );
+    const routes = [
+      {
+        path: '/p',
+        handler: () =>
+          parent({ type: 'div', props: { class: 'child' }, children: ['C'] }),
+      },
+    ];
 
-    createApp({
-      root: container,
-      component: () => ({ type: 'div', props: {}, children: ['App'] }),
-    });
+    await createSPA({ root: container, routes });
 
     navigate('/p');
     await flushScheduler();

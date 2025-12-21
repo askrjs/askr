@@ -1,6 +1,6 @@
 // tests/state/conditional_state_errors.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('conditional state errors (STATE)', () => {
@@ -20,7 +20,7 @@ describe('conditional state errors (STATE)', () => {
       return { type: 'div', children: [ok()] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toContain('ok');
 
@@ -31,16 +31,16 @@ describe('conditional state errors (STATE)', () => {
     }).toThrow(/hook order|conditionally/i);
   });
 
-  it('should throw error when state() is called after return', () => {
+  it('should not throw when unreachable state() calls exist after return (static heuristics removed)', () => {
     const Component = () => {
       return { type: 'div', children: ['early'] };
-      // Unreachable state call - should be detected as invalid structure.
+      // Unreachable state call - unreachable and not executed at runtime.
       state('nope');
     };
 
     expect(() =>
-      createApp({ root: container, component: Component })
-    ).toThrow();
+      createIsland({ root: container, component: Component })
+    ).not.toThrow();
   });
 
   it('should not throw error when state() is called in try/catch', () => {
@@ -54,7 +54,7 @@ describe('conditional state errors (STATE)', () => {
     };
 
     expect(() =>
-      createApp({ root: container, component: Component })
+      createIsland({ root: container, component: Component })
     ).not.toThrow();
   });
 });
