@@ -149,11 +149,15 @@ export function registerMountOperation(
   const instance = getCurrentComponentInstance();
   if (instance) {
     // If we're in bulk-commit fast lane, registering mount operations is a
-    // violation of the fast-lane preconditions. Throw in dev, otherwise ignore.
-    if (process.env.NODE_ENV !== 'production' && isBulkCommitActive()) {
-      throw new Error(
-        'registerMountOperation called during bulk commit fast-lane'
-      );
+    // violation of the fast-lane preconditions. Throw in dev, otherwise ignore
+    // silently in production (we must avoid scheduling work during bulk commit).
+    if (isBulkCommitActive()) {
+      if (process.env.NODE_ENV !== 'production') {
+        throw new Error(
+          'registerMountOperation called during bulk commit fast-lane'
+        );
+      }
+      return;
     }
     try {
       logger.debug('[Askr] registerMountOperation on', instance.id);
@@ -296,11 +300,32 @@ function runComponent(instance: ComponentInstance): void {
           // rely on `getCurrentComponentInstance()` being available.
           const oldInstance = currentInstance;
           currentInstance = instance;
+          // Add debug logs to trace evaluation and DOM mutations
+          // eslint-disable-next-line no-console
+          console.log(
+            '[DEBUG][component] about to evaluate for instance',
+            instance.id,
+            'targetId',
+            instance.target?.id
+          );
           try {
             evaluate(result, instance.target);
           } finally {
             currentInstance = oldInstance;
           }
+
+          // Debug: snapshot DOM after evaluate
+          try {
+            // eslint-disable-next-line no-console
+            console.log(
+              '[DEBUG][component] after evaluate target children:',
+              instance.target?.children.length,
+              'innerHTML:',
+              instance.target && instance.target.innerHTML
+                ? instance.target.innerHTML.slice(0, 200)
+                : ''
+            );
+          } catch (e) { void e; }
 
           // Commit succeeded — finalize recorded state reads so subscriptions reflect
           // the last *committed* render. This updates per-state reader maps
@@ -523,7 +548,7 @@ export function getSignal(): AbortSignal {
  * subscribers are only notified when they actually read a state in their
  * last committed render.
  */
-function finalizeReadSubscriptions(instance: ComponentInstance): void {
+export function finalizeReadSubscriptions(instance: ComponentInstance): void {
   const newSet = instance._pendingReadStates ?? new Set();
   const oldSet = instance._lastReadStates ?? new Set();
   const token = instance._currentRenderToken;

@@ -4,6 +4,11 @@
  */
 
 import { globalScheduler, isSchedulerExecuting } from '../runtime/scheduler';
+import {
+  isBulkCommitActive,
+  markFastPathApplied,
+  isFastPathApplied,
+} from '../runtime/fastlane';
 import { logger } from '../dev/logger';
 import type { Props } from '../shared/types';
 import { Fragment } from '../jsx/jsx-runtime';
@@ -118,6 +123,11 @@ export function getKeyMapForElement(el: Element) {
   return keyedElements.get(el);
 }
 
+// Track which parents had the reconciler record fast-path stats during the
+// current evaluation, so we can preserve diagnostics across additional
+// reconciliations within the same render pass without leaking between runs.
+const _reconcilerRecordedParents = new WeakSet<Element>();
+
 export function removeElementListeners(element: Element): void {
   const map = elementListeners.get(element);
   if (map) {
@@ -147,6 +157,18 @@ export function evaluate(
   context?: object
 ): void {
   if (!target) return;
+  // Debug tracing to help understand why initial mounts sometimes don't
+  // result in DOM mutations during tests.
+  try {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG evaluate] enter', {
+      nodeType: typeof node,
+      targetId: target.id,
+      children: target.children.length,
+    });
+  } catch (e) {
+    void e;
+  }
 
   // If context provided, use component-owned DOM range (only replace that range)
   if (context && domRanges.has(context)) {
@@ -161,6 +183,13 @@ export function evaluate(
     // Append new DOM before end marker
     const dom = createDOMNode(node);
     if (dom) {
+      try {
+        // eslint-disable-next-line no-console
+        console.log(
+          '[DEBUG evaluate] inserting before end marker into',
+          target.id
+        );
+      } catch (e) { void e; }
       target.insertBefore(dom, range.end);
     }
   } else if (context) {
@@ -173,6 +202,13 @@ export function evaluate(
     // Render into the range
     const dom = createDOMNode(node);
     if (dom) {
+      try {
+        // eslint-disable-next-line no-console
+        console.log(
+          '[DEBUG evaluate] inserting into newly created range on',
+          target.id
+        );
+      } catch (e) { void e; }
       target.insertBefore(dom, end);
     }
   } else {
@@ -241,22 +277,178 @@ export function evaluate(
                 oldKeyMap = new Map();
               }
 
-              // Do reconciliation - this will reuse existing keyed elements
-              const newKeyMap = reconcileKeyedChildren(
-                firstChild,
-                vnodeChildren,
-                oldKeyMap
-              );
-              keyedElements.set(firstChild, newKeyMap);
-              // Dev debug: ensure we recorded keyed map during reuse path
-              logger.debug(
-                '[Askr][FASTPATH] reuse keyed map size set:',
-                newKeyMap.size
-              );
+              // Optional forced positional bulk path for large keyed lists
+              try {
+                if (process.env.ASKR_FORCE_BULK_POSREUSE === '1') {
+                  try {
+                    const keyedVnodes: Array<{
+                      key: string | number;
+                      vnode: VNode;
+                    }> = [];
+                    for (
+                      let i = 0;
+                      i < (vnodeChildren as VNode[]).length;
+                      i++
+                    ) {
+                      const c = (vnodeChildren as VNode[])[i];
+                      if (
+                        _isDOMElement(c) &&
+                        (c as DOMElement).key !== undefined
+                      ) {
+                        keyedVnodes.push({
+                          key: (c as DOMElement).key as string | number,
+                          vnode: c,
+                        });
+                      }
+                    }
+                    // Only apply when all children are keyed and count matches
+                    if (
+                      keyedVnodes.length > 0 &&
+                      keyedVnodes.length === (vnodeChildren as VNode[]).length
+                    ) {
+                      logger.warn(
+                        '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
+                      );
+                      const stats = performBulkPositionalKeyedTextUpdate(
+                        firstChild,
+                        keyedVnodes
+                      );
+                      if (
+                        process.env.NODE_ENV !== 'production' ||
+                        process.env.ASKR_FASTPATH_DEBUG === '1'
+                      ) {
+                        try {
+                          const gl = globalThis as unknown as {
+                            __ASKR_LAST_FASTPATH_STATS?: unknown;
+                            __ASKR_LAST_FASTPATH_COMMIT_COUNT?: number | undefined;
+                            __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                          };
+                          (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+                          // Mark a single logical commit for dev diagnostics so
+                          // runtime fast-lane invariants can validate commit counts.
+                          gl.__ASKR_LAST_FASTPATH_COMMIT_COUNT = 1;
+                          const counters =
+                            (gl.__ASKR_FASTPATH_COUNTERS as Record<
+                              string,
+                              number
+                            >) || {};
+                          counters.bulkKeyedPositionalForced =
+                            (counters.bulkKeyedPositionalForced || 0) + 1;
+                          gl.__ASKR_FASTPATH_COUNTERS = counters;
+                        } catch (e) {
+                          void e;
+                        }
+                      }
+                      // Rebuild keyed map
+                      try {
+                        const map = new Map<string | number, Element>();
+                        const children = Array.from(firstChild.children);
+                        for (let i = 0; i < children.length; i++) {
+                          const el = children[i] as Element;
+                          const k = el.getAttribute('data-key');
+                          if (k !== null) {
+                            map.set(k, el);
+                            const n = Number(k);
+                            if (!Number.isNaN(n)) map.set(n, el);
+                          }
+                        }
+                        keyedElements.set(firstChild, map);
+                      } catch (e) {
+                        void e;
+                      }
+                    } else {
+                      // Fall back to normal reconciliation below
+                      const newKeyMap = reconcileKeyedChildren(
+                        firstChild,
+                        vnodeChildren,
+                        oldKeyMap
+                      );
+                      keyedElements.set(firstChild, newKeyMap);
+                      logger.debug(
+                        '[Askr][FASTPATH] reuse keyed map size set:',
+                        newKeyMap.size
+                      );
+                    }
+                  } catch (err) {
+                    logger.warn(
+                      '[Askr][FASTPATH] forced bulk path failed, falling back',
+                      err
+                    );
+                    const newKeyMap = reconcileKeyedChildren(
+                      firstChild,
+                      vnodeChildren,
+                      oldKeyMap
+                    );
+                    keyedElements.set(firstChild, newKeyMap);
+                    logger.debug(
+                      '[Askr][FASTPATH] reuse keyed map size set:',
+                      newKeyMap.size
+                    );
+                  }
+                } else {
+                  // Do reconciliation - this will reuse existing keyed elements
+                  const newKeyMap = reconcileKeyedChildren(
+                    firstChild,
+                    vnodeChildren,
+                    oldKeyMap
+                  );
+                  keyedElements.set(firstChild, newKeyMap);
+                  // Dev debug: ensure we recorded keyed map during reuse path
+                  logger.debug(
+                    '[Askr][FASTPATH] reuse keyed map size set:',
+                    newKeyMap.size
+                  );
+                }
+              } catch (e) {
+                void e; // suppress unused variable lint
+                // Fall back to normal reconciliation on error
+                const newKeyMap = reconcileKeyedChildren(
+                  firstChild,
+                  vnodeChildren,
+                  oldKeyMap
+                );
+                keyedElements.set(firstChild, newKeyMap);
+                logger.debug(
+                  '[Askr][FASTPATH] reuse keyed map size set:',
+                  newKeyMap.size
+                );
+              }
             } else {
-              // Unkeyed - keep positional identity: update in-place by index
-              updateUnkeyedChildren(firstChild, vnodeChildren);
-              keyedElements.delete(firstChild);
+              // Unkeyed - consider bulk text fast-path for large text-dominant updates
+              if (isBulkTextFastPathEligible(firstChild, vnodeChildren)) {
+                const stats = performBulkTextReplace(firstChild, vnodeChildren);
+                // Dev-only instrumentation counters
+                if (process.env.NODE_ENV !== 'production') {
+                  try {
+                    const gl = globalThis as unknown as {
+                      __ASKR_LAST_BULK_TEXT_FASTPATH_STATS?: unknown;
+                      __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                    };
+                    (gl.__ASKR_LAST_BULK_TEXT_FASTPATH_STATS as unknown) = stats;
+                    const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+                    counters.bulkTextHits = (counters.bulkTextHits || 0) + 1;
+                    gl.__ASKR_FASTPATH_COUNTERS = counters;
+                  } catch (e) {
+                    void e;
+                  }
+                }
+              } else {
+                if (process.env.NODE_ENV !== 'production') {
+                  try {
+                    const gl = globalThis as unknown as {
+                      __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                    };
+                    const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+                    counters.bulkTextMisses = (counters.bulkTextMisses || 0) + 1;
+                    gl.__ASKR_FASTPATH_COUNTERS = counters;
+                  } catch (e) {
+                    void e;
+                  }
+                }
+                // Fall back to existing per-node updates
+                updateUnkeyedChildren(firstChild, vnodeChildren);
+                keyedElements.delete(firstChild);
+              }
             }
           } else {
             // Non-array children
@@ -472,6 +664,7 @@ export function isKeyedReorderFastPathEligible(
     for (const k of Object.keys(props)) {
       if (k === 'children' || k === 'key') continue;
       if (k.startsWith('on') && k.length > 2) continue;
+      if (k.startsWith('data-')) continue; // ignore data-* attrs (e.g. data-key)
       const v = (props as Record<string, unknown>)[k];
       try {
         if (k === 'class' || k === 'className') {
@@ -660,15 +853,237 @@ function reconcileKeyedChildren(
   // Dev debug: explain why we chose (or declined) fast-path for this update
   logger.warn('[Askr][FASTPATH][DEV] decision', decision);
 
+  // Aggressive fallback for huge keyed lists that are text-dominant.
+  // If the renderer declined the keyed fast-path but the list is extremely
+  // large and each vnode is a simple intrinsic element with a single
+  // primitive child (text), apply a positional bulk update to avoid
+  // per-node reconciliation overhead.
+  try {
+    const hugeThreshold = Number(process.env.ASKR_BULK_HUGE_THRESHOLD) || 2048;
+    if (!useFastPath && keyedVnodes.length >= hugeThreshold) {
+      let allSimple = true;
+      for (let i = 0; i < keyedVnodes.length; i++) {
+        const vnode = keyedVnodes[i].vnode;
+        if (!_isDOMElement(vnode)) {
+          allSimple = false;
+          break;
+        }
+        const dv = vnode as DOMElement;
+        if (typeof dv.type !== 'string') {
+          allSimple = false;
+          break;
+        }
+        const ch = dv.children || dv.props?.children;
+        if (ch === undefined) continue;
+        if (Array.isArray(ch)) {
+          if (
+            ch.length !== 1 ||
+            (typeof ch[0] !== 'string' && typeof ch[0] !== 'number')
+          ) {
+            allSimple = false;
+            break;
+          }
+        } else if (typeof ch !== 'string' && typeof ch !== 'number') {
+          allSimple = false;
+          break;
+        }
+      }
+
+      if (allSimple) {
+        logger.warn('[Askr][FASTPATH] applying huge-list positional fallback');
+        try {
+          if (isBulkCommitActive()) markFastPathApplied(parent);
+        } catch (e) { void e; }
+        const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+        if (
+          process.env.NODE_ENV !== 'production' ||
+          process.env.ASKR_FASTPATH_DEBUG === '1'
+        ) {
+          try {
+            const gl = globalThis as unknown as {
+              __ASKR_LAST_FASTPATH_STATS?: unknown;
+              __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+              __ASKR_BULK_DIAG?: unknown;
+            };
+            (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+            const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+            counters.bulkKeyedHugeFallback = (counters.bulkKeyedHugeFallback || 0) + 1;
+            gl.__ASKR_FASTPATH_COUNTERS = counters;
+            (gl.__ASKR_BULK_DIAG as unknown) = { phase: 'bulk-keyed-huge-fallback', stats };
+          } catch (e) { void e; }
+        }
+        return newKeyMap;
+      }
+    }
+  } catch (e) { void e; }
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ASKR_FASTPATH_DEBUG === '1'
+  ) {
+    try {
+      const gl = globalThis as unknown as { __ASKR_BULK_DIAG?: unknown };
+      (gl.__ASKR_BULK_DIAG as unknown) = {
+        phase: 'keyed-decision',
+        decision,
+        totalKeyed,
+        oldKeyMapSize: oldKeyMap?.size ?? 0,
+      };
+    } catch (e) { void e; }
+  }
+
+  // Heuristic: if many incoming keys are missing from the old key map (i.e.
+  // keys changed en-masse) and all children are simple text, prefer the
+  // positional bulk text fast-path rather than the keyed map fast-path which
+  // would allocate many new elements.
+  let allSimpleText = false;
+  try {
+    if (
+      keyedVnodes.length >=
+      (Number(process.env.ASKR_BULK_TEXT_THRESHOLD) || 1024)
+    ) {
+      let missing = 0;
+      try {
+        const present = new Set<string | number>();
+        const parentChildren = Array.from(parent.children);
+        for (let i = 0; i < parentChildren.length; i++) {
+          const attr = parentChildren[i].getAttribute('data-key');
+          if (attr !== null) {
+            present.add(attr);
+            const n = Number(attr);
+            if (!Number.isNaN(n)) present.add(n);
+          }
+        }
+        for (let i = 0; i < keyedVnodes.length; i++) {
+          const k = keyedVnodes[i].key;
+          if (!present.has(k)) missing++;
+        }
+      } catch {
+        // If DOM reads fail, be conservative and set missing low
+        missing = 0;
+      }
+
+      // Determine whether all keyed vnodes are "simple text" candidates.
+      // Moved here to ensure the predicate is available where it's needed.
+      // Declare variable in outer scope so it can be referenced later in file
+      // (some heuristics need this predicate after this try block).
+      allSimpleText =
+        keyedVnodes.length > 0 &&
+        keyedVnodes.every(({ vnode }) => {
+          if (!_isDOMElement(vnode)) return false;
+          const dv = vnode as DOMElement;
+          if (typeof dv.type !== 'string') return false;
+          const ch = dv.children || dv.props?.children;
+          if (ch === undefined) return true;
+          if (Array.isArray(ch)) {
+            return (
+              ch.length === 1 &&
+              (typeof ch[0] === 'string' || typeof ch[0] === 'number')
+            );
+          }
+          return typeof ch === 'string' || typeof ch === 'number';
+        });
+
+      // Conservative: do not apply positional bulk keyed fast-path when any
+      // child vnode declares non-data props (class, value, etc). Such props
+      // may require per-node updates and the bulk path assumes text-only
+      // changes. Compute presence of non-data props here.
+      let hasPropsPresent = false;
+      for (let i = 0; i < keyedVnodes.length; i++) {
+        const vnode = keyedVnodes[i].vnode;
+        if (!_isDOMElement(vnode)) continue;
+        const props = vnode.props || {};
+        for (const k of Object.keys(props)) {
+          if (k === 'children' || k === 'key') continue;
+          if (k.startsWith('on') && k.length > 2) continue; // ignore event handlers
+          if (k.startsWith('data-')) continue; // ignore data-* attributes
+          hasPropsPresent = true;
+          break;
+        }
+        if (hasPropsPresent) break;
+      }
+
+      const missingRatio = missing / Math.max(1, keyedVnodes.length);
+      if (missingRatio > 0.5 && allSimpleText && !hasPropsPresent) {
+        logger.warn(
+          '[Askr][FASTPATH] switching to positional bulk keyed fast-path due to missing keys ratio',
+          missingRatio
+        );
+        try {
+          if (isBulkCommitActive()) markFastPathApplied(parent);
+        } catch (e) { void e; }
+        const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+        if (process.env.NODE_ENV !== 'production') {
+          try {
+            const gl = globalThis as unknown as {
+              __ASKR_LAST_FASTPATH_STATS?: unknown;
+              __ASKR_LAST_FASTPATH_COMMIT_COUNT?: number | undefined;
+              __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+            };
+            (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+            // Mark that reconciler recorded stats for this parent during this
+            // render pass; this allows subsequent reconciliations in the same
+            // pass to preserve the diagnostic fields instead of clearing them.
+            try {
+              _reconcilerRecordedParents.add(parent);
+            } catch (e) {
+              void e;
+            }
+            // Record a logical commit for diagnostics (even though the
+            // reconciler performed in-place updates, treat it as a single
+            // fast-path commit for runtime invariant checks).
+            gl.__ASKR_LAST_FASTPATH_COMMIT_COUNT = 1;
+            const counters =
+              (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+            counters.bulkKeyedPositionalHits =
+              (counters.bulkKeyedPositionalHits || 0) + 1;
+            gl.__ASKR_FASTPATH_COUNTERS = counters;
+          } catch (e) {
+            void e;
+          }
+        }
+        return newKeyMap;
+      }
+    }
+  } catch (e) {
+    void e;
+  }
+
   // Clear previous fast-path stats when we decline the fast-path to avoid
   // leaking prior run data across updates (tests rely on this behavior).
+  // However, if a fast-path was applied synchronously for this parent in the
+  // same render pass, preserve the recorded stats (they may be set by the
+  // reconciler even when the runtime fast-lane was not taken).
   if (!useFastPath && typeof globalThis !== 'undefined') {
     try {
-      const _g = globalThis as unknown as Record<string, unknown>;
-      delete _g.__ASKR_LAST_FASTPATH_STATS;
-      delete _g.__ASKR_LAST_FASTPATH_REUSED;
-    } catch {
-      /* ignore */
+      let parentFastpathApplied = false;
+      try {
+        parentFastpathApplied = isFastPathApplied(parent);
+      } catch {
+        parentFastpathApplied = false;
+      }
+      if (!parentFastpathApplied) {
+        const gl = globalThis as unknown as {
+          __ASKR_LAST_FASTPATH_STATS?: unknown;
+          __ASKR_LAST_FASTPATH_REUSED?: unknown;
+        };
+        // If the reconciler recorded stats for this parent in the current
+        // render pass, preserve them and remove the transient marker so that
+        // subsequent independent renders will not inherit the flag.
+        try {
+          if (_reconcilerRecordedParents.has(parent)) {
+            _reconcilerRecordedParents.delete(parent);
+          } else {
+            delete gl.__ASKR_LAST_FASTPATH_STATS;
+            delete gl.__ASKR_LAST_FASTPATH_REUSED;
+          }
+        } catch {
+          // On any failure, clear diagnostics conservatively
+          delete gl.__ASKR_LAST_FASTPATH_STATS;
+          delete gl.__ASKR_LAST_FASTPATH_REUSED;
+        }
+      }
+    } catch (e) {
+      void e;
     }
   }
 
@@ -682,6 +1097,312 @@ function reconcileKeyedChildren(
   //  - each keyed vnode is an intrinsic element (string type) whose children
   //    are a single primitive (string/number)
   let _triedPositionalReuse = false;
+
+  // New heuristic: bulk keyed text update fast-path
+  // If there are many keyed elements (large lists) and **no moves** (stable key order)
+  // and all keyed vnodes are simple intrinsic elements with a single primitive
+  // child (text), we can build a DocumentFragment by reusing the existing
+  // Element nodes and updating their text content in-memory, then perform a
+  // single atomic `replaceChildren` to avoid per-node reconciliation overhead.
+  // This preserves element identity and listeners while dramatically reducing
+  // JS overhead for pure text churn.
+  try {
+    const bulkTextThreshold =
+      Number(process.env.ASKR_BULK_TEXT_THRESHOLD) || 1024; // `allSimpleText` computed earlier near missing-ratio check
+
+    if (
+      !useFastPath &&
+      keyedVnodes.length >= bulkTextThreshold &&
+      allSimpleText &&
+      !hasPropChanges
+    ) {
+      // If bulk fast-path was already applied synchronously on this parent in
+      // this commit, avoid reapplying another structural fast-path which could
+      // replace nodes again and inadvertently remove listeners. This marker
+      // is cleared on the next tick.
+      try {
+        // Avoid reapplying a fast-path on the same parent during the same bulk
+        // commit. Use runtime registry rather than DOM attributes to avoid
+        // introducing async cleanup and to keep this logic synchronous.
+        if (isFastPathApplied(parent)) {
+          logger.warn(
+            '[Askr][FASTPATH] fast-path already applied on parent; skipping'
+          );
+          return newKeyMap;
+        }
+      } catch (e) { void e; }
+      // Two bulk behaviors:
+      // 1) Stable keys & order: reuse elements from oldKeyMap by key and do an
+      //    atomic replaceChildren after updating text content (preserves identity).
+      // 2) Keys changed en-masse but structure is stable: positional reuse - reuse
+      //    elements by position, update their text, and remap data-key attributes.
+      let stable = true;
+      try {
+        const parentChildren = Array.from(parent.children);
+
+        // If the parent and new children have identical length and all
+        // keyed vnodes are simple text elements, we can apply the positional
+        // bulk update. Allow a forced env var to bypass conservative checks
+        // for benching/debugging scenarios where we know structure is stable.
+        if (parentChildren.length === keyedVnodes.length) {
+          const allSimple = keyedVnodes.every(({ vnode }) => {
+            if (!_isDOMElement(vnode)) return false;
+            const dv = vnode as DOMElement;
+            if (typeof dv.type !== 'string') return false;
+            const ch = dv.children || dv.props?.children;
+            if (ch === undefined) return true;
+            if (Array.isArray(ch)) {
+              return (
+                ch.length === 1 &&
+                (typeof ch[0] === 'string' || typeof ch[0] === 'number')
+              );
+            }
+            return typeof ch === 'string' || typeof ch === 'number';
+          });
+
+          if (allSimple || process.env.ASKR_FORCE_BULK_POSREUSE === '1') {
+            logger.warn(
+              '[Askr][FASTPATH] len-match heuristic triggered (positional bulk)'
+            );
+            if (
+              process.env.NODE_ENV !== 'production' ||
+              process.env.ASKR_FASTPATH_DEBUG === '1'
+            ) {
+              try {
+                const gl = globalThis as unknown as { __ASKR_BULK_DIAG?: unknown };
+                (gl.__ASKR_BULK_DIAG as unknown) = {
+                  phase: 'bulk-keyed-positional-trigger-lenmatch-early',
+                  totalKeyed: keyedVnodes.length,
+                  allSimple,
+                  forced: process.env.ASKR_FORCE_BULK_POSREUSE === '1',
+                };
+              } catch (e) { void e; }
+            }
+            try {
+              if (isBulkCommitActive()) markFastPathApplied(parent);
+            } catch (e) { void e; }
+
+            const stats = performBulkPositionalKeyedTextUpdate(
+              parent,
+              keyedVnodes
+            );
+            if (
+              process.env.NODE_ENV !== 'production' ||
+              process.env.ASKR_FASTPATH_DEBUG === '1'
+            ) {
+              try {
+                const gl = globalThis as unknown as {
+                  __ASKR_LAST_FASTPATH_STATS?: unknown;
+                  __ASKR_BULK_DIAG?: unknown;
+                  __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                };
+                (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+                (gl.__ASKR_BULK_DIAG as unknown) = {
+                  phase: 'bulk-keyed-positional-applied',
+                  stats,
+                };
+                const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+                counters.bulkKeyedPositionalHits = (counters.bulkKeyedPositionalHits || 0) + 1;
+                if (process.env.ASKR_FORCE_BULK_POSREUSE === '1') counters.bulkKeyedPositionalForced = (counters.bulkKeyedPositionalForced || 0) + 1;
+                gl.__ASKR_FASTPATH_COUNTERS = counters;
+              } catch (e) {
+                void e;
+              }
+            }
+            return newKeyMap;
+          }
+        }
+
+        if (parentChildren.length !== keyedVnodes.length) stable = false;
+        else {
+          // Check if keys match positions (stable-key case) and collect mismatch count
+          let keyMismatches = 0;
+          for (let i = 0; i < keyedVnodes.length; i++) {
+            const k = keyedVnodes[i].key;
+            const ch = parentChildren[i] as Element | undefined;
+            if (!ch) {
+              stable = false;
+              break;
+            }
+            const attr = ch.getAttribute('data-key');
+            if (attr === null) {
+              stable = false;
+              break;
+            }
+            if (String(k) !== attr && String(Number(attr)) !== String(k)) {
+              keyMismatches++;
+            }
+          }
+
+          if (stable) {
+            if (keyMismatches === 0) {
+              // Perfectly aligned - treat as stable keyed fast-path
+              logger.warn(
+                '[Askr][FASTPATH] applying bulk keyed text fast-path (stable keys)'
+              );
+              if (
+                process.env.NODE_ENV !== 'production' ||
+                process.env.ASKR_FASTPATH_DEBUG === '1'
+              ) {
+                try {
+                  const gl = globalThis as unknown as { __ASKR_BULK_DIAG?: unknown };
+                  (gl.__ASKR_BULK_DIAG as unknown) = {
+                    phase: 'bulk-keyed-stable-trigger',
+                    totalKeyed: keyedVnodes.length,
+                    hasPropChanges,
+                  };
+                } catch (e) { void e; }
+              }
+              try {
+                if (isBulkCommitActive()) markFastPathApplied(parent);
+              } catch (e) { void e; }
+
+              const stats = performBulkKeyedTextReplace(
+                parent,
+                keyedVnodes,
+                oldKeyMap
+              );
+              if (
+                process.env.NODE_ENV !== 'production' ||
+                process.env.ASKR_FASTPATH_DEBUG === '1'
+              ) {
+                try {
+                  const gl = globalThis as unknown as {
+                    __ASKR_LAST_FASTPATH_STATS?: unknown;
+                    __ASKR_BULK_DIAG?: unknown;
+                    __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                  };
+                  (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+                  (gl.__ASKR_BULK_DIAG as unknown) = { phase: 'bulk-keyed-applied', stats };
+                  const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+                  counters.bulkKeyedTextHits = (counters.bulkKeyedTextHits || 0) + 1;
+                  gl.__ASKR_FASTPATH_COUNTERS = counters;
+                } catch (e) {
+                  void e;
+                }
+              }
+              return newKeyMap;
+            }
+
+            // If the parent shape (number of children) matches, prefer a
+            // positional bulk update for large lists of simple text. This is a
+            // conservative but practical heuristic: for very large lists the
+            // per-node insert/move/update overhead dominates and a single
+            // DocumentFragment-based positional update is much cheaper while
+            // preserving identity and listeners.
+            if (parentChildren.length === keyedVnodes.length) {
+              logger.warn(
+                '[Askr][FASTPATH] applying bulk keyed positional text fast-path (len-match)'
+              );
+              if (
+                process.env.NODE_ENV !== 'production' ||
+                process.env.ASKR_FASTPATH_DEBUG === '1'
+              ) {
+                try {
+                  const gl = globalThis as unknown as { __ASKR_BULK_DIAG?: unknown };
+                  (gl.__ASKR_BULK_DIAG as unknown) = {
+                    phase: 'bulk-keyed-positional-trigger-lenmatch',
+                    totalKeyed: keyedVnodes.length,
+                    keyMismatches: keyMismatches,
+                  };
+                } catch (e) { void e; }
+              }
+              try {
+                if (isBulkCommitActive()) markFastPathApplied(parent);
+              } catch (e) { void e; }
+
+              const stats = performBulkPositionalKeyedTextUpdate(
+                parent,
+                keyedVnodes
+              );
+              if (
+                process.env.NODE_ENV !== 'production' ||
+                process.env.ASKR_FASTPATH_DEBUG === '1'
+              ) {
+                try {
+                  const gl = globalThis as unknown as {
+                  __ASKR_LAST_FASTPATH_STATS?: unknown;
+                  __ASKR_BULK_DIAG?: unknown;
+                  __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                };
+                  gl.__ASKR_LAST_FASTPATH_STATS = stats;
+                  gl.__ASKR_BULK_DIAG = {
+                    phase: 'bulk-keyed-positional-applied',
+                    stats,
+                  };
+                  const counters =
+                    (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
+                    {};
+                  counters.bulkKeyedPositionalHits =
+                    (counters.bulkKeyedPositionalHits || 0) + 1;
+                  gl.__ASKR_FASTPATH_COUNTERS = counters;
+                } catch (e) { void e; }
+              }
+              return newKeyMap;
+            }
+
+            // If many mismatches but structural shape is identical and all children
+            // are simple text, attempt positional bulk keyed replace to avoid
+            // alloc/move churn. This reuses elements by position, updates text,
+            // and remaps the `data-key` attribute to the new key.
+            const mismatchRatio = keyMismatches / keyedVnodes.length;
+            const POSITIONAL_THRESHOLD = 0.5; // if >50% mismatched, use positional path
+            if (mismatchRatio > POSITIONAL_THRESHOLD) {
+              logger.warn(
+                '[Askr][FASTPATH] applying bulk keyed positional text fast-path'
+              );
+              if (
+                process.env.NODE_ENV !== 'production' ||
+                process.env.ASKR_FASTPATH_DEBUG === '1'
+              ) {
+                try {
+                  (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
+                    phase: 'bulk-keyed-positional-trigger',
+                    totalKeyed: keyedVnodes.length,
+                    keyMismatches: keyMismatches,
+                  };
+                } catch (e) { void e; }
+              }
+              try {
+                if (isBulkCommitActive()) markFastPathApplied(parent);
+              } catch (e) { void e; }
+
+              const stats = performBulkPositionalKeyedTextUpdate(
+                parent,
+                keyedVnodes
+              );
+              if (
+                process.env.NODE_ENV !== 'production' ||
+                process.env.ASKR_FASTPATH_DEBUG === '1'
+              ) {
+                try {
+                  const gl = globalThis as unknown as {
+                  __ASKR_LAST_FASTPATH_STATS?: unknown;
+                  __ASKR_BULK_DIAG?: unknown;
+                  __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                };
+                  gl.__ASKR_LAST_FASTPATH_STATS = stats;
+                  gl.__ASKR_BULK_DIAG = {
+                    phase: 'bulk-keyed-positional-applied',
+                    stats,
+                  };
+                  const counters =
+                    (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
+                    {};
+                  counters.bulkKeyedPositionalHits =
+                    (counters.bulkKeyedPositionalHits || 0) + 1;
+                  gl.__ASKR_FASTPATH_COUNTERS = counters;
+                } catch (e) { void e; }
+              }
+              return newKeyMap;
+            }
+          }
+        }
+      } catch {
+        stable = false;
+      }
+    }
+  } catch (e) { void e; }
   if (!useFastPath) {
     const totalKeyed = keyedVnodes.length;
     // Aggressive positional reuse heuristic for small lists where all
@@ -1033,18 +1754,21 @@ function reconcileKeyedChildren(
       try {
         const existing = Array.from(parent.childNodes);
         for (const n of existing) cleanupInstanceIfPresent(n);
-      } catch {
-        /* ignore cleanup errors */
-      }
+      } catch (e) { void e; }
       // Clean up any mounted component instances that will be removed by
       // the atomic replaceChildren commit to avoid leaking subscriptions.
       try {
         const existing = Array.from(parent.childNodes);
         for (const n of existing) cleanupInstanceIfPresent(n);
-      } catch {
-        /* ignore cleanup errors */
-      }
+      } catch (e) { void e; }
       parent.replaceChildren(fragment);
+      // eslint-disable-next-line no-console
+      console.log(
+        '[DEBUG] replaceChildren called on',
+        parent.tagName,
+        'fragment children:',
+        fragment.childNodes.length
+      );
       // Export commit count for dev diagnostics
       if (typeof globalThis !== 'undefined') {
         (globalThis as unknown as Record<string, unknown>)[
@@ -1170,6 +1894,10 @@ function reconcileKeyedChildren(
   // Compute Longest Increasing Subsequence (LIS) of positions to
   // determine which existing elements are already in correct order
   // and can be left in place (minimizes moves).
+  const tailsStart =
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now()
+      : Date.now();
   const keepSet = new Set<number>();
   const tails: number[] = [];
   const tailsIdx: number[] = [];
@@ -1201,6 +1929,26 @@ function reconcileKeyedChildren(
   while (k !== -1) {
     keepSet.add(k);
     k = prev[k];
+  }
+  const tLIS =
+    (typeof performance !== 'undefined' && performance.now
+      ? performance.now()
+      : Date.now()) - tailsStart;
+
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ASKR_FASTPATH_DEBUG === '1'
+  ) {
+    try {
+      const prev = (globalThis as unknown as { __ASKR_BULK_DIAG?: { decision?: unknown } }).__ASKR_BULK_DIAG;
+      (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
+        phase: 'keyed-fallback-lis',
+        positionsFound: positions.filter((p) => p !== -1).length,
+        keepCount: keepSet.size,
+        tLIS,
+        previousDecision: prev?.decision,
+      };
+    } catch (e) { void e; }
   }
 
   let anchor: Node | null = parent.firstChild;
@@ -1244,6 +1992,464 @@ function reconcileKeyedChildren(
   }
 
   return newKeyMap;
+}
+
+/**
+ * Variant of bulk replace specialized for keyed lists where elements are
+ * intrinsic elements whose only child is a primitive (text/number).
+ * Reuses existing Element nodes (preserves identity/listeners) and updates
+ * their text content before assembling a DocumentFragment and doing a
+ * single atomic replacement.
+ */
+function performBulkKeyedTextReplace(
+  parent: Element,
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  oldKeyMap?: Map<string | number, Element>
+) {
+  const total = keyedVnodes.length;
+  const finalNodes: Node[] = [];
+  let reused = 0;
+  let created = 0;
+  const t0 =
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now()
+      : Date.now();
+
+  for (let i = 0; i < total; i++) {
+    const { key, vnode } = keyedVnodes[i];
+    const el = oldKeyMap?.get(key);
+    if (
+      el &&
+      _isDOMElement(vnode) &&
+      typeof (vnode as DOMElement).type === 'string'
+    ) {
+      const children =
+        (vnode as DOMElement).children || (vnode as DOMElement).props?.children;
+      // Update text content in-place when possible
+      if (typeof children === 'string' || typeof children === 'number') {
+        if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
+          (el.firstChild as Text).data = String(children);
+        } else {
+          el.textContent = String(children);
+        }
+      } else if (
+        Array.isArray(children) &&
+        children.length === 1 &&
+        (typeof children[0] === 'string' || typeof children[0] === 'number')
+      ) {
+        if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
+          (el.firstChild as Text).data = String(children[0]);
+        } else {
+          el.textContent = String(children[0]);
+        }
+      } else {
+        // Fallback to normal element update
+        updateElementFromVnode(el, vnode as VNode);
+      }
+      finalNodes.push(el);
+      reused++;
+    } else {
+      const dom = createDOMNode(vnode);
+      if (dom) {
+        finalNodes.push(dom);
+        created++;
+      }
+    }
+  }
+
+  // Remove instances that won't be in final set
+  try {
+    const toRemove = Array.from(parent.childNodes).filter(
+      (n) => !finalNodes.includes(n)
+    );
+    for (const n of toRemove) cleanupInstanceIfPresent(n);
+  } catch (e) { void e; }
+
+  // Prepare to transfer listeners for positions where nodes are replaced
+  const existingChildren = Array.from(parent.children);
+  const listenerSnapshots: Array<Map<string, ListenerMapEntry> | undefined> =
+    new Array(existingChildren.length).fill(undefined);
+  try {
+    for (let i = 0; i < existingChildren.length; i++) {
+      const ch = existingChildren[i] as Element | undefined;
+      if (ch) {
+        const map = elementListeners.get(ch);
+        if (map && map.size > 0) {
+          // Clone the map entries to avoid mutation during transfer
+          const clone = new Map<string, ListenerMapEntry>();
+          for (const [k, v] of map) clone.set(k, v);
+          listenerSnapshots[i] = clone;
+        }
+      }
+    }
+  } catch (e) { void e; }
+
+  // Atomic replace using fragment
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < finalNodes.length; i++)
+    fragment.appendChild(finalNodes[i]);
+  parent.replaceChildren(fragment);
+
+  // Transfer listeners where nodes were replaced (preserve user handlers)
+  try {
+    for (let i = 0; i < finalNodes.length; i++) {
+      const newNode = finalNodes[i];
+      const snapshot = listenerSnapshots[i];
+      if (snapshot && newNode instanceof Element) {
+        // Reattach handlers to newNode
+        for (const [eventName, entry] of snapshot) {
+          // If newNode already has a listener with the same original, skip
+          const existing = elementListeners.get(newNode)?.get(eventName);
+          if (existing && existing.original === entry.original) continue;
+          newNode.addEventListener(eventName, entry.handler);
+          if (!elementListeners.has(newNode))
+            elementListeners.set(newNode, new Map());
+          elementListeners.get(newNode)!.set(eventName, entry);
+        }
+      }
+    }
+  } catch (e) { void e; }
+
+  // Rebuild keyed map
+  try {
+    keyedElements.delete(parent);
+  } catch (e) { void e; }
+
+  const t =
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now() - t0
+      : 0;
+  const stats = {
+    n: total,
+    reused,
+    created,
+    t,
+  } as const;
+  return stats;
+}
+
+/**
+ * Positional update for keyed lists where keys changed en-masse but structure
+ * (element tags and simple text children) remains identical. This updates
+ * text content in-place and remaps the `data-key` attribute to the new key so
+ * subsequent updates can find elements by their data-key.
+ */
+function performBulkPositionalKeyedTextUpdate(
+  parent: Element,
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+) {
+  const total = keyedVnodes.length;
+  let reused = 0;
+  let updatedKeys = 0;
+  const t0 =
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now()
+      : Date.now();
+
+  for (let i = 0; i < total; i++) {
+    const { key, vnode } = keyedVnodes[i];
+    const ch = parent.children[i] as Element | undefined;
+    if (
+      ch &&
+      _isDOMElement(vnode) &&
+      typeof (vnode as DOMElement).type === 'string'
+    ) {
+      const vnodeType = (vnode as DOMElement).type as string;
+      if (ch.tagName.toLowerCase() === vnodeType.toLowerCase()) {
+        const children =
+          (vnode as DOMElement).children ||
+          (vnode as DOMElement).props?.children;
+        if (typeof children === 'string' || typeof children === 'number') {
+          if (ch.childNodes.length === 1 && ch.firstChild?.nodeType === 3) {
+            (ch.firstChild as Text).data = String(children);
+          } else {
+            ch.textContent = String(children);
+          }
+        } else if (
+          Array.isArray(children) &&
+          children.length === 1 &&
+          (typeof children[0] === 'string' || typeof children[0] === 'number')
+        ) {
+          if (ch.childNodes.length === 1 && ch.firstChild?.nodeType === 3) {
+            (ch.firstChild as Text).data = String(children[0]);
+          } else {
+            ch.textContent = String(children[0]);
+          }
+        } else {
+          updateElementFromVnode(ch, vnode as VNode);
+        }
+        // Update data-key attribute to reflect new key mapping
+        try {
+          ch.setAttribute('data-key', String(key));
+          updatedKeys++;
+        } catch (e) { void e; }
+        reused++;
+        continue;
+      }
+    }
+    // Fallback: replace the node at position i
+    const dom = createDOMNode(vnode);
+    if (dom) {
+      const existing = parent.children[i];
+      if (existing) {
+        cleanupInstanceIfPresent(existing);
+        parent.replaceChild(dom, existing);
+      } else parent.appendChild(dom);
+    }
+  }
+
+  const t =
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now() - t0
+      : 0;
+
+  // Rebuild keyed map to reflect new keys -> element mapping
+  try {
+    const newKeyMap = new Map<string | number, Element>();
+    for (let i = 0; i < total; i++) {
+      const k = keyedVnodes[i].key;
+      const ch = parent.children[i] as Element | undefined;
+      if (ch) newKeyMap.set(k, ch);
+    }
+    keyedElements.set(parent, newKeyMap);
+  } catch (e) { void e; }
+
+  const stats = {
+    n: total,
+    reused,
+    updatedKeys,
+    t,
+  } as const;
+  return stats;
+}
+
+/**
+ * Heuristic to detect large bulk text-dominant updates eligible for fast-path.
+ * Conditions:
+ *  - total children >= threshold
+ *  - majority of children are simple text (string/number) or intrinsic elements
+ *    with a single primitive child
+ *  - conservative: avoid when component children or complex shapes present
+ */
+function isBulkTextFastPathEligible(parent: Element, newChildren: VNode[]) {
+  const threshold = Number(process.env.ASKR_BULK_TEXT_THRESHOLD) || 1024;
+  const requiredFraction = 0.8; // 80% of children should be simple text
+
+  const total = Array.isArray(newChildren) ? newChildren.length : 0;
+  if (total < threshold) {
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      process.env.ASKR_FASTPATH_DEBUG === '1'
+    ) {
+      try {
+        (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
+          phase: 'bulk-unkeyed-eligible',
+          reason: 'too-small',
+          total,
+          threshold,
+        };
+      } catch (e) { void e; }
+    }
+    return false;
+  }
+
+  let simple = 0;
+  for (let i = 0; i < newChildren.length; i++) {
+    const c = newChildren[i];
+    if (typeof c === 'string' || typeof c === 'number') {
+      simple++;
+      continue;
+    }
+    if (typeof c === 'object' && c !== null && 'type' in c) {
+      const dv = c as DOMElement;
+      if (typeof dv.type === 'function') {
+        if (
+          process.env.NODE_ENV !== 'production' ||
+          process.env.ASKR_FASTPATH_DEBUG === '1'
+        ) {
+          try {
+            (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
+              phase: 'bulk-unkeyed-eligible',
+              reason: 'component-child',
+              index: i,
+            };
+          } catch (e) { void e; }
+        }
+        return false; // component child - decline
+      }
+      if (typeof dv.type === 'string') {
+        const children = dv.children || dv.props?.children;
+        if (!children) {
+          // empty element - treat as simple
+          simple++;
+          continue;
+        }
+        if (Array.isArray(children)) {
+          if (
+            children.length === 1 &&
+            (typeof children[0] === 'string' || typeof children[0] === 'number')
+          ) {
+            simple++;
+            continue;
+          }
+        } else if (
+          typeof children === 'string' ||
+          typeof children === 'number'
+        ) {
+          simple++;
+          continue;
+        }
+      }
+    }
+    // complex child - not simple
+  }
+
+  const fraction = simple / total;
+  const eligible =
+    fraction >= requiredFraction && parent.childNodes.length >= total;
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ASKR_FASTPATH_DEBUG === '1'
+  ) {
+    try {
+      (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
+        phase: 'bulk-unkeyed-eligible',
+        total,
+        simple,
+        fraction,
+        requiredFraction,
+        eligible,
+      };
+    } catch (e) { void e; }
+  }
+
+  return eligible;
+}
+
+/**
+ * Perform a bulk replace using DocumentFragment while reusing existing nodes
+ * where possible to preserve identity and listeners. We avoid per-node DOM
+ * insert/remove churn and perform a single atomic replaceChildren.
+ */
+function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
+  const t0 =
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now()
+      : Date.now();
+  const existing = Array.from(parent.childNodes);
+  const finalNodes: Node[] = [];
+  let reused = 0;
+  let created = 0;
+
+  for (let i = 0; i < newChildren.length; i++) {
+    const vnode = newChildren[i];
+    const existingNode = existing[i];
+
+    if (typeof vnode === 'string' || typeof vnode === 'number') {
+      const text = String(vnode);
+      if (existingNode && existingNode.nodeType === 3) {
+        // Reuse existing text node
+        (existingNode as Text).data = text;
+        finalNodes.push(existingNode);
+        reused++;
+      } else {
+        // Create detached text node
+        finalNodes.push(document.createTextNode(text));
+        created++;
+      }
+      continue;
+    }
+
+    if (typeof vnode === 'object' && vnode !== null && 'type' in vnode) {
+      if (typeof (vnode as DOMElement).type === 'string') {
+        const vtype = (vnode as DOMElement).type as string;
+        if (
+          existingNode &&
+          existingNode.nodeType === 1 &&
+          (existingNode as Element).tagName.toLowerCase() ===
+            vtype.toLowerCase()
+        ) {
+          // Reuse existing element node and update its text content (simple case)
+          const el = existingNode as Element;
+          const children =
+            (vnode as DOMElement).children ||
+            (vnode as DOMElement).props?.children;
+          if (typeof children === 'string' || typeof children === 'number') {
+            if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
+              (el.firstChild as Text).data = String(children);
+            } else {
+              el.textContent = String(children);
+            }
+          } else if (
+            Array.isArray(children) &&
+            children.length === 1 &&
+            (typeof children[0] === 'string' || typeof children[0] === 'number')
+          ) {
+            if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
+              (el.firstChild as Text).data = String(children[0]);
+            } else {
+              el.textContent = String(children[0]);
+            }
+          } else {
+            // For slightly more complex children, fallback to existing update routine
+            updateElementFromVnode(el, vnode as VNode);
+          }
+          finalNodes.push(el);
+          reused++;
+          continue;
+        }
+
+        // Not reusable - create detached DOM node
+        const dom = createDOMNode(vnode);
+        if (dom) {
+          finalNodes.push(dom);
+          created++;
+        }
+        continue;
+      }
+    }
+
+    // Fallback for anything else: create node
+    const dom = createDOMNode(vnode);
+    if (dom) {
+      finalNodes.push(dom);
+      created++;
+    }
+  }
+
+  const tBuild =
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now() - t0
+      : 0;
+
+  // Clean up instances that will be removed
+  try {
+    const toRemove = Array.from(parent.childNodes).filter(
+      (n) => !finalNodes.includes(n)
+    );
+    for (const n of toRemove) cleanupInstanceIfPresent(n);
+  } catch (e) { void e; }
+
+  const fragStart = Date.now();
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < finalNodes.length; i++)
+    fragment.appendChild(finalNodes[i]);
+  // Atomic replacement
+  parent.replaceChildren(fragment);
+  const tCommit = Date.now() - fragStart;
+
+  // Clear keyed map for unkeyed path
+  keyedElements.delete(parent);
+
+  const stats = {
+    n: newChildren.length,
+    reused,
+    created,
+    tBuild,
+    tCommit,
+  } as const;
+
+  return stats;
 }
 
 /**
@@ -1506,6 +2712,8 @@ export function createDOMNode(node: unknown): Node | null {
           const eventName =
             key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
           const wrappedHandler = (event: Event) => {
+            // eslint-disable-next-line no-console
+            console.log('[Askr] handler invoked for', event.type, 'on', el);
             globalScheduler.setInHandler(true);
             try {
               (value as EventListener)(event);

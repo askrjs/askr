@@ -19,6 +19,7 @@ import {
 } from './component';
 import { invariant } from '../dev/invariant';
 import { logger } from '../dev/logger';
+import { isBulkCommitActive } from './fastlane';
 
 /**
  * State value holder - callable to read, has set method to update
@@ -159,6 +160,17 @@ export function state<T>(initialValue: T): State<T> {
     // Skip work if value didn't change
     if (Object.is(value, newValue)) return;
 
+    // If a bulk commit is active, update backing value only and DO NOT notify or enqueue.
+    // Bulk commits must be side-effect silent with respect to runtime notifications.
+    if (isBulkCommitActive()) {
+      value = newValue;
+      // eslint-disable-next-line no-console
+      console.log(
+        '[DEBUG][state] bulk commit active - updated backing value only'
+      );
+      return;
+    }
+
     // INVARIANT: Update the value
     value = newValue;
 
@@ -183,6 +195,8 @@ export function state<T>(initialValue: T): State<T> {
         // observed the state in their most recent render.
         if (subInst.lastRenderToken !== token) continue;
         if (!subInst.hasPendingUpdate) {
+          // Log enqueue decision for subInst
+
           subInst.hasPendingUpdate = true;
           const subTask = subInst._pendingFlushTask;
           if (subTask) globalScheduler.enqueue(subTask);
@@ -200,8 +214,16 @@ export function state<T>(initialValue: T): State<T> {
     const readersMapForOwner = readersMap;
     const ownerRecordedToken = readersMapForOwner?.get(instance);
     const ownerShouldEnqueue =
-      ownerRecordedToken !== undefined &&
-      instance.lastRenderToken === ownerRecordedToken;
+      // Normal case: owner read this state in last committed render
+      (ownerRecordedToken !== undefined &&
+        instance.lastRenderToken === ownerRecordedToken) ||
+      // Fallback: owner token missing but owner is mounted and the owner
+      // itself previously read this state in its last committed render.
+      // This avoids enqueuing the owner merely because some other component
+      // read the state (which would cause extra re-renders).
+      (ownerRecordedToken === undefined &&
+        instance.mounted &&
+        instance._lastReadStates?.has(read as State<T>) === true);
 
     if (ownerShouldEnqueue && !instance.hasPendingUpdate) {
       instance.hasPendingUpdate = true;
