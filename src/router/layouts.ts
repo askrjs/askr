@@ -11,7 +11,7 @@
  * const parent = layout(Parent);
  * route('/parent', () => parent(<div class="child">C</div>));
  */
-export type Component<P = {}> = (props: P & { children?: unknown }) => unknown;
+export type Component<P = object> = (props: P & { children?: unknown }) => unknown;
 
 export function layout<P>(Layout: Component<P>) {
   return (children?: unknown) =>

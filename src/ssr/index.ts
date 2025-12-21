@@ -15,12 +15,14 @@ import {
   createRenderContext,
   runWithSSRContext,
   type RenderContext,
-  SSRDataMissingError,
+  type SSRData,
 } from './context';
 import {
   createComponentInstance,
   setCurrentComponentInstance,
+  getCurrentComponentInstance,
 } from '../runtime/component';
+import type { ComponentFunction } from '../runtime/component';
 
 export { SSRDataMissingError } from './context';
 
@@ -148,7 +150,7 @@ function renderChildSync(child: unknown, ctx: RenderContext): string {
   if (typeof child === 'number') return escapeText(String(child));
   if (child === null || child === undefined || child === false) return '';
   if (typeof child === 'object' && child !== null && 'type' in child) {
-    return renderNodeSync(child as JSXElement | VNode, ctx);
+    return renderNodeSync(child as unknown as JSXElement | VNode, ctx);
   }
   return '';
 }
@@ -211,7 +213,7 @@ function executeComponentSync(
 
   try {
     if (process.env.NODE_ENV !== 'production') {
-      (Math as any).random = () => {
+      (Math as unknown as { random: () => number }).random = () => {
         throw new Error(
           'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
         );
@@ -226,10 +228,10 @@ function executeComponentSync(
     // Create a temporary, lightweight component instance so runtime APIs like
     // `state()` and `route()` can be called during SSR render. We avoid mounting
     // or side-effects by not attaching the instance to any DOM target.
-    const prev = (setCurrentComponentInstance as any)(undefined);
+    const prev = getCurrentComponentInstance();
     const temp = createComponentInstance(
       'ssr-temp',
-      component as any,
+      component as unknown as ComponentFunction,
       (props || {}) as Props,
       null
     );
@@ -248,7 +250,7 @@ function executeComponentSync(
       setCurrentComponentInstance(prev);
     }
   } finally {
-    (Math as any).random = originalRandom;
+    (Math as unknown as { random: () => number }).random = originalRandom;
     (Date as unknown as { now: () => number }).now = originalDateNow;
   }
 }
@@ -263,13 +265,13 @@ export function renderToStringSync(
     props?: Record<string, unknown>
   ) => VNode | JSXElement | string | number | null,
   props?: Record<string, unknown>,
-  options?: { seed?: number }
+  options?: { seed?: number; data?: SSRData }
 ): string {
   const seed = options?.seed ?? 12345;
   // Start render-phase keying (aligns with collectResources)
   const ctx = createRenderContext(seed);
   // Provide optional SSR data via options.data
-  startRenderPhase((options as any)?.data ?? null);
+  startRenderPhase(options?.data ?? null);
   try {
     const node = executeComponentSync(component as Component, props || {}, ctx);
     return renderNodeSync(node, ctx);
@@ -283,7 +285,7 @@ export function renderToStringSync(
 export function renderToStringSyncForUrl(opts: {
   url: string;
   routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
-  options?: { seed?: number };
+  options?: { seed?: number; data?: SSRData };
 }): string {
   const { url, routes, options } = opts;
   // Register routes synchronously using route() (already available in module scope)
@@ -310,7 +312,7 @@ export function renderToStringSyncForUrl(opts: {
   const seed = options?.seed ?? 12345;
   const ctx = createRenderContext(seed);
   // Start render-phase keying (aligns with collectResources)
-  startRenderPhase((options as any)?.data ?? null);
+  startRenderPhase(options?.data ?? null);
   try {
     const node = executeComponentSync(
       resolved.handler as Component,
@@ -326,8 +328,6 @@ export function renderToStringSyncForUrl(opts: {
 // --- Streaming sink-based renderer (v2) --------------------------------------------------
 import { StringSink, StreamSink } from './sink';
 import { renderNodeToSink } from './render';
-import type { SSRData } from './context';
-import { mergeRouteProps } from './context';
 import {
   startRenderPhase,
   stopRenderPhase,
@@ -342,12 +342,19 @@ export type SSRRoute = {
   namespace?: string;
 };
 
+export function renderToString(component: (props?: Record<string, unknown>) => VNode | JSXElement | string | number | null): string;
 export function renderToString(opts: {
   url: string;
   routes: SSRRoute[];
   seed?: number;
   data?: SSRData;
-}): string {
+}): string;
+export function renderToString(arg: unknown): string {
+  // Convenience: if a component function is passed, delegate to sync render
+  if (typeof arg === 'function') {
+    return renderToStringSync(arg as (props?: Record<string, unknown>) => VNode | JSXElement | string | number | null);
+  }
+  const opts = arg as { url: string; routes: SSRRoute[]; seed?: number; data?: SSRData };
   const sink = new StringSink();
   renderToSinkInternal({ ...opts, sink });
   sink.end();
@@ -402,14 +409,13 @@ function renderToSinkInternal(opts: {
     signal: undefined as AbortSignal | undefined,
   };
 
-  // Render the resolved handler with params merged into props
-  const props = mergeRouteProps(undefined, resolved.params);
-  const node = (resolved.handler as any)(props);
+  // Render the resolved handler with params
+  const node = resolved.handler(resolved.params) as VNode | JSXElement | string | number | null;
 
   // Start render-phase keying so resource() can lookup resolved `data` by key
   startRenderPhase(data || null);
   try {
-    renderNodeToSink(node as any, sink as any, ctx);
+    renderNodeToSink(node, sink, ctx);
   } finally {
     stopRenderPhase();
   }

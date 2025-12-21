@@ -123,7 +123,7 @@ export function defineContext<T>(defaultValue: T): Context<T> {
       return {
         type: ContextScopeComponent,
         props: { key, value: props.value, children: props.children },
-      } as JSXElement;
+      } as unknown as JSXElement;
     },
   };
 }

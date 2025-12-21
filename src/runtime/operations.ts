@@ -1,6 +1,7 @@
 import {
   getCurrentComponentInstance,
   registerMountOperation,
+  type ComponentInstance,
 } from './component';
 import { logger } from '../dev/logger';
 import {
@@ -42,11 +43,15 @@ export function resource<T>(
   deps: unknown[] = []
 ): DataResult<T> {
   const instance = getCurrentComponentInstance();
+  // Create a non-null alias early so it can be used in nested closures
+  // without TypeScript complaining about possible null access.
+  const inst = instance as ComponentInstance;
+
   if (!instance) {
     // Allow calling resource() during collection prepass even outside a
     // component render; register a declarative intent instead of executing.
     if (isCollecting()) {
-      const key = registerResourceIntent(fn as any, deps);
+      registerResourceIntent(fn as (opts: { signal?: AbortSignal }) => Promise<unknown> | unknown, deps);
       return {
         value: null,
         pending: true,
@@ -89,6 +94,8 @@ export function resource<T>(
     } as DataResult<T>;
   }
 
+
+
   // Internal persistent container for this resource
   type Internal = {
     value: T | null;
@@ -125,7 +132,7 @@ export function resource<T>(
       s._snapshot.pending = true;
       s._snapshot.error = null;
       // Start immediately if mounted, otherwise register for mount
-      if (instance.mounted) {
+      if (inst.mounted) {
         startExecution();
       } else {
         registerMountOperation(() => {
@@ -150,7 +157,7 @@ export function resource<T>(
   // If a collection prepass is active, register intent and return a placeholder
   if (isCollecting()) {
     // Register the intent with a stable key and don't execute the function.
-    const key = registerResourceIntent(fn as any, deps);
+    registerResourceIntent(fn as (opts: { signal?: AbortSignal }) => Promise<unknown> | unknown, deps);
     // Provide a snapshot-like object (pending) so consuming code during collection
     // can safely call value/pending/error but no real data is present.
     return {
@@ -187,9 +194,9 @@ export function resource<T>(
   try {
     logger.debug(
       '[Askr] resource() called in instance',
-      instance.id,
+      inst.id,
       'ssr?',
-      !!instance.ssr
+      !!inst.ssr
     );
   } catch {
     // ignore logging errors
@@ -222,7 +229,7 @@ export function resource<T>(
 
       try {
         // SSR: disallow async execution
-        if (instance.ssr) {
+        if (inst.ssr) {
           result = withAsyncResourceContext(resourceFrame, () =>
             fn({ signal: controller.signal })
           );
@@ -301,7 +308,7 @@ export function resource<T>(
               try {
                 logger.debug(
                   '[Askr] resource resolved for',
-                  instance.id,
+                  inst.id,
                   'value:',
                   val
                 );
@@ -312,13 +319,13 @@ export function resource<T>(
               try {
                 logger.debug(
                   '[Askr] resource enqueue notifyUpdate for',
-                  instance.id
+                  inst.id
                 );
               } catch {
                 // ignore logging errors
               }
               // Enqueue the prebound helper to avoid allocating a closure per resolution
-              globalScheduler.enqueue(instance._enqueueRun!);
+              globalScheduler.enqueue(inst._enqueueRun!);
             }
           })
         )
@@ -341,14 +348,14 @@ export function resource<T>(
             } catch (e) {
               void e;
             }
-            globalScheduler.enqueue(instance._enqueueRun!);
+            globalScheduler.enqueue(inst._enqueueRun!);
           })
         );
     };
 
     // For non-root instances defer the actual execution one tick so sibling
     // renders can update captured snapshots
-    if (!instance.isRoot) {
+    if (!inst.isRoot) {
       // IMPORTANT: use a microtask boundary so state updates performed
       // immediately after mount (in the same call stack) can settle before the
       // resource function runs its initial synchronous reads.
@@ -382,10 +389,7 @@ export function resource<T>(
   try {
     logger.debug(
       '[Askr] resource deps check:',
-      instance.id,
-      'prevDeps:',
-      s._deps,
-      'newDeps:',
+      inst.id,
       deps,
       'changed:',
       depsChanged
@@ -405,7 +409,7 @@ export function resource<T>(
     s.error = null;
 
     // SSR: execute synchronously and disallow async resource fn
-    if (instance.ssr) {
+    if (inst.ssr) {
       try {
         const result = fn({ signal: new AbortController().signal });
         if (result instanceof Promise) {
@@ -437,7 +441,7 @@ export function resource<T>(
       return s._snapshot;
     } else {
       // Schedule startExecution to run when component mounts and ensure cleanup
-      if (instance.isRoot) {
+      if (inst.isRoot) {
         registerMountOperation(() => {
           // Defer starting execution to the scheduler so sibling re-renders that
           // occur immediately after mount can update captured snapshots first.
@@ -457,10 +461,10 @@ export function resource<T>(
         globalScheduler.enqueue(() => {
           startExecution();
         });
-        // Register cleanup directly on instance.cleanupFns so cleanupComponent
+        // Register cleanup directly on inst.cleanupFns so cleanupComponent
         // will abort controllers on unmount even if mount ops were not executed.
         const cur = internalState();
-        instance.cleanupFns.push(() => {
+        inst.cleanupFns.push(() => {
           cur._controller?.abort();
         });
       }

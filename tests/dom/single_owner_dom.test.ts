@@ -8,9 +8,9 @@ describe('Single-owner DOM invariant', () => {
     const { container, cleanup } = createTestContainer();
     try {
       const A = () =>
-        ({ type: 'div', props: { id: 'root' }, children: ['A'] }) as JSXElement;
+        ({ type: 'div', props: { id: 'root' }, children: ['A'] }) as unknown as JSXElement;
       const B = () =>
-        ({ type: 'div', props: { id: 'root' }, children: ['B'] }) as JSXElement;
+        ({ type: 'div', props: { id: 'root' }, children: ['B'] }) as unknown as JSXElement;
 
       // Mount A
       createIsland({ root: container, component: A });

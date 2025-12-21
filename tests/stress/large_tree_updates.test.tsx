@@ -49,7 +49,7 @@ describe('large tree updates (STRESS)', () => {
 
     createIsland({
       root: container,
-      component: () => Nested(100) as JSXElement,
+      component: () => Nested(100) as unknown as JSXElement,
     });
     flushScheduler();
 

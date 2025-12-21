@@ -339,8 +339,8 @@ export const injectFailure = {
  * Only for SSR HTML strings and error messages
  */
 
-export function captureSSRSnapshot(component: SSRComponent): string {
-  return renderToStringSync(component as any);
+export async function captureSSRSnapshot(component: SSRComponent): Promise<string> {
+  return renderToStringSync(component as unknown as (props?: Record<string, unknown>) => unknown);
 }
 
 /**

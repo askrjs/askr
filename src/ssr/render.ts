@@ -5,7 +5,7 @@ import { SSRInvariantError } from './errors';
 import { withSSRContext, type SSRContext } from './context';
 
 type VNode = {
-  type: string | Function;
+  type: string | Component;
   props?: Props;
   // Some JSX runtimes put children on `props.children`, others on `children`.
   children?: unknown[];
@@ -123,13 +123,14 @@ function renderAttrs(props?: Props): string {
 }
 
 function isVNodeLike(x: unknown): x is VNode | JSXElement {
-  return !!x && typeof x === 'object' && 'type' in (x as any);
+  return !!x && typeof x === 'object' && 'type' in (x as Record<string, unknown>);
 }
 
-function normalizeChildren(node: any): unknown[] {
+function normalizeChildren(node: unknown): unknown[] {
   // Prefer explicit node.children; fallback to props.children
-  const direct = Array.isArray(node?.children) ? node.children : null;
-  const fromProps = node?.props?.children;
+  const n = node as Record<string, unknown> | null | undefined;
+  const direct = Array.isArray(n?.children) ? (n?.children as unknown[]) : null;
+  const fromProps = (n?.props as Record<string, unknown> | undefined)?.children as unknown;
 
   const raw = direct ?? fromProps;
 
@@ -138,46 +139,25 @@ function normalizeChildren(node: any): unknown[] {
   return [raw];
 }
 
-function renderChildToSink(child: unknown, sink: RenderSink, ctx: SSRContext) {
-  if (child === null || child === undefined || child === false) return;
+// Note: renderChildToSink was removed in favor of direct renderNodeToSink inlined calls
 
-  if (typeof child === 'string') {
-    sink.write(escapeText(child));
-    return;
-  }
-  if (typeof child === 'number') {
-    sink.write(escapeText(String(child)));
-    return;
-  }
-
-  if (isVNodeLike(child)) {
-    renderNodeToSink(child as any, sink, ctx);
-    return;
-  }
-
-  // ignore unknown (symbols, functions, etc)
-}
 
 function renderChildrenToSink(
   children: unknown[],
   sink: RenderSink,
   ctx: SSRContext
 ) {
-  for (const c of children) renderChildToSink(c, sink, ctx);
+  for (const c of children) renderNodeToSink(c as VNode | JSXElement | string | number | null, sink, ctx);
 }
 
 function executeComponent(
-  type: Function,
+  type: Component,
   props: Props | undefined,
   ctx: SSRContext
 ): unknown {
   // Synchronous only. If a user returns a Promise, that's a hard error.
-  const res = (type as any)(props ?? {}, { signal: ctx.signal });
-  if (
-    res &&
-    typeof res === 'object' &&
-    typeof (res as any).then === 'function'
-  ) {
+  const res = type(props ?? {}, { signal: ctx.signal });
+  if (res && typeof res === 'object' && 'then' in res && typeof ((res as unknown) as PromiseLike<unknown>).then === 'function') {
     throw new SSRInvariantError(
       'SSR does not support async components. Return synchronously and preload data via SSR data prepass.'
     );
@@ -203,13 +183,12 @@ export function renderNodeToSink(
 
   if (!isVNodeLike(node)) return;
 
-  const type = (node as any).type;
-  const props = (node as any).props as Props | undefined;
+  const { type, props } = node as VNode;
 
   // Function component
   if (typeof type === 'function') {
-    const out = withSSRContext(ctx, () => executeComponent(type, props, ctx));
-    renderNodeToSink(out as any, sink, ctx);
+    const out = withSSRContext(ctx, () => executeComponent(type as Component, props, ctx));
+    renderNodeToSink(out as VNode | JSXElement | string | number | null, sink, ctx);
     return;
   }
 

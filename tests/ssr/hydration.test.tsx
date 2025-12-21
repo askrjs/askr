@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
 import { hydrateSPA } from '../../src/index';
-import { renderToStringSync } from '../../src/ssr';
+import { renderToStringSync, renderToString } from '../../src/ssr';
 import { renderToStringSyncForUrl, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
@@ -65,7 +65,7 @@ describe('hydration (SSR)', () => {
                 children: ['Click'],
               },
             ],
-          } as JSXElement);
+          } as unknown as JSXElement);
 
         // Server render
         const html = renderToString(() => Component());

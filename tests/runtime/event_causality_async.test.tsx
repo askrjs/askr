@@ -41,7 +41,7 @@ describe('Event causality across async boundaries', () => {
               children: ['inc'],
             },
           ],
-        } as JSXElement;
+        } as unknown as JSXElement;
       };
 
       createIsland({ root: container, component: Component });

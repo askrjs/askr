@@ -9,7 +9,7 @@ describe('async component execution (DEPRECATED)', () => {
 
     const AsyncComponent = async () => {
       await new Promise((r) => setTimeout(r, 1));
-      return { type: 'div', props: { children: ['ok'] } } as JSXElement;
+      return { type: 'div', props: { children: ['ok'] } } as unknown as JSXElement;
     };
 
     expect(() =>

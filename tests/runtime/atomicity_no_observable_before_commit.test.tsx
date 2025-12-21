@@ -21,7 +21,7 @@ describe('Atomicity: no observable work before commit', () => {
           type: 'button',
           props: { id: 'btn', onClick: () => (clicked = true) },
           children: ['Click'],
-        } as JSXElement;
+        } as unknown as JSXElement;
       };
 
       const Crash = () => {
@@ -29,7 +29,7 @@ describe('Atomicity: no observable work before commit', () => {
       };
 
       const Parent = () =>
-        ({ type: 'div', children: [Good(), Crash()] }) as JSXElement;
+        ({ type: 'div', children: [Good(), Crash()] }) as unknown as JSXElement;
 
       // Mount should throw
       expect(() =>

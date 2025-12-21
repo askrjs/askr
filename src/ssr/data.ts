@@ -1,4 +1,6 @@
 import type { SSRRoute } from './index';
+import type { SSRContext } from './context';
+import type { JSXElement } from '../jsx/types';
 
 export type ResourceDescriptor = {
   key: string;
@@ -79,14 +81,9 @@ export async function resolvePlan(
 ): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   for (const r of plan.resources) {
-    try {
-      const result = r.fn({});
-      const val = result instanceof Promise ? await result : result;
-      out[r.key] = val;
-    } catch (err) {
-      // propagate error
-      throw err;
-    }
+    const result = r.fn({});
+    const val = result instanceof Promise ? await result : result;
+    out[r.key] = val;
   }
   return out;
 }
@@ -125,7 +122,7 @@ export function collectResources(opts: {
   try {
     // Render the handler into a no-op sink to traverse components which will call
     // resource() and register intents via registerResourceIntent.
-    const ctx = {
+    const ctx: SSRContext = {
       url,
       seed: 1,
       data: undefined,
@@ -133,9 +130,9 @@ export function collectResources(opts: {
       signal: undefined as AbortSignal | undefined,
     };
     const props = { ...(resolved.params || {}) };
-    const node = (resolved.handler as any)(props);
+    const node = resolved.handler(props) as unknown as JSXElement | string | number | null;
     // Use the existing sink renderer to walk the tree
-    renderNodeToSink(node as any, new StringSink() as any, ctx as any);
+    renderNodeToSink(node, new StringSink(), ctx);
 
     // Stop collection and return plan
     const plan = stopCollection();
