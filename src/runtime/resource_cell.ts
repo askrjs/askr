@@ -1,6 +1,6 @@
 import { withAsyncResourceContext, type ContextFrame } from './context';
 import { logger } from '../dev/logger';
-import { SSRDataMissingError } from '../ssr/context';
+import { throwSSRDataMissing } from '../ssr/context';
 
 /**
  * Pure, component-agnostic ResourceCell state machine.
@@ -90,7 +90,7 @@ export class ResourceCell<U> {
 
     if (ssr) {
       // During SSR async results are disallowed
-      throw new SSRDataMissingError();
+      throwSSRDataMissing();
     }
 
     (result as Promise<U>)

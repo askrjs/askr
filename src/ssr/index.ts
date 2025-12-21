@@ -14,6 +14,7 @@ import type { Props } from '../shared/types';
 import {
   createRenderContext,
   runWithSSRContext,
+  throwSSRDataMissing,
   type RenderContext,
   type SSRData,
 } from './context';
@@ -174,7 +175,8 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   if (typeof type === 'function') {
     const result = executeComponentSync(type as Component, props, ctx);
     if (result instanceof Promise) {
-      throw new Error('SSR does not support async components');
+      // Use centralized SSR error to maintain a single failure mode
+      throwSSRDataMissing();
     }
     return renderNodeSync(result as VNode | JSXElement, ctx);
   }
@@ -241,7 +243,8 @@ function executeComponentSync(
       return runWithSSRContext(ctx, () => {
         const result = component((props || {}) as Props, { ssr: ctx });
         if (result instanceof Promise) {
-          throw new Error('SSR does not support async components');
+          // Use the centralized SSR error for async data/components during SSR
+          throwSSRDataMissing();
         }
         return result as VNode | JSXElement;
       });

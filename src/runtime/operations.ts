@@ -7,13 +7,12 @@ import { getCurrentContextFrame } from './context';
 import { ResourceCell } from './resource_cell';
 import { state } from './state';
 import { getDeriveCache } from '../shared/derive_cache';
-import { getCurrentSSRContext, SSRDataMissingError } from '../ssr/context';
 import {
-  isCollecting,
-  registerResourceIntent,
-  getCurrentRenderData,
-  getNextKey,
-} from '../ssr/data';
+  getCurrentSSRContext,
+  throwSSRDataMissing,
+  SSRDataMissingError,
+} from '../ssr/context';
+import { getCurrentRenderData, getNextKey } from '../ssr/data';
 
 // Memoization cache for derive() (centralized)
 
@@ -44,27 +43,12 @@ export function resource<T>(
   const inst = instance as ComponentInstance;
 
   if (!instance) {
-    // Allow calling resource() during collection prepass even outside a
-    // component render; register a declarative intent instead of executing.
-    if (isCollecting()) {
-      registerResourceIntent(
-        fn as (opts: { signal?: AbortSignal }) => Promise<unknown> | unknown,
-        deps
-      );
-      return {
-        value: null,
-        pending: true,
-        error: null,
-        refresh: () => {},
-      } as DataResult<T>;
-    }
-
     // If we're in a synchronous SSR render that has resolved data, use it.
     const renderData = getCurrentRenderData();
     if (renderData) {
       const key = getNextKey();
       if (!(key in renderData)) {
-        throw new SSRDataMissingError();
+        throwSSRDataMissing();
       }
       const val = renderData[key] as T;
       return {
@@ -78,13 +62,11 @@ export function resource<T>(
     // If we are in an SSR render pass without supplied data, throw for clarity.
     const ssrCtx = getCurrentSSRContext();
     if (ssrCtx) {
-      throw new SSRDataMissingError();
+      throwSSRDataMissing();
     }
 
-    // No active component instance and not in collection or SSR render with data.
-    // This can happen when a route handler calls `resource()` outside a component
-    // render during a non-collection server render — treat as benign and return
-    // a pending snapshot rather than throwing to allow final render to proceed.
+    // No active component instance and not in SSR render with data. Return a
+    // pending snapshot for non-SSR usage (e.g., runtime usage outside render).
     return {
       value: null,
       pending: true,
@@ -97,23 +79,6 @@ export function resource<T>(
   // to keep component wiring separate and ensure no component access here.
   // (See ./resource_cell.ts)
 
-  // If a collection prepass is active, register intent and return a placeholder
-  if (isCollecting()) {
-    // Register the intent with a stable key and don't execute the function.
-    registerResourceIntent(
-      fn as (opts: { signal?: AbortSignal }) => Promise<unknown> | unknown,
-      deps
-    );
-    // Provide a snapshot-like object (pending) so consuming code during collection
-    // can safely call value/pending/error but no real data is present.
-    return {
-      value: null,
-      pending: true,
-      error: null,
-      refresh: () => {},
-    } as DataResult<T>;
-  }
-
   // If we're in a synchronous SSR render that was supplied resolved data, use it
   const renderData = getCurrentRenderData();
   if (renderData) {
@@ -121,7 +86,7 @@ export function resource<T>(
     // the same incremental key generation to align resources.
     const key = getNextKey();
     if (!(key in renderData)) {
-      throw new SSRDataMissingError();
+      throwSSRDataMissing();
     }
 
     // Commit synchronous value from render data and return a stable snapshot

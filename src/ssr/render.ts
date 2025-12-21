@@ -1,8 +1,11 @@
 import type { JSXElement } from '../jsx/types';
 import type { Props } from '../shared/types';
 import type { RenderSink } from './sink';
-import { SSRInvariantError } from './errors';
-import { withSSRContext, type SSRContext } from './context';
+import {
+  withSSRContext,
+  type SSRContext,
+  throwSSRDataMissing,
+} from './context';
 
 type VNode = {
   type: string | Component;
@@ -170,9 +173,9 @@ function executeComponent(
     'then' in res &&
     typeof (res as unknown as PromiseLike<unknown>).then === 'function'
   ) {
-    throw new SSRInvariantError(
-      'SSR does not support async components. Return synchronously and preload data via SSR data prepass.'
-    );
+    // Use centralized SSR failure mode — async components are not allowed during
+    // synchronous SSR and must be pre-resolved by the developer.
+    throwSSRDataMissing();
   }
   return res;
 }

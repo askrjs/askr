@@ -342,7 +342,6 @@ export function evaluate(
                         oldKeyMap
                       );
                       keyedElements.set(firstChild, newKeyMap);
-
                     }
                   } catch (err) {
                     logger.warn(
@@ -355,7 +354,6 @@ export function evaluate(
                       oldKeyMap
                     );
                     keyedElements.set(firstChild, newKeyMap);
-
                   }
                 } else {
                   // Do reconciliation - this will reuse existing keyed elements
@@ -365,7 +363,6 @@ export function evaluate(
                     oldKeyMap
                   );
                   keyedElements.set(firstChild, newKeyMap);
-
                 }
               } catch (e) {
                 void e; // suppress unused variable lint
@@ -376,7 +373,6 @@ export function evaluate(
                   oldKeyMap
                 );
                 keyedElements.set(firstChild, newKeyMap);
-
               }
             } else {
               // Unkeyed - consider bulk text fast-path for large text-dominant updates
@@ -677,8 +673,6 @@ function reconcileKeyedChildren(
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> {
   const newKeyMap = new Map<string | number, Element>();
-
-
 
   // First pass: collect all keyed vnodes and match to existing elements
   const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
@@ -1751,7 +1745,6 @@ function reconcileKeyedChildren(
       if (process.env.NODE_ENV !== 'production') {
         // Extra debug to help tests detect the structural change and to aid
         // diagnosing spy/observer mismatches in test harnesses.
-
       }
       // Count commits explicitly in code (no prototype monkey-patching)
       let commitCount = 0;

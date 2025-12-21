@@ -77,6 +77,14 @@ export function runWithSSRContext<T>(ctx: RenderContext, fn: () => T): T {
   }
 }
 
+/**
+ * Centralized SSR enforcement helper — use this to throw a single, consistent
+ * error when async data is encountered during synchronous SSR.
+ */
+export function throwSSRDataMissing(): never {
+  throw new SSRDataMissingError();
+}
+
 export { SSRDataMissingError };
 
 // Deterministic RNG (explicitly used by components via ctx if desired)
