@@ -651,6 +651,7 @@ export function isKeyedReorderFastPathEligible(
     for (const k of Object.keys(props)) {
       if (k === 'children' || k === 'key') continue;
       if (k.startsWith('on') && k.length > 2) continue;
+      if (k.startsWith('data-')) continue; // ignore data-* attrs (e.g. data-key)
       const v = (props as Record<string, unknown>)[k];
       try {
         if (k === 'class' || k === 'className') {
