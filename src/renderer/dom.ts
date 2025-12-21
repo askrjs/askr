@@ -342,10 +342,7 @@ export function evaluate(
                         oldKeyMap
                       );
                       keyedElements.set(firstChild, newKeyMap);
-                      logger.debug(
-                        '[Askr][FASTPATH] reuse keyed map size set:',
-                        newKeyMap.size
-                      );
+
                     }
                   } catch (err) {
                     logger.warn(
@@ -358,10 +355,7 @@ export function evaluate(
                       oldKeyMap
                     );
                     keyedElements.set(firstChild, newKeyMap);
-                    logger.debug(
-                      '[Askr][FASTPATH] reuse keyed map size set:',
-                      newKeyMap.size
-                    );
+
                   }
                 } else {
                   // Do reconciliation - this will reuse existing keyed elements
@@ -371,11 +365,7 @@ export function evaluate(
                     oldKeyMap
                   );
                   keyedElements.set(firstChild, newKeyMap);
-                  // Dev debug: ensure we recorded keyed map during reuse path
-                  logger.debug(
-                    '[Askr][FASTPATH] reuse keyed map size set:',
-                    newKeyMap.size
-                  );
+
                 }
               } catch (e) {
                 void e; // suppress unused variable lint
@@ -386,10 +376,7 @@ export function evaluate(
                   oldKeyMap
                 );
                 keyedElements.set(firstChild, newKeyMap);
-                logger.debug(
-                  '[Askr][FASTPATH] reuse keyed map size set:',
-                  newKeyMap.size
-                );
+
               }
             } else {
               // Unkeyed - consider bulk text fast-path for large text-dominant updates
@@ -495,12 +482,7 @@ export function evaluate(
                 // After handler completes, flush any pending tasks
                 // globalScheduler.flush(); // Defer flush to manual control for testing
               };
-              logger.debug(
-                'Attaching event listener:',
-                eventName,
-                'to element:',
-                el
-              );
+
               el.addEventListener(eventName, wrappedHandler);
               if (!elementListeners.has(el)) {
                 elementListeners.set(el, new Map());
@@ -523,11 +505,7 @@ export function evaluate(
           // Use keyed reconciliation for children
           const newKeyMap = reconcileKeyedChildren(el, children, undefined);
           keyedElements.set(el, newKeyMap);
-          // Dev debug: ensure we recorded keyed map during initial render
-          logger.debug(
-            '[Askr][FASTPATH] initial keyed map size set:',
-            newKeyMap.size
-          );
+          return;
           return;
         }
       }
@@ -700,16 +678,7 @@ function reconcileKeyedChildren(
 ): Map<string | number, Element> {
   const newKeyMap = new Map<string | number, Element>();
 
-  // Debug
-  const DEBUG = false;
-  if (DEBUG) {
-    logger.debug('reconcileKeyedChildren called with:', {
-      parentTag: parent.tagName,
-      oldKeyMapSize: oldKeyMap?.size || 0,
-      oldKeys: Array.from(oldKeyMap?.keys() || []),
-      newChildrenCount: newChildren.length,
-    });
-  }
+
 
   // First pass: collect all keyed vnodes and match to existing elements
   const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
@@ -1782,10 +1751,7 @@ function reconcileKeyedChildren(
       if (process.env.NODE_ENV !== 'production') {
         // Extra debug to help tests detect the structural change and to aid
         // diagnosing spy/observer mismatches in test harnesses.
-        logger.debug(
-          '[Askr][FASTPATH] about to call replaceChildren on parent:',
-          parent.tagName
-        );
+
       }
       // Count commits explicitly in code (no prototype monkey-patching)
       let commitCount = 0;
@@ -2806,12 +2772,7 @@ export function createDOMNode(node: unknown): Node | null {
               }
             }
           };
-          logger.debug(
-            'Attaching event listener in createDOMNode:',
-            eventName,
-            'to element:',
-            el
-          );
+
           el.addEventListener(eventName, wrappedHandler);
           if (!elementListeners.has(el)) {
             elementListeners.set(el, new Map());
