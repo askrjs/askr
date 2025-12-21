@@ -142,3 +142,6 @@ export function collectResources(opts: {
     if (isCollecting()) stopCollection();
   }
 }
+
+// Backwards-compatible alias: new public API prefers the name `resolveResources`
+export const resolveResources = resolvePlan;

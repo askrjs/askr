@@ -333,6 +333,7 @@ import {
   stopRenderPhase,
   collectResources,
   resolvePlan,
+  resolveResources,
   ResourcePlan,
 } from './data';
 
@@ -421,4 +422,4 @@ function renderToSinkInternal(opts: {
   }
 }
 
-export { collectResources, resolvePlan, ResourcePlan };
+export { collectResources, resolvePlan, resolveResources, ResourcePlan };

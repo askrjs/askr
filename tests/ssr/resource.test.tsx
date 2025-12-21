@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderToStringSync, collectResources, resolvePlan, renderToString, SSRDataMissingError } from '../../src/ssr';
+import { renderToStringSync, collectResources, resolveResources, renderToString, SSRDataMissingError } from '../../src/ssr';
 import type { SSRRoute } from '../../src/ssr';
 import { resource as runtimeResource } from '../../src/runtime/operations';
 import { resource } from '../../src/index';
@@ -52,7 +52,7 @@ describe('SSR resource prepass', () => {
     expect(plan.resources.length).toBeGreaterThanOrEqual(1);
 
     // Resolve the plan (execute functions) and then render using the resolved data
-    const data = await resolvePlan(plan);
+    const data = await resolveResources(plan);
 
     const html = renderToString({ url: '/', routes: dataRoutes, data });
     expect(typeof html).toBe('string');
