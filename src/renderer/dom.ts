@@ -949,7 +949,10 @@ function reconcileKeyedChildren(
 
       // Determine whether all keyed vnodes are "simple text" candidates.
       // Moved here to ensure the predicate is available where it's needed.
-      const allSimpleText =
+      // Declare variable in outer scope so it can be referenced later in file
+      // (some heuristics need this predicate after this try block).
+      let allSimpleText = false;
+      allSimpleText =
         keyedVnodes.length > 0 &&
         keyedVnodes.every(({ vnode }) => {
           if (!_isDOMElement(vnode)) return false;
