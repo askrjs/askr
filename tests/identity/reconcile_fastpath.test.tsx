@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp } from '../../src/index';
+import { state, createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('reconcile keyed children fast-path', () => {
@@ -48,7 +48,7 @@ describe('reconcile keyed children fast-path', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const idToCheck = 10;

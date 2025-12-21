@@ -9,7 +9,7 @@ describe('Render idempotence', () => {
         type: 'div',
         props: { class: 'x' },
         children: ['a'],
-      }) as JSXElement;
+      }) as unknown as JSXElement;
 
     const originalRandom = Math.random;
     const originalDateNow = Date.now;

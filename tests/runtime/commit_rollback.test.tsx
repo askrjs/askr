@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import type { State } from '../../src/runtime/state';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
@@ -22,7 +22,7 @@ describe('commit & rollback (RUNTIME)', () => {
 
   it('should roll back completely when render fails', async () => {
     const ok = () => ({ type: 'div', children: ['ok'] });
-    createApp({ root: container, component: ok });
+    createIsland({ root: container, component: ok });
     flushScheduler();
     const stable = container.innerHTML;
 
@@ -31,7 +31,7 @@ describe('commit & rollback (RUNTIME)', () => {
     };
 
     try {
-      createApp({ root: container, component: bad });
+      createIsland({ root: container, component: bad });
     } catch {
       // expected
     }
@@ -59,7 +59,7 @@ describe('commit & rollback (RUNTIME)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     const stable = container.innerHTML;
 

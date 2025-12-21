@@ -1,5 +1,5 @@
 import { describe, it, beforeAll, afterAll, expect } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import type { State } from '../../src/index';
 import {
   createTestContainer,
@@ -25,7 +25,8 @@ describe('bulk commit non-reactive invariants', () => {
     const Component = () => {
       items = state(Array.from({ length: N }, (_, i) => i));
       // No-op render counter attached to window scope for assertions
-      globalThis.__BULK_RENDER_COUNT = (globalThis.__BULK_RENDER_COUNT || 0) + 1;
+      globalThis.__BULK_RENDER_COUNT =
+        (globalThis.__BULK_RENDER_COUNT || 0) + 1;
       return {
         type: 'ul',
         children: items().map((item: number) => ({
@@ -37,7 +38,7 @@ describe('bulk commit non-reactive invariants', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
   });
 
@@ -77,12 +78,12 @@ describe('bulk commit non-reactive invariants', () => {
         break;
       }
       // allow other microtasks to run
-       
+
       await waitForNextEvaluation();
     }
     if (!quiesced) {
       // Dump enqueue logs for debugging
-       
+
       const gl = globalThis as unknown as { __ASKR_ENQUEUE_LOGS?: unknown };
       console.error('ENQUEUE LOGS:', gl.__ASKR_ENQUEUE_LOGS);
       throw new Error(

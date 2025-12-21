@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * tests/router/identity_across_routes.test.ts
  *
@@ -5,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp, clearRoutes } from '../../src/index';
+import { state, createSPA, clearRoutes, getRoutes } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
@@ -56,7 +57,7 @@ describe('identity across routes (ROUTER)', () => {
       };
     };
 
-    createApp({ root: container, component: App });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/page1');
@@ -89,7 +90,7 @@ describe('identity across routes (ROUTER)', () => {
       return { type: 'div', children: ['App'] };
     };
 
-    createApp({ root: container, component: App });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/counter1');
@@ -119,7 +120,7 @@ describe('identity across routes (ROUTER)', () => {
       return { type: 'div', children: ['App'] };
     };
 
-    createApp({ root: container, component: App });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/page1');
@@ -148,7 +149,7 @@ describe('identity across routes (ROUTER)', () => {
       return { type: 'div', children: ['App'] };
     };
 
-    createApp({ root: container, component: App });
+    createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/page');
@@ -180,7 +181,7 @@ describe('identity across routes (ROUTER)', () => {
       return { type: 'div', children: ['App'] };
     };
 
-    createApp({ root: container, component: App });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/user/1');

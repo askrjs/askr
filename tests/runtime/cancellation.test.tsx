@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, resource } from '../../src/index';
+import { createIsland, resource } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('cancellation (SPEC 2.6)', () => {
@@ -36,7 +36,7 @@ describe('cancellation (SPEC 2.6)', () => {
         return { type: 'div', props: { children: ['content'] } };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       expect(signalReceived).toBe(true);
@@ -55,7 +55,7 @@ describe('cancellation (SPEC 2.6)', () => {
         return { type: 'div', props: { children: ['content'] } };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       // Unmount by clearing container
@@ -88,10 +88,10 @@ describe('cancellation (SPEC 2.6)', () => {
         return { type: 'div', props: { children: ['new'] } };
       };
 
-      createApp({ root: container, component: OldComponent });
+      createIsland({ root: container, component: OldComponent });
       flushScheduler();
 
-      createApp({ root: container, component: NewComponent });
+      createIsland({ root: container, component: NewComponent });
       flushScheduler();
 
       expect(oldAborted).toBe(true);
@@ -123,7 +123,7 @@ describe('cancellation (SPEC 2.6)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       // Abort before completion
       await new Promise((r) => setTimeout(r, 20));
@@ -155,7 +155,7 @@ describe('cancellation (SPEC 2.6)', () => {
       return { type: 'div', props: { children: ['content'] } };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Unmount
@@ -183,11 +183,11 @@ describe('cancellation (SPEC 2.6)', () => {
       return { type: 'div', children: ['component2'] };
     };
 
-    createApp({ root: container, component: Component1 });
+    createIsland({ root: container, component: Component1 });
     flushScheduler();
 
     // Replace component
-    createApp({ root: container, component: Component2 });
+    createIsland({ root: container, component: Component2 });
     flushScheduler();
 
     expect(aborted).toBe(true);
@@ -219,7 +219,7 @@ describe('cancellation (SPEC 2.6)', () => {
       return { type: 'div', children: ['fetched'] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Unmount quickly

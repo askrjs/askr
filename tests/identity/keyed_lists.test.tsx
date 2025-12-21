@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp } from '../../src/index';
+import { state, createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('keyed lists (SPEC 2.4)', () => {
@@ -47,7 +47,7 @@ describe('keyed lists (SPEC 2.4)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       const firstB = container.querySelector('[data-id="2"]');
@@ -83,7 +83,7 @@ describe('keyed lists (SPEC 2.4)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       // Get the root div rendered by the component
@@ -122,7 +122,7 @@ describe('keyed lists (SPEC 2.4)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       const elemX = container.querySelector('[data-key="x"]');

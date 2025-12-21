@@ -1,6 +1,6 @@
 // tests/stress/large_tree_updates.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
@@ -26,7 +26,7 @@ describe('large tree updates (STRESS)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     expect(container.querySelectorAll('span').length).toBe(1000);
@@ -47,7 +47,10 @@ describe('large tree updates (STRESS)', () => {
             props: { 'data-depth': depth, children: [Nested(depth - 1)] },
           };
 
-    createApp({ root: container, component: () => Nested(100) as JSXElement });
+    createIsland({
+      root: container,
+      component: () => Nested(100) as unknown as JSXElement,
+    });
     flushScheduler();
 
     expect(container.querySelectorAll('div').length).toBe(100);
@@ -68,7 +71,7 @@ describe('large tree updates (STRESS)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     value!.set('b');

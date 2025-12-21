@@ -1,6 +1,6 @@
 // tests/identity/reorder_preserves_state.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('reorder preserves state (IDENTITY)', () => {
@@ -30,7 +30,7 @@ describe('reorder preserves state (IDENTITY)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const b = container.querySelector('[data-id="b"]') as HTMLElement;
@@ -69,7 +69,7 @@ describe('reorder preserves state (IDENTITY)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const x = container.querySelector('[data-id="x"]') as HTMLElement;

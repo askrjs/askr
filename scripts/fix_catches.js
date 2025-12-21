@@ -16,8 +16,8 @@ for (const file of files) {
   let s = fs.readFileSync(file, 'utf8');
   const orig = s;
   // Replace catch {} and catch { /* ignore */ } and catch { /* ... */ }
-  s = s.replace(/catch\s*\{\s*\}/g, "catch (e) { void e; }");
-  s = s.replace(/catch\s*\{\s*\/\*[^]*?\*\/\s*\}/g, "catch (e) { void e; }");
+  s = s.replace(/catch\s*\{\s*\}/g, 'catch (e) { void e; }');
+  s = s.replace(/catch\s*\{\s*\/\*[^]*?\*\/\s*\}/g, 'catch (e) { void e; }');
   if (s !== orig) {
     fs.writeFileSync(file, s, 'utf8');
     console.log('Patched', file);

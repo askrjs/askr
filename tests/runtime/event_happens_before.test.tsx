@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp } from '../../src/index';
+import { state, createIsland } from '../../src/index';
 import {
   createTestContainer,
   fireEvent,
@@ -68,7 +68,7 @@ describe('happens-before events (SPEC 2.3)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       const e1 = container.querySelector('#e1') as HTMLButtonElement;
       const e2 = container.querySelector('#e2') as HTMLButtonElement;
@@ -124,7 +124,7 @@ describe('happens-before events (SPEC 2.3)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       const e1 = container.querySelector('#e1') as HTMLButtonElement;
       const e2 = container.querySelector('#e2') as HTMLButtonElement;
@@ -165,7 +165,7 @@ describe('happens-before events (SPEC 2.3)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       order.length = 0; // Clear initial render
 
       const button = container.querySelector('button') as HTMLButtonElement;
@@ -200,7 +200,7 @@ describe('happens-before events (SPEC 2.3)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       const button = container.querySelector('button') as HTMLButtonElement;
 
@@ -255,7 +255,7 @@ describe('happens-before events (SPEC 2.3)', () => {
         };
       };
 
-      createApp({
+      createIsland({
         root: container,
         component: () => ({
           type: 'div',
@@ -305,7 +305,7 @@ describe('happens-before events (SPEC 2.3)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       const button = container.querySelector('#inc') as HTMLButtonElement;
 
@@ -340,7 +340,7 @@ describe('happens-before events (SPEC 2.3)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       const button = container.querySelector('button') as HTMLButtonElement;
 

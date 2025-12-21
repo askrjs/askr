@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -33,7 +33,7 @@ describe('state subscription invariants', () => {
       );
     };
 
-    createApp({ root: container, component: App });
+    createIsland({ root: container, component: App });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -71,7 +71,7 @@ describe('state subscription invariants', () => {
       return <div>{togg!() ? <Child /> : null}</div>;
     };
 
-    createApp({ root: container, component: App });
+    createIsland({ root: container, component: App });
     flushScheduler();
     await waitForNextEvaluation();
 

@@ -17,4 +17,13 @@ export {
   type RetryOptions,
 } from './timing';
 
+export {
+  debounceEvent,
+  throttleEvent,
+  rafEvent,
+  scheduleTimeout,
+  scheduleIdle,
+  scheduleRetry,
+} from './fx';
+
 export { handle, catchError, tryWithLogging } from './errors';

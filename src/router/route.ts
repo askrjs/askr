@@ -285,6 +285,14 @@ export function route(
     return snapshot;
   }
 
+  // Disallow route registration during SSR render
+  const currentInst = getCurrentComponentInstance();
+  if (currentInst && currentInst.ssr) {
+    throw new Error(
+      'route() cannot be called during SSR rendering. Register routes at module load time instead.'
+    );
+  }
+
   // Disallow registrations after app startup
   if (registrationLocked) {
     throw new Error(

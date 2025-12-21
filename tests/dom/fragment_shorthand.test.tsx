@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp } from '../../src/index';
+import { createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('JSX fragment shorthand (<>...</>)', () => {
@@ -24,7 +24,7 @@ describe('JSX fragment shorthand (<>...</>)', () => {
       </>
     );
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     expect(container.querySelector('#one')?.textContent).toBe('One');
@@ -40,7 +40,7 @@ describe('JSX fragment shorthand (<>...</>)', () => {
       </>
     );
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Normalize whitespace because text nodes may include surrounding whitespace

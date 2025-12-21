@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp } from '../../src/index';
+import { state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,

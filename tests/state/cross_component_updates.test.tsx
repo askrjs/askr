@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -43,7 +43,7 @@ describe('cross component updates (state)', () => {
       };
     };
 
-    createApp({ root: container, component: Parent });
+    createIsland({ root: container, component: Parent });
     flushScheduler();
 
     expect(container.textContent).toBe('incchild: 0');
@@ -88,7 +88,7 @@ describe('cross component updates (state)', () => {
       };
     };
 
-    createApp({ root: container, component: Root });
+    createIsland({ root: container, component: Root });
     flushScheduler();
 
     expect(container.textContent).toBe('async incleaf: 0');
@@ -124,7 +124,7 @@ describe('cross component updates (state)', () => {
       };
     };
 
-    createApp({ root: container, component: Parent });
+    createIsland({ root: container, component: Parent });
     flushScheduler();
 
     expect(container.textContent).toBe('updateparent');
@@ -168,7 +168,7 @@ describe('cross component updates (state)', () => {
       };
     };
 
-    createApp({ root: container, component: Parent });
+    createIsland({ root: container, component: Parent });
     flushScheduler();
 
     expect(container.textContent).toBe('update boths1s2');

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp } from '../../src/index';
+import { state, createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('rapid events (STRESS)', () => {
@@ -32,7 +32,7 @@ describe('rapid events (STRESS)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const button = container.querySelector('button') as HTMLButtonElement;
@@ -62,7 +62,7 @@ describe('rapid events (STRESS)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const button = container.querySelector('button') as HTMLButtonElement;

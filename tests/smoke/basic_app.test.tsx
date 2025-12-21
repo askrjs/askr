@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('basic app smoke test', () => {
@@ -24,7 +24,7 @@ describe('basic app smoke test', () => {
 
   it('should render JSX to DOM', () => {
     const Component = () => ({ type: 'div', children: ['Hello Askr'] });
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toBe('Hello Askr');
   });
@@ -41,7 +41,7 @@ describe('basic app smoke test', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toBe('0');
 
@@ -64,7 +64,7 @@ describe('basic app smoke test', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toBe('Count: 0');
 
@@ -80,7 +80,7 @@ describe('basic app smoke test', () => {
       children: [message],
     });
 
-    createApp({
+    createIsland({
       root: container,
       component: () => Component({ message: 'Props work' }),
     });
@@ -90,7 +90,7 @@ describe('basic app smoke test', () => {
 
   it('should mount and unmount cleanly', () => {
     const Component = () => ({ type: 'span', children: ['Mounted'] });
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toBe('Mounted');
 
@@ -106,7 +106,7 @@ describe('basic app smoke test', () => {
       ],
     });
 
-    createApp({ root: container, component: App });
+    createIsland({ root: container, component: App });
     flushScheduler();
     expect(container.querySelector('h1')?.textContent).toBe('Title');
     expect(container.querySelector('p')?.textContent).toBe('Content');
@@ -121,7 +121,7 @@ describe('basic app smoke test', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.querySelectorAll('li')).toHaveLength(2);
   });
@@ -137,7 +137,7 @@ describe('basic app smoke test', () => {
       },
     });
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const form = container.querySelector('form');
@@ -153,7 +153,7 @@ describe('basic app smoke test', () => {
       return { type: 'div', children: [`Render ${renderCount}`] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(renderCount).toBe(1);
   });

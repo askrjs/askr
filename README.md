@@ -49,7 +49,7 @@ TypeScript JSX setup (`tsconfig.json`):
 Tiny app (routing + state):
 
 ```ts
-import { createApp, Link, navigate, route, state } from '@askrjs/askr';
+import { createSPA, getRoutes, Link, navigate, route, state } from '@askrjs/askr';
 
 function Home() {
   const count = state(0);
@@ -85,7 +85,7 @@ function App() {
 }
 
 // Create the app. Click the "User 42" link above to navigate to `/users/42`.
-createApp({ root: 'app', component: () => <App /> });
+createSPA({ root: 'app', routes: getRoutes() });
 ```
 
 Note: `root` is an element id string (or an `Element`).

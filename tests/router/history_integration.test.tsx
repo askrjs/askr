@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * tests/router/history_integration.test.ts
  *
@@ -5,9 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createApp } from '../../src/index';
+import { createSPA, getRoutes } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
-import { route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('history integration (ROUTER)', () => {
@@ -29,15 +29,18 @@ describe('history integration (ROUTER)', () => {
     it('should push new entries to browser history', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      route('/page1', () => {
-        return { type: 'div', children: ['Page 1'] };
-      });
+      const routes = [
+        {
+          path: '/page1',
+          handler: () => ({ type: 'div', children: ['Page 1'] }),
+        },
+      ];
 
       const App = () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes });
       flushScheduler();
 
       navigate('/page1');
@@ -55,15 +58,18 @@ describe('history integration (ROUTER)', () => {
     it('should update URL in address bar', async () => {
       const _originalLocation = window.location.pathname;
 
-      route('/new-page', () => {
-        return { type: 'div', children: ['New Page'] };
-      });
+      const routes = [
+        {
+          path: '/new-page',
+          handler: () => ({ type: 'div', children: ['New Page'] }),
+        },
+      ];
 
       const App = () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes });
       flushScheduler();
 
       // History push would update location in real browser
@@ -85,7 +91,7 @@ describe('history integration (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       flushScheduler();
 
       navigate('/page1');
@@ -163,15 +169,15 @@ describe('history integration (ROUTER)', () => {
     it('should store path in history state', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      route('/test', () => {
-        return { type: 'div', children: ['Test'] };
-      });
+      const routes = [
+        { path: '/test', handler: () => ({ type: 'div', children: ['Test'] }) },
+      ];
 
       const App = () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes });
       flushScheduler();
 
       navigate('/test');
@@ -188,15 +194,21 @@ describe('history integration (ROUTER)', () => {
     it('should store custom metadata in history state', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      route('/page/{id}', (params) => {
-        return { type: 'div', children: [`Page ${params.id}`] };
-      });
+      const routes = [
+        {
+          path: '/page/{id}',
+          handler: (params: Record<string, string>) => ({
+            type: 'div',
+            children: [`Page ${params.id}`],
+          }),
+        },
+      ];
 
       const App = () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes });
       flushScheduler();
 
       navigate('/page/123');
@@ -215,15 +227,21 @@ describe('history integration (ROUTER)', () => {
     it('should handle navigation with special characters in URL', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      route('/search/{query}', (params) => {
-        return { type: 'div', children: [`Results for: ${params.query}`] };
-      });
+      const routes = [
+        {
+          path: '/search/{query}',
+          handler: (params: Record<string, string>) => ({
+            type: 'div',
+            children: [`Results for: ${params.query}`],
+          }),
+        },
+      ];
 
       const App = () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes });
       flushScheduler();
 
       navigate('/search/hello%20world');
@@ -237,15 +255,15 @@ describe('history integration (ROUTER)', () => {
     it('should handle rapid history changes', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      route('/*', () => {
-        return { type: 'div', children: ['Page'] };
-      });
+      const routes = [
+        { path: '/*', handler: () => ({ type: 'div', children: ['Page'] }) },
+      ];
 
       const App = () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes });
       flushScheduler();
 
       // Rapid navigations
@@ -264,15 +282,15 @@ describe('history integration (ROUTER)', () => {
     it('should handle empty path', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      route('/', () => {
-        return { type: 'div', children: ['Home'] };
-      });
+      const routes = [
+        { path: '/', handler: () => ({ type: 'div', children: ['Home'] }) },
+      ];
 
       const App = () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes });
       flushScheduler();
 
       navigate('/');

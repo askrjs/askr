@@ -8,16 +8,24 @@
  */
 
 import type { JSXElement } from '../jsx/types';
+import type { RouteHandler } from '../router/route';
+import * as RouteModule from '../router/route';
+import type { Props } from '../shared/types';
+import {
+  createRenderContext,
+  runWithSSRContext,
+  throwSSRDataMissing,
+  type RenderContext,
+  type SSRData,
+} from './context';
 import {
   createComponentInstance,
-  getCurrentComponentInstance,
   setCurrentComponentInstance,
-  type ComponentFunction,
-  type ComponentInstance,
+  getCurrentComponentInstance,
 } from '../runtime/component';
-import { createApp } from '../app/createApp';
+import type { ComponentFunction } from '../runtime/component';
 
-import type { Props } from '../shared/types';
+export { SSRDataMissingError } from './context';
 
 type VNode = {
   type: string;
@@ -27,7 +35,7 @@ type VNode = {
 
 export type Component = (
   props: Props,
-  context?: { signal: AbortSignal }
+  context?: { signal?: AbortSignal; ssr?: RenderContext }
 ) => VNode | JSXElement;
 
 // HTML5 void elements that don't have closing tags
@@ -136,115 +144,41 @@ function renderAttrs(props?: Props): string {
 }
 
 /**
- * Recursively render a single child (VNode or text)
- * Optimized for fast type checking
- */
-async function renderChild(child: unknown): Promise<string> {
-  // Fast path: handle primitives first (most common)
-  if (typeof child === 'string') {
-    return escapeText(child);
-  }
-  if (typeof child === 'number') {
-    return escapeText(String(child));
-  }
-  if (child === null || child === undefined || child === false) {
-    return '';
-  }
-
-  // Handle objects (VNode or JSXElement)
-  if (typeof child === 'object' && child !== null && 'type' in child) {
-    return renderNode(child as JSXElement | VNode);
-  }
-
-  return '';
-}
-
-/**
- * Render an array of children (async path)
- * Optimized: Sequential rendering avoids excessive Promise overhead for large lists
- */
-async function renderChildren(children?: unknown[]): Promise<string> {
-  if (!children || !Array.isArray(children) || children.length === 0) {
-    return '';
-  }
-
-  // For small lists, use Promise.all for potential parallelization
-  if (children.length <= 5) {
-    const results = await Promise.all(
-      children.map((child) => renderChild(child))
-    );
-    return results.join('');
-  }
-
-  // For large lists, render sequentially to reduce Promise overhead
-  let result = '';
-  for (const child of children) {
-    result += await renderChild(child);
-  }
-  return result;
-}
-
-/**
  * Synchronous rendering helpers (used for strictly synchronous SSR)
  */
-function renderChildSync(child: unknown): string {
+function renderChildSync(child: unknown, ctx: RenderContext): string {
   if (typeof child === 'string') return escapeText(child);
   if (typeof child === 'number') return escapeText(String(child));
   if (child === null || child === undefined || child === false) return '';
   if (typeof child === 'object' && child !== null && 'type' in child) {
-    return renderNodeSync(child as JSXElement | VNode);
+    return renderNodeSync(child as unknown as JSXElement | VNode, ctx);
   }
   return '';
 }
 
-function renderChildrenSync(children?: unknown[]): string {
+function renderChildrenSync(
+  children: unknown[] | undefined,
+  ctx: RenderContext
+): string {
   if (!children || !Array.isArray(children) || children.length === 0) return '';
   let result = '';
-  for (const child of children) result += renderChildSync(child);
+  for (const child of children) result += renderChildSync(child, ctx);
   return result;
-}
-
-/**
- * Render a VNode or JSXElement to HTML string (async capable)
- */
-async function renderNode(node: VNode | JSXElement): Promise<string> {
-  const { type, props } = node;
-
-  // Handle function components (JSXElement with function type)
-  if (typeof type === 'function') {
-    const result = executeComponent(type as Component, props);
-    return renderNode(result);
-  }
-
-  // Handle string type (HTML elements)
-  const typeStr = type as string;
-
-  // Fast path: void elements (self-closing) - check before computing children
-  if (VOID_ELEMENTS.has(typeStr)) {
-    const attrs = renderAttrs(props);
-    return `<${typeStr}${attrs} />`;
-  }
-
-  // Normal elements: compute attrs and children
-  const attrs = renderAttrs(props);
-  const children = (node as VNode).children;
-  const childrenHtml = await renderChildren(children);
-
-  return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
 }
 
 /**
  * Render a VNode synchronously. Throws if an async component is encountered.
  */
-function renderNodeSync(node: VNode | JSXElement): string {
+function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   const { type, props } = node;
 
   if (typeof type === 'function') {
-    const result = executeComponentSync(type as Component, props);
+    const result = executeComponentSync(type as Component, props, ctx);
     if (result instanceof Promise) {
-      throw new Error('SSR does not support async components');
+      // Use centralized SSR error to maintain a single failure mode
+      throwSSRDataMissing();
     }
-    return renderNodeSync(result as VNode | JSXElement);
+    return renderNodeSync(result as VNode | JSXElement, ctx);
   }
 
   const typeStr = type as string;
@@ -255,198 +189,258 @@ function renderNodeSync(node: VNode | JSXElement): string {
 
   const attrs = renderAttrs(props);
   const children = (node as VNode).children;
-  const childrenHtml = renderChildrenSync(children);
+  const childrenHtml = renderChildrenSync(children, ctx);
   return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
 }
 
 /**
  * Execute a component function (synchronously or async) and return VNode
  */
-// Simple seeded random number generator for deterministic SSR
-class SeededRNG {
-  private seed: number;
-
-  constructor(seed: number = 0) {
-    this.seed = seed;
-  }
-
-  reset(seed: number = 12345) {
-    this.seed = seed;
-  }
-
-  random(): number {
-    // Simple LCG (Linear Congruential Generator)
-    this.seed = (this.seed * 9301 + 49297) % 233280;
-    return this.seed / 233280;
-  }
-}
-
-// Global deterministic RNG instance for SSR
-const ssrRNG = new SeededRNG();
-
-function executeComponent(
-  component: Component,
-  props?: Record<string, unknown>
-): VNode | JSXElement {
-  // Reset RNG to ensure deterministic output for each SSR call
-  ssrRNG.reset();
-
-  // Save original Math.random
-  const originalRandom = Math.random;
-
-  // Replace with deterministic RNG during SSR
-  Math.random = () => ssrRNG.random();
-
-  // Create temporary instance for SSR to allow state() calls
-  const tempInstance = createComponentInstance(
-    'ssr-temp',
-    component,
-    props || {},
-    null
-  );
-  // Mark as SSR instance to signal sync-only behavior
-  (tempInstance as ComponentInstance).ssr = true;
-
-  const originalInstance = getCurrentComponentInstance();
-  setCurrentComponentInstance(tempInstance);
-
-  try {
-    const result = component(props || {});
-
-    // Async components are not allowed in SSR
-    if (result instanceof Promise) {
-      throw new Error('SSR does not support async components');
-    }
-
-    return result;
-  } finally {
-    // Restore original instance
-    setCurrentComponentInstance(originalInstance);
-
-    // Restore original Math.random
-    Math.random = originalRandom;
-  }
-}
-
 /**
- * Execute a component synchronously for strict SSR. Throws if the component returns a Promise.
+ * Execute a component synchronously inside a render-only context.
+ * This must not create or reuse runtime ComponentInstance objects. We pass
+ * the render context explicitly as `context.ssr` in the second argument so
+ * components can opt-in to deterministic randomness/time via the provided RNG.
  */
 function executeComponentSync(
   component: Component,
-  props?: Record<string, unknown>
+  props: Record<string, unknown> | undefined,
+  ctx: RenderContext
 ): VNode | JSXElement {
-  ssrRNG.reset();
-
+  // Dev-only: enforce SSR purity with clear messages. We temporarily override
+  // `Math.random` and `Date.now` while rendering to produce a targeted error
+  // if components call them directly. We restore them immediately afterwards.
   const originalRandom = Math.random;
   const originalDateNow = Date.now;
 
-  // In development, enforce strict SSR purity by throwing if global time or
-  // randomness is accessed during synchronous SSR. In production we provide a
-  // deterministic RNG for compatibility.
-  if (process.env.NODE_ENV !== 'production') {
-    Math.random = () => {
-      throw new Error(
-        'SSR Strict Purity: Math.random is not allowed during synchronous SSR'
-      );
-    };
-    (Date as unknown as { now: () => number }).now = () => {
-      throw new Error(
-        'SSR Strict Purity: Date.now is not allowed during synchronous SSR'
-      );
-    };
-  } else {
-    Math.random = () => ssrRNG.random();
-  }
-
-  const tempInstance = createComponentInstance(
-    'ssr-temp',
-    component,
-    props || {},
-    null
-  );
-  // Mark as SSR instance
-  (tempInstance as ComponentInstance).ssr = true;
-  const originalInstance = getCurrentComponentInstance();
-  setCurrentComponentInstance(tempInstance);
-
   try {
-    const result = component(props || {});
-    if (result instanceof Promise) {
-      throw new Error('SSR does not support async components');
+    if (process.env.NODE_ENV !== 'production') {
+      (Math as unknown as { random: () => number }).random = () => {
+        throw new Error(
+          'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
+        );
+      };
+      (Date as unknown as { now: () => number }).now = () => {
+        throw new Error(
+          'SSR Strict Purity: Date.now is not allowed during synchronous SSR. Pass timestamps explicitly or use deterministic helpers.'
+        );
+      };
     }
-    return result;
+
+    // Create a temporary, lightweight component instance so runtime APIs like
+    // `state()` and `route()` can be called during SSR render. We avoid mounting
+    // or side-effects by not attaching the instance to any DOM target.
+    const prev = getCurrentComponentInstance();
+    const temp = createComponentInstance(
+      'ssr-temp',
+      component as unknown as ComponentFunction,
+      (props || {}) as Props,
+      null
+    );
+    temp.ssr = true;
+    setCurrentComponentInstance(temp);
+    try {
+      return runWithSSRContext(ctx, () => {
+        const result = component((props || {}) as Props, { ssr: ctx });
+        if (result instanceof Promise) {
+          // Use the centralized SSR error for async data/components during SSR
+          throwSSRDataMissing();
+        }
+        return result as VNode | JSXElement;
+      });
+    } finally {
+      // Restore the previous instance (if any)
+      setCurrentComponentInstance(prev);
+    }
   } finally {
-    setCurrentComponentInstance(originalInstance);
-    Math.random = originalRandom;
+    (Math as unknown as { random: () => number }).random = originalRandom;
     (Date as unknown as { now: () => number }).now = originalDateNow;
   }
 }
 
 /**
- * Main SSR function: render a component to HTML string
- */
-/**
- * Async render to string (keeps previous behavior for async-capable components)
- */
-export async function renderToString(
-  component: Component,
-  props?: Record<string, unknown>
-): Promise<string> {
-  const node = await executeComponent(component, props);
-  return renderNode(node);
-}
-
-/**
- * Strict synchronous SSR API (recommended): render a component to a string.
- * Throws when component returns a Promise (SSR must be synchronous).
- * Signature: renderToString(fn: () => JSXElement): string
+ * Single synchronous SSR entrypoint: render a component to an HTML string.
+ * This is strictly synchronous and deterministic. Optionally provide a seed
+ * for deterministic randomness via `options.seed`.
  */
 export function renderToStringSync(
-  component: (props?: Record<string, unknown>) => VNode | JSXElement
+  component: (
+    props?: Record<string, unknown>
+  ) => VNode | JSXElement | string | number | null,
+  props?: Record<string, unknown>,
+  options?: { seed?: number; data?: SSRData }
 ): string {
-  const node = executeComponentSync(component as Component, undefined);
-  return renderNodeSync(node);
+  const seed = options?.seed ?? 12345;
+  // Start render-phase keying (aligns with collectResources)
+  const ctx = createRenderContext(seed);
+  // Provide optional SSR data via options.data
+  startRenderPhase(options?.data ?? null);
+  try {
+    const node = executeComponentSync(component as Component, props || {}, ctx);
+    return renderNodeSync(node, ctx);
+  } finally {
+    stopRenderPhase();
+  }
 }
 
-/**
- * Render multiple components to individual HTML strings
- * Useful for rendering route-specific content
- */
-export async function renderToStringBatch(
-  components: Array<{ component: Component; props?: Record<string, unknown> }>
-): Promise<string[]> {
-  return Promise.all(
-    components.map(({ component, props }) => renderToString(component, props))
-  );
-}
+// Synchronous server render for strict checks. Routes must be resolved before
+// the render pass so no route() calls happen during rendering.
+export function renderToStringSyncForUrl(opts: {
+  url: string;
+  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
+  options?: { seed?: number; data?: SSRData };
+}): string {
+  const { url, routes, options } = opts;
+  // Register routes synchronously using route() (already available in module scope)
+  const {
+    clearRoutes,
+    route,
+    setServerLocation,
+    lockRouteRegistration,
+    resolveRoute,
+  } = RouteModule;
 
-/**
- * Hydrate server-generated DOM for a root selector and component.
- * - Verifies the existing DOM matches the synchronous render
- * - Calls `createApp` to mount the runtime (which will re-execute the component)
- * - Fails fast on mismatch (throws an Error)
- */
-export async function hydrate(
-  selector: string,
-  component: (props?: Record<string, unknown>) => VNode | JSXElement
-): Promise<void> {
-  const root = document.querySelector(selector);
-  if (!root) throw new Error(`hydrate: selector not found: ${selector}`);
-
-  // Do a strict synchronous render and compare
-  const expected = renderToStringSync(component);
-  const normalize = (html: string) => html.replace(/\s+/g, ' ').trim();
-  if (normalize(root.innerHTML) !== normalize(expected)) {
-    throw new Error(
-      'Hydration mismatch: server HTML does not match client render'
-    );
+  clearRoutes();
+  for (const r of routes) {
+    route(r.path, r.handler, r.namespace);
   }
 
-  // Mount the runtime in the normal way (this will attach listeners and initialize state)
-  // We use createApp so the runtime lifecycle (mounts, on, timers) is consistent.
-  // Pass the actual root element (not selector) to avoid id-format mismatches.
-  createApp({
-    root: root as Element,
-    component: component as unknown as ComponentFunction,
-  });
+  setServerLocation(url);
+  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
+
+  const resolved = resolveRoute(url);
+  if (!resolved)
+    throw new Error(`renderToStringSync: no route found for url: ${url}`);
+
+  const seed = options?.seed ?? 12345;
+  const ctx = createRenderContext(seed);
+  // Start render-phase keying (aligns with collectResources)
+  startRenderPhase(options?.data ?? null);
+  try {
+    const node = executeComponentSync(
+      resolved.handler as Component,
+      resolved.params || {},
+      ctx
+    );
+    return renderNodeSync(node, ctx);
+  } finally {
+    stopRenderPhase();
+  }
 }
+
+// --- Streaming sink-based renderer (v2) --------------------------------------------------
+import { StringSink, StreamSink } from './sink';
+import { renderNodeToSink } from './render';
+import {
+  startRenderPhase,
+  stopRenderPhase,
+  collectResources,
+  resolvePlan,
+  resolveResources,
+  ResourcePlan,
+} from './data';
+
+export type SSRRoute = {
+  path: string;
+  handler: RouteHandler;
+  namespace?: string;
+};
+
+export function renderToString(
+  component: (
+    props?: Record<string, unknown>
+  ) => VNode | JSXElement | string | number | null
+): string;
+export function renderToString(opts: {
+  url: string;
+  routes: SSRRoute[];
+  seed?: number;
+  data?: SSRData;
+}): string;
+export function renderToString(arg: unknown): string {
+  // Convenience: if a component function is passed, delegate to sync render
+  if (typeof arg === 'function') {
+    return renderToStringSync(
+      arg as (
+        props?: Record<string, unknown>
+      ) => VNode | JSXElement | string | number | null
+    );
+  }
+  const opts = arg as {
+    url: string;
+    routes: SSRRoute[];
+    seed?: number;
+    data?: SSRData;
+  };
+  const sink = new StringSink();
+  renderToSinkInternal({ ...opts, sink });
+  sink.end();
+  return sink.toString();
+}
+
+export function renderToStream(opts: {
+  url: string;
+  routes: SSRRoute[];
+  seed?: number;
+  data?: SSRData;
+  onChunk(html: string): void;
+  onComplete(): void;
+}): void {
+  const sink = new StreamSink(opts.onChunk, opts.onComplete);
+  renderToSinkInternal({ ...opts, sink });
+  sink.end();
+}
+
+function renderToSinkInternal(opts: {
+  url: string;
+  routes: SSRRoute[];
+  seed?: number;
+  data?: SSRData;
+  sink: { write(html: string): void; end(): void };
+}) {
+  const { url, routes, seed = 1, data, sink } = opts;
+
+  // Route resolution happens BEFORE render pass
+  const {
+    clearRoutes,
+    route,
+    setServerLocation,
+    lockRouteRegistration,
+    resolveRoute,
+  } = RouteModule;
+
+  clearRoutes();
+  for (const r of routes) route(r.path, r.handler, r.namespace);
+
+  setServerLocation(url);
+  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
+
+  const resolved = resolveRoute(url);
+  if (!resolved) throw new Error(`SSR: no route found for url: ${url}`);
+
+  const ctx = {
+    url,
+    seed,
+    data,
+    params: resolved.params,
+    signal: undefined as AbortSignal | undefined,
+  };
+
+  // Render the resolved handler with params
+  const node = resolved.handler(resolved.params) as
+    | VNode
+    | JSXElement
+    | string
+    | number
+    | null;
+
+  // Start render-phase keying so resource() can lookup resolved `data` by key
+  startRenderPhase(data || null);
+  try {
+    renderNodeToSink(node, sink, ctx);
+  } finally {
+    stopRenderPhase();
+  }
+}
+
+export { collectResources, resolvePlan, resolveResources, ResourcePlan };

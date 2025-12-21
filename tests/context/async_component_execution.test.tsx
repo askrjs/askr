@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { createApp } from '../../src/index';
 import { createTestContainer } from '../helpers/test_renderer';
 import type { JSXElement } from '../../src/jsx/types';
 
@@ -10,7 +9,10 @@ describe('async component execution (DEPRECATED)', () => {
 
     const AsyncComponent = async () => {
       await new Promise((r) => setTimeout(r, 1));
-      return { type: 'div', props: { children: ['ok'] } } as JSXElement;
+      return {
+        type: 'div',
+        props: { children: ['ok'] },
+      } as unknown as JSXElement;
     };
 
     expect(() =>

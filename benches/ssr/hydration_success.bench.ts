@@ -5,7 +5,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { renderToString, hydrate } from '../../src/index';
+import { renderToStringSync, hydrateSPA } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -34,10 +34,13 @@ describe('hydration success', () => {
       ],
     });
 
-    const html = await renderToString(Complex);
+    const html = renderToStringSync(Complex);
     container.innerHTML = html;
 
-    await hydrate({ root: container, component: Complex });
+    await hydrateSPA({
+      root: container,
+      routes: [{ path: '/', handler: Complex }],
+    });
     flushScheduler();
 
     cleanup();

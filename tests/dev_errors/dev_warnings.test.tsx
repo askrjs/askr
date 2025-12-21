@@ -1,6 +1,6 @@
 // tests/dev_errors/dev_warnings.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('dev warnings (DEV_ERRORS)', () => {

@@ -4,8 +4,9 @@
  * Navigation and route resolution
  */
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { state, createApp, clearRoutes } from '../../src/index';
+import { state, createSPA, clearRoutes, getRoutes } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
@@ -40,7 +41,7 @@ describe('route navigation (ROUTER)', () => {
         return { type: 'div', children: ['About Page'] };
       });
 
-      const App = (
+      const _App = (
         _props: Record<string, unknown>,
         _context?: { signal: AbortSignal }
       ) => {
@@ -57,7 +58,7 @@ describe('route navigation (ROUTER)', () => {
         };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       flushScheduler();
 
       expect(currentPath).toBeNull(); // Not navigated yet
@@ -66,12 +67,12 @@ describe('route navigation (ROUTER)', () => {
     it('should warn when navigating to missing routes', async () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const App = () => {
+      const _App = () => {
         navigate('/nonexistent');
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: _App });
       flushScheduler();
 
       expect(warnSpy).toHaveBeenCalledWith(
@@ -94,7 +95,7 @@ describe('route navigation (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       navigate('/users/123');
       flushScheduler();
 
@@ -113,7 +114,7 @@ describe('route navigation (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       navigate('/users/42/posts/789');
       flushScheduler();
 
@@ -147,7 +148,7 @@ describe('route navigation (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       navigate('/admin');
       flushScheduler();
 
@@ -167,7 +168,7 @@ describe('route navigation (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       navigate('/page');
       flushScheduler();
 
@@ -199,7 +200,7 @@ describe('route navigation (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       navigate('/users/123');
       flushScheduler();
 
@@ -223,7 +224,7 @@ describe('route navigation (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       navigate('/anything/goes/here');
       flushScheduler();
 

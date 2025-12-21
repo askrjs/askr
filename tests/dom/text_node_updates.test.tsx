@@ -1,6 +1,6 @@
 // tests/dom/text_node_updates.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('text node updates (DOM)', () => {
@@ -62,7 +62,7 @@ describe('text node updates (DOM)', () => {
       return text();
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     expect(container.textContent).toBe('');

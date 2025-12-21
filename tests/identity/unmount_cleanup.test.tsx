@@ -2,10 +2,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   clearRoutes,
-  createApp,
+  createSPA,
   navigate,
   route,
   state,
+  getRoutes,
 } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
@@ -30,7 +31,7 @@ describe('unmount cleanup (IDENTITY)', () => {
     route('/b', () => ({ type: 'div', children: ['b'] }));
 
     window.history.pushState({}, '', '/a');
-    createApp({ root: container, component: () => ({ type: 'div' }) });
+    await createSPA({ root: container, routes: getRoutes() });
     navigate('/a');
     flushScheduler();
 
@@ -68,7 +69,7 @@ describe('unmount cleanup (IDENTITY)', () => {
     });
 
     window.history.pushState({}, '', '/a');
-    createApp({ root: container, component: () => ({ type: 'div' }) });
+    await createSPA({ root: container, routes: getRoutes() });
 
     navigate('/a');
     flushScheduler();

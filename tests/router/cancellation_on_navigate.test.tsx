@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * tests/router/cancellation_on_navigate.test.ts
  *
@@ -5,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getSignal, createApp } from '../../src/index';
+import { getSignal, createSPA, getRoutes } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
@@ -56,7 +57,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       return { type: 'div', children: ['Page 2'] };
     });
 
-    const App = (
+    const _App = (
       _props: Record<string, unknown>,
       _context?: { signal: AbortSignal }
     ) => {
@@ -75,7 +76,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       };
     };
 
-    createApp({ root: container, component: App });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     // Navigate away while async operation pending
@@ -106,7 +107,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       return { type: 'div', children: ['App'] };
     };
 
-    createApp({ root: container, component: App });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     // Navigate triggers cleanup which aborts signal
@@ -128,12 +129,12 @@ describe('cancellation on navigate (ROUTER)', () => {
       return { type: 'div', children: ['Second'] };
     });
 
-    const App = () => {
+    const _App = () => {
       // Component unmounts and remounts on navigation
       return { type: 'div', children: ['App'] };
     };
 
-    createApp({ root: container, component: App });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/first');
@@ -168,7 +169,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       return { type: 'div', children: ['App'] };
     };
 
-    createApp({ root: container, component: App });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     // Rapid navigations
@@ -204,7 +205,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       return { type: 'div', children: ['App'] };
     };
 
-    createApp({ root: container, component: App });
+    createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/slow');

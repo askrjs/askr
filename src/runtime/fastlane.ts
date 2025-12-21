@@ -45,7 +45,9 @@ export function markFastPathApplied(parent: Element): void {
   if (!_appliedParents) return;
   try {
     _appliedParents.add(parent);
-  } catch (e) { void e; }
+  } catch (e) {
+    void e;
+  }
 }
 
 export function isFastPathApplied(parent: Element): boolean {
@@ -226,18 +228,20 @@ export function commitReorderOnly(
         schedAfter.taskCount > schedBefore.taskCount
       ) {
         try {
-           
           console.error(
             '[FASTLANE] schedBefore, schedAfter',
             schedBefore,
             schedAfter
           );
-           
+
           console.error(
             '[FASTLANE] enqueue logs',
-            (globalThis as unknown as Record<string, unknown>).__ASKR_ENQUEUE_LOGS
+            (globalThis as unknown as Record<string, unknown>)
+              .__ASKR_ENQUEUE_LOGS
           );
-        } catch (e) { void e; }
+        } catch (e) {
+          void e;
+        }
         throw new Error(
           'Fast-lane invariant violated: scheduler enqueued leftover work during bulk commit'
         );
@@ -275,12 +279,12 @@ export function commitReorderOnly(
           if (outstandingAfter2 !== 0) {
             try {
               const _g = globalThis as unknown as Record<string, unknown>;
-               
+
               console.error(
                 '[FASTLANE] Post-commit enqueue logs:',
                 _g.__ASKR_ENQUEUE_LOGS
               );
-               
+
               console.error(
                 '[FASTLANE] Cleared counts:',
                 _g.__ASKR_FASTLANE_CLEARED_TASKS,

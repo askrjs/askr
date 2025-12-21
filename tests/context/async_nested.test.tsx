@@ -104,7 +104,7 @@ describe('nested context continuations preserve captured snapshot', () => {
         type: 'div',
         props: {},
         children: [r.value ?? 'pending'],
-      } as JSXElement;
+      } as unknown as JSXElement;
     };
 
     const App = () => {

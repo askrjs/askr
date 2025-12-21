@@ -1,6 +1,6 @@
 // tests/stress/mount_unmount_cycles.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -21,7 +21,7 @@ describe('mount unmount cycles (STRESS)', () => {
         return { type: 'div', children: [`${counter()}`] };
       };
 
-      createApp({ root: local, component: Component });
+      createIsland({ root: local, component: Component });
       flushScheduler();
 
       counter!.set(1);
@@ -50,7 +50,7 @@ describe('mount unmount cycles (STRESS)', () => {
 
     // Rapidly remount the same component (common in MFEs)
     for (let i = 0; i < 25; i++) {
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
     }
     flushScheduler();
 
@@ -71,7 +71,7 @@ describe('mount unmount cycles (STRESS)', () => {
     });
     const WithoutListener = () => ({ type: 'div', children: ['gone'] });
 
-    createApp({ root: container, component: WithListener });
+    createIsland({ root: container, component: WithListener });
     flushScheduler();
 
     const oldButton = container.querySelector('#btn') as HTMLButtonElement;
@@ -79,7 +79,7 @@ describe('mount unmount cycles (STRESS)', () => {
     expect(clicks).toBe(1);
 
     // Remove the button from the tree.
-    createApp({ root: container, component: WithoutListener });
+    createIsland({ root: container, component: WithoutListener });
     flushScheduler();
     expect(container.querySelector('#btn')).toBeNull();
 

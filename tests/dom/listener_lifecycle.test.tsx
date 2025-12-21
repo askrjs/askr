@@ -1,6 +1,6 @@
 // tests/dom/listener_lifecycle.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('listener lifecycle (DOM)', () => {
@@ -26,7 +26,7 @@ describe('listener lifecycle (DOM)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     (container.querySelector('#btn') as HTMLButtonElement).click();
@@ -50,7 +50,7 @@ describe('listener lifecycle (DOM)', () => {
     });
     const Without = () => ({ type: 'div', children: ['gone'] });
 
-    createApp({ root: container, component: With });
+    createIsland({ root: container, component: With });
     flushScheduler();
     const old = container.querySelector('#btn') as HTMLButtonElement;
 
