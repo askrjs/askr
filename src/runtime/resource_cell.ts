@@ -1,4 +1,4 @@
-import { withAsyncResourceContext } from './context';
+import { withAsyncResourceContext, type ContextFrame } from './context';
 import { logger } from '../dev/logger';
 import { SSRDataMissingError } from '../ssr/context';
 
@@ -16,7 +16,7 @@ export class ResourceCell<U> {
   generation = 0;
   controller: AbortController | null = null;
   deps: unknown[] | null = null;
-  resourceFrame: any = null;
+  resourceFrame: ContextFrame | null = null;
 
   private subscribers = new Set<() => void>();
 
@@ -32,7 +32,7 @@ export class ResourceCell<U> {
   constructor(
     fn: (opts: { signal: AbortSignal }) => Promise<U> | U,
     deps: unknown[] | null,
-    resourceFrame: any
+    resourceFrame: ContextFrame | null
   ) {
     this.fn = fn;
     this.deps = deps ? deps.slice() : null;

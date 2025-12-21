@@ -3,15 +3,10 @@ import {
   registerMountOperation,
   type ComponentInstance,
 } from './component';
-import { logger } from '../dev/logger';
-import {
-  getCurrentContextFrame,
-  type ContextFrame,
-} from './context';
+import { getCurrentContextFrame } from './context';
 import { ResourceCell } from './resource_cell';
 import { state } from './state';
 import { getDeriveCache } from '../shared/derive_cache';
-import { globalScheduler } from './scheduler';
 import { getCurrentSSRContext, SSRDataMissingError } from '../ssr/context';
 import {
   isCollecting,

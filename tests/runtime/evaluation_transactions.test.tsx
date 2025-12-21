@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, resource, state } from '../../src/index';
+import { createIsland, resource } from '../../src/index';
 import type { JSXElement } from '../../src/jsx/types';
 import {
   createTestContainer,
@@ -243,37 +243,6 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       // an in-component state transition so resource refresh is exercised.
       const renders: string[] = [];
 
-      const Child = ({ id, delay }: { id: string; delay: number }) => {
-        const r = resource(async () => {
-          console.log('[TEST] child start', id);
-          renders.push(id);
-          await new Promise((r) => setTimeout(r, delay));
-          console.log('[TEST] child end', id);
-          return id;
-        }, [id, delay]);
-
-        return { type: 'div', children: [r.value ?? ''] };
-      };
-
-      const App = () => {
-        const cfg = state({ id: 'slow', delay: 100 });
-        console.log('[TEST] cfg at render', cfg());
-
-        return {
-          type: 'div',
-          props: {
-            // Key the child by id so swapping id causes a remount and creates a
-            // fresh resource cell (captures fresh closure at creation time).
-            children: [
-              { type: 'div', key: cfg().id, props: { children: [Child({ id: cfg().id, delay: cfg().delay })] } },
-            ],
-            // Provide a helper to switch to fast
-            onClick: () => {
-              cfg.set({ id: 'fast', delay: 10 });
-            },
-          },
-        } as unknown as JSXElement;
-      };
 
       const Component = ({ id, delay }: { id: string; delay: number }) => {
         const r = resource(async () => {

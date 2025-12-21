@@ -18,7 +18,6 @@ import {
   type ComponentInstance,
 } from './component';
 import { invariant } from '../dev/invariant';
-import { logger } from '../dev/logger';
 import { isBulkCommitActive } from './fastlane';
 
 /**

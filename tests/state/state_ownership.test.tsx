@@ -18,13 +18,13 @@ describe('state ownership invariants', () => {
     flushScheduler();
 
     // owner metadata should exist
-    const owner = (count as any)?._owner;
+    const owner = (count as unknown as { _owner?: object })?._owner;
     expect(owner).toBeTruthy();
 
     // performing an update should not change owner
     const beforeOwner = owner;
     count!.set(1);
     flushScheduler();
-    expect((count as any)._owner).toBe(beforeOwner);
+    expect((count as unknown as { _owner?: object })._owner).toBe(beforeOwner);
   });
 });
