@@ -55,7 +55,7 @@ jobs:
         run: npm version ${{ needs.version.outputs.semver }} --no-git-tag-version
 
       - name: Publish to npm (Trusted Publishing)
-        run: npm publish --provenance --tag ${{ needs.version.outputs.label || 'latest' }}
+        run: npm publish --provenance --access public --tag ${{ needs.version.outputs.label || 'latest' }}
 
   prune:
     name: Prune Pre-release Tags
