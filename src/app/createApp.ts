@@ -9,6 +9,7 @@ import {
   type ComponentFunction,
   type ComponentInstance,
 } from '../runtime/component';
+import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
 import type { Component as SSRComponent } from '../ssr';
 import { removeAllListeners } from '../renderer/dom';
@@ -189,6 +190,11 @@ export function createApp(config: AppConfig): void {
   }
 
   mountComponent(instance);
+
+  // Ensure initial mount tasks complete synchronously so tests that expect
+  // immediate DOM on createApp continue to pass. Do NOT swallow flush errors
+  // so failures surface to the test harness and help us debug mount issues.
+  globalScheduler.flush();
 
   // Register for navigation
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';

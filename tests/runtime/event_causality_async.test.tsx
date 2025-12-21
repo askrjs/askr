@@ -14,6 +14,7 @@ describe('Event causality across async boundaries', () => {
 
         return {
           type: 'div',
+          props: {},
           children: [
             {
               type: 'button',
