@@ -59,6 +59,38 @@ const VOID_ELEMENTS = new Set([
 // Escape cache for common values
 const escapeCache = new Map<string, string>();
 
+// Dev-only SSR strictness guard helpers. We mutate globals in dev to make
+// accidental usage of Math.random/Date.now during sync SSR fail fast.
+// We implement a re-entrant stack so nested or concurrent calls don't clobber
+// global values unexpectedly.
+const __ssrGuardStack: Array<{ random: () => number; now: () => number }> = [];
+
+export function pushSSRStrictPurityGuard() {
+  /* istanbul ignore if - dev-only guard */
+  if (process.env.NODE_ENV === 'production') return;
+  __ssrGuardStack.push({ random: Math.random, now: Date.now });
+  (Math as unknown as { random: () => number }).random = () => {
+    throw new Error(
+      'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
+    );
+  };
+  (Date as unknown as { now: () => number }).now = () => {
+    throw new Error(
+      'SSR Strict Purity: Date.now is not allowed during synchronous SSR. Pass timestamps explicitly or use deterministic helpers.'
+    );
+  };
+}
+
+export function popSSRStrictPurityGuard() {
+  /* istanbul ignore if - dev-only guard */
+  if (process.env.NODE_ENV === 'production') return;
+  const prev = __ssrGuardStack.pop();
+  if (prev) {
+    (Math as unknown as { random: () => number }).random = prev.random;
+    (Date as unknown as { now: () => number }).now = prev.now;
+  }
+}
+
 /**
  * Escape HTML special characters in text content (optimized with cache)
  */
@@ -114,6 +146,8 @@ function escapeAttr(value: string): string {
  */
 function renderAttrs(props?: Props): string {
   if (!props || typeof props !== 'object') return '';
+
+
 
   let result = '';
   for (const [key, value] of Object.entries(props)) {
@@ -210,23 +244,17 @@ function executeComponentSync(
   // Dev-only: enforce SSR purity with clear messages. We temporarily override
   // `Math.random` and `Date.now` while rendering to produce a targeted error
   // if components call them directly. We restore them immediately afterwards.
+  // Re-entrant guard for dev-only SSR strict purity checks.
+  // We avoid clobbering globals permanently by pushing the original functions
+  // onto a stack and restoring them on exit. This is safer for nested or
+  // stacked SSR render invocations.
   const originalRandom = Math.random;
   const originalDateNow = Date.now;
 
   try {
     if (process.env.NODE_ENV !== 'production') {
-      (Math as unknown as { random: () => number }).random = () => {
-        throw new Error(
-          'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
-        );
-      };
-      (Date as unknown as { now: () => number }).now = () => {
-        throw new Error(
-          'SSR Strict Purity: Date.now is not allowed during synchronous SSR. Pass timestamps explicitly or use deterministic helpers.'
-        );
-      };
+      pushSSRStrictPurityGuard();
     }
-
     // Create a temporary, lightweight component instance so runtime APIs like
     // `state()` and `route()` can be called during SSR render. We avoid mounting
     // or side-effects by not attaching the instance to any DOM target.
@@ -253,8 +281,7 @@ function executeComponentSync(
       setCurrentComponentInstance(prev);
     }
   } finally {
-    (Math as unknown as { random: () => number }).random = originalRandom;
-    (Date as unknown as { now: () => number }).now = originalDateNow;
+    if (process.env.NODE_ENV !== 'production') popSSRStrictPurityGuard();
   }
 }
 

@@ -107,6 +107,16 @@ function attachCleanupForRoot(
   }
 }
 
+/**
+ * Explicitly teardown an app mounted on `root` if present. This is the
+ * recommended API for deterministic cleanup rather than relying on overriding
+ * `innerHTML` setter behavior.
+ */
+export function teardownApp(root: Element | string) {
+  // Backwards-compatible alias for explicit cleanup; prefer `cleanupApp` in public API.
+  cleanupApp(root);
+}
+
 function mountOrUpdate(rootElement: Element, componentFn: ComponentFunction) {
   // Clean up existing cleanup function before mounting new one
   const existingCleanup = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];

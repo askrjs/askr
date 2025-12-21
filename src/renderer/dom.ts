@@ -47,8 +47,10 @@ function cleanupInstanceIfPresent(node: Node | null): void {
       }
     }
   } catch (err) {
-    // Swallow cleanup errors but keep a reference to avoid empty-block lint error
-    void err;
+    // Swallow cleanup errors but log in dev for visibility
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
+    }
   }
 
   // Also attempt to clean up any nested instances that may be attached
@@ -67,11 +69,15 @@ function cleanupInstanceIfPresent(node: Node | null): void {
           }
         }
       } catch (err) {
-        void err;
+        if (process.env.NODE_ENV !== 'production') {
+          logger.warn('[Askr] cleanupInstanceIfPresent descendant cleanup failed:', err);
+        }
       }
     }
   } catch (err) {
-    void err;
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('[Askr] cleanupInstanceIfPresent descendant query failed:', err);
+    }
   }
 }
 
