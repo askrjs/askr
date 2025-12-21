@@ -1,17 +1,8 @@
-/**
- * tests/runtime/scheduler_ordering.test.ts
- *
- * SPEC 2.2: Deterministic Scheduling
- *
- * These tests prove that all tasks execute in FIFO order through a single
- * mailbox, with no interleaving or reentrancy.
- */
-
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp, resource } from '../../src/index';
+import { state, createApp, resource, scheduleEventHandler } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
-describe('scheduler ordering (SPEC 2.2)', () => {
+describe('scheduler (SPEC 2.2)', () => {
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {
@@ -52,9 +43,18 @@ describe('scheduler ordering (SPEC 2.2)', () => {
       createApp({ root: container, component: Component });
 
       const button = container.querySelector('button') as HTMLButtonElement;
+      // eslint-disable-next-line no-console
+      console.log(
+        'DEBUG: container.innerHTML before click:',
+        container.innerHTML
+      );
       button?.click();
 
       flushScheduler();
+
+      // Debug: show order
+      // eslint-disable-next-line no-console
+      console.log('DEBUG: order after flush', order);
 
       // All three writes happened in order
       expect(order).toEqual([1, 2, 3]);
@@ -330,6 +330,49 @@ describe('scheduler ordering (SPEC 2.2)', () => {
       // Both runs produced identical final state
       expect(finalValues[0]).toBe(finalValues[1]);
       expect(finalValues[0]).toBe(100);
+    });
+  });
+
+  describe('event wrapper semantics', () => {
+    it('should run handler synchronously and defer flush', () => {
+      const order: string[] = [];
+
+      const Component = () => {
+        const count = state(0);
+        const wrapped = scheduleEventHandler(() => {
+          order.push('handler-start');
+          count.set(count() + 1);
+          order.push('handler-end');
+        });
+
+        return {
+          type: 'button',
+          props: { id: 'btn', onClick: wrapped },
+          children: [String(count())],
+        };
+      };
+
+      const { container: c, cleanup: cu } = createTestContainer();
+      try {
+        createApp({ root: c, component: Component });
+        flushScheduler();
+
+        const btn = c.querySelector('#btn') as HTMLButtonElement;
+        order.length = 0;
+
+        // Click the button - handler runs synchronously
+        btn.click();
+
+        // Effects should be visible immediately but render is deferred
+        expect(order).toEqual(['handler-start', 'handler-end']);
+        expect(btn.textContent).toBe('0');
+
+        // After flush, render completes
+        flushScheduler();
+        expect(btn.textContent).toBe('1');
+      } finally {
+        cu();
+      }
     });
   });
 });
