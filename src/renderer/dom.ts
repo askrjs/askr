@@ -1807,13 +1807,6 @@ function reconcileKeyedChildren(
         void e;
       }
       parent.replaceChildren(fragment);
-      // eslint-disable-next-line no-console
-      console.log(
-        '[DEBUG] replaceChildren called on',
-        parent.tagName,
-        'fragment children:',
-        fragment.childNodes.length
-      );
       // Export commit count for dev diagnostics
       if (typeof globalThis !== 'undefined') {
         (globalThis as unknown as Record<string, unknown>)[
