@@ -67,7 +67,6 @@ export async function resolvePlan(
   );
 }
 
-
 export function collectResources(_opts: {
   url: string;
   routes: SSRRoute[];
