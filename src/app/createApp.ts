@@ -347,9 +347,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   // Synchronously render expected HTML using SSR helper
   const { renderToStringSync } = await import('../ssr');
   // renderToStringSync takes a zero-arg component factory; wrap the handler to pass params
-  const expectedHTML = renderToStringSync(
-    () => resolved.handler(resolved.params) as ReturnType<ComponentFunction>
-  );
+  const expectedHTML = renderToStringSync(() => {
+    const out = resolved.handler(resolved.params);
+    return (out ?? { type: 'div', children: [] }) as ReturnType<ComponentFunction>;
+  });
 
   // Prefer a DOM-based comparison to avoid false positives from attribute order
   // or whitespace differences between server and expected HTML.
