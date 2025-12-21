@@ -17,14 +17,14 @@ describe('layout helper (ROUTER)', () => {
     cleanup();
   });
 
-  it('should support zero-arg factory passed to layout()', async () => {
-    // Zero-arg factory that returns a layout element
-    const ParentLayout = () => ({
+  it('should pass children to a layout component', async () => {
+    // Layout defined as a component that accepts children and returns a vnode-like object
+    const ParentLayout = ({ children }: { children?: unknown }) => ({
       type: 'div',
       props: { class: 'parent' },
-      children: [],
+      children: Array.isArray(children) ? children : children ? [children] : [],
     });
-    const parent = layout(() => ParentLayout());
+    const parent = layout(ParentLayout);
 
     const routes = [
       {
