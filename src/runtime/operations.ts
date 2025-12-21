@@ -127,6 +127,8 @@ export function resource<T>(
   if (!h.cell) {
     const frame = getCurrentContextFrame();
     const cell = new ResourceCell<T>(fn, deps, frame);
+    // Attach debug label (component name) for richer logs
+    cell.ownerName = inst.fn?.name || '<anonymous>';
     h.cell = cell;
     h.snapshot = cell.snapshot as DataResult<T>;
 

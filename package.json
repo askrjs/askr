@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Actor-backed deterministic UI framework",
   "repository": {
     "type": "git",
@@ -25,7 +25,9 @@
   "type": "module",
   "packageManager": "npm",
   "license": "Apache-2.0",
-  "sideEffects": false,
+  "sideEffects": [
+    "src/jsx/types.ts"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [

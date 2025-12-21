@@ -406,9 +406,16 @@ function executeComponentSync(
       for (let i = 0; i < instance.stateValues.length; i++) {
         const state = instance.stateValues[i];
         if (state && !state._hasBeenRead) {
-          logger.warn(
-            `[askr] Unused state variable detected. State should be read during render or removed.`
-          );
+          try {
+            const name = instance.fn?.name || '<anonymous>';
+            logger.warn(
+              `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
+            );
+          } catch {
+            logger.warn(
+              `[askr] Unused state variable detected. State should be read during render or removed.`
+            );
+          }
         }
       }
     }

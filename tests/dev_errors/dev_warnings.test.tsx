@@ -59,4 +59,46 @@ describe('dev warnings (DEV_ERRORS)', () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
+
+  it('should not warn when children are keyed', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let items: ReturnType<typeof state<string[]>> | null = null;
+    const Component = () => {
+      items = state(['a', 'b', 'c']);
+      return {
+        type: 'ul',
+        children: items().map((x) => ({ type: 'li', key: x, children: [x] })),
+      };
+    };
+
+    createApp({ root: container, component: Component });
+    flushScheduler();
+
+    // Should NOT emit the missing-keys warning when keys present
+    const containsMissingKeys = warn.mock.calls.some((c) =>
+      String(c[0]).includes('Missing keys on dynamic lists')
+    );
+    expect(containsMissingKeys).toBe(false);
+    warn.mockRestore();
+  });
+
+  it('should include component name in missing-keys warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let items: ReturnType<typeof state<string[]>> | null = null;
+    const FancyList = () => {
+      items = state(['a', 'b']);
+      return {
+        type: 'div',
+        children: items().map((x) => ({ type: 'div', children: [x] })),
+      };
+    };
+
+    createApp({ root: container, component: FancyList });
+    flushScheduler();
+
+    // Verify the warning message contains the component name
+    const calledWith = warn.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(calledWith).toContain('Missing keys on dynamic lists in FancyList');
+    warn.mockRestore();
+  });
 });

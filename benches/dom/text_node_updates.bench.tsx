@@ -129,7 +129,7 @@ describe('text node updates', () => {
       flushScheduler();
       await waitForNextEvaluation();
 
-      const mutations = trackDOMMutations(container, () => {
+      const _mutations = trackDOMMutations(container, () => {
         for (let i = 0; i < 100; i++) {
           items!.set(items!().map((x) => x + 1));
         }
