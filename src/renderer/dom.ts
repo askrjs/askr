@@ -81,6 +81,13 @@ function cleanupInstanceIfPresent(node: Node | null): void {
   }
 }
 
+// Public helper to clean up any component instances under a node. Used by
+// runtime commit logic to ensure component instances are torn down when their
+// host nodes are removed during an update.
+export function cleanupInstancesUnder(node: Node | null): void {
+  cleanupInstanceIfPresent(node);
+}
+
 interface DOMElement {
   type: string | ((props: Props) => unknown);
   props?: Props;

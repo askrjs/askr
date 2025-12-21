@@ -280,7 +280,34 @@ function runComponent(instance: ComponentInstance): void {
           const oldInstance = currentInstance;
           currentInstance = instance;
           try {
-            evaluate(result, instance.target);
+            // Transactional rendering: render into a temporary container to avoid
+            // mutating the live DOM until we're sure the render succeeded.
+            const temp = document.createElement('div');
+            evaluate(result, temp);
+
+            // If evaluate succeeded, atomically swap content into the real target.
+            // First, cleanup any nested instances under nodes that will be removed.
+            const oldChildren = Array.from(instance.target.childNodes);
+            for (const c of oldChildren) {
+              try {
+                // Avoid cycle import at top-level; require the module here.
+                // This will call the exported cleanup helper to teardown nested instances.
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const domModule = require('../renderer/dom');
+                if (typeof domModule.cleanupInstancesUnder === 'function') {
+                  domModule.cleanupInstancesUnder(c);
+                }
+              } catch (e) {
+                if (process.env.NODE_ENV !== 'production') {
+                  // eslint-disable-next-line no-console
+                  console.warn('[Askr] error cleaning up old child during commit:', e);
+                }
+              }
+            }
+
+            // Replace children atomically. Using replaceChildren ensures the
+            // target receives the new nodes in one operation.
+            instance.target.replaceChildren(...Array.from(temp.childNodes));
           } finally {
             currentInstance = oldInstance;
           }
