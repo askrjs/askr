@@ -91,7 +91,10 @@ describe('SSR strict purity', () => {
       // This uses Date and Math inside render
       const t = Date.now();
       const r = Math.random();
-      return { type: 'div', children: [String(t), String(r)] } as unknown as JSXElement;
+      return {
+        type: 'div',
+        children: [String(t), String(r)],
+      } as unknown as JSXElement;
     };
 
     expect(() => renderToStringSync(() => Component())).toThrow();

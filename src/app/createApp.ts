@@ -65,8 +65,6 @@ export function createApp(config: AppConfig | SPAConfig): void {
   });
 }
 
-
-
 function attachCleanupForRoot(
   rootElement: Element,
   instance: ComponentInstance

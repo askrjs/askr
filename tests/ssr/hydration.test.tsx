@@ -65,7 +65,7 @@ describe('hydration (SSR)', () => {
                 children: ['Click'],
               },
             ],
-          } as unknown as JSXElement);
+          }) as unknown as JSXElement;
 
         // Server render
         const html = renderToString(() => Component());
@@ -121,7 +121,10 @@ describe('hydration (SSR)', () => {
 
       // Hydrate — should not throw and should not modify DOM
       await expect(
-        hydrateSPA({ root: container, routes: [{ path: '/', handler: Component }] })
+        hydrateSPA({
+          root: container,
+          routes: [{ path: '/', handler: Component }],
+        })
       ).resolves.not.toThrow();
 
       // DOM unchanged
@@ -137,11 +140,18 @@ describe('hydration (SSR)', () => {
     });
 
     it('should throw when hydrate encounters a mismatch', async () => {
-      const Component = () => ({ type: 'div', props: { id: 'root' }, children: ['server'] });
+      const Component = () => ({
+        type: 'div',
+        props: { id: 'root' },
+        children: ['server'],
+      });
       container.innerHTML = '<div>client</div>';
 
       await expect(
-        hydrateSPA({ root: container, routes: [{ path: '/', handler: Component }] })
+        hydrateSPA({
+          root: container,
+          routes: [{ path: '/', handler: Component }],
+        })
       ).rejects.toThrow();
     });
   });
@@ -153,7 +163,11 @@ describe('hydration (SSR)', () => {
 
     it('should attach listeners to server HTML during hydration', async () => {
       let clicks = 0;
-      const Component = () => ({ type: 'button', props: { id: 'btn', onClick: () => (clicks += 1) }, children: ['click'] });
+      const Component = () => ({
+        type: 'button',
+        props: { id: 'btn', onClick: () => (clicks += 1) },
+        children: ['click'],
+      });
 
       const routes = [{ path: '/', handler: Component }];
       const html = renderToStringSyncForUrl({ url: '/', routes });
@@ -178,7 +192,8 @@ describe('hydration (SSR)', () => {
           props: {
             id: 'input',
             value: value(),
-            onInput: (e: Event) => value!.set((e.target as HTMLInputElement).value),
+            onInput: (e: Event) =>
+              value!.set((e.target as HTMLInputElement).value),
           },
         };
       };
@@ -195,7 +210,9 @@ describe('hydration (SSR)', () => {
       input.dispatchEvent(new Event('input', { bubbles: true }));
       flushScheduler();
 
-      expect((container.querySelector('#input') as HTMLInputElement).value).toBe('abc');
+      expect(
+        (container.querySelector('#input') as HTMLInputElement).value
+      ).toBe('abc');
     });
 
     it('should preserve server state after hydration', async () => {
@@ -253,7 +270,11 @@ describe('hydration (SSR)', () => {
 
     it('should attach listeners to server HTML during hydration (sync server)', async () => {
       let clicks = 0;
-      const Component = () => ({ type: 'button', props: { id: 'btn', onClick: () => (clicks += 1) }, children: ['async click'] });
+      const Component = () => ({
+        type: 'button',
+        props: { id: 'btn', onClick: () => (clicks += 1) },
+        children: ['async click'],
+      });
 
       const routes = [{ path: '/', handler: Component }];
       const html = renderToStringSyncForUrl({ url: '/', routes });

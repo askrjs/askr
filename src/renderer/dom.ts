@@ -159,16 +159,6 @@ export function evaluate(
   if (!target) return;
   // Debug tracing to help understand why initial mounts sometimes don't
   // result in DOM mutations during tests.
-  try {
-    // eslint-disable-next-line no-console
-    console.log('[DEBUG evaluate] enter', {
-      nodeType: typeof node,
-      targetId: target.id,
-      children: target.children.length,
-    });
-  } catch (e) {
-    void e;
-  }
 
   // If context provided, use component-owned DOM range (only replace that range)
   if (context && domRanges.has(context)) {
@@ -183,15 +173,6 @@ export function evaluate(
     // Append new DOM before end marker
     const dom = createDOMNode(node);
     if (dom) {
-      try {
-        // eslint-disable-next-line no-console
-        console.log(
-          '[DEBUG evaluate] inserting before end marker into',
-          target.id
-        );
-      } catch (e) {
-        void e;
-      }
       target.insertBefore(dom, range.end);
     }
   } else if (context) {
@@ -204,15 +185,6 @@ export function evaluate(
     // Render into the range
     const dom = createDOMNode(node);
     if (dom) {
-      try {
-        // eslint-disable-next-line no-console
-        console.log(
-          '[DEBUG evaluate] inserting into newly created range on',
-          target.id
-        );
-      } catch (e) {
-        void e;
-      }
       target.insertBefore(dom, end);
     }
   } else {
@@ -2817,8 +2789,6 @@ export function createDOMNode(node: unknown): Node | null {
           const eventName =
             key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
           const wrappedHandler = (event: Event) => {
-            // eslint-disable-next-line no-console
-            console.log('[Askr] handler invoked for', event.type, 'on', el);
             globalScheduler.setInHandler(true);
             try {
               (value as EventListener)(event);

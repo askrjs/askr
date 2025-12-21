@@ -59,7 +59,9 @@ describe('SSR data prepass ordering', () => {
 
     // Ensure the resolved keys appear in the same order as in the plan
     for (let i = 0; i < plan.resources.length; i++) {
-      expect(Object.prototype.hasOwnProperty.call(data, plan.resources[i].key)).toBe(true);
+      expect(
+        Object.prototype.hasOwnProperty.call(data, plan.resources[i].key)
+      ).toBe(true);
     }
 
     // Execution order should match declared order (by plan.resources indices)

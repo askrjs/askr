@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createIsland, state } from '../../src/index';
-import { createTestContainer, flushScheduler, waitForNextEvaluation } from '../helpers/test_renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+  waitForNextEvaluation,
+} from '../helpers/test_renderer';
 
 describe('bulk commit silence', () => {
   let container: HTMLElement;
@@ -26,8 +30,16 @@ describe('bulk commit silence', () => {
 
   it('should not log or warn when a state.set() occurs during bulk commit', async () => {
     // Force bulk commit active
-    const fast = (globalThis as unknown as { __ASKR_FASTLANE?: { enterBulkCommit: () => void; exitBulkCommit: () => void } }).__ASKR_FASTLANE;
-    if (!fast) throw new Error('__ASKR_FASTLANE bridge not available in test env');
+    const fast = (
+      globalThis as unknown as {
+        __ASKR_FASTLANE?: {
+          enterBulkCommit: () => void;
+          exitBulkCommit: () => void;
+        };
+      }
+    ).__ASKR_FASTLANE;
+    if (!fast)
+      throw new Error('__ASKR_FASTLANE bridge not available in test env');
 
     const logSpy = vi.spyOn(console, 'log');
     const warnSpy = vi.spyOn(console, 'warn');

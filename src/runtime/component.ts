@@ -159,11 +159,6 @@ export function registerMountOperation(
       }
       return;
     }
-    try {
-      logger.debug('[Askr] registerMountOperation on', instance.id);
-    } catch {
-      // ignore logging errors
-    }
     instance.mountOperations.push(operation);
   }
 }
@@ -173,28 +168,12 @@ export function registerMountOperation(
  * These run after the component is rendered and mounted to the DOM
  */
 function executeMountOperations(instance: ComponentInstance): void {
-  try {
-    logger.debug(
-      '[Askr] executeMountOperations for',
-      instance.id,
-      'count',
-      instance.mountOperations.length
-    );
-  } catch {
-    // ignore logging errors
-  }
-
   // Only execute mount operations for root app instance. Child component
   // operations are currently registered but should not be executed (per
   // contract tests). They remain registered for cleanup purposes.
   if (!instance.isRoot) return;
 
   for (const operation of instance.mountOperations) {
-    try {
-      logger.debug('[Askr] executing mount op for', instance.id);
-    } catch {
-      // ignore logging errors
-    }
     const result = operation();
     if (result instanceof Promise) {
       result.then((cleanup) => {
@@ -300,33 +279,10 @@ function runComponent(instance: ComponentInstance): void {
           // rely on `getCurrentComponentInstance()` being available.
           const oldInstance = currentInstance;
           currentInstance = instance;
-          // Add debug logs to trace evaluation and DOM mutations
-          // eslint-disable-next-line no-console
-          console.log(
-            '[DEBUG][component] about to evaluate for instance',
-            instance.id,
-            'targetId',
-            instance.target?.id
-          );
           try {
             evaluate(result, instance.target);
           } finally {
             currentInstance = oldInstance;
-          }
-
-          // Debug: snapshot DOM after evaluate
-          try {
-            // eslint-disable-next-line no-console
-            console.log(
-              '[DEBUG][component] after evaluate target children:',
-              instance.target?.children.length,
-              'innerHTML:',
-              instance.target && instance.target.innerHTML
-                ? instance.target.innerHTML.slice(0, 200)
-                : ''
-            );
-          } catch (e) {
-            void e;
           }
 
           // Commit succeeded — finalize recorded state reads so subscriptions reflect
@@ -404,12 +360,6 @@ function executeComponentSync(
 
   currentInstance = instance;
   stateIndex = 0;
-
-  try {
-    logger.debug('[Askr] executing component fn for', instance.id);
-  } catch {
-    // ignore logging errors
-  }
 
   try {
     // Track render time in dev mode

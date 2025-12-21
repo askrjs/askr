@@ -11,13 +11,23 @@ describe('SSR streaming: parity and chunk boundaries', () => {
           props: { class: 'root' },
           children: [
             { type: 'h1', children: ['Title'] },
-            { type: 'p', children: ['This is ', { type: 'em', children: ['important'] }, '.'] },
-            { type: 'ul', children: [
-              { type: 'li', children: ['One'] },
-              { type: 'li', children: ['Two'] },
-              { type: 'li', children: ['Three'] },
-            ] }
-          ]
+            {
+              type: 'p',
+              children: [
+                'This is ',
+                { type: 'em', children: ['important'] },
+                '.',
+              ],
+            },
+            {
+              type: 'ul',
+              children: [
+                { type: 'li', children: ['One'] },
+                { type: 'li', children: ['Two'] },
+                { type: 'li', children: ['Three'] },
+              ],
+            },
+          ],
         }),
       },
     ];
@@ -43,7 +53,11 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     for (const chunk of chunks) {
       // allow whitespace-only chunks
       if (!chunk) continue;
-      const ok = startTag.test(chunk) || endTag.test(chunk) || voidOrSelfClosing.test(chunk) || textOnly.test(chunk);
+      const ok =
+        startTag.test(chunk) ||
+        endTag.test(chunk) ||
+        voidOrSelfClosing.test(chunk) ||
+        textOnly.test(chunk);
       expect(ok).toBe(true);
     }
   });

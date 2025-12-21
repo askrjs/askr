@@ -243,7 +243,6 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       // an in-component state transition so resource refresh is exercised.
       const renders: string[] = [];
 
-
       const Component = ({ id, delay }: { id: string; delay: number }) => {
         const r = resource(async () => {
           renders.push(id);
@@ -255,12 +254,18 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       };
 
       // Mount slow instance
-      createIsland({ root: container, component: () => Component({ id: 'slow', delay: 100 }) });
+      createIsland({
+        root: container,
+        component: () => Component({ id: 'slow', delay: 100 }),
+      });
 
       // Unmount slow before it completes, then mount a faster resource instance
       await new Promise((r) => setTimeout(r, 30));
       cleanup();
-      createIsland({ root: container, component: () => Component({ id: 'fast', delay: 0 }) });
+      createIsland({
+        root: container,
+        component: () => Component({ id: 'fast', delay: 0 }),
+      });
 
       // Wait for all to complete and flush
       await new Promise((r) => setTimeout(r, 150));

@@ -343,7 +343,11 @@ export type SSRRoute = {
   namespace?: string;
 };
 
-export function renderToString(component: (props?: Record<string, unknown>) => VNode | JSXElement | string | number | null): string;
+export function renderToString(
+  component: (
+    props?: Record<string, unknown>
+  ) => VNode | JSXElement | string | number | null
+): string;
 export function renderToString(opts: {
   url: string;
   routes: SSRRoute[];
@@ -353,9 +357,18 @@ export function renderToString(opts: {
 export function renderToString(arg: unknown): string {
   // Convenience: if a component function is passed, delegate to sync render
   if (typeof arg === 'function') {
-    return renderToStringSync(arg as (props?: Record<string, unknown>) => VNode | JSXElement | string | number | null);
+    return renderToStringSync(
+      arg as (
+        props?: Record<string, unknown>
+      ) => VNode | JSXElement | string | number | null
+    );
   }
-  const opts = arg as { url: string; routes: SSRRoute[]; seed?: number; data?: SSRData };
+  const opts = arg as {
+    url: string;
+    routes: SSRRoute[];
+    seed?: number;
+    data?: SSRData;
+  };
   const sink = new StringSink();
   renderToSinkInternal({ ...opts, sink });
   sink.end();
@@ -411,7 +424,12 @@ function renderToSinkInternal(opts: {
   };
 
   // Render the resolved handler with params
-  const node = resolved.handler(resolved.params) as VNode | JSXElement | string | number | null;
+  const node = resolved.handler(resolved.params) as
+    | VNode
+    | JSXElement
+    | string
+    | number
+    | null;
 
   // Start render-phase keying so resource() can lookup resolved `data` by key
   startRenderPhase(data || null);

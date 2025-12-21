@@ -130,7 +130,11 @@ export function collectResources(opts: {
       signal: undefined as AbortSignal | undefined,
     };
     const props = { ...(resolved.params || {}) };
-    const node = resolved.handler(props) as unknown as JSXElement | string | number | null;
+    const node = resolved.handler(props) as unknown as
+      | JSXElement
+      | string
+      | number
+      | null;
     // Use the existing sink renderer to walk the tree
     renderNodeToSink(node, new StringSink(), ctx);
 

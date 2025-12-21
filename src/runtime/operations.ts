@@ -47,7 +47,10 @@ export function resource<T>(
     // Allow calling resource() during collection prepass even outside a
     // component render; register a declarative intent instead of executing.
     if (isCollecting()) {
-      registerResourceIntent(fn as (opts: { signal?: AbortSignal }) => Promise<unknown> | unknown, deps);
+      registerResourceIntent(
+        fn as (opts: { signal?: AbortSignal }) => Promise<unknown> | unknown,
+        deps
+      );
       return {
         value: null,
         pending: true,
@@ -90,16 +93,17 @@ export function resource<T>(
     } as DataResult<T>;
   }
 
-
-
   // Internal ResourceCell — pure state machine now moved to its own module
   // to keep component wiring separate and ensure no component access here.
   // (See ./resource_cell.ts)
-  
+
   // If a collection prepass is active, register intent and return a placeholder
   if (isCollecting()) {
     // Register the intent with a stable key and don't execute the function.
-    registerResourceIntent(fn as (opts: { signal?: AbortSignal }) => Promise<unknown> | unknown, deps);
+    registerResourceIntent(
+      fn as (opts: { signal?: AbortSignal }) => Promise<unknown> | unknown,
+      deps
+    );
     // Provide a snapshot-like object (pending) so consuming code during collection
     // can safely call value/pending/error but no real data is present.
     return {
@@ -123,17 +127,15 @@ export function resource<T>(
     // Commit synchronous value from render data and return a stable snapshot
     const val = renderData[key] as T;
 
-    const holder = state<{ cell?: ResourceCell<T>; snapshot: DataResult<T> }>(
-      {
-        cell: undefined,
-        snapshot: {
-          value: val,
-          pending: false,
-          error: null,
-          refresh: () => {},
-        },
-      }
-    );
+    const holder = state<{ cell?: ResourceCell<T>; snapshot: DataResult<T> }>({
+      cell: undefined,
+      snapshot: {
+        value: val,
+        pending: false,
+        error: null,
+        refresh: () => {},
+      },
+    });
 
     const h = holder();
     h.snapshot.value = val;
@@ -144,17 +146,15 @@ export function resource<T>(
   }
 
   // Persist a holder so the snapshot identity is stable across renders.
-  const holder = state<{ cell?: ResourceCell<T>; snapshot: DataResult<T> }>(
-    {
-      cell: undefined,
-      snapshot: {
-        value: null,
-        pending: true,
-        error: null,
-        refresh: () => {},
-      },
-    }
-  );
+  const holder = state<{ cell?: ResourceCell<T>; snapshot: DataResult<T> }>({
+    cell: undefined,
+    snapshot: {
+      value: null,
+      pending: true,
+      error: null,
+      refresh: () => {},
+    },
+  });
 
   const h = holder();
 
@@ -216,7 +216,9 @@ export function resource<T>(
 
   // Detect dependency changes and refresh immediately
   const depsChanged =
-    !cell.deps || cell.deps.length !== deps.length || cell.deps.some((d, i) => d !== deps[i]);
+    !cell.deps ||
+    cell.deps.length !== deps.length ||
+    cell.deps.some((d, i) => d !== deps[i]);
 
   if (depsChanged) {
     cell.deps = deps.slice();

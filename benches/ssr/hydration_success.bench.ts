@@ -37,7 +37,10 @@ describe('hydration success', () => {
     const html = renderToStringSync(Complex);
     container.innerHTML = html;
 
-    await hydrateSPA({ root: container, routes: [{ path: '/', handler: Complex }] });
+    await hydrateSPA({
+      root: container,
+      routes: [{ path: '/', handler: Complex }],
+    });
     flushScheduler();
 
     cleanup();

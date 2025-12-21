@@ -123,14 +123,17 @@ function renderAttrs(props?: Props): string {
 }
 
 function isVNodeLike(x: unknown): x is VNode | JSXElement {
-  return !!x && typeof x === 'object' && 'type' in (x as Record<string, unknown>);
+  return (
+    !!x && typeof x === 'object' && 'type' in (x as Record<string, unknown>)
+  );
 }
 
 function normalizeChildren(node: unknown): unknown[] {
   // Prefer explicit node.children; fallback to props.children
   const n = node as Record<string, unknown> | null | undefined;
   const direct = Array.isArray(n?.children) ? (n?.children as unknown[]) : null;
-  const fromProps = (n?.props as Record<string, unknown> | undefined)?.children as unknown;
+  const fromProps = (n?.props as Record<string, unknown> | undefined)
+    ?.children as unknown;
 
   const raw = direct ?? fromProps;
 
@@ -141,13 +144,17 @@ function normalizeChildren(node: unknown): unknown[] {
 
 // Note: renderChildToSink was removed in favor of direct renderNodeToSink inlined calls
 
-
 function renderChildrenToSink(
   children: unknown[],
   sink: RenderSink,
   ctx: SSRContext
 ) {
-  for (const c of children) renderNodeToSink(c as VNode | JSXElement | string | number | null, sink, ctx);
+  for (const c of children)
+    renderNodeToSink(
+      c as VNode | JSXElement | string | number | null,
+      sink,
+      ctx
+    );
 }
 
 function executeComponent(
@@ -157,7 +164,12 @@ function executeComponent(
 ): unknown {
   // Synchronous only. If a user returns a Promise, that's a hard error.
   const res = type(props ?? {}, { signal: ctx.signal });
-  if (res && typeof res === 'object' && 'then' in res && typeof ((res as unknown) as PromiseLike<unknown>).then === 'function') {
+  if (
+    res &&
+    typeof res === 'object' &&
+    'then' in res &&
+    typeof (res as unknown as PromiseLike<unknown>).then === 'function'
+  ) {
     throw new SSRInvariantError(
       'SSR does not support async components. Return synchronously and preload data via SSR data prepass.'
     );
@@ -187,8 +199,14 @@ export function renderNodeToSink(
 
   // Function component
   if (typeof type === 'function') {
-    const out = withSSRContext(ctx, () => executeComponent(type as Component, props, ctx));
-    renderNodeToSink(out as VNode | JSXElement | string | number | null, sink, ctx);
+    const out = withSSRContext(ctx, () =>
+      executeComponent(type as Component, props, ctx)
+    );
+    renderNodeToSink(
+      out as VNode | JSXElement | string | number | null,
+      sink,
+      ctx
+    );
     return;
   }
 

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { renderToStringSync, collectResources, resolveResources, renderToString, SSRDataMissingError } from '../../src/ssr';
+import {
+  renderToStringSync,
+  collectResources,
+  resolveResources,
+  renderToString,
+  SSRDataMissingError,
+} from '../../src/ssr';
 import type { SSRRoute } from '../../src/ssr';
 import { resource as runtimeResource } from '../../src/runtime/operations';
 import { resource } from '../../src/index';
@@ -31,8 +37,6 @@ describe('SSR resource behavior', () => {
 
 describe('SSR resource prepass', () => {
   it('should collect resources declaratively and resolve them', async () => {
-
-
     // Create a component that calls resource() during render-time
     // Component that calls resource() during render to register an intent
     const dataRoutes: SSRRoute[] = [

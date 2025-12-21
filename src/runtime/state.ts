@@ -111,7 +111,9 @@ export function state<T>(initialValue: T): State<T> {
   // INVARIANT: Reuse existing state if it exists (fast path on re-renders)
   // This ensures state identity and persistence and enforces ownership stability
   if (stateValues[index]) {
-    const existing = stateValues[index] as State<T> & { _owner?: ComponentInstance };
+    const existing = stateValues[index] as State<T> & {
+      _owner?: ComponentInstance;
+    };
     // Ownership must be stable: the state cell belongs to the instance that
     // created it and must never change. This checks for accidental reuse.
     if (existing._owner !== instance) {
@@ -136,7 +138,10 @@ export function state<T>(initialValue: T): State<T> {
  * Internal helper: create the backing state cell (value + readers + set semantics)
  * This extraction makes it easier to later split hook wiring from storage.
  */
-function createStateCell<T>(initialValue: T, instance: ComponentInstance): State<T> {
+function createStateCell<T>(
+  initialValue: T,
+  instance: ComponentInstance
+): State<T> {
   let value = initialValue;
 
   // Per-state reader map: component -> last-committed render token
@@ -203,7 +208,6 @@ function createStateCell<T>(initialValue: T, instance: ComponentInstance): State
     // side-effect free. The scheduler will process updates when the system
     // is stable.
 
-
     // After value change, notify only components that *read* this state in their last committed render
     const readersMap = (read as State<T>)._readers as
       | Map<ComponentInstance, number>
@@ -235,7 +239,8 @@ function createStateCell<T>(initialValue: T, instance: ComponentInstance): State
     const ownerRecordedToken = readersMapForOwner?.get(instance);
     const ownerShouldEnqueue =
       // Normal case: owner read this state in last committed render
-      ownerRecordedToken !== undefined && instance.lastRenderToken === ownerRecordedToken;
+      ownerRecordedToken !== undefined &&
+      instance.lastRenderToken === ownerRecordedToken;
 
     if (ownerShouldEnqueue && !instance.hasPendingUpdate) {
       instance.hasPendingUpdate = true;
