@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { state, createApp } from '../../src/index';
+import { state, createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('identity edge cases', () => {
@@ -29,7 +29,7 @@ describe('identity edge cases', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const aNodesBefore = Array.from(
@@ -108,7 +108,7 @@ describe('identity edge cases', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const keyA_before = container.querySelector('[data-key="a"]');

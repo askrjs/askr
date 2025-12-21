@@ -1,6 +1,6 @@
 // tests/identity/positional_identity.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp } from '../../src/index';
+import { state, createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('positional identity (IDENTITY)', () => {
@@ -23,7 +23,7 @@ describe('positional identity (IDENTITY)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const root = container.children[0] as HTMLElement;
@@ -54,7 +54,7 @@ describe('positional identity (IDENTITY)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const root = container.children[0] as HTMLElement;

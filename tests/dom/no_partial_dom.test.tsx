@@ -1,6 +1,6 @@
 // tests/dom/no_partial_dom.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('no partial DOM (DOM)', () => {
@@ -18,7 +18,7 @@ describe('no partial DOM (DOM)', () => {
       ],
     });
 
-    createApp({ root: container, component: ok });
+    createIsland({ root: container, component: ok });
     flushScheduler();
 
     expect(container.querySelectorAll('span').length).toBe(3);

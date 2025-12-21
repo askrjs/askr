@@ -1,6 +1,6 @@
 // tests/ssr/snapshot_restore.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { hydrate, renderToString, state } from '../../src/index';
+import { hydrateSPA, renderToString, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('snapshot restore (SSR)', () => {
@@ -23,7 +23,12 @@ describe('snapshot restore (SSR)', () => {
     const html = await renderToString(Component);
 
     container.innerHTML = html;
-    await hydrate({ root: container, component: Component });
+    await expect(
+      hydrateSPA({
+        root: container,
+        routes: [{ path: '/', handler: Component }],
+      })
+    ).resolves.not.toThrow();
     flushScheduler();
 
     expect(container.textContent).toContain('hello');
@@ -41,11 +46,17 @@ describe('snapshot restore (SSR)', () => {
 
     const html = await renderToString(() => ({
       type: 'button',
+      props: { id: 'btn' },
       children: ['0'],
     }));
     container.innerHTML = html;
 
-    await hydrate({ root: container, component: Component });
+    await expect(
+      hydrateSPA({
+        root: container,
+        routes: [{ path: '/', handler: Component }],
+      })
+    ).resolves.not.toThrow();
     flushScheduler();
 
     const btn = container.querySelector('#btn') as HTMLButtonElement;

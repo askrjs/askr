@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer } from '../helpers/test_renderer';
-import { createApp, timer } from '../../src/index';
+import { createIsland, timer } from '../../src/index';
 
 describe('Atomicity: no observable work before commit', () => {
   it('should not attach listeners or start timers when render fails', () => {
@@ -32,7 +32,9 @@ describe('Atomicity: no observable work before commit', () => {
         ({ type: 'div', children: [Good(), Crash()] }) as JSXElement;
 
       // Mount should throw
-      expect(() => createApp({ root: container, component: Parent })).toThrow();
+      expect(() =>
+        createIsland({ root: container, component: Parent })
+      ).toThrow();
 
       // No DOM should have been committed
       expect(container.querySelector('#btn')).toBeNull();

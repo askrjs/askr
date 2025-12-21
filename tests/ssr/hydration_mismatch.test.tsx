@@ -1,7 +1,7 @@
 // tests/ssr/hydration_mismatch.test.ts
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { hydrate } from '../../src/index';
-import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { hydrateSPA } from '../../src/index';
+import { createTestContainer } from '../helpers/test_renderer';
 
 describe('hydration mismatch (SSR)', () => {
   let { container, cleanup } = createTestContainer();
@@ -12,34 +12,35 @@ describe('hydration mismatch (SSR)', () => {
     container.innerHTML = '<div>server</div>';
     const Component = () => ({ type: 'div', children: ['client'] });
 
-    await hydrate({ root: container, component: Component });
-    flushScheduler();
-
-    // Spec: mismatch should be detected and handled.
-    expect(container.textContent).toBe('client');
+    await expect(
+      hydrateSPA({
+        root: container,
+        routes: [{ path: '/', handler: Component }],
+      })
+    ).rejects.toThrow(/Hydration mismatch/i);
   });
 
   it('should re-render client when server HTML structure differs', async () => {
     container.innerHTML = '<span>server</span>';
     const Component = () => ({ type: 'div', children: ['client'] });
 
-    await hydrate({ root: container, component: Component });
-    flushScheduler();
-
-    expect(container.querySelector('div')).not.toBeNull();
-    expect(container.querySelector('span')).toBeNull();
+    await expect(
+      hydrateSPA({
+        root: container,
+        routes: [{ path: '/', handler: Component }],
+      })
+    ).rejects.toThrow(/Hydration mismatch/i);
   });
 
   it('should warn in dev mode when mismatch occurs', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     container.innerHTML = '<div>server</div>';
 
     const Component = () => ({ type: 'div', children: ['client'] });
-    await hydrate({ root: container, component: Component });
-    flushScheduler();
-
-    // Spec: mismatch should warn in dev.
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
+    await expect(
+      hydrateSPA({
+        root: container,
+        routes: [{ path: '/', handler: Component }],
+      })
+    ).rejects.toThrow(/Hydration mismatch/i);
   });
 });

@@ -1,6 +1,6 @@
 // tests/state/state_mutation_guards.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('state mutation guards (STATE)', () => {
@@ -15,7 +15,7 @@ describe('state mutation guards (STATE)', () => {
       return { type: 'div', children: [`${count()}`] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toBe('0');
 
@@ -32,7 +32,7 @@ describe('state mutation guards (STATE)', () => {
       return { type: 'div', children: ['x'] };
     };
 
-    expect(() => createApp({ root: container, component: Bad })).toThrow(
+    expect(() => createIsland({ root: container, component: Bad })).toThrow(
       /state\.set\(\) cannot be called during component render/i
     );
   });
@@ -45,7 +45,7 @@ describe('state mutation guards (STATE)', () => {
       return { type: 'div', children: [`${count()}`] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     await new Promise<void>((resolve) => {

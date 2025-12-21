@@ -1,6 +1,6 @@
 // tests/state/conditional_state_errors.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('conditional state errors (STATE)', () => {
@@ -20,7 +20,7 @@ describe('conditional state errors (STATE)', () => {
       return { type: 'div', children: [ok()] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toContain('ok');
 
@@ -39,7 +39,7 @@ describe('conditional state errors (STATE)', () => {
     };
 
     expect(() =>
-      createApp({ root: container, component: Component })
+      createIsland({ root: container, component: Component })
     ).toThrow();
   });
 
@@ -54,7 +54,7 @@ describe('conditional state errors (STATE)', () => {
     };
 
     expect(() =>
-      createApp({ root: container, component: Component })
+      createIsland({ root: container, component: Component })
     ).not.toThrow();
   });
 });

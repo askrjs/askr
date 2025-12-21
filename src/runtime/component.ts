@@ -325,7 +325,9 @@ function runComponent(instance: ComponentInstance): void {
                 ? instance.target.innerHTML.slice(0, 200)
                 : ''
             );
-          } catch (e) { void e; }
+          } catch (e) {
+            void e;
+          }
 
           // Commit succeeded — finalize recorded state reads so subscriptions reflect
           // the last *committed* render. This updates per-state reader maps

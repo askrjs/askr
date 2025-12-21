@@ -77,7 +77,8 @@ export async function waitForFlush(timeout = 2000): Promise<void> {
   if (state.taskCount === 0 && !state.running) return;
 
   // Otherwise wait for the next flushVersion (current + 1)
-  const target = (state as unknown as { flushVersion: number }).flushVersion + 1;
+  const target =
+    (state as unknown as { flushVersion: number }).flushVersion + 1;
   try {
     await globalScheduler.waitForFlush(target, timeout);
   } catch (err) {

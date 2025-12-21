@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp } from '../../src/index';
+import { state, createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('state persistence (SPEC 2.5)', () => {
@@ -42,7 +42,7 @@ describe('state persistence (SPEC 2.5)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       expect(container.textContent).toContain('count: 42');
@@ -68,7 +68,7 @@ describe('state persistence (SPEC 2.5)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       expect(container.textContent).toContain('x=1 y=2 z=3');
@@ -94,7 +94,7 @@ describe('state persistence (SPEC 2.5)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       console.warn('Initial DOM:', container.innerHTML);
@@ -122,8 +122,8 @@ describe('state persistence (SPEC 2.5)', () => {
         return { type: 'div', children: ['ok'] };
       };
 
-      createApp({ root: container, component: Component });
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       flushScheduler();
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createApp, resource } from '../../src/index';
+import { createIsland, resource } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -24,7 +24,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       // Allow any mount-triggered work to run.
@@ -89,7 +89,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
       await waitForNextEvaluation();
       flushScheduler();
@@ -159,7 +159,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
       await waitForNextEvaluation();
       flushScheduler();

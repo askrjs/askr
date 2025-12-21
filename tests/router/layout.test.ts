@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, navigate } from '../../src/index';
+import { createSPA, navigate } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
-import { route } from '../../src/index';
 import { layout } from '../../src/index';
 
 describe('layout helper (ROUTER)', () => {
@@ -27,14 +26,15 @@ describe('layout helper (ROUTER)', () => {
     });
     const parent = layout(() => ParentLayout());
 
-    route('/p', () =>
-      parent({ type: 'div', props: { class: 'child' }, children: ['C'] })
-    );
+    const routes = [
+      {
+        path: '/p',
+        handler: () =>
+          parent({ type: 'div', props: { class: 'child' }, children: ['C'] }),
+      },
+    ];
 
-    createApp({
-      root: container,
-      component: () => ({ type: 'div', props: {}, children: ['App'] }),
-    });
+    await createSPA({ root: container, routes });
 
     navigate('/p');
     await flushScheduler();

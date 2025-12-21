@@ -6,14 +6,20 @@ let s = fs.readFileSync(file, 'utf8');
 let orig = s;
 
 // replace occurrences of 'const _g = globalThis as any;' with typed gl
-s = s.replace(/const _g = globalThis as any;/g, `const gl = globalThis as unknown as {
+s = s.replace(
+  /const _g = globalThis as any;/g,
+  `const gl = globalThis as unknown as {
                   __ASKR_LAST_FASTPATH_STATS?: unknown;
                   __ASKR_BULK_DIAG?: unknown;
                   __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
-                };`);
+                };`
+);
 
 // replace remaining '(globalThis as any).__ASKR_BULK_DIAG' with gl assignment
-s = s.replace(/\(globalThis as any\)\.__ASKR_BULK_DIAG/g, `(globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG`);
+s = s.replace(
+  /\(globalThis as any\)\.__ASKR_BULK_DIAG/g,
+  `(globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG`
+);
 
 // replace any remaining _g. with gl.
 s = s.replace(/_g\./g, 'gl.');

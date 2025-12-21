@@ -1,6 +1,6 @@
 // tests/state/hook_order_enforcement.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('hook order enforcement (STATE)', () => {
@@ -22,7 +22,7 @@ describe('hook order enforcement (STATE)', () => {
       return { type: 'div', children: [`${a()}${b()}`] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Toggle introduces a hook-order mismatch.
@@ -52,7 +52,7 @@ describe('hook order enforcement (STATE)', () => {
       return { type: 'div', children: ['ok'] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Initial state is fine - flag is false, so conditional state not called
@@ -87,7 +87,7 @@ describe('hook order enforcement (STATE)', () => {
       return { type: 'div', children: ['x'] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // First render: loop doesn't run, state calls: [0]

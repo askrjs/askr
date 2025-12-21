@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-  createApp,
+  createSPA,
   renderToString,
   navigate,
   setServerLocation,
@@ -57,11 +57,16 @@ describe('route accessor (public)', () => {
   it('should return params and keep snapshot immutable', async () => {
     let snapDuringRender: RouteSnapshot | null = null;
 
-    route('/users/{id}', (_params) => {
-      const s = route();
-      snapDuringRender = s as RouteSnapshot;
-      return { type: 'div', props: {}, children: [`user:${s.params.id}`] };
-    });
+    const routes = [
+      {
+        path: '/users/{id}',
+        handler: (_params: Record<string, string>) => {
+          const s = route();
+          snapDuringRender = s as RouteSnapshot;
+          return { type: 'div', props: {}, children: [`user:${s.params.id}`] };
+        },
+      },
+    ];
 
     // mount app
     // Provide a minimal window object expected by initializeNavigation
@@ -71,10 +76,7 @@ describe('route accessor (public)', () => {
       addEventListener() {},
       removeEventListener() {},
     });
-    createApp({
-      root: container,
-      component: () => ({ type: 'div', props: {}, children: ['App'] }),
-    });
+    await createSPA({ root: container, routes });
 
     // navigate to user 42
     updateGlobalPath('/users/42');
@@ -96,16 +98,20 @@ describe('route accessor (public)', () => {
   });
 
   it('should re-render on navigation', async () => {
-    route('/home', () => ({
-      type: 'div',
-      props: {},
-      children: ['home'],
-    }));
-    route('/users/{id}', (params) => ({
-      type: 'div',
-      props: {},
-      children: [`user:${params.id}`],
-    }));
+    const routes = [
+      {
+        path: '/home',
+        handler: () => ({ type: 'div', props: {}, children: ['home'] }),
+      },
+      {
+        path: '/users/{id}',
+        handler: (params: Record<string, string>) => ({
+          type: 'div',
+          props: {},
+          children: [`user:${params.id}`],
+        }),
+      },
+    ];
 
     // Provide a minimal window object expected by initializeNavigation
     setGlobalWindow({
@@ -115,10 +121,7 @@ describe('route accessor (public)', () => {
       removeEventListener() {},
     });
 
-    createApp({
-      root: container,
-      component: () => ({ type: 'div', props: {}, children: ['App'] }),
-    });
+    await createSPA({ root: container, routes });
 
     navigate('/home');
     await flushScheduler();
@@ -169,15 +172,20 @@ describe('route accessor (public)', () => {
       removeEventListener() {},
     });
 
-    createApp({
+    await createSPA({
       root: container,
-      component: () => ({
-        type: 'div',
-        props: {},
-        children: [
-          `${route().params.id}|${route().query.get('q') || ''}|${route().hash || ''}`,
-        ],
-      }),
+      routes: [
+        {
+          path: '/items/{id}',
+          handler: (params: Record<string, string>) => ({
+            type: 'div',
+            props: {},
+            children: [
+              `${params.id}|${route().query.get('q') || ''}|${route().hash || ''}`,
+            ],
+          }),
+        },
+      ],
     });
 
     // Mount route handler by navigating to the path

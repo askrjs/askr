@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { createApp } from '../../src/index';
 import { createTestContainer } from '../helpers/test_renderer';
 import type { JSXElement } from '../../src/jsx/types';
 

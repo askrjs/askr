@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer } from '../helpers/test_renderer';
-import { createApp } from '../../src/index';
+import { createIsland } from '../../src/index';
 
 describe('Single-owner DOM invariant', () => {
   it('should update root and clean up prior instance when replacing a mounted component', () => {
@@ -13,10 +13,12 @@ describe('Single-owner DOM invariant', () => {
         ({ type: 'div', props: { id: 'root' }, children: ['B'] }) as JSXElement;
 
       // Mount A
-      createApp({ root: container, component: A });
+      createIsland({ root: container, component: A });
 
       // Replace with B — should not throw and should replace DOM
-      expect(() => createApp({ root: container, component: B })).not.toThrow();
+      expect(() =>
+        createIsland({ root: container, component: B })
+      ).not.toThrow();
 
       // DOM should now reflect B
       expect(container.textContent).toContain('B');

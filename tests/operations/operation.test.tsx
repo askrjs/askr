@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  createApp,
+  createIsland,
   state,
   derive,
   task,
@@ -28,9 +28,7 @@ describe('operations (BINDING_SPEC) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
-      flushScheduler();
-
+      createIsland({ root: container, component: App });
       await waitForNextEvaluation();
       flushScheduler();
 
@@ -91,9 +89,7 @@ describe('operations (BINDING_SPEC) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
-      flushScheduler();
-
+      createIsland({ root: container, component: App });
       target.dispatchEvent(new Event('ping'));
       flushScheduler();
 
@@ -116,7 +112,7 @@ describe('operations (BINDING_SPEC) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       vi.advanceTimersByTime(35);
@@ -144,7 +140,7 @@ describe('operations (BINDING_SPEC) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       expect(container.textContent).toContain('pending');

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createApp, resource } from '../../src/index';
+import { createIsland, resource } from '../../src/index';
 import type { JSXElement } from '../../src/jsx/types';
 import {
   createTestContainer,
@@ -41,7 +41,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         ],
       });
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       // All three elements must exist - proves atomicity
       expectDOM(container).contains('h1');
@@ -64,7 +64,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         return node;
       };
 
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ applyAttrs: true }),
       });
@@ -86,7 +86,10 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         };
       };
 
-      createApp({ root: container, component: () => Component({ depth: 3 }) });
+      createIsland({
+        root: container,
+        component: () => Component({ depth: 3 }),
+      });
 
       // Verify complete structure exists
       const divs = container.querySelectorAll('div').length;
@@ -110,12 +113,12 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       };
 
       // First render succeeds
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       expectDOM(container).text('First');
 
       // Second render fails - should not update DOM
       try {
-        createApp({ root: container, component: Component });
+        createIsland({ root: container, component: Component });
       } catch {
         // Error expected
       }
@@ -142,7 +145,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       };
 
       // First render succeeds
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ shouldFail: false }),
       });
@@ -151,7 +154,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
       // Second render fails mid-structure
       try {
-        createApp({
+        createIsland({
           root: container,
           component: () => Component({ shouldFail: true }),
         });
@@ -180,14 +183,14 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         };
       };
 
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ shouldFail: false }),
       });
       const snapshot1 = container.innerHTML;
 
       try {
-        createApp({
+        createIsland({
           root: container,
           component: () => Component({ shouldFail: true }),
         });
@@ -213,7 +216,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       };
 
       // First async render succeeds
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ shouldFail: false }),
       });
@@ -223,7 +226,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       const snapshot = container.innerHTML;
 
       // Second update with failing resource should not change DOM
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ shouldFail: true }),
       });
@@ -246,14 +249,14 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       };
 
       // Start slow resource
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ id: 'slow', delay: 100 }),
       });
 
       // Start faster resource before slow one completes
       await new Promise((r) => setTimeout(r, 30));
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ id: 'fast', delay: 10 }),
       });
@@ -284,7 +287,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         children: ['Click'],
       });
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       const button = container.querySelector('button') as HTMLButtonElement;
@@ -312,7 +315,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       };
 
       // First render succeeds, listener attached
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ shouldFail: false }),
       });
@@ -324,7 +327,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
       // Second render fails, no new listener attached
       try {
-        createApp({
+        createIsland({
           root: container,
           component: () => Component({ shouldFail: true }),
         });

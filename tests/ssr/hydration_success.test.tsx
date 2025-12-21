@@ -1,6 +1,6 @@
 // tests/ssr/hydration_success.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { hydrate, renderToString, state } from '../../src/index';
+import { hydrateSPA, renderToStringForUrl, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('hydration success (SSR)', () => {
@@ -16,10 +16,11 @@ describe('hydration success (SSR)', () => {
       children: ['click'],
     });
 
-    const html = await renderToString(Component);
+    const routes = [{ path: '/', handler: Component }];
+    const html = await renderToStringForUrl({ url: '/', routes });
     container.innerHTML = html;
 
-    await hydrate({ root: container, component: Component });
+    await hydrateSPA({ root: container, routes });
     flushScheduler();
 
     const btn = container.querySelector('#btn') as HTMLButtonElement;
@@ -44,13 +45,11 @@ describe('hydration success (SSR)', () => {
       };
     };
 
-    const html = await renderToString(() => ({
-      type: 'input',
-      props: { id: 'input', value: '' },
-    }));
+    const routes = [{ path: '/', handler: Component }];
+    const html = await renderToStringForUrl({ url: '/', routes });
     container.innerHTML = html;
 
-    await hydrate({ root: container, component: Component });
+    await hydrateSPA({ root: container, routes });
     flushScheduler();
 
     const input = container.querySelector('#input') as HTMLInputElement;
@@ -65,10 +64,11 @@ describe('hydration success (SSR)', () => {
 
   it('should preserve server state after hydration', async () => {
     const Component = () => ({ type: 'div', children: ['server'] });
-    const html = await renderToString(Component);
+    const routes = [{ path: '/', handler: Component }];
+    const html = await renderToStringForUrl({ url: '/', routes });
     container.innerHTML = html;
 
-    await hydrate({ root: container, component: Component });
+    await hydrateSPA({ root: container, routes });
     flushScheduler();
 
     expect(container.textContent).toBe('server');
@@ -77,10 +77,11 @@ describe('hydration success (SSR)', () => {
   it('should preserve server state after hydration (sync server)', async () => {
     const Component = () => ({ type: 'div', children: ['async hydrated'] });
 
-    const html = await renderToString(Component);
+    const routes = [{ path: '/', handler: Component }];
+    const html = await renderToStringForUrl({ url: '/', routes });
     container.innerHTML = html;
 
-    await hydrate({ root: container, component: Component });
+    await hydrateSPA({ root: container, routes });
     flushScheduler();
 
     expect(container.textContent).toBe('async hydrated');
@@ -100,13 +101,16 @@ describe('hydration success (SSR)', () => {
       };
     };
 
-    const html = await renderToString(() => ({
-      type: 'button',
-      children: ['count: 0'],
-    }));
+    const routes = [
+      {
+        path: '/',
+        handler: Component,
+      },
+    ];
+    const html = await renderToStringForUrl({ url: '/', routes });
     container.innerHTML = html;
 
-    await hydrate({ root: container, component: Component });
+    await hydrateSPA({ root: container, routes });
     flushScheduler();
 
     expect(hydrated).toBe(true);
@@ -126,10 +130,11 @@ describe('hydration success (SSR)', () => {
       children: ['async click'],
     });
 
-    const html = await renderToString(Component);
+    const routes = [{ path: '/', handler: Component }];
+    const html = await renderToStringForUrl({ url: '/', routes });
     container.innerHTML = html;
 
-    await hydrate({ root: container, component: Component });
+    await hydrateSPA({ root: container, routes });
     flushScheduler();
 
     const btn = container.querySelector('#btn') as HTMLButtonElement;

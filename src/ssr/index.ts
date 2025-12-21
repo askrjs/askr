@@ -12,11 +12,11 @@ import {
   createComponentInstance,
   getCurrentComponentInstance,
   setCurrentComponentInstance,
-  type ComponentFunction,
   type ComponentInstance,
 } from '../runtime/component';
-import { createApp } from '../app/createApp';
 
+import type { RouteHandler } from '../router/route';
+import * as RouteModule from '../router/route';
 import type { Props } from '../shared/types';
 
 type VNode = {
@@ -420,33 +420,75 @@ export async function renderToStringBatch(
   );
 }
 
-/**
- * Hydrate server-generated DOM for a root selector and component.
- * - Verifies the existing DOM matches the synchronous render
- * - Calls `createApp` to mount the runtime (which will re-execute the component)
- * - Fails fast on mismatch (throws an Error)
- */
-export async function hydrate(
-  selector: string,
-  component: (props?: Record<string, unknown>) => VNode | JSXElement
-): Promise<void> {
-  const root = document.querySelector(selector);
-  if (!root) throw new Error(`hydrate: selector not found: ${selector}`);
+// Server-side API: render by URL and explicit routes
+export async function renderToStringForUrl(opts: {
+  url: string;
+  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
+}): Promise<string> {
+  const { url, routes } = opts;
 
-  // Do a strict synchronous render and compare
-  const expected = renderToStringSync(component);
-  const normalize = (html: string) => html.replace(/\s+/g, ' ').trim();
-  if (normalize(root.innerHTML) !== normalize(expected)) {
-    throw new Error(
-      'Hydration mismatch: server HTML does not match client render'
-    );
+  // Register routes deterministically for the server render
+  const {
+    clearRoutes,
+    route,
+    setServerLocation,
+    lockRouteRegistration,
+    resolveRoute,
+  } = await import('../router/route');
+
+  clearRoutes();
+  for (const r of routes) {
+    route(r.path, r.handler, r.namespace);
   }
 
-  // Mount the runtime in the normal way (this will attach listeners and initialize state)
-  // We use createApp so the runtime lifecycle (mounts, on, timers) is consistent.
-  // Pass the actual root element (not selector) to avoid id-format mismatches.
-  createApp({
-    root: root as Element,
-    component: component as unknown as ComponentFunction,
-  });
+  // Set server location so route() returns deterministic path in SSR
+  setServerLocation(url);
+
+  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
+
+  const resolved = resolveRoute(url);
+  if (!resolved)
+    throw new Error(`renderToString: no route found for url: ${url}`);
+
+  // Render the resolved handler (pass params as props)
+  const node = await executeComponent(
+    resolved.handler as Component,
+    resolved.params
+  );
+  return renderNode(node);
+}
+
+// Synchronous server render for strict checks
+export function renderToStringSyncForUrl(opts: {
+  url: string;
+  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
+}): string {
+  const { url, routes } = opts;
+  // Register routes synchronously using route() (already available in module scope)
+  // We import the same helpers synchronously to avoid mixing async.
+  const {
+    clearRoutes,
+    route,
+    setServerLocation,
+    lockRouteRegistration,
+    resolveRoute,
+  } = RouteModule;
+
+  clearRoutes();
+  for (const r of routes) {
+    route(r.path, r.handler, r.namespace);
+  }
+
+  setServerLocation(url);
+  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
+
+  const resolved = resolveRoute(url);
+  if (!resolved)
+    throw new Error(`renderToStringSync: no route found for url: ${url}`);
+
+  const node = executeComponentSync(
+    resolved.handler as Component,
+    resolved.params
+  );
+  return renderNodeSync(node);
 }

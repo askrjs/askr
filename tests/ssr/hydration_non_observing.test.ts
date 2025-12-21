@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
-import { renderToStringSync, hydrate } from '../../src/ssr';
+import { renderToStringSync } from '../../src/ssr';
+import { hydrateSPA } from '../../src/index';
 import { createTestContainer } from '../helpers/test_renderer';
 
 describe('Hydration: non-observing', () => {
@@ -27,7 +28,12 @@ describe('Hydration: non-observing', () => {
       container.innerHTML = html;
 
       // Hydrate — should NOT cause any handler to fire as a side-effect
-      await hydrate(`#${container.id}`, () => Component());
+      await expect(
+        hydrateSPA({
+          root: container,
+          routes: [{ path: '/', handler: Component }],
+        })
+      ).resolves.not.toThrow();
 
       // No handler should have fired during hydrate
       expect(clicks).toBe(0);

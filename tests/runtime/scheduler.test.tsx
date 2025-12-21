@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   state,
-  createApp,
+  createIsland,
   resource,
   scheduleEventHandler,
 } from '../../src/index';
@@ -45,7 +45,7 @@ describe('scheduler (SPEC 2.2)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       const button = container.querySelector('button') as HTMLButtonElement;
       // eslint-disable-next-line no-console
@@ -88,7 +88,7 @@ describe('scheduler (SPEC 2.2)', () => {
         };
       };
 
-      createApp({
+      createIsland({
         root: container,
         component: () => ({
           type: 'div',
@@ -126,7 +126,7 @@ describe('scheduler (SPEC 2.2)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       renderCounts.length = 0; // Clear initial render
 
       const button = container.querySelector('button') as HTMLButtonElement;
@@ -162,7 +162,7 @@ describe('scheduler (SPEC 2.2)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       const button = container.querySelector('button') as HTMLButtonElement;
       button?.click();
@@ -190,7 +190,7 @@ describe('scheduler (SPEC 2.2)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       // Only one render attempt (initial)
       expect(renderAttempts).toBe(1);
@@ -220,7 +220,7 @@ describe('scheduler (SPEC 2.2)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
 
       const button = container.querySelector('button') as HTMLButtonElement;
       button?.click();
@@ -247,14 +247,14 @@ describe('scheduler (SPEC 2.2)', () => {
         return { type: 'div', children: [r.value ?? ''] };
       };
 
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ id: 'A', delay: 10 }),
       });
 
       await new Promise((r) => setTimeout(r, 5));
 
-      createApp({
+      createIsland({
         root: container,
         component: () => Component({ id: 'B', delay: 10 }),
       });
@@ -286,7 +286,7 @@ describe('scheduler (SPEC 2.2)', () => {
 
       // Should not throw during component creation (guards are in place)
       expect(() => {
-        createApp({ root: container, component: Component });
+        createIsland({ root: container, component: Component });
       }).not.toThrow();
     });
   });
@@ -307,7 +307,7 @@ describe('scheduler (SPEC 2.2)', () => {
       };
 
       // First run: 100 clicks
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       const button1 = container.querySelector('button') as HTMLButtonElement;
 
       for (let i = 0; i < 100; i++) {
@@ -323,7 +323,7 @@ describe('scheduler (SPEC 2.2)', () => {
       cleanup = result.cleanup;
 
       // Second run: 100 clicks
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       const button2 = container.querySelector('button') as HTMLButtonElement;
 
       for (let i = 0; i < 100; i++) {
@@ -359,7 +359,7 @@ describe('scheduler (SPEC 2.2)', () => {
 
       const { container: c, cleanup: cu } = createTestContainer();
       try {
-        createApp({ root: c, component: Component });
+        createIsland({ root: c, component: Component });
         flushScheduler();
 
         const btn = c.querySelector('#btn') as HTMLButtonElement;

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { renderToStringSync, hydrate } from '../../src/ssr';
+import { renderToStringSync } from '../../src/ssr';
+import { hydrateSPA } from '../../src/index';
 import { createTestContainer } from '../helpers/test_renderer';
 
 describe('SSR hydration (roundtrip)', () => {
@@ -32,7 +33,12 @@ describe('SSR hydration (roundtrip)', () => {
     container.innerHTML = html;
 
     // Hydrate — should not throw and should not modify DOM
-    await hydrate(`#${container.id}`, () => Component());
+    await expect(
+      hydrateSPA({
+        root: container,
+        routes: [{ path: '/', handler: Component }],
+      })
+    ).resolves.not.toThrow();
 
     // DOM unchanged
     expect(container.innerHTML).toBe(html);
@@ -55,7 +61,10 @@ describe('SSR hydration (roundtrip)', () => {
     container.innerHTML = '<div>client</div>';
 
     await expect(
-      hydrate(`#${container.id}`, () => Component())
+      hydrateSPA({
+        root: container,
+        routes: [{ path: '/', handler: Component }],
+      })
     ).rejects.toThrow();
   });
 });
