@@ -270,7 +270,25 @@ export function evaluate(
               // Get existing key map or create new one
               let oldKeyMap = keyedElements.get(firstChild);
               if (!oldKeyMap) {
+                // Attempt to populate oldKeyMap from DOM attributes if the
+                // keyedElements registry hasn't been initialized yet. This
+                // supports cases where initial render or previous updates set
+                // `data-key` attributes but the runtime registry was not set.
                 oldKeyMap = new Map();
+                try {
+                  const children = Array.from(firstChild.children);
+                  for (let i = 0; i < children.length; i++) {
+                    const ch = children[i] as Element;
+                    const k = ch.getAttribute('data-key');
+                    if (k !== null) {
+                      oldKeyMap.set(k, ch);
+                      const n = Number(k);
+                      if (!Number.isNaN(n)) oldKeyMap.set(n, ch);
+                    }
+                  }
+                } catch (e) {
+                  void e;
+                }
               }
 
               // Optional forced positional bulk path for large keyed lists
@@ -1078,7 +1096,7 @@ function reconcileKeyedChildren(
   //  - parent has same number of children as keyed vnodes
   //  - each keyed vnode is an intrinsic element (string type) whose children
   //    are a single primitive (string/number)
-  let _triedPositionalReuse = false;
+  const _triedPositionalReuse = false;
 
   // New heuristic: bulk keyed text update fast-path
   // If there are many keyed elements (large lists) and **no moves** (stable key order)
@@ -1172,6 +1190,9 @@ function reconcileKeyedChildren(
               void e;
             }
 
+            logger.warn(
+              '[Askr][DIAG] applying performBulkPositionalKeyedTextUpdate'
+            );
             const stats = performBulkPositionalKeyedTextUpdate(
               parent,
               keyedVnodes
@@ -1257,6 +1278,7 @@ function reconcileKeyedChildren(
                 void e;
               }
 
+              logger.warn('[Askr][DIAG] applying performBulkKeyedTextReplace');
               const stats = performBulkKeyedTextReplace(
                 parent,
                 keyedVnodes,
@@ -1497,14 +1519,37 @@ function reconcileKeyedChildren(
         // Safety guard: do not apply positional reuse when existing DOM keys match
         // incoming vnode keys. That indicates this is a keyed list reorder, and
         // identity must be preserved by key rather than by position.
-        const anyKeyMatches =
+        let anyKeyMatches =
           !!oldKeyMap && keyedVnodes.some((kv) => oldKeyMap!.has(kv.key));
+        if (!anyKeyMatches) {
+          // If we don't have an oldKeyMap (not recorded yet), check the DOM
+          // for data-key attributes that match incoming keys. This catches
+          // cases where the keyedElements registry hasn't been set yet but
+          // the DOM already contains keyed elements from previous renders.
+          try {
+            const parentChildren = parent.children;
+            for (let i = 0; i < parentChildren.length; i++) {
+              const attr = parentChildren[i].getAttribute('data-key');
+              if (attr === null) continue;
+              for (let j = 0; j < keyedVnodes.length; j++) {
+                const k = String(keyedVnodes[j].key);
+                if (k === attr || String(Number(attr)) === k) {
+                  anyKeyMatches = true;
+                  break;
+                }
+              }
+              if (anyKeyMatches) break;
+            }
+          } catch (e) {
+            void e;
+          }
+        }
         if (anyKeyMatches) {
           eligible = false;
         }
 
         if (eligible || process.env.ASKR_FORCE_POSREUSE === '1') {
-          _triedPositionalReuse = true;
+          logger.warn('[Askr][DIAG] applying positional reuse');
           if (process.env.ASKR_FORCE_POSREUSE === '1') {
             logger.warn(
               '[Askr][POSREUSE][FORCED] forcing positional reuse path for testing'
