@@ -250,8 +250,8 @@ export function resource<T>(
             // Log error so it's visible and can be asserted in tests
             try {
               logger.error('[Askr] Async resource error:', err);
-            } catch {
-              // ignore logging errors
+            } catch (e) {
+              void e;
             }
             globalScheduler.enqueue(instance._enqueueRun!);
           })

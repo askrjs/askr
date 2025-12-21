@@ -32,7 +32,9 @@ describe('identity edge cases', () => {
     createApp({ root: container, component: Component });
     flushScheduler();
 
-    const aNodesBefore = Array.from(container.querySelectorAll('[data-key="a"]'));
+    const aNodesBefore = Array.from(
+      container.querySelectorAll('[data-key="a"]')
+    );
     expect(aNodesBefore.length).toBe(2);
     const firstA_before = aNodesBefore[0];
     const secondA_before = aNodesBefore[1];
@@ -45,7 +47,9 @@ describe('identity edge cases', () => {
     ]);
     flushScheduler();
 
-    const aNodesAfter = Array.from(container.querySelectorAll('[data-key="a"]'));
+    const aNodesAfter = Array.from(
+      container.querySelectorAll('[data-key="a"]')
+    );
     expect(aNodesAfter.length).toBe(2);
     const firstA_after = aNodesAfter[0];
     const secondA_after = aNodesAfter[1];
@@ -85,7 +89,7 @@ describe('identity edge cases', () => {
 
       return {
         type: 'div',
-        children: mode().map((it, i) => {
+        children: mode().map((it) => {
           if (it.type === 'k') {
             return {
               type: 'span',

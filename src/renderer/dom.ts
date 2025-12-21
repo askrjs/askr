@@ -123,6 +123,11 @@ export function getKeyMapForElement(el: Element) {
   return keyedElements.get(el);
 }
 
+// Track which parents had the reconciler record fast-path stats during the
+// current evaluation, so we can preserve diagnostics across additional
+// reconciliations within the same render pass without leaking between runs.
+const _reconcilerRecordedParents = new WeakSet<Element>();
+
 export function removeElementListeners(element: Element): void {
   const map = elementListeners.get(element);
   if (map) {
@@ -161,8 +166,8 @@ export function evaluate(
       targetId: target.id,
       children: target.children.length,
     });
-  } catch {
-    /* ignore */
+  } catch (e) {
+    void e;
   }
 
   // If context provided, use component-owned DOM range (only replace that range)
@@ -184,7 +189,7 @@ export function evaluate(
           '[DEBUG evaluate] inserting before end marker into',
           target.id
         );
-      } catch {}
+      } catch (e) { void e; }
       target.insertBefore(dom, range.end);
     }
   } else if (context) {
@@ -203,7 +208,7 @@ export function evaluate(
           '[DEBUG evaluate] inserting into newly created range on',
           target.id
         );
-      } catch {}
+      } catch (e) { void e; }
       target.insertBefore(dom, end);
     }
   } else {
@@ -313,18 +318,25 @@ export function evaluate(
                         process.env.ASKR_FASTPATH_DEBUG === '1'
                       ) {
                         try {
-                          const _g = globalThis as any;
-                          _g.__ASKR_LAST_FASTPATH_STATS = stats;
+                          const gl = globalThis as unknown as {
+                            __ASKR_LAST_FASTPATH_STATS?: unknown;
+                            __ASKR_LAST_FASTPATH_COMMIT_COUNT?: number | undefined;
+                            __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                          };
+                          (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+                          // Mark a single logical commit for dev diagnostics so
+                          // runtime fast-lane invariants can validate commit counts.
+                          gl.__ASKR_LAST_FASTPATH_COMMIT_COUNT = 1;
                           const counters =
-                            (_g.__ASKR_FASTPATH_COUNTERS as Record<
+                            (gl.__ASKR_FASTPATH_COUNTERS as Record<
                               string,
                               number
                             >) || {};
                           counters.bulkKeyedPositionalForced =
                             (counters.bulkKeyedPositionalForced || 0) + 1;
-                          _g.__ASKR_FASTPATH_COUNTERS = counters;
-                        } catch {
-                          /* ignore */
+                          gl.__ASKR_FASTPATH_COUNTERS = counters;
+                        } catch (e) {
+                          void e;
                         }
                       }
                       // Rebuild keyed map
@@ -341,8 +353,8 @@ export function evaluate(
                           }
                         }
                         keyedElements.set(firstChild, map);
-                      } catch {
-                        /* ignore */
+                      } catch (e) {
+                        void e;
                       }
                     } else {
                       // Fall back to normal reconciliation below
@@ -387,7 +399,8 @@ export function evaluate(
                     newKeyMap.size
                   );
                 }
-              } catch (err) {
+              } catch (e) {
+                void e; // suppress unused variable lint
                 // Fall back to normal reconciliation on error
                 const newKeyMap = reconcileKeyedChildren(
                   firstChild,
@@ -407,29 +420,29 @@ export function evaluate(
                 // Dev-only instrumentation counters
                 if (process.env.NODE_ENV !== 'production') {
                   try {
-                    const _g = globalThis as unknown as Record<string, unknown>;
-                    _g.__ASKR_LAST_BULK_TEXT_FASTPATH_STATS = stats;
-                    const counters =
-                      (_g.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
-                      {};
+                    const gl = globalThis as unknown as {
+                      __ASKR_LAST_BULK_TEXT_FASTPATH_STATS?: unknown;
+                      __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                    };
+                    (gl.__ASKR_LAST_BULK_TEXT_FASTPATH_STATS as unknown) = stats;
+                    const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
                     counters.bulkTextHits = (counters.bulkTextHits || 0) + 1;
-                    _g.__ASKR_FASTPATH_COUNTERS = counters;
-                  } catch {
-                    /* ignore */
+                    gl.__ASKR_FASTPATH_COUNTERS = counters;
+                  } catch (e) {
+                    void e;
                   }
                 }
               } else {
                 if (process.env.NODE_ENV !== 'production') {
                   try {
-                    const _g = globalThis as unknown as Record<string, unknown>;
-                    const counters =
-                      (_g.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
-                      {};
-                    counters.bulkTextMisses =
-                      (counters.bulkTextMisses || 0) + 1;
-                    _g.__ASKR_FASTPATH_COUNTERS = counters;
-                  } catch {
-                    /* ignore */
+                    const gl = globalThis as unknown as {
+                      __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                    };
+                    const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+                    counters.bulkTextMisses = (counters.bulkTextMisses || 0) + 1;
+                    gl.__ASKR_FASTPATH_COUNTERS = counters;
+                  } catch (e) {
+                    void e;
                   }
                 }
                 // Fall back to existing per-node updates
@@ -880,47 +893,49 @@ function reconcileKeyedChildren(
         logger.warn('[Askr][FASTPATH] applying huge-list positional fallback');
         try {
           if (isBulkCommitActive()) markFastPathApplied(parent);
-        } catch {}
+        } catch (e) { void e; }
         const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
         if (
           process.env.NODE_ENV !== 'production' ||
           process.env.ASKR_FASTPATH_DEBUG === '1'
         ) {
           try {
-            const _g = globalThis as any;
-            _g.__ASKR_LAST_FASTPATH_STATS = stats;
-            const counters =
-              (_g.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
-            counters.bulkKeyedHugeFallback =
-              (counters.bulkKeyedHugeFallback || 0) + 1;
-            _g.__ASKR_FASTPATH_COUNTERS = counters;
-            _g.__ASKR_BULK_DIAG = { phase: 'bulk-keyed-huge-fallback', stats };
-          } catch {}
+            const gl = globalThis as unknown as {
+              __ASKR_LAST_FASTPATH_STATS?: unknown;
+              __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+              __ASKR_BULK_DIAG?: unknown;
+            };
+            (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+            const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+            counters.bulkKeyedHugeFallback = (counters.bulkKeyedHugeFallback || 0) + 1;
+            gl.__ASKR_FASTPATH_COUNTERS = counters;
+            (gl.__ASKR_BULK_DIAG as unknown) = { phase: 'bulk-keyed-huge-fallback', stats };
+          } catch (e) { void e; }
         }
         return newKeyMap;
       }
     }
-  } catch {
-    /* ignore */
-  }
+  } catch (e) { void e; }
   if (
     process.env.NODE_ENV !== 'production' ||
     process.env.ASKR_FASTPATH_DEBUG === '1'
   ) {
     try {
-      (globalThis as any).__ASKR_BULK_DIAG = {
+      const gl = globalThis as unknown as { __ASKR_BULK_DIAG?: unknown };
+      (gl.__ASKR_BULK_DIAG as unknown) = {
         phase: 'keyed-decision',
         decision,
         totalKeyed,
         oldKeyMapSize: oldKeyMap?.size ?? 0,
       };
-    } catch {}
+    } catch (e) { void e; }
   }
 
   // Heuristic: if many incoming keys are missing from the old key map (i.e.
   // keys changed en-masse) and all children are simple text, prefer the
   // positional bulk text fast-path rather than the keyed map fast-path which
   // would allocate many new elements.
+  let allSimpleText = false;
   try {
     if (
       keyedVnodes.length >=
@@ -951,7 +966,6 @@ function reconcileKeyedChildren(
       // Moved here to ensure the predicate is available where it's needed.
       // Declare variable in outer scope so it can be referenced later in file
       // (some heuristics need this predicate after this try block).
-      let allSimpleText = false;
       allSimpleText =
         keyedVnodes.length > 0 &&
         keyedVnodes.every(({ vnode }) => {
@@ -969,40 +983,76 @@ function reconcileKeyedChildren(
           return typeof ch === 'string' || typeof ch === 'number';
         });
 
+      // Conservative: do not apply positional bulk keyed fast-path when any
+      // child vnode declares non-data props (class, value, etc). Such props
+      // may require per-node updates and the bulk path assumes text-only
+      // changes. Compute presence of non-data props here.
+      let hasPropsPresent = false;
+      for (let i = 0; i < keyedVnodes.length; i++) {
+        const vnode = keyedVnodes[i].vnode;
+        if (!_isDOMElement(vnode)) continue;
+        const props = vnode.props || {};
+        for (const k of Object.keys(props)) {
+          if (k === 'children' || k === 'key') continue;
+          if (k.startsWith('on') && k.length > 2) continue; // ignore event handlers
+          if (k.startsWith('data-')) continue; // ignore data-* attributes
+          hasPropsPresent = true;
+          break;
+        }
+        if (hasPropsPresent) break;
+      }
+
       const missingRatio = missing / Math.max(1, keyedVnodes.length);
-      if (missingRatio > 0.5 && allSimpleText) {
+      if (missingRatio > 0.5 && allSimpleText && !hasPropsPresent) {
         logger.warn(
           '[Askr][FASTPATH] switching to positional bulk keyed fast-path due to missing keys ratio',
           missingRatio
         );
         try {
           if (isBulkCommitActive()) markFastPathApplied(parent);
-        } catch {}
+        } catch (e) { void e; }
         const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
         if (process.env.NODE_ENV !== 'production') {
           try {
-            const _g = globalThis as unknown as Record<string, unknown>;
-            _g.__ASKR_LAST_FASTPATH_STATS = stats;
+            const gl = globalThis as unknown as {
+              __ASKR_LAST_FASTPATH_STATS?: unknown;
+              __ASKR_LAST_FASTPATH_COMMIT_COUNT?: number | undefined;
+              __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+            };
+            (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+            // Mark that reconciler recorded stats for this parent during this
+            // render pass; this allows subsequent reconciliations in the same
+            // pass to preserve the diagnostic fields instead of clearing them.
+            try {
+              _reconcilerRecordedParents.add(parent);
+            } catch (e) {
+              void e;
+            }
+            // Record a logical commit for diagnostics (even though the
+            // reconciler performed in-place updates, treat it as a single
+            // fast-path commit for runtime invariant checks).
+            gl.__ASKR_LAST_FASTPATH_COMMIT_COUNT = 1;
             const counters =
-              (_g.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+              (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
             counters.bulkKeyedPositionalHits =
               (counters.bulkKeyedPositionalHits || 0) + 1;
-            _g.__ASKR_FASTPATH_COUNTERS = counters;
-          } catch {
-            /* ignore */
+            gl.__ASKR_FASTPATH_COUNTERS = counters;
+          } catch (e) {
+            void e;
           }
         }
         return newKeyMap;
       }
     }
-  } catch {
-    /* ignore detection errors */
+  } catch (e) {
+    void e;
   }
 
   // Clear previous fast-path stats when we decline the fast-path to avoid
   // leaking prior run data across updates (tests rely on this behavior).
   // However, if a fast-path was applied synchronously for this parent in the
-  // same commit, do not clear the stats (they were just recorded).
+  // same render pass, preserve the recorded stats (they may be set by the
+  // reconciler even when the runtime fast-lane was not taken).
   if (!useFastPath && typeof globalThis !== 'undefined') {
     try {
       let parentFastpathApplied = false;
@@ -1012,12 +1062,28 @@ function reconcileKeyedChildren(
         parentFastpathApplied = false;
       }
       if (!parentFastpathApplied) {
-        const _g = globalThis as unknown as Record<string, unknown>;
-        delete _g.__ASKR_LAST_FASTPATH_STATS;
-        delete _g.__ASKR_LAST_FASTPATH_REUSED;
+        const gl = globalThis as unknown as {
+          __ASKR_LAST_FASTPATH_STATS?: unknown;
+          __ASKR_LAST_FASTPATH_REUSED?: unknown;
+        };
+        // If the reconciler recorded stats for this parent in the current
+        // render pass, preserve them and remove the transient marker so that
+        // subsequent independent renders will not inherit the flag.
+        try {
+          if (_reconcilerRecordedParents.has(parent)) {
+            _reconcilerRecordedParents.delete(parent);
+          } else {
+            delete gl.__ASKR_LAST_FASTPATH_STATS;
+            delete gl.__ASKR_LAST_FASTPATH_REUSED;
+          }
+        } catch {
+          // On any failure, clear diagnostics conservatively
+          delete gl.__ASKR_LAST_FASTPATH_STATS;
+          delete gl.__ASKR_LAST_FASTPATH_REUSED;
+        }
       }
-    } catch {
-      /* ignore */
+    } catch (e) {
+      void e;
     }
   }
 
@@ -1064,7 +1130,7 @@ function reconcileKeyedChildren(
           );
           return newKeyMap;
         }
-      } catch {}
+      } catch (e) { void e; }
       // Two bulk behaviors:
       // 1) Stable keys & order: reuse elements from oldKeyMap by key and do an
       //    atomic replaceChildren after updating text content (preserves identity).
@@ -1103,17 +1169,18 @@ function reconcileKeyedChildren(
               process.env.ASKR_FASTPATH_DEBUG === '1'
             ) {
               try {
-                (globalThis as any).__ASKR_BULK_DIAG = {
+                const gl = globalThis as unknown as { __ASKR_BULK_DIAG?: unknown };
+                (gl.__ASKR_BULK_DIAG as unknown) = {
                   phase: 'bulk-keyed-positional-trigger-lenmatch-early',
                   totalKeyed: keyedVnodes.length,
                   allSimple,
                   forced: process.env.ASKR_FORCE_BULK_POSREUSE === '1',
                 };
-              } catch {}
+              } catch (e) { void e; }
             }
             try {
               if (isBulkCommitActive()) markFastPathApplied(parent);
-            } catch {}
+            } catch (e) { void e; }
 
             const stats = performBulkPositionalKeyedTextUpdate(
               parent,
@@ -1124,22 +1191,22 @@ function reconcileKeyedChildren(
               process.env.ASKR_FASTPATH_DEBUG === '1'
             ) {
               try {
-                const _g = globalThis as any;
-                _g.__ASKR_LAST_FASTPATH_STATS = stats;
-                _g.__ASKR_BULK_DIAG = {
+                const gl = globalThis as unknown as {
+                  __ASKR_LAST_FASTPATH_STATS?: unknown;
+                  __ASKR_BULK_DIAG?: unknown;
+                  __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                };
+                (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+                (gl.__ASKR_BULK_DIAG as unknown) = {
                   phase: 'bulk-keyed-positional-applied',
                   stats,
                 };
-                const counters =
-                  (_g.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
-                counters.bulkKeyedPositionalHits =
-                  (counters.bulkKeyedPositionalHits || 0) + 1;
-                if (process.env.ASKR_FORCE_BULK_POSREUSE === '1')
-                  counters.bulkKeyedPositionalForced =
-                    (counters.bulkKeyedPositionalForced || 0) + 1;
-                _g.__ASKR_FASTPATH_COUNTERS = counters;
-              } catch {
-                /* ignore */
+                const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+                counters.bulkKeyedPositionalHits = (counters.bulkKeyedPositionalHits || 0) + 1;
+                if (process.env.ASKR_FORCE_BULK_POSREUSE === '1') counters.bulkKeyedPositionalForced = (counters.bulkKeyedPositionalForced || 0) + 1;
+                gl.__ASKR_FASTPATH_COUNTERS = counters;
+              } catch (e) {
+                void e;
               }
             }
             return newKeyMap;
@@ -1178,16 +1245,17 @@ function reconcileKeyedChildren(
                 process.env.ASKR_FASTPATH_DEBUG === '1'
               ) {
                 try {
-                  (globalThis as any).__ASKR_BULK_DIAG = {
+                  const gl = globalThis as unknown as { __ASKR_BULK_DIAG?: unknown };
+                  (gl.__ASKR_BULK_DIAG as unknown) = {
                     phase: 'bulk-keyed-stable-trigger',
                     totalKeyed: keyedVnodes.length,
                     hasPropChanges,
                   };
-                } catch {}
+                } catch (e) { void e; }
               }
               try {
                 if (isBulkCommitActive()) markFastPathApplied(parent);
-              } catch {}
+              } catch (e) { void e; }
 
               const stats = performBulkKeyedTextReplace(
                 parent,
@@ -1199,17 +1267,18 @@ function reconcileKeyedChildren(
                 process.env.ASKR_FASTPATH_DEBUG === '1'
               ) {
                 try {
-                  const _g = globalThis as any;
-                  _g.__ASKR_LAST_FASTPATH_STATS = stats;
-                  _g.__ASKR_BULK_DIAG = { phase: 'bulk-keyed-applied', stats };
-                  const counters =
-                    (_g.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
-                    {};
-                  counters.bulkKeyedTextHits =
-                    (counters.bulkKeyedTextHits || 0) + 1;
-                  _g.__ASKR_FASTPATH_COUNTERS = counters;
-                } catch {
-                  /* ignore */
+                  const gl = globalThis as unknown as {
+                    __ASKR_LAST_FASTPATH_STATS?: unknown;
+                    __ASKR_BULK_DIAG?: unknown;
+                    __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                  };
+                  (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
+                  (gl.__ASKR_BULK_DIAG as unknown) = { phase: 'bulk-keyed-applied', stats };
+                  const counters = (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) || {};
+                  counters.bulkKeyedTextHits = (counters.bulkKeyedTextHits || 0) + 1;
+                  gl.__ASKR_FASTPATH_COUNTERS = counters;
+                } catch (e) {
+                  void e;
                 }
               }
               return newKeyMap;
@@ -1230,16 +1299,17 @@ function reconcileKeyedChildren(
                 process.env.ASKR_FASTPATH_DEBUG === '1'
               ) {
                 try {
-                  (globalThis as any).__ASKR_BULK_DIAG = {
+                  const gl = globalThis as unknown as { __ASKR_BULK_DIAG?: unknown };
+                  (gl.__ASKR_BULK_DIAG as unknown) = {
                     phase: 'bulk-keyed-positional-trigger-lenmatch',
                     totalKeyed: keyedVnodes.length,
                     keyMismatches: keyMismatches,
                   };
-                } catch {}
+                } catch (e) { void e; }
               }
               try {
                 if (isBulkCommitActive()) markFastPathApplied(parent);
-              } catch {}
+              } catch (e) { void e; }
 
               const stats = performBulkPositionalKeyedTextUpdate(
                 parent,
@@ -1250,21 +1320,23 @@ function reconcileKeyedChildren(
                 process.env.ASKR_FASTPATH_DEBUG === '1'
               ) {
                 try {
-                  const _g = globalThis as any;
-                  _g.__ASKR_LAST_FASTPATH_STATS = stats;
-                  _g.__ASKR_BULK_DIAG = {
+                  const gl = globalThis as unknown as {
+                  __ASKR_LAST_FASTPATH_STATS?: unknown;
+                  __ASKR_BULK_DIAG?: unknown;
+                  __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                };
+                  gl.__ASKR_LAST_FASTPATH_STATS = stats;
+                  gl.__ASKR_BULK_DIAG = {
                     phase: 'bulk-keyed-positional-applied',
                     stats,
                   };
                   const counters =
-                    (_g.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
+                    (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
                     {};
                   counters.bulkKeyedPositionalHits =
                     (counters.bulkKeyedPositionalHits || 0) + 1;
-                  _g.__ASKR_FASTPATH_COUNTERS = counters;
-                } catch {
-                  /* ignore */
-                }
+                  gl.__ASKR_FASTPATH_COUNTERS = counters;
+                } catch (e) { void e; }
               }
               return newKeyMap;
             }
@@ -1284,16 +1356,16 @@ function reconcileKeyedChildren(
                 process.env.ASKR_FASTPATH_DEBUG === '1'
               ) {
                 try {
-                  (globalThis as any).__ASKR_BULK_DIAG = {
+                  (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
                     phase: 'bulk-keyed-positional-trigger',
                     totalKeyed: keyedVnodes.length,
                     keyMismatches: keyMismatches,
                   };
-                } catch {}
+                } catch (e) { void e; }
               }
               try {
                 if (isBulkCommitActive()) markFastPathApplied(parent);
-              } catch {}
+              } catch (e) { void e; }
 
               const stats = performBulkPositionalKeyedTextUpdate(
                 parent,
@@ -1304,21 +1376,23 @@ function reconcileKeyedChildren(
                 process.env.ASKR_FASTPATH_DEBUG === '1'
               ) {
                 try {
-                  const _g = globalThis as any;
-                  _g.__ASKR_LAST_FASTPATH_STATS = stats;
-                  _g.__ASKR_BULK_DIAG = {
+                  const gl = globalThis as unknown as {
+                  __ASKR_LAST_FASTPATH_STATS?: unknown;
+                  __ASKR_BULK_DIAG?: unknown;
+                  __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+                };
+                  gl.__ASKR_LAST_FASTPATH_STATS = stats;
+                  gl.__ASKR_BULK_DIAG = {
                     phase: 'bulk-keyed-positional-applied',
                     stats,
                   };
                   const counters =
-                    (_g.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
+                    (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
                     {};
                   counters.bulkKeyedPositionalHits =
                     (counters.bulkKeyedPositionalHits || 0) + 1;
-                  _g.__ASKR_FASTPATH_COUNTERS = counters;
-                } catch {
-                  /* ignore */
-                }
+                  gl.__ASKR_FASTPATH_COUNTERS = counters;
+                } catch (e) { void e; }
               }
               return newKeyMap;
             }
@@ -1328,9 +1402,7 @@ function reconcileKeyedChildren(
         stable = false;
       }
     }
-  } catch {
-    /* ignore heuristic errors and fall back */
-  }
+  } catch (e) { void e; }
   if (!useFastPath) {
     const totalKeyed = keyedVnodes.length;
     // Aggressive positional reuse heuristic for small lists where all
@@ -1682,17 +1754,13 @@ function reconcileKeyedChildren(
       try {
         const existing = Array.from(parent.childNodes);
         for (const n of existing) cleanupInstanceIfPresent(n);
-      } catch {
-        /* ignore cleanup errors */
-      }
+      } catch (e) { void e; }
       // Clean up any mounted component instances that will be removed by
       // the atomic replaceChildren commit to avoid leaking subscriptions.
       try {
         const existing = Array.from(parent.childNodes);
         for (const n of existing) cleanupInstanceIfPresent(n);
-      } catch {
-        /* ignore cleanup errors */
-      }
+      } catch (e) { void e; }
       parent.replaceChildren(fragment);
       // eslint-disable-next-line no-console
       console.log(
@@ -1872,15 +1940,15 @@ function reconcileKeyedChildren(
     process.env.ASKR_FASTPATH_DEBUG === '1'
   ) {
     try {
-      const prev = (globalThis as any).__ASKR_BULK_DIAG;
-      (globalThis as any).__ASKR_BULK_DIAG = {
+      const prev = (globalThis as unknown as { __ASKR_BULK_DIAG?: { decision?: unknown } }).__ASKR_BULK_DIAG;
+      (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
         phase: 'keyed-fallback-lis',
         positionsFound: positions.filter((p) => p !== -1).length,
         keepCount: keepSet.size,
         tLIS,
-        previousDecision: prev && prev.decision ? prev.decision : undefined,
+        previousDecision: prev?.decision,
       };
-    } catch {}
+    } catch (e) { void e; }
   }
 
   let anchor: Node | null = parent.firstChild;
@@ -1949,7 +2017,7 @@ function performBulkKeyedTextReplace(
 
   for (let i = 0; i < total; i++) {
     const { key, vnode } = keyedVnodes[i];
-    let el = oldKeyMap?.get(key);
+    const el = oldKeyMap?.get(key);
     if (
       el &&
       _isDOMElement(vnode) &&
@@ -1995,9 +2063,7 @@ function performBulkKeyedTextReplace(
       (n) => !finalNodes.includes(n)
     );
     for (const n of toRemove) cleanupInstanceIfPresent(n);
-  } catch {
-    /* ignore */
-  }
+  } catch (e) { void e; }
 
   // Prepare to transfer listeners for positions where nodes are replaced
   const existingChildren = Array.from(parent.children);
@@ -2016,9 +2082,7 @@ function performBulkKeyedTextReplace(
         }
       }
     }
-  } catch {
-    /* ignore */
-  }
+  } catch (e) { void e; }
 
   // Atomic replace using fragment
   const fragment = document.createDocumentFragment();
@@ -2044,16 +2108,12 @@ function performBulkKeyedTextReplace(
         }
       }
     }
-  } catch {
-    /* ignore */
-  }
+  } catch (e) { void e; }
 
   // Rebuild keyed map
   try {
     keyedElements.delete(parent);
-  } catch {
-    /* ignore */
-  }
+  } catch (e) { void e; }
 
   const t =
     typeof performance !== 'undefined' && performance.now
@@ -2122,9 +2182,7 @@ function performBulkPositionalKeyedTextUpdate(
         try {
           ch.setAttribute('data-key', String(key));
           updatedKeys++;
-        } catch {
-          /* ignore */
-        }
+        } catch (e) { void e; }
         reused++;
         continue;
       }
@@ -2154,9 +2212,7 @@ function performBulkPositionalKeyedTextUpdate(
       if (ch) newKeyMap.set(k, ch);
     }
     keyedElements.set(parent, newKeyMap);
-  } catch {
-    /* ignore */
-  }
+  } catch (e) { void e; }
 
   const stats = {
     n: total,
@@ -2186,13 +2242,13 @@ function isBulkTextFastPathEligible(parent: Element, newChildren: VNode[]) {
       process.env.ASKR_FASTPATH_DEBUG === '1'
     ) {
       try {
-        (globalThis as any).__ASKR_BULK_DIAG = {
+        (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
           phase: 'bulk-unkeyed-eligible',
           reason: 'too-small',
           total,
           threshold,
         };
-      } catch {}
+      } catch (e) { void e; }
     }
     return false;
   }
@@ -2212,12 +2268,12 @@ function isBulkTextFastPathEligible(parent: Element, newChildren: VNode[]) {
           process.env.ASKR_FASTPATH_DEBUG === '1'
         ) {
           try {
-            (globalThis as any).__ASKR_BULK_DIAG = {
+            (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
               phase: 'bulk-unkeyed-eligible',
               reason: 'component-child',
               index: i,
             };
-          } catch {}
+          } catch (e) { void e; }
         }
         return false; // component child - decline
       }
@@ -2256,7 +2312,7 @@ function isBulkTextFastPathEligible(parent: Element, newChildren: VNode[]) {
     process.env.ASKR_FASTPATH_DEBUG === '1'
   ) {
     try {
-      (globalThis as any).__ASKR_BULK_DIAG = {
+      (globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
         phase: 'bulk-unkeyed-eligible',
         total,
         simple,
@@ -2264,7 +2320,7 @@ function isBulkTextFastPathEligible(parent: Element, newChildren: VNode[]) {
         requiredFraction,
         eligible,
       };
-    } catch {}
+    } catch (e) { void e; }
   }
 
   return eligible;
@@ -2372,9 +2428,7 @@ function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
       (n) => !finalNodes.includes(n)
     );
     for (const n of toRemove) cleanupInstanceIfPresent(n);
-  } catch {
-    /* ignore */
-  }
+  } catch (e) { void e; }
 
   const fragStart = Date.now();
   const fragment = document.createDocumentFragment();

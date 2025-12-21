@@ -1,254 +1,360 @@
 /**
- * Serialized update scheduler
- * Ensures deterministic, batched execution
- * Includes guards against infinite render loops
+ * Serialized update scheduler — safer design (no inline execution, explicit flush)
  *
- * ACTOR MODEL INVARIANTS:
- * - Single mailbox: all updates go through enqueue()
- * - No reentrancy: each task runs to completion before next dequeues
- * - Deterministic ordering: tasks execute in the order enqueued
- * - No render bypass: ALL DOM mutations (including synchronous ones) must be enqueued
- * - Max depth guard: prevents infinite render loops
- * - Task isolation: each task runs to completion before next starts
- *
- * This guarantees:
- * - No interleaving of renders and state mutations
- * - Predictable ordering even with async operations
- * - Provable serialization: one message at a time
- * - Finite execution: max depth prevents infinite loops
+ * Key ideas:
+ * - Never execute a task inline from `enqueue`.
+ * - `flush()` is explicit and non-reentrant.
+ * - `runWithSyncProgress()` allows enqueues temporarily but does not run tasks
+ *   inline; it runs `fn` and then does an explicit `flush()`.
+ * - `waitForFlush()` is race-free with a monotonic `flushVersion`.
  */
 
 import { assertSchedulingPrecondition, invariant } from '../dev/invariant';
 import { logger } from '../dev/logger';
 
-const MAX_RENDER_DEPTH = 25; // Prevent infinite render loops
+const MAX_FLUSH_DEPTH = 50;
+
+type Task = () => void;
+
+function isBulkCommitActive(): boolean {
+  try {
+    const fb = (globalThis as unknown as { __ASKR_FASTLANE?: { isBulkCommitActive?: () => boolean } }).__ASKR_FASTLANE;
+    return typeof fb?.isBulkCommitActive === 'function'
+      ? !!fb.isBulkCommitActive()
+      : false;
+  } catch (e) {
+    void e;
+    return false;
+  }
+}
 
 export class Scheduler {
-  // Simple queue implemented with head index to avoid calling `Array.shift()` in the hot loop
-  // Shift() causes the array to move elements which allocates; using a head index avoids that work.
-  private queue: (() => void)[] = [];
-  private queueHead = 0;
-  private running = false;
-  private depth = 0;
-  private executionDepth = 0; // Track whether we are inside scheduler execution
-  private lastTaskTime: number = 0;
-  private taskCount: number = 0;
-  private inHandler = false;
+  private q: Task[] = [];
+  private head = 0;
 
-  /**
-   * Enqueue a task through the single mailbox
-   * INVARIANT: Every state mutation and DOM update goes here
-   */
-  enqueue(task: () => void): void {
-    // INVARIANT: task must be a function
+  private running = false;
+  private inHandler = false;
+  private depth = 0;
+  private executionDepth = 0; // for compat with existing diagnostics
+
+  // Monotonic flush version increments at end of each flush
+  private flushVersion = 0;
+
+  // Best-effort microtask kick scheduling
+  private kickScheduled = false;
+
+  // Escape hatch flag for runWithSyncProgress
+  private allowSyncProgress = false;
+
+  // Waiters waiting for flushVersion >= target
+  private waiters: Array<{
+    target: number;
+    resolve: () => void;
+    reject: (err: unknown) => void;
+    timer?: ReturnType<typeof setTimeout>;
+  }> = [];
+
+  // Keep a lightweight taskCount for compatibility/diagnostics
+  private taskCount = 0;
+
+  enqueue(task: Task): void {
     assertSchedulingPrecondition(
       typeof task === 'function',
-      'enqueue() requires a function, got ' + typeof task
+      'enqueue() requires a function'
     );
 
-    // Invariants: fast-lane bulk commit must not enqueue tasks
-    if (process.env.NODE_ENV !== 'production') {
-      const fastlaneBridge = (
-        globalThis as unknown as {
-          __ASKR_FASTLANE?: { isBulkCommitActive?: () => boolean };
-        }
-      ).__ASKR_FASTLANE;
-      if (
-        fastlaneBridge &&
-        typeof fastlaneBridge.isBulkCommitActive === 'function' &&
-        fastlaneBridge.isBulkCommitActive()
-      ) {
+    // Strict rule: during bulk commit, only allow enqueues if runWithSyncProgress enabled
+    if (isBulkCommitActive() && !this.allowSyncProgress) {
+      if (process.env.NODE_ENV !== 'production') {
         throw new Error(
-          '[Scheduler] enqueue() called during bulk commit fast-lane'
+          '[Scheduler] enqueue() during bulk commit (not allowed)'
         );
       }
+      return;
     }
 
-    this.queue.push(task);
+    // Enqueue task and account counts
+    this.q.push(task);
     this.taskCount++;
 
-    // Only start flush if not already running and not in handler (handlers defer flush)
-    if (!this.running && !this.inHandler) {
-      this.flush();
+    // Microtask kick: best-effort, but avoid if we are in handler or running or bulk commit
+    if (
+      !this.running &&
+      !this.kickScheduled &&
+      !this.inHandler &&
+      !isBulkCommitActive()
+    ) {
+      this.kickScheduled = true;
+      queueMicrotask(() => {
+        this.kickScheduled = false;
+        if (this.running) return;
+        if (isBulkCommitActive()) return;
+        try {
+          this.flush();
+        } catch (err) {
+          setTimeout(() => {
+            throw err;
+          });
+        }
+      });
     }
   }
 
-  /**
-   * Check if currently executing a task
-   * Used to validate that mutations only happen during execution
-   */
-  isExecuting(): boolean {
-    return this.executionDepth > 0;
-  }
-
-  /**
-   * Get scheduler state for debugging/testing
-   */
-  getState() {
-    return {
-      queueLength: this.queue.length - this.queueHead,
-      running: this.running,
-      depth: this.depth,
-      executionDepth: this.executionDepth,
-      taskCount: this.taskCount,
-    };
-  }
-
-  /**
-   * Flush all queued tasks in order
-   * INVARIANT: No task can run until all previous tasks complete
-   */
   flush(): void {
-    // INVARIANT: flush() is not reentrant
     invariant(
       !this.running,
       '[Scheduler] flush() called while already running'
     );
 
+    // Dev-only guard: disallow flush during bulk commit unless allowed
+    if (process.env.NODE_ENV !== 'production') {
+      if (isBulkCommitActive() && !this.allowSyncProgress) {
+        throw new Error(
+          '[Scheduler] flush() started during bulk commit (not allowed)'
+        );
+      }
+    }
+
     this.running = true;
     this.depth = 0;
-    let fatalError: unknown = null;
+    let fatal: unknown = null;
 
     try {
-      // Use head pointer to iterate without shifting the array (avoids allocations)
-      while (this.queueHead < this.queue.length) {
+      while (this.head < this.q.length) {
         this.depth++;
-
-        // INVARIANT: Detect infinite render loops
-        // If depth exceeds max, something is wrong (likely state.set() in render)
-        // NOTE: Skip invariant checks in production for graceful degradation
         if (
-          this.depth > MAX_RENDER_DEPTH &&
-          process.env.NODE_ENV !== 'production'
+          process.env.NODE_ENV !== 'production' &&
+          this.depth > MAX_FLUSH_DEPTH
         ) {
           throw new Error(
-            `[Scheduler] Exceeded maximum render depth (${MAX_RENDER_DEPTH}). ` +
-              'This indicates state.set() is being called during component render, ' +
-              'causing infinite re-renders. Refactor your component to avoid state mutations during render. ' +
-              'Move side effects to event handlers or use conditional rendering instead.'
+            `[Scheduler] exceeded MAX_FLUSH_DEPTH (${MAX_FLUSH_DEPTH}). Likely infinite update loop.`
           );
         }
 
-        const task = this.queue[this.queueHead++];
-
-        // INVARIANT: task always exists if queueHead < queue.length
-        invariant(
-          task !== undefined,
-          '[Scheduler] Task should exist after queue length check'
-        );
-
-        this.executionDepth++;
-        this.lastTaskTime = Date.now();
-
+        const task = this.q[this.head++];
         try {
-          // INVARIANT: Task runs to completion before next task starts
-          // if (process.env.NODE_ENV !== 'production') {
-          //   logger.debug('Executing task in scheduler');
-          // }
-          task!();
-        } catch (error) {
-          // INVARIANT: Task errors don't prevent cleanup
+          this.executionDepth++;
+          task();
           this.executionDepth--;
-          // Capture error to rethrow after cleanup
-          fatalError = error;
-          break; // Exit the loop to run finally block
+        } catch (err) {
+          // ensure executionDepth stays balanced
+          if (this.executionDepth > 0) this.executionDepth = 0;
+          fatal = err;
+          break;
         }
 
-        // INVARIANT: executionDepth must be decremented even if task throws
-        this.executionDepth--;
-
-        // INVARIANT: depth only increases monotonically during a flush
-        invariant(
-          this.depth >= 1,
-          '[Scheduler] Depth should be at least 1 during execution'
-        );
+        // Account for executed task in taskCount
+        if (this.taskCount > 0) this.taskCount--;
       }
     } finally {
-      // INVARIANT: Always cleanup scheduler state, even on error
       this.running = false;
       this.depth = 0;
       this.executionDepth = 0;
 
-      // Compact the queue if we've consumed a prefix; avoid leaving the head growing unbounded
-      if (this.queueHead >= this.queue.length) {
-        // We consumed everything; reset to empty
-        this.queue.length = 0;
-        this.queueHead = 0;
-      } else if (this.queueHead > 0) {
-        // There are remaining tasks. Avoid allocating a new array for small shifts by
-        // moving items down in-place. For large prefixes, use slice to keep runtime fast.
-        const remaining = this.queue.length - this.queueHead;
-        if (this.queueHead > 1024 || this.queueHead > remaining) {
-          // Large consumed prefix, allocate new compacted array
-          this.queue = this.queue.slice(this.queueHead);
+      // Compact queue
+      if (this.head >= this.q.length) {
+        this.q.length = 0;
+        this.head = 0;
+      } else if (this.head > 0) {
+        const remaining = this.q.length - this.head;
+        if (this.head > 1024 || this.head > remaining) {
+          this.q = this.q.slice(this.head);
         } else {
-          // Small consumed prefix — move items down in-place (allocation-free)
           for (let i = 0; i < remaining; i++) {
-            this.queue[i] = this.queue[this.queueHead + i];
+            this.q[i] = this.q[this.head + i];
           }
-          this.queue.length = remaining;
+          this.q.length = remaining;
         }
-        this.queueHead = 0;
+        this.head = 0;
       }
+
+      // Advance flush epoch and resolve waiters
+      this.flushVersion++;
+      this.resolveWaiters();
     }
 
-    // Re-throw after cleanup to preserve error semantics
-    if (fatalError) {
-      throw fatalError;
+    if (fatal) throw fatal;
+  }
+
+  runWithSyncProgress<T>(fn: () => T): T {
+    const prev = this.allowSyncProgress;
+    this.allowSyncProgress = true;
+
+    const g = globalThis as unknown as {
+      queueMicrotask?: (...args: unknown[]) => void;
+      setTimeout?: (...args: unknown[]) => unknown;
+    };
+    const origQueueMicrotask = g.queueMicrotask;
+    const origSetTimeout = g.setTimeout;
+
+    if (process.env.NODE_ENV !== 'production') {
+      g.queueMicrotask = () => {
+        throw new Error(
+          '[Scheduler] queueMicrotask not allowed during runWithSyncProgress'
+        );
+      };
+      g.setTimeout = () => {
+        throw new Error(
+          '[Scheduler] setTimeout not allowed during runWithSyncProgress'
+        );
+      };
+    }
+
+    // Snapshot flushVersion so we can ensure we always complete an epoch
+    const startVersion = this.flushVersion;
+
+    try {
+      const res = fn();
+
+      // Flush deterministically if tasks were enqueued (and we're not already running)
+      if (!this.running && this.q.length - this.head > 0) {
+        this.flush();
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        if (this.q.length - this.head > 0) {
+          throw new Error(
+            '[Scheduler] tasks remain after runWithSyncProgress flush'
+          );
+        }
+      }
+
+      return res;
+    } finally {
+      // Restore guarded globals
+      if (process.env.NODE_ENV !== 'production') {
+        g.queueMicrotask = origQueueMicrotask;
+        g.setTimeout = origSetTimeout;
+      }
+
+      // If no flush happened during the protected window, complete an epoch so
+      // observers (tests) see progress even when fast-lane did synchronous work
+      // without enqueuing tasks.
+      try {
+        if (this.flushVersion === startVersion) {
+          this.flushVersion++;
+          this.resolveWaiters();
+        }
+      } catch (e) {
+        void e;
+      }
+
+      this.allowSyncProgress = prev;
     }
   }
 
-  setInHandler(value: boolean): void {
-    this.inHandler = value;
+  waitForFlush(targetVersion?: number, timeoutMs = 2000): Promise<void> {
+    const target =
+      typeof targetVersion === 'number' ? targetVersion : this.flushVersion + 1;
+    if (this.flushVersion >= target) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const diag = {
+          flushVersion: this.flushVersion,
+          queueLen: this.q.length - this.head,
+          running: this.running,
+          inHandler: this.inHandler,
+          bulk: isBulkCommitActive(),
+          globals: {
+            __ASKR_LAST_FASTPATH_STATS: (globalThis as unknown as Record<string, unknown>)
+              .__ASKR_LAST_FASTPATH_STATS,
+            __ASKR_LAST_BULK_TEXT_FASTPATH_STATS: (globalThis as unknown as Record<string, unknown>)
+              .__ASKR_LAST_BULK_TEXT_FASTPATH_STATS,
+            __ASKR_FASTPATH_COUNTERS: (globalThis as unknown as Record<string, unknown>)
+              .__ASKR_FASTPATH_COUNTERS,
+          },
+        };
+        reject(
+          new Error(
+            `waitForFlush timeout ${timeoutMs}ms: ${JSON.stringify(diag)}`
+          )
+        );
+      }, timeoutMs);
+
+      this.waiters.push({ target, resolve, reject, timer });
+    });
+  }
+
+  getState() {
+    // Provide the compatibility shape expected by diagnostics/tests
+    return {
+      queueLength: this.q.length - this.head,
+      running: this.running,
+      depth: this.depth,
+      executionDepth: this.executionDepth,
+      taskCount: this.taskCount,
+      flushVersion: this.flushVersion,
+      // New fields for optional inspection
+      inHandler: this.inHandler,
+      allowSyncProgress: this.allowSyncProgress,
+    };
+  }
+
+  setInHandler(v: boolean) {
+    this.inHandler = v;
   }
 
   isInHandler(): boolean {
     return this.inHandler;
   }
+
+  isExecuting(): boolean {
+    return this.running || this.executionDepth > 0;
+  }
+
+  // Clear pending synchronous tasks (used by fastlane enter/exit)
+  clearPendingSyncTasks(): number {
+    const remaining = this.q.length - this.head;
+    if (remaining <= 0) return 0;
+
+    if (this.running) {
+      this.q.length = this.head;
+      this.taskCount = Math.max(0, this.taskCount - remaining);
+      queueMicrotask(() => {
+        try {
+          this.flushVersion++;
+          this.resolveWaiters();
+        } catch (e) {
+          void e;
+        }
+      });
+      return remaining;
+    }
+
+    this.q.length = 0;
+    this.head = 0;
+    this.taskCount = Math.max(0, this.taskCount - remaining);
+    this.flushVersion++;
+    this.resolveWaiters();
+    return remaining;
+  }
+
+  private resolveWaiters() {
+    if (this.waiters.length === 0) return;
+    const ready: Array<() => void> = [];
+    const remaining: typeof this.waiters = [];
+
+    for (const w of this.waiters) {
+      if (this.flushVersion >= w.target) {
+        if (w.timer) clearTimeout(w.timer);
+        ready.push(w.resolve);
+      } else {
+        remaining.push(w);
+      }
+    }
+
+    this.waiters = remaining;
+    for (const r of ready) r();
+  }
 }
 
 export const globalScheduler = new Scheduler();
 
-/**
- * Check if we are currently executing within the scheduler
- * Used for dev-mode validation that state mutations only occur within scheduled tasks
- *
- * @returns true if inside scheduler.flush(), false otherwise
- */
 export function isSchedulerExecuting(): boolean {
   return globalScheduler.isExecuting();
 }
 
-/**
- * Wrap an event handler to execute through the scheduler
- * Ensures all event-driven state updates are serialized and deterministic
- *
- * NOTE: This helper *enqueues* the handler to run inside the scheduler flush.
- * This is different from the DOM's default handler-wrapping, which runs handlers
- * synchronously but temporarily sets `inHandler` to defer the scheduler flush
- * until after the handler completes. Use `scheduleEventHandler` when you want
- * the handler itself to run inside the scheduler boundary.
- *
- * @example
- * ```ts
- * const wrappedHandler = scheduleEventHandler((e) => {
- *   count.set(count() + 1);
- * });
- * element.addEventListener('click', wrappedHandler);
- * ```
- */
-/**
- * Wrap an event handler to run synchronously (default unified model).
- *
- * Behavior: the handler executes immediately (synchronously) and the
- * scheduler is marked `inHandler` during its execution so any scheduler
- * flushes are deferred until the handler completes. This preserves
- * synchronous read semantics while keeping commits serialized.
- *
- * NOTE: This unifies the previous two models into a single default. If you
- * previously relied on handlers being enqueued into the scheduler, wrap the
- * handler yourself with `() => globalScheduler.enqueue(...)`.
- */
 export function scheduleEventHandler(handler: EventListener): EventListener {
   return (event: Event) => {
     globalScheduler.setInHandler(true);

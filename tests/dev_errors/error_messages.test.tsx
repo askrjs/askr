@@ -31,9 +31,10 @@ describe('error messages (DEV ERRORS)', () => {
       createApp({ root: container, component: Component });
       flushScheduler();
 
-      expect(() => flag!.set(true)).toThrow(
-        /conditionally|hook order|State index/i
-      );
+      expect(() => {
+        flag!.set(true);
+        flushScheduler();
+      }).toThrow(/conditionally|hook order|State index/i);
     } finally {
       cleanup();
     }

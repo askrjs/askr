@@ -65,9 +65,36 @@ export function flushScheduler(): void {
  * Use when you need to observe intermediate state
  */
 export async function waitForNextEvaluation(): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 0);
-  });
+  // Backward-compatible alias to wait for the next scheduler flush
+  // This prevents the common race where tests subscribe after the flush already happened.
+  return waitForFlush();
+}
+
+export async function waitForFlush(timeout = 2000): Promise<void> {
+  // Use scheduler-based barrier to wait for the next flush.
+  // If there are no pending tasks and scheduler is quiescent, resolve immediately.
+  const state = globalScheduler.getState();
+  if (state.taskCount === 0 && !state.running) return;
+
+  // Otherwise wait for the next flushVersion (current + 1)
+  const target = (state as unknown as { flushVersion: number }).flushVersion + 1;
+  try {
+    await globalScheduler.waitForFlush(target, timeout);
+  } catch (err) {
+    // Propagate with extra diagnostics
+    const gl = globalThis as unknown as {
+      __ASKR_FASTLANE?: { isBulkCommitActive?: () => boolean };
+      __ASKR_LAST_BULK_TEXT_FASTPATH_STATS?: unknown;
+      __ASKR_ENQUEUE_LOGS?: unknown;
+    };
+    console.error('[waitForFlush] timeout diagnostics', {
+      scheduler: globalScheduler.getState(),
+      fastlaneActive: !!gl.__ASKR_FASTLANE?.isBulkCommitActive?.(),
+      lastFastpath: gl.__ASKR_LAST_BULK_TEXT_FASTPATH_STATS,
+      enqueueLogs: gl.__ASKR_ENQUEUE_LOGS,
+    });
+    throw err;
+  }
 }
 
 /**

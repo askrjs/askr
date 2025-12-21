@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createApp, resource, scheduleEventHandler } from '../../src/index';
+import {
+  state,
+  createApp,
+  resource,
+  scheduleEventHandler,
+} from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('scheduler (SPEC 2.2)', () => {

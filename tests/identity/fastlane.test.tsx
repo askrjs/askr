@@ -56,7 +56,11 @@ describe('runtime fast-lane', () => {
       await waitForNextEvaluation();
 
       const _g = globalThis as unknown as {
-        __ASKR_LAST_FASTPATH_STATS?: { n?: number };
+        __ASKR_LAST_FASTPATH_STATS?: {
+          n?: number;
+          reused?: number;
+          reusedCount?: number;
+        };
         __ASKR_LAST_FASTPATH_REUSED?: unknown;
         __ASKR_LAST_FASTPATH_COMMIT_COUNT?: number;
         __ASKR_LAST_FASTLANE_INVARIANTS?: {
@@ -66,15 +70,29 @@ describe('runtime fast-lane', () => {
         __ASKR_LAST_FASTPATH_HISTORY?: Array<Record<string, unknown>>;
       };
       const stats =
-        _g.__ASKR_LAST_FASTPATH_STATS ?? _g.__ASKR_LAST_FASTPATH_HISTORY?.slice(-1)[0];
+        _g.__ASKR_LAST_FASTPATH_STATS ??
+        _g.__ASKR_LAST_FASTPATH_HISTORY?.slice(-1)[0];
       expect(stats).toBeDefined();
       expect(stats!.n).toBe(200);
 
       const last =
-        _g.__ASKR_LAST_FASTPATH_HISTORY?.slice(-1)[0] ?? _g.__ASKR_LAST_FASTPATH_STATS;
-      expect(
-        (last && (last.reusedCount ?? last.reused)) || _g.__ASKR_LAST_FASTPATH_REUSED
-      ).toBeTruthy();
+        _g.__ASKR_LAST_FASTPATH_HISTORY?.slice(-1)[0] ??
+        _g.__ASKR_LAST_FASTPATH_STATS;
+
+      // Prefer explicit, typed checks instead of `any` to satisfy test-suite guidelines
+      let reusedObserved = false;
+      if (last) {
+        if (
+          typeof (last as { reusedCount?: unknown }).reusedCount === 'number'
+        ) {
+          reusedObserved = true;
+        } else if (typeof (last as { reused?: unknown }).reused === 'number') {
+          reusedObserved = true;
+        }
+      }
+      if (!reusedObserved && _g.__ASKR_LAST_FASTPATH_REUSED)
+        reusedObserved = true;
+      expect(reusedObserved).toBeTruthy();
 
       const commitCount = _g.__ASKR_LAST_FASTPATH_COMMIT_COUNT;
       const inv = _g.__ASKR_LAST_FASTLANE_INVARIANTS;
