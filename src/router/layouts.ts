@@ -4,11 +4,11 @@
  * A layout is just a normal component that happens to wrap routes.
  * Persistence is handled by the runtime via component identity.
  */
-export type LayoutComponent<P = {}> = (
+export type LayoutComponent<P = object> = (
   props: P & { children?: unknown }
 ) => unknown;
 
-export function layout<P = {}>(Layout: LayoutComponent<P>) {
+export function layout<P = object>(Layout: LayoutComponent<P>) {
   return (children?: unknown, props?: P) =>
     Layout({ ...(props as P), children });
 }
