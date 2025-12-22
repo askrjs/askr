@@ -254,21 +254,14 @@ export class Scheduler {
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
+        const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
         const diag = {
           flushVersion: this.flushVersion,
           queueLen: this.q.length - this.head,
           running: this.running,
           inHandler: this.inHandler,
           bulk: isBulkCommitActive(),
-          globals: {
-            __ASKR_LAST_FASTPATH_STATS: (globalThis as Record<string, unknown>)
-              .__ASKR_LAST_FASTPATH_STATS,
-            __ASKR_LAST_BULK_TEXT_FASTPATH_STATS: (
-              globalThis as Record<string, unknown>
-            ).__ASKR_LAST_BULK_TEXT_FASTPATH_STATS,
-            __ASKR_FASTPATH_COUNTERS: (globalThis as Record<string, unknown>)
-              .__ASKR_FASTPATH_COUNTERS,
-          },
+          namespace: ns,
         };
         reject(
           new Error(

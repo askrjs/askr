@@ -57,8 +57,8 @@ describe('bulk commit non-reactive invariants', () => {
       await waitForNextEvaluation();
     } catch (err) {
       // Dump scheduler enqueue logs for debugging
-      const gl = globalThis as unknown as { __ASKR_ENQUEUE_LOGS?: unknown };
-      console.error('ENQUEUE LOGS (catch):', gl.__ASKR_ENQUEUE_LOGS);
+      const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+      console.error('ENQUEUE LOGS (catch):', ns['__ENQUEUE_LOGS']);
       throw err;
     }
 
@@ -84,8 +84,8 @@ describe('bulk commit non-reactive invariants', () => {
     if (!quiesced) {
       // Dump enqueue logs for debugging
 
-      const gl = globalThis as unknown as { __ASKR_ENQUEUE_LOGS?: unknown };
-      console.error('ENQUEUE LOGS:', gl.__ASKR_ENQUEUE_LOGS);
+      const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+      console.error('ENQUEUE LOGS:', ns['__ENQUEUE_LOGS']);
       throw new Error(
         `Scheduler did not quiesce to expected count ${schedBefore}; last observed ${globalScheduler.getState().taskCount}`
       );

@@ -229,10 +229,12 @@ export function commitReorderOnly(
             schedAfter
           );
 
-          console.error(
-            '[FASTLANE] enqueue logs',
-            (globalThis as Record<string, unknown>).__ASKR_ENQUEUE_LOGS
-          );
+          try {
+            const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+            console.error('[FASTLANE] enqueue logs', ns['__ENQUEUE_LOGS']);
+          } catch (e) {
+            void e;
+          }
         } catch (e) {
           void e;
         }

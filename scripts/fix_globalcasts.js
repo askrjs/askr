@@ -8,21 +8,17 @@ let orig = s;
 // replace occurrences of 'const _g = globalThis as any;' with typed gl
 s = s.replace(
   /const _g = globalThis as any;/g,
-  `const gl = globalThis as unknown as {
-                  __ASKR_LAST_FASTPATH_STATS?: unknown;
-                  __ASKR_BULK_DIAG?: unknown;
-                  __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
-                };`
+  `const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {} as Record<string, unknown>`
 );
 
-// replace remaining '(globalThis as any).__ASKR_BULK_DIAG' with gl assignment
+// replace remaining '(globalThis as any).__ASKR_BULK_DIAG' with namespaced access
 s = s.replace(
   /\(globalThis as any\)\.__ASKR_BULK_DIAG/g,
-  `(globalThis as unknown as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG`
+  `((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__?.__BULK_DIAG`
 );
 
-// replace any remaining _g. with gl.
-s = s.replace(/_g\./g, 'gl.');
+// replace any remaining _g. with ns.
+s = s.replace(/_g\./g, 'ns.');
 
 if (s !== orig) {
   fs.writeFileSync(file, s, 'utf8');
