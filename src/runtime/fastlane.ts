@@ -111,6 +111,25 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
     return { useFastPath: false, reason: 'pending-mounts' };
 
   // Ask renderer for keyed reorder eligibility (prop differences & heuristics)
+  // Ensure a keyed map is available for the first child by populating it
+  // proactively if necessary. This reduces race conditions where the DOM
+  // might be cleared during evaluation and the renderer cannot discover
+  // existing keyed elements.
+  try {
+    // Import function dynamically to avoid circular load issues
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- circular import; require used intentionally to perform a synchronous call
+    const dom = require('../renderer/dom') as typeof import('../renderer/dom');
+    if (typeof dom.populateKeyMapForElement === 'function') {
+      try {
+        dom.populateKeyMapForElement(firstChild);
+      } catch (e) {
+        void e;
+      }
+    }
+  } catch (e) {
+    void e;
+  }
+
   const oldKeyMap = getKeyMapForElement(firstChild);
   const decision = isKeyedReorderFastPathEligible(
     firstChild,
