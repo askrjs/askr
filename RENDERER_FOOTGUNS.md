@@ -36,7 +36,7 @@ Concise, triage-ready list of risky patterns and recommended remediation for the
   - Files: `dom.ts`, `fastpath.ts`, `reconcile.ts` (multiple locations)
   - Symptom: diagnostic counters/stats are set on `globalThis` as top-level keys (`__ASKR_LAST_FASTPATH_STATS`, `__ASKR_FASTPATH_COUNTERS`, etc.).
   - Risk: collisions with consumer code, noisy global surface in shared environments.
-  - Fix & status: diagnostics have been consolidated into a namespaced `__ASKR_DIAG` map and writes are gated in development mode; top-level mirroring is now limited (dev-only) to preserve backward-compatibility with existing tests/invariants while reducing production surface area. In addition, fast-path dev instrumentation and console traces are now gated with the `ASKR_FASTPATH_DEBUG` environment flag — set it to `1` or `true` to enable verbose fast-path logs. Consider removing legacy top-level mirroring entirely in a future major version.
+  - Fix & status: diagnostics have been consolidated into a namespaced `__ASKR_DIAG` map and writes are now *only* performed to the namespace (`globalThis.__ASKR__`). Legacy top-level mirroring has been removed to eliminate global collisions. Fast-path dev instrumentation and console traces remain gated with the `ASKR_FASTPATH_DEBUG` environment flag — set it to `1` or `true` to enable verbose fast-path logs. This is a breaking change for any consumers depending on legacy top-level keys; update tests/tools to read from `globalThis.__ASKR__`.
 
 - **Event listeners added without options (passive/capture)** — **RESOLVED (IMPROVED)** ✅
   - Files: [src/renderer/dom.ts](src/renderer/dom.ts), [src/renderer/evaluate.ts](src/renderer/evaluate.ts)

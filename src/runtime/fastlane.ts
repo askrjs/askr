@@ -163,8 +163,12 @@ export function commitReorderOnly(
     try {
       const clearedAfter = globalScheduler.clearPendingSyncTasks?.() ?? 0;
       if (process.env.NODE_ENV !== 'production') {
-        const _g = globalThis as Record<string, unknown>;
-        _g.__ASKR_FASTLANE_CLEARED_AFTER = clearedAfter;
+        const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__!;
+        try {
+          ns['__FASTLANE_CLEARED_AFTER'] = clearedAfter;
+        } catch (e) {
+          void e;
+        }
       }
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') throw err;
@@ -173,29 +177,26 @@ export function commitReorderOnly(
     // Dev-only invariant checks and diagnostics
     if (process.env.NODE_ENV !== 'production') {
       // Commit count recorded by renderer (set by fast-path code)
-      const _g = globalThis as Record<string, unknown>;
-      const commitCount =
-        (_g.__ASKR_LAST_FASTPATH_COMMIT_COUNT as number | undefined) ?? 0;
+      const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+      const commitCount = typeof ns['__LAST_FASTPATH_COMMIT_COUNT'] === 'number' ? (ns['__LAST_FASTPATH_COMMIT_COUNT'] as number) : 0;
       const invariants = {
         commitCount,
         mountOps: instance.mountOperations.length,
         cleanupFns: instance.cleanupFns.length,
       } as const;
-      _g.__ASKR_LAST_FASTLANE_INVARIANTS = invariants;
+      try {
+        ns['__LAST_FASTLANE_INVARIANTS'] = invariants;
+      } catch (e) {
+        void e;
+      }
 
       if (commitCount !== 1) {
         try {
-          // Dump diag map + top-level counters for debugging
+          // Dump diag map + namespaced diagnostics for debugging
           const _diag = (globalThis as Record<string, unknown>).__ASKR_DIAG;
+          const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
           console.error('[FASTLANE][INV] commitCount', commitCount, 'diag', _diag);
-          console.error('[FASTLANE][INV] top-level', {
-            __DOM_REPLACE_COUNT: (globalThis as Record<string, unknown>).__DOM_REPLACE_COUNT,
-            __DOM_REPLACE_CHILD_COUNT: (globalThis as Record<string, unknown>).__DOM_REPLACE_CHILD_COUNT,
-            __LAST_DOM_REPLACE_STACK_FASTPATH: (globalThis as Record<string, unknown>).__LAST_DOM_REPLACE_STACK_FASTPATH,
-            __LAST_DOM_REPLACE_STACK_RECONCILE: (globalThis as Record<string, unknown>).__LAST_DOM_REPLACE_STACK_RECONCILE,
-            __LAST_DOM_REPLACE_STACK_DOM: (globalThis as Record<string, unknown>).__LAST_DOM_REPLACE_STACK_DOM,
-            __LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE: (globalThis as Record<string, unknown>).__LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE,
-          });
+          console.error('[FASTLANE][INV] namespace', ns);
         } catch (e) {
           void e;
         }
@@ -271,17 +272,14 @@ export function commitReorderOnly(
           );
           if (outstandingAfter2 !== 0) {
             try {
-              const _g = globalThis as Record<string, unknown>;
+              const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
 
-              console.error(
-                '[FASTLANE] Post-commit enqueue logs:',
-                _g.__ASKR_ENQUEUE_LOGS
-              );
+              console.error('[FASTLANE] Post-commit enqueue logs:', ns['__ENQUEUE_LOGS']);
 
               console.error(
                 '[FASTLANE] Cleared counts:',
-                _g.__ASKR_FASTLANE_CLEARED_TASKS,
-                _g.__ASKR_FASTLANE_CLEARED_AFTER
+                ns['__FASTLANE_CLEARED_TASKS'],
+                ns['__FASTLANE_CLEARED_AFTER']
               );
             } catch (err) {
               void err;
@@ -309,8 +307,12 @@ export function commitReorderOnly(
     // handled below.
     if (process.env.NODE_ENV !== 'production') {
       try {
-        const _g = globalThis as Record<string, unknown>;
-        _g.__ASKR_FASTLANE_BULK_FLAG_CHECK = isBulkCommitActive();
+        const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__!;
+        try {
+          ns['__FASTLANE_BULK_FLAG_CHECK'] = isBulkCommitActive();
+        } catch (e) {
+          void e;
+        }
       } catch (e) {
         void e;
       }
@@ -319,9 +321,13 @@ export function commitReorderOnly(
 
   // Re-check the captured assertion outside of finally and throw if needed
   if (process.env.NODE_ENV !== 'production') {
-    const _g = globalThis as Record<string, unknown>;
-    if ((_g as Record<string, unknown>).__ASKR_FASTLANE_BULK_FLAG_CHECK) {
-      delete (_g as Record<string, unknown>).__ASKR_FASTLANE_BULK_FLAG_CHECK;
+    const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+    if (ns['__FASTLANE_BULK_FLAG_CHECK']) {
+      try {
+        delete ns['__FASTLANE_BULK_FLAG_CHECK'];
+      } catch (e) {
+        void e;
+      }
       throw new Error(
         'Fast-lane invariant violated: bulk commit flag still set after commit'
       );
@@ -338,9 +344,17 @@ export function tryRuntimeFastLaneSync(
     // Dev-time: ensure stale fast-path diagnostics don't leak across updates.
     if (process.env.NODE_ENV !== 'production') {
       try {
-        const _g = globalThis as Record<string, unknown>;
-        _g.__ASKR_LAST_FASTPATH_STATS = undefined;
-        _g.__ASKR_LAST_FASTPATH_COMMIT_COUNT = 0;
+        const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__!;
+        try {
+          ns['__LAST_FASTPATH_STATS'] = undefined;
+        } catch (e) {
+          void e;
+        }
+        try {
+          ns['__LAST_FASTPATH_COMMIT_COUNT'] = 0;
+        } catch (e) {
+          void e;
+        }
       } catch (e) {
         void e;
       }
