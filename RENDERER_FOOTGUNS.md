@@ -32,11 +32,40 @@ Concise, triage-ready list of risky patterns and recommended remediation for the
 
 ## Low
 
-- **Global diagnostic keys on `globalThis`** — **PARTIALLY RESOLVED** ⚠️
-  - Files: `dom.ts`, `fastpath.ts`, `reconcile.ts` (multiple locations)
-  - Symptom: diagnostic counters/stats are set on `globalThis` as top-level keys (`__ASKR_LAST_FASTPATH_STATS`, `__ASKR_FASTPATH_COUNTERS`, etc.).
-  - Risk: collisions with consumer code, noisy global surface in shared environments.
-  - Fix & status: diagnostics have been consolidated into a namespaced `__ASKR_DIAG` map and writes are now *only* performed to the namespace (`globalThis.__ASKR__`). Legacy top-level mirroring has been removed to eliminate global collisions. Fast-path dev instrumentation and console traces remain gated with the `ASKR_FASTPATH_DEBUG` environment flag — set it to `1` or `true` to enable verbose fast-path logs. This is a breaking change for any consumers depending on legacy top-level keys; update tests/tools to read from `globalThis.__ASKR__`.
+- **Global diagnostic keys on `globalThis`** — **RESOLVED (REMOVAL / BREAKING CHANGE)** ⚠️
+  - Files: `dom.ts`, `fastpath.ts`, `reconcile.ts`, `diag/index.ts` (multiple locations)
+  - Symptom: diagnostic counters/stats were previously set on `globalThis` as top-level keys (`__ASKR_LAST_FASTPATH_STATS`, `__ASKR_FASTPATH_COUNTERS`, etc.), causing potential collisions and a noisy global surface.
+  - Risk: collisions with consumer code, accidental leaks across test runs, and accidental coupling to implementation details.
+  - Fix & status: diagnostics have been consolidated into a single namespaced diagnostics object available at `globalThis.__ASKR__` (backed by an internal diag map). All code and tests now read/write to `globalThis.__ASKR__` and legacy top-level mirroring has been removed to eliminate global collisions.
+
+  - Migration & guidance:
+    - Update any tests or tooling that relied on top-level keys (e.g., `__DOM_REPLACE_COUNT` or `__ASKR_LAST_FASTPATH_STATS`) to read from the namespace instead:
+
+      ```ts
+      const ns = ((globalThis as any).__ASKR__) || {};
+      const stats = ns['__LAST_FASTPATH_STATS'];
+      const domReplaceCount = ns['__DOM_REPLACE_COUNT'];
+      ```
+
+    - If you need a transitional shim for downstream tooling, add a short dev-only helper that mirrors namespaced keys to top-level for one release only (recommended to warn consumers):
+
+      ```ts
+      if (process.env.NODE_ENV !== 'production') {
+        const ns = (globalThis as any).__ASKR__ || {};
+        try {
+          for (const k of Object.keys(ns)) {
+            try { (globalThis as any)[k] = ns[k]; } catch (e) { /* ignore */ }
+          }
+          console.warn('[Askr] Temporary legacy diag shim enabled — read from globalThis.__ASKR__ instead (deprecated)');
+        } catch (e) { /* ignore */ }
+      }
+      ```
+
+    - This change is breaking for any consumers depending on top-level globals; consider adding a short deprecation notice in your release notes and bumping the next release appropriately.
+
+  - Rationale: keeping diagnostics namespaced avoids global pollution and reduces the risk of accidental collisions with consumer code, while still providing a discoverable, single object for dev tooling and tests.
+
+  - Tests & status: tests and runtime diagnostics were updated to use the `__ASKR__` namespace and the full test suite passes locally. If you prefer a gentler migration, I can add an optional transient shim as a follow-up PR.
 
 - **Event listeners added without options (passive/capture)** — **RESOLVED (IMPROVED)** ✅
   - Files: [src/renderer/dom.ts](src/renderer/dom.ts), [src/renderer/evaluate.ts](src/renderer/evaluate.ts)
