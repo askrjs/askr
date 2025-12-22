@@ -18,7 +18,8 @@ import type {
   ComponentInstance,
   ComponentFunction,
 } from '../runtime/component';
-import { cleanupInstanceIfPresent, elementListeners } from './cleanup';
+import { cleanupInstanceIfPresent, elementListeners, removeAllListeners } from './cleanup';
+import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { keyedElements } from './keyed';
 
@@ -88,7 +89,7 @@ export function createDOMNode(node: unknown): Node | null {
                   try {
                     if (!globalScheduler.isExecuting()) globalScheduler.flush();
                   } catch (err) {
-                    setTimeout(() => {
+                    queueMicrotask(() => {
                       throw err;
                     });
                   }
@@ -237,12 +238,21 @@ export function createDOMNode(node: unknown): Node | null {
 
       if (dom instanceof Element) {
         mountInstanceInline(childInstance, dom);
-      } else {
-        const host = document.createElement('div');
-        mountInstanceInline(childInstance, host);
+        return dom;
       }
 
-      return dom;
+      // For non-Element returns (Text nodes or DocumentFragment), ensure the
+      // instance backref is attached to an Element that will actually be
+      // inserted into the DOM. Append returned nodes into a host element and
+      // mount the instance on that host so cleanup works deterministically.
+      const host = document.createElement('div');
+      if (dom instanceof DocumentFragment) {
+        host.appendChild(dom);
+      } else if (dom) {
+        host.appendChild(dom);
+      }
+      mountInstanceInline(childInstance, host);
+      return host;
     }
 
     // Fragment support
@@ -460,7 +470,8 @@ export function updateUnkeyedChildren(
         } else {
           const dom = createDOMNode(next);
           if (dom) {
-            cleanupInstanceIfPresent(current);
+              if (current instanceof Element) removeAllListeners(current);
+              cleanupInstanceIfPresent(current);
             parent.replaceChild(dom, current);
           }
         }
@@ -468,6 +479,7 @@ export function updateUnkeyedChildren(
         // Non-string types: replace conservatively
         const dom = createDOMNode(next);
         if (dom) {
+          if (current instanceof Element) removeAllListeners(current);
           cleanupInstanceIfPresent(current);
           parent.replaceChild(dom, current);
         }
@@ -476,6 +488,7 @@ export function updateUnkeyedChildren(
       // Fallback for other types: replace
       const dom = createDOMNode(next);
       if (dom) {
+        if (current instanceof Element) removeAllListeners(current);
         cleanupInstanceIfPresent(current);
         parent.replaceChild(dom, current);
       }
@@ -604,21 +617,14 @@ export function performBulkPositionalKeyedTextUpdate(
 
   const stats = { n: total, reused, updatedKeys, t } as const;
 
-  try {
-    logger.warn('[Askr][FASTPATH] bulk positional stats', stats);
-    const gl = globalThis as Record<string, unknown>;
-    (gl as Record<string, unknown>)['__ASKR_LAST_FASTPATH_STATS'] = stats;
-    (gl as Record<string, unknown>)['__ASKR_LAST_FASTPATH_COMMIT_COUNT'] = 1;
-    const counters =
-      (gl['__ASKR_FASTPATH_COUNTERS'] as Record<string, unknown> | undefined) ||
-      {};
-    (counters as Record<string, unknown>)['bulkKeyedPositionalHits'] =
-      ((counters as Record<string, number>)['bulkKeyedPositionalHits'] || 0) +
-      1;
-    (gl as Record<string, unknown>)['__ASKR_FASTPATH_COUNTERS'] = counters;
-  } catch (e) {
-    void e;
-  }
+    try {
+      logger.warn('[Askr][FASTPATH] bulk positional stats', stats);
+      __ASKR_set('__LAST_FASTPATH_STATS', stats);
+      __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
+      __ASKR_incCounter('bulkKeyedPositionalHits');
+    } catch (e) {
+      void e;
+    }
 
   return stats;
 }
@@ -693,7 +699,10 @@ export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
     const toRemove = Array.from(parent.childNodes).filter(
       (n) => !finalNodes.includes(n)
     );
-    for (const n of toRemove) cleanupInstanceIfPresent(n);
+    for (const n of toRemove) {
+      if (n instanceof Element) removeAllListeners(n);
+      cleanupInstanceIfPresent(n);
+    }
   } catch (e) {
     void e;
   }
