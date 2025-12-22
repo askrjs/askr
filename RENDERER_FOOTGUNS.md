@@ -24,11 +24,11 @@ Concise, triage-ready list of risky patterns and recommended remediation for the
   - Risk: lost synchronous stack, awkward test harness semantics, and non-deterministic error capture.
   - Fix & status: `queueMicrotask` is now used to rethrow flush errors and for scheduling microtask flushes (deterministic and preserves stack for test harnesses).
 
-- **DOM-only modules assume `document`/`window` availability** — **PARTIALLY RESOLVED** ⚠️
-  - Files: [src/renderer/evaluate.ts](src/renderer/evaluate.ts#L1-L80), [src/renderer/dom.ts](src/renderer/dom.ts)
-  - Symptom: direct `document.createElement`, comment nodes, fragments used unguarded.
-  - Risk: importing these modules in SSR builds will throw at module-eval time.
-  - Fix & status: SSR guards have been added in key hot-paths (`fastpath`, `reconcile`) and `evaluate` now performs a runtime DOM-availability check and no-ops when DOM is unavailable. This avoids module-eval failures; however, some modules are inherently DOM-focused and should be documented as DOM-only or further hardened if you want full SSR import safety.
+- **DOM-only modules assume `document`/`window` availability** — **RESOLVED** ✅
+  - Files: [src/renderer/evaluate.ts](src/renderer/evaluate.ts#L1-L80), [src/renderer/dom.ts](src/renderer/dom.ts), [src/renderer/fastpath.ts](src/renderer/fastpath.ts), [src/renderer/reconcile.ts](src/renderer/reconcile.ts)
+  - Symptom: direct `document.createElement`, comment nodes, fragments used unguarded could throw on import in SSR.
+  - Risk: importing these modules in SSR builds would previously throw at module-eval time.
+  - Fix & status: SSR guards have been added in hot paths (`fastpath`, `reconcile`, `evaluate`, and `dom`), and `evaluate` now early-returns safely when the DOM is unavailable. Added an SSR import test (`tests/ssr/import_dom_modules.test.ts`) that dynamically imports renderer modules with `document`/`window` removed to ensure no module-eval failures. The renderer modules are now safe to import in SSR contexts without throwing.
 
 ## Low
 
