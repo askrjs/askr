@@ -793,8 +793,15 @@ function reconcileKeyedChildren(
     const child = newChildren[i];
     if (_isDOMElement(child)) {
       // Support keys provided either as top-level `key` or inside `props.key`.
-      const key = (child as DOMElement).key ?? (child as DOMElement).props?.key;
-      if (key !== undefined) {
+      // Normalize symbols into strings so the keyed map (string|number) remains
+      // strongly-typed and stable across environments.
+      const rawKey =
+        (child as DOMElement).key ?? (child as DOMElement).props?.key;
+      if (rawKey !== undefined) {
+        const key: string | number =
+          typeof rawKey === 'symbol'
+            ? String(rawKey)
+            : (rawKey as string | number);
         keyedVnodes.push({ key, vnode: child });
         continue;
       }
@@ -1119,6 +1126,7 @@ function reconcileKeyedChildren(
             const gl = globalThis as {
               __ASKR_LAST_FASTPATH_STATS?: unknown;
               __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
+              __ASKR_LAST_FASTPATH_COMMIT_COUNT?: number | undefined;
             };
             (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
             const counters =
@@ -1238,7 +1246,7 @@ function reconcileKeyedChildren(
             const dom = createDOMNode(vnode);
             if (dom) {
               parent.insertBefore(dom, anchor);
-              newKeyMap.set(key, dom);
+              if (dom instanceof Element) newKeyMap.set(key, dom);
               anchor = dom.nextSibling;
               createdNodes++;
             }
@@ -2181,8 +2189,8 @@ function reconcileKeyedChildren(
 
       const orig: Record<string, unknown> = {};
       // Only wrap methods that exist in the current environment
-      const elProto = Element.prototype as Record<string, unknown>;
-      const nodeProto = Node.prototype as Record<string, unknown>;
+      const elProto = Element.prototype as unknown as Record<string, unknown>;
+      const nodeProto = Node.prototype as unknown as Record<string, unknown>;
       // Detect existence of `remove()` on nodes without referencing the
       // `ChildNode` type (which is a TS-only interface in some lib targets).
       const removeFn = (() => {
