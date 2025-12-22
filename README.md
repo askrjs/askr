@@ -57,13 +57,16 @@ function Home() {
     <div>
       <h1>Home</h1>
       <p>Count: {count()}</p>
-      <button onClick={() => count.set(count() + 1)}>Increment</button>
+      <button onClick={() => count.set(prev => prev + 1)}>Increment</button>
       <p>
         <Link href="/users/42">User 42</Link>
       </p>
     </div>
   );
 }
+
+
+**Tip:** Prefer functional updates when updating based on previous state: `count.set(prev => prev + 1)`.
 
 function User({ id }: { id: string }) {
   return (
@@ -123,19 +126,24 @@ We believe the best frameworks are the ones you stop thinking about.
 
 ## Cancellation is not a feature
 
-Askr doesn’t introduce a new cancellation concept.
-When work becomes stale (unmount, route replacement), the runtime aborts an `AbortController`.
-You forward the provided `signal` into normal APIs:
+Askr doesn’t introduce a new cancellation concept. When work becomes stale (unmount, route replacement), the runtime aborts an `AbortController` and you should forward a cancellable `signal` into normal APIs. **Important:** route handlers are executed synchronously during navigation and must return a VNode — they must not be `async` functions that return a Promise. For async data use runtime helpers like `resource()` or perform async work inside component mount operations and use `getSignal()` for cancellation.
+
+Example (recommended pattern):
 
 ```ts
-import { route } from '@askrjs/askr';
+import { route, resource, getSignal } from '@askrjs/askr';
 
-route('/user/{id}', async (params, ctx) => {
-  const user = await fetch(`/api/users/${params.id}`, {
-    signal: ctx?.signal,
-  }).then((r) => r.json());
+function User({ id }: { id: string }) {
+  const user = resource(async () => {
+    const res = await fetch(`/api/users/${id}`, { signal: getSignal() });
+    return res.json();
+  }, [id]);
+
+  if (!user) return <div>Loading...</div>;
   return <pre>{JSON.stringify(user, null, 2)}</pre>;
-});
+}
+
+route('/user/{id}', ({ id }) => <User id={id} />);
 ```
 
 ## Principles

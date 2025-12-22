@@ -15,7 +15,7 @@ export { defineContext, readContext } from './runtime/context';
 export type { Context } from './runtime/context';
 
 // Bindings (spec-defined, currently stubbed)
-export { resource, task } from './runtime/operations';
+export { resource, task, derive } from './runtime/operations';
 export type { DataResult } from './runtime/operations';
 
 // App bootstrap (explicit startup APIs)

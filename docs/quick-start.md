@@ -4,8 +4,6 @@ A short, copy-paste friendly guide to get an Askr app running with a few routes 
 
 > This guide uses the polymorphic `route()` API: use `route(path, handler)` to register routes at module-load time, and `route()` (no args) to access a render-time snapshot.
 
----
-
 ## 1) Setup
 
 ### TypeScript (JSX)
@@ -62,14 +60,12 @@ If you prefer TypeScript to perform the transform at compile-time (no runtime tr
 </html>
 ```
 
----
-
 ## 2) Tiny example app (copy-paste)
 
 `src/main.tsx`
 
-```ts
-import { createSPA, getRoutes, Link, state, navigate, route } from '@askrjs/askr';
+````ts
+import { createSPA, getRoutes, Link, state, derive, navigate, route } from '@askrjs/askr';
 
 function Home() {
   const count = state(0);
@@ -77,7 +73,7 @@ function Home() {
     <div style="padding:12px">
       <h1>Home</h1>
       <p>Count: {count()}</p>
-      <button onClick={() => count.set(count() + 1)}>Increment</button>
+      <button onClick={() => count.set((prev) => prev + 1)}>Increment</button>
       <div style="margin-top:12px">
         <Link href="/about">About</Link>
         {' · '}
@@ -113,31 +109,59 @@ route('/users/{id}', ({ id }: Record<string, string>) => <User id={id} />);
 // Mount app and resolve initial route
 createSPA({ root: '#app', routes: getRoutes() });
 navigate(window.location.pathname);
+
+
+
+**Tip:** Prefer the functional updater form when your update depends on the previous value to avoid races:
+
+```ts
+// Recommended: atomic, avoids stale reads
+count.set(prev => prev + 1);
+````
+
+The `set` method accepts an updater function `(prev) => newValue` which receives the latest committed state; if you need to store a function _as state_, wrap it in an object rather than passing it directly to `set`.
+
+### Derive (short form)
+
+You can derive simple expressions directly with a short form that feels natural and reads well:
+
+```ts
+const user = state({ id: 1, name: 'Jeff', age: 42 });
+const userName = derive(() => user().name); // string | null
+const isAdult = derive(() => user().age >= 18); // boolean | null
 ```
+
+Prefer immutable updates when deriving from object state (e.g. `user.set(prev => ({...prev, age: prev.age + 1}))`) so derive can see the changed value via reference equality. ```
 
 **Notes:**
 
 - Route handlers receive `params` for path parameters: `({ id }) => ...`.
-- Handlers may be synchronous or async; the router provides an AbortSignal (see Async routes below).
+- **Handlers must be synchronous** and return a VNode — they must not return a Promise. For async data, use runtime helpers such as `resource()` or perform fetches inside a component's mount operations; these helpers support cancellation via `getSignal()`.
 
----
+## 3) Async data (recommended pattern)
 
-## 3) Async routes (short)
+- Route handlers are executed synchronously during navigation; returning an `async` function (a Promise) is **not supported** and will throw at render-time.
+- For async data, return a synchronous component that uses runtime helpers such as `resource()` or perform async work in mount operations. These helpers have access to `getSignal()` during render so you can cancel stale requests on navigation/unmount.
 
-- The router **awaits async handlers** or async render factories; the previous UI remains mounted until the new route commits.
-- **Cancellation & ordering:** handlers receive `{ signal }` (and `getSignal()` is available during render). Abort or ignore work when the signal is aborted so stale navigations don't commit.
-- **Tip:** pass the signal into fetches (e.g. `fetch(url, { signal })`) or return a small synchronous fallback UI while awaiting.
-
-Example:
+Example (recommended):
 
 ```ts
-route('/user/{id}', async (params, { signal }) => {
-  const data = await fetch(`/api/users/${params.id}`, { signal }).then(r => r.json());
-  return <User data={data} />;
-});
+import { route, resource, getSignal } from '@askrjs/askr';
+
+function User({ id }: { id: string }) {
+  const user = resource(async () => {
+    const res = await fetch(`/api/users/${id}`, { signal: getSignal() });
+    return res.json();
+  }, [id]);
+
+  if (!user) return <div>Loading...</div>;
+  return <pre>{JSON.stringify(user, null, 2)}</pre>;
+}
+
+route('/user/{id}', ({ id }) => <User id={id} />);
 ```
 
----
+- If you need imperative async work on mount, use `registerMountOperation()` inside the component and use `getSignal()` for cancellation.
 
 ## 4) `layout()` helper (brief)
 
@@ -150,8 +174,6 @@ route('/parent', () => parent(<Parent />));
 
 Use this when you want an explicit parent layout to stay mounted across child navigations.
 
----
-
 ## 5) The Router Story (v1) — short
 
 - **Idea:** routing selects a VNode tree — nothing more.
@@ -159,8 +181,6 @@ Use this when you want an explicit parent layout to stay mounted across child na
 - **Guarantees:** one route active at a time; deterministic matching (longest match wins); one atomic commit per navigation; layouts are explicit composition.
 
 This minimal, composable core is easy to explain, test, and extend.
-
----
 
 ## 6) Checklist & dev
 
@@ -178,21 +198,15 @@ npm install
 npm run dev
 ```
 
----
-
 ## 7) Extras & next steps
 
 - For SSR, call `setServerLocation(url)` on the server so route snapshots match the client for hydration.
 - Want a runnable Vite example or a short README? I can add an `examples/` directory with an end-to-end starter.
 
----
-
 If you'd like, I can also:
 
 - Add a short `Link` accessibility example (aria-current/data-active) and unit tests ✅
 - Add a Vite lazy-loading snippet using `import.meta.glob` and prefetch tips ✨
-
----
 
 _This quick start keeps the core small so your routing logic stays explicit and testable._
 
@@ -210,8 +224,6 @@ _This quick start keeps the core small so your routing logic stays explicit and 
 
 5. **No name collisions**
    - `route()` (no args) returns a render-time snapshot
-
----
 
 ## Usage examples
 
@@ -241,8 +253,6 @@ route('/admin/users/{id}', <UserDetail />);
 route('/admin/audit', <Audit />);
 ```
 
----
-
 ## Component-side access (locked)
 
 ```ts
@@ -253,8 +263,6 @@ const r = route();
 - Scoped to the current render
 - No hooks, no globals, SSR-safe
 
----
-
 ## What this avoids (by design)
 
 - ❌ relative-path DSLs
@@ -262,8 +270,6 @@ const r = route();
 - ❌ `use*` APIs
 - ❌ implicit props
 - ❌ multiple registration modes
-
----
 
 ### One-sentence invariant
 
