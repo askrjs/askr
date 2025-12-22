@@ -184,6 +184,21 @@ export function commitReorderOnly(
       _g.__ASKR_LAST_FASTLANE_INVARIANTS = invariants;
 
       if (commitCount !== 1) {
+        try {
+          // Dump diag map + top-level counters for debugging
+          const _diag = (globalThis as Record<string, unknown>).__ASKR_DIAG;
+          console.error('[FASTLANE][INV] commitCount', commitCount, 'diag', _diag);
+          console.error('[FASTLANE][INV] top-level', {
+            __DOM_REPLACE_COUNT: (globalThis as Record<string, unknown>).__DOM_REPLACE_COUNT,
+            __DOM_REPLACE_CHILD_COUNT: (globalThis as Record<string, unknown>).__DOM_REPLACE_CHILD_COUNT,
+            __LAST_DOM_REPLACE_STACK_FASTPATH: (globalThis as Record<string, unknown>).__LAST_DOM_REPLACE_STACK_FASTPATH,
+            __LAST_DOM_REPLACE_STACK_RECONCILE: (globalThis as Record<string, unknown>).__LAST_DOM_REPLACE_STACK_RECONCILE,
+            __LAST_DOM_REPLACE_STACK_DOM: (globalThis as Record<string, unknown>).__LAST_DOM_REPLACE_STACK_DOM,
+            __LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE: (globalThis as Record<string, unknown>).__LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE,
+          });
+        } catch (e) {
+          void e;
+        }
         throw new Error(
           'Fast-lane invariant violated: expected exactly one DOM commit during reorder-only commit'
         );

@@ -184,8 +184,9 @@ export function isKeyedReorderFastPathEligible(
             break;
           }
         }
-      } catch {
+      } catch (e) {
         hasPropChanges = true;
+        void e;
         break;
       }
     }

@@ -104,6 +104,7 @@ export function cleanupInstancesUnder(
 export interface ListenerMapEntry {
   handler: EventListener;
   original: EventListener;
+  options?: boolean | AddEventListenerOptions;
 }
 export const elementListeners = new WeakMap<
   Element,
@@ -114,7 +115,10 @@ export function removeElementListeners(element: Element): void {
   const map = elementListeners.get(element);
   if (map) {
     for (const [eventName, entry] of map) {
-      element.removeEventListener(eventName, entry.handler);
+      // When removing, reuse the original options if present for correctness
+      if (entry.options !== undefined)
+        element.removeEventListener(eventName, entry.handler, entry.options);
+      else element.removeEventListener(eventName, entry.handler);
     }
     elementListeners.delete(element);
   }

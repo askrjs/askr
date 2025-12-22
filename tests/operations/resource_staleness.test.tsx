@@ -26,7 +26,7 @@ describe('resource() stale result handling', () => {
       const r = resource(async () => {
         // value function uses a counter derived from an outer state, but we
         // simply flip values through refresh in test via clicks
-        return await delayed(window._nextVal, window._nextDelay);
+        return await delayed(window._nextVal, window._nextDelay!);
       }, [window._nextToken]);
 
       return {

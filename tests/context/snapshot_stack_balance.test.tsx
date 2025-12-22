@@ -40,8 +40,8 @@ describe('context snapshot stack balance (REGRESSION)', () => {
       return { type: 'div', children: [r.value ?? 'pending'] };
     };
 
-    let themeState: ReturnType<typeof state>;
-    let showChildState: ReturnType<typeof state>;
+    let themeState!: ReturnType<typeof state>;
+    let showChildState!: ReturnType<typeof state>;
 
     const App = () => {
       themeState = state('A');

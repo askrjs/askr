@@ -2,12 +2,15 @@ import type { VNode } from './types';
 import { createDOMNode } from './dom';
 import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../dev/logger';
-import { cleanupInstanceIfPresent } from './cleanup';
+import { cleanupInstanceIfPresent, removeAllListeners } from './cleanup';
+import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { isSchedulerExecuting } from '../runtime/scheduler';
 import {
   isBulkCommitActive,
   markFastPathApplied,
 } from '../runtime/fastlane-shared';
+
+export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
 // Apply the "renderer" fast-path: build final node list reusing existing
 // elements by key when possible, then perform a single atomic replaceChildren
@@ -19,6 +22,9 @@ export function applyRendererFastPath(
   oldKeyMap?: Map<string | number, Element>,
   unkeyedVnodes?: VNode[]
 ): Map<string | number, Element> | null {
+  // SSR guard: fast-path is DOM-specific
+  if (typeof document === 'undefined') return null;
+
   const totalKeyed = keyedVnodes.length;
   if (totalKeyed === 0 && (!unkeyedVnodes || unkeyedVnodes.length === 0))
     return null;
@@ -40,8 +46,9 @@ export function applyRendererFastPath(
       parentChildrenArr = new Array(pc.length);
       for (let i = 0; i < pc.length; i++)
         parentChildrenArr[i] = pc[i] as Element;
-    } catch {
+    } catch (e) {
       parentChildrenArr = undefined;
+      void e;
     }
   } else {
     localOldKeyMap = new Map<string | number, Element>();
@@ -56,8 +63,9 @@ export function applyRendererFastPath(
           if (!Number.isNaN(n)) localOldKeyMap.set(n, ch);
         }
       }
-    } catch {
+    } catch (e) {
       localOldKeyMap = undefined;
+      void e;
     }
   }
 
@@ -122,7 +130,20 @@ export function applyRendererFastPath(
     // Pre-cleanup: remove component instances that will be removed by replaceChildren
     try {
       const existing = Array.from(parent.childNodes);
-      for (const n of existing) cleanupInstanceIfPresent(n);
+      // Only cleanup nodes that are *not* part of the finalNodes list so we don't
+      // remove listeners from elements we're reusing (critical invariant)
+      const toRemove = existing.filter((n) => !finalNodes.includes(n));
+      for (const n of toRemove) {
+        if (n instanceof Element) removeAllListeners(n);
+        cleanupInstanceIfPresent(n);
+      }
+    } catch (e) {
+      void e;
+    }
+
+    try {
+      __ASKR_incCounter('__DOM_REPLACE_COUNT');
+      __ASKR_set('__LAST_DOM_REPLACE_STACK_FASTPATH', new Error().stack);
     } catch (e) {
       void e;
     }
@@ -131,8 +152,7 @@ export function applyRendererFastPath(
 
     // Record that we performed exactly one DOM commit.
     try {
-      const _g = globalThis as Record<string, unknown>;
-      _g.__ASKR_LAST_FASTPATH_COMMIT_COUNT = 1;
+      __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
     } catch (e) {
       void e;
     }
@@ -168,21 +188,16 @@ export function applyRendererFastPath(
         reusedCount,
       } as const;
       if (typeof globalThis !== 'undefined') {
-        const _g = globalThis as Record<string, unknown>;
-        _g['__ASKR_LAST_FASTPATH_STATS'] = stats;
-        _g['__ASKR_LAST_FASTPATH_REUSED'] = reusedCount > 0;
-        const historyKey = '__ASKR_LAST_FASTPATH_HISTORY';
-        let hist = _g[historyKey] as unknown[] | undefined;
-        if (!hist) {
-          hist = [];
-          _g[historyKey] = hist;
-        }
-        hist.push(stats as unknown);
+        __ASKR_set('__LAST_FASTPATH_STATS', stats);
+        __ASKR_set('__LAST_FASTPATH_REUSED', reusedCount > 0);
+        __ASKR_incCounter('fastpathHistoryPush');
       }
-      logger.warn(
-        '[Askr][FASTPATH]',
-        JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })
-      );
+      if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+        logger.warn(
+          '[Askr][FASTPATH]',
+          JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })
+        );
+      }
     } catch (e) {
       void e;
     }

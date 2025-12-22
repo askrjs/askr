@@ -343,7 +343,14 @@ export async function captureSSRSnapshot(
   component: SSRComponent
 ): Promise<string> {
   return renderToStringSync(
-    component as unknown as (props?: Record<string, unknown>) => unknown
+    component as unknown as (
+      props?: Record<string, unknown>
+    ) =>
+      | string
+      | number
+      | import('../../src/jsx/types').JSXElement
+      | import('../../src/renderer/types').VNode
+      | null
   );
 }
 

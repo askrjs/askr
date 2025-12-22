@@ -1,23 +1,18 @@
 import type { VNode } from './types';
-import {
-  createDOMNode,
-  updateElementFromVnode,
-  performBulkPositionalKeyedTextUpdate,
-} from './dom';
-import {
-  keyedElements,
-  _reconcilerRecordedParents,
-  isKeyedReorderFastPathEligible,
-} from './keyed';
-import { logger } from '../dev/logger';
+import { createDOMNode, updateElementFromVnode, performBulkPositionalKeyedTextUpdate } from './dom';
+import { keyedElements, _reconcilerRecordedParents, isKeyedReorderFastPathEligible } from './keyed';
+import { removeAllListeners, cleanupInstanceIfPresent } from './cleanup';
+import { isBulkCommitActive } from '../runtime/fastlane-shared';
+import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { applyRendererFastPath } from './fastpath';
+
+export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
 export function reconcileKeyedChildren(
   parent: Element,
   newChildren: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> {
-  // The implementation was moved from index.ts; keep it identical here.
   const newKeyMap = new Map<string | number, Element>();
 
   const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
@@ -36,446 +31,335 @@ export function reconcileKeyedChildren(
             ? String(rawKey)
             : (rawKey as string | number);
         keyedVnodes.push({ key, vnode: child });
-        continue;
+      } else {
+        unkeyedVnodes.push(child);
       }
+    } else {
+      unkeyedVnodes.push(child);
     }
-    unkeyedVnodes.push(child);
   }
 
-  if (!oldKeyMap || oldKeyMap.size === 0) {
-    try {
-      const domMap = new Map<string | number, Element>();
-      const children = Array.from(parent.children);
-      for (let i = 0; i < children.length; i++) {
-        const ch = children[i] as Element;
-        const k = ch.getAttribute('data-key');
-        if (k !== null) {
-          domMap.set(k, ch);
-          const n = Number(k);
-          if (!Number.isNaN(n)) domMap.set(n, ch);
-        }
-      }
-      if (domMap.size === 0) {
-        for (let i = 0; i < children.length; i++) {
-          const ch = children[i] as Element;
-          const text = (ch.textContent || '').trim();
-          if (text) {
-            domMap.set(text, ch);
-            const n = Number(text);
-            if (!Number.isNaN(n)) domMap.set(n, ch);
+  // Helper type for narrowings to avoid `any` casts in lint rules
+  type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
+
+
+  // Try renderer fast-path early for large keyed reorder-only updates.
+  try {
+    const decision = isKeyedReorderFastPathEligible(parent, newChildren, oldKeyMap);
+    if (
+      (decision.useFastPath && keyedVnodes.length >= 128) ||
+      // If we're executing inside a runtime bulk commit (fastlane), prefer the
+      // renderer fast-path to ensure the single-commit invariant is preserved.
+      isBulkCommitActive()
+    ) {
+      try {
+        const map = applyRendererFastPath(parent, keyedVnodes, oldKeyMap, unkeyedVnodes);
+        if (map) {
+          try {
+            keyedElements.set(parent, map);
+          } catch (e) {
+            void e;
           }
+          return map;
         }
+      } catch (e) {
+        void e;
       }
-      if (domMap.size > 0) {
-        oldKeyMap = domMap;
+    }
+
+    // Heuristic: if the majority of children *by position* have matching tags
+    // and are simple text/intrinsic children, prefer the positional bulk
+    // positional update path which reuses existing elements by index and
+    // preserves listeners. This is conservative and only used for relatively
+    // small lists where the renderer fast-path declines.
+    try {
+      const total = keyedVnodes.length;
+      if (total >= 10) {
+        let matchCount = 0;
         try {
-          keyedElements.set(parent, domMap);
+          for (let i = 0; i < total; i++) {
+            const vnode = keyedVnodes[i].vnode as VnodeObj;
+            if (!vnode || typeof vnode !== 'object' || typeof vnode.type !== 'string') continue;
+            const el = parent.children[i] as Element | undefined;
+            if (!el) continue;
+            if (el.tagName.toLowerCase() === String(vnode.type).toLowerCase()) matchCount++;
+          }
         } catch (e) {
           void e;
         }
-      }
-    } catch (e) {
-      void e;
-    }
-  }
-
-  const resolveOldEl = (k: string | number) => {
-    if (!oldKeyMap) return undefined;
-    const direct = oldKeyMap.get(k);
-    if (direct) return direct;
-    const s = String(k);
-    const byString = oldKeyMap.get(s);
-    if (byString) return byString;
-    const n = Number(String(k));
-    if (!Number.isNaN(n)) return oldKeyMap.get(n as number);
-    return undefined;
-  };
-
-  // Compute some simple heuristics and attempt partial fast-paths first (same as original)
-  try {
-    let hasPropsPresent = false;
-    for (let i = 0; i < keyedVnodes.length; i++) {
-      const vnode = keyedVnodes[i].vnode;
-      if (typeof vnode !== 'object' || vnode === null) continue;
-      const vnodeObj = vnode as unknown as { props?: Record<string, unknown> };
-      const props = vnodeObj.props || {};
-      for (const k of Object.keys(props)) {
-        if (k === 'children' || k === 'key') continue;
-        if (k.startsWith('on') && k.length > 2) continue;
-        if (k.startsWith('data-')) continue;
-        hasPropsPresent = true;
-        break;
-      }
-      if (hasPropsPresent) break;
-    }
-
-    const decision = isKeyedReorderFastPathEligible(
-      parent,
-      newChildren,
-      oldKeyMap
-    );
-    const likelyRendererFastPath = decision.useFastPath;
-
-    // simple positional bulk keyed text update
-    try {
-      const parentChildren = Array.from(parent.children);
-      const present = new Set<string | number>();
-      for (let i = 0; i < parentChildren.length; i++) {
-        const attr = parentChildren[i].getAttribute('data-key');
-        if (attr !== null) {
-          present.add(attr);
-          const n = Number(attr);
-          if (!Number.isNaN(n)) present.add(n);
-        }
-      }
-
-      let missing = 0;
-      for (let i = 0; i < keyedVnodes.length; i++) {
-        const k = keyedVnodes[i].key;
-        if (!present.has(k)) missing++;
-      }
-
-      const missingRatio = missing / Math.max(1, keyedVnodes.length);
-
-      const allSimpleText =
-        keyedVnodes.length > 0 &&
-        keyedVnodes.every(({ vnode }) => {
-          if (typeof vnode !== 'object' || vnode === null) return false;
-          const dv = vnode as unknown as {
-            type?: unknown;
-            children?: unknown;
-            props?: Record<string, unknown>;
-          };
-          if (typeof dv.type !== 'string') return false;
-          const ch = dv.children || dv.props?.children;
-          if (ch === undefined) return true;
-          if (Array.isArray(ch)) {
-            return (
-              ch.length === 1 &&
-              (typeof ch[0] === 'string' || typeof ch[0] === 'number')
-            );
+        // Require high positional match fraction to keep this conservative
+        if (matchCount / total >= 0.9) {
+          // Additionally, decline this positional path if prop changes are present
+          // that we cannot safely patch by remapping keys in-place. This mirrors
+          // the conservative rule in the runtime classifier.
+          let hasPropChanges = false;
+          try {
+            for (let i = 0; i < total; i++) {
+              const vnode = keyedVnodes[i].vnode as VnodeObj;
+              const el = parent.children[i] as Element | undefined;
+              if (!el || !vnode || typeof vnode !== 'object') continue;
+              const props = vnode.props || {};
+              for (const k of Object.keys(props)) {
+                if (k === 'children' || k === 'key') continue;
+                if (k.startsWith('on') && k.length > 2) continue;
+                if (k.startsWith('data-')) continue;
+                const v = props[k];
+                try {
+                  if (k === 'class' || k === 'className') {
+                    if (el.className !== String(v)) {
+                      hasPropChanges = true;
+                      break;
+                    }
+                  } else if (k === 'value' || k === 'checked') {
+                    if ((el as HTMLElement & Record<string, unknown>)[k] !== v) {
+                      hasPropChanges = true;
+                      break;
+                    }
+                  } else {
+                    const attr = el.getAttribute(k);
+                    if (v === undefined || v === null || v === false) {
+                      if (attr !== null) {
+                        hasPropChanges = true;
+                        break;
+                      }
+                    } else if (String(v) !== attr) {
+                      hasPropChanges = true;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  hasPropChanges = true;
+                  void e;
+                  break;
+                }
+              }
+              if (hasPropChanges) break;
+            }
+          } catch (e) {
+            void e;
           }
-          return typeof ch === 'string' || typeof ch === 'number';
-        });
 
-      if (
-        missingRatio > 0.5 &&
-        allSimpleText &&
-        !hasPropsPresent &&
-        parentChildren.length > 0
-      ) {
-        try {
-          const stats = performBulkPositionalKeyedTextUpdate(
-            parent,
-            keyedVnodes
-          );
-          if (
-            process.env.NODE_ENV !== 'production' ||
-            process.env.ASKR_FASTPATH_DEBUG === '1'
-          ) {
+          if (hasPropChanges) {
+            // Decline positional path when props differ
+          } else {
             try {
-              const gl = globalThis as Record<string, unknown>;
-              (gl as Record<string, unknown>)['__ASKR_LAST_FASTPATH_STATS'] =
-                stats;
-              const counters =
-                (gl['__ASKR_FASTPATH_COUNTERS'] as
-                  | Record<string, unknown>
-                  | undefined) || {};
-              (counters as Record<string, unknown>)['bulkKeyedPositionalHits'] =
-                ((counters as Record<string, number>)[
-                  'bulkKeyedPositionalHits'
-                ] || 0) + 1;
-              (gl as Record<string, unknown>)['__ASKR_FASTPATH_COUNTERS'] =
-                counters;
+              const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+              if (process.env.NODE_ENV !== 'production' || process.env.ASKR_FASTPATH_DEBUG === '1') {
+                try {
+                  __ASKR_set('__LAST_FASTPATH_STATS', stats);
+                  __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
+                  __ASKR_incCounter('bulkKeyedPositionalHits');
+                } catch (e) {
+                  void e;
+                }
+              }
+              // Rebuild keyed map
               try {
-                _reconcilerRecordedParents.add(parent);
+                const map = new Map<string | number, Element>();
+                const children = Array.from(parent.children);
+                for (let i = 0; i < children.length; i++) {
+                  const el = children[i] as Element;
+                  const k = el.getAttribute('data-key');
+                  if (k !== null) {
+                    map.set(k, el);
+                    const n = Number(k);
+                    if (!Number.isNaN(n)) map.set(n, el);
+                  }
+                }
+                keyedElements.set(parent, map);
               } catch (e) {
                 void e;
               }
-              (gl as Record<string, unknown>)[
-                '__ASKR_LAST_FASTPATH_COMMIT_COUNT'
-              ] = 1;
+              return keyedElements.get(parent) as Map<string | number, Element>;
             } catch (e) {
               void e;
             }
           }
-
-          // Rebuild the key map from DOM and return
-          try {
-            const map = new Map<string | number, Element>();
-            const children = Array.from(parent.children);
-            for (let i = 0; i < children.length; i++) {
-              const el = children[i] as Element;
-              const k = el.getAttribute('data-key');
-              if (k !== null) {
-                map.set(k, el);
-                const n = Number(k);
-                if (!Number.isNaN(n)) map.set(n, el);
-              }
-            }
-            keyedElements.set(parent, map);
-            return map;
-          } catch (e) {
-            void e;
-          }
-        } catch (e) {
-          void e;
         }
       }
     } catch (e) {
       void e;
     }
 
-    if (
-      oldKeyMap &&
-      keyedVnodes.length > 0 &&
-      !hasPropsPresent &&
-      !likelyRendererFastPath
-    ) {
-      let _allPresent = true;
-      for (const { key } of keyedVnodes) {
-        const el = resolveOldEl(key);
-        if (!el || el.parentElement !== parent) {
-          _allPresent = false;
-          break;
-        }
-      }
-
-      try {
-        let anchor: Node | null = parent.firstChild;
-        let createdNodes = 0;
-        let reusedCount = 0;
-        for (const { key, vnode } of keyedVnodes) {
-          let el = resolveOldEl(key);
-          if (!el || el.parentElement !== parent) {
-            try {
-              const ks = String(key);
-              const byAttr = parent.querySelector(`[data-key="${ks}"]`);
-              if (byAttr && byAttr.parentElement === parent)
-                el = byAttr as Element;
-              else {
-                const pcs = Array.from(parent.children);
-                for (let j = 0; j < pcs.length; j++) {
-                  const ch = pcs[j] as Element;
-                  if ((ch.textContent || '').trim() === ks) {
-                    el = ch;
-                    break;
-                  }
-                }
-              }
-            } catch (e) {
-              void e;
-            }
-          }
-
-          if (el && el.parentElement === parent) {
-            if (anchor === el) {
-              anchor = el.nextSibling;
-            } else {
-              parent.insertBefore(el, anchor);
-            }
-            updateElementFromVnode(el as Element, vnode as VNode);
-            newKeyMap.set(key, el);
-            reusedCount++;
-          } else {
-            const dom = createDOMNode(vnode);
-            if (dom) {
-              parent.insertBefore(dom, anchor);
-              if (dom instanceof Element) newKeyMap.set(key, dom);
-              anchor = dom.nextSibling;
-              createdNodes++;
-            }
-          }
-        }
-
-        for (const vnode of unkeyedVnodes) {
-          const dom = createDOMNode(vnode);
-          if (dom) parent.appendChild(dom);
-        }
-
-        try {
-          const gl = globalThis as Record<string, unknown>;
-          (gl as Record<string, unknown>)['__ASKR_LAST_FASTPATH_STATS'] = {
-            n: keyedVnodes.length,
-            created: createdNodes,
-            reused: reusedCount,
-          } as const;
-          (gl as Record<string, unknown>)['__ASKR_LAST_FASTPATH_COMMIT_COUNT'] =
-            1;
-          const counters =
-            (gl['__ASKR_FASTPATH_COUNTERS'] as
-              | Record<string, unknown>
-              | undefined) || {};
-          (counters as Record<string, unknown>)['partialMoveByKeyHits'] =
-            ((counters as Record<string, number>)['partialMoveByKeyHits'] ||
-              0) + 1;
-          (gl as Record<string, unknown>)['__ASKR_FASTPATH_COUNTERS'] =
-            counters;
-          try {
-            _reconcilerRecordedParents.add(parent);
-          } catch (e) {
-            void e;
-          }
-        } catch (e) {
-          void e;
-        }
-
-        return newKeyMap;
-      } catch {
-        // Fall through
-      }
-    }
-  } catch {
-    // ignore and proceed
-  }
-
-  const decision = isKeyedReorderFastPathEligible(
-    parent,
-    newChildren,
-    oldKeyMap
-  );
-  const useFastPath = decision.useFastPath;
-  logger.warn('[Askr][FASTPATH][DEV] decision', decision);
-
-  // Renderer fast-path: reorder-only commits during runtime fast-lane.
-  // This performs a single atomic DOM commit (replaceChildren) and records
-  // commit count for runtime invariants.
-  if (useFastPath && keyedVnodes.length >= 128) {
-    try {
-      const map = applyRendererFastPath(
-        parent,
-        keyedVnodes,
-        oldKeyMap,
-        unkeyedVnodes
-      );
-      if (map) {
-        try {
-          keyedElements.set(parent, map);
-        } catch (e) {
-          void e;
-        }
-        return map;
-      }
-    } catch (e) {
-      void e;
-    }
-  }
-
-  try {
-    const hugeThreshold = Number(process.env.ASKR_BULK_HUGE_THRESHOLD) || 2048;
-    if (!useFastPath && keyedVnodes.length >= hugeThreshold) {
-      let allSimple = true;
-      for (let i = 0; i < keyedVnodes.length; i++) {
-        const vnode = keyedVnodes[i].vnode;
-        if (typeof vnode !== 'object' || vnode === null) {
-          allSimple = false;
-          break;
-        }
-        const dv = vnode as unknown as {
-          type?: unknown;
-          children?: unknown;
-          props?: Record<string, unknown>;
-        };
-        if (typeof dv.type !== 'string') {
-          allSimple = false;
-          break;
-        }
-        const ch = dv.children || dv.props?.children;
-        if (ch === undefined) continue;
-        if (Array.isArray(ch)) {
-          if (
-            ch.length !== 1 ||
-            (typeof ch[0] !== 'string' && typeof ch[0] !== 'number')
-          ) {
-            allSimple = false;
-            break;
-          }
-        } else if (typeof ch !== 'string' && typeof ch !== 'number') {
-          allSimple = false;
-          break;
-        }
-      }
-
-      if (allSimple) {
-        try {
-          const stats = performBulkPositionalKeyedTextUpdate(
-            parent,
-            keyedVnodes
-          );
-          if (
-            process.env.NODE_ENV !== 'production' ||
-            process.env.ASKR_FASTPATH_DEBUG === '1'
-          ) {
-            try {
-              const gl = globalThis as Record<string, unknown>;
-              (gl as Record<string, unknown>)['__ASKR_LAST_FASTPATH_STATS'] =
-                stats;
-              const counters =
-                (gl['__ASKR_FASTPATH_COUNTERS'] as
-                  | Record<string, unknown>
-                  | undefined) || {};
-              (counters as Record<string, unknown>)['bulkKeyedHugeFallback'] =
-                ((counters as Record<string, number>)[
-                  'bulkKeyedHugeFallback'
-                ] || 0) + 1;
-              (gl as Record<string, unknown>)['__ASKR_FASTPATH_COUNTERS'] =
-                counters;
-              (gl as Record<string, unknown>)['__ASKR_BULK_DIAG'] = {
-                phase: 'bulk-keyed-huge-fallback',
-                stats,
-              } as const;
-            } catch (e) {
-              void e;
-            }
-          }
-          return newKeyMap;
-        } catch (e) {
-          void e;
-        }
-      }
-    }
   } catch (e) {
     void e;
   }
 
-  // If none of the optimized paths applied, do a conservative atomic build
-  // (append new nodes and replace parent children atomically)
-  // Rebuild final node list
-  try {
-    const finalNodes: Node[] = [];
+  const finalNodes: Node[] = [];
+  // Track used old elements to handle duplicate keys deterministically
+  const usedOldEls = new WeakSet<Node>();
 
-    for (let i = 0; i < keyedVnodes.length; i++) {
-      const { key, vnode } = keyedVnodes[i];
-      const el = resolveOldEl(key);
-      if (el && el.parentElement === parent) {
-        // Update in place and append
-        updateElementFromVnode(el, vnode as VNode);
-        finalNodes.push(el);
-        newKeyMap.set(key, el);
-      } else {
-        const dom = createDOMNode(vnode);
+  const resolveOldElOnce = (k: string | number) => {
+    if (!oldKeyMap) return undefined;
+    // Fast-path: directly from oldKeyMap if available and not used
+    const direct = oldKeyMap.get(k);
+    if (direct && !usedOldEls.has(direct)) {
+      usedOldEls.add(direct);
+      return direct;
+    }
+    const s = String(k);
+    const byString = oldKeyMap.get(s);
+    if (byString && !usedOldEls.has(byString)) {
+      usedOldEls.add(byString);
+      return byString;
+    }
+    const n = Number(String(k));
+    if (!Number.isNaN(n)) {
+      const byNum = oldKeyMap.get(n as number);
+      if (byNum && !usedOldEls.has(byNum)) {
+        usedOldEls.add(byNum);
+        return byNum;
+      }
+    }
+
+    // Fallback: scan parent children to find the next matching element
+    try {
+      const children = Array.from(parent.children) as Element[];
+      for (const ch of children) {
+        if (usedOldEls.has(ch)) continue;
+        const attr = ch.getAttribute('data-key');
+        if (attr === s) {
+          usedOldEls.add(ch);
+          return ch;
+        }
+        const numAttr = Number(attr);
+        if (!Number.isNaN(numAttr) && numAttr === (k as number)) {
+          usedOldEls.add(ch);
+          return ch;
+        }
+      }
+    } catch (e) {
+      void e;
+    }
+
+    return undefined;
+  };
+
+  // Positional reconciliation: iterate over new children and decide reuse
+  for (let i = 0; i < newChildren.length; i++) {
+    const child = newChildren[i];
+
+    // Keyed child
+    if (typeof child === 'object' && child !== null && 'type' in child) {
+      const childObj = child as unknown as Record<string, unknown>;
+      const rawKey =
+        childObj.key ??
+        (childObj.props as Record<string, unknown> | undefined)?.key;
+      if (rawKey !== undefined) {
+        const key: string | number =
+          typeof rawKey === 'symbol' ? String(rawKey) : (rawKey as string | number);
+        const el = resolveOldElOnce(key);
+        if (el && el.parentElement === parent) {
+          updateElementFromVnode(el, child as VNode);
+          finalNodes.push(el);
+          newKeyMap.set(key, el);
+          continue;
+        }
+        const dom = createDOMNode(child as VNode);
         if (dom) {
           finalNodes.push(dom);
           if (dom instanceof Element) newKeyMap.set(key, dom);
         }
+        continue;
       }
     }
 
-    for (let i = 0; i < unkeyedVnodes.length; i++) {
-      const dom = createDOMNode(unkeyedVnodes[i]);
-      if (dom) finalNodes.push(dom);
+    // Unkeyed or primitive child — try positional reuse if existing child is unkeyed
+    try {
+      const existing = parent.children[i] as Element | undefined;
+      if (
+        existing &&
+        (typeof child === 'string' || typeof child === 'number') &&
+        existing.nodeType === 1
+      ) {
+        // primitive -> existing element: update text content
+        existing.textContent = String(child);
+        finalNodes.push(existing);
+        usedOldEls.add(existing);
+        continue;
+      }
+      if (
+        existing &&
+        typeof child === 'object' &&
+        child !== null &&
+        'type' in child &&
+        (existing.getAttribute('data-key') === null || existing.getAttribute('data-key') === undefined) &&
+        typeof (child as VnodeObj).type === 'string' &&
+        existing.tagName.toLowerCase() === String((child as VnodeObj).type).toLowerCase()
+      ) {
+        updateElementFromVnode(existing, child as VNode);
+        finalNodes.push(existing);
+        usedOldEls.add(existing);
+        continue;
+      }
+
+      // If the slot is occupied by a keyed node, try to find an available
+      // unkeyed element elsewhere to preserve positional identity for
+      // unkeyed siblings (critical for mixed keyed/unkeyed cases).
+      try {
+        const avail = Array.from(parent.children).find(
+          (ch) => !usedOldEls.has(ch) && ch.getAttribute('data-key') === null
+        );
+        if (avail) {
+          if (typeof child === 'string' || typeof child === 'number') {
+            avail.textContent = String(child);
+          } else if (
+            typeof child === 'object' &&
+            child !== null &&
+            'type' in child &&
+            typeof (child as VnodeObj).type === 'string' &&
+            avail.tagName.toLowerCase() === String((child as VnodeObj).type).toLowerCase()
+          ) {
+            updateElementFromVnode(avail, child as VNode);
+          } else {
+            // If shape mismatches, rebuild
+            const dom = createDOMNode(child as VNode);
+            if (dom) {
+              finalNodes.push(dom);
+              continue;
+            }
+          }
+          usedOldEls.add(avail);
+          finalNodes.push(avail);
+          continue;
+        }
+      } catch (e) {
+        void e;
+      }
+    } catch (e) {
+      void e;
     }
 
-    const fragment = document.createDocumentFragment();
-    for (let i = 0; i < finalNodes.length; i++)
-      fragment.appendChild(finalNodes[i]);
-    parent.replaceChildren(fragment);
-    keyedElements.delete(parent);
+    // Fallback: create DOM node
+    const dom = createDOMNode(child as VNode);
+    if (dom) finalNodes.push(dom);
+  }
 
-    return newKeyMap;
+  // SSR guard: if DOM unavailable, do a conservative no-op
+  if (typeof document === 'undefined') return newKeyMap;
+
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < finalNodes.length; i++)
+    fragment.appendChild(finalNodes[i]);
+
+  try {
+    const existing = Array.from(parent.childNodes);
+    for (const n of existing) {
+      if (n instanceof Element) removeAllListeners(n);
+      cleanupInstanceIfPresent(n);
+    }
   } catch (e) {
     void e;
   }
 
+  try {
+    __ASKR_incCounter('__DOM_REPLACE_COUNT');
+    __ASKR_set('__LAST_DOM_REPLACE_STACK_RECONCILE', new Error().stack);
+  } catch (e) {
+    void e;
+  }
+
+  parent.replaceChildren(fragment);
+  keyedElements.delete(parent);
   return newKeyMap;
 }

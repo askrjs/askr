@@ -13,6 +13,7 @@ import {
   type ContextFrame,
 } from './context';
 import { logger } from '../dev/logger';
+import { __ASKR_incCounter, __ASKR_set } from '../renderer/diag';
 
 export type ComponentFunction = (
   props: Props,
@@ -314,6 +315,12 @@ function runComponent(instance: ComponentInstance): void {
 
             // Restore original children by re-inserting the old node references
             // this preserves attached listeners and instance backrefs.
+            try {
+              __ASKR_incCounter('__DOM_REPLACE_COUNT');
+              __ASKR_set('__LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE', new Error().stack);
+            } catch (e) {
+              void e;
+            }
             instance.target.replaceChildren(...oldChildren);
             throw e;
           } finally {
@@ -351,6 +358,12 @@ function runComponent(instance: ComponentInstance): void {
           }
 
           try {
+            try {
+              __ASKR_incCounter('__DOM_REPLACE_COUNT');
+              __ASKR_set('__LAST_DOM_REPLACE_STACK_COMPONENT_ROLLBACK', new Error().stack);
+            } catch (e) {
+              void e;
+            }
             instance.target.replaceChildren(...oldChildren);
           } catch {
             // Fallback to innerHTML restore if replaceChildren fails for some reason.

@@ -18,7 +18,11 @@ import type {
   ComponentInstance,
   ComponentFunction,
 } from '../runtime/component';
-import { cleanupInstanceIfPresent, elementListeners, removeAllListeners } from './cleanup';
+import {
+  cleanupInstanceIfPresent,
+  elementListeners,
+  removeAllListeners,
+} from './cleanup';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { keyedElements } from './keyed';
@@ -28,8 +32,22 @@ type ElementWithContext = DOMElement & {
   __instance?: ComponentInstance;
 };
 
+export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
+
 // Create a DOM node from a VNode
 export function createDOMNode(node: unknown): Node | null {
+  // SSR guard: don't attempt DOM ops when document is unavailable
+  if (!IS_DOM_AVAILABLE) {
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        logger.warn('[Askr] createDOMNode called in non-DOM environment');
+      } catch (e) {
+        void e;
+      }
+    }
+    return null;
+  }
+
   // Fast paths for primitives (most common)
   if (typeof node === 'string') {
     return document.createTextNode(node);
@@ -98,13 +116,23 @@ export function createDOMNode(node: unknown): Node | null {
             }
           };
 
-          el.addEventListener(eventName, wrappedHandler);
+          // Determine sensible default options (use passive for touch/scroll/wheel where appropriate)
+          const options: boolean | AddEventListenerOptions | undefined =
+            eventName === 'wheel' ||
+            eventName === 'scroll' ||
+            eventName.startsWith('touch')
+              ? { passive: true }
+              : undefined;
+          if (options !== undefined)
+            el.addEventListener(eventName, wrappedHandler, options);
+          else el.addEventListener(eventName, wrappedHandler);
           if (!elementListeners.has(el)) {
             elementListeners.set(el, new Map());
           }
           elementListeners.get(el)!.set(eventName, {
             handler: wrappedHandler,
             original: value as EventListener,
+            options,
           });
         } else if (key === 'class' || key === 'className') {
           el.className = String(value);
@@ -165,10 +193,11 @@ export function createDOMNode(node: unknown): Node | null {
                   logger.warn(
                     `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
                   );
-                } catch {
+                } catch (e) {
                   logger.warn(
                     'Missing keys on dynamic lists. Each child in a list should have a unique "key" prop.'
                   );
+                  void e;
                 }
               }
             }
@@ -320,7 +349,9 @@ export function updateElementFromVnode(
           key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
         if (existingListeners && existingListeners.has(eventName)) {
           const entry = existingListeners.get(eventName)!;
-          el.removeEventListener(eventName, entry.handler);
+          if (entry.options !== undefined)
+            el.removeEventListener(eventName, entry.handler, entry.options);
+          else el.removeEventListener(eventName, entry.handler);
           existingListeners.delete(eventName);
         }
         continue;
@@ -362,13 +393,22 @@ export function updateElementFromVnode(
         }
       };
 
-      el.addEventListener(eventName, wrappedHandler);
+      const options: boolean | AddEventListenerOptions | undefined =
+        eventName === 'wheel' ||
+        eventName === 'scroll' ||
+        eventName.startsWith('touch')
+          ? { passive: true }
+          : undefined;
+      if (options !== undefined)
+        el.addEventListener(eventName, wrappedHandler, options);
+      else el.addEventListener(eventName, wrappedHandler);
       if (!elementListeners.has(el)) {
         elementListeners.set(el, new Map());
       }
       elementListeners.get(el)!.set(eventName, {
         handler: wrappedHandler,
         original: value as EventListener,
+        options,
       });
     } else {
       el.setAttribute(key, String(value));
@@ -470,8 +510,8 @@ export function updateUnkeyedChildren(
         } else {
           const dom = createDOMNode(next);
           if (dom) {
-              if (current instanceof Element) removeAllListeners(current);
-              cleanupInstanceIfPresent(current);
+            if (current instanceof Element) removeAllListeners(current);
+            cleanupInstanceIfPresent(current);
             parent.replaceChild(dom, current);
           }
         }
@@ -529,7 +569,7 @@ export function performBulkPositionalKeyedTextUpdate(
           (vnode as DOMElement).props?.children;
 
         try {
-          if (process.env.NODE_ENV !== 'production') {
+          if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
             logger.warn('[Askr][FASTPATH] positional idx', i, {
               chTag: ch.tagName.toLowerCase(),
               vnodeType,
@@ -570,19 +610,23 @@ export function performBulkPositionalKeyedTextUpdate(
         continue;
       } else {
         try {
-          logger.warn('[Askr][FASTPATH] positional tag mismatch', i, {
-            chTag: ch.tagName.toLowerCase(),
-            vnodeType,
-          });
+          if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+            logger.warn('[Askr][FASTPATH] positional tag mismatch', i, {
+              chTag: ch.tagName.toLowerCase(),
+              vnodeType,
+            });
+          }
         } catch (e) {
           void e;
         }
       }
     } else {
       try {
-        logger.warn('[Askr][FASTPATH] positional missing or invalid', i, {
-          ch: !!ch,
-        });
+        if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+          logger.warn('[Askr][FASTPATH] positional missing or invalid', i, {
+            ch: !!ch,
+          });
+        }
       } catch (e) {
         void e;
       }
@@ -617,14 +661,16 @@ export function performBulkPositionalKeyedTextUpdate(
 
   const stats = { n: total, reused, updatedKeys, t } as const;
 
-    try {
+  try {
+    if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
       logger.warn('[Askr][FASTPATH] bulk positional stats', stats);
-      __ASKR_set('__LAST_FASTPATH_STATS', stats);
-      __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
-      __ASKR_incCounter('bulkKeyedPositionalHits');
-    } catch (e) {
-      void e;
     }
+    __ASKR_set('__LAST_FASTPATH_STATS', stats);
+    __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
+    __ASKR_incCounter('bulkKeyedPositionalHits');
+  } catch (e) {
+    void e;
+  }
 
   return stats;
 }
@@ -711,6 +757,12 @@ export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
   const fragment = document.createDocumentFragment();
   for (let i = 0; i < finalNodes.length; i++)
     fragment.appendChild(finalNodes[i]);
+  try {
+    __ASKR_incCounter('__DOM_REPLACE_COUNT');
+    __ASKR_set('__LAST_DOM_REPLACE_STACK_DOM', new Error().stack);
+  } catch (e) {
+    void e;
+  }
   // Atomic replacement
   parent.replaceChildren(fragment);
   const tCommit = Date.now() - fragStart;
@@ -725,6 +777,16 @@ export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
     tBuild,
     tCommit,
   } as const;
+
+  try {
+    // Record bulk-unkeyed fast-path stats for diagnostics/tests
+    __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
+    __ASKR_set('__LAST_FASTPATH_STATS', stats);
+    __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
+    __ASKR_incCounter('bulkTextFastpathHits');
+  } catch (e) {
+    void e;
+  }
 
   return stats;
 }
@@ -751,12 +813,12 @@ export function isBulkTextFastPathEligible(
       process.env.ASKR_FASTPATH_DEBUG === '1'
     ) {
       try {
-        (globalThis as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
+        __ASKR_set('__BULK_DIAG', {
           phase: 'bulk-unkeyed-eligible',
           reason: 'too-small',
           total,
           threshold,
-        };
+        });
       } catch (e) {
         void e;
       }
@@ -779,11 +841,11 @@ export function isBulkTextFastPathEligible(
           process.env.ASKR_FASTPATH_DEBUG === '1'
         ) {
           try {
-            (globalThis as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
+            __ASKR_set('__BULK_DIAG', {
               phase: 'bulk-unkeyed-eligible',
               reason: 'component-child',
               index: i,
-            };
+            });
           } catch (e) {
             void e;
           }
@@ -825,14 +887,14 @@ export function isBulkTextFastPathEligible(
     process.env.ASKR_FASTPATH_DEBUG === '1'
   ) {
     try {
-      (globalThis as { __ASKR_BULK_DIAG?: unknown }).__ASKR_BULK_DIAG = {
+      __ASKR_set('__BULK_DIAG', {
         phase: 'bulk-unkeyed-eligible',
         total,
         simple,
         fraction,
         requiredFraction,
         eligible,
-      };
+      });
     } catch (e) {
       void e;
     }

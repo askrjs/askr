@@ -13,6 +13,7 @@ import {
   performBulkTextReplace,
   isBulkTextFastPathEligible,
 } from './dom';
+import { __ASKR_set, __ASKR_incCounter } from './diag';
 
 /**
  * Internal marker for component-owned DOM ranges
@@ -23,6 +24,8 @@ interface DOMRange {
   end: Node; // End marker (comment node)
 }
 
+export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
+
 const domRanges = new WeakMap<object, DOMRange>();
 
 export function evaluate(
@@ -31,6 +34,20 @@ export function evaluate(
   context?: object
 ): void {
   if (!target) return;
+  // SSR guard: avoid DOM ops when not in a browser-like environment
+  if (typeof document === 'undefined') {
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        // Keep this lightweight and non-throwing so test harnesses and SSR
+        // imports don't crash at runtime; callers should avoid calling
+        // `evaluate` in SSR, but we make it safe as a no-op.
+        console.warn('[Askr] evaluate() called in non-DOM environment; no-op.');
+      } catch (e) {
+        void e;
+      }
+    }
+    return;
+  }
   // Debug tracing to help understand why initial mounts sometimes don't
   // result in DOM mutations during tests.
 
@@ -178,9 +195,11 @@ export function evaluate(
                       keyedVnodes.length > 0 &&
                       keyedVnodes.length === (vnodeChildren as VNode[]).length
                     ) {
-                      logger.warn(
-                        '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
-                      );
+                      if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+                        logger.warn(
+                          '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
+                        );
+                      }
                       const stats = performBulkPositionalKeyedTextUpdate(
                         firstChild,
                         keyedVnodes
@@ -190,25 +209,9 @@ export function evaluate(
                         process.env.ASKR_FASTPATH_DEBUG === '1'
                       ) {
                         try {
-                          const gl = globalThis as {
-                            __ASKR_LAST_FASTPATH_STATS?: unknown;
-                            __ASKR_LAST_FASTPATH_COMMIT_COUNT?:
-                              | number
-                              | undefined;
-                            __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
-                          };
-                          (gl.__ASKR_LAST_FASTPATH_STATS as unknown) = stats;
-                          // Mark a single logical commit for dev diagnostics so
-                          // runtime fast-lane invariants can validate commit counts.
-                          gl.__ASKR_LAST_FASTPATH_COMMIT_COUNT = 1;
-                          const counters =
-                            (gl.__ASKR_FASTPATH_COUNTERS as Record<
-                              string,
-                              number
-                            >) || {};
-                          counters.bulkKeyedPositionalForced =
-                            (counters.bulkKeyedPositionalForced || 0) + 1;
-                          gl.__ASKR_FASTPATH_COUNTERS = counters;
+                          __ASKR_set('__LAST_FASTPATH_STATS', stats);
+                          __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
+                          __ASKR_incCounter('bulkKeyedPositionalForced');
                         } catch (e) {
                           void e;
                         }
@@ -240,10 +243,12 @@ export function evaluate(
                       keyedElements.set(firstChild, newKeyMap);
                     }
                   } catch (err) {
-                    logger.warn(
-                      '[Askr][FASTPATH] forced bulk path failed, falling back',
-                      err
-                    );
+                    if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+                      logger.warn(
+                        '[Askr][FASTPATH] forced bulk path failed, falling back',
+                        err
+                      );
+                    }
                     const newKeyMap = reconcileKeyedChildren(
                       firstChild,
                       vnodeChildren,
@@ -277,17 +282,8 @@ export function evaluate(
                 // Dev-only instrumentation counters
                 if (process.env.NODE_ENV !== 'production') {
                   try {
-                    const gl = globalThis as {
-                      __ASKR_LAST_BULK_TEXT_FASTPATH_STATS?: unknown;
-                      __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
-                    };
-                    (gl.__ASKR_LAST_BULK_TEXT_FASTPATH_STATS as unknown) =
-                      stats;
-                    const counters =
-                      (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
-                      {};
-                    counters.bulkTextHits = (counters.bulkTextHits || 0) + 1;
-                    gl.__ASKR_FASTPATH_COUNTERS = counters;
+                    __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
+                    __ASKR_incCounter('bulkTextHits');
                   } catch (e) {
                     void e;
                   }
@@ -295,15 +291,7 @@ export function evaluate(
               } else {
                 if (process.env.NODE_ENV !== 'production') {
                   try {
-                    const gl = globalThis as {
-                      __ASKR_FASTPATH_COUNTERS?: Record<string, number>;
-                    };
-                    const counters =
-                      (gl.__ASKR_FASTPATH_COUNTERS as Record<string, number>) ||
-                      {};
-                    counters.bulkTextMisses =
-                      (counters.bulkTextMisses || 0) + 1;
-                    gl.__ASKR_FASTPATH_COUNTERS = counters;
+                    __ASKR_incCounter('bulkTextMisses');
                   } catch (e) {
                     void e;
                   }
@@ -375,13 +363,22 @@ export function evaluate(
                 // globalScheduler.flush(); // Defer flush to manual control for testing
               };
 
-              el.addEventListener(eventName, wrappedHandler);
+              const options: boolean | AddEventListenerOptions | undefined =
+                eventName === 'wheel' ||
+                eventName === 'scroll' ||
+                eventName.startsWith('touch')
+                  ? { passive: true }
+                  : undefined;
+              if (options !== undefined)
+                el.addEventListener(eventName, wrappedHandler, options);
+              else el.addEventListener(eventName, wrappedHandler);
               if (!elementListeners.has(el)) {
                 elementListeners.set(el, new Map());
               }
               elementListeners.get(el)!.set(eventName, {
                 handler: wrappedHandler,
                 original: value as EventListener,
+                options,
               });
               continue;
             }

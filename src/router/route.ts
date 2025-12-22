@@ -235,6 +235,12 @@ export function _unlockRouteRegistrationForTests(): void {
   registrationLocked = false;
 }
 
+export function route(): RouteSnapshot;
+export function route(
+  path: string,
+  handler?: RouteHandler,
+  namespace?: string
+): void;
 export function route(
   path?: string,
   handler?: RouteHandler,

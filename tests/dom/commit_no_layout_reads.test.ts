@@ -8,7 +8,6 @@ describe('commit_no_layout_reads (DOM)', () => {
     // Instrument getBoundingClientRect
     let layoutReads = 0;
     const orig = Element.prototype.getBoundingClientRect;
-    // @ts-expect-error - test harness
     Element.prototype.getBoundingClientRect = function () {
       layoutReads++;
       return orig.call(this);
@@ -38,7 +37,6 @@ describe('commit_no_layout_reads (DOM)', () => {
       expect(layoutReads).toBe(0);
     } finally {
       // restore
-      // @ts-expect-error - restore original
       Element.prototype.getBoundingClientRect = orig;
       cleanup();
     }
