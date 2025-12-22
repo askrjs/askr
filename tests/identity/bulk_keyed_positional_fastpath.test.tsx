@@ -64,7 +64,9 @@ describe('bulk keyed positional fast-path', () => {
     // only if they are present to avoid brittle test failures.
     type FastpathStats = { n?: number; reused?: number; updatedKeys?: number };
     if (ns['__LAST_FASTPATH_STATS']) {
-      expect(((ns['__LAST_FASTPATH_STATS'] as FastpathStats).n as number)).toBe(50);
+      expect((ns['__LAST_FASTPATH_STATS'] as FastpathStats).n as number).toBe(
+        50
+      );
     }
 
     const afterEls = Array.from(container.querySelectorAll('li'));

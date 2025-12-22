@@ -61,16 +61,23 @@ describe('runtime fast-lane', () => {
             __ASKR__?: Record<string, unknown>;
           }
         ).__ASKR__ || {};
-      type FastpathStats = { n?: number; reused?: number; reusedCount?: number };
+      type FastpathStats = {
+        n?: number;
+        reused?: number;
+        reusedCount?: number;
+      };
       const stats =
         (ns['__LAST_FASTPATH_STATS'] as FastpathStats) ??
-        ((ns['__LAST_FASTPATH_HISTORY'] as FastpathStats[] | undefined)?.slice(-1)[0]);
+        (ns['__LAST_FASTPATH_HISTORY'] as FastpathStats[] | undefined)?.slice(
+          -1
+        )[0];
       expect(stats).toBeDefined();
       expect((stats as FastpathStats).n).toBe(200);
 
       const last =
-        ((ns['__LAST_FASTPATH_HISTORY'] as FastpathStats[] | undefined)?.slice(-1)[0]) ??
-        (ns['__LAST_FASTPATH_STATS'] as FastpathStats);
+        (ns['__LAST_FASTPATH_HISTORY'] as FastpathStats[] | undefined)?.slice(
+          -1
+        )[0] ?? (ns['__LAST_FASTPATH_STATS'] as FastpathStats);
 
       // Prefer explicit, typed checks instead of `any` to satisfy test-suite guidelines
       let reusedObserved = false;
@@ -87,8 +94,12 @@ describe('runtime fast-lane', () => {
         reusedObserved = true;
       expect(reusedObserved).toBeTruthy();
 
-      const commitCount = ns['__LAST_FASTPATH_COMMIT_COUNT'] as number | undefined;
-      const inv = ns['__LAST_FASTLANE_INVARIANTS'] as { mountOps?: number; cleanupFns?: number } | undefined;
+      const commitCount = ns['__LAST_FASTPATH_COMMIT_COUNT'] as
+        | number
+        | undefined;
+      const inv = ns['__LAST_FASTLANE_INVARIANTS'] as
+        | { mountOps?: number; cleanupFns?: number }
+        | undefined;
       expect(commitCount).toBe(1);
       expect(inv).toBeDefined();
       expect(inv!.mountOps).toBe(0);
