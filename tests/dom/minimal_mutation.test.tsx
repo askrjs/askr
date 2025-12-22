@@ -41,7 +41,7 @@ describe('minimal DOM mutation (DOM)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       const _a = container.querySelector('#a') as HTMLElement;
@@ -85,7 +85,7 @@ describe('minimal DOM mutation (DOM)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       const div = container.querySelector('div') as HTMLElement;
@@ -107,7 +107,7 @@ describe('minimal DOM mutation (DOM)', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       color!.set('blue');

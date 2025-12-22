@@ -4,7 +4,6 @@
  */
 
 import { type State } from './state';
-import { evaluate } from '../renderer/dom';
 import { globalScheduler } from './scheduler';
 import type { JSXElement } from '../jsx/types';
 import type { Props } from '../shared/types';
@@ -14,6 +13,7 @@ import {
   type ContextFrame,
 } from './context';
 import { logger } from '../dev/logger';
+import { __ASKR_incCounter, __ASKR_set } from '../renderer/diag';
 
 export type ComponentFunction = (
   props: Props,
@@ -34,6 +34,8 @@ export interface ComponentInstance {
   mounted: boolean;
   abortController: AbortController; // Per-component abort lifecycle
   ssr?: boolean; // Set to true for SSR temporary instances
+  // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
+  cleanupStrict?: boolean;
   stateValues: State<unknown>[]; // Persistent state storage across renders
   evaluationGeneration: number; // Prevents stale async evaluation completions
   notifyUpdate: (() => void) | null; // Callback for state updates (persisted on instance)
@@ -87,6 +89,7 @@ export function createComponentInstance(
     hasPendingUpdate: false,
     ownerFrame: null, // Will be set by renderer when vnode is marked
     ssr: false,
+    cleanupStrict: false,
     isRoot: false,
 
     // Render-tracking (for precise state subscriptions)
@@ -141,7 +144,8 @@ export function setCurrentComponentInstance(
  * Register a mount operation that will run after the component is mounted
  * Used by operations (task, on, timer, etc) to execute after render completes
  */
-import { isBulkCommitActive } from './fastlane';
+import { isBulkCommitActive } from './fastlane-shared';
+import { evaluate, cleanupInstancesUnder } from '../renderer';
 
 export function registerMountOperation(
   operation: () => void | (() => void) | Promise<void | (() => void)>
@@ -251,7 +255,7 @@ function runComponent(instance: ComponentInstance): void {
     // follow-up work and the commit happens atomically in this task.
     // (Runtime fast-lane has conservative preconditions.)
     const fastlaneBridge = (
-      globalThis as unknown as {
+      globalThis as {
         __ASKR_FASTLANE?: {
           tryRuntimeFastLaneSync?: (
             instance: unknown,
@@ -271,6 +275,10 @@ function runComponent(instance: ComponentInstance): void {
     // Fallback: enqueue the render/commit normally
     globalScheduler.enqueue(() => {
       if (instance.target) {
+        // Keep `oldChildren` in the outer scope so rollback handlers can
+        // reference the original node list even if the inner try block
+        // throws. This preserves listeners and instance backrefs on rollback.
+        let oldChildren: Node[] = [];
         try {
           const wasFirstMount = !instance.mounted;
           // Ensure nested component executions during evaluation have access to
@@ -279,8 +287,45 @@ function runComponent(instance: ComponentInstance): void {
           // rely on `getCurrentComponentInstance()` being available.
           const oldInstance = currentInstance;
           currentInstance = instance;
+          // Capture snapshot of current children (by reference) so we can
+          // restore them on render failure without losing event listeners or
+          // instance attachments.
+          oldChildren = Array.from(instance.target.childNodes);
+
           try {
             evaluate(result, instance.target);
+          } catch (e) {
+            // If evaluation failed, attempt to cleanup any partially-added nodes
+            // and restore the old children to preserve listeners and instances.
+            try {
+              const newChildren = Array.from(instance.target.childNodes);
+              for (const n of newChildren) {
+                try {
+                  cleanupInstancesUnder(n);
+                } catch (err) {
+                  logger.warn(
+                    '[Askr] error cleaning up failed commit children:',
+                    err
+                  );
+                }
+              }
+            } catch (_err) {
+              void _err;
+            }
+
+            // Restore original children by re-inserting the old node references
+            // this preserves attached listeners and instance backrefs.
+            try {
+              __ASKR_incCounter('__DOM_REPLACE_COUNT');
+              __ASKR_set(
+                '__LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE',
+                new Error().stack
+              );
+            } catch (e) {
+              void e;
+            }
+            instance.target.replaceChildren(...oldChildren);
+            throw e;
           } finally {
             currentInstance = oldInstance;
           }
@@ -297,8 +342,40 @@ function runComponent(instance: ComponentInstance): void {
             executeMountOperations(instance);
           }
         } catch (renderError) {
-          // Atomic rendering: rollback on render error
-          instance.target.innerHTML = domSnapshot;
+          // Atomic rendering: rollback on render error. Attempt non-lossy restore of
+          // original child node references to preserve listeners/instances.
+          try {
+            const currentChildren = Array.from(instance.target.childNodes);
+            for (const n of currentChildren) {
+              try {
+                cleanupInstancesUnder(n);
+              } catch (err) {
+                logger.warn(
+                  '[Askr] error cleaning up partial children during rollback:',
+                  err
+                );
+              }
+            }
+          } catch (_err) {
+            void _err;
+          }
+
+          try {
+            try {
+              __ASKR_incCounter('__DOM_REPLACE_COUNT');
+              __ASKR_set(
+                '__LAST_DOM_REPLACE_STACK_COMPONENT_ROLLBACK',
+                new Error().stack
+              );
+            } catch (e) {
+              void e;
+            }
+            instance.target.replaceChildren(...oldChildren);
+          } catch {
+            // Fallback to innerHTML restore if replaceChildren fails for some reason.
+            instance.target.innerHTML = domSnapshot;
+          }
+
           throw renderError;
         }
       }
@@ -384,15 +461,13 @@ function executeComponentSync(
       instance.fn(instance.props, context)
     );
 
-    // Check render time in dev mode
-    if (process.env.NODE_ENV !== 'production') {
-      const renderTime = Date.now() - renderStartTime;
-      if (renderTime > 5) {
-        // Warn if render takes more than 5ms
-        logger.warn(
-          `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
-        );
-      }
+    // Check render time
+    const renderTime = Date.now() - renderStartTime;
+    if (renderTime > 5) {
+      // Warn if render takes more than 5ms
+      logger.warn(
+        `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
+      );
     }
 
     // Mark first render complete after successful execution
@@ -401,21 +476,19 @@ function executeComponentSync(
       instance.firstRenderComplete = true;
     }
 
-    // Check for unused state in dev mode
-    if (process.env.NODE_ENV !== 'production') {
-      for (let i = 0; i < instance.stateValues.length; i++) {
-        const state = instance.stateValues[i];
-        if (state && !state._hasBeenRead) {
-          try {
-            const name = instance.fn?.name || '<anonymous>';
-            logger.warn(
-              `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
-            );
-          } catch {
-            logger.warn(
-              `[askr] Unused state variable detected. State should be read during render or removed.`
-            );
-          }
+    // Check for unused state
+    for (let i = 0; i < instance.stateValues.length; i++) {
+      const state = instance.stateValues[i];
+      if (state && !state._hasBeenRead) {
+        try {
+          const name = instance.fn?.name || '<anonymous>';
+          logger.warn(
+            `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
+          );
+        } catch {
+          logger.warn(
+            `[askr] Unused state variable detected. State should be read during render or removed.`
+          );
         }
       }
     }
@@ -517,9 +590,7 @@ export function finalizeReadSubscriptions(instance: ComponentInstance): void {
   // Remove subscriptions for states that were read previously but not in this render
   for (const s of oldSet) {
     if (!newSet.has(s)) {
-      const readers = (
-        s as unknown as { _readers?: Map<ComponentInstance, number> }
-      )?._readers;
+      const readers = (s as State<unknown>)._readers;
       if (readers) readers.delete(instance);
     }
   }
@@ -529,9 +600,7 @@ export function finalizeReadSubscriptions(instance: ComponentInstance): void {
 
   // Record subscriptions for states read during this render
   for (const s of newSet) {
-    let readers = (
-      s as unknown as { _readers?: Map<ComponentInstance, number> }
-    )?._readers;
+    let readers = (s as State<unknown>)._readers;
     if (!readers) {
       readers = new Map();
       // s is a State object; assign its _readers map
@@ -564,17 +633,34 @@ export function mountComponent(instance: ComponentInstance): void {
  */
 export function cleanupComponent(instance: ComponentInstance): void {
   // Execute cleanup functions (from mount effects)
+  const cleanupErrors: unknown[] = [];
   for (const cleanup of instance.cleanupFns) {
-    cleanup();
+    try {
+      cleanup();
+    } catch (err) {
+      if (instance.cleanupStrict) {
+        cleanupErrors.push(err);
+      } else {
+        // Preserve previous behavior: log warnings in dev and continue
+        if (process.env.NODE_ENV !== 'production') {
+          logger.warn('[Askr] cleanup function threw:', err);
+        }
+      }
+    }
   }
   instance.cleanupFns = [];
+  if (cleanupErrors.length > 0) {
+    // If strict mode, surface all cleanup errors as an AggregateError after attempting all cleanups
+    throw new AggregateError(
+      cleanupErrors,
+      `Cleanup failed for component ${instance.id}`
+    );
+  }
 
   // Remove deterministic state subscriptions for this instance
   if (instance._lastReadStates) {
     for (const s of instance._lastReadStates) {
-      const readers = (
-        s as unknown as { _readers?: Map<ComponentInstance, number> }
-      )?._readers;
+      const readers = (s as State<unknown>)._readers;
       if (readers) readers.delete(instance);
     }
     instance._lastReadStates = new Set();

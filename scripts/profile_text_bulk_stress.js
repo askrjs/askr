@@ -21,7 +21,7 @@ async function run() {
   global.Node = dom.window.Node;
   global.MutationObserver = dom.window.MutationObserver;
 
-  const { createApp, state } = require('../src/index');
+  const { createIsland, state } = require('../src/index');
   const { globalScheduler } = require('../src/runtime/scheduler');
 
   const container = document.createElement('div');
@@ -42,7 +42,7 @@ async function run() {
     };
   };
 
-  createApp({ root: container, component: Component });
+  createIsland({ root: container, component: Component });
   // initial mount
   globalScheduler.flush();
 

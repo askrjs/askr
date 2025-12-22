@@ -120,7 +120,7 @@ describe('history integration (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       navigate('/page1');
@@ -147,7 +147,7 @@ describe('history integration (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       navigate('/page1');
@@ -314,7 +314,7 @@ describe('history integration (ROUTER)', () => {
         return { type: 'div', children: ['App'] };
       };
 
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       navigate('/page1');

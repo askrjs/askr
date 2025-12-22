@@ -14,7 +14,7 @@ import { logger } from '../dev/logger';
 let currentInstance: ComponentInstance | null = null;
 
 /**
- * Register the current app instance (called by createApp)
+ * Register the current app instance (called by createIsland)
  */
 export function registerAppInstance(
   instance: ComponentInstance,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createApp,
+  createIsland,
   defineContext,
   readContext,
   resource,
@@ -55,7 +55,7 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       // Wait for async resource to complete
@@ -99,7 +99,7 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       await waitForNextEvaluation();
@@ -133,7 +133,7 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       // Child should read the provided values from both scopes
@@ -156,7 +156,7 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       // Should remain original value

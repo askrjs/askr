@@ -23,7 +23,7 @@
     "library"
   ],
   "type": "module",
-  "packageManager": "npm",
+  "packageManager": "npm@11.7.0",
   "license": "Apache-2.0",
   "sideEffects": [
     "src/jsx/types.ts"

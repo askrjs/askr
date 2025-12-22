@@ -10,7 +10,7 @@
  */
 
 import { bench, describe, beforeAll, afterAll } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import type { State } from '../../src/index';
 import {
   createTestContainer,
@@ -35,7 +35,7 @@ describe('mount/unmount churn (transactional)', () => {
         return mounted() ? SubComponent() : { type: 'div', children: [] };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
     });
@@ -69,7 +69,7 @@ describe('mount/unmount churn (transactional)', () => {
         return mounted() ? StatefulSub() : { type: 'div', children: [] };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
     });
@@ -99,7 +99,7 @@ describe('mount/unmount churn (transactional)', () => {
         return mounted() ? CleanupSub() : { type: 'div', children: [] };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
     });

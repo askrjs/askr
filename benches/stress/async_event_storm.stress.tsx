@@ -6,7 +6,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp, task } from '../../src/index';
+import { createIsland, task } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -27,7 +27,7 @@ describe('async event storm', () => {
       return <div>Event handled</div>;
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -51,7 +51,7 @@ describe('async event storm', () => {
       return <div>Concurrent events: 10</div>;
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -72,7 +72,7 @@ describe('async event storm', () => {
       return <div>Ordered events</div>;
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 

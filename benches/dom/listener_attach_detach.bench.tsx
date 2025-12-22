@@ -6,7 +6,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -23,7 +23,7 @@ describe('listener attach detach', () => {
       return <button onClick={() => count.set(count() + 1)}>Click</button>;
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler(); // Attaches single listener
     await waitForNextEvaluation();
 
@@ -54,7 +54,7 @@ describe('listener attach detach', () => {
       );
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler(); // Attaches 100 listeners
     await waitForNextEvaluation();
 
@@ -70,7 +70,7 @@ describe('listener attach detach', () => {
       return <button onClick={() => count.set(count() + 1)}>Click</button>;
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler(); // Attaches listener
     await waitForNextEvaluation();
 

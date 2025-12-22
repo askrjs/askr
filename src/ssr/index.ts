@@ -59,6 +59,41 @@ const VOID_ELEMENTS = new Set([
 // Escape cache for common values
 const escapeCache = new Map<string, string>();
 
+// Dev-only SSR strictness guard helpers. We mutate globals in dev to make
+// accidental usage of Math.random/Date.now during sync SSR fail fast.
+// We implement a re-entrant stack so nested or concurrent calls don't clobber
+// global values unexpectedly.
+const __ssrGuardStack: Array<{ random: () => number; now: () => number }> = [];
+
+export function pushSSRStrictPurityGuard() {
+  /* istanbul ignore if - dev-only guard */
+  if (process.env.NODE_ENV === 'production') return;
+  __ssrGuardStack.push({
+    random: Reflect.get(Math, 'random') as () => number,
+    now: Reflect.get(Date, 'now') as () => number,
+  });
+  Reflect.set(Math, 'random', () => {
+    throw new Error(
+      'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
+    );
+  });
+  Reflect.set(Date, 'now', () => {
+    throw new Error(
+      'SSR Strict Purity: Date.now is not allowed during synchronous SSR. Pass timestamps explicitly or use deterministic helpers.'
+    );
+  });
+}
+
+export function popSSRStrictPurityGuard() {
+  /* istanbul ignore if - dev-only guard */
+  if (process.env.NODE_ENV === 'production') return;
+  const prev = __ssrGuardStack.pop();
+  if (prev) {
+    Reflect.set(Math, 'random', prev.random);
+    Reflect.set(Date, 'now', prev.now);
+  }
+}
+
 /**
  * Escape HTML special characters in text content (optimized with cache)
  */
@@ -151,7 +186,8 @@ function renderChildSync(child: unknown, ctx: RenderContext): string {
   if (typeof child === 'number') return escapeText(String(child));
   if (child === null || child === undefined || child === false) return '';
   if (typeof child === 'object' && child !== null && 'type' in child) {
-    return renderNodeSync(child as unknown as JSXElement | VNode, ctx);
+    // We already verified the shape above; assert as VNode for the sync renderer
+    return renderNodeSync(child as VNode, ctx);
   }
   return '';
 }
@@ -210,30 +246,22 @@ function executeComponentSync(
   // Dev-only: enforce SSR purity with clear messages. We temporarily override
   // `Math.random` and `Date.now` while rendering to produce a targeted error
   // if components call them directly. We restore them immediately afterwards.
-  const originalRandom = Math.random;
-  const originalDateNow = Date.now;
+  // Re-entrant guard for dev-only SSR strict purity checks.
+  // We avoid clobbering globals permanently by pushing the original functions
+  // onto a stack and restoring them on exit. This is safer for nested or
+  // stacked SSR render invocations.
 
   try {
     if (process.env.NODE_ENV !== 'production') {
-      (Math as unknown as { random: () => number }).random = () => {
-        throw new Error(
-          'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
-        );
-      };
-      (Date as unknown as { now: () => number }).now = () => {
-        throw new Error(
-          'SSR Strict Purity: Date.now is not allowed during synchronous SSR. Pass timestamps explicitly or use deterministic helpers.'
-        );
-      };
+      pushSSRStrictPurityGuard();
     }
-
     // Create a temporary, lightweight component instance so runtime APIs like
     // `state()` and `route()` can be called during SSR render. We avoid mounting
     // or side-effects by not attaching the instance to any DOM target.
     const prev = getCurrentComponentInstance();
     const temp = createComponentInstance(
       'ssr-temp',
-      component as unknown as ComponentFunction,
+      component as ComponentFunction,
       (props || {}) as Props,
       null
     );
@@ -253,8 +281,7 @@ function executeComponentSync(
       setCurrentComponentInstance(prev);
     }
   } finally {
-    (Math as unknown as { random: () => number }).random = originalRandom;
-    (Date as unknown as { now: () => number }).now = originalDateNow;
+    if (process.env.NODE_ENV !== 'production') popSSRStrictPurityGuard();
   }
 }
 

@@ -15,23 +15,18 @@ export { defineContext, readContext } from './runtime/context';
 export type { Context } from './runtime/context';
 
 // Bindings (spec-defined, currently stubbed)
-export { resource } from './runtime/operations';
+export { resource, task } from './runtime/operations';
 export type { DataResult } from './runtime/operations';
 
 // App bootstrap (explicit startup APIs)
 export {
-  createApp,
   createIsland,
   createSPA,
   hydrateSPA,
   cleanupApp,
   hasApp,
-} from './app/createApp';
-export type {
-  IslandConfig,
-  SPAConfig,
-  HydrateSPAConfig,
-} from './app/createApp';
+} from './boot';
+export type { IslandConfig, SPAConfig, HydrateSPAConfig } from './boot';
 
 // Routing
 // Public render-time accessor: route() (also supports route registration when called with args)
@@ -41,7 +36,7 @@ export {
   type RouteSnapshot,
   type RouteMatch,
 } from './router/route';
-export { layout } from './router/layouts';
+
 // Keep route registration utilities available under a distinct name to avoid
 // collision with the render-time accessor.
 export {
@@ -57,6 +52,14 @@ export type { Route, RouteHandler } from './router/route';
 // Components
 export { Link } from './components/Link';
 export type { LinkProps } from './components/Link';
+
+// Foundations (public convenience exports)
+export { layout } from './foundations/layout';
+export type { LayoutComponent } from './foundations/layout';
+export { Slot } from './foundations/slot';
+export type { SlotProps } from './foundations/slot';
+export { definePortal } from './foundations/portal';
+export type { Portal } from './foundations/portal';
 
 // Standard library helpers are unstable and not re-exported from core.
 
@@ -77,16 +80,14 @@ export { jsx, jsxs, Fragment } from './jsx/jsx-runtime';
 // These are safe to export globally and make migrating tests simpler.
 import { route, getRoutes } from './router/route';
 import { navigate } from './router/navigate';
-import {
-  createApp,
-  createIsland,
-  createSPA,
-  hydrateSPA,
-} from './app/createApp';
+import { createIsland, createSPA, hydrateSPA } from './boot';
+
+// Ensure fastlane bridge is initialized for environments (tests/global access)
+// This file exports a side-effectful module that attaches helpers to globalThis.
+import './runtime/fastlane';
 
 if (typeof globalThis !== 'undefined') {
-  const g = globalThis as unknown as Record<string, unknown>;
-  if (!g.createApp) g.createApp = createApp;
+  const g = globalThis as Record<string, unknown>;
   if (!g.createIsland) g.createIsland = createIsland;
   if (!g.createSPA) g.createSPA = createSPA;
   if (!g.hydrateSPA) g.hydrateSPA = hydrateSPA;

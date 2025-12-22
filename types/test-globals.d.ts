@@ -1,6 +1,5 @@
 // Project-wide test and bench global declarations to help the type-checker
 declare function waitForNextEvaluation(): Promise<void>;
-declare function createApp(...args: any[]): any;
 declare function createIsland(...args: any[]): any;
 declare function createSPA(...args: any[]): any;
 declare function hydrateSPA(...args: any[]): any;

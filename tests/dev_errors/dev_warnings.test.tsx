@@ -19,7 +19,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Spec: missing keys on dynamic lists should warn in dev.
@@ -34,7 +34,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
       return { type: 'div', children: ['x'] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Spec: unused state should warn in dev.
@@ -52,7 +52,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
       return { type: 'div', children: ['slow'] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Spec: slow render should warn in dev.
@@ -71,7 +71,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // Should NOT emit the missing-keys warning when keys present
@@ -93,7 +93,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
       };
     };
 
-    createApp({ root: container, component: FancyList });
+    createIsland({ root: container, component: FancyList });
     flushScheduler();
 
     // Verify the warning message contains the component name

@@ -1,15 +1,10 @@
 /**
  * JSX dev runtime factory
- * Same as production runtime but with dev warnings
+ * Same element shape as production runtime, with room for dev warnings.
  */
 
 import './types';
-
-export interface JSXElement {
-  type: unknown;
-  props: Record<string, unknown>;
-  key?: string | number;
-}
+import { ELEMENT_TYPE, Fragment, JSXElement } from './types';
 
 export function jsxDEV(
   type: unknown,
@@ -17,10 +12,12 @@ export function jsxDEV(
   key?: string | number
 ): JSXElement {
   return {
+    $$typeof: ELEMENT_TYPE,
     type,
-    props: props || {},
-    key,
+    props: props ?? {},
+    key: key ?? null,
   };
 }
 
-export const Fragment = Symbol('Fragment');
+// Re-export Fragment for JSX
+export { Fragment };

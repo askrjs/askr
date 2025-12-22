@@ -63,7 +63,7 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
         };
 
         // Prefer transformSync when available to avoid Promise/async overhead in hooks
-        const mod = esbuild as unknown as {
+        const mod = esbuild as {
           transformSync?: (
             source: string,
             options: import('esbuild').TransformOptions
@@ -85,7 +85,7 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
 
         return {
           code: result.code,
-          map: result.map as unknown as import('rollup').SourceMapInput,
+          map: result.map as import('rollup').SourceMapInput,
         };
       } catch {
         // If esbuild isn't available or fails, bail and let Vite handle it. Do not rely on framework-specific dev deps.

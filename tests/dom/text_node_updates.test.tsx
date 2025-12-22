@@ -15,7 +15,7 @@ describe('text node updates (DOM)', () => {
       return { type: 'div', props: { children: [text()] } };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const div = container.querySelector('div') as HTMLDivElement;
@@ -42,7 +42,7 @@ describe('text node updates (DOM)', () => {
         : 'x';
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     const first = container.querySelector('#node');
     expect(first).not.toBeNull();

@@ -6,7 +6,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp, state, task } from '../../src/index';
+import { createIsland, state, task } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -43,7 +43,7 @@ describe('abort pressure', () => {
       return <div>Status: {status()}</div>;
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -92,7 +92,7 @@ describe('abort pressure', () => {
       return <div>Statuses: {statuses().join(', ')}</div>;
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -131,7 +131,7 @@ describe('abort pressure', () => {
       return <div>Controllers created: 100</div>;
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 

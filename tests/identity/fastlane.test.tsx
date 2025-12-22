@@ -55,29 +55,29 @@ describe('runtime fast-lane', () => {
       flushScheduler();
       await waitForNextEvaluation();
 
-      const _g = globalThis as unknown as {
-        __ASKR_LAST_FASTPATH_STATS?: {
-          n?: number;
-          reused?: number;
-          reusedCount?: number;
-        };
-        __ASKR_LAST_FASTPATH_REUSED?: unknown;
-        __ASKR_LAST_FASTPATH_COMMIT_COUNT?: number;
-        __ASKR_LAST_FASTLANE_INVARIANTS?: {
-          mountOps: number;
-          cleanupFns: number;
-        };
-        __ASKR_LAST_FASTPATH_HISTORY?: Array<Record<string, unknown>>;
+      const ns =
+        (
+          globalThis as unknown as Record<string, unknown> & {
+            __ASKR__?: Record<string, unknown>;
+          }
+        ).__ASKR__ || {};
+      type FastpathStats = {
+        n?: number;
+        reused?: number;
+        reusedCount?: number;
       };
       const stats =
-        _g.__ASKR_LAST_FASTPATH_STATS ??
-        _g.__ASKR_LAST_FASTPATH_HISTORY?.slice(-1)[0];
+        (ns['__LAST_FASTPATH_STATS'] as FastpathStats) ??
+        (ns['__LAST_FASTPATH_HISTORY'] as FastpathStats[] | undefined)?.slice(
+          -1
+        )[0];
       expect(stats).toBeDefined();
-      expect(stats!.n).toBe(200);
+      expect((stats as FastpathStats).n).toBe(200);
 
       const last =
-        _g.__ASKR_LAST_FASTPATH_HISTORY?.slice(-1)[0] ??
-        _g.__ASKR_LAST_FASTPATH_STATS;
+        (ns['__LAST_FASTPATH_HISTORY'] as FastpathStats[] | undefined)?.slice(
+          -1
+        )[0] ?? (ns['__LAST_FASTPATH_STATS'] as FastpathStats);
 
       // Prefer explicit, typed checks instead of `any` to satisfy test-suite guidelines
       let reusedObserved = false;
@@ -90,12 +90,16 @@ describe('runtime fast-lane', () => {
           reusedObserved = true;
         }
       }
-      if (!reusedObserved && _g.__ASKR_LAST_FASTPATH_REUSED)
+      if (!reusedObserved && ns['__LAST_FASTPATH_REUSED'])
         reusedObserved = true;
       expect(reusedObserved).toBeTruthy();
 
-      const commitCount = _g.__ASKR_LAST_FASTPATH_COMMIT_COUNT;
-      const inv = _g.__ASKR_LAST_FASTLANE_INVARIANTS;
+      const commitCount = ns['__LAST_FASTPATH_COMMIT_COUNT'] as
+        | number
+        | undefined;
+      const inv = ns['__LAST_FASTLANE_INVARIANTS'] as
+        | { mountOps?: number; cleanupFns?: number }
+        | undefined;
       expect(commitCount).toBe(1);
       expect(inv).toBeDefined();
       expect(inv!.mountOps).toBe(0);
@@ -147,10 +151,14 @@ describe('runtime fast-lane', () => {
       flushScheduler();
       await waitForNextEvaluation();
 
-      const _g = globalThis as unknown as {
-        __ASKR_LAST_FASTPATH_STATS?: { n?: number };
-      };
-      const stats = _g.__ASKR_LAST_FASTPATH_STATS;
+      const ns =
+        (
+          globalThis as unknown as Record<string, unknown> & {
+            __ASKR__?: Record<string, unknown>;
+          }
+        ).__ASKR__ || {};
+      type FastpathStats = { n?: number } | undefined;
+      const stats = ns['__LAST_FASTPATH_STATS'] as FastpathStats;
       expect(stats == null || stats.n !== 200).toBeTruthy();
     });
 
@@ -201,12 +209,15 @@ describe('fast-lane large reorder regression', () => {
     const afterEls = Array.from(container.querySelectorAll('li'));
     expect(afterEls.length).toBe(N);
 
-    const _g = globalThis as unknown as {
-      __ASKR_LAST_FASTPATH_STATS?: { n?: number };
-      __ASKR_FASTPATH_COUNTERS?: Record<string, number> | undefined;
-    };
-    if (_g.__ASKR_LAST_FASTPATH_STATS) {
-      expect(_g.__ASKR_LAST_FASTPATH_STATS.n).toBe(N);
+    const ns =
+      (
+        globalThis as unknown as Record<string, unknown> & {
+          __ASKR__?: Record<string, unknown>;
+        }
+      ).__ASKR__ || {};
+    if (ns['__LAST_FASTPATH_STATS']) {
+      const _stats = ns['__LAST_FASTPATH_STATS'] as { n?: number };
+      expect(_stats.n).toBe(N);
     }
   });
 

@@ -8,7 +8,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import type { State } from '../../src/index';
 import {
   createTestContainer,
@@ -33,7 +33,7 @@ describe('attribute updates', () => {
         );
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 
@@ -73,7 +73,7 @@ describe('attribute updates', () => {
         );
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 
@@ -111,7 +111,7 @@ describe('attribute updates', () => {
         );
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 

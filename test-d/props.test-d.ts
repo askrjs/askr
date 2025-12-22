@@ -1,5 +1,5 @@
 import { expectType } from 'tsd';
-import type { AppConfig } from '../src/app/createApp';
+import type { AppConfig } from '../src/boot';
 import type { Props } from '../src/shared/types';
 
 // Component that matches the public ComponentFunction signature

@@ -18,7 +18,7 @@ import {
   type ComponentInstance,
 } from './component';
 import { invariant } from '../dev/invariant';
-import { isBulkCommitActive } from './fastlane';
+import { isBulkCommitActive } from './fastlane-shared';
 
 /**
  * State value holder - callable to read, has set method to update
@@ -167,7 +167,7 @@ function createStateCell<T>(
   // Record explicit ownership of this state cell. Ownership is the component
   // instance that created the state cell and must never change for the life
   // of the cell. We expose this for runtime invariant checks/tests.
-  (read as unknown as { _owner?: ComponentInstance })._owner = instance;
+  (read as State<T> & { _owner?: ComponentInstance })._owner = instance;
 
   // Attach set method directly to function
   read.set = (newValue: T): void => {

@@ -28,7 +28,7 @@ describe('error messages (DEV ERRORS)', () => {
         return { type: 'div', children: ['ok'] };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
 
       expect(() => {
@@ -49,7 +49,7 @@ describe('error messages (DEV ERRORS)', () => {
         return { type: 'div', children: ['x'] };
       };
 
-      expect(() => createApp({ root: container, component: Bad })).toThrow(
+      expect(() => createIsland({ root: container, component: Bad })).toThrow(
         /state\.set\(\) cannot be called during component render/i
       );
     } finally {

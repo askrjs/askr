@@ -1,8 +1,22 @@
 import { globalScheduler } from '../runtime/scheduler';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { logger } from '../dev/logger';
+import { noopEventListener, noopEventListenerWithFlush } from './noop';
 
 export type CancelFn = () => void;
+
+// Platform-specific timer handle types
+type TimeoutHandle = ReturnType<typeof setTimeout> | null;
+// rAF may fall back to setTimeout in some environments/tests, include both
+type RafHandle =
+  | ReturnType<typeof requestAnimationFrame>
+  | ReturnType<typeof setTimeout>
+  | null;
+// requestIdleCallback may be unavailable; allow setTimeout fallback handle
+type IdleHandle =
+  | ReturnType<typeof requestIdleCallback>
+  | ReturnType<typeof setTimeout>
+  | null;
 
 function throwIfDuringRender(): void {
   const inst = getCurrentComponentInstance();
@@ -39,16 +53,10 @@ export function debounceEvent(
   const inst = getCurrentComponentInstance();
   // On SSR, event handlers are inert
   if (inst && inst.ssr) {
-    const noop = (() => {}) as unknown as EventListener & {
-      cancel(): void;
-      flush(): void;
-    };
-    noop.cancel = () => {};
-    noop.flush = () => {};
-    return noop;
+    return noopEventListenerWithFlush;
   }
 
-  let timeoutId: number | null = null;
+  let timeoutId: TimeoutHandle = null;
   let lastEvent: Event | null = null;
   let lastCallTime = 0;
 
@@ -77,7 +85,7 @@ export function debounceEvent(
         }
         timeoutId = null;
         lastCallTime = Date.now();
-      }, ms) as unknown as number;
+      }, ms);
     }
   } as EventListener & { cancel(): void; flush(): void };
 
@@ -118,13 +126,11 @@ export function throttleEvent(
 
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) {
-    const noop = (() => {}) as unknown as EventListener & { cancel(): void };
-    noop.cancel = () => {};
-    return noop;
+    return noopEventListener;
   }
 
   let lastCallTime = 0;
-  let timeoutId: number | null = null;
+  let timeoutId: TimeoutHandle = null;
   let lastEvent: Event | null = null;
 
   const throttled = function (this: unknown, ev: Event) {
@@ -154,7 +160,7 @@ export function throttleEvent(
           timeoutId = null;
         },
         Math.max(0, wait)
-      ) as unknown as number;
+      );
     }
   } as EventListener & { cancel(): void };
 
@@ -178,12 +184,10 @@ export function rafEvent(
 ): EventListener & { cancel(): void } {
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) {
-    const noop = (() => {}) as unknown as EventListener & { cancel(): void };
-    noop.cancel = () => {};
-    return noop;
+    return noopEventListener;
   }
 
-  let frameId: number | null = null;
+  let frameId: RafHandle = null;
   let lastEvent: Event | null = null;
 
   const scheduleFrame = () => {
@@ -199,7 +203,7 @@ export function rafEvent(
         lastEvent = null;
         enqueueUserCallback(() => handler.call(null, ev));
       }
-    }) as unknown as number;
+    });
   };
 
   const fn = function (this: unknown, ev: Event) {
@@ -210,9 +214,16 @@ export function rafEvent(
 
   fn.cancel = () => {
     if (frameId !== null) {
-      if (typeof cancelAnimationFrame !== 'undefined')
+      // If frameId is numeric and cancelAnimationFrame is available, use it;
+      // otherwise fall back to clearTimeout for the setTimeout fallback.
+      if (
+        typeof cancelAnimationFrame !== 'undefined' &&
+        typeof frameId === 'number'
+      ) {
         cancelAnimationFrame(frameId);
-      else clearTimeout(frameId);
+      } else {
+        clearTimeout(frameId as ReturnType<typeof setTimeout>);
+      }
       frameId = null;
     }
     lastEvent = null;
@@ -231,10 +242,10 @@ export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
     return () => {};
   }
 
-  let id: number | null = setTimeout(() => {
+  let id: TimeoutHandle = setTimeout(() => {
     id = null;
     enqueueUserCallback(fn);
-  }, ms) as unknown as number;
+  }, ms);
 
   const cancel = () => {
     if (id !== null) {
@@ -254,7 +265,7 @@ export function scheduleIdle(
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) return () => {};
 
-  let id: number | null = null;
+  let id: IdleHandle = null;
   let usingRIC = false;
 
   if (typeof requestIdleCallback !== 'undefined') {
@@ -262,21 +273,26 @@ export function scheduleIdle(
     id = requestIdleCallback(() => {
       id = null;
       enqueueUserCallback(fn);
-    }, options) as unknown as number;
+    }, options);
   } else {
     // Fallback: schedule on next macrotask
     id = setTimeout(() => {
       id = null;
       enqueueUserCallback(fn);
-    }, 0) as unknown as number;
+    }, 0);
   }
 
   const cancel = () => {
     if (id !== null) {
-      if (usingRIC && typeof cancelIdleCallback !== 'undefined') {
+      // If using requestIdleCallback and available, call cancelIdleCallback for numeric ids.
+      if (
+        usingRIC &&
+        typeof cancelIdleCallback !== 'undefined' &&
+        typeof id === 'number'
+      ) {
         cancelIdleCallback(id);
       } else {
-        clearTimeout(id);
+        clearTimeout(id as ReturnType<typeof setTimeout>);
       }
       id = null;
     }

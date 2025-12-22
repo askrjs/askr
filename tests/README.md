@@ -297,7 +297,7 @@ describe('render_transactions', () => {
     const component = () => ({ type: 'div' });
 
     // Act
-    createApp({ root: container, component });
+    createIsland({ root: container, component });
 
     // Assert
     expect(container.textContent).toBe(''); // Proves COMMIT happens after BUILD

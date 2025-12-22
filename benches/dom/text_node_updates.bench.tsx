@@ -6,7 +6,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp, State, state } from '../../src/index';
+import { createIsland, State, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -28,7 +28,7 @@ describe('text node updates', () => {
         return <div>Count: {count()}</div>;
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 
@@ -62,7 +62,7 @@ describe('text node updates', () => {
         );
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 
@@ -90,7 +90,7 @@ describe('text node updates', () => {
         return <p>{text()}</p>;
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 
@@ -125,7 +125,7 @@ describe('text node updates', () => {
         );
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 
@@ -166,7 +166,7 @@ describe('text node updates', () => {
         );
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 

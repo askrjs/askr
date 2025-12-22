@@ -27,6 +27,31 @@ export default [
   {
     ignores: ['dist', 'node_modules', '.prettierignore', '.eslintignore'],
   },
+  // Disallow non-deterministic globals during synchronous SSR rendering
+  {
+    files: ['src/ssr/**/*.ts', 'src/ssr/**/*.tsx'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {},
+    },
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'Math',
+          property: 'random',
+          message:
+            'Use deterministic RNG from SSR context (e.g., ctx.rng) instead of Math.random during synchronous SSR.',
+        },
+        {
+          object: 'Date',
+          property: 'now',
+          message:
+            'Use deterministic clock from SSR context (e.g., ctx.now) instead of Date.now during synchronous SSR.',
+        },
+      ],
+    },
+  },
   // Ensure benches are picked up by editors / workspace ESLint
   {
     files: [
