@@ -6,7 +6,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp } from '../../src/index';
+import { createIsland } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -32,7 +32,7 @@ describe('render atomicity', () => {
       })),
     });
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -53,7 +53,7 @@ describe('render atomicity', () => {
       throw new Error('render failure');
     };
 
-    createApp({ root: container, component: Breaking });
+    createIsland({ root: container, component: Breaking });
 
     // Repeat to amortize scheduler overhead
     for (let i = 0; i < 10; i++) {
@@ -83,7 +83,7 @@ describe('render atomicity', () => {
       children: [Good(), Bad(), Good()],
     });
 
-    createApp({ root: container, component: Parent });
+    createIsland({ root: container, component: Parent });
 
     // Repeat to amortize scheduler overhead
     for (let i = 0; i < 10; i++) {

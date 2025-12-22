@@ -4,7 +4,7 @@ import { createIsland, cleanupApp } from '../../src/index';
 import { createTestContainer } from '../helpers/test_renderer';
 import { registerMountOperation } from '../../src/runtime/component';
 
-describe('createApp cleanup non-strict mode', () => {
+describe('createIsland cleanup non-strict mode', () => {
   it('should swallow cleanup errors in non-strict mode', () => {
     const { container, cleanup } = createTestContainer();
     let cleaned = false;

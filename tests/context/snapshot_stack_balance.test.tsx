@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createApp,
+  createIsland,
   defineContext,
   readContext,
   state,
@@ -56,7 +56,7 @@ describe('context snapshot stack balance (REGRESSION)', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
 
       // Cause many synchronous re-renders (no child mounted yet)

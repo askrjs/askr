@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, bench, describe } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import type { State } from '../../src/index';
 import {
   createTestContainer,
@@ -41,7 +41,7 @@ function setup(disableFastlane: boolean) {
     };
   };
 
-  createApp({ root: container, component: Component });
+  createIsland({ root: container, component: Component });
   flushScheduler();
 
   return {

@@ -125,7 +125,7 @@ Quick fixes / PR:
 
 ## 3) Redefining `innerHTML` on mount — fragile property hooks ⚠️
 
-**Files:** `src/app/createApp.ts` (attachCleanupForRoot uses `Object.defineProperty(rootElement, 'innerHTML', ...)`)
+**Files:** `src/app/createIsland.ts` (attachCleanupForRoot uses `Object.defineProperty(rootElement, 'innerHTML', ...)`)
 
 Problem:
 
@@ -247,7 +247,7 @@ Recommendation:
 
 - Add concurrent SSR tests in dev mode to ensure global guards do not leak across renders.
 - Add DOM rollback tests: components that attach listeners and throw during render; assert expected cleanup or behavior.
-- Add tests verifying `createApp` cleanup behavior when `innerHTML = ''` is set or when `Object.defineProperty` fails.
+- Add tests verifying `createIsland` cleanup behavior when `innerHTML = ''` is set or when `Object.defineProperty` fails.
 
 ---
 

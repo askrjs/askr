@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createApp, defineContext, readContext } from '../../src/index';
+import { createIsland, defineContext, readContext } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 import type { JSXElement } from '../../src/jsx/types';
 
@@ -35,7 +35,7 @@ describe('context (CONTEXT_SPEC) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
       expect(observed).toBe('dark');
     } finally {

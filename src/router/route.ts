@@ -296,7 +296,7 @@ export function route(
   // Disallow registrations after app startup
   if (registrationLocked) {
     throw new Error(
-      'Route registration is locked after app startup. Register routes at module load time before calling createApp().'
+      'Route registration is locked after app startup. Register routes at module load time before calling createIsland().'
     );
   }
 

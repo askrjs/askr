@@ -16,7 +16,7 @@ describe('async component execution (DEPRECATED)', () => {
     };
 
     expect(() =>
-      createApp({
+      createIsland({
         root: container,
         component: AsyncComponent as unknown as () => JSXElement,
       })

@@ -6,7 +6,7 @@
  */
 
 import { bench, describe, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -37,7 +37,7 @@ describe('minimal update', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       // initial render
       flushScheduler();
       // pre-warm to stabilize shapes
@@ -85,7 +85,7 @@ describe('minimal update', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       // pre-warm
       toggleClass!();
@@ -170,7 +170,7 @@ describe('minimal update', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       // pre-warm
       updateDeep!();

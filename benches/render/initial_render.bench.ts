@@ -5,7 +5,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp } from '../../src/index';
+import { createIsland } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -134,7 +134,7 @@ describe('initial render', () => {
   bench('empty component (behavioral)', async () => {
     const { container, cleanup } = createTestContainer();
 
-    createApp({ root: container, component: EmptyComponent });
+    createIsland({ root: container, component: EmptyComponent });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -144,7 +144,7 @@ describe('initial render', () => {
   bench('simple component (behavioral)', async () => {
     const { container, cleanup } = createTestContainer();
 
-    createApp({ root: container, component: SimpleComponent });
+    createIsland({ root: container, component: SimpleComponent });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -154,7 +154,7 @@ describe('initial render', () => {
   bench('complex component tree (behavioral)', async () => {
     const { container, cleanup } = createTestContainer();
 
-    createApp({ root: container, component: ComplexComponent });
+    createIsland({ root: container, component: ComplexComponent });
     flushScheduler();
     await waitForNextEvaluation();
 

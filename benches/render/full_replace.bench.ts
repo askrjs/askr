@@ -6,7 +6,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -67,7 +67,7 @@ describe('full replace', () => {
       }
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -108,7 +108,7 @@ describe('full replace', () => {
         : createLargeTree('Second');
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -158,7 +158,7 @@ describe('full replace', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 

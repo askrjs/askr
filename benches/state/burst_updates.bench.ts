@@ -6,7 +6,7 @@
  */
 
 import { bench, describe, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -28,7 +28,7 @@ describe('burst updates', () => {
       return { type: 'div', children: [String(count())] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
   });

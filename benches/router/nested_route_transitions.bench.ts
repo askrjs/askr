@@ -5,7 +5,7 @@
  */
 
 import { bench, describe, beforeEach } from 'vitest';
-import { route, clearRoutes, navigate, createApp } from '../../src/index';
+import { route, clearRoutes, navigate, createIsland } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -42,7 +42,7 @@ describe('nested route transitions', () => {
   bench('100 parent -> child -> sibling transitions (commit)', () => {
     const { container, cleanup } = createTestContainer();
 
-    createApp({
+    createIsland({
       root: container,
       component: () => ({ type: 'div', children: ['Users'] }),
     });

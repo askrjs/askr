@@ -6,7 +6,7 @@
  */
 
 import { bench, describe, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -37,7 +37,7 @@ describe('rerender no change', () => {
         };
       };
 
-      createApp({ root: container, component: StaticComponent });
+      createIsland({ root: container, component: StaticComponent });
       flushScheduler();
       // pre-warm
       triggerRerender!();

@@ -6,7 +6,7 @@
  */
 
 import { bench, describe, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -39,7 +39,7 @@ describe('event serialization', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
       btn = container.querySelector('#btn') as HTMLButtonElement;
@@ -66,7 +66,7 @@ describe('event serialization', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
       btn = container.querySelector('#btn') as HTMLButtonElement;
@@ -109,7 +109,7 @@ describe('event serialization', () => {
         ],
       });
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
 

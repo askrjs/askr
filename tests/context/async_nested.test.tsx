@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createApp,
+  createIsland,
   defineContext,
   readContext,
   resource,
@@ -66,7 +66,7 @@ describe('nested context continuations preserve captured snapshot', () => {
     const { container, cleanup } = createTestContainer();
     try {
       // Cast to satisfy test harness typing
-      createApp({
+      createIsland({
         root: container,
         component: App as unknown as () => JSXElement,
       });
@@ -118,7 +118,7 @@ describe('nested context continuations preserve captured snapshot', () => {
     const { container, cleanup } = createTestContainer();
     try {
       // Cast to satisfy test harness typing
-      createApp({
+      createIsland({
         root: container,
         component: App as unknown as () => JSXElement,
       });

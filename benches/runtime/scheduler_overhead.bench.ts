@@ -6,7 +6,7 @@
  */
 
 import { bench, describe, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -35,7 +35,7 @@ describe('scheduler overhead', () => {
   bench('single task execution (behavioral)', async () => {
     const App = () => ({ type: 'div', children: ['test'] });
 
-    createApp({ root: container, component: App });
+    createIsland({ root: container, component: App });
     flushScheduler();
     await waitForNextEvaluation();
   });
@@ -50,7 +50,7 @@ describe('scheduler overhead', () => {
       return { type: 'div', children: [String(count())] };
     };
 
-    createApp({ root: container, component: App });
+    createIsland({ root: container, component: App });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -72,7 +72,7 @@ describe('scheduler overhead', () => {
       return { type: 'div', children: [String(count())] };
     };
 
-    createApp({ root: container, component: App });
+    createIsland({ root: container, component: App });
     flushScheduler();
     await waitForNextEvaluation();
 

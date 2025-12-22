@@ -4,7 +4,7 @@ import { createTestContainer } from '../helpers/test_renderer';
 import { registerMountOperation } from '../../src/runtime/component';
 import type { JSXElement } from '../../src/jsx/types';
 
-describe('createApp cleanup', () => {
+describe('createIsland cleanup', () => {
   it('should run component cleanup functions when cleanupApp is called', () => {
     const { container, cleanup } = createTestContainer();
     let cleaned = false;

@@ -6,7 +6,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -26,7 +26,7 @@ describe('state write cost', () => {
       return { type: 'div', children: [String(count())] };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -62,7 +62,7 @@ describe('state write cost', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -99,7 +99,7 @@ describe('state write cost', () => {
       };
     };
 
-    createApp({ root: container, component: ParentComponent });
+    createIsland({ root: container, component: ParentComponent });
     flushScheduler();
     await waitForNextEvaluation();
 

@@ -6,7 +6,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -37,7 +37,7 @@ describe('cross component updates', () => {
       };
     };
 
-    createApp({ root: container, component: Parent });
+    createIsland({ root: container, component: Parent });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -72,7 +72,7 @@ describe('cross component updates', () => {
       children: [Left(), Right()],
     });
 
-    createApp({ root: container, component: Parent });
+    createIsland({ root: container, component: Parent });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -111,7 +111,7 @@ describe('cross component updates', () => {
       };
     };
 
-    createApp({ root: container, component: Root });
+    createIsland({ root: container, component: Root });
     flushScheduler();
     await waitForNextEvaluation();
 

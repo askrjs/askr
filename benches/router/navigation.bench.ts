@@ -6,7 +6,7 @@
 
 import { bench, describe } from 'vitest';
 import { route, clearRoutes, navigate } from '../../src/index';
-import { createApp } from '../../src/index';
+import { createIsland } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -22,8 +22,8 @@ describe('client navigation', () => {
 
     const { container, cleanup } = createTestContainer();
 
-    // Mount initial route handler directly (simulate createApp on /home)
-    createApp({
+    // Mount initial route handler directly (simulate createIsland on /home)
+    createIsland({
       root: container,
       component: () => ({ type: 'div', children: ['home'] }),
     });
@@ -47,7 +47,7 @@ describe('client navigation', () => {
     route('/b', () => ({ type: 'div', children: ['b'] }));
 
     // Mount initial component
-    createApp({
+    createIsland({
       root: container,
       component: () => ({ type: 'div', children: ['a'] }),
     });

@@ -6,7 +6,7 @@
  */
 
 import { bench, describe, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -44,7 +44,7 @@ describe('large tree 10k', () => {
       return createLargeTree();
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     await waitForNextEvaluation();
 
@@ -93,7 +93,7 @@ describe('large tree 10k', () => {
         return { type: 'div', children };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       // pre-warm
       updateSingle!();
@@ -158,7 +158,7 @@ describe('large tree 10k', () => {
         return { type: 'div', children };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       // pre-warm
       updateBulk!();

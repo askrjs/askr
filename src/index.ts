@@ -15,23 +15,18 @@ export { defineContext, readContext } from './runtime/context';
 export type { Context } from './runtime/context';
 
 // Bindings (spec-defined, currently stubbed)
-export { resource } from './runtime/operations';
+export { resource, task } from './runtime/operations';
 export type { DataResult } from './runtime/operations';
 
 // App bootstrap (explicit startup APIs)
 export {
-  createApp,
   createIsland,
   createSPA,
   hydrateSPA,
   cleanupApp,
   hasApp,
-} from './app/createApp';
-export type {
-  IslandConfig,
-  SPAConfig,
-  HydrateSPAConfig,
-} from './app/createApp';
+} from './boot';
+export type { IslandConfig, SPAConfig, HydrateSPAConfig } from './boot';
 
 // Routing
 // Public render-time accessor: route() (also supports route registration when called with args)
@@ -77,16 +72,10 @@ export { jsx, jsxs, Fragment } from './jsx/jsx-runtime';
 // These are safe to export globally and make migrating tests simpler.
 import { route, getRoutes } from './router/route';
 import { navigate } from './router/navigate';
-import {
-  createApp,
-  createIsland,
-  createSPA,
-  hydrateSPA,
-} from './app/createApp';
+import { createIsland, createSPA, hydrateSPA } from './boot';
 
 if (typeof globalThis !== 'undefined') {
   const g = globalThis as Record<string, unknown>;
-  if (!g.createApp) g.createApp = createApp;
   if (!g.createIsland) g.createIsland = createIsland;
   if (!g.createSPA) g.createSPA = createSPA;
   if (!g.hydrateSPA) g.hydrateSPA = hydrateSPA;

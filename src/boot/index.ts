@@ -16,7 +16,7 @@ import { registerAppInstance, initializeNavigation } from '../router/navigate';
 
 let componentIdCounter = 0;
 
-// Track instances by root element to support multiple createApp calls on same root
+// Track instances by root element to support multiple createIsland calls on same root
 const instancesByRoot = new WeakMap<Element, ComponentInstance>();
 
 // Symbol for storing cleanup on elements
@@ -32,40 +32,6 @@ export interface AppConfig {
   component: ComponentFunction;
   // Opt-in: surface cleanup errors during teardown for this app instance
   cleanupStrict?: boolean;
-}
-
-/**
- * Bootstrap and mount app on client
- * Supports both sync and async components
- *
- * If createApp is called multiple times on the same root, the existing instance
- * is reused and its component function is updated. This ensures:
- * - Generation tokens work correctly (old async renders don't overwrite new ones)
- * - State is preserved across updates (if desired)
- * - DOM is diffed/updated rather than replaced
- */
-// Backcompat wrapper for test-suite migration and user feedback.
-// If called with `routes` a hard error is thrown to encourage migration to
-// `createSPA`/`hydrateSPA`. Otherwise, delegate to `createIsland` to preserve
-// legacy single-root enhancement behavior during the migration period.
-export function createApp(config: AppConfig | SPAConfig): void {
-  if (!config || typeof config !== 'object') {
-    throw new Error('createApp requires a config object');
-  }
-  // Routed apps must use createSPA/hydrateSPA explicitly
-  if ('routes' in config) {
-    throw new Error(
-      'The `createApp` API is removed. Use `createSPA({ root, routes })` for routed apps, or `hydrateSPA({ root, routes })` for SSR hydration.'
-    );
-  }
-  // Treat remaining calls as islands for backwards compatibility during tests
-  // and guide users to use `createIsland` in migration docs/tests.
-  const appCfg = config as AppConfig;
-  createIsland({
-    root: appCfg.root,
-    component: appCfg.component,
-    cleanupStrict: appCfg.cleanupStrict,
-  });
 }
 
 function attachCleanupForRoot(
@@ -178,9 +144,10 @@ function attachCleanupForRoot(
  * recommended API for deterministic cleanup rather than relying on overriding
  * `innerHTML` setter behavior.
  */
-export function teardownApp(root: Element | string) {
-  // Backwards-compatible alias for explicit cleanup; prefer `cleanupApp` in public API.
-  cleanupApp(root);
+export function teardownApp(_root: Element | string) {
+  throw new Error(
+    'The `teardownApp` alias has been removed. Use `cleanupApp(root)` instead.'
+  );
 }
 
 function mountOrUpdate(
