@@ -30,6 +30,7 @@ import { isBulkCommitActive } from './fastlane-shared';
 export interface State<T> {
   (): T;
   set(value: T): void;
+  set(updater: (prev: T) => T): void;
   _hasBeenRead?: boolean; // Internal: track if state has been read during render
   _readers?: Map<ComponentInstance, number>; // Internal: map of readers -> last committed token
 }
@@ -170,7 +171,7 @@ function createStateCell<T>(
   (read as State<T> & { _owner?: ComponentInstance })._owner = instance;
 
   // Attach set method directly to function
-  read.set = (newValue: T): void => {
+  read.set = (newValueOrUpdater: T | ((prev: T) => T)): void => {
     // INVARIANT: State cannot be mutated during component render
     // (when currentInstance is non-null). It must be scheduled for consistency.
     // NOTE: Skip invariant checks in production for graceful degradation
@@ -186,6 +187,19 @@ function createStateCell<T>(
     // PRODUCTION FALLBACK: Skip state updates during render to prevent infinite loops
     if (currentInst !== null && process.env.NODE_ENV === 'production') {
       return;
+    }
+
+    // Compute new value if an updater was provided
+    let newValue: T;
+    if (typeof newValueOrUpdater === 'function') {
+      // Note: function-valued state cannot be set directly via a function argument;
+      // such an argument is treated as a functional updater (this follows the common
+      // convention from other libraries). If you need to store a function as state,
+      // wrap it in an object.
+      const updater = newValueOrUpdater as (prev: T) => T;
+      newValue = updater(value);
+    } else {
+      newValue = newValueOrUpdater as T;
     }
 
     // Skip work if value didn't change
