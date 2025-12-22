@@ -36,7 +36,7 @@ export {
   type RouteSnapshot,
   type RouteMatch,
 } from './router/route';
-export { layout } from './router/layouts';
+
 // Keep route registration utilities available under a distinct name to avoid
 // collision with the render-time accessor.
 export {
@@ -52,6 +52,14 @@ export type { Route, RouteHandler } from './router/route';
 // Components
 export { Link } from './components/Link';
 export type { LinkProps } from './components/Link';
+
+// Foundations (public convenience exports)
+export { layout } from './foundations/layout';
+export type { LayoutComponent } from './foundations/layout';
+export { Slot } from './foundations/slot';
+export type { SlotProps } from './foundations/slot';
+export { definePortal } from './foundations/portal';
+export type { Portal } from './foundations/portal';
 
 // Standard library helpers are unstable and not re-exported from core.
 
