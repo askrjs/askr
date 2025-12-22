@@ -68,7 +68,10 @@ const __ssrGuardStack: Array<{ random: () => number; now: () => number }> = [];
 export function pushSSRStrictPurityGuard() {
   /* istanbul ignore if - dev-only guard */
   if (process.env.NODE_ENV === 'production') return;
-  __ssrGuardStack.push({ random: Reflect.get(Math, 'random') as () => number, now: Reflect.get(Date, 'now') as () => number });
+  __ssrGuardStack.push({
+    random: Reflect.get(Math, 'random') as () => number,
+    now: Reflect.get(Date, 'now') as () => number,
+  });
   Reflect.set(Math, 'random', () => {
     throw new Error(
       'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
@@ -90,7 +93,6 @@ export function popSSRStrictPurityGuard() {
     Reflect.set(Date, 'now', prev.now);
   }
 }
-
 
 /**
  * Escape HTML special characters in text content (optimized with cache)

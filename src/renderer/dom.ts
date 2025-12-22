@@ -33,22 +33,36 @@ import type {
 type InstanceHost = Element & { __ASKR_INSTANCE?: ComponentInstance };
 
 // Helpers to clean up component instances when their host DOM nodes are removed
-function cleanupInstanceIfPresent(node: Node | null): void {
+// Accepts an optional `opts.strict` flag to surface errors instead of swallowing them.
+function cleanupInstanceIfPresent(
+  node: Node | null,
+  opts?: { strict?: boolean }
+): void {
   if (!node) return;
   if (!(node instanceof Element)) return;
+
+  const errors: unknown[] = [];
+
   try {
     const inst = (node as InstanceHost).__ASKR_INSTANCE;
     if (inst) {
-      cleanupComponent(inst);
+      try {
+        cleanupComponent(inst);
+      } catch (err) {
+        if (opts?.strict) errors.push(err);
+        else if (process.env.NODE_ENV !== 'production')
+          logger.warn('[Askr] cleanupComponent failed:', err);
+      }
       try {
         delete (node as InstanceHost).__ASKR_INSTANCE;
       } catch (e) {
-        void e;
+        if (opts?.strict) errors.push(e);
+        else void e;
       }
     }
   } catch (err) {
-    // Swallow cleanup errors but log in dev for visibility
-    if (process.env.NODE_ENV !== 'production') {
+    if (opts?.strict) errors.push(err);
+    else if (process.env.NODE_ENV !== 'production') {
       logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
     }
   }
@@ -61,15 +75,27 @@ function cleanupInstanceIfPresent(node: Node | null): void {
       try {
         const inst = (d as InstanceHost).__ASKR_INSTANCE;
         if (inst) {
-          cleanupComponent(inst);
+          try {
+            cleanupComponent(inst);
+          } catch (err) {
+            if (opts?.strict) errors.push(err);
+            else if (process.env.NODE_ENV !== 'production') {
+              logger.warn(
+                '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
+                err
+              );
+            }
+          }
           try {
             delete (d as InstanceHost).__ASKR_INSTANCE;
           } catch (e) {
-            void e;
+            if (opts?.strict) errors.push(e);
+            else void e;
           }
         }
       } catch (err) {
-        if (process.env.NODE_ENV !== 'production') {
+        if (opts?.strict) errors.push(err);
+        else if (process.env.NODE_ENV !== 'production') {
           logger.warn(
             '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
             err
@@ -78,20 +104,28 @@ function cleanupInstanceIfPresent(node: Node | null): void {
       }
     }
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
+    if (opts?.strict) errors.push(err);
+    else if (process.env.NODE_ENV !== 'production') {
       logger.warn(
         '[Askr] cleanupInstanceIfPresent descendant query failed:',
         err
       );
     }
   }
+
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'cleanupInstanceIfPresent failed');
+  }
 }
 
 // Public helper to clean up any component instances under a node. Used by
 // runtime commit logic to ensure component instances are torn down when their
 // host nodes are removed during an update.
-export function cleanupInstancesUnder(node: Node | null): void {
-  cleanupInstanceIfPresent(node);
+export function cleanupInstancesUnder(
+  node: Node | null,
+  opts?: { strict?: boolean }
+): void {
+  cleanupInstanceIfPresent(node, opts);
 }
 
 interface DOMElement {

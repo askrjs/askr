@@ -30,6 +30,8 @@ interface ElementWithCleanup extends Element {
 export interface AppConfig {
   root: Element | string;
   component: ComponentFunction;
+  // Opt-in: surface cleanup errors during teardown for this app instance
+  cleanupStrict?: boolean;
 }
 
 /**
@@ -62,6 +64,7 @@ export function createApp(config: AppConfig | SPAConfig): void {
   createIsland({
     root: appCfg.root,
     component: appCfg.component,
+    cleanupStrict: appCfg.cleanupStrict,
   });
 }
 
@@ -70,8 +73,58 @@ function attachCleanupForRoot(
   instance: ComponentInstance
 ) {
   (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL] = () => {
-    removeAllListeners(rootElement);
-    cleanupComponent(instance as ComponentInstance);
+    // Attempt to remove listeners and cleanup instances under the root.
+    // In non-strict mode we preserve previous behavior by swallowing errors
+    // (but logging in dev); in strict mode we aggregate and re-throw.
+    const errors: unknown[] = [];
+    try {
+      removeAllListeners(rootElement);
+    } catch (e) {
+      errors.push(e);
+    }
+
+    // Manually traverse descendants and attempt to cleanup their instances.
+    // Avoids import cycles by using local traversal and existing cleanupComponent.
+    try {
+      const descendants = rootElement.querySelectorAll('*');
+      for (const d of Array.from(descendants)) {
+        try {
+          const inst = (d as Element & { __ASKR_INSTANCE?: ComponentInstance })
+            .__ASKR_INSTANCE;
+          if (inst) {
+            try {
+              cleanupComponent(inst);
+            } catch (err) {
+              errors.push(err);
+            }
+            try {
+              delete (d as Element & { __ASKR_INSTANCE?: ComponentInstance })
+                .__ASKR_INSTANCE;
+            } catch (err) {
+              errors.push(err);
+            }
+          }
+        } catch (err) {
+          errors.push(err);
+        }
+      }
+    } catch (e) {
+      errors.push(e);
+    }
+
+    try {
+      cleanupComponent(instance as ComponentInstance);
+    } catch (e) {
+      errors.push(e);
+    }
+
+    if (errors.length > 0) {
+      if (instance.cleanupStrict) {
+        throw new AggregateError(errors, `cleanup failed for app root`);
+      } else if (process.env.NODE_ENV !== 'production') {
+        for (const err of errors) logger.warn('[Askr] cleanup error:', err);
+      }
+    }
   };
 
   try {
@@ -92,8 +145,21 @@ function attachCleanupForRoot(
           : undefined,
         set: function (this: Element, value: string) {
           if (value === '' && instancesByRoot.get(this) === instance) {
-            removeAllListeners(rootElement);
-            cleanupComponent(instance as ComponentInstance);
+            try {
+              removeAllListeners(rootElement);
+            } catch (e) {
+              if (instance.cleanupStrict) throw e;
+              if (process.env.NODE_ENV !== 'production')
+                logger.warn('[Askr] cleanup error:', e);
+            }
+
+            try {
+              cleanupComponent(instance as ComponentInstance);
+            } catch (e) {
+              if (instance.cleanupStrict) throw e;
+              if (process.env.NODE_ENV !== 'production')
+                logger.warn('[Askr] cleanup error:', e);
+            }
           }
           if (descriptor.set) {
             return descriptor.set.call(this, value);
@@ -117,7 +183,11 @@ export function teardownApp(root: Element | string) {
   cleanupApp(root);
 }
 
-function mountOrUpdate(rootElement: Element, componentFn: ComponentFunction) {
+function mountOrUpdate(
+  rootElement: Element,
+  componentFn: ComponentFunction,
+  options?: { cleanupStrict?: boolean }
+) {
   // Clean up existing cleanup function before mounting new one
   const existingCleanup = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
   if (existingCleanup) existingCleanup();
@@ -126,7 +196,13 @@ function mountOrUpdate(rootElement: Element, componentFn: ComponentFunction) {
 
   if (instance) {
     removeAllListeners(rootElement);
-    cleanupComponent(instance);
+    try {
+      cleanupComponent(instance);
+    } catch (e) {
+      // If previous cleanup threw in strict mode, log but continue mounting new instance
+      if (process.env.NODE_ENV !== 'production')
+        logger.warn('[Askr] prior cleanup threw:', e);
+    }
 
     instance.fn = componentFn;
     instance.evaluationGeneration++;
@@ -134,6 +210,10 @@ function mountOrUpdate(rootElement: Element, componentFn: ComponentFunction) {
     instance.expectedStateIndices = [];
     instance.firstRenderComplete = false;
     instance.isRoot = true;
+    // Update strict flag if provided
+    if (options && typeof options.cleanupStrict === 'boolean') {
+      instance.cleanupStrict = options.cleanupStrict;
+    }
   } else {
     const componentId = String(++componentIdCounter);
     instance = createComponentInstance(
@@ -144,6 +224,10 @@ function mountOrUpdate(rootElement: Element, componentFn: ComponentFunction) {
     );
     instancesByRoot.set(rootElement, instance);
     instance.isRoot = true;
+    // Initialize strict flag from options
+    if (options && typeof options.cleanupStrict === 'boolean') {
+      instance.cleanupStrict = options.cleanupStrict;
+    }
   }
 
   attachCleanupForRoot(rootElement, instance);
@@ -157,6 +241,8 @@ import type { Route } from '../router/route';
 export type IslandConfig = {
   root: Element | string;
   component: ComponentFunction;
+  // Optional: surface cleanup errors during teardown for this island
+  cleanupStrict?: boolean;
   // Explicitly disallow routes on islands at type level
   routes?: never;
 };
@@ -164,12 +250,16 @@ export type IslandConfig = {
 export type SPAConfig = {
   root: Element | string;
   routes: Route[]; // routes are required
+  // Optional: surface cleanup errors during teardown for this SPA
+  cleanupStrict?: boolean;
   component?: never;
 };
 
 export type HydrateSPAConfig = {
   root: Element | string;
   routes: Route[];
+  // Optional: surface cleanup errors during teardown for this SPA
+  cleanupStrict?: boolean;
 };
 
 /**
@@ -196,7 +286,9 @@ export function createIsland(config: IslandConfig): void {
     );
   }
 
-  mountOrUpdate(rootElement, config.component);
+  mountOrUpdate(rootElement, config.component, {
+    cleanupStrict: config.cleanupStrict,
+  });
 }
 
 /**
@@ -244,7 +336,9 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     }
 
     // Mount a no-op component until navigation occurs
-    mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }));
+    mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
+      cleanupStrict: false,
+    });
 
     // Still register app instance and initialize navigation so future navigations work
     const instance = instancesByRoot.get(rootElement);
@@ -256,7 +350,9 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
   // Mount resolved handler as the root component
   // Convert resolved.handler to a ComponentFunction-compatible shape
-  mountOrUpdate(rootElement, resolved.handler as ComponentFunction);
+  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
+    cleanupStrict: false,
+  });
 
   // Register for navigation and wire up history handling
   const instance = instancesByRoot.get(rootElement);
@@ -338,7 +434,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   // Proceed to mount the client SPA (this will attach listeners and start navigation)
   // Reuse createSPA path but we already registered routes and set server location, so just mount
   // Mount resolved handler
-  mountOrUpdate(rootElement, resolved.handler as ComponentFunction);
+  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
+    cleanupStrict: false,
+  });
 
   // Register navigation and instance
   const { registerAppInstance, initializeNavigation } =

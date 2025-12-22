@@ -34,6 +34,8 @@ export interface ComponentInstance {
   mounted: boolean;
   abortController: AbortController; // Per-component abort lifecycle
   ssr?: boolean; // Set to true for SSR temporary instances
+  // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
+  cleanupStrict?: boolean;
   stateValues: State<unknown>[]; // Persistent state storage across renders
   evaluationGeneration: number; // Prevents stale async evaluation completions
   notifyUpdate: (() => void) | null; // Callback for state updates (persisted on instance)
@@ -87,6 +89,7 @@ export function createComponentInstance(
     hasPendingUpdate: false,
     ownerFrame: null, // Will be set by renderer when vnode is marked
     ssr: false,
+    cleanupStrict: false,
     isRoot: false,
 
     // Render-tracking (for precise state subscriptions)
@@ -611,10 +614,29 @@ export function mountComponent(instance: ComponentInstance): void {
  */
 export function cleanupComponent(instance: ComponentInstance): void {
   // Execute cleanup functions (from mount effects)
+  const cleanupErrors: unknown[] = [];
   for (const cleanup of instance.cleanupFns) {
-    cleanup();
+    try {
+      cleanup();
+    } catch (err) {
+      if (instance.cleanupStrict) {
+        cleanupErrors.push(err);
+      } else {
+        // Preserve previous behavior: log warnings in dev and continue
+        if (process.env.NODE_ENV !== 'production') {
+          logger.warn('[Askr] cleanup function threw:', err);
+        }
+      }
+    }
   }
   instance.cleanupFns = [];
+  if (cleanupErrors.length > 0) {
+    // If strict mode, surface all cleanup errors as an AggregateError after attempting all cleanups
+    throw new AggregateError(
+      cleanupErrors,
+      `Cleanup failed for component ${instance.id}`
+    );
+  }
 
   // Remove deterministic state subscriptions for this instance
   if (instance._lastReadStates) {
