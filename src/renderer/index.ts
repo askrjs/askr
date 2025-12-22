@@ -34,7 +34,7 @@ type InstanceHost = Element & { __ASKR_INSTANCE?: ComponentInstance };
 
 // Helpers to clean up component instances when their host DOM nodes are removed
 // Accepts an optional `opts.strict` flag to surface errors instead of swallowing them.
-function cleanupInstanceIfPresent(
+export function cleanupInstanceIfPresent(
   node: Node | null,
   opts?: { strict?: boolean }
 ): void {
@@ -128,7 +128,7 @@ export function cleanupInstancesUnder(
   cleanupInstanceIfPresent(node, opts);
 }
 
-interface DOMElement {
+export interface DOMElement {
   type: string | ((props: Props) => unknown);
   props?: Props;
   children?: VNode[];
@@ -143,7 +143,7 @@ interface ElementWithContext extends DOMElement {
   [CONTEXT_FRAME_SYMBOL]?: ContextFrame;
 }
 
-function _isDOMElement(node: unknown): node is DOMElement {
+export function _isDOMElement(node: unknown): node is DOMElement {
   return typeof node === 'object' && node !== null && 'type' in node;
 }
 
@@ -159,18 +159,18 @@ interface DOMRange {
 const domRanges = new WeakMap<object, DOMRange>();
 
 // Track listeners so we can remove them on cleanup
-interface ListenerMapEntry {
+export interface ListenerMapEntry {
   handler: EventListener;
   original: EventListener;
 }
-const elementListeners = new WeakMap<Element, Map<string, ListenerMapEntry>>();
+export const elementListeners = new WeakMap<Element, Map<string, ListenerMapEntry>>();
 
 // Track keyed elements for reconciliation
 interface _KeyedChild {
   key: string | number;
   vnode: unknown;
 }
-const keyedElements = new WeakMap<Element, Map<string | number, Element>>();
+export const keyedElements = new WeakMap<Element, Map<string | number, Element>>();
 
 // Exported for runtime use: retrieve existing keyed map for a parent element
 export function getKeyMapForElement(el: Element) {
@@ -215,7 +215,7 @@ export function populateKeyMapForElement(parent: Element): void {
 // Track which parents had the reconciler record fast-path stats during the
 // current evaluation, so we can preserve diagnostics across additional
 // reconciliations within the same render pass without leaking between runs.
-const _reconcilerRecordedParents = new WeakSet<Element>();
+export const _reconcilerRecordedParents = new WeakSet<Element>();
 
 export function removeElementListeners(element: Element): void {
   const map = elementListeners.get(element);

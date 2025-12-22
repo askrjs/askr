@@ -3,7 +3,7 @@ import { logger } from '../dev/logger';
 import {
   getKeyMapForElement,
   isKeyedReorderFastPathEligible,
-} from '../renderer/dom';
+} from '../renderer';
 import type { ComponentInstance } from './component';
 
 let _bulkCommitActive = false;
@@ -118,7 +118,7 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
   try {
     // Import function dynamically to avoid circular load issues
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- circular import; require used intentionally to perform a synchronous call
-    const dom = require('../renderer/dom') as typeof import('../renderer/dom');
+    const dom = require('../renderer') as typeof import('../renderer');
     if (typeof dom.populateKeyMapForElement === 'function') {
       try {
         dom.populateKeyMapForElement(firstChild);

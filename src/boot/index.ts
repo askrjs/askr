@@ -11,7 +11,7 @@ import {
 } from '../runtime/component';
 import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
-import { removeAllListeners } from '../renderer/dom';
+import { removeAllListeners } from '../renderer';
 import { registerAppInstance, initializeNavigation } from '../router/navigate';
 
 let componentIdCounter = 0;

@@ -4,7 +4,7 @@
  */
 
 import { type State } from './state';
-import { evaluate, cleanupInstancesUnder } from '../renderer/dom';
+import { evaluate, cleanupInstancesUnder } from '../renderer';
 import { globalScheduler } from './scheduler';
 import type { JSXElement } from '../jsx/types';
 import type { Props } from '../shared/types';
