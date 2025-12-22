@@ -4,7 +4,6 @@
  */
 
 import { type State } from './state';
-import { evaluate, cleanupInstancesUnder } from '../renderer';
 import { globalScheduler } from './scheduler';
 import type { JSXElement } from '../jsx/types';
 import type { Props } from '../shared/types';
@@ -145,6 +144,7 @@ export function setCurrentComponentInstance(
  * Used by operations (task, on, timer, etc) to execute after render completes
  */
 import { isBulkCommitActive } from './fastlane';
+import { evaluate, cleanupInstancesUnder } from '../renderer';
 
 export function registerMountOperation(
   operation: () => void | (() => void) | Promise<void | (() => void)>

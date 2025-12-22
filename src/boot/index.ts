@@ -11,7 +11,6 @@ import {
 } from '../runtime/component';
 import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
-import { removeAllListeners } from '../renderer';
 import { registerAppInstance, initializeNavigation } from '../router/navigate';
 
 let componentIdCounter = 0;
@@ -204,6 +203,7 @@ function mountOrUpdate(
 
 // New strongly-typed init functions
 import type { Route } from '../router/route';
+import { removeAllListeners } from '../renderer';
 
 export type IslandConfig = {
   root: Element | string;
