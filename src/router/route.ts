@@ -122,9 +122,9 @@ function parseLocation(url: string) {
 // Deep freeze utility for small objects
 function deepFreeze<T>(obj: T): T {
   if (obj && typeof obj === 'object' && !Object.isFrozen(obj)) {
-    Object.freeze(obj as unknown as Record<string, unknown>);
+    Object.freeze(obj as Record<string, unknown>);
     for (const key of Object.keys(obj as Record<string, unknown>)) {
-      const value = (obj as unknown as Record<string, unknown>)[key];
+      const value = (obj as Record<string, unknown>)[key];
       if (value && typeof value === 'object') deepFreeze(value);
     }
   }

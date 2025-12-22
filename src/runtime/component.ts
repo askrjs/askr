@@ -251,7 +251,7 @@ function runComponent(instance: ComponentInstance): void {
     // follow-up work and the commit happens atomically in this task.
     // (Runtime fast-lane has conservative preconditions.)
     const fastlaneBridge = (
-      globalThis as unknown as {
+      globalThis as {
         __ASKR_FASTLANE?: {
           tryRuntimeFastLaneSync?: (
             instance: unknown,
@@ -568,9 +568,7 @@ export function finalizeReadSubscriptions(instance: ComponentInstance): void {
   // Remove subscriptions for states that were read previously but not in this render
   for (const s of oldSet) {
     if (!newSet.has(s)) {
-      const readers = (
-        s as unknown as { _readers?: Map<ComponentInstance, number> }
-      )?._readers;
+      const readers = (s as State<unknown>)._readers;
       if (readers) readers.delete(instance);
     }
   }
@@ -580,9 +578,7 @@ export function finalizeReadSubscriptions(instance: ComponentInstance): void {
 
   // Record subscriptions for states read during this render
   for (const s of newSet) {
-    let readers = (
-      s as unknown as { _readers?: Map<ComponentInstance, number> }
-    )?._readers;
+    let readers = (s as State<unknown>)._readers;
     if (!readers) {
       readers = new Map();
       // s is a State object; assign its _readers map
@@ -623,9 +619,7 @@ export function cleanupComponent(instance: ComponentInstance): void {
   // Remove deterministic state subscriptions for this instance
   if (instance._lastReadStates) {
     for (const s of instance._lastReadStates) {
-      const readers = (
-        s as unknown as { _readers?: Map<ComponentInstance, number> }
-      )?._readers;
+      const readers = (s as State<unknown>)._readers;
       if (readers) readers.delete(instance);
     }
     instance._lastReadStates = new Set();

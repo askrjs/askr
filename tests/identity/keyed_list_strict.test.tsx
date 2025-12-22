@@ -17,14 +17,20 @@ describe('strict keyed list guarantees', () => {
         children: s().map((k) =>
           k.startsWith('u')
             ? ({ type: 'div', children: ['unkeyed'] } as unknown as JSXElement)
-            : ({ type: 'div', props: { key: k, 'data-key': k }, children: [k] } as unknown as JSXElement)
+            : ({
+                type: 'div',
+                props: { key: k, 'data-key': k },
+                children: [k],
+              } as unknown as JSXElement)
         ),
       } as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Controlled });
 
-    const before = Array.from(container.querySelectorAll('[data-key]')) as HTMLElement[];
+    const before = Array.from(
+      container.querySelectorAll('[data-key]')
+    ) as HTMLElement[];
     const nodeMap = new Map<string, HTMLElement>();
     for (const n of before) {
       const key = n.getAttribute('data-key') || '';
@@ -34,7 +40,9 @@ describe('strict keyed list guarantees', () => {
     setItems(['c', 'b', 'u1', 'a']);
     flushScheduler();
 
-    const after = Array.from(container.querySelectorAll('[data-key]')) as HTMLElement[];
+    const after = Array.from(
+      container.querySelectorAll('[data-key]')
+    ) as HTMLElement[];
     for (const [, prev] of nodeMap.entries()) {
       expect(after.includes(prev)).toBe(true);
     }
@@ -53,13 +61,22 @@ describe('strict keyed list guarantees', () => {
 
       return {
         type: 'div',
-        children: keys.map((k) => ({ type: 'div', props: { key: k, 'data-key': k, 'data-prop': prop()[k] }, children: [k] } as unknown as JSXElement)),
+        children: keys.map(
+          (k) =>
+            ({
+              type: 'div',
+              props: { key: k, 'data-key': k, 'data-prop': prop()[k] },
+              children: [k],
+            }) as unknown as JSXElement
+        ),
       } as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Controlled });
 
-    const before = Array.from(container.querySelectorAll('[data-key]')) as HTMLElement[];
+    const before = Array.from(
+      container.querySelectorAll('[data-key]')
+    ) as HTMLElement[];
     const nodeMap = new Map<string, HTMLElement>();
     for (const n of before) {
       const key = n.getAttribute('data-key') || '';
@@ -69,7 +86,9 @@ describe('strict keyed list guarantees', () => {
     setProp('b', 'y');
     flushScheduler();
 
-    const after = Array.from(container.querySelectorAll('[data-key]')) as HTMLElement[];
+    const after = Array.from(
+      container.querySelectorAll('[data-key]')
+    ) as HTMLElement[];
     for (const [k, prev] of nodeMap.entries()) {
       const el = after.find((n) => n.getAttribute('data-key') === k);
       expect(el).toBeDefined();
@@ -93,7 +112,11 @@ describe('strict keyed list guarantees', () => {
       return {
         type: 'div',
         children: [
-          ({ type: tagMap().a as string, props: { key: 'a', 'data-key': 'a' }, children: ['a'] } as unknown as JSXElement),
+          {
+            type: tagMap().a as string,
+            props: { key: 'a', 'data-key': 'a' },
+            children: ['a'],
+          } as unknown as JSXElement,
         ],
       } as unknown as JSXElement;
     };
@@ -126,7 +149,14 @@ describe('strict keyed list guarantees', () => {
 
       return {
         type: 'div',
-        children: s().map((k) => ({ type: 'div', props: { key: k, 'data-key': k }, children: [k] } as unknown as JSXElement)),
+        children: s().map(
+          (k) =>
+            ({
+              type: 'div',
+              props: { key: k, 'data-key': k },
+              children: [k],
+            }) as unknown as JSXElement
+        ),
       } as unknown as JSXElement;
     };
 
@@ -136,7 +166,9 @@ describe('strict keyed list guarantees', () => {
 
     const capture = () => {
       const map = new Map<string, HTMLElement>();
-      for (const n of Array.from(container.querySelectorAll('[data-key]')) as HTMLElement[]) {
+      for (const n of Array.from(
+        container.querySelectorAll('[data-key]')
+      ) as HTMLElement[]) {
         map.set(n.getAttribute('data-key') || '', n);
       }
       return map;

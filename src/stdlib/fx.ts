@@ -1,6 +1,7 @@
 import { globalScheduler } from '../runtime/scheduler';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { logger } from '../dev/logger';
+import { noopEventListener, noopEventListenerWithFlush } from './noop';
 
 export type CancelFn = () => void;
 
@@ -52,10 +53,7 @@ export function debounceEvent(
   const inst = getCurrentComponentInstance();
   // On SSR, event handlers are inert
   if (inst && inst.ssr) {
-    // Explicit typed noop to avoid double-casts and preserve typing
-    const noop: EventListener & { cancel(): void; flush(): void } =
-      Object.assign((_ev?: Event) => {}, { cancel() {}, flush() {} });
-    return noop;
+    return noopEventListenerWithFlush;
   }
 
   let timeoutId: TimeoutHandle = null;
@@ -128,11 +126,7 @@ export function throttleEvent(
 
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) {
-    const noop: EventListener & { cancel(): void } = Object.assign(
-      (_ev?: Event) => {},
-      { cancel() {} }
-    );
-    return noop;
+    return noopEventListener;
   }
 
   let lastCallTime = 0;
@@ -190,11 +184,7 @@ export function rafEvent(
 ): EventListener & { cancel(): void } {
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) {
-    const noop: EventListener & { cancel(): void } = Object.assign(
-      (_ev?: Event) => {},
-      { cancel() {} }
-    );
-    return noop;
+    return noopEventListener;
   }
 
   let frameId: RafHandle = null;

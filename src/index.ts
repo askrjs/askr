@@ -85,7 +85,7 @@ import {
 } from './app/createApp';
 
 if (typeof globalThis !== 'undefined') {
-  const g = globalThis as unknown as Record<string, unknown>;
+  const g = globalThis as Record<string, unknown>;
   if (!g.createApp) g.createApp = createApp;
   if (!g.createIsland) g.createIsland = createIsland;
   if (!g.createSPA) g.createSPA = createSPA;

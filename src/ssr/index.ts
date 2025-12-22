@@ -69,12 +69,12 @@ export function pushSSRStrictPurityGuard() {
   /* istanbul ignore if - dev-only guard */
   if (process.env.NODE_ENV === 'production') return;
   __ssrGuardStack.push({ random: Math.random, now: Date.now });
-  (Math as unknown as { random: () => number }).random = () => {
+  (Math as { random: () => number }).random = () => {
     throw new Error(
       'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
     );
   };
-  (Date as unknown as { now: () => number }).now = () => {
+  (Date as { now: () => number }).now = () => {
     throw new Error(
       'SSR Strict Purity: Date.now is not allowed during synchronous SSR. Pass timestamps explicitly or use deterministic helpers.'
     );
@@ -86,8 +86,8 @@ export function popSSRStrictPurityGuard() {
   if (process.env.NODE_ENV === 'production') return;
   const prev = __ssrGuardStack.pop();
   if (prev) {
-    (Math as unknown as { random: () => number }).random = prev.random;
-    (Date as unknown as { now: () => number }).now = prev.now;
+    (Math as { random: () => number }).random = prev.random;
+    (Date as { now: () => number }).now = prev.now;
   }
 }
 
@@ -183,7 +183,8 @@ function renderChildSync(child: unknown, ctx: RenderContext): string {
   if (typeof child === 'number') return escapeText(String(child));
   if (child === null || child === undefined || child === false) return '';
   if (typeof child === 'object' && child !== null && 'type' in child) {
-    return renderNodeSync(child as unknown as JSXElement | VNode, ctx);
+    // We already verified the shape above; assert as VNode for the sync renderer
+    return renderNodeSync(child as VNode, ctx);
   }
   return '';
 }
@@ -257,7 +258,7 @@ function executeComponentSync(
     const prev = getCurrentComponentInstance();
     const temp = createComponentInstance(
       'ssr-temp',
-      component as unknown as ComponentFunction,
+      component as ComponentFunction,
       (props || {}) as Props,
       null
     );

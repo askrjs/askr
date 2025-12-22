@@ -19,7 +19,7 @@ type Task = () => void;
 function isBulkCommitActive(): boolean {
   try {
     const fb = (
-      globalThis as unknown as {
+      globalThis as {
         __ASKR_FASTLANE?: { isBulkCommitActive?: () => boolean };
       }
     ).__ASKR_FASTLANE;
@@ -184,7 +184,7 @@ export class Scheduler {
     const prev = this.allowSyncProgress;
     this.allowSyncProgress = true;
 
-    const g = globalThis as unknown as {
+    const g = globalThis as {
       queueMicrotask?: (...args: unknown[]) => void;
       setTimeout?: (...args: unknown[]) => unknown;
     };
@@ -261,15 +261,13 @@ export class Scheduler {
           inHandler: this.inHandler,
           bulk: isBulkCommitActive(),
           globals: {
-            __ASKR_LAST_FASTPATH_STATS: (
-              globalThis as unknown as Record<string, unknown>
-            ).__ASKR_LAST_FASTPATH_STATS,
+            __ASKR_LAST_FASTPATH_STATS: (globalThis as Record<string, unknown>)
+              .__ASKR_LAST_FASTPATH_STATS,
             __ASKR_LAST_BULK_TEXT_FASTPATH_STATS: (
-              globalThis as unknown as Record<string, unknown>
+              globalThis as Record<string, unknown>
             ).__ASKR_LAST_BULK_TEXT_FASTPATH_STATS,
-            __ASKR_FASTPATH_COUNTERS: (
-              globalThis as unknown as Record<string, unknown>
-            ).__ASKR_FASTPATH_COUNTERS,
+            __ASKR_FASTPATH_COUNTERS: (globalThis as Record<string, unknown>)
+              .__ASKR_FASTPATH_COUNTERS,
           },
         };
         reject(

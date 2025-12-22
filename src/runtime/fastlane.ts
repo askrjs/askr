@@ -20,7 +20,7 @@ export function enterBulkCommit(): void {
   try {
     const cleared = globalScheduler.clearPendingSyncTasks?.() ?? 0;
     if (process.env.NODE_ENV !== 'production') {
-      const _g = globalThis as unknown as Record<string, unknown>;
+      const _g = globalThis as Record<string, unknown>;
       _g.__ASKR_FASTLANE_CLEARED_TASKS = cleared;
     }
   } catch (err) {
@@ -151,7 +151,7 @@ export function commitReorderOnly(
   // diagnostic fields on globalThis for test assertions and verifies
   // invariants (no mounts, no effects, single DOM commit).
   const evaluate = (
-    globalThis as unknown as {
+    globalThis as {
       __ASKR_RENDERER?: {
         evaluate?: (node: unknown, target: Element | null) => void;
       };
@@ -203,7 +203,7 @@ export function commitReorderOnly(
     try {
       const clearedAfter = globalScheduler.clearPendingSyncTasks?.() ?? 0;
       if (process.env.NODE_ENV !== 'production') {
-        const _g = globalThis as unknown as Record<string, unknown>;
+        const _g = globalThis as Record<string, unknown>;
         _g.__ASKR_FASTLANE_CLEARED_AFTER = clearedAfter;
       }
     } catch (err) {
@@ -213,7 +213,7 @@ export function commitReorderOnly(
     // Dev-only invariant checks and diagnostics
     if (process.env.NODE_ENV !== 'production') {
       // Commit count recorded by renderer (set by fast-path code)
-      const _g = globalThis as unknown as Record<string, unknown>;
+      const _g = globalThis as Record<string, unknown>;
       const commitCount =
         (_g.__ASKR_LAST_FASTPATH_COMMIT_COUNT as number | undefined) ?? 0;
       const invariants = {
@@ -255,8 +255,7 @@ export function commitReorderOnly(
 
           console.error(
             '[FASTLANE] enqueue logs',
-            (globalThis as unknown as Record<string, unknown>)
-              .__ASKR_ENQUEUE_LOGS
+            (globalThis as Record<string, unknown>).__ASKR_ENQUEUE_LOGS
           );
         } catch (e) {
           void e;
@@ -297,7 +296,7 @@ export function commitReorderOnly(
           );
           if (outstandingAfter2 !== 0) {
             try {
-              const _g = globalThis as unknown as Record<string, unknown>;
+              const _g = globalThis as Record<string, unknown>;
 
               console.error(
                 '[FASTLANE] Post-commit enqueue logs:',
@@ -335,7 +334,7 @@ export function commitReorderOnly(
     // handled below.
     if (process.env.NODE_ENV !== 'production') {
       try {
-        const _g = globalThis as unknown as Record<string, unknown>;
+        const _g = globalThis as Record<string, unknown>;
         _g.__ASKR_FASTLANE_BULK_FLAG_CHECK = isBulkCommitActive();
       } catch (e) {
         void e;
@@ -345,9 +344,9 @@ export function commitReorderOnly(
 
   // Re-check the captured assertion outside of finally and throw if needed
   if (process.env.NODE_ENV !== 'production') {
-    const _g = globalThis as unknown as Record<string, unknown>;
-    if (_g.__ASKR_FASTLANE_BULK_FLAG_CHECK) {
-      delete _g.__ASKR_FASTLANE_BULK_FLAG_CHECK;
+    const _g = globalThis as Record<string, unknown>;
+    if ((_g as Record<string, unknown>).__ASKR_FASTLANE_BULK_FLAG_CHECK) {
+      delete (_g as Record<string, unknown>).__ASKR_FASTLANE_BULK_FLAG_CHECK;
       throw new Error(
         'Fast-lane invariant violated: bulk commit flag still set after commit'
       );
@@ -374,7 +373,7 @@ export function tryRuntimeFastLaneSync(
 // Expose fastlane bridge on globalThis for environments/tests that access it
 // synchronously without using ES module dynamic imports.
 if (typeof globalThis !== 'undefined') {
-  const _g = globalThis as unknown as Record<string, unknown>;
+  const _g = globalThis as Record<string, unknown>;
   _g.__ASKR_FASTLANE = {
     isBulkCommitActive,
     enterBulkCommit,

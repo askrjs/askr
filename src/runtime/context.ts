@@ -23,6 +23,7 @@
 import type { JSXElement } from '../jsx/types';
 import type { Props } from '../shared/types';
 import { getCurrentComponentInstance } from './component';
+import type { ComponentInstance } from './component';
 
 export type ContextKey = symbol;
 
@@ -124,7 +125,7 @@ export function defineContext<T>(defaultValue: T): Context<T> {
       return {
         type: ContextScopeComponent,
         props: { key, value: props.value, children: props.children },
-      } as unknown as JSXElement;
+      } as JSXElement;
     },
   };
 }
@@ -185,6 +186,18 @@ function ContextScopeComponent(props: Props): Renderable {
     values: new Map([[key, value]]),
   };
 
+  // Helper: create a function-child invoker node (centralized cast)
+  function createFunctionChildInvoker(
+    fn: () => Renderable,
+    frame: ContextFrame,
+    owner: ComponentInstance | null
+  ): Renderable {
+    return {
+      type: ContextFunctionChildInvoker,
+      props: { fn, __frame: frame, __owner: owner },
+    } as unknown as Renderable;
+  }
+
   // The renderer will set ownerFrame on child component instances when they're created.
   // We mark vnodes with the frame so the renderer knows which frame to assign.
   if (Array.isArray(children)) {
@@ -192,14 +205,11 @@ function ContextScopeComponent(props: Props): Renderable {
     // convert it into a lazy invoker so it's executed later inside the frame.
     return children.map((child) => {
       if (typeof child === 'function') {
-        return {
-          type: ContextFunctionChildInvoker,
-          props: {
-            fn: child as () => Renderable,
-            __frame: newFrame,
-            __owner: getCurrentComponentInstance(),
-          },
-        } as unknown as Renderable;
+        return createFunctionChildInvoker(
+          child as () => Renderable,
+          newFrame,
+          getCurrentComponentInstance()
+        );
       }
       return markWithFrame(child, newFrame);
     }) as unknown as Renderable;
@@ -209,14 +219,11 @@ function ContextScopeComponent(props: Props): Renderable {
     // that will execute the function later (when it itself is rendered) and
     // will execute it within the provider frame so any reads performed during
     // that execution observe the provider's frame.
-    return {
-      type: ContextFunctionChildInvoker,
-      props: {
-        fn: children as () => Renderable,
-        __frame: newFrame,
-        __owner: getCurrentComponentInstance(),
-      },
-    } as unknown as Renderable;
+    return createFunctionChildInvoker(
+      children as () => Renderable,
+      newFrame,
+      getCurrentComponentInstance()
+    );
   } else if (children) {
     return markWithFrame(children, newFrame);
   }
@@ -263,6 +270,7 @@ function markWithFrame(node: Renderable, frame: ContextFrame): Renderable {
 function ContextFunctionChildInvoker(props: {
   fn: () => Renderable;
   __frame: ContextFrame;
+  __owner?: ComponentInstance | null;
 }): Renderable {
   const { fn, __frame } = props;
 

@@ -24,6 +24,26 @@ A concise, prioritized catalog of known risky or fragile patterns found in the c
 
 ---
 
+## PR status (footguns) ✅
+
+- **Branch:** `footguns` — implemented multiple quick wins and added tests.
+- **PR:** https://github.com/askrjs/askr/pull/4 — PR description updated and checklist added.
+
+**Implemented in this PR:**
+
+- Typed timer handles (`src/stdlib/fx.ts`, `src/stdlib/timing.ts`) ✅
+- Explicit typed no-op event listeners (`src/stdlib/noop.ts`) ✅
+- Transactional DOM commit / fast-path commit (renderer) ✅
+- Rollback tests preserving listeners & instance refs (`tests/dom/rollback*.test.tsx`) ✅
+- Re-entrant SSR strict-purity guard + tests (`src/ssr/index.ts`, `tests/ssr/*.test.tsx`) ✅
+
+**Remaining / follow-ups:**
+
+- Lint rule to ban direct `Math.random` / `Date.now` during SSR (planned) ⚠️
+- Documentation page describing SSR invariants & migration notes (planned) ⚠️
+
+---
+
 ## 1) Global mutation during SSR (Math/Date) 🔧
 
 **Files:** `src/ssr/index.ts` (executeComponentSync)
