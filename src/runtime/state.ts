@@ -18,7 +18,7 @@ import {
   type ComponentInstance,
 } from './component';
 import { invariant } from '../dev/invariant';
-import { isBulkCommitActive } from './fastlane';
+import { isBulkCommitActive } from './fastlane-shared';
 
 /**
  * State value holder - callable to read, has set method to update

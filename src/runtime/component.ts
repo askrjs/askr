@@ -143,7 +143,7 @@ export function setCurrentComponentInstance(
  * Register a mount operation that will run after the component is mounted
  * Used by operations (task, on, timer, etc) to execute after render completes
  */
-import { isBulkCommitActive } from './fastlane';
+import { isBulkCommitActive } from './fastlane-shared';
 import { evaluate, cleanupInstancesUnder } from '../renderer';
 
 export function registerMountOperation(

@@ -8,7 +8,7 @@ import {
   isBulkCommitActive,
   markFastPathApplied,
   isFastPathApplied,
-} from '../runtime/fastlane';
+} from '../runtime/fastlane-shared';
 import { logger } from '../dev/logger';
 import type { Props } from '../shared/types';
 import { Fragment } from '../jsx/jsx-runtime';

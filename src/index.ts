@@ -74,6 +74,10 @@ import { route, getRoutes } from './router/route';
 import { navigate } from './router/navigate';
 import { createIsland, createSPA, hydrateSPA } from './boot';
 
+// Ensure fastlane bridge is initialized for environments (tests/global access)
+// This file exports a side-effectful module that attaches helpers to globalThis.
+import './runtime/fastlane';
+
 if (typeof globalThis !== 'undefined') {
   const g = globalThis as Record<string, unknown>;
   if (!g.createIsland) g.createIsland = createIsland;
