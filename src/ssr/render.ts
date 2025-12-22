@@ -160,6 +160,12 @@ function renderChildrenToSink(
     );
 }
 
+function isPromiseLike(x: unknown): x is PromiseLike<unknown> {
+  if (!x || typeof x !== 'object') return false;
+  const then = (x as { then?: unknown }).then;
+  return typeof then === 'function';
+}
+
 function executeComponent(
   type: Component,
   props: Props | undefined,
@@ -167,12 +173,7 @@ function executeComponent(
 ): unknown {
   // Synchronous only. If a user returns a Promise, that's a hard error.
   const res = type(props ?? {}, { signal: ctx.signal });
-  if (
-    res &&
-    typeof res === 'object' &&
-    'then' in res &&
-    typeof (res as unknown as PromiseLike<unknown>).then === 'function'
-  ) {
+  if (isPromiseLike(res)) {
     // Use centralized SSR failure mode — async components are not allowed during
     // synchronous SSR and must be pre-resolved by the developer.
     throwSSRDataMissing();

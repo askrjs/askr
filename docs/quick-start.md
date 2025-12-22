@@ -169,7 +169,7 @@ This minimal, composable core is easy to explain, test, and extend.
 - Use `Link` for client navigation and `navigate()` for programmatic navigation ✅
 - Only call `route()` inside route handlers or render functions ✅
 - Handlers must be functions that return VNodes (e.g. `() => <Page />`); do not register raw VNodes at module load time ⚠️
-- Route registrations should happen before `createApp()` (registration is locked after startup) ⚠️
+- Route registrations should happen before `createIsland()` (registration is locked after startup) ⚠️
 
 Run locally:
 

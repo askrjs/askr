@@ -1,6 +1,6 @@
 // tests/dev_errors/prod_fallbacks.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { clearRoutes, createApp, navigate, state } from '../../src/index';
+import { clearRoutes, createIsland, navigate, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
 
 describe('prod fallbacks (DEV_ERRORS)', () => {
@@ -21,7 +21,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
 
       // Spec: production may degrade gracefully for some invariant violations.
       expect(() =>
-        createApp({ root: container, component: Bad })
+        createIsland({ root: container, component: Bad })
       ).not.toThrow();
     } finally {
       process.env.NODE_ENV = prev;
@@ -36,7 +36,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
 
       // Ensure no routes are registered and we have an active instance.
       clearRoutes();
-      createApp({ root: container, component: () => ({ type: 'div' }) });
+      createIsland({ root: container, component: () => ({ type: 'div' }) });
 
       // Spec: missing-route warning should be suppressed in production.
       navigate('/missing');
@@ -54,11 +54,11 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       const Component = () => ({ type: 'div', children: ['ok'] });
 
       process.env.NODE_ENV = 'development';
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       const devHTML = container.innerHTML;
 
       process.env.NODE_ENV = 'production';
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       const prodHTML = container.innerHTML;
 
       expect(devHTML).toBe(prodHTML);
@@ -83,7 +83,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       process.env.NODE_ENV = 'development';
       const { container: devContainer, cleanup: devCleanup } =
         createTestContainer();
-      createApp({ root: devContainer, component: Component });
+      createIsland({ root: devContainer, component: Component });
       flushScheduler();
       (devContainer.querySelector('button') as HTMLButtonElement).click();
       flushScheduler();
@@ -91,7 +91,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       process.env.NODE_ENV = 'production';
       const { container: prodContainer, cleanup: prodCleanup } =
         createTestContainer();
-      createApp({ root: prodContainer, component: Component });
+      createIsland({ root: prodContainer, component: Component });
       flushScheduler();
       (prodContainer.querySelector('button') as HTMLButtonElement).click();
       flushScheduler();
@@ -120,7 +120,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
 
       // Should not throw in prod
       expect(() =>
-        createApp({ root: container, component: Bad })
+        createIsland({ root: container, component: Bad })
       ).not.toThrow();
     } finally {
       process.env.NODE_ENV = prev;
@@ -140,7 +140,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
           return { type: 'div', children: [s().toString()] };
         };
         const { cleanup } = createTestContainer();
-        createApp({
+        createIsland({
           root: document.createElement('div'),
           component: Component,
         });

@@ -51,7 +51,7 @@ describe('no partial DOM (DOM)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
     const stable = container.innerHTML;
 
@@ -87,7 +87,7 @@ describe('no partial DOM (DOM)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     const before = container.innerHTML;

@@ -23,7 +23,7 @@ async function run() {
   global.MutationObserver = dom.window.MutationObserver;
 
   // Import the library via jiti so TS is handled
-  const { createApp, state } = require('../src/index');
+  const { createIsland, state } = require('../src/index');
 
   function trackDOMMutations(node, callback) {
     let addedNodes = 0;
@@ -86,7 +86,7 @@ async function run() {
   };
 
   // Mount with the real renderer
-  createApp({ root: container, component: Component });
+  createIsland({ root: container, component: Component });
   // Ensure initial render
   globalScheduler.flush();
 

@@ -6,7 +6,7 @@
  */
 
 import { bench, describe, beforeEach, afterEach } from 'vitest';
-import { createApp, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -34,7 +34,7 @@ describe('rapid events 1kps', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       // pre-warm
       handleClick!();
@@ -90,7 +90,7 @@ describe('rapid events 1kps', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       // pre-burst
       for (let i = 0; i < 10; i++) handleBurstClick!();
@@ -138,7 +138,7 @@ describe('rapid events 1kps', () => {
         };
       };
 
-      createApp({ root: container, component: Component });
+      createIsland({ root: container, component: Component });
       flushScheduler();
       // pre-warm
       handleMemoryClick!();

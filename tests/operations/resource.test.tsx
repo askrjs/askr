@@ -57,7 +57,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
       await waitForNextEvaluation();
       flushScheduler();
@@ -121,7 +121,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createApp({ root: container, component: App });
+      createIsland({ root: container, component: App });
       flushScheduler();
       await waitForNextEvaluation();
       flushScheduler();

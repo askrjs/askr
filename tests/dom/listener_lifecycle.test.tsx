@@ -57,7 +57,7 @@ describe('listener lifecycle (DOM)', () => {
     old.click();
     expect(clicks).toBe(1);
 
-    createApp({ root: container, component: Without });
+    createIsland({ root: container, component: Without });
     flushScheduler();
     expect(container.querySelector('#btn')).toBeNull();
 
@@ -86,7 +86,7 @@ describe('listener lifecycle (DOM)', () => {
       };
     };
 
-    createApp({ root: container, component: Component });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     (container.querySelector('#btn') as HTMLButtonElement).click();
