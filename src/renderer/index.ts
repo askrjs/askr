@@ -163,14 +163,20 @@ export interface ListenerMapEntry {
   handler: EventListener;
   original: EventListener;
 }
-export const elementListeners = new WeakMap<Element, Map<string, ListenerMapEntry>>();
+export const elementListeners = new WeakMap<
+  Element,
+  Map<string, ListenerMapEntry>
+>();
 
 // Track keyed elements for reconciliation
 interface _KeyedChild {
   key: string | number;
   vnode: unknown;
 }
-export const keyedElements = new WeakMap<Element, Map<string | number, Element>>();
+export const keyedElements = new WeakMap<
+  Element,
+  Map<string | number, Element>
+>();
 
 // Exported for runtime use: retrieve existing keyed map for a parent element
 export function getKeyMapForElement(el: Element) {
