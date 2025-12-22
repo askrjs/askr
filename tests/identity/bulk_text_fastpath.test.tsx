@@ -53,10 +53,16 @@ describe('bulk text fast-path (unkeyed)', () => {
     await waitForNextEvaluation();
 
     // Assert fast-path stats set
-    const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+    const ns =
+      (
+        globalThis as unknown as Record<string, unknown> & {
+          __ASKR__?: Record<string, unknown>;
+        }
+      ).__ASKR__ || {};
 
+    type BulkTextStats = { n?: number; reused?: number };
     expect(ns['__LAST_BULK_TEXT_FASTPATH_STATS']).toBeDefined();
-    expect((ns['__LAST_BULK_TEXT_FASTPATH_STATS'] as any).n).toBe(20);
+    expect(((ns['__LAST_BULK_TEXT_FASTPATH_STATS'] as BulkTextStats).n as number)).toBe(20);
 
     const afterEls = Array.from(container.querySelectorAll('li'));
     // Identity preserved

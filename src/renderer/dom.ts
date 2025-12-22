@@ -569,7 +569,10 @@ export function performBulkPositionalKeyedTextUpdate(
           (vnode as DOMElement).props?.children;
 
         try {
-          if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+          if (
+            process.env.ASKR_FASTPATH_DEBUG === '1' ||
+            process.env.ASKR_FASTPATH_DEBUG === 'true'
+          ) {
             logger.warn('[Askr][FASTPATH] positional idx', i, {
               chTag: ch.tagName.toLowerCase(),
               vnodeType,
@@ -610,7 +613,10 @@ export function performBulkPositionalKeyedTextUpdate(
         continue;
       } else {
         try {
-          if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+          if (
+            process.env.ASKR_FASTPATH_DEBUG === '1' ||
+            process.env.ASKR_FASTPATH_DEBUG === 'true'
+          ) {
             logger.warn('[Askr][FASTPATH] positional tag mismatch', i, {
               chTag: ch.tagName.toLowerCase(),
               vnodeType,
@@ -622,7 +628,10 @@ export function performBulkPositionalKeyedTextUpdate(
       }
     } else {
       try {
-        if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+        if (
+          process.env.ASKR_FASTPATH_DEBUG === '1' ||
+          process.env.ASKR_FASTPATH_DEBUG === 'true'
+        ) {
           logger.warn('[Askr][FASTPATH] positional missing or invalid', i, {
             ch: !!ch,
           });
@@ -662,7 +671,10 @@ export function performBulkPositionalKeyedTextUpdate(
   const stats = { n: total, reused, updatedKeys, t } as const;
 
   try {
-    if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+    if (
+      process.env.ASKR_FASTPATH_DEBUG === '1' ||
+      process.env.ASKR_FASTPATH_DEBUG === 'true'
+    ) {
       logger.warn('[Askr][FASTPATH] bulk positional stats', stats);
     }
     __ASKR_set('__LAST_FASTPATH_STATS', stats);

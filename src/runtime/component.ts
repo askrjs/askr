@@ -317,7 +317,10 @@ function runComponent(instance: ComponentInstance): void {
             // this preserves attached listeners and instance backrefs.
             try {
               __ASKR_incCounter('__DOM_REPLACE_COUNT');
-              __ASKR_set('__LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE', new Error().stack);
+              __ASKR_set(
+                '__LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE',
+                new Error().stack
+              );
             } catch (e) {
               void e;
             }
@@ -360,7 +363,10 @@ function runComponent(instance: ComponentInstance): void {
           try {
             try {
               __ASKR_incCounter('__DOM_REPLACE_COUNT');
-              __ASKR_set('__LAST_DOM_REPLACE_STACK_COMPONENT_ROLLBACK', new Error().stack);
+              __ASKR_set(
+                '__LAST_DOM_REPLACE_STACK_COMPONENT_ROLLBACK',
+                new Error().stack
+              );
             } catch (e) {
               void e;
             }

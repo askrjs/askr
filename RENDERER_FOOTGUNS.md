@@ -42,7 +42,7 @@ Concise, triage-ready list of risky patterns and recommended remediation for the
     - Update any tests or tooling that relied on top-level keys (e.g., `__DOM_REPLACE_COUNT` or `__ASKR_LAST_FASTPATH_STATS`) to read from the namespace instead:
 
       ```ts
-      const ns = ((globalThis as any).__ASKR__) || {};
+      const ns = (globalThis as any).__ASKR__ || {};
       const stats = ns['__LAST_FASTPATH_STATS'];
       const domReplaceCount = ns['__DOM_REPLACE_COUNT'];
       ```
@@ -54,10 +54,18 @@ Concise, triage-ready list of risky patterns and recommended remediation for the
         const ns = (globalThis as any).__ASKR__ || {};
         try {
           for (const k of Object.keys(ns)) {
-            try { (globalThis as any)[k] = ns[k]; } catch (e) { /* ignore */ }
+            try {
+              (globalThis as any)[k] = ns[k];
+            } catch (e) {
+              /* ignore */
+            }
           }
-          console.warn('[Askr] Temporary legacy diag shim enabled — read from globalThis.__ASKR__ instead (deprecated)');
-        } catch (e) { /* ignore */ }
+          console.warn(
+            '[Askr] Temporary legacy diag shim enabled — read from globalThis.__ASKR__ instead (deprecated)'
+          );
+        } catch (e) {
+          /* ignore */
+        }
       }
       ```
 

@@ -21,7 +21,9 @@ export function __ASKR_set(key: string, value: unknown): void {
       // Consolidate diagnostics under a single namespace to avoid
       // polluting the top-level global scope. Expose a namespaced view on
       // `globalThis.__ASKR__` so tools and tests can inspect diagnostic keys.
-      const root = globalThis as unknown as Record<string, unknown> & { __ASKR__?: Record<string, unknown> };
+      const root = globalThis as unknown as Record<string, unknown> & {
+        __ASKR__?: Record<string, unknown>;
+      };
       try {
         const ns = root.__ASKR__ || (root.__ASKR__ = {});
         try {
@@ -48,7 +50,9 @@ export function __ASKR_incCounter(key: string): void {
     (g as DiagMap)[key] = next;
     try {
       // Mirror counter into namespaced diagnostics
-      const root = globalThis as unknown as Record<string, unknown> & { __ASKR__?: Record<string, unknown> };
+      const root = globalThis as unknown as Record<string, unknown> & {
+        __ASKR__?: Record<string, unknown>;
+      };
       const ns = root.__ASKR__ || (root.__ASKR__ = {});
       try {
         const nsPrev = typeof ns[key] === 'number' ? (ns[key] as number) : 0;

@@ -254,7 +254,12 @@ export class Scheduler {
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+        const ns =
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__ || {};
         const diag = {
           flushVersion: this.flushVersion,
           queueLen: this.q.length - this.head,

@@ -1,7 +1,11 @@
 import { it, describe, expect } from 'vitest';
 import { createIsland, state } from '../../src/index';
 import type { State } from '../../src/index';
-import { createTestContainer, flushScheduler, waitForNextEvaluation } from '../helpers/test_renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+  waitForNextEvaluation,
+} from '../helpers/test_renderer';
 
 describe('fast-lane DOM commit count', () => {
   it('should perform exactly one DOM replace during a reorder-only fast-lane commit', async () => {
@@ -13,7 +17,10 @@ describe('fast-lane DOM commit count', () => {
 
     const Component = () => {
       items = state(
-        Array.from({ length: 200 }, (_, i) => ({ id: i + 1, text: `Item ${i + 1}` }))
+        Array.from({ length: 200 }, (_, i) => ({
+          id: i + 1,
+          text: `Item ${i + 1}`,
+        }))
       );
       return {
         type: 'ul',
@@ -30,16 +37,36 @@ describe('fast-lane DOM commit count', () => {
     flushScheduler();
     await waitForNextEvaluation();
 
-    const gBefore = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
-    const before = typeof (gBefore as Record<string, unknown>)['__DOM_REPLACE_COUNT'] === 'number' ? ((gBefore as Record<string, unknown>)['__DOM_REPLACE_COUNT'] as number) : 0;
+    const gBefore =
+      (
+        globalThis as unknown as Record<string, unknown> & {
+          __ASKR__?: Record<string, unknown>;
+        }
+      ).__ASKR__ || {};
+    const before =
+      typeof (gBefore as Record<string, unknown>)['__DOM_REPLACE_COUNT'] ===
+      'number'
+        ? ((gBefore as Record<string, unknown>)[
+            '__DOM_REPLACE_COUNT'
+          ] as number)
+        : 0;
 
     // Trigger a large reorder-only update to exercise runtime fast-lane
     items.set([...items()].reverse());
     flushScheduler();
     await waitForNextEvaluation();
 
-    const gAfter = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
-    const after = typeof (gAfter as Record<string, unknown>)['__DOM_REPLACE_COUNT'] === 'number' ? ((gAfter as Record<string, unknown>)['__DOM_REPLACE_COUNT'] as number) : 0;
+    const gAfter =
+      (
+        globalThis as unknown as Record<string, unknown> & {
+          __ASKR__?: Record<string, unknown>;
+        }
+      ).__ASKR__ || {};
+    const after =
+      typeof (gAfter as Record<string, unknown>)['__DOM_REPLACE_COUNT'] ===
+      'number'
+        ? ((gAfter as Record<string, unknown>)['__DOM_REPLACE_COUNT'] as number)
+        : 0;
 
     expect(after - before).toBe(1);
 

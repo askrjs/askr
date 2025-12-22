@@ -192,7 +192,10 @@ export function applyRendererFastPath(
         __ASKR_set('__LAST_FASTPATH_REUSED', reusedCount > 0);
         __ASKR_incCounter('fastpathHistoryPush');
       }
-      if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+      if (
+        process.env.ASKR_FASTPATH_DEBUG === '1' ||
+        process.env.ASKR_FASTPATH_DEBUG === 'true'
+      ) {
         logger.warn(
           '[Askr][FASTPATH]',
           JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })

@@ -195,7 +195,10 @@ export function evaluate(
                       keyedVnodes.length > 0 &&
                       keyedVnodes.length === (vnodeChildren as VNode[]).length
                     ) {
-                      if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+                      if (
+                        process.env.ASKR_FASTPATH_DEBUG === '1' ||
+                        process.env.ASKR_FASTPATH_DEBUG === 'true'
+                      ) {
                         logger.warn(
                           '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
                         );
@@ -243,7 +246,10 @@ export function evaluate(
                       keyedElements.set(firstChild, newKeyMap);
                     }
                   } catch (err) {
-                    if (process.env.ASKR_FASTPATH_DEBUG === '1' || process.env.ASKR_FASTPATH_DEBUG === 'true') {
+                    if (
+                      process.env.ASKR_FASTPATH_DEBUG === '1' ||
+                      process.env.ASKR_FASTPATH_DEBUG === 'true'
+                    ) {
                       logger.warn(
                         '[Askr][FASTPATH] forced bulk path failed, falling back',
                         err

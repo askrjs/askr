@@ -1,7 +1,11 @@
 import { describe, it, beforeAll, afterAll, expect } from 'vitest';
 import { createIsland, state } from '../../src/index';
 import type { State } from '../../src/index';
-import { createTestContainer, flushScheduler, waitForNextEvaluation } from '../helpers/test_renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+  waitForNextEvaluation,
+} from '../helpers/test_renderer';
 
 describe('renderer fast-path listener preservation', () => {
   let container: HTMLElement;
@@ -15,7 +19,10 @@ describe('renderer fast-path listener preservation', () => {
 
     const Component = () => {
       items = state(
-        Array.from({ length: 200 }, (_, i) => ({ id: i + 1, text: `Item ${i + 1}` }))
+        Array.from({ length: 200 }, (_, i) => ({
+          id: i + 1,
+          text: `Item ${i + 1}`,
+        }))
       );
       return {
         type: 'ul',

@@ -24,7 +24,9 @@ it('should import renderer modules safely in SSR when document/window are missin
     // If we reached here, imports did not throw.
     expect(true).toBe(true);
   } finally {
-    if (savedDoc !== undefined) (g as Record<string, unknown>).document = savedDoc;
-    if (savedWindow !== undefined) (g as Record<string, unknown>).window = savedWindow;
+    if (savedDoc !== undefined)
+      (g as Record<string, unknown>).document = savedDoc;
+    if (savedWindow !== undefined)
+      (g as Record<string, unknown>).window = savedWindow;
   }
 });

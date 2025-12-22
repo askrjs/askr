@@ -163,7 +163,17 @@ export function commitReorderOnly(
     try {
       const clearedAfter = globalScheduler.clearPendingSyncTasks?.() ?? 0;
       if (process.env.NODE_ENV !== 'production') {
-        const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__!;
+        const ns =
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__ ||
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__!;
         try {
           ns['__FASTLANE_CLEARED_AFTER'] = clearedAfter;
         } catch (e) {
@@ -177,8 +187,16 @@ export function commitReorderOnly(
     // Dev-only invariant checks and diagnostics
     if (process.env.NODE_ENV !== 'production') {
       // Commit count recorded by renderer (set by fast-path code)
-      const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
-      const commitCount = typeof ns['__LAST_FASTPATH_COMMIT_COUNT'] === 'number' ? (ns['__LAST_FASTPATH_COMMIT_COUNT'] as number) : 0;
+      const ns =
+        (
+          globalThis as unknown as Record<string, unknown> & {
+            __ASKR__?: Record<string, unknown>;
+          }
+        ).__ASKR__ || {};
+      const commitCount =
+        typeof ns['__LAST_FASTPATH_COMMIT_COUNT'] === 'number'
+          ? (ns['__LAST_FASTPATH_COMMIT_COUNT'] as number)
+          : 0;
       const invariants = {
         commitCount,
         mountOps: instance.mountOperations.length,
@@ -194,8 +212,18 @@ export function commitReorderOnly(
         try {
           // Dump diag map + namespaced diagnostics for debugging
           const _diag = (globalThis as Record<string, unknown>).__ASKR_DIAG;
-          const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
-          console.error('[FASTLANE][INV] commitCount', commitCount, 'diag', _diag);
+          const ns =
+            (
+              globalThis as unknown as Record<string, unknown> & {
+                __ASKR__?: Record<string, unknown>;
+              }
+            ).__ASKR__ || {};
+          console.error(
+            '[FASTLANE][INV] commitCount',
+            commitCount,
+            'diag',
+            _diag
+          );
           console.error('[FASTLANE][INV] namespace', ns);
         } catch (e) {
           void e;
@@ -230,7 +258,12 @@ export function commitReorderOnly(
           );
 
           try {
-            const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+            const ns =
+              (
+                globalThis as unknown as Record<string, unknown> & {
+                  __ASKR__?: Record<string, unknown>;
+                }
+              ).__ASKR__ || {};
             console.error('[FASTLANE] enqueue logs', ns['__ENQUEUE_LOGS']);
           } catch (e) {
             void e;
@@ -274,9 +307,17 @@ export function commitReorderOnly(
           );
           if (outstandingAfter2 !== 0) {
             try {
-              const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+              const ns =
+                (
+                  globalThis as unknown as Record<string, unknown> & {
+                    __ASKR__?: Record<string, unknown>;
+                  }
+                ).__ASKR__ || {};
 
-              console.error('[FASTLANE] Post-commit enqueue logs:', ns['__ENQUEUE_LOGS']);
+              console.error(
+                '[FASTLANE] Post-commit enqueue logs:',
+                ns['__ENQUEUE_LOGS']
+              );
 
               console.error(
                 '[FASTLANE] Cleared counts:',
@@ -309,7 +350,17 @@ export function commitReorderOnly(
     // handled below.
     if (process.env.NODE_ENV !== 'production') {
       try {
-        const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__!;
+        const ns =
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__ ||
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__!;
         try {
           ns['__FASTLANE_BULK_FLAG_CHECK'] = isBulkCommitActive();
         } catch (e) {
@@ -323,7 +374,12 @@ export function commitReorderOnly(
 
   // Re-check the captured assertion outside of finally and throw if needed
   if (process.env.NODE_ENV !== 'production') {
-    const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+    const ns =
+      (
+        globalThis as unknown as Record<string, unknown> & {
+          __ASKR__?: Record<string, unknown>;
+        }
+      ).__ASKR__ || {};
     if (ns['__FASTLANE_BULK_FLAG_CHECK']) {
       try {
         delete ns['__FASTLANE_BULK_FLAG_CHECK'];
@@ -346,7 +402,17 @@ export function tryRuntimeFastLaneSync(
     // Dev-time: ensure stale fast-path diagnostics don't leak across updates.
     if (process.env.NODE_ENV !== 'production') {
       try {
-        const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__!;
+        const ns =
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__ ||
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__!;
         try {
           ns['__LAST_FASTPATH_STATS'] = undefined;
         } catch (e) {

@@ -83,7 +83,12 @@ export async function waitForFlush(timeout = 2000): Promise<void> {
     await globalScheduler.waitForFlush(target, timeout);
   } catch (err) {
     // Propagate with extra diagnostics
-    const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+    const ns =
+      (
+        globalThis as unknown as Record<string, unknown> & {
+          __ASKR__?: Record<string, unknown>;
+        }
+      ).__ASKR__ || {};
     console.error('[waitForFlush] timeout diagnostics', {
       scheduler: globalScheduler.getState(),
       fastlaneActive: !!ns['__FASTLANE']?.isBulkCommitActive?.(),

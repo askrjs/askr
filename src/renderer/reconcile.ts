@@ -1,6 +1,14 @@
 import type { VNode } from './types';
-import { createDOMNode, updateElementFromVnode, performBulkPositionalKeyedTextUpdate } from './dom';
-import { keyedElements, _reconcilerRecordedParents, isKeyedReorderFastPathEligible } from './keyed';
+import {
+  createDOMNode,
+  updateElementFromVnode,
+  performBulkPositionalKeyedTextUpdate,
+} from './dom';
+import {
+  keyedElements,
+  _reconcilerRecordedParents,
+  isKeyedReorderFastPathEligible,
+} from './keyed';
 import { removeAllListeners, cleanupInstanceIfPresent } from './cleanup';
 import { isBulkCommitActive } from '../runtime/fastlane-shared';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
@@ -42,10 +50,13 @@ export function reconcileKeyedChildren(
   // Helper type for narrowings to avoid `any` casts in lint rules
   type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 
-
   // Try renderer fast-path early for large keyed reorder-only updates.
   try {
-    const decision = isKeyedReorderFastPathEligible(parent, newChildren, oldKeyMap);
+    const decision = isKeyedReorderFastPathEligible(
+      parent,
+      newChildren,
+      oldKeyMap
+    );
     if (
       (decision.useFastPath && keyedVnodes.length >= 128) ||
       // If we're executing inside a runtime bulk commit (fastlane), prefer the
@@ -53,7 +64,12 @@ export function reconcileKeyedChildren(
       isBulkCommitActive()
     ) {
       try {
-        const map = applyRendererFastPath(parent, keyedVnodes, oldKeyMap, unkeyedVnodes);
+        const map = applyRendererFastPath(
+          parent,
+          keyedVnodes,
+          oldKeyMap,
+          unkeyedVnodes
+        );
         if (map) {
           try {
             keyedElements.set(parent, map);
@@ -79,10 +95,16 @@ export function reconcileKeyedChildren(
         try {
           for (let i = 0; i < total; i++) {
             const vnode = keyedVnodes[i].vnode as VnodeObj;
-            if (!vnode || typeof vnode !== 'object' || typeof vnode.type !== 'string') continue;
+            if (
+              !vnode ||
+              typeof vnode !== 'object' ||
+              typeof vnode.type !== 'string'
+            )
+              continue;
             const el = parent.children[i] as Element | undefined;
             if (!el) continue;
-            if (el.tagName.toLowerCase() === String(vnode.type).toLowerCase()) matchCount++;
+            if (el.tagName.toLowerCase() === String(vnode.type).toLowerCase())
+              matchCount++;
           }
         } catch (e) {
           void e;
@@ -111,7 +133,9 @@ export function reconcileKeyedChildren(
                       break;
                     }
                   } else if (k === 'value' || k === 'checked') {
-                    if ((el as HTMLElement & Record<string, unknown>)[k] !== v) {
+                    if (
+                      (el as HTMLElement & Record<string, unknown>)[k] !== v
+                    ) {
                       hasPropChanges = true;
                       break;
                     }
@@ -143,8 +167,14 @@ export function reconcileKeyedChildren(
             // Decline positional path when props differ
           } else {
             try {
-              const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
-              if (process.env.NODE_ENV !== 'production' || process.env.ASKR_FASTPATH_DEBUG === '1') {
+              const stats = performBulkPositionalKeyedTextUpdate(
+                parent,
+                keyedVnodes
+              );
+              if (
+                process.env.NODE_ENV !== 'production' ||
+                process.env.ASKR_FASTPATH_DEBUG === '1'
+              ) {
                 try {
                   __ASKR_set('__LAST_FASTPATH_STATS', stats);
                   __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
@@ -180,7 +210,6 @@ export function reconcileKeyedChildren(
     } catch (e) {
       void e;
     }
-
   } catch (e) {
     void e;
   }
@@ -247,7 +276,9 @@ export function reconcileKeyedChildren(
         (childObj.props as Record<string, unknown> | undefined)?.key;
       if (rawKey !== undefined) {
         const key: string | number =
-          typeof rawKey === 'symbol' ? String(rawKey) : (rawKey as string | number);
+          typeof rawKey === 'symbol'
+            ? String(rawKey)
+            : (rawKey as string | number);
         const el = resolveOldElOnce(key);
         if (el && el.parentElement === parent) {
           updateElementFromVnode(el, child as VNode);
@@ -283,9 +314,11 @@ export function reconcileKeyedChildren(
         typeof child === 'object' &&
         child !== null &&
         'type' in child &&
-        (existing.getAttribute('data-key') === null || existing.getAttribute('data-key') === undefined) &&
+        (existing.getAttribute('data-key') === null ||
+          existing.getAttribute('data-key') === undefined) &&
         typeof (child as VnodeObj).type === 'string' &&
-        existing.tagName.toLowerCase() === String((child as VnodeObj).type).toLowerCase()
+        existing.tagName.toLowerCase() ===
+          String((child as VnodeObj).type).toLowerCase()
       ) {
         updateElementFromVnode(existing, child as VNode);
         finalNodes.push(existing);
@@ -308,7 +341,8 @@ export function reconcileKeyedChildren(
             child !== null &&
             'type' in child &&
             typeof (child as VnodeObj).type === 'string' &&
-            avail.tagName.toLowerCase() === String((child as VnodeObj).type).toLowerCase()
+            avail.tagName.toLowerCase() ===
+              String((child as VnodeObj).type).toLowerCase()
           ) {
             updateElementFromVnode(avail, child as VNode);
           } else {

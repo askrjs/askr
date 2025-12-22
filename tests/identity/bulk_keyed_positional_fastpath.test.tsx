@@ -52,13 +52,19 @@ describe('bulk keyed positional fast-path', () => {
     await waitForNextEvaluation();
 
     // Check that bulk fast-path stats were recorded
-    const ns = ((globalThis as unknown) as Record<string, unknown> & { __ASKR__?: Record<string, unknown> }).__ASKR__ || {};
+    const ns =
+      (
+        globalThis as unknown as Record<string, unknown> & {
+          __ASKR__?: Record<string, unknown>;
+        }
+      ).__ASKR__ || {};
 
     // Diagnostics may be recorded by either the positional fast-path or
     // the partial move-by-key path depending on heuristics; assert stats
     // only if they are present to avoid brittle test failures.
+    type FastpathStats = { n?: number; reused?: number; updatedKeys?: number };
     if (ns['__LAST_FASTPATH_STATS']) {
-      expect((ns['__LAST_FASTPATH_STATS'] as any).n).toBe(50);
+      expect(((ns['__LAST_FASTPATH_STATS'] as FastpathStats).n as number)).toBe(50);
     }
 
     const afterEls = Array.from(container.querySelectorAll('li'));
@@ -75,7 +81,10 @@ describe('bulk keyed positional fast-path', () => {
     // (Diagnostic counters are optional in this test environment.)
     // Optionally assert counters if present
     if (ns['__FASTPATH_COUNTERS']) {
-      expect(Object.keys((ns['__FASTPATH_COUNTERS'] as Record<string, number>) || {}).length).toBeGreaterThan(0);
+      expect(
+        Object.keys((ns['__FASTPATH_COUNTERS'] as Record<string, number>) || {})
+          .length
+      ).toBeGreaterThan(0);
     }
   });
 
