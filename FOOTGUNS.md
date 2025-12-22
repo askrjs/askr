@@ -36,11 +36,36 @@ A concise, prioritized catalog of known risky or fragile patterns found in the c
 - Transactional DOM commit / fast-path commit (renderer) ✅
 - Rollback tests preserving listeners & instance refs (`tests/dom/rollback*.test.tsx`) ✅
 - Re-entrant SSR strict-purity guard + tests (`src/ssr/index.ts`, `tests/ssr/*.test.tsx`) ✅
+- ESLint rule banning Math.random/Date.now in SSR files + tests (`eslint.config.ts`, `tests/dev/lint-ssr-globals.test.ts`) ✅
 
 **Remaining / follow-ups:**
 
-- Lint rule to ban direct `Math.random` / `Date.now` during SSR (planned) ⚠️
 - Documentation page describing SSR invariants & migration notes (planned) ⚠️
+
+---
+
+## Remaining footguns (prioritized)
+
+1) Lint rule to ban direct `Math.random` / `Date.now` during synchronous SSR (high) ✅
+
+- Why: Prevents fragile dev-time global overrides and eliminates a class of accidental non-determinism.
+- Status: Implemented — added an ESLint override that flags `Math.random` and `Date.now` in `src/ssr/**` and corresponding tests (`tests/dev/lint-ssr-globals.test.ts`).
+- Next step: If desired, broaden rule to additional files or add optional comment-based exemptions.
+
+2) Surface cleanup errors during teardown (medium)
+
+- Why: Some cleanup loops still swallow errors silently; these should be visible in CI or dev-mode to avoid hiding regressions.
+- Next step: Add an opt-in "cleanup strict" mode (or CI-only behavior) that records/re-throws cleanup errors for test assertions and add tests.
+
+3) Avoid costly `querySelectorAll('*')` traversal for cleanup (medium)
+
+- Why: Full descendant traversal can be expensive for large trees and slow unmounting.
+- Next step: Introduce a small WeakMap-based registry of mounted component roots/instances; update cleanup to consult the registry when available and add performance tests.
+
+4) Final sweep for `as unknown as` in **production** `src/` code (low)
+
+- Why: Tests may use pragmatic casts, but production code should minimize unsafe double-casts.
+- Next step: Do a final pass across `src/` and centralize unavoidable casts into well-documented helpers.
 
 ---
 

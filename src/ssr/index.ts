@@ -68,17 +68,17 @@ const __ssrGuardStack: Array<{ random: () => number; now: () => number }> = [];
 export function pushSSRStrictPurityGuard() {
   /* istanbul ignore if - dev-only guard */
   if (process.env.NODE_ENV === 'production') return;
-  __ssrGuardStack.push({ random: Math.random, now: Date.now });
-  (Math as { random: () => number }).random = () => {
+  __ssrGuardStack.push({ random: Reflect.get(Math, 'random') as () => number, now: Reflect.get(Date, 'now') as () => number });
+  Reflect.set(Math, 'random', () => {
     throw new Error(
       'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
     );
-  };
-  (Date as { now: () => number }).now = () => {
+  });
+  Reflect.set(Date, 'now', () => {
     throw new Error(
       'SSR Strict Purity: Date.now is not allowed during synchronous SSR. Pass timestamps explicitly or use deterministic helpers.'
     );
-  };
+  });
 }
 
 export function popSSRStrictPurityGuard() {
@@ -86,10 +86,11 @@ export function popSSRStrictPurityGuard() {
   if (process.env.NODE_ENV === 'production') return;
   const prev = __ssrGuardStack.pop();
   if (prev) {
-    (Math as { random: () => number }).random = prev.random;
-    (Date as { now: () => number }).now = prev.now;
+    Reflect.set(Math, 'random', prev.random);
+    Reflect.set(Date, 'now', prev.now);
   }
 }
+
 
 /**
  * Escape HTML special characters in text content (optimized with cache)
