@@ -1,36 +1,48 @@
 /**
- * JSX runtime factory
- * Thin layer — no scheduling, no logic
+ * JSX dev runtime
+ * Same shape as production runtime, with room for dev warnings.
  */
 
 import './types';
 
+export const ELEMENT_TYPE = Symbol.for('askr.element');
+export const Fragment = Symbol.for('askr.fragment');
+
 export interface JSXElement {
+  $$typeof: symbol;
   type: unknown;
   props: Record<string, unknown>;
-  key?: string | number;
+  key: string | number | null;
 }
 
-export function jsx(
+export function jsxDEV(
   type: unknown,
   props: Record<string, unknown> | null,
   key?: string | number
 ): JSXElement {
   return {
+    $$typeof: ELEMENT_TYPE,
     type,
-    props: props || {},
-    key,
+    props: props ?? {},
+    key: key ?? null,
   };
+}
+
+// Production-style helpers: alias to the DEV factory for now
+export function jsx(
+  type: unknown,
+  props: Record<string, unknown> | null,
+  key?: string | number
+) {
+  return jsxDEV(type, props, key);
 }
 
 export function jsxs(
   type: unknown,
   props: Record<string, unknown> | null,
   key?: string | number
-): JSXElement {
-  return jsx(type, props, key);
+) {
+  return jsxDEV(type, props, key);
 }
 
-// Fragment for rendering multiple elements without wrapper
-// Unique fragment symbol for Askr
-export const Fragment = Symbol.for('@askrjs/askr.Fragment');
+// `Fragment` is already exported above.

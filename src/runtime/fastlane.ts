@@ -319,7 +319,19 @@ export function tryRuntimeFastLaneSync(
   result: unknown
 ): boolean {
   const cls = classifyUpdate(instance, result);
-  if (!cls.useFastPath) return false;
+  if (!cls.useFastPath) {
+    // Dev-time: ensure stale fast-path diagnostics don't leak across updates.
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const _g = globalThis as Record<string, unknown>;
+        _g.__ASKR_LAST_FASTPATH_STATS = undefined;
+        _g.__ASKR_LAST_FASTPATH_COMMIT_COUNT = 0;
+      } catch (e) {
+        void e;
+      }
+    }
+    return false;
+  }
 
   try {
     return commitReorderOnly(instance, result);

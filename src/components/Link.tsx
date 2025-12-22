@@ -3,8 +3,6 @@
  */
 
 import { navigate } from '../router/navigate';
-import type { JSXElement } from '../jsx/types';
-
 export interface LinkProps {
   href: string;
   children?: unknown;
@@ -20,7 +18,7 @@ export interface LinkProps {
  * - Shift+click (opens in new window)
  * - Right-click context menu
  */
-export function Link({ href, children }: LinkProps): JSXElement {
+export function Link({ href, children }: LinkProps): unknown {
   return {
     type: 'a',
     props: {
