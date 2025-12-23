@@ -29,6 +29,435 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
 const domRanges = new WeakMap<object, DOMRange>();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper Types & Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SimpleTextResult {
+  isSimple: true;
+  text: string;
+}
+
+interface NotSimpleTextResult {
+  isSimple: false;
+  text?: undefined;
+}
+
+type TextCheckResult = SimpleTextResult | NotSimpleTextResult;
+
+/**
+ * Check if vnode children represent a simple text value
+ */
+function checkSimpleText(vnodeChildren: unknown): TextCheckResult {
+  if (!Array.isArray(vnodeChildren)) {
+    if (
+      typeof vnodeChildren === 'string' ||
+      typeof vnodeChildren === 'number'
+    ) {
+      return { isSimple: true, text: String(vnodeChildren) };
+    }
+  } else if (vnodeChildren.length === 1) {
+    const child = vnodeChildren[0];
+    if (typeof child === 'string' || typeof child === 'number') {
+      return { isSimple: true, text: String(child) };
+    }
+  }
+  return { isSimple: false };
+}
+
+/**
+ * Try to update a single text node in place
+ * Returns true if update was performed, false otherwise
+ */
+function tryUpdateTextInPlace(element: Element, text: string): boolean {
+  if (
+    element.childNodes.length === 1 &&
+    element.firstChild?.nodeType === 3 // TEXT_NODE
+  ) {
+    (element.firstChild as Text).data = text;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Build a key map from existing DOM children
+ */
+function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
+  const keyMap = new Map<string | number, Element>();
+  const children = Array.from(parent.children);
+  for (const child of children) {
+    const k = child.getAttribute('data-key');
+    if (k !== null) {
+      keyMap.set(k, child);
+      const n = Number(k);
+      if (!Number.isNaN(n)) keyMap.set(n, child);
+    }
+  }
+  return keyMap;
+}
+
+/**
+ * Get or initialize key map for an element
+ */
+function getOrBuildKeyMap(
+  parent: Element
+): Map<string | number, Element> | undefined {
+  let keyMap = keyedElements.get(parent);
+  if (!keyMap) {
+    keyMap = buildKeyMapFromDOM(parent);
+    if (keyMap.size > 0) {
+      keyedElements.set(parent, keyMap);
+    }
+  }
+  return keyMap.size > 0 ? keyMap : undefined;
+}
+
+/**
+ * Check if children array contains keyed elements
+ */
+function hasKeyedChildren(children: unknown[]): boolean {
+  return children.some(
+    (child) => typeof child === 'object' && child !== null && 'key' in child
+  );
+}
+
+/**
+ * Track bulk text fast-path stats (dev only)
+ */
+function trackBulkTextStats(
+  stats: ReturnType<typeof performBulkTextReplace>
+): void {
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
+      __ASKR_incCounter('bulkTextHits');
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/**
+ * Track bulk text miss (dev only)
+ */
+function trackBulkTextMiss(): void {
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      __ASKR_incCounter('bulkTextMisses');
+    } catch {
+      // ignore
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Child Reconciliation Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Reconcile keyed children with optional forced bulk path
+ */
+function reconcileKeyed(
+  parent: Element,
+  children: VNode[],
+  oldKeyMap: Map<string | number, Element> | undefined
+): void {
+  // Optional forced positional bulk path for large keyed lists
+  if (process.env.ASKR_FORCE_BULK_POSREUSE === '1') {
+    const result = tryForcedBulkKeyedPath(parent, children);
+    if (result) return;
+  }
+
+  // Standard keyed reconciliation
+  const newKeyMap = reconcileKeyedChildren(parent, children, oldKeyMap);
+  keyedElements.set(parent, newKeyMap);
+}
+
+/**
+ * Try the forced bulk keyed positional path
+ * Returns true if applied, false to fall back to normal reconciliation
+ */
+function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
+  try {
+    const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
+    for (const child of children) {
+      if (_isDOMElement(child) && (child as DOMElement).key !== undefined) {
+        keyedVnodes.push({
+          key: (child as DOMElement).key as string | number,
+          vnode: child,
+        });
+      }
+    }
+
+    // Only apply when all children are keyed and count matches
+    if (keyedVnodes.length === 0 || keyedVnodes.length !== children.length) {
+      return false;
+    }
+
+    if (
+      process.env.ASKR_FASTPATH_DEBUG === '1' ||
+      process.env.ASKR_FASTPATH_DEBUG === 'true'
+    ) {
+      logger.warn(
+        '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
+      );
+    }
+
+    const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      process.env.ASKR_FASTPATH_DEBUG === '1'
+    ) {
+      try {
+        __ASKR_set('__LAST_FASTPATH_STATS', stats);
+        __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
+        __ASKR_incCounter('bulkKeyedPositionalForced');
+      } catch {
+        // ignore
+      }
+    }
+
+    // Rebuild keyed map from DOM
+    const newMap = buildKeyMapFromDOM(parent);
+    keyedElements.set(parent, newMap);
+    return true;
+  } catch (err) {
+    if (
+      process.env.ASKR_FASTPATH_DEBUG === '1' ||
+      process.env.ASKR_FASTPATH_DEBUG === 'true'
+    ) {
+      logger.warn(
+        '[Askr][FASTPATH] forced bulk path failed, falling back',
+        err
+      );
+    }
+    return false;
+  }
+}
+
+/**
+ * Reconcile unkeyed children, using bulk fast-path when eligible
+ */
+function reconcileUnkeyed(parent: Element, children: VNode[]): void {
+  if (isBulkTextFastPathEligible(parent, children)) {
+    const stats = performBulkTextReplace(parent, children);
+    trackBulkTextStats(stats);
+  } else {
+    trackBulkTextMiss();
+    updateUnkeyedChildren(parent, children);
+  }
+  keyedElements.delete(parent);
+}
+
+/**
+ * Update element children (handles keyed, unkeyed, and non-array cases)
+ */
+function updateElementChildren(
+  element: Element,
+  vnodeChildren: unknown
+): void {
+  if (!vnodeChildren) {
+    element.textContent = '';
+    keyedElements.delete(element);
+    return;
+  }
+
+  if (!Array.isArray(vnodeChildren)) {
+    element.textContent = '';
+    const dom = createDOMNode(vnodeChildren);
+    if (dom) element.appendChild(dom);
+    keyedElements.delete(element);
+    return;
+  }
+
+  if (hasKeyedChildren(vnodeChildren)) {
+    const oldKeyMap = getOrBuildKeyMap(element);
+    try {
+      reconcileKeyed(element, vnodeChildren, oldKeyMap);
+    } catch {
+      // Fall back on error
+      const newKeyMap = reconcileKeyedChildren(element, vnodeChildren, oldKeyMap);
+      keyedElements.set(element, newKeyMap);
+    }
+  } else {
+    reconcileUnkeyed(element, vnodeChildren);
+  }
+}
+
+/**
+ * Perform a smart update on an existing element
+ * Tries text-in-place update first, then full child reconciliation
+ */
+function smartUpdateElement(
+  element: Element,
+  vnode: DOMElement
+): void {
+  const vnodeChildren = vnode.children || vnode.props?.children;
+  const textCheck = checkSimpleText(vnodeChildren);
+
+  if (textCheck.isSimple && tryUpdateTextInPlace(element, textCheck.text)) {
+    // Text updated in place, nothing more to do for children
+  } else {
+    updateElementChildren(element, vnodeChildren);
+  }
+
+  updateElementFromVnode(element, vnode, false);
+}
+
+/**
+ * Process Fragment children with smart updates for each child
+ */
+function processFragmentChildren(target: Element, childArray: unknown[]): void {
+  const existingChildren = Array.from(target.children) as Element[];
+
+  for (let i = 0; i < childArray.length; i++) {
+    const childVnode = childArray[i];
+    const existingNode = existingChildren[i];
+
+    // Apply the same smart update logic as the single-element case
+    if (
+      existingNode &&
+      _isDOMElement(childVnode) &&
+      typeof (childVnode as DOMElement).type === 'string' &&
+      existingNode.tagName.toLowerCase() ===
+        ((childVnode as DOMElement).type as string).toLowerCase()
+    ) {
+      // Same element type - do smart update
+      smartUpdateElement(existingNode, childVnode as DOMElement);
+      continue;
+    }
+
+    // Different type or no existing node - replace
+    const newDom = createDOMNode(childVnode);
+    if (newDom) {
+      if (existingNode) {
+        target.replaceChild(newDom, existingNode);
+      } else {
+        target.appendChild(newDom);
+      }
+    }
+  }
+
+  // Remove extra children
+  while (target.children.length > childArray.length) {
+    target.removeChild(target.lastChild!);
+  }
+}
+
+/**
+ * Create a wrapped event handler that integrates with the scheduler
+ */
+function createWrappedEventHandler(handler: EventListener): EventListener {
+  return (event: Event) => {
+    globalScheduler.setInHandler(true);
+    try {
+      handler(event);
+    } catch (error) {
+      logger.error('[Askr] Event handler error:', error);
+    } finally {
+      globalScheduler.setInHandler(false);
+    }
+  };
+}
+
+/**
+ * Apply props/attributes to an element (used for first render with keyed children)
+ */
+function applyPropsToElement(el: Element, props: Props): void {
+  for (const [key, value] of Object.entries(props)) {
+    if (key === 'children' || key === 'key') continue;
+    if (value === undefined || value === null || value === false) continue;
+
+    if (key.startsWith('on') && key.length > 2) {
+      const eventName =
+        key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
+
+      const wrappedHandler = createWrappedEventHandler(value as EventListener);
+
+      const options: boolean | AddEventListenerOptions | undefined =
+        eventName === 'wheel' ||
+        eventName === 'scroll' ||
+        eventName.startsWith('touch')
+          ? { passive: true }
+          : undefined;
+
+      if (options !== undefined) {
+        el.addEventListener(eventName, wrappedHandler, options);
+      } else {
+        el.addEventListener(eventName, wrappedHandler);
+      }
+
+      if (!elementListeners.has(el)) {
+        elementListeners.set(el, new Map());
+      }
+      elementListeners.get(el)!.set(eventName, {
+        handler: wrappedHandler,
+        original: value as EventListener,
+        options,
+      });
+      continue;
+    }
+
+    if (key === 'class' || key === 'className') {
+      el.className = String(value);
+    } else if (key === 'value' || key === 'checked') {
+      (el as HTMLElement & Props)[key] = value;
+    } else {
+      el.setAttribute(key, String(value));
+    }
+  }
+}
+
+/**
+ * Try to handle first render of element with keyed children
+ * Returns true if handled, false to fall back to default rendering
+ */
+function tryFirstRenderKeyedChildren(
+  target: Element,
+  vnode: DOMElement
+): boolean {
+  const children = vnode.children;
+  if (!Array.isArray(children) || !hasKeyedChildren(children)) {
+    return false;
+  }
+
+  const el = document.createElement(vnode.type as string);
+  target.appendChild(el);
+
+  applyPropsToElement(el, vnode.props || {});
+
+  const newKeyMap = reconcileKeyedChildren(el, children, undefined);
+  keyedElements.set(el, newKeyMap);
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fragment Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Check if a vnode is a Fragment
+ */
+function isFragment(vnode: unknown): vnode is DOMElement {
+  return (
+    _isDOMElement(vnode) &&
+    typeof (vnode as DOMElement).type === 'symbol' &&
+    ((vnode as DOMElement).type === Fragment ||
+      String((vnode as DOMElement).type) === 'Symbol(askr.fragment)')
+  );
+}
+
+/**
+ * Unwrap Fragment to get children array
+ */
+function getFragmentChildren(vnode: DOMElement): unknown[] {
+  const fragmentChildren =
+    vnode.props?.children || vnode.children || [];
+  return Array.isArray(fragmentChildren) ? fragmentChildren : [fragmentChildren];
+}
+
 export function evaluate(
   node: unknown,
   target: Element | null,
@@ -90,19 +519,8 @@ export function evaluate(
     // If vnode is a Fragment, unwrap it to get the actual content for the smart update path.
     // Fragments become invisible in the DOM - their children are placed directly in the parent.
     // So for smart updates, we need to compare against the Fragment's children, not the Fragment itself.
-    if (
-      _isDOMElement(vnode) &&
-      typeof (vnode as DOMElement).type === 'symbol' &&
-      ((vnode as DOMElement).type === Fragment ||
-        String((vnode as DOMElement).type) === 'Symbol(askr.fragment)')
-    ) {
-      const fragmentChildren =
-        (vnode as DOMElement).props?.children ||
-        (vnode as DOMElement).children ||
-        [];
-      const childArray = Array.isArray(fragmentChildren)
-        ? fragmentChildren
-        : [fragmentChildren];
+    if (isFragment(vnode)) {
+      const childArray = getFragmentChildren(vnode as DOMElement);
       // If Fragment has exactly one child that's an element, unwrap to that child
       // This allows the smart update path to match against it
       if (
@@ -113,145 +531,7 @@ export function evaluate(
         vnode = childArray[0];
       } else {
         // Fragment with multiple children - process each child with full smart update logic
-        const existingChildren = Array.from(target.children) as Element[];
-
-        for (let i = 0; i < childArray.length; i++) {
-          const childVnode = childArray[i];
-          const existingNode = existingChildren[i];
-
-          // Apply the same smart update logic as the single-element case
-          if (
-            existingNode &&
-            _isDOMElement(childVnode) &&
-            typeof (childVnode as DOMElement).type === 'string' &&
-            existingNode.tagName.toLowerCase() ===
-              ((childVnode as DOMElement).type as string).toLowerCase()
-          ) {
-            // Same element type - do smart update with keyed reconciliation
-            const vnodeChildren =
-              (childVnode as DOMElement).children ||
-              (childVnode as DOMElement).props?.children;
-
-            // Check for simple text update
-            let isSimpleTextVNode = false;
-            let textContent: string | undefined;
-            if (!Array.isArray(vnodeChildren)) {
-              if (
-                typeof vnodeChildren === 'string' ||
-                typeof vnodeChildren === 'number'
-              ) {
-                isSimpleTextVNode = true;
-                textContent = String(vnodeChildren);
-              }
-            } else if (vnodeChildren.length === 1) {
-              const child = vnodeChildren[0];
-              if (typeof child === 'string' || typeof child === 'number') {
-                isSimpleTextVNode = true;
-                textContent = String(child);
-              }
-            }
-
-            if (
-              isSimpleTextVNode &&
-              existingNode.childNodes.length === 1 &&
-              existingNode.firstChild?.nodeType === 3
-            ) {
-              (existingNode.firstChild as Text).data = textContent!;
-            } else if (vnodeChildren) {
-              if (Array.isArray(vnodeChildren)) {
-                // Check for keyed children
-                const hasKeys = vnodeChildren.some(
-                  (child) =>
-                    typeof child === 'object' &&
-                    child !== null &&
-                    'key' in child
-                );
-
-                if (hasKeys) {
-                  // Get or build key map
-                  let oldKeyMap = keyedElements.get(existingNode);
-                  if (!oldKeyMap) {
-                    oldKeyMap = new Map();
-                    const children = Array.from(existingNode.children);
-                    for (let j = 0; j < children.length; j++) {
-                      const ch = children[j] as Element;
-                      const k = ch.getAttribute('data-key');
-                      if (k !== null) {
-                        oldKeyMap.set(k, ch);
-                        const n = Number(k);
-                        if (!Number.isNaN(n)) oldKeyMap.set(n, ch);
-                      }
-                    }
-                    if (oldKeyMap.size > 0)
-                      keyedElements.set(existingNode, oldKeyMap);
-                  }
-                  // Use keyed reconciliation
-                  const newKeyMap = reconcileKeyedChildren(
-                    existingNode,
-                    vnodeChildren,
-                    oldKeyMap
-                  );
-                  keyedElements.set(existingNode, newKeyMap);
-                } else {
-                  // Unkeyed children - check for bulk text fast-path
-                  if (isBulkTextFastPathEligible(existingNode, vnodeChildren)) {
-                    const stats = performBulkTextReplace(
-                      existingNode,
-                      vnodeChildren
-                    );
-                    // Dev-only instrumentation counters
-                    if (process.env.NODE_ENV !== 'production') {
-                      try {
-                        __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
-                        __ASKR_incCounter('bulkTextHits');
-                      } catch (e) {
-                        void e;
-                      }
-                    }
-                  } else {
-                    if (process.env.NODE_ENV !== 'production') {
-                      try {
-                        __ASKR_incCounter('bulkTextMisses');
-                      } catch (e) {
-                        void e;
-                      }
-                    }
-                    updateUnkeyedChildren(existingNode, vnodeChildren);
-                  }
-                  keyedElements.delete(existingNode);
-                }
-              } else {
-                existingNode.textContent = '';
-                const dom = createDOMNode(vnodeChildren);
-                if (dom) existingNode.appendChild(dom);
-                keyedElements.delete(existingNode);
-              }
-            } else {
-              existingNode.textContent = '';
-              keyedElements.delete(existingNode);
-            }
-
-            // Update attributes
-            updateElementFromVnode(existingNode, childVnode, false);
-            continue;
-          }
-
-          // Different type or no existing node - replace
-          const newDom = createDOMNode(childVnode);
-          if (newDom) {
-            if (existingNode) {
-              target.replaceChild(newDom, existingNode);
-            } else {
-              target.appendChild(newDom);
-            }
-          }
-        }
-
-        // Remove extra children
-        while (target.children.length > childArray.length) {
-          target.removeChild(target.lastChild!);
-        }
-
+        processFragmentChildren(target, childArray);
         return;
       }
     }
@@ -265,314 +545,18 @@ export function evaluate(
       firstChild.tagName.toLowerCase() === vnode.type.toLowerCase()
     ) {
       // Reuse the existing element - it's the same type
-
-      // Smart child update: if the only child is a single text node and vnode only has text children,
-      // update the text node in place instead of replacing
-      const vnodeChildren = vnode.children || vnode.props?.children;
-
-      // Determine if this should be a simple text update
-      let isSimpleTextVNode = false;
-      let textContent: string | undefined;
-
-      if (!Array.isArray(vnodeChildren)) {
-        if (
-          typeof vnodeChildren === 'string' ||
-          typeof vnodeChildren === 'number'
-        ) {
-          isSimpleTextVNode = true;
-          textContent = String(vnodeChildren);
-        }
-      } else if (vnodeChildren.length === 1) {
-        // Array with single element - check if it's text
-        const child = vnodeChildren[0];
-        if (typeof child === 'string' || typeof child === 'number') {
-          isSimpleTextVNode = true;
-          textContent = String(child);
-        }
-      }
-
-      if (
-        isSimpleTextVNode &&
-        firstChild.childNodes.length === 1 &&
-        firstChild.firstChild?.nodeType === 3
-      ) {
-        // Update existing text node in place
-        (firstChild.firstChild as Text).data = textContent!;
-      } else {
-        // Clear and repopulate children
-        if (vnodeChildren) {
-          if (Array.isArray(vnodeChildren)) {
-            // Check if any children have keys - if so, use keyed reconciliation
-            const hasKeys = vnodeChildren.some(
-              (child) =>
-                typeof child === 'object' && child !== null && 'key' in child
-            );
-
-            if (hasKeys) {
-              // Get existing key map or create new one
-              let oldKeyMap = keyedElements.get(firstChild);
-              if (!oldKeyMap) {
-                // Attempt to populate oldKeyMap from DOM attributes if the
-                // keyedElements registry hasn't been initialized yet. This
-                // supports cases where initial render or previous updates set
-                // `data-key` attributes but the runtime registry was not set.
-                oldKeyMap = new Map();
-                try {
-                  const children = Array.from(firstChild.children);
-                  for (let i = 0; i < children.length; i++) {
-                    const ch = children[i] as Element;
-                    const k = ch.getAttribute('data-key');
-                    if (k !== null) {
-                      oldKeyMap.set(k, ch);
-                      const n = Number(k);
-                      if (!Number.isNaN(n)) oldKeyMap.set(n, ch);
-                    }
-                  }
-                  // Persist the discovered mapping so future updates can use
-                  // the move-by-key fast-path without re-scanning the DOM.
-                  if (oldKeyMap.size > 0)
-                    keyedElements.set(firstChild, oldKeyMap);
-                } catch (e) {
-                  void e;
-                }
-              }
-
-              // Optional forced positional bulk path for large keyed lists
-              try {
-                if (process.env.ASKR_FORCE_BULK_POSREUSE === '1') {
-                  try {
-                    const keyedVnodes: Array<{
-                      key: string | number;
-                      vnode: VNode;
-                    }> = [];
-                    for (
-                      let i = 0;
-                      i < (vnodeChildren as VNode[]).length;
-                      i++
-                    ) {
-                      const c = (vnodeChildren as VNode[])[i];
-                      if (
-                        _isDOMElement(c) &&
-                        (c as DOMElement).key !== undefined
-                      ) {
-                        keyedVnodes.push({
-                          key: (c as DOMElement).key as string | number,
-                          vnode: c,
-                        });
-                      }
-                    }
-                    // Only apply when all children are keyed and count matches
-                    if (
-                      keyedVnodes.length > 0 &&
-                      keyedVnodes.length === (vnodeChildren as VNode[]).length
-                    ) {
-                      if (
-                        process.env.ASKR_FASTPATH_DEBUG === '1' ||
-                        process.env.ASKR_FASTPATH_DEBUG === 'true'
-                      ) {
-                        logger.warn(
-                          '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
-                        );
-                      }
-                      const stats = performBulkPositionalKeyedTextUpdate(
-                        firstChild,
-                        keyedVnodes
-                      );
-                      if (
-                        process.env.NODE_ENV !== 'production' ||
-                        process.env.ASKR_FASTPATH_DEBUG === '1'
-                      ) {
-                        try {
-                          __ASKR_set('__LAST_FASTPATH_STATS', stats);
-                          __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
-                          __ASKR_incCounter('bulkKeyedPositionalForced');
-                        } catch (e) {
-                          void e;
-                        }
-                      }
-                      // Rebuild keyed map
-                      try {
-                        const map = new Map<string | number, Element>();
-                        const children = Array.from(firstChild.children);
-                        for (let i = 0; i < children.length; i++) {
-                          const el = children[i] as Element;
-                          const k = el.getAttribute('data-key');
-                          if (k !== null) {
-                            map.set(k, el);
-                            const n = Number(k);
-                            if (!Number.isNaN(n)) map.set(n, el);
-                          }
-                        }
-                        keyedElements.set(firstChild, map);
-                      } catch (e) {
-                        void e;
-                      }
-                    } else {
-                      // Fall back to normal reconciliation below
-                      const newKeyMap = reconcileKeyedChildren(
-                        firstChild,
-                        vnodeChildren,
-                        oldKeyMap
-                      );
-                      keyedElements.set(firstChild, newKeyMap);
-                    }
-                  } catch (err) {
-                    if (
-                      process.env.ASKR_FASTPATH_DEBUG === '1' ||
-                      process.env.ASKR_FASTPATH_DEBUG === 'true'
-                    ) {
-                      logger.warn(
-                        '[Askr][FASTPATH] forced bulk path failed, falling back',
-                        err
-                      );
-                    }
-                    const newKeyMap = reconcileKeyedChildren(
-                      firstChild,
-                      vnodeChildren,
-                      oldKeyMap
-                    );
-                    keyedElements.set(firstChild, newKeyMap);
-                  }
-                } else {
-                  // Do reconciliation - this will reuse existing keyed elements
-                  const newKeyMap = reconcileKeyedChildren(
-                    firstChild,
-                    vnodeChildren,
-                    oldKeyMap
-                  );
-                  keyedElements.set(firstChild, newKeyMap);
-                }
-              } catch (e) {
-                void e; // suppress unused variable lint
-                // Fall back to normal reconciliation on error
-                const newKeyMap = reconcileKeyedChildren(
-                  firstChild,
-                  vnodeChildren,
-                  oldKeyMap
-                );
-                keyedElements.set(firstChild, newKeyMap);
-              }
-            } else {
-              // Unkeyed - consider bulk text fast-path for large text-dominant updates
-              if (isBulkTextFastPathEligible(firstChild, vnodeChildren)) {
-                const stats = performBulkTextReplace(firstChild, vnodeChildren);
-                // Dev-only instrumentation counters
-                if (process.env.NODE_ENV !== 'production') {
-                  try {
-                    __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
-                    __ASKR_incCounter('bulkTextHits');
-                  } catch (e) {
-                    void e;
-                  }
-                }
-              } else {
-                if (process.env.NODE_ENV !== 'production') {
-                  try {
-                    __ASKR_incCounter('bulkTextMisses');
-                  } catch (e) {
-                    void e;
-                  }
-                }
-                // Fall back to existing per-node updates
-                updateUnkeyedChildren(firstChild, vnodeChildren);
-                keyedElements.delete(firstChild);
-              }
-            }
-          } else {
-            // Non-array children
-            firstChild.textContent = '';
-            const dom = createDOMNode(vnodeChildren);
-            if (dom) firstChild.appendChild(dom);
-            keyedElements.delete(firstChild);
-          }
-        } else {
-          // No children
-          firstChild.textContent = '';
-          keyedElements.delete(firstChild);
-        }
-      }
-
-      // Update attributes and event listeners
-      updateElementFromVnode(firstChild, vnode, false);
+      smartUpdateElement(firstChild, vnode as DOMElement);
     } else {
       // Clear and rebuild (first render or structure changed)
       target.textContent = '';
 
       // Check if this is an element with keyed children even on first render
-      if (_isDOMElement(vnode) && typeof vnode.type === 'string') {
-        const children = vnode.children;
-        if (
-          Array.isArray(children) &&
-          children.some(
-            (child) =>
-              typeof child === 'object' && child !== null && 'key' in child
-          )
-        ) {
-          // Create the element first
-          const el = document.createElement(vnode.type);
-          target.appendChild(el);
-
-          // Apply attributes
-          const props = vnode.props || {};
-          for (const [key, value] of Object.entries(props)) {
-            if (key === 'children' || key === 'key') continue;
-            if (value === undefined || value === null || value === false)
-              continue;
-            if (key.startsWith('on') && key.length > 2) {
-              const eventName =
-                key.slice(2).charAt(0).toLowerCase() +
-                key.slice(3).toLowerCase();
-              // Note: DOM event handlers run synchronously, but while in the
-              // handler we mark the scheduler as "in handler" to defer any scheduled
-              // flushes until the handler completes. This preserves synchronous
-              // handler semantics (immediate reads observe state changes), while
-              // keeping commits atomic and serialized.
-              const wrappedHandler = (event: Event) => {
-                globalScheduler.setInHandler(true);
-                try {
-                  (value as EventListener)(event);
-                } catch (error) {
-                  logger.error('[Askr] Event handler error:', error);
-                } finally {
-                  globalScheduler.setInHandler(false);
-                }
-                // After handler completes, flush any pending tasks
-                // globalScheduler.flush(); // Defer flush to manual control for testing
-              };
-
-              const options: boolean | AddEventListenerOptions | undefined =
-                eventName === 'wheel' ||
-                eventName === 'scroll' ||
-                eventName.startsWith('touch')
-                  ? { passive: true }
-                  : undefined;
-              if (options !== undefined)
-                el.addEventListener(eventName, wrappedHandler, options);
-              else el.addEventListener(eventName, wrappedHandler);
-              if (!elementListeners.has(el)) {
-                elementListeners.set(el, new Map());
-              }
-              elementListeners.get(el)!.set(eventName, {
-                handler: wrappedHandler,
-                original: value as EventListener,
-                options,
-              });
-              continue;
-            }
-            if (key === 'class' || key === 'className') {
-              el.className = String(value);
-            } else if (key === 'value' || key === 'checked') {
-              (el as HTMLElement & Props)[key] = value;
-            } else {
-              el.setAttribute(key, String(value));
-            }
-          }
-
-          // Use keyed reconciliation for children
-          const newKeyMap = reconcileKeyedChildren(el, children, undefined);
-          keyedElements.set(el, newKeyMap);
-          return;
-        }
+      if (
+        _isDOMElement(vnode) &&
+        typeof vnode.type === 'string' &&
+        tryFirstRenderKeyedChildren(target, vnode as DOMElement)
+      ) {
+        return;
       }
 
       // Default: create whole tree
