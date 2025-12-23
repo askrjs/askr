@@ -1,4 +1,5 @@
 import { globalScheduler } from './scheduler';
+import { setDevValue } from './dev-namespace';
 
 let _bulkCommitActive = false;
 let _appliedParents: WeakSet<Element> | null = null;
@@ -9,16 +10,11 @@ export function enterBulkCommit(): void {
   _appliedParents = new WeakSet<Element>();
 
   // Clear any previously scheduled synchronous scheduler tasks so they don't
-  // retrigger evaluations during the committed fast-path. This is a safety
-  // barrier to enforce quiescence for bulk commits.
+  // retrigger evaluations during the committed fast-path.
   try {
     const cleared = globalScheduler.clearPendingSyncTasks?.() ?? 0;
-    if (process.env.NODE_ENV !== 'production') {
-      const _g = globalThis as Record<string, unknown>;
-      _g.__ASKR_FASTLANE_CLEARED_TASKS = cleared;
-    }
+    setDevValue('__ASKR_FASTLANE_CLEARED_TASKS', cleared);
   } catch (err) {
-    // In the unlikely event clearing fails in production, ignore it; in dev rethrow
     if (process.env.NODE_ENV !== 'production') throw err;
   }
 }

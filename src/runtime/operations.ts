@@ -4,7 +4,7 @@ import {
   type ComponentInstance,
 } from './component';
 import { getCurrentContextFrame } from './context';
-import { ResourceCell } from './resource_cell';
+import { ResourceCell } from './resource-cell';
 import { state } from './state';
 import { getDeriveCache } from '../shared/derive_cache';
 import {
@@ -77,7 +77,7 @@ export function resource<T>(
 
   // Internal ResourceCell — pure state machine now moved to its own module
   // to keep component wiring separate and ensure no component access here.
-  // (See ./resource_cell.ts)
+  // (See ./resource-cell.ts)
 
   // If we're in a synchronous SSR render that was supplied resolved data, use it
   const renderData = getCurrentRenderData();

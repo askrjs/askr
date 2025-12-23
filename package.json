@@ -26,7 +26,8 @@
   "packageManager": "npm@11.7.0",
   "license": "Apache-2.0",
   "sideEffects": [
-    "src/jsx/types.ts"
+    "src/jsx/types.ts",
+    "src/runtime/fastlane.ts"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

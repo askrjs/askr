@@ -328,14 +328,3 @@ export function getCurrentContextFrame(): ContextFrame | null {
 export function getTopContextSnapshot(): ContextFrame | null {
   return currentContextFrame;
 }
-
-/**
- * Deprecated aliases for backward compatibility
- * These should not be used in new code
- */
-export function executeWithinFrame<T>(
-  frame: ContextFrame | null,
-  fn: () => T
-): T {
-  return withContext(frame, fn);
-}

@@ -1,9 +1,10 @@
 import { globalScheduler } from './scheduler';
 import { logger } from '../dev/logger';
-import type { ComponentInstance } from './component';
+import { type ComponentInstance, finalizeReadSubscriptions } from './component';
 import {
   getKeyMapForElement,
   isKeyedReorderFastPathEligible,
+  populateKeyMapForElement,
 } from '../renderer';
 
 import {
@@ -14,6 +15,7 @@ import {
   isFastPathApplied,
 } from './fastlane-shared';
 import { Fragment } from '../jsx/types';
+import { setDevValue, getDevValue, deleteDevValue } from './dev-namespace';
 
 /**
  * Attempt to execute a runtime fast-lane for a single component's synchronous
@@ -42,8 +44,7 @@ function unwrapFragmentForFastPath(vnode: unknown): unknown {
     const children = v.children || v.props?.children;
     if (Array.isArray(children) && children.length > 0) {
       // Return the first child that's an intrinsic element
-      for (let i = 0; i < children.length; i++) {
-        const child = children[i];
+      for (const child of children) {
         if (child && typeof child === 'object' && 'type' in child) {
           const c = child as { type: unknown };
           if (typeof c.type === 'string') {
@@ -71,6 +72,7 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
     !('type' in unwrappedResult)
   )
     return { useFastPath: false, reason: 'not-vnode' };
+
   const vnode = unwrappedResult as {
     type: unknown;
     children?: unknown;
@@ -87,16 +89,12 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
   if (firstChild.tagName.toLowerCase() !== String(vnode.type).toLowerCase())
     return { useFastPath: false, reason: 'root-tag-mismatch' };
 
-  const children =
-    (vnode as { children?: unknown; props?: { children?: unknown } })
-      .children ||
-    (vnode as { props?: { children?: unknown } }).props?.children;
+  const children = vnode.children || vnode.props?.children;
   if (!Array.isArray(children))
     return { useFastPath: false, reason: 'no-children-array' };
 
   // Avoid component child vnodes (they may mount/unmount or trigger async)
-  for (let i = 0; i < children.length; i++) {
-    const c = children[i];
+  for (const c of children) {
     if (
       typeof c === 'object' &&
       c !== null &&
@@ -111,23 +109,11 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
     return { useFastPath: false, reason: 'pending-mounts' };
 
   // Ask renderer for keyed reorder eligibility (prop differences & heuristics)
-  // Ensure a keyed map is available for the first child by populating it
-  // proactively if necessary. This reduces race conditions where the DOM
-  // might be cleared during evaluation and the renderer cannot discover
-  // existing keyed elements.
+  // Ensure a keyed map is available for the first child by populating it proactively.
   try {
-    // Import function dynamically to avoid circular load issues
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- circular import; require used intentionally to perform a synchronous call
-    const dom = require('../renderer') as typeof import('../renderer');
-    if (typeof dom.populateKeyMapForElement === 'function') {
-      try {
-        dom.populateKeyMapForElement(firstChild);
-      } catch (e) {
-        void e;
-      }
-    }
-  } catch (e) {
-    void e;
+    populateKeyMapForElement(firstChild);
+  } catch {
+    // ignore
   }
 
   const oldKeyMap = getKeyMapForElement(firstChild);
@@ -146,10 +132,8 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
 export function commitReorderOnly(
   instance: ComponentInstance,
   result: unknown
-) {
-  // Performs the minimal, synchronous reorder-only commit. Sets dev-only
-  // diagnostic fields on globalThis for test assertions and verifies
-  // invariants (no mounts, no effects, single DOM commit).
+): boolean {
+  // Performs the minimal, synchronous reorder-only commit.
   const evaluate = (
     globalThis as {
       __ASKR_RENDERER?: {
@@ -157,6 +141,7 @@ export function commitReorderOnly(
       };
     }
   ).__ASKR_RENDERER?.evaluate;
+
   if (typeof evaluate !== 'function') {
     logger.warn(
       '[Tempo][FASTPATH][DEV] renderer.evaluate not available; declining fast-lane'
@@ -170,264 +155,133 @@ export function commitReorderOnly(
   enterBulkCommit();
 
   try {
-    // Execute the renderer synchronously inside a controlled scheduler
-    // escape hatch that allows deterministic synchronous scheduler progress
-    // while still preserving bulk-commit semantics (no async tasks, single DOM
-    // mutation, and rollback safety).
     globalScheduler.runWithSyncProgress(() => {
       evaluate(result, instance.target);
 
-      // Ensure runtime bookkeeping (read subscriptions / tokens) is finalized
-      // even when we bypass the normal scheduler-driven commit path.
+      // Finalize runtime bookkeeping (read subscriptions / tokens)
       try {
-        // Import function dynamically to avoid circular import at module top-level
-        // (component module defines finalizeReadSubscriptions).
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- circular import; require used intentionally to perform a synchronous call
-        const comp = require('./component') as typeof import('./component');
-        if (typeof comp?.finalizeReadSubscriptions === 'function') {
-          try {
-            comp.finalizeReadSubscriptions(instance);
-          } catch (e) {
-            // Surface in dev, ignore in prod
-            if (process.env.NODE_ENV !== 'production') throw e;
-          }
-        }
+        finalizeReadSubscriptions(instance);
       } catch (e) {
-        void e;
+        if (process.env.NODE_ENV !== 'production') throw e;
       }
     });
 
-    // Safety: clear any synchronous tasks that were scheduled during the commit
-    // but did not get executed due to flush reentrancy or microtask timing. This
-    // ensures final quiescence for bulk commits.
-    try {
-      const clearedAfter = globalScheduler.clearPendingSyncTasks?.() ?? 0;
-      if (process.env.NODE_ENV !== 'production') {
-        const ns =
-          (
-            globalThis as unknown as Record<string, unknown> & {
-              __ASKR__?: Record<string, unknown>;
-            }
-          ).__ASKR__ ||
-          (
-            globalThis as unknown as Record<string, unknown> & {
-              __ASKR__?: Record<string, unknown>;
-            }
-          ).__ASKR__!;
-        try {
-          ns['__FASTLANE_CLEARED_AFTER'] = clearedAfter;
-        } catch (e) {
-          void e;
-        }
-      }
-    } catch (err) {
-      if (process.env.NODE_ENV !== 'production') throw err;
-    }
+    // Clear any synchronous tasks scheduled during the commit
+    const clearedAfter = globalScheduler.clearPendingSyncTasks?.() ?? 0;
+    setDevValue('__FASTLANE_CLEARED_AFTER', clearedAfter);
 
-    // Dev-only invariant checks and diagnostics
+    // Dev-only invariant checks
     if (process.env.NODE_ENV !== 'production') {
-      // Commit count recorded by renderer (set by fast-path code)
-      const ns =
-        (
-          globalThis as unknown as Record<string, unknown> & {
-            __ASKR__?: Record<string, unknown>;
-          }
-        ).__ASKR__ || {};
-      const commitCount =
-        typeof ns['__LAST_FASTPATH_COMMIT_COUNT'] === 'number'
-          ? (ns['__LAST_FASTPATH_COMMIT_COUNT'] as number)
-          : 0;
-      const invariants = {
-        commitCount,
-        mountOps: instance.mountOperations.length,
-        cleanupFns: instance.cleanupFns.length,
-      } as const;
-      try {
-        ns['__LAST_FASTLANE_INVARIANTS'] = invariants;
-      } catch (e) {
-        void e;
-      }
-
-      if (commitCount !== 1) {
-        try {
-          // Dump diag map + namespaced diagnostics for debugging
-          const _diag = (globalThis as Record<string, unknown>).__ASKR_DIAG;
-          const ns =
-            (
-              globalThis as unknown as Record<string, unknown> & {
-                __ASKR__?: Record<string, unknown>;
-              }
-            ).__ASKR__ || {};
-          console.error(
-            '[FASTLANE][INV] commitCount',
-            commitCount,
-            'diag',
-            _diag
-          );
-          console.error('[FASTLANE][INV] namespace', ns);
-        } catch (e) {
-          void e;
-        }
-        throw new Error(
-          'Fast-lane invariant violated: expected exactly one DOM commit during reorder-only commit'
-        );
-      }
-      if (invariants.mountOps > 0) {
-        throw new Error(
-          'Fast-lane invariant violated: mount operations were registered during bulk commit'
-        );
-      }
-      if (invariants.cleanupFns > 0) {
-        throw new Error(
-          'Fast-lane invariant violated: cleanup functions were added during bulk commit'
-        );
-      }
-
-      const schedAfter = globalScheduler.getState();
-      if (
-        schedBefore &&
-        schedAfter &&
-        // Only fail if outstanding tasks increased — consuming existing tasks is allowed
-        schedAfter.taskCount > schedBefore.taskCount
-      ) {
-        try {
-          console.error(
-            '[FASTLANE] schedBefore, schedAfter',
-            schedBefore,
-            schedAfter
-          );
-
-          try {
-            const ns =
-              (
-                globalThis as unknown as Record<string, unknown> & {
-                  __ASKR__?: Record<string, unknown>;
-                }
-              ).__ASKR__ || {};
-            console.error('[FASTLANE] enqueue logs', ns['__ENQUEUE_LOGS']);
-          } catch (e) {
-            void e;
-          }
-        } catch (e) {
-          void e;
-        }
-        throw new Error(
-          'Fast-lane invariant violated: scheduler enqueued leftover work during bulk commit'
-        );
-      }
-
-      // Final quiescence assertion: ensure scheduler has no pending sync tasks
-      let finalState = globalScheduler.getState();
-      // Adjust expected task count by subtracting the currently executing task
-      // (we're inside that task at the time of this check). The goal is to
-      // ensure there are no *other* pending tasks beyond the active execution.
-      const executing = globalScheduler.isExecuting();
-      const outstandingAfter = Math.max(
-        0,
-        finalState.taskCount - (executing ? 1 : 0)
-      );
-
-      if (outstandingAfter !== 0) {
-        // Attempt to clear newly enqueued synchronous tasks that may have
-        // been scheduled in microtasks or during remaining flush operations.
-        // This loop is conservative and only runs in dev to help catch
-        // flaky microtask timing windows; in prod we prefer to fail-safe by
-        // dropping such tasks earlier.
-        if (process.env.NODE_ENV !== 'production') {
-          let attempts = 0;
-          while (attempts < 5) {
-            const cleared = globalScheduler.clearPendingSyncTasks?.() ?? 0;
-            if (cleared === 0) break;
-            attempts++;
-          }
-          finalState = globalScheduler.getState();
-          const outstandingAfter2 = Math.max(
-            0,
-            finalState.taskCount - (globalScheduler.isExecuting() ? 1 : 0)
-          );
-          if (outstandingAfter2 !== 0) {
-            try {
-              const ns =
-                (
-                  globalThis as unknown as Record<string, unknown> & {
-                    __ASKR__?: Record<string, unknown>;
-                  }
-                ).__ASKR__ || {};
-
-              console.error(
-                '[FASTLANE] Post-commit enqueue logs:',
-                ns['__ENQUEUE_LOGS']
-              );
-
-              console.error(
-                '[FASTLANE] Cleared counts:',
-                ns['__FASTLANE_CLEARED_TASKS'],
-                ns['__FASTLANE_CLEARED_AFTER']
-              );
-            } catch (err) {
-              void err;
-            }
-            throw new Error(
-              `Fast-lane invariant violated: scheduler has ${finalState.taskCount} pending task(s) after commit`
-            );
-          }
-        } else {
-          // In production, silently drop remaining synchronous tasks to preserve
-          // atomicity and avoid leaving the system in a non-quiescent state.
-          globalScheduler.clearPendingSyncTasks?.();
-        }
-      }
+      validateFastLaneInvariants(instance, schedBefore);
     }
 
     return true;
   } finally {
     exitBulkCommit();
-
-    // Dev-time: ensure the bulk commit flag was cleared by the end of the operation
-    // NOTE: avoid throwing inside `finally` (no-unsafe-finally). Capture the
-    // failure and rethrow after the finally block.
-    // We set a flag on `globalThis` to check after the finally, which will be
-    // handled below.
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        const ns =
-          (
-            globalThis as unknown as Record<string, unknown> & {
-              __ASKR__?: Record<string, unknown>;
-            }
-          ).__ASKR__ ||
-          (
-            globalThis as unknown as Record<string, unknown> & {
-              __ASKR__?: Record<string, unknown>;
-            }
-          ).__ASKR__!;
-        try {
-          ns['__FASTLANE_BULK_FLAG_CHECK'] = isBulkCommitActive();
-        } catch (e) {
-          void e;
-        }
-      } catch (e) {
-        void e;
-      }
-    }
+    setDevValue('__FASTLANE_BULK_FLAG_CHECK', isBulkCommitActive());
   }
 
   // Re-check the captured assertion outside of finally and throw if needed
   if (process.env.NODE_ENV !== 'production') {
-    const ns =
-      (
-        globalThis as unknown as Record<string, unknown> & {
-          __ASKR__?: Record<string, unknown>;
-        }
-      ).__ASKR__ || {};
-    if (ns['__FASTLANE_BULK_FLAG_CHECK']) {
-      try {
-        delete ns['__FASTLANE_BULK_FLAG_CHECK'];
-      } catch (e) {
-        void e;
-      }
+    if (getDevValue('__FASTLANE_BULK_FLAG_CHECK')) {
+      deleteDevValue('__FASTLANE_BULK_FLAG_CHECK');
       throw new Error(
         'Fast-lane invariant violated: bulk commit flag still set after commit'
+      );
+    }
+  }
+}
+
+/**
+ * Validates fast-lane invariants in dev mode.
+ * Extracted to reduce complexity in commitReorderOnly.
+ */
+function validateFastLaneInvariants(
+  instance: ComponentInstance,
+  schedBefore: ReturnType<typeof globalScheduler.getState> | null
+): void {
+  const commitCount = getDevValue<number>('__LAST_FASTPATH_COMMIT_COUNT') ?? 0;
+  const invariants = {
+    commitCount,
+    mountOps: instance.mountOperations.length,
+    cleanupFns: instance.cleanupFns.length,
+  };
+  setDevValue('__LAST_FASTLANE_INVARIANTS', invariants);
+
+  if (commitCount !== 1) {
+    console.error(
+      '[FASTLANE][INV] commitCount',
+      commitCount,
+      'diag',
+      (globalThis as Record<string, unknown>).__ASKR_DIAG
+    );
+    throw new Error(
+      'Fast-lane invariant violated: expected exactly one DOM commit during reorder-only commit'
+    );
+  }
+
+  if (invariants.mountOps > 0) {
+    throw new Error(
+      'Fast-lane invariant violated: mount operations were registered during bulk commit'
+    );
+  }
+
+  if (invariants.cleanupFns > 0) {
+    throw new Error(
+      'Fast-lane invariant violated: cleanup functions were added during bulk commit'
+    );
+  }
+
+  const schedAfter = globalScheduler.getState();
+  if (
+    schedBefore &&
+    schedAfter &&
+    schedAfter.taskCount > schedBefore.taskCount
+  ) {
+    console.error(
+      '[FASTLANE] schedBefore, schedAfter',
+      schedBefore,
+      schedAfter
+    );
+    console.error('[FASTLANE] enqueue logs', getDevValue('__ENQUEUE_LOGS'));
+    throw new Error(
+      'Fast-lane invariant violated: scheduler enqueued leftover work during bulk commit'
+    );
+  }
+
+  // Final quiescence assertion
+  let finalState = globalScheduler.getState();
+  const executing = globalScheduler.isExecuting();
+  let outstandingAfter = Math.max(
+    0,
+    finalState.taskCount - (executing ? 1 : 0)
+  );
+
+  if (outstandingAfter !== 0) {
+    // Attempt to clear newly enqueued synchronous tasks
+    let attempts = 0;
+    while (attempts < 5) {
+      const cleared = globalScheduler.clearPendingSyncTasks?.() ?? 0;
+      if (cleared === 0) break;
+      attempts++;
+    }
+    finalState = globalScheduler.getState();
+    outstandingAfter = Math.max(
+      0,
+      finalState.taskCount - (globalScheduler.isExecuting() ? 1 : 0)
+    );
+    if (outstandingAfter !== 0) {
+      console.error(
+        '[FASTLANE] Post-commit enqueue logs:',
+        getDevValue('__ENQUEUE_LOGS')
+      );
+      console.error(
+        '[FASTLANE] Cleared counts:',
+        getDevValue('__FASTLANE_CLEARED_TASKS'),
+        getDevValue('__FASTLANE_CLEARED_AFTER')
+      );
+      throw new Error(
+        `Fast-lane invariant violated: scheduler has ${finalState.taskCount} pending task(s) after commit`
       );
     }
   }
@@ -439,34 +293,9 @@ export function tryRuntimeFastLaneSync(
 ): boolean {
   const cls = classifyUpdate(instance, result);
   if (!cls.useFastPath) {
-    // Dev-time: ensure stale fast-path diagnostics don't leak across updates.
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        const ns =
-          (
-            globalThis as unknown as Record<string, unknown> & {
-              __ASKR__?: Record<string, unknown>;
-            }
-          ).__ASKR__ ||
-          (
-            globalThis as unknown as Record<string, unknown> & {
-              __ASKR__?: Record<string, unknown>;
-            }
-          ).__ASKR__!;
-        try {
-          ns['__LAST_FASTPATH_STATS'] = undefined;
-        } catch (e) {
-          void e;
-        }
-        try {
-          ns['__LAST_FASTPATH_COMMIT_COUNT'] = 0;
-        } catch (e) {
-          void e;
-        }
-      } catch (e) {
-        void e;
-      }
-    }
+    // Clear stale fast-path diagnostics
+    setDevValue('__LAST_FASTPATH_STATS', undefined);
+    setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 0);
     return false;
   }
 
@@ -479,11 +308,9 @@ export function tryRuntimeFastLaneSync(
   }
 }
 
-// Expose fastlane bridge on globalThis for environments/tests that access it
-// synchronously without using ES module dynamic imports.
+// Expose fastlane bridge on globalThis for environments/tests
 if (typeof globalThis !== 'undefined') {
-  const _g = globalThis as Record<string, unknown>;
-  _g.__ASKR_FASTLANE = {
+  (globalThis as Record<string, unknown>).__ASKR_FASTLANE = {
     isBulkCommitActive,
     enterBulkCommit,
     exitBulkCommit,
