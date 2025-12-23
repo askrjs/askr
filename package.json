@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Actor-backed deterministic UI framework",
   "repository": {
     "type": "git",

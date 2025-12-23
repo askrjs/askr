@@ -11,6 +11,8 @@ import type { JSXElement } from '../jsx/types';
 import type { RouteHandler } from '../router/route';
 import * as RouteModule from '../router/route';
 import type { Props } from '../shared/types';
+import { Fragment, ELEMENT_TYPE } from '../jsx';
+import { DefaultPortal } from '../foundations/portal';
 import {
   createRenderContext,
   runWithSSRContext,
@@ -208,13 +210,69 @@ function renderChildrenSync(
 function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   const { type, props } = node;
 
+  /* istanbul ignore if - dev-only debug to catch unexpected vnode shapes during SSR */
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      // Avoid coercion errors; String(type) may throw for Symbols but that's fine
+      // in a dev-only warning as we only run this in tests.
+      // eslint-disable-next-line no-console
+      console.warn('[SSR] renderNodeSync type:', typeof type, type);
+    } catch (e) {
+      void e;
+    }
+  }
+
   if (typeof type === 'function') {
     const result = executeComponentSync(type as Component, props, ctx);
     if (result instanceof Promise) {
       // Use centralized SSR error to maintain a single failure mode
       throwSSRDataMissing();
     }
+    // Handle non-Element component returns by rendering a host element
+    // to mirror client-side createDOMNode behavior which mounts instances
+    // onto a host <div> for non-Element returns (Text or DocumentFragment).
+    if (
+      typeof result === 'string' ||
+      typeof result === 'number' ||
+      result === null ||
+      result === undefined ||
+      result === false
+    ) {
+      const inner =
+        result === null || result === undefined || result === false
+          ? ''
+          : escapeText(String(result));
+      return `<div>${inner}</div>`;
+    }
+
     return renderNodeSync(result as VNode | JSXElement, ctx);
+  }
+
+  // Special-case fragments (symbols) - render children directly
+  if (typeof type === 'symbol') {
+    if (type === Fragment) {
+      // Prefer explicit `children` array; fallback to `props.children` for
+      // JSX runtimes that place children on props.
+      const childrenArr = Array.isArray((node as VNode).children)
+        ? (node as VNode).children
+        : Array.isArray(props?.children)
+        ? (props?.children as unknown[])
+        : undefined;
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          // eslint-disable-next-line no-console
+          console.warn('[SSR] fragment children length:', childrenArr?.length);
+        } catch (e) {
+          void e;
+        }
+      }
+      return renderChildrenSync(childrenArr, ctx);
+    }
+    // Unknown symbol type - throw a helpful error instead of letting
+    // a built-in TypeError bubble up when attempting to coerce to string.
+    throw new Error(`renderNodeSync: unsupported VNode symbol type: ${String(
+      type
+    )}`);
   }
 
   const typeStr = type as string;
@@ -303,7 +361,35 @@ export function renderToStringSync(
   // Provide optional SSR data via options.data
   startRenderPhase(options?.data ?? null);
   try {
-    const node = executeComponentSync(component as Component, props || {}, ctx);
+    const wrapped: Component = (
+      p?: Record<string, unknown>,
+      c?: RenderContext
+    ) => {
+      const out = (component as unknown as Component)(p ?? {}, c);
+      const portalVNode = {
+        $$typeof: ELEMENT_TYPE,
+        type: DefaultPortal,
+        props: {},
+        key: '__default_portal',
+      } as unknown;
+      if (out == null) {
+        return {
+          $$typeof: ELEMENT_TYPE,
+          type: Fragment,
+          props: { children: [portalVNode] },
+        } as unknown as VNode | JSXElement;
+      }
+      return {
+        $$typeof: ELEMENT_TYPE,
+        type: Fragment,
+        props: { children: [out as unknown, portalVNode] },
+      } as unknown as VNode | JSXElement;
+    };
+
+    const node = executeComponentSync(wrapped, props || {}, ctx);
+    if (!node) {
+      throw new Error('renderToStringSync: wrapped component returned empty');
+    }
     return renderNodeSync(node, ctx);
   } finally {
     stopRenderPhase();
@@ -344,11 +430,32 @@ export function renderToStringSyncForUrl(opts: {
   // Start render-phase keying (aligns with collectResources)
   startRenderPhase(options?.data ?? null);
   try {
-    const node = executeComponentSync(
-      resolved.handler as Component,
-      resolved.params || {},
-      ctx
-    );
+    const wrapped: Component = (
+      p?: Record<string, unknown>,
+      c?: RenderContext
+    ) => {
+      const out = (resolved.handler as unknown as Component)(p ?? {}, c);
+      const portalVNode = {
+        $$typeof: ELEMENT_TYPE,
+        type: DefaultPortal,
+        props: {},
+        key: '__default_portal',
+      } as unknown;
+      if (out == null) {
+        return {
+          $$typeof: ELEMENT_TYPE,
+          type: Fragment,
+          props: { children: [portalVNode] },
+        } as unknown as VNode | JSXElement;
+      }
+      return {
+        $$typeof: ELEMENT_TYPE,
+        type: Fragment,
+        props: { children: [out as unknown, portalVNode] },
+      } as unknown as VNode | JSXElement;
+    };
+
+    const node = executeComponentSync(wrapped, resolved.params || {}, ctx);
     return renderNodeSync(node, ctx);
   } finally {
     stopRenderPhase();

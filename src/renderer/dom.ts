@@ -80,6 +80,17 @@ export function createDOMNode(node: unknown): Node | null {
     if (typeof type === 'string') {
       const el = document.createElement(type);
 
+      // Materialize `key` into a DOM attribute so DOM-based scans can discover
+      // keyed elements even when the runtime registry hasn't been initialized.
+      try {
+        const vnodeKey = (node as DOMElement).key ?? (props as Record<string, unknown> | undefined)?.key;
+        if (vnodeKey !== undefined) {
+          el.setAttribute('data-key', String(vnodeKey));
+        }
+      } catch (e) {
+        void e;
+      }
+
       // Set attributes and event handlers in single pass (allocation-free)
       for (const key in props) {
         const value = (props as Record<string, unknown>)[key];
@@ -178,8 +189,11 @@ export function createDOMNode(node: unknown): Node | null {
               const item = children[i];
               if (typeof item === 'object' && item !== null && 'type' in item) {
                 hasElements = true;
-                const itemProps = (item as DOMElement).props || {};
-                if ('key' in itemProps) {
+                // Detect key either as a top-level property or on props (compat)
+                const rawKey =
+                  (item as DOMElement).key ??
+                  ((item as DOMElement).props as Record<string, unknown> | undefined)?.key;
+                if (rawKey !== undefined) {
                   hasKeys = true;
                   break;
                 }

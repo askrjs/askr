@@ -58,7 +58,7 @@ export { layout } from './foundations/layout';
 export type { LayoutComponent } from './foundations/layout';
 export { Slot } from './foundations/slot';
 export type { SlotProps } from './foundations/slot';
-export { definePortal } from './foundations/portal';
+export { definePortal, DefaultPortal } from './foundations/portal';
 export type { Portal } from './foundations/portal';
 
 // Standard library helpers are unstable and not re-exported from core.

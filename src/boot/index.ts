@@ -149,11 +149,35 @@ export function teardownApp(_root: Element | string) {
   );
 }
 
+import { Fragment, ELEMENT_TYPE } from '../jsx';
+import { DefaultPortal } from '../foundations/portal';
+
 function mountOrUpdate(
   rootElement: Element,
   componentFn: ComponentFunction,
   options?: { cleanupStrict?: boolean }
 ) {
+  // Ensure root component always includes a DefaultPortal host by wrapping it.
+  const wrappedFn: ComponentFunction = (props, ctx) => {
+    const out = componentFn(props, ctx);
+    const portalVNode = {
+      $$typeof: ELEMENT_TYPE,
+      type: DefaultPortal,
+      props: {},
+      key: '__default_portal',
+    } as unknown;
+    return {
+      $$typeof: ELEMENT_TYPE,
+      type: Fragment,
+      props: {
+        children:
+          out === undefined || out === null
+            ? [portalVNode]
+            : [out, portalVNode],
+      },
+    } as unknown as ReturnType<ComponentFunction>;
+  };
+
   // Clean up existing cleanup function before mounting new one
   const existingCleanup = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
   if (existingCleanup) existingCleanup();
@@ -170,7 +194,7 @@ function mountOrUpdate(
         logger.warn('[Askr] prior cleanup threw:', e);
     }
 
-    instance.fn = componentFn;
+    instance.fn = wrappedFn;
     instance.evaluationGeneration++;
     instance.mounted = false;
     instance.expectedStateIndices = [];
@@ -182,12 +206,7 @@ function mountOrUpdate(
     }
   } else {
     const componentId = String(++componentIdCounter);
-    instance = createComponentInstance(
-      componentId,
-      componentFn,
-      {},
-      rootElement
-    );
+    instance = createComponentInstance(componentId, wrappedFn, {}, rootElement);
     instancesByRoot.set(rootElement, instance);
     instance.isRoot = true;
     // Initialize strict flag from options

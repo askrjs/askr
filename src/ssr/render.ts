@@ -1,6 +1,7 @@
 import type { JSXElement } from '../jsx/types';
 import type { Props } from '../shared/types';
 import type { RenderSink } from './sink';
+import { Fragment } from '../jsx';
 import {
   withSSRContext,
   type SSRContext,
@@ -200,6 +201,13 @@ export function renderNodeToSink(
   if (!isVNodeLike(node)) return;
 
   const { type, props } = node as VNode;
+
+  // Fragment: render children in-place
+  if (typeof type === 'symbol' && (type === Fragment || String(type) === 'Symbol(Fragment)')) {
+    const children = normalizeChildren(node);
+    renderChildrenToSink(children, sink, ctx);
+    return;
+  }
 
   // Function component
   if (typeof type === 'function') {

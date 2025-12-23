@@ -26,6 +26,22 @@ export function reconcileKeyedChildren(
   const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
   const unkeyedVnodes: VNode[] = [];
 
+  /* istanbul ignore if - dev debug */
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      try {
+        logger.warn('[Askr][RECONCILE] reconcileKeyedChildren newChildren sample', {
+          sample: (newChildren && newChildren.length && newChildren[0]) || null,
+          len: newChildren.length,
+        });
+      } catch (e) {
+        void e;
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+
   for (let i = 0; i < newChildren.length; i++) {
     const child = newChildren[i];
     if (typeof child === 'object' && child !== null && 'type' in child) {
@@ -108,6 +124,18 @@ export function reconcileKeyedChildren(
           }
         } catch (e) {
           void e;
+        }
+        /* istanbul ignore if - dev debug */
+        if (process.env.NODE_ENV !== 'production') {
+          try {
+            logger.warn('[Askr][FASTPATH] positional check', {
+              total,
+              matchCount,
+              parentChildren: parent.children.length,
+            });
+          } catch (e) {
+            void e;
+          }
         }
         // Require high positional match fraction to keep this conservative
         if (matchCount / total >= 0.9) {

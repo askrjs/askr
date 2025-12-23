@@ -668,4 +668,10 @@ export function cleanupComponent(instance: ComponentInstance): void {
 
   // Abort all pending operations
   instance.abortController.abort();
+
+  // Mark instance as unmounted so external tracking (e.g., portal host lists)
+  // can deterministically prune stale instances. Not marking this leads to
+  // retained "mounted" flags across cleanup boundaries which breaks
+  // owner selection in the portal fallback.
+  instance.mounted = false;
 }

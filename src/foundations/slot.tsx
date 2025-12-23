@@ -1,10 +1,11 @@
 import { logger } from '../dev/logger';
-import { Fragment, cloneElement, isElement } from '../jsx';
+import { Fragment, cloneElement, isElement, ELEMENT_TYPE } from '../jsx';
+import type { JSXElement } from '../jsx';
 
 export type SlotProps =
   | {
       asChild: true;
-      children: unknown;
+      children: JSXElement;
       [key: string]: unknown;
     }
   | {
@@ -12,7 +13,7 @@ export type SlotProps =
       children?: unknown;
     };
 
-export function Slot(props: SlotProps) {
+export function Slot(props: SlotProps): JSXElement | null {
   if (props.asChild) {
     const { children, ...rest } = props;
 
@@ -26,6 +27,10 @@ export function Slot(props: SlotProps) {
   }
 
   // Structural no-op: Slot does not introduce DOM
-  // Return a vnode object for the fragment to avoid using JSX in a .ts file.
-  return { type: Fragment, props: { children: props.children } } as unknown;
+  // Return a vnode object for the fragment with the internal element marker.
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: Fragment,
+    props: { children: props.children },
+  } as JSXElement;
 }
