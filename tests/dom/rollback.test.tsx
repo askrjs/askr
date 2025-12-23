@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createIsland, state } from '../../src/index';
-import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { registerMountOperation } from '../../src/runtime/component';
 import type { JSXElement } from '../../src/jsx/types';
 

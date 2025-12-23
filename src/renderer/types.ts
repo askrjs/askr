@@ -1,7 +1,10 @@
 import type { Props } from '../shared/types';
 
 export interface DOMElement {
-  type: string | ((props: Props) => unknown);
+  // Element `type` can be an intrinsic tag name, a component function, or
+  // a special symbol (e.g. `Fragment`). Include `symbol` in the type union
+  // so runtime comparisons against `Fragment` are type-safe.
+  type: string | ((props: Props) => unknown) | symbol;
   props?: Props;
   children?: VNode[];
   key?: string | number;

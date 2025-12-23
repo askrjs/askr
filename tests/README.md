@@ -201,20 +201,20 @@ Common components used across test files:
 - **components.tsx** - Basic test components
   - Simple, Stateful, Nested, WithChildren
 
-- **async_components.tsx** - Async test components
+- **async-components.tsx** - Async test components
   - SlowRender, FailingAsync, StaleDetector
 
-- **list_components.tsx** - List test components
+- **list-components.tsx** - List test components
   - SimpleList, KeyedList, ReorderableList
 
-- **error_components.tsx** - Error boundary patterns
+- **error-components.tsx** - Error boundary patterns
   - ThrowingComponent, ErrorBoundary patterns
 
 ### `helpers/` - Test Utilities
 
 Framework for tests (NOT framework code):
 
-- **test_renderer.ts** - DOM setup/teardown
+- **test-renderer.ts** - DOM setup/teardown
   - `createContainer()`, `cleanup()`
   - `renderComponent(component)`
 
@@ -310,7 +310,7 @@ describe('render_transactions', () => {
 Import common components:
 
 ```typescript
-import { SimpleList, KeyedList } from '../fixtures/list_components';
+import { SimpleList, KeyedList } from '../fixtures/list-components';
 ```
 
 ### 5. Use Helpers

@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Actor-backed deterministic UI framework",
   "repository": {
     "type": "git",
@@ -26,7 +26,8 @@
   "packageManager": "npm@11.7.0",
   "license": "Apache-2.0",
   "sideEffects": [
-    "src/jsx/types.ts"
+    "src/jsx/types.ts",
+    "src/runtime/fastlane.ts"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -78,7 +79,7 @@
     "tsup": "^8.5.1",
     "tsd": "^0.33.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.50.0",
+    "typescript-eslint": "^8.50.1",
     "vitest": "^4.0.16",
     "vite": "^7.3.0"
   }

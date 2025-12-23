@@ -3,7 +3,7 @@ import { renderToStringSync, hydrateSPA } from '../../src/index';
 import { route } from '../../src/router/route';
 import { renderToString, renderToStream } from '../../src/ssr';
 import type { JSXElement } from '../../src/jsx/types';
-import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 // Consolidated SSR tests
 

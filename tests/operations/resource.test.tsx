@@ -4,7 +4,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../helpers/test_renderer';
+} from '../helpers/test-renderer';
 import type { JSXElement } from '../../src/jsx/types';
 
 describe('resource() (unified async primitive) — gaps', () => {

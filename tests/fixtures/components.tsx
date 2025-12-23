@@ -80,5 +80,5 @@ export const Nested = ({ depth = 3 }: { depth?: number }): unknown => {
   };
 };
 
-export { SimpleList, KeyedList, ReorderableList } from './list_components';
-export { SlowAsync, FailingAsync, CancelDetector } from './async_components';
+export { SimpleList, KeyedList, ReorderableList } from './list-components';
+export { SlowAsync, FailingAsync, CancelDetector } from './async-components';
