@@ -13,6 +13,7 @@ import {
   markFastPathApplied,
   isFastPathApplied,
 } from './fastlane-shared';
+import { Fragment } from '../jsx/types';
 
 /**
  * Attempt to execute a runtime fast-lane for a single component's synchronous
@@ -24,14 +25,53 @@ import {
  * - No mount operations are pending on the component instance
  * - No child vnodes are component functions (avoid async/component mounts)
  */
+
+// Helper to unwrap Fragment vnodes to get the first intrinsic element child
+function unwrapFragmentForFastPath(vnode: unknown): unknown {
+  if (!vnode || typeof vnode !== 'object' || !('type' in vnode)) return vnode;
+  const v = vnode as {
+    type: unknown;
+    children?: unknown;
+    props?: { children?: unknown };
+  };
+  // Check if it's a Fragment
+  if (
+    typeof v.type === 'symbol' &&
+    (v.type === Fragment || String(v.type) === 'Symbol(askr.fragment)')
+  ) {
+    const children = v.children || v.props?.children;
+    if (Array.isArray(children) && children.length > 0) {
+      // Return the first child that's an intrinsic element
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (child && typeof child === 'object' && 'type' in child) {
+          const c = child as { type: unknown };
+          if (typeof c.type === 'string') {
+            return child;
+          }
+        }
+      }
+    }
+  }
+  return vnode;
+}
+
 export function classifyUpdate(instance: ComponentInstance, result: unknown) {
   // Returns a classification describing whether this update is eligible for
   // the reorder-only fast-lane. The classifier mirrors renderer-level
   // heuristics and performs runtime-level checks (mounts, effects, component
   // children) that the renderer cannot reason about.
-  if (!result || typeof result !== 'object' || !('type' in result))
+
+  // Unwrap Fragment to get the actual element vnode for classification
+  const unwrappedResult = unwrapFragmentForFastPath(result);
+
+  if (
+    !unwrappedResult ||
+    typeof unwrappedResult !== 'object' ||
+    !('type' in unwrappedResult)
+  )
     return { useFastPath: false, reason: 'not-vnode' };
-  const vnode = result as {
+  const vnode = unwrappedResult as {
     type: unknown;
     children?: unknown;
     props?: { children?: unknown };

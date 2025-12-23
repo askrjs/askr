@@ -177,6 +177,10 @@ function mountOrUpdate(
       },
     } as unknown as ReturnType<ComponentFunction>;
   };
+  // Preserve the original component name for debugging/dev warnings
+  Object.defineProperty(wrappedFn, 'name', {
+    value: componentFn.name || 'Component',
+  });
 
   // Clean up existing cleanup function before mounting new one
   const existingCleanup = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];

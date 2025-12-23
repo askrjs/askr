@@ -31,10 +31,14 @@ export function reconcileKeyedChildren(
   if (process.env.NODE_ENV !== 'production') {
     try {
       try {
-        logger.warn('[Askr][RECONCILE] reconcileKeyedChildren newChildren sample', {
-          sample: (newChildren && newChildren.length && newChildren[0]) || null,
-          len: newChildren.length,
-        });
+        logger.warn(
+          '[Askr][RECONCILE] reconcileKeyedChildren newChildren sample',
+          {
+            sample:
+              (newChildren && newChildren.length && newChildren[0]) || null,
+            len: newChildren.length,
+          }
+        );
       } catch (e) {
         void e;
       }

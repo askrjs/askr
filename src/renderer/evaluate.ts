@@ -14,6 +14,7 @@ import {
   isBulkTextFastPathEligible,
 } from './dom';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
+import { Fragment } from '../jsx/types';
 
 /**
  * Internal marker for component-owned DOM ranges
@@ -84,7 +85,177 @@ export function evaluate(
     // reuse the element and just update its content.
     // This preserves the element reference and event handlers across renders.
 
-    const vnode = node;
+    let vnode = node;
+
+    // If vnode is a Fragment, unwrap it to get the actual content for the smart update path.
+    // Fragments become invisible in the DOM - their children are placed directly in the parent.
+    // So for smart updates, we need to compare against the Fragment's children, not the Fragment itself.
+    if (
+      _isDOMElement(vnode) &&
+      typeof (vnode as DOMElement).type === 'symbol' &&
+      ((vnode as DOMElement).type === Fragment ||
+        String((vnode as DOMElement).type) === 'Symbol(askr.fragment)')
+    ) {
+      const fragmentChildren =
+        (vnode as DOMElement).props?.children ||
+        (vnode as DOMElement).children ||
+        [];
+      const childArray = Array.isArray(fragmentChildren)
+        ? fragmentChildren
+        : [fragmentChildren];
+      // If Fragment has exactly one child that's an element, unwrap to that child
+      // This allows the smart update path to match against it
+      if (
+        childArray.length === 1 &&
+        _isDOMElement(childArray[0]) &&
+        typeof (childArray[0] as DOMElement).type === 'string'
+      ) {
+        vnode = childArray[0];
+      } else {
+        // Fragment with multiple children - process each child with full smart update logic
+        const existingChildren = Array.from(target.children) as Element[];
+
+        for (let i = 0; i < childArray.length; i++) {
+          const childVnode = childArray[i];
+          const existingNode = existingChildren[i];
+
+          // Apply the same smart update logic as the single-element case
+          if (
+            existingNode &&
+            _isDOMElement(childVnode) &&
+            typeof (childVnode as DOMElement).type === 'string' &&
+            existingNode.tagName.toLowerCase() ===
+              ((childVnode as DOMElement).type as string).toLowerCase()
+          ) {
+            // Same element type - do smart update with keyed reconciliation
+            const vnodeChildren =
+              (childVnode as DOMElement).children ||
+              (childVnode as DOMElement).props?.children;
+
+            // Check for simple text update
+            let isSimpleTextVNode = false;
+            let textContent: string | undefined;
+            if (!Array.isArray(vnodeChildren)) {
+              if (
+                typeof vnodeChildren === 'string' ||
+                typeof vnodeChildren === 'number'
+              ) {
+                isSimpleTextVNode = true;
+                textContent = String(vnodeChildren);
+              }
+            } else if (vnodeChildren.length === 1) {
+              const child = vnodeChildren[0];
+              if (typeof child === 'string' || typeof child === 'number') {
+                isSimpleTextVNode = true;
+                textContent = String(child);
+              }
+            }
+
+            if (
+              isSimpleTextVNode &&
+              existingNode.childNodes.length === 1 &&
+              existingNode.firstChild?.nodeType === 3
+            ) {
+              (existingNode.firstChild as Text).data = textContent!;
+            } else if (vnodeChildren) {
+              if (Array.isArray(vnodeChildren)) {
+                // Check for keyed children
+                const hasKeys = vnodeChildren.some(
+                  (child) =>
+                    typeof child === 'object' &&
+                    child !== null &&
+                    'key' in child
+                );
+
+                if (hasKeys) {
+                  // Get or build key map
+                  let oldKeyMap = keyedElements.get(existingNode);
+                  if (!oldKeyMap) {
+                    oldKeyMap = new Map();
+                    const children = Array.from(existingNode.children);
+                    for (let j = 0; j < children.length; j++) {
+                      const ch = children[j] as Element;
+                      const k = ch.getAttribute('data-key');
+                      if (k !== null) {
+                        oldKeyMap.set(k, ch);
+                        const n = Number(k);
+                        if (!Number.isNaN(n)) oldKeyMap.set(n, ch);
+                      }
+                    }
+                    if (oldKeyMap.size > 0)
+                      keyedElements.set(existingNode, oldKeyMap);
+                  }
+                  // Use keyed reconciliation
+                  const newKeyMap = reconcileKeyedChildren(
+                    existingNode,
+                    vnodeChildren,
+                    oldKeyMap
+                  );
+                  keyedElements.set(existingNode, newKeyMap);
+                } else {
+                  // Unkeyed children - check for bulk text fast-path
+                  if (isBulkTextFastPathEligible(existingNode, vnodeChildren)) {
+                    const stats = performBulkTextReplace(
+                      existingNode,
+                      vnodeChildren
+                    );
+                    // Dev-only instrumentation counters
+                    if (process.env.NODE_ENV !== 'production') {
+                      try {
+                        __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
+                        __ASKR_incCounter('bulkTextHits');
+                      } catch (e) {
+                        void e;
+                      }
+                    }
+                  } else {
+                    if (process.env.NODE_ENV !== 'production') {
+                      try {
+                        __ASKR_incCounter('bulkTextMisses');
+                      } catch (e) {
+                        void e;
+                      }
+                    }
+                    updateUnkeyedChildren(existingNode, vnodeChildren);
+                  }
+                  keyedElements.delete(existingNode);
+                }
+              } else {
+                existingNode.textContent = '';
+                const dom = createDOMNode(vnodeChildren);
+                if (dom) existingNode.appendChild(dom);
+                keyedElements.delete(existingNode);
+              }
+            } else {
+              existingNode.textContent = '';
+              keyedElements.delete(existingNode);
+            }
+
+            // Update attributes
+            updateElementFromVnode(existingNode, childVnode, false);
+            continue;
+          }
+
+          // Different type or no existing node - replace
+          const newDom = createDOMNode(childVnode);
+          if (newDom) {
+            if (existingNode) {
+              target.replaceChild(newDom, existingNode);
+            } else {
+              target.appendChild(newDom);
+            }
+          }
+        }
+
+        // Remove extra children
+        while (target.children.length > childArray.length) {
+          target.removeChild(target.lastChild!);
+        }
+
+        return;
+      }
+    }
+
     const firstChild = target.children[0] as Element | undefined;
 
     if (
@@ -400,7 +571,6 @@ export function evaluate(
           // Use keyed reconciliation for children
           const newKeyMap = reconcileKeyedChildren(el, children, undefined);
           keyedElements.set(el, newKeyMap);
-          return;
           return;
         }
       }

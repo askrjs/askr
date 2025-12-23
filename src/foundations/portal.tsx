@@ -55,27 +55,46 @@ export function definePortal<T = unknown>(): Portal<T> {
         // because multiple islands mounting is a valid use-case. We assert only
         // that exactly one host may render portal content at a time.
         // Logger will no-op in production, so this check need not be wrapped.
-        logger.warn('[Portal] multiple hosts are mounted for same portal; first mounted host will be owner');
+        logger.warn(
+          '[Portal] multiple hosts are mounted for same portal; first mounted host will be owner'
+        );
       }
 
       // If this reader is not the owner, but a mounted owner exists, warn in dev
       if (inst && owner && owner !== inst) {
-        logger.debug('[Portal] non-owner reader detected; only owner renders portal content');
+        logger.debug(
+          '[Portal] non-owner reader detected; only owner renders portal content'
+        );
       }
 
       // Dev debug: increment read counter
       /* istanbul ignore if */
       if (process.env.NODE_ENV !== 'production') {
-        const ns = (globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ = {} as Record<string, unknown>);
+        const ns =
+          (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
+            .__ASKR__ ||
+          ((
+            globalThis as unknown as { __ASKR__?: Record<string, unknown> }
+          ).__ASKR__ = {} as Record<string, unknown>);
         ns.__PORTAL_READS = ((ns.__PORTAL_READS as number) || 0) + 1;
       }
 
       // Only the owner should render the pending value; other readers see nothing
       /* istanbul ignore if */
-      if (process.env.NODE_ENV !== 'production' && inst && owner && inst === owner) {
+      if (
+        process.env.NODE_ENV !== 'production' &&
+        inst &&
+        owner &&
+        inst === owner
+      ) {
         logger.debug('[Portal] owner read ->', inst.id, 'pending=', pending);
         // Dev diagnostic: record whether the owner instance has an attached DOM target
-        const ns = (globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ = {} as Record<string, unknown>);
+        const ns =
+          (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
+            .__ASKR__ ||
+          ((
+            globalThis as unknown as { __ASKR__?: Record<string, unknown> }
+          ).__ASKR__ = {} as Record<string, unknown>);
         ns.__PORTAL_HOST_ATTACHED = !!(inst && inst.target);
         ns.__PORTAL_HOST_ID = inst ? inst.id : undefined;
       }
@@ -92,7 +111,10 @@ export function definePortal<T = unknown>(): Portal<T> {
       // If no owner exists yet, drop the write (avoid buffering early writes)
       if (!owner) {
         // Logger will no-op in production so we can call directly without wrapping.
-        logger.debug('[Portal] fallback.write dropped -> no owner or not mounted', props?.children);
+        logger.debug(
+          '[Portal] fallback.write dropped -> no owner or not mounted',
+          props?.children
+        );
         return null;
       }
 
@@ -104,18 +126,27 @@ export function definePortal<T = unknown>(): Portal<T> {
       logger.debug('[Portal] fallback.write ->', pending, 'owner=', owner.id);
       /* istanbul ignore if */
       if (process.env.NODE_ENV !== 'production') {
-        const ns = (globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ = {} as Record<string, unknown>);
+        const ns =
+          (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
+            .__ASKR__ ||
+          ((
+            globalThis as unknown as { __ASKR__?: Record<string, unknown> }
+          ).__ASKR__ = {} as Record<string, unknown>);
         ns.__PORTAL_WRITES = ((ns.__PORTAL_WRITES as number) || 0) + 1;
       }
 
       // Schedule an update on the owner so it re-renders
       if (owner && owner.notifyUpdate) {
-        if (process.env.NODE_ENV !== 'production') logger.debug('[Portal] fallback.write notify ->', owner.id, !!owner.notifyUpdate);
+        if (process.env.NODE_ENV !== 'production')
+          logger.debug(
+            '[Portal] fallback.write notify ->',
+            owner.id,
+            !!owner.notifyUpdate
+          );
         owner.notifyUpdate();
       }
       return null;
     };
-
 
     return HostFallback as Portal<T>;
   }
@@ -132,12 +163,17 @@ export function definePortal<T = unknown>(): Portal<T> {
     logger.debug('[Portal] write ->', props?.children);
     /* istanbul ignore if */
     if (process.env.NODE_ENV !== 'production') {
-      const ns = (globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ = {} as Record<string, unknown>);
+      const ns =
+        (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
+          .__ASKR__ ||
+        ((
+          globalThis as unknown as { __ASKR__?: Record<string, unknown> }
+        ).__ASKR__ = {} as Record<string, unknown>);
       ns.__PORTAL_WRITES = ((ns.__PORTAL_WRITES as number) || 0) + 1;
     }
     slot.write(props.children);
     return null;
-  }; 
+  };
 
   return PortalHost as Portal<T>;
 }
@@ -152,7 +188,12 @@ function ensureDefaultPortal(): Portal<unknown> {
   // runtime primitive exists; otherwise create a fallback. If a fallback
   // was previously created and the runtime primitive becomes available
   // later, replace the fallback with a real portal on first use.
-  logger.debug('[DefaultPortal] ensureDefaultPortal _defaultPortalIsFallback=', _defaultPortalIsFallback, 'createPortalSlot=', typeof createPortalSlot === 'function');
+  logger.debug(
+    '[DefaultPortal] ensureDefaultPortal _defaultPortalIsFallback=',
+    _defaultPortalIsFallback,
+    'createPortalSlot=',
+    typeof createPortalSlot === 'function'
+  );
 
   if (!_defaultPortal) {
     if (typeof createPortalSlot === 'function') {

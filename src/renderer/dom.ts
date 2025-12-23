@@ -83,7 +83,9 @@ export function createDOMNode(node: unknown): Node | null {
       // Materialize `key` into a DOM attribute so DOM-based scans can discover
       // keyed elements even when the runtime registry hasn't been initialized.
       try {
-        const vnodeKey = (node as DOMElement).key ?? (props as Record<string, unknown> | undefined)?.key;
+        const vnodeKey =
+          (node as DOMElement).key ??
+          (props as Record<string, unknown> | undefined)?.key;
         if (vnodeKey !== undefined) {
           el.setAttribute('data-key', String(vnodeKey));
         }
@@ -192,7 +194,11 @@ export function createDOMNode(node: unknown): Node | null {
                 // Detect key either as a top-level property or on props (compat)
                 const rawKey =
                   (item as DOMElement).key ??
-                  ((item as DOMElement).props as Record<string, unknown> | undefined)?.key;
+                  (
+                    (item as DOMElement).props as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.key;
                 if (rawKey !== undefined) {
                   hasKeys = true;
                   break;
@@ -486,6 +492,26 @@ export function updateUnkeyedChildren(
   newChildren: unknown[]
 ): void {
   const existing = Array.from(parent.children);
+
+  // Special case: if we have a single text/number child and the parent has a single text node,
+  // update the text node in place to preserve identity
+  if (
+    newChildren.length === 1 &&
+    existing.length === 0 &&
+    parent.childNodes.length === 1
+  ) {
+    const firstNewChild = newChildren[0];
+    const firstExisting = parent.firstChild;
+    if (
+      (typeof firstNewChild === 'string' ||
+        typeof firstNewChild === 'number') &&
+      firstExisting?.nodeType === 3 // Text node
+    ) {
+      (firstExisting as Text).data = String(firstNewChild);
+      return;
+    }
+  }
+
   // If there are only text nodes (no element children), clear before updating
   if (existing.length === 0 && parent.childNodes.length > 0) {
     parent.textContent = '';

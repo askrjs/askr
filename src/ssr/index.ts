@@ -27,6 +27,8 @@ import {
 } from '../runtime/component';
 import type { ComponentFunction } from '../runtime/component';
 
+import { logger } from '../dev/logger';
+
 export { SSRDataMissingError } from './context';
 
 type VNode = {
@@ -211,15 +213,12 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   const { type, props } = node;
 
   /* istanbul ignore if - dev-only debug to catch unexpected vnode shapes during SSR */
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      // Avoid coercion errors; String(type) may throw for Symbols but that's fine
-      // in a dev-only warning as we only run this in tests.
-      // eslint-disable-next-line no-console
-      console.warn('[SSR] renderNodeSync type:', typeof type, type);
-    } catch (e) {
-      void e;
-    }
+  try {
+    // Avoid coercion errors; String(type) may throw for Symbols but that's fine
+    // in a dev-only warning as we only run this in tests.
+    logger.warn('[SSR] renderNodeSync type:', typeof type, type);
+  } catch (e) {
+    void e;
   }
 
   if (typeof type === 'function') {
@@ -241,23 +240,20 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
       const childrenArr = Array.isArray((node as VNode).children)
         ? (node as VNode).children
         : Array.isArray(props?.children)
-        ? (props?.children as unknown[])
-        : undefined;
-      if (process.env.NODE_ENV !== 'production') {
-        try {
-          // eslint-disable-next-line no-console
-          console.warn('[SSR] fragment children length:', childrenArr?.length);
-        } catch (e) {
-          void e;
-        }
+          ? (props?.children as unknown[])
+          : undefined;
+      try {
+        logger.warn('[SSR] fragment children length:', childrenArr?.length);
+      } catch (e) {
+        void e;
       }
       return renderChildrenSync(childrenArr, ctx);
     }
     // Unknown symbol type - throw a helpful error instead of letting
     // a built-in TypeError bubble up when attempting to coerce to string.
-    throw new Error(`renderNodeSync: unsupported VNode symbol type: ${String(
-      type
-    )}`);
+    throw new Error(
+      `renderNodeSync: unsupported VNode symbol type: ${String(type)}`
+    );
   }
 
   const typeStr = type as string;

@@ -203,7 +203,10 @@ export function renderNodeToSink(
   const { type, props } = node as VNode;
 
   // Fragment: render children in-place
-  if (typeof type === 'symbol' && (type === Fragment || String(type) === 'Symbol(Fragment)')) {
+  if (
+    typeof type === 'symbol' &&
+    (type === Fragment || String(type) === 'Symbol(Fragment)')
+  ) {
     const children = normalizeChildren(node);
     renderChildrenToSink(children, sink, ctx);
     return;
