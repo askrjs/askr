@@ -1,8 +1,16 @@
-import type { Props } from '../shared/types';
+/**
+ * SSR Context Management
+ *
+ * Provides context for server-side rendering including:
+ * - SSRContext: Full context for sink-based streaming SSR
+ * - RenderContext: Lightweight context for sync render passes
+ */
+
 import { SSRDataMissingError } from './errors';
 
 export type SSRData = Record<string, unknown>;
 
+/** Full context for sink-based streaming SSR */
 export type SSRContext = {
   url: string;
   seed: number;
@@ -11,7 +19,7 @@ export type SSRContext = {
   signal?: AbortSignal;
 };
 
-// Optional: scoped access for sink-based streaming SSR (sync and stack-scoped)
+// Stack-scoped SSRContext for sink-based rendering
 let current: SSRContext | null = null;
 
 export function getSSRContext(): SSRContext | null {
@@ -28,39 +36,16 @@ export function withSSRContext<T>(ctx: SSRContext, fn: () => T): T {
   }
 }
 
-// --- Render-only context (compatibility from previous ssrContext.ts) ---------
-// Deterministic seeded RNG used only inside the render context
-export class SeededRNG {
-  private seed: number;
-
-  constructor(seed = 12345) {
-    this.seed = seed | 0;
-  }
-
-  reset(seed = 12345) {
-    this.seed = seed | 0;
-  }
-
-  // Simple LCG, stable and deterministic
-  random(): number {
-    this.seed = (this.seed * 9301 + 49297) % 233280;
-    return this.seed / 233280;
-  }
-}
-
-/** Context passed through a single render pass */
+/** Lightweight context for synchronous render passes */
 export type RenderContext = {
   seed: number;
-  rng: SeededRNG;
 };
 
-/** Create a RenderContext from a seed */
 export function createRenderContext(seed = 12345): RenderContext {
-  const rng = new SeededRNG(seed);
-  return { seed, rng };
+  return { seed };
 }
 
-// Lightweight module-level current context for SSR detection (render-only)
+// Stack-scoped RenderContext for sync SSR detection
 let currentSSRContext: RenderContext | null = null;
 
 export function getCurrentSSRContext(): RenderContext | null {
@@ -78,30 +63,11 @@ export function runWithSSRContext<T>(ctx: RenderContext, fn: () => T): T {
 }
 
 /**
- * Centralized SSR enforcement helper — use this to throw a single, consistent
- * error when async data is encountered during synchronous SSR.
+ * Centralized SSR enforcement helper — throws a consistent error when async
+ * data is encountered during synchronous SSR.
  */
 export function throwSSRDataMissing(): never {
   throw new SSRDataMissingError();
 }
 
 export { SSRDataMissingError };
-
-// Deterministic RNG (explicitly used by components via ctx if desired)
-export function makeSeededRandom(seed: number) {
-  // LCG
-  let s = seed >>> 0;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 0x100000000;
-  };
-}
-
-// Helper: merge params into props for route handlers if needed
-export function mergeRouteProps(
-  props: Props | undefined,
-  params?: Record<string, string>
-): Props {
-  if (!params) return (props ?? {}) as Props;
-  return { ...(props ?? {}), ...params } as Props;
-}

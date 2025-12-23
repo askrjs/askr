@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { state, createSPA, clearRoutes, getRoutes } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { route } from '../../src/router/route';
-import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('route navigation (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();

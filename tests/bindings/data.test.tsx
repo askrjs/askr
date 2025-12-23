@@ -5,7 +5,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../helpers/test_renderer';
+} from '../helpers/test-renderer';
 
 describe('data() (DATA_SPEC / BINDING_SPEC) — gaps', () => {
   it('should execute data function when component mounts', async () => {

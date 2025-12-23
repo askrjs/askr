@@ -9,7 +9,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../helpers/test_renderer';
+} from '../helpers/test-renderer';
 
 /**
  * SNAPSHOT SEMANTICS:

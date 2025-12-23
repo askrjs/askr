@@ -4,85 +4,79 @@ import { logger } from '../dev/logger';
 
 type InstanceHost = Element & { __ASKR_INSTANCE?: unknown };
 
-// Helpers to clean up component instances when their host DOM nodes are removed
-// Accepts an optional `opts.strict` flag to surface errors instead of swallowing them.
+// ─────────────────────────────────────────────────────────────────────────────
+// Instance Cleanup Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function cleanupSingleInstance(
+  node: InstanceHost,
+  errors: unknown[],
+  strict: boolean
+): void {
+  const inst = node.__ASKR_INSTANCE;
+  if (!inst) return;
+
+  try {
+    cleanupComponent(inst as ComponentInstance);
+  } catch (err) {
+    if (strict) errors.push(err);
+    else logger.warn('[Askr] cleanupComponent failed:', err);
+  }
+
+  try {
+    delete node.__ASKR_INSTANCE;
+  } catch (e) {
+    if (strict) errors.push(e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Clean up component instance attached to a DOM node
+ * Accepts an optional `opts.strict` flag to surface errors instead of swallowing them.
+ */
 export function cleanupInstanceIfPresent(
   node: Node | null,
   opts?: { strict?: boolean }
 ): void {
-  if (!node) return;
-  if (!(node instanceof Element)) return;
+  if (!node || !(node instanceof Element)) return;
 
   const errors: unknown[] = [];
+  const strict = opts?.strict ?? false;
 
+  // Clean up the node itself
   try {
-    const inst = (node as InstanceHost).__ASKR_INSTANCE;
-    if (inst) {
-      try {
-        cleanupComponent(inst as unknown as ComponentInstance);
-      } catch (err) {
-        if (opts?.strict) errors.push(err);
-        else if (process.env.NODE_ENV !== 'production')
-          logger.warn('[Askr] cleanupComponent failed:', err);
-      }
-      try {
-        delete (node as InstanceHost).__ASKR_INSTANCE;
-      } catch (e) {
-        if (opts?.strict) errors.push(e);
-        else void e;
-      }
-    }
+    cleanupSingleInstance(node as InstanceHost, errors, strict);
   } catch (err) {
-    if (opts?.strict) errors.push(err);
-    else if (process.env.NODE_ENV !== 'production') {
-      logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
-    }
+    if (strict) errors.push(err);
+    else logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
   }
 
-  // Also attempt to clean up any nested instances that may be attached
-  // on descendants (defensive: some components may attach to deeper nodes)
+  // Clean up any nested instances on descendants
   try {
     const descendants = node.querySelectorAll('*');
     for (const d of Array.from(descendants)) {
       try {
-        const inst = (d as InstanceHost).__ASKR_INSTANCE;
-        if (inst) {
-          try {
-            cleanupComponent(inst as unknown as ComponentInstance);
-          } catch (err) {
-            if (opts?.strict) errors.push(err);
-            else if (process.env.NODE_ENV !== 'production') {
-              logger.warn(
-                '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
-                err
-              );
-            }
-          }
-          try {
-            delete (d as InstanceHost).__ASKR_INSTANCE;
-          } catch (e) {
-            if (opts?.strict) errors.push(e);
-            else void e;
-          }
-        }
+        cleanupSingleInstance(d as InstanceHost, errors, strict);
       } catch (err) {
-        if (opts?.strict) errors.push(err);
-        else if (process.env.NODE_ENV !== 'production') {
+        if (strict) errors.push(err);
+        else
           logger.warn(
             '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
             err
           );
-        }
       }
     }
   } catch (err) {
-    if (opts?.strict) errors.push(err);
-    else if (process.env.NODE_ENV !== 'production') {
+    if (strict) errors.push(err);
+    else
       logger.warn(
         '[Askr] cleanupInstanceIfPresent descendant query failed:',
         err
       );
-    }
   }
 
   if (errors.length > 0) {

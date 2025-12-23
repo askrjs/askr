@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createIsland, cleanupApp } from '../../src/index';
-import { createTestContainer } from '../helpers/test_renderer';
+import { createTestContainer } from '../helpers/test-renderer';
 import { registerMountOperation } from '../../src/runtime/component';
 import type { JSXElement } from '../../src/jsx/types';
 

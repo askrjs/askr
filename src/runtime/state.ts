@@ -185,7 +185,16 @@ function createStateCell<T>(
     }
 
     // PRODUCTION FALLBACK: Skip state updates during render to prevent infinite loops
+    // This should never happen if code follows best practices, but we gracefully degrade
+    // rather than crashing in production.
     if (currentInst !== null && process.env.NODE_ENV === 'production') {
+      // Log once in production to help debugging without throwing
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn(
+          '[Askr] state.set() called during render - update skipped. ' +
+            'Move state updates to event handlers.'
+        );
+      }
       return;
     }
 

@@ -24,8 +24,8 @@ async function processFile(file) {
 
   // Ensure import includes waitForNextEvaluation (simple string-based insertion)
   if (
-    text.includes("from '../../tests/helpers/test_renderer'") ||
-    text.includes('from "../../tests/helpers/test_renderer"')
+    text.includes("from '../../tests/helpers/test-renderer'") ||
+    text.includes('from "../../tests/helpers/test-renderer"')
   ) {
     if (!text.includes('waitForNextEvaluation')) {
       text = text.replace(

@@ -5,7 +5,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../helpers/test_renderer';
+} from '../helpers/test-renderer';
 import { globalScheduler } from '../../src/runtime/scheduler';
 
 /*
