@@ -13,7 +13,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('positional list reorder (transactional)', () => {
   describe('5 items - 100 batched state mutations (single commit, transactional)', () => {

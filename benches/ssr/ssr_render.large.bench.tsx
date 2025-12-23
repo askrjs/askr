@@ -5,7 +5,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { captureSSRSnapshot } from '../../tests/helpers/test_renderer';
+import { captureSSRSnapshot } from '../../tests/helpers/test-renderer';
 
 describe('ssr render (large)', () => {
   // Removed smaller large-tree SSR cases (500, 2000 sections) to keep one representative large-case.

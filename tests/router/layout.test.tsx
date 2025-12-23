@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createSPA, navigate } from '../../src/index';
-import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { layout } from '../../src/index';
 
 describe('layout helper (ROUTER)', () => {

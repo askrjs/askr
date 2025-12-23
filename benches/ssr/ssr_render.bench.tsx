@@ -5,7 +5,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { captureSSRSnapshot } from '../../tests/helpers/test_renderer';
+import { captureSSRSnapshot } from '../../tests/helpers/test-renderer';
 
 describe('ssr render', () => {
   bench('100 simple component SSRs (behavioral)', async () => {

@@ -11,7 +11,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('large tree 10k', () => {
   bench('100x100 initial render (behavioral)', async () => {

@@ -11,7 +11,7 @@ import {
   createTestContainer,
   flushScheduler,
   fireEvent,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('event serialization', () => {
   let container: HTMLElement;

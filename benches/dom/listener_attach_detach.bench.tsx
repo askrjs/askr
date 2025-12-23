@@ -11,7 +11,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('listener attach detach', () => {
   bench('framework::listener-attach::1::behavioral', async () => {

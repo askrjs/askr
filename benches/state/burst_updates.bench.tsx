@@ -11,7 +11,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('burst updates', () => {
   let container: HTMLElement;

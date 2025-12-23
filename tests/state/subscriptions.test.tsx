@@ -4,7 +4,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../helpers/test_renderer';
+} from '../helpers/test-renderer';
 
 describe('state subscription invariants', () => {
   it('should notify only components that read the state', async () => {

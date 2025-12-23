@@ -9,7 +9,7 @@ import { renderToStringSync, hydrateSPA } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('hydration success', () => {
   // Kept: representative complex hydration bench (50-item list).

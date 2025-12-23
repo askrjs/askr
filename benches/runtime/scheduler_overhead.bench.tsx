@@ -10,7 +10,7 @@ import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('scheduler overhead', () => {
   let container: HTMLElement;

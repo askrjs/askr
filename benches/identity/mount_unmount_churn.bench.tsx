@@ -16,7 +16,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('mount/unmount churn (transactional)', () => {
   describe('stateless subcomponent - 100 toggles (single commit semantics)', () => {

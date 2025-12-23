@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
 import { createIsland, cleanupApp } from '../../src/index';
-import { createTestContainer } from '../helpers/test_renderer';
+import { createTestContainer } from '../helpers/test-renderer';
 import { registerMountOperation } from '../../src/runtime/component';
 
 describe('createIsland cleanup non-strict mode', () => {

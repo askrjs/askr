@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createIsland, resource } from '../../src/index';
-import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('cancellation (SPEC 2.6)', () => {
   let { container, cleanup } = createTestContainer();

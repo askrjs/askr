@@ -5,7 +5,7 @@ import {
   flushScheduler,
   captureSSRSnapshot,
   expectDOM,
-} from '../helpers/test_renderer';
+} from '../helpers/test-renderer';
 
 describe('class / className interoperability', () => {
   let { container, cleanup } = createTestContainer();

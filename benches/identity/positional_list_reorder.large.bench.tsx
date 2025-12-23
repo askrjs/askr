@@ -15,7 +15,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('positional list reorder (large, transactional)', () => {
   // Removed intermediate large sizes (1k, 5k) to keep only the representative large-case (10k).

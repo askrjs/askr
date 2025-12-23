@@ -10,7 +10,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 // Component definitions outside benches for determinism
 const EmptyComponent = () => ({ type: 'div', children: [] });

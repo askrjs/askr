@@ -14,7 +14,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 import { warmUp } from '../helpers/metrics';
 
 describe('attribute updates', () => {

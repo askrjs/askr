@@ -5,7 +5,7 @@ import {
   resource,
   scheduleEventHandler,
 } from '../../src/index';
-import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('scheduler (SPEC 2.2)', () => {
   let { container, cleanup } = createTestContainer();

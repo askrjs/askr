@@ -8,7 +8,7 @@
 import {
   createTestContainer,
   trackDOMMutations,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 import type { VNode } from '../../src/renderer';
 
 export interface BenchContainer {

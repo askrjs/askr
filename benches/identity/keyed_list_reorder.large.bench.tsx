@@ -14,7 +14,7 @@ import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('keyed list reorder (large)', () => {
   // Removed reconcile-only pure-DOM microbenches (replacefragment) — these do not exercise Askr internals and were noisy.

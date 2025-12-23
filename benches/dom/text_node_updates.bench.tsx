@@ -12,7 +12,7 @@ import {
   flushScheduler,
   waitForNextEvaluation,
   trackDOMMutations,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('text node updates', () => {
   bench(

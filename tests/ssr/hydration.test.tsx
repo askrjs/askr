@@ -3,7 +3,7 @@ import type { JSXElement } from '../../src/jsx/types';
 import { hydrateSPA } from '../../src/index';
 import { renderToStringSync, renderToString } from '../../src/ssr';
 import { renderToStringSyncForUrl, state } from '../../src/index';
-import { createTestContainer, flushScheduler } from '../helpers/test_renderer';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('hydration (SSR)', () => {
   describe('hydration mismatch', () => {

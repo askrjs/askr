@@ -9,7 +9,7 @@ import { route, clearRoutes, navigate, createIsland } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
-} from '../../tests/helpers/test_renderer';
+} from '../../tests/helpers/test-renderer';
 
 describe('nested route transitions', () => {
   beforeEach(() => {
