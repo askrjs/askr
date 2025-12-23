@@ -14,419 +14,527 @@ import { isBulkCommitActive } from '../runtime/fastlane-shared';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { applyRendererFastPath } from './fastpath';
 import { logger } from '../dev/logger';
+import {
+  extractKey,
+  checkPropChanges,
+  recordFastPathStats,
+  recordDOMReplace,
+} from './utils';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
+
+// Helper type for narrowings
+type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 
 export function reconcileKeyedChildren(
   parent: Element,
   newChildren: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> {
-  const newKeyMap = new Map<string | number, Element>();
+  logReconcileDebug(newChildren);
 
+  const { keyedVnodes, unkeyedVnodes } = partitionChildren(newChildren);
+
+  // Try fast paths first
+  const fastPathResult = tryFastPaths(
+    parent,
+    newChildren,
+    keyedVnodes,
+    unkeyedVnodes,
+    oldKeyMap
+  );
+  if (fastPathResult) return fastPathResult;
+
+  // Full reconciliation
+  return performFullReconciliation(parent, newChildren, keyedVnodes, oldKeyMap);
+}
+
+/** Log reconcile debug info */
+function logReconcileDebug(newChildren: VNode[]): void {
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      logger.warn(
+        '[Askr][RECONCILE] reconcileKeyedChildren newChildren sample',
+        {
+          sample: (newChildren && newChildren.length && newChildren[0]) || null,
+          len: newChildren.length,
+        }
+      );
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+/** Partition children into keyed and unkeyed */
+function partitionChildren(newChildren: VNode[]): {
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>;
+  unkeyedVnodes: VNode[];
+} {
   const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
   const unkeyedVnodes: VNode[] = [];
 
-  /* istanbul ignore if - dev debug */
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      try {
-        logger.warn(
-          '[Askr][RECONCILE] reconcileKeyedChildren newChildren sample',
-          {
-            sample:
-              (newChildren && newChildren.length && newChildren[0]) || null,
-            len: newChildren.length,
-          }
-        );
-      } catch (e) {
-        void e;
-      }
-    } catch (e) {
-      void e;
-    }
-  }
-
   for (let i = 0; i < newChildren.length; i++) {
     const child = newChildren[i];
-    if (typeof child === 'object' && child !== null && 'type' in child) {
-      const childObj = child as unknown as Record<string, unknown>;
-      const rawKey =
-        childObj.key ??
-        (childObj.props as Record<string, unknown> | undefined)?.key;
-      if (rawKey !== undefined) {
-        const key: string | number =
-          typeof rawKey === 'symbol'
-            ? String(rawKey)
-            : (rawKey as string | number);
-        keyedVnodes.push({ key, vnode: child });
-      } else {
-        unkeyedVnodes.push(child);
-      }
+    const key = extractKey(child);
+    if (key !== undefined) {
+      keyedVnodes.push({ key, vnode: child });
     } else {
       unkeyedVnodes.push(child);
     }
   }
 
-  // Helper type for narrowings to avoid `any` casts in lint rules
-  type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
+  return { keyedVnodes, unkeyedVnodes };
+}
 
-  // Try renderer fast-path early for large keyed reorder-only updates.
+/** Try fast paths before full reconciliation */
+function tryFastPaths(
+  parent: Element,
+  newChildren: VNode[],
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  unkeyedVnodes: VNode[],
+  oldKeyMap: Map<string | number, Element> | undefined
+): Map<string | number, Element> | null {
   try {
-    const decision = isKeyedReorderFastPathEligible(
+    // Try renderer fast-path for large keyed reorder-only updates
+    const rendererResult = tryRendererFastPath(
       parent,
       newChildren,
+      keyedVnodes,
+      unkeyedVnodes,
       oldKeyMap
     );
-    if (
-      (decision.useFastPath && keyedVnodes.length >= 128) ||
-      // If we're executing inside a runtime bulk commit (fastlane), prefer the
-      // renderer fast-path to ensure the single-commit invariant is preserved.
-      isBulkCommitActive()
-    ) {
-      try {
-        const map = applyRendererFastPath(
-          parent,
-          keyedVnodes,
-          oldKeyMap,
-          unkeyedVnodes
-        );
-        if (map) {
-          try {
-            keyedElements.set(parent, map);
-          } catch (e) {
-            void e;
-          }
-          return map;
-        }
-      } catch (e) {
-        void e;
-      }
-    }
+    if (rendererResult) return rendererResult;
 
-    // Heuristic: if the majority of children *by position* have matching tags
-    // and are simple text/intrinsic children, prefer the positional bulk
-    // positional update path which reuses existing elements by index and
-    // preserves listeners. This is conservative and only used for relatively
-    // small lists where the renderer fast-path declines.
-    try {
-      const total = keyedVnodes.length;
-      if (total >= 10) {
-        let matchCount = 0;
-        try {
-          for (let i = 0; i < total; i++) {
-            const vnode = keyedVnodes[i].vnode as VnodeObj;
-            if (
-              !vnode ||
-              typeof vnode !== 'object' ||
-              typeof vnode.type !== 'string'
-            )
-              continue;
-            const el = parent.children[i] as Element | undefined;
-            if (!el) continue;
-            if (el.tagName.toLowerCase() === String(vnode.type).toLowerCase())
-              matchCount++;
-          }
-        } catch (e) {
-          void e;
-        }
-        /* istanbul ignore if - dev debug */
-        if (process.env.NODE_ENV !== 'production') {
-          try {
-            logger.warn('[Askr][FASTPATH] positional check', {
-              total,
-              matchCount,
-              parentChildren: parent.children.length,
-            });
-          } catch (e) {
-            void e;
-          }
-        }
-        // Require high positional match fraction to keep this conservative
-        if (matchCount / total >= 0.9) {
-          // Additionally, decline this positional path if prop changes are present
-          // that we cannot safely patch by remapping keys in-place. This mirrors
-          // the conservative rule in the runtime classifier.
-          let hasPropChanges = false;
-          try {
-            for (let i = 0; i < total; i++) {
-              const vnode = keyedVnodes[i].vnode as VnodeObj;
-              const el = parent.children[i] as Element | undefined;
-              if (!el || !vnode || typeof vnode !== 'object') continue;
-              const props = vnode.props || {};
-              for (const k of Object.keys(props)) {
-                if (k === 'children' || k === 'key') continue;
-                if (k.startsWith('on') && k.length > 2) continue;
-                if (k.startsWith('data-')) continue;
-                const v = props[k];
-                try {
-                  if (k === 'class' || k === 'className') {
-                    if (el.className !== String(v)) {
-                      hasPropChanges = true;
-                      break;
-                    }
-                  } else if (k === 'value' || k === 'checked') {
-                    if (
-                      (el as HTMLElement & Record<string, unknown>)[k] !== v
-                    ) {
-                      hasPropChanges = true;
-                      break;
-                    }
-                  } else {
-                    const attr = el.getAttribute(k);
-                    if (v === undefined || v === null || v === false) {
-                      if (attr !== null) {
-                        hasPropChanges = true;
-                        break;
-                      }
-                    } else if (String(v) !== attr) {
-                      hasPropChanges = true;
-                      break;
-                    }
-                  }
-                } catch (e) {
-                  hasPropChanges = true;
-                  void e;
-                  break;
-                }
-              }
-              if (hasPropChanges) break;
-            }
-          } catch (e) {
-            void e;
-          }
-
-          if (hasPropChanges) {
-            // Decline positional path when props differ
-          } else {
-            try {
-              const stats = performBulkPositionalKeyedTextUpdate(
-                parent,
-                keyedVnodes
-              );
-              if (
-                process.env.NODE_ENV !== 'production' ||
-                process.env.ASKR_FASTPATH_DEBUG === '1'
-              ) {
-                try {
-                  __ASKR_set('__LAST_FASTPATH_STATS', stats);
-                  __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
-                  __ASKR_incCounter('bulkKeyedPositionalHits');
-                } catch (e) {
-                  void e;
-                }
-              }
-              // Rebuild keyed map
-              try {
-                const map = new Map<string | number, Element>();
-                const children = Array.from(parent.children);
-                for (let i = 0; i < children.length; i++) {
-                  const el = children[i] as Element;
-                  const k = el.getAttribute('data-key');
-                  if (k !== null) {
-                    map.set(k, el);
-                    const n = Number(k);
-                    if (!Number.isNaN(n)) map.set(n, el);
-                  }
-                }
-                keyedElements.set(parent, map);
-              } catch (e) {
-                void e;
-              }
-              return keyedElements.get(parent) as Map<string | number, Element>;
-            } catch (e) {
-              void e;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      void e;
-    }
-  } catch (e) {
-    void e;
+    // Try positional bulk update for medium-sized lists
+    const positionalResult = tryPositionalBulkUpdate(parent, keyedVnodes);
+    if (positionalResult) return positionalResult;
+  } catch {
+    // Fall through to full reconciliation
   }
 
+  return null;
+}
+
+/** Try renderer fast-path */
+function tryRendererFastPath(
+  parent: Element,
+  newChildren: VNode[],
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  unkeyedVnodes: VNode[],
+  oldKeyMap: Map<string | number, Element> | undefined
+): Map<string | number, Element> | null {
+  const decision = isKeyedReorderFastPathEligible(
+    parent,
+    newChildren,
+    oldKeyMap
+  );
+
+  if (
+    (decision.useFastPath && keyedVnodes.length >= 128) ||
+    isBulkCommitActive()
+  ) {
+    try {
+      const map = applyRendererFastPath(
+        parent,
+        keyedVnodes,
+        oldKeyMap,
+        unkeyedVnodes
+      );
+      if (map) {
+        keyedElements.set(parent, map);
+        return map;
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  return null;
+}
+
+/** Try positional bulk update for medium-sized lists */
+function tryPositionalBulkUpdate(
+  parent: Element,
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+): Map<string | number, Element> | null {
+  const total = keyedVnodes.length;
+  if (total < 10) return null;
+
+  const matchCount = countPositionalMatches(parent, keyedVnodes);
+
+  logPositionalCheck(total, matchCount, parent.children.length);
+
+  // Require high positional match fraction
+  if (matchCount / total < 0.9) return null;
+
+  // Check for prop changes that would prevent positional update
+  if (hasPositionalPropChanges(parent, keyedVnodes)) return null;
+
+  // Perform positional update
+  try {
+    const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+    recordFastPathStats(stats, 'bulkKeyedPositionalHits');
+
+    rebuildKeyedMap(parent);
+    return keyedElements.get(parent) as Map<string | number, Element>;
+  } catch {
+    return null;
+  }
+}
+
+/** Count how many vnodes match parent children by position and tag */
+function countPositionalMatches(
+  parent: Element,
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+): number {
+  let matchCount = 0;
+
+  try {
+    for (let i = 0; i < keyedVnodes.length; i++) {
+      const vnode = keyedVnodes[i].vnode as VnodeObj;
+      if (!vnode || typeof vnode !== 'object' || typeof vnode.type !== 'string')
+        continue;
+
+      const el = parent.children[i] as Element | undefined;
+      if (!el) continue;
+
+      if (el.tagName.toLowerCase() === String(vnode.type).toLowerCase()) {
+        matchCount++;
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  return matchCount;
+}
+
+/** Log positional check debug info */
+function logPositionalCheck(
+  total: number,
+  matchCount: number,
+  parentChildren: number
+): void {
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      logger.warn('[Askr][FASTPATH] positional check', {
+        total,
+        matchCount,
+        parentChildren,
+      });
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+/** Check if positional prop changes would prevent bulk update */
+function hasPositionalPropChanges(
+  parent: Element,
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+): boolean {
+  try {
+    for (let i = 0; i < keyedVnodes.length; i++) {
+      const vnode = keyedVnodes[i].vnode as VnodeObj;
+      const el = parent.children[i] as Element | undefined;
+      if (!el || !vnode || typeof vnode !== 'object') continue;
+
+      if (checkPropChanges(el, vnode.props || {})) {
+        return true;
+      }
+    }
+  } catch {
+    return true;
+  }
+
+  return false;
+}
+
+/** Rebuild keyed map from parent children */
+function rebuildKeyedMap(parent: Element): void {
+  try {
+    const map = new Map<string | number, Element>();
+    const children = Array.from(parent.children);
+
+    for (let i = 0; i < children.length; i++) {
+      const el = children[i] as Element;
+      const k = el.getAttribute('data-key');
+      if (k !== null) {
+        map.set(k, el);
+        const n = Number(k);
+        if (!Number.isNaN(n)) map.set(n, el);
+      }
+    }
+
+    keyedElements.set(parent, map);
+  } catch {
+    // Ignore
+  }
+}
+
+/** Perform full reconciliation when fast paths don't apply */
+function performFullReconciliation(
+  parent: Element,
+  newChildren: VNode[],
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  oldKeyMap: Map<string | number, Element> | undefined
+): Map<string | number, Element> {
+  const newKeyMap = new Map<string | number, Element>();
   const finalNodes: Node[] = [];
-  // Track used old elements to handle duplicate keys deterministically
   const usedOldEls = new WeakSet<Node>();
 
-  const resolveOldElOnce = (k: string | number) => {
+  const resolveOldElOnce = createOldElResolver(parent, oldKeyMap, usedOldEls);
+
+  // Positional reconciliation
+  for (let i = 0; i < newChildren.length; i++) {
+    const child = newChildren[i];
+    const node = reconcileSingleChild(
+      child,
+      i,
+      parent,
+      resolveOldElOnce,
+      usedOldEls,
+      newKeyMap
+    );
+    if (node) finalNodes.push(node);
+  }
+
+  // SSR guard
+  if (typeof document === 'undefined') return newKeyMap;
+
+  commitReconciliation(parent, finalNodes);
+  keyedElements.delete(parent);
+
+  return newKeyMap;
+}
+
+/** Create resolver for finding old elements by key */
+function createOldElResolver(
+  parent: Element,
+  oldKeyMap: Map<string | number, Element> | undefined,
+  usedOldEls: WeakSet<Node>
+): (k: string | number) => Element | undefined {
+  return (k: string | number) => {
     if (!oldKeyMap) return undefined;
-    // Fast-path: directly from oldKeyMap if available and not used
+
+    // Fast-path: directly from oldKeyMap
     const direct = oldKeyMap.get(k);
     if (direct && !usedOldEls.has(direct)) {
       usedOldEls.add(direct);
       return direct;
     }
+
+    // Try string form
     const s = String(k);
     const byString = oldKeyMap.get(s);
     if (byString && !usedOldEls.has(byString)) {
       usedOldEls.add(byString);
       return byString;
     }
-    const n = Number(String(k));
+
+    // Try numeric form
+    const n = Number(s);
     if (!Number.isNaN(n)) {
-      const byNum = oldKeyMap.get(n as number);
+      const byNum = oldKeyMap.get(n);
       if (byNum && !usedOldEls.has(byNum)) {
         usedOldEls.add(byNum);
         return byNum;
       }
     }
 
-    // Fallback: scan parent children to find the next matching element
-    try {
-      const children = Array.from(parent.children) as Element[];
-      for (const ch of children) {
-        if (usedOldEls.has(ch)) continue;
-        const attr = ch.getAttribute('data-key');
-        if (attr === s) {
-          usedOldEls.add(ch);
-          return ch;
-        }
-        const numAttr = Number(attr);
-        if (!Number.isNaN(numAttr) && numAttr === (k as number)) {
-          usedOldEls.add(ch);
-          return ch;
-        }
-      }
-    } catch (e) {
-      void e;
-    }
-
-    return undefined;
+    // Fallback: scan parent children
+    return scanForElementByKey(parent, k, s, usedOldEls);
   };
+}
 
-  // Positional reconciliation: iterate over new children and decide reuse
-  for (let i = 0; i < newChildren.length; i++) {
-    const child = newChildren[i];
-
-    // Keyed child
-    if (typeof child === 'object' && child !== null && 'type' in child) {
-      const childObj = child as unknown as Record<string, unknown>;
-      const rawKey =
-        childObj.key ??
-        (childObj.props as Record<string, unknown> | undefined)?.key;
-      if (rawKey !== undefined) {
-        const key: string | number =
-          typeof rawKey === 'symbol'
-            ? String(rawKey)
-            : (rawKey as string | number);
-        const el = resolveOldElOnce(key);
-        if (el && el.parentElement === parent) {
-          updateElementFromVnode(el, child as VNode);
-          finalNodes.push(el);
-          newKeyMap.set(key, el);
-          continue;
-        }
-        const dom = createDOMNode(child as VNode);
-        if (dom) {
-          finalNodes.push(dom);
-          if (dom instanceof Element) newKeyMap.set(key, dom);
-        }
-        continue;
+/** Scan parent children for element with matching key */
+function scanForElementByKey(
+  parent: Element,
+  k: string | number,
+  keyStr: string,
+  usedOldEls: WeakSet<Node>
+): Element | undefined {
+  try {
+    const children = Array.from(parent.children) as Element[];
+    for (const ch of children) {
+      if (usedOldEls.has(ch)) continue;
+      const attr = ch.getAttribute('data-key');
+      if (attr === keyStr) {
+        usedOldEls.add(ch);
+        return ch;
+      }
+      const numAttr = Number(attr);
+      if (!Number.isNaN(numAttr) && numAttr === (k as number)) {
+        usedOldEls.add(ch);
+        return ch;
       }
     }
+  } catch {
+    // Ignore
+  }
+  return undefined;
+}
 
-    // Unkeyed or primitive child — try positional reuse if existing child is unkeyed
-    try {
-      const existing = parent.children[i] as Element | undefined;
-      if (
-        existing &&
-        (typeof child === 'string' || typeof child === 'number') &&
-        existing.nodeType === 1
-      ) {
-        // primitive -> existing element: update text content
-        existing.textContent = String(child);
-        finalNodes.push(existing);
-        usedOldEls.add(existing);
-        continue;
-      }
-      if (
-        existing &&
-        typeof child === 'object' &&
-        child !== null &&
-        'type' in child &&
-        (existing.getAttribute('data-key') === null ||
-          existing.getAttribute('data-key') === undefined) &&
-        typeof (child as VnodeObj).type === 'string' &&
-        existing.tagName.toLowerCase() ===
-          String((child as VnodeObj).type).toLowerCase()
-      ) {
-        updateElementFromVnode(existing, child as VNode);
-        finalNodes.push(existing);
-        usedOldEls.add(existing);
-        continue;
-      }
-
-      // If the slot is occupied by a keyed node, try to find an available
-      // unkeyed element elsewhere to preserve positional identity for
-      // unkeyed siblings (critical for mixed keyed/unkeyed cases).
-      try {
-        const avail = Array.from(parent.children).find(
-          (ch) => !usedOldEls.has(ch) && ch.getAttribute('data-key') === null
-        );
-        if (avail) {
-          if (typeof child === 'string' || typeof child === 'number') {
-            avail.textContent = String(child);
-          } else if (
-            typeof child === 'object' &&
-            child !== null &&
-            'type' in child &&
-            typeof (child as VnodeObj).type === 'string' &&
-            avail.tagName.toLowerCase() ===
-              String((child as VnodeObj).type).toLowerCase()
-          ) {
-            updateElementFromVnode(avail, child as VNode);
-          } else {
-            // If shape mismatches, rebuild
-            const dom = createDOMNode(child as VNode);
-            if (dom) {
-              finalNodes.push(dom);
-              continue;
-            }
-          }
-          usedOldEls.add(avail);
-          finalNodes.push(avail);
-          continue;
-        }
-      } catch (e) {
-        void e;
-      }
-    } catch (e) {
-      void e;
-    }
-
-    // Fallback: create DOM node
-    const dom = createDOMNode(child as VNode);
-    if (dom) finalNodes.push(dom);
+/** Reconcile a single child */
+function reconcileSingleChild(
+  child: VNode,
+  index: number,
+  parent: Element,
+  resolveOldElOnce: (k: string | number) => Element | undefined,
+  usedOldEls: WeakSet<Node>,
+  newKeyMap: Map<string | number, Element>
+): Node | null {
+  // Keyed child
+  const key = extractKey(child);
+  if (key !== undefined) {
+    return reconcileKeyedChild(child, key, parent, resolveOldElOnce, newKeyMap);
   }
 
-  // SSR guard: if DOM unavailable, do a conservative no-op
-  if (typeof document === 'undefined') return newKeyMap;
+  // Unkeyed or primitive child
+  return reconcileUnkeyedChild(child, index, parent, usedOldEls);
+}
 
+/** Reconcile a keyed child */
+function reconcileKeyedChild(
+  child: VNode,
+  key: string | number,
+  parent: Element,
+  resolveOldElOnce: (k: string | number) => Element | undefined,
+  newKeyMap: Map<string | number, Element>
+): Node | null {
+  const el = resolveOldElOnce(key);
+
+  if (el && el.parentElement === parent) {
+    updateElementFromVnode(el, child);
+    newKeyMap.set(key, el);
+    return el;
+  }
+
+  const dom = createDOMNode(child);
+  if (dom) {
+    if (dom instanceof Element) newKeyMap.set(key, dom);
+    return dom;
+  }
+
+  return null;
+}
+
+/** Reconcile an unkeyed or primitive child */
+function reconcileUnkeyedChild(
+  child: VNode,
+  index: number,
+  parent: Element,
+  usedOldEls: WeakSet<Node>
+): Node | null {
+  try {
+    const existing = parent.children[index] as Element | undefined;
+
+    // Primitive child with existing element
+    if (
+      existing &&
+      (typeof child === 'string' || typeof child === 'number') &&
+      existing.nodeType === 1
+    ) {
+      existing.textContent = String(child);
+      usedOldEls.add(existing);
+      return existing;
+    }
+
+    // Element child matching existing unkeyed element
+    if (canReuseElement(existing, child)) {
+      updateElementFromVnode(existing!, child);
+      usedOldEls.add(existing!);
+      return existing!;
+    }
+
+    // Try to find available unkeyed element elsewhere
+    const avail = findAvailableUnkeyedElement(parent, usedOldEls);
+    if (avail) {
+      const reuseResult = tryReuseElement(avail, child, usedOldEls);
+      if (reuseResult) return reuseResult;
+    }
+  } catch {
+    // Fall through to create new
+  }
+
+  const dom = createDOMNode(child);
+  return dom;
+}
+
+/** Check if existing element can be reused for child */
+function canReuseElement(existing: Element | undefined, child: VNode): boolean {
+  if (!existing) return false;
+  if (typeof child !== 'object' || child === null || !('type' in child))
+    return false;
+
+  const childObj = child as VnodeObj;
+  const hasNoKey =
+    existing.getAttribute('data-key') === null ||
+    existing.getAttribute('data-key') === undefined;
+
+  return (
+    hasNoKey &&
+    typeof childObj.type === 'string' &&
+    existing.tagName.toLowerCase() === String(childObj.type).toLowerCase()
+  );
+}
+
+/** Find available unkeyed element in parent */
+function findAvailableUnkeyedElement(
+  parent: Element,
+  usedOldEls: WeakSet<Node>
+): Element | undefined {
+  return Array.from(parent.children).find(
+    (ch) => !usedOldEls.has(ch) && ch.getAttribute('data-key') === null
+  );
+}
+
+/** Try to reuse available element for child */
+function tryReuseElement(
+  avail: Element,
+  child: VNode,
+  usedOldEls: WeakSet<Node>
+): Node | null {
+  if (typeof child === 'string' || typeof child === 'number') {
+    avail.textContent = String(child);
+    usedOldEls.add(avail);
+    return avail;
+  }
+
+  if (typeof child === 'object' && child !== null && 'type' in child) {
+    const childObj = child as VnodeObj;
+    if (
+      typeof childObj.type === 'string' &&
+      avail.tagName.toLowerCase() === String(childObj.type).toLowerCase()
+    ) {
+      updateElementFromVnode(avail, child);
+      usedOldEls.add(avail);
+      return avail;
+    }
+  }
+
+  return null;
+}
+
+/** Commit reconciliation by replacing parent children */
+function commitReconciliation(parent: Element, finalNodes: Node[]): void {
   const fragment = document.createDocumentFragment();
-  for (let i = 0; i < finalNodes.length; i++)
+  for (let i = 0; i < finalNodes.length; i++) {
     fragment.appendChild(finalNodes[i]);
+  }
 
+  // Cleanup existing nodes
   try {
     const existing = Array.from(parent.childNodes);
     for (const n of existing) {
       if (n instanceof Element) removeAllListeners(n);
       cleanupInstanceIfPresent(n);
     }
-  } catch (e) {
-    void e;
+  } catch {
+    // Ignore
   }
 
-  try {
-    __ASKR_incCounter('__DOM_REPLACE_COUNT');
-    __ASKR_set('__LAST_DOM_REPLACE_STACK_RECONCILE', new Error().stack);
-  } catch (e) {
-    void e;
-  }
-
+  recordDOMReplace('reconcile');
   parent.replaceChildren(fragment);
-  keyedElements.delete(parent);
-  return newKeyMap;
 }

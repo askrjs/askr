@@ -254,10 +254,7 @@ function reconcileUnkeyed(parent: Element, children: VNode[]): void {
 /**
  * Update element children (handles keyed, unkeyed, and non-array cases)
  */
-function updateElementChildren(
-  element: Element,
-  vnodeChildren: unknown
-): void {
+function updateElementChildren(element: Element, vnodeChildren: unknown): void {
   if (!vnodeChildren) {
     element.textContent = '';
     keyedElements.delete(element);
@@ -278,7 +275,11 @@ function updateElementChildren(
       reconcileKeyed(element, vnodeChildren, oldKeyMap);
     } catch {
       // Fall back on error
-      const newKeyMap = reconcileKeyedChildren(element, vnodeChildren, oldKeyMap);
+      const newKeyMap = reconcileKeyedChildren(
+        element,
+        vnodeChildren,
+        oldKeyMap
+      );
       keyedElements.set(element, newKeyMap);
     }
   } else {
@@ -290,10 +291,7 @@ function updateElementChildren(
  * Perform a smart update on an existing element
  * Tries text-in-place update first, then full child reconciliation
  */
-function smartUpdateElement(
-  element: Element,
-  vnode: DOMElement
-): void {
+function smartUpdateElement(element: Element, vnode: DOMElement): void {
   const vnodeChildren = vnode.children || vnode.props?.children;
   const textCheck = checkSimpleText(vnodeChildren);
 
@@ -453,9 +451,10 @@ function isFragment(vnode: unknown): vnode is DOMElement {
  * Unwrap Fragment to get children array
  */
 function getFragmentChildren(vnode: DOMElement): unknown[] {
-  const fragmentChildren =
-    vnode.props?.children || vnode.children || [];
-  return Array.isArray(fragmentChildren) ? fragmentChildren : [fragmentChildren];
+  const fragmentChildren = vnode.props?.children || vnode.children || [];
+  return Array.isArray(fragmentChildren)
+    ? fragmentChildren
+    : [fragmentChildren];
 }
 
 export function evaluate(

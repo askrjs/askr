@@ -1,4 +1,3 @@
-import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
 import type { Props } from '../shared/types';
 import { Fragment } from '../jsx/jsx-runtime';
@@ -26,6 +25,16 @@ import {
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { keyedElements } from './keyed';
+import {
+  parseEventName,
+  getPassiveOptions,
+  createWrappedHandler,
+  isSkippedProp,
+  now,
+  recordDOMReplace,
+  recordFastPathStats,
+  logFastPathDebug,
+} from './utils';
 
 type ElementWithContext = DOMElement & {
   [CONTEXT_FRAME_SYMBOL]?: ContextFrame;
@@ -34,15 +43,164 @@ type ElementWithContext = DOMElement & {
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
-// Create a DOM node from a VNode
+// ─────────────────────────────────────────────────────────────────────────────
+// Event Handler Management
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Add an event listener to an element with tracking
+ */
+function addTrackedListener(
+  el: Element,
+  eventName: string,
+  handler: EventListener
+): void {
+  const wrappedHandler = createWrappedHandler(handler, true);
+  const options = getPassiveOptions(eventName);
+
+  if (options !== undefined) {
+    el.addEventListener(eventName, wrappedHandler, options);
+  } else {
+    el.addEventListener(eventName, wrappedHandler);
+  }
+
+  if (!elementListeners.has(el)) {
+    elementListeners.set(el, new Map());
+  }
+  elementListeners.get(el)!.set(eventName, {
+    handler: wrappedHandler,
+    original: handler,
+    options,
+  });
+}
+
+/**
+ * Apply attributes and event listeners to an element from props
+ */
+function applyPropsToElement(
+  el: Element,
+  props: Record<string, unknown>,
+  tagName: string
+): void {
+  for (const key in props) {
+    const value = props[key];
+    if (isSkippedProp(key)) continue;
+    if (value === undefined || value === null || value === false) continue;
+
+    const eventName = parseEventName(key);
+    if (eventName) {
+      addTrackedListener(el, eventName, value as EventListener);
+      continue;
+    }
+
+    if (key === 'class' || key === 'className') {
+      el.className = String(value);
+    } else if (key === 'value' || key === 'checked') {
+      applyFormControlProp(el, key, value, tagName);
+    } else {
+      el.setAttribute(key, String(value));
+    }
+  }
+}
+
+/**
+ * Apply value/checked props to form controls
+ */
+function applyFormControlProp(
+  el: Element,
+  key: string,
+  value: unknown,
+  tagName: string
+): void {
+  const tag = tagName.toLowerCase();
+  if (key === 'value') {
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+      (el as HTMLInputElement & Props).value = String(value);
+      el.setAttribute('value', String(value));
+    } else {
+      el.setAttribute('value', String(value));
+    }
+  } else if (key === 'checked') {
+    if (tag === 'input') {
+      (el as HTMLInputElement & Props).checked = Boolean(value);
+      el.setAttribute('checked', String(Boolean(value)));
+    } else {
+      el.setAttribute('checked', String(Boolean(value)));
+    }
+  }
+}
+
+/**
+ * Materialize vnode key as data-key attribute
+ */
+function materializeKey(
+  el: Element,
+  vnode: DOMElement,
+  props: Record<string, unknown>
+): void {
+  const vnodeKey = vnode.key ?? props?.key;
+  if (vnodeKey !== undefined) {
+    el.setAttribute('data-key', String(vnodeKey));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dynamic List Warnings
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Warn about missing keys on dynamic lists (dev only)
+ */
+function warnMissingKeys(children: unknown[]): void {
+  if (process.env.NODE_ENV === 'production') return;
+
+  let hasElements = false;
+  let hasKeys = false;
+
+  for (const item of children) {
+    if (typeof item === 'object' && item !== null && 'type' in item) {
+      hasElements = true;
+      const rawKey =
+        (item as DOMElement).key ??
+        ((item as DOMElement).props as Record<string, unknown> | undefined)
+          ?.key;
+      if (rawKey !== undefined) {
+        hasKeys = true;
+        break;
+      }
+    }
+  }
+
+  if (hasElements && !hasKeys) {
+    try {
+      const inst = getCurrentInstance();
+      const name = inst?.fn?.name || '<anonymous>';
+      logger.warn(
+        `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
+      );
+    } catch {
+      logger.warn(
+        'Missing keys on dynamic lists. Each child in a list should have a unique "key" prop.'
+      );
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOM Node Creation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a DOM node from a VNode
+ */
 export function createDOMNode(node: unknown): Node | null {
   // SSR guard: don't attempt DOM ops when document is unavailable
   if (!IS_DOM_AVAILABLE) {
     if (process.env.NODE_ENV !== 'production') {
       try {
         logger.warn('[Askr] createDOMNode called in non-DOM environment');
-      } catch (e) {
-        void e;
+      } catch {
+        // ignore
       }
     }
     return null;
@@ -64,8 +222,8 @@ export function createDOMNode(node: unknown): Node | null {
   // Array (fragment) - batch all at once
   if (Array.isArray(node)) {
     const fragment = document.createDocumentFragment();
-    for (let i = 0; i < node.length; i++) {
-      const dom = createDOMNode(node[i]);
+    for (const child of node) {
+      const dom = createDOMNode(child);
       if (dom) fragment.appendChild(dom);
     }
     return fragment;
@@ -74,234 +232,16 @@ export function createDOMNode(node: unknown): Node | null {
   // Element or Component
   if (typeof node === 'object' && node !== null && 'type' in node) {
     const type = (node as DOMElement).type;
-    const props = (node as DOMElement).props || {};
+    const props = ((node as DOMElement).props || {}) as Record<string, unknown>;
 
     // Intrinsic element (string type)
     if (typeof type === 'string') {
-      const el = document.createElement(type);
-
-      // Materialize `key` into a DOM attribute so DOM-based scans can discover
-      // keyed elements even when the runtime registry hasn't been initialized.
-      try {
-        const vnodeKey =
-          (node as DOMElement).key ??
-          (props as Record<string, unknown> | undefined)?.key;
-        if (vnodeKey !== undefined) {
-          el.setAttribute('data-key', String(vnodeKey));
-        }
-      } catch (e) {
-        void e;
-      }
-
-      // Set attributes and event handlers in single pass (allocation-free)
-      for (const key in props) {
-        const value = (props as Record<string, unknown>)[key];
-        // Skip special keys
-        if (key === 'children' || key === 'key') continue;
-        if (value === undefined || value === null || value === false) continue;
-
-        if (key.startsWith('on') && key.length > 2) {
-          const eventName =
-            key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
-          const wrappedHandler = (event: Event) => {
-            globalScheduler.setInHandler(true);
-            try {
-              (value as EventListener)(event);
-            } catch (error) {
-              logger.error('[Askr] Event handler error:', error);
-            } finally {
-              globalScheduler.setInHandler(false);
-              // If the handler enqueued tasks while we disallowed microtask kicks,
-              // ensure we schedule a microtask to flush them now that the handler
-              // has completed. This mirrors the behavior in scheduleEventHandler.
-              const state = globalScheduler.getState();
-              if ((state.queueLength ?? 0) > 0 && !state.running) {
-                queueMicrotask(() => {
-                  try {
-                    if (!globalScheduler.isExecuting()) globalScheduler.flush();
-                  } catch (err) {
-                    queueMicrotask(() => {
-                      throw err;
-                    });
-                  }
-                });
-              }
-            }
-          };
-
-          // Determine sensible default options (use passive for touch/scroll/wheel where appropriate)
-          const options: boolean | AddEventListenerOptions | undefined =
-            eventName === 'wheel' ||
-            eventName === 'scroll' ||
-            eventName.startsWith('touch')
-              ? { passive: true }
-              : undefined;
-          if (options !== undefined)
-            el.addEventListener(eventName, wrappedHandler, options);
-          else el.addEventListener(eventName, wrappedHandler);
-          if (!elementListeners.has(el)) {
-            elementListeners.set(el, new Map());
-          }
-          elementListeners.get(el)!.set(eventName, {
-            handler: wrappedHandler,
-            original: value as EventListener,
-            options,
-          });
-        } else if (key === 'class' || key === 'className') {
-          el.className = String(value);
-        } else if (key === 'value' || key === 'checked') {
-          // Only set `value`/`checked` on form controls where it's meaningful
-          const tag = type.toLowerCase();
-          if (key === 'value') {
-            if (tag === 'input' || tag === 'textarea' || tag === 'select') {
-              (el as HTMLInputElement & Props).value = String(value);
-              el.setAttribute('value', String(value));
-            } else {
-              el.setAttribute('value', String(value));
-            }
-          } else {
-            if (tag === 'input') {
-              (el as HTMLInputElement & Props).checked = Boolean(value);
-              el.setAttribute('checked', String(Boolean(value)));
-            } else {
-              el.setAttribute('checked', String(Boolean(value)));
-            }
-          }
-        } else {
-          el.setAttribute(key, String(value));
-        }
-      }
-
-      // Materialize key on created element so DOM-based fast-path can find it
-      const vnodeKey =
-        (node as DOMElement).key ?? (props as Record<string, unknown>)?.key;
-      if (vnodeKey !== undefined) {
-        el.setAttribute('data-key', String(vnodeKey));
-      }
-
-      // Add children - batch append
-      const children = props.children || (node as DOMElement).children;
-      if (children) {
-        if (Array.isArray(children)) {
-          // Check for missing keys on dynamic lists in dev mode
-          if (process.env.NODE_ENV !== 'production') {
-            let hasElements = false;
-            let hasKeys = false;
-            for (let i = 0; i < children.length; i++) {
-              const item = children[i];
-              if (typeof item === 'object' && item !== null && 'type' in item) {
-                hasElements = true;
-                // Detect key either as a top-level property or on props (compat)
-                const rawKey =
-                  (item as DOMElement).key ??
-                  (
-                    (item as DOMElement).props as
-                      | Record<string, unknown>
-                      | undefined
-                  )?.key;
-                if (rawKey !== undefined) {
-                  hasKeys = true;
-                  break;
-                }
-              }
-            }
-            if (hasElements && !hasKeys) {
-              if (typeof console !== 'undefined') {
-                try {
-                  const inst = getCurrentInstance();
-                  const name = inst?.fn?.name || '<anonymous>';
-                  logger.warn(
-                    `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
-                  );
-                } catch (e) {
-                  logger.warn(
-                    'Missing keys on dynamic lists. Each child in a list should have a unique "key" prop.'
-                  );
-                  void e;
-                }
-              }
-            }
-          }
-
-          for (let i = 0; i < children.length; i++) {
-            const dom = createDOMNode(children[i]);
-            if (dom) el.appendChild(dom);
-          }
-        } else {
-          const dom = createDOMNode(children);
-          if (dom) el.appendChild(dom);
-        }
-      }
-
-      return el;
+      return createIntrinsicElement(node as DOMElement, type, props);
     }
 
     // Component (function type) - inline execution
     if (typeof type === 'function') {
-      // Check if this vnode has a marked context frame
-      const frame = (node as ElementWithContext)[CONTEXT_FRAME_SYMBOL];
-
-      // Capture context snapshot for this component's render
-      // If the vnode was not explicitly marked, fall back to the current
-      // ambient frame so the component's returned subtree inherits lexical
-      // provider context.
-      const snapshot = frame || getCurrentContextFrame();
-
-      const componentFn = type as (props: Props) => unknown;
-      const isAsync = componentFn.constructor.name === 'AsyncFunction';
-
-      if (isAsync) {
-        throw new Error(
-          'Async components are not supported. Use resource() for async work.'
-        );
-      }
-
-      // Ensure there is a persistent instance object attached to this vnode
-      const vnodeAny = node as ElementWithContext;
-      let childInstance = vnodeAny.__instance;
-      if (!childInstance) {
-        childInstance = createComponentInstance(
-          `comp-${Math.random().toString(36).slice(2, 7)}`,
-          componentFn as ComponentFunction,
-          props || {},
-          null
-        );
-        vnodeAny.__instance = childInstance;
-      }
-
-      if (snapshot) {
-        childInstance.ownerFrame = snapshot;
-      }
-
-      const result = withContext(snapshot, () =>
-        renderComponentInline(childInstance)
-      );
-
-      if (result instanceof Promise) {
-        throw new Error(
-          'Async components are not supported. Components must return synchronously.'
-        );
-      }
-
-      const dom = withContext(snapshot, () => createDOMNode(result));
-
-      if (dom instanceof Element) {
-        mountInstanceInline(childInstance, dom);
-        return dom;
-      }
-
-      // For non-Element returns (Text nodes or DocumentFragment), ensure the
-      // instance backref is attached to an Element that will actually be
-      // inserted into the DOM. Append returned nodes into a host element and
-      // mount the instance on that host so cleanup works deterministically.
-      const host = document.createElement('div');
-      if (dom instanceof DocumentFragment) {
-        host.appendChild(dom);
-      } else if (dom) {
-        host.appendChild(dom);
-      }
-      mountInstanceInline(childInstance, host);
-      return host;
+      return createComponentElement(node as ElementWithContext, type, props);
     }
 
     // Fragment support
@@ -309,25 +249,134 @@ export function createDOMNode(node: unknown): Node | null {
       typeof type === 'symbol' &&
       (type === Fragment || String(type) === 'Symbol(Fragment)')
     ) {
-      const fragment = document.createDocumentFragment();
-      const children = props.children || (node as DOMElement).children;
-      if (children) {
-        if (Array.isArray(children)) {
-          for (let i = 0; i < children.length; i++) {
-            const dom = createDOMNode(children[i]);
-            if (dom) fragment.appendChild(dom);
-          }
-        } else {
-          const dom = createDOMNode(children);
-          if (dom) fragment.appendChild(dom);
-        }
-      }
-      return fragment;
+      return createFragmentElement(node as DOMElement, props);
     }
   }
 
   return null;
 }
+
+/**
+ * Create an intrinsic DOM element (div, span, etc.)
+ */
+function createIntrinsicElement(
+  node: DOMElement,
+  type: string,
+  props: Record<string, unknown>
+): Element {
+  const el = document.createElement(type);
+
+  // Materialize key into DOM attribute
+  materializeKey(el, node, props);
+
+  // Apply props/attributes
+  applyPropsToElement(el, props, type);
+
+  // Add children
+  const children = props.children || node.children;
+  if (children) {
+    if (Array.isArray(children)) {
+      warnMissingKeys(children);
+      for (const child of children) {
+        const dom = createDOMNode(child);
+        if (dom) el.appendChild(dom);
+      }
+    } else {
+      const dom = createDOMNode(children);
+      if (dom) el.appendChild(dom);
+    }
+  }
+
+  return el;
+}
+
+/**
+ * Create element from a component function
+ */
+function createComponentElement(
+  node: ElementWithContext,
+  type: (props: Props) => unknown,
+  props: Record<string, unknown>
+): Node {
+  // Check if this vnode has a marked context frame
+  const frame = node[CONTEXT_FRAME_SYMBOL];
+  const snapshot = frame || getCurrentContextFrame();
+
+  const componentFn = type as (props: Props) => unknown;
+  const isAsync = componentFn.constructor.name === 'AsyncFunction';
+
+  if (isAsync) {
+    throw new Error(
+      'Async components are not supported. Use resource() for async work.'
+    );
+  }
+
+  // Ensure there is a persistent instance object attached to this vnode
+  let childInstance = node.__instance;
+  if (!childInstance) {
+    childInstance = createComponentInstance(
+      `comp-${Math.random().toString(36).slice(2, 7)}`,
+      componentFn as ComponentFunction,
+      props || {},
+      null
+    );
+    node.__instance = childInstance;
+  }
+
+  if (snapshot) {
+    childInstance.ownerFrame = snapshot;
+  }
+
+  const result = withContext(snapshot, () =>
+    renderComponentInline(childInstance)
+  );
+
+  if (result instanceof Promise) {
+    throw new Error(
+      'Async components are not supported. Components must return synchronously.'
+    );
+  }
+
+  const dom = withContext(snapshot, () => createDOMNode(result));
+
+  if (dom instanceof Element) {
+    mountInstanceInline(childInstance, dom);
+    return dom;
+  }
+
+  // For non-Element returns (Text nodes or DocumentFragment), wrap in host
+  const host = document.createElement('div');
+  if (dom) host.appendChild(dom);
+  mountInstanceInline(childInstance, host);
+  return host;
+}
+
+/**
+ * Create a document fragment from Fragment vnode
+ */
+function createFragmentElement(
+  node: DOMElement,
+  props: Record<string, unknown>
+): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  const children = props.children || node.children;
+  if (children) {
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        const dom = createDOMNode(child);
+        if (dom) fragment.appendChild(dom);
+      }
+    } else {
+      const dom = createDOMNode(children);
+      if (dom) fragment.appendChild(dom);
+    }
+  }
+  return fragment;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Element Updates
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Update an existing element's attributes and children from vnode
@@ -341,40 +390,33 @@ export function updateElementFromVnode(
     return;
   }
 
-  const props = vnode.props || {};
+  const props = (vnode.props || {}) as Record<string, unknown>;
 
-  // Ensure key is materialized on existing elements so DOM-based scans succeed
-  // Respect both top-level `key` and `props.key` for compatibility with
-  // tests and manual vnode construction.
-  const vnodeKey =
-    (vnode as DOMElement).key ?? (vnode as DOMElement).props?.key;
-  if (vnodeKey !== undefined) {
-    el.setAttribute('data-key', String(vnodeKey));
-  }
+  // Ensure key is materialized
+  materializeKey(el, vnode, props);
 
   // Diff and update event listeners and other attributes
   const existingListeners = elementListeners.get(el);
   const desiredEventNames = new Set<string>();
 
   for (const key in props) {
-    const value = (props as Record<string, unknown>)[key];
-    if (key === 'children' || key === 'key') continue;
+    const value = props[key];
+    if (isSkippedProp(key)) continue;
+
+    const eventName = parseEventName(key);
 
     // Handle removal cases
     if (value === undefined || value === null || value === false) {
       if (key === 'class' || key === 'className') {
         el.className = '';
-      } else if (key.startsWith('on') && key.length > 2) {
-        const eventName =
-          key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
-        if (existingListeners && existingListeners.has(eventName)) {
-          const entry = existingListeners.get(eventName)!;
-          if (entry.options !== undefined)
-            el.removeEventListener(eventName, entry.handler, entry.options);
-          else el.removeEventListener(eventName, entry.handler);
-          existingListeners.delete(eventName);
+      } else if (eventName && existingListeners?.has(eventName)) {
+        const entry = existingListeners.get(eventName)!;
+        if (entry.options !== undefined) {
+          el.removeEventListener(eventName, entry.handler, entry.options);
+        } else {
+          el.removeEventListener(eventName, entry.handler);
         }
-        continue;
+        existingListeners.delete(eventName);
       } else {
         el.removeAttribute(key);
       }
@@ -385,14 +427,11 @@ export function updateElementFromVnode(
       el.className = String(value);
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
-    } else if (key.startsWith('on') && key.length > 2) {
-      const eventName =
-        key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
-
+    } else if (eventName) {
       desiredEventNames.add(eventName);
 
       const existing = existingListeners?.get(eventName);
-      // If the handler reference is unchanged, keep existing wrapped handler
+      // If handler reference unchanged, keep existing wrapped handler
       if (existing && existing.original === value) {
         continue;
       }
@@ -402,26 +441,19 @@ export function updateElementFromVnode(
         el.removeEventListener(eventName, existing.handler);
       }
 
-      const wrappedHandler = (event: Event) => {
-        globalScheduler.setInHandler(true);
-        try {
-          (value as EventListener)(event);
-        } catch (error) {
-          logger.error('[Askr] Event handler error:', error);
-        } finally {
-          globalScheduler.setInHandler(false);
-        }
-      };
+      // Add new handler
+      const wrappedHandler = createWrappedHandler(
+        value as EventListener,
+        false
+      );
+      const options = getPassiveOptions(eventName);
 
-      const options: boolean | AddEventListenerOptions | undefined =
-        eventName === 'wheel' ||
-        eventName === 'scroll' ||
-        eventName.startsWith('touch')
-          ? { passive: true }
-          : undefined;
-      if (options !== undefined)
+      if (options !== undefined) {
         el.addEventListener(eventName, wrappedHandler, options);
-      else el.addEventListener(eventName, wrappedHandler);
+      } else {
+        el.addEventListener(eventName, wrappedHandler);
+      }
+
       if (!elementListeners.has(el)) {
         elementListeners.set(el, new Map());
       }
@@ -437,10 +469,9 @@ export function updateElementFromVnode(
 
   // Remove any remaining listeners not desired by current props
   if (existingListeners) {
-    // Iterate over keys to avoid allocating a transient array via Array.from
     for (const eventName of existingListeners.keys()) {
-      const entry = existingListeners.get(eventName)!;
       if (!desiredEventNames.has(eventName)) {
+        const entry = existingListeners.get(eventName)!;
         el.removeEventListener(eventName, entry.handler);
         existingListeners.delete(eventName);
       }
@@ -589,235 +620,148 @@ export function performBulkPositionalKeyedTextUpdate(
   const total = keyedVnodes.length;
   let reused = 0;
   let updatedKeys = 0;
-  const t0 =
-    typeof performance !== 'undefined' && performance.now
-      ? performance.now()
-      : Date.now();
+  const t0 = now();
 
   for (let i = 0; i < total; i++) {
     const { key, vnode } = keyedVnodes[i];
     const ch = parent.children[i] as Element | undefined;
+
     if (
       ch &&
       _isDOMElement(vnode) &&
       typeof (vnode as DOMElement).type === 'string'
     ) {
       const vnodeType = (vnode as DOMElement).type as string;
+
       if (ch.tagName.toLowerCase() === vnodeType.toLowerCase()) {
         const children =
           (vnode as DOMElement).children ||
           (vnode as DOMElement).props?.children;
 
-        try {
-          if (
-            process.env.ASKR_FASTPATH_DEBUG === '1' ||
-            process.env.ASKR_FASTPATH_DEBUG === 'true'
-          ) {
-            logger.warn('[Askr][FASTPATH] positional idx', i, {
-              chTag: ch.tagName.toLowerCase(),
-              vnodeType,
-              chChildNodes: ch.childNodes.length,
-              childrenType: Array.isArray(children) ? 'array' : typeof children,
-            });
-          }
-        } catch (e) {
-          void e;
-        }
+        logFastPathDebug('positional idx', i, {
+          chTag: ch.tagName.toLowerCase(),
+          vnodeType,
+          chChildNodes: ch.childNodes.length,
+          childrenType: Array.isArray(children) ? 'array' : typeof children,
+        });
 
-        if (typeof children === 'string' || typeof children === 'number') {
-          if (ch.childNodes.length === 1 && ch.firstChild?.nodeType === 3) {
-            (ch.firstChild as Text).data = String(children);
-          } else {
-            ch.textContent = String(children);
-          }
-        } else if (
-          Array.isArray(children) &&
-          children.length === 1 &&
-          (typeof children[0] === 'string' || typeof children[0] === 'number')
-        ) {
-          if (ch.childNodes.length === 1 && ch.firstChild?.nodeType === 3) {
-            (ch.firstChild as Text).data = String(children[0]);
-          } else {
-            ch.textContent = String(children[0]);
-          }
-        } else {
-          updateElementFromVnode(ch, vnode as VNode);
-        }
-        try {
-          ch.setAttribute('data-key', String(key));
-          updatedKeys++;
-        } catch (e) {
-          void e;
-        }
+        updateTextContent(ch, children);
+        setDataKey(ch, key, () => updatedKeys++);
         reused++;
         continue;
       } else {
-        try {
-          if (
-            process.env.ASKR_FASTPATH_DEBUG === '1' ||
-            process.env.ASKR_FASTPATH_DEBUG === 'true'
-          ) {
-            logger.warn('[Askr][FASTPATH] positional tag mismatch', i, {
-              chTag: ch.tagName.toLowerCase(),
-              vnodeType,
-            });
-          }
-        } catch (e) {
-          void e;
-        }
+        logFastPathDebug('positional tag mismatch', i, {
+          chTag: ch.tagName.toLowerCase(),
+          vnodeType,
+        });
       }
     } else {
-      try {
-        if (
-          process.env.ASKR_FASTPATH_DEBUG === '1' ||
-          process.env.ASKR_FASTPATH_DEBUG === 'true'
-        ) {
-          logger.warn('[Askr][FASTPATH] positional missing or invalid', i, {
-            ch: !!ch,
-          });
-        }
-      } catch (e) {
-        void e;
-      }
+      logFastPathDebug('positional missing or invalid', i, { ch: !!ch });
     }
+
     // Fallback: replace the node at position i
-    const dom = createDOMNode(vnode);
-    if (dom) {
-      const existing = parent.children[i];
-      if (existing) {
-        cleanupInstanceIfPresent(existing);
-        parent.replaceChild(dom, existing);
-      } else parent.appendChild(dom);
-    }
+    replaceNodeAtPosition(parent, i, vnode);
   }
 
-  const t =
-    typeof performance !== 'undefined' && performance.now
-      ? performance.now() - t0
-      : 0;
+  const t = now() - t0;
+  updateKeyedElementsMap(parent, keyedVnodes);
 
+  const stats = { n: total, reused, updatedKeys, t } as const;
+  recordFastPathStats(stats, 'bulkKeyedPositionalHits');
+
+  return stats;
+}
+
+/** Update text content of element from children prop */
+function updateTextContent(el: Element, children: unknown): void {
+  if (typeof children === 'string' || typeof children === 'number') {
+    setTextNodeData(el, String(children));
+  } else if (
+    Array.isArray(children) &&
+    children.length === 1 &&
+    (typeof children[0] === 'string' || typeof children[0] === 'number')
+  ) {
+    setTextNodeData(el, String(children[0]));
+  } else {
+    updateElementFromVnode(el, el as unknown as VNode);
+  }
+}
+
+/** Set text node data or textContent */
+function setTextNodeData(el: Element, text: string): void {
+  if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
+    (el.firstChild as Text).data = text;
+  } else {
+    el.textContent = text;
+  }
+}
+
+/** Set data-key attribute with counter callback */
+function setDataKey(
+  el: Element,
+  key: string | number,
+  onSet: () => void
+): void {
+  try {
+    el.setAttribute('data-key', String(key));
+    onSet();
+  } catch {
+    // Ignore errors setting data-key
+  }
+}
+
+/** Replace node at position with new vnode */
+function replaceNodeAtPosition(
+  parent: Element,
+  index: number,
+  vnode: VNode
+): void {
+  const dom = createDOMNode(vnode);
+  if (dom) {
+    const existing = parent.children[index];
+    if (existing) {
+      cleanupInstanceIfPresent(existing);
+      parent.replaceChild(dom, existing);
+    } else {
+      parent.appendChild(dom);
+    }
+  }
+}
+
+/** Update keyed elements map after bulk operation */
+function updateKeyedElementsMap(
+  parent: Element,
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+): void {
   try {
     const newKeyMap = new Map<string | number, Element>();
-    for (let i = 0; i < total; i++) {
+    for (let i = 0; i < keyedVnodes.length; i++) {
       const k = keyedVnodes[i].key;
       const ch = parent.children[i] as Element | undefined;
       if (ch) newKeyMap.set(k, ch);
     }
     keyedElements.set(parent, newKeyMap);
-  } catch (e) {
-    void e;
+  } catch {
+    // Ignore errors updating key map
   }
-
-  const stats = { n: total, reused, updatedKeys, t } as const;
-
-  try {
-    if (
-      process.env.ASKR_FASTPATH_DEBUG === '1' ||
-      process.env.ASKR_FASTPATH_DEBUG === 'true'
-    ) {
-      logger.warn('[Askr][FASTPATH] bulk positional stats', stats);
-    }
-    __ASKR_set('__LAST_FASTPATH_STATS', stats);
-    __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
-    __ASKR_incCounter('bulkKeyedPositionalHits');
-  } catch (e) {
-    void e;
-  }
-
-  return stats;
 }
 
 export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
-  const t0 =
-    typeof performance !== 'undefined' && performance.now
-      ? performance.now()
-      : Date.now();
+  const t0 = now();
   const existing = Array.from(parent.childNodes);
   const finalNodes: Node[] = [];
   let reused = 0;
   let created = 0;
 
   for (let i = 0; i < newChildren.length; i++) {
-    const vnode = newChildren[i];
-    const existingNode = existing[i];
-
-    if (typeof vnode === 'string' || typeof vnode === 'number') {
-      const text = String(vnode);
-      if (existingNode && existingNode.nodeType === 3) {
-        // Reuse existing text node
-        (existingNode as Text).data = text;
-        finalNodes.push(existingNode);
-        reused++;
-      } else {
-        // Create detached text node
-        finalNodes.push(document.createTextNode(text));
-        created++;
-      }
-      continue;
-    }
-
-    if (typeof vnode === 'object' && vnode !== null && 'type' in vnode) {
-      // If existing node is an element and tags match, update in place
-      const vnodeObj = vnode as unknown as {
-        type?: unknown;
-        children?: unknown;
-        props?: Record<string, unknown>;
-      };
-      if (typeof vnodeObj.type === 'string') {
-        const tag = vnodeObj.type as string;
-        if (
-          existingNode &&
-          existingNode.nodeType === 1 &&
-          (existingNode as Element).tagName.toLowerCase() === tag.toLowerCase()
-        ) {
-          updateElementFromVnode(existingNode as Element, vnode as VNode);
-          finalNodes.push(existingNode);
-          reused++;
-          continue;
-        }
-      }
-      const dom = createDOMNode(vnode);
-      if (dom) {
-        finalNodes.push(dom);
-        created++;
-        continue;
-      }
-    }
-
-    // Fallback: skip invalid vnode
+    const result = processChildNode(newChildren[i], existing[i], finalNodes);
+    if (result === 'reused') reused++;
+    else if (result === 'created') created++;
   }
 
-  const tBuild =
-    (typeof performance !== 'undefined' && performance.now
-      ? performance.now()
-      : Date.now()) - t0;
-
-  // Clean up instances that will be removed
-  try {
-    const toRemove = Array.from(parent.childNodes).filter(
-      (n) => !finalNodes.includes(n)
-    );
-    for (const n of toRemove) {
-      if (n instanceof Element) removeAllListeners(n);
-      cleanupInstanceIfPresent(n);
-    }
-  } catch (e) {
-    void e;
-  }
-
-  const fragStart = Date.now();
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < finalNodes.length; i++)
-    fragment.appendChild(finalNodes[i]);
-  try {
-    __ASKR_incCounter('__DOM_REPLACE_COUNT');
-    __ASKR_set('__LAST_DOM_REPLACE_STACK_DOM', new Error().stack);
-  } catch (e) {
-    void e;
-  }
-  // Atomic replacement
-  parent.replaceChildren(fragment);
-  const tCommit = Date.now() - fragStart;
+  const tBuild = now() - t0;
+  cleanupRemovedNodes(parent, finalNodes);
+  const tCommit = commitBulkReplace(parent, finalNodes);
 
   // Clear keyed map for unkeyed path
   keyedElements.delete(parent);
@@ -829,18 +773,115 @@ export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
     tBuild,
     tCommit,
   } as const;
+  recordBulkTextStats(stats);
 
+  return stats;
+}
+
+/** Process a single child vnode for bulk replace */
+function processChildNode(
+  vnode: VNode,
+  existingNode: ChildNode | undefined,
+  finalNodes: Node[]
+): 'reused' | 'created' | 'skipped' {
+  if (typeof vnode === 'string' || typeof vnode === 'number') {
+    return processTextVnode(String(vnode), existingNode, finalNodes);
+  }
+
+  if (typeof vnode === 'object' && vnode !== null && 'type' in vnode) {
+    return processElementVnode(vnode, existingNode, finalNodes);
+  }
+
+  return 'skipped';
+}
+
+/** Process text vnode */
+function processTextVnode(
+  text: string,
+  existingNode: ChildNode | undefined,
+  finalNodes: Node[]
+): 'reused' | 'created' {
+  if (existingNode && existingNode.nodeType === 3) {
+    (existingNode as Text).data = text;
+    finalNodes.push(existingNode);
+    return 'reused';
+  }
+  finalNodes.push(document.createTextNode(text));
+  return 'created';
+}
+
+/** Process element vnode */
+function processElementVnode(
+  vnode: VNode,
+  existingNode: ChildNode | undefined,
+  finalNodes: Node[]
+): 'reused' | 'created' | 'skipped' {
+  const vnodeObj = vnode as unknown as { type?: unknown };
+
+  if (typeof vnodeObj.type === 'string') {
+    const tag = vnodeObj.type;
+    if (
+      existingNode &&
+      existingNode.nodeType === 1 &&
+      (existingNode as Element).tagName.toLowerCase() === tag.toLowerCase()
+    ) {
+      updateElementFromVnode(existingNode as Element, vnode);
+      finalNodes.push(existingNode);
+      return 'reused';
+    }
+  }
+
+  const dom = createDOMNode(vnode);
+  if (dom) {
+    finalNodes.push(dom);
+    return 'created';
+  }
+  return 'skipped';
+}
+
+/** Clean up nodes that will be removed */
+function cleanupRemovedNodes(parent: Element, keepNodes: Node[]): void {
   try {
-    // Record bulk-unkeyed fast-path stats for diagnostics/tests
+    const toRemove = Array.from(parent.childNodes).filter(
+      (n) => !keepNodes.includes(n)
+    );
+    for (const n of toRemove) {
+      if (n instanceof Element) removeAllListeners(n);
+      cleanupInstanceIfPresent(n);
+    }
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
+/** Commit bulk replace with fragment */
+function commitBulkReplace(parent: Element, nodes: Node[]): number {
+  const fragStart = Date.now();
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < nodes.length; i++) {
+    fragment.appendChild(nodes[i]);
+  }
+  recordDOMReplace('bulk-text-replace');
+  parent.replaceChildren(fragment);
+  return Date.now() - fragStart;
+}
+
+/** Record bulk text fast-path stats */
+function recordBulkTextStats(stats: {
+  n: number;
+  reused: number;
+  created: number;
+  tBuild: number;
+  tCommit: number;
+}): void {
+  try {
     __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
     __ASKR_set('__LAST_FASTPATH_STATS', stats);
     __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
     __ASKR_incCounter('bulkTextFastpathHits');
-  } catch (e) {
-    void e;
+  } catch {
+    // Ignore stats errors
   }
-
-  return stats;
 }
 
 /**
@@ -856,101 +897,109 @@ export function isBulkTextFastPathEligible(
   newChildren: VNode[]
 ) {
   const threshold = Number(process.env.ASKR_BULK_TEXT_THRESHOLD) || 1024;
-  const requiredFraction = 0.8; // 80% of children should be simple text
+  const requiredFraction = 0.8;
 
   const total = Array.isArray(newChildren) ? newChildren.length : 0;
+
   if (total < threshold) {
-    if (
-      process.env.NODE_ENV !== 'production' ||
-      process.env.ASKR_FASTPATH_DEBUG === '1'
-    ) {
-      try {
-        __ASKR_set('__BULK_DIAG', {
-          phase: 'bulk-unkeyed-eligible',
-          reason: 'too-small',
-          total,
-          threshold,
-        });
-      } catch (e) {
-        void e;
-      }
-    }
+    recordBulkDiag({
+      phase: 'bulk-unkeyed-eligible',
+      reason: 'too-small',
+      total,
+      threshold,
+    });
     return false;
   }
 
+  const result = countSimpleChildren(newChildren);
+  if (result.componentFound !== undefined) {
+    recordBulkDiag({
+      phase: 'bulk-unkeyed-eligible',
+      reason: 'component-child',
+      index: result.componentFound,
+    });
+    return false;
+  }
+
+  const fraction = result.simple / total;
+  const eligible =
+    fraction >= requiredFraction && parent.childNodes.length >= total;
+
+  recordBulkDiag({
+    phase: 'bulk-unkeyed-eligible',
+    total,
+    simple: result.simple,
+    fraction,
+    requiredFraction,
+    eligible,
+  });
+
+  return eligible;
+}
+
+/** Count simple children (text/number or simple intrinsic elements) */
+function countSimpleChildren(children: VNode[]): {
+  simple: number;
+  componentFound?: number;
+} {
   let simple = 0;
-  for (let i = 0; i < newChildren.length; i++) {
-    const c = newChildren[i];
+
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i];
+
     if (typeof c === 'string' || typeof c === 'number') {
       simple++;
       continue;
     }
+
     if (typeof c === 'object' && c !== null && 'type' in c) {
       const dv = c as DOMElement;
+
+      // Component child - decline fast path
       if (typeof dv.type === 'function') {
-        if (
-          process.env.NODE_ENV !== 'production' ||
-          process.env.ASKR_FASTPATH_DEBUG === '1'
-        ) {
-          try {
-            __ASKR_set('__BULK_DIAG', {
-              phase: 'bulk-unkeyed-eligible',
-              reason: 'component-child',
-              index: i,
-            });
-          } catch (e) {
-            void e;
-          }
-        }
-        return false; // component child - decline
+        return { simple, componentFound: i };
       }
-      if (typeof dv.type === 'string') {
-        const children = dv.children || dv.props?.children;
-        if (!children) {
-          // empty element - treat as simple
-          simple++;
-          continue;
-        }
-        if (Array.isArray(children)) {
-          if (
-            children.length === 1 &&
-            (typeof children[0] === 'string' || typeof children[0] === 'number')
-          ) {
-            simple++;
-            continue;
-          }
-        } else if (
-          typeof children === 'string' ||
-          typeof children === 'number'
-        ) {
-          simple++;
-          continue;
-        }
+
+      if (typeof dv.type === 'string' && isSimpleElement(dv)) {
+        simple++;
       }
     }
-    // complex child - not simple
   }
 
-  const fraction = simple / total;
-  const eligible =
-    fraction >= requiredFraction && parent.childNodes.length >= total;
+  return { simple };
+}
+
+/** Check if element is simple (empty or single text child) */
+function isSimpleElement(dv: DOMElement): boolean {
+  const children = dv.children || dv.props?.children;
+
+  if (!children) return true; // empty element
+
+  if (typeof children === 'string' || typeof children === 'number') {
+    return true;
+  }
+
+  if (
+    Array.isArray(children) &&
+    children.length === 1 &&
+    (typeof children[0] === 'string' || typeof children[0] === 'number')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Record bulk diagnostics */
+function recordBulkDiag(data: Record<string, unknown>): void {
   if (
     process.env.NODE_ENV !== 'production' ||
     process.env.ASKR_FASTPATH_DEBUG === '1'
   ) {
     try {
-      __ASKR_set('__BULK_DIAG', {
-        phase: 'bulk-unkeyed-eligible',
-        total,
-        simple,
-        fraction,
-        requiredFraction,
-        eligible,
-      });
-    } catch (e) {
-      void e;
+      __ASKR_set('__BULK_DIAG', data);
+    } catch {
+      // Ignore
     }
   }
-
-  return eligible;
 }
