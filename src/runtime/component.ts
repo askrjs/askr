@@ -397,6 +397,8 @@ export function renderComponentInline(
   // as part of a scheduled run, the token will already be set by
   // runComponent and we should not overwrite it.
   const hadToken = instance._currentRenderToken !== undefined;
+  const prevToken = instance._currentRenderToken;
+  const prevPendingReads = instance._pendingReadStates;
   if (!hadToken) {
     instance._currentRenderToken = ++_globalRenderCounter;
     instance._pendingReadStates = new Set();
@@ -412,10 +414,9 @@ export function renderComponentInline(
     }
     return result;
   } finally {
-    if (!hadToken) {
-      instance._pendingReadStates = new Set();
-      instance._currentRenderToken = undefined;
-    }
+    // Restore previous token/read states for nested inline render scenarios
+    instance._currentRenderToken = prevToken;
+    instance._pendingReadStates = prevPendingReads ?? new Set();
   }
 }
 
@@ -668,6 +669,9 @@ export function cleanupComponent(instance: ComponentInstance): void {
 
   // Abort all pending operations
   instance.abortController.abort();
+
+  // Clear update callback to prevent dangling references and stale updates
+  instance.notifyUpdate = null;
 
   // Mark instance as unmounted so external tracking (e.g., portal host lists)
   // can deterministically prune stale instances. Not marking this leads to

@@ -15,7 +15,7 @@ import {
   isFastPathApplied,
 } from './fastlane-shared';
 import { Fragment } from '../jsx/types';
-import { setDevValue, getDevValue, deleteDevValue } from './dev-namespace';
+import { setDevValue, getDevValue } from './dev-namespace';
 
 /**
  * Attempt to execute a runtime fast-lane for a single component's synchronous
@@ -178,13 +178,10 @@ export function commitReorderOnly(
     return true;
   } finally {
     exitBulkCommit();
-    setDevValue('__FASTLANE_BULK_FLAG_CHECK', isBulkCommitActive());
   }
-
-  // Re-check the captured assertion outside of finally and throw if needed
+  // Dev-only: verify bulk commit flag was properly cleared (after finally to avoid no-unsafe-finally)
   if (process.env.NODE_ENV !== 'production') {
-    if (getDevValue('__FASTLANE_BULK_FLAG_CHECK')) {
-      deleteDevValue('__FASTLANE_BULK_FLAG_CHECK');
+    if (isBulkCommitActive()) {
       throw new Error(
         'Fast-lane invariant violated: bulk commit flag still set after commit'
       );
