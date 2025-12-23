@@ -248,7 +248,7 @@ describe('DefaultPortal inventory', () => {
     expect(container.textContent).toContain('Now');
   });
 
-  it('should_not_preserve_fallback_state_given_runtime_portal_replaces_fallback', () => {
+  it('should not preserve fallback state when runtime portal replaces fallback', () => {
     // Early write to fallback
     DefaultPortal.render({ children: 'Old' });
     flushScheduler();
@@ -264,7 +264,7 @@ describe('DefaultPortal inventory', () => {
   });
 
   // Multi-island / global behavior
-  it('should_share_single_portal_state_given_multiple_islands_when_default_portal_used', () => {
+  it('should share single portal state across multiple islands when default portal is used', () => {
     // Mount multiple islands
     const { container: c1, cleanup: cu1 } = createTestContainer();
     const { container: c2, cleanup: cu2 } = createTestContainer();
@@ -306,7 +306,7 @@ describe('DefaultPortal inventory', () => {
   });
 
   // Debug & dev behavior
-  it('should_increment_debug_write_counter_given_dev_mode_when_portal_write_occurs', () => {
+  it('should increment debug write counter in dev mode when portal write occurs', () => {
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
 
@@ -316,7 +316,7 @@ describe('DefaultPortal inventory', () => {
     expect(writes).toBeGreaterThan(0);
   });
 
-  it('should_increment_debug_read_counter_given_dev_mode_when_portal_is_read', () => {
+  it('should increment debug read counter in dev mode when portal is read', () => {
     // Mount host which will read from portal
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
