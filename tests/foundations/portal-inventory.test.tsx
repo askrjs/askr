@@ -55,18 +55,18 @@ describe('DefaultPortal inventory', () => {
   });
 
   // Presence & baseline
-  it('should_render_nothing_given_unused_default_portal_when_app_mounts', () => {
+  it('should render nothing given unused default portal when app mounts', () => {
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
     expect(container.textContent).toBe('App');
   });
 
-  it('should_expose_render_method_given_default_portal_when_imported', () => {
+  it('should expose render method given default portal when imported', () => {
     expect(typeof DefaultPortal.render).toBe('function');
   });
 
   // Write / clear semantics
-  it('should_render_children_given_portal_write_when_host_is_mounted', () => {
+  it('should render children given portal write when host is mounted', () => {
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
 
@@ -89,7 +89,7 @@ describe('DefaultPortal inventory', () => {
     expect(container.textContent).toContain('Toast');
   });
 
-  it('should_clear_rendered_content_given_undefined_children_when_previously_written', () => {
+  it('should clear rendered content given undefined children when previously written', () => {
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
 
@@ -102,7 +102,7 @@ describe('DefaultPortal inventory', () => {
     expect(container.textContent).toBe('App');
   });
 
-  it('should_replace_previous_content_given_multiple_writes_when_flushed', () => {
+  it('should replace previous content given multiple writes when flushed', () => {
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
 
@@ -114,7 +114,7 @@ describe('DefaultPortal inventory', () => {
   });
 
   // Scheduling & ownership
-  it('should_schedule_update_given_portal_write_when_owner_is_captured', () => {
+  it('should schedule update given portal write when owner is captured', () => {
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
 
@@ -127,7 +127,7 @@ describe('DefaultPortal inventory', () => {
 
   });
 
-  it('should_not_schedule_update_given_portal_write_when_no_host_has_mounted', () => {
+  it('should not schedule update given portal write when no host has mounted', () => {
     // No island mounted
     DefaultPortal.render({ children: 'Nowhere' });
     // Nothing to flush - should not throw
@@ -138,7 +138,7 @@ describe('DefaultPortal inventory', () => {
     expect(container.textContent).toBe('App');
   });
 
-  it('should_capture_first_host_as_owner_given_multiple_mounts_when_fallback_used', () => {
+  it('should capture first host as owner given multiple mounts when fallback used', () => {
     // Mount first host
     const { container: c1, cleanup: cu1 } = createTestContainer();
     createIsland({ root: c1, component: () => ({ type: 'div', children: ['H1'] }) });
@@ -163,7 +163,7 @@ describe('DefaultPortal inventory', () => {
     cu2();
   });
 
-  it('should_not_update_unmounted_owner_given_portal_write_when_host_is_disposed', () => {
+  it('should not update unmounted owner given portal write when host is disposed', () => {
     const { container: local, cleanup: localCleanup } = createTestContainer();
     createIsland({ root: local, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
@@ -180,7 +180,7 @@ describe('DefaultPortal inventory', () => {
   });
 
   // Ordering & timing
-  it('should_drop_early_write_given_render_called_before_host_mount_when_fallback_used', () => {
+  it('should drop early write given render called before host mount when fallback used', () => {
     // Early write before any host mounts
     DefaultPortal.render({ children: 'Early' });
     flushScheduler();
@@ -193,7 +193,7 @@ describe('DefaultPortal inventory', () => {
     expect(container.textContent).not.toContain('Early');
   });
 
-  it('should_not_replay_stale_value_given_host_mounts_after_early_write', () => {
+  it('should not replay stale value given host mounts after early write', () => {
     DefaultPortal.render({ children: 'Stale' });
     flushScheduler();
 
@@ -207,7 +207,7 @@ describe('DefaultPortal inventory', () => {
     expect(container.textContent).not.toContain('Stale');
   });
 
-  it('should_preserve_write_order_given_multiple_writes_when_flushed_once', () => {
+  it('should preserve write order given multiple writes when flushed once', () => {
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
 
@@ -221,7 +221,7 @@ describe('DefaultPortal inventory', () => {
   });
 
   // DefaultPortal-specific
-  it('should_delegate_to_lazy_portal_given_default_portal_when_runtime_not_ready', () => {
+  it('should delegate to lazy portal given default portal when runtime not ready', () => {
     createIsland({ root: container, component: () => ({ type: 'div', children: ['App'] }) });
     flushScheduler();
 
@@ -230,7 +230,7 @@ describe('DefaultPortal inventory', () => {
     expect(container.textContent).toContain('Toast');
   });
 
-  it('should_replace_fallback_with_runtime_portal_given_runtime_becomes_available_when_used', () => {
+  it('should replace fallback with runtime portal given runtime becomes available when used', () => {
     // Write before runtime installed
     DefaultPortal.render({ children: 'Pending' });
     flushScheduler();
@@ -285,7 +285,7 @@ describe('DefaultPortal inventory', () => {
     cu2();
   });
 
-  it('should_not_double_render_given_multiple_hosts_when_single_portal_is_read', () => {
+  it('should not double render given multiple hosts when single portal is read', () => {
     const { container: c1, cleanup: cu1 } = createTestContainer();
     const { container: c2, cleanup: cu2 } = createTestContainer();
 
