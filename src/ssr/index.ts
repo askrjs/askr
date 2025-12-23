@@ -38,7 +38,7 @@ type VNode = {
 export type Component = (
   props: Props,
   context?: { signal?: AbortSignal; ssr?: RenderContext }
-) => VNode | JSXElement | string | number | null;
+) => VNode | JSXElement | string | number | boolean | null;
 
 // HTML5 void elements that don't have closing tags
 const VOID_ELEMENTS = new Set([
@@ -231,21 +231,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     // Handle non-Element component returns by rendering a host element
     // to mirror client-side createDOMNode behavior which mounts instances
     // onto a host <div> for non-Element returns (Text or DocumentFragment).
-    if (
-      typeof result === 'string' ||
-      typeof result === 'number' ||
-      result === null ||
-      result === undefined ||
-      result === false
-    ) {
-      const inner =
-        result === null || result === undefined || result === false
-          ? ''
-          : escapeText(String(result));
-      return `<div>${inner}</div>`;
-    }
-
-    return renderNodeSync(result as VNode | JSXElement, ctx);
+    return renderNodeSync(result, ctx);
   }
 
   // Special-case fragments (symbols) - render children directly
@@ -300,7 +286,7 @@ function executeComponentSync(
   component: Component,
   props: Record<string, unknown> | undefined,
   ctx: RenderContext
-): VNode | JSXElement | string | number | null | boolean {
+): VNode | JSXElement {
   // Dev-only: enforce SSR purity with clear messages. We temporarily override
   // `Math.random` and `Date.now` while rendering to produce a targeted error
   // if components call them directly. We restore them immediately afterwards.
@@ -331,6 +317,23 @@ function executeComponentSync(
         if (result instanceof Promise) {
           // Use the centralized SSR error for async data/components during SSR
           throwSSRDataMissing();
+        }
+        if (
+          typeof result === 'string' ||
+          typeof result === 'number' ||
+          typeof result === 'boolean' ||
+          result === null ||
+          result === undefined
+        ) {
+          const inner =
+            result === null || result === undefined || result === false
+              ? ''
+              : escapeText(String(result));
+          return {
+            type: 'div',
+            props: {},
+            children: [inner],
+          };
         }
         return result as VNode | JSXElement;
       });

@@ -13,6 +13,7 @@ import { removeAllListeners, cleanupInstanceIfPresent } from './cleanup';
 import { isBulkCommitActive } from '../runtime/fastlane-shared';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { applyRendererFastPath } from './fastpath';
+import { logger } from '../dev/logger';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
