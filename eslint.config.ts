@@ -41,13 +41,13 @@ export default [
           object: 'Math',
           property: 'random',
           message:
-            'Use deterministic RNG from SSR context (e.g., ctx.rng) instead of Math.random during synchronous SSR.',
+            'Avoid Math.random during synchronous SSR — use deterministic values or pre-compute outside SSR.',
         },
         {
           object: 'Date',
           property: 'now',
           message:
-            'Use deterministic clock from SSR context (e.g., ctx.now) instead of Date.now during synchronous SSR.',
+            'Avoid Date.now during synchronous SSR — pass timestamps explicitly or pre-compute outside SSR.',
         },
       ],
     },

@@ -344,9 +344,22 @@ function createComponentElement(
     return dom;
   }
 
+  // For null/undefined returns, use a comment placeholder that can be replaced
+  // when the component re-renders with actual content. This is necessary for
+  // portals and other components that may initially return null but later have content.
+  if (!dom) {
+    const placeholder = document.createComment('');
+    // Store reference so we can find and replace it on re-render
+    childInstance._placeholder = placeholder;
+    childInstance.mounted = true;
+    // Ensure notifyUpdate is set so the component can be re-rendered when content appears
+    childInstance.notifyUpdate = childInstance._enqueueRun!;
+    return placeholder;
+  }
+
   // For non-Element returns (Text nodes or DocumentFragment), wrap in host
   const host = document.createElement('div');
-  if (dom) host.appendChild(dom);
+  host.appendChild(dom);
   mountInstanceInline(childInstance, host);
   return host;
 }

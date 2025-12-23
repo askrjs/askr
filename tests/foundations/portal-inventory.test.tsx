@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, DefaultPortal } from '../../src/index';
+import {
+  createIsland,
+  DefaultPortal,
+  _resetDefaultPortal,
+} from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { getCurrentComponentInstance } from '../../src/runtime/component';
 
@@ -44,6 +48,8 @@ describe('DefaultPortal inventory', () => {
     cleanup = r.cleanup;
     // reset debug counters
     globalThis.__ASKR__ = {};
+    // Reset the default portal so tests don't share state
+    _resetDefaultPortal();
     // Ensure runtime primitive not installed by default
     delete globalThis.createPortalSlot;
   });

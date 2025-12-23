@@ -26,42 +26,17 @@ import {
   getCurrentComponentInstance,
 } from '../runtime/component';
 import type { ComponentFunction } from '../runtime/component';
+import { VOID_ELEMENTS, escapeText } from './escape';
+import { renderAttrs } from './attrs';
+import type { VNode, SSRComponent } from './types';
 
 import { logger } from '../dev/logger';
 
 export { SSRDataMissingError } from './context';
+export type { VNode, SSRComponent } from './types';
 
-type VNode = {
-  type: string;
-  props?: Props;
-  children?: (string | VNode | null | undefined | false)[];
-};
-
-export type Component = (
-  props: Props,
-  context?: { signal?: AbortSignal; ssr?: RenderContext }
-) => VNode | JSXElement | string | number | boolean | null;
-
-// HTML5 void elements that don't have closing tags
-const VOID_ELEMENTS = new Set([
-  'area',
-  'base',
-  'br',
-  'col',
-  'embed',
-  'hr',
-  'img',
-  'input',
-  'link',
-  'meta',
-  'param',
-  'source',
-  'track',
-  'wbr',
-]);
-
-// Escape cache for common values
-const escapeCache = new Map<string, string>();
+// Re-export for backwards compatibility
+export type Component = SSRComponent;
 
 // Dev-only SSR strictness guard helpers. We mutate globals in dev to make
 // accidental usage of Math.random/Date.now during sync SSR fail fast.
@@ -99,90 +74,6 @@ export function popSSRStrictPurityGuard() {
 }
 
 /**
- * Escape HTML special characters in text content (optimized with cache)
- */
-function escapeText(text: string): string {
-  const cached = escapeCache.get(text);
-  if (cached) return cached;
-
-  const str = String(text);
-  // Fast path: check if escaping needed
-  if (!str.includes('&') && !str.includes('<') && !str.includes('>')) {
-    escapeCache.set(text, str);
-    return str;
-  }
-
-  const result = str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  if (escapeCache.size < 256) {
-    escapeCache.set(text, result);
-  }
-  return result;
-}
-
-/**
- * Escape HTML special characters in attribute values
- */
-function escapeAttr(value: string): string {
-  const str = String(value);
-  // Fast path: check if escaping needed
-  if (
-    !str.includes('&') &&
-    !str.includes('"') &&
-    !str.includes("'") &&
-    !str.includes('<') &&
-    !str.includes('>')
-  ) {
-    return str;
-  }
-
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-/**
- * Render attributes to HTML string, excluding event handlers
- * Optimized for minimal allocations
- */
-function renderAttrs(props?: Props): string {
-  if (!props || typeof props !== 'object') return '';
-
-  let result = '';
-  for (const [key, value] of Object.entries(props)) {
-    // Skip event handlers (onClick, onChange, etc.)
-    if (key.startsWith('on') && key[2] === key[2].toUpperCase()) {
-      continue;
-    }
-    // Skip internal props
-    if (key.startsWith('_')) {
-      continue;
-    }
-
-    // Normalize class attribute (`class` preferred, accept `className` for compatibility)
-    const attrName = key === 'class' || key === 'className' ? 'class' : key;
-
-    // Boolean attributes
-    if (value === true) {
-      result += ` ${attrName}`;
-    } else if (value === false || value === null || value === undefined) {
-      // Skip falsy values
-      continue;
-    } else {
-      // Regular attributes
-      result += ` ${attrName}="${escapeAttr(String(value))}"`;
-    }
-  }
-  return result;
-}
-
-/**
  * Synchronous rendering helpers (used for strictly synchronous SSR)
  */
 function renderChildSync(child: unknown, ctx: RenderContext): string {
@@ -212,13 +103,13 @@ function renderChildrenSync(
 function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   const { type, props } = node;
 
-  /* istanbul ignore if - dev-only debug to catch unexpected vnode shapes during SSR */
-  try {
-    // Avoid coercion errors; String(type) may throw for Symbols but that's fine
-    // in a dev-only warning as we only run this in tests.
-    logger.warn('[SSR] renderNodeSync type:', typeof type, type);
-  } catch (e) {
-    void e;
+  /* istanbul ignore if - dev-only debug */
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      logger.warn('[SSR] renderNodeSync type:', typeof type, type);
+    } catch {
+      // Ignore coercion errors for Symbols
+    }
   }
 
   if (typeof type === 'function') {
@@ -242,10 +133,13 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
         : Array.isArray(props?.children)
           ? (props?.children as unknown[])
           : undefined;
-      try {
-        logger.warn('[SSR] fragment children length:', childrenArr?.length);
-      } catch (e) {
-        void e;
+      /* istanbul ignore if - dev-only debug */
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          logger.warn('[SSR] fragment children length:', childrenArr?.length);
+        } catch {
+          // Ignore
+        }
       }
       return renderChildrenSync(childrenArr, ctx);
     }
@@ -262,7 +156,13 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     return `<${typeStr}${attrs} />`;
   }
 
-  const attrs = renderAttrs(props);
+  const { attrs, dangerousHtml } = renderAttrs(props, {
+    returnDangerousHtml: true,
+  });
+  // If dangerouslySetInnerHTML is set, use it instead of children
+  if (dangerousHtml !== undefined) {
+    return `<${typeStr}${attrs}>${dangerousHtml}</${typeStr}>`;
+  }
   const children = (node as VNode).children;
   const childrenHtml = renderChildrenSync(children, ctx);
   return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
@@ -320,15 +220,16 @@ function executeComponentSync(
           result === null ||
           result === undefined
         ) {
+          // Return a Fragment with the text content, not a div wrapper
           const inner =
             result === null || result === undefined || result === false
               ? ''
-              : escapeText(String(result));
+              : String(result);
           return {
-            type: 'div',
-            props: {},
-            children: [inner],
-          };
+            $$typeof: ELEMENT_TYPE,
+            type: Fragment,
+            props: { children: inner ? [inner] : [] },
+          } as unknown as VNode | JSXElement;
         }
         return result as VNode | JSXElement;
       });
@@ -396,6 +297,10 @@ export function renderToStringSync(
 
 // Synchronous server render for strict checks. Routes must be resolved before
 // the render pass so no route() calls happen during rendering.
+//
+// ⚠️ WARNING: This function mutates global route state. It is NOT safe to call
+// concurrently from multiple async contexts. In long-running servers, ensure
+// SSR requests are serialized or use isolated route contexts per request.
 export function renderToStringSyncForUrl(opts: {
   url: string;
   routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
@@ -462,7 +367,7 @@ export function renderToStringSyncForUrl(opts: {
 
 // --- Streaming sink-based renderer (v2) --------------------------------------------------
 import { StringSink, StreamSink } from './sink';
-import { renderNodeToSink } from './render';
+import { renderNodeToSink } from './stream-render';
 import {
   startRenderPhase,
   stopRenderPhase,
@@ -470,7 +375,7 @@ import {
   resolvePlan,
   resolveResources,
   ResourcePlan,
-} from './data';
+} from './render-keys';
 
 export type SSRRoute = {
   path: string;
@@ -530,8 +435,12 @@ function renderToSinkInternal(opts: {
   data?: SSRData;
   sink: { write(html: string): void; end(): void };
 }) {
-  const { url, routes, seed = 1, data, sink } = opts;
+  const { url, routes, seed = 12345, data, sink } = opts;
 
+  // ⚠️ WARNING: This function mutates global route state. It is NOT safe to call
+  // concurrently from multiple async contexts. In long-running servers, ensure
+  // SSR requests are serialized or use isolated route contexts per request.
+  //
   // Route resolution happens BEFORE render pass
   const {
     clearRoutes,

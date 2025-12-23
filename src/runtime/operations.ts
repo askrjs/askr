@@ -12,7 +12,7 @@ import {
   throwSSRDataMissing,
   SSRDataMissingError,
 } from '../ssr/context';
-import { getCurrentRenderData, getNextKey } from '../ssr/data';
+import { getCurrentRenderData, getNextKey } from '../ssr/render-keys';
 
 // Memoization cache for derive() (centralized)
 

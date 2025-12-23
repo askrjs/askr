@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, DefaultPortal } from '../../src/index';
+import {
+  createIsland,
+  DefaultPortal,
+  _resetDefaultPortal,
+} from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 // Provide typing for dev-only global debug counters
@@ -21,6 +25,8 @@ describe('DefaultPortal', () => {
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
+    // Reset the default portal so tests don't share state
+    _resetDefaultPortal();
   });
 
   afterEach(() => {

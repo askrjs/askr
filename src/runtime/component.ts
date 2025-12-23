@@ -59,6 +59,10 @@ export interface ComponentInstance {
   lastRenderToken?: number; // Token of the last *committed* render
   _pendingReadStates?: Set<State<unknown>>; // States read during the in-progress render
   _lastReadStates?: Set<State<unknown>>; // States read during the last committed render
+
+  // Placeholder for null-returning components. When a component initially returns
+  // null, we create a comment placeholder so updates can replace it with content.
+  _placeholder?: Comment;
 }
 
 export function createComponentInstance(
@@ -274,6 +278,54 @@ function runComponent(instance: ComponentInstance): void {
 
     // Fallback: enqueue the render/commit normally
     globalScheduler.enqueue(() => {
+      // Handle placeholder-based updates: when a component initially returned null,
+      // we created a comment placeholder. If it now has content, we need to create
+      // a host element and replace the placeholder.
+      if (!instance.target && instance._placeholder) {
+        // Component previously returned null (has placeholder), check if now has content
+        if (result === null || result === undefined) {
+          // Still null - nothing to do, keep placeholder
+          finalizeReadSubscriptions(instance);
+          return;
+        }
+
+        // Has content now - need to create DOM and replace placeholder
+        const placeholder = instance._placeholder;
+        const parent = placeholder.parentNode;
+        if (!parent) {
+          // Placeholder was removed from DOM - can't render
+          logger.warn(
+            '[Askr] placeholder no longer in DOM, cannot render component'
+          );
+          return;
+        }
+
+        // Create a new host element for the content
+        const host = document.createElement('div');
+
+        // Set up instance for normal updates
+        const oldInstance = currentInstance;
+        currentInstance = instance;
+        try {
+          evaluate(result, host);
+
+          // Replace placeholder with host
+          parent.replaceChild(host, placeholder);
+
+          // Set up instance for future updates
+          instance.target = host;
+          instance._placeholder = undefined;
+          (
+            host as Element & { __ASKR_INSTANCE?: ComponentInstance }
+          ).__ASKR_INSTANCE = instance;
+
+          finalizeReadSubscriptions(instance);
+        } finally {
+          currentInstance = oldInstance;
+        }
+        return;
+      }
+
       if (instance.target) {
         // Keep `oldChildren` in the outer scope so rollback handlers can
         // reference the original node list even if the inner try block

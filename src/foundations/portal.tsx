@@ -183,6 +183,16 @@ export function definePortal<T = unknown>(): Portal<T> {
 // slot primitive is not yet installed).
 let _defaultPortal: Portal<unknown> | undefined;
 let _defaultPortalIsFallback = false;
+
+/**
+ * Reset the default portal state. Used by tests to ensure isolation.
+ * @internal
+ */
+export function _resetDefaultPortal(): void {
+  _defaultPortal = undefined;
+  _defaultPortalIsFallback = false;
+}
+
 function ensureDefaultPortal(): Portal<unknown> {
   // If a portal hasn't been initialized yet, create a real portal if the
   // runtime primitive exists; otherwise create a fallback. If a fallback
@@ -236,10 +246,10 @@ function ensureDefaultPortal(): Portal<unknown> {
 export const DefaultPortal: Portal<unknown> = (() => {
   function Host() {
     // Delegate to the lazily-created portal host (created when runtime is ready)
-    // Ensure we return a DOM-compatible placeholder (empty text) when no
-    // pending value exists so the portal host is always present in the DOM.
+    // Return null when no pending value exists so the component renders nothing
+    // (consistent with SSR which renders Fragment children as empty string)
     const v = ensureDefaultPortal()();
-    return v === undefined ? '' : v;
+    return v === undefined ? null : v;
   }
   Host.render = function Render(props: { children?: unknown }) {
     ensureDefaultPortal().render(props);

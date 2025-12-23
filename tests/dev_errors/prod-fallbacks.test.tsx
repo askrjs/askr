@@ -1,11 +1,21 @@
 // tests/dev_errors/prod_fallbacks.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { clearRoutes, createIsland, navigate, state } from '../../src/index';
+import {
+  clearRoutes,
+  createIsland,
+  navigate,
+  state,
+  _resetDefaultPortal,
+} from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('prod fallbacks (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();
-  beforeEach(() => ({ container, cleanup } = createTestContainer()));
+  beforeEach(() => {
+    ({ container, cleanup } = createTestContainer());
+    // Reset the default portal so tests don't share state
+    _resetDefaultPortal();
+  });
   afterEach(() => cleanup());
 
   it('should silently skip invariant checks when in production mode', () => {
@@ -56,6 +66,10 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       process.env.NODE_ENV = 'development';
       createIsland({ root: container, component: Component });
       const devHTML = container.innerHTML;
+
+      // Reset container and portal state between dev and prod runs
+      container.innerHTML = '';
+      _resetDefaultPortal();
 
       process.env.NODE_ENV = 'production';
       createIsland({ root: container, component: Component });
