@@ -38,7 +38,7 @@ type VNode = {
 export type Component = (
   props: Props,
   context?: { signal?: AbortSignal; ssr?: RenderContext }
-) => VNode | JSXElement;
+) => VNode | JSXElement | string | number | null;
 
 // HTML5 void elements that don't have closing tags
 const VOID_ELEMENTS = new Set([
@@ -363,7 +363,7 @@ export function renderToStringSync(
   try {
     const wrapped: Component = (
       p?: Record<string, unknown>,
-      c?: RenderContext
+      c?: { signal?: AbortSignal; ssr?: RenderContext }
     ) => {
       const out = (component as unknown as Component)(p ?? {}, c);
       const portalVNode = {
@@ -432,7 +432,7 @@ export function renderToStringSyncForUrl(opts: {
   try {
     const wrapped: Component = (
       p?: Record<string, unknown>,
-      c?: RenderContext
+      c?: { signal?: AbortSignal; ssr?: RenderContext }
     ) => {
       const out = (resolved.handler as unknown as Component)(p ?? {}, c);
       const portalVNode = {
