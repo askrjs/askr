@@ -72,7 +72,7 @@ export function definePortal<T = unknown>(): Portal<T> {
 
       // Only the owner should render the pending value; other readers see nothing
       /* istanbul ignore if */
-      if (process.env.NODE_ENV !== 'production' && inst === owner) {
+      if (process.env.NODE_ENV !== 'production' && inst && owner && inst === owner) {
         logger.debug('[Portal] owner read ->', inst.id, 'pending=', pending);
         // Dev diagnostic: record whether the owner instance has an attached DOM target
         const ns = (globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ || ((globalThis as unknown as { __ASKR__?: Record<string, unknown> }).__ASKR__ = {} as Record<string, unknown>);
