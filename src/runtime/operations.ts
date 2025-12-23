@@ -6,7 +6,7 @@ import {
 import { getCurrentContextFrame } from './context';
 import { ResourceCell } from './resource-cell';
 import { state } from './state';
-import { getDeriveCache } from '../shared/derive_cache';
+import { getDeriveCache } from '../shared/derive-cache';
 import {
   getCurrentSSRContext,
   throwSSRDataMissing,
