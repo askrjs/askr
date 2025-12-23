@@ -300,7 +300,7 @@ function executeComponentSync(
   component: Component,
   props: Record<string, unknown> | undefined,
   ctx: RenderContext
-): VNode | JSXElement {
+): VNode | JSXElement | string | number | null | boolean {
   // Dev-only: enforce SSR purity with clear messages. We temporarily override
   // `Math.random` and `Date.now` while rendering to produce a targeted error
   // if components call them directly. We restore them immediately afterwards.
