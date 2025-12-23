@@ -22,8 +22,9 @@ export function cleanupInstanceIfPresent(
         cleanupComponent(inst as unknown as ComponentInstance);
       } catch (err) {
         if (opts?.strict) errors.push(err);
-        else if (process.env.NODE_ENV !== 'production')
+        else {
           logger.warn('[Askr] cleanupComponent failed:', err);
+        }
       }
       try {
         delete (node as InstanceHost).__ASKR_INSTANCE;
@@ -34,7 +35,7 @@ export function cleanupInstanceIfPresent(
     }
   } catch (err) {
     if (opts?.strict) errors.push(err);
-    else if (process.env.NODE_ENV !== 'production') {
+    else {
       logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
     }
   }
@@ -51,7 +52,7 @@ export function cleanupInstanceIfPresent(
             cleanupComponent(inst as unknown as ComponentInstance);
           } catch (err) {
             if (opts?.strict) errors.push(err);
-            else if (process.env.NODE_ENV !== 'production') {
+            else {
               logger.warn(
                 '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
                 err
@@ -67,7 +68,7 @@ export function cleanupInstanceIfPresent(
         }
       } catch (err) {
         if (opts?.strict) errors.push(err);
-        else if (process.env.NODE_ENV !== 'production') {
+        else {
           logger.warn(
             '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
             err
@@ -77,7 +78,7 @@ export function cleanupInstanceIfPresent(
     }
   } catch (err) {
     if (opts?.strict) errors.push(err);
-    else if (process.env.NODE_ENV !== 'production') {
+    else {
       logger.warn(
         '[Askr] cleanupInstanceIfPresent descendant query failed:',
         err
