@@ -228,9 +228,8 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
       // Use centralized SSR error to maintain a single failure mode
       throwSSRDataMissing();
     }
-    // Handle non-Element component returns by rendering a host element
-    // to mirror client-side createDOMNode behavior which mounts instances
-    // onto a host <div> for non-Element returns (Text or DocumentFragment).
+    // executeComponentSync already normalizes primitives into VNode wrappers,
+    // so result is always a VNode or JSXElement here. Safe to recurse directly.
     return renderNodeSync(result, ctx);
   }
 
