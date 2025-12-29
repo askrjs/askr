@@ -1,18 +1,32 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  // Include explicit entries for the JSX runtimes so tsup emits them to dist/jsx
-  entry: [
-    'src/index.ts',
-    'src/resources/index.ts',
-    'src/fx/index.ts',
-    'src/router/index.ts',
-    'src/ssr/index.ts',
-    'src/jsx/jsx-runtime.ts',
-    'src/jsx/jsx-dev-runtime.ts',
-  ],
-  format: ['esm', 'cjs'],
+  entry: {
+    index: 'src/index.ts',
+
+    resources: 'src/resources/index.ts',
+    fx: 'src/fx/index.ts',
+    router: 'src/router/index.ts',
+    ssr: 'src/ssr/index.ts',
+
+    'jsx-runtime': 'src/jsx/jsx-runtime.ts',
+    'jsx-dev-runtime': 'src/jsx/jsx-dev-runtime.ts',
+
+    'vite/index': 'src/dev/vite-plugin-askr.ts',
+  },
+
+  outDir: 'dist',
+
+  format: ['esm'],
+
   dts: true,
   sourcemap: true,
   clean: true,
+
+  treeshake: true,
+  splitting: false,
+
+  esbuildOptions(options) {
+    options.treeShaking = true;
+  },
 });

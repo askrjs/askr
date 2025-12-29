@@ -2,8 +2,6 @@
  * JSX dev runtime factory
  * Same element shape as production runtime, with room for dev warnings.
  */
-
-import './types';
 import { ELEMENT_TYPE, Fragment, JSXElement } from './types';
 
 export function jsxDEV(

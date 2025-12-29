@@ -16,6 +16,16 @@ export default defineConfig({
   resolve: {
     alias: {
       'askr-jsx': path.resolve(__dirname, 'src/jsx'),
+      // Tests run against source, not built dist artifacts. Provide aliases for
+      // package subpath exports that normally point at dist/*.
+      '@askrjs/askr/jsx-runtime': path.resolve(
+        __dirname,
+        'src/jsx/jsx-runtime.ts'
+      ),
+      '@askrjs/askr/jsx-dev-runtime': path.resolve(
+        __dirname,
+        'src/jsx/jsx-dev-runtime.ts'
+      ),
     },
   },
 });

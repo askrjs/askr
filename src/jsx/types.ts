@@ -18,7 +18,9 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     // Components must be synchronous
-    type Element = JSXElement;
+    interface Element extends JSXElement {
+      readonly __askrJsxElementBrand?: never;
+    }
 
     interface IntrinsicElements {
       [elem: string]: Props;
