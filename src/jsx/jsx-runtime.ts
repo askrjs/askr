@@ -1,19 +1,9 @@
 /**
- * JSX dev runtime
- * Same shape as production runtime, with room for dev warnings.
+ * JSX runtime factory
+ * Same element shape as production runtime.
  */
 
-import './types';
-
-export const ELEMENT_TYPE = Symbol.for('askr.element');
-export const Fragment = Symbol.for('askr.fragment');
-
-export interface JSXElement {
-  $$typeof: symbol;
-  type: unknown;
-  props: Record<string, unknown>;
-  key: string | number | null;
-}
+import { ELEMENT_TYPE, Fragment, type JSXElement } from './types';
 
 export function jsxDEV(
   type: unknown,
@@ -45,4 +35,5 @@ export function jsxs(
   return jsxDEV(type, props, key);
 }
 
-// `Fragment` is already exported above.
+// Re-export Fragment for JSX.
+export { Fragment };
