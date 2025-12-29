@@ -8,8 +8,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { resource } from '../../src/resources';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('cancellation (SPEC 2.6)', () => {
   let { container, cleanup } = createTestContainer();

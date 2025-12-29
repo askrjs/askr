@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import type { JSXElement } from '../../src/jsx/types';
+import { createIsland } from '../helpers/create-island';
 
 describe('transactional commit - keyed list identity', () => {
   it('should preserve DOM node identity for keyed items across reorder', () => {

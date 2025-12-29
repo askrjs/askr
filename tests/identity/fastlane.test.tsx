@@ -1,12 +1,14 @@
 import { describe, it, beforeAll, afterAll, expect } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import type { State } from '../../src/index';
+import '../../src/runtime/fastlane';
 import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
 import { globalScheduler } from '../../src/runtime/scheduler';
+import { createIsland } from '../helpers/create-island';
 
 /*
  Consolidated fast-lane tests
@@ -147,19 +149,32 @@ describe('runtime fast-lane', () => {
     });
 
     it('should decline fast-path when props differ', async () => {
-      items.set([...items()].reverse());
+      const ns = (
+        globalThis as unknown as Record<string, unknown> & {
+          __ASKR__?: Record<string, unknown>;
+        }
+      ).__ASKR__;
+      if (ns) delete ns['__LAST_FASTLANE_INVARIANTS'];
+
+      // Reverse order AND mutate props for the same keys.
+      items.set(
+        [...items()].reverse().map((item) => ({
+          ...item,
+          togg: item.togg ^ 1,
+        }))
+      );
       flushScheduler();
       await waitForNextEvaluation();
 
-      const ns =
+      const ns2 =
         (
           globalThis as unknown as Record<string, unknown> & {
             __ASKR__?: Record<string, unknown>;
           }
         ).__ASKR__ || {};
-      type FastpathStats = { n?: number } | undefined;
-      const stats = ns['__LAST_FASTPATH_STATS'] as FastpathStats;
-      expect(stats == null || stats.n !== 200).toBeTruthy();
+
+      // Runtime fast-lane invariants are only written when fast-lane commits.
+      expect(ns2['__LAST_FASTLANE_INVARIANTS']).toBeUndefined();
     });
 
     afterAll(() => cleanup());

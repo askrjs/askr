@@ -5,7 +5,8 @@
  */
 
 import { bench, describe } from 'vitest';
-import { renderToStringSync, hydrateSPA } from '../../src/index';
+import { hydrateSPA } from '../../src/boot';
+import { renderToStringSync } from '../../src/ssr';
 import {
   createTestContainer,
   flushScheduler,

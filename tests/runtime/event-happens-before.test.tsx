@@ -9,12 +9,13 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createIsland } from '../../src/index';
+import { state } from '../../src/index';
 import {
   createTestContainer,
   fireEvent,
   flushScheduler,
 } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('happens-before events (SPEC 2.3)', () => {
   let { container, cleanup } = createTestContainer();

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { registerMountOperation } from '../../src/runtime/component';
 import type { JSXElement } from '../../src/jsx/types';
+import { createIsland } from '../helpers/create-island';
 
 describe('rollback behavior', () => {
   it('should preserve existing DOM and listeners when a render throws', () => {
@@ -55,7 +56,8 @@ describe('rollback behavior', () => {
     clicked = false;
 
     // Trigger failing render
-    setThrow?.(true);
+    expect(setThrow).not.toBeNull();
+    setThrow!(true);
     // Flush scheduler; commit should attempt and fail
     expect(() => flushScheduler()).toThrow();
 

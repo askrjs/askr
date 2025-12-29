@@ -91,7 +91,9 @@ export async function waitForFlush(timeout = 2000): Promise<void> {
       ).__ASKR__ || {};
     console.error('[waitForFlush] timeout diagnostics', {
       scheduler: globalScheduler.getState(),
-      fastlaneActive: !!ns['__FASTLANE']?.isBulkCommitActive?.(),
+      fastlaneActive: !!(
+        ns as unknown as { __FASTLANE?: { isBulkCommitActive?: () => boolean } }
+      ).__FASTLANE?.isBulkCommitActive?.(),
       lastFastpath: ns['__LAST_BULK_TEXT_FASTPATH_STATS'],
       enqueueLogs: ns['__ENQUEUE_LOGS'],
     });
@@ -343,16 +345,11 @@ export const injectFailure = {
 export async function captureSSRSnapshot(
   component: SSRComponent
 ): Promise<string> {
-  return renderToStringSync(
-    component as unknown as (
-      props?: Record<string, unknown>
-    ) =>
-      | string
-      | number
-      | import('../../src/jsx/types').JSXElement
-      | import('../../src/renderer/types').VNode
-      | null
-  );
+  return renderToStringSync((props?: Record<string, unknown>) => {
+    const out = component(props ?? {});
+    if (out === true || out === false) return String(out);
+    return out;
+  });
 }
 
 /**

@@ -1,6 +1,7 @@
 // tests/runtime/failure_modes.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { createIsland } from '../../src/index';
+import { resource } from '../../src/resources';
 import {
   createTestContainer,
   flushScheduler,

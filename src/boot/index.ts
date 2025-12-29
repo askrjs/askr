@@ -12,6 +12,9 @@ import {
 import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
 import { registerAppInstance, initializeNavigation } from '../router/navigate';
+import { assertExecutionModel } from '../runtime/execution-model';
+
+const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
 let componentIdCounter = 0;
 
@@ -237,6 +240,10 @@ export type IslandConfig = {
   routes?: never;
 };
 
+export type IslandsConfig = {
+  islands: IslandConfig[];
+};
+
 export type SPAConfig = {
   root: Element | string;
   routes: Route[]; // routes are required
@@ -256,6 +263,7 @@ export type HydrateSPAConfig = {
  * createIsland: Enhances existing DOM (no router, mounts once)
  */
 export function createIsland(config: IslandConfig): void {
+  assertExecutionModel('islands');
   if (!config || typeof config !== 'object') {
     throw new Error('createIsland requires a config object');
   }
@@ -276,15 +284,47 @@ export function createIsland(config: IslandConfig): void {
     );
   }
 
+  // Routes are never supported with islands.
+  // If routes were registered (even at module load time), fail fast to avoid
+  // surprising partial router behavior.
+  try {
+    const g = globalThis as unknown as Record<string | symbol, unknown>;
+    if (g[HAS_ROUTES_KEY]) {
+      throw new Error(
+        'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
+      );
+    }
+  } catch {
+    // ignore
+  }
+
   mountOrUpdate(rootElement, config.component, {
     cleanupStrict: config.cleanupStrict,
   });
 }
 
 /**
+ * createIslands: Enhances one or more existing DOM roots (no router).
+ * The only public islands constructor.
+ */
+export function createIslands(config: IslandsConfig): void {
+  assertExecutionModel('islands');
+  if (!config || typeof config !== 'object') {
+    throw new Error('createIslands requires a config object');
+  }
+  if (!Array.isArray(config.islands) || config.islands.length === 0) {
+    throw new Error('createIslands requires a non-empty islands array');
+  }
+  for (const island of config.islands) {
+    createIsland(island);
+  }
+}
+
+/**
  * createSPA: Initializes router and mounts the app with provided route table
  */
 export async function createSPA(config: SPAConfig): Promise<void> {
+  assertExecutionModel('spa');
   if (!config || typeof config !== 'object') {
     throw new Error('createSPA requires a config object');
   }
@@ -355,6 +395,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
  * hydrateSPA: Hydrate server-rendered HTML with explicit routes
  */
 export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
+  assertExecutionModel('spa');
   if (!config || typeof config !== 'object') {
     throw new Error('hydrateSPA requires a config object');
   }

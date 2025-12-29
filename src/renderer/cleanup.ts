@@ -10,7 +10,7 @@ type InstanceHost = Element & { __ASKR_INSTANCE?: unknown };
 
 function cleanupSingleInstance(
   node: InstanceHost,
-  errors: unknown[],
+  errors: unknown[] | null,
   strict: boolean
 ): void {
   const inst = node.__ASKR_INSTANCE;
@@ -19,14 +19,42 @@ function cleanupSingleInstance(
   try {
     cleanupComponent(inst as ComponentInstance);
   } catch (err) {
-    if (strict) errors.push(err);
+    if (strict) errors!.push(err);
     else logger.warn('[Askr] cleanupComponent failed:', err);
   }
 
   try {
     delete node.__ASKR_INSTANCE;
   } catch (e) {
-    if (strict) errors.push(e);
+    if (strict) errors!.push(e);
+  }
+}
+
+// Walk descendant elements with minimal allocations.
+// HOT PATH: used during subtree teardown (replace/unmount).
+function forEachDescendantElement(root: Element, visit: (el: Element) => void) {
+  // Prefer TreeWalker when available; it avoids allocating a NodeList.
+  try {
+    const doc = root.ownerDocument;
+    const createTreeWalker = doc?.createTreeWalker;
+    if (typeof createTreeWalker === 'function') {
+      // NodeFilter.SHOW_ELEMENT === 1
+      const walker = createTreeWalker.call(doc, root, 1);
+      let n = walker.firstChild();
+      while (n) {
+        visit(n as Element);
+        n = walker.nextNode();
+      }
+      return;
+    }
+  } catch {
+    // SLOW PATH: TreeWalker unavailable
+  }
+
+  // Fallback: querySelectorAll
+  const descendants = root.querySelectorAll('*');
+  for (let i = 0; i < descendants.length; i++) {
+    visit(descendants[i]);
   }
 }
 
@@ -44,34 +72,33 @@ export function cleanupInstanceIfPresent(
 ): void {
   if (!node || !(node instanceof Element)) return;
 
-  const errors: unknown[] = [];
   const strict = opts?.strict ?? false;
+  const errors: unknown[] | null = strict ? [] : null;
 
   // Clean up the node itself
   try {
     cleanupSingleInstance(node as InstanceHost, errors, strict);
   } catch (err) {
-    if (strict) errors.push(err);
+    if (strict) errors!.push(err);
     else logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
   }
 
   // Clean up any nested instances on descendants
   try {
-    const descendants = node.querySelectorAll('*');
-    for (const d of Array.from(descendants)) {
+    forEachDescendantElement(node, (d) => {
       try {
         cleanupSingleInstance(d as InstanceHost, errors, strict);
       } catch (err) {
-        if (strict) errors.push(err);
+        if (strict) errors!.push(err);
         else
           logger.warn(
             '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
             err
           );
       }
-    }
+    });
   } catch (err) {
-    if (strict) errors.push(err);
+    if (strict) errors!.push(err);
     else
       logger.warn(
         '[Askr] cleanupInstanceIfPresent descendant query failed:',
@@ -79,7 +106,7 @@ export function cleanupInstanceIfPresent(
       );
   }
 
-  if (errors.length > 0) {
+  if (errors && errors.length > 0) {
     throw new AggregateError(errors, 'cleanupInstanceIfPresent failed');
   }
 }
@@ -125,8 +152,5 @@ export function removeAllListeners(root: Element | null): void {
   removeElementListeners(root);
 
   // Recursively remove from all children
-  const children = root.querySelectorAll('*');
-  for (let i = 0; i < children.length; i++) {
-    removeElementListeners(children[i]);
-  }
+  forEachDescendantElement(root, removeElementListeners);
 }

@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
-import { hydrateSPA } from '../../src/index';
+import { hydrateSPA } from '../../src/boot';
 import { renderToStringSync, renderToString } from '../../src/ssr';
-import { renderToStringSyncForUrl, state } from '../../src/index';
+import { renderToStringSyncForUrl } from '../../src/ssr';
+import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('hydration (SSR)', () => {

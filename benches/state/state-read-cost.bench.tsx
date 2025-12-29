@@ -6,14 +6,14 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { createIsland, state } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../tests/helpers/test-renderer';
 
 describe('state read cost', () => {
-  bench('single state read (behavioral)', async () => {
+  bench('single state read (behavioral)', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -23,12 +23,11 @@ describe('state read cost', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });
 
-  bench('multiple state reads (behavioral)', async () => {
+  bench('multiple state reads (behavioral)', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -46,12 +45,11 @@ describe('state read cost', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });
 
-  bench('computed state access (behavioral)', async () => {
+  bench('computed state access (behavioral)', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -69,7 +67,6 @@ describe('state read cost', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });

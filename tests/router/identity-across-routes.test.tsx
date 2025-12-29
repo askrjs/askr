@@ -6,9 +6,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createSPA, clearRoutes, getRoutes } from '../../src/index';
+import { state, createSPA } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
-import { route } from '../../src/router/route';
+import { clearRoutes, getRoutes, route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('identity across routes (ROUTER)', () => {

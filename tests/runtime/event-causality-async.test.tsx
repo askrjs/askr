@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import { capture } from '../../src/runtime/operations';
+import { createIsland } from '../helpers/create-island';
 
 describe('Event causality across async boundaries', () => {
   it('should observe state at scheduling time given events scheduled by async continuations', async () => {

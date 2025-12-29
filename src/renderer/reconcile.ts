@@ -10,10 +10,9 @@ import {
   isKeyedReorderFastPathEligible,
 } from './keyed';
 import { removeAllListeners, cleanupInstanceIfPresent } from './cleanup';
-import { isBulkCommitActive } from '../runtime/fastlane-shared';
+import { isBulkCommitActive } from '../runtime/fastlane';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { applyRendererFastPath } from './fastpath';
-import { logger } from '../dev/logger';
 import {
   extractKey,
   checkPropChanges,
@@ -26,13 +25,26 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 // Helper type for narrowings
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 
+function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ca = a.charCodeAt(i);
+    const cb = b.charCodeAt(i);
+    if (ca === cb) continue;
+    // Fast ASCII case-fold: A-Z (65-90) -> a-z (97-122)
+    const fa = ca >= 65 && ca <= 90 ? ca + 32 : ca;
+    const fb = cb >= 65 && cb <= 90 ? cb + 32 : cb;
+    if (fa !== fb) return false;
+  }
+  return true;
+}
+
 export function reconcileKeyedChildren(
   parent: Element,
   newChildren: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> {
-  logReconcileDebug(newChildren);
-
   const { keyedVnodes, unkeyedVnodes } = partitionChildren(newChildren);
 
   // Try fast paths first
@@ -47,23 +59,6 @@ export function reconcileKeyedChildren(
 
   // Full reconciliation
   return performFullReconciliation(parent, newChildren, keyedVnodes, oldKeyMap);
-}
-
-/** Log reconcile debug info */
-function logReconcileDebug(newChildren: VNode[]): void {
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      logger.warn(
-        '[Askr][RECONCILE] reconcileKeyedChildren newChildren sample',
-        {
-          sample: (newChildren && newChildren.length && newChildren[0]) || null,
-          len: newChildren.length,
-        }
-      );
-    } catch {
-      // Ignore
-    }
-  }
 }
 
 /** Partition children into keyed and unkeyed */
@@ -163,8 +158,6 @@ function tryPositionalBulkUpdate(
 
   const matchCount = countPositionalMatches(parent, keyedVnodes);
 
-  logPositionalCheck(total, matchCount, parent.children.length);
-
   // Require high positional match fraction
   if (matchCount / total < 0.9) return null;
 
@@ -199,7 +192,7 @@ function countPositionalMatches(
       const el = parent.children[i] as Element | undefined;
       if (!el) continue;
 
-      if (el.tagName.toLowerCase() === String(vnode.type).toLowerCase()) {
+      if (tagNamesEqualIgnoreCase(el.tagName, vnode.type)) {
         matchCount++;
       }
     }
@@ -208,25 +201,6 @@ function countPositionalMatches(
   }
 
   return matchCount;
-}
-
-/** Log positional check debug info */
-function logPositionalCheck(
-  total: number,
-  matchCount: number,
-  parentChildren: number
-): void {
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      logger.warn('[Askr][FASTPATH] positional check', {
-        total,
-        matchCount,
-        parentChildren,
-      });
-    } catch {
-      // Ignore
-    }
-  }
 }
 
 /** Check if positional prop changes would prevent bulk update */
@@ -255,10 +229,7 @@ function hasPositionalPropChanges(
 function rebuildKeyedMap(parent: Element): void {
   try {
     const map = new Map<string | number, Element>();
-    const children = Array.from(parent.children);
-
-    for (let i = 0; i < children.length; i++) {
-      const el = children[i] as Element;
+    for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
       const k = el.getAttribute('data-key');
       if (k !== null) {
         map.set(k, el);
@@ -266,7 +237,6 @@ function rebuildKeyedMap(parent: Element): void {
         if (!Number.isNaN(n)) map.set(n, el);
       }
     }
-
     keyedElements.set(parent, map);
   } catch {
     // Ignore
@@ -356,18 +326,19 @@ function scanForElementByKey(
   usedOldEls: WeakSet<Node>
 ): Element | undefined {
   try {
-    const children = Array.from(parent.children) as Element[];
-    for (const ch of children) {
+    for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
       if (usedOldEls.has(ch)) continue;
       const attr = ch.getAttribute('data-key');
       if (attr === keyStr) {
         usedOldEls.add(ch);
         return ch;
       }
-      const numAttr = Number(attr);
-      if (!Number.isNaN(numAttr) && numAttr === (k as number)) {
-        usedOldEls.add(ch);
-        return ch;
+      if (attr !== null) {
+        const numAttr = Number(attr);
+        if (!Number.isNaN(numAttr) && numAttr === (k as number)) {
+          usedOldEls.add(ch);
+          return ch;
+        }
       }
     }
   } catch {
@@ -406,9 +377,24 @@ function reconcileKeyedChild(
   const el = resolveOldElOnce(key);
 
   if (el && el.parentElement === parent) {
-    updateElementFromVnode(el, child);
-    newKeyMap.set(key, el);
-    return el;
+    // Strict keyed guarantee: if the element tag changes for an existing key,
+    // replace the DOM node rather than mutating in place.
+    try {
+      const childObj = child as VnodeObj;
+      if (
+        childObj &&
+        typeof childObj === 'object' &&
+        typeof childObj.type === 'string'
+      ) {
+        if (tagNamesEqualIgnoreCase(el.tagName, childObj.type)) {
+          updateElementFromVnode(el, child);
+          newKeyMap.set(key, el);
+          return el;
+        }
+      }
+    } catch {
+      // Fall through to replacement
+    }
   }
 
   const dom = createDOMNode(child);
@@ -469,14 +455,13 @@ function canReuseElement(existing: Element | undefined, child: VNode): boolean {
     return false;
 
   const childObj = child as VnodeObj;
-  const hasNoKey =
-    existing.getAttribute('data-key') === null ||
-    existing.getAttribute('data-key') === undefined;
+  const existingKey = existing.getAttribute('data-key');
+  const hasNoKey = existingKey === null || existingKey === undefined;
 
   return (
     hasNoKey &&
     typeof childObj.type === 'string' &&
-    existing.tagName.toLowerCase() === String(childObj.type).toLowerCase()
+    tagNamesEqualIgnoreCase(existing.tagName, childObj.type)
   );
 }
 
@@ -485,9 +470,11 @@ function findAvailableUnkeyedElement(
   parent: Element,
   usedOldEls: WeakSet<Node>
 ): Element | undefined {
-  return Array.from(parent.children).find(
-    (ch) => !usedOldEls.has(ch) && ch.getAttribute('data-key') === null
-  );
+  for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
+    if (usedOldEls.has(ch)) continue;
+    if (ch.getAttribute('data-key') === null) return ch;
+  }
+  return undefined;
 }
 
 /** Try to reuse available element for child */
@@ -506,7 +493,7 @@ function tryReuseElement(
     const childObj = child as VnodeObj;
     if (
       typeof childObj.type === 'string' &&
-      avail.tagName.toLowerCase() === String(childObj.type).toLowerCase()
+      tagNamesEqualIgnoreCase(avail.tagName, childObj.type)
     ) {
       updateElementFromVnode(avail, child);
       usedOldEls.add(avail);
@@ -526,12 +513,15 @@ function commitReconciliation(parent: Element, finalNodes: Node[]): void {
 
   // Cleanup existing nodes
   try {
-    const existing = Array.from(parent.childNodes);
-    for (const n of existing) {
+    // HOT PATH: avoid Array.from(parent.childNodes) allocation
+    for (let n = parent.firstChild; n; ) {
+      const next = n.nextSibling;
       if (n instanceof Element) removeAllListeners(n);
       cleanupInstanceIfPresent(n);
+      n = next;
     }
   } catch {
+    // SLOW PATH: cleanup failure (dev-only diagnostics live elsewhere)
     // Ignore
   }
 

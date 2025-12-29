@@ -10,12 +10,11 @@
  */
 
 import { bench, describe, beforeAll, afterAll } from 'vitest';
-import { createIsland, state } from '../../src/index';
-import type { State } from '../../src/index';
+import { createIsland, state } from '../../src';
+import type { State } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 describe('mount/unmount churn (transactional)', () => {
@@ -24,7 +23,7 @@ describe('mount/unmount churn (transactional)', () => {
     let cleanup: () => void;
     let mounted!: State<boolean>;
 
-    beforeAll(async () => {
+    beforeAll(() => {
       const ctx = createTestContainer();
       container = ctx.container;
       cleanup = ctx.cleanup;
@@ -37,13 +36,11 @@ describe('mount/unmount churn (transactional)', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
-    bench('framework::mount-churn::100::toggle', async () => {
+    bench('framework::mount-churn::100::toggle', () => {
       for (let i = 0; i < 100; i++) mounted.set(!mounted());
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
     afterAll(() => cleanup());
@@ -54,7 +51,7 @@ describe('mount/unmount churn (transactional)', () => {
     let cleanup: () => void;
     let mounted!: State<boolean>;
 
-    beforeAll(async () => {
+    beforeAll(() => {
       const ctx = createTestContainer();
       container = ctx.container;
       cleanup = ctx.cleanup;
@@ -71,13 +68,11 @@ describe('mount/unmount churn (transactional)', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
-    bench('framework::mount-churn::100::toggle', async () => {
+    bench('framework::mount-churn::100::toggle', () => {
       for (let i = 0; i < 100; i++) mounted.set(!mounted());
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
     afterAll(() => cleanup());
@@ -88,7 +83,7 @@ describe('mount/unmount churn (transactional)', () => {
     let cleanup: () => void;
     let mounted!: State<boolean>;
 
-    beforeAll(async () => {
+    beforeAll(() => {
       const ctx = createTestContainer();
       container = ctx.container;
       cleanup = ctx.cleanup;
@@ -101,13 +96,11 @@ describe('mount/unmount churn (transactional)', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
-    bench('framework::mount-churn::100::behavioral', async () => {
+    bench('framework::mount-churn::100::behavioral', () => {
       for (let i = 0; i < 100; i++) mounted.set(!mounted());
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
     afterAll(() => cleanup());

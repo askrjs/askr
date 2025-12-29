@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
-import { createIsland, cleanupApp } from '../../src/index';
+import { cleanupApp } from '../../src/boot';
 import { createTestContainer } from '../helpers/test-renderer';
 import { registerMountOperation } from '../../src/runtime/component';
+import { createIsland } from '../helpers/create-island';
 
 describe('createIsland cleanup non-strict mode', () => {
   it('should swallow cleanup errors in non-strict mode', () => {

@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "preserve"
+  },
+  "include": [
+    "../src/**/*",
+    "./**/*",
+    "../tests/helpers/**/*",
+    "../types/**/*"
+  ],
+  "exclude": ["../node_modules", "../dist"]
+}

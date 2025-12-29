@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { state } from '../../src/index';
+import '../../src/runtime/fastlane';
 import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('bulk commit silence', () => {
   let container: HTMLElement;

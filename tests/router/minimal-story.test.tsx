@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createSPA, navigate } from '../../src/index';
+import { createSPA } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
-import { route } from '../../src/index';
+import { navigate } from '../../src/router/navigate';
+import { getRoutes, route } from '../../src/router/route';
 
 // Minimal testing window helper
 function setGlobalWindow(path: string) {

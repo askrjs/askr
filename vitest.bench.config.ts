@@ -2,6 +2,11 @@ import { defineConfig } from 'vitest/config';
 import * as path from 'path';
 
 export default defineConfig({
+  // Benchmarks should run without dev logging noise.
+  // This also keeps output stable so ratios don't degrade into NaN due to console flooding.
+  define: {
+    'process.env.NODE_ENV': '"production"',
+  },
   test: {
     environment: 'jsdom',
     globals: true,

@@ -5,11 +5,10 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland } from '../../src/index';
+import { createIsland } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 // Component definitions outside benches for determinism
@@ -119,44 +118,39 @@ const ComplexComponent = () => ({
 });
 
 describe('initial render', () => {
-  bench('scheduler flush (noop)', async () => {
+  bench('scheduler flush (noop)', () => {
     flushScheduler();
-    await waitForNextEvaluation();
   });
 
-  bench('empty container noop', async () => {
+  bench('empty container noop', () => {
     const { container: _container, cleanup } = createTestContainer();
     flushScheduler();
-    await waitForNextEvaluation();
     cleanup();
   });
 
-  bench('empty component (behavioral)', async () => {
+  bench('empty component (behavioral)', () => {
     const { container, cleanup } = createTestContainer();
 
     createIsland({ root: container, component: EmptyComponent });
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });
 
-  bench('simple component (behavioral)', async () => {
+  bench('simple component (behavioral)', () => {
     const { container, cleanup } = createTestContainer();
 
     createIsland({ root: container, component: SimpleComponent });
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });
 
-  bench('complex component tree (behavioral)', async () => {
+  bench('complex component tree (behavioral)', () => {
     const { container, cleanup } = createTestContainer();
 
     createIsland({ root: container, component: ComplexComponent });
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });

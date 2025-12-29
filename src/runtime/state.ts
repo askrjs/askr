@@ -18,7 +18,7 @@ import {
   type ComponentInstance,
 } from './component';
 import { invariant } from '../dev/invariant';
-import { isBulkCommitActive } from './fastlane-shared';
+import { isBulkCommitActive } from './fastlane';
 
 /**
  * State value holder - callable to read, has set method to update
@@ -174,28 +174,13 @@ function createStateCell<T>(
   read.set = (newValueOrUpdater: T | ((prev: T) => T)): void => {
     // INVARIANT: State cannot be mutated during component render
     // (when currentInstance is non-null). It must be scheduled for consistency.
-    // NOTE: Skip invariant checks in production for graceful degradation
     const currentInst = getCurrentInstance();
-    if (currentInst !== null && process.env.NODE_ENV !== 'production') {
+    if (currentInst !== null) {
       throw new Error(
         `[Askr] state.set() cannot be called during component render. ` +
           `State mutations during render break the actor model and cause infinite loops. ` +
           `Move state updates to event handlers or use conditional rendering instead.`
       );
-    }
-
-    // PRODUCTION FALLBACK: Skip state updates during render to prevent infinite loops
-    // This should never happen if code follows best practices, but we gracefully degrade
-    // rather than crashing in production.
-    if (currentInst !== null && process.env.NODE_ENV === 'production') {
-      // Log once in production to help debugging without throwing
-      if (typeof console !== 'undefined' && console.warn) {
-        console.warn(
-          '[Askr] state.set() called during render - update skipped. ' +
-            'Move state updates to event handlers.'
-        );
-      }
-      return;
     }
 
     // Compute new value if an updater was provided

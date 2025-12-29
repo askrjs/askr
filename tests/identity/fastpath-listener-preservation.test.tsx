@@ -1,11 +1,12 @@
 import { describe, it, beforeAll, afterAll, expect } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import type { State } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('renderer fast-path listener preservation', () => {
   let container: HTMLElement;

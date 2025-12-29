@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { registerMountOperation } from '../../src/runtime/component';
 import type { JSXElement } from '../../src/jsx/types';
+import { createIsland } from '../helpers/create-island';
 
 describe('rollback listeners', () => {
   it('should preserve attached listeners when a render throws', () => {
@@ -38,7 +39,8 @@ describe('rollback listeners', () => {
     expect(clicked).toBe(true);
 
     clicked = false;
-    setThrow?.(true);
+    expect(setThrow).not.toBeNull();
+    setThrow!(true);
     expect(() => flushScheduler()).toThrow();
 
     const btnAfter = container.querySelector(

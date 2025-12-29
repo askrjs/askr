@@ -43,6 +43,22 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./resources": {
+      "import": "./dist/resources/index.js",
+      "types": "./dist/resources/index.d.ts"
+    },
+    "./fx": {
+      "import": "./dist/fx/index.js",
+      "types": "./dist/fx/index.d.ts"
+    },
+    "./router": {
+      "import": "./dist/router/index.js",
+      "types": "./dist/router/index.d.ts"
+    },
+    "./ssr": {
+      "import": "./dist/ssr/index.js",
+      "types": "./dist/ssr/index.d.ts"
+    },
     "./jsx-runtime": {
       "import": "./src/jsx/jsx-runtime.ts",
       "types": "./src/jsx/jsx-runtime.ts"
@@ -58,12 +74,9 @@
   },
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch",
     "test": "vitest run",
-    "test:ui": "vitest --ui",
     "test:types": "npm run build && tsd",
     "bench": "cross-env NODE_ENV=production vitest bench --run --reporter=default --config vitest.bench.config.ts",
-    "check:benches": "node ./scripts/check-bench-awaits.js",
     "fmt": "prettier --write .",
     "lint": "eslint src tests benches --ext .ts,.tsx"
   },

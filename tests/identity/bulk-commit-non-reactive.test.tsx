@@ -1,5 +1,5 @@
 import { describe, it, beforeAll, afterAll, expect } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import type { State } from '../../src/index';
 import {
   createTestContainer,
@@ -7,6 +7,7 @@ import {
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
 import { globalScheduler } from '../../src/runtime/scheduler';
+import { createIsland } from '../helpers/create-island';
 
 describe('bulk commit non-reactive invariants', () => {
   let container: HTMLElement;

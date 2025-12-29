@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { resource } from '../../src/resources';
 import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
 import type { JSXElement } from '../../src/jsx/types';
+import { createIsland } from '../helpers/create-island';
 
 declare global {
   interface Window {

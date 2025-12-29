@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('error messages (DEV ERRORS)', () => {
   it('should give actionable error when state() is called outside render', () => {

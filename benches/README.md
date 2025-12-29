@@ -51,6 +51,20 @@ Examples:
 - Tier B numbers reflect full system end-to-end cost (including scheduler, reconciliation, event wiring, etc.).
 - Use the naming convention to filter and compare like-with-like across commits.
 
+## Running benches
+
+- Run all benches: `npm run bench`
+- Run a single bench file: `npm run bench -- benches/ssr/ssr-render.large.bench.tsx`
+- Filter by bench name (Vitest `-t`): use `npx` to avoid npm argument parsing quirks:
+  - Example: `npx vitest bench --run --config vitest.bench.config.ts benches/ssr/ssr-render.isolated.attrs-escape.bench.tsx -t "escape-heavy"`
+
+## SSR isolation benches
+
+To reduce GC variance while optimizing SSR, prefer the isolated SSR benches:
+
+- `benches/ssr/ssr-render.isolated.large.bench.tsx` (separates tree construction from render-only)
+- `benches/ssr/ssr-render.isolated.attrs-escape.bench.tsx` (separate attrs-heavy vs escape-heavy workloads)
+
 ## Maintenance notes
 
 - Do not change framework behavior in order to improve bench numbers. The goal is clarity and correctness.

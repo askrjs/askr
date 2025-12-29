@@ -1,15 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import {
-  createIsland,
-  defineContext,
-  readContext,
-  resource,
-} from '../../src/index';
+import { defineContext, readContext } from '../../src/runtime/context';
+import { resource } from '../../src/resources';
 import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 /**
  * SNAPSHOT SEMANTICS:

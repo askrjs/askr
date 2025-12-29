@@ -20,7 +20,7 @@ type IdleHandle =
 
 function throwIfDuringRender(): void {
   const inst = getCurrentComponentInstance();
-  if (inst !== null && process.env.NODE_ENV !== 'production') {
+  if (inst !== null) {
     throw new Error(
       '[Askr] calling FX handler during render is not allowed. Move calls to event handlers or effects.'
     );
@@ -237,6 +237,7 @@ export function rafEvent(
 // ---------- Scheduled work ----------
 
 export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
+  throwIfDuringRender();
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) {
     return () => {};
@@ -262,6 +263,7 @@ export function scheduleIdle(
   fn: () => void,
   options?: { timeout?: number }
 ): CancelFn {
+  throwIfDuringRender();
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) return () => {};
 
@@ -312,6 +314,7 @@ export function scheduleRetry<T>(
   fn: () => Promise<T>,
   options?: RetryOptions
 ): { cancel(): void } {
+  throwIfDuringRender();
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) return { cancel: () => {} };
 

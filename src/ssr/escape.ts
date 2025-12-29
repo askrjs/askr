@@ -27,6 +27,56 @@ export const VOID_ELEMENTS = new Set([
 const escapeCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 256;
 
+const TEXT_ESCAPE_TEST_RE = /[&<>]/;
+const TEXT_ESCAPE_RE = /[&<>]/g;
+const ATTR_ESCAPE_TEST_RE = /[&"'<>]/;
+const ATTR_ESCAPE_RE = /[&"'<>]/g;
+
+const CSS_UNSAFE_TEST_RE = /[{}<>\\]/;
+const CSS_UNSAFE_RE = /[{}<>\\]/g;
+const CSS_DANGEROUS_FN_RE = /(?:url|expression|javascript)\s*\(/i;
+
+const STYLE_PROP_CACHE = new Map<string, string>();
+const MAX_STYLE_PROP_CACHE_SIZE = 512;
+
+function toKebabCached(prop: string): string {
+  const cached = STYLE_PROP_CACHE.get(prop);
+  if (cached !== undefined) return cached;
+  const kebab = prop.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+  if (STYLE_PROP_CACHE.size < MAX_STYLE_PROP_CACHE_SIZE) {
+    STYLE_PROP_CACHE.set(prop, kebab);
+  }
+  return kebab;
+}
+
+function mapTextEscape(ch: string): string {
+  // '&' '<' '>'
+  switch (ch) {
+    case '&':
+      return '&amp;';
+    case '<':
+      return '&lt;';
+    default:
+      return '&gt;';
+  }
+}
+
+function mapAttrEscape(ch: string): string {
+  // '&' '"' "'" '<' '>'
+  switch (ch) {
+    case '&':
+      return '&amp;';
+    case '"':
+      return '&quot;';
+    case "'":
+      return '&#x27;';
+    case '<':
+      return '&lt;';
+    default:
+      return '&gt;';
+  }
+}
+
 /**
  * Clear the escape cache. Call between SSR requests in long-running servers
  * to prevent memory buildup from unique strings.
@@ -49,17 +99,15 @@ export function escapeText(text: string): string {
 
   const str = String(text);
   // Fast path: check if escaping needed
-  if (!str.includes('&') && !str.includes('<') && !str.includes('>')) {
+  if (!TEXT_ESCAPE_TEST_RE.test(str)) {
     if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
       escapeCache.set(text, str);
     }
     return str;
   }
 
-  const result = str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  // Single-pass escape for strings that need escaping
+  const result = str.replace(TEXT_ESCAPE_RE, mapTextEscape);
 
   if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
     escapeCache.set(text, result);
@@ -73,22 +121,12 @@ export function escapeText(text: string): string {
 export function escapeAttr(value: string): string {
   const str = String(value);
   // Fast path: check if escaping needed
-  if (
-    !str.includes('&') &&
-    !str.includes('"') &&
-    !str.includes("'") &&
-    !str.includes('<') &&
-    !str.includes('>')
-  ) {
+  if (!ATTR_ESCAPE_TEST_RE.test(str)) {
     return str;
   }
 
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  // Single-pass escape for strings that need escaping
+  return str.replace(ATTR_ESCAPE_RE, mapAttrEscape);
 }
 
 /**
@@ -104,13 +142,20 @@ function escapeCssValue(value: string): string {
   // - url() and expression() are common attack vectors
   const str = String(value);
 
-  // Block dangerous CSS functions
-  if (/(?:url|expression|javascript)\s*\(/i.test(str)) {
+  const hasUnsafeChars = CSS_UNSAFE_TEST_RE.test(str);
+  const openParen = str.indexOf('(');
+
+  // Fast path: most CSS values are simple (`10px`, `transparent`, etc.)
+  // and should not pay regex costs.
+  if (!hasUnsafeChars && openParen === -1) return str;
+
+  // Block dangerous CSS functions only if the string can actually contain them.
+  if (openParen !== -1 && CSS_DANGEROUS_FN_RE.test(str)) {
     return '';
   }
 
   // Remove characters that could break out of CSS value context
-  return str.replace(/[{}<>\\]/g, '');
+  return hasUnsafeChars ? str.replace(CSS_UNSAFE_RE, '') : str;
 }
 
 /**
@@ -124,7 +169,7 @@ export function styleObjToCss(value: unknown): string | null {
   let out = '';
   for (const [k, v] of entries) {
     if (v === null || v === undefined || v === false) continue;
-    const prop = k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+    const prop = toKebabCached(k);
     const safeValue = escapeCssValue(String(v));
     if (safeValue) {
       out += `${prop}:${safeValue};`;

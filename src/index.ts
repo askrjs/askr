@@ -1,104 +1,22 @@
 /**
  * Askr: Actor-backed deterministic UI framework
  *
- * Public API surface — only users should import from here
+ * Public API surface — autopilot-safe core only.
+ *
+ * Root exports are intentionally minimal and free of timing/lifecycle nuance.
+ * Lower tiers are exposed via explicit subpaths:
+ * - askr/resources  (async data policy)
+ * - askr/fx         (timing / side effects)
  */
 
-// Runtime primitives
+// Constructors (execution models)
+export { createSPA, createIsland } from './boot';
+export type { SPAConfig, IslandConfig } from './boot';
+
+// Core sync data
 export { state } from './runtime/state';
 export type { State } from './runtime/state';
-export { getSignal } from './runtime/component';
-export { scheduleEventHandler } from './runtime/scheduler';
+export { derive } from './runtime/derive';
 
-// Context (spec-defined, currently stubbed)
-export { defineContext, readContext } from './runtime/context';
-export type { Context } from './runtime/context';
-
-// Bindings (spec-defined, currently stubbed)
-export { resource, task, derive } from './runtime/operations';
-export type { DataResult } from './runtime/operations';
-
-// App bootstrap (explicit startup APIs)
-export {
-  createIsland,
-  createSPA,
-  hydrateSPA,
-  cleanupApp,
-  hasApp,
-} from './boot';
-export type { IslandConfig, SPAConfig, HydrateSPAConfig } from './boot';
-
-// Routing
-// Public render-time accessor: route() (also supports route registration when called with args)
-export {
-  route,
-  setServerLocation,
-  type RouteSnapshot,
-  type RouteMatch,
-} from './router/route';
-
-// Keep route registration utilities available under a distinct name to avoid
-// collision with the render-time accessor.
-export {
-  clearRoutes,
-  getRoutes,
-  getNamespaceRoutes,
-  unloadNamespace,
-  getLoadedNamespaces,
-} from './router/route';
-export { navigate } from './router/navigate';
-export type { Route, RouteHandler } from './router/route';
-
-// Components
-export { Link } from './components/Link';
-export type { LinkProps } from './components/Link';
-
-// Foundations (public convenience exports)
-export { layout } from './foundations/layout';
-export type { LayoutComponent } from './foundations/layout';
-export { Slot } from './foundations/slot';
-export type { SlotProps } from './foundations/slot';
-export {
-  definePortal,
-  DefaultPortal,
-  _resetDefaultPortal,
-} from './foundations/portal';
-export type { Portal } from './foundations/portal';
-
-// Standard library helpers are unstable and not re-exported from core.
-
-// SSR - Server-side rendering (sync-only APIs)
-export {
-  renderToStringSync,
-  renderToStringSyncForUrl,
-  renderToString,
-  renderToStream,
-  collectResources,
-  resolveResources,
-} from './ssr';
-
-// Re-export JSX runtime for tsconfig jsxImportSource
-export { jsx, jsxs, Fragment } from './jsx/jsx-runtime';
-
-// Expose common APIs to globalThis for test-suite compatibility (legacy test patterns)
-// These are safe to export globally and make migrating tests simpler.
-import { route, getRoutes } from './router/route';
-import { navigate } from './router/navigate';
-import { createIsland, createSPA, hydrateSPA } from './boot';
-
-// Ensure fastlane bridge is initialized for environments (tests/global access)
-// This file exports a side-effectful module that attaches helpers to globalThis.
-import './runtime/fastlane';
-
-if (typeof globalThis !== 'undefined') {
-  const g = globalThis as Record<string, unknown>;
-  if (!g.createIsland) g.createIsland = createIsland;
-  if (!g.createSPA) g.createSPA = createSPA;
-  if (!g.hydrateSPA) g.hydrateSPA = hydrateSPA;
-  if (!g.route) g.route = route;
-  if (!g.getRoutes) g.getRoutes = getRoutes;
-  if (!g.navigate) g.navigate = navigate;
-}
-
-// Public types
+// Essential public types
 export type { Props } from './common/props';

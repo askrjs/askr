@@ -6,13 +6,13 @@ import {
 import { getCurrentContextFrame } from './context';
 import { ResourceCell } from './resource-cell';
 import { state } from './state';
-import { getDeriveCache } from './derive-cache';
+import { globalScheduler } from './scheduler';
 import { getSSRBridge } from './ssr-bridge';
 import { SSRDataMissingError } from '../common/ssr-errors';
 
 // Memoization cache for derive() (centralized)
 
-export interface DataResult<T> {
+export interface ResourceResult<T> {
   value: T | null;
   pending: boolean;
   error: Error | null;
@@ -32,7 +32,7 @@ export interface DataResult<T> {
 export function resource<T>(
   fn: (opts: { signal: AbortSignal }) => Promise<T> | T,
   deps: unknown[] = []
-): DataResult<T> {
+): ResourceResult<T> {
   const instance = getCurrentComponentInstance();
   // Create a non-null alias early so it can be used in nested closures
   // without TypeScript complaining about possible null access.
@@ -53,7 +53,7 @@ export function resource<T>(
         pending: false,
         error: null,
         refresh: () => {},
-      } as DataResult<T>;
+      } as ResourceResult<T>;
     }
 
     // If we are in an SSR render pass without supplied data, throw for clarity.
@@ -62,14 +62,12 @@ export function resource<T>(
       ssr.throwSSRDataMissing();
     }
 
-    // No active component instance and not in SSR render with data. Return a
-    // pending snapshot for non-SSR usage (e.g., runtime usage outside render).
-    return {
-      value: null,
-      pending: true,
-      error: null,
-      refresh: () => {},
-    } as DataResult<T>;
+    // No active component instance and not in SSR render with data.
+    // Autopilot invariant: resources must be created during render within an app.
+    throw new Error(
+      '[Askr] resource() must be called during component render inside an app. ' +
+        'Do not create resources at module scope or outside render.'
+    );
   }
 
   // Internal ResourceCell — pure state machine now moved to its own module
@@ -90,7 +88,10 @@ export function resource<T>(
     // Commit synchronous value from render data and return a stable snapshot
     const val = renderData[key] as T;
 
-    const holder = state<{ cell?: ResourceCell<T>; snapshot: DataResult<T> }>({
+    const holder = state<{
+      cell?: ResourceCell<T>;
+      snapshot: ResourceResult<T>;
+    }>({
       cell: undefined,
       snapshot: {
         value: val,
@@ -109,15 +110,17 @@ export function resource<T>(
   }
 
   // Persist a holder so the snapshot identity is stable across renders.
-  const holder = state<{ cell?: ResourceCell<T>; snapshot: DataResult<T> }>({
-    cell: undefined,
-    snapshot: {
-      value: null,
-      pending: true,
-      error: null,
-      refresh: () => {},
-    },
-  });
+  const holder = state<{ cell?: ResourceCell<T>; snapshot: ResourceResult<T> }>(
+    {
+      cell: undefined,
+      snapshot: {
+        value: null,
+        pending: true,
+        error: null,
+        refresh: () => {},
+      },
+    }
+  );
 
   const h = holder();
 
@@ -128,7 +131,7 @@ export function resource<T>(
     // Attach debug label (component name) for richer logs
     cell.ownerName = inst.fn?.name || '<anonymous>';
     h.cell = cell;
-    h.snapshot = cell.snapshot as DataResult<T>;
+    h.snapshot = cell.snapshot as ResourceResult<T>;
 
     // Subscribe and schedule component updates when cell changes
     const unsubscribe = cell.subscribe(() => {
@@ -150,30 +153,44 @@ export function resource<T>(
       cell.abort();
     });
 
-    // Start immediately (not tied to mount timing); SSR will throw if async
-    try {
-      // Avoid notifying subscribers synchronously during render — update
-      // holder.snapshot in-place instead to prevent state.set() during render.
-      cell.start(inst.ssr ?? false, false);
-      // If the run completed synchronously, reflect the result into the holder
+    // Render invariant: do NOT start async work during render on the client.
+    // SSR remains strict/synchronous and must throw immediately if async is encountered.
+    if (inst.ssr) {
+      // SSR: must run synchronously so missing data throws during render
+      cell.start(true, false);
       if (!cell.pending) {
         const cur = holder();
         cur.snapshot.value = cell.value;
         cur.snapshot.pending = cell.pending;
         cur.snapshot.error = cell.error;
-        // Do not call holder.set() here — we are still in render; the host
-        // component will read the snapshot immediately.
       }
-    } catch (err) {
-      if (err instanceof SSRDataMissingError) throw err;
-      // Synchronous error — reflect into snapshot
-      cell.error = err as Error;
-      cell.pending = false;
-      const cur = holder();
-      cur.snapshot.value = cell.value;
-      cur.snapshot.pending = cell.pending;
-      cur.snapshot.error = cell.error;
-      // Do not call holder.set() here for the same reason as above
+    } else {
+      // Client: start after render via scheduler (never inline)
+      globalScheduler.enqueue(() => {
+        try {
+          cell.start(false, false);
+        } catch (err) {
+          // Non-SSR: reflect synchronous errors into snapshot via manual update
+          const cur = holder();
+          cur.snapshot.value = cell.value;
+          cur.snapshot.pending = cell.pending;
+          cur.snapshot.error = (err as Error) ?? null;
+          holder.set(cur);
+          inst._enqueueRun?.();
+          return;
+        }
+
+        // If the resource completed synchronously, subscribers were not notified.
+        // Force a re-render so the component can observe the value.
+        if (!cell.pending) {
+          const cur = holder();
+          cur.snapshot.value = cell.value;
+          cur.snapshot.pending = cell.pending;
+          cur.snapshot.error = cell.error;
+          holder.set(cur);
+          inst._enqueueRun?.();
+        }
+      });
     }
   }
 
@@ -191,12 +208,26 @@ export function resource<T>(
     cell.pending = true;
     cell.error = null;
     try {
-      cell.start(inst.ssr ?? false, false);
-      if (!cell.pending) {
-        const cur = holder();
-        cur.snapshot.value = cell.value;
-        cur.snapshot.pending = cell.pending;
-        cur.snapshot.error = cell.error;
+      if (inst.ssr) {
+        cell.start(true, false);
+        if (!cell.pending) {
+          const cur = holder();
+          cur.snapshot.value = cell.value;
+          cur.snapshot.pending = cell.pending;
+          cur.snapshot.error = cell.error;
+        }
+      } else {
+        globalScheduler.enqueue(() => {
+          cell.start(false, false);
+          if (!cell.pending) {
+            const cur = holder();
+            cur.snapshot.value = cell.value;
+            cur.snapshot.pending = cell.pending;
+            cur.snapshot.error = cell.error;
+            holder.set(cur);
+            inst._enqueueRun?.();
+          }
+        });
       }
     } catch (err) {
       if (err instanceof SSRDataMissingError) throw err;
@@ -206,70 +237,12 @@ export function resource<T>(
       cur.snapshot.value = cell.value;
       cur.snapshot.pending = cell.pending;
       cur.snapshot.error = cell.error;
+      // Do not call holder.set() here; this is still render.
     }
   }
 
   // Return the stable snapshot object owned by the cell
   return h.snapshot;
-}
-
-// Short-form overload: accept a single function that returns the derived value
-export function derive<TOut>(fn: () => TOut): TOut | null;
-
-export function derive<TIn, TOut>(
-  source:
-    | { value: TIn | null; pending?: boolean; error?: Error | null }
-    | TIn
-    | (() => TIn),
-  map?: (value: TIn) => TOut
-): TOut | null {
-  // Short-form: derive(() => someExpression)
-  if (map === undefined && typeof source === 'function') {
-    const value = (source as () => TOut)();
-    if (value == null) return null;
-
-    const instance = getCurrentComponentInstance();
-    if (!instance) {
-      return value as TOut;
-    }
-
-    const cache = getDeriveCache(instance);
-    if (cache.has(value as unknown)) return cache.get(value as unknown) as TOut;
-
-    cache.set(value as unknown, value as unknown);
-    return value as TOut;
-  }
-
-  // Normal form: derive(source, map)
-  // Extract the actual value
-  let value: TIn;
-  if (typeof source === 'function' && !('value' in source)) {
-    // It's a function (not a binding object with value property)
-    value = (source as () => TIn)();
-  } else {
-    value = (source as { value?: TIn | null })?.value ?? (source as TIn);
-  }
-  if (value == null) return null;
-
-  // Get or create memoization cache for this component
-  const instance = getCurrentComponentInstance();
-  if (!instance) {
-    // No component context - just compute eagerly
-    return (map as (v: TIn) => TOut)(value as TIn);
-  }
-
-  // Get or create the cache map for this component
-  const cache = getDeriveCache(instance);
-
-  // Check if we already have a cached result for this source value
-  if (cache.has(value as unknown)) {
-    return cache.get(value as unknown) as TOut;
-  }
-
-  // Compute and cache the result
-  const result = (map as (v: TIn) => TOut)(value as TIn);
-  cache.set(value as unknown, result as unknown);
-  return result;
 }
 
 export function on(

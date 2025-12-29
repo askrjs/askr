@@ -1,7 +1,8 @@
 // tests/identity/reorder_preserves_state.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('reorder preserves state (IDENTITY)', () => {
   let { container, cleanup } = createTestContainer();

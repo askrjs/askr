@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { clearRoutes, getRoutes, route } from '../../src/index';
+import { clearRoutes, getRoutes, route } from '../../src/router/route';
 
 describe('registerRoute sugar API', () => {
   beforeEach(() => {

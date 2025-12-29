@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, createSPA } from '../../src/index';
+import { createSPA } from '../../src/index';
 import { createTestContainer } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('startup API guards', () => {
   it('should throw when routes missing', async () => {

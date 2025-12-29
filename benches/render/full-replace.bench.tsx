@@ -6,15 +6,14 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { createIsland, state } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 describe('full replace', () => {
-  bench('small tree replacement', async () => {
+  bench('small tree replacement', () => {
     const { container, cleanup } = createTestContainer();
 
     let toggleStructure: (() => void) | null = null;
@@ -69,19 +68,17 @@ describe('full replace', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Perform full structure replacements
     for (let i = 0; i < 10; i++) {
       toggleStructure!();
       flushScheduler();
-      await waitForNextEvaluation();
     }
 
     cleanup();
   });
 
-  bench('large tree replacement', async () => {
+  bench('large tree replacement', () => {
     const { container, cleanup } = createTestContainer();
 
     let toggleLargeStructure: (() => void) | null = null;
@@ -110,19 +107,17 @@ describe('full replace', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Perform large tree replacements
     for (let i = 0; i < 5; i++) {
       toggleLargeStructure!();
       flushScheduler();
-      await waitForNextEvaluation();
     }
 
     cleanup();
   });
 
-  bench('state churn (multiple updates)', async () => {
+  bench('state churn (multiple updates)', () => {
     const { container, cleanup } = createTestContainer();
 
     let updateState: (() => void) | null = null;
@@ -160,13 +155,11 @@ describe('full replace', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Perform state updates
     for (let i = 0; i < 10; i++) {
       updateState!();
       flushScheduler();
-      await waitForNextEvaluation();
     }
 
     cleanup();

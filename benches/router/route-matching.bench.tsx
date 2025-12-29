@@ -5,7 +5,7 @@
  */
 
 import { bench, describe } from 'vitest';
-import { route, clearRoutes } from '../../src/index';
+import { route, clearRoutes } from '../../src/router';
 import { resolveRoute } from '../../src/router/route';
 
 describe('route matching', () => {

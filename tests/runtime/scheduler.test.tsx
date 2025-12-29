@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  state,
-  createIsland,
-  resource,
-  scheduleEventHandler,
-} from '../../src/index';
+import { state } from '../../src/index';
+import { resource } from '../../src/resources';
+import { scheduleEventHandler } from '../../src/runtime/scheduler';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('scheduler (SPEC 2.2)', () => {
   let { container, cleanup } = createTestContainer();
@@ -48,18 +46,13 @@ describe('scheduler (SPEC 2.2)', () => {
       createIsland({ root: container, component: Component });
 
       const button = container.querySelector('button') as HTMLButtonElement;
-      // eslint-disable-next-line no-console
-      console.log(
-        'DEBUG: container.innerHTML before click:',
-        container.innerHTML
-      );
+      // (debug logging removed)
       button?.click();
 
       flushScheduler();
 
       // Debug: show order
-      // eslint-disable-next-line no-console
-      console.log('DEBUG: order after flush', order);
+      // (debug logging removed)
 
       // All three writes happened in order
       expect(order).toEqual([1, 2, 3]);
