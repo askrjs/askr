@@ -146,7 +146,8 @@ Prefer immutable updates when deriving from object state (e.g. `user.set(prev =>
 Example (recommended):
 
 ```ts
-import { route, resource, getSignal } from '@askrjs/askr';
+import { route } from '@askrjs/askr/router';
+import { resource, getSignal } from '@askrjs/askr/resources';
 
 function User({ id }: { id: string }) {
   const user = resource(async () => {

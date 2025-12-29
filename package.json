@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Actor-backed deterministic UI framework",
   "type": "module",
   "license": "Apache-2.0",
@@ -28,14 +28,15 @@
   "files": [
     "dist"
   ],
-  "sideEffects": [
-    "./dist/jsx/types.js",
-    "./dist/runtime/fastlane.js"
-  ],
+  "sideEffects": [],
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./foundations": {
+      "import": "./dist/foundations/index.js",
+      "types": "./dist/foundations/index.d.ts"
     },
     "./resources": {
       "import": "./dist/resources/index.js",
@@ -83,6 +84,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
+    "jiti": "^2.6.0",
     "jsdom": "^27.4.0",
     "prettier": "^3.7.4",
     "tsup": "^8.5.1",

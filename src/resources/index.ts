@@ -6,3 +6,5 @@
 
 export { resource } from '../runtime/operations';
 export type { ResourceResult as DataResult } from '../runtime/operations';
+
+export { getSignal } from '../runtime/component';
