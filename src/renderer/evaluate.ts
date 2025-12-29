@@ -386,10 +386,14 @@ function applyPropsToElement(el: Element, props: Props): void {
 
     const eventName = parseEventName(key);
     if (eventName) {
-      const wrappedHandler = createWrappedHandler(value as EventListener, false);
+      const wrappedHandler = createWrappedHandler(
+        value as EventListener,
+        false
+      );
       const options = getPassiveOptions(eventName);
 
-      if (options !== undefined) el.addEventListener(eventName, wrappedHandler, options);
+      if (options !== undefined)
+        el.addEventListener(eventName, wrappedHandler, options);
       else el.addEventListener(eventName, wrappedHandler);
 
       if (!elementListeners.has(el)) elementListeners.set(el, new Map());
