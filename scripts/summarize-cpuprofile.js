@@ -3,7 +3,9 @@ import { basename } from 'node:path';
 
 const file = process.argv[2];
 if (!file) {
-  console.error('Usage: node scripts/summarize-cpuprofile.js <file.cpuprofile>');
+  console.error(
+    'Usage: node scripts/summarize-cpuprofile.js <file.cpuprofile>'
+  );
   process.exit(2);
 }
 
@@ -17,7 +19,9 @@ const samples = profile.samples ?? [];
 const timeDeltas = profile.timeDeltas ?? [];
 
 if (samples.length === 0 || timeDeltas.length === 0) {
-  console.error('Profile has no samples/timeDeltas (cannot summarize self time).');
+  console.error(
+    'Profile has no samples/timeDeltas (cannot summarize self time).'
+  );
   process.exit(1);
 }
 

@@ -41,4 +41,6 @@ const end = performance.now();
 const totalMs = end - start;
 const meanMs = totalMs / ITERS;
 
-console.log(JSON.stringify({ HUGE_10K, WARMUP, ITERS, totalMs, meanMs, lastLen }));
+console.log(
+  JSON.stringify({ HUGE_10K, WARMUP, ITERS, totalMs, meanMs, lastLen })
+);

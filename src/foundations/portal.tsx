@@ -56,9 +56,9 @@ export function definePortal<T = unknown>(): Portal<T> {
         const ns =
           (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
             .__ASKR__ ||
-          (((
+          ((
             globalThis as unknown as { __ASKR__?: Record<string, unknown> }
-          ).__ASKR__ = {} as Record<string, unknown>));
+          ).__ASKR__ = {} as Record<string, unknown>);
         ns.__PORTAL_READS = ((ns.__PORTAL_READS as number) || 0) + 1;
       }
 
@@ -84,9 +84,9 @@ export function definePortal<T = unknown>(): Portal<T> {
         const ns =
           (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
             .__ASKR__ ||
-          (((
+          ((
             globalThis as unknown as { __ASKR__?: Record<string, unknown> }
-          ).__ASKR__ = {} as Record<string, unknown>));
+          ).__ASKR__ = {} as Record<string, unknown>);
         ns.__PORTAL_WRITES = ((ns.__PORTAL_WRITES as number) || 0) + 1;
       }
 

@@ -188,8 +188,9 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
 
   // Hot path: most nodes don't use dangerouslySetInnerHTML.
   // Avoid allocating the `{ attrs, dangerousHtml }` object unless the prop exists.
-  const maybeDangerous = (props as unknown as { dangerouslySetInnerHTML?: unknown })
-    ?.dangerouslySetInnerHTML;
+  const maybeDangerous = (
+    props as unknown as { dangerouslySetInnerHTML?: unknown }
+  )?.dangerouslySetInnerHTML;
   if (maybeDangerous !== undefined && maybeDangerous !== null) {
     const { attrs, dangerousHtml } = renderAttrs(props, {
       returnDangerousHtml: true,

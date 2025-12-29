@@ -1,7 +1,7 @@
 # Performance Issues & Action Plan (Askr)
 
 This doc is the living tracker for performance work in Askr.
-It summarizes current benchmark hotspots and lays out a concrete plan to make Askr *world class* across:
+It summarizes current benchmark hotspots and lays out a concrete plan to make Askr _world class_ across:
 
 - interactive latency (commit/flush time)
 - throughput (updates/sec, SSR/sec)
@@ -45,9 +45,11 @@ From the latest `npm run bench` output (Dec 2025, local run):
   - Mean ~**79 ms/op** (≈ 12.6 hz)
 
 Why it matters:
+
 - This is the ceiling for “big page SSR” and will dominate TTFB on large documents.
 
 Likely contributors to investigate:
+
 - string building strategy (concats vs chunk arrays)
 - escaping / attribute serialization
 - recursion depth / call overhead
@@ -60,6 +62,7 @@ Likely contributors to investigate:
   - **“100 updates + 100 commits (worst case) (transactional)”** mean ~30.8 ms/op
 
 Why it matters:
+
 - The delta strongly suggests per-commit fixed overhead is large.
 - It validates that batching semantics are critical, but also indicates we can reduce the fixed cost of a commit/flush.
 
@@ -70,9 +73,11 @@ Why it matters:
   - ~46× slower than the small baseline in that suite
 
 Why it matters:
+
 - Non-linear scaling is where “feels fast” turns into “falls off a cliff” at realistic sizes.
 
 Likely contributors:
+
 - inner-loop allocation
 - repeated DOM writes that could be coalesced
 - reconciliation walking cost
@@ -85,6 +90,7 @@ Likely contributors:
   - rollback variants mean ~0.58–0.59 ms/op
 
 Why it matters:
+
 - Rollback benches throw early; they don’t execute the full DOM commit path.
 - If optimizing for typical workloads, focus on the successful commit/patch pipeline.
 
@@ -115,14 +121,17 @@ This is ordered by leverage: changes near the root of the runtime tend to lift m
 3. Add a “how to profile” section (Node flags, cpuprofile naming conventions).
 
 Deliverable:
+
 - stable trend line + “no silent perf regressions” policy
 
 ### B) Reduce fixed commit/flush overhead (highest ROI)
 
 Target symptom:
+
 - The large gap between “100 queued tasks (single flush)” vs “100 updates + 100 commits”.
 
 Work items:
+
 1. **Profile the commit path** under `benches/runtime/scheduler-overhead.bench.tsx` worst-case.
 2. Reduce per-commit fixed costs:
    - minimize repeated DOM lookups / repeated reads of the same node state
@@ -133,11 +142,13 @@ Work items:
    - document “avoid flushing per update” patterns clearly
 
 Deliverable:
+
 - meaningfully lower commit fixed cost and better p99 stability.
 
 ### C) Make SSR (large) fast and allocation-light
 
 Work items:
+
 1. Profile `benches/ssr/ssr-render.large.bench.tsx`.
 2. Optimize SSR serialization:
    - prefer chunk accumulation + single join/write rather than repeated concatenation
@@ -146,11 +157,13 @@ Work items:
 3. Validate correctness with hydration tests (no behavior regressions).
 
 Deliverable:
+
 - SSR throughput improvement and reduced variance.
 
 ### D) Fix bulk update scaling knees (DOM + reconcile)
 
 Work items:
+
 1. Profile `text-node-updates` and `attribute-updates` bulk cases.
 2. Reduce inner-loop overhead:
    - avoid per-node closure creation
@@ -159,11 +172,13 @@ Work items:
 3. Ensure Tier B benches reflect realistic end-to-end patterns (no setup in hot loop).
 
 Deliverable:
+
 - smoother scaling curves (avoid cliffs at 200/1k/10k sizes).
 
 ### E) Memory & GC: make performance stable, not just fast
 
 Work items:
+
 1. Add a small set of memory-focused checks:
    - allocation counts (where feasible)
    - stress tests that detect runaway growth
@@ -173,11 +188,13 @@ Work items:
    - string/array allocations in SSR
 
 Deliverable:
+
 - lower tail latencies; fewer long GC pauses.
 
 ### F) Developer-facing guidance (so apps stay fast by default)
 
 Work items:
+
 1. Add a short “Performance playbook” section to the docs:
    - batching updates
    - avoiding per-keystroke full commits
@@ -188,6 +205,7 @@ Work items:
    - standard cancellation via `AbortSignal`
 
 Deliverable:
+
 - the default way of writing Askr code is also the fast way.
 
 ## Immediate next steps (suggested)

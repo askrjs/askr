@@ -13,7 +13,6 @@ import { removeAllListeners, cleanupInstanceIfPresent } from './cleanup';
 import { isBulkCommitActive } from '../runtime/fastlane';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { applyRendererFastPath } from './fastpath';
-import { logger } from '../dev/logger';
 import {
   extractKey,
   checkPropChanges,

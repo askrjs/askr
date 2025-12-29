@@ -46,13 +46,13 @@ describe('scheduler (SPEC 2.2)', () => {
       createIsland({ root: container, component: Component });
 
       const button = container.querySelector('button') as HTMLButtonElement;
-        // (debug logging removed)
+      // (debug logging removed)
       button?.click();
 
       flushScheduler();
 
       // Debug: show order
-        // (debug logging removed)
+      // (debug logging removed)
 
       // All three writes happened in order
       expect(order).toEqual([1, 2, 3]);

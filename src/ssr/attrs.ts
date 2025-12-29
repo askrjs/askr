@@ -35,7 +35,6 @@ export function renderAttrs(
 
   // Perf: avoid Object.entries allocation in tight SSR loops.
   // Also skip non-own keys defensively.
-  // eslint-disable-next-line no-restricted-syntax
   for (const key in props as Record<string, unknown>) {
     if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
     const value = (props as Record<string, unknown>)[key];
