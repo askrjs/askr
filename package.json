@@ -74,12 +74,9 @@
   },
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch",
     "test": "vitest run",
-    "test:ui": "vitest --ui",
     "test:types": "npm run build && tsd",
     "bench": "cross-env NODE_ENV=production vitest bench --run --reporter=default --config vitest.bench.config.ts",
-    "check:benches": "node ./scripts/check-bench-awaits.js",
     "fmt": "prettier --write .",
     "lint": "eslint src tests benches --ext .ts,.tsx"
   },

@@ -35,6 +35,10 @@ import type { VNode, SSRComponent } from './types';
 
 import { logger } from '../dev/logger';
 
+const __SSR_DEBUG =
+  process.env.NODE_ENV !== 'production' &&
+  (process.env.ASKR_SSR_DEBUG === '1' || process.env.ASKR_SSR_DEBUG === 'true');
+
 // Install SSR bridge once so runtime primitives (resource/derive/etc) can
 // detect SSR mode and access deterministic render-phase data without a
 // runtime->ssr import.
@@ -105,6 +109,7 @@ function renderChildrenSync(
   ctx: RenderContext
 ): string {
   if (!children || !Array.isArray(children) || children.length === 0) return '';
+  if (children.length === 1) return renderChildSync(children[0], ctx);
   let result = '';
   for (const child of children) result += renderChildSync(child, ctx);
   return result;
@@ -117,7 +122,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   const { type, props } = node;
 
   /* istanbul ignore if - dev-only debug */
-  if (process.env.NODE_ENV !== 'production') {
+  if (__SSR_DEBUG) {
     try {
       logger.warn('[SSR] renderNodeSync type:', typeof type, type);
     } catch {
@@ -147,7 +152,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
           ? (props?.children as unknown[])
           : undefined;
       /* istanbul ignore if - dev-only debug */
-      if (process.env.NODE_ENV !== 'production') {
+      if (__SSR_DEBUG) {
         try {
           logger.warn('[SSR] fragment children length:', childrenArr?.length);
         } catch {
@@ -169,15 +174,23 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     return `<${typeStr}${attrs} />`;
   }
 
-  const { attrs, dangerousHtml } = renderAttrs(props, {
-    returnDangerousHtml: true,
-  });
-  // If dangerouslySetInnerHTML is set, use it instead of children
-  if (dangerousHtml !== undefined) {
-    return `<${typeStr}${attrs}>${dangerousHtml}</${typeStr}>`;
+  // Hot path: most nodes don't use dangerouslySetInnerHTML.
+  // Avoid allocating the `{ attrs, dangerousHtml }` object unless the prop exists.
+  const maybeDangerous = (props as unknown as { dangerouslySetInnerHTML?: unknown })
+    ?.dangerouslySetInnerHTML;
+  if (maybeDangerous !== undefined && maybeDangerous !== null) {
+    const { attrs, dangerousHtml } = renderAttrs(props, {
+      returnDangerousHtml: true,
+    });
+    if (dangerousHtml !== undefined) {
+      return `<${typeStr}${attrs}>${dangerousHtml}</${typeStr}>`;
+    }
+    const childrenHtml = renderChildrenSync((node as VNode).children, ctx);
+    return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
   }
-  const children = (node as VNode).children;
-  const childrenHtml = renderChildrenSync(children, ctx);
+
+  const attrs = renderAttrs(props);
+  const childrenHtml = renderChildrenSync((node as VNode).children, ctx);
   return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
 }
 

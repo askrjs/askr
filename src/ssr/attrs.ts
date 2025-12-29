@@ -33,9 +33,17 @@ export function renderAttrs(
   let result = '';
   let dangerousHtml: string | undefined;
 
-  for (const [key, value] of Object.entries(props)) {
+  // Perf: avoid Object.entries allocation in tight SSR loops.
+  // Also skip non-own keys defensively.
+  // eslint-disable-next-line no-restricted-syntax
+  for (const key in props as Record<string, unknown>) {
+    if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
+    const value = (props as Record<string, unknown>)[key];
     // Skip children in attrs
     if (key === 'children') continue;
+
+    // Skip internal identity refs (framework-only)
+    if (key === 'key' || key === 'ref') continue;
 
     // Handle dangerouslySetInnerHTML
     if (key === 'dangerouslySetInnerHTML') {
