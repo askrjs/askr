@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.5npm",
+  "version": "0.0.5",
   "description": "Actor-backed deterministic UI framework",
   "type": "module",
   "license": "Apache-2.0",
