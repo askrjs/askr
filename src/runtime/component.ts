@@ -5,8 +5,8 @@
 
 import { type State } from './state';
 import { globalScheduler } from './scheduler';
-import type { JSXElement } from '../jsx/types';
-import type { Props } from '../shared/types';
+import type { Props } from '../common/props';
+import type { ComponentFunction } from '../common/component';
 import {
   // withContext is the sole primitive for context restoration
   withContext,
@@ -15,16 +15,7 @@ import {
 import { logger } from '../dev/logger';
 import { __ASKR_incCounter, __ASKR_set } from '../renderer/diag';
 
-export type ComponentFunction = (
-  props: Props,
-  context?: { signal: AbortSignal }
-) => JSXElement | VNode | string | number | null;
-
-type VNode = {
-  type: string;
-  props?: Props;
-  children?: (string | VNode | null | undefined | false)[];
-};
+export type { ComponentFunction } from '../common/component';
 
 export interface ComponentInstance {
   id: string;

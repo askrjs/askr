@@ -1,10 +1,12 @@
 /**
- * Shared types exposed to consumers
+ * Common call contracts: Props
+ *
+ * This file holds structural types shared across multiple modules.
  */
 
 /**
- * Props accepted by components and elements. This is intentionally permissive
- * but gives a single named type to tighten and document over time.
+ * Props accepted by components and elements.
+ * Intentionally permissive but provides a single named type.
  */
 export interface Props {
   /** Optional key for keyed lists (string | number | symbol for internal frames) */

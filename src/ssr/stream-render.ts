@@ -1,5 +1,5 @@
-import type { JSXElement } from '../jsx/types';
-import type { Props } from '../shared/types';
+import type { JSXElement } from '../common/jsx';
+import type { Props } from '../common/props';
 import type { RenderSink } from './sink';
 import type { VNode, SSRComponent } from './types';
 import { Fragment } from '../jsx';

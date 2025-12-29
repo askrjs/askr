@@ -1,6 +1,6 @@
 import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
-import type { Props } from '../shared/types';
+import type { Props } from '../common/props';
 import { elementListeners } from './cleanup';
 import { keyedElements } from './keyed';
 import { reconcileKeyedChildren } from './reconcile';
@@ -14,7 +14,7 @@ import {
   isBulkTextFastPathEligible,
 } from './dom';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
-import { Fragment } from '../jsx/types';
+import { Fragment } from '../common/jsx';
 
 /**
  * Internal marker for component-owned DOM ranges

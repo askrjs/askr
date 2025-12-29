@@ -8,20 +8,23 @@
 import { match as matchPath } from './match';
 import { getCurrentComponentInstance } from '../runtime/component';
 
-export interface RouteHandler {
-  (params: Record<string, string>, context?: { signal: AbortSignal }): unknown;
-}
+export type {
+  RouteHandler,
+  Route,
+  ResolvedRoute,
+  RouteMatch,
+  RouteQuery,
+  RouteSnapshot,
+} from '../common/router';
 
-export interface Route {
-  path: string;
-  handler: RouteHandler;
-  namespace?: string;
-}
-
-export interface ResolvedRoute {
-  handler: RouteHandler;
-  params: Record<string, string>;
-}
+import type {
+  RouteHandler,
+  Route,
+  ResolvedRoute,
+  RouteMatch,
+  RouteQuery,
+  RouteSnapshot,
+} from '../common/router';
 
 const routes: Route[] = [];
 const namespaces = new Set<string>();
@@ -71,34 +74,7 @@ function getSpecificity(path: string): number {
   return score;
 }
 
-/**
- * RouteMatch, RouteQuery, RouteSnapshot
- * These describe the read-only snapshot returned by the render-time route() accessor
- */
-export interface RouteMatch {
-  path: string;
-  params: Readonly<Record<string, string>>;
-  name?: string;
-  namespace?: string;
-}
 
-export interface RouteQuery {
-  get(key: string): string | null;
-  getAll(key: string): string[];
-  has(key: string): boolean;
-  toJSON(): Record<string, string | string[]>;
-}
-
-export interface RouteSnapshot {
-  path: string;
-  params: Readonly<Record<string, string>>;
-  query: Readonly<RouteQuery>;
-  hash: string | null;
-
-  name?: string;
-  namespace?: string;
-  matches: readonly RouteMatch[];
-}
 
 // SSR helper: when rendering on the server, callers may set a location so that
 // render-time route() returns deterministic server values that match client

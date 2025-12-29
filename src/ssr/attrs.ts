@@ -2,7 +2,7 @@
  * HTML attribute rendering for SSR
  */
 
-import type { Props } from '../shared/types';
+import type { Props } from '../common/props';
 import { escapeAttr, styleObjToCss } from './escape';
 
 /** Result of renderAttrs including any raw HTML from dangerouslySetInnerHTML */

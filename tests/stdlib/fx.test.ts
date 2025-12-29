@@ -6,7 +6,7 @@ import {
   scheduleTimeout,
   scheduleIdle,
   scheduleRetry,
-} from '../../src/stdlib/fx';
+} from '../../src/fx/fx';
 import { globalScheduler } from '../../src/runtime/scheduler';
 import {
   createComponentInstance,

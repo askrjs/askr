@@ -7,30 +7,43 @@
  * when an async component or async resource is encountered during sync SSR.
  */
 
-import type { JSXElement } from '../jsx/types';
-import type { RouteHandler } from '../router/route';
+import type { JSXElement } from '../common/jsx';
+import type { RouteHandler } from '../common/router';
 import * as RouteModule from '../router/route';
-import type { Props } from '../shared/types';
+import type { Props } from '../common/props';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
 import { DefaultPortal } from '../foundations/portal';
 import {
   createRenderContext,
+  getCurrentSSRContext,
   runWithSSRContext,
   throwSSRDataMissing,
   type RenderContext,
   type SSRData,
 } from './context';
+import { installSSRBridge } from '../runtime/ssr-bridge';
+import { getCurrentRenderData, getNextKey } from './render-keys';
 import {
   createComponentInstance,
   setCurrentComponentInstance,
   getCurrentComponentInstance,
 } from '../runtime/component';
-import type { ComponentFunction } from '../runtime/component';
+import type { ComponentFunction } from '../common/component';
 import { VOID_ELEMENTS, escapeText } from './escape';
 import { renderAttrs } from './attrs';
 import type { VNode, SSRComponent } from './types';
 
 import { logger } from '../dev/logger';
+
+// Install SSR bridge once so runtime primitives (resource/derive/etc) can
+// detect SSR mode and access deterministic render-phase data without a
+// runtime->ssr import.
+installSSRBridge({
+  getCurrentSSRContext,
+  throwSSRDataMissing,
+  getCurrentRenderData,
+  getNextKey,
+});
 
 export { SSRDataMissingError } from './context';
 export type { VNode, SSRComponent } from './types';

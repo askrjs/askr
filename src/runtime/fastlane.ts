@@ -14,7 +14,7 @@ import {
   markFastPathApplied,
   isFastPathApplied,
 } from './fastlane-shared';
-import { Fragment } from '../jsx/types';
+import { Fragment } from '../common/jsx';
 import { setDevValue, getDevValue } from './dev-namespace';
 
 /**

@@ -6,13 +6,9 @@ import {
 import { getCurrentContextFrame } from './context';
 import { ResourceCell } from './resource-cell';
 import { state } from './state';
-import { getDeriveCache } from '../shared/derive-cache';
-import {
-  getCurrentSSRContext,
-  throwSSRDataMissing,
-  SSRDataMissingError,
-} from '../ssr/context';
-import { getCurrentRenderData, getNextKey } from '../ssr/render-keys';
+import { getDeriveCache } from './derive-cache';
+import { getSSRBridge } from './ssr-bridge';
+import { SSRDataMissingError } from '../common/ssr-errors';
 
 // Memoization cache for derive() (centralized)
 
@@ -43,12 +39,13 @@ export function resource<T>(
   const inst = instance as ComponentInstance;
 
   if (!instance) {
+    const ssr = getSSRBridge();
     // If we're in a synchronous SSR render that has resolved data, use it.
-    const renderData = getCurrentRenderData();
+    const renderData = ssr.getCurrentRenderData();
     if (renderData) {
-      const key = getNextKey();
+      const key = ssr.getNextKey();
       if (!(key in renderData)) {
-        throwSSRDataMissing();
+        ssr.throwSSRDataMissing();
       }
       const val = renderData[key] as T;
       return {
@@ -60,9 +57,9 @@ export function resource<T>(
     }
 
     // If we are in an SSR render pass without supplied data, throw for clarity.
-    const ssrCtx = getCurrentSSRContext();
+    const ssrCtx = ssr.getCurrentSSRContext();
     if (ssrCtx) {
-      throwSSRDataMissing();
+      ssr.throwSSRDataMissing();
     }
 
     // No active component instance and not in SSR render with data. Return a
@@ -80,13 +77,14 @@ export function resource<T>(
   // (See ./resource-cell.ts)
 
   // If we're in a synchronous SSR render that was supplied resolved data, use it
-  const renderData = getCurrentRenderData();
+  const ssr = getSSRBridge();
+  const renderData = ssr.getCurrentRenderData();
   if (renderData) {
     // Deterministic key generation: the collection step and render step use
     // the same incremental key generation to align resources.
-    const key = getNextKey();
+    const key = ssr.getNextKey();
     if (!(key in renderData)) {
-      throwSSRDataMissing();
+      ssr.throwSSRDataMissing();
     }
 
     // Commit synchronous value from render data and return a stable snapshot
