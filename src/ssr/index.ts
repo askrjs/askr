@@ -97,7 +97,7 @@ function renderChildSync(child: unknown, ctx: RenderContext): string {
   if (typeof child === 'string') return escapeText(child);
   if (typeof child === 'number') return escapeText(String(child));
   if (child === null || child === undefined || child === false) return '';
-  if (typeof child === 'object' && child !== null && 'type' in child) {
+  if (child && typeof child === 'object' && 'type' in child) {
     // We already verified the shape above; assert as VNode for the sync renderer
     return renderNodeSync(child as VNode, ctx);
   }
@@ -118,7 +118,7 @@ function renderChildSyncToSink(
     sink.write(escapeText(String(child)));
     return;
   }
-  if (typeof child === 'object' && child !== null && 'type' in child) {
+  if (child && typeof child === 'object' && 'type' in child) {
     renderNodeSyncToSink(child as VNode, sink, ctx);
   }
 }

@@ -10,7 +10,6 @@ import { state, createSPA } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { clearRoutes, getRoutes, route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
-import { createIsland } from '../helpers/create-island';
 
 describe('route navigation (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
