@@ -5,8 +5,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { state, createIsland } from '../../src/index';
+import { state, createIslands } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+
+type Island = Parameters<typeof createIslands>[0]['islands'][number];
+const createIsland = (island: Island) => createIslands({ islands: [island] });
 
 describe('rapid events (STRESS)', () => {
   let { container, cleanup } = createTestContainer();

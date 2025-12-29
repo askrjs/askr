@@ -1,8 +1,11 @@
 // tests/stress/large_tree_updates.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { createIslands, state } from '../../src/index';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+
+type Island = Parameters<typeof createIslands>[0]['islands'][number];
+const createIsland = (island: Island) => createIslands({ islands: [island] });
 
 describe('large tree updates (STRESS)', () => {
   let { container, cleanup } = createTestContainer();

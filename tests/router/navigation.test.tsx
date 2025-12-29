@@ -6,10 +6,11 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { state, createSPA, clearRoutes, getRoutes } from '../../src/index';
+import { state, createSPA } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
-import { route } from '../../src/router/route';
+import { clearRoutes, getRoutes, route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('route navigation (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
@@ -67,17 +68,19 @@ describe('route navigation (ROUTER)', () => {
     it('should warn when navigating to missing routes', async () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const _App = () => {
-        navigate('/nonexistent');
-        return { type: 'div', children: ['App'] };
-      };
+      // createSPA requires a non-empty route table.
+      route('/', (_params) => ({ type: 'div', children: ['Root'] }));
 
-      createIsland({ root: container, component: _App });
+      await createSPA({ root: container, routes: getRoutes() });
       flushScheduler();
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('No route found')
+      navigate('/nonexistent');
+      flushScheduler();
+
+      const sawMissingRouteWarn = warnSpy.mock.calls.some((call) =>
+        String(call[0]).includes('No route found')
       );
+      expect(sawMissingRouteWarn).toBe(true);
       warnSpy.mockRestore();
     });
   });

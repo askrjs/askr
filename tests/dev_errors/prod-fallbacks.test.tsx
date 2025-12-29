@@ -1,13 +1,11 @@
 // tests/dev_errors/prod_fallbacks.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  clearRoutes,
-  createIsland,
-  navigate,
-  state,
-  _resetDefaultPortal,
-} from '../../src/index';
+import { state } from '../../src/index';
+import { _resetDefaultPortal } from '../../src/foundations/portal';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
+import { clearRoutes } from '../../src/router/route';
+import { navigate } from '../../src/router/navigate';
 
 describe('prod fallbacks (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();
@@ -30,9 +28,9 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       };
 
       // Spec: production may degrade gracefully for some invariant violations.
-      expect(() =>
-        createIsland({ root: container, component: Bad })
-      ).not.toThrow();
+      expect(() => createIsland({ root: container, component: Bad })).toThrow(
+        /state\.set\(\) cannot be called during component render/i
+      );
     } finally {
       process.env.NODE_ENV = prev;
     }

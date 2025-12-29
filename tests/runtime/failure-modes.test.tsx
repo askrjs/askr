@@ -1,6 +1,7 @@
 // tests/runtime/failure_modes.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { createIslands } from '../../src/index';
+import { resource } from '../../src/resources';
 import {
   createTestContainer,
   flushScheduler,
@@ -26,7 +27,7 @@ describe('failure modes (RUNTIME)', () => {
       children: ['boom'],
     });
 
-    createIsland({ root: container, component: Component });
+    createIslands({ islands: [{ root: container, component: Component }] });
     flushScheduler();
 
     const button = container.querySelector('#btn') as HTMLButtonElement;
@@ -59,7 +60,7 @@ describe('failure modes (RUNTIME)', () => {
       return { type: 'div', children: [r.pending ? 'pending' : ''] };
     };
 
-    createIsland({ root: container, component: Component });
+    createIslands({ islands: [{ root: container, component: Component }] });
 
     await new Promise((r) => setTimeout(r, 30));
     flushScheduler();

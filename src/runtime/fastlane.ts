@@ -1,21 +1,90 @@
 import { globalScheduler } from './scheduler';
 import { logger } from '../dev/logger';
-import { type ComponentInstance, finalizeReadSubscriptions } from './component';
+import type { ComponentInstance } from './component';
 import {
   getKeyMapForElement,
   isKeyedReorderFastPathEligible,
   populateKeyMapForElement,
-} from '../renderer';
-
-import {
-  enterBulkCommit,
-  exitBulkCommit,
-  isBulkCommitActive,
-  markFastPathApplied,
-  isFastPathApplied,
-} from './fastlane-shared';
+} from '../renderer/keyed';
 import { Fragment } from '../common/jsx';
 import { setDevValue, getDevValue } from './dev-namespace';
+
+let _bulkCommitActive = false;
+let _appliedParents: WeakSet<Element> | null = null;
+
+export function enterBulkCommit(): void {
+  _bulkCommitActive = true;
+  // Initialize registry of parents that had fast-path applied during this bulk commit
+  _appliedParents = new WeakSet<Element>();
+
+  // Clear any previously scheduled synchronous scheduler tasks so they don't
+  // retrigger evaluations during the committed fast-path.
+  try {
+    const cleared = globalScheduler.clearPendingSyncTasks?.() ?? 0;
+    setDevValue('__ASKR_FASTLANE_CLEARED_TASKS', cleared);
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') throw err;
+  }
+}
+
+export function exitBulkCommit(): void {
+  _bulkCommitActive = false;
+  // Clear registry to avoid leaking across commits
+  _appliedParents = null;
+}
+
+export function isBulkCommitActive(): boolean {
+  return _bulkCommitActive;
+}
+
+// Mark that a fast-path was applied on a parent element during the active
+// bulk commit. No-op if there is no active bulk commit.
+export function markFastPathApplied(parent: Element): void {
+  if (!_appliedParents) return;
+  try {
+    _appliedParents.add(parent);
+  } catch (e) {
+    void e;
+  }
+}
+
+export function isFastPathApplied(parent: Element): boolean {
+  return !!(_appliedParents && _appliedParents.has(parent));
+}
+
+function finalizeReadSubscriptions(instance: ComponentInstance): void {
+  const newSet = instance._pendingReadStates ?? new Set();
+  const oldSet = instance._lastReadStates ?? new Set();
+  const token = instance._currentRenderToken;
+
+  if (token === undefined) return;
+
+  // Remove subscriptions for states that were read previously but not in this render
+  for (const s of oldSet) {
+    if (!newSet.has(s)) {
+      const readers = (s as { _readers?: Map<ComponentInstance, number> })
+        ._readers;
+      if (readers) readers.delete(instance);
+    }
+  }
+
+  // Commit token becomes the authoritative token for this instance's last render
+  instance.lastRenderToken = token;
+
+  // Record subscriptions for states read during this render
+  for (const s of newSet) {
+    let readers = (s as { _readers?: Map<ComponentInstance, number> })._readers;
+    if (!readers) {
+      readers = new Map();
+      (s as { _readers?: Map<ComponentInstance, number> })._readers = readers;
+    }
+    readers.set(instance, instance.lastRenderToken ?? 0);
+  }
+
+  instance._lastReadStates = newSet;
+  instance._pendingReadStates = new Set();
+  instance._currentRenderToken = undefined;
+}
 
 /**
  * Attempt to execute a runtime fast-lane for a single component's synchronous

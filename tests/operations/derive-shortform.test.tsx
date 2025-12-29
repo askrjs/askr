@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, state, derive } from '../../src/index';
+import { createIslands, state, derive } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('derive short-form (OPERATIONS)', () => {
@@ -14,11 +14,11 @@ describe('derive short-form (OPERATIONS)', () => {
 
     const App = () => {
       user = state({ id: 1, name: 'Jeff', age: 42 });
-      const userName = derive(() => user()!.name);
+      const userName = derive(() => user!().name);
       return { type: 'div', children: [`${userName}`] };
     };
 
-    createIsland({ root: container, component: App });
+    createIslands({ islands: [{ root: container, component: App }] });
     flushScheduler();
     expect(container.textContent).toBe('Jeff');
 
@@ -36,13 +36,13 @@ describe('derive short-form (OPERATIONS)', () => {
     const App = () => {
       user = state({ id: 1, name: 'Jeff', age: 42 });
       const isAdult = derive(
-        () => user(),
+        () => user!(),
         (u) => u.age >= 18
       );
       return { type: 'div', children: [`${isAdult}`] };
     };
 
-    createIsland({ root: container, component: App });
+    createIslands({ islands: [{ root: container, component: App }] });
     flushScheduler();
     expect(container.textContent).toBe('true');
 

@@ -10,6 +10,8 @@ import {
 import { globalScheduler } from '../../src/runtime/scheduler';
 import {
   createComponentInstance,
+  mountInstanceInline,
+  registerMountOperation,
   setCurrentComponentInstance,
   type ComponentFunction,
 } from '../../src/runtime/component';
@@ -87,11 +89,23 @@ describe('FX layer', () => {
   });
 
   it('should enqueue work and auto-cancel on unmount (scheduleTimeout)', () => {
-    const inst = createComponentInstance('id', noop, {}, null);
-    setCurrentComponentInstance(inst);
+    const target = document.createElement('div');
+    const inst = createComponentInstance('id', noop, {}, target);
+    inst.isRoot = true;
 
     const spy = vi.fn();
-    scheduleTimeout(100, spy);
+
+    // FX scheduling must not happen during render.
+    // Simulate an effect/mount operation that runs after the first commit.
+    setCurrentComponentInstance(inst);
+    registerMountOperation(() => {
+      const cancel = scheduleTimeout(100, spy);
+      return cancel;
+    });
+    setCurrentComponentInstance(null);
+
+    // First mount executes mount operations and records cleanup.
+    mountInstanceInline(inst, target);
 
     // simulate unmount
     for (const fn of inst.cleanupFns) fn();
@@ -100,8 +114,6 @@ describe('FX layer', () => {
     // cancelled so not called
     globalScheduler.flush();
     expect(spy).not.toHaveBeenCalled();
-
-    setCurrentComponentInstance(null);
   });
 
   it('should use fallback and enqueue via scheduler (scheduleIdle)', () => {

@@ -21,13 +21,17 @@ describe('route registration constraints', () => {
   });
 
   it('should reject non-function handlers passed to route()', () => {
-    // @ts-expect-error: intentionally passing a non-function to assert runtime validation
-    expect(() => route('/bad', {})).toThrow(/requires a function handler/i);
+    expect(() =>
+      route('/bad', {} as unknown as Parameters<typeof route>[1])
+    ).toThrow(
+      /requires a function handler/i
+    );
   });
 
   it('should reject non-function handlers passed to registerRoute descriptors', () => {
-    // @ts-expect-error: intentionally passing a non-function to assert runtime validation
-    expect(() => registerRoute('/a', {})).toThrow(
+    expect(() =>
+      registerRoute('/a', {} as unknown as Parameters<typeof registerRoute>[1])
+    ).toThrow(
       /requires a function handler/i
     );
   });
@@ -37,8 +41,10 @@ describe('route registration constraints', () => {
     expect(() => route('/ok', () => null)).not.toThrow();
 
     // simulate app startup
-    // @ts-expect-error: fake app instance for test
-    registerAppInstance({} as never, '/');
+    registerAppInstance(
+      {} as unknown as Parameters<typeof registerAppInstance>[0],
+      '/'
+    );
 
     // In test env registration lock is not automatically applied; simulate production lock
     // by calling the public lock helper (production behavior: registrations are forbidden after startup)

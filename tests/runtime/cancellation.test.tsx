@@ -8,8 +8,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { createIslands } from '../../src/index';
+import { resource } from '../../src/resources';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('cancellation (SPEC 2.6)', () => {
   let { container, cleanup } = createTestContainer();
@@ -36,7 +38,7 @@ describe('cancellation (SPEC 2.6)', () => {
         return { type: 'div', props: { children: ['content'] } };
       };
 
-      createIsland({ root: container, component: Component });
+      createIslands({ islands: [{ root: container, component: Component }] });
       flushScheduler();
 
       expect(signalReceived).toBe(true);
@@ -55,7 +57,7 @@ describe('cancellation (SPEC 2.6)', () => {
         return { type: 'div', props: { children: ['content'] } };
       };
 
-      createIsland({ root: container, component: Component });
+      createIslands({ islands: [{ root: container, component: Component }] });
       flushScheduler();
 
       // Unmount by clearing container
@@ -88,10 +90,14 @@ describe('cancellation (SPEC 2.6)', () => {
         return { type: 'div', props: { children: ['new'] } };
       };
 
-      createIsland({ root: container, component: OldComponent });
+      createIslands({
+        islands: [{ root: container, component: OldComponent }],
+      });
       flushScheduler();
 
-      createIsland({ root: container, component: NewComponent });
+      createIslands({
+        islands: [{ root: container, component: NewComponent }],
+      });
       flushScheduler();
 
       expect(oldAborted).toBe(true);
@@ -123,7 +129,7 @@ describe('cancellation (SPEC 2.6)', () => {
         };
       };
 
-      createIsland({ root: container, component: Component });
+      createIslands({ islands: [{ root: container, component: Component }] });
 
       // Abort before completion
       await new Promise((r) => setTimeout(r, 20));

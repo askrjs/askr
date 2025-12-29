@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('dev warnings (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();

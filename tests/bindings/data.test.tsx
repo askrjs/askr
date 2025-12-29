@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { createIslands } from '../../src/index';
+import { resource } from '../../src/resources';
 import type { ComponentFunction } from '../../src/runtime/component';
 import {
   createTestContainer,
@@ -24,7 +25,7 @@ describe('data() (DATA_SPEC / BINDING_SPEC) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createIsland({ root: container, component: App });
+      createIslands({ islands: [{ root: container, component: App }] });
       flushScheduler();
 
       // Allow any mount-triggered work to run.

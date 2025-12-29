@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  state,
-  createIsland,
-  resource,
-  scheduleEventHandler,
-} from '../../src/index';
+import { state } from '../../src/index';
+import { resource } from '../../src/resources';
+import { scheduleEventHandler } from '../../src/runtime/scheduler';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('scheduler (SPEC 2.2)', () => {
   let { container, cleanup } = createTestContainer();

@@ -43,6 +43,22 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./resources": {
+      "import": "./dist/resources/index.js",
+      "types": "./dist/resources/index.d.ts"
+    },
+    "./fx": {
+      "import": "./dist/fx/index.js",
+      "types": "./dist/fx/index.d.ts"
+    },
+    "./router": {
+      "import": "./dist/router/index.js",
+      "types": "./dist/router/index.d.ts"
+    },
+    "./ssr": {
+      "import": "./dist/ssr/index.js",
+      "types": "./dist/ssr/index.d.ts"
+    },
     "./jsx-runtime": {
       "import": "./src/jsx/jsx-runtime.ts",
       "types": "./src/jsx/jsx-runtime.ts"

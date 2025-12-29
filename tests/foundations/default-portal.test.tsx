@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-  createIsland,
   DefaultPortal,
   _resetDefaultPortal,
-} from '../../src/index';
+} from '../../src/foundations/portal';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 // Provide typing for dev-only global debug counters
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

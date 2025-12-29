@@ -5,10 +5,7 @@ import { logger } from '../dev/logger';
 import { cleanupInstanceIfPresent, removeAllListeners } from './cleanup';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { isSchedulerExecuting } from '../runtime/scheduler';
-import {
-  isBulkCommitActive,
-  markFastPathApplied,
-} from '../runtime/fastlane-shared';
+import { isBulkCommitActive, markFastPathApplied } from '../runtime/fastlane';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 

@@ -1,7 +1,8 @@
 // tests/dom/text_node_updates.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('text node updates (DOM)', () => {
   let { container, cleanup } = createTestContainer();

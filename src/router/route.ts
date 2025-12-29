@@ -74,8 +74,6 @@ function getSpecificity(path: string): number {
   return score;
 }
 
-
-
 // SSR helper: when rendering on the server, callers may set a location so that
 // render-time route() returns deterministic server values that match client
 // hydration. This is deliberately an opt-in escape for SSR and tests.

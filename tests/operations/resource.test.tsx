@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { createIslands } from '../../src/index';
+import { resource } from '../../src/resources';
 import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
 import type { JSXElement } from '../../src/jsx/types';
+import { createIsland } from '../helpers/create-island';
 
 describe('resource() (unified async primitive) — gaps', () => {
   it('should execute resource when component mounts', async () => {
@@ -24,7 +26,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createIsland({ root: container, component: App });
+      createIslands({ islands: [{ root: container, component: App }] });
       flushScheduler();
 
       // Allow any mount-triggered work to run.
@@ -57,7 +59,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createIsland({ root: container, component: App });
+      createIslands({ islands: [{ root: container, component: App }] });
       flushScheduler();
       await waitForNextEvaluation();
       flushScheduler();
@@ -89,7 +91,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      createIsland({ root: container, component: App });
+      createIslands({ islands: [{ root: container, component: App }] });
       flushScheduler();
       await waitForNextEvaluation();
       flushScheduler();

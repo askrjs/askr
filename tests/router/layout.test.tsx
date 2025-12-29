@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createSPA, navigate } from '../../src/index';
+import { createSPA } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
-import { layout } from '../../src/index';
+import { navigate } from '../../src/router/navigate';
+
+function layout<TChildren>(
+  Layout: (props: { children?: TChildren }) => unknown
+): (children?: TChildren) => unknown {
+  return (children?: TChildren) => Layout({ children });
+}
 
 describe('layout helper (ROUTER)', () => {
   let container: HTMLElement;

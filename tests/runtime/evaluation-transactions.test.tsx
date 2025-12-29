@@ -9,13 +9,18 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, resource, _resetDefaultPortal } from '../../src/index';
+import { createIslands } from '../../src/index';
+import { resource } from '../../src/resources';
+import { _resetDefaultPortal } from '../../src/foundations/portal';
 import type { JSXElement } from '../../src/jsx/types';
 import {
   createTestContainer,
   expectDOM,
   flushScheduler,
 } from '../helpers/test-renderer';
+
+type Island = Parameters<typeof createIslands>[0]['islands'][number];
+const createIsland = (island: Island) => createIslands({ islands: [island] });
 
 describe('evaluation transactions (SPEC 2.1)', () => {
   let { container, cleanup } = createTestContainer();
@@ -43,7 +48,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         ],
       });
 
-      createIsland({ root: container, component: Component });
+      createIslands({ islands: [{ root: container, component: Component }] });
 
       // All three elements must exist - proves atomicity
       expectDOM(container).contains('h1');
@@ -66,9 +71,13 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         return node;
       };
 
-      createIsland({
-        root: container,
-        component: () => Component({ applyAttrs: true }),
+      createIslands({
+        islands: [
+          {
+            root: container,
+            component: () => Component({ applyAttrs: true }),
+          },
+        ],
       });
       const input = container.querySelector('input') as HTMLInputElement;
 

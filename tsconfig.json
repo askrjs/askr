@@ -20,11 +20,6 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node"
   },
-  "include": [
-    "src/**/*",
-    "benches/**/*",
-    "tests/**/*",
-    "examples/**/*",
-    "types/**/*"
-  ]
+  "exclude": ["benches/**/*"],
+  "include": ["src/**/*", "tests/**/*", "examples/**/*", "types/**/*"]
 }

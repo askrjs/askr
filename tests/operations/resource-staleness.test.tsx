@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { createIslands } from '../../src/index';
+import { resource } from '../../src/resources';
 import {
   createTestContainer,
   flushScheduler,
@@ -48,7 +49,7 @@ describe('resource() stale result handling', () => {
       window._nextDelay = 50;
       window._nextToken = 0;
 
-      createIsland({ root: container, component: App });
+      createIslands({ islands: [{ root: container, component: App }] });
       flushScheduler();
       await waitForNextEvaluation();
       flushScheduler();
