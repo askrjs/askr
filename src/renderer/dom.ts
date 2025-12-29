@@ -112,16 +112,19 @@ function applyFormControlProp(
   value: unknown,
   tagName: string
 ): void {
-  const tag = tagName.toLowerCase();
   if (key === 'value') {
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+    if (
+      tagNamesEqualIgnoreCase(tagName, 'input') ||
+      tagNamesEqualIgnoreCase(tagName, 'textarea') ||
+      tagNamesEqualIgnoreCase(tagName, 'select')
+    ) {
       (el as HTMLInputElement & Props).value = String(value);
       el.setAttribute('value', String(value));
     } else {
       el.setAttribute('value', String(value));
     }
   } else if (key === 'checked') {
-    if (tag === 'input') {
+    if (tagNamesEqualIgnoreCase(tagName, 'input')) {
       (el as HTMLInputElement & Props).checked = Boolean(value);
       el.setAttribute('checked', String(Boolean(value)));
     } else {
@@ -410,7 +413,9 @@ export function updateElementFromVnode(
 
   // Diff and update event listeners and other attributes
   const existingListeners = elementListeners.get(el);
-  const desiredEventNames = new Set<string>();
+  // Lazily materialize desired event names only if we need to diff against existing listeners.
+  // This avoids allocating a Set for the common case (no listeners, or no event props).
+  let desiredEventNames: Set<string> | null = null;
 
   for (const key in props) {
     const value = props[key];
@@ -441,7 +446,9 @@ export function updateElementFromVnode(
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
     } else if (eventName) {
-      desiredEventNames.add(eventName);
+      if (existingListeners && existingListeners.size > 0) {
+        (desiredEventNames ??= new Set()).add(eventName);
+      }
 
       const existing = existingListeners?.get(eventName);
       // If handler reference unchanged, keep existing wrapped handler
@@ -451,7 +458,11 @@ export function updateElementFromVnode(
 
       // Remove old handler if present
       if (existing) {
-        el.removeEventListener(eventName, existing.handler);
+        if (existing.options !== undefined) {
+          el.removeEventListener(eventName, existing.handler, existing.options);
+        } else {
+          el.removeEventListener(eventName, existing.handler);
+        }
       }
 
       // Add new handler
@@ -481,15 +492,30 @@ export function updateElementFromVnode(
   }
 
   // Remove any remaining listeners not desired by current props
-  if (existingListeners) {
-    for (const eventName of existingListeners.keys()) {
-      if (!desiredEventNames.has(eventName)) {
-        const entry = existingListeners.get(eventName)!;
-        el.removeEventListener(eventName, entry.handler);
-        existingListeners.delete(eventName);
+  if (existingListeners && existingListeners.size > 0) {
+    // If no event props were present, all existing listeners are undesired.
+    if (desiredEventNames === null) {
+      for (const [eventName, entry] of existingListeners) {
+        if (entry.options !== undefined) {
+          el.removeEventListener(eventName, entry.handler, entry.options);
+        } else {
+          el.removeEventListener(eventName, entry.handler);
+        }
       }
+      elementListeners.delete(el);
+    } else {
+      for (const [eventName, entry] of existingListeners) {
+        if (!desiredEventNames.has(eventName)) {
+          if (entry.options !== undefined) {
+            el.removeEventListener(eventName, entry.handler, entry.options);
+          } else {
+            el.removeEventListener(eventName, entry.handler);
+          }
+          existingListeners.delete(eventName);
+        }
+      }
+      if (existingListeners.size === 0) elementListeners.delete(el);
     }
-    if (existingListeners.size === 0) elementListeners.delete(el);
   }
 
   // Update children
@@ -589,7 +615,7 @@ export function updateUnkeyedChildren(
     } else if (_isDOMElement(next)) {
       if (typeof next.type === 'string') {
         // If element type matches, update in place; otherwise replace
-        if (current.tagName.toLowerCase() === next.type.toLowerCase()) {
+        if (tagsEqualIgnoreCase(current.tagName, next.type)) {
           updateElementFromVnode(current, next);
         } else {
           const dom = createDOMNode(next);
@@ -794,8 +820,8 @@ function setDataKey(
   }
 }
 
-function upperTagName(tag: string): string {
-  // Fast common tags (avoid per-iteration toUpperCase allocations).
+function upperCommonTagName(tag: string): string | null {
+  // Fast common tags (avoid per-iteration allocations).
   switch (tag) {
     case 'div':
       return 'DIV';
@@ -816,18 +842,38 @@ function upperTagName(tag: string): string {
     case 'li':
       return 'LI';
     default:
-      return tag.toUpperCase();
+      return null;
   }
+}
+
+function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
+  if (a === b) return true;
+  const len = a.length;
+  if (len !== b.length) return false;
+
+  for (let i = 0; i < len; i++) {
+    const ac = a.charCodeAt(i);
+    const bc = b.charCodeAt(i);
+
+    if (ac === bc) continue;
+
+    // ASCII-only case fold; tag names are ASCII.
+    const an = ac >= 65 && ac <= 90 ? ac + 32 : ac; // A-Z -> a-z
+    const bn = bc >= 65 && bc <= 90 ? bc + 32 : bc;
+    if (an !== bn) return false;
+  }
+
+  return true;
 }
 
 function tagsEqualIgnoreCase(
   elementTagName: string,
   vnodeType: string
 ): boolean {
-  const upper = upperTagName(vnodeType);
-  if (elementTagName === upper) return true;
-  // Fallback for non-HTML elements (e.g. SVG) where tagName casing can differ.
-  return elementTagName.toLowerCase() === vnodeType.toLowerCase();
+  const upperCommon = upperCommonTagName(vnodeType);
+  if (upperCommon !== null && elementTagName === upperCommon) return true;
+  // Works for HTML and non-HTML elements without allocating.
+  return tagNamesEqualIgnoreCase(elementTagName, vnodeType);
 }
 
 /** Replace node at position with new vnode */
@@ -946,7 +992,7 @@ function processElementVnode(
     if (
       existingNode &&
       existingNode.nodeType === 1 &&
-      (existingNode as Element).tagName.toLowerCase() === tag.toLowerCase()
+      tagsEqualIgnoreCase((existingNode as Element).tagName, tag)
     ) {
       updateElementFromVnode(existingNode as Element, vnode);
       finalNodes.push(existingNode);

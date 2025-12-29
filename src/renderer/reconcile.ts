@@ -25,6 +25,21 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 // Helper type for narrowings
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 
+function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ca = a.charCodeAt(i);
+    const cb = b.charCodeAt(i);
+    if (ca === cb) continue;
+    // Fast ASCII case-fold: A-Z (65-90) -> a-z (97-122)
+    const fa = ca >= 65 && ca <= 90 ? ca + 32 : ca;
+    const fb = cb >= 65 && cb <= 90 ? cb + 32 : cb;
+    if (fa !== fb) return false;
+  }
+  return true;
+}
+
 export function reconcileKeyedChildren(
   parent: Element,
   newChildren: VNode[],
@@ -177,7 +192,7 @@ function countPositionalMatches(
       const el = parent.children[i] as Element | undefined;
       if (!el) continue;
 
-      if (el.tagName.toLowerCase() === String(vnode.type).toLowerCase()) {
+      if (tagNamesEqualIgnoreCase(el.tagName, vnode.type)) {
         matchCount++;
       }
     }
@@ -371,7 +386,7 @@ function reconcileKeyedChild(
         typeof childObj === 'object' &&
         typeof childObj.type === 'string'
       ) {
-        if (el.tagName.toLowerCase() === String(childObj.type).toLowerCase()) {
+        if (tagNamesEqualIgnoreCase(el.tagName, childObj.type)) {
           updateElementFromVnode(el, child);
           newKeyMap.set(key, el);
           return el;
@@ -446,7 +461,7 @@ function canReuseElement(existing: Element | undefined, child: VNode): boolean {
   return (
     hasNoKey &&
     typeof childObj.type === 'string' &&
-    existing.tagName.toLowerCase() === String(childObj.type).toLowerCase()
+    tagNamesEqualIgnoreCase(existing.tagName, childObj.type)
   );
 }
 
@@ -478,7 +493,7 @@ function tryReuseElement(
     const childObj = child as VnodeObj;
     if (
       typeof childObj.type === 'string' &&
-      avail.tagName.toLowerCase() === String(childObj.type).toLowerCase()
+      tagNamesEqualIgnoreCase(avail.tagName, childObj.type)
     ) {
       updateElementFromVnode(avail, child);
       usedOldEls.add(avail);

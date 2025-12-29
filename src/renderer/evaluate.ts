@@ -1,4 +1,3 @@
-import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
 import type { Props } from '../common/props';
 import { elementListeners } from './cleanup';
@@ -15,7 +14,12 @@ import {
 } from './dom';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { Fragment } from '../common/jsx';
-import { extractKey } from './utils';
+import {
+  createWrappedHandler,
+  extractKey,
+  getPassiveOptions,
+  parseEventName,
+} from './utils';
 
 /**
  * Internal marker for component-owned DOM ranges
@@ -45,6 +49,20 @@ interface NotSimpleTextResult {
 }
 
 type TextCheckResult = SimpleTextResult | NotSimpleTextResult;
+
+function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ca = a.charCodeAt(i);
+    const cb = b.charCodeAt(i);
+    if (ca === cb) continue;
+    const fa = ca >= 65 && ca <= 90 ? ca + 32 : ca;
+    const fb = cb >= 65 && cb <= 90 ? cb + 32 : cb;
+    if (fa !== fb) return false;
+  }
+  return true;
+}
 
 /**
  * Check if vnode children represent a simple text value
@@ -326,8 +344,10 @@ function processFragmentChildren(target: Element, childArray: unknown[]): void {
       existingNode &&
       _isDOMElement(childVnode) &&
       typeof (childVnode as DOMElement).type === 'string' &&
-      existingNode.tagName.toLowerCase() ===
-        ((childVnode as DOMElement).type as string).toLowerCase()
+      tagNamesEqualIgnoreCase(
+        existingNode.tagName,
+        (childVnode as DOMElement).type as string
+      )
     ) {
       // Same element type - do smart update
       smartUpdateElement(existingNode, childVnode as DOMElement);
@@ -357,22 +377,6 @@ function processFragmentChildren(target: Element, childArray: unknown[]): void {
 }
 
 /**
- * Create a wrapped event handler that integrates with the scheduler
- */
-function createWrappedEventHandler(handler: EventListener): EventListener {
-  return (event: Event) => {
-    globalScheduler.setInHandler(true);
-    try {
-      handler(event);
-    } catch (error) {
-      logger.error('[Askr] Event handler error:', error);
-    } finally {
-      globalScheduler.setInHandler(false);
-    }
-  };
-}
-
-/**
  * Apply props/attributes to an element (used for first render with keyed children)
  */
 function applyPropsToElement(el: Element, props: Props): void {
@@ -380,28 +384,15 @@ function applyPropsToElement(el: Element, props: Props): void {
     if (key === 'children' || key === 'key') continue;
     if (value === undefined || value === null || value === false) continue;
 
-    if (key.startsWith('on') && key.length > 2) {
-      const eventName =
-        key.slice(2).charAt(0).toLowerCase() + key.slice(3).toLowerCase();
+    const eventName = parseEventName(key);
+    if (eventName) {
+      const wrappedHandler = createWrappedHandler(value as EventListener, false);
+      const options = getPassiveOptions(eventName);
 
-      const wrappedHandler = createWrappedEventHandler(value as EventListener);
+      if (options !== undefined) el.addEventListener(eventName, wrappedHandler, options);
+      else el.addEventListener(eventName, wrappedHandler);
 
-      const options: boolean | AddEventListenerOptions | undefined =
-        eventName === 'wheel' ||
-        eventName === 'scroll' ||
-        eventName.startsWith('touch')
-          ? { passive: true }
-          : undefined;
-
-      if (options !== undefined) {
-        el.addEventListener(eventName, wrappedHandler, options);
-      } else {
-        el.addEventListener(eventName, wrappedHandler);
-      }
-
-      if (!elementListeners.has(el)) {
-        elementListeners.set(el, new Map());
-      }
+      if (!elementListeners.has(el)) elementListeners.set(el, new Map());
       elementListeners.get(el)!.set(eventName, {
         handler: wrappedHandler,
         original: value as EventListener,
@@ -553,7 +544,7 @@ export function evaluate(
       firstChild &&
       _isDOMElement(vnode) &&
       typeof vnode.type === 'string' &&
-      firstChild.tagName.toLowerCase() === vnode.type.toLowerCase()
+      tagNamesEqualIgnoreCase(firstChild.tagName, vnode.type)
     ) {
       // Reuse the existing element - it's the same type
       smartUpdateElement(firstChild, vnode as DOMElement);
