@@ -1,0 +1,43 @@
+﻿# tmp-scheduler.cpuprofile self-time summary
+# total sampled: 1840.85ms across 1159 samples
+#
+3.99%	73.40ms	exports.is	file:///D:/repos/askrjs/askr/node_modules/jsdom/lib/jsdom/living/generated/NodeList.js:11:14
+3.04%	55.98ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+2.67%	49.10ms	exports.installInterfaces	file:///D:/repos/askrjs/askr/node_modules/jsdom/lib/jsdom/living/interfaces.js:228:29
+2.45%	45.03ms	(anonymous)	file:///D:/repos/askrjs/askr/src/runtime/component.ts:271:40
+2.01%	36.93ms	(garbage collector)	
+1.60%	29.52ms	get	file:///D:/repos/askrjs/askr/node_modules/jsdom/lib/jsdom/living/generated/NodeList.js:165:6
+1.24%	22.82ms	get length	file:///D:/repos/askrjs/askr/node_modules/jsdom/lib/jsdom/living/generated/NodeList.js:130:15
+1.08%	19.94ms	(program)	
+1.07%	19.69ms	writeUtf8String	
+1.06%	19.45ms	isArrayIndexPropName	file:///D:/repos/askrjs/askr/node_modules/jsdom/lib/jsdom/living/generated/utils.js:98:30
+0.92%	16.97ms	(anonymous)	node:internal/modules/cjs/loader:1192:24
+0.81%	14.83ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+0.78%	14.42ms	isatty	node:tty:46:16
+0.75%	13.88ms	(anonymous)	file:///D:/repos/askrjs/askr/node_modules/tldts/dist/cjs/index.js:564:25
+0.74%	13.56ms	(anonymous)	file:///D:/repos/askrjs/askr/node_modules/cssstyle/lib/CSSStyleDeclaration.js:632:51
+0.70%	12.82ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+0.61%	11.30ms	getNearestParentPackageJSON	
+0.53%	9.76ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+0.51%	9.46ms	openFileHandle	
+0.47%	8.62ms	parseCJS	node:internal/deps/cjs-module-lexer/lexer:40:19
+0.46%	8.48ms	resolveForCJSWithHooks	node:internal/modules/cjs/loader:1042:32
+0.45%	8.26ms	(anonymous)	
+0.44%	8.12ms	WriteStream	node:tty:88:21
+0.44%	8.04ms	readFileUtf8	
+0.44%	8.04ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+0.43%	7.99ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+0.43%	7.97ms	isatty	node:tty:46:16
+0.42%	7.65ms	readFileUtf8	
+0.36%	6.65ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+0.36%	6.63ms	getOwnPropertyDescriptor	file:///D:/repos/askrjs/askr/node_modules/jsdom/lib/jsdom/living/generated/NodeList.js:215:27
+0.35%	6.42ms	processFragmentChildren	file:///D:/repos/askrjs/askr/src/renderer/evaluate.ts:310:33
+0.34%	6.28ms	serializeChildNodes	file:///D:/repos/askrjs/askr/node_modules/parse5/dist/serializer/index.js:83:29
+0.34%	6.21ms	childrenToArray	file:///D:/repos/askrjs/askr/node_modules/symbol-tree/lib/SymbolTree.js:265:24
+0.33%	6.09ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+0.33%	6.07ms	parseSource	node:internal/deps/cjs-module-lexer/lexer:85:22
+0.33%	6.06ms	get length	file:///D:/repos/askrjs/askr/node_modules/jsdom/lib/jsdom/living/generated/HTMLCollection.js:155:15
+0.31%	5.74ms	internalModuleStat	
+0.31%	5.66ms	wrapSafe	node:internal/modules/cjs/loader:1624:18
+0.28%	5.20ms	executeComponentSync	file:///D:/repos/askrjs/askr/src/runtime/component.ts:466:30
+0.27%	5.02ms	getNearestParentPackageJSON	

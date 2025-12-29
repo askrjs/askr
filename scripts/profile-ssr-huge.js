@@ -1,6 +1,9 @@
 import { performance } from 'node:perf_hooks';
 import { renderToStringSync } from '../dist/ssr/index.js';
 
+// Match benchmark conditions and avoid dev-only logging in prof runs.
+if (!process.env.NODE_ENV) process.env.NODE_ENV = 'production';
+
 const HUGE_10K = Number(process.env.HUGE_10K ?? 10000);
 const WARMUP = Number(process.env.WARMUP ?? 3);
 const ITERS = Number(process.env.ITERS ?? 20);

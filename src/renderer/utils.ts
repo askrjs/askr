@@ -176,8 +176,7 @@ export function buildKeyMapFromChildren(
   parent: Element
 ): Map<string | number, Element> {
   const map = new Map<string | number, Element>();
-  const children = Array.from(parent.children);
-  for (const ch of children) {
+  for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
     const k = ch.getAttribute('data-key');
     if (k !== null) {
       map.set(k, ch);

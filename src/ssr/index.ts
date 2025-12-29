@@ -110,9 +110,21 @@ function renderChildrenSync(
 ): string {
   if (!children || !Array.isArray(children) || children.length === 0) return '';
   if (children.length === 1) return renderChildSync(children[0], ctx);
-  let result = '';
-  for (const child of children) result += renderChildSync(child, ctx);
-  return result;
+
+  // Small child arrays are common; concatenation is usually faster than
+  // allocating + joining. Large sibling lists (10k+) need join to avoid O(n^2)
+  // concatenation costs.
+  if (children.length <= 8) {
+    let result = '';
+    for (const child of children) result += renderChildSync(child, ctx);
+    return result;
+  }
+
+  const parts = new Array<string>(children.length);
+  for (let i = 0; i < children.length; i++) {
+    parts[i] = renderChildSync(children[i], ctx);
+  }
+  return parts.join('');
 }
 
 /**

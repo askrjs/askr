@@ -308,11 +308,13 @@ function smartUpdateElement(element: Element, vnode: DOMElement): void {
  * Process Fragment children with smart updates for each child
  */
 function processFragmentChildren(target: Element, childArray: unknown[]): void {
-  const existingChildren = Array.from(target.children) as Element[];
+  // Avoid Array.from(target.children) (expensive in jsdom).
+  // Iterate via sibling pointers; semantics remain element-only (as before).
+  let existingNode: Element | null = target.firstElementChild;
 
   for (let i = 0; i < childArray.length; i++) {
     const childVnode = childArray[i];
-    const existingNode = existingChildren[i];
+    const nextExisting = existingNode ? existingNode.nextElementSibling : null;
 
     // Apply the same smart update logic as the single-element case
     if (
@@ -324,6 +326,7 @@ function processFragmentChildren(target: Element, childArray: unknown[]): void {
     ) {
       // Same element type - do smart update
       smartUpdateElement(existingNode, childVnode as DOMElement);
+      existingNode = nextExisting;
       continue;
     }
 
@@ -336,11 +339,15 @@ function processFragmentChildren(target: Element, childArray: unknown[]): void {
         target.appendChild(newDom);
       }
     }
+
+    existingNode = nextExisting;
   }
 
-  // Remove extra children
-  while (target.children.length > childArray.length) {
-    target.removeChild(target.lastChild!);
+  // Remove extra element-children (preserves previous element-only behavior)
+  while (existingNode) {
+    const next = existingNode.nextElementSibling;
+    target.removeChild(existingNode);
+    existingNode = next;
   }
 }
 
