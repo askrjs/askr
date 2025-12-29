@@ -3,12 +3,17 @@
 // keeping the compiler happy.
 declare global {
   interface AggregateError extends Error {
-    readonly errors: unknown[];
+    // Match the built-in lib declaration (uses any[])
+    errors: any[];
   }
 
-  var AggregateError: {
-    new (errors?: unknown[], message?: string): AggregateError;
-  };
+  interface AggregateErrorConstructor extends ErrorConstructor {
+    new (errors: Iterable<any>, message?: string): AggregateError;
+    (errors: Iterable<any>, message?: string): AggregateError;
+    readonly prototype: AggregateError;
+  }
+
+  var AggregateError: AggregateErrorConstructor;
 }
 
 export {};
