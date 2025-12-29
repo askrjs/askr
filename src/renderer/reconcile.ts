@@ -366,7 +366,11 @@ function reconcileKeyedChild(
     // replace the DOM node rather than mutating in place.
     try {
       const childObj = child as VnodeObj;
-      if (childObj && typeof childObj === 'object' && typeof childObj.type === 'string') {
+      if (
+        childObj &&
+        typeof childObj === 'object' &&
+        typeof childObj.type === 'string'
+      ) {
         if (el.tagName.toLowerCase() === String(childObj.type).toLowerCase()) {
           updateElementFromVnode(el, child);
           newKeyMap.set(key, el);

@@ -43,7 +43,7 @@ function runOne(depth: number, burstSize: number): void {
     leaf = state(0);
 
     // Build a deep subscription chain without recursive component calls.
-    let subtree: any = <span>{root() + mid() + leaf()}</span>;
+    let subtree: unknown = <span>{root() + mid() + leaf()}</span>;
     for (let d = 0; d < depth; d++) {
       const v = root() + mid();
       subtree = (
@@ -62,7 +62,10 @@ function runOne(depth: number, burstSize: number): void {
     );
   };
 
-  createIsland({ root: container, component: App as any });
+  const component = App as unknown as Parameters<
+    typeof createIsland
+  >[0]['component'];
+  createIsland({ root: container, component });
   flushScheduler();
 
   if (!root || !mid || !leaf) {

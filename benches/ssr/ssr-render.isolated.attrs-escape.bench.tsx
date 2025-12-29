@@ -67,7 +67,7 @@ function buildEscapeHeavyTree(count: number): VNodeLike {
         key: s,
         // Force escaping in attrs
         title: `x"y'&<${s}>`,
-        'data-x': `&<>'\"${s}`,
+        'data-x': `&<>'"${s}`,
       },
       children: [
         // Force escaping in text
@@ -95,17 +95,23 @@ describe('ssr render (isolated, attrs+escape)', () => {
     }
   });
 
-  bench(`render-only: ${ITERS} attrs-heavy SSRs (${COUNT} sections, prebuilt)`, () => {
-    for (let i = 0; i < ITERS; i++) {
-      const html = renderTreeToString(PREBUILT_ATTRS);
-      if (html.length === 0) throw new Error('unexpected empty SSR output');
+  bench(
+    `render-only: ${ITERS} attrs-heavy SSRs (${COUNT} sections, prebuilt)`,
+    () => {
+      for (let i = 0; i < ITERS; i++) {
+        const html = renderTreeToString(PREBUILT_ATTRS);
+        if (html.length === 0) throw new Error('unexpected empty SSR output');
+      }
     }
-  });
+  );
 
-  bench(`render-only: ${ITERS} escape-heavy SSRs (${COUNT} sections, prebuilt)`, () => {
-    for (let i = 0; i < ITERS; i++) {
-      const html = renderTreeToString(PREBUILT_ESCAPE);
-      if (html.length === 0) throw new Error('unexpected empty SSR output');
+  bench(
+    `render-only: ${ITERS} escape-heavy SSRs (${COUNT} sections, prebuilt)`,
+    () => {
+      for (let i = 0; i < ITERS; i++) {
+        const html = renderTreeToString(PREBUILT_ESCAPE);
+        if (html.length === 0) throw new Error('unexpected empty SSR output');
+      }
     }
-  });
+  );
 });

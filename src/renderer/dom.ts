@@ -695,7 +695,11 @@ export function performBulkPositionalKeyedTextUpdate(
 }
 
 /** Update text content of element from children prop */
-function updateTextContent(el: Element, children: unknown, vnode: DOMElement): void {
+function updateTextContent(
+  el: Element,
+  children: unknown,
+  vnode: DOMElement
+): void {
   if (typeof children === 'string' || typeof children === 'number') {
     setTextNodeData(el, String(children));
   } else if (
@@ -716,7 +720,10 @@ function updateTextContent(el: Element, children: unknown, vnode: DOMElement): v
 // Common keyed-list pattern in benches:
 // <div> [ <span>text</span>, <p>text</p> ]
 // Update text nodes in place without running a full vnode diff.
-function tryUpdateTwoChildTextPattern(parentEl: Element, vnode: DOMElement): boolean {
+function tryUpdateTwoChildTextPattern(
+  parentEl: Element,
+  vnode: DOMElement
+): boolean {
   const vnodeChildren = vnode.children || vnode.props?.children;
   if (!Array.isArray(vnodeChildren) || vnodeChildren.length !== 2) return false;
 
@@ -813,7 +820,10 @@ function upperTagName(tag: string): string {
   }
 }
 
-function tagsEqualIgnoreCase(elementTagName: string, vnodeType: string): boolean {
+function tagsEqualIgnoreCase(
+  elementTagName: string,
+  vnodeType: string
+): boolean {
   const upper = upperTagName(vnodeType);
   if (elementTagName === upper) return true;
   // Fallback for non-HTML elements (e.g. SVG) where tagName casing can differ.
@@ -846,7 +856,9 @@ function updateKeyedElementsMap(
   try {
     // HOT PATH: reuse the existing map to avoid per-update allocations.
     const existing = keyedElements.get(parent);
-    const newKeyMap = existing ? (existing.clear(), existing) : new Map<string | number, Element>();
+    const newKeyMap = existing
+      ? (existing.clear(), existing)
+      : new Map<string | number, Element>();
     for (let i = 0; i < keyedVnodes.length; i++) {
       const k = keyedVnodes[i].key;
       const ch = parent.children[i] as Element | undefined;
