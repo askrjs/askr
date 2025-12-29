@@ -104,6 +104,25 @@ function renderChildSync(child: unknown, ctx: RenderContext): string {
   return '';
 }
 
+function renderChildSyncToSink(
+  child: unknown,
+  sink: { write(html: string): void },
+  ctx: RenderContext
+): void {
+  if (child === null || child === undefined || child === false) return;
+  if (typeof child === 'string') {
+    sink.write(escapeText(child));
+    return;
+  }
+  if (typeof child === 'number') {
+    sink.write(escapeText(String(child)));
+    return;
+  }
+  if (typeof child === 'object' && child !== null && 'type' in child) {
+    renderNodeSyncToSink(child as VNode, sink, ctx);
+  }
+}
+
 function renderChildrenSync(
   children: unknown[] | undefined,
   ctx: RenderContext
@@ -125,6 +144,17 @@ function renderChildrenSync(
     parts[i] = renderChildSync(children[i], ctx);
   }
   return parts.join('');
+}
+
+function renderChildrenSyncToSink(
+  children: unknown[] | undefined,
+  sink: { write(html: string): void },
+  ctx: RenderContext
+): void {
+  if (!children || !Array.isArray(children) || children.length === 0) return;
+  for (let i = 0; i < children.length; i++) {
+    renderChildSyncToSink(children[i], sink, ctx);
+  }
 }
 
 /**
@@ -205,6 +235,68 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   const attrs = renderAttrs(props);
   const childrenHtml = renderChildrenSync((node as VNode).children, ctx);
   return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
+}
+
+function renderNodeSyncToSink(
+  node: VNode | JSXElement,
+  sink: { write(html: string): void },
+  ctx: RenderContext
+): void {
+  const { type, props } = node;
+
+  if (typeof type === 'function') {
+    const result = executeComponentSync(type as Component, props, ctx);
+    // executeComponentSync guarantees synchronous result.
+    renderNodeSyncToSink(result, sink, ctx);
+    return;
+  }
+
+  // Fragment
+  if (typeof type === 'symbol') {
+    if (type === Fragment) {
+      const childrenArr = Array.isArray((node as VNode).children)
+        ? (node as VNode).children
+        : Array.isArray(props?.children)
+          ? (props?.children as unknown[])
+          : undefined;
+      renderChildrenSyncToSink(childrenArr, sink, ctx);
+      return;
+    }
+    throw new Error(
+      `renderNodeSyncToSink: unsupported VNode symbol type: ${String(type)}`
+    );
+  }
+
+  const typeStr = type as string;
+  if (VOID_ELEMENTS.has(typeStr)) {
+    const attrs = props ? renderAttrs(props) : '';
+    sink.write(`<${typeStr}${attrs} />`);
+    return;
+  }
+
+  const maybeDangerous = props
+    ? (props as unknown as { dangerouslySetInnerHTML?: unknown })
+        ?.dangerouslySetInnerHTML
+    : undefined;
+
+  if (maybeDangerous !== undefined && maybeDangerous !== null) {
+    const { attrs, dangerousHtml } = renderAttrs(props, {
+      returnDangerousHtml: true,
+    });
+    sink.write(`<${typeStr}${attrs}>`);
+    if (dangerousHtml !== undefined) {
+      sink.write(dangerousHtml);
+    } else {
+      renderChildrenSyncToSink((node as VNode).children, sink, ctx);
+    }
+    sink.write(`</${typeStr}>`);
+    return;
+  }
+
+  const attrs = props ? renderAttrs(props) : '';
+  sink.write(`<${typeStr}${attrs}>`);
+  renderChildrenSyncToSink((node as VNode).children, sink, ctx);
+  sink.write(`</${typeStr}>`);
 }
 
 /**
@@ -328,7 +420,10 @@ export function renderToStringSync(
     if (!node) {
       throw new Error('renderToStringSync: wrapped component returned empty');
     }
-    return renderNodeSync(node, ctx);
+    const sink = new StringSink();
+    renderNodeSyncToSink(node, sink, ctx);
+    sink.end();
+    return sink.toString();
   } finally {
     stopRenderPhase();
   }
@@ -398,7 +493,10 @@ export function renderToStringSyncForUrl(opts: {
     };
 
     const node = executeComponentSync(wrapped, resolved.params || {}, ctx);
-    return renderNodeSync(node, ctx);
+    const sink = new StringSink();
+    renderNodeSyncToSink(node, sink, ctx);
+    sink.end();
+    return sink.toString();
   } finally {
     stopRenderPhase();
   }

@@ -47,19 +47,36 @@ export function escapeText(text: string): string {
     if (cached !== undefined) return cached;
   }
 
-  const str = String(text);
-  // Fast path: check if escaping needed
-  if (!str.includes('&') && !str.includes('<') && !str.includes('>')) {
-    if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
-      escapeCache.set(text, str);
+  const str = text;
+  // Fast path: single-pass scan for escaping need
+  let needsEscape = false;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    // '&' '<' '>'
+    if (c === 38 || c === 60 || c === 62) {
+      needsEscape = true;
+      break;
     }
+  }
+
+  if (!needsEscape) {
+    if (useCache && escapeCache.size < MAX_CACHE_SIZE) escapeCache.set(text, str);
     return str;
   }
 
-  const result = str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  // Escape in a single pass
+  let out = '';
+  let last = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c !== 38 && c !== 60 && c !== 62) continue;
+    if (i > last) out += str.slice(last, i);
+    out += c === 38 ? '&amp;' : c === 60 ? '&lt;' : '&gt;';
+    last = i + 1;
+  }
+  if (last < str.length) out += str.slice(last);
+
+  const result = out;
 
   if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
     escapeCache.set(text, result);
@@ -71,24 +88,40 @@ export function escapeText(text: string): string {
  * Escape HTML special characters in attribute values
  */
 export function escapeAttr(value: string): string {
-  const str = String(value);
-  // Fast path: check if escaping needed
-  if (
-    !str.includes('&') &&
-    !str.includes('"') &&
-    !str.includes("'") &&
-    !str.includes('<') &&
-    !str.includes('>')
-  ) {
-    return str;
+  const str = value;
+  // Fast path: single-pass scan for escaping need
+  let needsEscape = false;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    // '&' '"' '\'' '<' '>'
+    if (c === 38 || c === 34 || c === 39 || c === 60 || c === 62) {
+      needsEscape = true;
+      break;
+    }
   }
+  if (!needsEscape) return str;
 
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  // Escape in a single pass
+  let out = '';
+  let last = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c !== 38 && c !== 34 && c !== 39 && c !== 60 && c !== 62) continue;
+    if (i > last) out += str.slice(last, i);
+    out +=
+      c === 38
+        ? '&amp;'
+        : c === 34
+          ? '&quot;'
+          : c === 39
+            ? '&#x27;'
+            : c === 60
+              ? '&lt;'
+              : '&gt;';
+    last = i + 1;
+  }
+  if (last < str.length) out += str.slice(last);
+  return out;
 }
 
 /**
