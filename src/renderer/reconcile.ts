@@ -31,8 +31,6 @@ export function reconcileKeyedChildren(
   newChildren: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> {
-  logReconcileDebug(newChildren);
-
   const { keyedVnodes, unkeyedVnodes } = partitionChildren(newChildren);
 
   // Try fast paths first
@@ -47,23 +45,6 @@ export function reconcileKeyedChildren(
 
   // Full reconciliation
   return performFullReconciliation(parent, newChildren, keyedVnodes, oldKeyMap);
-}
-
-/** Log reconcile debug info */
-function logReconcileDebug(newChildren: VNode[]): void {
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      logger.warn(
-        '[Askr][RECONCILE] reconcileKeyedChildren newChildren sample',
-        {
-          sample: (newChildren && newChildren.length && newChildren[0]) || null,
-          len: newChildren.length,
-        }
-      );
-    } catch {
-      // Ignore
-    }
-  }
 }
 
 /** Partition children into keyed and unkeyed */
@@ -163,8 +144,6 @@ function tryPositionalBulkUpdate(
 
   const matchCount = countPositionalMatches(parent, keyedVnodes);
 
-  logPositionalCheck(total, matchCount, parent.children.length);
-
   // Require high positional match fraction
   if (matchCount / total < 0.9) return null;
 
@@ -210,25 +189,6 @@ function countPositionalMatches(
   return matchCount;
 }
 
-/** Log positional check debug info */
-function logPositionalCheck(
-  total: number,
-  matchCount: number,
-  parentChildren: number
-): void {
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      logger.warn('[Askr][FASTPATH] positional check', {
-        total,
-        matchCount,
-        parentChildren,
-      });
-    } catch {
-      // Ignore
-    }
-  }
-}
-
 /** Check if positional prop changes would prevent bulk update */
 function hasPositionalPropChanges(
   parent: Element,
@@ -255,10 +215,7 @@ function hasPositionalPropChanges(
 function rebuildKeyedMap(parent: Element): void {
   try {
     const map = new Map<string | number, Element>();
-    const children = Array.from(parent.children);
-
-    for (let i = 0; i < children.length; i++) {
-      const el = children[i] as Element;
+    for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
       const k = el.getAttribute('data-key');
       if (k !== null) {
         map.set(k, el);
@@ -266,7 +223,6 @@ function rebuildKeyedMap(parent: Element): void {
         if (!Number.isNaN(n)) map.set(n, el);
       }
     }
-
     keyedElements.set(parent, map);
   } catch {
     // Ignore
@@ -356,18 +312,19 @@ function scanForElementByKey(
   usedOldEls: WeakSet<Node>
 ): Element | undefined {
   try {
-    const children = Array.from(parent.children) as Element[];
-    for (const ch of children) {
+    for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
       if (usedOldEls.has(ch)) continue;
       const attr = ch.getAttribute('data-key');
       if (attr === keyStr) {
         usedOldEls.add(ch);
         return ch;
       }
-      const numAttr = Number(attr);
-      if (!Number.isNaN(numAttr) && numAttr === (k as number)) {
-        usedOldEls.add(ch);
-        return ch;
+      if (attr !== null) {
+        const numAttr = Number(attr);
+        if (!Number.isNaN(numAttr) && numAttr === (k as number)) {
+          usedOldEls.add(ch);
+          return ch;
+        }
       }
     }
   } catch {
@@ -469,9 +426,8 @@ function canReuseElement(existing: Element | undefined, child: VNode): boolean {
     return false;
 
   const childObj = child as VnodeObj;
-  const hasNoKey =
-    existing.getAttribute('data-key') === null ||
-    existing.getAttribute('data-key') === undefined;
+  const existingKey = existing.getAttribute('data-key');
+  const hasNoKey = existingKey === null || existingKey === undefined;
 
   return (
     hasNoKey &&
@@ -485,9 +441,11 @@ function findAvailableUnkeyedElement(
   parent: Element,
   usedOldEls: WeakSet<Node>
 ): Element | undefined {
-  return Array.from(parent.children).find(
-    (ch) => !usedOldEls.has(ch) && ch.getAttribute('data-key') === null
-  );
+  for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
+    if (usedOldEls.has(ch)) continue;
+    if (ch.getAttribute('data-key') === null) return ch;
+  }
+  return undefined;
 }
 
 /** Try to reuse available element for child */

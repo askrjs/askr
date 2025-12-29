@@ -85,8 +85,7 @@ function tryUpdateTextInPlace(element: Element, text: string): boolean {
  */
 function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
   const keyMap = new Map<string | number, Element>();
-  const children = Array.from(parent.children);
-  for (const child of children) {
+  for (let child = parent.firstElementChild; child; child = child.nextElementSibling) {
     const k = child.getAttribute('data-key');
     if (k !== null) {
       keyMap.set(k, child);

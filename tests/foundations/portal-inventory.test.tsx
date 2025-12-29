@@ -84,33 +84,9 @@ describe('DefaultPortal inventory', () => {
     });
     flushScheduler();
 
-    // DEBUG: inspect DOM before write
-    // eslint-disable-next-line no-console
-    console.log(
-      '[DEBUG] before write children:',
-      container.childNodes.length,
-      container.innerHTML
-    );
-
     DefaultPortal.render({ children: 'Toast' });
 
-    // DEBUG: after render call, before flush
-    // eslint-disable-next-line no-console
-    console.log(
-      '[DEBUG] after render called children:',
-      container.childNodes.length,
-      container.innerHTML
-    );
-
     flushScheduler();
-
-    // DEBUG: after flush
-    // eslint-disable-next-line no-console
-    console.log(
-      '[DEBUG] after flush children:',
-      container.childNodes.length,
-      container.innerHTML
-    );
 
     expect(container.textContent).toContain('Toast');
   });

@@ -32,7 +32,7 @@ export function definePortal<T = unknown>(): Portal<T> {
     // - Schedule `owner.notifyUpdate()` when a host exists so updates are
     //   reflected immediately
     // Fast fallback for module/SSR/test environments.
-    // Track a single mounted owner to avoid per-render array scans.
+    // Track a single owner to avoid per-render array scans.
     let owner: ComponentInstance | null = null;
     let pending: T | undefined;
 
@@ -45,8 +45,22 @@ export function definePortal<T = unknown>(): Portal<T> {
 
       const inst = getCurrentComponentInstance();
 
-      // Capture the first fully-mounted host as the owner.
-      if (!owner && inst && inst.mounted === true) owner = inst;
+      // Capture the first host as the owner.
+      // We intentionally do NOT require `mounted === true` here because the
+      // host can render before the runtime flips its mounted flag. Capturing
+      // early ensures `DefaultPortal.render()` works immediately after mount.
+      if (!owner && inst) owner = inst;
+
+      /* istanbul ignore if */
+      if (process.env.NODE_ENV !== 'production') {
+        const ns =
+          (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
+            .__ASKR__ ||
+          (((
+            globalThis as unknown as { __ASKR__?: Record<string, unknown> }
+          ).__ASKR__ = {} as Record<string, unknown>));
+        ns.__PORTAL_READS = ((ns.__PORTAL_READS as number) || 0) + 1;
+      }
 
       /* istanbul ignore if */
       if (process.env.NODE_ENV !== 'production') {
@@ -64,6 +78,17 @@ export function definePortal<T = unknown>(): Portal<T> {
     HostFallback.render = function RenderFallback(props: { children?: T }) {
       // Owner must be fully mounted (mounted === true) to accept writes.
       if (!owner || owner.mounted !== true) return null;
+
+      /* istanbul ignore if */
+      if (process.env.NODE_ENV !== 'production') {
+        const ns =
+          (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
+            .__ASKR__ ||
+          (((
+            globalThis as unknown as { __ASKR__?: Record<string, unknown> }
+          ).__ASKR__ = {} as Record<string, unknown>));
+        ns.__PORTAL_WRITES = ((ns.__PORTAL_WRITES as number) || 0) + 1;
+      }
 
       // Update pending value for the live owner
       pending = props.children as T | undefined;
@@ -84,8 +109,7 @@ export function definePortal<T = unknown>(): Portal<T> {
   }
 
   PortalHost.render = function PortalRender(props: { children?: T }) {
-    // Logger will no-op in production; keep counter increment guarded for dev-only behavior
-    logger.debug('[Portal] write ->', props?.children);
+    // Keep counter increment guarded for dev-only behavior
     /* istanbul ignore if */
     if (process.env.NODE_ENV !== 'production') {
       const ns =
@@ -123,32 +147,16 @@ function ensureDefaultPortal(): Portal<unknown> {
   // runtime primitive exists; otherwise create a fallback. If a fallback
   // was previously created and the runtime primitive becomes available
   // later, replace the fallback with a real portal on first use.
-  /* istanbul ignore if */
-  if (process.env.NODE_ENV !== 'production') {
-    logger.debug(
-      '[DefaultPortal] ensureDefaultPortal _defaultPortalIsFallback=',
-      _defaultPortalIsFallback,
-      'createPortalSlot=',
-      typeof createPortalSlot === 'function'
-    );
-  }
-
   if (!_defaultPortal) {
     if (typeof createPortalSlot === 'function') {
       _defaultPortal = definePortal<unknown>();
       _defaultPortalIsFallback = false;
-      /* istanbul ignore if */
-      if (process.env.NODE_ENV !== 'production')
-        logger.debug('[DefaultPortal] created real portal');
     } else {
       // Create a fallback via definePortal so it uses the same owner/pending
       // semantics as the non-default portals (keeps runtime and fallback
       // behavior consistent).
       _defaultPortal = definePortal<unknown>();
       _defaultPortalIsFallback = true;
-      /* istanbul ignore if */
-      if (process.env.NODE_ENV !== 'production')
-        logger.debug('[DefaultPortal] created fallback portal');
     }
     return _defaultPortal;
   }
@@ -169,9 +177,6 @@ function ensureDefaultPortal(): Portal<unknown> {
     const fallback = definePortal<unknown>();
     _defaultPortal = fallback;
     _defaultPortalIsFallback = true;
-    /* istanbul ignore if */
-    if (process.env.NODE_ENV !== 'production')
-      logger.debug('[DefaultPortal] reverted to fallback portal');
   }
 
   return _defaultPortal;

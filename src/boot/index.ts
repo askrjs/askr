@@ -12,23 +12,9 @@ import {
 import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
 import { registerAppInstance, initializeNavigation } from '../router/navigate';
+import { assertExecutionModel } from '../runtime/execution-model';
 
-type ExecutionModel = 'spa' | 'islands' | 'ssr';
-const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
-
-function assertExecutionModel(model: ExecutionModel): void {
-  // Mixing execution models is forbidden: once an app starts in one model,
-  // attempting to start another is an invariant violation.
-  const g = globalThis as unknown as Record<string | symbol, unknown>;
-  const cur = g[EXECUTION_MODEL_KEY] as ExecutionModel | undefined;
-  if (cur && cur !== model) {
-    throw new Error(
-      `[Askr] mixing execution models is not allowed (current: ${cur}, attempted: ${model}). ` +
-        `Choose exactly one: createSPA, createSSR, or createIslands.`
-    );
-  }
-  if (!cur) g[EXECUTION_MODEL_KEY] = model;
-}
+const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
 let componentIdCounter = 0;
 
@@ -296,6 +282,20 @@ export function createIsland(config: IslandConfig): void {
     throw new Error(
       'createIsland does not accept routes; use createSPA for routed apps'
     );
+  }
+
+  // Routes are never supported with islands.
+  // If routes were registered (even at module load time), fail fast to avoid
+  // surprising partial router behavior.
+  try {
+    const g = globalThis as unknown as Record<string | symbol, unknown>;
+    if (g[HAS_ROUTES_KEY]) {
+      throw new Error(
+        'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
+      );
+    }
+  } catch {
+    // ignore
   }
 
   mountOrUpdate(rootElement, config.component, {

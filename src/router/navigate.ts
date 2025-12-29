@@ -13,9 +13,7 @@ import { logger } from '../dev/logger';
 // Global app state for navigation
 let currentInstance: ComponentInstance | null = null;
 
-/**
- * Register the current app instance (called by createIsland)
- */
+/** Register the current app instance (called by createSPA/hydrateSPA). */
 export function registerAppInstance(
   instance: ComponentInstance,
   _path: string

@@ -50,9 +50,7 @@ export function applyRendererFastPath(
   } else {
     localOldKeyMap = new Map<string | number, Element>();
     try {
-      const parentChildren = Array.from(parent.children);
-      for (let i = 0; i < parentChildren.length; i++) {
-        const ch = parentChildren[i] as Element;
+      for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
         const k = ch.getAttribute('data-key');
         if (k !== null) {
           localOldKeyMap.set(k, ch);
@@ -126,13 +124,13 @@ export function applyRendererFastPath(
 
     // Pre-cleanup: remove component instances that will be removed by replaceChildren
     try {
-      const existing = Array.from(parent.childNodes);
-      // Only cleanup nodes that are *not* part of the finalNodes list so we don't
-      // remove listeners from elements we're reusing (critical invariant)
-      const toRemove = existing.filter((n) => !finalNodes.includes(n));
-      for (const n of toRemove) {
+      // At this point, any reused nodes have been moved into the fragment,
+      // so whatever remains under parent will be removed by replaceChildren.
+      for (let n = parent.firstChild; n; ) {
+        const next = n.nextSibling;
         if (n instanceof Element) removeAllListeners(n);
         cleanupInstanceIfPresent(n);
+        n = next;
       }
     } catch (e) {
       void e;
