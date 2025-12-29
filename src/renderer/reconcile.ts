@@ -362,9 +362,20 @@ function reconcileKeyedChild(
   const el = resolveOldElOnce(key);
 
   if (el && el.parentElement === parent) {
-    updateElementFromVnode(el, child);
-    newKeyMap.set(key, el);
-    return el;
+    // Strict keyed guarantee: if the element tag changes for an existing key,
+    // replace the DOM node rather than mutating in place.
+    try {
+      const childObj = child as VnodeObj;
+      if (childObj && typeof childObj === 'object' && typeof childObj.type === 'string') {
+        if (el.tagName.toLowerCase() === String(childObj.type).toLowerCase()) {
+          updateElementFromVnode(el, child);
+          newKeyMap.set(key, el);
+          return el;
+        }
+      }
+    } catch {
+      // Fall through to replacement
+    }
   }
 
   const dom = createDOMNode(child);
