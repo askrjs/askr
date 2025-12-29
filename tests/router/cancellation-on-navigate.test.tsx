@@ -6,9 +6,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getSignal, createSPA, getRoutes } from '../../src/index';
+import { createSPA } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
-import { route } from '../../src/router/route';
+import { getRoutes, route } from '../../src/router/route';
+import { getSignal } from '../../src/runtime/component';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('cancellation on navigate (ROUTER)', () => {

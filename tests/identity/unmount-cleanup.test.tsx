@@ -1,13 +1,8 @@
 // tests/identity/unmount_cleanup.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  clearRoutes,
-  createSPA,
-  navigate,
-  route,
-  state,
-  getRoutes,
-} from '../../src/index';
+import { createSPA, state } from '../../src/index';
+import { navigate } from '../../src/router/navigate';
+import { clearRoutes, getRoutes, route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('unmount cleanup (IDENTITY)', () => {

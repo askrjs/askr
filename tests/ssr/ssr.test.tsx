@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { renderToStringSync, hydrateSPA } from '../../src/index';
+import { hydrateSPA } from '../../src/boot';
 import { route } from '../../src/router/route';
-import { renderToString, renderToStream } from '../../src/ssr';
+import {
+  renderToStringSync,
+  renderToString,
+  renderToStream,
+} from '../../src/ssr';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 

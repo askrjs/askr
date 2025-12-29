@@ -9,7 +9,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland, resource, _resetDefaultPortal } from '../../src/index';
+import { createIsland } from '../../src/index';
+import { resource } from '../../src/resources';
+import { _resetDefaultPortal } from '../../src/foundations/portal';
 import type { JSXElement } from '../../src/jsx/types';
 import {
   createTestContainer,

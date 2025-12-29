@@ -1,10 +1,9 @@
 import { afterAll, beforeAll, bench, describe } from 'vitest';
-import { createIsland, state } from '../../src/index';
-import type { State } from '../../src/index';
+import { createIsland, state } from '../../src';
+import type { State } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 function setup(disableFastlane: boolean) {
@@ -62,23 +61,22 @@ describe('framework::keyed-reorder::10k::statistical', () => {
     let items: State<Array<{ id: number; text: string }>>;
     let restore: () => void;
 
-    beforeAll(async () => {
+    beforeAll(() => {
       const s = setup(false);
       items = s.items;
       restore = s.restore;
-      await waitForNextEvaluation();
+      flushScheduler();
 
       // one-time warm-up
       items.set([...items()].reverse());
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
     afterAll(() => restore());
 
     bench(
       'fastlane-enabled',
-      async () => {
+      () => {
         // measured operation only
         items.set([...items()].reverse());
         flushScheduler();
@@ -94,23 +92,22 @@ describe('framework::keyed-reorder::10k::statistical', () => {
     let items: State<Array<{ id: number; text: string }>>;
     let restore: () => void;
 
-    beforeAll(async () => {
+    beforeAll(() => {
       const s = setup(true);
       items = s.items;
       restore = s.restore;
-      await waitForNextEvaluation();
+      flushScheduler();
 
       // one-time warm-up
       items.set([...items()].reverse());
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
     afterAll(() => restore());
 
     bench(
       'fastlane-disabled',
-      async () => {
+      () => {
         // measured operation only
         items.set([...items()].reverse());
         flushScheduler();

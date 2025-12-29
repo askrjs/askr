@@ -65,8 +65,11 @@ function Home() {
   );
 }
 
+```
 
 **Tip:** Prefer functional updates when updating based on previous state: `count.set(prev => prev + 1)`.
+
+```ts
 
 function User({ id }: { id: string }) {
   return (
@@ -131,16 +134,16 @@ Askr doesn’t introduce a new cancellation concept. When work becomes stale (un
 Example (recommended pattern):
 
 ```ts
-import { route, resource, getSignal } from '@askrjs/askr';
+import { route, resource } from '@askrjs/askr';
 
 function User({ id }: { id: string }) {
-  const user = resource(async () => {
-    const res = await fetch(`/api/users/${id}`, { signal: getSignal() });
+  const user = resource(async ({ signal }) => {
+    const res = await fetch(`/api/users/${id}`, { signal });
     return res.json();
   }, [id]);
 
-  if (!user) return <div>Loading...</div>;
-  return <pre>{JSON.stringify(user, null, 2)}</pre>;
+  if (user.pending) return <div>Loading...</div>;
+  return <pre>{JSON.stringify(user.value, null, 2)}</pre>;
 }
 
 route('/user/{id}', ({ id }) => <User id={id} />);

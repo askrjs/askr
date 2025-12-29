@@ -5,12 +5,8 @@
  */
 
 import { bench, describe } from 'vitest';
-import {
-  route,
-  clearRoutes,
-  unloadNamespace,
-  getRoutes,
-} from '../../src/index';
+import { route, clearRoutes, getRoutes } from '../../src/router';
+import { unloadNamespace } from '../../src/router/route';
 
 describe('route namespace unload', () => {
   bench('unload 200 route namespace (behavioral)', () => {

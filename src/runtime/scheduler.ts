@@ -161,14 +161,11 @@ export class Scheduler {
         this.head = 0;
       } else if (this.head > 0) {
         const remaining = this.q.length - this.head;
-        if (this.head > 1024 || this.head > remaining) {
-          this.q = this.q.slice(this.head);
-        } else {
-          for (let i = 0; i < remaining; i++) {
-            this.q[i] = this.q[this.head + i];
-          }
-          this.q.length = remaining;
+        // HOT PATH: compact in-place to avoid slice() allocations (GC tail spikes)
+        for (let i = 0; i < remaining; i++) {
+          this.q[i] = this.q[this.head + i];
         }
+        this.q.length = remaining;
         this.head = 0;
       }
 

@@ -2,7 +2,7 @@
  * Async components for staleness and cancellation testing
  */
 
-import { resource } from '../../src/index';
+import { resource } from '../../src/resources';
 
 /**
  * Resource-based test components to replace legacy async components

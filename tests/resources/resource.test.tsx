@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, resource } from '../../src/index';
+import { resource } from '../../src/resources';
 import type { ComponentFunction } from '../../src/runtime/component';
 import {
   createTestContainer,
   flushScheduler,
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('data() (DATA_SPEC / BINDING_SPEC) — gaps', () => {
   it('should execute data function when component mounts', async () => {

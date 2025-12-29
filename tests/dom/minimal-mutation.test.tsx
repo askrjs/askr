@@ -11,6 +11,7 @@ import {
   flushScheduler,
   trackDOMMutations,
 } from '../helpers/test-renderer';
+import { createIsland } from '../helpers/create-island';
 
 describe('minimal DOM mutation (DOM)', () => {
   let { container, cleanup } = createTestContainer();

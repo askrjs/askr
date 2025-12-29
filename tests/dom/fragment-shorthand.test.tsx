@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIsland } from '../../src/index';
+import { createIsland } from '../helpers/create-island';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('JSX fragment shorthand (<>...</>)', () => {

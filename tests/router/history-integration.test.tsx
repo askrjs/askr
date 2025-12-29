@@ -6,8 +6,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createSPA, getRoutes } from '../../src/index';
+import { createSPA } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
+import { clearRoutes, getRoutes, route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('history integration (ROUTER)', () => {
@@ -17,6 +18,7 @@ describe('history integration (ROUTER)', () => {
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
+    clearRoutes();
     // Clear history for test isolation
     vi.clearAllMocks();
   });
@@ -116,11 +118,7 @@ describe('history integration (ROUTER)', () => {
         return { type: 'div', children: ['Page'] };
       });
 
-      const App = () => {
-        return { type: 'div', children: ['App'] };
-      };
-
-      createIsland({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       flushScheduler();
 
       navigate('/page1');
@@ -143,11 +141,7 @@ describe('history integration (ROUTER)', () => {
         return { type: 'div', children: ['Page'] };
       });
 
-      const App = () => {
-        return { type: 'div', children: ['App'] };
-      };
-
-      createIsland({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       flushScheduler();
 
       navigate('/page1');
@@ -310,11 +304,7 @@ describe('history integration (ROUTER)', () => {
         return { type: 'div', children: ['Page'] };
       });
 
-      const App = () => {
-        return { type: 'div', children: ['App'] };
-      };
-
-      createIsland({ root: container, component: App });
+      await createSPA({ root: container, routes: getRoutes() });
       flushScheduler();
 
       navigate('/page1');

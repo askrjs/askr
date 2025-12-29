@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createIsland, defineContext, readContext } from '../../src/index';
+import { defineContext, readContext } from '../../src/runtime/context';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import type { JSXElement } from '../../src/jsx/types';
+import { createIsland } from '../helpers/create-island';
 
 describe('context (CONTEXT_SPEC) — gaps', () => {
   it('should allow child to read parent-provided context value', () => {

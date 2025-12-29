@@ -6,15 +6,14 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { createIsland, state } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 describe('state write cost', () => {
-  bench('100 single state updates (transactional)', async () => {
+  bench('100 single state updates (transactional)', () => {
     const { container, cleanup } = createTestContainer();
 
     let updateFn: (() => void) | null = null;
@@ -28,19 +27,17 @@ describe('state write cost', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Perform the updates
     for (let i = 0; i < 100; i++) {
       updateFn!();
     }
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });
 
-  bench('100 batched state updates (transactional)', async () => {
+  bench('100 batched state updates (transactional)', () => {
     const { container, cleanup } = createTestContainer();
 
     let updateFn: (() => void) | null = null;
@@ -64,19 +61,17 @@ describe('state write cost', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Perform batched updates
     for (let i = 0; i < 100; i++) {
       updateFn!();
     }
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });
 
-  bench('100 cross-component updates (transactional)', async () => {
+  bench('100 cross-component updates (transactional)', () => {
     const { container, cleanup } = createTestContainer();
 
     let updateFn: (() => void) | null = null;
@@ -101,14 +96,12 @@ describe('state write cost', () => {
 
     createIsland({ root: container, component: ParentComponent });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Perform cross-component updates
     for (let i = 0; i < 100; i++) {
       updateFn!();
     }
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });

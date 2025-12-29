@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStringSync, SSRDataMissingError } from '../../src/ssr';
 import { resource as runtimeResource } from '../../src/runtime/operations';
-import { resource } from '../../src/index';
+import { resource } from '../../src/resources';
 import type { JSXElement } from '../../src/jsx/types';
 
 describe('SSR resource behavior', () => {

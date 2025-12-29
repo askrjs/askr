@@ -6,6 +6,7 @@
  */
 
 import { getCurrentComponentInstance } from '../runtime/component';
+import type { ComponentInstance } from '../runtime/component';
 import { logger } from '../dev/logger';
 
 export interface Portal<T = unknown> {
@@ -30,44 +31,26 @@ export function definePortal<T = unknown>(): Portal<T> {
     //   it can be flushed into a real portal if/when the runtime installs
     // - Schedule `owner.notifyUpdate()` when a host exists so updates are
     //   reflected immediately
-    // Track all hosts that read the portal so we can deterministically
-    // select a single owner and prune stale mounts across islands.
-    let hosts: import('../runtime/component').ComponentInstance[] = [];
+    // Fast fallback for module/SSR/test environments.
+    // Track a single owner to avoid per-render array scans.
+    let owner: ComponentInstance | null = null;
     let pending: T | undefined;
 
     function HostFallback() {
-      // Prune unmounted hosts
-      hosts = hosts.filter((h) => h.mounted !== false);
+      // Drop owner + pending when owner unmounts to avoid replay.
+      if (owner && owner.mounted === false) {
+        owner = null;
+        pending = undefined;
+      }
 
       const inst = getCurrentComponentInstance();
-      if (inst && !hosts.includes(inst)) hosts.push(inst);
 
-      // Owner is the first host that is fully mounted (must be mounted === true)
-      // This prevents capturing pre-mount instances which can lead to early-write
-      // replay or ghost-toasts. Only a fully-mounted host can be an owner.
-      const owner = hosts.find((h) => h.mounted === true) || null;
+      // Capture the first host as the owner.
+      // We intentionally do NOT require `mounted === true` here because the
+      // host can render before the runtime flips its mounted flag. Capturing
+      // early ensures `DefaultPortal.render()` works immediately after mount.
+      if (!owner && inst) owner = inst;
 
-      // If more than one host is mounted at the same time, this is a violation
-      // of the portal contract. In dev mode we throw to make the issue explicit.
-      const mountedHosts = hosts.filter((h) => h.mounted === true);
-      if (mountedHosts.length > 1) {
-        // Warn in dev to make multiple mounted hosts visible; do NOT throw
-        // because multiple islands mounting is a valid use-case. We assert only
-        // that exactly one host may render portal content at a time.
-        // Logger will no-op in production, so this check need not be wrapped.
-        logger.warn(
-          '[Portal] multiple hosts are mounted for same portal; first mounted host will be owner'
-        );
-      }
-
-      // If this reader is not the owner, but a mounted owner exists, warn in dev
-      if (inst && owner && owner !== inst) {
-        logger.debug(
-          '[Portal] non-owner reader detected; only owner renders portal content'
-        );
-      }
-
-      // Dev debug: increment read counter
       /* istanbul ignore if */
       if (process.env.NODE_ENV !== 'production') {
         const ns =
@@ -79,51 +62,23 @@ export function definePortal<T = unknown>(): Portal<T> {
         ns.__PORTAL_READS = ((ns.__PORTAL_READS as number) || 0) + 1;
       }
 
-      // Only the owner should render the pending value; other readers see nothing
       /* istanbul ignore if */
-      if (
-        process.env.NODE_ENV !== 'production' &&
-        inst &&
-        owner &&
-        inst === owner
-      ) {
-        logger.debug('[Portal] owner read ->', inst.id, 'pending=', pending);
-        // Dev diagnostic: record whether the owner instance has an attached DOM target
-        const ns =
-          (globalThis as unknown as { __ASKR__?: Record<string, unknown> })
-            .__ASKR__ ||
-          ((
-            globalThis as unknown as { __ASKR__?: Record<string, unknown> }
-          ).__ASKR__ = {} as Record<string, unknown>);
-        ns.__PORTAL_HOST_ATTACHED = !!(inst && inst.target);
-        ns.__PORTAL_HOST_ID = inst ? inst.id : undefined;
+      if (process.env.NODE_ENV !== 'production') {
+        // Minimal dev diagnostics; avoid heavy allocations in the hot path.
+        if (inst && owner && inst !== owner && inst.mounted === true) {
+          logger.warn(
+            '[Portal] multiple mounted hosts detected; first mounted host is owner'
+          );
+        }
       }
-      return inst === owner ? (pending as unknown) : undefined;
+
+      return inst && owner && inst === owner ? (pending as unknown) : undefined;
     }
 
     HostFallback.render = function RenderFallback(props: { children?: T }) {
-      // Refresh host list and determine current owner
-      hosts = hosts.filter((h) => h.mounted !== false);
-      // Owner must be fully mounted (mounted === true) to accept writes — this
-      // prevents capturing pre-mount instances and avoids replaying early writes.
-      const owner = hosts.find((h) => h.mounted === true) || null;
+      // Owner must be fully mounted (mounted === true) to accept writes.
+      if (!owner || owner.mounted !== true) return null;
 
-      // If no owner exists yet, drop the write (avoid buffering early writes)
-      if (!owner) {
-        // Logger will no-op in production so we can call directly without wrapping.
-        logger.debug(
-          '[Portal] fallback.write dropped -> no owner or not mounted',
-          props?.children
-        );
-        return null;
-      }
-
-      // Update pending value for the live owner
-      pending = props.children as T | undefined;
-
-      // Record debug write counter in dev so tests can assert writes occurred
-      // Logger will no-op in production; keep counter update guarded for dev only
-      logger.debug('[Portal] fallback.write ->', pending, 'owner=', owner.id);
       /* istanbul ignore if */
       if (process.env.NODE_ENV !== 'production') {
         const ns =
@@ -135,16 +90,11 @@ export function definePortal<T = unknown>(): Portal<T> {
         ns.__PORTAL_WRITES = ((ns.__PORTAL_WRITES as number) || 0) + 1;
       }
 
+      // Update pending value for the live owner
+      pending = props.children as T | undefined;
+
       // Schedule an update on the owner so it re-renders
-      if (owner && owner.notifyUpdate) {
-        if (process.env.NODE_ENV !== 'production')
-          logger.debug(
-            '[Portal] fallback.write notify ->',
-            owner.id,
-            !!owner.notifyUpdate
-          );
-        owner.notifyUpdate();
-      }
+      if (owner.notifyUpdate) owner.notifyUpdate();
       return null;
     };
 
@@ -159,8 +109,7 @@ export function definePortal<T = unknown>(): Portal<T> {
   }
 
   PortalHost.render = function PortalRender(props: { children?: T }) {
-    // Logger will no-op in production; keep counter increment guarded for dev-only behavior
-    logger.debug('[Portal] write ->', props?.children);
+    // Keep counter increment guarded for dev-only behavior
     /* istanbul ignore if */
     if (process.env.NODE_ENV !== 'production') {
       const ns =
@@ -198,25 +147,16 @@ function ensureDefaultPortal(): Portal<unknown> {
   // runtime primitive exists; otherwise create a fallback. If a fallback
   // was previously created and the runtime primitive becomes available
   // later, replace the fallback with a real portal on first use.
-  logger.debug(
-    '[DefaultPortal] ensureDefaultPortal _defaultPortalIsFallback=',
-    _defaultPortalIsFallback,
-    'createPortalSlot=',
-    typeof createPortalSlot === 'function'
-  );
-
   if (!_defaultPortal) {
     if (typeof createPortalSlot === 'function') {
       _defaultPortal = definePortal<unknown>();
       _defaultPortalIsFallback = false;
-      logger.debug('[DefaultPortal] created real portal');
     } else {
       // Create a fallback via definePortal so it uses the same owner/pending
       // semantics as the non-default portals (keeps runtime and fallback
       // behavior consistent).
       _defaultPortal = definePortal<unknown>();
       _defaultPortalIsFallback = true;
-      logger.debug('[DefaultPortal] created fallback portal');
     }
     return _defaultPortal;
   }
@@ -237,7 +177,6 @@ function ensureDefaultPortal(): Portal<unknown> {
     const fallback = definePortal<unknown>();
     _defaultPortal = fallback;
     _defaultPortalIsFallback = true;
-    logger.debug('[DefaultPortal] reverted to fallback portal');
   }
 
   return _defaultPortal;

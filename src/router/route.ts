@@ -7,6 +7,7 @@
 
 import { match as matchPath } from './match';
 import { getCurrentComponentInstance } from '../runtime/component';
+import { getExecutionModel } from '../runtime/execution-model';
 
 export type {
   RouteHandler,
@@ -28,6 +29,20 @@ import type {
 
 const routes: Route[] = [];
 const namespaces = new Set<string>();
+
+const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
+
+function setHasRoutes(value: boolean): void {
+  try {
+    const g = globalThis as unknown as Record<string | symbol, unknown>;
+    g[HAS_ROUTES_KEY] = value;
+  } catch {
+    // ignore
+  }
+}
+
+// Initialize to false at module load.
+setHasRoutes(false);
 
 // Route index by depth - maintains insertion order
 const routesByDepth = new Map<number, Route[]>();
@@ -73,8 +88,6 @@ function getSpecificity(path: string): number {
 
   return score;
 }
-
-
 
 // SSR helper: when rendering on the server, callers may set a location so that
 // render-time route() returns deterministic server values that match client
@@ -222,6 +235,12 @@ export function route(
   handler?: RouteHandler,
   namespace?: string
 ): void | RouteSnapshot {
+  if (getExecutionModel() === 'islands') {
+    throw new Error(
+      'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
+    );
+  }
+
   // If called with no args, act as render-time accessor
   if (typeof path === 'undefined') {
     // Access the current component instance to ensure route() is only
@@ -278,7 +297,7 @@ export function route(
   // Disallow registrations after app startup
   if (registrationLocked) {
     throw new Error(
-      'Route registration is locked after app startup. Register routes at module load time before calling createIsland().'
+      'Route registration is locked after app startup. Register routes at module load time before calling createSPA or createSSR.'
     );
   }
 
@@ -292,6 +311,7 @@ export function route(
 
   const routeObj: Route = { path, handler: handler as RouteHandler, namespace };
   routes.push(routeObj);
+  setHasRoutes(true);
 
   // Index by depth (maintains insertion order within depth)
   const depth = getDepth(path);
@@ -358,6 +378,8 @@ export function clearRoutes(): void {
   routes.length = 0;
   namespaces.clear();
   routesByDepth.clear();
+  registrationLocked = false;
+  setHasRoutes(false);
 }
 
 /**

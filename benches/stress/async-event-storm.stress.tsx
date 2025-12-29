@@ -6,7 +6,8 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland, task } from '../../src/index';
+import { createIsland } from '../../src';
+import { task } from '../../src/runtime/operations';
 import {
   createTestContainer,
   flushScheduler,

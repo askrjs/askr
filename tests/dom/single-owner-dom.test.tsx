@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer } from '../helpers/test-renderer';
-import { createIsland } from '../../src/index';
+import { createIsland } from '../helpers/create-island';
 
 describe('Single-owner DOM invariant', () => {
   it('should update root and clean up prior instance when replacing a mounted component', () => {

@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createSPA } from '../../src/index';
+import { renderToStringSync } from '../../src/ssr';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { navigate } from '../../src/router/navigate';
 import {
-  createSPA,
-  renderToStringSync,
-  navigate,
+  route,
   setServerLocation,
   type RouteSnapshot,
-} from '../../src/index';
-import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
-import { route } from '../../src/index';
+} from '../../src/router/route';
 
 // Minimal testing window type helpers to avoid `any` casts
 type TestWindow = {

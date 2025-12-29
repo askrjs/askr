@@ -35,6 +35,10 @@ import type { VNode, SSRComponent } from './types';
 
 import { logger } from '../dev/logger';
 
+const __SSR_DEBUG =
+  process.env.NODE_ENV !== 'production' &&
+  (process.env.ASKR_SSR_DEBUG === '1' || process.env.ASKR_SSR_DEBUG === 'true');
+
 // Install SSR bridge once so runtime primitives (resource/derive/etc) can
 // detect SSR mode and access deterministic render-phase data without a
 // runtime->ssr import.
@@ -93,11 +97,30 @@ function renderChildSync(child: unknown, ctx: RenderContext): string {
   if (typeof child === 'string') return escapeText(child);
   if (typeof child === 'number') return escapeText(String(child));
   if (child === null || child === undefined || child === false) return '';
-  if (typeof child === 'object' && child !== null && 'type' in child) {
+  if (child && typeof child === 'object' && 'type' in child) {
     // We already verified the shape above; assert as VNode for the sync renderer
     return renderNodeSync(child as VNode, ctx);
   }
   return '';
+}
+
+function renderChildSyncToSink(
+  child: unknown,
+  sink: { write(html: string): void },
+  ctx: RenderContext
+): void {
+  if (child === null || child === undefined || child === false) return;
+  if (typeof child === 'string') {
+    sink.write(escapeText(child));
+    return;
+  }
+  if (typeof child === 'number') {
+    sink.write(escapeText(String(child)));
+    return;
+  }
+  if (child && typeof child === 'object' && 'type' in child) {
+    renderNodeSyncToSink(child as VNode, sink, ctx);
+  }
 }
 
 function renderChildrenSync(
@@ -105,9 +128,33 @@ function renderChildrenSync(
   ctx: RenderContext
 ): string {
   if (!children || !Array.isArray(children) || children.length === 0) return '';
-  let result = '';
-  for (const child of children) result += renderChildSync(child, ctx);
-  return result;
+  if (children.length === 1) return renderChildSync(children[0], ctx);
+
+  // Small child arrays are common; concatenation is usually faster than
+  // allocating + joining. Large sibling lists (10k+) need join to avoid O(n^2)
+  // concatenation costs.
+  if (children.length <= 8) {
+    let result = '';
+    for (const child of children) result += renderChildSync(child, ctx);
+    return result;
+  }
+
+  const parts = new Array<string>(children.length);
+  for (let i = 0; i < children.length; i++) {
+    parts[i] = renderChildSync(children[i], ctx);
+  }
+  return parts.join('');
+}
+
+function renderChildrenSyncToSink(
+  children: unknown[] | undefined,
+  sink: { write(html: string): void },
+  ctx: RenderContext
+): void {
+  if (!children || !Array.isArray(children) || children.length === 0) return;
+  for (let i = 0; i < children.length; i++) {
+    renderChildSyncToSink(children[i], sink, ctx);
+  }
 }
 
 /**
@@ -117,7 +164,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   const { type, props } = node;
 
   /* istanbul ignore if - dev-only debug */
-  if (process.env.NODE_ENV !== 'production') {
+  if (__SSR_DEBUG) {
     try {
       logger.warn('[SSR] renderNodeSync type:', typeof type, type);
     } catch {
@@ -147,7 +194,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
           ? (props?.children as unknown[])
           : undefined;
       /* istanbul ignore if - dev-only debug */
-      if (process.env.NODE_ENV !== 'production') {
+      if (__SSR_DEBUG) {
         try {
           logger.warn('[SSR] fragment children length:', childrenArr?.length);
         } catch {
@@ -169,16 +216,104 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     return `<${typeStr}${attrs} />`;
   }
 
-  const { attrs, dangerousHtml } = renderAttrs(props, {
-    returnDangerousHtml: true,
-  });
-  // If dangerouslySetInnerHTML is set, use it instead of children
-  if (dangerousHtml !== undefined) {
-    return `<${typeStr}${attrs}>${dangerousHtml}</${typeStr}>`;
+  // Hot path: most nodes don't use dangerouslySetInnerHTML.
+  // Avoid allocating the `{ attrs, dangerousHtml }` object unless the prop exists.
+  const maybeDangerous = (
+    props as unknown as { dangerouslySetInnerHTML?: unknown }
+  )?.dangerouslySetInnerHTML;
+  if (maybeDangerous !== undefined && maybeDangerous !== null) {
+    const { attrs, dangerousHtml } = renderAttrs(props, {
+      returnDangerousHtml: true,
+    });
+    if (dangerousHtml !== undefined) {
+      return `<${typeStr}${attrs}>${dangerousHtml}</${typeStr}>`;
+    }
+    const childrenHtml = renderChildrenSync((node as VNode).children, ctx);
+    return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
   }
-  const children = (node as VNode).children;
-  const childrenHtml = renderChildrenSync(children, ctx);
+
+  const attrs = renderAttrs(props);
+  const childrenHtml = renderChildrenSync((node as VNode).children, ctx);
   return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
+}
+
+function renderNodeSyncToSink(
+  node: VNode | JSXElement,
+  sink: { write(html: string): void },
+  ctx: RenderContext
+): void {
+  const { type, props } = node;
+
+  if (typeof type === 'function') {
+    const result = executeComponentSync(type as Component, props, ctx);
+    // executeComponentSync guarantees synchronous result.
+    renderNodeSyncToSink(result, sink, ctx);
+    return;
+  }
+
+  // Fragment
+  if (typeof type === 'symbol') {
+    if (type === Fragment) {
+      const childrenArr = Array.isArray((node as VNode).children)
+        ? (node as VNode).children
+        : Array.isArray(props?.children)
+          ? (props?.children as unknown[])
+          : undefined;
+      renderChildrenSyncToSink(childrenArr, sink, ctx);
+      return;
+    }
+    throw new Error(
+      `renderNodeSyncToSink: unsupported VNode symbol type: ${String(type)}`
+    );
+  }
+
+  const typeStr = type as string;
+  if (VOID_ELEMENTS.has(typeStr)) {
+    const attrs = props ? renderAttrs(props) : '';
+    sink.write(`<${typeStr}${attrs} />`);
+    return;
+  }
+
+  const maybeDangerous = props
+    ? (props as unknown as { dangerouslySetInnerHTML?: unknown })
+        ?.dangerouslySetInnerHTML
+    : undefined;
+
+  if (maybeDangerous !== undefined && maybeDangerous !== null) {
+    const { attrs, dangerousHtml } = renderAttrs(props, {
+      returnDangerousHtml: true,
+    });
+    sink.write(`<${typeStr}${attrs}>`);
+    if (dangerousHtml !== undefined) {
+      sink.write(dangerousHtml);
+    } else {
+      renderChildrenSyncToSink((node as VNode).children, sink, ctx);
+    }
+    sink.write(`</${typeStr}>`);
+    return;
+  }
+
+  const attrs = props ? renderAttrs(props) : '';
+  const children = (node as VNode).children;
+
+  // Hot path: many elements are just a single primitive text child.
+  // Collapsing into a single write reduces sink buffering overhead.
+  if (Array.isArray(children) && children.length === 1) {
+    const only = children[0];
+    if (typeof only === 'string') {
+      sink.write(`<${typeStr}${attrs}>${escapeText(only)}</${typeStr}>`);
+      return;
+    }
+    if (typeof only === 'number') {
+      const escaped = escapeText(String(only));
+      sink.write(`<${typeStr}${attrs}>${escaped}</${typeStr}>`);
+      return;
+    }
+  }
+
+  sink.write(`<${typeStr}${attrs}>`);
+  renderChildrenSyncToSink(children, sink, ctx);
+  sink.write(`</${typeStr}>`);
 }
 
 /**
@@ -302,7 +437,10 @@ export function renderToStringSync(
     if (!node) {
       throw new Error('renderToStringSync: wrapped component returned empty');
     }
-    return renderNodeSync(node, ctx);
+    const sink = new StringSink();
+    renderNodeSyncToSink(node, sink, ctx);
+    sink.end();
+    return sink.toString();
   } finally {
     stopRenderPhase();
   }
@@ -372,7 +510,10 @@ export function renderToStringSyncForUrl(opts: {
     };
 
     const node = executeComponentSync(wrapped, resolved.params || {}, ctx);
-    return renderNodeSync(node, ctx);
+    const sink = new StringSink();
+    renderNodeSyncToSink(node, sink, ctx);
+    sink.end();
+    return sink.toString();
   } finally {
     stopRenderPhase();
   }

@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-  createIsland,
   DefaultPortal,
   _resetDefaultPortal,
-} from '../../src/index';
+} from '../../src/foundations/portal';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { getCurrentComponentInstance } from '../../src/runtime/component';
+import { createIsland } from '../helpers/create-island';
 
 // Provide typing for dev-only global debug counters and test-simulated runtime primitive
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -51,12 +51,14 @@ describe('DefaultPortal inventory', () => {
     // Reset the default portal so tests don't share state
     _resetDefaultPortal();
     // Ensure runtime primitive not installed by default
-    delete globalThis.createPortalSlot;
+    delete (globalThis as unknown as { createPortalSlot?: unknown })
+      .createPortalSlot;
   });
 
   afterEach(() => {
     cleanup();
-    delete globalThis.createPortalSlot;
+    delete (globalThis as unknown as { createPortalSlot?: unknown })
+      .createPortalSlot;
     globalThis.__ASKR__ = {};
   });
 
@@ -82,33 +84,9 @@ describe('DefaultPortal inventory', () => {
     });
     flushScheduler();
 
-    // DEBUG: inspect DOM before write
-    // eslint-disable-next-line no-console
-    console.log(
-      '[DEBUG] before write children:',
-      container.childNodes.length,
-      container.innerHTML
-    );
-
     DefaultPortal.render({ children: 'Toast' });
 
-    // DEBUG: after render call, before flush
-    // eslint-disable-next-line no-console
-    console.log(
-      '[DEBUG] after render called children:',
-      container.childNodes.length,
-      container.innerHTML
-    );
-
     flushScheduler();
-
-    // DEBUG: after flush
-    // eslint-disable-next-line no-console
-    console.log(
-      '[DEBUG] after flush children:',
-      container.childNodes.length,
-      container.innerHTML
-    );
 
     expect(container.textContent).toContain('Toast');
   });
@@ -294,7 +272,8 @@ describe('DefaultPortal inventory', () => {
     flushScheduler();
 
     // Install runtime primitive
-    globalThis.createPortalSlot = makeRuntimePortalPrimitive();
+    (globalThis as unknown as { createPortalSlot?: unknown }).createPortalSlot =
+      makeRuntimePortalPrimitive();
 
     // Use portal after runtime installs
     createIsland({
@@ -315,7 +294,8 @@ describe('DefaultPortal inventory', () => {
     flushScheduler();
 
     // Install runtime primitive which should replace fallback
-    globalThis.createPortalSlot = makeRuntimePortalPrimitive();
+    (globalThis as unknown as { createPortalSlot?: unknown }).createPortalSlot =
+      makeRuntimePortalPrimitive();
 
     createIsland({
       root: container,

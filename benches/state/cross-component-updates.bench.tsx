@@ -6,15 +6,14 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { createIsland, state } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 describe('cross component updates', () => {
-  bench('parent to child update (transactional)', async () => {
+  bench('parent to child update (transactional)', () => {
     const { container, cleanup } = createTestContainer();
 
     let update: (() => void) | null = null;
@@ -39,17 +38,15 @@ describe('cross component updates', () => {
 
     createIsland({ root: container, component: Parent });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Trigger parent update and measure re-render cost
     update!();
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });
 
-  bench('sibling component updates (transactional)', async () => {
+  bench('sibling component updates (transactional)', () => {
     const { container, cleanup } = createTestContainer();
 
     let leftSet: (() => void) | null = null;
@@ -74,16 +71,14 @@ describe('cross component updates', () => {
 
     createIsland({ root: container, component: Parent });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Update only one sibling and flush
     leftSet!();
     flushScheduler();
-    await waitForNextEvaluation();
     cleanup();
   });
 
-  bench('deep tree propagation (transactional)', async () => {
+  bench('deep tree propagation (transactional)', () => {
     const { container, cleanup } = createTestContainer();
 
     let rootSet: (() => void) | null = null;
@@ -113,12 +108,10 @@ describe('cross component updates', () => {
 
     createIsland({ root: container, component: Root });
     flushScheduler();
-    await waitForNextEvaluation();
 
     // Trigger root update which must propagate through nested tree
     rootSet!();
     flushScheduler();
-    await waitForNextEvaluation();
 
     cleanup();
   });
