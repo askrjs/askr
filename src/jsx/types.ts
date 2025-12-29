@@ -8,24 +8,11 @@
  * - the reconciler
  */
 
-import type { Props } from '../shared/types';
+import type { Props } from '../common/props';
+import type { JSXElement } from '../common/jsx';
 
-export const ELEMENT_TYPE = Symbol.for('askr.element');
-export const Fragment = Symbol.for('askr.fragment');
-
-export interface JSXElement {
-  /** Internal element marker (optional for plain vnode objects) */
-  $$typeof?: symbol;
-
-  /** Element type: string, component, Fragment, etc */
-  type: unknown;
-
-  /** Props bag */
-  props: Props;
-
-  /** Optional key (normalized by runtime) */
-  key?: string | number | null;
-}
+export { ELEMENT_TYPE, Fragment } from '../common/jsx';
+export type { JSXElement } from '../common/jsx';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

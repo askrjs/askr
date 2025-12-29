@@ -1,5 +1,5 @@
 import { logger } from '../dev/logger';
-import type { Props } from '../shared/types';
+import type { Props } from '../common/props';
 import { Fragment } from '../jsx/jsx-runtime';
 import {
   CONTEXT_FRAME_SYMBOL,

@@ -20,8 +20,8 @@
  * - Context updates require re-render to take effect
  */
 
-import type { JSXElement } from '../jsx/types';
-import type { Props } from '../shared/types';
+import type { JSXElement } from '../common/jsx';
+import type { Props } from '../common/props';
 import { getCurrentComponentInstance } from './component';
 import type { ComponentInstance } from './component';
 

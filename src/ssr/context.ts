@@ -8,16 +8,8 @@
 
 import { SSRDataMissingError } from './errors';
 
-export type SSRData = Record<string, unknown>;
-
-/** Full context for sink-based streaming SSR */
-export type SSRContext = {
-  url: string;
-  seed: number;
-  data?: SSRData;
-  params?: Record<string, string>;
-  signal?: AbortSignal;
-};
+export type { SSRData, SSRContext, RenderContext } from '../common/ssr';
+import type { SSRContext, RenderContext } from '../common/ssr';
 
 // Stack-scoped SSRContext for sink-based rendering
 let current: SSRContext | null = null;
@@ -35,11 +27,6 @@ export function withSSRContext<T>(ctx: SSRContext, fn: () => T): T {
     current = prev;
   }
 }
-
-/** Lightweight context for synchronous render passes */
-export type RenderContext = {
-  seed: number;
-};
 
 export function createRenderContext(seed = 12345): RenderContext {
   return { seed };

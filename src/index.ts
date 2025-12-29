@@ -101,4 +101,4 @@ if (typeof globalThis !== 'undefined') {
 }
 
 // Public types
-export type { Props } from './shared/types';
+export type { Props } from './common/props';

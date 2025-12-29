@@ -2,8 +2,8 @@
  * Shared SSR types
  */
 
-import type { JSXElement } from '../jsx/types';
-import type { Props } from '../shared/types';
+import type { JSXElement } from '../common/jsx';
+import type { Props } from '../common/props';
 import type { RenderContext } from './context';
 
 /** VNode representation for SSR rendering */

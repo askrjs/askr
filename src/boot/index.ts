@@ -225,7 +225,7 @@ function mountOrUpdate(
 }
 
 // New strongly-typed init functions
-import type { Route } from '../router/route';
+import type { Route } from '../common/router';
 import { removeAllListeners } from '../renderer';
 
 export type IslandConfig = {
