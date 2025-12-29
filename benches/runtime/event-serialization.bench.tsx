@@ -6,7 +6,7 @@
  */
 
 import { bench, describe, beforeEach, afterEach } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { createIsland, state } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
@@ -29,7 +29,7 @@ describe('event serialization', () => {
 
   describe('single event processing (transactional)', () => {
     let btn: HTMLButtonElement;
-    beforeEach(async () => {
+    beforeEach(() => {
       const Component = () => {
         const count = state(0);
         return {
@@ -41,22 +41,20 @@ describe('event serialization', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
       btn = container.querySelector('#btn') as HTMLButtonElement;
     });
 
-    bench('single event processing (transactional)', async () => {
+    bench('single event processing (transactional)', () => {
       // Trigger single event
       fireEvent.click(btn);
       flushScheduler();
-      await waitForNextEvaluation();
     });
   });
 
   describe('100 rapid events (transactional)', () => {
     let btn: HTMLButtonElement;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       const Component = () => {
         const count = state(0);
         return {
@@ -68,16 +66,14 @@ describe('event serialization', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
       btn = container.querySelector('#btn') as HTMLButtonElement;
     });
 
-    bench('100 rapid events (transactional)', async () => {
+    bench('100 rapid events (transactional)', () => {
       for (let i = 0; i < 100; i++) {
         fireEvent.click(btn);
       }
       flushScheduler();
-      await waitForNextEvaluation();
     });
   });
 
@@ -86,7 +82,7 @@ describe('event serialization', () => {
     let b: HTMLButtonElement;
     let c: HTMLButtonElement;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       const order: number[] = [];
       const Component = () => ({
         type: 'div',
@@ -111,22 +107,19 @@ describe('event serialization', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       a = container.querySelector('#a') as HTMLButtonElement;
       b = container.querySelector('#b') as HTMLButtonElement;
       c = container.querySelector('#c') as HTMLButtonElement;
     });
 
-    bench('concurrent event ordering (invariant)', async () => {
+    bench('concurrent event ordering (invariant)', () => {
       // Fire events out of order but rapidly to stress ordering guarantees
       fireEvent.click(b);
       fireEvent.click(a);
       fireEvent.click(c);
 
       flushScheduler();
-
-      await waitForNextEvaluation();
     });
   });
 });

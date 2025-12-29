@@ -5,7 +5,8 @@
  */
 
 import { bench, describe, beforeEach } from 'vitest';
-import { route, clearRoutes, navigate, createIsland } from '../../src/index';
+import { createIsland } from '../../src';
+import { route, clearRoutes, navigate } from '../../src/router';
 import {
   createTestContainer,
   flushScheduler,

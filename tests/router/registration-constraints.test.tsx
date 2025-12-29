@@ -23,17 +23,13 @@ describe('route registration constraints', () => {
   it('should reject non-function handlers passed to route()', () => {
     expect(() =>
       route('/bad', {} as unknown as Parameters<typeof route>[1])
-    ).toThrow(
-      /requires a function handler/i
-    );
+    ).toThrow(/requires a function handler/i);
   });
 
   it('should reject non-function handlers passed to registerRoute descriptors', () => {
     expect(() =>
       registerRoute('/a', {} as unknown as Parameters<typeof registerRoute>[1])
-    ).toThrow(
-      /requires a function handler/i
-    );
+    ).toThrow(/requires a function handler/i);
   });
 
   it('should forbid registrations after app startup', () => {

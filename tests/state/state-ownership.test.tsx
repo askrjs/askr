@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIslands, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('state ownership invariants', () => {
@@ -14,7 +14,7 @@ describe('state ownership invariants', () => {
       return { type: 'div', children: [`${count!()}`] };
     };
 
-    createIslands({ islands: [{ root: container, component: Component }] });
+    createIsland({ root: container, component: Component });
     flushScheduler();
 
     // owner metadata should exist

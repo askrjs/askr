@@ -6,15 +6,14 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland, state } from '../../src/index';
+import { createIsland, state } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 describe('listener attach detach', () => {
-  bench('framework::listener-attach::1::behavioral', async () => {
+  bench('framework::listener-attach::1::behavioral', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -25,12 +24,11 @@ describe('listener attach detach', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler(); // Attaches single listener
-    await waitForNextEvaluation();
 
     cleanup(); // Detaches listener
   });
 
-  bench('framework::listener-attach::100::behavioral', async () => {
+  bench('framework::listener-attach::100::behavioral', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -56,12 +54,11 @@ describe('listener attach detach', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler(); // Attaches 100 listeners
-    await waitForNextEvaluation();
 
     cleanup(); // Detaches all listeners
   });
 
-  bench('framework::listener-attach::1::detach-behavioral', async () => {
+  bench('framework::listener-attach::1::detach-behavioral', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -72,7 +69,6 @@ describe('listener attach detach', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler(); // Attaches listener
-    await waitForNextEvaluation();
 
     cleanup(); // Measures cleanup cost including listener detachment
   });

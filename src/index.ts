@@ -10,8 +10,8 @@
  */
 
 // Constructors (execution models)
-export { createSPA, createIslands } from './boot';
-export type { SPAConfig, IslandsConfig, IslandConfig } from './boot';
+export { createSPA, createIsland } from './boot';
+export type { SPAConfig, IslandConfig } from './boot';
 
 // Core sync data
 export { state } from './runtime/state';

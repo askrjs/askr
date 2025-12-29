@@ -1,14 +1,11 @@
 // tests/stress/mount_unmount_cycles.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createIslands, state } from '../../src/index';
+import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
   getSchedulerState,
 } from '../helpers/test-renderer';
-
-type Island = Parameters<typeof createIslands>[0]['islands'][number];
-const createIsland = (island: Island) => createIslands({ islands: [island] });
 
 describe('mount unmount cycles (STRESS)', () => {
   let { container, cleanup } = createTestContainer();

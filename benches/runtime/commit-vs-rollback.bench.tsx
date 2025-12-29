@@ -6,95 +6,112 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland } from '../../src/index';
+import { createIsland } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../tests/helpers/test-renderer';
 
 describe('render atomicity', () => {
-  bench('noop commit baseline', async () => {
-    const { container: _container, cleanup } = createTestContainer();
-    flushScheduler();
-    await waitForNextEvaluation();
-    cleanup();
+  bench('noop commit baseline', () => {
+    for (let r = 0; r < 50; r++) {
+      const { cleanup } = createTestContainer();
+      // No work; just measure loop + harness overhead.
+      cleanup();
+    }
   });
 
-  bench('successful commit', async () => {
-    const { container, cleanup } = createTestContainer();
+  bench('successful commit', () => {
+    for (let r = 0; r < 10; r++) {
+      const { container, cleanup } = createTestContainer();
 
-    const Component = () => ({
-      type: 'div',
-      children: Array.from({ length: 50 }, (_, i) => ({
+      const Component = () => ({
         type: 'div',
-        props: { key: String(i) },
-        children: [String(i)],
-      })),
-    });
+        children: Array.from({ length: 50 }, (_, i) => ({
+          type: 'div',
+          props: { key: String(i) },
+          children: [String(i)],
+        })),
+      });
 
-    createIsland({ root: container, component: Component });
-    flushScheduler();
-    await waitForNextEvaluation();
-
-    // Repeat to amortize scheduler overhead
-    for (let i = 0; i < 10; i++) {
-      flushScheduler();
-      await waitForNextEvaluation();
+      createIsland({ root: container, component: Component });
+      // createIsland() flushes synchronously during mount.
+      cleanup();
     }
-
-    cleanup();
   });
 
-  bench('rollback on error', async () => {
-    const { container, cleanup } = createTestContainer();
+  bench('rollback on error', () => {
+    for (let r = 0; r < 10; r++) {
+      const { container, cleanup } = createTestContainer();
 
-    const Breaking = () => {
-      // Throw during render to force atomic rollback
-      throw new Error('render failure');
-    };
+      const Breaking = () => {
+        // Throw during render to force atomic rollback
+        throw new Error('render failure');
+      };
 
-    createIsland({ root: container, component: Breaking });
-
-    // Repeat to amortize scheduler overhead
-    for (let i = 0; i < 10; i++) {
       try {
-        flushScheduler();
-        await waitForNextEvaluation();
+        // createIsland() flushes synchronously; expected to throw.
+        createIsland({ root: container, component: Breaking });
       } catch {
-        // expected: swallow to allow benchmark to complete
+        // expected
+      }
+
+      // Best-effort drain in case anything remained queued.
+      for (let i = 0; i < 3; i++) {
+        try {
+          flushScheduler();
+        } catch {
+          // expected
+        }
+      }
+
+      // Ensure cleanup can't invalidate the benchmark sample.
+      try {
+        cleanup();
+      } catch {
+        // ignore
       }
     }
-
-    cleanup();
   });
 
-  bench('partial failure rollback', async () => {
-    const { container, cleanup } = createTestContainer();
+  bench('partial failure rollback', () => {
+    for (let r = 0; r < 10; r++) {
+      const { container, cleanup } = createTestContainer();
 
-    const Good = () => ({ type: 'div', children: ['ok'] });
-    const Bad = () => {
-      // Only this child throws during render
-      throw new Error('child failure');
-    };
+      const Good = () => ({ type: 'div', children: ['ok'] });
+      const Bad = () => {
+        // Only this child throws during render
+        throw new Error('child failure');
+      };
 
-    const Parent = () => ({
-      type: 'div',
-      // Call child render functions directly so TypeScript infers VNode shapes correctly.
-      children: [Good(), Bad(), Good()],
-    });
+      const Parent = () => ({
+        type: 'div',
+        // Call child render functions directly so TypeScript infers VNode shapes correctly.
+        children: [Good(), Bad(), Good()],
+      });
 
-    createIsland({ root: container, component: Parent });
-
-    // Repeat to amortize scheduler overhead
-    for (let i = 0; i < 10; i++) {
       try {
-        flushScheduler();
-        await waitForNextEvaluation();
+        // createIsland() flushes synchronously; expected to throw.
+        createIsland({ root: container, component: Parent });
       } catch {
-        // expected: swallow to allow benchmark to complete
+        // expected
+      }
+
+      // Best-effort drain in case anything remained queued.
+      for (let i = 0; i < 3; i++) {
+        try {
+          flushScheduler();
+        } catch {
+          // expected
+        }
+      }
+
+      // Ensure cleanup can't invalidate the benchmark sample.
+      try {
+        cleanup();
+      } catch {
+        // ignore
       }
     }
-
-    cleanup();
   });
 });

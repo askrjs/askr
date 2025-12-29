@@ -9,12 +9,11 @@
  */
 
 import { bench, describe, beforeAll, afterAll } from 'vitest';
-import { createIsland, state } from '../../src/index';
-import type { State } from '../../src/index';
+import { createIsland, state } from '../../src';
+import type { State } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 describe('positional list reorder (large, transactional)', () => {
@@ -29,7 +28,7 @@ describe('positional list reorder (large, transactional)', () => {
     let cleanup: () => void;
     let items!: State<Array<string>>;
 
-    beforeAll(async () => {
+    beforeAll(() => {
       const ctx = createTestContainer();
       container = ctx.container;
       cleanup = ctx.cleanup;
@@ -46,18 +45,12 @@ describe('positional list reorder (large, transactional)', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
     });
 
-    bench(
-      'framework::positional-reorder::10k::batched-state-mutations',
-      async () => {
-        for (let i = 0; i < POS10K_ITERS; i++)
-          items.set([...items()].reverse());
-        flushScheduler();
-        await waitForNextEvaluation();
-      }
-    );
+    bench('framework::positional-reorder::10k::batched-state-mutations', () => {
+      for (let i = 0; i < POS10K_ITERS; i++) items.set([...items()].reverse());
+      flushScheduler();
+    });
 
     afterAll(() => cleanup());
   });

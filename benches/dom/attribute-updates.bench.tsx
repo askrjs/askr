@@ -8,12 +8,11 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland, state } from '../../src/index';
-import type { State } from '../../src/index';
+import { createIsland, state } from '../../src';
+import type { State } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 import { warmUp } from '../helpers/metrics';
 
@@ -35,7 +34,6 @@ describe('attribute updates', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       // Warm-up to stabilize JIT and shapes (even iterations preserve state)
       await warmUp(() => isActive!.set(!isActive!()), 10);
@@ -45,7 +43,6 @@ describe('attribute updates', () => {
         isActive!.set(!isActive!());
       }
       flushScheduler();
-      await waitForNextEvaluation();
 
       cleanup();
     }
@@ -75,7 +72,6 @@ describe('attribute updates', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       // Warm-up
       await warmUp(() => count!.set(count!() + 1), 10);
@@ -85,7 +81,6 @@ describe('attribute updates', () => {
         count!.set(i);
       }
       flushScheduler();
-      await waitForNextEvaluation();
 
       cleanup();
     }
@@ -113,7 +108,6 @@ describe('attribute updates', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       // Warm-up
       await warmUp(() => hasAttribute!.set(!hasAttribute!()), 10);
@@ -123,7 +117,6 @@ describe('attribute updates', () => {
         hasAttribute!.set(!hasAttribute!());
       }
       flushScheduler();
-      await waitForNextEvaluation();
 
       cleanup();
     }

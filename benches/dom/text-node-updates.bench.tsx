@@ -6,13 +6,13 @@
  */
 
 import { bench, describe } from 'vitest';
-import { createIsland, State, state } from '../../src/index';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
   trackDOMMutations,
 } from '../../tests/helpers/test-renderer';
+import { createIsland, state } from '../../src';
+import type { State } from '../../src';
 
 describe('text node updates', () => {
   bench(
@@ -30,14 +30,12 @@ describe('text node updates', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       // Perform text updates
       for (let i = 0; i < 100; i++) {
         count!.set(i);
       }
       flushScheduler();
-      await waitForNextEvaluation();
 
       cleanup();
     }
@@ -64,14 +62,12 @@ describe('text node updates', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       // Perform bulk text updates
       for (let i = 0; i < 100; i++) {
         items!.set(items!().map((x) => x + 1));
       }
       flushScheduler();
-      await waitForNextEvaluation();
 
       cleanup();
     }
@@ -92,14 +88,12 @@ describe('text node updates', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       // Perform text content changes
       for (let i = 0; i < 100; i++) {
         text!.set(text!() === 'Hello' ? 'World' : 'Hello');
       }
       flushScheduler();
-      await waitForNextEvaluation();
 
       cleanup();
     }
@@ -127,7 +121,6 @@ describe('text node updates', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       const _mutations = trackDOMMutations(container, () => {
         for (let i = 0; i < 100; i++) {
@@ -135,8 +128,6 @@ describe('text node updates', () => {
         }
         flushScheduler();
       });
-
-      await waitForNextEvaluation();
 
       // Instrumentation disabled: mutation counts are no longer emitted to stdout.
 
@@ -168,13 +159,11 @@ describe('text node updates', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      await waitForNextEvaluation();
 
       for (let i = 0; i < 100; i++) {
         items!.set(items!().map((x) => x + 1));
       }
       flushScheduler();
-      await waitForNextEvaluation();
 
       cleanup();
     }

@@ -1,7 +1,10 @@
-import { createIslands } from '../../src/index';
+import {
+  createIsland as mountIsland,
+  type IslandConfig,
+} from '../../src/index';
 
-export type Island = Parameters<typeof createIslands>[0]['islands'][number];
+export type Island = IslandConfig;
 
 export function createIsland(island: Island) {
-  return createIslands({ islands: [island] });
+  return mountIsland(island);
 }

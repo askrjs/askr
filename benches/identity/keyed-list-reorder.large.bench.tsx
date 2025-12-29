@@ -8,12 +8,11 @@
  */
 
 import { bench, describe, beforeAll, afterAll } from 'vitest';
-import { createIsland, state } from '../../src/index';
-import type { State } from '../../src/index';
+import { createIsland, state } from '../../src';
+import type { State } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
-  waitForNextEvaluation,
 } from '../../tests/helpers/test-renderer';
 
 describe('keyed list reorder (large)', () => {
@@ -31,7 +30,7 @@ describe('keyed list reorder (large)', () => {
       let cleanup: () => void;
       let items!: State<Array<{ id: number; text: string }>>;
 
-      beforeAll(async () => {
+      beforeAll(() => {
         const ctx = createTestContainer();
         container = ctx.container;
         cleanup = ctx.cleanup;
@@ -56,17 +55,12 @@ describe('keyed list reorder (large)', () => {
 
         createIsland({ root: container, component: Component });
         flushScheduler();
-        await waitForNextEvaluation();
       });
 
-      bench(
-        'framework::keyed-reorder::10k::batched-state-mutations',
-        async () => {
-          for (let i = 0; i < ITER_10K; i++) items.set([...items()].reverse());
-          flushScheduler();
-          await waitForNextEvaluation();
-        }
-      );
+      bench('framework::keyed-reorder::10k::batched-state-mutations', () => {
+        for (let i = 0; i < ITER_10K; i++) items.set([...items()].reverse());
+        flushScheduler();
+      });
 
       afterAll(() => cleanup());
     });
