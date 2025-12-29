@@ -11,7 +11,7 @@ export class StringSink implements RenderSink {
   // Reduce array churn by batching many small writes into a larger buffer.
   // This is especially important for large SSR trees where we may write
   // hundreds of thousands of small fragments.
-  private static readonly FLUSH_THRESHOLD = 8 * 1024;
+  private static readonly FLUSH_THRESHOLD = 32 * 1024;
 
   write(html: string) {
     if (!html) return;
@@ -19,7 +19,7 @@ export class StringSink implements RenderSink {
     this.bufferLen += html.length;
     if (this.bufferLen >= StringSink.FLUSH_THRESHOLD) {
       this.chunks.push(this.bufferChunks.join(''));
-      this.bufferChunks = [];
+      this.bufferChunks.length = 0;
       this.bufferLen = 0;
     }
   }
@@ -27,7 +27,7 @@ export class StringSink implements RenderSink {
   end() {
     if (this.bufferLen) {
       this.chunks.push(this.bufferChunks.join(''));
-      this.bufferChunks = [];
+      this.bufferChunks.length = 0;
       this.bufferLen = 0;
     }
   }
@@ -36,7 +36,7 @@ export class StringSink implements RenderSink {
     // Ensure any buffered content is included even if end() wasn't called.
     if (this.bufferLen) {
       this.chunks.push(this.bufferChunks.join(''));
-      this.bufferChunks = [];
+      this.bufferChunks.length = 0;
       this.bufferLen = 0;
     }
     return this.chunks.join('');

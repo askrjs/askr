@@ -483,12 +483,15 @@ function commitReconciliation(parent: Element, finalNodes: Node[]): void {
 
   // Cleanup existing nodes
   try {
-    const existing = Array.from(parent.childNodes);
-    for (const n of existing) {
+    // HOT PATH: avoid Array.from(parent.childNodes) allocation
+    for (let n = parent.firstChild; n; ) {
+      const next = n.nextSibling;
       if (n instanceof Element) removeAllListeners(n);
       cleanupInstanceIfPresent(n);
+      n = next;
     }
   } catch {
+    // SLOW PATH: cleanup failure (dev-only diagnostics live elsewhere)
     // Ignore
   }
 

@@ -294,8 +294,25 @@ function renderNodeSyncToSink(
   }
 
   const attrs = props ? renderAttrs(props) : '';
+  const children = (node as VNode).children;
+
+  // Hot path: many elements are just a single primitive text child.
+  // Collapsing into a single write reduces sink buffering overhead.
+  if (Array.isArray(children) && children.length === 1) {
+    const only = children[0];
+    if (typeof only === 'string') {
+      sink.write(`<${typeStr}${attrs}>${escapeText(only)}</${typeStr}>`);
+      return;
+    }
+    if (typeof only === 'number') {
+      const escaped = escapeText(String(only));
+      sink.write(`<${typeStr}${attrs}>${escaped}</${typeStr}>`);
+      return;
+    }
+  }
+
   sink.write(`<${typeStr}${attrs}>`);
-  renderChildrenSyncToSink((node as VNode).children, sink, ctx);
+  renderChildrenSyncToSink(children, sink, ctx);
   sink.write(`</${typeStr}>`);
 }
 

@@ -634,6 +634,9 @@ export function performBulkPositionalKeyedTextUpdate(
   let reused = 0;
   let updatedKeys = 0;
   const t0 = now();
+  const debugFastPath =
+    process.env.ASKR_FASTPATH_DEBUG === '1' ||
+    process.env.ASKR_FASTPATH_DEBUG === 'true';
 
   for (let i = 0; i < total; i++) {
     const { key, vnode } = keyedVnodes[i];
@@ -646,30 +649,36 @@ export function performBulkPositionalKeyedTextUpdate(
     ) {
       const vnodeType = (vnode as DOMElement).type as string;
 
-      if (ch.tagName.toLowerCase() === vnodeType.toLowerCase()) {
+      if (tagsEqualIgnoreCase(ch.tagName, vnodeType)) {
         const children =
           (vnode as DOMElement).children ||
           (vnode as DOMElement).props?.children;
 
-        logFastPathDebug('positional idx', i, {
-          chTag: ch.tagName.toLowerCase(),
-          vnodeType,
-          chChildNodes: ch.childNodes.length,
-          childrenType: Array.isArray(children) ? 'array' : typeof children,
-        });
+        if (debugFastPath) {
+          logFastPathDebug('positional idx', i, {
+            chTag: ch.tagName,
+            vnodeType,
+            chChildNodes: ch.childNodes.length,
+            childrenType: Array.isArray(children) ? 'array' : typeof children,
+          });
+        }
 
-        updateTextContent(ch, children);
+        updateTextContent(ch, children, vnode as DOMElement);
         setDataKey(ch, key, () => updatedKeys++);
         reused++;
         continue;
       } else {
-        logFastPathDebug('positional tag mismatch', i, {
-          chTag: ch.tagName.toLowerCase(),
-          vnodeType,
-        });
+        if (debugFastPath) {
+          logFastPathDebug('positional tag mismatch', i, {
+            chTag: ch.tagName,
+            vnodeType,
+          });
+        }
       }
     } else {
-      logFastPathDebug('positional missing or invalid', i, { ch: !!ch });
+      if (debugFastPath) {
+        logFastPathDebug('positional missing or invalid', i, { ch: !!ch });
+      }
     }
 
     // Fallback: replace the node at position i
@@ -686,7 +695,7 @@ export function performBulkPositionalKeyedTextUpdate(
 }
 
 /** Update text content of element from children prop */
-function updateTextContent(el: Element, children: unknown): void {
+function updateTextContent(el: Element, children: unknown, vnode: DOMElement): void {
   if (typeof children === 'string' || typeof children === 'number') {
     setTextNodeData(el, String(children));
   } else if (
@@ -696,8 +705,61 @@ function updateTextContent(el: Element, children: unknown): void {
   ) {
     setTextNodeData(el, String(children[0]));
   } else {
-    updateElementFromVnode(el, el as unknown as VNode);
+    // For more complex child shapes, try a small specialized text update before
+    // falling back to a real vnode-driven update.
+    if (!tryUpdateTwoChildTextPattern(el, vnode)) {
+      updateElementFromVnode(el, vnode);
+    }
   }
+}
+
+// Common keyed-list pattern in benches:
+// <div> [ <span>text</span>, <p>text</p> ]
+// Update text nodes in place without running a full vnode diff.
+function tryUpdateTwoChildTextPattern(parentEl: Element, vnode: DOMElement): boolean {
+  const vnodeChildren = vnode.children || vnode.props?.children;
+  if (!Array.isArray(vnodeChildren) || vnodeChildren.length !== 2) return false;
+
+  const c0 = vnodeChildren[0];
+  const c1 = vnodeChildren[1];
+  if (!_isDOMElement(c0) || !_isDOMElement(c1)) return false;
+  if (typeof c0.type !== 'string' || typeof c1.type !== 'string') return false;
+
+  const el0 = parentEl.children[0] as Element | undefined;
+  const el1 = parentEl.children[1] as Element | undefined;
+  if (!el0 || !el1) return false;
+
+  if (!tagsEqualIgnoreCase(el0.tagName, c0.type)) return false;
+  if (!tagsEqualIgnoreCase(el1.tagName, c1.type)) return false;
+
+  const t0 = (c0.children || c0.props?.children) as unknown;
+  const t1 = (c1.children || c1.props?.children) as unknown;
+
+  if (typeof t0 === 'string' || typeof t0 === 'number') {
+    setTextNodeData(el0, String(t0));
+  } else if (
+    Array.isArray(t0) &&
+    t0.length === 1 &&
+    (typeof t0[0] === 'string' || typeof t0[0] === 'number')
+  ) {
+    setTextNodeData(el0, String(t0[0]));
+  } else {
+    return false;
+  }
+
+  if (typeof t1 === 'string' || typeof t1 === 'number') {
+    setTextNodeData(el1, String(t1));
+  } else if (
+    Array.isArray(t1) &&
+    t1.length === 1 &&
+    (typeof t1[0] === 'string' || typeof t1[0] === 'number')
+  ) {
+    setTextNodeData(el1, String(t1[0]));
+  } else {
+    return false;
+  }
+
+  return true;
 }
 
 /** Set text node data or textContent */
@@ -716,11 +778,46 @@ function setDataKey(
   onSet: () => void
 ): void {
   try {
-    el.setAttribute('data-key', String(key));
+    const next = String(key);
+    if (el.getAttribute('data-key') === next) return;
+    el.setAttribute('data-key', next);
     onSet();
   } catch {
     // Ignore errors setting data-key
   }
+}
+
+function upperTagName(tag: string): string {
+  // Fast common tags (avoid per-iteration toUpperCase allocations).
+  switch (tag) {
+    case 'div':
+      return 'DIV';
+    case 'span':
+      return 'SPAN';
+    case 'p':
+      return 'P';
+    case 'a':
+      return 'A';
+    case 'button':
+      return 'BUTTON';
+    case 'input':
+      return 'INPUT';
+    case 'ul':
+      return 'UL';
+    case 'ol':
+      return 'OL';
+    case 'li':
+      return 'LI';
+    default:
+      return tag.toUpperCase();
+  }
+}
+
+function tagsEqualIgnoreCase(elementTagName: string, vnodeType: string): boolean {
+  const upper = upperTagName(vnodeType);
+  if (elementTagName === upper) return true;
+  // Fallback for non-HTML elements (e.g. SVG) where tagName casing can differ.
+  return elementTagName.toLowerCase() === vnodeType.toLowerCase();
 }
 
 /** Replace node at position with new vnode */
@@ -747,7 +844,9 @@ function updateKeyedElementsMap(
   keyedVnodes: Array<{ key: string | number; vnode: VNode }>
 ): void {
   try {
-    const newKeyMap = new Map<string | number, Element>();
+    // HOT PATH: reuse the existing map to avoid per-update allocations.
+    const existing = keyedElements.get(parent);
+    const newKeyMap = existing ? (existing.clear(), existing) : new Map<string | number, Element>();
     for (let i = 0; i < keyedVnodes.length; i++) {
       const k = keyedVnodes[i].key;
       const ch = parent.children[i] as Element | undefined;
@@ -773,7 +872,6 @@ export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
   }
 
   const tBuild = now() - t0;
-  cleanupRemovedNodes(parent, finalNodes);
   const tCommit = commitBulkReplace(parent, finalNodes);
 
   // Clear keyed map for unkeyed path
@@ -853,20 +951,6 @@ function processElementVnode(
 }
 
 /** Clean up nodes that will be removed */
-function cleanupRemovedNodes(parent: Element, keepNodes: Node[]): void {
-  try {
-    const toRemove = Array.from(parent.childNodes).filter(
-      (n) => !keepNodes.includes(n)
-    );
-    for (const n of toRemove) {
-      if (n instanceof Element) removeAllListeners(n);
-      cleanupInstanceIfPresent(n);
-    }
-  } catch {
-    // Ignore cleanup errors
-  }
-}
-
 /** Commit bulk replace with fragment */
 function commitBulkReplace(parent: Element, nodes: Node[]): number {
   const fragStart = Date.now();
@@ -874,6 +958,21 @@ function commitBulkReplace(parent: Element, nodes: Node[]): number {
   for (let i = 0; i < nodes.length; i++) {
     fragment.appendChild(nodes[i]);
   }
+
+  // Cleanup nodes that will be removed.
+  // At this point, any reused nodes have been moved into the fragment, so
+  // whatever remains under `parent` will be removed by replaceChildren.
+  try {
+    for (let n = parent.firstChild; n; ) {
+      const next = n.nextSibling;
+      if (n instanceof Element) removeAllListeners(n);
+      cleanupInstanceIfPresent(n);
+      n = next;
+    }
+  } catch {
+    // SLOW PATH: cleanup failure
+  }
+
   recordDOMReplace('bulk-text-replace');
   parent.replaceChildren(fragment);
   return Date.now() - fragStart;

@@ -15,6 +15,7 @@ import {
 } from './dom';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { Fragment } from '../common/jsx';
+import { extractKey } from './utils';
 
 /**
  * Internal marker for component-owned DOM ranges
@@ -120,9 +121,10 @@ function getOrBuildKeyMap(
  * Check if children array contains keyed elements
  */
 function hasKeyedChildren(children: unknown[]): boolean {
-  return children.some(
-    (child) => typeof child === 'object' && child !== null && 'key' in child
-  );
+  for (let i = 0; i < children.length; i++) {
+    if (extractKey(children[i]) !== undefined) return true;
+  }
+  return false;
 }
 
 /**

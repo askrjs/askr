@@ -27,6 +27,56 @@ export const VOID_ELEMENTS = new Set([
 const escapeCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 256;
 
+const TEXT_ESCAPE_TEST_RE = /[&<>]/;
+const TEXT_ESCAPE_RE = /[&<>]/g;
+const ATTR_ESCAPE_TEST_RE = /[&"'<>]/;
+const ATTR_ESCAPE_RE = /[&"'<>]/g;
+
+const CSS_UNSAFE_TEST_RE = /[{}<>\\]/;
+const CSS_UNSAFE_RE = /[{}<>\\]/g;
+const CSS_DANGEROUS_FN_RE = /(?:url|expression|javascript)\s*\(/i;
+
+const STYLE_PROP_CACHE = new Map<string, string>();
+const MAX_STYLE_PROP_CACHE_SIZE = 512;
+
+function toKebabCached(prop: string): string {
+  const cached = STYLE_PROP_CACHE.get(prop);
+  if (cached !== undefined) return cached;
+  const kebab = prop.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+  if (STYLE_PROP_CACHE.size < MAX_STYLE_PROP_CACHE_SIZE) {
+    STYLE_PROP_CACHE.set(prop, kebab);
+  }
+  return kebab;
+}
+
+function mapTextEscape(ch: string): string {
+  // '&' '<' '>'
+  switch (ch) {
+    case '&':
+      return '&amp;';
+    case '<':
+      return '&lt;';
+    default:
+      return '&gt;';
+  }
+}
+
+function mapAttrEscape(ch: string): string {
+  // '&' '"' "'" '<' '>'
+  switch (ch) {
+    case '&':
+      return '&amp;';
+    case '"':
+      return '&quot;';
+    case "'":
+      return '&#x27;';
+    case '<':
+      return '&lt;';
+    default:
+      return '&gt;';
+  }
+}
+
 /**
  * Clear the escape cache. Call between SSR requests in long-running servers
  * to prevent memory buildup from unique strings.
@@ -47,36 +97,17 @@ export function escapeText(text: string): string {
     if (cached !== undefined) return cached;
   }
 
-  const str = text;
-  // Fast path: single-pass scan for escaping need
-  let needsEscape = false;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    // '&' '<' '>'
-    if (c === 38 || c === 60 || c === 62) {
-      needsEscape = true;
-      break;
+  const str = String(text);
+  // Fast path: check if escaping needed
+  if (!TEXT_ESCAPE_TEST_RE.test(str)) {
+    if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
+      escapeCache.set(text, str);
     }
-  }
-
-  if (!needsEscape) {
-    if (useCache && escapeCache.size < MAX_CACHE_SIZE) escapeCache.set(text, str);
     return str;
   }
 
-  // Escape in a single pass
-  let out = '';
-  let last = 0;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    if (c !== 38 && c !== 60 && c !== 62) continue;
-    if (i > last) out += str.slice(last, i);
-    out += c === 38 ? '&amp;' : c === 60 ? '&lt;' : '&gt;';
-    last = i + 1;
-  }
-  if (last < str.length) out += str.slice(last);
-
-  const result = out;
+  // Single-pass escape for strings that need escaping
+  const result = str.replace(TEXT_ESCAPE_RE, mapTextEscape);
 
   if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
     escapeCache.set(text, result);
@@ -88,40 +119,14 @@ export function escapeText(text: string): string {
  * Escape HTML special characters in attribute values
  */
 export function escapeAttr(value: string): string {
-  const str = value;
-  // Fast path: single-pass scan for escaping need
-  let needsEscape = false;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    // '&' '"' '\'' '<' '>'
-    if (c === 38 || c === 34 || c === 39 || c === 60 || c === 62) {
-      needsEscape = true;
-      break;
-    }
+  const str = String(value);
+  // Fast path: check if escaping needed
+  if (!ATTR_ESCAPE_TEST_RE.test(str)) {
+    return str;
   }
-  if (!needsEscape) return str;
 
-  // Escape in a single pass
-  let out = '';
-  let last = 0;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    if (c !== 38 && c !== 34 && c !== 39 && c !== 60 && c !== 62) continue;
-    if (i > last) out += str.slice(last, i);
-    out +=
-      c === 38
-        ? '&amp;'
-        : c === 34
-          ? '&quot;'
-          : c === 39
-            ? '&#x27;'
-            : c === 60
-              ? '&lt;'
-              : '&gt;';
-    last = i + 1;
-  }
-  if (last < str.length) out += str.slice(last);
-  return out;
+  // Single-pass escape for strings that need escaping
+  return str.replace(ATTR_ESCAPE_RE, mapAttrEscape);
 }
 
 /**
@@ -137,13 +142,20 @@ function escapeCssValue(value: string): string {
   // - url() and expression() are common attack vectors
   const str = String(value);
 
-  // Block dangerous CSS functions
-  if (/(?:url|expression|javascript)\s*\(/i.test(str)) {
+  const hasUnsafeChars = CSS_UNSAFE_TEST_RE.test(str);
+  const openParen = str.indexOf('(');
+
+  // Fast path: most CSS values are simple (`10px`, `transparent`, etc.)
+  // and should not pay regex costs.
+  if (!hasUnsafeChars && openParen === -1) return str;
+
+  // Block dangerous CSS functions only if the string can actually contain them.
+  if (openParen !== -1 && CSS_DANGEROUS_FN_RE.test(str)) {
     return '';
   }
 
   // Remove characters that could break out of CSS value context
-  return str.replace(/[{}<>\\]/g, '');
+  return hasUnsafeChars ? str.replace(CSS_UNSAFE_RE, '') : str;
 }
 
 /**
@@ -157,7 +169,7 @@ export function styleObjToCss(value: unknown): string | null {
   let out = '';
   for (const [k, v] of entries) {
     if (v === null || v === undefined || v === false) continue;
-    const prop = k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+    const prop = toKebabCached(k);
     const safeValue = escapeCssValue(String(v));
     if (safeValue) {
       out += `${prop}:${safeValue};`;
