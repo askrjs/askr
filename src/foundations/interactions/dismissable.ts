@@ -15,26 +15,27 @@ export interface DismissableOptions {
   disabled?: boolean;
 }
 
+import type {
+  KeyboardLikeEvent,
+  PointerLikeEvent,
+} from '../utilities/eventTypes';
+
 export function dismissable({ onDismiss, disabled }: DismissableOptions) {
   return {
     // Prop for the component root to handle Escape
     onKeyDown: disabled
       ? undefined
-      : (e: KeyboardEvent) => {
-          if ((e as any).key === 'Escape') {
+      : (e: KeyboardLikeEvent) => {
+          if (e.key === 'Escape') {
             onDismiss?.();
           }
         },
 
-    // Factory: runtime should call `outsideListener(isInside)` to get a
-    // document-level pointerdown handler. `isInside` receives the event target
-    // and should return true if the target is inside the component.
-    outsideListener: (isInside: (target: any) => boolean) => {
-      return disabled
-        ? (() => {})
-        : (e: { target: any }) => {
-            if (!isInside(e.target)) onDismiss?.();
-          };
-    },
+    // Factory: runtime should attach this listener at the appropriate scope.
+    outsideListener: disabled
+      ? undefined
+      : (isInside: (target: unknown) => boolean) => (e: PointerLikeEvent) => {
+          if (!isInside(e.target)) onDismiss?.();
+        },
   };
 }

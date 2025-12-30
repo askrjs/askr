@@ -10,7 +10,7 @@ describe('mergeProps (FOUNDATIONS)', () => {
       { onClick: () => calls.push('injected') }
     );
 
-    merged.onClick({ defaultPrevented: false } as any);
+    merged.onClick({ defaultPrevented: false });
     expect(calls).toEqual(['injected', 'base']);
   });
 });

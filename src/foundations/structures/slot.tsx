@@ -1,4 +1,3 @@
-import { logger } from '../../dev/logger';
 import { Fragment, cloneElement, isElement, ELEMENT_TYPE } from '../../jsx';
 import type { JSXElement } from '../../jsx';
 
@@ -20,9 +19,6 @@ export function Slot(props: SlotProps): JSXElement | null {
     if (isElement(children)) {
       return cloneElement(children, rest);
     }
-
-    logger.warn('<Slot asChild> expects a single JSX element child.');
-
     return null;
   }
 

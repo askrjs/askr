@@ -13,9 +13,15 @@ export function isControlled<T>(value: T | undefined): value is T {
   return value !== undefined;
 }
 
-export function resolveControllable<T>(value: T | undefined, defaultValue: T): { value: T; isControlled: boolean } {
+export function resolveControllable<T>(
+  value: T | undefined,
+  defaultValue: T
+): { value: T; isControlled: boolean } {
   const controlled = isControlled(value);
-  return { value: controlled ? (value as T) : defaultValue, isControlled: controlled };
+  return {
+    value: controlled ? (value as T) : defaultValue,
+    isControlled: controlled,
+  };
 }
 
 export function makeControllable<T>(options: {

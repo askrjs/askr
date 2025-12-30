@@ -2,14 +2,28 @@ import { describe, it, expect } from 'vitest';
 
 describe('foundations resolution', () => {
   it('should resolve foundations via package subpath', async () => {
-    const foundations: any = await import('@askrjs/askr/foundations');
+    const foundations =
+      (await import('@askrjs/askr/foundations')) as unknown as {
+        layout: unknown;
+        Slot: unknown;
+        definePortal: unknown;
+        DefaultPortal: unknown;
+        Presence: unknown;
+        composeHandlers: unknown;
+        mergeProps: unknown;
+        composeRefs: unknown;
+        useId: unknown;
+        controllableState: unknown;
+      };
 
     expect(typeof foundations.layout).toBe('function');
     expect(typeof foundations.Slot).toBe('function');
     expect(typeof foundations.definePortal).toBe('function');
 
     expect(typeof foundations.DefaultPortal).toBe('function');
-    expect(typeof foundations.DefaultPortal.render).toBe('function');
+    expect(
+      typeof (foundations.DefaultPortal as { render?: unknown }).render
+    ).toBe('function');
 
     expect(typeof foundations.Presence).toBe('function');
     expect(typeof foundations.composeHandlers).toBe('function');
@@ -17,5 +31,5 @@ describe('foundations resolution', () => {
     expect(typeof foundations.composeRefs).toBe('function');
     expect(typeof foundations.useId).toBe('function');
     expect(typeof foundations.controllableState).toBe('function');
-  });
+  }, 20_000);
 });

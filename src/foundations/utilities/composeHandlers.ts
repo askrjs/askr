@@ -15,36 +15,33 @@ export interface ComposeHandlersOptions {
   checkDefaultPrevented?: boolean;
 }
 
-export function composeHandlers<A extends any[], R = void>(
-  a?: (...args: A) => R,
-  b?: (...args: A) => R,
+function isDefaultPrevented(
+  value: unknown
+): value is { defaultPrevented: true } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'defaultPrevented' in value &&
+    (value as { defaultPrevented?: boolean }).defaultPrevented === true
+  );
+}
+
+export function composeHandlers<A extends readonly unknown[]>(
+  first?: (...args: A) => void,
+  second?: (...args: A) => void,
   options?: ComposeHandlersOptions
-) {
+): (...args: A) => void {
   const checkDefaultPrevented = options?.checkDefaultPrevented !== false;
 
   return function composed(...args: A) {
-    try {
-      if (typeof a === 'function') a(...args);
-    } catch (err) {
-      // Swallow errors to avoid breaking injected consumers. Re-throw in dev?
-      if (process.env.NODE_ENV !== 'production') throw err;
-    }
+    if (typeof first === 'function') first(...args);
 
     if (checkDefaultPrevented) {
-      const event = (args[0] as unknown) as Event;
-      if (
-        event &&
-        'defaultPrevented' in event &&
-        (event as any).defaultPrevented
-      ) {
+      if (isDefaultPrevented(args[0])) {
         return;
       }
     }
 
-    try {
-      if (typeof b === 'function') b(...args);
-    } catch (err) {
-      if (process.env.NODE_ENV !== 'production') throw err;
-    }
+    if (typeof second === 'function') second(...args);
   } as (...args: A) => void;
 }

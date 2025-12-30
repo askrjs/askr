@@ -1,28 +1,45 @@
 /**
  * mergeProps
  *
- * Deterministic props merging. Human-provided props (base) take precedence,
- * but event handlers are composed so that injected hooks run first and humans
- * can override behaviour by preventing default in their handler.
+ * Deterministic props merging.
+ * - For non-handlers: `base` overwrites `injected`.
+ * - For handlers present in both: handlers are composed with `injected` running
+ *   first; it may call `preventDefault()` to suppress the `base` handler.
  */
 import { composeHandlers } from './composeHandlers';
 
-export function mergeProps<T extends Record<string, any>, U extends Record<string, any>>(base: T, injected: U): T & U {
-  const out: Record<string, any> = { ...(injected as any) };
+type Fn = (...args: readonly unknown[]) => void;
 
-  for (const k of Object.keys(base)) {
-    const bv = (base as any)[k];
-    const iv = (injected as any)[k];
+function isEventHandlerKey(key: string): boolean {
+  return key.startsWith('on');
+}
 
-    if (typeof bv === 'function' && typeof iv === 'function' && k.startsWith('on')) {
-      // Compose: injected first, then base (human) so humans can short-circuit
-      out[k] = composeHandlers(iv, bv);
+export function mergeProps<TBase extends object, TInjected extends object>(
+  base: TBase,
+  injected: TInjected
+): TInjected & TBase {
+  const out = { ...(injected as object) } as TInjected & TBase;
+
+  for (const key of Object.keys(base) as Array<Extract<keyof TBase, string>>) {
+    const baseValue = (base as Record<string, unknown>)[key];
+    const injectedValue = (injected as Record<string, unknown>)[key];
+
+    if (
+      isEventHandlerKey(key) &&
+      typeof baseValue === 'function' &&
+      typeof injectedValue === 'function'
+    ) {
+      // Invariant: injected runs first; it may call preventDefault() to
+      // suppress base behaviour.
+      (out as Record<string, unknown>)[key] = composeHandlers(
+        injectedValue as unknown as Fn,
+        baseValue as unknown as Fn
+      );
       continue;
     }
 
-    // Prefer base (human) values in other cases
-    out[k] = bv;
+    (out as Record<string, unknown>)[key] = baseValue;
   }
 
-  return out as T & U;
+  return out;
 }

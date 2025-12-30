@@ -15,7 +15,10 @@ export interface FocusableResult {
   'aria-disabled'?: 'true';
 }
 
-export function focusable({ disabled, tabIndex }: FocusableOptions): FocusableResult {
+export function focusable({
+  disabled,
+  tabIndex,
+}: FocusableOptions): FocusableResult {
   return {
     tabIndex: disabled ? -1 : tabIndex === undefined ? 0 : tabIndex,
     ...(disabled ? { 'aria-disabled': 'true' } : {}),

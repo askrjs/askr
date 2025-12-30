@@ -15,21 +15,29 @@
 
 export interface PressableOptions {
   disabled?: boolean;
-  onPress?: (e: Event) => void;
+  onPress?: (e: PressEvent) => void;
   /**
    * Whether the host is a native button. Defaults to false.
    */
   isNativeButton?: boolean;
 }
 
+import type {
+  DefaultPreventable,
+  KeyboardLikeEvent,
+  PropagationStoppable,
+} from '../utilities/eventTypes';
+
+type PressEvent = DefaultPreventable & PropagationStoppable;
+
 export interface PressableResult {
-  onClick: (e: Event) => void;
-  role?: string;
+  onClick: (e: PressEvent) => void;
+  disabled?: true;
+  role?: 'button';
   tabIndex?: number;
-  onKeyDown?: (e: KeyboardEvent) => void;
-  onKeyUp?: (e: KeyboardEvent) => void;
+  onKeyDown?: (e: KeyboardLikeEvent) => void;
+  onKeyUp?: (e: KeyboardLikeEvent) => void;
   'aria-disabled'?: 'true';
-  [key: string]: any;
 }
 
 export function pressable({
@@ -37,49 +45,48 @@ export function pressable({
   onPress,
   isNativeButton = false,
 }: PressableOptions): PressableResult {
-  const props: Record<string, any> = {};
-
-  // Click activation delegates directly to onPress. We do not synthesize events.
-  props.onClick = (e: Event) => {
-    if (disabled) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    onPress?.(e);
+  const props: PressableResult = {
+    onClick: (e) => {
+      if (disabled) {
+        e.preventDefault?.();
+        e.stopPropagation?.();
+        return;
+      }
+      onPress?.(e);
+    },
   };
 
-  if (!isNativeButton) {
-    props.role = 'button';
-    props.tabIndex = disabled ? -1 : 0;
-
-    // Enter: activate on keydown
-    props.onKeyDown = (e: KeyboardEvent) => {
-      if (disabled) return;
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        onPress?.(e);
-      }
-
-      // For Space we prevent default on keydown to avoid page scrolling.
-      if (e.key === ' ') {
-        e.preventDefault();
-      }
-    };
-
-    // Space: activate on keyup (matching native button semantics)
-    props.onKeyUp = (e: KeyboardEvent) => {
-      if (disabled) return;
-      if (e.key === ' ') {
-        e.preventDefault();
-        onPress?.(e);
-      }
-    };
+  if (isNativeButton) {
+    if (disabled) props.disabled = true;
+    return props;
   }
 
-  if (disabled && !isNativeButton) {
-    props['aria-disabled'] = 'true';
-  }
+  props.role = 'button';
+  props.tabIndex = disabled ? -1 : 0;
 
+  props.onKeyDown = (e) => {
+    if (disabled) return;
+
+    if (e.key === 'Enter') {
+      e.preventDefault?.();
+      onPress?.(e);
+      return;
+    }
+
+    if (e.key === ' ') {
+      // Prevent scrolling while Space is held.
+      e.preventDefault?.();
+    }
+  };
+
+  props.onKeyUp = (e) => {
+    if (disabled) return;
+    if (e.key === ' ') {
+      e.preventDefault?.();
+      onPress?.(e);
+    }
+  };
+
+  if (disabled) props['aria-disabled'] = 'true';
   return props;
 }

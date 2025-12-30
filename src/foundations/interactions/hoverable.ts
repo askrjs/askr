@@ -6,25 +6,36 @@
 
 export interface HoverableOptions {
   disabled?: boolean;
-  onEnter?: (e: Event) => void;
-  onLeave?: (e: Event) => void;
+  onEnter?: (e: HoverEvent) => void;
+  onLeave?: (e: HoverEvent) => void;
 }
+
+import type {
+  DefaultPreventable,
+  PropagationStoppable,
+} from '../utilities/eventTypes';
+
+type HoverEvent = DefaultPreventable & PropagationStoppable;
 
 export interface HoverableResult {
-  onPointerEnter?: (e: Event) => void;
-  onPointerLeave?: (e: Event) => void;
+  onPointerEnter?: (e: HoverEvent) => void;
+  onPointerLeave?: (e: HoverEvent) => void;
 }
 
-export function hoverable({ disabled, onEnter, onLeave }: HoverableOptions): HoverableResult {
+export function hoverable({
+  disabled,
+  onEnter,
+  onLeave,
+}: HoverableOptions): HoverableResult {
   return {
     onPointerEnter: disabled
       ? undefined
-      : (e: Event) => {
+      : (e) => {
           onEnter?.(e);
         },
     onPointerLeave: disabled
       ? undefined
-      : (e: Event) => {
+      : (e) => {
           onLeave?.(e);
         },
   };

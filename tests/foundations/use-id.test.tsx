@@ -20,7 +20,7 @@ describe('useId (FOUNDATIONS)', () => {
   it('should be stable across rerenders of same component instance', () => {
     const App = () => {
       const tick = state(0);
-      const id = useId();
+      const id = useId({ id: 'app' });
 
       return {
         type: 'button',
@@ -43,7 +43,8 @@ describe('useId (FOUNDATIONS)', () => {
     button.click();
     flushScheduler();
 
-    const secondId = (container.querySelector('button') as HTMLButtonElement).id;
+    const secondId = (container.querySelector('button') as HTMLButtonElement)
+      .id;
     expect(secondId).toBe(firstId);
   });
 
@@ -51,7 +52,7 @@ describe('useId (FOUNDATIONS)', () => {
     const App = () => {
       return {
         type: 'div',
-        props: { id: useId({ prefix: 'x' }) },
+        props: { id: useId({ prefix: 'x', id: 1 }) },
       };
     };
 

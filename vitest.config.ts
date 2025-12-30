@@ -22,11 +22,17 @@ export default defineConfig({
         __dirname,
         'src/foundations/index.ts'
       ),
-      '@askrjs/askr/resources': path.resolve(__dirname, 'src/resources/index.ts'),
+      '@askrjs/askr/resources': path.resolve(
+        __dirname,
+        'src/resources/index.ts'
+      ),
       '@askrjs/askr/fx': path.resolve(__dirname, 'src/fx/index.ts'),
       '@askrjs/askr/router': path.resolve(__dirname, 'src/router/index.ts'),
       '@askrjs/askr/ssr': path.resolve(__dirname, 'src/ssr/index.ts'),
-      '@askrjs/askr/vite': path.resolve(__dirname, 'src/dev/vite-plugin-askr.ts'),
+      '@askrjs/askr/vite': path.resolve(
+        __dirname,
+        'src/dev/vite-plugin-askr.ts'
+      ),
       '@askrjs/askr/jsx-runtime': path.resolve(
         __dirname,
         'src/jsx/jsx-runtime.ts'

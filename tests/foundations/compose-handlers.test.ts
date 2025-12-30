@@ -3,7 +3,12 @@ import { composeHandlers } from '@askrjs/askr/foundations';
 
 describe('composeHandlers (FOUNDATIONS)', () => {
   it('should not call the second handler when default is prevented', () => {
-    const a = vi.fn((e: any) => e.preventDefault());
+    type TestEvent = {
+      defaultPrevented: boolean;
+      preventDefault(): void;
+    };
+
+    const a = vi.fn((e: TestEvent) => e.preventDefault());
     const b = vi.fn();
 
     const h = composeHandlers(a, b);
@@ -15,13 +20,18 @@ describe('composeHandlers (FOUNDATIONS)', () => {
       },
     };
 
-    h(event as any);
+    h(event);
     expect(a).toHaveBeenCalledTimes(1);
     expect(b).toHaveBeenCalledTimes(0);
   });
 
   it('should call the second handler when checkDefaultPrevented is false', () => {
-    const a = vi.fn((e: any) => e.preventDefault());
+    type TestEvent = {
+      defaultPrevented: boolean;
+      preventDefault(): void;
+    };
+
+    const a = vi.fn((e: TestEvent) => e.preventDefault());
     const b = vi.fn();
 
     const h = composeHandlers(a, b, { checkDefaultPrevented: false });
@@ -33,7 +43,7 @@ describe('composeHandlers (FOUNDATIONS)', () => {
       },
     };
 
-    h(event as any);
+    h(event);
     expect(b).toHaveBeenCalledTimes(1);
   });
 });
