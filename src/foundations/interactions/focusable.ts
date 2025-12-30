@@ -5,6 +5,8 @@
  * - No DOM manipulation here; returns props that the runtime may attach.
  */
 
+import { ariaDisabled } from '../utilities/aria';
+
 export interface FocusableOptions {
   disabled?: boolean;
   tabIndex?: number | undefined;
@@ -21,6 +23,6 @@ export function focusable({
 }: FocusableOptions): FocusableResult {
   return {
     tabIndex: disabled ? -1 : tabIndex === undefined ? 0 : tabIndex,
-    ...(disabled ? { 'aria-disabled': 'true' } : {}),
+    ...ariaDisabled(disabled),
   };
 }

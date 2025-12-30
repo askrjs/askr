@@ -10,7 +10,25 @@
  * - For native buttons: only an `onClick` prop is provided (no ARIA or keyboard shims)
  * - For non-button elements: add `role="button"` and `tabIndex` and keyboard handlers
  * - Activation: `Enter` activates on keydown, `Space` activates on keyup (matches native button)
- * - Disabled: handlers short-circuit and `aria-disabled` is set for non-button hosts
+ * - Disabled: handlers short-circuit and `aria-disabled` is set for all hosts
+ *
+ * POLICY DECISIONS (LOCKED):
+ *
+ * 1. Activation Timing (Platform Parity)
+ *    - Enter fires on keydown (immediate response)
+ *    - Space fires on keyup (allows cancel by moving focus, matches native)
+ *    - Space keydown prevents scroll (matches native button behavior)
+ *
+ * 2. Disabled Enforcement Strategy
+ *    - Native buttons: Use HTML `disabled` attribute (platform-enforced non-interactivity)
+ *                     AND `aria-disabled` (consistent a11y signaling)
+ *    - Non-native: Use `tabIndex=-1` (removes from tab order)
+ *                  AND `aria-disabled` (signals disabled state to AT)
+ *    - Click handler short-circuits as defense-in-depth (prevents leaked focus issues)
+ *
+ * 3. Key Repeat Behavior
+ *    - Held Enter/Space will fire onPress repeatedly (matches native button)
+ *    - No debouncing or repeat prevention (platform parity)
  */
 
 export interface PressableOptions {
@@ -27,6 +45,7 @@ import type {
   KeyboardLikeEvent,
   PropagationStoppable,
 } from '../utilities/eventTypes';
+import { ariaDisabled } from '../utilities/aria';
 
 type PressEvent = DefaultPreventable & PropagationStoppable;
 
@@ -57,7 +76,10 @@ export function pressable({
   };
 
   if (isNativeButton) {
-    if (disabled) props.disabled = true;
+    if (disabled) {
+      props.disabled = true;
+      Object.assign(props, ariaDisabled(disabled));
+    }
     return props;
   }
 
@@ -87,6 +109,6 @@ export function pressable({
     }
   };
 
-  if (disabled) props['aria-disabled'] = 'true';
+  if (disabled) Object.assign(props, ariaDisabled(disabled));
   return props;
 }

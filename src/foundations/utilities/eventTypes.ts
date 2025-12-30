@@ -9,7 +9,7 @@ export interface PropagationStoppable {
 
 export interface KeyboardLikeEvent
   extends DefaultPreventable, PropagationStoppable {
-  key?: string;
+  key: string;
 }
 
 export interface PointerLikeEvent

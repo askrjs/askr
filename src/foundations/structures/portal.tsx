@@ -5,6 +5,19 @@
  * Scheduling and attachment are owned by the runtime when `createPortalSlot`
  * exists; otherwise this falls back to a local slot (deterministic, but does
  * not schedule updates).
+ *
+ * POLICY DECISIONS (LOCKED):
+ *
+ * 1. Local Mutable State
+ *    Foundations may use local mutable state ONLY to model deterministic slots,
+ *    never to coordinate timing, effects, or ordering. The fallback mode uses
+ *    closure-local `mounted` and `value` variables which are non-escaping and
+ *    deterministic.
+ *
+ * 2. Return Type Philosophy
+ *    Portal call signatures return `unknown` (intentionally opaque). The runtime
+ *    owns the concrete type. This prevents foundations from assuming JSX.Element
+ *    or DOM node types, maintaining runtime-agnostic portability.
  */
 
 export interface Portal<T = unknown> {
@@ -35,6 +48,14 @@ export function definePortal<T = unknown>(): Portal<T> {
 
   // Deterministic local fallback (SSR/tests). No runtime scheduling.
   // Writes are accepted only after the host has rendered at least once.
+  //
+  // CRITICAL BEHAVIOR:
+  // - Writes update local state but do NOT trigger re-renders
+  // - The portal host will reflect changes only when the component tree
+  //   re-renders for other reasons (e.g., parent state change)
+  // - This is safe for SSR and tests where rendering is synchronous
+  //   and externally controlled
+  // - In runtime mode, createPortalSlot handles scheduling automatically
   let mounted = false;
   let value: T | undefined;
 
@@ -54,6 +75,15 @@ export function definePortal<T = unknown>(): Portal<T> {
   return PortalHostFallback as Portal<T>;
 }
 
+/**
+ * Default Portal Singleton
+ *
+ * POLICY (LOCKED):
+ * There is exactly one default portal per runtime.
+ * Tests must reset it explicitly using _resetDefaultPortal().
+ * This ensures consistent portal behavior across the application
+ * while maintaining test isolation.
+ */
 let _defaultPortal: Portal<unknown> | undefined;
 
 export function _resetDefaultPortal(): void {
