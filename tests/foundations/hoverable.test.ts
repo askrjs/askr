@@ -7,7 +7,10 @@ describe('hoverable (FOUNDATIONS)', () => {
       const onEnter = vi.fn();
       const props = hoverable({ onEnter });
 
-      props.onPointerEnter?.({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      props.onPointerEnter?.({
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
 
       expect(onEnter).toHaveBeenCalledTimes(1);
     });
@@ -26,7 +29,10 @@ describe('hoverable (FOUNDATIONS)', () => {
       const props = hoverable({});
 
       expect(() => {
-        props.onPointerEnter?.({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        props.onPointerEnter?.({
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        });
       }).not.toThrow();
     });
   });
@@ -36,7 +42,10 @@ describe('hoverable (FOUNDATIONS)', () => {
       const onLeave = vi.fn();
       const props = hoverable({ onLeave });
 
-      props.onPointerLeave?.({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      props.onPointerLeave?.({
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
 
       expect(onLeave).toHaveBeenCalledTimes(1);
     });
@@ -55,7 +64,10 @@ describe('hoverable (FOUNDATIONS)', () => {
       const props = hoverable({});
 
       expect(() => {
-        props.onPointerLeave?.({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        props.onPointerLeave?.({
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        });
       }).not.toThrow();
     });
   });
@@ -66,8 +78,14 @@ describe('hoverable (FOUNDATIONS)', () => {
       const onLeave = vi.fn();
       const props = hoverable({ onEnter, onLeave });
 
-      props.onPointerEnter?.({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
-      props.onPointerLeave?.({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      props.onPointerEnter?.({
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
+      props.onPointerLeave?.({
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
 
       expect(onEnter).toHaveBeenCalledTimes(1);
       expect(onLeave).toHaveBeenCalledTimes(1);
@@ -90,7 +108,11 @@ describe('hoverable (FOUNDATIONS)', () => {
     });
 
     it('should not provide any handlers when disabled', () => {
-      const props = hoverable({ onEnter: vi.fn(), onLeave: vi.fn(), disabled: true });
+      const props = hoverable({
+        onEnter: vi.fn(),
+        onLeave: vi.fn(),
+        disabled: true,
+      });
 
       expect(props.onPointerEnter).toBeUndefined();
       expect(props.onPointerLeave).toBeUndefined();

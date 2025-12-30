@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { ariaDisabled, ariaExpanded, ariaSelected } from '@askrjs/askr/foundations';
+import {
+  ariaDisabled,
+  ariaExpanded,
+  ariaSelected,
+} from '@askrjs/askr/foundations';
 
 describe('aria helpers (FOUNDATIONS)', () => {
   describe('ariaDisabled', () => {

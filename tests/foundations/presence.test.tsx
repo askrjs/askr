@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Presence } from '@askrjs/askr/foundations';
 
-type VNodeShape = { type: unknown; props: Record<string, unknown>; key?: unknown };
+type VNodeShape = {
+  type: unknown;
+  props: Record<string, unknown>;
+  key?: unknown;
+};
 
 describe('Presence (FOUNDATIONS)', () => {
   describe('boolean present', () => {
@@ -51,7 +55,7 @@ describe('Presence (FOUNDATIONS)', () => {
     it('should call function and return null when it returns false', () => {
       const presentFn = vi.fn(() => false);
       const out = Presence({ present: presentFn, children: 'x' });
-      
+
       expect(presentFn).toHaveBeenCalledTimes(1);
       expect(out).toBeNull();
     });
@@ -59,7 +63,7 @@ describe('Presence (FOUNDATIONS)', () => {
     it('should call function and return Fragment when it returns true', () => {
       const presentFn = vi.fn(() => true);
       const out = Presence({ present: presentFn, children: 'x' });
-      
+
       expect(presentFn).toHaveBeenCalledTimes(1);
       expect(out).not.toBeNull();
       const vnode = out as unknown as VNodeShape;

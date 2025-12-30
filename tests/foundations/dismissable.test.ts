@@ -7,7 +7,11 @@ describe('dismissable (FOUNDATIONS)', () => {
       const onDismiss = vi.fn();
       const props = dismissable({ onDismiss });
 
-      props.onKeyDown?.({ key: 'Escape', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      props.onKeyDown?.({
+        key: 'Escape',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
 
       expect(onDismiss).toHaveBeenCalledTimes(1);
     });
@@ -16,9 +20,21 @@ describe('dismissable (FOUNDATIONS)', () => {
       const onDismiss = vi.fn();
       const props = dismissable({ onDismiss });
 
-      props.onKeyDown?.({ key: 'Enter', preventDefault: vi.fn(), stopPropagation: vi.fn() });
-      props.onKeyDown?.({ key: 'Space', preventDefault: vi.fn(), stopPropagation: vi.fn() });
-      props.onKeyDown?.({ key: 'a', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      props.onKeyDown?.({
+        key: 'Enter',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
+      props.onKeyDown?.({
+        key: 'Space',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
+      props.onKeyDown?.({
+        key: 'a',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
 
       expect(onDismiss).not.toHaveBeenCalled();
     });
@@ -27,7 +43,11 @@ describe('dismissable (FOUNDATIONS)', () => {
       const props = dismissable({});
 
       expect(() => {
-        props.onKeyDown?.({ key: 'Escape', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        props.onKeyDown?.({
+          key: 'Escape',
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        });
       }).not.toThrow();
     });
   });
@@ -39,7 +59,11 @@ describe('dismissable (FOUNDATIONS)', () => {
       const isInside = vi.fn(() => false);
       const handler = outsideListener?.(isInside);
 
-      handler?.({ target: 'some-element', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      handler?.({
+        target: 'some-element',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
 
       expect(onDismiss).toHaveBeenCalledTimes(1);
     });
@@ -50,7 +74,11 @@ describe('dismissable (FOUNDATIONS)', () => {
       const isInside = vi.fn(() => true);
       const handler = outsideListener?.(isInside);
 
-      handler?.({ target: 'some-element', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      handler?.({
+        target: 'some-element',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
 
       expect(onDismiss).not.toHaveBeenCalled();
     });
@@ -73,7 +101,11 @@ describe('dismissable (FOUNDATIONS)', () => {
       const handler = outsideListener?.(isInside);
 
       expect(() => {
-        handler?.({ target: 'some-element', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        handler?.({
+          target: 'some-element',
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        });
       }).not.toThrow();
     });
   });

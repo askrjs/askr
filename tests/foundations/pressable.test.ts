@@ -26,7 +26,11 @@ describe('pressable (FOUNDATIONS)', () => {
       const preventDefault = vi.fn();
       const props = pressable({ onPress });
 
-      props.onKeyDown?.({ key: 'Enter', preventDefault, stopPropagation: vi.fn() });
+      props.onKeyDown?.({
+        key: 'Enter',
+        preventDefault,
+        stopPropagation: vi.fn(),
+      });
 
       expect(onPress).toHaveBeenCalledTimes(1);
       expect(preventDefault).toHaveBeenCalled();
@@ -58,8 +62,16 @@ describe('pressable (FOUNDATIONS)', () => {
       const onPress = vi.fn();
       const props = pressable({ onPress });
 
-      props.onKeyDown?.({ key: 'a', preventDefault: vi.fn(), stopPropagation: vi.fn() });
-      props.onKeyUp?.({ key: 'Escape', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      props.onKeyDown?.({
+        key: 'a',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
+      props.onKeyUp?.({
+        key: 'Escape',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      });
 
       expect(onPress).not.toHaveBeenCalled();
     });
@@ -90,7 +102,11 @@ describe('pressable (FOUNDATIONS)', () => {
         const onPress = vi.fn();
         const props = pressable({ disabled: true, onPress });
 
-        props.onKeyDown?.({ key: 'Enter', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        props.onKeyDown?.({
+          key: 'Enter',
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        });
 
         expect(onPress).not.toHaveBeenCalled();
       });
@@ -99,7 +115,11 @@ describe('pressable (FOUNDATIONS)', () => {
         const onPress = vi.fn();
         const props = pressable({ disabled: true, onPress });
 
-        props.onKeyUp?.({ key: ' ', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        props.onKeyUp?.({
+          key: ' ',
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        });
 
         expect(onPress).not.toHaveBeenCalled();
       });
@@ -127,7 +147,11 @@ describe('pressable (FOUNDATIONS)', () => {
 
     describe('disabled state', () => {
       it('should set both disabled and aria-disabled', () => {
-        const props = pressable({ disabled: true, onPress: vi.fn(), isNativeButton: true });
+        const props = pressable({
+          disabled: true,
+          onPress: vi.fn(),
+          isNativeButton: true,
+        });
 
         expect(props.disabled).toBe(true);
         expect(props['aria-disabled']).toBe('true');
@@ -137,7 +161,11 @@ describe('pressable (FOUNDATIONS)', () => {
         const onPress = vi.fn();
         const preventDefault = vi.fn();
         const stopPropagation = vi.fn();
-        const props = pressable({ disabled: true, onPress, isNativeButton: true });
+        const props = pressable({
+          disabled: true,
+          onPress,
+          isNativeButton: true,
+        });
 
         props.onClick({ preventDefault, stopPropagation });
 
@@ -154,8 +182,16 @@ describe('pressable (FOUNDATIONS)', () => {
 
       expect(() => {
         props.onClick({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
-        props.onKeyDown?.({ key: 'Enter', preventDefault: vi.fn(), stopPropagation: vi.fn() });
-        props.onKeyUp?.({ key: ' ', preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        props.onKeyDown?.({
+          key: 'Enter',
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        });
+        props.onKeyUp?.({
+          key: ' ',
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        });
       }).not.toThrow();
     });
 

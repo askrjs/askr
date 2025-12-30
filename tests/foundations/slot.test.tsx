@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { Slot } from '@askrjs/askr/foundations';
 
-type VNodeShape = { type: unknown; props: Record<string, unknown>; key?: unknown };
+type VNodeShape = {
+  type: unknown;
+  props: Record<string, unknown>;
+  key?: unknown;
+};
 
 describe('Slot (FOUNDATIONS)', () => {
   describe('asChild mode', () => {
@@ -41,6 +45,7 @@ describe('Slot (FOUNDATIONS)', () => {
 
     it('should return null for non-element children', () => {
       // Type cast to bypass type checking for test purposes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const out = Slot({ asChild: true, children: 'text' as any });
       expect(out).toBeNull();
     });
