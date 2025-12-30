@@ -5,6 +5,23 @@
  * calls `event.preventDefault()` (or sets `defaultPrevented`), the second
  * handler runs. This prevents accidental clobbering of child handlers when
  * injecting props.
+ *
+ * POLICY DECISIONS (LOCKED):
+ *
+ * 1. Execution Order
+ *    First handler runs before second (injected before base).
+ *    This allows injected handlers to prevent default behavior.
+ *
+ * 2. Default Prevention Check
+ *    By default, checks `defaultPrevented` on first argument.
+ *    Can be disabled via options.checkDefaultPrevented = false.
+ *
+ * 3. Undefined Handler Support
+ *    Undefined handlers are skipped (no-op). This simplifies usage
+ *    where handlers are optional.
+ *
+ * 4. Type Safety
+ *    Args are readonly to prevent mutation. Return type matches input.
  */
 
 export interface ComposeHandlersOptions {

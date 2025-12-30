@@ -13,6 +13,21 @@ export interface PresenceProps {
  * - No timers
  * - No animation coupling
  * - No DOM side-effects
+ *
+ * POLICY DECISIONS (LOCKED):
+ *
+ * 1. Present as Function
+ *    Accepts boolean OR function to support lazy evaluation patterns.
+ *    Function is called once per render. Use boolean form for static values.
+ *
+ * 2. Children Type
+ *    `children` is intentionally `unknown` to remain runtime-agnostic.
+ *    The runtime owns child normalization and validation.
+ *
+ * 3. Immediate Mount/Unmount
+ *    No exit animations or transitions. When `present` becomes false,
+ *    children are removed immediately. Animation must be layered above
+ *    this primitive.
  */
 export function Presence({
   present,
@@ -22,9 +37,11 @@ export function Presence({
     typeof present === 'function' ? present() : Boolean(present);
   if (!isPresent) return null;
 
-  return {
+  const element: JSXElement = {
     $$typeof: ELEMENT_TYPE,
     type: Fragment,
     props: { children },
-  } as JSXElement;
+    key: null,
+  };
+  return element;
 }

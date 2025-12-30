@@ -5,6 +5,21 @@
  * intentionally minimal and do not manage state themselves; they help component
  * implementations make correct decisions about when to call `onChange` vs
  * update internal state.
+ *
+ * POLICY DECISIONS (LOCKED):
+ *
+ * 1. Controlled Detection
+ *    A value is "controlled" if it is not `undefined`.
+ *    This matches React conventions and is SSR-safe.
+ *
+ * 2. onChange Timing
+ *    - Controlled mode: onChange called immediately, no internal update
+ *    - Uncontrolled mode: internal state updated first, then onChange called
+ *    This ensures onChange sees the new value in both modes.
+ *
+ * 3. Value Equality
+ *    controllableState uses Object.is() to prevent unnecessary onChange calls.
+ *    This is intentional — strict equality, no deep comparison.
  */
 
 import { state, type State } from '../../runtime/state';

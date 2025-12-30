@@ -5,6 +5,23 @@
  * - For non-handlers: `base` overwrites `injected`.
  * - For handlers present in both: handlers are composed with `injected` running
  *   first; it may call `preventDefault()` to suppress the `base` handler.
+ *
+ * POLICY DECISIONS (LOCKED):
+ *
+ * 1. Merge Strategy
+ *    Base props overwrite injected props (base wins).
+ *    Exception: Event handlers are composed, not overwritten.
+ *
+ * 2. Event Handler Detection
+ *    Keys starting with "on" are treated as event handlers.
+ *    This matches JSX conventions.
+ *
+ * 3. Handler Composition Order
+ *    Injected handler runs first, base handler second.
+ *    This allows injected handlers to prevent default.
+ *
+ * 4. Return Type
+ *    Returns intersection type (TInjected & TBase) for type safety.
  */
 import { composeHandlers } from './composeHandlers';
 
