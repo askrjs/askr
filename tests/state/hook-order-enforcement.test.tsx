@@ -5,7 +5,11 @@ import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('hook order enforcement (STATE)', () => {
   let { container, cleanup } = createTestContainer();
-  beforeEach(() => ({ container, cleanup } = createTestContainer()));
+  beforeEach(() => {
+    const result = createTestContainer();
+    container = result.container;
+    cleanup = result.cleanup;
+  });
   afterEach(() => cleanup());
 
   it('should enforce same order for state calls every render', () => {
@@ -19,7 +23,12 @@ describe('hook order enforcement (STATE)', () => {
       }
       const a = state('a');
       const b = state('b');
-      return { type: 'div', children: [`${a()}${b()}`] };
+      return (
+        <div>
+          {a()}
+          {b()}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -49,7 +58,7 @@ describe('hook order enforcement (STATE)', () => {
       if (flag()) {
         state(123);
       }
-      return { type: 'div', children: ['ok'] };
+      return <div>ok</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -84,7 +93,7 @@ describe('hook order enforcement (STATE)', () => {
         }
       }
 
-      return { type: 'div', children: ['x'] };
+      return <div>x</div>;
     };
 
     createIsland({ root: container, component: Component });

@@ -34,7 +34,7 @@ describe('cancellation (SPEC 2.6)', () => {
           signalReceived = !!signal;
           return null;
         }, []);
-        return { type: 'div', props: { children: ['content'] } };
+        return <div>content</div>;
       };
 
       createIsland({ root: container, component: Component });
@@ -53,7 +53,7 @@ describe('cancellation (SPEC 2.6)', () => {
           });
           return null;
         }, []);
-        return { type: 'div', props: { children: ['content'] } };
+        return <div>content</div>;
       };
 
       createIsland({ root: container, component: Component });
@@ -76,7 +76,7 @@ describe('cancellation (SPEC 2.6)', () => {
           });
           return null;
         }, []);
-        return { type: 'div', props: { children: ['old'] } };
+        return <div>old</div>;
       };
 
       const NewComponent = () => {
@@ -86,7 +86,7 @@ describe('cancellation (SPEC 2.6)', () => {
           });
           return null;
         }, []);
-        return { type: 'div', props: { children: ['new'] } };
+        return <div>new</div>;
       };
 
       createIsland({ root: container, component: OldComponent });
@@ -118,10 +118,7 @@ describe('cancellation (SPEC 2.6)', () => {
           }
           return null;
         }, []);
-        return {
-          type: 'div',
-          props: { children: [completed ? 'done' : 'cancelled'] },
-        };
+        return <div>{completed ? 'done' : 'cancelled'}</div>;
       };
 
       createIsland({ root: container, component: Component });
@@ -153,7 +150,7 @@ describe('cancellation (SPEC 2.6)', () => {
 
         return null;
       }, []);
-      return { type: 'div', props: { children: ['content'] } };
+      return <div>content</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -177,11 +174,11 @@ describe('cancellation (SPEC 2.6)', () => {
         });
         return null;
       }, []);
-      return { type: 'div', children: ['component1'] };
+      return <div>component1</div>;
     };
 
     const Component2 = () => {
-      return { type: 'div', children: ['component2'] };
+      return <div>component2</div>;
     };
 
     createIsland({ root: container, component: Component1 });
@@ -217,7 +214,7 @@ describe('cancellation (SPEC 2.6)', () => {
 
         return null;
       }, []);
-      return { type: 'div', children: ['fetched'] };
+      return <div>fetched</div>;
     };
 
     createIsland({ root: container, component: Component });

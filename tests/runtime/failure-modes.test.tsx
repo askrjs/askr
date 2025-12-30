@@ -16,16 +16,16 @@ describe('failure modes (RUNTIME)', () => {
   it('should catch error in render handler safely', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    const Component = () => ({
-      type: 'button',
-      props: {
-        id: 'btn',
-        onClick: () => {
+    const Component = () => (
+      <button
+        id="btn"
+        onClick={() => {
           throw new Error('handler failed');
-        },
-      },
-      children: ['boom'],
-    });
+        }}
+      >
+        boom
+      </button>
+    );
 
     createIsland({ root: container, component: Component });
     flushScheduler();
@@ -57,7 +57,7 @@ describe('failure modes (RUNTIME)', () => {
         throw new Error('async failed');
       }, []);
 
-      return { type: 'div', children: [r.pending ? 'pending' : ''] };
+      return <div>{r.pending ? 'pending' : ''}</div>;
     };
 
     createIsland({ root: container, component: Component });

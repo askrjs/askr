@@ -41,21 +41,21 @@ describe('Minimal router story (authoritative)', () => {
         path: '/parent',
         handler: () => {
           calls.push('parent');
-          return { type: 'div', props: {}, children: ['parent'] };
+          return <div>parent</div>;
         },
       },
       {
         path: '/parent/*',
         handler: () => {
           calls.push('parent-wildcard');
-          return { type: 'div', props: {}, children: ['parent-wildcard'] };
+          return <div>parent-wildcard</div>;
         },
       },
       {
         path: '/parent/child',
         handler: () => {
           calls.push('child');
-          return { type: 'div', props: {}, children: ['child'] };
+          return <div>child</div>;
         },
       },
     ];
@@ -75,17 +75,17 @@ describe('Minimal router story (authoritative)', () => {
 
   it('should preserve shared layout DOM across navigations (atomic commit)', async () => {
     // two routes that share the same layout wrapper element
-    route('/layout/a', () => ({
-      type: 'div',
-      props: { class: 'layout' },
-      children: [{ type: 'div', props: { class: 'inner' }, children: ['A'] }],
-    }));
+    route('/layout/a', () => (
+      <div class="layout">
+        <div class="inner">A</div>
+      </div>
+    ));
 
-    route('/layout/b', () => ({
-      type: 'div',
-      props: { class: 'layout' },
-      children: [{ type: 'div', props: { class: 'inner' }, children: ['B'] }],
-    }));
+    route('/layout/b', () => (
+      <div class="layout">
+        <div class="inner">B</div>
+      </div>
+    ));
 
     setGlobalWindow('/layout/a');
     await createSPA({ root: container, routes: getRoutes() });

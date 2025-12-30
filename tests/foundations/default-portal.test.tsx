@@ -2,20 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   DefaultPortal,
   _resetDefaultPortal,
-} from '../../src/foundations/portal';
+} from '../../src/foundations/structures/portal';
+import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
-
-// Provide typing for dev-only global debug counters
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface GlobalThis {
-  __ASKR__?: {
-    __PORTAL_WRITES?: number;
-    __PORTAL_READS?: number;
-    __PORTAL_HOST_ATTACHED?: boolean;
-    __PORTAL_HOST_ID?: string;
-  };
-}
 
 describe('DefaultPortal', () => {
   let container: HTMLElement;
@@ -43,22 +33,36 @@ describe('DefaultPortal', () => {
   });
 
   it('should render content into the default portal and clear it', () => {
-    createIsland({
-      root: container,
-      component: () => ({ type: 'div', children: ['App'] }),
-    });
+    const App = () => {
+      const tick = state(0);
+      return {
+        type: 'button',
+        props: {
+          onClick: () => tick.set(tick() + 1),
+        },
+        children: [`tick=${tick()}`],
+      };
+    };
+
+    createIsland({ root: container, component: App });
     flushScheduler();
 
     expect(typeof DefaultPortal.render).toBe('function');
+
     DefaultPortal.render({ children: 'Toast' });
     flushScheduler();
-    // Debug: ensure portal write happened
-    expect(globalThis.__ASKR__?.__PORTAL_WRITES).toBeGreaterThan(0);
+    expect(container.textContent).not.toContain('Toast');
+
+    (container.querySelector('button') as HTMLButtonElement).click();
+    flushScheduler();
     expect(container.textContent).toContain('Toast');
 
-    // Clear portal
     DefaultPortal.render({ children: undefined });
     flushScheduler();
-    expect(container.textContent).toBe('App');
+    expect(container.textContent).toContain('Toast');
+
+    (container.querySelector('button') as HTMLButtonElement).click();
+    flushScheduler();
+    expect(container.textContent).not.toContain('Toast');
   });
 });

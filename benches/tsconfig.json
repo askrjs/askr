@@ -1,13 +1,17 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "jsx": "preserve"
+    "jsx": "react-jsx",
+    "jsxImportSource": "@askrjs/askr",
+    "outDir": null,
+    "rootDir": null,
+    "baseUrl": ".",
+    "paths": {
+      "@askrjs/askr": ["../src/index.ts"],
+      "@askrjs/askr/jsx-runtime": ["../src/jsx/jsx-runtime.ts"],
+      "@askrjs/askr/jsx-dev-runtime": ["../src/jsx/jsx-dev-runtime.ts"]
+    }
   },
-  "include": [
-    "../src/**/*",
-    "./**/*",
-    "../tests/helpers/**/*",
-    "../types/**/*"
-  ],
-  "exclude": ["../node_modules", "../dist"]
+  "include": ["./**/*"],
+  "exclude": []
 }

@@ -18,7 +18,7 @@ describe('mount unmount cycles (STRESS)', () => {
       let counter: ReturnType<typeof state<number>> | null = null;
       const Component = () => {
         counter = state(0);
-        return { type: 'div', children: [`${counter()}`] };
+        return <div>{String(counter())}</div>;
       };
 
       createIsland({ root: local, component: Component });
@@ -41,11 +41,11 @@ describe('mount unmount cycles (STRESS)', () => {
 
     const Component = () => {
       counter = state(0);
-      return {
-        type: 'button',
-        props: { id: 'btn', onClick: () => counter!.set(counter!() + 1) },
-        children: [`${counter()}`],
-      };
+      return (
+        <button id="btn" onClick={() => counter!.set(counter!() + 1)}>
+          {String(counter())}
+        </button>
+      );
     };
 
     // Rapidly remount the same component (common in MFEs)

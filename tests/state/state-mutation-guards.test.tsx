@@ -5,14 +5,18 @@ import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('state mutation guards (STATE)', () => {
   let { container, cleanup } = createTestContainer();
-  beforeEach(() => ({ container, cleanup } = createTestContainer()));
+  beforeEach(() => {
+    const result = createTestContainer();
+    container = result.container;
+    cleanup = result.cleanup;
+  });
   afterEach(() => cleanup());
 
   it('should succeed when state.set() is called after render completes', async () => {
     let count: ReturnType<typeof state<number>> | null = null;
     const Component = () => {
       count = state(0);
-      return { type: 'div', children: [`${count()}`] };
+      return <div>{String(count())}</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -29,7 +33,7 @@ describe('state mutation guards (STATE)', () => {
       const count = state(0);
       // Illegal: mutating during render should throw immediately.
       count.set(1);
-      return { type: 'div', children: ['x'] };
+      return <div>x</div>;
     };
 
     expect(() => createIsland({ root: container, component: Bad })).toThrow(
@@ -42,7 +46,7 @@ describe('state mutation guards (STATE)', () => {
 
     const Component = () => {
       count = state(0);
-      return { type: 'div', children: [`${count()}`] };
+      return <div>{String(count())}</div>;
     };
 
     createIsland({ root: container, component: Component });

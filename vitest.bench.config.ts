@@ -17,12 +17,19 @@ export default defineConfig({
   },
   esbuild: {
     jsx: 'automatic',
-    jsxImportSource: 'askr-jsx',
+    jsxImportSource: '@askrjs/askr',
   },
   resolve: {
     alias: {
-      // Use an absolute path for alias to ensure Vite resolves it reliably in bench runs
-      'askr-jsx': path.resolve(__dirname, './src/jsx'),
+      '@askrjs/askr/jsx-runtime': path.resolve(
+        __dirname,
+        './src/jsx/jsx-runtime.ts'
+      ),
+      '@askrjs/askr/jsx-dev-runtime': path.resolve(
+        __dirname,
+        './src/jsx/jsx-dev-runtime.ts'
+      ),
+      '@askrjs/askr': path.resolve(__dirname, './src/index.ts'),
     },
   },
 });

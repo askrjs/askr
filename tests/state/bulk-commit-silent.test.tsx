@@ -20,10 +20,13 @@ describe('bulk commit silence', () => {
 
     const Component = () => {
       items = state([1, 2, 3]);
-      return {
-        type: 'ul',
-        children: items().map((x) => ({ type: 'li', children: [String(x)] })),
-      };
+      return (
+        <ul>
+          {items().map((x) => (
+            <li>{String(x)}</li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });

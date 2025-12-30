@@ -88,7 +88,7 @@ export function createWrappedHandler(
 
 /** Props that should be skipped during attribute processing */
 export function isSkippedProp(key: string): boolean {
-  return key === 'children' || key === 'key';
+  return key === 'children' || key === 'key' || key === 'ref';
 }
 
 /** Check if prop should be ignored for prop-change detection */

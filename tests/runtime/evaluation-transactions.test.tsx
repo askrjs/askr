@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createIsland } from '../../src/index';
 import { resource } from '../../src/resources';
-import { _resetDefaultPortal } from '../../src/foundations/portal';
+import { _resetDefaultPortal } from '../../src/foundations/structures/portal';
 import type { JSXElement } from '../../src/jsx/types';
 import {
   createTestContainer,
@@ -36,14 +36,13 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
   describe('successful render commits all changes', () => {
     it('should render complete subtree on first render', () => {
-      const Component = () => ({
-        type: 'div',
-        children: [
-          { type: 'h1', children: ['Title'] },
-          { type: 'p', children: ['Content'] },
-          { type: 'button', children: ['Action'] },
-        ],
-      });
+      const Component = () => (
+        <div>
+          <h1>Title</h1>
+          <p>Content</p>
+          <button>Action</button>
+        </div>
+      );
 
       createIsland({ root: container, component: Component });
 
@@ -55,17 +54,18 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
     it('should commit all attributes or none', () => {
       const Component = ({ applyAttrs }: { applyAttrs: boolean }) => {
-        const node = { type: 'input', props: {} };
         if (applyAttrs) {
-          node.props = {
-            type: 'text',
-            placeholder: 'Enter',
-            value: 'default',
-            class: 'input-field',
-            disabled: false,
-          };
+          return (
+            <input
+              type="text"
+              placeholder="Enter"
+              value="default"
+              class="input-field"
+              disabled={false}
+            />
+          );
         }
-        return node;
+        return <input />;
       };
 
       createIsland({
@@ -83,11 +83,12 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
     it('should atomically update nested tree structure', () => {
       const Component = ({ depth }: { depth: number }): JSXElement => {
-        if (depth === 0) return { type: 'span', props: { children: ['Leaf'] } };
-        return {
-          type: 'div',
-          props: { children: [Component({ depth: depth - 1 })] },
-        };
+        if (depth === 0) return <span>Leaf</span>;
+        return (
+          <div>
+            <Component depth={depth - 1} />
+          </div>
+        );
       };
 
       createIsland({
@@ -114,7 +115,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         if (renderCount === 2) {
           throw new Error('Render failed');
         }
-        return { type: 'div', children: ['First'] };
+        return <div>First</div>;
       };
 
       // First render succeeds
@@ -136,17 +137,16 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       const Component = ({ shouldFail }: { shouldFail: boolean }) => {
         const failurePoint = () => {
           if (shouldFail) throw new Error('Mid-structure failure');
-          return { type: 'span', children: ['Child'] };
+          return <span>Child</span>;
         };
 
-        return {
-          type: 'div',
-          children: [
-            { type: 'h1', children: ['Header'] },
-            failurePoint(),
-            { type: 'p', children: ['Footer'] },
-          ],
-        };
+        return (
+          <div>
+            <h1>Header</h1>
+            {failurePoint()}
+            <p>Footer</p>
+          </div>
+        );
       };
 
       // First render succeeds
@@ -178,14 +178,13 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         if (shouldFail) {
           throw new Error('Failed to render');
         }
-        return {
-          type: 'div',
-          children: [
-            { type: 'span', children: ['A'] },
-            { type: 'span', children: ['B'] },
-            { type: 'span', children: ['C'] },
-          ],
-        };
+        return (
+          <div>
+            <span>A</span>
+            <span>B</span>
+            <span>C</span>
+          </div>
+        );
       };
 
       createIsland({
@@ -217,7 +216,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
           return 'Loaded';
         }, [shouldFail]);
 
-        return { type: 'div', children: [r.value ?? ''] };
+        return <div>{r.value ?? ''}</div>;
       };
 
       // First async render succeeds
@@ -258,7 +257,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
           return id;
         }, [id, delay]);
 
-        return { type: 'div', children: [r.value ?? ''] };
+        return <div>{r.value ?? ''}</div>;
       };
 
       // Mount slow instance
@@ -290,15 +289,15 @@ describe('evaluation transactions (SPEC 2.1)', () => {
     it('should attach listeners only after successful commit', async () => {
       let listenerFired = false;
 
-      const Component = () => ({
-        type: 'button',
-        props: {
-          onClick: () => {
+      const Component = () => (
+        <button
+          onClick={() => {
             listenerFired = true;
-          },
-        },
-        children: ['Click'],
-      });
+          }}
+        >
+          Click
+        </button>
+      );
 
       createIsland({ root: container, component: Component });
       flushScheduler();
@@ -316,15 +315,15 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
       const Component = ({ shouldFail }: { shouldFail: boolean }) => {
         if (shouldFail) throw new Error('Failed');
-        return {
-          type: 'button',
-          props: {
-            onClick: () => {
+        return (
+          <button
+            onClick={() => {
               listenerFired = true;
-            },
-          },
-          children: ['Click'],
-        };
+            }}
+          >
+            Click
+          </button>
+        );
       };
 
       // First render succeeds, listener attached

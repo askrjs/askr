@@ -50,12 +50,12 @@ describe('cancellation on navigate (ROUTER)', () => {
           }
         }
 
-        return { type: 'div', children: ['Page 1'] };
+        return <div>Page 1</div>;
       };
     });
 
     route('/page2', () => {
-      return { type: 'div', children: ['Page 2'] };
+      return <div>Page 2</div>;
     });
 
     const _App = (
@@ -96,12 +96,12 @@ describe('cancellation on navigate (ROUTER)', () => {
         signal.addEventListener('abort', () => {
           signalAborted = true;
         });
-        return { type: 'div', children: ['Async Page'] };
+        return <div>Async Page</div>;
       };
     });
 
     route('/other', () => {
-      return { type: 'div', children: ['Other Page'] };
+      return <div>Other Page</div>;
     });
 
     const App = () => {
@@ -123,11 +123,11 @@ describe('cancellation on navigate (ROUTER)', () => {
     const _order: string[] = [];
 
     route('/first', () => {
-      return { type: 'div', children: ['First'] };
+      return <div>First</div>;
     });
 
     route('/second', () => {
-      return { type: 'div', children: ['Second'] };
+      return <div>Second</div>;
     });
 
     const _App = () => {
@@ -153,17 +153,17 @@ describe('cancellation on navigate (ROUTER)', () => {
 
     route('/page1', () => {
       currentPage = 'page1';
-      return { type: 'div', children: ['Page 1'] };
+      return <div>Page 1</div>;
     });
 
     route('/page2', () => {
       currentPage = 'page2';
-      return { type: 'div', children: ['Page 2'] };
+      return <div>Page 2</div>;
     });
 
     route('/page3', () => {
       currentPage = 'page3';
-      return { type: 'div', children: ['Page 3'] };
+      return <div>Page 3</div>;
     });
 
     const App = () => {
@@ -193,13 +193,13 @@ describe('cancellation on navigate (ROUTER)', () => {
           setTimeout(resolve, 200);
         });
         renderContent = 'slow-page';
-        return { type: 'div', children: ['Slow Page'] };
+        return <div>Slow Page</div>;
       };
     });
 
     route('/fast', () => {
       renderContent = 'fast-page';
-      return { type: 'div', children: ['Fast Page'] };
+      return <div>Fast Page</div>;
     });
 
     const App = () => {
