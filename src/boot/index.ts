@@ -153,7 +153,7 @@ export function teardownApp(_root: Element | string) {
 }
 
 import { Fragment, ELEMENT_TYPE } from '../jsx';
-import { DefaultPortal } from '../foundations/portal';
+import { DefaultPortal } from '../foundations/structures/portal';
 
 function mountOrUpdate(
   rootElement: Element,

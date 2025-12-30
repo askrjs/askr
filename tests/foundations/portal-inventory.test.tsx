@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   DefaultPortal,
   _resetDefaultPortal,
-} from '../../src/foundations/portal';
+} from '../../src/foundations/structures/portal';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { getCurrentComponentInstance } from '../../src/runtime/component';
 import { createIsland } from '../helpers/create-island';

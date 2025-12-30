@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createIsland } from '../../src/index';
 import { resource } from '../../src/resources';
-import { _resetDefaultPortal } from '../../src/foundations/portal';
+import { _resetDefaultPortal } from '../../src/foundations/structures/portal';
 import type { JSXElement } from '../../src/jsx/types';
 import {
   createTestContainer,

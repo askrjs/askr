@@ -1,6 +1,6 @@
-import { logger } from '../dev/logger';
-import { Fragment, cloneElement, isElement, ELEMENT_TYPE } from '../jsx';
-import type { JSXElement } from '../jsx';
+import { logger } from '../../dev/logger';
+import { Fragment, cloneElement, isElement, ELEMENT_TYPE } from '../../jsx';
+import type { JSXElement } from '../../jsx';
 
 export type SlotProps =
   | {
@@ -15,7 +15,7 @@ export type SlotProps =
 
 export function Slot(props: SlotProps): JSXElement | null {
   if (props.asChild) {
-    const { children, ...rest } = props;
+    const { children, asChild: _asChild, ...rest } = props;
 
     if (isElement(children)) {
       return cloneElement(children, rest);

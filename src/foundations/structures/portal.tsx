@@ -5,9 +5,9 @@
  * It does NOT create a second tree or touch the DOM directly.
  */
 
-import { getCurrentComponentInstance } from '../runtime/component';
-import type { ComponentInstance } from '../runtime/component';
-import { logger } from '../dev/logger';
+import { getCurrentComponentInstance } from '../../runtime/component';
+import type { ComponentInstance } from '../../runtime/component';
+import { logger } from '../../dev/logger';
 
 export interface Portal<T = unknown> {
   /** Mount point — rendered exactly once */

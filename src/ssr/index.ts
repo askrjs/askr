@@ -12,7 +12,7 @@ import type { RouteHandler } from '../common/router';
 import * as RouteModule from '../router/route';
 import type { Props } from '../common/props';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
-import { DefaultPortal } from '../foundations/portal';
+import { DefaultPortal } from '../foundations/structures/portal';
 import {
   createRenderContext,
   getCurrentSSRContext,
