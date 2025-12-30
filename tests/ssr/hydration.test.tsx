@@ -14,7 +14,7 @@ describe('hydration (SSR)', () => {
 
     it('should re-render client when server HTML text differs', async () => {
       container.innerHTML = '<div>server</div>';
-      const Component = () => ({ type: 'div', children: ['client'] });
+      const Component = () => <div>client</div>;
 
       await expect(
         hydrateSPA({
@@ -26,7 +26,7 @@ describe('hydration (SSR)', () => {
 
     it('should re-render client when server HTML structure differs', async () => {
       container.innerHTML = '<span>server</span>';
-      const Component = () => ({ type: 'div', children: ['client'] });
+      const Component = () => <div>client</div>;
 
       await expect(
         hydrateSPA({
@@ -39,7 +39,7 @@ describe('hydration (SSR)', () => {
     it('should warn in dev mode when mismatch occurs', async () => {
       container.innerHTML = '<div>server</div>';
 
-      const Component = () => ({ type: 'div', children: ['client'] });
+      const Component = () => <div>client</div>;
       await expect(
         hydrateSPA({
           root: container,
@@ -56,17 +56,13 @@ describe('hydration (SSR)', () => {
         let clicks = 0;
 
         const Component = () =>
-          ({
-            type: 'div',
-            props: { id: 'root' },
-            children: [
-              {
-                type: 'button',
-                props: { id: 'btn', onClick: () => (clicks += 1) },
-                children: ['Click'],
-              },
-            ],
-          }) as unknown as JSXElement;
+          (
+            <div id="root">
+              <button id="btn" onClick={() => (clicks += 1)}>
+                Click
+              </button>
+            </div>
+          ) as unknown as JSXElement;
 
         // Server render
         const html = renderToString(() => Component());
@@ -103,17 +99,13 @@ describe('hydration (SSR)', () => {
       let clicks = 0;
 
       const Component = () => {
-        return {
-          type: 'div',
-          props: { id: 'root' },
-          children: [
-            {
-              type: 'button',
-              props: { id: 'btn', onClick: () => (clicks += 1) },
-              children: ['Click'],
-            },
-          ],
-        };
+        return (
+          <div id="root">
+            <button id="btn" onClick={() => (clicks += 1)}>
+              Click
+            </button>
+          </div>
+        );
       };
 
       // Server render
@@ -143,11 +135,7 @@ describe('hydration (SSR)', () => {
     });
 
     it('should throw when hydrate encounters a mismatch', async () => {
-      const Component = () => ({
-        type: 'div',
-        props: { id: 'root' },
-        children: ['server'],
-      });
+      const Component = () => <div id="root">server</div>;
       container.innerHTML = '<div>client</div>';
 
       await expect(
@@ -166,11 +154,11 @@ describe('hydration (SSR)', () => {
 
     it('should attach listeners to server HTML during hydration', async () => {
       let clicks = 0;
-      const Component = () => ({
-        type: 'button',
-        props: { id: 'btn', onClick: () => (clicks += 1) },
-        children: ['click'],
-      });
+      const Component = () => (
+        <button id="btn" onClick={() => (clicks += 1)}>
+          click
+        </button>
+      );
 
       const routes = [{ path: '/', handler: Component }];
       const html = renderToStringSyncForUrl({ url: '/', routes });
@@ -190,15 +178,15 @@ describe('hydration (SSR)', () => {
       let value: ReturnType<typeof state<string>> | null = null;
       const Component = () => {
         value = state('');
-        return {
-          type: 'input',
-          props: {
-            id: 'input',
-            value: value(),
-            onInput: (e: Event) =>
-              value!.set((e.target as HTMLInputElement).value),
-          },
-        };
+        return (
+          <input
+            id="input"
+            value={value()}
+            onInput={(e: Event) =>
+              value!.set((e.target as HTMLInputElement).value)
+            }
+          />
+        );
       };
 
       const routes = [{ path: '/', handler: Component }];
@@ -219,7 +207,7 @@ describe('hydration (SSR)', () => {
     });
 
     it('should preserve server state after hydration', async () => {
-      const Component = () => ({ type: 'div', children: ['server'] });
+      const Component = () => <div>server</div>;
       const routes = [{ path: '/', handler: Component }];
       const html = renderToStringSyncForUrl({ url: '/', routes });
       container.innerHTML = html;
@@ -231,7 +219,7 @@ describe('hydration (SSR)', () => {
     });
 
     it('should preserve server state after hydration (sync server)', async () => {
-      const Component = () => ({ type: 'div', children: ['async hydrated'] });
+      const Component = () => <div>async hydrated</div>;
 
       const routes = [{ path: '/', handler: Component }];
       const html = renderToStringSyncForUrl({ url: '/', routes });
@@ -248,11 +236,11 @@ describe('hydration (SSR)', () => {
       const Component = () => {
         const count = state(0);
         hydrated = true;
-        return {
-          type: 'button',
-          props: { onClick: () => count.set(count() + 1) },
-          children: [`count: ${count()}`],
-        };
+        return (
+          <button onClick={() => count.set(count() + 1)}>
+            count: {count()}
+          </button>
+        );
       };
 
       const routes = [{ path: '/', handler: Component }];
@@ -273,11 +261,11 @@ describe('hydration (SSR)', () => {
 
     it('should attach listeners to server HTML during hydration (sync server)', async () => {
       let clicks = 0;
-      const Component = () => ({
-        type: 'button',
-        props: { id: 'btn', onClick: () => (clicks += 1) },
-        children: ['async click'],
-      });
+      const Component = () => (
+        <button id="btn" onClick={() => (clicks += 1)}>
+          async click
+        </button>
+      );
 
       const routes = [{ path: '/', handler: Component }];
       const html = renderToStringSyncForUrl({ url: '/', routes });

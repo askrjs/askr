@@ -10,12 +10,10 @@ export default defineConfig({
   },
   esbuild: {
     jsx: 'automatic',
-    // Use the package-style import so tooling resolves consistently
-    jsxImportSource: 'askr-jsx',
+    jsxImportSource: '@askrjs/askr',
   },
   resolve: {
     alias: {
-      'askr-jsx': path.resolve(__dirname, 'src/jsx'),
       // Tests run against source, not built dist artifacts. Provide aliases for
       // package subpath exports that normally point at dist/*.
       '@askrjs/askr/foundations': path.resolve(

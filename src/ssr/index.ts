@@ -294,7 +294,16 @@ function renderNodeSyncToSink(
   }
 
   const attrs = props ? renderAttrs(props) : '';
-  const children = (node as VNode).children;
+  // Normalize children: prefer node.children, fallback to props.children (for JSXElement)
+  let children = (node as VNode).children;
+  if (children === undefined && props?.children !== undefined) {
+    const propsChildren = props.children as unknown;
+    if (Array.isArray(propsChildren)) {
+      children = propsChildren;
+    } else if (propsChildren !== null && propsChildren !== false) {
+      children = [propsChildren];
+    }
+  }
 
   // Hot path: many elements are just a single primitive text child.
   // Collapsing into a single write reduces sink buffering overhead.

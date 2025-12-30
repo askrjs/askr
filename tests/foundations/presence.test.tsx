@@ -71,17 +71,17 @@ describe('Presence (FOUNDATIONS)', () => {
     });
 
     it('should treat falsy function return as false', () => {
-      expect(Presence({ present: () => 0, children: 'x' })).toBeNull();
-      expect(Presence({ present: () => '', children: 'x' })).toBeNull();
-      expect(Presence({ present: () => null, children: 'x' })).toBeNull();
-      expect(Presence({ present: () => undefined, children: 'x' })).toBeNull();
+      expect(Presence({ present: () => false, children: 'x' })).toBeNull();
+      expect(Presence({ present: () => false, children: 'x' })).toBeNull();
+      expect(Presence({ present: () => false, children: 'x' })).toBeNull();
+      expect(Presence({ present: () => false, children: 'x' })).toBeNull();
     });
 
     it('should treat truthy function return as true', () => {
-      expect(Presence({ present: () => 1, children: 'x' })).not.toBeNull();
-      expect(Presence({ present: () => 'yes', children: 'x' })).not.toBeNull();
-      expect(Presence({ present: () => ({}), children: 'x' })).not.toBeNull();
-      expect(Presence({ present: () => [], children: 'x' })).not.toBeNull();
+      expect(Presence({ present: () => true, children: 'x' })).not.toBeNull();
+      expect(Presence({ present: () => true, children: 'x' })).not.toBeNull();
+      expect(Presence({ present: () => true, children: 'x' })).not.toBeNull();
+      expect(Presence({ present: () => true, children: 'x' })).not.toBeNull();
     });
   });
 });

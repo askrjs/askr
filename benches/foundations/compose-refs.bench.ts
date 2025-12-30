@@ -6,15 +6,15 @@ import {
 
 describe('composeRefs (FOUNDATIONS)', () => {
   // Mock refs
-  const callbackRef1 = () => {};
-  const callbackRef2 = () => {};
-  const callbackRef3 = () => {};
+  const callbackRef1 = (_el: HTMLElement | null) => {};
+  const callbackRef2 = (_el: HTMLElement | null) => {};
+  const callbackRef3 = (_el: HTMLElement | null) => {};
 
-  const objectRef1 = { current: null };
-  const objectRef2 = { current: null };
-  const objectRef3 = { current: null };
+  const objectRef1: { current: HTMLElement | null } = { current: null };
+  const objectRef2: { current: HTMLElement | null } = { current: null };
+  const objectRef3: { current: HTMLElement | null } = { current: null };
 
-  const mockElement = { tagName: 'DIV' };
+  const mockElement = { tagName: 'DIV' } as HTMLElement;
 
   bench('setRef with callback ref', () => {
     setRef(callbackRef1, mockElement);
@@ -86,18 +86,18 @@ describe('composeRefs (FOUNDATIONS)', () => {
 
   // Realistic scenarios
   bench('realistic: forward ref + internal ref', () => {
-    const forwardedRef = { current: null };
-    const internalRef = { current: null };
+    const forwardedRef: { current: HTMLElement | null } = { current: null };
+    const internalRef: { current: HTMLElement | null } = { current: null };
     const composed = composeRefs(forwardedRef, internalRef);
     composed(mockElement);
   });
 
   bench('realistic: multiple consumer refs', () => {
-    const parentRef = { current: null };
-    const observerRef = (_node: unknown) => {
+    const parentRef: { current: HTMLElement | null } = { current: null };
+    const observerRef = (_node: HTMLElement | null) => {
       // Intersection observer logic
     };
-    const resizeRef = (_node: unknown) => {
+    const resizeRef = (_node: HTMLElement | null) => {
       // Resize observer logic
     };
     const composed = composeRefs(parentRef, observerRef, resizeRef);
@@ -122,7 +122,11 @@ describe('composeRefs (FOUNDATIONS)', () => {
 
   // Error handling scenario (readonly ref)
   bench('setRef with readonly ref (catches error)', () => {
-    const readonlyRef = Object.freeze({ current: null });
+    const readonlyRef: { readonly current: HTMLElement | null } = Object.freeze(
+      {
+        current: null,
+      }
+    );
     setRef(readonlyRef, mockElement);
   });
 });

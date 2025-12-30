@@ -21,7 +21,15 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@askrjs/askr': path.resolve(__dirname, './src'),
+      '@askrjs/askr/jsx-runtime': path.resolve(
+        __dirname,
+        './src/jsx/jsx-runtime.ts'
+      ),
+      '@askrjs/askr/jsx-dev-runtime': path.resolve(
+        __dirname,
+        './src/jsx/jsx-dev-runtime.ts'
+      ),
+      '@askrjs/askr': path.resolve(__dirname, './src/index.ts'),
     },
   },
 });

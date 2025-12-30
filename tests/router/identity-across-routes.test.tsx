@@ -32,29 +32,23 @@ describe('identity across routes (ROUTER)', () => {
     route('/page1', (_params) => {
       const count = state(identityCounter++);
       identities.push(count());
-      return { type: 'div', children: ['Page 1'] };
+      return <div>Page 1</div>;
     });
 
     route('/page2', (_params) => {
       const count = state(identityCounter++);
       identities.push(count());
-      return { type: 'div', children: ['Page 2'] };
+      return <div>Page 2</div>;
     });
 
     const App = (_props: Record<string, unknown>) => {
-      return {
-        type: 'div',
-        children: [
-          {
-            type: 'button',
-            props: {
-              id: 'nav',
-              onClick: () => navigate('/page2'),
-            },
-            children: ['Next'],
-          },
-        ],
-      };
+      return (
+        <div>
+          <button id="nav" onClick={() => navigate('/page2')}>
+            Next
+          </button>
+        </div>
+      );
     };
 
     await createSPA({ root: container, routes: getRoutes() });
@@ -78,16 +72,16 @@ describe('identity across routes (ROUTER)', () => {
 
     route('/counter1', (_params) => {
       route1Value = 1;
-      return { type: 'div', children: [`Count1: ${route1Value}`] };
+      return <div>Count1: {route1Value}</div>;
     });
 
     route('/counter2', (_params) => {
       route2Value = 2;
-      return { type: 'div', children: [`Count2: ${route2Value}`] };
+      return <div>Count2: {route2Value}</div>;
     });
 
     const App = () => {
-      return { type: 'div', children: ['App'] };
+      return <div>App</div>;
     };
 
     await createSPA({ root: container, routes: getRoutes() });
@@ -109,15 +103,15 @@ describe('identity across routes (ROUTER)', () => {
     let page2Element: Element | null = null;
 
     route('/page1', () => {
-      return { type: 'div', props: { id: 'page1' }, children: ['Page 1'] };
+      return <div id="page1">Page 1</div>;
     });
 
     route('/page2', () => {
-      return { type: 'div', props: { id: 'page2' }, children: ['Page 2'] };
+      return <div id="page2">Page 2</div>;
     });
 
     const App = () => {
-      return { type: 'div', children: ['App'] };
+      return <div>App</div>;
     };
 
     await createSPA({ root: container, routes: getRoutes() });
@@ -142,11 +136,11 @@ describe('identity across routes (ROUTER)', () => {
     route('/page', (_params) => {
       renderCount++;
       const message = state('Hello');
-      return { type: 'div', children: [message()] };
+      return <div>{message()}</div>;
     });
 
     const App = () => {
-      return { type: 'div', children: ['App'] };
+      return <div>App</div>;
     };
 
     createSPA({ root: container, routes: getRoutes() });
@@ -170,15 +164,11 @@ describe('identity across routes (ROUTER)', () => {
 
     route('/user/{id}', (params) => {
       seenParams.push(params);
-      return {
-        type: 'div',
-        props: { 'data-id': params.id },
-        children: [`User ${params.id}`],
-      };
+      return <div data-id={params.id}>User {params.id}</div>;
     });
 
     const App = () => {
-      return { type: 'div', children: ['App'] };
+      return <div>App</div>;
     };
 
     await createSPA({ root: container, routes: getRoutes() });

@@ -63,7 +63,7 @@ describe('route accessor (public)', () => {
         handler: (_params: Record<string, string>) => {
           const s = route();
           snapDuringRender = s as RouteSnapshot;
-          return { type: 'div', props: {}, children: [`user:${s.params.id}`] };
+          return <div>user:{s.params.id}</div>;
         },
       },
     ];

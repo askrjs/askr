@@ -25,10 +25,9 @@ describe('scheduler (SPEC 2.2)', () => {
       const Component = () => {
         const count = state(0);
 
-        return {
-          type: 'button',
-          props: {
-            onClick: () => {
+        return (
+          <button
+            onClick={() => {
               count.set(1);
               order.push(1);
 
@@ -37,10 +36,11 @@ describe('scheduler (SPEC 2.2)', () => {
 
               count.set(3);
               order.push(3);
-            },
-          },
-          children: [`${count()}`],
-        };
+            }}
+          >
+            {String(count())}
+          </button>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -64,29 +64,31 @@ describe('scheduler (SPEC 2.2)', () => {
       const ComponentA = () => {
         const count = state(0);
         renderLog.push(1);
-        return {
-          type: 'button',
-          props: { onClick: () => count.set(count() + 1), id: 'a' },
-          children: ['A'],
-        };
+        return (
+          <button onClick={() => count.set(count() + 1)} id="a">
+            A
+          </button>
+        );
       };
 
       const ComponentB = () => {
         const count = state(0);
         renderLog.push(2);
-        return {
-          type: 'button',
-          props: { onClick: () => count.set(count() + 1), id: 'b' },
-          children: ['B'],
-        };
+        return (
+          <button onClick={() => count.set(count() + 1)} id="b">
+            B
+          </button>
+        );
       };
 
       createIsland({
         root: container,
-        component: () => ({
-          type: 'div',
-          children: [ComponentA(), ComponentB()],
-        }),
+        component: () => (
+          <div>
+            <ComponentA />
+            <ComponentB />
+          </div>
+        ),
       });
 
       // Both rendered in order during initial render
@@ -103,20 +105,20 @@ describe('scheduler (SPEC 2.2)', () => {
         const count = state(0);
         renderCounts.push(1);
 
-        return {
-          type: 'button',
-          props: {
-            onClick: () => {
+        return (
+          <button
+            onClick={() => {
               // A few rapid writes (kept small to avoid tripping max-depth guard
               // in the current implementation).
               count.set(1);
               count.set(2);
               count.set(3);
               renderCounts.push(2);
-            },
-          },
-          children: [`${count()}`],
-        };
+            }}
+          >
+            {String(count())}
+          </button>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -140,19 +142,19 @@ describe('scheduler (SPEC 2.2)', () => {
         const x = state(0);
         const y = state(0);
 
-        return {
-          type: 'button',
-          props: {
-            onClick: () => {
+        return (
+          <button
+            onClick={() => {
               x.set(5);
               y.set(3);
               x.set(10);
               y.set(7);
               x.set(x() + 1);
-            },
-          },
-          children: [`x=${x()} y=${y()}`],
-        };
+            }}
+          >
+            x={String(x())} y={String(y())}
+          </button>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -177,10 +179,7 @@ describe('scheduler (SPEC 2.2)', () => {
 
         // Intentionally try to mutate during render
         // This should throw or be prevented, not cause reentrancy
-        return {
-          type: 'div',
-          children: [`Renders: ${renderAttempts}`],
-        };
+        return <div>Renders: {String(renderAttempts)}</div>;
       };
 
       createIsland({ root: container, component: Component });
@@ -201,16 +200,13 @@ describe('scheduler (SPEC 2.2)', () => {
           order.push('outer-end');
         };
 
-        return {
-          type: 'div',
-          children: [
-            {
-              type: 'button',
-              props: { onClick: handleOuter, id: 'outer' },
-              children: ['Outer'],
-            },
-          ],
-        };
+        return (
+          <div>
+            <button onClick={handleOuter} id="outer">
+              Outer
+            </button>
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -237,7 +233,7 @@ describe('scheduler (SPEC 2.2)', () => {
           return id;
         }, [id, delay]);
 
-        return { type: 'div', children: [r.value ?? ''] };
+        return <div>{r.value ?? ''}</div>;
       };
 
       createIsland({
@@ -280,7 +276,7 @@ describe('scheduler (SPEC 2.2)', () => {
           // Expected - state.set() guards against render-time mutation
         }
 
-        return { type: 'div' };
+        return <div />;
       };
 
       // Should not throw during component creation (guards are in place)
@@ -298,11 +294,11 @@ describe('scheduler (SPEC 2.2)', () => {
       const Component = () => {
         const count = state(0);
 
-        return {
-          type: 'button',
-          props: { onClick: () => count.set(count() + 1) },
-          children: [`${count()}`],
-        };
+        return (
+          <button onClick={() => count.set(count() + 1)}>
+            {String(count())}
+          </button>
+        );
       };
 
       // First run: 100 clicks
@@ -349,11 +345,11 @@ describe('scheduler (SPEC 2.2)', () => {
           order.push('handler-end');
         });
 
-        return {
-          type: 'button',
-          props: { id: 'btn', onClick: wrapped },
-          children: [String(count())],
-        };
+        return (
+          <button id="btn" onClick={wrapped}>
+            {String(count())}
+          </button>
+        );
       };
 
       const { container: c, cleanup: cu } = createTestContainer();
