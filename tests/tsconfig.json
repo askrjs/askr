@@ -1,0 +1,22 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@askrjs/askr",
+    "outDir": null,
+    "rootDir": null,
+    "baseUrl": ".",
+    "paths": {
+      "@askrjs/askr": ["../src/index.ts"],
+      "@askrjs/askr/foundations": ["../src/foundations/index.ts"],
+      "@askrjs/askr/resources": ["../src/resources/index.ts"],
+      "@askrjs/askr/fx": ["../src/fx/index.ts"],
+      "@askrjs/askr/router": ["../src/router/index.ts"],
+      "@askrjs/askr/ssr": ["../src/ssr/index.ts"],
+      "@askrjs/askr/jsx-runtime": ["../src/jsx/jsx-runtime.ts"],
+      "@askrjs/askr/jsx-dev-runtime": ["../src/jsx/jsx-dev-runtime.ts"]
+    }
+  },
+  "include": ["./**/*"],
+  "exclude": []
+}

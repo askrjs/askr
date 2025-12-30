@@ -1,7 +1,7 @@
 // tests/dev_errors/prod_fallbacks.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { state } from '../../src/index';
-import { _resetDefaultPortal } from '../../src/foundations/portal';
+import { _resetDefaultPortal } from '../../src/foundations/structures/portal';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
 import { clearRoutes } from '../../src/router/route';

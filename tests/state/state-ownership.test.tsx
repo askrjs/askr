@@ -4,14 +4,18 @@ import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('state ownership invariants', () => {
   let { container, cleanup } = createTestContainer();
-  beforeEach(() => ({ container, cleanup } = createTestContainer()));
+  beforeEach(() => {
+    const result = createTestContainer();
+    container = result.container;
+    cleanup = result.cleanup;
+  });
   afterEach(() => cleanup());
 
   it('should record its owning component and remain stable', () => {
     let count: ReturnType<typeof state<number>> | null = null;
     const Component = () => {
       count = state(0);
-      return { type: 'div', children: [`${count!()}`] };
+      return <div>{String(count!())}</div>;
     };
 
     createIsland({ root: container, component: Component });

@@ -24,7 +24,7 @@ describe('basic app smoke test', () => {
   });
 
   it('should render JSX to DOM', () => {
-    const Component = () => ({ type: 'div', children: ['Hello Askr'] });
+    const Component = () => <div>Hello Askr</div>;
     createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toBe('Hello Askr');
@@ -33,13 +33,9 @@ describe('basic app smoke test', () => {
   it('should handle state updates', () => {
     const Component = () => {
       const count = state(0);
-      return {
-        type: 'div',
-        children: [count().toString()],
-        props: {
-          onClick: () => count.set(count() + 1),
-        },
-      };
+      return (
+        <div onClick={() => count.set(count() + 1)}>{String(count())}</div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -56,13 +52,9 @@ describe('basic app smoke test', () => {
   it('should rerender on state change', () => {
     const Component = () => {
       const count = state(0);
-      return {
-        type: 'button',
-        children: [`Count: ${count()}`],
-        props: {
-          onClick: () => count.set(count() + 1),
-        },
-      };
+      return (
+        <button onClick={() => count.set(count() + 1)}>Count: {count()}</button>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -76,10 +68,7 @@ describe('basic app smoke test', () => {
   });
 
   it('should handle component props', () => {
-    const Component = ({ message }: { message: string }) => ({
-      type: 'p',
-      children: [message],
-    });
+    const Component = ({ message }: { message: string }) => <p>{message}</p>;
 
     createIsland({
       root: container,
@@ -90,7 +79,7 @@ describe('basic app smoke test', () => {
   });
 
   it('should mount and unmount cleanly', () => {
-    const Component = () => ({ type: 'span', children: ['Mounted'] });
+    const Component = () => <span>Mounted</span>;
     createIsland({ root: container, component: Component });
     flushScheduler();
     expect(container.textContent).toBe('Mounted');
@@ -99,13 +88,12 @@ describe('basic app smoke test', () => {
   });
 
   it('should handle multiple components', () => {
-    const App = () => ({
-      type: 'div',
-      children: [
-        { type: 'h1', children: ['Title'] },
-        { type: 'p', children: ['Content'] },
-      ],
-    });
+    const App = () => (
+      <div>
+        <h1>Title</h1>
+        <p>Content</p>
+      </div>
+    );
 
     createIsland({ root: container, component: App });
     flushScheduler();
@@ -116,10 +104,13 @@ describe('basic app smoke test', () => {
   it('should handle nested state updates', () => {
     const Component = () => {
       const items = state(['a', 'b']);
-      return {
-        type: 'ul',
-        children: items().map((item) => ({ type: 'li', children: [item] })),
-      };
+      return (
+        <ul>
+          {items().map((item) => (
+            <li>{item}</li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -128,15 +119,11 @@ describe('basic app smoke test', () => {
   });
 
   it('should handle events with preventDefault', () => {
-    const Component = () => ({
-      type: 'form',
-      children: [
-        { type: 'button', children: ['Submit'], props: { type: 'submit' } },
-      ],
-      props: {
-        onSubmit: (e: Event) => e.preventDefault(),
-      },
-    });
+    const Component = () => (
+      <form onSubmit={(e: Event) => e.preventDefault()}>
+        <button type="submit">Submit</button>
+      </form>
+    );
 
     createIsland({ root: container, component: Component });
     flushScheduler();
@@ -151,7 +138,7 @@ describe('basic app smoke test', () => {
     let renderCount = 0;
     const Component = () => {
       renderCount++;
-      return { type: 'div', children: [`Render ${renderCount}`] };
+      return <div>Render {renderCount}</div>;
     };
 
     createIsland({ root: container, component: Component });

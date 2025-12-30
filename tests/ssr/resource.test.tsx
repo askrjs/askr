@@ -8,7 +8,7 @@ describe('SSR resource behavior', () => {
   it('should throw SSRDataMissingError when resource() is called during SSR', () => {
     const Comp = () => {
       runtimeResource(async () => 'x');
-      return { type: 'div', children: ['x'] };
+      return <div>x</div>;
     };
 
     expect(() => renderToStringSync(Comp)).toThrowError(SSRDataMissingError);
@@ -22,7 +22,7 @@ describe('SSR resource behavior', () => {
       // illegal: async resource during SSR
       // fn returns a promise -> should throw during SSR
       resource(() => Promise.resolve('x'), []);
-      return { type: 'div', props: { children: ['ok'] } };
+      return <div>ok</div>;
     }
 
     expect(() =>

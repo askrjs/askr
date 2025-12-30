@@ -22,26 +22,17 @@ describe('cross component updates (state)', () => {
 
   it('should propagate state changes across components', () => {
     const Child = ({ value }: { value: number }) => {
-      return { type: 'span', props: { children: [`child: ${value}`] } };
+      return <span>child: {value}</span>;
     };
 
     const Parent = () => {
       const shared = state(0);
-      return {
-        type: 'div',
-        props: {
-          children: [
-            {
-              type: 'button',
-              props: {
-                onClick: () => shared.set(shared() + 1),
-                children: ['inc'],
-              },
-            },
-            { type: Child, props: { value: shared() } },
-          ],
-        },
-      };
+      return (
+        <div>
+          <button onClick={() => shared.set(shared() + 1)}>inc</button>
+          <Child value={shared()} />
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Parent });
@@ -57,36 +48,32 @@ describe('cross component updates (state)', () => {
 
   it('should handle async state updates across deep tree', async () => {
     const Leaf = ({ value }: { value: number }) => {
-      return { type: 'span', props: { children: [`leaf: ${value}`] } };
+      return <span>leaf: {value}</span>;
     };
 
     const Middle = ({ value }: { value: number }) => {
-      return {
-        type: 'div',
-        props: { children: [{ type: Leaf, props: { value } }] },
-      };
+      return (
+        <div>
+          <Leaf value={value} />
+        </div>
+      );
     };
 
     const Root = () => {
       const shared = state(0);
-      return {
-        type: 'div',
-        props: {
-          children: [
-            {
-              type: 'button',
-              props: {
-                onClick: async () => {
-                  await waitForNextEvaluation();
-                  shared.set(shared() + 1);
-                },
-                children: ['async inc'],
-              },
-            },
-            { type: Middle, props: { value: shared() } },
-          ],
-        },
-      };
+      return (
+        <div>
+          <button
+            onClick={async () => {
+              await waitForNextEvaluation();
+              shared.set(shared() + 1);
+            }}
+          >
+            async inc
+          </button>
+          <Middle value={shared()} />
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Root });
@@ -103,26 +90,17 @@ describe('cross component updates (state)', () => {
 
   it('should update parent to child', () => {
     const Child = ({ value }: { value: string }) => {
-      return { type: 'span', props: { children: [value] } };
+      return <span>{value}</span>;
     };
 
     const Parent = () => {
       const parentState = state('parent');
-      return {
-        type: 'div',
-        props: {
-          children: [
-            {
-              type: 'button',
-              props: {
-                onClick: () => parentState.set('updated'),
-                children: ['update'],
-              },
-            },
-            { type: Child, props: { value: parentState() } },
-          ],
-        },
-      };
+      return (
+        <div>
+          <button onClick={() => parentState.set('updated')}>update</button>
+          <Child value={parentState()} />
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Parent });
@@ -138,35 +116,30 @@ describe('cross component updates (state)', () => {
 
   it('should handle sibling component updates', () => {
     const Sibling1 = ({ value }: { value: string }) => {
-      return { type: 'span', props: { children: [value] } };
+      return <span>{value}</span>;
     };
 
     const Sibling2 = ({ value }: { value: string }) => {
-      return { type: 'span', props: { children: [value] } };
+      return <span>{value}</span>;
     };
 
     const Parent = () => {
       const sibling1 = state('s1');
       const sibling2 = state('s2');
-      return {
-        type: 'div',
-        props: {
-          children: [
-            {
-              type: 'button',
-              props: {
-                onClick: () => {
-                  sibling1.set('s1-updated');
-                  sibling2.set('s2-updated');
-                },
-                children: ['update both'],
-              },
-            },
-            { type: Sibling1, props: { value: sibling1() } },
-            { type: Sibling2, props: { value: sibling2() } },
-          ],
-        },
-      };
+      return (
+        <div>
+          <button
+            onClick={() => {
+              sibling1.set('s1-updated');
+              sibling2.set('s2-updated');
+            }}
+          >
+            update both
+          </button>
+          <Sibling1 value={sibling1()} />
+          <Sibling2 value={sibling2()} />
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Parent });

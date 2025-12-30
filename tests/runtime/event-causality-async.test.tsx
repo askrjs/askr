@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { state } from '../../src/index';
 import { capture } from '../../src/runtime/operations';
@@ -14,36 +13,30 @@ describe('Event causality across async boundaries', () => {
       const Component = () => {
         const count = state(0);
 
-        return {
-          type: 'div',
-          props: {},
-          children: [
-            {
-              type: 'button',
-              props: {
-                id: 'observe',
-                onClick: () => {
-                  // Capture the current value explicitly and schedule a continuation
-                  const snap = capture(() => count());
-                  Promise.resolve().then(() => {
-                    observed.push(snap());
-                  });
-                },
-              },
-              children: ['observe'],
-            },
-            {
-              type: 'button',
-              props: {
-                id: 'inc',
-                onClick: () => {
-                  count.set(count() + 1);
-                },
-              },
-              children: ['inc'],
-            },
-          ],
-        } as unknown as JSXElement;
+        return (
+          <div>
+            <button
+              id="observe"
+              onClick={() => {
+                // Capture the current value explicitly and schedule a continuation
+                const snap = capture(() => count());
+                Promise.resolve().then(() => {
+                  observed.push(snap());
+                });
+              }}
+            >
+              observe
+            </button>
+            <button
+              id="inc"
+              onClick={() => {
+                count.set(count() + 1);
+              }}
+            >
+              inc
+            </button>
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });

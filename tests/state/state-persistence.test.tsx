@@ -36,11 +36,7 @@ describe('state persistence (SPEC 2.5)', () => {
           count.set(count() + 1);
         };
 
-        return {
-          type: 'button',
-          props: { onClick: trigger },
-          children: [`count: ${count()}`],
-        };
+        return <button onClick={trigger}>count: {count()}</button>;
       };
 
       createIsland({ root: container, component: Component });
@@ -63,10 +59,11 @@ describe('state persistence (SPEC 2.5)', () => {
         const y = state(2);
         const z = state(3);
 
-        return {
-          type: 'div',
-          children: [`x=${x()} y=${y()} z=${z()}`],
-        };
+        return (
+          <div>
+            x={x()} y={y()} z={z()}
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -79,20 +76,19 @@ describe('state persistence (SPEC 2.5)', () => {
       const Component = () => {
         const toggle = state(false);
 
-        return {
-          type: 'div',
-          children: [
-            {
-              type: toggle() ? 'span' : 'button',
-              props: {
-                onClick: () => {
-                  toggle.set(!toggle());
-                },
-              },
-              children: [`toggle state: ${toggle()}`],
-            },
-          ],
-        };
+        return (
+          <div>
+            {toggle() ? (
+              <span onClick={() => toggle.set(!toggle())}>
+                toggle state: {String(toggle())}
+              </span>
+            ) : (
+              <button onClick={() => toggle.set(!toggle())}>
+                toggle state: {String(toggle())}
+              </button>
+            )}
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -120,9 +116,8 @@ describe('state persistence (SPEC 2.5)', () => {
         const _c = state(3);
 
         // Would need to track indices somehow (implementation detail test)
-        return { type: 'div', children: ['ok'] };
+        return <div>ok</div>;
       };
-
       createIsland({ root: container, component: Component });
       createIsland({ root: container, component: Component });
 

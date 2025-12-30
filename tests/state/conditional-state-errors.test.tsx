@@ -5,7 +5,11 @@ import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('conditional state errors (STATE)', () => {
   let { container, cleanup } = createTestContainer();
-  beforeEach(() => ({ container, cleanup } = createTestContainer()));
+  beforeEach(() => {
+    const result = createTestContainer();
+    container = result.container;
+    cleanup = result.cleanup;
+  });
   afterEach(() => cleanup());
 
   it('should throw error when state() is called in if block', async () => {
@@ -17,7 +21,7 @@ describe('conditional state errors (STATE)', () => {
         state('illegal');
       }
       const ok = state('ok');
-      return { type: 'div', children: [ok()] };
+      return <div>{ok()}</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -33,7 +37,7 @@ describe('conditional state errors (STATE)', () => {
 
   it('should not throw when unreachable state() calls exist after return (static heuristics removed)', () => {
     const Component = () => {
-      return { type: 'div', children: ['early'] };
+      return <div>early</div>;
       // Unreachable state call - unreachable and not executed at runtime.
       state('nope');
     };
@@ -50,7 +54,7 @@ describe('conditional state errors (STATE)', () => {
       } catch {
         // ignored
       }
-      return { type: 'div', children: ['x'] };
+      return <div>x</div>;
     };
 
     expect(() =>

@@ -16,4 +16,4 @@ export { navigate } from './navigate';
 export { Link } from '../components/Link';
 export type { LinkProps } from '../components/Link';
 
-export { layout } from '../foundations/layout';
+export { layout } from '../foundations/structures/layout';

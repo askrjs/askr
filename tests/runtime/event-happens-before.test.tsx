@@ -51,22 +51,17 @@ describe('happens-before events (SPEC 2.3)', () => {
           timeline.push('E2-handler-end');
         };
 
-        return {
-          type: 'div',
-          children: [
-            {
-              type: 'button',
-              props: { onClick: handleE1, id: 'e1' },
-              children: ['E1'],
-            },
-            {
-              type: 'button',
-              props: { onClick: handleE2, id: 'e2' },
-              children: ['E2'],
-            },
-            { type: 'span', children: [`count: ${count()}`] },
-          ],
-        };
+        return (
+          <div>
+            <button onClick={handleE1} id="e1">
+              E1
+            </button>
+            <button onClick={handleE2} id="e2">
+              E2
+            </button>
+            <span>count: {String(count())}</span>
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -104,25 +99,20 @@ describe('happens-before events (SPEC 2.3)', () => {
           valueSeenByE2.set(counter());
         };
 
-        return {
-          type: 'div',
-          children: [
-            {
-              type: 'button',
-              props: { onClick: handleE1, id: 'e1' },
-              children: ['E1'],
-            },
-            {
-              type: 'button',
-              props: {
-                onClick: handleE2,
-                id: 'e2',
-                'data-value-seen': `${valueSeenByE2()}`,
-              },
-              children: ['E2'],
-            },
-          ],
-        };
+        return (
+          <div>
+            <button onClick={handleE1} id="e1">
+              E1
+            </button>
+            <button
+              onClick={handleE2}
+              id="e2"
+              data-value-seen={String(valueSeenByE2())}
+            >
+              E2
+            </button>
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -159,11 +149,7 @@ describe('happens-before events (SPEC 2.3)', () => {
           expect(count()).toBe(1);
         };
 
-        return {
-          type: 'button',
-          props: { onClick: handleClick },
-          children: [`${count()}`],
-        };
+        return <button onClick={handleClick}>{String(count())}</button>;
       };
 
       createIsland({ root: container, component: Component });
@@ -189,16 +175,16 @@ describe('happens-before events (SPEC 2.3)', () => {
       const Component = () => {
         const count = state(0);
 
-        return {
-          type: 'button',
-          props: {
-            onClick: () => {
+        return (
+          <button
+            onClick={() => {
               count.set(count() + 1);
               finalValues.push(count());
-            },
-          },
-          children: [`${count()}`],
-        };
+            }}
+          >
+            {String(count())}
+          </button>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -225,43 +211,45 @@ describe('happens-before events (SPEC 2.3)', () => {
       const ComponentA = () => {
         const val = state('a-idle');
 
-        return {
-          type: 'button',
-          props: {
-            id: 'a',
-            onClick: () => {
+        return (
+          <button
+            id="a"
+            onClick={() => {
               order.push('a-start');
               val.set('a-active');
               order.push('a-end');
-            },
-          },
-          children: [val()],
-        };
+            }}
+          >
+            {val()}
+          </button>
+        );
       };
 
       const ComponentB = () => {
         const val = state('b-idle');
 
-        return {
-          type: 'button',
-          props: {
-            id: 'b',
-            onClick: () => {
+        return (
+          <button
+            id="b"
+            onClick={() => {
               order.push('b-start');
               val.set('b-active');
               order.push('b-end');
-            },
-          },
-          children: [val()],
-        };
+            }}
+          >
+            {val()}
+          </button>
+        );
       };
 
       createIsland({
         root: container,
-        component: () => ({
-          type: 'div',
-          children: [ComponentA(), ComponentB()],
-        }),
+        component: () => (
+          <div>
+            <ComponentA />
+            <ComponentB />
+          </div>
+        ),
       });
 
       const aButton = container.querySelector('#a') as HTMLButtonElement;
@@ -293,17 +281,14 @@ describe('happens-before events (SPEC 2.3)', () => {
           count.set(count() + 1);
         };
 
-        return {
-          type: 'div',
-          children: [
-            {
-              type: 'button',
-              props: { onClick: increment, id: 'inc' },
-              children: ['++'],
-            },
-            { type: 'span', children: [`${count()}`] },
-          ],
-        };
+        return (
+          <div>
+            <button onClick={increment} id="inc">
+              ++
+            </button>
+            <span>{String(count())}</span>
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -331,14 +316,11 @@ describe('happens-before events (SPEC 2.3)', () => {
           value.set(value() * 2);
         };
 
-        return {
-          type: 'button',
-          props: {
-            onClick: doubleValue,
-            'data-final': value(),
-          },
-          children: [`value: ${value()}`],
-        };
+        return (
+          <button onClick={doubleValue} data-final={value()}>
+            value: {String(value())}
+          </button>
+        );
       };
 
       createIsland({ root: container, component: Component });

@@ -34,12 +34,12 @@ describe('history integration (ROUTER)', () => {
       const routes = [
         {
           path: '/page1',
-          handler: () => ({ type: 'div', children: ['Page 1'] }),
+          handler: () => <div>Page 1</div>,
         },
       ];
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes });
@@ -63,12 +63,12 @@ describe('history integration (ROUTER)', () => {
       const routes = [
         {
           path: '/new-page',
-          handler: () => ({ type: 'div', children: ['New Page'] }),
+          handler: () => <div>New Page</div>,
         },
       ];
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes });
@@ -86,11 +86,11 @@ describe('history integration (ROUTER)', () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
       route('/*', () => {
-        return { type: 'div', children: ['Page'] };
+        return <div>Page</div>;
       });
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -115,7 +115,7 @@ describe('history integration (ROUTER)', () => {
   describe('back button behavior', () => {
     it('should create entries that can be traversed', async () => {
       route('/*', () => {
-        return { type: 'div', children: ['Page'] };
+        return <div>Page</div>;
       });
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -138,7 +138,7 @@ describe('history integration (ROUTER)', () => {
       });
 
       route('/*', () => {
-        return { type: 'div', children: ['Page'] };
+        return <div>Page</div>;
       });
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -163,12 +163,10 @@ describe('history integration (ROUTER)', () => {
     it('should store path in history state', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      const routes = [
-        { path: '/test', handler: () => ({ type: 'div', children: ['Test'] }) },
-      ];
+      const routes = [{ path: '/test', handler: () => <div>Test</div> }];
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes });
@@ -199,7 +197,7 @@ describe('history integration (ROUTER)', () => {
       ];
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes });
@@ -232,7 +230,7 @@ describe('history integration (ROUTER)', () => {
       ];
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes });
@@ -249,12 +247,10 @@ describe('history integration (ROUTER)', () => {
     it('should handle rapid history changes', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      const routes = [
-        { path: '/*', handler: () => ({ type: 'div', children: ['Page'] }) },
-      ];
+      const routes = [{ path: '/*', handler: () => <div>Page</div> }];
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes });
@@ -276,12 +272,10 @@ describe('history integration (ROUTER)', () => {
     it('should handle empty path', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      const routes = [
-        { path: '/', handler: () => ({ type: 'div', children: ['Home'] }) },
-      ];
+      const routes = [{ path: '/', handler: () => <div>Home</div> }];
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes });
@@ -301,7 +295,7 @@ describe('history integration (ROUTER)', () => {
       const initialLength = window.history.length;
 
       route('/*', () => {
-        return { type: 'div', children: ['Page'] };
+        return <div>Page</div>;
       });
 
       await createSPA({ root: container, routes: getRoutes() });

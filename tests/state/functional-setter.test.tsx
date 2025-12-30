@@ -5,14 +5,18 @@ import { createIsland } from '../helpers/create-island';
 
 describe('state functional updater (STATE)', () => {
   let { container, cleanup } = createTestContainer();
-  beforeEach(() => ({ container, cleanup } = createTestContainer()));
+  beforeEach(() => {
+    const result = createTestContainer();
+    container = result.container;
+    cleanup = result.cleanup;
+  });
   afterEach(() => cleanup());
 
   it('should apply functional updates sequentially when called multiple times', () => {
     let count: ReturnType<typeof state<number>> | null = null;
     const Component = () => {
       count = state(0);
-      return { type: 'div', children: [`${count()}`] };
+      return <div>{String(count())}</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -32,7 +36,7 @@ describe('state functional updater (STATE)', () => {
     let count: ReturnType<typeof state<number>> | null = null;
     const Component = () => {
       count = state(10);
-      return { type: 'div', children: [`${count()}`] };
+      return <div>{count()}</div>;
     };
 
     createIsland({ root: container, component: Component });

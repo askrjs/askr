@@ -50,14 +50,13 @@ describe('commit & rollback (RUNTIME)', () => {
         // Throw during component execution, not during rendering
         throw new Error('boom');
       }
-      return {
-        type: 'div',
-        children: [
-          { type: 'span', children: ['A'] },
-          { type: 'span', children: ['B'] },
-          { type: 'span', children: ['C'] },
-        ],
-      };
+      return (
+        <div>
+          <span>A</span>
+          <span>B</span>
+          <span>C</span>
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

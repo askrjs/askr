@@ -14,8 +14,8 @@ import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 describe('SSR route registration', () => {
   it('should not allow route registration during SSR', () => {
     const Comp = () => {
-      route('/x', () => ({ type: 'div' }));
-      return { type: 'div' };
+      route('/x', () => <div />);
+      return <div />;
     };
 
     expect(() => renderToStringSync(Comp)).toThrow(
@@ -30,7 +30,7 @@ describe('snapshot restore (SSR)', () => {
   afterEach(() => cleanup());
 
   it('should capture component state in snapshot', async () => {
-    const Component = () => ({ type: 'div', children: ['hello'] });
+    const Component = () => <div>hello</div>;
     const html = renderToStringSync(Component);
 
     expect(html).toContain('<div');
@@ -38,7 +38,7 @@ describe('snapshot restore (SSR)', () => {
   });
 
   it('should apply snapshot to new instance during restore', async () => {
-    const Component = () => ({ type: 'div', children: ['hello'] });
+    const Component = () => <div>hello</div>;
     const html = renderToStringSync(Component);
 
     container.innerHTML = html;
@@ -56,11 +56,7 @@ describe('snapshot restore (SSR)', () => {
 
 describe('SSR determinism (SSR)', () => {
   it('should render same HTML every time when component is the same', async () => {
-    const Component = () => ({
-      type: 'div',
-      props: { class: 'x' },
-      children: ['hello'],
-    });
+    const Component = () => <div class="x">hello</div>;
 
     const a = renderToStringSync(Component);
     const b = renderToStringSync(Component);
@@ -71,7 +67,7 @@ describe('SSR determinism (SSR)', () => {
   });
 
   it('should throw when using nondeterministic globals like Math.random', async () => {
-    const Random = () => ({ type: 'div', children: [`${Math.random()}`] });
+    const Random = () => <div>{Math.random()}</div>;
     expect(() => renderToStringSync(Random)).toThrow(/Math.random.*SSR/i);
   });
 
@@ -79,7 +75,7 @@ describe('SSR determinism (SSR)', () => {
     let sideEffects = 0;
     const SideEffectful = () => {
       sideEffects++;
-      return { type: 'div', children: ['x'] };
+      return <div>x</div>;
     };
 
     renderToStringSync(SideEffectful);
@@ -95,10 +91,12 @@ describe('SSR strict purity', () => {
       // This uses Date and Math inside render
       const t = Date.now();
       const r = Math.random();
-      return {
-        type: 'div',
-        children: [String(t), String(r)],
-      } as unknown as JSXElement;
+      return (
+        <div>
+          {String(t)}
+          {String(r)}
+        </div>
+      ) as unknown as JSXElement;
     };
 
     expect(() => renderToStringSync(() => Component())).toThrow();
@@ -107,9 +105,7 @@ describe('SSR strict purity', () => {
 
 describe('SSR streaming parity', () => {
   it('should stream SSR matches string SSR', () => {
-    const routes = [
-      { path: '/', handler: () => ({ type: 'div', children: ['x'] }) },
-    ];
+    const routes = [{ path: '/', handler: () => <div>x</div> }];
 
     let out = '';
     renderToStream({

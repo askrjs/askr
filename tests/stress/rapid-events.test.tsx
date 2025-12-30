@@ -25,11 +25,11 @@ describe('rapid events (STRESS)', () => {
     const Component = () => {
       const count = state(0);
 
-      return {
-        type: 'button',
-        props: { onClick: () => count.set(count() + 1) },
-        children: [`${count()}`],
-      };
+      return (
+        <button onClick={() => count.set(count() + 1)}>
+          {String(count())}
+        </button>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -50,16 +50,16 @@ describe('rapid events (STRESS)', () => {
     const Component = () => {
       const count = state(0);
 
-      return {
-        type: 'button',
-        props: {
-          onClick: () => {
+      return (
+        <button
+          onClick={() => {
             count.set(count() + 1);
             values.push(count());
-          },
-        },
-        children: [`${count()}`],
-      };
+          }}
+        >
+          {String(count())}
+        </button>
+      );
     };
 
     createIsland({ root: container, component: Component });

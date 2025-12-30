@@ -33,12 +33,12 @@ describe('route navigation (ROUTER)', () => {
 
       route('/home', (_params) => {
         currentPath = '/home';
-        return { type: 'div', children: ['Home Page'] };
+        return <div>Home Page</div>;
       });
 
       route('/about', (_params) => {
         currentPath = '/about';
-        return { type: 'div', children: ['About Page'] };
+        return <div>About Page</div>;
       });
 
       const _App = (
@@ -46,16 +46,11 @@ describe('route navigation (ROUTER)', () => {
         _context?: { signal: AbortSignal }
       ) => {
         const _path = state(window?.location?.pathname || '/home');
-        return {
-          type: 'div',
-          children: [
-            {
-              type: 'button',
-              props: { id: 'nav-btn' },
-              children: ['Navigate'],
-            },
-          ],
-        };
+        return (
+          <div>
+            <button id="nav-btn">Navigate</button>
+          </div>
+        );
       };
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -68,7 +63,7 @@ describe('route navigation (ROUTER)', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       // createSPA requires a non-empty route table.
-      route('/', (_params) => ({ type: 'div', children: ['Root'] }));
+      route('/', (_params) => <div>Root</div>);
 
       await createSPA({ root: container, routes: getRoutes() });
       flushScheduler();
@@ -90,11 +85,11 @@ describe('route navigation (ROUTER)', () => {
 
       route('/users/{id}', (params) => {
         receivedParams = params;
-        return { type: 'div', children: [`User ${params.id}`] };
+        return <div>User {params.id}</div>;
       });
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -109,11 +104,11 @@ describe('route navigation (ROUTER)', () => {
 
       route('/users/{userId}/posts/{postId}', (params) => {
         receivedParams = params;
-        return { type: 'div', children: ['Post'] };
+        return <div>Post</div>;
       });
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -132,7 +127,7 @@ describe('route navigation (ROUTER)', () => {
         '/admin',
         (_params) => {
           namespace = 'admin-mfe';
-          return { type: 'div', children: ['Admin Panel'] };
+          return <div>Admin Panel</div>;
         },
         'admin-mfe'
       );
@@ -141,13 +136,13 @@ describe('route navigation (ROUTER)', () => {
         '/dashboard',
         (_params) => {
           namespace = 'dashboard-mfe';
-          return { type: 'div', children: ['Dashboard'] };
+          return <div>Dashboard</div>;
         },
         'dashboard-mfe'
       );
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -163,11 +158,11 @@ describe('route navigation (ROUTER)', () => {
       const historyPushSpy = vi.spyOn(window.history, 'pushState');
 
       route('/page', () => {
-        return { type: 'div', children: ['Page'] };
+        return <div>Page</div>;
       });
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -190,16 +185,16 @@ describe('route navigation (ROUTER)', () => {
 
       route('/users/{id}', (_params) => {
         matched = 'specific';
-        return { type: 'div' };
+        return <div />;
       });
 
       route('/*', (_params) => {
         matched = 'catch-all';
-        return { type: 'div' };
+        return <div />;
       });
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes: getRoutes() });
@@ -214,16 +209,16 @@ describe('route navigation (ROUTER)', () => {
 
       route('/', () => {
         matched = 'root';
-        return { type: 'div' };
+        return <div />;
       });
 
       route('/*', () => {
         matched = 'catch-all';
-        return { type: 'div' };
+        return <div />;
       });
 
       const App = () => {
-        return { type: 'div', children: ['App'] };
+        return <div>App</div>;
       };
 
       await createSPA({ root: container, routes: getRoutes() });

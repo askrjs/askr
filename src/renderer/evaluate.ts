@@ -384,6 +384,11 @@ function applyPropsToElement(el: Element, props: Props): void {
     if (key === 'children' || key === 'key') continue;
     if (value === undefined || value === null || value === false) continue;
 
+    if (key === 'ref') {
+      applyRef(el, value);
+      continue;
+    }
+
     const eventName = parseEventName(key);
     if (eventName) {
       const wrappedHandler = createWrappedHandler(
@@ -412,6 +417,26 @@ function applyPropsToElement(el: Element, props: Props): void {
     } else {
       el.setAttribute(key, String(value));
     }
+  }
+}
+
+type Ref<T> =
+  | ((value: T | null) => void)
+  | { current: T | null }
+  | null
+  | undefined;
+
+function applyRef<T>(el: T, ref: unknown): void {
+  const r = ref as Ref<T>;
+  if (!r) return;
+  if (typeof r === 'function') {
+    r(el);
+    return;
+  }
+  try {
+    (r as { current: T | null }).current = el;
+  } catch {
+    // Ignore write failures
   }
 }
 

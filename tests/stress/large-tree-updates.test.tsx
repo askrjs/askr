@@ -14,16 +14,15 @@ describe('large tree updates (STRESS)', () => {
 
     const Component = () => {
       tick = state(0);
-      return {
-        type: 'div',
-        props: {
-          children: Array.from({ length: 1000 }, (_, i) => ({
-            type: 'span',
-            props: { 'data-i': i },
-            children: [`${i}:${tick!()}`],
-          })),
-        },
-      };
+      return (
+        <div>
+          {Array.from({ length: 1000 }, (_, i) => (
+            <span data-i={i}>
+              {i}:{tick!()}
+            </span>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -64,14 +63,15 @@ describe('large tree updates (STRESS)', () => {
     let value: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
       value = state('a');
-      return {
-        type: 'div',
-        children: Array.from({ length: 1000 }, (_, i) => ({
-          type: 'span',
-          props: { 'data-i': i },
-          children: [`${value!()}-${i}`],
-        })),
-      };
+      return (
+        <div>
+          {Array.from({ length: 1000 }, (_, i) => (
+            <span data-i={i}>
+              {value!()}-{i}
+            </span>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
