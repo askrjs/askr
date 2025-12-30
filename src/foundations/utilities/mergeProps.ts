@@ -35,9 +35,15 @@ export function mergeProps<TBase extends object, TInjected extends object>(
   base: TBase,
   injected: TInjected
 ): TInjected & TBase {
+  // Fast path: if base is empty, return injected as-is
+  const baseKeys = Object.keys(base);
+  if (baseKeys.length === 0) {
+    return injected as TInjected & TBase;
+  }
+
   const out = { ...(injected as object) } as TInjected & TBase;
 
-  for (const key of Object.keys(base) as Array<Extract<keyof TBase, string>>) {
+  for (const key of baseKeys as Array<Extract<keyof TBase, string>>) {
     const baseValue = (base as Record<string, unknown>)[key];
     const injectedValue = (injected as Record<string, unknown>)[key];
 
