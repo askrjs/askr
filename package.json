@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Actor-backed deterministic UI framework",
   "type": "module",
   "license": "Apache-2.0",
@@ -84,7 +84,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
-    "jiti": "^2.6.0",
+    "jiti": "^2.6.1",
     "jsdom": "^27.4.0",
     "prettier": "^3.7.4",
     "tsup": "^8.5.1",
