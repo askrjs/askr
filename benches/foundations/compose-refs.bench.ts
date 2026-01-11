@@ -2,7 +2,7 @@ import { bench, describe } from 'vitest';
 import {
   composeRefs,
   setRef,
-} from '../../src/foundations/utilities/composeRef';
+} from '../../src/foundations/utilities/compose-ref';
 
 describe('composeRefs (FOUNDATIONS)', () => {
   // Mock refs

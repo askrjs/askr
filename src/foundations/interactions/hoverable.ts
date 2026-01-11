@@ -13,7 +13,7 @@ export interface HoverableOptions {
 import type {
   DefaultPreventable,
   PropagationStoppable,
-} from '../utilities/eventTypes';
+} from '../utilities/event-types';
 
 type HoverEvent = DefaultPreventable & PropagationStoppable;
 

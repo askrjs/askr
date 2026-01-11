@@ -16,3 +16,8 @@ export interface PointerLikeEvent
   extends DefaultPreventable, PropagationStoppable {
   target?: unknown;
 }
+
+export interface FocusLikeEvent
+  extends DefaultPreventable, PropagationStoppable {
+  relatedTarget?: unknown;
+}
