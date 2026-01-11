@@ -107,6 +107,7 @@ export class ResourceCell<U> {
       })
       .catch((err) => {
         if (this.generation !== generation) return;
+        if (this.controller !== controller) return;
         this.pending = false;
         this.error = err as Error;
         try {

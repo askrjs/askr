@@ -43,6 +43,25 @@ type ElementWithContext = DOMElement & {
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
+let fallbackComponentInstanceId = 0;
+
+function nextComponentInstanceId(): string {
+  const key = '__COMPONENT_INSTANCE_ID';
+  try {
+    __ASKR_incCounter(key);
+    const root = globalThis as unknown as Record<string, unknown> & {
+      __ASKR_DIAG?: Record<string, unknown>;
+    };
+    const diag = root.__ASKR_DIAG;
+    const n = diag ? diag[key] : undefined;
+    if (typeof n === 'number' && Number.isFinite(n)) return `comp-${n}`;
+  } catch {
+    // Fall through to local counter
+  }
+  fallbackComponentInstanceId++;
+  return `comp-${fallbackComponentInstanceId}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Event Handler Management
 // ─────────────────────────────────────────────────────────────────────────────
@@ -343,7 +362,7 @@ function createComponentElement(
   let childInstance = node.__instance;
   if (!childInstance) {
     childInstance = createComponentInstance(
-      `comp-${Math.random().toString(36).slice(2, 7)}`,
+      nextComponentInstanceId(),
       componentFn as ComponentFunction,
       props || {},
       null
