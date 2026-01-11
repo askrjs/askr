@@ -14,6 +14,7 @@ describe('dismissable (FOUNDATIONS)', () => {
       });
 
       expect(onDismiss).toHaveBeenCalledTimes(1);
+      expect(onDismiss).toHaveBeenCalledWith('escape');
     });
 
     it('should prevent default and stop propagation on Escape', () => {
@@ -68,48 +69,79 @@ describe('dismissable (FOUNDATIONS)', () => {
     });
   });
 
-  describe('outside click dismissal', () => {
+  describe('outside pointer dismissal', () => {
     it('should call onDismiss when click is outside', () => {
       const onDismiss = vi.fn();
-      const { outsideListener } = dismissable({ onDismiss });
-      const isInside = vi.fn(() => false);
-      const handler = outsideListener?.(isInside);
+      const outsideElement = document.createElement('div');
+      const containerElement = document.createElement('div');
+      const props = dismissable({ onDismiss, node: containerElement });
 
-      handler?.({
-        target: 'some-element',
-        preventDefault: vi.fn(),
-        stopPropagation: vi.fn(),
+      props.onPointerDownCapture?.({
+        target: outsideElement,
       });
 
       expect(onDismiss).toHaveBeenCalledTimes(1);
-    });
-
-    it('should prevent default and stop propagation on outside click', () => {
-      const onDismiss = vi.fn();
-      const preventDefault = vi.fn();
-      const stopPropagation = vi.fn();
-      const { outsideListener } = dismissable({ onDismiss });
-      const isInside = vi.fn(() => false);
-      const handler = outsideListener?.(isInside);
-
-      handler?.({
-        target: 'some-element',
-        preventDefault,
-        stopPropagation,
-      });
-
-      expect(preventDefault).toHaveBeenCalledTimes(1);
-      expect(stopPropagation).toHaveBeenCalledTimes(1);
+      expect(onDismiss).toHaveBeenCalledWith('outside');
     });
 
     it('should not call onDismiss when click is inside', () => {
       const onDismiss = vi.fn();
-      const { outsideListener } = dismissable({ onDismiss });
-      const isInside = vi.fn(() => true);
-      const handler = outsideListener?.(isInside);
+      const containerElement = document.createElement('div');
+      const insideElement = document.createElement('div');
+      containerElement.appendChild(insideElement);
+      const props = dismissable({ onDismiss, node: containerElement });
 
-      handler?.({
-        target: 'some-element',
+      props.onPointerDownCapture?.({
+        target: insideElement,
+      });
+
+      expect(onDismiss).not.toHaveBeenCalled();
+    });
+
+    it('should not call onDismiss when node is not provided', () => {
+      const onDismiss = vi.fn();
+      const outsideElement = document.createElement('div');
+      const props = dismissable({ onDismiss, node: null });
+
+      props.onPointerDownCapture?.({
+        target: outsideElement,
+      });
+
+      expect(onDismiss).not.toHaveBeenCalled();
+    });
+
+    it('should not call onDismiss when target is not a Node', () => {
+      const onDismiss = vi.fn();
+      const containerElement = document.createElement('div');
+      const props = dismissable({ onDismiss, node: containerElement });
+
+      props.onPointerDownCapture?.({
+        target: 'not-a-node',
+      });
+
+      expect(onDismiss).not.toHaveBeenCalled();
+    });
+
+    it('should not error when onDismiss is undefined', () => {
+      const containerElement = document.createElement('div');
+      const outsideElement = document.createElement('div');
+      const props = dismissable({ node: containerElement });
+
+      expect(() => {
+        props.onPointerDownCapture?.({
+          target: outsideElement,
+        });
+      }).not.toThrow();
+    });
+  });
+
+  describe('disabled state', () => {
+    it('should not call onDismiss for Escape when disabled', () => {
+      const onDismiss = vi.fn();
+      const props = dismissable({ onDismiss, disabled: true });
+
+      props.onKeyDown?.({
+        key: 'Escape',
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       });
@@ -117,46 +149,26 @@ describe('dismissable (FOUNDATIONS)', () => {
       expect(onDismiss).not.toHaveBeenCalled();
     });
 
-    it('should call isInside predicate with event target', () => {
+    it('should not call onDismiss for outside clicks when disabled', () => {
       const onDismiss = vi.fn();
-      const { outsideListener } = dismissable({ onDismiss });
-      const isInside = vi.fn(() => false);
-      const handler = outsideListener?.(isInside);
-      const target = { id: 'test-target' };
+      const containerElement = document.createElement('div');
+      const outsideElement = document.createElement('div');
+      const props = dismissable({ onDismiss, disabled: true, node: containerElement });
 
-      handler?.({ target, preventDefault: vi.fn(), stopPropagation: vi.fn() });
+      props.onPointerDownCapture?.({
+        target: outsideElement,
+      });
 
-      expect(isInside).toHaveBeenCalledWith(target);
+      expect(onDismiss).not.toHaveBeenCalled();
     });
 
-    it('should not error when onDismiss is undefined', () => {
-      const { outsideListener } = dismissable({});
-      const isInside = vi.fn(() => false);
-      const handler = outsideListener?.(isInside);
-
-      expect(() => {
-        handler?.({
-          target: 'some-element',
-          preventDefault: vi.fn(),
-          stopPropagation: vi.fn(),
-        });
-      }).not.toThrow();
-    });
-  });
-
-  describe('disabled state', () => {
-    it('should not provide onKeyDown when disabled', () => {
+    it('should still provide event handlers when disabled', () => {
       const onDismiss = vi.fn();
       const props = dismissable({ onDismiss, disabled: true });
 
-      expect(props.onKeyDown).toBeUndefined();
-    });
-
-    it('should not provide outsideListener when disabled', () => {
-      const onDismiss = vi.fn();
-      const props = dismissable({ onDismiss, disabled: true });
-
-      expect(props.outsideListener).toBeUndefined();
+      // Handlers should exist for composition, just short-circuit
+      expect(typeof props.onKeyDown).toBe('function');
+      expect(typeof props.onPointerDownCapture).toBe('function');
     });
   });
 });
