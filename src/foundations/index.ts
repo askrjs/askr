@@ -41,7 +41,8 @@ export { ariaDisabled, ariaExpanded, ariaSelected } from './utilities/aria';
 export { composeRefs, setRef } from './utilities/compose-ref';
 export type { Ref } from './utilities/compose-ref';
 
-export { useId } from './utilities/use-id';
+export { formatId } from './utilities/use-id';
+export type { FormatIdOptions } from './utilities/use-id';
 
 // State
 export {

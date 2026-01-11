@@ -1,4 +1,4 @@
-export interface UseIdOptions {
+export interface FormatIdOptions {
   /** Defaults to 'askr' */
   prefix?: string;
   /** Stable, caller-provided identity */
@@ -6,7 +6,7 @@ export interface UseIdOptions {
 }
 
 /**
- * useId
+ * formatId
  *
  * Formats a stable ID from a caller-provided identity.
  * - Pure and deterministic (no time/randomness/global counters)
@@ -26,7 +26,7 @@ export interface UseIdOptions {
  *    Numbers are coerced to strings via String().
  *    This is deterministic and consistent.
  */
-export function useId(options: UseIdOptions): string {
+export function formatId(options: FormatIdOptions): string {
   const prefix = options.prefix ?? 'askr';
   return `${prefix}-${String(options.id)}`;
 }

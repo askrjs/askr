@@ -12,7 +12,7 @@ describe('foundations resolution', () => {
         composeHandlers: unknown;
         mergeProps: unknown;
         composeRefs: unknown;
-        useId: unknown;
+        formatId: unknown;
         controllableState: unknown;
       };
 
@@ -29,7 +29,7 @@ describe('foundations resolution', () => {
     expect(typeof foundations.composeHandlers).toBe('function');
     expect(typeof foundations.mergeProps).toBe('function');
     expect(typeof foundations.composeRefs).toBe('function');
-    expect(typeof foundations.useId).toBe('function');
+    expect(typeof foundations.formatId).toBe('function');
     expect(typeof foundations.controllableState).toBe('function');
   }, 20_000);
 });
