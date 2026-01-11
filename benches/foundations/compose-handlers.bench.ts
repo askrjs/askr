@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { composeHandlers } from '../../src/foundations/utilities/composeHandlers';
+import { composeHandlers } from '../../src/foundations/utilities/compose-handlers';
 
 describe('composeHandlers (FOUNDATIONS)', () => {
   const noop = (_event?: unknown) => {};

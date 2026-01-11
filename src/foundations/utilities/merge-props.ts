@@ -23,7 +23,7 @@
  * 4. Return Type
  *    Returns intersection type (TInjected & TBase) for type safety.
  */
-import { composeHandlers } from './composeHandlers';
+import { composeHandlers } from './compose-handlers';
 
 type Fn = (...args: readonly unknown[]) => void;
 

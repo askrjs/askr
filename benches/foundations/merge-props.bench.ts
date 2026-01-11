@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { mergeProps } from '../../src/foundations/utilities/mergeProps';
+import { mergeProps } from '../../src/foundations/utilities/merge-props';
 
 describe('mergeProps (FOUNDATIONS)', () => {
   const baseSmall = { className: 'base', id: 'main' };

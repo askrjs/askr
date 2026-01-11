@@ -44,7 +44,7 @@ import type {
   DefaultPreventable,
   KeyboardLikeEvent,
   PropagationStoppable,
-} from '../utilities/eventTypes';
+} from '../utilities/event-types';
 import { ariaDisabled } from '../utilities/aria';
 
 type PressEvent = DefaultPreventable & PropagationStoppable;
