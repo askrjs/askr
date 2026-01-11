@@ -46,4 +46,26 @@ describe('composeHandlers (FOUNDATIONS)', () => {
     h(event);
     expect(b).toHaveBeenCalledTimes(1);
   });
+
+  it('should return stable no-op when both handlers are undefined', () => {
+    const h1 = composeHandlers(undefined, undefined);
+    const h2 = composeHandlers(undefined, undefined);
+
+    expect(h1).toBe(h2);
+    expect(() => h1()).not.toThrow();
+  });
+
+  it('should return first handler directly when second is undefined', () => {
+    const a = vi.fn();
+    const h = composeHandlers(a, undefined);
+
+    expect(h).toBe(a);
+  });
+
+  it('should return second handler directly when first is undefined', () => {
+    const b = vi.fn();
+    const h = composeHandlers(undefined, b);
+
+    expect(h).toBe(b);
+  });
 });

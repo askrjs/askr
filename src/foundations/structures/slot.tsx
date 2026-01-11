@@ -22,6 +22,7 @@ export type SlotProps =
  * 1. asChild Pattern
  *    When asChild=true, merges props into the single child element.
  *    Child must be a valid JSXElement; non-element children return null.
+ *    **Slot props override child props** (injection pattern).
  *
  * 2. Fallback Behavior
  *    When asChild=false, returns a Fragment (structural no-op).

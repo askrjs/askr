@@ -48,17 +48,28 @@ export function composeHandlers<A extends readonly unknown[]>(
   second?: (...args: A) => void,
   options?: ComposeHandlersOptions
 ): (...args: A) => void {
+  // Fast path: if neither handler exists, return stable no-op
+  if (!first && !second) {
+    return noop as (...args: A) => void;
+  }
+
+  // Fast path: if only one handler exists, return it directly
+  if (!first) return second!;
+  if (!second) return first;
+
+  // Composition path: both handlers exist
   const checkDefaultPrevented = options?.checkDefaultPrevented !== false;
 
   return function composed(...args: A) {
-    if (typeof first === 'function') first(...args);
+    first(...args);
 
-    if (checkDefaultPrevented) {
-      if (isDefaultPrevented(args[0])) {
-        return;
-      }
+    if (checkDefaultPrevented && isDefaultPrevented(args[0])) {
+      return;
     }
 
-    if (typeof second === 'function') second(...args);
+    second(...args);
   } as (...args: A) => void;
 }
+
+// Stable no-op for fast path
+function noop() {}

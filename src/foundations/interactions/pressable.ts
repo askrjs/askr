@@ -87,7 +87,11 @@ export function pressable({
   props.tabIndex = disabled ? -1 : 0;
 
   props.onKeyDown = (e) => {
-    if (disabled) return;
+    if (disabled) {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      return;
+    }
 
     if (e.key === 'Enter') {
       e.preventDefault?.();
@@ -102,7 +106,11 @@ export function pressable({
   };
 
   props.onKeyUp = (e) => {
-    if (disabled) return;
+    if (disabled) {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      return;
+    }
     if (e.key === ' ') {
       e.preventDefault?.();
       onPress?.(e);

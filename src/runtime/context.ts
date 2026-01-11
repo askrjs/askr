@@ -21,6 +21,7 @@
  */
 
 import type { JSXElement } from '../common/jsx';
+import { ELEMENT_TYPE } from '../common/jsx';
 import type { Props } from '../common/props';
 import { getCurrentComponentInstance } from './component';
 import type { ComponentInstance } from './component';
@@ -126,8 +127,10 @@ export function defineContext<T>(defaultValue: T): Context<T> {
       const value = props.value as T;
       // Scope component: creates a new frame and renders children within it
       return {
+        $$typeof: ELEMENT_TYPE,
         type: ContextScopeComponent,
         props: { key, value, children: props.children },
+        key: null,
       } as JSXElement;
     },
   };
