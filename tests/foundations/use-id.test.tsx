@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { useId } from '@askrjs/askr/foundations';
+import { formatId } from '@askrjs/askr/foundations';
 import { state } from '../../src/index';
 import { createIsland } from '../helpers/create-island';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
-describe('useId (FOUNDATIONS)', () => {
+describe('formatId (FOUNDATIONS)', () => {
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe('useId (FOUNDATIONS)', () => {
   it('should be stable across rerenders of same component instance', () => {
     const App = () => {
       const tick = state(0);
-      const id = useId({ id: 'app' });
+      const id = formatId({ id: 'app' });
 
       return {
         type: 'button',
@@ -52,7 +52,7 @@ describe('useId (FOUNDATIONS)', () => {
     const App = () => {
       return {
         type: 'div',
-        props: { id: useId({ prefix: 'x', id: 1 }) },
+        props: { id: formatId({ prefix: 'x', id: 1 }) },
       };
     };
 
