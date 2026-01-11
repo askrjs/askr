@@ -27,6 +27,8 @@ export type LayoutComponent<P = object> = (
 ) => unknown;
 
 export function layout<P = object>(Layout: LayoutComponent<P>) {
-  return (children?: unknown, props?: P) =>
-    Layout({ ...(props as P), children });
+  return (children?: unknown, props?: P) => {
+    const mergedProps = { ...props, children } as P & { children?: unknown };
+    return Layout(mergedProps);
+  };
 }

@@ -27,6 +27,8 @@ export function dismissable({ onDismiss, disabled }: DismissableOptions) {
       ? undefined
       : (e: KeyboardLikeEvent) => {
           if (e.key === 'Escape') {
+            e.preventDefault?.();
+            e.stopPropagation?.();
             onDismiss?.();
           }
         },
@@ -35,7 +37,11 @@ export function dismissable({ onDismiss, disabled }: DismissableOptions) {
     outsideListener: disabled
       ? undefined
       : (isInside: (target: unknown) => boolean) => (e: PointerLikeEvent) => {
-          if (!isInside(e.target)) onDismiss?.();
+          if (!isInside(e.target)) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+            onDismiss?.();
+          }
         },
   };
 }

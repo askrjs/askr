@@ -16,6 +16,22 @@ describe('dismissable (FOUNDATIONS)', () => {
       expect(onDismiss).toHaveBeenCalledTimes(1);
     });
 
+    it('should prevent default and stop propagation on Escape', () => {
+      const onDismiss = vi.fn();
+      const preventDefault = vi.fn();
+      const stopPropagation = vi.fn();
+      const props = dismissable({ onDismiss });
+
+      props.onKeyDown?.({
+        key: 'Escape',
+        preventDefault,
+        stopPropagation,
+      });
+
+      expect(preventDefault).toHaveBeenCalledTimes(1);
+      expect(stopPropagation).toHaveBeenCalledTimes(1);
+    });
+
     it('should not call onDismiss on other keys', () => {
       const onDismiss = vi.fn();
       const props = dismissable({ onDismiss });
@@ -66,6 +82,24 @@ describe('dismissable (FOUNDATIONS)', () => {
       });
 
       expect(onDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('should prevent default and stop propagation on outside click', () => {
+      const onDismiss = vi.fn();
+      const preventDefault = vi.fn();
+      const stopPropagation = vi.fn();
+      const { outsideListener } = dismissable({ onDismiss });
+      const isInside = vi.fn(() => false);
+      const handler = outsideListener?.(isInside);
+
+      handler?.({
+        target: 'some-element',
+        preventDefault,
+        stopPropagation,
+      });
+
+      expect(preventDefault).toHaveBeenCalledTimes(1);
+      expect(stopPropagation).toHaveBeenCalledTimes(1);
     });
 
     it('should not call onDismiss when click is inside', () => {

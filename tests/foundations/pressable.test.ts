@@ -100,28 +100,53 @@ describe('pressable (FOUNDATIONS)', () => {
 
       it('should prevent Enter activation', () => {
         const onPress = vi.fn();
+        const preventDefault = vi.fn();
+        const stopPropagation = vi.fn();
         const props = pressable({ disabled: true, onPress });
 
         props.onKeyDown?.({
           key: 'Enter',
-          preventDefault: vi.fn(),
-          stopPropagation: vi.fn(),
+          preventDefault,
+          stopPropagation,
         });
 
         expect(onPress).not.toHaveBeenCalled();
+        expect(preventDefault).toHaveBeenCalled();
+        expect(stopPropagation).toHaveBeenCalled();
       });
 
       it('should prevent Space activation', () => {
         const onPress = vi.fn();
+        const preventDefault = vi.fn();
+        const stopPropagation = vi.fn();
         const props = pressable({ disabled: true, onPress });
 
         props.onKeyUp?.({
           key: ' ',
-          preventDefault: vi.fn(),
-          stopPropagation: vi.fn(),
+          preventDefault,
+          stopPropagation,
         });
 
         expect(onPress).not.toHaveBeenCalled();
+        expect(preventDefault).toHaveBeenCalled();
+        expect(stopPropagation).toHaveBeenCalled();
+      });
+
+      it('should prevent scroll on Space keydown when disabled', () => {
+        const onPress = vi.fn();
+        const preventDefault = vi.fn();
+        const stopPropagation = vi.fn();
+        const props = pressable({ disabled: true, onPress });
+
+        props.onKeyDown?.({
+          key: ' ',
+          preventDefault,
+          stopPropagation,
+        });
+
+        expect(onPress).not.toHaveBeenCalled();
+        expect(preventDefault).toHaveBeenCalled();
+        expect(stopPropagation).toHaveBeenCalled();
       });
     });
   });

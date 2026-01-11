@@ -8,8 +8,8 @@ export const ELEMENT_TYPE = Symbol.for('askr.element');
 export const Fragment = Symbol.for('askr.fragment');
 
 export interface JSXElement {
-  /** Internal element marker (optional for plain vnode objects) */
-  $$typeof?: symbol;
+  /** Internal element marker */
+  $$typeof: symbol;
 
   /** Element type: string, component, Fragment, etc */
   type: unknown;
