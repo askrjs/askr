@@ -141,14 +141,13 @@ export function mergeInteractionProps(
 
     if (policyHandler || userHandler || childHandler) {
       const toHandler = (h: unknown) =>
-        typeof h === 'function' ? (h as (...args: readonly unknown[]) => void) : undefined;
+        typeof h === 'function'
+          ? (h as (...args: readonly unknown[]) => void)
+          : undefined;
 
       out[k] = composeHandlers(
         toHandler(policyHandler),
-        composeHandlers(
-          toHandler(userHandler),
-          toHandler(childHandler)
-        )
+        composeHandlers(toHandler(userHandler), toHandler(childHandler))
       );
     }
   }

@@ -1,5 +1,8 @@
 import { defineConfig } from 'tsup';
 
+const isProd =
+  process.env.NODE_ENV === 'production' || process.env.BUILD === 'production';
+
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
@@ -22,11 +25,12 @@ export default defineConfig({
   format: ['esm'],
 
   dts: true,
-  sourcemap: true,
+  sourcemap: !isProd,
   clean: true,
 
   treeshake: true,
-  splitting: false,
+  splitting: isProd,
+  minify: isProd,
 
   esbuildOptions(options) {
     options.treeShaking = true;
