@@ -77,14 +77,14 @@ const expectedExecutions = Math.ceil(rowCount / 10);
 const actualExecutions = rowExecutionCount;
 const overInvalidation = actualExecutions > expectedExecutions;
 
-console.log('bench_row_execution_count');
-console.log(`Total rows: ${rowCount}`);
-console.log(`Initial render executions: ${initialExecutions}`);
-console.log(`Expected executions (update every 10th): ~${expectedExecutions}`);
-console.log(`Actual executions: ${actualExecutions}`);
-console.log(`Over-invalidation detected: ${overInvalidation ? 'YES' : 'NO'}`);
+console.warn('bench_row_execution_count');
+console.warn(`Total rows: ${rowCount}`);
+console.warn(`Initial render executions: ${initialExecutions}`);
+console.warn(`Expected executions (update every 10th): ~${expectedExecutions}`);
+console.warn(`Actual executions: ${actualExecutions}`);
+console.warn(`Over-invalidation detected: ${overInvalidation ? 'YES' : 'NO'}`);
 if (overInvalidation) {
-  console.log(
+  console.warn(
     `Over-invalidation ratio: ${(actualExecutions / expectedExecutions).toFixed(2)}x`
   );
 }

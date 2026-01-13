@@ -68,12 +68,12 @@ function runBenchmark(rowCount: number, iterations: number) {
   const total = end - start;
   const avg = total / iterations;
 
-  console.warn(`bench_list_update_dom (${rowCount} rows)`);
-  console.warn(`Iterations: ${iterations}`);
-  console.warn(`Total: ${total.toFixed(2)}ms`);
-  console.warn(`Avg per iteration: ${avg.toFixed(4)}ms`);
-  console.warn(`Updates per iteration: ${Math.ceil(rowCount / 10)} rows`);
-  console.warn('');
+  console.error(`bench_list_update_dom (${rowCount} rows)`);
+  console.error(`Iterations: ${iterations}`);
+  console.error(`Total: ${total.toFixed(2)}ms`);
+  console.error(`Avg per iteration: ${avg.toFixed(4)}ms`);
+  console.error(`Updates per iteration: ${Math.ceil(rowCount / 10)} rows`);
+  console.error('');
 
   cleanup();
 }
