@@ -9,8 +9,6 @@ export default defineConfig({
 
     'for/index': 'src/for/index.ts',
     'foundations/index': 'src/foundations/index.ts',
-    'foundations/core': 'src/foundations/core.ts',
-    'foundations/structures': 'src/foundations/structures.ts',
 
     'resources/index': 'src/resources/index.ts',
     'fx/index': 'src/fx/index.ts',
@@ -37,5 +35,17 @@ export default defineConfig({
 
   esbuildOptions(options) {
     options.treeShaking = true;
+    // Ensure dev code is stripped in production
+    options.define = {
+      'process.env.NODE_ENV': JSON.stringify(
+        isProd ? 'production' : 'development'
+      ),
+    };
+    // More aggressive minification
+    if (isProd) {
+      options.minifyWhitespace = true;
+      options.minifyIdentifiers = true;
+      options.minifySyntax = true;
+    }
   },
 });
