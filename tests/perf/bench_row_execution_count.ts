@@ -10,12 +10,9 @@
  * RUN: npx tsx perf/bench_row_execution_count.ts
  */
 
-import { createIsland, state, type State } from '../src';
-import { For } from '../src/for';
-import {
-  createTestContainer,
-  flushScheduler,
-} from '../tests/helpers/test-renderer';
+import { createIsland, state, type State } from '../../src';
+import { For } from '../../src/for';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 interface Row {
   id: number;

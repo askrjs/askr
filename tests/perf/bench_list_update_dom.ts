@@ -8,11 +8,8 @@
  * RUN: npx tsx perf/bench_list_update_dom.ts
  */
 
-import { createIsland, state, type State } from '../src';
-import {
-  createTestContainer,
-  flushScheduler,
-} from '../tests/helpers/test-renderer';
+import { createIsland, state, type State } from '../../src';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 interface Row {
   id: number;
