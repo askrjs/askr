@@ -47,18 +47,40 @@ export function reconcileKeyedChildren(
 ): Map<string | number, Element> {
   const { keyedVnodes, unkeyedVnodes } = partitionChildren(newChildren);
 
+  // Ensure we have a key map before reconciliation to avoid O(n) DOM scans
+  // during O(n) reconciliation loop (which would be O(n²))
+  const ensuredOldKeyMap = oldKeyMap || buildKeyMapFromDOM(parent);
+
   // Try fast paths first
   const fastPathResult = tryFastPaths(
     parent,
     newChildren,
     keyedVnodes,
     unkeyedVnodes,
-    oldKeyMap
+    ensuredOldKeyMap
   );
   if (fastPathResult) return fastPathResult;
 
   // Full reconciliation
-  return performFullReconciliation(parent, newChildren, keyedVnodes, oldKeyMap);
+  return performFullReconciliation(parent, newChildren, keyedVnodes, ensuredOldKeyMap);
+}
+
+/** Build key map from DOM children */
+function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
+  const keyMap = new Map<string | number, Element>();
+  try {
+    for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+      const k = el.getAttribute('data-key');
+      if (k !== null) {
+        keyMap.set(k, el);
+        const n = Number(k);
+        if (!Number.isNaN(n)) keyMap.set(n, el);
+      }
+    }
+  } catch {
+    // Ignore
+  }
+  return keyMap;
 }
 
 /** Partition children into keyed and unkeyed */

@@ -293,7 +293,9 @@ function renderNodeSyncToSink(
     return;
   }
 
+  // Compute attrs once upfront (renderAttrs already handles null/undefined efficiently)
   const attrs = props ? renderAttrs(props) : '';
+  
   // Normalize children: prefer node.children, fallback to props.children (for JSXElement)
   let children = (node as VNode).children;
   if (children === undefined && props?.children !== undefined) {
@@ -305,8 +307,13 @@ function renderNodeSyncToSink(
     }
   }
 
-  // Hot path: many elements are just a single primitive text child.
-  // Collapsing into a single write reduces sink buffering overhead.
+  // Hot path: empty element (no children) - single write
+  if (!children || (Array.isArray(children) && children.length === 0)) {
+    sink.write(`<${typeStr}${attrs}></${typeStr}>`);
+    return;
+  }
+
+  // Hot path: single text child - single write
   if (Array.isArray(children) && children.length === 1) {
     const only = children[0];
     if (typeof only === 'string') {
@@ -320,6 +327,7 @@ function renderNodeSyncToSink(
     }
   }
 
+  // General case: element with complex children
   sink.write(`<${typeStr}${attrs}>`);
   renderChildrenSyncToSink(children, sink, ctx);
   sink.write(`</${typeStr}>`);
