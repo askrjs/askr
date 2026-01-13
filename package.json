@@ -71,7 +71,9 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "npm run build:prod",
+    "build:prod": "cross-env NODE_ENV=production tsup",
+    "prepare": "npm run build:prod",
     "test": "vitest run",
     "test:types": "npm run build && tsd",
     "bench": "cross-env NODE_ENV=production vitest bench --run",
