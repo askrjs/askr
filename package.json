@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Actor-backed deterministic UI framework",
   "type": "module",
   "license": "Apache-2.0",
@@ -41,14 +41,6 @@
     "./foundations": {
       "import": "./dist/foundations/index.js",
       "types": "./dist/foundations/index.d.ts"
-    },
-    "./foundations/core": {
-      "import": "./dist/foundations/core.js",
-      "types": "./dist/foundations/core.d.ts"
-    },
-    "./foundations/structures": {
-      "import": "./dist/foundations/structures.js",
-      "types": "./dist/foundations/structures.d.ts"
     },
     "./resources": {
       "import": "./dist/resources/index.js",
