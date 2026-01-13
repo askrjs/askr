@@ -7,18 +7,18 @@
 import { test } from 'vitest';
 
 test('should run bench_signal_text', async () => {
-  await import('../perf/bench_signal_text');
+  await import('./bench_signal_text');
 });
 
 test('should run bench_list_create', async () => {
-  await import('../perf/bench_list_create');
+  await import('./bench_list_create');
 });
 
 test('should run bench_row_execution_count', async () => {
-  await import('../perf/bench_row_execution_count');
+  await import('./bench_row_execution_count');
 });
 
 test('should run bench_list_update_dom', async () => {
   process.env.ASKR_BENCH_FAST = '1';
-  await import('../perf/bench_list_update_dom');
+  await import('./bench_list_update_dom');
 }, 60000);
