@@ -7,7 +7,10 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
 
+    'for/index': 'src/for/index.ts',
     'foundations/index': 'src/foundations/index.ts',
+    'foundations/core': 'src/foundations/core.ts',
+    'foundations/structures': 'src/foundations/structures.ts',
 
     'resources/index': 'src/resources/index.ts',
     'fx/index': 'src/fx/index.ts',

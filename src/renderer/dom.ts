@@ -450,7 +450,7 @@ function createForBoundary(
 ): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const forState = node._forState;
-  
+
   if (!forState) {
     if (process.env.NODE_ENV !== 'production') {
       logger.warn('[Askr] For boundary missing _forState');

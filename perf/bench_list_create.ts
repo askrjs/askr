@@ -1,11 +1,11 @@
 /**
  * bench_list_create.ts
- * 
+ *
  * PURPOSE: Measure render cost only
  * - state<Row[]>
  * - Render 1,000 and 10,000 rows
  * - No updates after render
- * 
+ *
  * RUN: npx tsx perf/bench_list_create.ts
  */
 

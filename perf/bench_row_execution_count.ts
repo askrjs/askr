@@ -1,16 +1,17 @@
 /**
  * bench_row_execution_count.ts
- * 
+ *
  * PURPOSE: Detect over-invalidation
  * - Render 1,000 rows
  * - Instrument Row function with a counter
  * - Run update-every-10th once
  * - Print expected vs actual executions
- * 
+ *
  * RUN: npx tsx perf/bench_row_execution_count.ts
  */
 
-import { createIsland, state, For, type State } from '../src';
+import { createIsland, state, type State } from '../src';
+import { For } from '../src/for';
 import {
   createTestContainer,
   flushScheduler,
@@ -54,13 +55,11 @@ const RowComponent = (row: Row) => {
 
 const Component = () => {
   rows = state(createRows(rowCount));
-  
+
   // Use For primitive to eliminate over-invalidation
   return {
     type: 'div',
-    children: [
-      For(rows, (row) => RowComponent(row), { by: (row) => row.id })
-    ],
+    children: [For(rows, (row) => RowComponent(row), { by: (row) => row.id })],
   };
 };
 
@@ -85,7 +84,9 @@ console.log(`Expected executions (update every 10th): ~${expectedExecutions}`);
 console.log(`Actual executions: ${actualExecutions}`);
 console.log(`Over-invalidation detected: ${overInvalidation ? 'YES' : 'NO'}`);
 if (overInvalidation) {
-  console.log(`Over-invalidation ratio: ${(actualExecutions / expectedExecutions).toFixed(2)}x`);
+  console.log(
+    `Over-invalidation ratio: ${(actualExecutions / expectedExecutions).toFixed(2)}x`
+  );
 }
 
 cleanup();

@@ -1,6 +1,6 @@
 /**
  * bench_list_update_no_dom.ts
- * 
+ *
  * PURPOSE: Measure reactivity graph + invalidation
  * - state<Row[]>
  * - Update every 10th row
@@ -49,7 +49,7 @@ describe('bench_list_update_no_dom', () => {
 
     // Read the state to establish subscription
     const initialRows = rows();
-    
+
     // Create derived computations that subscribe to rows
     const subscriptions: Array<() => void> = [];
     for (let i = 0; i < rowCount; i++) {
@@ -73,7 +73,7 @@ describe('bench_list_update_no_dom', () => {
     for (let i = 0; i < iterations; i++) {
       const current = rows();
       rows.set(updateEveryTenth(current));
-      
+
       // Simulate invalidation by re-executing subscriptions
       for (const sub of subscriptions) {
         sub();

@@ -1,10 +1,10 @@
 /**
  * bench_list_update_dom.ts
- * 
+ *
  * PURPOSE: Measure diff + commit cost
  * - Full render + update-every-10th
  * - Measure scheduler + commit
- * 
+ *
  * RUN: npx tsx perf/bench_list_update_dom.ts
  */
 

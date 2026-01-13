@@ -5,6 +5,7 @@
 ## Before and After
 
 ### Before: Manual .map() iteration
+
 ```
 Total rows: 1000
 Update every 10th row
@@ -14,9 +15,10 @@ Over-invalidation: YES (10x)
 ```
 
 ### After: For primitive
+
 ```
 Total rows: 1000
-Update every 10th row  
+Update every 10th row
 Expected executions: ~100
 Actual executions: 100
 Over-invalidation: NO ✓
@@ -59,6 +61,7 @@ const Component = () => {
 ## Performance Impact
 
 **Expected improvement for list updates:**
+
 - 1k rows, update 10%: **10x faster** (38ms → ~4ms per update)
 - 10k rows, update 10%: **10x faster** (5.3s → ~530ms per update)
 

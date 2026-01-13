@@ -1,6 +1,6 @@
 /**
  * Run all performance benchmarks
- * 
+ *
  * RUN: npm test -- perf/run.test.ts
  */
 

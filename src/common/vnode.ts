@@ -14,7 +14,7 @@ export interface DOMElement {
   children?: VNode[];
   key?: string | number;
   [Symbol.iterator]?: never;
-  _forState?: ForState<any>;  // Internal: For boundary state
+  _forState?: ForState<unknown>; // Internal: For boundary state
 }
 
 // Special symbol for For boundaries
