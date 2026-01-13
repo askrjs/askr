@@ -24,6 +24,8 @@ import {
 } from './cleanup';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
+import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { evaluateForState } from '../runtime/for';
 import { keyedElements } from './keyed';
 import {
   parseEventName,
@@ -291,6 +293,11 @@ export function createDOMNode(node: unknown): Node | null {
       return createComponentElement(node as ElementWithContext, type, props);
     }
 
+    // For boundary - special handling
+    if (type === __FOR_BOUNDARY__) {
+      return createForBoundary(node as DOMElement, props);
+    }
+
     // Fragment support
     if (
       typeof type === 'symbol' &&
@@ -431,6 +438,34 @@ function createFragmentElement(
       if (dom) fragment.appendChild(dom);
     }
   }
+  return fragment;
+}
+
+/**
+ * Create DOM from For boundary - evaluates list and renders items
+ */
+function createForBoundary(
+  node: DOMElement,
+  props: Record<string, unknown>
+): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  const forState = node._forState;
+  
+  if (!forState) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('[Askr] For boundary missing _forState');
+    }
+    return fragment;
+  }
+
+  const source = props.source as any;
+  const childrenVNodes = evaluateForState(forState, source);
+
+  for (const childVNode of childrenVNodes) {
+    const dom = createDOMNode(childVNode);
+    if (dom) fragment.appendChild(dom);
+  }
+
   return fragment;
 }
 

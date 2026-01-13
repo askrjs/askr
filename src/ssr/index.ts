@@ -537,7 +537,7 @@ import {
   collectResources,
   resolvePlan,
   resolveResources,
-  ResourcePlan,
+  type ResourcePlan,
 } from './render-keys';
 
 export type SSRRoute = {
