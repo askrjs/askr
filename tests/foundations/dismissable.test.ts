@@ -153,7 +153,11 @@ describe('dismissable (FOUNDATIONS)', () => {
       const onDismiss = vi.fn();
       const containerElement = document.createElement('div');
       const outsideElement = document.createElement('div');
-      const props = dismissable({ onDismiss, disabled: true, node: containerElement });
+      const props = dismissable({
+        onDismiss,
+        disabled: true,
+        node: containerElement,
+      });
 
       props.onPointerDownCapture?.({
         target: outsideElement,

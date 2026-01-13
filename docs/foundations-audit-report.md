@@ -11,6 +11,7 @@ All foundations now follow the pit of success principles. This document proves c
 **File:** `src/foundations/interactions/interaction-policy.ts`
 
 ### Compliance Checklist
+
 - ✅ Can a consumer accidentally bypass it? **NO** - Only way to get button behavior
 - ✅ Can behavior be duplicated elsewhere? **NO** - Policy owns all interaction semantics
 - ✅ Can two foundations be composed via mergeProps? **YES** - Returns standard props
@@ -18,12 +19,14 @@ All foundations now follow the pit of success principles. This document proves c
 - ✅ Is the wrong thing harder than the right thing? **YES** - No escape hatch
 
 ### Invariants Enforced
+
 1. ✅ Disabled checked exactly once (in policy, never in components)
 2. ✅ Press is semantic (click/Enter/Space are implementation details)
 3. ✅ Keyboard handling automatic (components can't add custom handlers)
 4. ✅ Native elements opt out of polyfills, not semantics
 
 ### API Surface
+
 ```typescript
 applyInteractionPolicy({
   isNative: boolean,
@@ -42,6 +45,7 @@ applyInteractionPolicy({
 **File:** `src/foundations/interactions/dismissable.ts`
 
 ### Compliance Checklist
+
 - ✅ Can a consumer accidentally bypass it? **NO** - Only dismissal primitive
 - ✅ Can behavior be duplicated elsewhere? **NO** - THE dismissal foundation
 - ✅ Can two foundations be composed via mergeProps? **YES** - Standard event handlers
@@ -49,12 +53,14 @@ applyInteractionPolicy({
 - ✅ Is the wrong thing harder than the right thing? **YES** - No factory functions to misuse
 
 ### Invariants Enforced
+
 1. ✅ Returns props, not factories (mergeProps composable)
 2. ✅ Disabled respected exactly once
 3. ✅ No side effects (pure props generation)
 4. ✅ Escape + outside handled together
 
 ### API Surface
+
 ```typescript
 dismissable({
   node?: Node | null,
@@ -76,6 +82,7 @@ dismissable({
 **File:** `src/foundations/interactions/roving-focus.ts`
 
 ### Compliance Checklist
+
 - ✅ Can a consumer accidentally bypass it? **NO** - Only way to get roving behavior
 - ✅ Can behavior be duplicated elsewhere? **NO** - Single navigation source
 - ✅ Can two foundations be composed via mergeProps? **YES** - Props objects only
@@ -83,12 +90,14 @@ dismissable({
 - ✅ Is the wrong thing harder than the right thing? **YES** - TabIndex managed automatically
 
 ### Invariants Enforced
+
 1. ✅ Single tab stop (only current item has tabIndex=0)
 2. ✅ Arrow navigation automatic
 3. ✅ Disabled items skipped automatically
 4. ✅ No factories (item returns props directly)
 
 ### API Surface
+
 ```typescript
 rovingFocus({
   currentIndex: number,
@@ -112,6 +121,7 @@ rovingFocus({
 **File:** `src/foundations/interactions/pressable.ts`
 
 ### Compliance Checklist
+
 - ✅ Can a consumer accidentally bypass it? **NO** - Used by interactionPolicy
 - ✅ Can behavior be duplicated elsewhere? **NO** - Policy delegates here
 - ✅ Can two foundations be composed via mergeProps? **YES** - Standard props
@@ -119,6 +129,7 @@ rovingFocus({
 - ✅ Is the wrong thing harder than the right thing? **YES** - Keyboard automatic
 
 ### Invariants Enforced
+
 1. ✅ Enter fires on keydown (immediate)
 2. ✅ Space fires on keyup (native parity)
 3. ✅ Disabled checked once
@@ -131,6 +142,7 @@ rovingFocus({
 **File:** `src/foundations/interactions/focusable.ts`
 
 ### Compliance Checklist
+
 - ✅ Simple tabIndex normalization
 - ✅ Composes via mergeProps
 - ✅ No behavior duplication possible
@@ -142,6 +154,7 @@ rovingFocus({
 **File:** `src/foundations/interactions/hoverable.ts`
 
 ### Compliance Checklist
+
 - ✅ Pointer enter/leave only
 - ✅ Composes via mergeProps
 - ✅ Disabled handled once
@@ -153,6 +166,7 @@ rovingFocus({
 **File:** `src/foundations/state/controllable.ts`
 
 ### Compliance Checklist
+
 - ✅ Single source of truth for controlled/uncontrolled
 - ✅ No branching required in consumers
 - ✅ Object.is equality (no deep comparison surprise)
@@ -164,6 +178,7 @@ rovingFocus({
 **File:** `src/foundations/structures/collection.ts`
 
 ### Compliance Checklist
+
 - ✅ Explicit registry creation (no implicit globals)
 - ✅ Stable insertion order
 - ✅ No DOM queries
@@ -176,6 +191,7 @@ rovingFocus({
 **File:** `src/foundations/structures/layer.ts`
 
 ### Compliance Checklist
+
 - ✅ Explicit layer management
 - ✅ Top layer coordination
 - ✅ No z-index magic
@@ -188,6 +204,7 @@ rovingFocus({
 **File:** `src/foundations/structures/presence.ts`
 
 ### Compliance Checklist
+
 - ✅ Immediate mount/unmount (no timers)
 - ✅ SSR-safe
 - ✅ Animation concerns separate
@@ -197,10 +214,12 @@ rovingFocus({
 ## NAMING COMPLIANCE ✅
 
 ### ✅ No `use*` functions in foundations
+
 - All files checked
 - All functions follow correct naming
 
 ### ✅ Kebab-case file names
+
 - All files renamed:
   - `createSSR.ts` → `create-ssr.ts`
   - `useId.ts` → `use-id.ts`
@@ -212,6 +231,7 @@ rovingFocus({
   - `Link.tsx` → `link.tsx`
 
 ### ✅ Naming patterns followed
+
 - State ownership → noun (`controllableState`)
 - Registries → `createX` (`createCollection`, `createLayer`)
 - Interaction mechanics → verb (`pressable`, `focusable`, `hoverable`)
@@ -242,6 +262,7 @@ const props = mergeProps(
 ```
 
 ### No factory functions
+
 - ❌ REMOVED: `dismissable().outsideListener(predicate)` - broke composition
 - ✅ NOW: `dismissable({ node }).onPointerDownCapture` - composes perfectly
 
@@ -262,7 +283,7 @@ function Button({ disabled, onPress }) {
 function Button({ onPress }) {
   const interaction = applyInteractionPolicy({ ... });
   return (
-    <button 
+    <button
       {...interaction}
       onKeyDown={...} // Will compose, policy runs first
     />
@@ -283,6 +304,7 @@ function Dialog() {
 Can build these components using ONLY foundations:
 
 ### Button ✅
+
 ```typescript
 function Button({ onPress, disabled }) {
   const interaction = applyInteractionPolicy({
@@ -295,6 +317,7 @@ function Button({ onPress, disabled }) {
 ```
 
 ### Dialog ✅
+
 ```typescript
 function Dialog({ open, onClose }) {
   const ref = ref<HTMLDivElement>();
@@ -312,6 +335,7 @@ function Dialog({ open, onClose }) {
 ```
 
 ### Menu ✅
+
 ```typescript
 function Menu({ items, onSelect }) {
   const [index, setIndex] = state(0);
@@ -321,7 +345,7 @@ function Menu({ items, onSelect }) {
     orientation: 'vertical',
     onNavigate: setIndex
   });
-  
+
   return (
     <div {...roving.container}>
       {items.map((item, i) => {
@@ -338,6 +362,7 @@ function Menu({ items, onSelect }) {
 ```
 
 ### Tabs ✅
+
 ```typescript
 function Tabs({ tabs }) {
   const [active, setActive] = state(0);
@@ -346,7 +371,7 @@ function Tabs({ tabs }) {
     itemCount: tabs.length,
     orientation: 'horizontal'
   });
-  
+
   return (
     <div {...roving.container}>
       {tabs.map((tab, i) => {

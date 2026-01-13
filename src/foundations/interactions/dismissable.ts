@@ -59,11 +59,7 @@ import type {
   PointerLikeEvent,
 } from '../utilities/event-types';
 
-export function dismissable({
-  node,
-  disabled,
-  onDismiss,
-}: DismissableOptions) {
+export function dismissable({ node, disabled, onDismiss }: DismissableOptions) {
   function handleKeyDown(e: KeyboardLikeEvent) {
     if (disabled) return;
     if (e.key === 'Escape') {
@@ -75,7 +71,7 @@ export function dismissable({
 
   function handlePointerDownCapture(e: PointerLikeEvent) {
     if (disabled) return;
-    
+
     const target = e.target;
     if (!(target instanceof Node)) return;
 

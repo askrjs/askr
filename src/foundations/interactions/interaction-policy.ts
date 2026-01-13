@@ -56,7 +56,7 @@
 
 import { pressable } from './pressable';
 import { composeHandlers } from '../utilities/compose-handlers';
-import { composeRefs } from '../utilities/compose-ref';
+import { composeRefs, Ref } from '../utilities/compose-ref';
 import { mergeProps as mergePropsBase } from '../utilities/merge-props';
 
 export interface InteractionPolicyInput {
@@ -67,7 +67,7 @@ export interface InteractionPolicyInput {
   /** User-provided press handler - semantic action, not DOM event */
   onPress?: (e: Event) => void;
   /** Optional ref to compose */
-  ref?: any;
+  ref?: Ref<unknown>;
 }
 
 /**
@@ -108,7 +108,7 @@ export function applyInteractionPolicy({
   return {
     ...interaction,
     'aria-disabled': disabled || undefined,
-    tabIndex: disabled ? -1 : interaction.tabIndex ?? 0,
+    tabIndex: disabled ? -1 : (interaction.tabIndex ?? 0),
     ref,
   };
 }
@@ -124,9 +124,9 @@ export function applyInteractionPolicy({
  * Policy props MUST take precedence to enforce invariants.
  */
 export function mergeInteractionProps(
-  childProps: Record<string, any>,
-  policyProps: Record<string, any>,
-  userProps?: Record<string, any>
+  childProps: Record<string, unknown>,
+  policyProps: Record<string, unknown>,
+  userProps?: Record<string, unknown>
 ) {
   let out = mergePropsBase(childProps, policyProps);
   if (userProps) out = mergePropsBase(out, userProps);
