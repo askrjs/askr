@@ -49,9 +49,9 @@ function runBenchmark(rowCount: number) {
   const end = performance.now();
   const total = end - start;
 
-  console.log(`bench_list_create (${rowCount} rows)`);
-  console.log(`Total: ${total.toFixed(2)}ms`);
-  console.log('');
+  console.warn(`bench_list_create (${rowCount} rows)`);
+  console.warn(`Total: ${total.toFixed(2)}ms`);
+  console.warn('');
 
   cleanup();
 }

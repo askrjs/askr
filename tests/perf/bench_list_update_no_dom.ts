@@ -35,19 +35,19 @@ function updateEveryTenth(rows: Row[]): Row[] {
 }
 
 const rowCount = 1000;
-let rows!: State<Row[]>;
 
 // Simulate component context for state creation
 const fakeInstance = {
   stateValues: [],
   nextStateIndex: 0,
 };
-(globalThis as any).__ASKR_CURRENT_INSTANCE__ = fakeInstance;
+(globalThis as unknown as Record<string, unknown>).__ASKR_CURRENT_INSTANCE__ =
+  fakeInstance;
 
-rows = state(createRows(rowCount));
+const rows: State<Row[]> = state(createRows(rowCount));
 
 // Read the state to establish subscription
-const initialRows = rows();
+void rows();
 
 // Create derived computations that subscribe to rows
 const subscriptions: Array<() => void> = [];
@@ -83,10 +83,11 @@ const end = performance.now();
 const total = end - start;
 const avg = total / iterations;
 
-console.log('bench_list_update_no_dom');
-console.log(`Rows: ${rowCount}`);
-console.log(`Iterations: ${iterations}`);
-console.log(`Total: ${total.toFixed(2)}ms`);
-console.log(`Avg per iteration: ${avg.toFixed(4)}ms`);
+console.warn('bench_list_update_no_dom');
+console.warn(`Rows: ${rowCount}`);
+console.warn(`Iterations: ${iterations}`);
+console.warn(`Total: ${total.toFixed(2)}ms`);
+console.warn(`Avg per iteration: ${avg.toFixed(4)}ms`);
 
-(globalThis as any).__ASKR_CURRENT_INSTANCE__ = null;
+(globalThis as unknown as Record<string, unknown>).__ASKR_CURRENT_INSTANCE__ =
+  null;
