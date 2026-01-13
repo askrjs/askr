@@ -1,6 +1,6 @@
 /**
  * bench_row_execution_count.ts
- * 
+ *
  * PURPOSE: Detect over-invalidation
  * - Render 1,000 rows
  * - Instrument Row function with a counter
@@ -64,7 +64,7 @@ describe('bench_row_execution_count', () => {
     };
 
     createIsland({ root: container, component: Component });
-    
+
     // Reset counter after initial render
     const initialExecutions = rowExecutionCount;
     rowExecutionCount = 0;
@@ -80,11 +80,17 @@ describe('bench_row_execution_count', () => {
     console.log('\nbench_row_execution_count');
     console.log(`Total rows: ${rowCount}`);
     console.log(`Initial render executions: ${initialExecutions}`);
-    console.log(`Expected executions (update every 10th): ~${expectedExecutions}`);
+    console.log(
+      `Expected executions (update every 10th): ~${expectedExecutions}`
+    );
     console.log(`Actual executions: ${actualExecutions}`);
-    console.log(`Over-invalidation detected: ${overInvalidation ? 'YES' : 'NO'}`);
+    console.log(
+      `Over-invalidation detected: ${overInvalidation ? 'YES' : 'NO'}`
+    );
     if (overInvalidation) {
-      console.log(`Over-invalidation ratio: ${(actualExecutions / expectedExecutions).toFixed(2)}x`);
+      console.log(
+        `Over-invalidation ratio: ${(actualExecutions / expectedExecutions).toFixed(2)}x`
+      );
     }
 
     cleanup();

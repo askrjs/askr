@@ -1,11 +1,11 @@
 /**
  * bench_signal_text.ts
- * 
+ *
  * PURPOSE: Measure scheduler + commit floor
  * - One state<number>
  * - One text node bound to it
  * - Update value N times
- * 
+ *
  * RUN: npx tsx perf/bench_signal_text.ts
  */
 

@@ -5,8 +5,9 @@
  *
  * Root exports are intentionally minimal and free of timing/lifecycle nuance.
  * Lower tiers are exposed via explicit subpaths:
- * - askr/resources  (async data policy)
- * - askr/fx         (timing / side effects)
+ * - askr/for         (list iteration primitive)
+ * - askr/resources   (async data policy)
+ * - askr/fx          (timing / side effects)
  */
 
 // Constructors (execution models)
@@ -17,10 +18,6 @@ export type { SPAConfig, IslandConfig } from './boot';
 export { state } from './runtime/state';
 export type { State } from './runtime/state';
 export { derive } from './runtime/derive';
-
-// List iteration primitive
-export { For } from './for';
-export type { ForOptions } from './for';
 
 // Essential public types
 export type { Props } from './common/props';

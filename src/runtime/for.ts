@@ -1,6 +1,6 @@
 /**
  * For primitive runtime
- * 
+ *
  * Manages per-item component instances and array reconciliation
  * to eliminate over-invalidation in list rendering.
  */
@@ -12,8 +12,11 @@ import {
   getCurrentInstance,
 } from './component';
 import type { VNode } from '../common/vnode';
-import { globalScheduler } from './scheduler';
-import { state as createState } from './state';
+import type { ComponentFunction } from '../common/component';
+
+const askrGlobal = globalThis as typeof globalThis & {
+  __ASKR_CURRENT_INSTANCE__?: unknown;
+};
 
 export interface ForItemInstance<T> {
   key: string | number;
@@ -68,32 +71,25 @@ export function createItemInstance<T>(
   // Create index signal manually without going through state() hook
   // to avoid hook order violations (each For item creates its signal dynamically)
   let indexValue = index;
-  const indexSignal: State<number> = Object.assign(
-    () => indexValue,
-    {
-      set(newValue: number | ((prev: number) => number)) {
-        const nextValue =
-          typeof newValue === 'function' ? newValue(indexValue) : newValue;
-        if (nextValue !== indexValue) {
-          indexValue = nextValue;
-          // Index changes typically don't need to trigger re-renders
-          // but we provide the signal for user convenience
-        }
-      },
-    }
-  );
+  const indexSignal: State<number> = Object.assign(() => indexValue, {
+    set(newValue: number | ((prev: number) => number)) {
+      const nextValue =
+        typeof newValue === 'function' ? newValue(indexValue) : newValue;
+      if (nextValue !== indexValue) {
+        indexValue = nextValue;
+        // Index changes typically don't need to trigger re-renders
+        // but we provide the signal for user convenience
+      }
+    },
+  });
 
-  // Create isolated component for this item
+  // Create isolated component for this item. The renderFn is executed manually
+  // below while this instance is the current component, so the instance fn is
+  // a no-op used only for lifecycle bookkeeping.
+  const noopComponentFn: ComponentFunction = () => null;
   const itemComponent = createComponentInstance(
     `for-item-${key}`,
-    (() => {
-      const result = forState.renderFn(item, () => indexSignal());
-      // Filter out boolean/undefined to match ComponentFunction return type
-      if (result === true || result === false || result === undefined) {
-        return null;
-      }
-      return result;
-    }) as any,
+    noopComponentFn,
     {},
     null
   );
@@ -104,12 +100,12 @@ export function createItemInstance<T>(
   }
 
   // Execute render function directly within the item component context
-  const savedInstanceForRender = (globalThis as any).__ASKR_CURRENT_INSTANCE__;
-  (globalThis as any).__ASKR_CURRENT_INSTANCE__ = itemComponent;
-  
+  const savedInstanceForRender = askrGlobal.__ASKR_CURRENT_INSTANCE__;
+  askrGlobal.__ASKR_CURRENT_INSTANCE__ = itemComponent;
+
   const vnode = forState.renderFn(item, () => indexSignal());
-  
-  (globalThis as any).__ASKR_CURRENT_INSTANCE__ = savedInstanceForRender;
+
+  askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInstanceForRender;
 
   return {
     key,
@@ -158,13 +154,13 @@ export function reconcileForItems<T>(
       if (itemChanged) {
         // Item data changed: update and re-execute
         existing.item = item;
-        
-        const savedInst = (globalThis as any).__ASKR_CURRENT_INSTANCE__;
-        (globalThis as any).__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
-        
+
+        const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
+        askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
+
         existing.vnode = forState.renderFn(item, () => existing.indexSignal());
-        
-        (globalThis as any).__ASKR_CURRENT_INSTANCE__ = savedInst;
+
+        askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
       }
 
       if (indexChanged) {
@@ -182,10 +178,10 @@ export function reconcileForItems<T>(
     if (itemInstance) {
       // Clean up component instance
       const instance = itemInstance.componentInstance;
-      
+
       // Abort any pending operations
       instance.abortController.abort();
-      
+
       // Run cleanup functions
       for (const cleanup of instance.cleanupFns) {
         try {
@@ -196,7 +192,7 @@ export function reconcileForItems<T>(
           }
         }
       }
-      
+
       items.delete(key);
     }
   }

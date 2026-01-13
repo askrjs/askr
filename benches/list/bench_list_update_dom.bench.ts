@@ -1,6 +1,6 @@
 /**
  * bench_list_update_dom.ts
- * 
+ *
  * PURPOSE: Measure diff + commit cost
  * - Full render + update-every-10th
  * - Measure scheduler + commit

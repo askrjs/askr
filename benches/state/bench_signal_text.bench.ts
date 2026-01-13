@@ -1,6 +1,6 @@
 /**
  * bench_signal_text.ts
- * 
+ *
  * PURPOSE: Measure scheduler + commit floor
  * - One state<number>
  * - One text node bound to it

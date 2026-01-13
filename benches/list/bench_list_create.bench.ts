@@ -1,6 +1,6 @@
 /**
  * bench_list_create.ts
- * 
+ *
  * PURPOSE: Measure render cost only
  * - state<Row[]>
  * - Render 1,000 and 10,000 rows
@@ -9,9 +9,7 @@
 
 import { bench, describe } from 'vitest';
 import { createIsland, state, type State } from '../../src';
-import {
-  createTestContainer,
-} from '../../tests/helpers/test-renderer';
+import { createTestContainer } from '../../tests/helpers/test-renderer';
 
 interface Row {
   id: number;

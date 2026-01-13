@@ -1,12 +1,12 @@
 /**
  * bench_list_update_no_dom.ts
- * 
+ *
  * PURPOSE: Measure reactivity graph + invalidation
  * - state<Row[]>
  * - Update every 10th row
  * - NO JSX rendering
  * - Only reactive subscriptions
- * 
+ *
  * RUN: npx tsx perf/bench_list_update_no_dom.ts
  */
 
@@ -72,7 +72,7 @@ const start = performance.now();
 for (let i = 0; i < iterations; i++) {
   const current = rows();
   rows.set(updateEveryTenth(current));
-  
+
   // Simulate invalidation by re-executing subscriptions
   for (const sub of subscriptions) {
     sub();

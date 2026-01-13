@@ -10,11 +10,13 @@ import {
   type ComponentInstance,
 } from '../runtime/component';
 import { globalScheduler } from '../runtime/scheduler';
-import { logger } from '../dev/logger';
-import { registerAppInstance, initializeNavigation } from '../router/navigate';
 import { assertExecutionModel } from '../runtime/execution-model';
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
+
+function getLogger() {
+  return import('../dev/logger').then((m) => m.logger);
+}
 
 let componentIdCounter = 0;
 
@@ -90,7 +92,9 @@ function attachCleanupForRoot(
       if (instance.cleanupStrict) {
         throw new AggregateError(errors, `cleanup failed for app root`);
       } else if (process.env.NODE_ENV !== 'production') {
-        for (const err of errors) logger.warn('[Askr] cleanup error:', err);
+        getLogger().then((logger) => {
+          for (const err of errors) logger.warn('[Askr] cleanup error:', err);
+        });
       }
     }
   };
@@ -117,16 +121,22 @@ function attachCleanupForRoot(
               removeAllListeners(rootElement);
             } catch (e) {
               if (instance.cleanupStrict) throw e;
-              if (process.env.NODE_ENV !== 'production')
-                logger.warn('[Askr] cleanup error:', e);
+              if (process.env.NODE_ENV !== 'production') {
+                getLogger().then((logger) => {
+                  logger.warn('[Askr] cleanup error:', e);
+                });
+              }
             }
 
             try {
               cleanupComponent(instance as ComponentInstance);
             } catch (e) {
               if (instance.cleanupStrict) throw e;
-              if (process.env.NODE_ENV !== 'production')
-                logger.warn('[Askr] cleanup error:', e);
+              if (process.env.NODE_ENV !== 'production') {
+                getLogger().then((logger) => {
+                  logger.warn('[Askr] cleanup error:', e);
+                });
+              }
             }
           }
           if (descriptor.set) {
@@ -153,6 +163,7 @@ export function teardownApp(_root: Element | string) {
 }
 
 import { Fragment, ELEMENT_TYPE } from '../jsx';
+
 import { DefaultPortal } from '../foundations/structures/portal';
 
 function mountOrUpdate(
@@ -197,8 +208,11 @@ function mountOrUpdate(
       cleanupComponent(instance);
     } catch (e) {
       // If previous cleanup threw in strict mode, log but continue mounting new instance
-      if (process.env.NODE_ENV !== 'production')
-        logger.warn('[Askr] prior cleanup threw:', e);
+      if (process.env.NODE_ENV !== 'production') {
+        getLogger().then((logger) => {
+          logger.warn('[Askr] prior cleanup threw:', e);
+        });
+      }
     }
 
     instance.fn = wrappedFn;
@@ -360,9 +374,11 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     // This supports cases where routes are registered but the current URL is
     // not one of them (common in router tests that navigate programmatically).
     if (process.env.NODE_ENV !== 'production') {
-      logger.warn(
-        `createSPA: no route found for current path (${path}). Mounting empty placeholder; navigation will activate routes when requested.`
-      );
+      getLogger().then((logger) => {
+        logger.warn(
+          `createSPA: no route found for current path (${path}). Mounting empty placeholder; navigation will activate routes when requested.`
+        );
+      });
     }
 
     // Mount a no-op component until navigation occurs
@@ -371,6 +387,8 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     });
 
     // Still register app instance and initialize navigation so future navigations work
+    const { registerAppInstance, initializeNavigation } =
+      await import('../router/navigate');
     const instance = instancesByRoot.get(rootElement);
     if (!instance) throw new Error('Internal error: app instance missing');
     registerAppInstance(instance as ComponentInstance, path);
@@ -385,6 +403,8 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   });
 
   // Register for navigation and wire up history handling
+  const { registerAppInstance, initializeNavigation } =
+    await import('../router/navigate');
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
   registerAppInstance(instance as ComponentInstance, path);

@@ -1,6 +1,6 @@
 /**
  * For component primitive
- * 
+ *
  * Creates a reactivity boundary for list iteration, preventing
  * parent re-execution when individual items update.
  */
@@ -17,7 +17,7 @@ export interface ForOptions<T> {
 
 /**
  * For primitive - creates a reactivity boundary for efficient list rendering.
- * 
+ *
  * Instead of re-executing all rows when one changes, For creates isolated
  * component instances for each item, re-executing only items that changed.
  */
@@ -32,18 +32,18 @@ export function For<T>(
     const forStateContainer = state<ForState<T>>(
       createForState(source, render, options?.by)
     );
-    
+
     const forState = forStateContainer();
-    
+
     // Evaluate the current array and return vnodes
     const children = evaluateForState(forState, source);
-    
+
     return {
       type: 'for-boundary',
       children,
     };
   };
-  
+
   // Return a component vnode
   return {
     type: ForComponent,

@@ -20,6 +20,7 @@ function For<T>(
 ### Ownership Boundary
 
 `For` creates a **reactivity firewall**:
+
 - Parent component reads `source()` once during parent render
 - `For` returns a special marker vnode: `{ type: __FOR_BOUNDARY__, ... }`
 - Renderer recognizes marker and delegates to `For` runtime
@@ -30,8 +31,7 @@ function For<T>(
 
 ```typescript
 // Default: Use item.id if present, else index
-const defaultKey = (item: T, index: number) => 
-  (item as any).id ?? index;
+const defaultKey = (item: T, index: number) => (item as any).id ?? index;
 
 // Explicit keying via options
 For(rows, (row) => Row({ row }), { by: (row) => row.id });
@@ -40,6 +40,7 @@ For(rows, (row) => Row({ row }), { by: (row) => row.id });
 ### Array Diffing
 
 On `source` change:
+
 1. Read new array value
 2. Build new key map: `Map<Key, { item: T, index: number }>`
 3. Compare with previous key map
@@ -50,17 +51,19 @@ On `source` change:
 ### Item Instance Lifecycle
 
 Each item has:
+
 ```typescript
 interface ForItemInstance {
   key: string | number;
   item: T;
-  indexSignal: State<number>;  // reactive index
-  componentInstance: ComponentInstance;  // owns render()
-  vnode: VNode;  // cached result
+  indexSignal: State<number>; // reactive index
+  componentInstance: ComponentInstance; // owns render()
+  vnode: VNode; // cached result
 }
 ```
 
 When item data changes (object identity or by shallow equality):
+
 - Mark item instance dirty
 - Schedule item re-execution via scheduler
 - Item component re-runs: `render(item, () => indexSignal())`
@@ -82,8 +85,8 @@ export interface ForBoundaryVNode {
     by?: (item: unknown, index: number) => string | number;
     fallback?: VNode;
   };
-  children: VNode[];  // cached children for reconciler
-  _forState?: ForState;  // internal state (item instances)
+  children: VNode[]; // cached children for reconciler
+  _forState?: ForState; // internal state (item instances)
 }
 ```
 
@@ -117,14 +120,15 @@ function evaluateVNode(vnode: VNode, parent: Element): void {
 
 function evaluateForBoundary(vnode: ForBoundaryVNode, parent: Element): void {
   const forState = vnode._forState || initializeForState(vnode);
-  const currentArray = typeof vnode.props.source === 'function'
-    ? vnode.props.source()
-    : vnode.props.source();
-  
+  const currentArray =
+    typeof vnode.props.source === 'function'
+      ? vnode.props.source()
+      : vnode.props.source();
+
   // Diff array, update item instances, rebuild children
   const newChildren = reconcileForItems(forState, currentArray);
   vnode.children = newChildren;
-  
+
   // Now reconcile resulting vnodes normally
   reconcileKeyed(parent, newChildren, extractKeyMap(parent));
 }
@@ -142,7 +146,7 @@ function createItemInstance<T>(
   forState: ForState<T>
 ): ForItemInstance<T> {
   const indexSignal = state(index);
-  
+
   // Create isolated component for this item
   const itemComponent = createComponentInstance(
     `for-item-${key}`,
@@ -150,12 +154,12 @@ function createItemInstance<T>(
     {},
     null
   );
-  
+
   // Subscribe to parent context but don't propagate updates
   itemComponent.ownerFrame = forState.parentInstance.ownerFrame;
-  
+
   const vnode = executeComponent(itemComponent);
-  
+
   return {
     key,
     item,
@@ -171,31 +175,28 @@ function createItemInstance<T>(
 ```typescript
 // src/runtime/for.ts
 
-function reconcileForItems<T>(
-  forState: ForState<T>,
-  newArray: T[]
-): VNode[] {
+function reconcileForItems<T>(forState: ForState<T>, newArray: T[]): VNode[] {
   const { items, orderedKeys, byFn, renderFn } = forState;
   const newKeyMap = new Map<string | number, { item: T; index: number }>();
-  
+
   // Build new key map
   for (let i = 0; i < newArray.length; i++) {
     const item = newArray[i];
     const key = byFn(item, i);
     newKeyMap.set(key, { item, index: i });
   }
-  
+
   const newOrderedKeys: Array<string | number> = [];
   const resultVNodes: VNode[] = [];
   const toRemove = new Set(orderedKeys);
-  
+
   // Process new array
   for (const [key, { item, index }] of newKeyMap) {
     toRemove.delete(key);
     newOrderedKeys.push(key);
-    
+
     const existing = items.get(key);
-    
+
     if (!existing) {
       // Added: create new item instance
       const itemInstance = createItemInstance(key, item, index, forState);
@@ -205,22 +206,22 @@ function reconcileForItems<T>(
       // Exists: check if item changed
       const itemChanged = existing.item !== item;
       const indexChanged = existing.indexSignal() !== index;
-      
+
       if (itemChanged) {
         // Item data changed: update and re-execute
         existing.item = item;
         existing.vnode = executeComponent(existing.componentInstance);
       }
-      
+
       if (indexChanged) {
         // Index changed: update index signal
         existing.indexSignal.set(index);
       }
-      
+
       resultVNodes.push(existing.vnode);
     }
   }
-  
+
   // Remove deleted items
   for (const key of toRemove) {
     const itemInstance = items.get(key);
@@ -229,7 +230,7 @@ function reconcileForItems<T>(
       items.delete(key);
     }
   }
-  
+
   forState.orderedKeys = newOrderedKeys;
   return resultVNodes;
 }
@@ -244,7 +245,7 @@ import { For, state } from 'askr';
 
 const Component = () => {
   const rows = state<Row[]>([...]);
-  
+
   return {
     type: 'div',
     children: [
@@ -261,11 +262,7 @@ const Component = () => {
 ### With Custom Key
 
 ```typescript
-For(
-  items,
-  (item) => Item({ item }),
-  { by: (item) => item.uid }
-)
+For(items, (item) => Item({ item }), { by: (item) => item.uid });
 ```
 
 ### With Reactive Index
@@ -273,18 +270,16 @@ For(
 ```typescript
 For(items, (item, index) => ({
   type: 'div',
-  children: [`${index()}: ${item.label}`]
-}))
+  children: [`${index()}: ${item.label}`],
+}));
 ```
 
 ### With Fallback
 
 ```typescript
-For(
-  items,
-  (item) => Item({ item }),
-  { fallback: { type: 'div', children: ['No items'] } }
-)
+For(items, (item) => Item({ item }), {
+  fallback: { type: 'div', children: ['No items'] },
+});
 ```
 
 ## Execution Model
@@ -294,13 +289,13 @@ For(
 ```typescript
 const Component = () => {
   const rows = state(createRows(1000));
-  
+
   // Parent reads rows() ONCE during this execution
   // Returns For boundary vnode
   // Parent does NOT re-execute when individual rows update
   return {
     type: 'div',
-    children: [For(rows, (row) => RowComponent(row))]
+    children: [For(rows, (row) => RowComponent(row))],
   };
 };
 ```
@@ -309,12 +304,13 @@ const Component = () => {
 
 ```typescript
 // Update every 10th row
-rows.set(rows().map((r, i) => 
-  i % 10 === 0 ? { ...r, label: r.label + '!' } : r
-));
+rows.set(
+  rows().map((r, i) => (i % 10 === 0 ? { ...r, label: r.label + '!' } : r))
+);
 ```
 
 **Execution trace:**
+
 1. `rows.set()` invalidates subscribers
 2. Parent component does NOT re-execute (not subscribed to rows directly)
 3. `For` boundary evaluates new array
@@ -328,16 +324,19 @@ rows.set(rows().map((r, i) =>
 ## Rules for Usage
 
 ### MUST use `For` when:
+
 - Rendering arrays
 - Items can update independently
 - List size > 10 items
 
 ### MAY use `.map()` when:
+
 - Static arrays (no updates)
 - Derived display data (no item identity)
 - Parent re-execution is intentional
 
 ### MUST NOT:
+
 - Nest `For` render functions with parent state reads
 - Return `For` from conditional branches (wrap in fragment)
 - Use `For` for non-array iteration
@@ -358,13 +357,15 @@ For(rows, (row) => ...)  // For subscribes, parent unaffected
 ### Scheduler Integration
 
 Each item instance has its own component:
-- Uses existing `scheduleComponent()` 
+
+- Uses existing `scheduleComponent()`
 - Flushes normally via scheduler
 - No new scheduler primitives needed
 
 ### Reconciler Integration
 
 `For` produces flat vnode array:
+
 - Keyed vnodes with stable keys
 - Works with existing `reconcileKeyedChildren()`
 - No changes to reconciler needed
@@ -397,16 +398,16 @@ const Component = () => {
 ```typescript
 const Component = () => {
   const rows = state(createRows(1000));
-  
+
   return {
     type: 'div',
     children: [
       For(rows, (row) => ({
         type: 'div',
         props: { key: row.id },
-        children: [String(row.label)]
-      }))
-    ]
+        children: [String(row.label)],
+      })),
+    ],
   };
 };
 
@@ -429,16 +430,19 @@ const Component = () => {
 ## Performance Characteristics
 
 ### Memory
+
 - O(n) item instances for n items
 - Each instance: component state + vnode cache
 - Bounded by list size, not update frequency
 
 ### CPU
+
 - Initial render: O(n) - create all item instances
 - Update: O(changed items) - only re-execute changed items
 - Reconciliation: O(n log n) - keyed diffing unchanged
 
 ### Invalidation Width
+
 - Current: Component-level (1000 executions)
 - With For: Item-level (~100 executions)
 - Reduction: 10x for update-every-10th pattern
