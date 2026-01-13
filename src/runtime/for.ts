@@ -10,6 +10,10 @@ import {
   type ComponentInstance,
   createComponentInstance,
   getCurrentInstance,
+  setCurrentComponentInstance,
+  finalizeReadSubscriptions,
+  getCurrentStateIndex,
+  setStateIndex,
 } from './component';
 import type { VNode } from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
@@ -24,6 +28,7 @@ export interface ForItemInstance<T> {
   indexSignal: State<number>;
   componentInstance: ComponentInstance;
   vnode: VNode | undefined;
+  _startStateIndex: number; // Global state index when item was created
 }
 
 export interface ForState<T> {
@@ -62,6 +67,8 @@ export function createForState<T>(
   };
 }
 
+let _forRenderCounter = 1;
+
 export function createItemInstance<T>(
   key: string | number,
   item: T,
@@ -83,9 +90,9 @@ export function createItemInstance<T>(
     },
   });
 
-  // Create isolated component for this item. The renderFn is executed manually
-  // below while this instance is the current component, so the instance fn is
-  // a no-op used only for lifecycle bookkeeping.
+  // Create isolated component for this item. The renderFn is executed while
+  // this instance is the current component so nested state() calls register
+  // readers against this instance for precise notification.
   const noopComponentFn: ComponentFunction = () => null;
   const itemComponent = createComponentInstance(
     `for-item-${key}`,
@@ -99,13 +106,67 @@ export function createItemInstance<T>(
     itemComponent.ownerFrame = forState.parentInstance.ownerFrame;
   }
 
-  // Execute render function directly within the item component context
-  const savedInstanceForRender = askrGlobal.__ASKR_CURRENT_INSTANCE__;
-  askrGlobal.__ASKR_CURRENT_INSTANCE__ = itemComponent;
+  // Execute initial render function while treating this instance as the
+  // current component so `state()` calls register correctly.
+  const savedInst = getCurrentInstance();
+  setCurrentComponentInstance(itemComponent);
+
+  // Capture the current global state index so we can restore it on re-renders
+  const startStateIndex = getCurrentStateIndex();
+
+  // Prepare render token and pending reads so finalizeReadSubscriptions works
+  // (this mirrors behavior in runComponent).
+  itemComponent._currentRenderToken = _forRenderCounter++;
+  itemComponent._pendingReadStates = new Set();
 
   const vnode = forState.renderFn(item, () => indexSignal());
 
-  askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInstanceForRender;
+  // Commit initial subscriptions so nested state changes will notify this
+  // instance's pending task appropriately.
+  finalizeReadSubscriptions(itemComponent);
+
+  // Restore previous current instance
+  setCurrentComponentInstance(savedInst);
+
+  // Override the pending flush task for this item so that when nested state
+  // changes we recompute this item's vnode and request the parent to re-render.
+  itemComponent._pendingFlushTask = () => {
+    const saved = getCurrentInstance();
+    setCurrentComponentInstance(itemComponent);
+
+    // Reset state index tracking for this re-render (same as executeComponentSync)
+    itemComponent.stateIndexCheck = -1;
+
+    // Reset read tracking for all existing state
+    for (const state of itemComponent.stateValues) {
+      if (state) {
+        state._hasBeenRead = false;
+      }
+    }
+
+    // Restore the global state index to where it was when this item was created
+    // This ensures state() calls use the same indices as during initial render
+    setStateIndex(startStateIndex);
+
+    itemComponent._currentRenderToken = _forRenderCounter++;
+    itemComponent._pendingReadStates = new Set();
+
+    // Safely re-render into vnode slot for this item
+    try {
+      const newVnode = forState.renderFn(item, () => indexSignal());
+      // Update the stored vnode for this item so future reconciles use it
+      const inst = forState.items.get(key);
+      if (inst) inst.vnode = newVnode;
+      // Commit read subscriptions for this re-render
+      finalizeReadSubscriptions(itemComponent);
+    } finally {
+      setCurrentComponentInstance(saved);
+    }
+
+    // Ask parent For boundary to re-render so DOM updates are applied
+    const parent = forState.parentInstance;
+    if (parent) parent._enqueueRun?.();
+  };
 
   return {
     key,
@@ -113,6 +174,7 @@ export function createItemInstance<T>(
     indexSignal,
     componentInstance: itemComponent,
     vnode,
+    _startStateIndex: startStateIndex,
   };
 }
 

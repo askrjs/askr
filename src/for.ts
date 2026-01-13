@@ -39,7 +39,10 @@ export function For<T>(
   const vnode: VNode = {
     type: __FOR_BOUNDARY__,
     props: { source },
-    _forState: forState,
+    // _forState is stored as unknown to avoid a problematic variance issue when
+    // assigning `ForState<T>` to the internal `_forState` slot typed as
+    // `ForState<unknown>` in `DOMElement`.
+    _forState: forState as unknown as ForState<unknown>,
   };
 
   return vnode;
