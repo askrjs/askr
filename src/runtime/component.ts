@@ -662,6 +662,18 @@ export function getNextStateIndex(): number {
   return stateIndex++;
 }
 
+export function getCurrentStateIndex(): number {
+  return stateIndex;
+}
+
+export function resetStateIndex(): void {
+  stateIndex = 0;
+}
+
+export function setStateIndex(value: number): void {
+  stateIndex = value;
+}
+
 /**
  * Mount a component instance.
  * This is just an alias to executeComponent() to maintain API compatibility.
