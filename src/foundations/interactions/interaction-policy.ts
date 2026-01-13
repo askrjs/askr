@@ -140,14 +140,24 @@ export function mergeInteractionProps(
     const childHandler = childProps?.[k];
 
     if (policyHandler || userHandler || childHandler) {
+      const toHandler = (h: unknown) =>
+        typeof h === 'function' ? (h as (...args: readonly unknown[]) => void) : undefined;
+
       out[k] = composeHandlers(
-        policyHandler,
-        composeHandlers(userHandler, childHandler)
+        toHandler(policyHandler),
+        composeHandlers(
+          toHandler(userHandler),
+          toHandler(childHandler)
+        )
       );
     }
   }
 
-  out.ref = composeRefs(childProps?.ref, userProps?.ref, policyProps?.ref);
+  const childRef = childProps?.ref as Ref<unknown> | undefined;
+  const userRef = userProps?.ref as Ref<unknown> | undefined;
+  const policyRef = policyProps?.ref as Ref<unknown> | undefined;
+
+  out.ref = composeRefs(childRef, userRef, policyRef);
 
   return out;
 }

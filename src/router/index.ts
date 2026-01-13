@@ -13,7 +13,7 @@ export type {
 
 export { navigate } from './navigate';
 
-export { Link } from '../components/link1';
-export type { LinkProps } from '../components/link1';
+export { Link } from '../components/link';
+export type { LinkProps } from '../components/link';
 
 export { layout } from '../foundations/structures/layout';
