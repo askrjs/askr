@@ -9,11 +9,8 @@
  * RUN: npx tsx perf/bench_signal_text.ts
  */
 
-import { createIsland, state, type State } from '../src';
-import {
-  createTestContainer,
-  flushScheduler,
-} from '../tests/helpers/test-renderer';
+import { createIsland, state, type State } from '../../src';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 const { container, cleanup } = createTestContainer();
 let count!: State<number>;

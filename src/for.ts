@@ -8,7 +8,7 @@
 import { state, type State } from './runtime/state';
 import type { VNode } from './common/vnode';
 import { __FOR_BOUNDARY__ } from './common/vnode';
-import { createForState, evaluateForState, type ForState } from './runtime/for';
+import { createForState, type ForState } from './runtime/for';
 
 export interface ForOptions<T> {
   by?: (item: T, index: number) => string | number;
@@ -26,27 +26,21 @@ export function For<T>(
   render: (item: T, index: () => number) => VNode,
   options?: ForOptions<T>
 ): VNode {
-  // Create a component that manages the ForState
-  const ForComponent = () => {
-    // Persist ForState across renders - created on first render
-    const forStateContainer = state<ForState<T>>(
-      createForState(source, render, options?.by)
-    );
+  // Persist ForState across renders using the state() hook so that For can
+  // be used inline within component render functions without creating an
+  // extra wrapper host element (which would break markup/styling).
+  const forStateContainer = state<ForState<T>>(
+    createForState(source, render, options?.by)
+  );
 
-    const forState = forStateContainer();
+  const forState = forStateContainer();
 
-    // Evaluate the current array and return vnodes
-    const children = evaluateForState(forState, source);
-
-    return {
-      type: 'for-boundary',
-      children,
-    };
+  // Return a raw For boundary vnode (renderer will look for _forState)
+  const vnode: VNode = {
+    type: __FOR_BOUNDARY__,
+    props: { source },
+    _forState: forState,
   };
 
-  // Return a component vnode
-  return {
-    type: ForComponent,
-    props: {},
-  } as VNode;
+  return vnode;
 }

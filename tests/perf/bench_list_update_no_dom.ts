@@ -10,7 +10,7 @@
  * RUN: npx tsx perf/bench_list_update_no_dom.ts
  */
 
-import { state, type State } from '../src';
+import { state, type State } from '../../src';
 
 interface Row {
   id: number;
