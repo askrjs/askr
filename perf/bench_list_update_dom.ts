@@ -78,5 +78,15 @@ function runBenchmark(rowCount: number, iterations: number) {
   cleanup();
 }
 
-runBenchmark(1000, 100);
-runBenchmark(10000, 10);
+const FAST_BENCH =
+  process.env.ASKR_BENCH_FAST === '1' ||
+  process.env.CI === 'true' ||
+  process.env.CI === '1';
+
+if (FAST_BENCH) {
+  runBenchmark(1000, 20);
+  runBenchmark(10000, 1);
+} else {
+  runBenchmark(1000, 100);
+  runBenchmark(10000, 10);
+}
