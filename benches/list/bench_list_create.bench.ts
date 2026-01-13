@@ -49,8 +49,8 @@ describe('bench_list_create', () => {
     const end = performance.now();
     const total = end - start;
 
-    console.log(`\nbench_list_create (1000 rows)`);
-    console.log(`Total: ${total.toFixed(2)}ms`);
+    console.warn(`\nbench_list_create (1000 rows)`);
+    console.warn(`Total: ${total.toFixed(2)}ms`);
 
     cleanup();
   });
@@ -79,8 +79,8 @@ describe('bench_list_create', () => {
     const end = performance.now();
     const total = end - start;
 
-    console.log(`\nbench_list_create (10000 rows)`);
-    console.log(`Total: ${total.toFixed(2)}ms`);
+    console.warn(`\nbench_list_create (10000 rows)`);
+    console.warn(`Total: ${total.toFixed(2)}ms`);
 
     cleanup();
   });

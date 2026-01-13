@@ -38,10 +38,10 @@ describe('bench_signal_text', () => {
     const total = end - start;
     const avg = total / iterations;
 
-    console.log('\nbench_signal_text');
-    console.log(`Iterations: ${iterations}`);
-    console.log(`Total: ${total.toFixed(2)}ms`);
-    console.log(`Avg per iteration: ${avg.toFixed(4)}ms`);
+    console.warn('\nbench_signal_text');
+    console.warn(`Iterations: ${iterations}`);
+    console.warn(`Total: ${total.toFixed(2)}ms`);
+    console.warn(`Avg per iteration: ${avg.toFixed(4)}ms`);
 
     cleanup();
   });

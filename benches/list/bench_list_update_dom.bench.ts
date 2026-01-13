@@ -70,11 +70,11 @@ describe('bench_list_update_dom', () => {
     const total = end - start;
     const avg = total / iterations;
 
-    console.log(`\nbench_list_update_dom (${rowCount} rows)`);
-    console.log(`Iterations: ${iterations}`);
-    console.log(`Total: ${total.toFixed(2)}ms`);
-    console.log(`Avg per iteration: ${avg.toFixed(4)}ms`);
-    console.log(`Updates per iteration: ${Math.ceil(rowCount / 10)} rows`);
+    console.warn(`\nbench_list_update_dom (${rowCount} rows)`);
+    console.warn(`Iterations: ${iterations}`);
+    console.warn(`Total: ${total.toFixed(2)}ms`);
+    console.warn(`Avg per iteration: ${avg.toFixed(4)}ms`);
+    console.warn(`Updates per iteration: ${Math.ceil(rowCount / 10)} rows`);
 
     cleanup();
   });
@@ -113,11 +113,11 @@ describe('bench_list_update_dom', () => {
     const total = end - start;
     const avg = total / iterations;
 
-    console.log(`\nbench_list_update_dom (${rowCount} rows)`);
-    console.log(`Iterations: ${iterations}`);
-    console.log(`Total: ${total.toFixed(2)}ms`);
-    console.log(`Avg per iteration: ${avg.toFixed(4)}ms`);
-    console.log(`Updates per iteration: ${Math.ceil(rowCount / 10)} rows`);
+    console.warn(`\nbench_list_update_dom (${rowCount} rows)`);
+    console.warn(`Iterations: ${iterations}`);
+    console.warn(`Total: ${total.toFixed(2)}ms`);
+    console.warn(`Avg per iteration: ${avg.toFixed(4)}ms`);
+    console.warn(`Updates per iteration: ${Math.ceil(rowCount / 10)} rows`);
 
     cleanup();
   });

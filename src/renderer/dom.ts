@@ -458,7 +458,9 @@ function createForBoundary(
     return fragment;
   }
 
-  const source = props.source as any;
+  const source = props.source as unknown as
+    | import('../runtime/state').State<unknown[]>
+    | (() => unknown[]);
   const childrenVNodes = evaluateForState(forState, source);
 
   for (const childVNode of childrenVNodes) {
