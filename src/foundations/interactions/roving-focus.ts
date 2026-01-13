@@ -108,10 +108,7 @@ export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
     isDisabled,
   } = options;
 
-  function findNextIndex(
-    from: number,
-    direction: 1 | -1
-  ): number | undefined {
+  function findNextIndex(from: number, direction: 1 | -1): number | undefined {
     let next = from + direction;
 
     // Handle looping

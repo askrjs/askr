@@ -18,17 +18,10 @@ export { definePortal, DefaultPortal } from './structures/portal';
 export type { Portal } from './structures/portal';
 
 export { createCollection } from './structures/collection';
-export type {
-  Collection,
-  CollectionItem,
-} from './structures/collection';
+export type { Collection, CollectionItem } from './structures/collection';
 
 export { createLayer } from './structures/layer';
-export type {
-  Layer,
-  LayerManager,
-  LayerOptions,
-} from './structures/layer';
+export type { Layer, LayerManager, LayerOptions } from './structures/layer';
 
 // Utilities
 export { composeHandlers } from './utilities/compose-handlers';

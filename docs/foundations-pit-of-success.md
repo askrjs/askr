@@ -32,7 +32,7 @@ function Button({ onPress, disabled }) {
 // ❌ NO! Don't check disabled yourself
 function Button({ disabled, onPress }) {
   if (disabled) return null; // Policy handles this!
-  
+
   const interaction = applyInteractionPolicy({ ... });
 }
 
@@ -40,8 +40,8 @@ function Button({ disabled, onPress }) {
 function Button({ onPress }) {
   const interaction = applyInteractionPolicy({ ... });
   return (
-    <button 
-      {...interaction} 
+    <button
+      {...interaction}
       onKeyDown={(e) => { /* NO! */ }}
     >
       Click
@@ -67,7 +67,7 @@ import { dismissable } from '@askrjs/askr/foundations';
 
 function Dialog({ onClose, open }) {
   const dialogRef = ref<HTMLDivElement>();
-  
+
   const dismiss = dismissable({
     node: dialogRef.current,
     disabled: !open,
@@ -102,10 +102,10 @@ function Dialog({ onClose }) {
 // ❌ NO! Don't check disabled yourself
 function Dialog({ onClose, disabled }) {
   const dismiss = dismissable({ onDismiss: onClose, disabled });
-  
+
   // ❌ Don't add additional disabled check
   if (disabled) return null; // dismissable handles this!
-  
+
   return <div {...dismiss}>Content</div>;
 }
 ```
@@ -149,9 +149,9 @@ function Menu() {
 // ❌ NO! Don't implement your own arrow navigation
 function Menu() {
   const roving = rovingFocus({ ... });
-  
+
   return (
-    <div 
+    <div
       {...roving.container}
       onKeyDown={(e) => {
         // NO! rovingFocus owns arrow navigation
@@ -166,11 +166,11 @@ function Menu() {
 // ❌ NO! Don't manage tabIndex yourself
 function Menu() {
   const roving = rovingFocus({ ... });
-  
+
   return (
     <div {...roving.container}>
-      <button 
-        {...roving.item(0)} 
+      <button
+        {...roving.item(0)}
         tabIndex={0} // NO! roving.item sets tabIndex
       >
         Item
@@ -195,7 +195,7 @@ function DialogButton({ onPress, onClose, disabled }) {
     disabled,
     onPress,
   });
-  
+
   const dismiss = dismissable({
     disabled,
     onDismiss: onClose,
@@ -203,7 +203,7 @@ function DialogButton({ onPress, onClose, disabled }) {
 
   // Both foundations compose via mergeProps
   const props = mergeProps(interaction, dismiss);
-  
+
   return <button {...props}>Close Dialog</button>;
 }
 ```
@@ -220,7 +220,7 @@ function Button({ onPress, disabled }) {
 
   // User handler composes with policy
   return (
-    <button 
+    <button
       {...interaction}
       onClick={(e) => {
         console.log('Before policy handler');
@@ -244,18 +244,18 @@ import { createCollection } from '@askrjs/askr/foundations';
 
 function TabList() {
   const tabs = createCollection<HTMLElement, { disabled: boolean }>();
-  
+
   function TabItem({ label, disabled }) {
     const ref = ref<HTMLButtonElement>();
-    
+
     onMount(() => {
       const unregister = tabs.register(ref.current, { disabled });
       onUnmount(unregister);
     });
-    
+
     return <button ref={ref}>{label}</button>;
   }
-  
+
   // Query all enabled tabs
   const enabledTabs = tabs.items().filter(item => !item.metadata.disabled);
 }
@@ -282,15 +282,15 @@ const layerManager = createLayer();
 
 function Modal({ onClose }) {
   const modalRef = ref<HTMLDivElement>();
-  
+
   const layer = layerManager.register({
     node: modalRef.current,
     onEscape: onClose,
     onOutsidePointer: onClose,
   });
-  
+
   onUnmount(() => layer.unregister());
-  
+
   return (
     <div ref={modalRef}>
       {layer.isTop() && <div>Top layer indicator</div>}
@@ -322,10 +322,10 @@ For each foundation, verify:
 ```typescript
 import { applyInteractionPolicy } from '@askrjs/askr/foundations';
 
-export function Button({ 
-  onPress, 
+export function Button({
+  onPress,
   disabled = false,
-  children 
+  children
 }) {
   // THE ONLY interaction logic
   const interaction = applyInteractionPolicy({
@@ -343,13 +343,13 @@ export function Button({
 ```typescript
 import { dismissable, Presence } from '@askrjs/askr/foundations';
 
-export function Dialog({ 
-  open, 
-  onClose, 
-  children 
+export function Dialog({
+  open,
+  onClose,
+  children
 }) {
   const dialogRef = ref<HTMLDivElement>();
-  
+
   // THE ONLY dismissal logic
   const dismiss = dismissable({
     node: dialogRef.current,
@@ -370,14 +370,14 @@ export function Dialog({
 ### Menu (Complete Example)
 
 ```typescript
-import { 
-  rovingFocus, 
-  applyInteractionPolicy 
+import {
+  rovingFocus,
+  applyInteractionPolicy
 } from '@askrjs/askr/foundations';
 
 export function Menu({ items, onSelect }) {
   const [currentIndex, setCurrentIndex] = state(0);
-  
+
   const roving = rovingFocus({
     currentIndex: currentIndex(),
     itemCount: items.length,
@@ -394,9 +394,9 @@ export function Menu({ items, onSelect }) {
           disabled: item.disabled,
           onPress: () => onSelect(item),
         });
-        
+
         return (
-          <div 
+          <div
             {...roving.item(index)}
             {...interaction}
             role="menuitem"
