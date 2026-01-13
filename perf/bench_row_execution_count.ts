@@ -10,7 +10,7 @@
  * RUN: npx tsx perf/bench_row_execution_count.ts
  */
 
-import { createIsland, state, type State } from '../src';
+import { createIsland, state, For, type State } from '../src';
 import {
   createTestContainer,
   flushScheduler,
@@ -54,12 +54,14 @@ const RowComponent = (row: Row) => {
 
 const Component = () => {
   rows = state(createRows(rowCount));
-  const currentRows = rows();
-  const children = [];
-  for (let i = 0; i < currentRows.length; i++) {
-    children.push(RowComponent(currentRows[i]));
-  }
-  return { type: 'div', children };
+  
+  // Use For primitive to eliminate over-invalidation
+  return {
+    type: 'div',
+    children: [
+      For(rows, (row) => RowComponent(row), { by: (row) => row.id })
+    ],
+  };
 };
 
 createIsland({ root: container, component: Component });

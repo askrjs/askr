@@ -3,6 +3,7 @@
  */
 
 import type { Props } from './props';
+import type { ForState } from '../runtime/for';
 
 export interface DOMElement {
   // Element `type` can be an intrinsic tag name, a component function, or
@@ -13,7 +14,11 @@ export interface DOMElement {
   children?: VNode[];
   key?: string | number;
   [Symbol.iterator]?: never;
+  _forState?: ForState<any>;  // Internal: For boundary state
 }
+
+// Special symbol for For boundaries
+export const __FOR_BOUNDARY__ = Symbol('__FOR_BOUNDARY__');
 
 // Type for virtual DOM nodes
 export type VNode = DOMElement | string | number | boolean | null | undefined;
