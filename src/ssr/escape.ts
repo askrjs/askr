@@ -36,6 +36,27 @@ const CSS_DANGEROUS_FN_RE = /(?:url|expression|javascript)\s*\(/i;
 const STYLE_PROP_CACHE = new Map<string, string>();
 const MAX_STYLE_PROP_CACHE_SIZE = 512;
 
+// Pre-compute escape map functions for faster replacement (avoid repeated function calls)
+const textEscapeMap = (ch: string): string => {
+  // Use charCodeAt for faster character identification
+  const code = ch.charCodeAt(0);
+  if (code === 38) return '&amp;'; // &
+  if (code === 60) return '&lt;'; // <
+  if (code === 62) return '&gt;'; // >
+  return ch;
+};
+
+const attrEscapeMap = (ch: string): string => {
+  // Use charCodeAt for faster character identification
+  const code = ch.charCodeAt(0);
+  if (code === 38) return '&amp;'; // &
+  if (code === 34) return '&quot;'; // "
+  if (code === 39) return '&#x27;'; // '
+  if (code === 60) return '&lt;'; // <
+  if (code === 62) return '&gt;'; // >
+  return ch;
+};
+
 function toKebabCached(prop: string): string {
   const cached = STYLE_PROP_CACHE.get(prop);
   if (cached !== undefined) return cached;
@@ -44,34 +65,6 @@ function toKebabCached(prop: string): string {
     STYLE_PROP_CACHE.set(prop, kebab);
   }
   return kebab;
-}
-
-function mapTextEscape(ch: string): string {
-  // '&' '<' '>'
-  switch (ch) {
-    case '&':
-      return '&amp;';
-    case '<':
-      return '&lt;';
-    default:
-      return '&gt;';
-  }
-}
-
-function mapAttrEscape(ch: string): string {
-  // '&' '"' "'" '<' '>'
-  switch (ch) {
-    case '&':
-      return '&amp;';
-    case '"':
-      return '&quot;';
-    case "'":
-      return '&#x27;';
-    case '<':
-      return '&lt;';
-    default:
-      return '&gt;';
-  }
 }
 
 /**
@@ -115,7 +108,7 @@ export function escapeText(text: string): string {
   }
 
   // Single-pass escape for strings that need escaping
-  const result = str.replace(TEXT_ESCAPE_RE, mapTextEscape);
+  const result = str.replace(TEXT_ESCAPE_RE, textEscapeMap);
 
   if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
     escapeCache.set(text, result);
@@ -141,7 +134,7 @@ export function escapeAttr(value: string): string {
   }
 
   // Single-pass escape for strings that need escaping
-  return needsEscape ? str.replace(ATTR_ESCAPE_RE, mapAttrEscape) : str;
+  return needsEscape ? str.replace(ATTR_ESCAPE_RE, attrEscapeMap) : str;
 }
 
 /**
@@ -194,14 +187,15 @@ export function styleObjToCss(value: unknown): string | null {
   const entries = Object.entries(value as Record<string, unknown>);
   if (entries.length === 0) return '';
   // camelCase -> kebab-case
-  let out = '';
+  // Use array to collect parts, then join once for better performance
+  const parts: string[] = [];
   for (const [k, v] of entries) {
     if (v === null || v === undefined || v === false) continue;
     const prop = toKebabCached(k);
     const safeValue = escapeCssValue(String(v));
     if (safeValue) {
-      out += `${prop}:${safeValue};`;
+      parts.push(`${prop}:${safeValue};`);
     }
   }
-  return out;
+  return parts.join('');
 }

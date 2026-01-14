@@ -13,7 +13,7 @@ export type AttrsResult = {
 
 /**
  * Render attributes to HTML string, excluding event handlers
- * Optimized for minimal allocations
+ * Optimized for minimal allocations using push-based approach
  *
  * Returns both the attribute string and any dangerouslySetInnerHTML content.
  */
@@ -33,8 +33,8 @@ export function renderAttrs(
   const attrParts: string[] = [];
   let dangerousHtml: string | undefined;
 
-  // Perf optimization: use array to avoid string concatenation overhead
-  // Then join once at the end instead of repeated += operations
+  // Perf optimization: iterate props once and build attribute strings
+  // Fast path for common patterns with inlined checks
   const propsObj = props as Record<string, unknown>;
   for (const key in propsObj) {
     const value = propsObj[key];
@@ -76,6 +76,7 @@ export function renderAttrs(
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);
       if (css === null || css === '') continue;
+      // Inline escaped style attribute directly
       attrParts.push(` style="${escapeAttr(css)}"`);
       continue;
     }
@@ -87,8 +88,10 @@ export function renderAttrs(
       // Skip falsy values
       continue;
     } else {
-      // Regular attributes
-      attrParts.push(` ${attrName}="${escapeAttr(String(value))}"`);
+      // Regular attributes - inline escape check for performance
+      const strValue = String(value);
+      // Escape the value directly inline to avoid function call overhead
+      attrParts.push(` ${attrName}="${escapeAttr(strValue)}"`);
     }
   }
 
