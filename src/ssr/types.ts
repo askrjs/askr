@@ -8,7 +8,7 @@ import type { RenderContext } from './context';
 
 /** VNode representation for SSR rendering */
 export type VNode = {
-  type: string | SSRComponent;
+  type: string | SSRComponent | symbol;
   props?: Props;
   children?: unknown[];
 };

@@ -2,10 +2,11 @@
  * SSR Data Management
  *
  * Manages render-phase keying for deterministic SSR data lookup.
- * Note: SSR collection/prepass APIs have been removed — SSR is strictly synchronous.
+ * All state is stored in the per-render context for concurrency safety.
  */
 
 import type { SSRRoute } from './index';
+import { getRenderContext } from './context';
 
 export type ResourceDescriptor = {
   key: string;
@@ -18,30 +19,36 @@ export type ResourcePlan = {
   resources: ResourceDescriptor[]; // declarative manifest in stable order
 };
 
-// Internal render-phase state
-let keyCounter = 0;
-let currentRenderData: Record<string, unknown> | null = null;
-
 export function getCurrentRenderData(): Record<string, unknown> | null {
-  return currentRenderData;
+  const ctx = getRenderContext();
+  return ctx?.renderData ?? null;
 }
 
 export function resetKeyCounter() {
-  keyCounter = 0;
+  const ctx = getRenderContext();
+  if (ctx) ctx.keyCounter = 0;
 }
 
 export function getNextKey(): string {
-  return `r:${keyCounter++}`;
+  const ctx = getRenderContext();
+  if (!ctx) return `r:0`; // Fallback for edge cases
+  return `r:${ctx.keyCounter++}`;
 }
 
 export function startRenderPhase(data: Record<string, unknown> | null) {
-  currentRenderData = data ?? null;
-  resetKeyCounter();
+  const ctx = getRenderContext();
+  if (ctx) {
+    ctx.renderData = data ?? null;
+    ctx.keyCounter = 0;
+  }
 }
 
 export function stopRenderPhase() {
-  currentRenderData = null;
-  resetKeyCounter();
+  const ctx = getRenderContext();
+  if (ctx) {
+    ctx.renderData = null;
+    ctx.keyCounter = 0;
+  }
 }
 
 // --- Deprecated APIs (throw descriptive errors) ---

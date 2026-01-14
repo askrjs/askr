@@ -1,137 +1,154 @@
-import type { JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
 import type { RenderSink } from './sink';
 import type { VNode, SSRComponent } from './types';
 import { Fragment } from '../jsx';
-import {
-  withSSRContext,
-  type SSRContext,
-  throwSSRDataMissing,
-} from './context';
+import { type RenderContext, throwSSRDataMissing } from './context';
 import { VOID_ELEMENTS, escapeText } from './escape';
-import { renderAttrs } from './attrs';
+import { renderAttrsDirect } from './attrs';
 
 // Re-export for backwards compatibility
 export type Component = SSRComponent;
 
-function isVNodeLike(x: unknown): x is VNode | JSXElement {
-  return (
-    !!x && typeof x === 'object' && 'type' in (x as Record<string, unknown>)
-  );
-}
-
-function normalizeChildren(node: unknown): unknown[] {
-  // Prefer explicit node.children; fallback to props.children
-  const n = node as Record<string, unknown> | null | undefined;
-  const direct = Array.isArray(n?.children) ? (n?.children as unknown[]) : null;
-  const fromProps = (n?.props as Record<string, unknown> | undefined)
-    ?.children as unknown;
-
-  const raw = direct ?? fromProps;
-
-  if (raw === null || raw === undefined || raw === false) return [];
-  if (Array.isArray(raw)) return raw;
-  return [raw];
-}
-
-// Note: renderChildToSink was removed in favor of direct renderNodeToSink inlined calls
-
-function renderChildrenToSink(
-  children: unknown[],
-  sink: RenderSink,
-  ctx: SSRContext
-) {
-  for (const c of children)
-    renderNodeToSink(
-      c as VNode | JSXElement | string | number | null,
-      sink,
-      ctx
-    );
-}
+// Legacy alias for context type
+export type SSRContext = RenderContext;
 
 function isPromiseLike(x: unknown): x is PromiseLike<unknown> {
   if (!x || typeof x !== 'object') return false;
-  const then = (x as { then?: unknown }).then;
-  return typeof then === 'function';
+  return typeof (x as { then?: unknown }).then === 'function';
 }
 
 function executeComponent(
   type: Component,
   props: Props | undefined,
-  ctx: SSRContext
+  ctx: RenderContext
 ): unknown {
-  // Synchronous only. If a user returns a Promise, that's a hard error.
   const res = type(props ?? {}, { signal: ctx.signal });
   if (isPromiseLike(res)) {
-    // Use centralized SSR failure mode — async components are not allowed during
-    // synchronous SSR and must be pre-resolved by the developer.
     throwSSRDataMissing();
   }
   return res;
 }
 
-export function renderNodeToSink(
-  node: VNode | JSXElement | string | number | null,
+// Render children directly without allocating wrapper array when possible
+function renderChildrenDirect(
+  node: Record<string, unknown>,
   sink: RenderSink,
-  ctx: SSRContext
-) {
+  ctx: RenderContext
+): void {
+  // Prefer explicit children; fallback to props.children
+  let raw: unknown = node.children;
+  if (raw === undefined) {
+    raw = (node.props as Record<string, unknown> | undefined)?.children;
+  }
+
+  if (raw === null || raw === undefined || raw === false) return;
+
+  if (Array.isArray(raw)) {
+    for (let i = 0; i < raw.length; i++) {
+      renderNodeToSink(raw[i], sink, ctx);
+    }
+    return;
+  }
+
+  // Single child - no array allocation
+  renderNodeToSink(raw, sink, ctx);
+}
+
+export function renderNodeToSink(
+  node: unknown,
+  sink: RenderSink,
+  ctx: RenderContext
+): void {
   if (node === null || node === undefined) return;
 
+  // Fast path: primitive strings
   if (typeof node === 'string') {
     sink.write(escapeText(node));
     return;
   }
+
+  // Fast path: numbers
   if (typeof node === 'number') {
-    sink.write(escapeText(String(node)));
+    sink.write(String(node));
     return;
   }
 
-  if (!isVNodeLike(node)) return;
+  // Skip booleans (false is common from conditional rendering)
+  if (typeof node === 'boolean') return;
 
-  const { type, props } = node as VNode;
+  // Must be object at this point
+  if (typeof node !== 'object') return;
 
-  // Fragment: render children in-place
-  if (
-    typeof type === 'symbol' &&
-    (type === Fragment || String(type) === 'Symbol(Fragment)')
-  ) {
-    const children = normalizeChildren(node);
-    renderChildrenToSink(children, sink, ctx);
-    return;
-  }
+  const vnode = node as VNode;
+  const type = vnode.type;
 
-  // Function component
-  if (typeof type === 'function') {
-    const out = withSSRContext(ctx, () =>
-      executeComponent(type as Component, props, ctx)
-    );
-    renderNodeToSink(
-      out as VNode | JSXElement | string | number | null,
+  // Fragment: render children directly (canonical check via === is fastest)
+  if (type === Fragment) {
+    renderChildrenDirect(
+      vnode as unknown as Record<string, unknown>,
       sink,
       ctx
     );
     return;
   }
 
-  // Element node
-  const tag = String(type);
-  const { attrs, dangerousHtml } = renderAttrs(props, {
-    returnDangerousHtml: true,
-  });
-
-  // void element
-  if (VOID_ELEMENTS.has(tag)) {
-    sink.write(`<${tag}${attrs} />`);
+  // Symbol type that isn't our Fragment
+  if (typeof type === 'symbol') {
+    // Unknown symbol - render children as fragment fallback
+    renderChildrenDirect(
+      vnode as unknown as Record<string, unknown>,
+      sink,
+      ctx
+    );
     return;
   }
 
-  sink.write(`<${tag}${attrs}>`);
-  // If dangerouslySetInnerHTML is set, use it instead of children
+  // Function component
+  if (typeof type === 'function') {
+    const out = executeComponent(type as Component, vnode.props, ctx);
+    renderNodeToSink(out, sink, ctx);
+    return;
+  }
+
+  // Element node (type is string)
+  const tag = type as string;
+  const props = vnode.props;
+
+  // Check for dangerouslySetInnerHTML
+  const dangerous = props?.dangerouslySetInnerHTML as
+    | { __html: unknown }
+    | undefined;
+  const dangerousHtml =
+    dangerous && typeof dangerous === 'object' && '__html' in dangerous
+      ? String(dangerous.__html)
+      : undefined;
+
+  // Void element - self-closing
+  if (VOID_ELEMENTS.has(tag)) {
+    sink.write('<');
+    sink.write(tag);
+    renderAttrsDirect(props, sink);
+    sink.write(' />');
+    return;
+  }
+
+  // Regular element
+  sink.write('<');
+  sink.write(tag);
+  renderAttrsDirect(props, sink);
+  sink.write('>');
+
   if (dangerousHtml !== undefined) {
     sink.write(dangerousHtml);
   } else {
-    const children = normalizeChildren(node);
-    renderChildrenToSink(children, sink, ctx);
+    renderChildrenDirect(
+      vnode as unknown as Record<string, unknown>,
+      sink,
+      ctx
+    );
   }
-  sink.write(`</${tag}>`);
+
+  sink.write('</');
+  sink.write(tag);
+  sink.write('>');
 }

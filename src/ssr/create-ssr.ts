@@ -1,5 +1,6 @@
 import { renderToString, type SSRRoute } from './index';
 import { assertExecutionModel } from '../runtime/execution-model';
+import { createRenderContext, withRenderContext } from './context';
 
 export type SSRConfig = {
   routes: SSRRoute[];
@@ -17,6 +18,7 @@ export type SSRApp = {
  * - Exactly one execution model (SSR)
  * - Routes are required
  * - Rendering is synchronous and deterministic
+ * - Each render call is concurrency-safe (isolated context)
  */
 export function createSSR(config: SSRConfig): SSRApp {
   assertExecutionModel('ssr');
@@ -37,7 +39,11 @@ export function createSSR(config: SSRConfig): SSRApp {
           'createSSR().render(url): url must be a non-empty string'
         );
       }
-      return renderToString({ url, routes, seed, data: data ?? undefined });
+      // Create fresh per-render context for concurrency safety
+      const ctx = createRenderContext(seed, { url, data: data ?? undefined });
+      return withRenderContext(ctx, () =>
+        renderToString({ url, routes, seed, data: data ?? undefined })
+      );
     },
   };
 }
