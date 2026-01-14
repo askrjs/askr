@@ -129,9 +129,19 @@ export function createItemInstance<T>(
   // Restore previous current instance
   setCurrentComponentInstance(savedInst);
 
+  // Create the item instance to capture in closure (avoids redundant Map lookup)
+  const itemInstance: ForItemInstance<T> = {
+    key,
+    item,
+    indexSignal,
+    componentInstance: itemComponent,
+    vnode,
+    _startStateIndex: startStateIndex,
+  };
+
   // Override the pending flush task for this item so that when nested state
   // changes we recompute this item's vnode and request the parent to re-render.
-  // Perf: inline state reset logic to avoid loop overhead for typical items
+  // Perf: capture itemInstance directly to avoid Map.get() during flush
   itemComponent._pendingFlushTask = () => {
     const saved = getCurrentInstance();
     setCurrentComponentInstance(itemComponent);
@@ -139,15 +149,12 @@ export function createItemInstance<T>(
     // Reset state index tracking for this re-render (same as executeComponentSync)
     itemComponent.stateIndexCheck = -1;
 
-    // Fast path: reset read tracking using length check instead of loop when possible
+    // Reset read tracking: iterate only if states exist (O(states) not O(items))
     const stateValues = itemComponent.stateValues;
-    const stateLen = stateValues.length;
-    if (stateLen > 0) {
-      for (let i = 0; i < stateLen; i++) {
-        const state = stateValues[i];
-        if (state) {
-          state._hasBeenRead = false;
-        }
+    for (let i = 0; i < stateValues.length; i++) {
+      const state = stateValues[i];
+      if (state) {
+        state._hasBeenRead = false;
       }
     }
 
@@ -161,9 +168,8 @@ export function createItemInstance<T>(
     // Safely re-render into vnode slot for this item
     try {
       const newVnode = forState.renderFn(item, () => indexSignal());
-      // Update the stored vnode for this item so future reconciles use it
-      const inst = forState.items.get(key);
-      if (inst) inst.vnode = newVnode;
+      // Update the stored vnode directly in captured instance
+      itemInstance.vnode = newVnode;
       // Commit read subscriptions for this re-render
       finalizeReadSubscriptions(itemComponent);
     } finally {
@@ -175,14 +181,7 @@ export function createItemInstance<T>(
     if (parent) parent._enqueueRun?.();
   };
 
-  return {
-    key,
-    item,
-    indexSignal,
-    componentInstance: itemComponent,
-    vnode,
-    _startStateIndex: startStateIndex,
-  };
+  return itemInstance;
 }
 
 export function reconcileForItems<T>(
