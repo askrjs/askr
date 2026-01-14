@@ -76,7 +76,8 @@ export function clearEscapeCache(): void {
 }
 
 /**
- * Escape HTML special characters in text content (optimized with cache)
+ * Escape HTML special characters in text content
+ * Fast-path: cache first, then scan-then-escape for new strings
  */
 export function escapeText(text: string): string {
   // Only use cache for short strings (likely to be repeated)
@@ -87,12 +88,11 @@ export function escapeText(text: string): string {
     if (cached !== undefined) return cached;
   }
 
-  const str = String(text);
   // Fast path: check if escaping needed using single character checks
   // This is faster than regex test for most strings
   let needsEscape = false;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
     // Check for &, <, >
     if (ch === 38 || ch === 60 || ch === 62) {
       needsEscape = true;
@@ -102,13 +102,13 @@ export function escapeText(text: string): string {
 
   if (!needsEscape) {
     if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
-      escapeCache.set(text, str);
+      escapeCache.set(text, text);
     }
-    return str;
+    return text;
   }
 
-  // Single-pass escape for strings that need escaping
-  const result = str.replace(TEXT_ESCAPE_RE, textEscapeMap);
+  // Single-pass escape only if needed
+  const result = text.replace(TEXT_ESCAPE_RE, textEscapeMap);
 
   if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
     escapeCache.set(text, result);
@@ -118,14 +118,14 @@ export function escapeText(text: string): string {
 
 /**
  * Escape HTML special characters in attribute values
+ * Fast-path: scan for escapable characters, only escape if found
  */
 export function escapeAttr(value: string): string {
-  const str = String(value);
   // Fast path: check if escaping needed using character code checks
   // This is faster than regex test for most attribute values
   let needsEscape = false;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
+  for (let i = 0; i < value.length; i++) {
+    const ch = value.charCodeAt(i);
     // Check for &, ", ', <, >
     if (ch === 38 || ch === 34 || ch === 39 || ch === 60 || ch === 62) {
       needsEscape = true;
@@ -133,8 +133,8 @@ export function escapeAttr(value: string): string {
     }
   }
 
-  // Single-pass escape for strings that need escaping
-  return needsEscape ? str.replace(ATTR_ESCAPE_RE, attrEscapeMap) : str;
+  // Single-pass escape only if needed
+  return needsEscape ? value.replace(ATTR_ESCAPE_RE, attrEscapeMap) : value;
 }
 
 /**
