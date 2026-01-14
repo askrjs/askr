@@ -140,3 +140,4 @@ vite.config.ts.timestamp-*
 bench-results.txt
 bench-profiles/
 inventory.md
+test-results.txt

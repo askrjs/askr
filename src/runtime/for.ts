@@ -29,6 +29,7 @@ export interface ForItemInstance<T> {
   componentInstance: ComponentInstance;
   vnode: VNode | undefined;
   _startStateIndex: number; // Global state index when item was created
+  _dom?: Node; // Cached DOM node for efficient updates
 }
 
 export interface ForState<T> {

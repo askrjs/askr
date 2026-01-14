@@ -295,7 +295,7 @@ function renderNodeSyncToSink(
 
   // Compute attrs once upfront (renderAttrs already handles null/undefined efficiently)
   const attrs = props ? renderAttrs(props) : '';
-  
+
   // Normalize children: prefer node.children, fallback to props.children (for JSXElement)
   let children = (node as VNode).children;
   if (children === undefined && props?.children !== undefined) {

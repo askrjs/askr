@@ -46,9 +46,10 @@ describe('bench_list_update_dom', () => {
       rows = state(createRows(rowCount));
       return (
         <div>
-          {For(() => rows(), (row) => (
-            <div key={row.id}>{row.label}</div>
-          ) as unknown as any)}
+          {For(
+            () => rows(),
+            (row) => (<div key={row.id}>{row.label}</div>) as unknown as any
+          )}
         </div>
       );
     };
@@ -74,9 +75,10 @@ describe('bench_list_update_dom', () => {
       rows = state(createRows(rowCount));
       return (
         <div>
-          {For(() => rows(), (row) => (
-            <div key={row.id}>{row.label}</div>
-          ) as unknown as any)}
+          {For(
+            () => rows(),
+            (row) => (<div key={row.id}>{row.label}</div>) as unknown as any
+          )}
         </div>
       );
     };

@@ -10,7 +10,10 @@
 import { bench, describe } from 'vitest';
 import { createIsland, state, type State } from '../../src';
 import { For } from '../../src/for';
-import { createTestContainer, flushScheduler } from '../../tests/helpers/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../tests/helpers/test-renderer';
 
 interface Row {
   id: number;
@@ -34,12 +37,13 @@ describe('bench_list_create', () => {
       rows = state(createRows(1000));
       return (
         <div>
-          {For(() => rows(), (row) => (
-            <div key={row.id}>{row.label}</div>
-          ) as unknown as any)}
+          {For(
+            () => rows(),
+            (row) => (<div key={row.id}>{row.label}</div>) as unknown as any
+          )}
         </div>
       );
-    };  
+    };
 
     createIsland({ root: container, component: Component });
     flushScheduler();
@@ -55,12 +59,13 @@ describe('bench_list_create', () => {
       rows = state(createRows(10000));
       return (
         <div>
-          {For(() => rows(), (row) => (
-            <div key={row.id}>{row.label}</div>
-          ) as unknown as any)}
+          {For(
+            () => rows(),
+            (row) => (<div key={row.id}>{row.label}</div>) as unknown as any
+          )}
         </div>
       );
-    }; 
+    };
 
     createIsland({ root: container, component: Component });
     flushScheduler();
