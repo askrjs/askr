@@ -1,2 +1,2 @@
-export { For } from '../for';
-export type { ForOptions } from '../for';
+export { For } from './for';
+export type { ForOptions } from './for';

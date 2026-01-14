@@ -5,10 +5,10 @@
  * parent re-execution when individual items update.
  */
 
-import { state, type State } from './runtime/state';
-import type { VNode } from './common/vnode';
-import { __FOR_BOUNDARY__ } from './common/vnode';
-import { createForState, type ForState } from './runtime/for';
+import { state, type State } from '../runtime/state';
+import type { VNode } from '../common/vnode';
+import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { createForState, type ForState } from '../runtime/for';
 
 export interface ForOptions<T> {
   by?: (item: T, index: number) => string | number;
