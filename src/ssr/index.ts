@@ -39,6 +39,28 @@ const __SSR_DEBUG =
   process.env.NODE_ENV !== 'production' &&
   (process.env.ASKR_SSR_DEBUG === '1' || process.env.ASKR_SSR_DEBUG === 'true');
 
+// Tag cache for hot-path elements - avoid repeated tag string construction
+// Maps tagName to {open, close, selfClose} strings
+const tagCache = new Map<
+  string,
+  { open: string; close: string; selfClose: string }
+>();
+
+function getTagStrings(tagName: string) {
+  let cached = tagCache.get(tagName);
+  if (!cached) {
+    cached = {
+      open: `<${tagName}`,
+      close: `</${tagName}>`,
+      selfClose: `<${tagName} />`,
+    };
+    if (tagCache.size < 256) {
+      tagCache.set(tagName, cached);
+    }
+  }
+  return cached;
+}
+
 // Install SSR bridge once so runtime primitives (resource/derive/etc) can
 // detect SSR mode and access deterministic render-phase data without a
 // runtime->ssr import.
@@ -270,7 +292,9 @@ function renderNodeSyncToSink(
   const typeStr = type as string;
   if (VOID_ELEMENTS.has(typeStr)) {
     const attrs = props ? renderAttrs(props) : '';
-    sink.write(`<${typeStr}${attrs} />`);
+    // Use cached tag strings to avoid repeated string construction
+    const { selfClose } = getTagStrings(typeStr);
+    sink.write(attrs ? `${selfClose.slice(0, -3)}${attrs} />` : selfClose);
     return;
   }
 
@@ -283,13 +307,14 @@ function renderNodeSyncToSink(
     const { attrs, dangerousHtml } = renderAttrs(props, {
       returnDangerousHtml: true,
     });
-    sink.write(`<${typeStr}${attrs}>`);
+    const { open, close } = getTagStrings(typeStr);
+    sink.write(attrs ? `${open}${attrs}>` : `${open}>`);
     if (dangerousHtml !== undefined) {
       sink.write(dangerousHtml);
     } else {
       renderChildrenSyncToSink((node as VNode).children, sink, ctx);
     }
-    sink.write(`</${typeStr}>`);
+    sink.write(close);
     return;
   }
 
@@ -309,7 +334,8 @@ function renderNodeSyncToSink(
 
   // Hot path: empty element (no children) - single write
   if (!children || (Array.isArray(children) && children.length === 0)) {
-    sink.write(`<${typeStr}${attrs}></${typeStr}>`);
+    const { open, close } = getTagStrings(typeStr);
+    sink.write(attrs ? `${open}${attrs}>${close}` : `${open}>${close}`);
     return;
   }
 
@@ -317,20 +343,32 @@ function renderNodeSyncToSink(
   if (Array.isArray(children) && children.length === 1) {
     const only = children[0];
     if (typeof only === 'string') {
-      sink.write(`<${typeStr}${attrs}>${escapeText(only)}</${typeStr}>`);
+      const { open, close } = getTagStrings(typeStr);
+      const content = escapeText(only);
+      sink.write(
+        attrs
+          ? `${open}${attrs}>${content}${close}`
+          : `${open}>${content}${close}`
+      );
       return;
     }
     if (typeof only === 'number') {
-      const escaped = escapeText(String(only));
-      sink.write(`<${typeStr}${attrs}>${escaped}</${typeStr}>`);
+      const { open, close } = getTagStrings(typeStr);
+      const content = escapeText(String(only));
+      sink.write(
+        attrs
+          ? `${open}${attrs}>${content}${close}`
+          : `${open}>${content}${close}`
+      );
       return;
     }
   }
 
   // General case: element with complex children
-  sink.write(`<${typeStr}${attrs}>`);
+  const { open, close } = getTagStrings(typeStr);
+  sink.write(attrs ? `${open}${attrs}>` : `${open}>`);
   renderChildrenSyncToSink(children, sink, ctx);
-  sink.write(`</${typeStr}>`);
+  sink.write(close);
 }
 
 /**
