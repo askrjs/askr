@@ -30,11 +30,11 @@ export function renderAttrs(
     return opts?.returnDangerousHtml ? { attrs: '' } : '';
   }
 
-  let result = '';
+  const attrParts: string[] = [];
   let dangerousHtml: string | undefined;
 
-  // Perf optimization: fast iteration through own properties without allocation
-  // Direct property access avoids hasOwnProperty overhead in tight loop
+  // Perf optimization: use array to avoid string concatenation overhead
+  // Then join once at the end instead of repeated += operations
   const propsObj = props as Record<string, unknown>;
   for (const key in propsObj) {
     const value = propsObj[key];
@@ -76,21 +76,23 @@ export function renderAttrs(
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);
       if (css === null || css === '') continue;
-      result += ` style="${escapeAttr(css)}"`;
+      attrParts.push(` style="${escapeAttr(css)}"`);
       continue;
     }
 
     // Boolean attributes
     if (value === true) {
-      result += ` ${attrName}`;
+      attrParts.push(` ${attrName}`);
     } else if (value === false || value === null || value === undefined) {
       // Skip falsy values
       continue;
     } else {
       // Regular attributes
-      result += ` ${attrName}="${escapeAttr(String(value))}"`;
+      attrParts.push(` ${attrName}="${escapeAttr(String(value))}"`);
     }
   }
+
+  const result = attrParts.join('');
 
   if (opts?.returnDangerousHtml) {
     return { attrs: result, dangerousHtml };
