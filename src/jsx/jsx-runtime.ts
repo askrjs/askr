@@ -3,6 +3,7 @@
  * Same element shape as production runtime.
  */
 
+import type { Props } from '../common/props';
 import { ELEMENT_TYPE, Fragment, type JSXElement } from './types';
 
 export function jsxDEV(
@@ -12,7 +13,7 @@ export function jsxDEV(
 ): JSXElement {
   return {
     $$typeof: ELEMENT_TYPE,
-    type,
+    type: type as string | ((props: Props) => unknown) | symbol,
     props: props ?? {},
     key: key ?? null,
   };
