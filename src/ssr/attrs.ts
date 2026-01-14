@@ -33,11 +33,12 @@ export function renderAttrs(
   let result = '';
   let dangerousHtml: string | undefined;
 
-  // Perf: avoid Object.entries allocation in tight SSR loops.
-  // Also skip non-own keys defensively.
-  for (const key in props as Record<string, unknown>) {
-    if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
-    const value = (props as Record<string, unknown>)[key];
+  // Perf optimization: fast iteration through own properties without allocation
+  // Direct property access avoids hasOwnProperty overhead in tight loop
+  const propsObj = props as Record<string, unknown>;
+  for (const key in propsObj) {
+    const value = propsObj[key];
+
     // Skip children in attrs
     if (key === 'children') continue;
 
@@ -53,19 +54,20 @@ export function renderAttrs(
     }
 
     // Skip event handlers (onClick, onChange, etc.)
-    // Must have at least 3 chars and 3rd char must be uppercase
+    // Perf: inline check avoids function call overhead
+    const keyLen = key.length;
     if (
-      key.length >= 3 &&
+      keyLen >= 3 &&
       key[0] === 'o' &&
       key[1] === 'n' &&
-      key[2] >= 'A' &&
-      key[2] <= 'Z'
+      key.charCodeAt(2) >= 65 && // 'A'
+      key.charCodeAt(2) <= 90 // 'Z'
     ) {
       continue;
     }
 
     // Skip internal props
-    if (key.startsWith('_')) continue;
+    if (key.length > 0 && key[0] === '_') continue;
 
     // Normalize class attribute (`class` preferred, accept `className` for compatibility)
     const attrName = key === 'class' || key === 'className' ? 'class' : key;

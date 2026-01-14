@@ -27,12 +27,9 @@ export const VOID_ELEMENTS = new Set([
 const escapeCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 256;
 
-const TEXT_ESCAPE_TEST_RE = /[&<>]/;
 const TEXT_ESCAPE_RE = /[&<>]/g;
-const ATTR_ESCAPE_TEST_RE = /[&"'<>]/;
 const ATTR_ESCAPE_RE = /[&"'<>]/g;
 
-const CSS_UNSAFE_TEST_RE = /[{}<>\\]/;
 const CSS_UNSAFE_RE = /[{}<>\\]/g;
 const CSS_DANGEROUS_FN_RE = /(?:url|expression|javascript)\s*\(/i;
 
@@ -98,8 +95,19 @@ export function escapeText(text: string): string {
   }
 
   const str = String(text);
-  // Fast path: check if escaping needed
-  if (!TEXT_ESCAPE_TEST_RE.test(str)) {
+  // Fast path: check if escaping needed using single character checks
+  // This is faster than regex test for most strings
+  let needsEscape = false;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    // Check for &, <, >
+    if (ch === 38 || ch === 60 || ch === 62) {
+      needsEscape = true;
+      break;
+    }
+  }
+
+  if (!needsEscape) {
     if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
       escapeCache.set(text, str);
     }
@@ -120,13 +128,20 @@ export function escapeText(text: string): string {
  */
 export function escapeAttr(value: string): string {
   const str = String(value);
-  // Fast path: check if escaping needed
-  if (!ATTR_ESCAPE_TEST_RE.test(str)) {
-    return str;
+  // Fast path: check if escaping needed using character code checks
+  // This is faster than regex test for most attribute values
+  let needsEscape = false;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    // Check for &, ", ', <, >
+    if (ch === 38 || ch === 34 || ch === 39 || ch === 60 || ch === 62) {
+      needsEscape = true;
+      break;
+    }
   }
 
   // Single-pass escape for strings that need escaping
-  return str.replace(ATTR_ESCAPE_RE, mapAttrEscape);
+  return needsEscape ? str.replace(ATTR_ESCAPE_RE, mapAttrEscape) : str;
 }
 
 /**
@@ -142,11 +157,24 @@ function escapeCssValue(value: string): string {
   // - url() and expression() are common attack vectors
   const str = String(value);
 
-  const hasUnsafeChars = CSS_UNSAFE_TEST_RE.test(str);
-  const openParen = str.indexOf('(');
+  let hasUnsafeChars = false;
+  let openParen = -1;
 
-  // Fast path: most CSS values are simple (`10px`, `transparent`, etc.)
-  // and should not pay regex costs.
+  // Single pass to check for unsafe chars and find first paren
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    // Check for { } < > \
+    if (ch === 123 || ch === 125 || ch === 60 || ch === 62 || ch === 92) {
+      hasUnsafeChars = true;
+      if (openParen >= 0) break;
+    } else if (ch === 40 && openParen < 0) {
+      // (
+      openParen = i;
+      if (hasUnsafeChars) break;
+    }
+  }
+
+  // Fast path: most CSS values are simple
   if (!hasUnsafeChars && openParen === -1) return str;
 
   // Block dangerous CSS functions only if the string can actually contain them.
