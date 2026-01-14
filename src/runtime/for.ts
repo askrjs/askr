@@ -23,7 +23,7 @@ const askrGlobal = globalThis as typeof globalThis & {
 };
 
 export interface ForItemInstance<T> {
-  key: string | number;
+  key: string | number | null;
   item: T;
   indexSignal: State<number>;
   componentInstance: ComponentInstance;
@@ -71,7 +71,7 @@ export function createForState<T>(
 let _forRenderCounter = 1;
 
 export function createItemInstance<T>(
-  key: string | number,
+  key: string | number | null,
   item: T,
   index: number,
   forState: ForState<T>
@@ -131,6 +131,7 @@ export function createItemInstance<T>(
 
   // Override the pending flush task for this item so that when nested state
   // changes we recompute this item's vnode and request the parent to re-render.
+  // Perf: inline state reset logic to avoid loop overhead for typical items
   itemComponent._pendingFlushTask = () => {
     const saved = getCurrentInstance();
     setCurrentComponentInstance(itemComponent);
@@ -138,10 +139,15 @@ export function createItemInstance<T>(
     // Reset state index tracking for this re-render (same as executeComponentSync)
     itemComponent.stateIndexCheck = -1;
 
-    // Reset read tracking for all existing state
-    for (const state of itemComponent.stateValues) {
-      if (state) {
-        state._hasBeenRead = false;
+    // Fast path: reset read tracking using length check instead of loop when possible
+    const stateValues = itemComponent.stateValues;
+    const stateLen = stateValues.length;
+    if (stateLen > 0) {
+      for (let i = 0; i < stateLen; i++) {
+        const state = stateValues[i];
+        if (state) {
+          state._hasBeenRead = false;
+        }
       }
     }
 
@@ -184,7 +190,10 @@ export function reconcileForItems<T>(
   newArray: T[]
 ): VNode[] {
   const { items, orderedKeys, byFn } = forState;
-  const newKeyMap = new Map<string | number, { item: T; index: number }>();
+  const newKeyMap = new Map<
+    string | number | null,
+    { item: T; index: number }
+  >();
 
   // Build new key map
   for (let i = 0; i < newArray.length; i++) {
@@ -193,7 +202,7 @@ export function reconcileForItems<T>(
     newKeyMap.set(key, { item, index: i });
   }
 
-  const newOrderedKeys: Array<string | number> = [];
+  const newOrderedKeys: Array<string | number | null> = [];
   const resultVNodes: VNode[] = [];
   const toRemove = new Set(orderedKeys);
 
