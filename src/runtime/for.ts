@@ -34,17 +34,17 @@ export interface ForItemInstance<T> {
 
 export interface ForState<T> {
   sourceState: State<T[]> | null;
-  items: Map<string | number, ForItemInstance<T>>;
-  orderedKeys: Array<string | number>;
-  byFn: (item: T, index: number) => string | number;
+  items: Map<string | number | null, ForItemInstance<T>>;
+  orderedKeys: Array<string | number | null>;
+  byFn: (item: T, index: number) => string | number | null;
   renderFn: (item: T, index: () => number) => VNode;
   parentInstance: ComponentInstance | null;
   mounted: boolean;
 }
 
-const defaultKeyFn = <T>(item: T, index: number): string | number => {
+const defaultKeyFn = <T>(item: T, index: number): string | number | null => {
   if (item != null && typeof item === 'object' && 'id' in item) {
-    return (item as { id: string | number }).id;
+    return (item as { id: string | number | null }).id;
   }
   return index;
 };

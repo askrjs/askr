@@ -12,7 +12,7 @@ export interface DOMElement {
   type: string | ((props: Props) => unknown) | symbol;
   props?: Props;
   children?: VNode[];
-  key?: string | number;
+  key?: string | number | null;
   [Symbol.iterator]?: never;
   _forState?: ForState<unknown>; // Internal: For boundary state
 }

@@ -1,10 +1,3 @@
-/**
- * State read cost benchmark
- *
- * Measures the cost of reading state values.
- * Validates that state access is effectively free.
- */
-
 import { bench, describe } from 'vitest';
 import { createIsland, state } from '../../src';
 import {
@@ -13,7 +6,7 @@ import {
 } from '../../tests/helpers/test-renderer';
 
 describe('state read cost', () => {
-  bench('single state read (behavioral)', () => {
+  bench('single read', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -27,7 +20,7 @@ describe('state read cost', () => {
     cleanup();
   });
 
-  bench('multiple state reads (behavioral)', () => {
+  bench('multiple reads', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -49,14 +42,12 @@ describe('state read cost', () => {
     cleanup();
   });
 
-  bench('computed state access (behavioral)', () => {
+  bench('computed access', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
       const base = state(10);
       const multiplier = state(2);
-
-      // Simulate computed value
       const computed = base() * multiplier();
 
       return {

@@ -1,171 +1,107 @@
-/**
- * Tier: Framework / Transactional
- * Scenario: text-node-updates
- * Includes: state mutation, reconciliation of text nodes, scheduler flush
- * Excludes: pure DOM text node microbench (if you need that, see dom::replacefragment)
- */
-
 import { bench, describe } from 'vitest';
 import {
   createTestContainer,
   flushScheduler,
-  trackDOMMutations,
 } from '../../tests/helpers/test-renderer';
 import { createIsland, state } from '../../src';
 import type { State } from '../../src';
 
 describe('text node updates', () => {
-  bench(
-    'framework::text-node-updates::100::batched-state-mutations',
-    async () => {
-      const { container, cleanup } = createTestContainer();
+  bench('100 text updates', async () => {
+    const { container, cleanup } = createTestContainer();
 
-      let count: State<number> | null = null;
+    let count: State<number> | null = null;
 
-      const Component = () => {
-        count = state(0);
+    const Component = () => {
+      count = state(0);
+      return <div>Count: {count()}</div>;
+    };
 
-        return <div>Count: {count()}</div>;
-      };
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-
-      // Perform text updates
-      for (let i = 0; i < 100; i++) {
-        count!.set(i);
-      }
-      flushScheduler();
-
-      cleanup();
+    for (let i = 0; i < 100; i++) {
+      count!.set(i);
     }
-  );
+    flushScheduler();
 
-  bench(
-    'framework::text-node-updates::100::batched-state-mutations-bulk',
-    async () => {
-      const { container, cleanup } = createTestContainer();
+    cleanup();
+  });
 
-      let items: State<number[]> | null = null;
+  bench('100 bulk text updates', async () => {
+    const { container, cleanup } = createTestContainer();
 
-      const Component = () => {
-        items = state([1, 2, 3, 4, 5]);
+    let items: State<number[]> | null = null;
 
-        return (
-          <ul>
-            {items().map((item) => (
-              <li key={item}>Item {item}</li>
-            ))}
-          </ul>
-        );
-      };
+    const Component = () => {
+      items = state([1, 2, 3, 4, 5]);
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+      return (
+        <ul>
+          {items().map((item) => (
+            <li key={item}>Item {item}</li>
+          ))}
+        </ul>
+      );
+    };
 
-      // Perform bulk text updates
-      for (let i = 0; i < 100; i++) {
-        items!.set(items!().map((x) => x + 1));
-      }
-      flushScheduler();
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      cleanup();
+    for (let i = 0; i < 100; i++) {
+      items!.set(items!().map((x) => x + 1));
     }
-  );
+    flushScheduler();
 
-  bench(
-    'framework::text-node-updates::100::batched-state-mutations-toggles',
-    async () => {
-      const { container, cleanup } = createTestContainer();
+    cleanup();
+  });
 
-      let text: State<string> | null = null;
+  bench('100 text toggles', async () => {
+    const { container, cleanup } = createTestContainer();
 
-      const Component = () => {
-        text = state('Hello');
+    let text: State<string> | null = null;
 
-        return <p>{text()}</p>;
-      };
+    const Component = () => {
+      text = state('Hello');
+      return <p>{text()}</p>;
+    };
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      // Perform text content changes
-      for (let i = 0; i < 100; i++) {
-        text!.set(text!() === 'Hello' ? 'World' : 'Hello');
-      }
-      flushScheduler();
-
-      cleanup();
+    for (let i = 0; i < 100; i++) {
+      text!.set(text!() === 'Hello' ? 'World' : 'Hello');
     }
-  );
+    flushScheduler();
 
-  // Instrumented variant: record DOM mutation counts for the bulk update path
-  bench(
-    'framework::text-node-updates::100::batched-state-mutations-bulk-instrumented',
-    async () => {
-      const { container, cleanup } = createTestContainer();
+    cleanup();
+  });
 
-      let items: State<number[]> | null = null;
+  bench('200 bulk updates (large)', async () => {
+    const { container, cleanup } = createTestContainer();
 
-      const Component = () => {
-        items = state([1, 2, 3, 4, 5]);
+    let items: State<number[]> | null = null;
 
-        return (
-          <ul>
-            {items().map((item) => (
-              <li key={item}>Item {item}</li>
-            ))}
-          </ul>
-        );
-      };
+    const Component = () => {
+      items = state(Array.from({ length: 200 }, (_, i) => i));
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+      return (
+        <ul>
+          {items().map((item) => (
+            <li key={item}>Item {item} - some long text</li>
+          ))}
+        </ul>
+      );
+    };
 
-      const _mutations = trackDOMMutations(container, () => {
-        for (let i = 0; i < 100; i++) {
-          items!.set(items!().map((x) => x + 1));
-        }
-        flushScheduler();
-      });
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      // Instrumentation disabled: mutation counts are no longer emitted to stdout.
-
-      cleanup();
+    for (let i = 0; i < 100; i++) {
+      items!.set(items!().map((x) => x + 1));
     }
-  );
+    flushScheduler();
 
-  // Larger bulk variant to magnify allocation costs
-  bench(
-    'framework::text-node-updates::200::batched-state-mutations-bulk-large',
-    async () => {
-      const { container, cleanup } = createTestContainer();
-
-      let items: State<number[]> | null = null;
-
-      const Component = () => {
-        items = state(Array.from({ length: 200 }, (_, i) => i));
-
-        return (
-          <ul>
-            {items().map((item) => (
-              <li key={item}>
-                Item {item} - some long text to increase workload
-              </li>
-            ))}
-          </ul>
-        );
-      };
-
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-
-      for (let i = 0; i < 100; i++) {
-        items!.set(items!().map((x) => x + 1));
-      }
-      flushScheduler();
-
-      cleanup();
-    }
-  );
+    cleanup();
+  });
 });

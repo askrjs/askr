@@ -1,10 +1,3 @@
-/**
- * Full replace benchmark
- *
- * Measures the cost of completely replacing a component tree.
- * Validates worst-case performance bounds.
- */
-
 import { bench, describe } from 'vitest';
 import { createIsland, state } from '../../src';
 import {
@@ -13,141 +6,131 @@ import {
 } from '../../tests/helpers/test-renderer';
 
 describe('full replace', () => {
-  bench('small tree replacement', () => {
+  bench('small tree', () => {
     const { container, cleanup } = createTestContainer();
 
-    let toggleStructure: (() => void) | null = null;
+    let toggle: (() => void) | null = null;
 
     const Component = () => {
-      const structureType = state('structure1');
-      toggleStructure = () =>
-        structureType.set(
-          structureType() === 'structure1' ? 'structure2' : 'structure1'
-        );
+      const type = state('a');
+      toggle = () => type.set(type() === 'a' ? 'b' : 'a');
 
-      if (structureType() === 'structure1') {
-        return {
-          type: 'div',
-          children: [
-            { type: 'h1', children: ['Structure 1'] },
-            { type: 'p', children: ['First paragraph'] },
-            {
-              type: 'ul',
-              children: [
-                { type: 'li', children: ['Item 1'] },
-                { type: 'li', children: ['Item 2'] },
-              ],
-            },
-          ],
-        };
-      } else {
-        return {
-          type: 'section',
-          children: [
-            {
-              type: 'header',
-              children: [{ type: 'h2', children: ['Structure 2'] }],
-            },
-            {
-              type: 'article',
-              children: [
-                { type: 'p', children: ['Second paragraph'] },
-                {
-                  type: 'ol',
-                  children: [
-                    { type: 'li', children: ['Option A'] },
-                    { type: 'li', children: ['Option B'] },
-                  ],
-                },
-              ],
-            },
-          ],
-        };
-      }
+      return type() === 'a'
+        ? {
+            type: 'div',
+            children: [
+              { type: 'h1', children: ['Type A'] },
+              { type: 'p', children: ['First'] },
+              {
+                type: 'ul',
+                children: [
+                  { type: 'li', children: ['Item 1'] },
+                  { type: 'li', children: ['Item 2'] },
+                ],
+              },
+            ],
+          }
+        : {
+            type: 'section',
+            children: [
+              {
+                type: 'header',
+                children: [{ type: 'h2', children: ['Type B'] }],
+              },
+              {
+                type: 'article',
+                children: [
+                  { type: 'p', children: ['Second'] },
+                  {
+                    type: 'ol',
+                    children: [
+                      { type: 'li', children: ['Option A'] },
+                      { type: 'li', children: ['Option B'] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          };
     };
 
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    // Perform full structure replacements
     for (let i = 0; i < 10; i++) {
-      toggleStructure!();
+      toggle!();
       flushScheduler();
     }
 
     cleanup();
   });
 
-  bench('large tree replacement', () => {
+  bench('large tree', () => {
     const { container, cleanup } = createTestContainer();
 
-    let toggleLargeStructure: (() => void) | null = null;
+    let toggle: (() => void) | null = null;
 
     const Component = () => {
-      const structureType = state('large1');
-      toggleLargeStructure = () =>
-        structureType.set(structureType() === 'large1' ? 'large2' : 'large1');
+      const type = state('a');
+      toggle = () => type.set(type() === 'a' ? 'b' : 'a');
 
-      const createLargeTree = (prefix: string) => ({
+      const createTree = (prefix: string) => ({
         type: 'div',
         children: Array.from({ length: 50 }, (_, i) => ({
           type: 'div',
           props: { 'data-index': i, key: String(i) },
           children: [
             { type: 'span', children: [`${prefix} Item ${i}`] },
-            { type: 'p', children: [`Description ${i}`] },
+            { type: 'p', children: [`Desc ${i}`] },
           ],
         })),
       });
 
-      return structureType() === 'large1'
-        ? createLargeTree('First')
-        : createLargeTree('Second');
+      return type() === 'a' ? createTree('First') : createTree('Second');
     };
 
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    // Perform large tree replacements
     for (let i = 0; i < 5; i++) {
-      toggleLargeStructure!();
+      toggle!();
       flushScheduler();
     }
 
     cleanup();
   });
 
-  bench('state churn (multiple updates)', () => {
+  bench('state churn', () => {
     const { container, cleanup } = createTestContainer();
 
-    let updateState: (() => void) | null = null;
+    let update: (() => void) | null = null;
     let tick = 0;
 
     const Component = () => {
-      const counter1 = state(0);
-      const counter2 = state(0);
-      const counter3 = state(0);
-      const text1 = state('text1');
-      const text2 = state('text2');
+      const c1 = state(0);
+      const c2 = state(0);
+      const c3 = state(0);
+      const t1 = state('text1');
+      const t2 = state('text2');
       const flag = state(false);
 
-      updateState = () => {
-        counter1.set(++tick % 100);
-        counter2.set(++tick % 100);
-        counter3.set(++tick % 100);
-        text1.set(`reset-${++tick}`);
-        text2.set(`reset-${++tick}`);
+      update = () => {
+        c1.set(++tick % 100);
+        c2.set(++tick % 100);
+        c3.set(++tick % 100);
+        t1.set(`reset-${++tick}`);
+        t2.set(`reset-${++tick}`);
         flag.set(!flag());
       };
 
       return {
         type: 'div',
         children: [
-          `Counter1: ${counter1()}`,
-          `Counter2: ${counter2()}`,
-          `Counter3: ${counter3()}`,
-          `Text1: ${text1()}`,
-          `Text2: ${text2()}`,
+          `Counter1: ${c1()}`,
+          `Counter2: ${c2()}`,
+          `Counter3: ${c3()}`,
+          `Text1: ${t1()}`,
+          `Text2: ${t2()}`,
           `Flag: ${flag()}`,
         ],
       };
@@ -156,9 +139,8 @@ describe('full replace', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    // Perform state updates
     for (let i = 0; i < 10; i++) {
-      updateState!();
+      update!();
       flushScheduler();
     }
 
