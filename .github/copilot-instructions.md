@@ -1,5 +1,11 @@
 # Abort & Cancellation guidance — concise, practical, and future-proof
 
+STOP ONLY CONTINUE WHEN WE HAVE DONE THESE THINGS:
+
+- `npm run lint` the code base should be clean of all errors and warnings
+- `npm test` all tests should pass, ignored tests are not allowed
+- `npm run fmt` always format code
+
 Short version: **Don’t invent a new cancellation primitive — use AbortController.**
 
 AbortController is a web platform primitive that is:

@@ -68,7 +68,9 @@ describe('bench_for_execution_count', () => {
     console.warn('\nframework::for::update-every-10th::1000');
     console.warn(`Total rows: ${rowCount}`);
     console.warn(`Initial render executions: ${initialExecutions}`);
-    console.warn(`Expected executions (update every 10th): ~${expectedExecutions}`);
+    console.warn(
+      `Expected executions (update every 10th): ~${expectedExecutions}`
+    );
     console.warn(`Actual executions: ${actualExecutions}`);
   });
 });

@@ -448,14 +448,13 @@ function createForBoundary(
   node: DOMElement,
   props: Record<string, unknown>
 ): DocumentFragment {
-  const fragment = document.createDocumentFragment();
   const forState = node._forState;
 
   if (!forState) {
     if (process.env.NODE_ENV !== 'production') {
       logger.warn('[Askr] For boundary missing _forState');
     }
-    return fragment;
+    return document.createDocumentFragment();
   }
 
   const source = props.source as unknown as
@@ -463,11 +462,61 @@ function createForBoundary(
     | (() => unknown[]);
   const childrenVNodes = evaluateForState(forState, source);
 
-  for (const childVNode of childrenVNodes) {
-    const dom = createDOMNode(childVNode);
-    if (dom) fragment.appendChild(dom);
+  // Quick check: if the length and keys haven't changed, return empty fragment
+  // This is the hot path for stable lists
+  if (childrenVNodes.length === forState.orderedKeys.length) {
+    let allCached = true;
+    for (let i = 0; i < childrenVNodes.length; i++) {
+      const childVNode = childrenVNodes[i];
+      const key = (childVNode as DOMElement).key;
+      if (key === undefined || !forState.items.has(key)) {
+        allCached = false;
+        break;
+      }
+      const itemInstance = forState.items.get(key)!;
+      if (!itemInstance._dom || itemInstance.vnode !== childVNode) {
+        allCached = false;
+        break;
+      }
+    }
+    if (allCached) {
+      return document.createDocumentFragment();
+    }
   }
 
+  // Slow path: something changed, rebuild affected items
+  const cachedNodes: (Node | null)[] = [];
+
+  for (let i = 0; i < childrenVNodes.length; i++) {
+    const childVNode = childrenVNodes[i];
+    const key = (childVNode as DOMElement).key;
+    let dom: Node | null = null;
+
+    // Try to reuse existing DOM if we have it cached AND the vnode hasn't changed
+    if (key !== undefined && forState.items.has(key)) {
+      const itemInstance = forState.items.get(key)!;
+      if (itemInstance._dom && itemInstance.vnode === childVNode) {
+        dom = itemInstance._dom;
+      }
+    }
+
+    // Create new DOM if needed
+    if (!dom) {
+      dom = createDOMNode(childVNode);
+      // Cache the DOM in the item instance for future reuse
+      if (key !== undefined && forState.items.has(key)) {
+        forState.items.get(key)!._dom = dom ?? undefined;
+      }
+    }
+
+    cachedNodes.push(dom);
+  }
+
+  // Build fragment with all items
+  const fragment = document.createDocumentFragment();
+  for (const dom of cachedNodes) {
+    if (dom) fragment.appendChild(dom);
+  }
   return fragment;
 }
 

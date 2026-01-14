@@ -8,7 +8,10 @@ import { bench, describe, beforeAll, afterAll } from 'vitest';
 import { createIsland, state } from '../../src';
 import type { State } from '../../src';
 import { For } from '../../src/for';
-import { createTestContainer, flushScheduler } from '../../tests/helpers/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../tests/helpers/test-renderer';
 
 interface Inner {
   id: number;
@@ -59,18 +62,28 @@ describe('nested-for', () => {
 
         return (
           <div>
-            {For(() => outers(), (o) => (
-              <div key={o.id} data-id={String(o.id)}>
-                <div>
-                  {For(() => o.inner, (ii) => (
-                    <span key={ii.id} data-id={String(ii.id)}>{ii.label}</span>
-                  ) as unknown as any)}
-                </div>
-              </div>
-            ) as unknown as any)}
+            {For(
+              () => outers(),
+              (o) =>
+                (
+                  <div key={o.id} data-id={String(o.id)}>
+                    <div>
+                      {For(
+                        () => o.inner,
+                        (ii) =>
+                          (
+                            <span key={ii.id} data-id={String(ii.id)}>
+                              {ii.label}
+                            </span>
+                          ) as unknown as any
+                      )}
+                    </div>
+                  </div>
+                ) as unknown as any
+            )}
           </div>
         );
-      }; 
+      };
 
       createIsland({ root: container, component: Component });
       flushScheduler();
@@ -93,18 +106,28 @@ describe('nested-for', () => {
         const local = state(createOuter(100, 100));
         return (
           <div>
-            {For(() => local(), (o) => (
-              <div key={o.id} data-id={String(o.id)}>
-                <div>
-                  {For(() => o.inner, (ii) => (
-                    <span key={ii.id} data-id={String(ii.id)}>{ii.label}</span>
-                  ) as unknown as any)}
-                </div>
-              </div>
-            ) as unknown as any)}
+            {For(
+              () => local(),
+              (o) =>
+                (
+                  <div key={o.id} data-id={String(o.id)}>
+                    <div>
+                      {For(
+                        () => o.inner,
+                        (ii) =>
+                          (
+                            <span key={ii.id} data-id={String(ii.id)}>
+                              {ii.label}
+                            </span>
+                          ) as unknown as any
+                      )}
+                    </div>
+                  </div>
+                ) as unknown as any
+            )}
           </div>
         );
-      }; 
+      };
 
       createIsland({ root: container, component: Component });
       flushScheduler();

@@ -10,7 +10,10 @@
 
 import { bench, describe } from 'vitest';
 import { state, type State } from '../../src';
-import { createComponentInstance, setCurrentComponentInstance } from '../../src/runtime/component';
+import {
+  createComponentInstance,
+  setCurrentComponentInstance,
+} from '../../src/runtime/component';
 
 interface Row {
   id: number;
@@ -38,7 +41,12 @@ describe('bench_list_update_no_dom', () => {
   bench('framework::for::reactivity::1000', () => {
     const rowCount = 1000;
     // Create a real component instance to establish a reactive context
-    const inst = createComponentInstance('bench-reactivity', () => null, {}, null);
+    const inst = createComponentInstance(
+      'bench-reactivity',
+      () => null,
+      {},
+      null
+    );
     setCurrentComponentInstance(inst);
 
     const rows: State<Row[]> = state(createRows(rowCount));

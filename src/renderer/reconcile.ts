@@ -62,7 +62,12 @@ export function reconcileKeyedChildren(
   if (fastPathResult) return fastPathResult;
 
   // Full reconciliation
-  return performFullReconciliation(parent, newChildren, keyedVnodes, ensuredOldKeyMap);
+  return performFullReconciliation(
+    parent,
+    newChildren,
+    keyedVnodes,
+    ensuredOldKeyMap
+  );
 }
 
 /** Build key map from DOM children */
