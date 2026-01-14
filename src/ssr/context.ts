@@ -40,7 +40,8 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const asyncHooks = require('async_hooks');
   if (asyncHooks?.AsyncLocalStorage) {
-    asyncLocalStorage = (new asyncHooks.AsyncLocalStorage()) as AsyncLocalStorageType<RenderContext>;
+    asyncLocalStorage =
+      new asyncHooks.AsyncLocalStorage() as AsyncLocalStorageType<RenderContext>;
   }
 } catch {
   // Not in Node.js or async_hooks unavailable - use fallback
