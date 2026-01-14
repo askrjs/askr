@@ -3,13 +3,95 @@
  */
 
 import type { Props } from '../common/props';
-import { escapeAttr, styleObjToCss } from './escape';
+import type { RenderSink } from './sink';
+import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
 
 /** Result of renderAttrs including any raw HTML from dangerouslySetInnerHTML */
 export type AttrsResult = {
   attrs: string;
   dangerousHtml?: string;
 };
+
+// Fast check for event handler pattern (on + uppercase letter)
+function isEventHandler(key: string): boolean {
+  return (
+    key.length >= 3 &&
+    key.charCodeAt(0) === 111 && // 'o'
+    key.charCodeAt(1) === 110 && // 'n'
+    key.charCodeAt(2) >= 65 &&
+    key.charCodeAt(2) <= 90 // 'A'-'Z'
+  );
+}
+
+/**
+ * Render attributes directly to a sink without intermediate string allocations.
+ * This is the hot path for streaming SSR.
+ */
+export function renderAttrsDirect(
+  props: Props | undefined,
+  sink: RenderSink
+): void {
+  if (!props || typeof props !== 'object') return;
+
+  const propsObj = props as Record<string, unknown>;
+  for (const key in propsObj) {
+    const value = propsObj[key];
+
+    // Skip special props
+    if (
+      key === 'children' ||
+      key === 'key' ||
+      key === 'ref' ||
+      key === 'dangerouslySetInnerHTML'
+    )
+      continue;
+
+    // Skip event handlers
+    if (isEventHandler(key)) continue;
+
+    // Skip internal props
+    if (key.charCodeAt(0) === 95) continue; // '_'
+
+    // Normalize class attribute
+    const attrName = key === 'className' ? 'class' : key;
+
+    // Handle style objects
+    if (attrName === 'style') {
+      const css = typeof value === 'string' ? value : styleObjToCss(value);
+      if (!css) continue;
+      sink.write(' style="');
+      // Escape inline - most style values don't need escaping
+      if (needsEscapeAttr(css)) {
+        sink.write(escapeAttr(css));
+      } else {
+        sink.write(css);
+      }
+      sink.write('"');
+      continue;
+    }
+
+    // Boolean attributes
+    if (value === true) {
+      sink.write(' ');
+      sink.write(attrName);
+      continue;
+    }
+
+    if (value === false || value === null || value === undefined) continue;
+
+    // Regular attributes
+    const strValue = String(value);
+    sink.write(' ');
+    sink.write(attrName);
+    sink.write('="');
+    if (needsEscapeAttr(strValue)) {
+      sink.write(escapeAttr(strValue));
+    } else {
+      sink.write(strValue);
+    }
+    sink.write('"');
+  }
+}
 
 /**
  * Render attributes to HTML string, excluding event handlers
@@ -33,8 +115,6 @@ export function renderAttrs(
   const attrParts: string[] = [];
   let dangerousHtml: string | undefined;
 
-  // Perf optimization: iterate props once and build attribute strings
-  // Fast path for common patterns with inlined checks
   const propsObj = props as Record<string, unknown>;
   for (const key in propsObj) {
     const value = propsObj[key];
@@ -53,21 +133,11 @@ export function renderAttrs(
       continue;
     }
 
-    // Skip event handlers (onClick, onChange, etc.)
-    // Perf: inline check avoids function call overhead
-    const keyLen = key.length;
-    if (
-      keyLen >= 3 &&
-      key[0] === 'o' &&
-      key[1] === 'n' &&
-      key.charCodeAt(2) >= 65 && // 'A'
-      key.charCodeAt(2) <= 90 // 'Z'
-    ) {
-      continue;
-    }
+    // Skip event handlers
+    if (isEventHandler(key)) continue;
 
     // Skip internal props
-    if (key.length > 0 && key[0] === '_') continue;
+    if (key.charCodeAt(0) === 95) continue; // '_'
 
     // Normalize class attribute (`class` preferred, accept `className` for compatibility)
     const attrName = key === 'class' || key === 'className' ? 'class' : key;
@@ -76,7 +146,6 @@ export function renderAttrs(
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);
       if (css === null || css === '') continue;
-      // Inline escaped style attribute directly
       attrParts.push(` style="${escapeAttr(css)}"`);
       continue;
     }
@@ -85,12 +154,9 @@ export function renderAttrs(
     if (value === true) {
       attrParts.push(` ${attrName}`);
     } else if (value === false || value === null || value === undefined) {
-      // Skip falsy values
       continue;
     } else {
-      // Regular attributes - inline escape check for performance
       const strValue = String(value);
-      // Escape the value directly inline to avoid function call overhead
       attrParts.push(` ${attrName}="${escapeAttr(strValue)}"`);
     }
   }

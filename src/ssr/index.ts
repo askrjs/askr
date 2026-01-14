@@ -5,6 +5,9 @@
  * SSR is synchronous: async components are not supported; async work should use
  * `resource()` which is rejected during synchronous SSR. This module throws
  * when an async component or async resource is encountered during sync SSR.
+ *
+ * Concurrency: Each render call uses AsyncLocalStorage (Node.js) to isolate
+ * render state, making concurrent SSR requests safe.
  */
 
 import type { JSXElement } from '../common/jsx';
@@ -15,8 +18,8 @@ import { Fragment, ELEMENT_TYPE } from '../jsx';
 import { DefaultPortal } from '../foundations/structures/portal';
 import {
   createRenderContext,
-  getCurrentSSRContext,
-  runWithSSRContext,
+  getRenderContext,
+  withRenderContext,
   throwSSRDataMissing,
   type RenderContext,
   type SSRData,
@@ -65,7 +68,7 @@ function getTagStrings(tagName: string) {
 // detect SSR mode and access deterministic render-phase data without a
 // runtime->ssr import.
 installSSRBridge({
-  getCurrentSSRContext,
+  getCurrentSSRContext: getRenderContext,
   throwSSRDataMissing,
   getCurrentRenderData,
   getNextKey,
@@ -410,32 +413,31 @@ function executeComponentSync(
     temp.ssr = true;
     setCurrentComponentInstance(temp);
     try {
-      return runWithSSRContext(ctx, () => {
-        const result = component((props || {}) as Props, { ssr: ctx });
-        if (result instanceof Promise) {
-          // Use the centralized SSR error for async data/components during SSR
-          throwSSRDataMissing();
-        }
-        if (
-          typeof result === 'string' ||
-          typeof result === 'number' ||
-          typeof result === 'boolean' ||
-          result === null ||
-          result === undefined
-        ) {
-          // Return a Fragment with the text content, not a div wrapper
-          const inner =
-            result === null || result === undefined || result === false
-              ? ''
-              : String(result);
-          return {
-            $$typeof: ELEMENT_TYPE,
-            type: Fragment,
-            props: { children: inner ? [inner] : [] },
-          } as unknown as VNode | JSXElement;
-        }
-        return result as VNode | JSXElement;
-      });
+      // Context already set via withRenderContext at render entry point
+      const result = component((props || {}) as Props, { ssr: ctx });
+      if (result instanceof Promise) {
+        // Use the centralized SSR error for async data/components during SSR
+        throwSSRDataMissing();
+      }
+      if (
+        typeof result === 'string' ||
+        typeof result === 'number' ||
+        typeof result === 'boolean' ||
+        result === null ||
+        result === undefined
+      ) {
+        // Return a Fragment with the text content, not a div wrapper
+        const inner =
+          result === null || result === undefined || result === false
+            ? ''
+            : String(result);
+        return {
+          $$typeof: ELEMENT_TYPE,
+          type: Fragment,
+          props: { children: inner ? [inner] : [] },
+        } as unknown as VNode | JSXElement;
+      }
+      return result as VNode | JSXElement;
     } finally {
       // Restore the previous instance (if any)
       setCurrentComponentInstance(prev);
@@ -458,47 +460,49 @@ export function renderToStringSync(
   options?: { seed?: number; data?: SSRData }
 ): string {
   const seed = options?.seed ?? 12345;
-  // Start render-phase keying (aligns with collectResources)
-  const ctx = createRenderContext(seed);
-  // Provide optional SSR data via options.data
-  startRenderPhase(options?.data ?? null);
-  try {
-    const wrapped: Component = (
-      p?: Record<string, unknown>,
-      c?: { signal?: AbortSignal; ssr?: RenderContext }
-    ) => {
-      const out = (component as unknown as Component)(p ?? {}, c);
-      const portalVNode = {
-        $$typeof: ELEMENT_TYPE,
-        type: DefaultPortal,
-        props: {},
-        key: '__default_portal',
-      } as unknown;
-      if (out == null) {
+  const ctx = createRenderContext(seed, { data: options?.data });
+
+  return withRenderContext(ctx, () => {
+    // Set render data on context (startRenderPhase now reads from context)
+    startRenderPhase(options?.data ?? null);
+    try {
+      const wrapped: Component = (
+        p?: Record<string, unknown>,
+        c?: { signal?: AbortSignal; ssr?: RenderContext }
+      ) => {
+        const out = (component as unknown as Component)(p ?? {}, c);
+        const portalVNode = {
+          $$typeof: ELEMENT_TYPE,
+          type: DefaultPortal,
+          props: {},
+          key: '__default_portal',
+        } as unknown;
+        if (out == null) {
+          return {
+            $$typeof: ELEMENT_TYPE,
+            type: Fragment,
+            props: { children: [portalVNode] },
+          } as unknown as VNode | JSXElement;
+        }
         return {
           $$typeof: ELEMENT_TYPE,
           type: Fragment,
-          props: { children: [portalVNode] },
+          props: { children: [out as unknown, portalVNode] },
         } as unknown as VNode | JSXElement;
-      }
-      return {
-        $$typeof: ELEMENT_TYPE,
-        type: Fragment,
-        props: { children: [out as unknown, portalVNode] },
-      } as unknown as VNode | JSXElement;
-    };
+      };
 
-    const node = executeComponentSync(wrapped, props || {}, ctx);
-    if (!node) {
-      throw new Error('renderToStringSync: wrapped component returned empty');
+      const node = executeComponentSync(wrapped, props || {}, ctx);
+      if (!node) {
+        throw new Error('renderToStringSync: wrapped component returned empty');
+      }
+      const sink = new StringSink();
+      renderNodeSyncToSink(node, sink, ctx);
+      sink.end();
+      return sink.toString();
+    } finally {
+      stopRenderPhase();
     }
-    const sink = new StringSink();
-    renderNodeSyncToSink(node, sink, ctx);
-    sink.end();
-    return sink.toString();
-  } finally {
-    stopRenderPhase();
-  }
+  });
 }
 
 // Synchronous server render for strict checks. Routes must be resolved before
@@ -535,43 +539,45 @@ export function renderToStringSyncForUrl(opts: {
     throw new Error(`renderToStringSync: no route found for url: ${url}`);
 
   const seed = options?.seed ?? 12345;
-  const ctx = createRenderContext(seed);
-  // Start render-phase keying (aligns with collectResources)
-  startRenderPhase(options?.data ?? null);
-  try {
-    const wrapped: Component = (
-      p?: Record<string, unknown>,
-      c?: { signal?: AbortSignal; ssr?: RenderContext }
-    ) => {
-      const out = (resolved.handler as unknown as Component)(p ?? {}, c);
-      const portalVNode = {
-        $$typeof: ELEMENT_TYPE,
-        type: DefaultPortal,
-        props: {},
-        key: '__default_portal',
-      } as unknown;
-      if (out == null) {
+  const ctx = createRenderContext(seed, { url, data: options?.data });
+
+  return withRenderContext(ctx, () => {
+    startRenderPhase(options?.data ?? null);
+    try {
+      const wrapped: Component = (
+        p?: Record<string, unknown>,
+        c?: { signal?: AbortSignal; ssr?: RenderContext }
+      ) => {
+        const out = (resolved.handler as unknown as Component)(p ?? {}, c);
+        const portalVNode = {
+          $$typeof: ELEMENT_TYPE,
+          type: DefaultPortal,
+          props: {},
+          key: '__default_portal',
+        } as unknown;
+        if (out == null) {
+          return {
+            $$typeof: ELEMENT_TYPE,
+            type: Fragment,
+            props: { children: [portalVNode] },
+          } as unknown as VNode | JSXElement;
+        }
         return {
           $$typeof: ELEMENT_TYPE,
           type: Fragment,
-          props: { children: [portalVNode] },
+          props: { children: [out as unknown, portalVNode] },
         } as unknown as VNode | JSXElement;
-      }
-      return {
-        $$typeof: ELEMENT_TYPE,
-        type: Fragment,
-        props: { children: [out as unknown, portalVNode] },
-      } as unknown as VNode | JSXElement;
-    };
+      };
 
-    const node = executeComponentSync(wrapped, resolved.params || {}, ctx);
-    const sink = new StringSink();
-    renderNodeSyncToSink(node, sink, ctx);
-    sink.end();
-    return sink.toString();
-  } finally {
-    stopRenderPhase();
-  }
+      const node = executeComponentSync(wrapped, resolved.params || {}, ctx);
+      const sink = new StringSink();
+      renderNodeSyncToSink(node, sink, ctx);
+      sink.end();
+      return sink.toString();
+    } finally {
+      stopRenderPhase();
+    }
+  });
 }
 
 // --- Streaming sink-based renderer (v2) --------------------------------------------------
@@ -668,13 +674,11 @@ function renderToSinkInternal(opts: {
   const resolved = resolveRoute(url);
   if (!resolved) throw new Error(`SSR: no route found for url: ${url}`);
 
-  const ctx = {
+  const ctx = createRenderContext(seed, {
     url,
-    seed,
     data,
     params: resolved.params,
-    signal: undefined as AbortSignal | undefined,
-  };
+  });
 
   // Render the resolved handler with params
   const node = resolved.handler(resolved.params) as
@@ -684,13 +688,15 @@ function renderToSinkInternal(opts: {
     | number
     | null;
 
-  // Start render-phase keying so resource() can lookup resolved `data` by key
-  startRenderPhase(data || null);
-  try {
-    renderNodeToSink(node, sink, ctx);
-  } finally {
-    stopRenderPhase();
-  }
+  withRenderContext(ctx, () => {
+    // Start render-phase keying so resource() can lookup resolved `data` by key
+    startRenderPhase(data || null);
+    try {
+      renderNodeToSink(node, sink, ctx);
+    } finally {
+      stopRenderPhase();
+    }
+  });
 }
 
 export { collectResources, resolvePlan, resolveResources, ResourcePlan };

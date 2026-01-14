@@ -36,9 +36,8 @@ const CSS_DANGEROUS_FN_RE = /(?:url|expression|javascript)\s*\(/i;
 const STYLE_PROP_CACHE = new Map<string, string>();
 const MAX_STYLE_PROP_CACHE_SIZE = 512;
 
-// Pre-compute escape map functions for faster replacement (avoid repeated function calls)
+// Pre-compute escape map functions for faster replacement
 const textEscapeMap = (ch: string): string => {
-  // Use charCodeAt for faster character identification
   const code = ch.charCodeAt(0);
   if (code === 38) return '&amp;'; // &
   if (code === 60) return '&lt;'; // <
@@ -47,7 +46,6 @@ const textEscapeMap = (ch: string): string => {
 };
 
 const attrEscapeMap = (ch: string): string => {
-  // Use charCodeAt for faster character identification
   const code = ch.charCodeAt(0);
   if (code === 38) return '&amp;'; // &
   if (code === 34) return '&quot;'; // "
@@ -76,6 +74,33 @@ export function clearEscapeCache(): void {
 }
 
 /**
+ * Fast check if a string needs text escaping.
+ * Used to skip the full escape call when not needed.
+ */
+export function needsEscapeText(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    if (ch === 38 || ch === 60 || ch === 62) return true;
+  }
+  return false;
+}
+
+/**
+ * Fast check if a string needs attribute escaping.
+ * Checks for & " ' < > characters.
+ */
+export function needsEscapeAttr(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const ch = value.charCodeAt(i);
+    // & " ' < >
+    if (ch === 38 || ch === 34 || ch === 39 || ch === 60 || ch === 62) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Escape HTML special characters in text content
  * Fast-path: cache first, then scan-then-escape for new strings
  */
@@ -88,19 +113,8 @@ export function escapeText(text: string): string {
     if (cached !== undefined) return cached;
   }
 
-  // Fast path: check if escaping needed using single character checks
-  // This is faster than regex test for most strings
-  let needsEscape = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text.charCodeAt(i);
-    // Check for &, <, >
-    if (ch === 38 || ch === 60 || ch === 62) {
-      needsEscape = true;
-      break;
-    }
-  }
-
-  if (!needsEscape) {
+  // Fast path: check if escaping needed
+  if (!needsEscapeText(text)) {
     if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
       escapeCache.set(text, text);
     }
@@ -121,20 +135,8 @@ export function escapeText(text: string): string {
  * Fast-path: scan for escapable characters, only escape if found
  */
 export function escapeAttr(value: string): string {
-  // Fast path: check if escaping needed using character code checks
-  // This is faster than regex test for most attribute values
-  let needsEscape = false;
-  for (let i = 0; i < value.length; i++) {
-    const ch = value.charCodeAt(i);
-    // Check for &, ", ', <, >
-    if (ch === 38 || ch === 34 || ch === 39 || ch === 60 || ch === 62) {
-      needsEscape = true;
-      break;
-    }
-  }
-
-  // Single-pass escape only if needed
-  return needsEscape ? value.replace(ATTR_ESCAPE_RE, attrEscapeMap) : value;
+  // Single-pass escape only if needed (caller should use needsEscapeAttr for hot paths)
+  return value.replace(ATTR_ESCAPE_RE, attrEscapeMap);
 }
 
 /**
@@ -142,12 +144,6 @@ export function escapeAttr(value: string): string {
  * Removes characters that could break out of CSS context.
  */
 function escapeCssValue(value: string): string {
-  // Remove or escape characters that could enable CSS injection:
-  // - Semicolons (could end the property and start a new one)
-  // - Curly braces (could break out of rule context)
-  // - Angle brackets (could inject HTML in some contexts)
-  // - Backslashes (CSS escape sequences)
-  // - url() and expression() are common attack vectors
   const str = String(value);
 
   let hasUnsafeChars = false;
@@ -170,7 +166,7 @@ function escapeCssValue(value: string): string {
   // Fast path: most CSS values are simple
   if (!hasUnsafeChars && openParen === -1) return str;
 
-  // Block dangerous CSS functions only if the string can actually contain them.
+  // Block dangerous CSS functions
   if (openParen !== -1 && CSS_DANGEROUS_FN_RE.test(str)) {
     return '';
   }
@@ -181,21 +177,24 @@ function escapeCssValue(value: string): string {
 
 /**
  * Convert style object to CSS string with value escaping
+ * Optimized to avoid Object.entries allocation
  */
 export function styleObjToCss(value: unknown): string | null {
   if (!value || typeof value !== 'object') return null;
-  const entries = Object.entries(value as Record<string, unknown>);
-  if (entries.length === 0) return '';
-  // camelCase -> kebab-case
-  // Use array to collect parts, then join once for better performance
-  const parts: string[] = [];
-  for (const [k, v] of entries) {
+
+  const styleObj = value as Record<string, unknown>;
+  let result = '';
+
+  for (const k in styleObj) {
+    const v = styleObj[k];
     if (v === null || v === undefined || v === false) continue;
+
     const prop = toKebabCached(k);
     const safeValue = escapeCssValue(String(v));
     if (safeValue) {
-      parts.push(`${prop}:${safeValue};`);
+      result += `${prop}:${safeValue};`;
     }
   }
-  return parts.join('');
+
+  return result || null;
 }

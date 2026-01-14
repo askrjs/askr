@@ -24,6 +24,43 @@ export class StringSink implements RenderSink {
     }
   }
 
+  // Batch write for hot paths (avoids multiple push calls)
+  write2(a: string, b: string) {
+    if (a) {
+      this.bufferChunks.push(a);
+      this.bufferLen += a.length;
+    }
+    if (b) {
+      this.bufferChunks.push(b);
+      this.bufferLen += b.length;
+    }
+    if (this.bufferLen >= StringSink.FLUSH_THRESHOLD) {
+      this.chunks.push(this.bufferChunks.join(''));
+      this.bufferChunks.length = 0;
+      this.bufferLen = 0;
+    }
+  }
+
+  write3(a: string, b: string, c: string) {
+    if (a) {
+      this.bufferChunks.push(a);
+      this.bufferLen += a.length;
+    }
+    if (b) {
+      this.bufferChunks.push(b);
+      this.bufferLen += b.length;
+    }
+    if (c) {
+      this.bufferChunks.push(c);
+      this.bufferLen += c.length;
+    }
+    if (this.bufferLen >= StringSink.FLUSH_THRESHOLD) {
+      this.chunks.push(this.bufferChunks.join(''));
+      this.bufferChunks.length = 0;
+      this.bufferLen = 0;
+    }
+  }
+
   end() {
     if (this.bufferLen) {
       this.chunks.push(this.bufferChunks.join(''));
