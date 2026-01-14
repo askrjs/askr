@@ -48,7 +48,9 @@ describe('bench_list_update_dom', () => {
         <div>
           {For(
             () => rows(),
-            (row) => (<div key={row.id}>{row.label}</div>) as unknown as any
+            (row) => (
+              <div key={row.id}>{row.label}</div>
+            )
           )}
         </div>
       );
@@ -77,7 +79,9 @@ describe('bench_list_update_dom', () => {
         <div>
           {For(
             () => rows(),
-            (row) => (<div key={row.id}>{row.label}</div>) as unknown as any
+            (row) => (
+              <div key={row.id}>{row.label}</div>
+            )
           )}
         </div>
       );

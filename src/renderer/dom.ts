@@ -462,30 +462,9 @@ function createForBoundary(
     | (() => unknown[]);
   const childrenVNodes = evaluateForState(forState, source);
 
-  // Quick check: if the length and keys haven't changed, return empty fragment
-  // This is the hot path for stable lists
-  if (childrenVNodes.length === forState.orderedKeys.length) {
-    let allCached = true;
-    for (let i = 0; i < childrenVNodes.length; i++) {
-      const childVNode = childrenVNodes[i];
-      const key = (childVNode as DOMElement).key;
-      if (key === undefined || !forState.items.has(key)) {
-        allCached = false;
-        break;
-      }
-      const itemInstance = forState.items.get(key)!;
-      if (!itemInstance._dom || itemInstance.vnode !== childVNode) {
-        allCached = false;
-        break;
-      }
-    }
-    if (allCached) {
-      return document.createDocumentFragment();
-    }
-  }
-
-  // Slow path: something changed, rebuild affected items
+  // Rebuild items from vnodes, caching DOM where possible
   const cachedNodes: (Node | null)[] = [];
+  let hasChanges = false;
 
   for (let i = 0; i < childrenVNodes.length; i++) {
     const childVNode = childrenVNodes[i];
@@ -496,6 +475,7 @@ function createForBoundary(
     if (key !== undefined && forState.items.has(key)) {
       const itemInstance = forState.items.get(key)!;
       if (itemInstance._dom && itemInstance.vnode === childVNode) {
+        // Reuse cached DOM - vnode identity means no changes
         dom = itemInstance._dom;
       }
     }
@@ -503,6 +483,7 @@ function createForBoundary(
     // Create new DOM if needed
     if (!dom) {
       dom = createDOMNode(childVNode);
+      hasChanges = true;
       // Cache the DOM in the item instance for future reuse
       if (key !== undefined && forState.items.has(key)) {
         forState.items.get(key)!._dom = dom ?? undefined;
@@ -512,7 +493,18 @@ function createForBoundary(
     cachedNodes.push(dom);
   }
 
-  // Build fragment with all items
+  // Check if list size or order changed
+  if (!hasChanges && cachedNodes.length !== forState.orderedKeys.length) {
+    hasChanges = true;
+  }
+
+  // If nothing changed and all items are reused from cache, return empty fragment
+  // This avoids re-appending all nodes when nothing changed
+  if (!hasChanges) {
+    return document.createDocumentFragment();
+  }
+
+  // Build fragment with items (either new, changed, or reordered)
   const fragment = document.createDocumentFragment();
   for (const dom of cachedNodes) {
     if (dom) fragment.appendChild(dom);

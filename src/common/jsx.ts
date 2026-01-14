@@ -12,7 +12,7 @@ export interface JSXElement {
   $$typeof: symbol;
 
   /** Element type: string, component, Fragment, etc */
-  type: unknown;
+  type: string | ((props: Props) => unknown) | symbol;
 
   /** Props bag */
   props: Props;

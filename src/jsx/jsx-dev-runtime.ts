@@ -2,7 +2,8 @@
  * JSX dev runtime factory
  * Same element shape as production runtime, with room for dev warnings.
  */
-import { ELEMENT_TYPE, Fragment, JSXElement } from './types';
+import type { Props } from '../common/props';
+import { ELEMENT_TYPE, Fragment, type JSXElement } from './types';
 
 export function jsxDEV(
   type: unknown,
@@ -11,7 +12,7 @@ export function jsxDEV(
 ): JSXElement {
   return {
     $$typeof: ELEMENT_TYPE,
-    type,
+    type: type as string | ((props: Props) => unknown) | symbol,
     props: props ?? {},
     key: key ?? null,
   };

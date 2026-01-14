@@ -39,9 +39,9 @@ describe('bench_for_execution_count', () => {
     let rowExecutionCount = 0;
 
     // Minimal renderer: counts executions without touching DOM
-    const RowRenderer = (row: Row) => {
+    const RowRenderer = (_row: Row): any => {
       rowExecutionCount++;
-      return null as unknown as any;
+      return null;
     };
 
     // Deterministic input array
@@ -64,13 +64,9 @@ describe('bench_for_execution_count', () => {
     const expectedExecutions = Math.ceil(rowCount / 10);
     const actualExecutions = rowExecutionCount;
 
-    // Report in logs (single shot - not in hot loop)
-    console.warn('\nframework::for::update-every-10th::1000');
-    console.warn(`Total rows: ${rowCount}`);
-    console.warn(`Initial render executions: ${initialExecutions}`);
-    console.warn(
-      `Expected executions (update every 10th): ~${expectedExecutions}`
-    );
-    console.warn(`Actual executions: ${actualExecutions}`);
+    // Suppress unused variable warnings
+    void initialExecutions;
+    void expectedExecutions;
+    void actualExecutions;
   });
 });
