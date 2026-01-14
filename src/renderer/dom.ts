@@ -472,7 +472,7 @@ function createForBoundary(
     let dom: Node | null = null;
 
     // Try to reuse existing DOM if we have it cached AND the vnode hasn't changed
-    if (key !== undefined && forState.items.has(key)) {
+    if (key !== undefined && key !== null && forState.items.has(key)) {
       const itemInstance = forState.items.get(key)!;
       if (itemInstance._dom && itemInstance.vnode === childVNode) {
         // Reuse cached DOM - vnode identity means no changes
@@ -485,7 +485,7 @@ function createForBoundary(
       dom = createDOMNode(childVNode);
       hasChanges = true;
       // Cache the DOM in the item instance for future reuse
-      if (key !== undefined && forState.items.has(key)) {
+      if (key !== undefined && key !== null && forState.items.has(key)) {
         forState.items.get(key)!._dom = dom ?? undefined;
       }
     }

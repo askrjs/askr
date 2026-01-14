@@ -1,9 +1,3 @@
-/**
- * nested-for.bench.tsx
- *
- * PURPOSE: Measure nested `For` rendering and inner-item update cost.
- */
-
 import { bench, describe, beforeAll, afterAll } from 'vitest';
 import { createIsland, state } from '../../src';
 import type { State } from '../../src';
@@ -42,8 +36,8 @@ function updateAllInner(outers: Outer[]): Outer[] {
   }));
 }
 
-describe('nested-for', () => {
-  describe('100 outer x 10 inner - update inner (transactional)', () => {
+describe('nested for', () => {
+  describe('100 outer x 10 inner', () => {
     let container: HTMLElement;
     let cleanup: () => void;
     let outers!: State<Outer[]>;
@@ -75,11 +69,11 @@ describe('nested-for', () => {
                             <span key={ii.id} data-id={String(ii.id)}>
                               {ii.label}
                             </span>
-                          ) as unknown as any
+                          ) as unknown as JSX.Element
                       )}
                     </div>
                   </div>
-                ) as unknown as any
+                ) as unknown as JSX.Element
             )}
           </div>
         );
@@ -89,7 +83,7 @@ describe('nested-for', () => {
       flushScheduler();
     });
 
-    bench('framework::for::nested-update::100x10', () => {
+    bench('update inner items', () => {
       for (let i = 0; i < ITERS; i++) {
         outers.set(updateAllInner(outers()));
       }
@@ -98,8 +92,8 @@ describe('nested-for', () => {
     afterAll(() => cleanup());
   });
 
-  describe('mount cost - 100 outer x 100 inner (one-off)', () => {
-    bench('framework::for::nested::mount::100x100', () => {
+  describe('100 outer x 100 inner mount', () => {
+    bench('mount', () => {
       const { container, cleanup } = createTestContainer();
 
       const Component = () => {
@@ -119,11 +113,11 @@ describe('nested-for', () => {
                             <span key={ii.id} data-id={String(ii.id)}>
                               {ii.label}
                             </span>
-                          ) as unknown as any
+                          ) as unknown as JSX.Element
                       )}
                     </div>
                   </div>
-                ) as unknown as any
+                ) as unknown as JSX.Element
             )}
           </div>
         );
@@ -131,7 +125,6 @@ describe('nested-for', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-
       cleanup();
     });
   });

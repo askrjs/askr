@@ -1,11 +1,3 @@
-/**
- * bench_list_update_dom.ts
- *
- * PURPOSE: Measure diff + commit cost
- * - Full render + update-every-10th
- * - Measure scheduler + commit
- */
-
 import { bench, describe } from 'vitest';
 import { createIsland, state, type State } from '../../src';
 import { For } from '../../src/for';
@@ -36,14 +28,13 @@ function updateEveryTenth(rows: Row[]): Row[] {
   });
 }
 
-describe('bench_list_update_dom', () => {
-  bench('framework::for::update-every-10th::1000', () => {
+describe('for update dom', () => {
+  bench('1000 rows update', () => {
     const { container, cleanup } = createTestContainer();
-    const rowCount = 1000;
     let rows!: State<Row[]>;
 
     const Component = () => {
-      rows = state(createRows(rowCount));
+      rows = state(createRows(1000));
       return (
         <div>
           {For(
@@ -58,9 +49,7 @@ describe('bench_list_update_dom', () => {
 
     createIsland({ root: container, component: Component });
 
-    const iterations = 10;
-
-    for (let i = 0; i < iterations; i++) {
+    for (let i = 0; i < 10; i++) {
       rows.set(updateEveryTenth(rows()));
       flushScheduler();
     }
@@ -68,13 +57,12 @@ describe('bench_list_update_dom', () => {
     cleanup();
   });
 
-  bench('framework::for::update-every-10th::10000', () => {
+  bench('10000 rows update', () => {
     const { container, cleanup } = createTestContainer();
-    const rowCount = 10000;
     let rows!: State<Row[]>;
 
     const Component = () => {
-      rows = state(createRows(rowCount));
+      rows = state(createRows(10000));
       return (
         <div>
           {For(
@@ -89,9 +77,7 @@ describe('bench_list_update_dom', () => {
 
     createIsland({ root: container, component: Component });
 
-    const iterations = 5;
-
-    for (let i = 0; i < iterations; i++) {
+    for (let i = 0; i < 5; i++) {
       rows.set(updateEveryTenth(rows()));
       flushScheduler();
     }

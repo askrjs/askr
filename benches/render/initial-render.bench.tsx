@@ -1,9 +1,3 @@
-/**
- * Initial render benchmark
- *
- * Measures the cost of first-time component rendering and DOM creation.
- */
-
 import { bench, describe } from 'vitest';
 import { createIsland } from '../../src';
 import {
@@ -11,7 +5,6 @@ import {
   flushScheduler,
 } from '../../tests/helpers/test-renderer';
 
-// Component definitions outside benches for determinism
 const EmptyComponent = () => ({ type: 'div', children: [] });
 
 const SimpleComponent = () => ({
@@ -44,21 +37,13 @@ const ComplexComponent = () => ({
                 {
                   type: 'li',
                   children: [
-                    {
-                      type: 'a',
-                      props: { href: '#' },
-                      children: ['About'],
-                    },
+                    { type: 'a', props: { href: '#' }, children: ['About'] },
                   ],
                 },
                 {
                   type: 'li',
                   children: [
-                    {
-                      type: 'a',
-                      props: { href: '#' },
-                      children: ['Contact'],
-                    },
+                    { type: 'a', props: { href: '#' }, children: ['Contact'] },
                   ],
                 },
               ],
@@ -118,40 +103,34 @@ const ComplexComponent = () => ({
 });
 
 describe('initial render', () => {
-  bench('scheduler flush (noop)', () => {
+  bench('scheduler flush noop', () => {
     flushScheduler();
   });
 
-  bench('empty container noop', () => {
-    const { container: _container, cleanup } = createTestContainer();
+  bench('empty container', () => {
+    const { container: _c, cleanup } = createTestContainer();
     flushScheduler();
     cleanup();
   });
 
-  bench('empty component (behavioral)', () => {
+  bench('empty component', () => {
     const { container, cleanup } = createTestContainer();
-
     createIsland({ root: container, component: EmptyComponent });
     flushScheduler();
-
     cleanup();
   });
 
-  bench('simple component (behavioral)', () => {
+  bench('simple component', () => {
     const { container, cleanup } = createTestContainer();
-
     createIsland({ root: container, component: SimpleComponent });
     flushScheduler();
-
     cleanup();
   });
 
-  bench('complex component tree (behavioral)', () => {
+  bench('complex component tree', () => {
     const { container, cleanup } = createTestContainer();
-
     createIsland({ root: container, component: ComplexComponent });
     flushScheduler();
-
     cleanup();
   });
 });

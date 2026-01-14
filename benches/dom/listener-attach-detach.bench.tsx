@@ -1,10 +1,3 @@
-/**
- * Tier: Framework / Transactional
- * Scenario: listener-attach
- * Includes: event handler attachment/removal via component mount/unmount and state changes
- * Excludes: pure DOM-only listener microbench (no framework lifecycle)
- */
-
 import { bench, describe } from 'vitest';
 import { createIsland, state } from '../../src';
 import {
@@ -13,22 +6,20 @@ import {
 } from '../../tests/helpers/test-renderer';
 
 describe('listener attach detach', () => {
-  bench('framework::listener-attach::1::behavioral', () => {
+  bench('1 listener', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
       const count = state(0);
-
       return <button onClick={() => count.set(count() + 1)}>Click</button>;
     };
 
     createIsland({ root: container, component: Component });
-    flushScheduler(); // Attaches single listener
-
-    cleanup(); // Detaches listener
+    flushScheduler();
+    cleanup();
   });
 
-  bench('framework::listener-attach::100::behavioral', () => {
+  bench('100 listeners', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -53,23 +44,7 @@ describe('listener attach detach', () => {
     };
 
     createIsland({ root: container, component: Component });
-    flushScheduler(); // Attaches 100 listeners
-
-    cleanup(); // Detaches all listeners
-  });
-
-  bench('framework::listener-attach::1::detach-behavioral', () => {
-    const { container, cleanup } = createTestContainer();
-
-    const Component = () => {
-      const count = state(0);
-
-      return <button onClick={() => count.set(count() + 1)}>Click</button>;
-    };
-
-    createIsland({ root: container, component: Component });
-    flushScheduler(); // Attaches listener
-
-    cleanup(); // Measures cleanup cost including listener detachment
+    flushScheduler();
+    cleanup();
   });
 });

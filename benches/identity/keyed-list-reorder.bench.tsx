@@ -1,15 +1,3 @@
-/**
- * Tier: Framework / Transactional
- * Scenario: keyed-reorder
- * Includes: state mutations, scheduler enqueue/flush, component render, reconciliation
- * Excludes: pure DOM-only microbenchmarks (see dom::replacefragment)
- *
- * These benchmarks measure transactional framework behavior: repeated
- * state mutations that are expected to be batched into a single commit by
- * the scheduler. Setup and initial mount are performed in `beforeAll` so
- * each bench measures only the hot path.
- */
-
 import { bench, describe, beforeAll, afterAll } from 'vitest';
 import { createIsland, state } from '../../src';
 import type { State } from '../../src';
@@ -18,13 +6,11 @@ import {
   flushScheduler,
 } from '../../tests/helpers/test-renderer';
 
-describe('keyed list reorder (transactional)', () => {
-  describe('5 items - 100 batched state mutations (single commit, transactional)', () => {
+describe('keyed list reorder', () => {
+  describe('5 items', () => {
     let container: HTMLElement;
     let cleanup: () => void;
     let items!: State<Array<{ id: number; text: string }>>;
-
-    const ITERS = 100;
 
     beforeAll(() => {
       const ctx = createTestContainer();
@@ -53,15 +39,15 @@ describe('keyed list reorder (transactional)', () => {
       flushScheduler();
     });
 
-    bench('framework::keyed-reorder::5::batched-state-mutations', () => {
-      for (let i = 0; i < ITERS; i++) items.set([...items()].reverse());
+    bench('100 reversals', () => {
+      for (let i = 0; i < 100; i++) items.set([...items()].reverse());
       flushScheduler();
     });
 
     afterAll(() => cleanup());
   });
 
-  describe('100 items - 100 batched state mutations (single commit, transactional)', () => {
+  describe('100 items', () => {
     let container: HTMLElement;
     let cleanup: () => void;
     let items!: State<Array<{ id: number; text: string }>>;
@@ -92,7 +78,7 @@ describe('keyed list reorder (transactional)', () => {
       flushScheduler();
     });
 
-    bench('framework::keyed-reorder::100::batched-state-mutations', () => {
+    bench('100 reversals', () => {
       for (let i = 0; i < 100; i++) items.set([...items()].reverse());
       flushScheduler();
     });
@@ -100,7 +86,7 @@ describe('keyed list reorder (transactional)', () => {
     afterAll(() => cleanup());
   });
 
-  describe('complex key sorts - 5 items - 100 batched state mutations (single commit, transactional)', () => {
+  describe('complex key sorts', () => {
     let container: HTMLElement;
     let cleanup: () => void;
     let items: State<
@@ -135,7 +121,7 @@ describe('keyed list reorder (transactional)', () => {
       flushScheduler();
     });
 
-    bench('framework::keyed-reorder::5::batched-state-mutations', () => {
+    bench('100 sorts', () => {
       for (let i = 0; i < 100; i++) {
         items!.set(
           [...items!()].sort((a, b) => {

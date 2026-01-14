@@ -1,12 +1,3 @@
-/**
- * Tier: Framework / Transactional
- * Scenario: attribute-updates
- * Includes: state mutation, component render, scheduler enqueue/flush, attribute reconciliation
- * Excludes: pure DOM microbenchmarks (use dom::replacefragment or dom::keyed-reorder::pure-reconcile for that)
- *
- * Bench names use the standardized format: tier::scenario::size::pattern
- */
-
 import { bench, describe } from 'vitest';
 import { createIsland, state } from '../../src';
 import type { State } from '../../src';
@@ -17,108 +8,92 @@ import {
 import { warmUp } from '../helpers/metrics';
 
 describe('attribute updates', () => {
-  bench(
-    'framework::attribute-updates::100::batched-state-mutations',
-    async () => {
-      const { container, cleanup } = createTestContainer();
+  bench('100 batched mutations', async () => {
+    const { container, cleanup } = createTestContainer();
 
-      let isActive: State<boolean> | null = null;
+    let isActive: State<boolean> | null = null;
 
-      const Component = () => {
-        isActive = state(false);
+    const Component = () => {
+      isActive = state(false);
+      return (
+        <button class={isActive!() ? 'active' : 'inactive'}>Click me</button>
+      );
+    };
 
-        return (
-          <button class={isActive!() ? 'active' : 'inactive'}>Click me</button>
-        );
-      };
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+    await warmUp(() => isActive!.set(!isActive!()), 10);
 
-      // Warm-up to stabilize JIT and shapes (even iterations preserve state)
-      await warmUp(() => isActive!.set(!isActive!()), 10);
-
-      // Perform attribute updates
-      for (let i = 0; i < 100; i++) {
-        isActive!.set(!isActive!());
-      }
-      flushScheduler();
-
-      cleanup();
+    for (let i = 0; i < 100; i++) {
+      isActive!.set(!isActive!());
     }
-  );
+    flushScheduler();
 
-  bench(
-    'framework::attribute-updates::100::batched-state-mutations-multi',
-    async () => {
-      const { container, cleanup } = createTestContainer();
+    cleanup();
+  });
 
-      let count: State<number> | null = null;
+  bench('100 multi-attribute mutations', async () => {
+    const { container, cleanup } = createTestContainer();
 
-      const Component = () => {
-        count = state(0);
+    let count: State<number> | null = null;
 
-        return (
-          <div
-            data-count={String(count!())}
-            data-even={count!() % 2 === 0 ? 'true' : 'false'}
-            data-positive={count!() > 0 ? 'true' : 'false'}
-            class={`count-${count!()}`}
-          >
-            {String(count!())}
-          </div>
-        );
-      };
+    const Component = () => {
+      count = state(0);
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+      return (
+        <div
+          data-count={String(count!())}
+          data-even={count!() % 2 === 0 ? 'true' : 'false'}
+          data-positive={count!() > 0 ? 'true' : 'false'}
+          class={`count-${count!()}`}
+        >
+          {String(count!())}
+        </div>
+      );
+    };
 
-      // Warm-up
-      await warmUp(() => count!.set(count!() + 1), 10);
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      // Perform multiple attribute updates
-      for (let i = 0; i < 100; i++) {
-        count!.set(i);
-      }
-      flushScheduler();
+    await warmUp(() => count!.set(count!() + 1), 10);
 
-      cleanup();
+    for (let i = 0; i < 100; i++) {
+      count!.set(i);
     }
-  );
+    flushScheduler();
 
-  bench(
-    'framework::attribute-updates::100::batched-state-mutations-removals',
-    async () => {
-      const { container, cleanup } = createTestContainer();
+    cleanup();
+  });
 
-      let hasAttribute: State<boolean> | null = null;
+  bench('100 removals', async () => {
+    const { container, cleanup } = createTestContainer();
 
-      const Component = () => {
-        hasAttribute = state(true);
+    let hasAttribute: State<boolean> | null = null;
 
-        return (
-          <div
-            class="base-class"
-            {...(hasAttribute!() ? { 'data-temp': 'temporary' } : {})}
-          >
-            Test
-          </div>
-        );
-      };
+    const Component = () => {
+      hasAttribute = state(true);
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+      return (
+        <div
+          class="base-class"
+          {...(hasAttribute!() ? { 'data-temp': 'temporary' } : {})}
+        >
+          Test
+        </div>
+      );
+    };
 
-      // Warm-up
-      await warmUp(() => hasAttribute!.set(!hasAttribute!()), 10);
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      // Perform attribute removals
-      for (let i = 0; i < 100; i++) {
-        hasAttribute!.set(!hasAttribute!());
-      }
-      flushScheduler();
+    await warmUp(() => hasAttribute!.set(!hasAttribute!()), 10);
 
-      cleanup();
+    for (let i = 0; i < 100; i++) {
+      hasAttribute!.set(!hasAttribute!());
     }
-  );
+    flushScheduler();
+
+    cleanup();
+  });
 });

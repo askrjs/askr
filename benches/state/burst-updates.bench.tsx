@@ -1,10 +1,3 @@
-/**
- * Burst updates benchmark
- *
- * Measures how well rapid state updates are handled.
- * Validates coalescing and performance under update pressure.
- */
-
 import { bench, describe } from 'vitest';
 import { createIsland, state, type State } from '../../src';
 import {
@@ -24,16 +17,12 @@ describe('burst updates', () => {
     let count!: State<number>;
 
     const Component = () => {
-      // state() must be called during component render.
       count = state(0);
       return { type: 'div', children: [String(count())] };
     };
 
     createIsland({ root: container, component: Component });
-    // createIsland() flushes synchronously during mount.
 
-    // Make each sample large enough to avoid NaN timings.
-    // Keep this constant across N so comparisons remain meaningful.
     for (let r = 0; r < 10; r++) {
       burstUpdate(count, N);
       flushScheduler();
@@ -42,15 +31,15 @@ describe('burst updates', () => {
     cleanup();
   }
 
-  bench('10 rapid updates (transactional)', () => {
+  bench('10 rapid updates', () => {
     runBurst(10);
   });
 
-  bench('100 rapid updates (transactional)', () => {
+  bench('100 rapid updates', () => {
     runBurst(100);
   });
 
-  bench('1000 rapid updates (transactional)', () => {
+  bench('1000 rapid updates', () => {
     runBurst(1000);
   });
 });

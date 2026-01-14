@@ -1,10 +1,3 @@
-/**
- * State write cost benchmark
- *
- * Measures the cost of updating state values.
- * Validates that state updates trigger efficient rerenders.
- */
-
 import { bench, describe } from 'vitest';
 import { createIsland, state } from '../../src';
 import {
@@ -13,7 +6,7 @@ import {
 } from '../../tests/helpers/test-renderer';
 
 describe('state write cost', () => {
-  bench('100 single state updates (transactional)', () => {
+  bench('100 single updates', () => {
     const { container, cleanup } = createTestContainer();
 
     let updateFn: (() => void) | null = null;
@@ -21,14 +14,12 @@ describe('state write cost', () => {
     const Component = () => {
       const count = state(0);
       updateFn = () => count.set(count() + 1);
-
       return { type: 'div', children: [String(count())] };
     };
 
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    // Perform the updates
     for (let i = 0; i < 100; i++) {
       updateFn!();
     }
@@ -37,7 +28,7 @@ describe('state write cost', () => {
     cleanup();
   });
 
-  bench('100 batched state updates (transactional)', () => {
+  bench('100 batched updates', () => {
     const { container, cleanup } = createTestContainer();
 
     let updateFn: (() => void) | null = null;
@@ -62,7 +53,6 @@ describe('state write cost', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    // Perform batched updates
     for (let i = 0; i < 100; i++) {
       updateFn!();
     }
@@ -71,7 +61,7 @@ describe('state write cost', () => {
     cleanup();
   });
 
-  bench('100 cross-component updates (transactional)', () => {
+  bench('100 cross-component updates', () => {
     const { container, cleanup } = createTestContainer();
 
     let updateFn: (() => void) | null = null;
@@ -97,7 +87,6 @@ describe('state write cost', () => {
     createIsland({ root: container, component: ParentComponent });
     flushScheduler();
 
-    // Perform cross-component updates
     for (let i = 0; i < 100; i++) {
       updateFn!();
     }
