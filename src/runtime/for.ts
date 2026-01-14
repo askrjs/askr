@@ -20,7 +20,150 @@ import type { ComponentFunction } from '../common/component';
 
 const askrGlobal = globalThis as typeof globalThis & {
   __ASKR_CURRENT_INSTANCE__?: unknown;
+  __ASKR_BENCH__?: boolean;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bench Instrumentation (gate behind globalThis.__ASKR_BENCH__)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface BenchMetrics {
+  itemsCreated: number;
+  itemsReused: number;
+  itemsRemoved: number;
+  itemsMoved: number;
+  rowFactoryInvocations: number;
+  keyLookups: number;
+  keyHits: number;
+  keyMisses: number;
+  domInserts: number;
+  domRemoves: number;
+  domMoves: number;
+  domAttrSets: number;
+  domTextSets: number;
+  reconcilePhaseMs: number;
+  domCommitPhaseMs: number;
+  fastLaneName: string | null;
+}
+
+const benchMetrics: BenchMetrics = {
+  itemsCreated: 0,
+  itemsReused: 0,
+  itemsRemoved: 0,
+  itemsMoved: 0,
+  rowFactoryInvocations: 0,
+  keyLookups: 0,
+  keyHits: 0,
+  keyMisses: 0,
+  domInserts: 0,
+  domRemoves: 0,
+  domMoves: 0,
+  domAttrSets: 0,
+  domTextSets: 0,
+  reconcilePhaseMs: 0,
+  domCommitPhaseMs: 0,
+  fastLaneName: null,
+};
+
+function resetBenchMetrics() {
+  if (!askrGlobal.__ASKR_BENCH__) return;
+  benchMetrics.itemsCreated = 0;
+  benchMetrics.itemsReused = 0;
+  benchMetrics.itemsRemoved = 0;
+  benchMetrics.itemsMoved = 0;
+  benchMetrics.rowFactoryInvocations = 0;
+  benchMetrics.keyLookups = 0;
+  benchMetrics.keyHits = 0;
+  benchMetrics.keyMisses = 0;
+  benchMetrics.domInserts = 0;
+  benchMetrics.domRemoves = 0;
+  benchMetrics.domMoves = 0;
+  benchMetrics.domAttrSets = 0;
+  benchMetrics.domTextSets = 0;
+  benchMetrics.reconcilePhaseMs = 0;
+  benchMetrics.domCommitPhaseMs = 0;
+  benchMetrics.fastLaneName = null;
+}
+
+function recordBenchEvent(
+  event:
+    | 'itemCreated'
+    | 'itemReused'
+    | 'itemRemoved'
+    | 'itemMoved'
+    | 'rowFactory'
+    | 'keyLookup'
+    | 'keyHit'
+    | 'keyMiss'
+    | 'domInsert'
+    | 'domRemove'
+    | 'domMove'
+    | 'domAttrSet'
+    | 'domTextSet'
+) {
+  if (!askrGlobal.__ASKR_BENCH__) return;
+  switch (event) {
+    case 'itemCreated':
+      benchMetrics.itemsCreated++;
+      break;
+    case 'itemReused':
+      benchMetrics.itemsReused++;
+      break;
+    case 'itemRemoved':
+      benchMetrics.itemsRemoved++;
+      break;
+    case 'itemMoved':
+      benchMetrics.itemsMoved++;
+      break;
+    case 'rowFactory':
+      benchMetrics.rowFactoryInvocations++;
+      break;
+    case 'keyLookup':
+      benchMetrics.keyLookups++;
+      break;
+    case 'keyHit':
+      benchMetrics.keyHits++;
+      break;
+    case 'keyMiss':
+      benchMetrics.keyMisses++;
+      break;
+    case 'domInsert':
+      benchMetrics.domInserts++;
+      break;
+    case 'domRemove':
+      benchMetrics.domRemoves++;
+      break;
+    case 'domMove':
+      benchMetrics.domMoves++;
+      break;
+    case 'domAttrSet':
+      benchMetrics.domAttrSets++;
+      break;
+    case 'domTextSet':
+      benchMetrics.domTextSets++;
+      break;
+  }
+}
+
+function recordBenchFastLane(name: string) {
+  if (!askrGlobal.__ASKR_BENCH__) return;
+  benchMetrics.fastLaneName = name;
+}
+
+function recordBenchTiming(phase: 'reconcile' | 'domCommit', ms: number) {
+  if (!askrGlobal.__ASKR_BENCH__) return;
+  if (phase === 'reconcile') {
+    benchMetrics.reconcilePhaseMs = ms;
+  } else {
+    benchMetrics.domCommitPhaseMs = ms;
+  }
+}
+
+function getBenchMetrics(): BenchMetrics {
+  return { ...benchMetrics };
+}
+
+export { getBenchMetrics };
 
 export interface ForItemInstance<T> {
   key: string | number | null;
@@ -76,6 +219,8 @@ export function createItemInstance<T>(
   index: number,
   forState: ForState<T>
 ): ForItemInstance<T> {
+  recordBenchEvent('itemCreated');
+
   // Create index signal manually without going through state() hook
   // to avoid hook order violations (each For item creates its signal dynamically)
   let indexValue = index;
@@ -120,6 +265,7 @@ export function createItemInstance<T>(
   itemComponent._currentRenderToken = _forRenderCounter++;
   itemComponent._pendingReadStates = new Set();
 
+  recordBenchEvent('rowFactory');
   const vnode = forState.renderFn(item, () => indexSignal());
 
   // Commit initial subscriptions so nested state changes will notify this
@@ -188,39 +334,244 @@ export function reconcileForItems<T>(
   forState: ForState<T>,
   newArray: T[]
 ): VNode[] {
-  const { items, orderedKeys, byFn } = forState;
-  const newKeyMap = new Map<
-    string | number | null,
-    { item: T; index: number }
-  >();
+  if (askrGlobal.__ASKR_BENCH__) {
+    resetBenchMetrics();
+  }
 
-  // Build new key map
+  const reconcileStartMs = askrGlobal.__ASKR_BENCH__ ? performance.now() : 0;
+
+  const { items, orderedKeys, byFn } = forState;
+  const oldLen = orderedKeys.length;
+  const newLen = newArray.length;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FAST PATH A: APPEND
+  // Guard: oldLen <= newLen && all old keys match new keys at same indices
+  // ─────────────────────────────────────────────────────────────────────────
+  if (oldLen <= newLen) {
+    let canUseAppendPath = true;
+    for (let i = 0; i < oldLen; i++) {
+      const key = byFn(newArray[i], i);
+      if (key !== orderedKeys[i]) {
+        canUseAppendPath = false;
+        break;
+      }
+    }
+
+    if (canUseAppendPath) {
+      recordBenchFastLane('APPEND');
+      const resultVNodes: VNode[] = [];
+
+      // Update existing rows in-place
+      for (let i = 0; i < oldLen; i++) {
+        const item = newArray[i];
+        const key = orderedKeys[i];
+        const existing = items.get(key)!;
+        recordBenchEvent('itemReused');
+
+        const itemChanged = existing.item !== item;
+        const indexChanged = existing.indexSignal() !== i;
+
+        if (itemChanged) {
+          existing.item = item;
+          const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
+          askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
+          recordBenchEvent('rowFactory');
+          existing.vnode = forState.renderFn(item, () =>
+            existing.indexSignal()
+          );
+          askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
+        }
+
+        if (indexChanged) {
+          existing.indexSignal.set(i);
+        }
+
+        resultVNodes.push(existing.vnode);
+      }
+
+      // Create and append new rows
+      for (let i = oldLen; i < newLen; i++) {
+        const item = newArray[i];
+        const key = byFn(item, i);
+        const itemInstance = createItemInstance(key, item, i, forState);
+        items.set(key, itemInstance);
+        resultVNodes.push(itemInstance.vnode);
+        orderedKeys[i] = key;
+      }
+
+      if (askrGlobal.__ASKR_BENCH__) {
+        recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+      }
+
+      return resultVNodes;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FAST PATH B: TRUNCATE
+  // Guard: newLen <= oldLen && all new keys match old keys at same indices
+  // ─────────────────────────────────────────────────────────────────────────
+  if (newLen <= oldLen) {
+    let canUseTruncatePath = true;
+    for (let i = 0; i < newLen; i++) {
+      const key = byFn(newArray[i], i);
+      if (key !== orderedKeys[i]) {
+        canUseTruncatePath = false;
+        break;
+      }
+    }
+
+    if (canUseTruncatePath) {
+      recordBenchFastLane('TRUNCATE');
+      const resultVNodes: VNode[] = [];
+
+      // Update existing rows in-place
+      for (let i = 0; i < newLen; i++) {
+        const item = newArray[i];
+        const key = orderedKeys[i];
+        const existing = items.get(key)!;
+        recordBenchEvent('itemReused');
+
+        const itemChanged = existing.item !== item;
+        const indexChanged = existing.indexSignal() !== i;
+
+        if (itemChanged) {
+          existing.item = item;
+          const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
+          askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
+          recordBenchEvent('rowFactory');
+          existing.vnode = forState.renderFn(item, () =>
+            existing.indexSignal()
+          );
+          askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
+        }
+
+        if (indexChanged) {
+          existing.indexSignal.set(i);
+        }
+
+        resultVNodes.push(existing.vnode);
+      }
+
+      // Remove tail rows
+      for (let i = newLen; i < oldLen; i++) {
+        const key = orderedKeys[i];
+        const itemInstance = items.get(key);
+        if (itemInstance) {
+          recordBenchEvent('itemRemoved');
+          const instance = itemInstance.componentInstance;
+          instance.abortController.abort();
+          for (const cleanup of instance.cleanupFns) {
+            try {
+              cleanup();
+            } catch (err) {
+              if (process.env.NODE_ENV !== 'production') {
+                console.error('[For] Cleanup error:', err);
+              }
+            }
+          }
+          items.delete(key);
+        }
+      }
+
+      orderedKeys.length = newLen;
+      forState.orderedKeys = orderedKeys;
+
+      if (askrGlobal.__ASKR_BENCH__) {
+        recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+      }
+
+      return resultVNodes;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FAST PATH C: NO-REORDER (in-place update only)
+  // Guard: oldLen === newLen && keys match at all indices
+  // ─────────────────────────────────────────────────────────────────────────
+  if (oldLen === newLen) {
+    let canUseNoReorderPath = true;
+    for (let i = 0; i < oldLen; i++) {
+      const key = byFn(newArray[i], i);
+      if (key !== orderedKeys[i]) {
+        canUseNoReorderPath = false;
+        break;
+      }
+    }
+
+    if (canUseNoReorderPath) {
+      recordBenchFastLane('NO_REORDER');
+      const resultVNodes: VNode[] = [];
+
+      // Update in-place only, no DOM moves needed
+      for (let i = 0; i < oldLen; i++) {
+        const item = newArray[i];
+        const key = orderedKeys[i];
+        const existing = items.get(key)!;
+        recordBenchEvent('itemReused');
+
+        const itemChanged = existing.item !== item;
+        const indexChanged = existing.indexSignal() !== i;
+
+        if (itemChanged) {
+          existing.item = item;
+          const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
+          askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
+          recordBenchEvent('rowFactory');
+          existing.vnode = forState.renderFn(item, () =>
+            existing.indexSignal()
+          );
+          askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
+        }
+
+        if (indexChanged) {
+          existing.indexSignal.set(i);
+        }
+
+        resultVNodes.push(existing.vnode);
+      }
+
+      if (askrGlobal.__ASKR_BENCH__) {
+        recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+      }
+
+      return resultVNodes;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FULL KEYED RECONCILIATION (slow path for complex reorders)
+  // Avoid allocating newKeyMap: iterate directly and track removals
+  // ─────────────────────────────────────────────────────────────────────────
+  recordBenchFastLane('FULL_KEYED');
+
+  const toRemove = new Set(orderedKeys);
+  const newOrderedKeys: Array<string | number | null> = [];
+  const resultVNodes: VNode[] = [];
+
+  // Single pass: iterate new array directly, no intermediate map
   for (let i = 0; i < newArray.length; i++) {
     const item = newArray[i];
     const key = byFn(item, i);
-    newKeyMap.set(key, { item, index: i });
-  }
+    recordBenchEvent('keyLookup');
 
-  const newOrderedKeys: Array<string | number | null> = [];
-  const resultVNodes: VNode[] = [];
-  const toRemove = new Set(orderedKeys);
-
-  // Process new array
-  for (const [key, { item, index }] of newKeyMap) {
     toRemove.delete(key);
     newOrderedKeys.push(key);
 
     const existing = items.get(key);
+    recordBenchEvent(existing ? 'keyHit' : 'keyMiss');
 
     if (!existing) {
       // Added: create new item instance
-      const itemInstance = createItemInstance(key, item, index, forState);
+      const itemInstance = createItemInstance(key, item, i, forState);
       items.set(key, itemInstance);
       resultVNodes.push(itemInstance.vnode);
     } else {
       // Exists: check if item changed (by identity)
+      recordBenchEvent('itemReused');
       const itemChanged = existing.item !== item;
-      const indexChanged = existing.indexSignal() !== index;
+      const indexChanged = existing.indexSignal() !== i;
 
       if (itemChanged) {
         // Item data changed: update and re-execute
@@ -229,6 +580,7 @@ export function reconcileForItems<T>(
         const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
         askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
 
+        recordBenchEvent('rowFactory');
         existing.vnode = forState.renderFn(item, () => existing.indexSignal());
 
         askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
@@ -236,7 +588,7 @@ export function reconcileForItems<T>(
 
       if (indexChanged) {
         // Index changed: update index signal (triggers re-render if index is used)
-        existing.indexSignal.set(index);
+        existing.indexSignal.set(i);
       }
 
       resultVNodes.push(existing.vnode);
@@ -247,6 +599,7 @@ export function reconcileForItems<T>(
   for (const key of toRemove) {
     const itemInstance = items.get(key);
     if (itemInstance) {
+      recordBenchEvent('itemRemoved');
       // Clean up component instance
       const instance = itemInstance.componentInstance;
 
@@ -269,6 +622,11 @@ export function reconcileForItems<T>(
   }
 
   forState.orderedKeys = newOrderedKeys;
+
+  if (askrGlobal.__ASKR_BENCH__) {
+    recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+  }
+
   return resultVNodes;
 }
 
