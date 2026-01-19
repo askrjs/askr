@@ -1,7 +1,7 @@
 import { logger } from '../dev/logger';
 import type { Props } from '../common/props';
 import type { ComponentInstance } from '../runtime/component';
-import { elementListeners } from './cleanup';
+import { elementListeners, removeAllListeners } from './cleanup';
 import { keyedElements } from './keyed';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
@@ -582,16 +582,34 @@ export function evaluate(
       __ASKR_INSTANCE?: ComponentInstance;
     };
     const targetInstance = targetWithInstance.__ASKR_INSTANCE;
-    if (
-      targetInstance &&
-      targetInstance.target === target &&
-      _isDOMElement(vnode) &&
-      typeof vnode.type === 'string' &&
-      tagNamesEqualIgnoreCase(target.tagName, vnode.type)
-    ) {
-      // Target itself matches and is the instance's own element - update it in place
-      smartUpdateElement(target, vnode as DOMElement);
-      return;
+    if (targetInstance && targetInstance.target === target) {
+      // This is a nested component's own element
+      if (
+        _isDOMElement(vnode) &&
+        typeof vnode.type === 'string' &&
+        tagNamesEqualIgnoreCase(target.tagName, vnode.type)
+      ) {
+        // Tag names match - update in place
+        smartUpdateElement(target, vnode as DOMElement);
+        return;
+      } else {
+        // Tag names don't match - need to replace the element
+        // Create new element and replace old one in parent
+        const newDom = createDOMNode(vnode);
+        if (newDom && target.parentNode) {
+          // Transfer the component instance to the new element
+          if (newDom instanceof Element) {
+            (
+              newDom as Element & { __ASKR_INSTANCE?: ComponentInstance }
+            ).__ASKR_INSTANCE = targetInstance;
+            targetInstance.target = newDom as Element;
+          }
+          // Clean up old element
+          removeAllListeners(target);
+          target.parentNode.replaceChild(newDom, target);
+          return;
+        }
+      }
     }
 
     const firstChild = target.children[0] as Element | undefined;
