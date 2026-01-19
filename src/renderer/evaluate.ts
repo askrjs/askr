@@ -1,5 +1,6 @@
 import { logger } from '../dev/logger';
 import type { Props } from '../common/props';
+import type { ComponentInstance } from '../runtime/component';
 import { elementListeners } from './cleanup';
 import { keyedElements } from './keyed';
 import { reconcileKeyedChildren } from './reconcile';
@@ -315,7 +316,13 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
  * Tries text-in-place update first, then full child reconciliation
  */
 function smartUpdateElement(element: Element, vnode: DOMElement): void {
-  const vnodeChildren = vnode.children || vnode.props?.children;
+  let vnodeChildren = vnode.children || vnode.props?.children;
+
+  // Normalize: if children is a single vnode (not an array), wrap it
+  if (vnodeChildren && !Array.isArray(vnodeChildren)) {
+    vnodeChildren = [vnodeChildren];
+  }
+
   const textCheck = checkSimpleText(vnodeChildren);
 
   if (textCheck.isSimple && tryUpdateTextInPlace(element, textCheck.text)) {
@@ -565,6 +572,26 @@ export function evaluate(
         processFragmentChildren(target, childArray);
         return;
       }
+    }
+
+    // CRITICAL FIX: Check if target itself matches the vnode type AND target is the component's own element
+    // This handles inline-rendered components where target IS the component's element.
+    // For root components, target is a container (not the component's rendered element), so we skip this path.
+    // We detect this by checking if the instance's target property points to this same element.
+    const targetWithInstance = target as Element & {
+      __ASKR_INSTANCE?: ComponentInstance;
+    };
+    const targetInstance = targetWithInstance.__ASKR_INSTANCE;
+    if (
+      targetInstance &&
+      targetInstance.target === target &&
+      _isDOMElement(vnode) &&
+      typeof vnode.type === 'string' &&
+      tagNamesEqualIgnoreCase(target.tagName, vnode.type)
+    ) {
+      // Target itself matches and is the instance's own element - update it in place
+      smartUpdateElement(target, vnode as DOMElement);
+      return;
     }
 
     const firstChild = target.children[0] as Element | undefined;

@@ -327,8 +327,10 @@ function createIntrinsicElement(
   applyPropsToElement(el, props, type);
 
   // Add children
-  const children = props.children || node.children;
-  if (children) {
+  // CRITICAL: Use nullish coalescing (?) instead of || because children can be 0, false, or empty string
+  const children = props.children ?? node.children;
+
+  if (children !== null && children !== undefined) {
     if (Array.isArray(children)) {
       warnMissingKeys(children);
       for (const child of children) {
