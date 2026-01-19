@@ -105,13 +105,13 @@ function applyPropsToElement(
 ): void {
   for (const key in props) {
     const value = props[key];
-    if (isSkippedProp(key)) continue;
-    if (value === undefined || value === null || value === false) continue;
-
+    // Handle ref BEFORE isSkippedProp check since it needs special processing
     if (key === 'ref') {
       applyRef(el, value);
       continue;
     }
+    if (isSkippedProp(key)) continue;
+    if (value === undefined || value === null || value === false) continue;
 
     const eventName = parseEventName(key);
     if (eventName) {
@@ -686,6 +686,81 @@ export function updateUnkeyedChildren(
   newChildren: unknown[]
 ): void {
   const existing = Array.from(parent.children);
+
+  // Check if newChildren has mixed content (both text/primitives and elements)
+  const hasText = newChildren.some(
+    (c) => typeof c === 'string' || typeof c === 'number'
+  );
+  const hasElements = newChildren.some((c) => _isDOMElement(c));
+
+  // If we have mixed content (text + elements), use childNodes instead of children
+  // to handle both text nodes and elements properly
+  if (hasText && hasElements) {
+    const allNodes = Array.from(parent.childNodes);
+    const max = Math.max(allNodes.length, newChildren.length);
+
+    for (let i = 0; i < max; i++) {
+      const currentNode = allNodes[i];
+      const next = newChildren[i];
+
+      // Remove extra existing nodes
+      if (next === undefined && currentNode) {
+        if (currentNode.nodeType === 1) {
+          // Element node
+          cleanupInstanceIfPresent(currentNode as Element);
+        }
+        currentNode.remove();
+        continue;
+      }
+
+      // Append new children beyond existing length
+      if (!currentNode && next !== undefined) {
+        const dom = createDOMNode(next);
+        if (dom) parent.appendChild(dom);
+        continue;
+      }
+
+      if (!currentNode || next === undefined) continue;
+
+      // Update existing node based on next vnode/primitive
+      if (typeof next === 'string' || typeof next === 'number') {
+        // New child is text
+        if (currentNode.nodeType === 3) {
+          // Existing is text node - update it
+          (currentNode as Text).data = String(next);
+        } else {
+          // Existing is element - replace with text node
+          const textNode = document.createTextNode(String(next));
+          parent.replaceChild(textNode, currentNode);
+        }
+      } else if (_isDOMElement(next)) {
+        // New child is element
+        if (currentNode.nodeType === 1) {
+          // Existing is element
+          const currentEl = currentNode as Element;
+          if (typeof next.type === 'string') {
+            if (tagsEqualIgnoreCase(currentEl.tagName, next.type)) {
+              // Same type - update in place
+              updateElementFromVnode(currentEl, next);
+            } else {
+              // Different type - replace
+              const dom = createDOMNode(next);
+              if (dom) {
+                removeAllListeners(currentEl);
+                cleanupInstanceIfPresent(currentEl);
+                parent.replaceChild(dom, currentNode);
+              }
+            }
+          }
+        } else {
+          // Existing is text node - replace with element
+          const dom = createDOMNode(next);
+          if (dom) parent.replaceChild(dom, currentNode);
+        }
+      }
+    }
+    return;
+  }
 
   // Special case: if we have a single text/number child and the parent has a single text node,
   // update the text node in place to preserve identity

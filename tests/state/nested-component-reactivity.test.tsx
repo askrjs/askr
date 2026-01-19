@@ -12,10 +12,7 @@
 import { expect } from 'chai';
 import { describe, it } from 'vitest';
 import { createIsland, state } from '../../src';
-import {
-  createTestContainer,
-  flushScheduler,
-} from '../helpers/test-renderer';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
 describe('nested component reactivity', () => {
   it('should update DOM when nested component state changes', () => {
@@ -192,7 +189,7 @@ describe('nested component reactivity', () => {
     cleanup();
   });
 
-  it.skip('should handle nested component with complex DOM structure', () => {
+  it('should handle nested component with complex DOM structure', () => {
     const { container, cleanup } = createTestContainer();
 
     const ComplexCounter = () => {
@@ -247,7 +244,7 @@ describe('nested component reactivity', () => {
     cleanup();
   });
 
-  it.skip('should handle nested component returning different root element types', () => {
+  it('should handle nested component returning different root element types', () => {
     const { container, cleanup } = createTestContainer();
 
     const Toggler = () => {
@@ -346,7 +343,7 @@ describe('nested component reactivity', () => {
     cleanup();
   });
 
-  it.skip('should handle refs in nested components', () => {
+  it('should handle refs in nested components', () => {
     const { container, cleanup } = createTestContainer();
 
     let capturedRef: HTMLButtonElement | null = null;
