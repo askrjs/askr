@@ -353,7 +353,7 @@ describe('nested component reactivity', () => {
 
       return (
         <button
-          ref={(el) => (capturedRef = el as HTMLButtonElement)}
+          ref={(el: HTMLButtonElement | null) => (capturedRef = el)}
           onClick={() => count.set(count() + 1)}
         >
           {count()}
@@ -371,13 +371,13 @@ describe('nested component reactivity', () => {
     flushScheduler();
 
     // expect(capturedRef).to.be.ok;
-    expect(capturedRef?.textContent).to.equal('0');
+    expect(capturedRef!.textContent).to.equal('0');
 
-    capturedRef?.click();
+    capturedRef!.click();
     flushScheduler();
 
     // Ref should still point to the same element
-    expect(capturedRef?.textContent).to.equal('1');
+    expect(capturedRef!.textContent).to.equal('1');
 
     const btnInDom = container.querySelector('button') as HTMLButtonElement;
     expect(btnInDom).to.equal(capturedRef);
