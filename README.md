@@ -27,15 +27,17 @@ Developers should only think about:
 - state
 - HTML
 
-## Quick start (tiny)
+## Quick Start
 
-Install:
+**1. Install**
 
 ```sh
 npm i @askrjs/askr
 ```
 
-TypeScript JSX setup (`tsconfig.json`):
+**2. Configure TypeScript**
+
+Edit `tsconfig.json`:
 
 ```json
 {
@@ -46,55 +48,75 @@ TypeScript JSX setup (`tsconfig.json`):
 }
 ```
 
-Tiny app (routing + state):
+**3. Create `src/main.tsx`**
 
 ```ts
-import { createSPA, getRoutes, Link, navigate, route, state } from '@askrjs/askr';
+import { createSPA, getRoutes, Link, route, state } from '@askrjs/askr';
 
 function Home() {
   const count = state(0);
   return (
-    <div>
+    <div style="padding:12px">
       <h1>Home</h1>
       <p>Count: {count()}</p>
       <button onClick={() => count.set(prev => prev + 1)}>Increment</button>
-      <p>
-        <Link href="/users/42">User 42</Link>
-      </p>
+      <p><Link href="/users/42">User 42</Link></p>
     </div>
   );
 }
-
-```
-
-**Tip:** Prefer functional updates when updating based on previous state: `count.set(prev => prev + 1)`.
-
-```ts
 
 function User({ id }: { id: string }) {
   return (
-    <div>
+    <div style="padding:12px">
       <h1>User {id}</h1>
-      <Link href="/">Back</Link>
+      <Link href="/">← Back</Link>
     </div>
   );
 }
 
-// Register routes at module-load time
 route('/', () => <Home />);
 route('/users/{id}', ({ id }) => <User id={id} />);
 
-// App root component — render `Home` by default; registered routes will take over on navigation
-function App() {
-  // Default page when app loads
-  return <Home />;
-}
-
-// Create the app. Click the "User 42" link above to navigate to `/users/42`.
 createSPA({ root: 'app', routes: getRoutes() });
 ```
 
-Note: `root` is an element id string (or an `Element`).
+**4. Create `index.html`**
+
+```html
+<!doctype html>
+<html>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>
+```
+
+**5. Run with Vite**
+
+```sh
+npx vite
+```
+
+Then install the Askr Vite plugin in `vite.config.ts` if needed (automatically handles JSX):
+
+```ts
+import { defineConfig } from 'vite';
+import { askrVitePlugin } from '@askrjs/askr/vite';
+
+export default defineConfig({
+  plugins: [askrVitePlugin()],
+});
+```
+
+Done. Click links, increment counters, navigate routes. No hidden state, no effects, no lifecycle.
+
+**Key takeaways:**
+
+- Write normal functions and HTML
+- Use `state()` for reactive values; call `set()` to update
+- Use `route()` to register and read routes
+- Platform primitives: cancellation is `AbortSignal`, state is plain functions
 
 ## JSX runtime
 
