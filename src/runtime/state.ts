@@ -227,8 +227,6 @@ function createStateCell<T>(
         // observed the state in their most recent render.
         if (subInst.lastRenderToken !== token) continue;
         if (!subInst.hasPendingUpdate) {
-          // Log enqueue decision for subInst
-
           subInst.hasPendingUpdate = true;
           const subTask = subInst._pendingFlushTask;
           if (subTask) globalScheduler.enqueue(subTask);

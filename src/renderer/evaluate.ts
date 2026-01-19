@@ -398,10 +398,7 @@ function applyPropsToElement(el: Element, props: Props): void {
 
     const eventName = parseEventName(key);
     if (eventName) {
-      const wrappedHandler = createWrappedHandler(
-        value as EventListener,
-        false
-      );
+      const wrappedHandler = createWrappedHandler(value as EventListener, true);
       const options = getPassiveOptions(eventName);
 
       if (options !== undefined)

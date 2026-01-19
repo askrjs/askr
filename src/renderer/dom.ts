@@ -590,10 +590,7 @@ export function updateElementFromVnode(
       }
 
       // Add new handler
-      const wrappedHandler = createWrappedHandler(
-        value as EventListener,
-        false
-      );
+      const wrappedHandler = createWrappedHandler(value as EventListener, true);
       const options = getPassiveOptions(eventName);
 
       if (options !== undefined) {
