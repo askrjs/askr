@@ -445,7 +445,17 @@ function createFragmentElement(
 
 /**
  * Create DOM from For boundary - evaluates list and renders items
+ *
+ * CRITICAL INVARIANT: Final DOM order is derived exclusively from current vnode tree.
+ * Never cache DOM reuse based on vnode identity alone — vnodes are mutable.
+ * Always rebuild the DOM tree via fragment to guarantee correct order.
  */
+function checkVNodeShapeChanged(a: VNode, b: VNode): boolean {
+  if (!_isDOMElement(a) || !_isDOMElement(b)) return true;
+  // Shape changed if type differs; props/text handled by updateElementFromVnode
+  return (a as DOMElement).type !== (b as DOMElement).type;
+}
+
 function createForBoundary(
   node: DOMElement,
   props: Record<string, unknown>
@@ -465,6 +475,7 @@ function createForBoundary(
   const childrenVNodes = evaluateForState(forState, source);
 
   // Rebuild items from vnodes, caching DOM where possible
+  // INVARIANT: Only reuse DOM if shape hasn't changed (not based on vnode identity)
   const cachedNodes: (Node | null)[] = [];
   let hasChanges = false;
 
@@ -473,11 +484,14 @@ function createForBoundary(
     const key = (childVNode as DOMElement).key;
     let dom: Node | null = null;
 
-    // Try to reuse existing DOM if we have it cached AND the vnode hasn't changed
+    // Try to reuse existing DOM if shape hasn't changed
     if (key !== undefined && key !== null && forState.items.has(key)) {
       const itemInstance = forState.items.get(key)!;
-      if (itemInstance._dom && itemInstance.vnode === childVNode) {
-        // Reuse cached DOM - vnode identity means no changes
+      if (
+        itemInstance._dom &&
+        !checkVNodeShapeChanged(itemInstance.vnode, childVNode)
+      ) {
+        // DOM can be reused: shape is stable
         dom = itemInstance._dom;
       }
     }
@@ -486,6 +500,7 @@ function createForBoundary(
     if (!dom) {
       dom = createDOMNode(childVNode);
       hasChanges = true;
+
       // Cache the DOM in the item instance for future reuse
       if (key !== undefined && key !== null && forState.items.has(key)) {
         forState.items.get(key)!._dom = dom ?? undefined;
@@ -500,17 +515,46 @@ function createForBoundary(
     hasChanges = true;
   }
 
-  // If nothing changed and all items are reused from cache, return empty fragment
-  // This avoids re-appending all nodes when nothing changed
-  if (!hasChanges) {
-    return document.createDocumentFragment();
+  // Build fragment with items (always rebuild order via fragment)
+  // INVARIANT: Final DOM order must be derived exclusively from vnode tree
+  // Only append nodes that need to be moved to ensure correct final order
+  const fragment = document.createDocumentFragment();
+
+  for (let i = 0; i < childrenVNodes.length; i++) {
+    const childVNode = childrenVNodes[i];
+    const key = (childVNode as DOMElement).key;
+    const dom = cachedNodes[i];
+
+    if (dom) {
+      // If reusing cached DOM, update its content first
+      if (key !== undefined && key !== null && forState.items.has(key)) {
+        const itemInstance = forState.items.get(key)!;
+        if (itemInstance._dom === dom) {
+          // Update cached DOM from current vnode
+          updateElementFromVnode(dom as DOMElement, childVNode, true);
+        }
+      }
+
+      // Append to fragment to rebuild correct order
+      // appendChild on already-attached nodes moves them (DOM spec)
+      // This only works safely during initial construction, not mid-update
+      try {
+        fragment.appendChild(dom);
+      } catch {
+        // If appendChild fails (node already being updated elsewhere),
+        // fall back to creating new DOM instead of moving
+        const newDom = createDOMNode(childVNode);
+        if (newDom) {
+          fragment.appendChild(newDom);
+          // Update the cached reference since we created new DOM
+          if (key !== undefined && key !== null && forState.items.has(key)) {
+            forState.items.get(key)!._dom = newDom ?? undefined;
+          }
+        }
+      }
+    }
   }
 
-  // Build fragment with items (either new, changed, or reordered)
-  const fragment = document.createDocumentFragment();
-  for (const dom of cachedNodes) {
-    if (dom) fragment.appendChild(dom);
-  }
   return fragment;
 }
 
