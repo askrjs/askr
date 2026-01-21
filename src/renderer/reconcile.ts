@@ -1,3 +1,88 @@
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * RENDERER & RECONCILIATION INVARIANTS (LOCKED)
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * These invariants are NON-NEGOTIABLE. Any optimization or fast-path MUST
+ * preserve them. Violations WILL produce incorrect DOM.
+ *
+ * 1. DOM ORDER DERIVES ONLY FROM CURRENT VNODE ORDER
+ * --------------------------------------------------
+ * - Final DOM child order MUST be reconstructed from the current vnode list.
+ * - Reusing an existing DOM node does NOT imply it stays in the same position.
+ * - Appending an existing Node to a DocumentFragment is the ONLY valid way
+ *   to express reordering (it moves the node).
+ *
+ * ❌ NEVER skip fragment insertion because a node already has a parent.
+ * ✅ ALWAYS append reused nodes into the fragment to establish order.
+ *
+ *
+ * 2. VNODE IDENTITY ≠ VNODE STABILITY
+ * ----------------------------------
+ * - VNodes are mutable.
+ * - `vnodeA === vnodeB` does NOT imply semantic equality.
+ * - DOM reuse MUST NOT be gated on vnode identity alone.
+ *
+ * DOM reuse is allowed ONLY when:
+ *   - element type is unchanged
+ *   - structural shape is compatible
+ *   - updates are applied explicitly via updateElementFromVnode
+ *
+ * ❌ NEVER assume "same object" means "no changes".
+ *
+ *
+ * 3. KEYED RECONCILIATION IS ELEMENT-ONLY
+ * --------------------------------------
+ * - Keyed reconciliation assumes ELEMENT nodes, not Text or Comment nodes.
+ * - Any fast-path using `parent.children[i]` MUST prove:
+ *     - all children are elements
+ *     - no text nodes are present
+ *
+ * ❌ NEVER index `parent.children` when text nodes may exist.
+ * ✅ Use `parent.childNodes` or bail out to full reconciliation.
+ *
+ *
+ * 4. PRIMITIVES MAP TO TEXT NODES
+ * -------------------------------
+ * - string/number children represent Text nodes, not Elements.
+ * - Reconciliation MUST attempt Text-to-Text reuse before replacement.
+ *
+ * ❌ NEVER update element.textContent as a substitute for text reconciliation
+ *    unless the shape is explicitly guaranteed.
+ *
+ *
+ * 5. FAST-PATHS MUST BE STRICTLY SAFE
+ * ----------------------------------
+ * - Fast-paths are OPTIONAL.
+ * - Correctness always beats performance.
+ *
+ * A fast-path MUST:
+ *   - prove its eligibility
+ *   - fall back cleanly on ANY ambiguity
+ *   - never partially apply
+ *
+ *
+ * 6. CLEANUP IS POSITION-INDEPENDENT
+ * ---------------------------------
+ * - Cleanup is based on removal from the DOM, not vnode position.
+ * - Any node removed or replaced MUST:
+ *     - remove listeners
+ *     - cleanup component instances
+ *
+ *
+ * 7. FOR-BOUNDARY & KEYED LISTS OBEY THE SAME RULES
+ * ------------------------------------------------
+ * - For-boundaries are NOT special in ordering semantics.
+ * - Cached DOM nodes MUST still be reordered via fragment insertion.
+ * - Cache is an optimization, not an ownership claim.
+ *
+ *
+ * If you are unsure whether an optimization preserves these invariants:
+ * DO NOT APPLY IT.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import type { VNode } from './types';
 import {
   createDOMNode,
