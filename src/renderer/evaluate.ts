@@ -323,7 +323,7 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
     return;
   }
 
-  // Handle For boundary as a special single-child case
+  // Handle For boundary as a special single-child case (non-array)
   if (
     !Array.isArray(vnodeChildren) &&
     _isDOMElement(vnodeChildren) &&
@@ -338,6 +338,17 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
     const dom = createDOMNode(vnodeChildren);
     if (dom) element.appendChild(dom);
     keyedElements.delete(element);
+    return;
+  }
+
+  // Handle For boundary wrapped in a single-element array [forVnode]
+  // This is common when JSX transpiles children as arrays
+  if (
+    vnodeChildren.length === 1 &&
+    _isDOMElement(vnodeChildren[0]) &&
+    (vnodeChildren[0] as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    updateForBoundaryChildren(element, vnodeChildren[0] as DOMElement);
     return;
   }
 
