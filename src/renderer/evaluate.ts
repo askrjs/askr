@@ -5,6 +5,8 @@ import { elementListeners, removeAllListeners } from './cleanup';
 import { keyedElements } from './keyed';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
+import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { evaluateForState } from '../runtime/for';
 import {
   createDOMNode,
   updateElementFromVnode,
@@ -276,12 +278,58 @@ function reconcileUnkeyed(parent: Element, children: VNode[]): void {
 }
 
 /**
- * Update element children (handles keyed, unkeyed, and non-array cases)
+ * Update element children from a For boundary vnode
+ * Evaluates the For and reconciles the keyed children with existing DOM
+ */
+function updateForBoundaryChildren(
+  element: Element,
+  forVnode: DOMElement
+): void {
+  const forState = forVnode._forState;
+  if (!forState) return;
+
+  const source = (forVnode.props || {}).source as unknown as
+    | import('../runtime/state').State<unknown[]>
+    | (() => unknown[]);
+  const childrenVNodes = evaluateForState(forState, source);
+
+  // Reconcile keyed children from For evaluation with existing DOM
+  if (childrenVNodes.length > 0) {
+    const oldKeyMap = getOrBuildKeyMap(element);
+    try {
+      reconcileKeyed(element, childrenVNodes as VNode[], oldKeyMap);
+    } catch {
+      // Fall back on error
+      const newKeyMap = reconcileKeyedChildren(
+        element,
+        childrenVNodes as VNode[],
+        oldKeyMap
+      );
+      keyedElements.set(element, newKeyMap);
+    }
+  } else {
+    element.textContent = '';
+    keyedElements.delete(element);
+  }
+}
+
+/**
+ * Update element children (handles keyed, unkeyed, For boundaries, and non-array cases)
  */
 function updateElementChildren(element: Element, vnodeChildren: unknown): void {
   if (!vnodeChildren) {
     element.textContent = '';
     keyedElements.delete(element);
+    return;
+  }
+
+  // Handle For boundary as a special single-child case
+  if (
+    !Array.isArray(vnodeChildren) &&
+    _isDOMElement(vnodeChildren) &&
+    (vnodeChildren as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    updateForBoundaryChildren(element, vnodeChildren as DOMElement);
     return;
   }
 
@@ -317,6 +365,19 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
  */
 function smartUpdateElement(element: Element, vnode: DOMElement): void {
   let vnodeChildren = vnode.children || vnode.props?.children;
+
+  // CRITICAL: For boundary vnodes must NOT be wrapped into an array
+  // They need special handling in updateElementChildren to call updateForBoundaryChildren
+  if (
+    vnodeChildren &&
+    _isDOMElement(vnodeChildren) &&
+    (vnodeChildren as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    // Pass For boundary directly without wrapping
+    updateElementChildren(element, vnodeChildren);
+    updateElementFromVnode(element, vnode, false);
+    return;
+  }
 
   // Normalize: if children is a single vnode (not an array), wrap it
   if (vnodeChildren && !Array.isArray(vnodeChildren)) {

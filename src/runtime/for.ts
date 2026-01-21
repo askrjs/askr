@@ -380,6 +380,7 @@ export function reconcileForItems<T>(
           existing.vnode = forState.renderFn(item, () =>
             existing.indexSignal()
           );
+
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
         }
 
@@ -519,9 +520,10 @@ export function reconcileForItems<T>(
           const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
           recordBenchEvent('rowFactory');
-          existing.vnode = forState.renderFn(item, () =>
+          const newVNode = forState.renderFn(item, () =>
             existing.indexSignal()
           );
+          existing.vnode = newVNode;
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
         }
 

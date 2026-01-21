@@ -59,7 +59,9 @@ export function reconcileKeyedChildren(
     unkeyedVnodes,
     ensuredOldKeyMap
   );
-  if (fastPathResult) return fastPathResult;
+  if (fastPathResult) {
+    return fastPathResult;
+  }
 
   // Full reconciliation
   return performFullReconciliation(
@@ -126,11 +128,15 @@ function tryFastPaths(
       unkeyedVnodes,
       oldKeyMap
     );
-    if (rendererResult) return rendererResult;
+    if (rendererResult) {
+      return rendererResult;
+    }
 
     // Try positional bulk update for medium-sized lists
     const positionalResult = tryPositionalBulkUpdate(parent, keyedVnodes);
-    if (positionalResult) return positionalResult;
+    if (positionalResult) {
+      return positionalResult;
+    }
   } catch {
     // Fall through to full reconciliation
   }
@@ -183,13 +189,23 @@ function tryPositionalBulkUpdate(
   const total = keyedVnodes.length;
   if (total < 10) return null;
 
+  // CRITICAL INVARIANT: Only use children[] indexing if element-only is guaranteed
+  // If parent has text nodes or comment nodes, bail to full reconciliation
+  if (parent.children.length !== total) {
+    return null;
+  }
+
   const matchCount = countPositionalMatches(parent, keyedVnodes);
 
   // Require high positional match fraction
-  if (matchCount / total < 0.9) return null;
+  if (matchCount / total < 0.9) {
+    return null;
+  }
 
   // Check for prop changes that would prevent positional update
-  if (hasPositionalPropChanges(parent, keyedVnodes)) return null;
+  if (hasPositionalPropChanges(parent, keyedVnodes)) {
+    return null;
+  }
 
   // Perform positional update
   try {
@@ -211,6 +227,7 @@ function countPositionalMatches(
   let matchCount = 0;
 
   try {
+    // For keyed children, use children (elements only) since keyed nodes are elements
     for (let i = 0; i < keyedVnodes.length; i++) {
       const vnode = keyedVnodes[i].vnode as VnodeObj;
       if (!vnode || typeof vnode !== 'object' || typeof vnode.type !== 'string')
@@ -236,6 +253,7 @@ function hasPositionalPropChanges(
   keyedVnodes: Array<{ key: string | number; vnode: VNode }>
 ): boolean {
   try {
+    // For keyed children, use children (elements only) since keyed nodes are elements
     for (let i = 0; i < keyedVnodes.length; i++) {
       const vnode = keyedVnodes[i].vnode as VnodeObj;
       const el = parent.children[i] as Element | undefined;
@@ -441,24 +459,26 @@ function reconcileUnkeyedChild(
   usedOldEls: WeakSet<Node>
 ): Node | null {
   try {
-    const existing = parent.children[index] as Element | undefined;
+    // Use childNodes (includes Text nodes) instead of children (elements only)
+    const existing = parent.childNodes[index] as Node | undefined;
 
-    // Primitive child with existing element
-    if (
-      existing &&
-      (typeof child === 'string' || typeof child === 'number') &&
-      existing.nodeType === 1
-    ) {
-      existing.textContent = String(child);
-      usedOldEls.add(existing);
-      return existing;
+    // Primitive child: try to reuse Text node if available
+    if (typeof child === 'string' || typeof child === 'number') {
+      if (existing && existing.nodeType === 3) {
+        // Text node: reuse in-place
+        (existing as Text).data = String(child);
+        usedOldEls.add(existing);
+        return existing;
+      }
+      // For primitives, we create a Text node (not reuse element slot)
+      // Fall through to create new Text node below
     }
 
     // Element child matching existing unkeyed element
-    if (canReuseElement(existing, child)) {
-      updateElementFromVnode(existing!, child);
-      usedOldEls.add(existing!);
-      return existing!;
+    if (existing instanceof Element && canReuseElement(existing, child)) {
+      updateElementFromVnode(existing, child);
+      usedOldEls.add(existing);
+      return existing;
     }
 
     // Try to find available unkeyed element elsewhere
