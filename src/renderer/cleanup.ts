@@ -132,6 +132,26 @@ export const elementListeners = new WeakMap<
   Map<string, ListenerMapEntry>
 >();
 
+// Track reactive props cleanup functions
+export const elementReactivePropsCleanup = new WeakMap<
+  Element,
+  Map<string, () => void>
+>();
+
+export function removeElementReactiveProps(element: Element): void {
+  const cleanupMap = elementReactivePropsCleanup.get(element);
+  if (cleanupMap) {
+    for (const cleanup of cleanupMap.values()) {
+      try {
+        cleanup();
+      } catch (err) {
+        logger.warn('[Askr] reactive prop cleanup failed:', err);
+      }
+    }
+    elementReactivePropsCleanup.delete(element);
+  }
+}
+
 export function removeElementListeners(element: Element): void {
   const map = elementListeners.get(element);
   if (map) {
@@ -150,7 +170,11 @@ export function removeAllListeners(root: Element | null): void {
 
   // Remove listeners from root
   removeElementListeners(root);
+  removeElementReactiveProps(root);
 
   // Recursively remove from all children
-  forEachDescendantElement(root, removeElementListeners);
+  forEachDescendantElement(root, (el) => {
+    removeElementListeners(el);
+    removeElementReactiveProps(el);
+  });
 }

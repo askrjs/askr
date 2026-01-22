@@ -644,6 +644,8 @@ function commitReconciliation(parent: Element, finalNodes: Node[]): void {
   }
 
   // Cleanup existing nodes
+  // NOTE: At this point, any reused nodes have been moved into the fragment,
+  // so whatever remains under parent will be removed by replaceChildren.
   try {
     // HOT PATH: avoid Array.from(parent.childNodes) allocation
     for (let n = parent.firstChild; n; ) {
