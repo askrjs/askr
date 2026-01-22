@@ -33,6 +33,7 @@ import {
   getPassiveOptions,
   createWrappedHandler,
   isSkippedProp,
+  hasNonTrivialProps,
   now,
   recordDOMReplace,
   recordFastPathStats,
@@ -1257,12 +1258,18 @@ function updateTextContent(
 ): void {
   if (typeof children === 'string' || typeof children === 'number') {
     setTextNodeData(el, String(children));
+    if (vnode.props && hasNonTrivialProps(vnode.props)) {
+      updateElementFromVnode(el, vnode, false);
+    }
   } else if (
     Array.isArray(children) &&
     children.length === 1 &&
     (typeof children[0] === 'string' || typeof children[0] === 'number')
   ) {
     setTextNodeData(el, String(children[0]));
+    if (vnode.props && hasNonTrivialProps(vnode.props)) {
+      updateElementFromVnode(el, vnode, false);
+    }
   } else {
     // For more complex child shapes, try a small specialized text update before
     // falling back to a real vnode-driven update.
