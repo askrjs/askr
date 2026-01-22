@@ -282,9 +282,24 @@ function tryPositionalBulkUpdate(
 
   const matchCount = countPositionalMatches(parent, keyedVnodes);
 
-  // Require high positional match fraction
-  if (matchCount / total < 0.9) {
-    return null;
+  // For keyed lists, the positional bulk update path makes sense in two cases:
+  // 1. Perfect match (100%): All keys are in the right positions, just update text
+  // 2. Very low match (<10%): Keys changed en-masse, treat as bulk re-key, reuse nodes by position
+  // ANY mismatch at all means we have a reorder and need full reconciliation
+  // to preserve DOM node identity correctly.
+  const matchFraction = matchCount / total;
+
+  if (keyedVnodes.length > 0) {
+    // For keyed lists: require perfect match or very low match
+    // matchCount !== total catches ANY reordering, even just 2 swapped elements
+    if (matchCount !== total && matchFraction >= 0.1) {
+      return null;
+    }
+  } else {
+    // For unkeyed lists: use original threshold
+    if (matchFraction < 0.9) {
+      return null;
+    }
   }
 
   // Check for prop changes that would prevent positional update
@@ -315,14 +330,27 @@ function countPositionalMatches(
     // For keyed children, use children (elements only) since keyed nodes are elements
     for (let i = 0; i < keyedVnodes.length; i++) {
       const vnode = keyedVnodes[i].vnode as VnodeObj;
+      const expectedKey = keyedVnodes[i].key;
+
       if (!vnode || typeof vnode !== 'object' || typeof vnode.type !== 'string')
         continue;
 
       const el = parent.children[i] as Element | undefined;
       if (!el) continue;
 
+      // For keyed lists, check BOTH tag name AND key match
       if (tagNamesEqualIgnoreCase(el.tagName, vnode.type)) {
-        matchCount++;
+        // Check if the element at this position has the expected key
+        const actualKey = el.getAttribute('data-key');
+        const keyMatches =
+          actualKey === String(expectedKey) ||
+          (actualKey !== null &&
+            !Number.isNaN(Number(actualKey)) &&
+            Number(actualKey) === expectedKey);
+
+        if (keyMatches) {
+          matchCount++;
+        }
       }
     }
   } catch {
@@ -488,6 +516,7 @@ function reconcileSingleChild(
 ): Node | null {
   // Keyed child
   const key = extractKey(child);
+
   if (key !== undefined) {
     return reconcileKeyedChild(child, key, parent, resolveOldElOnce, newKeyMap);
   }
@@ -644,6 +673,8 @@ function commitReconciliation(parent: Element, finalNodes: Node[]): void {
   }
 
   // Cleanup existing nodes
+  // NOTE: At this point, any reused nodes have been moved into the fragment,
+  // so whatever remains under parent will be removed by replaceChildren.
   try {
     // HOT PATH: avoid Array.from(parent.childNodes) allocation
     for (let n = parent.firstChild; n; ) {
