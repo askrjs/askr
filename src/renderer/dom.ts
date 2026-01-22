@@ -128,6 +128,7 @@ function ensureReactivePropCoordinator(): ComponentInstance {
       lastRenderToken: 0,
       hasPendingUpdate: false,
       notifyUpdate: null,
+      abortController: new AbortController(),
     } as ComponentInstance;
 
     // Batch update function - updates all dirty props in one pass
@@ -272,8 +273,8 @@ function setupReactiveProp(
     // Remove from registry
     reactivePropRegistry.delete(descriptor);
 
-    // Clean up state subscriptions if this was the last reactive prop
-    if (reactivePropRegistry.size === 0 && reactivePropCoordinator) {
+    // Always clean up state subscriptions for this descriptor immediately
+    if (reactivePropCoordinator) {
       for (const state of descriptor.readStates) {
         if (state._readers) {
           state._readers.delete(reactivePropCoordinator);
@@ -282,6 +283,12 @@ function setupReactiveProp(
     }
 
     descriptor.readStates.clear();
+
+    // If this was the last reactive prop, abort the coordinator
+    if (reactivePropRegistry.size === 0 && reactivePropCoordinator) {
+      reactivePropCoordinator.abortController.abort();
+      reactivePropCoordinator = null;
+    }
   };
 }
 
@@ -346,11 +353,14 @@ function applyPropsToElement(
         tagName
       );
 
-      // Store cleanup function
+      // Store cleanup function and function reference
       if (!elementReactivePropsCleanup.has(el)) {
         elementReactivePropsCleanup.set(el, new Map());
       }
-      elementReactivePropsCleanup.get(el)!.set(key, cleanup);
+      elementReactivePropsCleanup.get(el)!.set(key, {
+        cleanup,
+        fnRef: value as () => unknown,
+      });
       continue;
     }
 
@@ -831,11 +841,17 @@ export function updateElementFromVnode(
     // Handle reactive props (functions)
     if (typeof value === 'function' && !eventName && key !== 'ref') {
       const existingReactiveProps = elementReactivePropsCleanup.get(el);
-      const existingCleanup = existingReactiveProps?.get(key);
+      const existingEntry = existingReactiveProps?.get(key);
+
+      // Only cleanup and re-setup if function reference changed (Issue 1 fix)
+      if (existingEntry && existingEntry.fnRef === value) {
+        // Same function reference, no need to re-setup
+        continue;
+      }
 
       // If function reference changed, cleanup old and setup new
-      if (existingCleanup) {
-        existingCleanup();
+      if (existingEntry) {
+        existingEntry.cleanup();
       }
 
       const cleanup = setupReactiveProp(
@@ -848,7 +864,10 @@ export function updateElementFromVnode(
       if (!elementReactivePropsCleanup.has(el)) {
         elementReactivePropsCleanup.set(el, new Map());
       }
-      elementReactivePropsCleanup.get(el)!.set(key, cleanup);
+      elementReactivePropsCleanup.get(el)!.set(key, {
+        cleanup,
+        fnRef: value as () => unknown,
+      });
       continue;
     }
 
