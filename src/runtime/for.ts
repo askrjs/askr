@@ -17,6 +17,8 @@ import {
 } from './component';
 import type { VNode } from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
+import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
+import type { Props } from '../common/props';
 
 const askrGlobal = globalThis as typeof globalThis & {
   __ASKR_CURRENT_INSTANCE__?: unknown;
@@ -192,6 +194,40 @@ const defaultKeyFn = <T>(item: T, index: number): string | number | null => {
   return index;
 };
 
+/**
+ * Evaluate JSXElement to VNode
+ *
+ * When a For render function returns a JSXElement (from JSX syntax like <Row .../>),
+ * we need to evaluate it by calling the component function to get the actual vnode.
+ * This handles the common case of returning a component from For's render function.
+ */
+function evaluateJSXElement(value: unknown): VNode {
+  // Check if this is a JSXElement (has $$typeof marker)
+  if (
+    value &&
+    typeof value === 'object' &&
+    '$$typeof' in value &&
+    (value as JSXElement).$$typeof === ELEMENT_TYPE
+  ) {
+    const jsxEl = value as JSXElement;
+
+    // If the type is a function (component), call it to get the vnode
+    if (typeof jsxEl.type === 'function') {
+      const componentFn = jsxEl.type as (props: Props) => unknown;
+      const result = componentFn(jsxEl.props || {});
+      // Recursively evaluate in case the component returns another JSXElement
+      return evaluateJSXElement(result);
+    }
+
+    // For intrinsic elements (string type) or symbols, return as-is
+    // The renderer will handle these
+    return jsxEl as VNode;
+  }
+
+  // Not a JSXElement, return as-is
+  return value as VNode;
+}
+
 export function createForState<T>(
   source: State<T[]> | (() => T[]),
   renderFn: (item: T, index: () => number) => VNode,
@@ -266,7 +302,9 @@ export function createItemInstance<T>(
   itemComponent._pendingReadStates = new Set();
 
   recordBenchEvent('rowFactory');
-  const vnode = forState.renderFn(item, () => indexSignal());
+  const vnode = evaluateJSXElement(
+    forState.renderFn(item, () => indexSignal())
+  );
 
   // Commit initial subscriptions so nested state changes will notify this
   // instance's pending task appropriately.
@@ -313,7 +351,9 @@ export function createItemInstance<T>(
 
     // Safely re-render into vnode slot for this item
     try {
-      const newVnode = forState.renderFn(item, () => indexSignal());
+      const newVnode = evaluateJSXElement(
+        forState.renderFn(item, () => indexSignal())
+      );
       // Update the stored vnode directly in captured instance
       itemInstance.vnode = newVnode;
       // Commit read subscriptions for this re-render
@@ -377,8 +417,8 @@ export function reconcileForItems<T>(
           const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
           recordBenchEvent('rowFactory');
-          existing.vnode = forState.renderFn(item, () =>
-            existing.indexSignal()
+          existing.vnode = evaluateJSXElement(
+            forState.renderFn(item, () => existing.indexSignal())
           );
 
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
@@ -442,8 +482,8 @@ export function reconcileForItems<T>(
           const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
           recordBenchEvent('rowFactory');
-          existing.vnode = forState.renderFn(item, () =>
-            existing.indexSignal()
+          existing.vnode = evaluateJSXElement(
+            forState.renderFn(item, () => existing.indexSignal())
           );
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
         }
@@ -520,8 +560,8 @@ export function reconcileForItems<T>(
           const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
           recordBenchEvent('rowFactory');
-          const newVNode = forState.renderFn(item, () =>
-            existing.indexSignal()
+          const newVNode = evaluateJSXElement(
+            forState.renderFn(item, () => existing.indexSignal())
           );
           existing.vnode = newVNode;
           askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
@@ -583,7 +623,9 @@ export function reconcileForItems<T>(
         askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
 
         recordBenchEvent('rowFactory');
-        existing.vnode = forState.renderFn(item, () => existing.indexSignal());
+        existing.vnode = evaluateJSXElement(
+          forState.renderFn(item, () => existing.indexSignal())
+        );
 
         askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
       }
