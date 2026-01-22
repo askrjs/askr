@@ -12,21 +12,22 @@ import {
   renderComponentInline,
   mountInstanceInline,
   getCurrentInstance,
-} from '../runtime/component';
-import type {
-  ComponentInstance,
-  ComponentFunction,
+  setCurrentComponentInstance as _setCurrentInstance,
+  type ComponentInstance,
+  type ComponentFunction,
 } from '../runtime/component';
 import {
   cleanupInstanceIfPresent,
   elementListeners,
   removeAllListeners,
+  elementReactivePropsCleanup,
 } from './cleanup';
 import { __ASKR_set, __ASKR_incCounter } from './diag';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
 import { evaluateForState } from '../runtime/for';
 import { keyedElements } from './keyed';
+import { reconcileKeyedChildren } from './reconcile';
 import {
   parseEventName,
   getPassiveOptions,
@@ -37,6 +38,8 @@ import {
   recordFastPathStats,
   logFastPathDebug,
 } from './utils';
+import type { State } from '../runtime/state';
+import { globalScheduler } from '../runtime/scheduler';
 
 type ElementWithContext = DOMElement & {
   [CONTEXT_FRAME_SYMBOL]?: ContextFrame;
@@ -95,6 +98,227 @@ function addTrackedListener(
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Reactive Prop Management - Batching Coordinator
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ReactivePropDescriptor {
+  el: Element;
+  propName: string;
+  propFn: () => unknown;
+  tagName: string;
+  readStates: Set<State<unknown>>;
+  isActive: boolean;
+}
+
+// Global registry of all reactive props
+const reactivePropRegistry = new Set<ReactivePropDescriptor>();
+
+// Single pseudo-component for coordinating all reactive prop updates
+let reactivePropCoordinator: ComponentInstance | null = null;
+let hasPendingBatchUpdate = false;
+
+/**
+ * Initialize the reactive prop coordinator (lazy)
+ */
+function ensureReactivePropCoordinator(): ComponentInstance {
+  if (!reactivePropCoordinator) {
+    reactivePropCoordinator = {
+      id: 'reactive-props-coordinator',
+      lastRenderToken: 0,
+      hasPendingUpdate: false,
+      notifyUpdate: null,
+      abortController: new AbortController(),
+    } as ComponentInstance;
+
+    // Batch update function - updates all dirty props in one pass
+    const batchUpdate = () => {
+      if (!hasPendingBatchUpdate) return;
+      hasPendingBatchUpdate = false;
+
+      const prevInstance = getCurrentInstance();
+
+      try {
+        // Update all active reactive props synchronously
+        for (const descriptor of reactivePropRegistry) {
+          if (!descriptor.isActive) continue;
+
+          // Clear old subscriptions
+          for (const state of descriptor.readStates) {
+            if (state._readers) {
+              state._readers.delete(reactivePropCoordinator!);
+            }
+          }
+          descriptor.readStates.clear();
+
+          // Track what states this prop reads
+          const tempReadStates = new Set<State<unknown>>();
+          const trackingContext: Partial<ComponentInstance> = {
+            _pendingReadStates: tempReadStates,
+            _currentRenderToken: reactivePropCoordinator!.lastRenderToken,
+          } as ComponentInstance;
+
+          _setCurrentInstance(trackingContext);
+
+          try {
+            // Execute prop function and update DOM
+            const value = descriptor.propFn();
+            applyPropValue(
+              descriptor.el,
+              descriptor.propName,
+              value,
+              descriptor.tagName
+            );
+
+            // Register new subscriptions
+            descriptor.readStates = tempReadStates;
+          } catch (err) {
+            if (process.env.NODE_ENV !== 'production') {
+              logger.warn('[Askr] Reactive prop update failed:', err);
+            }
+          }
+        }
+
+        // Increment token after successful batch update
+        reactivePropCoordinator!.lastRenderToken++;
+
+        // Re-register coordinator with all states
+        for (const descriptor of reactivePropRegistry) {
+          if (!descriptor.isActive) continue;
+          for (const state of descriptor.readStates) {
+            if (!state._readers) {
+              (
+                state as { _readers?: Map<ComponentInstance, number> }
+              )._readers = new Map();
+            }
+            state._readers.set(
+              reactivePropCoordinator!,
+              reactivePropCoordinator!.lastRenderToken
+            );
+          }
+        }
+      } finally {
+        _setCurrentInstance(prevInstance);
+      }
+    };
+
+    reactivePropCoordinator.notifyUpdate = () => {
+      if (hasPendingBatchUpdate) return; // Already scheduled
+      hasPendingBatchUpdate = true;
+      globalScheduler.enqueue(batchUpdate);
+    };
+
+    reactivePropCoordinator._pendingFlushTask = () => {
+      reactivePropCoordinator!.hasPendingUpdate = false;
+      reactivePropCoordinator!.notifyUpdate!();
+    };
+  }
+  return reactivePropCoordinator;
+}
+
+/**
+ * Set up a reactive prop that re-evaluates when its dependencies change
+ * Returns a cleanup function to unsubscribe
+ */
+function setupReactiveProp(
+  el: Element,
+  propName: string,
+  propFn: () => unknown,
+  tagName: string
+): () => void {
+  const coordinator = ensureReactivePropCoordinator();
+
+  const descriptor: ReactivePropDescriptor = {
+    el,
+    propName,
+    propFn,
+    tagName,
+    readStates: new Set(),
+    isActive: true,
+  };
+
+  reactivePropRegistry.add(descriptor);
+
+  // Perform initial evaluation
+  const prevInstance = getCurrentInstance();
+  const tempReadStates = new Set<State<unknown>>();
+  const trackingContext: Partial<ComponentInstance> = {
+    _pendingReadStates: tempReadStates,
+    _currentRenderToken: coordinator.lastRenderToken,
+  } as ComponentInstance;
+
+  _setCurrentInstance(trackingContext);
+
+  try {
+    const value = propFn();
+    applyPropValue(el, propName, value, tagName);
+    descriptor.readStates = tempReadStates;
+
+    // Register coordinator with the states this prop reads
+    for (const state of tempReadStates) {
+      if (!state._readers) {
+        (state as { _readers?: Map<ComponentInstance, number> })._readers =
+          new Map();
+      }
+      state._readers.set(coordinator, coordinator.lastRenderToken);
+    }
+  } finally {
+    _setCurrentInstance(prevInstance);
+  }
+
+  // Return cleanup function
+  return () => {
+    descriptor.isActive = false;
+
+    // Remove from registry
+    reactivePropRegistry.delete(descriptor);
+
+    // Always clean up state subscriptions for this descriptor immediately
+    if (reactivePropCoordinator) {
+      for (const state of descriptor.readStates) {
+        if (state._readers) {
+          state._readers.delete(reactivePropCoordinator);
+        }
+      }
+    }
+
+    descriptor.readStates.clear();
+
+    // If this was the last reactive prop, abort the coordinator
+    if (reactivePropRegistry.size === 0 && reactivePropCoordinator) {
+      reactivePropCoordinator.abortController.abort();
+      reactivePropCoordinator = null;
+    }
+  };
+}
+
+/**
+ * Apply a prop value to an element (helper for reactive props)
+ */
+function applyPropValue(
+  el: Element,
+  key: string,
+  value: unknown,
+  tagName: string
+): void {
+  if (value === undefined || value === null || value === false) {
+    if (key === 'class' || key === 'className') {
+      el.className = '';
+    } else {
+      el.removeAttribute(key);
+    }
+    return;
+  }
+
+  if (key === 'class' || key === 'className') {
+    el.className = String(value);
+  } else if (key === 'value' || key === 'checked') {
+    applyFormControlProp(el, key, value, tagName);
+  } else {
+    el.setAttribute(key, String(value));
+  }
+}
+
 /**
  * Apply attributes and event listeners to an element from props
  */
@@ -116,6 +340,27 @@ function applyPropsToElement(
     const eventName = parseEventName(key);
     if (eventName) {
       addTrackedListener(el, eventName, value as EventListener);
+      continue;
+    }
+
+    // Check if value is a function (reactive prop)
+    if (typeof value === 'function' && !eventName && key !== 'ref') {
+      // Set up reactive prop tracking
+      const cleanup = setupReactiveProp(
+        el,
+        key,
+        value as () => unknown,
+        tagName
+      );
+
+      // Store cleanup function and function reference
+      if (!elementReactivePropsCleanup.has(el)) {
+        elementReactivePropsCleanup.set(el, new Map());
+      }
+      elementReactivePropsCleanup.get(el)!.set(key, {
+        cleanup,
+        fnRef: value as () => unknown,
+      });
       continue;
     }
 
@@ -593,6 +838,39 @@ export function updateElementFromVnode(
       continue;
     }
 
+    // Handle reactive props (functions)
+    if (typeof value === 'function' && !eventName && key !== 'ref') {
+      const existingReactiveProps = elementReactivePropsCleanup.get(el);
+      const existingEntry = existingReactiveProps?.get(key);
+
+      // Only cleanup and re-setup if function reference changed (Issue 1 fix)
+      if (existingEntry && existingEntry.fnRef === value) {
+        // Same function reference, no need to re-setup
+        continue;
+      }
+
+      // If function reference changed, cleanup old and setup new
+      if (existingEntry) {
+        existingEntry.cleanup();
+      }
+
+      const cleanup = setupReactiveProp(
+        el,
+        key,
+        value as () => unknown,
+        vnode.type as string
+      );
+
+      if (!elementReactivePropsCleanup.has(el)) {
+        elementReactivePropsCleanup.set(el, new Map());
+      }
+      elementReactivePropsCleanup.get(el)!.set(key, {
+        cleanup,
+        fnRef: value as () => unknown,
+      });
+      continue;
+    }
+
     if (key === 'class' || key === 'className') {
       el.className = String(value);
     } else if (key === 'value' || key === 'checked') {
@@ -693,6 +971,33 @@ export function updateElementChildren(
     } else {
       el.textContent = String(children);
     }
+    return;
+  }
+
+  // Handle For boundary wrapped in single-element array
+  if (
+    Array.isArray(children) &&
+    children.length === 1 &&
+    _isDOMElement(children[0]) &&
+    (children[0] as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    // Evaluate For boundary and reconcile children
+    const forVnode = children[0] as DOMElement;
+    const forState = forVnode._forState;
+    if (!forState) {
+      throw new Error('[updateElementChildren] For boundary missing _forState');
+    }
+    const source = (forVnode.props || {}).source as unknown as
+      | State<unknown[]>
+      | (() => unknown[]);
+    const childrenVNodes = evaluateForState(forState, source);
+    const oldKeyMap = keyedElements.get(el);
+    const newKeyMap = reconcileKeyedChildren(
+      el,
+      childrenVNodes as VNode[],
+      oldKeyMap || new Map()
+    );
+    keyedElements.set(el, newKeyMap);
     return;
   }
 
