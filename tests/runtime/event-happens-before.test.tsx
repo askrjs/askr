@@ -158,13 +158,11 @@ describe('happens-before events (SPEC 2.3)', () => {
       const button = container.querySelector('button') as HTMLButtonElement;
       fireEvent.click(button);
 
-      // Handler runs synchronously (ASPIRATIONAL - currently render happens here)
-      expect(order).toEqual(['handler-start', 'handler-end']);
+      // Handler runs synchronously and renders are flushed inline
+      // (DOM updates are visible immediately after handler completes)
+      expect(order).toEqual(['handler-start', 'handler-end', 'render']);
 
-      // Render hasn't happened yet (ASPIRATIONAL)
-      expect(button.textContent).toBe('0');
-      // After scheduler flushes, render happens (ASPIRATIONAL)
-      flushScheduler();
+      // After inline flush, DOM is updated synchronously
       expect(button.textContent).toBe('1');
     });
 
