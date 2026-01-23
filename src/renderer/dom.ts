@@ -22,7 +22,7 @@ import {
   removeAllListeners,
   elementReactivePropsCleanup,
 } from './cleanup';
-import { __ASKR_set, __ASKR_incCounter } from './diag';
+import { setDevValue, incDevCounter, getDevValue } from '../runtime/dev-namespace';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
 import { evaluateForState } from '../runtime/for';
@@ -54,12 +54,8 @@ let fallbackComponentInstanceId = 0;
 function nextComponentInstanceId(): string {
   const key = '__COMPONENT_INSTANCE_ID';
   try {
-    __ASKR_incCounter(key);
-    const root = globalThis as unknown as Record<string, unknown> & {
-      __ASKR_DIAG?: Record<string, unknown>;
-    };
-    const diag = root.__ASKR_DIAG;
-    const n = diag ? diag[key] : undefined;
+    incDevCounter(key);
+    const n = getDevValue<number>(key);
     if (typeof n === 'number' && Number.isFinite(n)) return `comp-${n}`;
   } catch {
     // Fall through to local counter
@@ -157,9 +153,9 @@ function ensureReactivePropCoordinator(): ComponentInstance {
           const trackingContext: Partial<ComponentInstance> = {
             _pendingReadStates: tempReadStates,
             _currentRenderToken: reactivePropCoordinator!.lastRenderToken,
-          } as ComponentInstance;
+          } as Partial<ComponentInstance>;
 
-          _setCurrentInstance(trackingContext);
+          _setCurrentInstance(trackingContext as unknown as ComponentInstance);
 
           try {
             // Execute prop function and update DOM
@@ -181,7 +177,9 @@ function ensureReactivePropCoordinator(): ComponentInstance {
         }
 
         // Increment token after successful batch update
-        reactivePropCoordinator!.lastRenderToken++;
+        if (reactivePropCoordinator)
+          reactivePropCoordinator.lastRenderToken =
+            (reactivePropCoordinator.lastRenderToken ?? 0) + 1;
 
         // Re-register coordinator with all states
         for (const descriptor of reactivePropRegistry) {
@@ -192,9 +190,9 @@ function ensureReactivePropCoordinator(): ComponentInstance {
                 state as { _readers?: Map<ComponentInstance, number> }
               )._readers = new Map();
             }
-            state._readers.set(
+            (state._readers as Map<ComponentInstance, number>).set(
               reactivePropCoordinator!,
-              reactivePropCoordinator!.lastRenderToken
+              reactivePropCoordinator!.lastRenderToken ?? 0
             );
           }
         }
@@ -206,7 +204,14 @@ function ensureReactivePropCoordinator(): ComponentInstance {
     reactivePropCoordinator.notifyUpdate = () => {
       if (hasPendingBatchUpdate) return; // Already scheduled
       hasPendingBatchUpdate = true;
-      globalScheduler.enqueue(batchUpdate);
+      // If we're inside a scheduler flush, run the batch update inline immediately
+      // so that DOM updates are visible synchronously to event handlers.
+      // Otherwise enqueue for the next flush.
+      if (globalScheduler.isExecuting()) {
+        batchUpdate();
+      } else {
+        globalScheduler.enqueue(batchUpdate);
+      }
     };
 
     reactivePropCoordinator._pendingFlushTask = () => {
@@ -246,9 +251,9 @@ function setupReactiveProp(
   const trackingContext: Partial<ComponentInstance> = {
     _pendingReadStates: tempReadStates,
     _currentRenderToken: coordinator.lastRenderToken,
-  } as ComponentInstance;
+  } as Partial<ComponentInstance>;
 
-  _setCurrentInstance(trackingContext);
+  _setCurrentInstance(trackingContext as unknown as ComponentInstance);
 
   try {
     const value = propFn();
@@ -261,7 +266,10 @@ function setupReactiveProp(
         (state as { _readers?: Map<ComponentInstance, number> })._readers =
           new Map();
       }
-      state._readers.set(coordinator, coordinator.lastRenderToken);
+      (state._readers as Map<ComponentInstance, number>).set(
+        coordinator,
+        coordinator.lastRenderToken ?? 0
+      );
     }
   } finally {
     _setCurrentInstance(prevInstance);
@@ -643,6 +651,9 @@ function createComponentElement(
 
   if (dom instanceof Element) {
     mountInstanceInline(childInstance, dom);
+    // Materialize key from component vnode onto the root element
+    // This ensures keyed reconciliation works for lists of components
+    materializeKey(dom, node, props);
     return dom;
   }
 
@@ -663,6 +674,8 @@ function createComponentElement(
   const host = document.createElement('div');
   host.appendChild(dom);
   mountInstanceInline(childInstance, host);
+  // Materialize key from component vnode onto the wrapper element
+  materializeKey(host, node, props);
   return host;
 }
 
@@ -1581,10 +1594,10 @@ function recordBulkTextStats(stats: {
   tCommit: number;
 }): void {
   try {
-    __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
-    __ASKR_set('__LAST_FASTPATH_STATS', stats);
-    __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
-    __ASKR_incCounter('bulkTextFastpathHits');
+    setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
+    setDevValue('__LAST_FASTPATH_STATS', stats);
+    setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
+    incDevCounter('bulkTextFastpathHits');
   } catch {
     // Ignore stats errors
   }
@@ -1703,7 +1716,7 @@ function recordBulkDiag(data: Record<string, unknown>): void {
     process.env.ASKR_FASTPATH_DEBUG === '1'
   ) {
     try {
-      __ASKR_set('__BULK_DIAG', data);
+      setDevValue('__BULK_DIAG', data);
     } catch {
       // Ignore
     }

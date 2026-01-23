@@ -7,7 +7,7 @@ import {
   populateKeyMapForElement,
 } from '../renderer/keyed';
 import { Fragment } from '../common/jsx';
-import { setDevValue, getDevValue } from './dev-namespace';
+import { setDevValue, getDevValue, getDevNamespace } from './dev-namespace';
 
 let _bulkCommitActive = false;
 let _appliedParents: WeakSet<Element> | null = null;
@@ -279,7 +279,7 @@ function validateFastLaneInvariants(
       '[FASTLANE][INV] commitCount',
       commitCount,
       'diag',
-      (globalThis as Record<string, unknown>).__ASKR_DIAG
+      getDevNamespace()
     );
     throw new Error(
       'Fast-lane invariant violated: expected exactly one DOM commit during reorder-only commit'

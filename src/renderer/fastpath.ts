@@ -3,7 +3,7 @@ import { createDOMNode } from './dom';
 import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../dev/logger';
 import { cleanupInstanceIfPresent, removeAllListeners } from './cleanup';
-import { __ASKR_set, __ASKR_incCounter } from './diag';
+import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { isSchedulerExecuting } from '../runtime/scheduler';
 import { isBulkCommitActive, markFastPathApplied } from '../runtime/fastlane';
 
@@ -137,8 +137,8 @@ export function applyRendererFastPath(
     }
 
     try {
-      __ASKR_incCounter('__DOM_REPLACE_COUNT');
-      __ASKR_set('__LAST_DOM_REPLACE_STACK_FASTPATH', new Error().stack);
+      incDevCounter('__DOM_REPLACE_COUNT');
+      setDevValue('__LAST_DOM_REPLACE_STACK_FASTPATH', new Error().stack);
     } catch (e) {
       void e;
     }
@@ -147,7 +147,7 @@ export function applyRendererFastPath(
 
     // Record that we performed exactly one DOM commit.
     try {
-      __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
+      setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
     } catch (e) {
       void e;
     }
@@ -183,9 +183,9 @@ export function applyRendererFastPath(
         reusedCount,
       } as const;
       if (typeof globalThis !== 'undefined') {
-        __ASKR_set('__LAST_FASTPATH_STATS', stats);
-        __ASKR_set('__LAST_FASTPATH_REUSED', reusedCount > 0);
-        __ASKR_incCounter('fastpathHistoryPush');
+        setDevValue('__LAST_FASTPATH_STATS', stats);
+        setDevValue('__LAST_FASTPATH_REUSED', reusedCount > 0);
+        incDevCounter('fastpathHistoryPush');
       }
       if (
         process.env.ASKR_FASTPATH_DEBUG === '1' ||

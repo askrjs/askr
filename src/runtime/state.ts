@@ -229,12 +229,14 @@ function createStateCell<T>(
         if (!subInst.hasPendingUpdate) {
           subInst.hasPendingUpdate = true;
           const subTask = subInst._pendingFlushTask;
-          if (subTask) globalScheduler.enqueue(subTask);
-          else
+          if (subTask) {
+            globalScheduler.enqueue(subTask);
+          } else {
             globalScheduler.enqueue(() => {
               subInst.hasPendingUpdate = false;
               subInst.notifyUpdate?.();
             });
+          }
         }
       }
     }
@@ -254,13 +256,16 @@ function createStateCell<T>(
       // Use prebound task to avoid allocating a closure per update
       // Fallback to a safe closure if the prebound task is not present
       const task = instance._pendingFlushTask;
-      if (task) globalScheduler.enqueue(task);
-      else
+      if (task) {
+        globalScheduler.enqueue(task);
+      } else {
         globalScheduler.enqueue(() => {
           instance.hasPendingUpdate = false;
           instance.notifyUpdate?.();
         });
+      }
     }
+
   };
 
   return read as State<T>;

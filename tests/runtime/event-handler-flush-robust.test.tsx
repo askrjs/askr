@@ -2,13 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { createIsland } from '../../src/boot';
 import { state } from '../../src/runtime/state';
 import { For } from '../../src/for';
+import type { ComponentFunction } from '../../src/runtime/component';
 
 // Lightweight mount helper used by other tests
 function mountToDOM(fn: () => unknown) {
   const root = document.createElement('div');
   root.id = 'root-test-robust';
   document.body.appendChild(root);
-  createIsland({ root: 'root-test-robust', component: fn as any });
+  createIsland({ root: 'root-test-robust', component: fn as unknown as ComponentFunction });
   return root;
 }
 

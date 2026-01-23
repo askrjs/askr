@@ -77,6 +77,7 @@
   "scripts": {
     "build": "npm run build:prod",
     "build:prod": "cross-env NODE_ENV=production tsup",
+    "build:bench": "npm run build:prod",
     "prepare": "npm run build:prod",
     "test": "vitest run",
     "test:types": "npm run build && tsd",

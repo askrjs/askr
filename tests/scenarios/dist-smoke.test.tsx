@@ -6,9 +6,11 @@ import { promisify } from 'util';
 
 const execP = promisify(exec);
 
-test('should build dist and run benchmark bundle without dev warnings', async () => {
-  // Build the production bundle (includes `benchmark` entry)
-  await execP('npm run build:bench', { shell: true });
+test(
+  'should build dist and run benchmark bundle without dev warnings',
+  async () => {
+    // Build the production bundle (includes `benchmark` entry)
+    await execP('npm run build:bench', { shell: true });
 
   // Spy on console.warn to ensure production bundle emits no dev warnings
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -26,14 +28,17 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
 
   // Basic sanity checks to make failures actionable
   expect(app, 'expected mount to return an app handle').to.not.equal(undefined);
+
+  const appHandle = app as { setRows?: (data: unknown[]) => void };
+
   expect(
-    typeof (app as any).setRows,
+    typeof appHandle.setRows,
     'expected app.setRows to exist and be a function'
   ).to.equal('function');
 
   // Prefer using the framework-provided API to create rows (mirrors how JFB invokes frameworks).
-  if (app && typeof (app as any).setRows === 'function') {
-    (app as any).setRows([
+  if (appHandle && typeof appHandle.setRows === 'function') {
+    appHandle.setRows([
       { id: 1, label: 'Item 1' },
       { id: 2, label: 'Item 2' },
       { id: 3, label: 'Item 3' },
@@ -89,4 +94,4 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
 
   cleanup();
   warn.mockRestore();
-});
+}, 30000);

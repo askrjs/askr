@@ -96,7 +96,7 @@ import {
 } from './keyed';
 import { removeAllListeners, cleanupInstanceIfPresent } from './cleanup';
 import { isBulkCommitActive } from '../runtime/fastlane';
-import { __ASKR_set, __ASKR_incCounter } from './diag';
+import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { applyRendererFastPath } from './fastpath';
 import {
   extractKey,
