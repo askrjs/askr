@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "Actor-backed deterministic UI framework",
   "type": "module",
   "license": "Apache-2.0",
@@ -97,7 +97,7 @@
     "tsd": "^0.33.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.53.1",
-    "vitest": "^4.0.17",
+    "vitest": "^4.0.18",
     "vite": "^7.3.1"
   }
 }
