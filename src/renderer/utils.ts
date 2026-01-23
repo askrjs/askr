@@ -5,7 +5,7 @@
 
 import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
-import { __ASKR_set, __ASKR_incCounter } from './diag';
+import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -63,18 +63,17 @@ export function createWrappedHandler(
     } finally {
       globalScheduler.setInHandler(false);
       if (flushAfter) {
-        // If the handler enqueued tasks while we disallowed microtask kicks,
-        // ensure we schedule a microtask to flush them
-        const state = globalScheduler.getState();
-        if ((state.queueLength ?? 0) > 0 && !state.running) {
+        try {
+          const state = globalScheduler.getState();
+
+          // Flush queued tasks so DOM updates are visible synchronously
+          if ((state.queueLength ?? 0) > 0 && !state.running) {
+            if (!globalScheduler.isExecuting()) globalScheduler.flush();
+          }
+        } catch (err) {
+          // preserve previous behavior of throwing asynchronously
           queueMicrotask(() => {
-            try {
-              if (!globalScheduler.isExecuting()) globalScheduler.flush();
-            } catch (err) {
-              queueMicrotask(() => {
-                throw err;
-              });
-            }
+            throw err;
           });
         }
       }
@@ -196,8 +195,8 @@ export function buildKeyMapFromChildren(
  */
 export function recordDOMReplace(source: string): void {
   try {
-    __ASKR_incCounter('__DOM_REPLACE_COUNT');
-    __ASKR_set(`__LAST_DOM_REPLACE_STACK_${source}`, new Error().stack);
+    incDevCounter('__DOM_REPLACE_COUNT');
+    setDevValue(`__LAST_DOM_REPLACE_STACK_${source}`, new Error().stack);
   } catch {
     // ignore
   }
@@ -211,10 +210,10 @@ export function recordFastPathStats(
   counterName?: string
 ): void {
   try {
-    __ASKR_set('__LAST_FASTPATH_STATS', stats);
-    __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
+    setDevValue('__LAST_FASTPATH_STATS', stats);
+    setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
     if (counterName) {
-      __ASKR_incCounter(counterName);
+      incDevCounter(counterName);
     }
   } catch {
     // ignore

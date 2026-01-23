@@ -15,7 +15,7 @@ import {
   performBulkTextReplace,
   isBulkTextFastPathEligible,
 } from './dom';
-import { __ASKR_set, __ASKR_incCounter } from './diag';
+import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { Fragment } from '../common/jsx';
 import {
   createWrappedHandler,
@@ -156,8 +156,8 @@ function trackBulkTextStats(
 ): void {
   if (process.env.NODE_ENV !== 'production') {
     try {
-      __ASKR_set('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
-      __ASKR_incCounter('bulkTextHits');
+      setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
+      incDevCounter('bulkTextHits');
     } catch {
       // ignore
     }
@@ -170,7 +170,7 @@ function trackBulkTextStats(
 function trackBulkTextMiss(): void {
   if (process.env.NODE_ENV !== 'production') {
     try {
-      __ASKR_incCounter('bulkTextMisses');
+      incDevCounter('bulkTextMisses');
     } catch {
       // ignore
     }
@@ -237,9 +237,9 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
       process.env.ASKR_FASTPATH_DEBUG === '1'
     ) {
       try {
-        __ASKR_set('__LAST_FASTPATH_STATS', stats);
-        __ASKR_set('__LAST_FASTPATH_COMMIT_COUNT', 1);
-        __ASKR_incCounter('bulkKeyedPositionalForced');
+        setDevValue('__LAST_FASTPATH_STATS', stats);
+        setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
+        incDevCounter('bulkKeyedPositionalForced');
       } catch {
         // ignore
       }

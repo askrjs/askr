@@ -18,6 +18,9 @@ export default defineConfig({
     'jsx-runtime': 'src/jsx/jsx-runtime.ts',
     'jsx-dev-runtime': 'src/jsx/jsx-dev-runtime.ts',
 
+    // Bench entry for dist smoke tests (production build)
+    benchmark: 'src/bench/benchmark-entry.tsx',
+
     'vite/index': 'src/dev/vite-plugin-askr.ts',
   },
 

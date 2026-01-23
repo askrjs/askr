@@ -81,6 +81,7 @@ export class Scheduler {
     this.q.push(task);
     this.taskCount++;
 
+    // Optional debug trace for enqueue
     // Microtask kick: best-effort, but avoid if we are in handler or running or bulk commit
     if (
       !this.running &&

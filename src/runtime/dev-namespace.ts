@@ -57,3 +57,18 @@ export function deleteDevValue(key: string): void {
     // ignore
   }
 }
+
+/**
+ * Increment a counter in the dev namespace (no-op in production).
+ * Safely handles non-number values by resetting to 1.
+ */
+export function incDevCounter(key: string): void {
+  if (process.env.NODE_ENV === 'production') return;
+  try {
+    const ns = getDevNamespace();
+    const prev = typeof ns[key] === 'number' ? (ns[key] as number) : 0;
+    ns[key] = prev + 1;
+  } catch {
+    // ignore
+  }
+}

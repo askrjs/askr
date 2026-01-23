@@ -21,7 +21,6 @@ import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
 
 const askrGlobal = globalThis as typeof globalThis & {
-  __ASKR_CURRENT_INSTANCE__?: unknown;
   __ASKR_BENCH__?: boolean;
 };
 
@@ -188,9 +187,11 @@ export interface ForState<T> {
 }
 
 const defaultKeyFn = <T>(item: T, index: number): string | number | null => {
-  if (item != null && typeof item === 'object' && 'id' in item) {
-    return (item as { id: string | number | null }).id;
+  if (item != null && typeof item === 'object') {
+    if ('id' in item) return (item as { id: string | number | null }).id;
+    if ('key' in item) return (item as { key: string | number | null }).key;
   }
+  if (typeof item === 'string' || typeof item === 'number') return item;
   return index;
 };
 
@@ -306,6 +307,15 @@ export function createItemInstance<T>(
     forState.renderFn(item, () => indexSignal())
   );
 
+  // Materialize key on vnode so renderer key extraction works
+  try {
+    if (vnode && typeof vnode === 'object' && 'type' in vnode) {
+      (vnode as { key?: string | number | null }).key = key;
+    }
+  } catch (e) {
+    void e;
+  }
+
   // Commit initial subscriptions so nested state changes will notify this
   // instance's pending task appropriately.
   finalizeReadSubscriptions(itemComponent);
@@ -414,14 +424,24 @@ export function reconcileForItems<T>(
 
         if (itemChanged) {
           existing.item = item;
-          const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
-          askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
+          const savedInst = getCurrentInstance();
+          setCurrentComponentInstance(existing.componentInstance);
           recordBenchEvent('rowFactory');
           existing.vnode = evaluateJSXElement(
             forState.renderFn(item, () => existing.indexSignal())
           );
+          try {
+            if (
+              existing.vnode &&
+              typeof existing.vnode === 'object' &&
+              'type' in existing.vnode
+            )
+              (existing.vnode as { key?: string | number | null }).key = key;
+          } catch (e) {
+            void e;
+          }
 
-          askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
+          setCurrentComponentInstance(savedInst)
         }
 
         if (indexChanged) {
@@ -479,13 +499,23 @@ export function reconcileForItems<T>(
 
         if (itemChanged) {
           existing.item = item;
-          const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
-          askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
+          const savedInst = getCurrentInstance();
+          setCurrentComponentInstance(existing.componentInstance);
           recordBenchEvent('rowFactory');
           existing.vnode = evaluateJSXElement(
             forState.renderFn(item, () => existing.indexSignal())
           );
-          askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
+          try {
+            if (
+              existing.vnode &&
+              typeof existing.vnode === 'object' &&
+              'type' in existing.vnode
+            )
+              (existing.vnode as { key?: string | number | null }).key = key;
+          } catch (e) {
+            void e;
+          }
+          setCurrentComponentInstance(savedInst);
         }
 
         if (indexChanged) {
@@ -557,14 +587,14 @@ export function reconcileForItems<T>(
 
         if (itemChanged) {
           existing.item = item;
-          const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
-          askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
+          const savedInst = getCurrentInstance();
+          setCurrentComponentInstance(existing.componentInstance);
           recordBenchEvent('rowFactory');
           const newVNode = evaluateJSXElement(
             forState.renderFn(item, () => existing.indexSignal())
           );
           existing.vnode = newVNode;
-          askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
+          setCurrentComponentInstance(savedInst);
         }
 
         if (indexChanged) {
@@ -619,15 +649,25 @@ export function reconcileForItems<T>(
         // Item data changed: update and re-execute
         existing.item = item;
 
-        const savedInst = askrGlobal.__ASKR_CURRENT_INSTANCE__;
-        askrGlobal.__ASKR_CURRENT_INSTANCE__ = existing.componentInstance;
+        const savedInst = getCurrentInstance();
+        setCurrentComponentInstance(existing.componentInstance);
 
         recordBenchEvent('rowFactory');
         existing.vnode = evaluateJSXElement(
           forState.renderFn(item, () => existing.indexSignal())
         );
+        try {
+          if (
+            existing.vnode &&
+            typeof existing.vnode === 'object' &&
+            'type' in existing.vnode
+          )
+            (existing.vnode as { key?: string | number | null }).key = key;
+        } catch (e) {
+          void e;
+        }
 
-        askrGlobal.__ASKR_CURRENT_INSTANCE__ = savedInst;
+        setCurrentComponentInstance(savedInst);
       }
 
       if (indexChanged) {
@@ -667,6 +707,7 @@ export function reconcileForItems<T>(
 
   forState.orderedKeys = newOrderedKeys;
 
+  // Record reconcile timing
   if (askrGlobal.__ASKR_BENCH__) {
     recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
   }

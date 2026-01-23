@@ -13,7 +13,7 @@ import {
   type ContextFrame,
 } from './context';
 import { logger } from '../dev/logger';
-import { __ASKR_incCounter, __ASKR_set } from '../renderer/diag';
+import { incDevCounter, setDevValue } from './dev-namespace';
 
 export type { ComponentFunction } from '../common/component';
 
@@ -359,8 +359,8 @@ function runComponent(instance: ComponentInstance): void {
             // Restore original children by re-inserting the old node references
             // this preserves attached listeners and instance backrefs.
             try {
-              __ASKR_incCounter('__DOM_REPLACE_COUNT');
-              __ASKR_set(
+              incDevCounter('__DOM_REPLACE_COUNT');
+              setDevValue(
                 '__LAST_DOM_REPLACE_STACK_COMPONENT_RESTORE',
                 new Error().stack
               );
@@ -405,8 +405,8 @@ function runComponent(instance: ComponentInstance): void {
 
           try {
             try {
-              __ASKR_incCounter('__DOM_REPLACE_COUNT');
-              __ASKR_set(
+              incDevCounter('__DOM_REPLACE_COUNT');
+              setDevValue(
                 '__LAST_DOM_REPLACE_STACK_COMPONENT_ROLLBACK',
                 new Error().stack
               );
