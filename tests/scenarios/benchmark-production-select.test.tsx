@@ -56,10 +56,10 @@ test('should apply danger class in production when clicking row', () => {
           <tbody>
             {For(
               () => dataState(),
+              (item) => item.id,
               (item) => (
                 <Row item={item} selected={selectedState} onSelect={select} />
-              ),
-              { by: (item) => item.id }
+              )
             )}
           </tbody>
         </table>
@@ -118,6 +118,7 @@ test('should apply danger class in production for unkeyed For when clicking row'
           <tbody>
             {For(
               () => dataState(),
+              (item) => item.id,
               (item) => (
                 <tr class={() => (selectedState() === item.id ? 'danger' : '')}>
                   <td>{item.id}</td>

@@ -83,6 +83,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
             <tbody>
               {For(
                 () => dataState(),
+                (item) => item.id,
                 (item) => (
                   <Row
                     item={item}
@@ -90,8 +91,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
                     onSelect={select}
                     onRemove={remove}
                   />
-                ),
-                { by: (item) => item.id }
+                )
               )}
             </tbody>
           </table>
@@ -136,6 +136,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
             <tbody>
               {For(
                 () => dataState(),
+                (item) => item.id,
                 (item) => (
                   <Row
                     item={item}
@@ -143,8 +144,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
                     onSelect={select}
                     onRemove={remove}
                   />
-                ),
-                { by: (item) => item.id }
+                )
               )}
             </tbody>
           </table>
@@ -198,6 +198,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
           <tbody>
             {For(
               () => dataState(),
+              (item) => item.id,
               (item) => (
                 <Row
                   item={item}
@@ -205,8 +206,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
                   onSelect={select}
                   onRemove={remove}
                 />
-              ),
-              { by: (item) => item.id }
+              )
             )}
           </tbody>
         </table>
@@ -257,6 +257,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
           <tbody>
             {For(
               () => dataState(),
+              (item) => item.id,
               (item) => (
                 <Row
                   item={item}
@@ -264,8 +265,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
                   onSelect={select}
                   onRemove={remove}
                 />
-              ),
-              { by: (item) => item.id }
+              )
             )}
           </tbody>
         </table>
@@ -328,6 +328,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
           <tbody>
             {For(
               () => dataState(),
+              (item) => item.id,
               (item) => (
                 <Row
                   item={item}
@@ -335,8 +336,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
                   onSelect={select}
                   onRemove={remove}
                 />
-              ),
-              { by: (item) => item.id }
+              )
             )}
           </tbody>
         </table>
@@ -392,6 +392,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
           <tbody>
             {For(
               () => dataState(),
+              (item) => item.id,
               (item) => (
                 <Row
                   item={item}
@@ -399,8 +400,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
                   onSelect={select}
                   onRemove={remove}
                 />
-              ),
-              { by: (item) => item.id }
+              )
             )}
           </tbody>
         </table>
@@ -445,6 +445,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
           <tbody>
             {For(
               () => dataState(),
+              (item) => item.id,
               (item) => (
                 <Row
                   item={item}
@@ -452,8 +453,7 @@ describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
                   onSelect={select}
                   onRemove={remove}
                 />
-              ),
-              { by: (item) => item.id }
+              )
             )}
           </tbody>
         </table>

@@ -9,6 +9,8 @@ export type ComponentContext = {
   signal: AbortSignal;
 };
 
+import { type VNode } from './vnode';
+
 // Internal-ish structural contract for what component functions may return
 // as plain objects. This is intentionally narrower than renderer/SSR VNode
 // unions to avoid bleeding those layers into the core component signature.
@@ -21,4 +23,4 @@ export type ComponentVNode = {
 export type ComponentFunction = (
   props: Props,
   context?: ComponentContext
-) => JSXElement | ComponentVNode | string | number | null;
+) => JSXElement | VNode;

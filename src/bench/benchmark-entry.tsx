@@ -32,6 +32,7 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
               children: [
                 For(
                   () => dataState(),
+                  (item: RowData) => item.id,
                   (item: RowData) => ({
                     type: 'tr',
                     props: {

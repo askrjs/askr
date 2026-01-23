@@ -24,6 +24,7 @@ test('should toggle selected row class', () => {
           children: [
             For(
               () => dataState(),
+              (row) => row.id,
               (row) => ({
                 type: 'tr',
                 props: {
@@ -42,8 +43,7 @@ test('should toggle selected row class', () => {
                     children: [row.label],
                   },
                 ],
-              }),
-              { by: (row) => row.id }
+              })
             ),
           ],
         },

@@ -25,6 +25,7 @@ describe('For component with table elements', () => {
             children: [
               For(
                 () => rows,
+                (row) => row.id,
                 (row) => ({
                   type: 'tr',
                   props: { key: row.id },
