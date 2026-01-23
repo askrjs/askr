@@ -360,15 +360,13 @@ describe('scheduler (SPEC 2.2)', () => {
         const btn = c.querySelector('#btn') as HTMLButtonElement;
         order.length = 0;
 
-        // Click the button - handler runs synchronously
+        // Click the button - handler runs synchronously and triggers inline flush
         btn.click();
 
-        // Effects should be visible immediately but render is deferred
+        // Handler runs synchronously
         expect(order).toEqual(['handler-start', 'handler-end']);
-        expect(btn.textContent).toBe('0');
 
-        // After flush, render completes
-        flushScheduler();
+        // DOM is updated synchronously (inline flush during handler)
         expect(btn.textContent).toBe('1');
       } finally {
         cu();
