@@ -96,7 +96,6 @@ import {
 } from './keyed';
 import { removeAllListeners, cleanupInstanceIfPresent } from './cleanup';
 import { isBulkCommitActive } from '../runtime/fastlane';
-import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { applyRendererFastPath } from './fastpath';
 import {
   extractKey,
