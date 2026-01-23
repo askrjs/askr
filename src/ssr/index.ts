@@ -455,7 +455,7 @@ function executeComponentSync(
 export function renderToStringSync(
   component: (
     props?: Record<string, unknown>
-  ) => VNode | JSXElement | string | number | null,
+  ) => VNode | JSXElement | string | number | boolean | null | undefined,
   props?: Record<string, unknown>,
   options?: { seed?: number; data?: SSRData }
 ): string {

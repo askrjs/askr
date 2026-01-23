@@ -20,4 +20,4 @@ export type VNode = {
 export type SSRComponent = (
   props: Props,
   context?: { signal?: AbortSignal; ssr?: RenderContext }
-) => VNode | JSXElement | string | number | boolean | null;
+) => VNode | JSXElement | string | number | boolean | null | undefined;
