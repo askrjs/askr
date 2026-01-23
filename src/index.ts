@@ -21,7 +21,6 @@ export { derive } from './runtime/derive';
 
 // List iteration primitive - part of the pit of success
 export { For } from './for';
-export type { ForOptions } from './for';
 
 // Essential public types
 export type { Props } from './common/props';

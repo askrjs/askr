@@ -23,6 +23,7 @@ test('should create 1,000 table rows from scratch', () => {
           children: [
             For(
               () => dataState(),
+              (row) => row.id,
               (row) => ({
                 type: 'tr',
                 props: { key: row.id },
@@ -38,8 +39,7 @@ test('should create 1,000 table rows from scratch', () => {
                     children: [row.label],
                   },
                 ],
-              }),
-              { by: (row) => row.id }
+              })
             ),
           ],
         },

@@ -23,6 +23,7 @@ test('should append 1,000 rows to existing 1,000 rows', () => {
           children: [
             For(
               () => dataState(),
+              (row) => row.id,
               (row) => ({
                 type: 'tr',
                 props: { key: row.id },
@@ -38,8 +39,7 @@ test('should append 1,000 rows to existing 1,000 rows', () => {
                     children: [row.label],
                   },
                 ],
-              }),
-              { by: (row) => row.id }
+              })
             ),
           ],
         },

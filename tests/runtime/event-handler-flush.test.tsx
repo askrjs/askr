@@ -33,6 +33,7 @@ describe('event handler flush guarantees', () => {
           <tbody>
             {For(
               () => data(),
+              (item) => item.id,
               (item) => (
                 <tr class={selected() === item.id ? 'danger' : ''}>
                   <td class="col-md-1">{item.id}</td>

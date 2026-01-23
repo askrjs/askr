@@ -15,7 +15,8 @@ test('should not emit wrapper element for For boundary', () => {
       children: [
         For(
           () => rows,
-          (n) => ({ type: 'div', props: { key: n }, children: [String(n)] })
+          (n) => n,
+          (n) => ({ type: 'div', props: {}, children: [String(n)] })
         ),
       ],
     };
@@ -24,9 +25,10 @@ test('should not emit wrapper element for For boundary', () => {
   createIsland({ root: container, component: Component });
 
   // Expect no <for-boundary> tag — children should be direct divs inside .wrap
+  // and they should have data-key automatically injected.
   const html = container.innerHTML.replace(/\s+/g, '');
   expect(html).to.match(
-    /^<divclass="wrap"><div(?:data-key="1")?>1<\/div><div(?:data-key="2")?>2<\/div><div(?:data-key="3")?>3<\/div><\/div>(?:<!---->)?$/
+    /^<divclass="wrap"><divdata-key="1">1<\/div><divdata-key="2">2<\/div><divdata-key="3">3<\/div><\/div>(?:<!---->)?$/
   );
 
   cleanup();

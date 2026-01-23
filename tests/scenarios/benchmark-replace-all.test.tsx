@@ -23,6 +23,7 @@ test('should replace all 1,000 rows with new data', () => {
           children: [
             For(
               () => dataState(),
+              (row) => row.id,
               (row) => ({
                 type: 'tr',
                 props: { key: row.id },
@@ -38,8 +39,7 @@ test('should replace all 1,000 rows with new data', () => {
                     children: [row.label],
                   },
                 ],
-              }),
-              { by: (row) => row.id }
+              })
             ),
           ],
         },

@@ -23,6 +23,7 @@ test('should update every 10th row', () => {
           children: [
             For(
               () => dataState(),
+              (row) => row.id,
               (row) => ({
                 type: 'tr',
                 props: { key: row.id },
@@ -38,8 +39,7 @@ test('should update every 10th row', () => {
                     children: [row.label],
                   },
                 ],
-              }),
-              { by: (row) => row.id }
+              })
             ),
           ],
         },

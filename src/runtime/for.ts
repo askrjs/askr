@@ -15,7 +15,7 @@ import {
   getCurrentStateIndex,
   setStateIndex,
 } from './component';
-import type { VNode } from '../common/vnode';
+import type { DOMElement, VNode } from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
@@ -186,15 +186,6 @@ export interface ForState<T> {
   mounted: boolean;
 }
 
-const defaultKeyFn = <T>(item: T, index: number): string | number | null => {
-  if (item != null && typeof item === 'object') {
-    if ('id' in item) return (item as { id: string | number | null }).id;
-    if ('key' in item) return (item as { key: string | number | null }).key;
-  }
-  if (typeof item === 'string' || typeof item === 'number') return item;
-  return index;
-};
-
 /**
  * Evaluate JSXElement to VNode
  *
@@ -231,8 +222,8 @@ function evaluateJSXElement(value: unknown): VNode {
 
 export function createForState<T>(
   source: State<T[]> | (() => T[]),
-  renderFn: (item: T, index: () => number) => VNode,
-  byFn?: (item: T, index: number) => string | number
+  byFn: (item: T, index: number) => string | number,
+  renderFn: (item: T, index: () => number) => VNode
 ): ForState<T> {
   const sourceState = typeof source === 'function' ? null : source;
   const parentInstance = getCurrentInstance();
@@ -241,7 +232,7 @@ export function createForState<T>(
     sourceState,
     items: new Map(),
     orderedKeys: [],
-    byFn: byFn || defaultKeyFn,
+    byFn: byFn,
     renderFn,
     parentInstance,
     mounted: false,
@@ -308,12 +299,18 @@ export function createItemInstance<T>(
   );
 
   // Materialize key on vnode so renderer key extraction works
-  try {
-    if (vnode && typeof vnode === 'object' && 'type' in vnode) {
-      (vnode as { key?: string | number | null }).key = key;
+  if (vnode && typeof vnode === 'object' && 'type' in vnode) {
+    const vn = vnode as DOMElement;
+    vn.key = key;
+
+    // Automatically add data-key to intrinsic elements (tr, li, etc)
+    // so we don't need to manually add it in the render function.
+    if (typeof vn.type === 'string') {
+      if (!vn.props) vn.props = {};
+      if (vn.props['data-key'] === undefined) {
+        vn.props['data-key'] = String(key);
+      }
     }
-  } catch (e) {
-    void e;
   }
 
   // Commit initial subscriptions so nested state changes will notify this

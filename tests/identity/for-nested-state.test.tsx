@@ -14,6 +14,7 @@ test('should update item when nested state changes', () => {
       children: [
         For(
           () => rows,
+          (_, index) => index,
           (_n) => {
             const c = state(0);
             return {

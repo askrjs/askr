@@ -23,9 +23,10 @@ test('should swap rows at positions 1 and 998', () => {
           children: [
             For(
               () => dataState(),
+              (row) => row.id,
               (row) => ({
                 type: 'tr',
-                props: { key: row.id },
+                props: {},
                 children: [
                   {
                     type: 'td',
@@ -38,8 +39,7 @@ test('should swap rows at positions 1 and 998', () => {
                     children: [row.label],
                   },
                 ],
-              }),
-              { by: (row) => row.id }
+              })
             ),
           ],
         },

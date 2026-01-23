@@ -45,8 +45,7 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
       return {
         type: 'div',
         children: For(
-          () => items!(),
-          (item) => ({
+          () => items!(),          (item) => item.id,          (item) => ({
             type: 'div',
             key: item.id,
             props: { 'data-id': item.id },
@@ -105,6 +104,7 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
         type: 'div',
         children: For(
           () => items!(),
+          (item) => item.id,
           (item) => ({
             type: 'div',
             key: item.id,
@@ -165,6 +165,7 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
         type: 'div',
         children: For(
           () => items!(),
+          (item) => item.id,
           (item) => ({
             type: 'div',
             key: item.id,
@@ -220,6 +221,7 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
         type: 'div',
         children: For(
           () => items!(),
+          (item) => item.id,
           (item) => ({
             type: 'div',
             key: item.id,
