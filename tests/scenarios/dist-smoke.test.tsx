@@ -1,5 +1,5 @@
-import { expect } from 'chai';
-import { test } from 'vitest';
+import { expect as expectChai } from 'chai';
+import { test, vi, expect } from 'vitest';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -10,7 +10,7 @@ test(
   'should build dist and run benchmark bundle without dev warnings',
   async () => {
     // Build the production bundle (includes `benchmark` entry)
-    await execP('npm run build:bench', { shell: true });
+    await execP('npm run build:bench');
 
   // Spy on console.warn to ensure production bundle emits no dev warnings
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -18,7 +18,7 @@ test(
   // Import the built bundle
   const built = await import('../../dist/benchmark.js');
   const mount = built.mountBenchmark ?? built.default?.mountBenchmark;
-  expect(typeof mount).to.equal('function');
+  expectChai(typeof mount).to.equal('function');
 
   const { container, cleanup } = createTestContainer();
 
@@ -27,11 +27,11 @@ test(
   flushScheduler();
 
   // Basic sanity checks to make failures actionable
-  expect(app, 'expected mount to return an app handle').to.not.equal(undefined);
+  expectChai(app, 'expected mount to return an app handle').to.not.equal(undefined);
 
   const appHandle = app as { setRows?: (data: unknown[]) => void };
 
-  expect(
+  expectChai(
     typeof appHandle.setRows,
     'expected app.setRows to exist and be a function'
   ).to.equal('function');
@@ -71,7 +71,7 @@ test(
   const tbody = container.querySelector('tbody')!;
   const rows = tbody.querySelectorAll('tr');
   // Sanity: assert rows were rendered by framework
-  expect(
+  expectChai(
     rows.length,
     `expected 3 rows after setRows; DOM was: ${container.innerHTML}`
   ).to.equal(3);
@@ -86,7 +86,7 @@ test(
   await new Promise((r) => setTimeout(r, 0));
 
   // Expect class applied
-  expect(rows[1].className).to.equal('danger');
+  expectChai(rows[1].className).to.equal('danger');
 
   // The framework's benchmark semantics expect selection to set a class.
   // We assert that no dev warnings were emitted during this flow in production.

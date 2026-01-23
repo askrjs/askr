@@ -40,8 +40,8 @@ test('should apply danger class in production when clicking row', () => {
   process.env.NODE_ENV = 'production';
 
   const { container, cleanup } = createTestContainer();
-  let dataState: ReturnType<typeof state<RowData[]>>;
-  let selectedState: ReturnType<typeof state<number | null>>;
+  let dataState!: ReturnType<typeof state<RowData[]>>;
+  let selectedState!: ReturnType<typeof state<number | null>>;
 
   const App = () => {
     dataState = state<RowData[]>([]);
@@ -103,8 +103,8 @@ test('should apply danger class in production for unkeyed For when clicking row'
   process.env.NODE_ENV = 'production';
 
   const { container, cleanup } = createTestContainer();
-  let dataState: ReturnType<typeof state<RowData[]>>;
-  let selectedState: ReturnType<typeof state<number | null>>;
+  let dataState!: ReturnType<typeof state<RowData[]>>;
+  let selectedState!: ReturnType<typeof state<number | null>>;
 
   const App = () => {
     dataState = state<RowData[]>([]);
