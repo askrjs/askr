@@ -252,6 +252,7 @@ export function createItemInstance<T>(
   // Create index signal manually without going through state() hook
   // to avoid hook order violations (each For item creates its signal dynamically)
   let indexValue = index;
+  // Cast to avoid strict structural check during dts build — we'll add iterator below
   const indexSignal: State<number> = Object.assign(() => indexValue, {
     set(newValue: number | ((prev: number) => number)) {
       const nextValue =
@@ -262,7 +263,14 @@ export function createItemInstance<T>(
         // but we provide the signal for user convenience
       }
     },
-  });
+  }) as unknown as State<number>;
+
+  // Provide iterable interface so callers can destructure: const [i, setI] = indexSignal
+  (indexSignal as any)[Symbol.iterator] = function* () {
+    yield indexSignal;
+    yield (indexSignal as any).set;
+  };
+
 
   // Create isolated component for this item. The renderFn is executed while
   // this instance is the current component so nested state() calls register
