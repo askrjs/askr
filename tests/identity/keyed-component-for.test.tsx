@@ -25,7 +25,13 @@ describe('keyed component identity in For loop', () => {
 
       return (
         <div>
-          {For(items, (i) => i.id, (item) => <Row label={item.label} />)}
+          {For(
+            items,
+            (i) => i.id,
+            (item) => (
+              <Row label={item.label} />
+            )
+          )}
         </div>
       );
     };
@@ -33,7 +39,9 @@ describe('keyed component identity in For loop', () => {
     createIsland({ root: container, component: App });
 
     // Initial state check
-    const rowsInitial = Array.from(container.querySelectorAll('.row')) as HTMLElement[];
+    const rowsInitial = Array.from(
+      container.querySelectorAll('.row')
+    ) as HTMLElement[];
     expect(rowsInitial).toHaveLength(3);
     expect(rowsInitial[0].textContent).toBe('a');
     expect(rowsInitial[1].textContent).toBe('b');
@@ -52,7 +60,9 @@ describe('keyed component identity in For loop', () => {
     ]);
     flushScheduler();
 
-    const rowsAfter = Array.from(container.querySelectorAll('.row')) as HTMLElement[];
+    const rowsAfter = Array.from(
+      container.querySelectorAll('.row')
+    ) as HTMLElement[];
     expect(rowsAfter).toHaveLength(3);
     expect(rowsAfter[0]).toBe(elA);
     expect(rowsAfter[1]).toBe(elC);
@@ -89,14 +99,22 @@ describe('keyed component identity in For loop', () => {
 
       return (
         <div>
-          {For(items, (i) => i.id, (item) => <Outer label={item.label} />)}
+          {For(
+            items,
+            (i) => i.id,
+            (item) => (
+              <Outer label={item.label} />
+            )
+          )}
         </div>
       );
     };
 
     createIsland({ root: container, component: App });
 
-    const rowsInitial = Array.from(container.querySelectorAll('.inner')) as HTMLElement[];
+    const rowsInitial = Array.from(
+      container.querySelectorAll('.inner')
+    ) as HTMLElement[];
     expect(rowsInitial).toHaveLength(2);
     // Check if data-key is present
     expect(rowsInitial[0].getAttribute('data-key')).toBe('1');
@@ -112,7 +130,9 @@ describe('keyed component identity in For loop', () => {
     ]);
     flushScheduler();
 
-    const rowsAfter = Array.from(container.querySelectorAll('.inner')) as HTMLElement[];
+    const rowsAfter = Array.from(
+      container.querySelectorAll('.inner')
+    ) as HTMLElement[];
     expect(rowsAfter[0]).toBe(elB);
     expect(rowsAfter[1]).toBe(elA);
     expect(rowsAfter[0].textContent).toBe('b-updated');

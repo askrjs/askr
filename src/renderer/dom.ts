@@ -22,7 +22,11 @@ import {
   removeAllListeners,
   elementReactivePropsCleanup,
 } from './cleanup';
-import { setDevValue, incDevCounter, getDevValue } from '../runtime/dev-namespace';
+import {
+  setDevValue,
+  incDevCounter,
+  getDevValue,
+} from '../runtime/dev-namespace';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
 import { evaluateForState } from '../runtime/for';

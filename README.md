@@ -26,13 +26,13 @@ Askr validates component structure as it runs, catching mistakes with clear erro
 ```typescript
 // This error is caught immediately:
 if (condition) {
-  const [x, setX] = state(0);  // ❌ Hook order violation
+  const [x, setX] = state(0); // ❌ Hook order violation
 }
 
 // Error shows the fix:
 const [x, setX] = state(0);
 if (condition) {
-  setX(newValue);  // ✅ Correct
+  setX(newValue); // ✅ Correct
 }
 ```
 
@@ -47,6 +47,7 @@ Events serialize through a scheduler. State updates are atomic. Renders follow s
 ```
 
 Proven with 133 tests covering:
+
 - Event ordering (12 tests)
 - State atomicity (12 tests)
 - Transaction semantics (30 tests)
@@ -70,8 +71,8 @@ Reactive values are functions. Calls are visible in code.
 
 ```typescript
 const [count, setCount] = state(0);
-console.log(count());  // Read
-setCount(1);           // Write
+console.log(count()); // Read
+setCount(1); // Write
 ```
 
 Clear data flow. No hidden subscriptions.
@@ -86,13 +87,13 @@ Clear data flow. No hidden subscriptions.
 const [value, setValue] = state(initialValue);
 
 // Read
-value()
+value();
 
-// Write  
-setValue(newValue)
+// Write
+setValue(newValue);
 
 // Update
-setValue(prev => prev + 1)
+setValue((prev) => prev + 1);
 ```
 
 ### Derived State
@@ -101,7 +102,7 @@ setValue(prev => prev + 1)
 const [count, setCount] = state(0);
 const doubled = derive(() => count() * 2);
 
-console.log(doubled());  // Automatically updates
+console.log(doubled()); // Automatically updates
 ```
 
 ### Lists
@@ -120,19 +121,19 @@ For(
 
 ```typescript
 // Single component
-createIsland({ 
-  root: document.body, 
-  component: MyComponent 
+createIsland({
+  root: document.body,
+  component: MyComponent,
 });
 
 // Routed app
-createSPA({ 
+createSPA({
   root: document.body,
   component: Layout,
   routes: [
     { path: '/', component: Home },
-    { path: '/about', component: About }
-  ]
+    { path: '/about', component: About },
+  ],
 });
 ```
 
@@ -166,11 +167,11 @@ Askr provides provable guarantees, tested with 133 tests:
 
 ### Coming from React
 
-| React | Askr |
-|-------|------|
+| React                           | Askr                         |
+| ------------------------------- | ---------------------------- |
 | `const [x, setX] = useState(0)` | `const [x, setX] = state(0)` |
-| `x` | `x()` |
-| `setX(1)` | `setX(1)` |
+| `x`                             | `x()`                        |
+| `setX(1)`                       | `setX(1)`                    |
 
 The main difference: values are functions that you call to read.
 

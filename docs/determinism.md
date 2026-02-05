@@ -9,7 +9,7 @@ Events are processed one at a time. An event fully completes before the next sta
 ```typescript
 function App() {
   const [count, setCount] = state(0);
-  
+
   return (
     <>
       <button onClick={() => setCount(1)}>Button 1</button>
@@ -33,12 +33,12 @@ State updates are batched and applied atomically.
 function Component() {
   const [a, setA] = state(0);
   const [b, setB] = state(0);
-  
+
   <button onClick={() => {
     setA(1);
     setB(2);
   }}>
-  
+
   // Both updates happen in one render
   // DOM commits once
 }
@@ -65,6 +65,7 @@ All-or-nothing semantics.
 ## Tests
 
 These guarantees are proven with tests:
+
 - Event ordering: 12 tests
 - State batching: 12 tests
 - Transaction semantics: 30 tests

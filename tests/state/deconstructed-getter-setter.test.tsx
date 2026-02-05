@@ -30,7 +30,7 @@ describe('state destructuring (STATE)', () => {
     expect(container.textContent).toBe('1');
 
     // setter should be the same as getter.set
-    expect(setter).toBe((getter as any).set);
+    expect(setter).toBe(getter!.set);
   });
 
   it('should allow destructuring directly from state() call (tuple)', () => {
