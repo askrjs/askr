@@ -6,11 +6,9 @@ import { promisify } from 'util';
 
 const execP = promisify(exec);
 
-test(
-  'should build dist and run benchmark bundle without dev warnings',
-  async () => {
-    // Build the production bundle (includes `benchmark` entry)
-    await execP('npm run build:bench');
+test('should build dist and run benchmark bundle without dev warnings', async () => {
+  // Build the production bundle (includes `benchmark` entry)
+  await execP('npm run build:bench');
 
   // Spy on console.warn to ensure production bundle emits no dev warnings
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -27,7 +25,9 @@ test(
   flushScheduler();
 
   // Basic sanity checks to make failures actionable
-  expectChai(app, 'expected mount to return an app handle').to.not.equal(undefined);
+  expectChai(app, 'expected mount to return an app handle').to.not.equal(
+    undefined
+  );
 
   const appHandle = app as { setRows?: (data: unknown[]) => void };
 

@@ -10,11 +10,12 @@ You can also destructure directly to a getter/setter tuple (feels familiar to ma
 
 ```typescript
 const [count, setCount] = state(0);
-count();      // read
-setCount(1);  // write (same as count.set)
+count(); // read
+setCount(1); // write (same as count.set)
 ```
 
 Returns a tuple:
+
 - `value()` - Function to read current value
 - `setValue` - Function to update value
 
@@ -24,7 +25,7 @@ Call the getter function:
 
 ```typescript
 const [count, setCount] = state(0);
-console.log(count());  // 0
+console.log(count()); // 0
 ```
 
 ## Writing State
@@ -38,7 +39,7 @@ setCount(1);
 Or with an updater function:
 
 ```typescript
-setCount(prev => prev + 1);
+setCount((prev) => prev + 1);
 ```
 
 ## Derived State
@@ -47,9 +48,9 @@ setCount(prev => prev + 1);
 const [count, setCount] = state(0);
 const doubled = derive(() => count() * 2);
 
-console.log(doubled());  // 0
+console.log(doubled()); // 0
 setCount(5);
-console.log(doubled());  // 10
+console.log(doubled()); // 10
 ```
 
 Derived values automatically update when dependencies change.

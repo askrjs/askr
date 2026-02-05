@@ -9,7 +9,10 @@ function mountToDOM(fn: () => unknown) {
   const root = document.createElement('div');
   root.id = 'root-test-robust';
   document.body.appendChild(root);
-  createIsland({ root: 'root-test-robust', component: fn as unknown as ComponentFunction });
+  createIsland({
+    root: 'root-test-robust',
+    component: fn as unknown as ComponentFunction,
+  });
   return root;
 }
 

@@ -11,12 +11,13 @@ State hooks must be called in the same order every render.
 ```typescript
 function Component() {
   if (condition) {
-    const [x, setX] = state(0);  // ❌ Error
+    const [x, setX] = state(0); // ❌ Error
   }
 }
 ```
 
 **Error message:**
+
 ```
 Hook order violation at index 1.
 
@@ -48,6 +49,7 @@ function Component() {
 ```
 
 **Error message:**
+
 ```
 state.set() cannot be called during component render.
 

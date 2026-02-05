@@ -266,11 +266,20 @@ export function createItemInstance<T>(
   }) as unknown as State<number>;
 
   // Provide iterable interface so callers can destructure: const [i, setI] = indexSignal
-  (indexSignal as any)[Symbol.iterator] = function* () {
+  (
+    indexSignal as unknown as {
+      [Symbol.iterator]?: () => Iterator<
+        State<number> | typeof indexSignal.set
+      >;
+    }
+  )[Symbol.iterator] = function* (): Generator<
+    State<number> | typeof indexSignal.set,
+    void,
+    unknown
+  > {
     yield indexSignal;
-    yield (indexSignal as any).set;
+    yield indexSignal.set;
   };
-
 
   // Create isolated component for this item. The renderFn is executed while
   // this instance is the current component so nested state() calls register
@@ -446,7 +455,7 @@ export function reconcileForItems<T>(
             void e;
           }
 
-          setCurrentComponentInstance(savedInst)
+          setCurrentComponentInstance(savedInst);
         }
 
         if (indexChanged) {
