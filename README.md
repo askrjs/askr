@@ -67,12 +67,12 @@ async function Data({ id }) {
 
 ### Explicit Reactivity
 
-Reactive values are functions. Calls are visible in code.
+Getters and setters are functions. Call the getter to read and the setter to update — this makes reactivity explicit in your code.
 
 ```typescript
 const [count, setCount] = state(0);
-console.log(count()); // Read
-setCount(1); // Write
+console.log(count()); // getter: read
+setCount(1); // setter: write
 ```
 
 Clear data flow. No hidden subscriptions.
