@@ -31,6 +31,7 @@ export interface State<T> {
   (): T;
   set(value: T): void;
   set(updater: (prev: T) => T): void;
+  [Symbol.iterator](): Iterator<any>; // Allows destructuring: const [get, set] = state(0)
   _hasBeenRead?: boolean; // Internal: track if state has been read during render
   _readers?: Map<ComponentInstance, number>; // Internal: map of readers -> last committed token
 }
@@ -266,6 +267,13 @@ function createStateCell<T>(
       }
     }
 
+  };
+
+  // Allow destructuring assignment: const [get, set] = state(0);
+  // The state function is iterable and yields the getter then the setter
+  (read as any)[Symbol.iterator] = function* () {
+    yield read;
+    yield read.set;
   };
 
   return read as State<T>;
