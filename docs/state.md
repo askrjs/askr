@@ -10,14 +10,14 @@ You can also destructure directly to a getter/setter tuple (feels familiar to ma
 
 ```typescript
 const [count, setCount] = state(0);
-count(); // read
-setCount(1); // write (same as count.set)
+count(); // getter: read
+setCount(1); // setter: write (same as count.set)
 ```
 
-Returns a tuple:
+Returns a tuple `[getter, setter]`:
 
-- `value()` - Function to read current value
-- `setValue` - Function to update value
+- `getter()` - call to read the current value
+- `setter` - call to update the value (accepts a value or updater function)
 
 ## Reading State
 
