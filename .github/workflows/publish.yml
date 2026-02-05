@@ -14,17 +14,8 @@ jobs:
     permissions:
       contents: read
 
-  version:
-    name: Calculate Version
-    needs: ci
-    uses: ./.github/workflows/version.yml
-    permissions:
-      contents: write
-      packages: read
-
   publish:
     name: Publish
-    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -50,25 +41,25 @@ jobs:
       - name: Build Library
         run: npm run build
 
-      # 🔹 Update package.json + lockfile with computed version
-      - name: Update package.json version
-        run: npm version ${{ needs.version.outputs.semver }} --no-git-tag-version
+      - name: Get Version from Package.json
+        id: package-version
+        run: |
+          VERSION=$(npm pkg get version | tr -d '"' | sed 's/^v//')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+          # Determine npm tag based on version
+          case "$VERSION" in
+            *-alpha*) echo "tag=alpha" >> $GITHUB_OUTPUT ;;
+            *-beta*)  echo "tag=beta" >> $GITHUB_OUTPUT ;;
+            *)        echo "tag=latest" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: Tag Commit
+        if: github.ref_type != 'tag'
+        uses: fgrzl/actions/tag-commit@v0.0.6
+        with:
+          tag: v${{ steps.package-version.outputs.version }}
 
       - name: Publish to npm (Trusted Publishing)
-        run: npm publish --provenance --access public --tag ${{ needs.version.outputs.label || 'latest' }}
-
-  prune:
-    name: Prune Pre-release Tags
-    needs: publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-tags: true
-
-      - name: Prune Pre-release Tags
-        uses: fgrzl/actions/prune-tags@v0.0.6
+        if: github.ref_type == 'tag' || github.ref == 'refs/heads/main'
+        run: npm publish --provenance
