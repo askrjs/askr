@@ -335,8 +335,6 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       button1?.click();
       expect(listenerFired).toBe(true);
 
-      listenerFired = false;
-
       // Second render fails, no new listener attached
       try {
         createIsland({

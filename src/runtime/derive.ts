@@ -32,20 +32,13 @@ export function derive<TIn, TOut>(
   map?: (value: TIn) => TOut
 ): TOut | null {
   // Short-form: derive(() => someExpression)
+  // Note: This is a one-time computation, not reactive. It computes the value
+  // immediately and returns it. For reactive derivation, use the normal form:
+  // derive(source, (value) => transformedValue)
   if (map === undefined && typeof source === 'function') {
     const value = (source as () => TOut)();
     if (value == null) return null;
-
-    const instance = getCurrentComponentInstance();
-    if (!instance) {
-      return value as TOut;
-    }
-
-    const cache = getDeriveCache(instance);
-    if (cache.has(value as unknown)) return cache.get(value as unknown) as TOut;
-
-    cache.set(value as unknown, value as unknown);
-    return value as TOut;
+    return value;
   }
 
   // Normal form: derive(source, map)
