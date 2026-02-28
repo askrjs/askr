@@ -99,9 +99,6 @@ describe('identity across routes (ROUTER)', () => {
   });
 
   it('should replace DOM on route transition', async () => {
-    let _page1Element: Element | null = null;
-    let page2Element: Element | null = null;
-
     route('/page1', () => {
       return <div id="page1">Page 1</div>;
     });
@@ -119,11 +116,10 @@ describe('identity across routes (ROUTER)', () => {
 
     navigate('/page1');
     flushScheduler();
-    _page1Element = container.querySelector('#page1');
 
     navigate('/page2');
     flushScheduler();
-    page2Element = container.querySelector('#page2');
+    const page2Element = container.querySelector('#page2');
 
     // Old DOM should be gone
     expect(container.querySelector('#page1')).toBeNull();

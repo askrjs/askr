@@ -246,16 +246,12 @@ export function commitReorderOnly(
 
     return true;
   } finally {
+    // Clear bulk commit flag first
     exitBulkCommit();
   }
-  // Dev-only: verify bulk commit flag was properly cleared (after finally to avoid no-unsafe-finally)
-  if (process.env.NODE_ENV !== 'production') {
-    if (isBulkCommitActive()) {
-      throw new Error(
-        'Fast-lane invariant violated: bulk commit flag still set after commit'
-      );
-    }
-  }
+  // Note: The original code had a check here that was dead code because
+  // exitBulkCommit() already ran in the finally block. This comment serves
+  // as documentation that we've intentionally removed that unreachable code.
 }
 
 /**
