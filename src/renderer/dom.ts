@@ -772,7 +772,7 @@ function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
  * - Rely on vnode identity (===) to decide DOM reuse (vnodes are mutable)
  * - Introduce fast-paths that might skip DOM reconstruction
  */
-function createForBoundary(
+export function createForBoundary(
   node: DOMElement,
   props: Record<string, unknown>
 ): DocumentFragment {

@@ -6,7 +6,6 @@ import { keyedElements } from './keyed';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
-import { evaluateForState } from '../runtime/for';
 import {
   createDOMNode,
   updateElementFromVnode,
@@ -14,6 +13,7 @@ import {
   performBulkPositionalKeyedTextUpdate,
   performBulkTextReplace,
   isBulkTextFastPathEligible,
+  createForBoundary,
 } from './dom';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { Fragment } from '../common/jsx';
@@ -288,29 +288,18 @@ function updateForBoundaryChildren(
   const forState = forVnode._forState;
   if (!forState) return;
 
-  const source = (forVnode.props || {}).source as unknown as
-    | import('../runtime/state').State<unknown[]>
-    | (() => unknown[]);
-  const childrenVNodes = evaluateForState(forState, source);
+  // Use the For boundary's own DOM caching and reuse logic
+  // instead of generic keyed reconciliation. This ensures cached
+  // DOM nodes are properly reused and reordered.
+  const fragment = createForBoundary(
+    forVnode,
+    (forVnode.props || {}) as Record<string, unknown>
+  );
 
-  // Reconcile keyed children from For evaluation with existing DOM
-  if (childrenVNodes.length > 0) {
-    const oldKeyMap = getOrBuildKeyMap(element);
-    try {
-      reconcileKeyed(element, childrenVNodes as VNode[], oldKeyMap);
-    } catch {
-      // Fall back on error
-      const newKeyMap = reconcileKeyedChildren(
-        element,
-        childrenVNodes as VNode[],
-        oldKeyMap
-      );
-      keyedElements.set(element, newKeyMap);
-    }
-  } else {
-    element.textContent = '';
-    keyedElements.delete(element);
-  }
+  // Replace all children with the new fragment from For boundary
+  element.textContent = '';
+  element.appendChild(fragment);
+  keyedElements.delete(element);
 }
 
 /**
