@@ -45,7 +45,9 @@ jobs:
       - name: Get Version from Package.json
         id: package-version
         run: |
-          VERSION=$(npm pkg get version | tr -d '"' | sed 's/^v//')
+          VERSION=$(npm pkg get version | tr -d '"')
+          # Remove any leading 'v' if present
+          VERSION=${VERSION#v}
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
           # Determine npm tag based on version
