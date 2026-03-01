@@ -1049,6 +1049,15 @@ export function updateElementChildren(
   // CRITICAL: Check for null/undefined explicitly, not falsy values
   // because 0, false, and '' are valid children
   if (children === null || children === undefined) {
+    // Clean up all children before clearing
+    for (let n = el.firstChild; n; ) {
+      const next = n.nextSibling;
+      if (n instanceof Element) {
+        removeAllListeners(n);
+        cleanupInstanceIfPresent(n);
+      }
+      n = next;
+    }
     el.textContent = '';
     return;
   }
@@ -1060,6 +1069,15 @@ export function updateElementChildren(
     if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
       (el.firstChild as Text).data = String(children);
     } else {
+      // Clean up all children before replacing with text
+      for (let n = el.firstChild; n; ) {
+        const next = n.nextSibling;
+        if (n instanceof Element) {
+          removeAllListeners(n);
+          cleanupInstanceIfPresent(n);
+        }
+        n = next;
+      }
       el.textContent = String(children);
     }
     return;
@@ -1097,6 +1115,15 @@ export function updateElementChildren(
     return;
   }
 
+  // Clean up all children before clearing
+  for (let n = el.firstChild; n; ) {
+    const next = n.nextSibling;
+    if (n instanceof Element) {
+      removeAllListeners(n);
+      cleanupInstanceIfPresent(n);
+    }
+    n = next;
+  }
   el.textContent = '';
   const dom = createDOMNode(children);
   if (dom) el.appendChild(dom);
@@ -1204,6 +1231,15 @@ export function updateUnkeyedChildren(
 
   // If there are only text nodes (no element children), clear before updating
   if (existing.length === 0 && parent.childNodes.length > 0) {
+    // Clean up all children before clearing
+    for (let n = parent.firstChild; n; ) {
+      const next = n.nextSibling;
+      if (n instanceof Element) {
+        removeAllListeners(n);
+        cleanupInstanceIfPresent(n);
+      }
+      n = next;
+    }
     parent.textContent = '';
   }
   const max = Math.max(existing.length, newChildren.length);
@@ -1231,6 +1267,17 @@ export function updateUnkeyedChildren(
 
     // Update existing element based on next vnode/primitive
     if (typeof next === 'string' || typeof next === 'number') {
+      // Clean up any element children before replacing with text
+      if (current instanceof Element && current.childNodes.length > 0) {
+        for (let n = current.firstChild; n; ) {
+          const nextNode = n.nextSibling;
+          if (n instanceof Element) {
+            removeAllListeners(n);
+            cleanupInstanceIfPresent(n);
+          }
+          n = nextNode;
+        }
+      }
       current.textContent = String(next);
     } else if (_isDOMElement(next)) {
       if (typeof next.type === 'string') {

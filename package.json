@@ -77,8 +77,10 @@
   "scripts": {
     "build": "npm run build:prod",
     "build:prod": "cross-env NODE_ENV=production vite build && npm run build:types",
+    "build:dev": "cross-env NODE_ENV=development vite build && npm run build:types",
     "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
     "build:bench": "npm run build:prod",
+    "dev:watch": "vite build --watch --mode development",
     "prepare": "npm run build:prod",
     "dev": "vite",
     "test": "vitest run",

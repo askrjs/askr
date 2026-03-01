@@ -38,6 +38,7 @@ export function applyRendererFastPath(
   let localOldKeyMap: Map<string | number, Element> | undefined;
 
   if (totalKeyed <= 20) {
+    // Small lists: use array scan (faster than Map overhead for ≤20 items)
     try {
       const pc = parent.children;
       parentChildrenArr = new Array(pc.length);
@@ -47,7 +48,8 @@ export function applyRendererFastPath(
       parentChildrenArr = undefined;
       void e;
     }
-  } else {
+  } else if (!oldKeyMap || oldKeyMap.size === 0) {
+    // Medium/large lists without existing key map: build from DOM
     localOldKeyMap = new Map<string | number, Element>();
     try {
       for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
@@ -63,6 +65,7 @@ export function applyRendererFastPath(
       void e;
     }
   }
+  // else: reuse oldKeyMap directly (most common case for repeat renders)
 
   const finalNodes: Node[] = [];
   let mapLookups = 0;
