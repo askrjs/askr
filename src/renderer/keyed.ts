@@ -4,7 +4,6 @@ import {
   buildKeyMapFromChildren,
   isIgnoredForPropChanges,
   hasPropChanged,
-  hasNonTrivialProps,
 } from './utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,7 +63,6 @@ export const _reconcilerRecordedParents = new WeakSet<Element>();
 
 // Configuration: LIS fast-path thresholds
 const LIS_THRESHOLD_MIN = 64; // Minimum list size for LIS optimization
-const LIS_THRESHOLD_LARGE = 128; // Threshold for "large" list optimizations
 
 interface KeyedVnode {
   key: string | number;
@@ -103,20 +101,6 @@ function computeLISLength(positions: number[]): number {
     else tails[lo] = pos;
   }
   return tails.length;
-}
-
-/**
- * Check if any vnode has non-trivial props
- */
-function checkVnodesHaveProps(keyedVnodes: KeyedVnode[]): boolean {
-  for (const { vnode } of keyedVnodes) {
-    if (typeof vnode !== 'object' || vnode === null) continue;
-    const vnodeObj = vnode as unknown as { props?: Record<string, unknown> };
-    if (vnodeObj.props && hasNonTrivialProps(vnodeObj.props)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 /**

@@ -13,7 +13,6 @@ import { assertSchedulingPrecondition, invariant } from '../dev/invariant';
 import { logger } from '../dev/logger';
 
 const MAX_FLUSH_DEPTH = 50;
-const MAX_BATCH_SIZE = 128; // Process up to 128 tasks per sync execution, then yield
 
 type Task = () => void;
 
