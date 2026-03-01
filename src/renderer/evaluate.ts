@@ -309,10 +309,13 @@ function updateForBoundaryChildren(
     // Try to reuse existing DOM if element type matches
     if (itemInstance && itemInstance._dom) {
       const cachedDom = itemInstance._dom;
-      if (!(cachedDom instanceof Element) || 
-          !(childVNode as DOMElement)?.type ||
-          typeof (childVNode as DOMElement).type !== 'string' ||
-          (cachedDom as Element).tagName.toLowerCase() === ((childVNode as DOMElement).type as string).toLowerCase()) {
+      if (
+        !(cachedDom instanceof Element) ||
+        !(childVNode as DOMElement)?.type ||
+        typeof (childVNode as DOMElement).type !== 'string' ||
+        (cachedDom as Element).tagName.toLowerCase() ===
+          ((childVNode as DOMElement).type as string).toLowerCase()
+      ) {
         dom = cachedDom;
       }
     }
