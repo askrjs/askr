@@ -1,6 +1,10 @@
 import { cleanupComponent } from '../runtime/component';
 import type { ComponentInstance } from '../runtime/component';
 import { logger } from '../dev/logger';
+import {
+  clearDelegatedHandlersForElement,
+  removeDelegatedListener,
+} from '../runtime/events';
 
 type InstanceHost = Element & { __ASKR_INSTANCE?: unknown };
 
@@ -126,6 +130,7 @@ export interface ListenerMapEntry {
   handler: EventListener;
   original: EventListener;
   options?: boolean | AddEventListenerOptions;
+  isDelegated?: boolean;
 }
 export const elementListeners = new WeakMap<
   Element,
@@ -156,13 +161,18 @@ export function removeElementListeners(element: Element): void {
   const map = elementListeners.get(element);
   if (map) {
     for (const [eventName, entry] of map) {
-      // When removing, reuse the original options if present for correctness
-      if (entry.options !== undefined)
-        element.removeEventListener(eventName, entry.handler, entry.options);
-      else element.removeEventListener(eventName, entry.handler);
+      if (entry.isDelegated) {
+        removeDelegatedListener(element, eventName);
+      } else {
+        if (entry.options !== undefined)
+          element.removeEventListener(eventName, entry.handler, entry.options);
+        else element.removeEventListener(eventName, entry.handler);
+      }
     }
     elementListeners.delete(element);
   }
+
+  clearDelegatedHandlersForElement(element);
 }
 
 export function removeAllListeners(root: Element | null): void {
@@ -176,5 +186,6 @@ export function removeAllListeners(root: Element | null): void {
   forEachDescendantElement(root, (el) => {
     removeElementListeners(el);
     removeElementReactiveProps(el);
+    clearDelegatedHandlersForElement(el);
   });
 }

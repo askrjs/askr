@@ -27,7 +27,7 @@ export const VOID_ELEMENTS = new Set([
 const escapeCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 256;
 
-const TEXT_ESCAPE_RE = /[&<>]/g;
+const _TEXT_ESCAPE_RE = /[&<>]/g;
 const ATTR_ESCAPE_RE = /[&"'<>]/g;
 
 const CSS_UNSAFE_RE = /[{}<>\\]/g;
@@ -37,7 +37,7 @@ const STYLE_PROP_CACHE = new Map<string, string>();
 const MAX_STYLE_PROP_CACHE_SIZE = 512;
 
 // Pre-compute escape map functions for faster replacement
-const textEscapeMap = (ch: string): string => {
+const _textEscapeMap = (ch: string): string => {
   const code = ch.charCodeAt(0);
   if (code === 38) return '&amp;'; // &
   if (code === 60) return '&lt;'; // <
@@ -121,8 +121,12 @@ export function escapeText(text: string): string {
     return text;
   }
 
-  // Single-pass escape only if needed
-  const result = text.replace(TEXT_ESCAPE_RE, textEscapeMap);
+  // Inline escape for common case (single char replacement)
+  // This avoids regex + function call overhead
+  let result = text;
+  result = result.replace(/&/g, '&amp;');
+  result = result.replace(/</g, '&lt;');
+  result = result.replace(/>/g, '&gt;');
 
   if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
     escapeCache.set(text, result);

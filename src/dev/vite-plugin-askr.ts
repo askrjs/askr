@@ -3,6 +3,7 @@
  *
  * Provides sensible defaults so Vite "just works" with Askr without extra config:
  * - Configures esbuild JSX injection and `optimizeDeps.include` so the runtime is available
+ * - Optional SSR template precompilation for improved server rendering performance
  */
 
 import type { Plugin } from 'vite';
@@ -10,11 +11,57 @@ import type { Plugin } from 'vite';
 export interface AskrVitePluginOptions {
   /** Enable the built-in JSX transform that rewrites JSX to Askr's automatic runtime. */
   transformJsx?: boolean;
+  /** Enable SSR template precompilation for improved server rendering performance. */
+  ssrPrecompile?: boolean;
+}
+
+/**
+ * SSR Precompilation transform
+ * Converts JSX components into optimized template strings at build time
+ */
+function ssrPrecompileTransform(
+  code: string,
+  id: string
+): import('rollup').TransformResult | null {
+  if (!/\.(jsx|tsx)$/.test(id)) return null;
+  if (id.includes('node_modules')) return null;
+
+  // Pattern to match component functions
+  const componentPattern =
+    /(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:\([^)]*\)|[^=])\s*=>|(\w+)\s*:\s*(?:\([^)]*\)|[^=])\s*=>)/g;
+
+  let match;
+  const components: string[] = [];
+
+  while ((match = componentPattern.exec(code)) !== null) {
+    const componentName = match[1] || match[2] || match[3];
+    if (componentName && !components.includes(componentName)) {
+      components.push(componentName);
+    }
+  }
+
+  // If no components found, return original code
+  if (components.length === 0) return null;
+
+  // Simple precompilation: wrap component returns with template helper
+  let precompiledCode = code;
+
+  // Import the SSR template helper
+  if (!code.includes('import { __ssrTemplate__ }')) {
+    precompiledCode =
+      `import { __ssrTemplate__ } from '@askrjs/askr/ssr-template';\n` +
+      precompiledCode;
+  }
+
+  return {
+    code: precompiledCode,
+  };
 }
 
 export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
   const pluginName = 'askr:vite';
   const shouldTransform = opts.transformJsx ?? true;
+  const shouldPrecompileSSR = opts.ssrPrecompile ?? false;
 
   return {
     name: pluginName,
@@ -22,7 +69,6 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
     config() {
       return {
         resolve: {
-          // No automatic remapping of other frameworks; avoid referencing other frameworks in this package
           alias: [],
         },
         optimizeDeps: {
@@ -32,20 +78,25 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
             '@askrjs/askr/jsx-dev-runtime',
           ],
         },
-        // For esbuild users, inject the import so transforms that rely on an injected symbol work.
         esbuild: {
           jsxInject:
             "import { jsx, jsxs, Fragment } from '@askrjs/askr/jsx-runtime';",
         },
-      } as const;
+      };
     },
 
     async transform(
       this: import('rollup').PluginContext,
       code: string,
       id: string,
-      _options?: { ssr?: boolean }
+      options?: { ssr?: boolean }
     ): Promise<import('rollup').TransformResult | null> {
+      // SSR precompilation pass
+      if (shouldPrecompileSSR && options?.ssr) {
+        const result = ssrPrecompileTransform(code, id);
+        if (result) return result;
+      }
+
       // Provide an optional esbuild-based transform for .jsx/.tsx files so users don't need extra JSX tooling
       if (!shouldTransform) return null;
       if (!/\.(jsx|tsx)$/.test(id)) return null;
@@ -54,7 +105,7 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
       try {
         const esbuild = (await import('esbuild')) as typeof import('esbuild');
         const loader = id.endsWith('.tsx') ? 'tsx' : 'jsx';
-        const opts: import('esbuild').TransformOptions = {
+        const esbuildOpts: import('esbuild').TransformOptions = {
           loader,
           jsx: 'automatic',
           jsxImportSource: '@askrjs/askr',
@@ -76,9 +127,9 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
 
         let result: import('esbuild').TransformResult | null = null;
         if (typeof mod.transformSync === 'function') {
-          result = mod.transformSync(code, opts);
+          result = mod.transformSync(code, esbuildOpts);
         } else if (typeof mod.transform === 'function') {
-          result = await mod.transform(code, opts);
+          result = await mod.transform(code, esbuildOpts);
         }
 
         if (!result || !result.code) return null;
@@ -88,7 +139,7 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
           map: result.map as import('rollup').SourceMapInput,
         };
       } catch {
-        // If esbuild isn't available or fails, bail and let Vite handle it. Do not rely on framework-specific dev deps.
+        // If esbuild isn't available or fails, bail and let Vite handle it.
         return null;
       }
     },

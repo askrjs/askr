@@ -282,13 +282,13 @@ export const fireEvent = {
     element.click();
   },
 
-  input: (element: HTMLInputElement, value: string) => {
-    element.value = value;
+  input: (element: HTMLInputElement, value?: string) => {
+    if (value !== undefined) element.value = value;
     element.dispatchEvent(new Event('input', { bubbles: true }));
   },
 
-  change: (element: HTMLInputElement, value: string) => {
-    element.value = value;
+  change: (element: HTMLInputElement, value?: string) => {
+    if (value !== undefined) element.value = value;
     element.dispatchEvent(new Event('change', { bubbles: true }));
   },
 

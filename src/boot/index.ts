@@ -271,6 +271,13 @@ export type HydrateSPAConfig = {
   routes: Route[];
   // Optional: surface cleanup errors during teardown for this SPA
   cleanupStrict?: boolean;
+  // Selective hydration options
+  hydrate?: {
+    deferUntilIdle?: boolean;
+    deferBelowFold?: boolean;
+    foldThreshold?: number;
+    skipSelectors?: string[];
+  };
 };
 
 /**
@@ -412,6 +419,72 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 }
 
 /**
+ * Mark elements that should be skipped during hydration
+ */
+function markSkippedElements(root: Element, skipSelectors: string[]): void {
+  for (const selector of skipSelectors) {
+    const elements = root.querySelectorAll(selector);
+    elements.forEach((el) => el.setAttribute('data-skip-hydrate', 'true'));
+  }
+}
+
+/**
+ * Apply selective hydration with deferral options
+ */
+async function applySelectiveHydration(
+  rootElement: Element,
+  resolved: { handler: ComponentFunction; params: Record<string, unknown> },
+  hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>
+): Promise<void> {
+  const { renderToStringSync: _renderToStringSync } = await import('../ssr');
+
+  if (hydrateOptions.deferUntilIdle) {
+    if (typeof requestIdleCallback !== 'undefined') {
+      await new Promise((resolve) => {
+        requestIdleCallback(() => resolve(undefined), { timeout: 2000 });
+      });
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  if (hydrateOptions.deferBelowFold) {
+    const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
+    const belowFoldElements = Array.from(
+      rootElement.querySelectorAll('*')
+    ).filter((el) => {
+      const rect = el.getBoundingClientRect();
+      return rect.top >= foldY;
+    });
+
+    for (const el of belowFoldElements) {
+      el.setAttribute('data-skip-hydrate', 'true');
+    }
+
+    const handleScroll = () => {
+      const visibleBelowFold = belowFoldElements.filter((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.top < foldY;
+      });
+
+      for (const el of visibleBelowFold) {
+        el.removeAttribute('data-skip-hydrate');
+      }
+
+      if (visibleBelowFold.length === belowFoldElements.length) {
+        window.removeEventListener('scroll', handleScroll);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+  }
+
+  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
+    cleanupStrict: false,
+  });
+}
+
+/**
  * hydrateSPA: Hydrate server-rendered HTML with explicit routes
  */
 export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
@@ -480,6 +553,26 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     throw new Error(
       '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
     );
+  }
+
+  // Handle selective hydration options
+  const hydrateOptions = config.hydrate;
+  if (hydrateOptions) {
+    if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
+      await applySelectiveHydration(
+        rootElement,
+        {
+          handler: resolved.handler as ComponentFunction,
+          params: resolved.params as Record<string, unknown>,
+        },
+        hydrateOptions
+      );
+      return;
+    }
+
+    if (hydrateOptions.skipSelectors?.length) {
+      markSkippedElements(rootElement, hydrateOptions.skipSelectors);
+    }
   }
 
   // Proceed to mount the client SPA (this will attach listeners and start navigation)
