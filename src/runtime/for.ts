@@ -608,6 +608,16 @@ export function reconcileForItems<T>(
             forState.renderFn(item, () => existing.indexSignal())
           );
           existing.vnode = newVNode;
+          try {
+            if (
+              existing.vnode &&
+              typeof existing.vnode === 'object' &&
+              'type' in existing.vnode
+            )
+              (existing.vnode as { key?: string | number | null }).key = key;
+          } catch (e) {
+            void e;
+          }
           setCurrentComponentInstance(savedInst);
         }
 
