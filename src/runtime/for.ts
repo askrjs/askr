@@ -14,6 +14,7 @@ import {
   finalizeReadSubscriptions,
   getCurrentStateIndex,
   setStateIndex,
+  cleanupComponent,
 } from './component';
 import type { DOMElement, VNode } from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
@@ -550,14 +551,11 @@ export function reconcileForItems<T>(
         if (itemInstance) {
           recordBenchEvent('itemRemoved');
           const instance = itemInstance.componentInstance;
-          instance.abortController.abort();
-          for (const cleanup of instance.cleanupFns) {
-            try {
-              cleanup();
-            } catch (err) {
-              if (process.env.NODE_ENV !== 'production') {
-                console.error('[For] Cleanup error:', err);
-              }
+          try {
+            cleanupComponent(instance);
+          } catch (err) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.error('[For] Cleanup error:', err);
             }
           }
           // Clean up cached DOM node if present
@@ -565,6 +563,8 @@ export function reconcileForItems<T>(
             removeAllListeners(itemInstance._dom);
             cleanupInstanceIfPresent(itemInstance._dom);
           }
+          itemInstance.vnode = undefined;
+          itemInstance._dom = undefined;
           items.delete(key);
         }
       }
@@ -719,18 +719,11 @@ export function reconcileForItems<T>(
       recordBenchEvent('itemRemoved');
       // Clean up component instance
       const instance = itemInstance.componentInstance;
-
-      // Abort any pending operations
-      instance.abortController.abort();
-
-      // Run cleanup functions
-      for (const cleanup of instance.cleanupFns) {
-        try {
-          cleanup();
-        } catch (err) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.error('[For] Cleanup error:', err);
-          }
+      try {
+        cleanupComponent(instance);
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[For] Cleanup error:', err);
         }
       }
 
@@ -739,6 +732,9 @@ export function reconcileForItems<T>(
         removeAllListeners(itemInstance._dom);
         cleanupInstanceIfPresent(itemInstance._dom);
       }
+
+      itemInstance.vnode = undefined;
+      itemInstance._dom = undefined;
 
       items.delete(key);
     }
