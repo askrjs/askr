@@ -21,6 +21,12 @@ export interface ListenerEntry {
 // Event Handler Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Handler pooling cache to avoid recreating wrapped handlers
+// Key: handler reference, Value: { wrapped: EventListener, flushAfter: boolean }
+const handlerCache = new WeakMap<EventListener, Map<boolean, EventListener>>();
+let cacheSize = 0;
+const MAX_CACHE_SIZE = 1000;
+
 /**
  * Parse an event prop name (e.g., 'onClick') to its DOM event name (e.g., 'click')
  */
@@ -49,12 +55,20 @@ export function getPassiveOptions(
 
 /**
  * Create a wrapped event handler that integrates with the scheduler
+ * Uses caching to avoid recreating wrappers for the same handler
  */
 export function createWrappedHandler(
   handler: EventListener,
   flushAfter = false
 ): EventListener {
-  return (event: Event) => {
+  // Check cache first
+  const cachedByFlush = handlerCache.get(handler);
+  if (cachedByFlush) {
+    const cached = cachedByFlush.get(flushAfter);
+    if (cached) return cached;
+  }
+
+  const wrapped: EventListener = (event: Event) => {
     globalScheduler.setInHandler(true);
     try {
       handler(event);
@@ -79,6 +93,24 @@ export function createWrappedHandler(
       }
     }
   };
+
+  // Cache the wrapped handler
+  try {
+    if (!handlerCache.has(handler)) {
+      // Limit cache size to prevent memory leaks
+      if (cacheSize >= MAX_CACHE_SIZE) {
+        // Simple eviction - just don't cache new entries when full
+      } else {
+        cacheSize++;
+        handlerCache.set(handler, new Map());
+      }
+    }
+    handlerCache.get(handler)?.set(flushAfter, wrapped);
+  } catch {
+    // WeakMap can throw if handler is not a valid key
+  }
+
+  return wrapped;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -317,7 +317,9 @@ function updateForBoundaryChildren(
  * Update element children (handles keyed, unkeyed, For boundaries, and non-array cases)
  */
 function updateElementChildren(element: Element, vnodeChildren: unknown): void {
-  if (!vnodeChildren) {
+  // CRITICAL: Check for null/undefined explicitly, not falsy values
+  // because 0, false, and '' are valid children
+  if (vnodeChildren === null || vnodeChildren === undefined) {
     element.textContent = '';
     keyedElements.delete(element);
     return;

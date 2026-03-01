@@ -45,6 +45,14 @@ import {
 } from './utils';
 import type { State } from '../runtime/state';
 import { globalScheduler } from '../runtime/scheduler';
+import {
+  isEventDelegationEnabled,
+  addDelegatedListener,
+  removeDelegatedListener,
+  getDelegatedHandlersForElement,
+  clearDelegatedHandlersForElement as _clearDelegatedHandlersForElement,
+  isDelegatedEvent,
+} from '../runtime/events';
 
 type ElementWithContext = DOMElement & {
   [CONTEXT_FRAME_SYMBOL]?: ContextFrame;
@@ -74,29 +82,55 @@ function nextComponentInstanceId(): string {
 
 /**
  * Add an event listener to an element with tracking
+ * Uses event delegation when enabled (opt-out model)
  */
 function addTrackedListener(
   el: Element,
   eventName: string,
   handler: EventListener
 ): void {
+  const useDelegation =
+    isEventDelegationEnabled() && isDelegatedEvent(eventName);
+
+  if (useDelegation) {
+    addDelegatedListener(el, eventName, handler, handler, undefined);
+  }
+
   const wrappedHandler = createWrappedHandler(handler, true);
   const options = getPassiveOptions(eventName);
 
-  if (options !== undefined) {
-    el.addEventListener(eventName, wrappedHandler, options);
-  } else {
-    el.addEventListener(eventName, wrappedHandler);
+  if (!useDelegation) {
+    if (options !== undefined) {
+      el.addEventListener(eventName, wrappedHandler, options);
+    } else {
+      el.addEventListener(eventName, wrappedHandler);
+    }
   }
 
   if (!elementListeners.has(el)) {
     elementListeners.set(el, new Map());
   }
   elementListeners.get(el)!.set(eventName, {
-    handler: wrappedHandler,
+    handler: useDelegatedListener(useDelegation, el, eventName, wrappedHandler),
     original: handler,
     options,
+    isDelegated: useDelegation,
   });
+}
+
+function useDelegatedListener(
+  isDelegated: boolean,
+  el: Element,
+  eventName: string,
+  wrappedHandler: EventListener
+): EventListener {
+  if (!isDelegated) return wrappedHandler;
+  const delegatedHandlers = getDelegatedHandlersForElement(el);
+  if (delegatedHandlers) {
+    const entry = delegatedHandlers.get(eventName);
+    if (entry) return entry.handler;
+  }
+  return wrappedHandler;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -400,10 +434,9 @@ function applyRef<T>(el: T, ref: unknown): void {
     r(el);
     return;
   }
-  try {
+  // Fast path: use Object.isExtensible check instead of try/catch
+  if (Object.isExtensible(r)) {
     (r as { current: T | null }).current = el;
-  } catch {
-    // Ignore write failures
   }
 }
 
@@ -844,10 +877,14 @@ export function updateElementFromVnode(
         el.className = '';
       } else if (eventName && existingListeners?.has(eventName)) {
         const entry = existingListeners.get(eventName)!;
-        if (entry.options !== undefined) {
-          el.removeEventListener(eventName, entry.handler, entry.options);
+        if (entry.isDelegated) {
+          removeDelegatedListener(el, eventName);
         } else {
-          el.removeEventListener(eventName, entry.handler);
+          if (entry.options !== undefined) {
+            el.removeEventListener(eventName, entry.handler, entry.options);
+          } else {
+            el.removeEventListener(eventName, entry.handler);
+          }
         }
         existingListeners.delete(eventName);
       } else {
@@ -898,38 +935,64 @@ export function updateElementFromVnode(
         (desiredEventNames ??= new Set()).add(eventName);
       }
 
+      const useDelegation =
+        isEventDelegationEnabled() && isDelegatedEvent(eventName);
       const existing = existingListeners?.get(eventName);
-      // If handler reference unchanged, keep existing wrapped handler
+
       if (existing && existing.original === value) {
         continue;
       }
 
-      // Remove old handler if present
       if (existing) {
-        if (existing.options !== undefined) {
-          el.removeEventListener(eventName, existing.handler, existing.options);
+        if (existing.isDelegated) {
+          removeDelegatedListener(el, eventName);
         } else {
-          el.removeEventListener(eventName, existing.handler);
+          if (existing.options !== undefined) {
+            el.removeEventListener(
+              eventName,
+              existing.handler,
+              existing.options
+            );
+          } else {
+            el.removeEventListener(eventName, existing.handler);
+          }
         }
       }
 
-      // Add new handler
+      if (useDelegation) {
+        addDelegatedListener(
+          el,
+          eventName,
+          value as EventListener,
+          value as EventListener,
+          undefined
+        );
+      }
+
       const wrappedHandler = createWrappedHandler(value as EventListener, true);
       const options = getPassiveOptions(eventName);
 
-      if (options !== undefined) {
-        el.addEventListener(eventName, wrappedHandler, options);
-      } else {
-        el.addEventListener(eventName, wrappedHandler);
+      if (!useDelegation) {
+        if (options !== undefined) {
+          el.addEventListener(eventName, wrappedHandler, options);
+        } else {
+          el.addEventListener(eventName, wrappedHandler);
+        }
       }
 
       if (!elementListeners.has(el)) {
         elementListeners.set(el, new Map());
       }
       elementListeners.get(el)!.set(eventName, {
-        handler: wrappedHandler,
+        handler: useDelegatedListener(
+          useDelegation,
+          el,
+          eventName,
+          wrappedHandler
+        ),
         original: value as EventListener,
         options,
+        isDelegated: useDelegation,
       });
     } else {
       el.setAttribute(key, String(value));
@@ -941,20 +1004,28 @@ export function updateElementFromVnode(
     // If no event props were present, all existing listeners are undesired.
     if (desiredEventNames === null) {
       for (const [eventName, entry] of existingListeners) {
-        if (entry.options !== undefined) {
-          el.removeEventListener(eventName, entry.handler, entry.options);
+        if (entry.isDelegated) {
+          removeDelegatedListener(el, eventName);
         } else {
-          el.removeEventListener(eventName, entry.handler);
+          if (entry.options !== undefined) {
+            el.removeEventListener(eventName, entry.handler, entry.options);
+          } else {
+            el.removeEventListener(eventName, entry.handler);
+          }
         }
       }
       elementListeners.delete(el);
     } else {
       for (const [eventName, entry] of existingListeners) {
         if (!desiredEventNames.has(eventName)) {
-          if (entry.options !== undefined) {
-            el.removeEventListener(eventName, entry.handler, entry.options);
+          if (entry.isDelegated) {
+            removeDelegatedListener(el, eventName);
           } else {
-            el.removeEventListener(eventName, entry.handler);
+            if (entry.options !== undefined) {
+              el.removeEventListener(eventName, entry.handler, entry.options);
+            } else {
+              el.removeEventListener(eventName, entry.handler);
+            }
           }
           existingListeners.delete(eventName);
         }
@@ -975,7 +1046,9 @@ export function updateElementChildren(
   el: Element,
   children: VNode | VNode[] | undefined
 ): void {
-  if (!children) {
+  // CRITICAL: Check for null/undefined explicitly, not falsy values
+  // because 0, false, and '' are valid children
+  if (children === null || children === undefined) {
     el.textContent = '';
     return;
   }
@@ -1696,7 +1769,9 @@ function countSimpleChildren(children: VNode[]): {
 function isSimpleElement(dv: DOMElement): boolean {
   const children = dv.children || dv.props?.children;
 
-  if (!children) return true; // empty element
+  // CRITICAL: Check for null/undefined explicitly, not falsy values
+  // because 0, false, and '' are valid children that should return true (simple)
+  if (children === null || children === undefined) return true; // empty element
 
   if (typeof children === 'string' || typeof children === 'number') {
     return true;

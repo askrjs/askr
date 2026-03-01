@@ -24,3 +24,11 @@ export { For } from './for';
 
 // Essential public types
 export type { Props } from './common/props';
+
+// Event delegation controls (opt-out model)
+export {
+  isEventDelegationEnabled,
+  disableEventDelegation,
+  enableEventDelegation,
+  setGlobalDelegationContainer,
+} from './runtime/events';
