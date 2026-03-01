@@ -62,6 +62,10 @@ export const _reconcilerRecordedParents = new WeakSet<Element>();
 // Fast-Path Eligibility
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Configuration: LIS fast-path thresholds
+const LIS_THRESHOLD_MIN = 64; // Minimum list size for LIS optimization
+const LIS_THRESHOLD_LARGE = 128; // Threshold for "large" list optimizations
+
 interface KeyedVnode {
   key: string | number;
   vnode: VNode;
@@ -163,7 +167,7 @@ export function isKeyedReorderFastPathEligible(
   const FAST_MOVE_THRESHOLD_ABS = 64;
   const FAST_MOVE_THRESHOLD_REL = 0.1;
   const cheapMoveTrigger =
-    totalKeyed >= 128 &&
+    totalKeyed >= LIS_THRESHOLD_MIN &&
     oldKeyOrder.length > 0 &&
     moveCount >
       Math.max(
@@ -174,7 +178,7 @@ export function isKeyedReorderFastPathEligible(
   // Compute LIS trigger for large lists
   let lisTrigger = false;
   let lisLen = 0;
-  if (totalKeyed >= 128) {
+  if (totalKeyed >= LIS_THRESHOLD_MIN) {
     const parentChildren = Array.from(parent.children);
     const positions = keyedVnodes.map(({ key }) => {
       const el = oldKeyMap?.get(key);
@@ -185,11 +189,12 @@ export function isKeyedReorderFastPathEligible(
   }
 
   // Check for props that would prevent fast-path
-  const hasPropsPresent = checkVnodesHaveProps(keyedVnodes);
+  // Only block if props have CHANGED, not just if props exist
   const hasPropChanges = checkVnodePropChanges(keyedVnodes, oldKeyMap);
 
-  const useFastPath =
-    (cheapMoveTrigger || lisTrigger) && !hasPropChanges && !hasPropsPresent;
+  // Allow fastpath even with props present, as long as props haven't changed
+  // This enables fast-path for common patterns like <Row item={item} onClick={...} />
+  const useFastPath = (cheapMoveTrigger || lisTrigger) && !hasPropChanges;
 
   return {
     useFastPath,

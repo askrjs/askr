@@ -242,8 +242,9 @@ function tryRendererFastPath(
     oldKeyMap
   );
 
+  // Apply fast-path for medium-to-large keyed lists (64+) or during bulk commit
   if (
-    (decision.useFastPath && keyedVnodes.length >= 128) ||
+    (decision.useFastPath && keyedVnodes.length >= 64) ||
     isBulkCommitActive()
   ) {
     try {

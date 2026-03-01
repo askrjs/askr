@@ -1,7 +1,11 @@
 import { logger } from '../dev/logger';
 import type { Props } from '../common/props';
 import type { ComponentInstance } from '../runtime/component';
-import { elementListeners, removeAllListeners } from './cleanup';
+import {
+  elementListeners,
+  removeAllListeners,
+  cleanupInstanceIfPresent,
+} from './cleanup';
 import { keyedElements } from './keyed';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
@@ -293,9 +297,27 @@ function updateForBoundaryChildren(
     | (() => unknown[]);
   const childrenVNodes = evaluateForState(forState, source);
 
-  // Clear old children
-  while (element.firstChild) {
-    element.removeChild(element.firstChild);
+  // Clear old children with comprehensive cleanup
+  // Walk DOM tree to clean up ALL nodes and nested structures
+  const walkAndCleanup = (node: Node) => {
+    if (node instanceof Element) {
+      removeAllListeners(node);
+      cleanupInstanceIfPresent(node);
+    }
+    let child = node.firstChild;
+    while (child) {
+      const next = child.nextSibling;
+      walkAndCleanup(child);
+      child = next;
+    }
+  };
+
+  let child = element.firstChild;
+  while (child) {
+    const next = child.nextSibling;
+    walkAndCleanup(child);
+    element.removeChild(child);
+    child = next;
   }
 
   // Append new vnodes directly (reusing cached DOM when possible)
@@ -347,6 +369,15 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
   // CRITICAL: Check for null/undefined explicitly, not falsy values
   // because 0, false, and '' are valid children
   if (vnodeChildren === null || vnodeChildren === undefined) {
+    // Clean up all children before clearing
+    for (let n = element.firstChild; n; ) {
+      const next = n.nextSibling;
+      if (n instanceof Element) {
+        removeAllListeners(n);
+        cleanupInstanceIfPresent(n);
+      }
+      n = next;
+    }
     element.textContent = '';
     keyedElements.delete(element);
     return;
@@ -363,6 +394,15 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
   }
 
   if (!Array.isArray(vnodeChildren)) {
+    // Clean up all children before clearing
+    for (let n = element.firstChild; n; ) {
+      const next = n.nextSibling;
+      if (n instanceof Element) {
+        removeAllListeners(n);
+        cleanupInstanceIfPresent(n);
+      }
+      n = next;
+    }
     element.textContent = '';
     const dom = createDOMNode(vnodeChildren);
     if (dom) element.appendChild(dom);
@@ -467,6 +507,9 @@ function processFragmentChildren(target: Element, childArray: unknown[]): void {
     const newDom = createDOMNode(childVnode);
     if (newDom) {
       if (existingNode) {
+        // Clean up existing node before replacing
+        removeAllListeners(existingNode);
+        cleanupInstanceIfPresent(existingNode);
         target.replaceChild(newDom, existingNode);
       } else {
         target.appendChild(newDom);
@@ -479,6 +522,8 @@ function processFragmentChildren(target: Element, childArray: unknown[]): void {
   // Remove extra element-children (preserves previous element-only behavior)
   while (existingNode) {
     const next = existingNode.nextElementSibling;
+    removeAllListeners(existingNode);
+    cleanupInstanceIfPresent(existingNode);
     target.removeChild(existingNode);
     existingNode = next;
   }

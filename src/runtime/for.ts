@@ -19,6 +19,10 @@ import type { DOMElement, VNode } from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
+import {
+  removeAllListeners,
+  cleanupInstanceIfPresent,
+} from '../renderer/cleanup';
 
 const askrGlobal = globalThis as typeof globalThis & {
   __ASKR_BENCH__?: boolean;
@@ -556,6 +560,11 @@ export function reconcileForItems<T>(
               }
             }
           }
+          // Clean up cached DOM node if present
+          if (itemInstance._dom instanceof Element) {
+            removeAllListeners(itemInstance._dom);
+            cleanupInstanceIfPresent(itemInstance._dom);
+          }
           items.delete(key);
         }
       }
@@ -723,6 +732,12 @@ export function reconcileForItems<T>(
             console.error('[For] Cleanup error:', err);
           }
         }
+      }
+
+      // Clean up cached DOM node if present
+      if (itemInstance._dom instanceof Element) {
+        removeAllListeners(itemInstance._dom);
+        cleanupInstanceIfPresent(itemInstance._dom);
       }
 
       items.delete(key);
