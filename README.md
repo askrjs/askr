@@ -57,12 +57,18 @@ Proven with 133 tests covering:
 Every component gets an AbortSignal for automatic cancellation.
 
 ```typescript
-async function Data({ id }) {
-  const signal = getSignal();
-  const data = await fetch(`/api/${id}`, { signal });
-  return <div>{data}</div>;
+import { resource, getSignal } from '@askrjs/askr/resources';
+
+function Data({ id }) {
+  const data = resource(async () => {
+    const res = await fetch(`/api/${id}`, { signal: getSignal() });
+    return res.json();
+  }, [id]);
+
+  if (!data) return <div>Loading...</div>;
+  return <div>{data.name}</div>;
 }
-// Fetch cancelled automatically on unmount
+// Async work is cancelled automatically on unmount/navigation
 ```
 
 ### Explicit Reactivity
