@@ -14,7 +14,6 @@ import {
   performBulkPositionalKeyedTextUpdate,
   performBulkTextReplace,
   isBulkTextFastPathEligible,
-  createForBoundary,
 } from './dom';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { Fragment } from '../common/jsx';
