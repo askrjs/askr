@@ -6,6 +6,7 @@ import { keyedElements } from './keyed';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { evaluateForState } from '../runtime/for';
 import {
   createDOMNode,
   updateElementFromVnode,
@@ -288,17 +289,52 @@ function updateForBoundaryChildren(
   const forState = forVnode._forState;
   if (!forState) return;
 
-  // Use the For boundary's own DOM caching and reuse logic
-  // instead of generic keyed reconciliation. This ensures cached
-  // DOM nodes are properly reused and reordered.
-  const fragment = createForBoundary(
-    forVnode,
-    (forVnode.props || {}) as Record<string, unknown>
-  );
+  const source = (forVnode.props || {}).source as unknown as
+    | import('../runtime/state').State<unknown[]>
+    | (() => unknown[]);
+  const childrenVNodes = evaluateForState(forState, source);
 
-  // Replace all children with the new fragment from For boundary
-  element.textContent = '';
-  element.appendChild(fragment);
+  // Clear old children
+  while (element.firstChild) {
+    element.removeChild(element.firstChild);
+  }
+
+  // Append new vnodes directly (reusing cached DOM when possible)
+  for (let i = 0; i < childrenVNodes.length; i++) {
+    const childVNode = childrenVNodes[i];
+    const itemKey = forState.orderedKeys[i];
+    const itemInstance = itemKey != null ? forState.items.get(itemKey) : null;
+
+    let dom: Node | null = null;
+
+    // Try to reuse existing DOM if element type matches
+    if (itemInstance && itemInstance._dom) {
+      const cachedDom = itemInstance._dom;
+      if (!(cachedDom instanceof Element) || 
+          !(childVNode as DOMElement)?.type ||
+          typeof (childVNode as DOMElement).type !== 'string' ||
+          (cachedDom as Element).tagName.toLowerCase() === ((childVNode as DOMElement).type as string).toLowerCase()) {
+        dom = cachedDom;
+      }
+    }
+
+    // Create new DOM if no reusable node available
+    if (!dom) {
+      dom = createDOMNode(childVNode);
+      if (itemInstance) {
+        itemInstance._dom = dom ?? undefined;
+      }
+    }
+
+    if (dom) {
+      // Always update reused DOM from current vnode
+      if (dom instanceof Element && _isDOMElement(childVNode)) {
+        updateElementFromVnode(dom, childVNode as DOMElement, true);
+      }
+      element.appendChild(dom);
+    }
+  }
+
   keyedElements.delete(element);
 }
 
