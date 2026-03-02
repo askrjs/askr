@@ -14,6 +14,7 @@ const input = {
   'fx/index': path.resolve(__dirname, 'src/fx/index.ts'),
   'router/index': path.resolve(__dirname, 'src/router/index.ts'),
   'ssr/index': path.resolve(__dirname, 'src/ssr/index.ts'),
+  'ssg/index': path.resolve(__dirname, 'src/ssg/index.ts'),
 
   'jsx-runtime': path.resolve(__dirname, 'src/jsx/jsx-runtime.ts'),
   'jsx-dev-runtime': path.resolve(__dirname, 'src/jsx/jsx-dev-runtime.ts'),
@@ -22,6 +23,9 @@ const input = {
   benchmark: path.resolve(__dirname, 'src/bench/benchmark-entry.tsx'),
 
   'vite/index': path.resolve(__dirname, 'src/dev/vite-plugin-askr.ts'),
+
+  // CLI entry for askr-ssg
+  '../../bin/askr-ssg': path.resolve(__dirname, 'scripts/askr-ssg.ts'),
 };
 
 export default defineConfig({

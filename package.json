@@ -58,6 +58,10 @@
       "import": "./dist/ssr/index.js",
       "types": "./dist/ssr/index.d.ts"
     },
+    "./ssg": {
+      "import": "./dist/ssg/index.js",
+      "types": "./dist/ssg/index.d.ts"
+    },
     "./jsx-runtime": {
       "import": "./dist/jsx-runtime.js",
       "types": "./dist/jsx-runtime.d.ts"
@@ -70,6 +74,9 @@
       "import": "./dist/vite/index.js",
       "types": "./dist/vite/index.d.ts"
     }
+  },
+  "bin": {
+    "askr-ssg": "./dist/bin/askr-ssg.js"
   },
   "publishConfig": {
     "access": "public"
