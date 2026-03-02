@@ -147,11 +147,15 @@ createSPA({
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md)
-- [State Management](docs/state.md)
-- [Runtime Enforcement](docs/enforcement.md)
-- [Deterministic Execution](docs/determinism.md)
-- [API Reference](docs/api.md)
+- [Documentation Index](docs/index.md)
+- [Install](docs/getting-started/installation.md)
+- [Quick Start](docs/getting-started/quick-start.md)
+- [State Management](docs/guides/state.md)
+- [Router Guide](docs/guides/router.md)
+- [Resources Guide](docs/guides/resources.md)
+- [Runtime Enforcement](docs/concepts/runtime-enforcement.md)
+- [Deterministic Execution](docs/concepts/determinism.md)
+- [API Reference](docs/reference/api.md)
 
 ---
 
