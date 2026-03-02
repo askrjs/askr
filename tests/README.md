@@ -2,7 +2,7 @@
 
 ## Philosophy
 
-The Askr test suite isn't just about coverage—it's about **proving guarantees** from SPEC.md under realistic conditions.
+The Askr test suite isn't just about coverage—it's about **proving guarantees** documented in [docs/reference/spec-guarantees.md](../docs/reference/spec-guarantees.md) under realistic conditions.
 
 ### Core Principles
 
