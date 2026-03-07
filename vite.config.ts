@@ -25,7 +25,7 @@ const input = {
   'vite/index': path.resolve(__dirname, 'src/dev/vite-plugin-askr.ts'),
 
   // CLI entry for askr-ssg
-  '../../bin/askr-ssg': path.resolve(__dirname, 'scripts/askr-ssg.ts'),
+  'bin/askr-ssg': path.resolve(__dirname, 'scripts/askr-ssg.ts'),
 };
 
 export default defineConfig({

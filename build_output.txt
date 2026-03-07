@@ -1,0 +1,58 @@
+
+> @askrjs/askr@0.0.27 build:prod
+> cross-env NODE_ENV=production vite build && npm run build:types
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[plugin vite:resolve] Module "path" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/scripts/askr-ssg.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/scripts/askr-ssg.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/src/ssg/write-static-files.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "path" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/src/ssg/write-static-files.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/src/ssg/generate-metadata.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "path" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/src/ssg/generate-metadata.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/node_modules/esbuild/lib/main.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "os" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/node_modules/esbuild/lib/main.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "path" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/node_modules/esbuild/lib/main.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "child_process" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/node_modules/esbuild/lib/main.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "crypto" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/node_modules/esbuild/lib/main.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "tty" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/node_modules/esbuild/lib/main.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "worker_threads" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/node_modules/esbuild/lib/main.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/src/ssr/write-static-files.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin vite:resolve] Module "path" has been externalized for browser compatibility, imported by "D:/repos/askrjs/askr/src/ssr/write-static-files.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+src/ssr/write-static-files.ts (24:24): "join" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (25:19): "dirname" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (28:5): "mkdirSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (31:5): "writeFileSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (44:24): "join" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (47:5): "mkdirSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (50:5): "writeFileSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (65:9): "existsSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (66:21): "readdirSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (82:10): "existsSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (87:21): "readdirSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (89:28): "join" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (90:22): "statSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (96:13): "rmdirSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssr/write-static-files.ts (101:11): "unlinkSync" is not exported by "__vite-browser-external", imported by "src/ssr/write-static-files.ts".
+src/ssg/write-static-files.ts (24:5): "mkdirSync" is not exported by "__vite-browser-external", imported by "src/ssg/write-static-files.ts".
+src/ssg/write-static-files.ts (37:32): "join" is not exported by "__vite-browser-external", imported by "src/ssg/write-static-files.ts".
+src/ssg/write-static-files.ts (38:27): "dirname" is not exported by "__vite-browser-external", imported by "src/ssg/write-static-files.ts".
+src/ssg/write-static-files.ts (41:7): "mkdirSync" is not exported by "__vite-browser-external", imported by "src/ssg/write-static-files.ts".
+src/ssg/write-static-files.ts (44:7): "writeFileSync" is not exported by "__vite-browser-external", imported by "src/ssg/write-static-files.ts".
+src/ssg/generate-metadata.ts (63:30): "join" is not exported by "__vite-browser-external", imported by "src/ssg/generate-metadata.ts".
+src/ssg/generate-metadata.ts (66:5): "mkdirSync" is not exported by "__vite-browser-external", imported by "src/ssg/generate-metadata.ts".
+src/ssg/generate-metadata.ts (69:5): "writeFileSync" is not exported by "__vite-browser-external", imported by "src/ssg/generate-metadata.ts".
+[32mΓ£ô[39m 95 modules transformed.
+Γ£ù Build failed in 458ms
+error during build:
+Invalid substitution "../../bin/askr-ssg" for placeholder "[name]" in "output.entryFileNames" pattern, can be neither absolute nor relative path.
+    at getRollupError (file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at error (file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/parseAst.js:398:42)
+    at file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/node-entry.js:18179:20
+    at String.replace (<anonymous>)
+    at renderNamePattern (file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/node-entry.js:18173:20)
+    at Chunk.getPreliminaryFileName (file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/node-entry.js:18521:24)
+    at reserveEntryChunksInBundle (file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/node-entry.js:20367:19)
+    at renderChunks (file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/node-entry.js:20352:5)
+    at Bundle.generate (file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/node-entry.js:20617:19)
+    at async file:///D:/repos/askrjs/askr/node_modules/rollup/dist/es/shared/node-entry.js:23558:27

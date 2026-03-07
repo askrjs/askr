@@ -1,21 +1,24 @@
 /**
  * File I/O for Static Site Generation
+ *
+ * Uses Node.js fs/path modules to write rendered HTML files to disk.
+ * This module is Node-only and not intended for browser builds.
  */
 
-import { mkdir, writeFile } from 'fs/promises';
-import { join, dirname } from 'path';
+import * as fs from 'fs';
+import * as pathModule from 'path';
 import type { RouteRenderResult } from './types';
 
 /**
  * Write rendered routes to disk
  * Creates outputDir/{route-path}/index.html structure
  */
-export async function writeStaticFiles(
+export function writeStaticFiles(
   results: RouteRenderResult[],
   outputDir: string
-): Promise<void> {
+): void {
   // Ensure output directory exists
-  await mkdir(outputDir, { recursive: true });
+  fs.mkdirSync(outputDir, { recursive: true });
 
   for (const result of results) {
     if (result.status === 'error') {
@@ -24,31 +27,30 @@ export async function writeStaticFiles(
     }
 
     // Determine output file path
-    const filePath = getOutputFilePath(outputDir, result.path);
+    const htmlPath = result.filePath
+      ? `${result.filePath}/index.html`
+      : 'index.html';
+
+    const fullPath = pathModule.join(outputDir, htmlPath);
+    const dir = pathModule.dirname(fullPath);
 
     // Create parent directories
-    const dir = dirname(filePath);
-    await mkdir(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true });
 
     // Write HTML file
-    await writeFile(filePath, result.html, 'utf8');
-
-    // Update result with actual file path for metadata
-    result.fileSize = Buffer.byteLength(result.html, 'utf8');
+    fs.writeFileSync(fullPath, result.html, 'utf8');
   }
 }
 
 /**
- * Get the full file path for a route
- * E.g., "/blog/post" -> "outputDir/blog/post/index.html"
- * E.g., "/" -> "outputDir/index.html"
+ * Get the output file path for a route
+ * E.g., "/blog/post" -> "blog/post" or "/" -> ""
  */
-export function getOutputFilePath(outputDir: string, path: string): string {
-  if (path === '/') {
-    return join(outputDir, 'index.html');
+export function getOutputFilePath(pathStr: string): string {
+  if (pathStr === '/') {
+    return '';
   }
-
-  // Remove leading/trailing slashes and append index.html
-  const normalized = path.replace(/^\/|\/$/g, '');
-  return join(outputDir, normalized, 'index.html');
+  return pathStr.replace(/^\/|\/$/g, '');
 }
+
+

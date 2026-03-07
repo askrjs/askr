@@ -60,14 +60,14 @@ export function createStaticGen(options: SSGOptions) {
       });
 
       // Write HTML files to disk
-      await writeStaticFiles(renderResults, options.outputDir);
+      writeStaticFiles(renderResults, options.outputDir);
 
       // Generate result object
       result = generateSSGResult(renderResults);
 
       // Write metadata
       const metadata = resultToMetadata(result);
-      await writeMetadata(metadata, options.outputDir);
+      writeMetadata(metadata, options.outputDir);
 
       return result;
     },

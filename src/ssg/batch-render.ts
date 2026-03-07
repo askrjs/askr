@@ -32,8 +32,6 @@ export async function batchRenderRoutes(
   const results: RouteRenderResult[] = [];
   const promises: Promise<void>[] = [];
 
-  let index = 0;
-
   const renderOne = async (route: RouteConfig, ssrRoute: typeof ssrRoutes[0]) => {
     const startTime = performance.now();
 
@@ -48,12 +46,13 @@ export async function batchRenderRoutes(
       });
 
       const duration = performance.now() - startTime;
+      const fileSize = Buffer.byteLength(html, 'utf8');
 
       results.push({
         path: route.path,
         filePath: pathToFilePath(route.path),
         html,
-        fileSize: Buffer.byteLength(html, 'utf8'),
+        fileSize,
         renderDuration: Math.round(duration),
         resourceCount: 0, // TODO: track during render
         status: 'success',
@@ -83,17 +82,13 @@ export async function batchRenderRoutes(
     // Wait if we hit concurrency limit
     if (promises.length >= concurrency) {
       await Promise.race(promises);
-      promises.splice(
-        promises.findIndex((p) => p.then?.length === 0),
-        1
-      );
+      const idx = promises.findIndex((p) => !p);
+      if (idx !== -1) {
+        promises.splice(idx, 1);
+      }
     }
 
-    const promise = renderOne(route, ssrRoute).finally(() => {
-      const idx = promises.indexOf(promise);
-      if (idx !== -1) promises.splice(idx, 1);
-    });
-
+    const promise = renderOne(route, ssrRoute);
     promises.push(promise);
   }
 

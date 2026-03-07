@@ -65,7 +65,7 @@ export interface SSGResult {
 }
 
 /** Metadata to write to metadata.json */
-export interface SSGMetadata {
+export interface SSGMetadata extends Record<string, unknown> {
   /** ISO timestamp of generation */
   generatedAt: string;
   /** Total number of routes processed */

@@ -1,9 +1,12 @@
 /**
  * Metadata generation for SSG
+ *
+ * Generates and serializes metadata about generated static files.
+ * This module is Node-only and not intended for browser builds.
  */
 
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import * as fs from 'fs';
+import * as pathModule from 'path';
 import type { RouteRenderResult, SSGMetadata, SSGResult } from './types';
 
 /**
@@ -51,11 +54,15 @@ export function resultToMetadata(result: SSGResult): SSGMetadata {
 /**
  * Write metadata.json to output directory
  */
-export async function writeMetadata(
-  metadata: SSGMetadata,
+export function writeMetadata(
+  metadata: Record<string, unknown>,
   outputDir: string
-): Promise<void> {
-  const filePath = join(outputDir, 'metadata.json');
-  const content = JSON.stringify(metadata, null, 2);
-  await writeFile(filePath, content, 'utf8');
+): void {
+  const filePath = pathModule.join(outputDir, 'metadata.json');
+
+  // Ensure directory exists
+  fs.mkdirSync(outputDir, { recursive: true });
+
+  // Write metadata file with formatting
+  fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2), 'utf8');
 }

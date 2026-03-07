@@ -1,16 +1,23 @@
-#!/usr/bin/env node
-
 /**
  * askr-ssg CLI
  *
  * Usage: askr-ssg --config path/to/config.js --output dist/static
  *
  * For TypeScript configs, pre-compile to JS or use:
- *   tsx node_modules/@askrjs/askr/dist/ssg-cli.js --config config.ts
+ *   tsx node_modules/@askrjs/askr/dist/bin/askr-ssg.js --config config.ts
  */
 
-import { resolve } from 'path';
-import { existsSync } from 'fs';
+// @ts-expect-error - path is a Node.js built-in
+import * as pathModule from 'path';
+// @ts-expect-error - fs is a Node.js built-in
+import * as fsModule from 'fs';
+
+// Import SSG directly so Rollup can resolve the dependency during build
+// The relative path will be correct at runtime since CLI is at dist/bin/ and SSG is at dist/ssg/
+import { createStaticGen } from '../src/ssg/index';
+
+const { resolve } = pathModule;
+const { existsSync } = fsModule;
 
 async function main() {
   // Parse CLI arguments
@@ -82,9 +89,6 @@ For TypeScript config files, you can:
     }
 
     console.log(`🚀 Generating ${config.routes.length} routes...`);
-
-    // Import SSG from dist
-    const { createStaticGen } = await import('@askrjs/askr/ssg');
 
     // Create and run SSG
     const ssg = createStaticGen({
