@@ -16,9 +16,10 @@ await createSPA({
   root: document.getElementById('app')!,
   routes: getRoutes(),
 });
-
-navigate(window.location.pathname);
 ```
+
+`createSPA()` immediately mounts the current URL when it matches a registered route.
+If the current URL does not match yet, it keeps an empty placeholder mounted and waits for the first matching `navigate()` or `popstate` event.
 
 ## Link component
 
@@ -39,6 +40,7 @@ Use `layout()` to preserve shared DOM structure between route changes.
 - Keep handlers synchronous.
 - Return UI immediately.
 - Move async work into components with `resource()`.
+- Use `navigate(path)` for user-driven transitions after startup, not for initial boot.
 
 ## Next
 

@@ -1,3 +1,7 @@
+#!/usr/bin/env node
+
+/* eslint-disable no-console */
+
 /**
  * askr-ssg CLI
  *
@@ -6,16 +10,12 @@
 
 import * as pathModule from 'path';
 import * as fsModule from 'fs';
-
-// Import SSG directly so Rollup can resolve the dependency during build
-// The relative path will be correct at runtime since CLI is at dist/bin/ and SSG is at dist/ssg/
-import { createStaticGen } from '../src/ssg/index';
+import { createStaticGen } from '../ssg/index';
 
 const { resolve } = pathModule;
 const { existsSync } = fsModule;
 
 async function main() {
-  // Parse CLI arguments
   const args = process.argv.slice(2);
   let configPath = '';
   let outputDir = '';
@@ -50,7 +50,6 @@ TypeScript config execution:
     }
   }
 
-  // Validate arguments
   if (!configPath) {
     console.error('Error: --config argument is required');
     process.exit(1);
@@ -66,11 +65,9 @@ TypeScript config execution:
     process.exit(1);
   }
 
-  // Resolve paths relative to current working directory
   const resolvedConfigPath = resolve(process.cwd(), configPath);
   const resolvedOutputDir = resolve(process.cwd(), outputDir);
 
-  // Check if config file exists
   if (!existsSync(resolvedConfigPath)) {
     console.error(`Error: Config file not found: ${resolvedConfigPath}`);
     process.exit(1);
@@ -79,7 +76,6 @@ TypeScript config execution:
   try {
     console.log(`Loading config: ${resolvedConfigPath}`);
 
-    // Dynamically import the config file
     const configModule = await import(resolvedConfigPath);
     const config = configModule.default || configModule;
 
@@ -90,7 +86,6 @@ TypeScript config execution:
 
     console.log(`Generating ${config.routes.length} routes...`);
 
-    // Create and run SSG
     const ssg = createStaticGen({
       routes: config.routes,
       outputDir: resolvedOutputDir,
@@ -103,7 +98,6 @@ TypeScript config execution:
     const result = await ssg.generate();
     const duration = ((performance.now() - startTime) / 1000).toFixed(2);
 
-    // Report results
     console.log('');
     console.log(`Generation complete in ${duration}s`);
     console.log(

@@ -377,20 +377,11 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   const resolved = resolveRoute(path);
   if (!resolved) {
-    // If no route currently matches, mount an empty placeholder and continue.
-    // This supports cases where routes are registered but the current URL is
-    // not one of them (common in router tests that navigate programmatically).
-    if (process.env.NODE_ENV !== 'production') {
-      getLogger().then((logger) => {
-        logger.warn(
-          `createSPA: no route found for current path (${path}). Mounting empty placeholder; navigation will activate routes when requested.`
-        );
-      });
-    }
-
-    // Mount a no-op component until navigation occurs
+    // No initial route match is a supported startup state.
+    // Keep the root mounted and navigation-ready so the app can activate the
+    // first matching route later without treating boot as an error.
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
-      cleanupStrict: false,
+      cleanupStrict: config.cleanupStrict,
     });
 
     // Still register app instance and initialize navigation so future navigations work
@@ -406,7 +397,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   // Mount resolved handler as the root component
   // Convert resolved.handler to a ComponentFunction-compatible shape
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict: false,
+    cleanupStrict: config.cleanupStrict,
   });
 
   // Register for navigation and wire up history handling
@@ -471,6 +462,7 @@ async function applySelectiveHydration(
   rootElement: Element,
   resolved: { handler: ComponentFunction; params: Record<string, unknown> },
   path: string,
+  cleanupStrict: boolean | undefined,
   hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>
 ): Promise<void> {
   const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
@@ -522,7 +514,7 @@ async function applySelectiveHydration(
   if (hydrateOptions.deferUntilIdle && !hasSelectiveBoundaries) {
     await queueIdleWork(() => {
       mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-        cleanupStrict: false,
+        cleanupStrict,
       });
     });
     await registerHydratedNavigation(rootElement, path);
@@ -530,7 +522,7 @@ async function applySelectiveHydration(
   }
 
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict: false,
+    cleanupStrict,
   });
   await registerHydratedNavigation(rootElement, path);
 
@@ -632,6 +624,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           params: resolved.params as Record<string, unknown>,
         },
         path,
+        config.cleanupStrict,
         hydrateOptions
       );
       return;
@@ -646,7 +639,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   // Reuse createSPA path but we already registered routes and set server location, so just mount
   // Mount resolved handler
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict: false,
+    cleanupStrict: config.cleanupStrict,
   });
   await registerHydratedNavigation(rootElement, path);
 }

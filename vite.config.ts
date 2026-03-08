@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import path from 'path';
 
+const nodeBuiltins = ['fs', 'path', 'node:fs', 'node:path'];
+
 const isProd =
   process.env.NODE_ENV === 'production' || process.env.BUILD === 'production';
 
@@ -25,7 +27,7 @@ const input = {
   'vite/index': path.resolve(__dirname, 'src/dev/vite-plugin-askr.ts'),
 
   // CLI entry for askr-ssg
-  'bin/askr-ssg': path.resolve(__dirname, 'scripts/askr-ssg.ts'),
+  'bin/askr-ssg': path.resolve(__dirname, 'src/bin/askr-ssg.ts'),
 };
 
 export default defineConfig({
@@ -38,6 +40,7 @@ export default defineConfig({
     // Use rollup input to support multiple named entry points
     rollupOptions: {
       input,
+      external: nodeBuiltins,
       // Disable aggressive treeshaking for our multi-entry library bundle to ensure
       // entries that export utilities or entry functions (like `benchmark`) are
       // preserved even if not referenced by other modules.

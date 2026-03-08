@@ -23,9 +23,7 @@ export async function batchRenderRoutes(
 ): Promise<RouteRenderResult[]> {
   const { seed = 12345, dataMap = {}, concurrency = 1 } = options;
 
-  // SSR route registration currently mutates global state, so keep concurrency
-  // effectively serialized even when callers pass larger values.
-  const workerCount = Math.max(1, Math.min(concurrency, 1));
+  const workerCount = Math.max(1, Math.min(concurrency, routes.length || 1));
   const results = new Array<RouteRenderResult>(routes.length);
   let nextIndex = 0;
 

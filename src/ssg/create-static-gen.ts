@@ -88,7 +88,7 @@ export function createStaticGen(options: SSGOptions) {
         routeCount: options.routes.length,
         outputDir: options.outputDir,
         seed: options.seed ?? 12345,
-        concurrency: options.concurrency ?? 1,
+        concurrency: options.concurrency ?? 10,
         hasDataOverrides: !!options.dataOverrides,
       };
     },

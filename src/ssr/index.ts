@@ -505,41 +505,30 @@ export function renderToStringSync(
   });
 }
 
-// Synchronous server render for strict checks. Routes must be resolved before
-// the render pass so no route() calls happen during rendering.
-//
-// ⚠️ WARNING: This function mutates global route state. It is NOT safe to call
-// concurrently from multiple async contexts. In long-running servers, ensure
-// SSR requests are serialized or use isolated route contexts per request.
+// Synchronous server render for strict checks. Routes are resolved against the
+// provided route table and kept in the per-render SSR context.
 export function renderToStringSyncForUrl(opts: {
   url: string;
   routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
   options?: { seed?: number; data?: SSRData };
 }): string {
   const { url, routes, options } = opts;
-  // Register routes synchronously using route() (already available in module scope)
-  const {
-    clearRoutes,
-    route,
-    setServerLocation,
-    lockRouteRegistration,
-    resolveRoute,
-  } = RouteModule;
-
-  clearRoutes();
-  for (const r of routes) {
-    route(r.path, r.handler, r.namespace);
-  }
-
-  setServerLocation(url);
-  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
-
-  const resolved = resolveRoute(url);
+  const routeTable = routes.map((route) => ({ ...route }));
+  const requestUrl = new URL(url, 'http://localhost');
+  const resolved = RouteModule.resolveRouteFromRoutes(
+    requestUrl.pathname,
+    routeTable
+  );
   if (!resolved)
     throw new Error(`renderToStringSync: no route found for url: ${url}`);
 
   const seed = options?.seed ?? 12345;
-  const ctx = createRenderContext(seed, { url, data: options?.data });
+  const ctx = createRenderContext(seed, {
+    url,
+    data: options?.data,
+    params: resolved.params,
+    routes: routeTable,
+  });
 
   return withRenderContext(ctx, () => {
     startRenderPhase(options?.data ?? null);
@@ -652,46 +641,30 @@ function renderToSinkInternal(opts: {
 }) {
   const { url, routes, seed = 12345, data, sink } = opts;
 
-  // ⚠️ WARNING: This function mutates global route state. It is NOT safe to call
-  // concurrently from multiple async contexts. In long-running servers, ensure
-  // SSR requests are serialized or use isolated route contexts per request.
-  //
-  // Route resolution happens BEFORE render pass
-  const {
-    clearRoutes,
-    route,
-    setServerLocation,
-    lockRouteRegistration,
-    resolveRoute,
-  } = RouteModule;
-
-  clearRoutes();
-  for (const r of routes) route(r.path, r.handler, r.namespace);
-
-  setServerLocation(url);
-  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
-
-  const resolved = resolveRoute(url);
+  const routeTable = routes.map((route) => ({ ...route }));
+  const requestUrl = new URL(url, 'http://localhost');
+  const resolved = RouteModule.resolveRouteFromRoutes(
+    requestUrl.pathname,
+    routeTable
+  );
   if (!resolved) throw new Error(`SSR: no route found for url: ${url}`);
 
   const ctx = createRenderContext(seed, {
     url,
     data,
     params: resolved.params,
+    routes: routeTable,
   });
-
-  // Render the resolved handler with params
-  const node = resolved.handler(resolved.params) as
-    | VNode
-    | JSXElement
-    | string
-    | number
-    | null;
 
   withRenderContext(ctx, () => {
     // Start render-phase keying so resource() can lookup resolved `data` by key
     startRenderPhase(data || null);
     try {
+      const node = executeComponentSync(
+        resolved.handler as unknown as Component,
+        resolved.params,
+        ctx
+      );
       renderNodeToSink(node, sink, ctx);
     } finally {
       stopRenderPhase();

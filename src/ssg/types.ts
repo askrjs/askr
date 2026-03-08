@@ -36,7 +36,7 @@ export interface SSGOptions {
   seed?: number;
   /** Optional override data for resources (route-keyed) */
   dataOverrides?: Record<string, unknown>;
-  /** Optional concurrency limit for rendering (default: 1 due global SSR route state) */
+  /** Optional concurrency limit for rendering (default: 10) */
   concurrency?: number;
 }
 

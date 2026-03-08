@@ -81,7 +81,7 @@ export const dataOverrides = {
 };
 
 export const seed = 12345;
-export const concurrency = 1;
+export const concurrency = 10;
 ```
 
 ## metadata.json
@@ -98,6 +98,7 @@ The generator writes `metadata.json` into the output directory with:
 - Config is TypeScript-only for CLI mode.
 - Output is always `.html` files.
 - Watch mode and ISR are not part of this flow.
+- Rendering is still synchronous per route even though route matching is isolated per render.
 
 ## Next
 
