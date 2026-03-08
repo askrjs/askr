@@ -5,6 +5,7 @@
 import { renderToStringSyncForUrl } from '../ssr';
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
+import type { ComponentFunction } from '../common/component';
 import type { SSRData } from '../common/ssr';
 
 interface BatchRenderOptions {
@@ -20,81 +21,80 @@ export async function batchRenderRoutes(
   routes: RouteConfig[],
   options: BatchRenderOptions = {}
 ): Promise<RouteRenderResult[]> {
-  const { seed = 12345, dataMap = {}, concurrency = 10 } = options;
+  const { seed = 12345, dataMap = {}, concurrency = 1 } = options;
 
-  // Convert routes to SSR format
-  const ssrRoutes = routes.map((r) => ({
-    path: r.path,
-    handler: r.component as RouteHandler,
-  }));
+  // SSR route registration currently mutates global state, so keep concurrency
+  // effectively serialized even when callers pass larger values.
+  const workerCount = Math.max(1, Math.min(concurrency, 1));
+  const results = new Array<RouteRenderResult>(routes.length);
+  let nextIndex = 0;
 
-  // Render with concurrency control
-  const results: RouteRenderResult[] = [];
-  const promises: Promise<void>[] = [];
-
-  const renderOne = async (route: RouteConfig, ssrRoute: typeof ssrRoutes[0]) => {
+  const renderOne = async (route: RouteConfig): Promise<RouteRenderResult> => {
     const startTime = performance.now();
+    const url = interpolateRoutePath(route.path, route.params);
+    const baseData = dataMap[route.path] ?? dataMap[url] ?? {};
+
+    const mergedHandler: RouteHandler = route.handler
+      ? route.handler
+      : (params, ctx?: unknown) => {
+          const component = route.component as ComponentFunction;
+          return component(
+            { ...(route.props || {}), ...(params || {}) },
+            ctx as { signal: AbortSignal; ssr?: unknown }
+          );
+        };
 
     try {
       const html = renderToStringSyncForUrl({
-        url: route.path,
-        routes: [ssrRoute],
+        url,
+        routes: [
+          {
+            path: route.path,
+            handler: mergedHandler,
+            namespace: route.namespace,
+          },
+        ],
         options: {
           seed,
-          data: dataMap[route.path],
+          data: baseData,
         },
       });
 
       const duration = performance.now() - startTime;
-      const fileSize = Buffer.byteLength(html, 'utf8');
-
-      results.push({
-        path: route.path,
-        filePath: pathToFilePath(route.path),
+      return {
+        path: url,
+        filePath: toHtmlFilePath(url),
         html,
-        fileSize,
+        fileSize: Buffer.byteLength(html, 'utf8'),
         renderDuration: Math.round(duration),
-        resourceCount: 0, // TODO: track during render
+        resourceCount: Object.keys(baseData).length,
         status: 'success',
-      });
+      };
     } catch (error) {
       const duration = performance.now() - startTime;
-      const message =
-        error instanceof Error ? error.message : String(error);
-
-      results.push({
-        path: route.path,
-        filePath: pathToFilePath(route.path),
+      return {
+        path: url,
+        filePath: toHtmlFilePath(url),
         html: '',
         fileSize: 0,
         renderDuration: Math.round(duration),
-        resourceCount: 0,
+        resourceCount: Object.keys(baseData).length,
         status: 'error',
-        error: message,
-      });
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   };
 
-  // Submit tasks with concurrency limit
-  for (const route of routes) {
-    const ssrRoute = ssrRoutes[routes.indexOf(route)];
-
-    // Wait if we hit concurrency limit
-    if (promises.length >= concurrency) {
-      await Promise.race(promises);
-      const idx = promises.findIndex((p) => !p);
-      if (idx !== -1) {
-        promises.splice(idx, 1);
-      }
+  const worker = async () => {
+    while (true) {
+      const current = nextIndex;
+      nextIndex += 1;
+      if (current >= routes.length) return;
+      results[current] = await renderOne(routes[current]);
     }
+  };
 
-    const promise = renderOne(route, ssrRoute);
-    promises.push(promise);
-  }
-
-  // Wait for all remaining
-  await Promise.all(promises);
-
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return results;
 }
 
@@ -102,7 +102,19 @@ export async function batchRenderRoutes(
  * Convert URL path to file path
  * E.g., "/blog/post" -> "blog/post" or "/" -> ""
  */
-function pathToFilePath(path: string): string {
-  if (path === '/') return '';
-  return path.replace(/^\/|\/$/g, '');
+function toHtmlFilePath(routePath: string): string {
+  if (routePath === '/') return 'index.html';
+  const normalized = routePath.replace(/^\/|\/$/g, '');
+  return `${normalized}/index.html`;
+}
+
+function interpolateRoutePath(
+  routePath: string,
+  params?: Record<string, string>
+): string {
+  if (!params) return routePath;
+  return routePath.replace(
+    /\{([^}]+)\}/g,
+    (_, key: string) => params[key] ?? ''
+  );
 }

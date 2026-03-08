@@ -700,13 +700,3 @@ function renderToSinkInternal(opts: {
 }
 
 export { collectResources, resolvePlan, resolveResources, ResourcePlan };
-
-// --- Static Site Generation (SSG) -----------------------------------------------
-export { createStaticGen, type StaticSiteGenerator } from './create-static-gen';
-export type {
-  SSGOptions,
-  SSGResult,
-  SSGRouteConfig,
-  SSGRouteResult,
-  SSGMetadata,
-} from './static-gen-types';

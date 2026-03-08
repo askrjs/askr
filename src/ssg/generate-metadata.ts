@@ -12,9 +12,7 @@ import type { RouteRenderResult, SSGMetadata, SSGResult } from './types';
 /**
  * Generate SSGResult from render results
  */
-export function generateSSGResult(
-  results: RouteRenderResult[]
-): SSGResult {
+export function generateSSGResult(results: RouteRenderResult[]): SSGResult {
   const successful = results.filter((r) => r.status === 'success').length;
   const failed = results.filter((r) => r.status === 'error').length;
   const totalDuration = results.reduce((sum, r) => sum + r.renderDuration, 0);

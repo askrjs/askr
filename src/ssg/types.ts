@@ -1,17 +1,29 @@
 /**
- * Type definitions for Static Site Generation
+ * Type definitions for Static Site Generation.
  */
 
 import type { ComponentFunction } from '../common/component';
+import type { RouteHandler } from '../common/router';
 
-/** Configuration for a single route to generate */
+/**
+ * Route config accepted by SSG.
+ *
+ * `handler` is preferred and matches router/SSR naming.
+ * `component` is kept for compatibility and is normalized to `handler`.
+ */
 export interface RouteConfig {
   /** URL path to generate (e.g., "/blog/post-1", "/") */
   path: string;
-  /** Component function to render for this route */
-  component: ComponentFunction;
-  /** Optional props to pass to component */
+  /** Route handler compatible with router/SSR */
+  handler?: RouteHandler;
+  /** Backward-compatible alias for handler */
+  component?: ComponentFunction;
+  /** Optional base props merged with route params during render */
   props?: Record<string, unknown>;
+  /** Optional namespace for router compatibility */
+  namespace?: string;
+  /** Optional path parameter map for template paths like "/blog/{slug}" */
+  params?: Record<string, string>;
 }
 
 /** Options for createStaticGen */
@@ -24,7 +36,7 @@ export interface SSGOptions {
   seed?: number;
   /** Optional override data for resources (route-keyed) */
   dataOverrides?: Record<string, unknown>;
-  /** Optional concurrency limit for rendering (default: 10) */
+  /** Optional concurrency limit for rendering (default: 1 due global SSR route state) */
   concurrency?: number;
 }
 

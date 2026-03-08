@@ -27,7 +27,7 @@ Use `Link` for client-side navigation:
 ```tsx
 import { Link } from '@askrjs/askr/router';
 
-<Link href="/about">About</Link>
+<Link href="/about">About</Link>;
 ```
 
 ## Layout composition

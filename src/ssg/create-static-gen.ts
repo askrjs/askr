@@ -37,6 +37,14 @@ import {
 export function createStaticGen(options: SSGOptions) {
   let result: SSGResult | null = null;
 
+  if (!Array.isArray(options.routes) || options.routes.length === 0) {
+    throw new Error('routes array is required');
+  }
+
+  if (!options.outputDir || options.outputDir.trim().length === 0) {
+    throw new Error('outputDir is required');
+  }
+
   return {
     /**
      * Generate static HTML for all routes
@@ -70,6 +78,19 @@ export function createStaticGen(options: SSGOptions) {
       writeMetadata(metadata, options.outputDir);
 
       return result;
+    },
+
+    /**
+     * Get effective config in a serializable form for diagnostics.
+     */
+    getConfig() {
+      return {
+        routeCount: options.routes.length,
+        outputDir: options.outputDir,
+        seed: options.seed ?? 12345,
+        concurrency: options.concurrency ?? 1,
+        hasDataOverrides: !!options.dataOverrides,
+      };
     },
 
     /**

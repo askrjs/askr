@@ -1,15 +1,10 @@
 /**
  * askr-ssg CLI
  *
- * Usage: askr-ssg --config path/to/config.js --output dist/static
- *
- * For TypeScript configs, pre-compile to JS or use:
- *   tsx node_modules/@askrjs/askr/dist/bin/askr-ssg.js --config config.ts
+ * Usage: askr-ssg --config path/to/config.ts --output dist/static
  */
 
-// @ts-expect-error - path is a Node.js built-in
 import * as pathModule from 'path';
-// @ts-expect-error - fs is a Node.js built-in
 import * as fsModule from 'fs';
 
 // Import SSG directly so Rollup can resolve the dependency during build
@@ -40,16 +35,16 @@ Usage:
   askr-ssg --config <path> --output <dir>
 
 Options:
-  --config <path>   Path to SSG config file (JavaScript module)
+  --config <path>   Path to SSG config file (TypeScript module)
   --output <dir>    Output directory for generated HTML
   --help            Show this help message
 
 Example:
-  askr-ssg --config ./ssg.config.js --output ./dist/static
+  askr-ssg --config ./ssg.config.ts --output ./dist/static
 
-For TypeScript config files, you can:
-  - Pre-compile to JavaScript before running askr-ssg
-  - Use tsx: tsx node_modules/.bin/askr-ssg --config config.ts --output dist
+TypeScript config execution:
+  Use tsx to run the CLI with TS config loading:
+  tsx node_modules/@askrjs/askr/dist/bin/askr-ssg.js --config ./ssg.config.ts --output ./dist/static
       `);
       process.exit(0);
     }
@@ -58,6 +53,11 @@ For TypeScript config files, you can:
   // Validate arguments
   if (!configPath) {
     console.error('Error: --config argument is required');
+    process.exit(1);
+  }
+
+  if (!configPath.endsWith('.ts')) {
+    console.error('Error: --config must point to a TypeScript file (.ts)');
     process.exit(1);
   }
 
@@ -77,7 +77,7 @@ For TypeScript config files, you can:
   }
 
   try {
-    console.log(`📝 Loading config from: ${resolvedConfigPath}`);
+    console.log(`Loading config: ${resolvedConfigPath}`);
 
     // Dynamically import the config file
     const configModule = await import(resolvedConfigPath);
@@ -88,7 +88,7 @@ For TypeScript config files, you can:
       process.exit(1);
     }
 
-    console.log(`🚀 Generating ${config.routes.length} routes...`);
+    console.log(`Generating ${config.routes.length} routes...`);
 
     // Create and run SSG
     const ssg = createStaticGen({
@@ -105,15 +105,17 @@ For TypeScript config files, you can:
 
     // Report results
     console.log('');
-    console.log(`✅ Generation complete in ${duration}s`);
-    console.log(`   Generated: ${result.successful}/${result.totalRoutes} routes`);
+    console.log(`Generation complete in ${duration}s`);
+    console.log(
+      `   Generated: ${result.successful}/${result.totalRoutes} routes`
+    );
     console.log(`   Failed:    ${result.failed} routes`);
     console.log(`   Output:    ${resolvedOutputDir}`);
     console.log(`   Metadata:  ${resolvedOutputDir}/metadata.json`);
     console.log('');
 
     if (result.failed > 0) {
-      console.log('❌ Errors encountered:');
+      console.log('Errors encountered:');
       for (const route of result.routes) {
         if (route.status === 'error') {
           console.log(`   ${route.path}: ${route.error}`);
@@ -125,7 +127,7 @@ For TypeScript config files, you can:
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Generation failed:');
+    console.error('Generation failed:');
     console.error(error instanceof Error ? error.message : String(error));
     if (error instanceof Error && error.stack) {
       console.error(error.stack);

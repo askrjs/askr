@@ -26,12 +26,7 @@ export function writeStaticFiles(
       continue;
     }
 
-    // Determine output file path
-    const htmlPath = result.filePath
-      ? `${result.filePath}/index.html`
-      : 'index.html';
-
-    const fullPath = pathModule.join(outputDir, htmlPath);
+    const fullPath = pathModule.join(outputDir, result.filePath);
     const dir = pathModule.dirname(fullPath);
 
     // Create parent directories
@@ -48,9 +43,8 @@ export function writeStaticFiles(
  */
 export function getOutputFilePath(pathStr: string): string {
   if (pathStr === '/') {
-    return '';
+    return 'index.html';
   }
-  return pathStr.replace(/^\/|\/$/g, '');
+  const normalized = pathStr.replace(/^\/|\/$/g, '');
+  return `${normalized}/index.html`;
 }
-
-

@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createStaticGen } from '../../src/ssr/create-static-gen';
-import type { SSGRouteConfig } from '../../src/ssr/static-gen-types';
+import { createStaticGen } from '../../src/ssg/create-static-gen';
+import type { RouteConfig } from '../../src/ssg/types';
 import type { JSXElement } from '../../src/jsx/types';
 
 // Test utilities
@@ -33,8 +33,6 @@ const BlogPost = (props: { slug?: string }): JSXElement => (
   </div>
 );
 
-const NotFound = (): JSXElement => <div>404 Not Found</div>;
-
 describe('Static Site Generation', () => {
   let tempDir: string;
 
@@ -59,7 +57,7 @@ describe('Static Site Generation', () => {
     it('should throw if no outputDir provided', () => {
       expect(() =>
         createStaticGen({
-          routes: [{ path: '/', handler: Home }],
+          routes: [{ path: '/', component: Home }],
           outputDir: '',
         })
       ).toThrow('outputDir is required');
@@ -67,18 +65,18 @@ describe('Static Site Generation', () => {
 
     it('should return a generator with expected methods', () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
       expect(ssg.generate).toBeDefined();
       expect(typeof ssg.generate).toBe('function');
       expect(ssg.getConfig).toBeDefined();
-      expect(ssg.getRoutes).toBeDefined();
+      expect(ssg.getResult).toBeDefined();
     });
 
     it('should expose generator config', () => {
-      const routes = [{ path: '/', handler: Home }];
+      const routes = [{ path: '/', component: Home }];
       const ssg = createStaticGen({
         routes,
         outputDir: tempDir,
@@ -91,30 +89,28 @@ describe('Static Site Generation', () => {
       expect(config.seed).toBe(42);
     });
 
-    it('should expose routes', () => {
-      const routes = [{ path: '/', handler: Home }];
+    it('should return null result before generate', () => {
       const ssg = createStaticGen({
-        routes,
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
-      expect(ssg.getRoutes()).toEqual(routes);
+      expect(ssg.getResult()).toBeNull();
     });
   });
 
   describe('generation', () => {
     it('should generate static HTML for a single route', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
       const result = await ssg.generate();
 
-      expect(result.success).toBe(true);
-      expect(result.metadata.totalRoutes).toBe(1);
-      expect(result.metadata.successful).toBe(1);
-      expect(result.metadata.failed).toBe(0);
+      expect(result.totalRoutes).toBe(1);
+      expect(result.successful).toBe(1);
+      expect(result.failed).toBe(0);
       expect(result.routes).toHaveLength(1);
       expect(result.routes[0].status).toBe('success');
       expect(result.routes[0].html).toContain('<div');
@@ -123,7 +119,7 @@ describe('Static Site Generation', () => {
 
     it('should generate HTML files in correct directory structure', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
@@ -138,8 +134,8 @@ describe('Static Site Generation', () => {
     it('should generate HTML for nested routes', async () => {
       const ssg = createStaticGen({
         routes: [
-          { path: '/', handler: Home },
-          { path: '/about', handler: About },
+          { path: '/', component: Home },
+          { path: '/about', component: About },
         ],
         outputDir: tempDir,
       });
@@ -157,7 +153,7 @@ describe('Static Site Generation', () => {
         routes: [
           {
             path: '/blog/{slug}',
-            handler: BlogPost,
+            component: BlogPost,
             params: { slug: 'hello-world' },
           },
         ],
@@ -175,16 +171,16 @@ describe('Static Site Generation', () => {
     it('should render multiple routes', async () => {
       const ssg = createStaticGen({
         routes: [
-          { path: '/', handler: Home },
-          { path: '/about', handler: About },
+          { path: '/', component: Home },
+          { path: '/about', component: About },
           {
             path: '/blog/{slug}',
-            handler: BlogPost,
+            component: BlogPost,
             params: { slug: 'first-post' },
           },
           {
             path: '/blog/{slug}',
-            handler: BlogPost,
+            component: BlogPost,
             params: { slug: 'second-post' },
           },
         ],
@@ -193,15 +189,15 @@ describe('Static Site Generation', () => {
 
       const result = await ssg.generate();
 
-      expect(result.metadata.totalRoutes).toBe(4);
-      expect(result.metadata.successful).toBe(4);
+      expect(result.totalRoutes).toBe(4);
+      expect(result.successful).toBe(4);
       expect(result.routes).toHaveLength(4);
       expect(result.routes.every((r) => r.status === 'success')).toBe(true);
     });
 
     it('should record render durations', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
@@ -212,7 +208,7 @@ describe('Static Site Generation', () => {
 
     it('should calculate file sizes after writing', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
@@ -224,11 +220,13 @@ describe('Static Site Generation', () => {
 
     it('should count resources in data', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
         dataOverrides: {
-          posts: ['post1', 'post2'],
-          users: ['user1'],
+          '/': {
+            posts: ['post1', 'post2'],
+            users: ['user1'],
+          },
         },
       });
 
@@ -238,16 +236,21 @@ describe('Static Site Generation', () => {
     });
 
     it('should include data overrides in render context', async () => {
-      const DataComponent = (props: any, ctx: any) => {
+      const DataComponent = (
+        _props: unknown,
+        ctx?: { ssr?: { data?: Record<string, unknown> } }
+      ) => {
         const testData = ctx?.ssr?.data?.['test-key'];
         return <div>{testData || 'no data'}</div>;
       };
 
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: DataComponent }],
+        routes: [{ path: '/', component: DataComponent }],
         outputDir: tempDir,
         dataOverrides: {
-          'test-key': 'test-value',
+          '/': {
+            'test-key': 'test-value',
+          },
         },
       });
 
@@ -260,7 +263,7 @@ describe('Static Site Generation', () => {
   describe('metadata', () => {
     it('should generate metadata.json file', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
@@ -272,12 +275,14 @@ describe('Static Site Generation', () => {
 
     it('should include correct metadata structure', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
-      const result = await ssg.generate();
-      const metadata = result.metadata;
+      await ssg.generate();
+      const metadata = JSON.parse(
+        fs.readFileSync(path.join(tempDir, 'metadata.json'), 'utf8')
+      );
 
       expect(metadata.generatedAt).toBeDefined();
       expect(new Date(metadata.generatedAt).toISOString()).toBe(
@@ -292,12 +297,14 @@ describe('Static Site Generation', () => {
 
     it('should include per-route details in metadata', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
-      const result = await ssg.generate();
-      const routeMetadata = result.metadata.routes[0];
+      await ssg.generate();
+      const routeMetadata = JSON.parse(
+        fs.readFileSync(path.join(tempDir, 'metadata.json'), 'utf8')
+      ).routes[0];
 
       expect(routeMetadata.path).toBe('/');
       expect(routeMetadata.filePath).toBe('index.html');
@@ -314,18 +321,17 @@ describe('Static Site Generation', () => {
 
       const ssg = createStaticGen({
         routes: [
-          { path: '/', handler: Home },
-          { path: '/broken', handler: BrokenComponent },
+          { path: '/', component: Home },
+          { path: '/broken', component: BrokenComponent },
         ],
         outputDir: tempDir,
       });
 
       const result = await ssg.generate();
 
-      expect(result.metadata.totalRoutes).toBe(2);
-      expect(result.metadata.successful).toBe(1);
-      expect(result.metadata.failed).toBe(1);
-      expect(result.success).toBe(false);
+      expect(result.totalRoutes).toBe(2);
+      expect(result.successful).toBe(1);
+      expect(result.failed).toBe(1);
     });
 
     it('should record error messages for failed routes', async () => {
@@ -334,12 +340,14 @@ describe('Static Site Generation', () => {
       };
 
       const ssg = createStaticGen({
-        routes: [{ path: '/broken', handler: BrokenComponent }],
+        routes: [{ path: '/broken', component: BrokenComponent }],
         outputDir: tempDir,
       });
 
-      const result = await ssg.generate();
-      const failedRoute = result.metadata.routes[0];
+      await ssg.generate();
+      const failedRoute = JSON.parse(
+        fs.readFileSync(path.join(tempDir, 'metadata.json'), 'utf8')
+      ).routes[0];
 
       expect(failedRoute.status).toBe('error');
       expect(failedRoute.error).toContain('Test error message');
@@ -347,7 +355,7 @@ describe('Static Site Generation', () => {
 
     it('should write metadata JSON with proper formatting', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
       });
 
@@ -368,13 +376,13 @@ describe('Static Site Generation', () => {
     it('should handle trailing slashes correctly', async () => {
       const ssg = createStaticGen({
         routes: [
-          { path: '/about/', handler: About },
-          { path: '/contact/', handler: () => <div>Contact</div> },
+          { path: '/about/', component: About },
+          { path: '/contact/', component: () => <div>Contact</div> },
         ],
         outputDir: tempDir,
       });
 
-      const result = await ssg.generate();
+      await ssg.generate();
 
       // Both should generate in about/ and contact/ directories
       const aboutFile = path.join(tempDir, 'about', 'index.html');
@@ -391,13 +399,13 @@ describe('Static Site Generation', () => {
         routes: [
           {
             path: '/docs/guides/advanced/nested/deep',
-            handler: DeepComponent,
+            component: DeepComponent,
           },
         ],
         outputDir: tempDir,
       });
 
-      const result = await ssg.generate();
+      await ssg.generate();
 
       const deepFile = path.join(
         tempDir,
@@ -413,20 +421,20 @@ describe('Static Site Generation', () => {
 
     it('should handle empty data overrides', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
         dataOverrides: {},
       });
 
       const result = await ssg.generate();
 
-      expect(result.success).toBe(true);
+      expect(result.failed).toBe(0);
       expect(result.routes[0].resourceCount).toBe(0);
     });
 
     it('should use custom seed for deterministic generation', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/', handler: Home }],
+        routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
         seed: 12345,
       });
@@ -439,9 +447,9 @@ describe('Static Site Generation', () => {
 
   describe('concurrent rendering', () => {
     it('should render multiple routes in parallel', async () => {
-      const routes: SSGRouteConfig[] = Array.from({ length: 5 }, (_, i) => ({
+      const routes: RouteConfig[] = Array.from({ length: 5 }, (_, i) => ({
         path: `/page-${i}`,
-        handler: () => <div>Page {i}</div>,
+        component: () => <div>Page {i}</div>,
       }));
 
       const ssg = createStaticGen({
@@ -451,8 +459,8 @@ describe('Static Site Generation', () => {
 
       const result = await ssg.generate();
 
-      expect(result.metadata.totalRoutes).toBe(5);
-      expect(result.metadata.successful).toBe(5);
+      expect(result.totalRoutes).toBe(5);
+      expect(result.successful).toBe(5);
     });
   });
 });

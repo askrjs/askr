@@ -57,6 +57,8 @@ export function validateRoutes(routes: RouteConfig[]): void {
     throw new Error('routes array cannot be empty');
   }
 
+  const seen = new Set<string>();
+
   for (const route of routes) {
     if (typeof route.path !== 'string' || !route.path.startsWith('/')) {
       throw new Error(
@@ -64,10 +66,37 @@ export function validateRoutes(routes: RouteConfig[]): void {
       );
     }
 
-    if (typeof route.component !== 'function') {
+    const handler = route.handler ?? route.component;
+    if (typeof handler !== 'function') {
       throw new Error(
-        `route component must be a function for path "${route.path}"`
+        `route handler must be a function for path "${route.path}"`
       );
+    }
+
+    const key = `${route.path}::${JSON.stringify(route.params || {})}`;
+    if (seen.has(key)) {
+      throw new Error(
+        `duplicate route entry detected for path "${route.path}"`
+      );
+    }
+    seen.add(key);
+
+    if (route.path.includes('{')) {
+      const paramNames = Array.from(route.path.matchAll(/\{([^}]+)\}/g)).map(
+        (m) => m[1]
+      );
+      if (!route.params) {
+        throw new Error(
+          `route "${route.path}" uses path parameters and requires params`
+        );
+      }
+      for (const name of paramNames) {
+        if (!(name in route.params)) {
+          throw new Error(
+            `route "${route.path}" missing required param "${name}"`
+          );
+        }
+      }
     }
   }
 }
