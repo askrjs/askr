@@ -1,14 +1,14 @@
 # Selective Hydration
 
-Selective hydration optimizes Time-to-Interactive (TTI) by deferring hydration of non-critical parts of your application.
+Selective hydration defers hydration work for selected parts of server-rendered markup so critical UI becomes interactive first.
 
 ## Overview
 
 Hydration makes server-rendered HTML interactive by attaching event listeners and initializing client-side state. With selective hydration, you can:
 
-- **Defer idle content**: Hydrate below-the-fold content after initial viewport is interactive
-- **Defer until idle**: Wait for browser idle time before hydrating non-critical components
-- **Skip static sections**: Completely skip hydration for static content
+- **Defer whole-app hydration until idle**: Wait for idle time before attaching client interactivity
+- **Defer below-fold subtrees**: Hydrate visible content first and activate marked below-fold subtrees later
+- **Skip static sections**: Keep matched selectors as static HTML by leaving them unhydrated
 
 ## API
 
@@ -60,7 +60,7 @@ if (shouldSkipHydrationOnElement(element!)) {
 }
 
 // Check if element is visible
-if (isElementAboveFold(element!, 600)) {
+if (isElementAboveFold(element!)) {
   console.log('Element is above fold');
 }
 ```
@@ -69,7 +69,7 @@ if (isElementAboveFold(element!, 600)) {
 
 ### 1. Defer Below-the-Fold
 
-Hydrate above-the-fold content immediately, defer the rest:
+Hydrate above-the-fold content immediately and leave below-fold subtrees inert until they are activated:
 
 ```typescript
 hydrateSPA({
@@ -84,11 +84,15 @@ hydrateSPA({
 
 **Use case**: Long-scrolling pages, dashboards, article pages
 
-**TTI improvement**: 30-50% for content-heavy pages
+Current behavior:
+
+- Below-fold elements are marked with `data-skip-hydrate="true"` before hydration.
+- Their event listeners and reactive props are not attached during the initial hydration pass.
+- When the subtree becomes visible again during scroll handling, Askr removes the marker and re-runs the root render so those nodes become interactive.
 
 ### 2. Defer Until Idle
 
-Wait for browser idle time before hydrating:
+Wait for browser idle time before hydrating the app:
 
 ```typescript
 hydrateSPA({
@@ -100,15 +104,18 @@ hydrateSPA({
 });
 ```
 
-Uses `requestIdleCallback` internally. Falls back to `setTimeout` in unsupported browsers.
+Uses `requestIdleCallback` internally when available and falls back to `setTimeout` otherwise.
 
 **Use case**: Performance-critical landing pages, mobile web apps
 
-**TTI improvement**: 20-40% when main thread is busy
+Current behavior:
+
+- If `deferUntilIdle` is used by itself, Askr delays the hydration pass until the idle callback fires.
+- If it is combined with `deferBelowFold`, Askr hydrates the visible shell first and can activate deferred below-fold regions during the later idle pass.
 
 ### 3. Skip Static Content
 
-Completely skip hydration for static sections:
+Completely skip hydration for matched static sections:
 
 ```typescript
 hydrateSPA({
@@ -122,7 +129,11 @@ hydrateSPA({
 
 **Use case**: Static footers, legal pages, documentation sidebars
 
-**Memory savings**: ~10-30KB per skipped section (varies by complexity)
+Current behavior:
+
+- Matching selectors are marked with `data-skip-hydrate="true"`.
+- Marked subtrees preserve their server HTML and do not receive event listeners or reactive prop wiring.
+- This is intended for content that should remain static.
 
 ### 4. Combined Strategy
 
@@ -157,11 +168,10 @@ Elements are marked with `data-skip-hydrate="true"` attribute:
 
 ### Hydration Flow
 
-1. **Initial hydration**: Above-the-fold, critical components hydrate immediately
-2. **Deferred hydration**: Below-the-fold content hydrates when:
-   - Element scrolls into view (intersection observer)
-   - Browser is idle (requestIdleCallback)
-3. **Skipped content**: Never hydrates, remains static HTML
+1. **Initial hydration**: Unmarked content hydrates immediately.
+2. **Deferred regions**: Marked subtrees keep their server HTML and remain inert.
+3. **Activation**: Below-fold regions are activated by removing the marker and re-running hydration work for the root after scroll or idle deferral.
+4. **Skipped content**: Static selectors remain marked and stay unhydrated.
 
 ### Event Listeners
 
@@ -177,21 +187,13 @@ function DeferredButton() {
 }
 ```
 
-Clicks before hydration are ignored. After hydration, the button becomes interactive.
+Clicks before activation are ignored. After activation, the button becomes interactive.
 
-## Performance Characteristics
-
-### Metrics
-
-- **TTI (Time to Interactive)**: 20-50% improvement with aggressive deferral
-- **FCP (First Contentful Paint)**: Unchanged (content already rendered by SSR)
-- **Memory**: 5-20% reduction by skipping static sections
-
-### Trade-offs
+## Trade-offs
 
 1. **Delayed interactivity**: Below-fold content isn't interactive until hydrated
-2. **Complexity**: More configuration, harder to debug
-3. **Browser compatibility**: Intersection Observer required for below-fold detection
+2. **Rerender activation**: Deferred regions are activated by re-running the root render, so the feature favors coarse-grained deferral over per-island precision
+3. **Complexity**: More configuration, harder to debug
 
 ## Best Practices
 
@@ -225,7 +227,7 @@ Performance gains vary by device. Test on:
 - Slow networks (3G)
 - Throttled CPU
 
-### 4. Monitor TTI
+### 4. Monitor Activation Timing
 
 Use performance monitoring to track TTI improvements:
 

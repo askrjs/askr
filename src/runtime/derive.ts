@@ -32,9 +32,9 @@ export function derive<TIn, TOut>(
   map?: (value: TIn) => TOut
 ): TOut | null {
   // Short-form: derive(() => someExpression)
-  // Note: This is a one-time computation, not reactive. It computes the value
-  // immediately and returns it. For reactive derivation, use the normal form:
-  // derive(source, (value) => transformedValue)
+  // This form is re-evaluated on each render, so it tracks upstream state the
+  // same way any other render-time expression does. The two-argument form is
+  // still useful when you want an explicit source + projection shape.
   if (map === undefined && typeof source === 'function') {
     const value = (source as () => TOut)();
     if (value == null) return null;

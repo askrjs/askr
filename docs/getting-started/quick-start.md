@@ -73,16 +73,20 @@ navigate(window.location.pathname);
 Keep route handlers synchronous. Fetch data in components using resources.
 
 ```tsx
-import { resource, getSignal } from '@askrjs/askr/resources';
+import { resource } from '@askrjs/askr/resources';
 
 function User({ id }: { id: string }) {
-  const user = resource(async () => {
-    const res = await fetch(`/api/users/${id}`, { signal: getSignal() });
-    return res.json();
-  }, [id]);
+  const user = resource(
+    async ({ signal }) => {
+      const res = await fetch(`/api/users/${id}`, { signal });
+      return res.json();
+    },
+    [id]
+  );
 
-  if (!user) return <div>Loading...</div>;
-  return <div>{user.name}</div>;
+  if (user.pending || !user.value) return <div>Loading...</div>;
+  if (user.error) return <div>Failed to load user</div>;
+  return <div>{user.value.name}</div>;
 }
 ```
 

@@ -57,16 +57,17 @@ Proven with 133 tests covering:
 Every component gets an AbortSignal for automatic cancellation.
 
 ```typescript
-import { resource, getSignal } from '@askrjs/askr/resources';
+import { resource } from '@askrjs/askr/resources';
 
 function Data({ id }) {
-  const data = resource(async () => {
-    const res = await fetch(`/api/${id}`, { signal: getSignal() });
+  const data = resource(async ({ signal }) => {
+    const res = await fetch(`/api/${id}`, { signal });
     return res.json();
   }, [id]);
 
-  if (!data) return <div>Loading...</div>;
-  return <div>{data.name}</div>;
+  if (data.pending || !data.value) return <div>Loading...</div>;
+  if (data.error) return <div>Failed to load</div>;
+  return <div>{data.value.name}</div>;
 }
 // Async work is cancelled automatically on unmount/navigation
 ```
@@ -105,10 +106,16 @@ setValue((prev) => prev + 1);
 ### Derived State
 
 ```typescript
-const [count, setCount] = state(0);
-const doubled = derive(() => count() * 2);
+function Counter() {
+  const [count, setCount] = state(0);
+  const doubled = derive(() => count() * 2);
 
-console.log(doubled()); // Automatically updates
+  return (
+    <button onClick={() => setCount((prev) => prev + 1)}>
+      {count()} -> {doubled}
+    </button>
+  );
+}
 ```
 
 ### Lists
@@ -133,13 +140,12 @@ createIsland({
 });
 
 // Routed app
+route('/', () => <Home />);
+route('/about', () => <About />);
+
 createSPA({
   root: document.body,
-  component: Layout,
-  routes: [
-    { path: '/', component: Home },
-    { path: '/about', component: About },
-  ],
+  routes: getRoutes(),
 });
 ```
 

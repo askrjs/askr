@@ -21,6 +21,7 @@ import {
   elementListeners,
   removeAllListeners,
   elementReactivePropsCleanup,
+  removeElementReactiveProps,
 } from './cleanup';
 import {
   setDevValue,
@@ -60,6 +61,23 @@ type ElementWithContext = DOMElement & {
 };
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
+
+function getHydrationSkipBoundary(el: Element): Element | null {
+  return el.closest('[data-skip-hydrate="true"]');
+}
+
+function isHydrationSkipped(el: Element): boolean {
+  return getHydrationSkipBoundary(el) !== null;
+}
+
+function clearHydrationDeferredSubtree(el: Element): void {
+  const boundary = getHydrationSkipBoundary(el);
+  if (!boundary) return;
+  if (boundary === el) {
+    removeAllListeners(el);
+    removeElementReactiveProps(el);
+  }
+}
 
 let fallbackComponentInstanceId = 0;
 
@@ -374,6 +392,10 @@ function applyPropsToElement(
   props: Record<string, unknown>,
   tagName: string
 ): void {
+  if (isHydrationSkipped(el)) {
+    return;
+  }
+
   for (const key in props) {
     const value = props[key];
     // Handle ref BEFORE isSkippedProp check since it needs special processing
@@ -855,6 +877,11 @@ export function updateElementFromVnode(
   }
 
   const props = (vnode.props || {}) as Record<string, unknown>;
+
+  if (isHydrationSkipped(el)) {
+    clearHydrationDeferredSubtree(el);
+    return;
+  }
 
   // Ensure key is materialized
   materializeKey(el, vnode, props);

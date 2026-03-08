@@ -428,34 +428,68 @@ function markSkippedElements(root: Element, skipSelectors: string[]): void {
   }
 }
 
+function queueIdleWork(work: () => void): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(
+        () => {
+          work();
+          resolve();
+        },
+        { timeout: 2000 }
+      );
+      return;
+    }
+
+    setTimeout(() => {
+      work();
+      resolve();
+    }, 0);
+  });
+}
+
+function flushHydrationActivation(rootElement: Element): void {
+  const instance = instancesByRoot.get(rootElement);
+  if (!instance) return;
+  instance._enqueueRun?.();
+  globalScheduler.flush();
+}
+
+async function registerHydratedNavigation(rootElement: Element, path: string) {
+  const { registerAppInstance, initializeNavigation } =
+    await import('../router/navigate');
+  const instance = instancesByRoot.get(rootElement);
+  if (!instance) throw new Error('Internal error: app instance missing');
+  registerAppInstance(instance as ComponentInstance, path);
+  initializeNavigation();
+}
+
 /**
  * Apply selective hydration with deferral options
  */
 async function applySelectiveHydration(
   rootElement: Element,
   resolved: { handler: ComponentFunction; params: Record<string, unknown> },
+  path: string,
   hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>
 ): Promise<void> {
-  const { renderToStringSync: _renderToStringSync } = await import('../ssr');
+  const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
+  const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
+  const hasSelectiveBoundaries = hasPermanentSkips || hasBelowFoldDeferral;
 
-  if (hydrateOptions.deferUntilIdle) {
-    if (typeof requestIdleCallback !== 'undefined') {
-      await new Promise((resolve) => {
-        requestIdleCallback(() => resolve(undefined), { timeout: 2000 });
-      });
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
+  if (hydrateOptions.skipSelectors?.length) {
+    markSkippedElements(rootElement, hydrateOptions.skipSelectors);
   }
 
+  let belowFoldElements: Element[] = [];
   if (hydrateOptions.deferBelowFold) {
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
-    const belowFoldElements = Array.from(
-      rootElement.querySelectorAll('*')
-    ).filter((el) => {
-      const rect = el.getBoundingClientRect();
-      return rect.top >= foldY;
-    });
+    belowFoldElements = Array.from(rootElement.querySelectorAll('*')).filter(
+      (el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.top >= foldY;
+      }
+    );
 
     for (const el of belowFoldElements) {
       el.setAttribute('data-skip-hydrate', 'true');
@@ -467,9 +501,15 @@ async function applySelectiveHydration(
         return rect.top < foldY;
       });
 
+      if (visibleBelowFold.length === 0) {
+        return;
+      }
+
       for (const el of visibleBelowFold) {
         el.removeAttribute('data-skip-hydrate');
       }
+
+      flushHydrationActivation(rootElement);
 
       if (visibleBelowFold.length === belowFoldElements.length) {
         window.removeEventListener('scroll', handleScroll);
@@ -479,9 +519,35 @@ async function applySelectiveHydration(
     window.addEventListener('scroll', handleScroll, { passive: true });
   }
 
+  if (hydrateOptions.deferUntilIdle && !hasSelectiveBoundaries) {
+    await queueIdleWork(() => {
+      mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
+        cleanupStrict: false,
+      });
+    });
+    await registerHydratedNavigation(rootElement, path);
+    return;
+  }
+
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
     cleanupStrict: false,
   });
+  await registerHydratedNavigation(rootElement, path);
+
+  if (hydrateOptions.deferUntilIdle && belowFoldElements.length > 0) {
+    await queueIdleWork(() => {
+      let activated = false;
+      for (const el of belowFoldElements) {
+        if (el.hasAttribute('data-skip-hydrate')) {
+          el.removeAttribute('data-skip-hydrate');
+          activated = true;
+        }
+      }
+      if (activated) {
+        flushHydrationActivation(rootElement);
+      }
+    });
+  }
 }
 
 /**
@@ -565,6 +631,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           handler: resolved.handler as ComponentFunction,
           params: resolved.params as Record<string, unknown>,
         },
+        path,
         hydrateOptions
       );
       return;
@@ -581,14 +648,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
     cleanupStrict: false,
   });
-
-  // Register navigation and instance
-  const { registerAppInstance, initializeNavigation } =
-    await import('../router/navigate');
-  const instance = instancesByRoot.get(rootElement);
-  if (!instance) throw new Error('Internal error: app instance missing');
-  registerAppInstance(instance as ComponentInstance, path);
-  initializeNavigation();
+  await registerHydratedNavigation(rootElement, path);
 }
 
 export async function hydrate(_config: AppConfig): Promise<void> {

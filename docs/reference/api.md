@@ -8,6 +8,7 @@ Askr keeps the root API minimal and exposes advanced features through explicit s
 - `createSPA(config)`
 - `state(initialValue)`
 - `derive(selector)`
+- `derive(source, map)`
 - `For(...)`
 - Event delegation controls (`enableEventDelegation`, `disableEventDelegation`, `isEventDelegationEnabled`, `setGlobalDelegationContainer`)
 
@@ -27,7 +28,7 @@ Use root imports for common app code and subpath imports when you need feature-s
 ```ts
 import { createIsland, state } from '@askrjs/askr';
 import { route, navigate } from '@askrjs/askr/router';
-import { resource, getSignal } from '@askrjs/askr/resources';
+import { resource } from '@askrjs/askr/resources';
 import { createStaticGen } from '@askrjs/askr/ssg';
 ```
 
