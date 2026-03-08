@@ -45,3 +45,4 @@ Use `layout()` to preserve shared DOM structure between route changes.
 - [Router API](../reference/router.md)
 - [Resources Guide](resources.md)
 - [SSR Guide](ssr.md)
+- [SSG Guide](ssg.md)

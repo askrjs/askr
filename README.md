@@ -153,6 +153,7 @@ createSPA({
 - [State Management](docs/guides/state.md)
 - [Router Guide](docs/guides/router.md)
 - [Resources Guide](docs/guides/resources.md)
+- [SSG Guide (Advanced)](docs/guides/ssg.md)
 - [Runtime Enforcement](docs/concepts/runtime-enforcement.md)
 - [Deterministic Execution](docs/concepts/determinism.md)
 - [API Reference](docs/reference/api.md)

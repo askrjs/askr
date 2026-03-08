@@ -13,11 +13,12 @@ Askr keeps the root API minimal and exposes advanced features through explicit s
 
 ## Subpath packages
 
-- `@askrjs/askr/router` → routing primitives (`route`, `getRoutes`, `clearRoutes`, `navigate`, `Link`, `layout`)
-- `@askrjs/askr/resources` → async resource primitives (`resource`, `getSignal`)
-- `@askrjs/askr/fx` → timing and scheduling utilities (`debounce`, `throttle`, `retry`, `defer`, etc.)
-- `@askrjs/askr/ssr` → server-side rendering helpers
-- `@askrjs/askr/for`, `@askrjs/askr/foundations` → lower-level framework primitives
+- `@askrjs/askr/router` -> routing primitives (`route`, `getRoutes`, `clearRoutes`, `navigate`, `Link`, `layout`)
+- `@askrjs/askr/resources` -> async resource primitives (`resource`, `getSignal`)
+- `@askrjs/askr/fx` -> timing and scheduling utilities (`debounce`, `throttle`, `retry`, `defer`, etc.)
+- `@askrjs/askr/ssr` -> server-side rendering helpers
+- `@askrjs/askr/ssg` -> static-site generation helpers (`createStaticGen`)
+- `@askrjs/askr/for`, `@askrjs/askr/foundations` -> lower-level framework primitives
 
 ## Import style
 
@@ -27,6 +28,7 @@ Use root imports for common app code and subpath imports when you need feature-s
 import { createIsland, state } from '@askrjs/askr';
 import { route, navigate } from '@askrjs/askr/router';
 import { resource, getSignal } from '@askrjs/askr/resources';
+import { createStaticGen } from '@askrjs/askr/ssg';
 ```
 
 ## Next
@@ -34,3 +36,4 @@ import { resource, getSignal } from '@askrjs/askr/resources';
 - [Router API](router.md)
 - [Resources API](resources.md)
 - [FX API](fx.md)
+- [SSG Guide](../guides/ssg.md)

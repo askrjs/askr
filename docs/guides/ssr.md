@@ -17,6 +17,7 @@ Askr SSR renders UI to HTML strings for server output.
 
 ## Related topics
 
+- [SSG Guide](ssg.md)
 - [SSR Events](ssr-events.md)
 - [Selective Hydration](../advanced/selective-hydration.md)
 
