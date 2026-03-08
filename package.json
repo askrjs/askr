@@ -95,7 +95,12 @@
     "test:examples": "vitest run checks/examples/ssg-config.test.ts",
     "test:types": "npm run build && tsd",
     "verify:release": "npm run lint && npm run build && npm test && npm run test:docs && npm run test:examples",
-    "bench": "cross-env NODE_ENV=production vitest bench --run",
+    "bench": "cross-env NODE_ENV=production npx jiti ./benches/tools/run-suite.ts trusted",
+    "bench:watch": "cross-env NODE_ENV=production npx jiti ./benches/tools/run-suite.ts watch",
+    "bench:quarantine": "cross-env NODE_ENV=production npx jiti ./benches/tools/run-suite.ts quarantine",
+    "bench:stress": "cross-env NODE_ENV=production vitest run benches/stress",
+    "bench:report": "npx jiti ./benches/tools/print-latest-report.ts",
+    "bench:baseline:refresh": "cross-env NODE_ENV=production npx jiti ./benches/tools/refresh-baseline.ts trusted",
     "fmt": "prettier --write .",
     "lint": "eslint src tests checks benches --ext .ts,.tsx"
   },
