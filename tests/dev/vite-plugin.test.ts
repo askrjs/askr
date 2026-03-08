@@ -44,7 +44,7 @@ describe('askrVitePlugin', () => {
     const plugin = askrVitePlugin({
       transformJsx: false,
       // Intentionally passed through `any` so we can guard against stale config.
-      ...( { ssrPrecompile: true } as Record<string, unknown> ),
+      ...({ ssrPrecompile: true } as Record<string, unknown>),
     } as never);
 
     if (!plugin.transform) throw new Error('plugin missing transform hook');

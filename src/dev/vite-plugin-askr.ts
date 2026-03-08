@@ -10,6 +10,11 @@ import type { Plugin } from 'vite';
 export interface AskrVitePluginOptions {
   /** Enable the built-in JSX transform that rewrites JSX to Askr's automatic runtime. */
   transformJsx?: boolean;
+  /**
+   * Deprecated no-op kept for compatibility with older configs.
+   * SSR precompilation is no longer supported by this plugin.
+   */
+  ssrPrecompile?: boolean;
 }
 
 export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {

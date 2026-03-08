@@ -47,9 +47,10 @@ describe('public docs and examples', () => {
       const contents = fs.readFileSync(file, 'utf8');
 
       for (const { label, pattern } of forbiddenPatterns) {
-        expect(contents, `${label} in ${path.relative(rootDir, file)}`).not.toMatch(
-          pattern
-        );
+        expect(
+          contents,
+          `${label} in ${path.relative(rootDir, file)}`
+        ).not.toMatch(pattern);
       }
     }
   });

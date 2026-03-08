@@ -515,7 +515,6 @@ function materializeKey(
  */
 function warnMissingKeys(children: unknown[]): void {
   if (process.env.NODE_ENV === 'production') return;
-  if (children.length <= 2) return;
 
   let hasElements = false;
   let hasKeys = false;
