@@ -40,30 +40,9 @@ await hydrateSPA({
 
 ### Programmatic Control
 
-```typescript
-import {
-  setSelectiveHydrationOptions,
-  shouldSkipHydrationOnElement,
-  isElementAboveFold,
-} from '@askrjs/askr/runtime/hydration';
-
-// Set options at runtime
-setSelectiveHydrationOptions({
-  deferBelowFold: true,
-  foldThreshold: 800,
-});
-
-// Check if element should be skipped
-const element = document.querySelector('.content');
-if (shouldSkipHydrationOnElement(element!)) {
-  console.log('Skipping hydration for this element');
-}
-
-// Check if element is visible
-if (isElementAboveFold(element!)) {
-  console.log('Element is above fold');
-}
-```
+Selective hydration is currently configured through `hydrateSPA({ hydrate: ... })`.
+The lower-level hydration helpers live in internal runtime modules and are not a
+supported public API.
 
 ## Strategies
 

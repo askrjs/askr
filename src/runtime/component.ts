@@ -50,6 +50,7 @@ export interface ComponentInstance {
   lastRenderToken?: number; // Token of the last *committed* render
   _pendingReadStates?: Set<State<unknown>>; // States read during the in-progress render
   _lastReadStates?: Set<State<unknown>>; // States read during the last committed render
+  devWarningsEmitted: Set<string>; // Dev-only warning dedupe for this instance
 
   // Placeholder for null-returning components. When a component initially returns
   // null, we create a comment placeholder so updates can replace it with content.
@@ -92,6 +93,7 @@ export function createComponentInstance(
     lastRenderToken: 0,
     _pendingReadStates: new Set(),
     _lastReadStates: new Set(),
+    devWarningsEmitted: new Set(),
   };
 
   // Initialize prebound helper tasks once per instance to avoid allocations
@@ -508,8 +510,9 @@ function executeComponentSync(
     // Check render time
     const renderTime = Date.now() - renderStartTime;
     if (renderTime > 5) {
-      // Warn if render takes more than 5ms
-      logger.warn(
+      warnInstanceOnce(
+        instance,
+        'slow-render',
         `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
       );
     }
@@ -526,11 +529,15 @@ function executeComponentSync(
       if (state && !state._hasBeenRead) {
         try {
           const name = instance.fn?.name || '<anonymous>';
-          logger.warn(
+          warnInstanceOnce(
+            instance,
+            `unused-state:${i}`,
             `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
           );
         } catch {
-          logger.warn(
+          warnInstanceOnce(
+            instance,
+            `unused-state:${i}`,
             `[askr] Unused state variable detected. State should be read during render or removed.`
           );
         }
@@ -733,4 +740,15 @@ export function cleanupComponent(instance: ComponentInstance): void {
   // retained "mounted" flags across cleanup boundaries which breaks
   // owner selection in the portal fallback.
   instance.mounted = false;
+}
+
+function warnInstanceOnce(
+  instance: ComponentInstance,
+  key: string,
+  message: string
+): void {
+  if (process.env.NODE_ENV === 'production') return;
+  if (instance.devWarningsEmitted.has(key)) return;
+  instance.devWarningsEmitted.add(key);
+  logger.warn(message);
 }

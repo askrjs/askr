@@ -46,7 +46,7 @@ Events serialize through a scheduler. State updates are atomic. Renders follow s
 // No race conditions
 ```
 
-Proven with 133 tests covering:
+Proven with 524 tests covering:
 
 - Event ordering (12 tests)
 - State atomicity (12 tests)
@@ -168,7 +168,7 @@ createSPA({
 
 ## Guarantees
 
-Askr provides provable guarantees, tested with 133 tests:
+Askr provides provable guarantees, tested with 524 tests:
 
 - Hook order enforcement (12 tests)
 - Event serialization (12 tests)

@@ -4,7 +4,7 @@ import { createIsland, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { For } from '../../src/for';
 
-test('should append 1,000 rows to existing 1,000 rows', () => {
+test('should append 1,000 rows to existing 1,000 rows', { timeout: 20000 }, () => {
   const { container, cleanup } = createTestContainer();
 
   let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;

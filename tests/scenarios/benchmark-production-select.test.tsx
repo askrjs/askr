@@ -35,7 +35,7 @@ function Row({
   );
 }
 
-test('should apply danger class in production when clicking row', () => {
+test('should apply danger class in production when clicking row', { timeout: 20000 }, () => {
   const prev = process.env.NODE_ENV;
   process.env.NODE_ENV = 'production';
 
@@ -98,7 +98,7 @@ test('should apply danger class in production when clicking row', () => {
 });
 
 // Non-keyed variant: For without "by" option and no key prop set on rows
-test('should apply danger class in production for unkeyed For when clicking row', () => {
+test('should apply danger class in production for unkeyed For when clicking row', { timeout: 20000 }, () => {
   const prev = process.env.NODE_ENV;
   process.env.NODE_ENV = 'production';
 

@@ -515,12 +515,14 @@ function materializeKey(
  */
 function warnMissingKeys(children: unknown[]): void {
   if (process.env.NODE_ENV === 'production') return;
+  if (children.length <= 2) return;
 
   let hasElements = false;
   let hasKeys = false;
 
   for (const item of children) {
     if (typeof item === 'object' && item !== null && 'type' in item) {
+      if ((item as DOMElement).type === __FOR_BOUNDARY__) continue;
       hasElements = true;
       const rawKey =
         (item as DOMElement).key ??
@@ -534,8 +536,10 @@ function warnMissingKeys(children: unknown[]): void {
   }
 
   if (hasElements && !hasKeys) {
+    const inst = getCurrentInstance();
+    if (inst?.devWarningsEmitted.has('missing-keys')) return;
+    inst?.devWarningsEmitted.add('missing-keys');
     try {
-      const inst = getCurrentInstance();
       const name = inst?.fn?.name || '<anonymous>';
       logger.warn(
         `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`

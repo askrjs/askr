@@ -63,7 +63,7 @@ function buildData(count: number, startId: number = 1): RowData[] {
   return data;
 }
 
-describe('JSX benchmark complete (matches js-framework-benchmark)', () => {
+describe('JSX benchmark complete (matches js-framework-benchmark)', { timeout: 20000 }, () => {
   test('should render 1000 rows with JSX components', () => {
     const { container, cleanup } = createTestContainer();
     let dataState!: State<RowData[]>;

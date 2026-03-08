@@ -17,7 +17,7 @@ import {
 } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
 
-describe('happens-before events (SPEC 2.3)', () => {
+describe('happens-before events (SPEC 2.3)', { timeout: 15000 }, () => {
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {

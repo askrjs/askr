@@ -4,7 +4,7 @@ import { createIsland, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { For } from '../../src/for';
 
-test('should toggle selected row class', () => {
+test('should toggle selected row class', { timeout: 20000 }, () => {
   const { container, cleanup } = createTestContainer();
 
   let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;

@@ -1,4 +1,4 @@
-import type { RouteConfig } from '../src/ssg/types';
+import type { RouteConfig } from '@askrjs/askr/ssg';
 
 const HomePage = () => 'Home Page';
 const AboutPage = () => 'About Page';

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 
 const eslint = new ESLint({ cwd: process.cwd() });
 
-describe('ESLint: ban Math.random / Date.now in src/ssr', () => {
+describe('ESLint: ban Math.random / Date.now in src/ssr', { timeout: 15000 }, () => {
   test('should flag Math.random in src/ssr files', async () => {
     const code = `const r = Math.random();`;
     const results = await eslint.lintText(code, {

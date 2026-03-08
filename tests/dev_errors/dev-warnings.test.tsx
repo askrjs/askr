@@ -87,7 +87,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let items: ReturnType<typeof state<string[]>> | null = null;
     const FancyList = () => {
-      items = state(['a', 'b']);
+      items = state(['a', 'b', 'c']);
       return {
         type: 'div',
         children: items().map((x) => ({ type: 'div', children: [x] })),

@@ -91,10 +91,13 @@
     "prepare": "npm run build:prod",
     "dev": "vite",
     "test": "vitest run",
+    "test:docs": "vitest run checks/docs/public-api-imports.test.ts",
+    "test:examples": "vitest run checks/examples/ssg-config.test.ts",
     "test:types": "npm run build && tsd",
+    "verify:release": "npm run lint && npm run build && npm test && npm run test:docs && npm run test:examples",
     "bench": "cross-env NODE_ENV=production vitest bench --run",
     "fmt": "prettier --write .",
-    "lint": "eslint src tests benches --ext .ts,.tsx"
+    "lint": "eslint src tests checks benches --ext .ts,.tsx"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

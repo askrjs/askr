@@ -39,4 +39,28 @@ describe('askrVitePlugin', () => {
     const includes = userCfg?.optimizeDeps?.include ?? [];
     expect(includes.includes('@askrjs/askr/jsx-runtime')).toBe(true);
   });
+
+  it('should ignore unsupported ssrPrecompile flags instead of injecting fake helpers', async () => {
+    const plugin = askrVitePlugin({
+      transformJsx: false,
+      // Intentionally passed through `any` so we can guard against stale config.
+      ...( { ssrPrecompile: true } as Record<string, unknown> ),
+    } as never);
+
+    if (!plugin.transform) throw new Error('plugin missing transform hook');
+
+    type TransformHook = (
+      code: string,
+      id: string,
+      options?: { ssr?: boolean }
+    ) => Promise<{ code: string; map?: unknown } | null>;
+
+    const result = await (plugin.transform as TransformHook)(
+      'export const View = () => <div>Hello</div>;',
+      'view.tsx',
+      { ssr: true }
+    );
+
+    expect(result).toBeNull();
+  });
 });
