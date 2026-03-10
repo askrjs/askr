@@ -98,5 +98,20 @@ export function validateRoutes(routes: RouteConfig[]): void {
         }
       }
     }
+
+    if (route.invalidationKeys !== undefined) {
+      if (!Array.isArray(route.invalidationKeys)) {
+        throw new Error(
+          `route "${route.path}" invalidationKeys must be an array of strings`
+        );
+      }
+      for (const key of route.invalidationKeys) {
+        if (typeof key !== 'string' || key.length === 0) {
+          throw new Error(
+            `route "${route.path}" invalidationKeys must contain only non-empty strings`
+          );
+        }
+      }
+    }
   }
 }

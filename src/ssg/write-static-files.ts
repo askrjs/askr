@@ -21,8 +21,23 @@ export function writeStaticFiles(
   fs.mkdirSync(outputDir, { recursive: true });
 
   for (const result of results) {
+    if (result.status !== 'removed') {
+      continue;
+    }
+
+    const fullPath = pathModule.join(outputDir, result.filePath);
+    if (fs.existsSync(fullPath)) {
+      fs.rmSync(fullPath, { force: true });
+      pruneEmptyDirs(pathModule.dirname(fullPath), outputDir);
+    }
+  }
+
+  for (const result of results) {
     if (result.status === 'error') {
       console.warn(`Skipping failed route: ${result.path} - ${result.error}`);
+      continue;
+    }
+    if (result.status !== 'success' || !result.written) {
       continue;
     }
 
@@ -41,10 +56,25 @@ export function writeStaticFiles(
  * Get the output file path for a route
  * E.g., "/blog/post" -> "blog/post" or "/" -> ""
  */
-export function getOutputFilePath(pathStr: string): string {
-  if (pathStr === '/') {
-    return 'index.html';
+export { getOutputFilePath } from './route-utils';
+
+function pruneEmptyDirs(startDir: string, rootDir: string): void {
+  let current = startDir;
+  const normalizedRoot = pathModule.resolve(rootDir);
+
+  while (current.startsWith(normalizedRoot)) {
+    if (!fs.existsSync(current)) {
+      break;
+    }
+
+    if (fs.readdirSync(current).length > 0) {
+      break;
+    }
+
+    fs.rmdirSync(current);
+    if (pathModule.resolve(current) === normalizedRoot) {
+      break;
+    }
+    current = pathModule.dirname(current);
   }
-  const normalized = pathStr.replace(/^\/|\/$/g, '');
-  return `${normalized}/index.html`;
 }

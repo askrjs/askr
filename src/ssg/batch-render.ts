@@ -7,6 +7,7 @@ import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
 import type { ComponentFunction } from '../common/component';
 import type { SSRData } from '../common/ssr';
+import { getOutputFilePath, interpolateRoutePath } from './route-utils';
 
 interface BatchRenderOptions {
   seed?: number;
@@ -61,23 +62,27 @@ export async function batchRenderRoutes(
       const duration = performance.now() - startTime;
       return {
         path: url,
-        filePath: toHtmlFilePath(url),
+        filePath: getOutputFilePath(url),
         html,
         fileSize: Buffer.byteLength(html, 'utf8'),
         renderDuration: Math.round(duration),
         resourceCount: Object.keys(baseData).length,
         status: 'success',
+        reason: 'full',
+        written: false,
       };
     } catch (error) {
       const duration = performance.now() - startTime;
       return {
         path: url,
-        filePath: toHtmlFilePath(url),
+        filePath: getOutputFilePath(url),
         html: '',
         fileSize: 0,
         renderDuration: Math.round(duration),
         resourceCount: Object.keys(baseData).length,
         status: 'error',
+        reason: 'full',
+        written: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }
@@ -94,25 +99,4 @@ export async function batchRenderRoutes(
 
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return results;
-}
-
-/**
- * Convert URL path to file path
- * E.g., "/blog/post" -> "blog/post" or "/" -> ""
- */
-function toHtmlFilePath(routePath: string): string {
-  if (routePath === '/') return 'index.html';
-  const normalized = routePath.replace(/^\/|\/$/g, '');
-  return `${normalized}/index.html`;
-}
-
-function interpolateRoutePath(
-  routePath: string,
-  params?: Record<string, string>
-): string {
-  if (!params) return routePath;
-  return routePath.replace(
-    /\{([^}]+)\}/g,
-    (_, key: string) => params[key] ?? ''
-  );
 }

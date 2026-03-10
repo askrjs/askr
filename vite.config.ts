@@ -5,8 +5,9 @@ const nodeBuiltins = ['fs', 'path', 'node:fs', 'node:path'];
 
 const isProd =
   process.env.NODE_ENV === 'production' || process.env.BUILD === 'production';
+const isBenchBuild = process.env.BUILD === 'bench';
 
-const input = {
+const input: Record<string, string> = {
   index: path.resolve(__dirname, 'src/index.ts'),
 
   'for/index': path.resolve(__dirname, 'src/for/index.ts'),
@@ -25,10 +26,12 @@ const input = {
   benchmark: path.resolve(__dirname, 'src/bench/benchmark-entry.tsx'),
 
   'vite/index': path.resolve(__dirname, 'src/dev/vite-plugin-askr.ts'),
-
-  // CLI entry for askr-ssg
-  'bin/askr-ssg': path.resolve(__dirname, 'src/bin/askr-ssg.ts'),
 };
+
+if (!isBenchBuild) {
+  // CLI entry for askr-ssg (excluded in bench-only browser bundle builds)
+  input['bin/askr-ssg'] = path.resolve(__dirname, 'src/bin/askr-ssg.ts');
+}
 
 export default defineConfig({
   define: {

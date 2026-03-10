@@ -69,11 +69,6 @@ type SsrTreeNode = {
   children?: Array<SsrTreeNode | string>;
 };
 
-const importNodeModule = new Function(
-  'specifier',
-  'return import(specifier);'
-) as <T>(specifier: string) => Promise<T>;
-
 export const tier1BenchOptions = {
   time: 400,
   iterations: 20,
@@ -476,9 +471,9 @@ export function buildStaticBatchRoutes(routeCount = 64): RouteConfig[] {
 export async function createBenchTempDir(
   prefix: string
 ): Promise<BenchTempDirFixture> {
-  const fs = await importNodeModule<typeof import('node:fs')>('node:fs');
-  const os = await importNodeModule<typeof import('node:os')>('node:os');
-  const path = await importNodeModule<typeof import('node:path')>('node:path');
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
   return {
     dir,
@@ -487,7 +482,7 @@ export async function createBenchTempDir(
 }
 
 export async function removeBenchTempDir(dir: string): Promise<void> {
-  const fs = await importNodeModule<typeof import('node:fs')>('node:fs');
+  const fs = await import('node:fs');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 

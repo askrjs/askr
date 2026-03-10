@@ -7,15 +7,35 @@
 
 import * as fs from 'fs';
 import * as pathModule from 'path';
-import type { RouteRenderResult, SSGMetadata, SSGResult } from './types';
+import type {
+  RouteRenderResult,
+  SSGMetadata,
+  SSGMode,
+  SSGResult,
+} from './types';
+
+interface GenerateResultOptions {
+  mode?: SSGMode;
+  cacheHits?: number;
+  invalidatedKeys?: string[];
+  invalidatedRoutes?: string[];
+}
 
 /**
  * Generate SSGResult from render results
  */
-export function generateSSGResult(results: RouteRenderResult[]): SSGResult {
+export function generateSSGResult(
+  results: RouteRenderResult[],
+  options: GenerateResultOptions = {}
+): SSGResult {
   const successful = results.filter((r) => r.status === 'success').length;
   const failed = results.filter((r) => r.status === 'error').length;
   const totalDuration = results.reduce((sum, r) => sum + r.renderDuration, 0);
+  const rebuilt = results.filter(
+    (r) => r.status === 'success' || r.status === 'error'
+  ).length;
+  const skipped = results.filter((r) => r.status === 'skipped').length;
+  const removed = results.filter((r) => r.status === 'removed').length;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -23,6 +43,13 @@ export function generateSSGResult(results: RouteRenderResult[]): SSGResult {
     successful,
     failed,
     totalDuration: Math.round(totalDuration),
+    mode: options.mode ?? 'full',
+    rebuilt,
+    skipped,
+    removed,
+    cacheHits: options.cacheHits ?? 0,
+    invalidatedKeys: options.invalidatedKeys?.slice() ?? [],
+    invalidatedRoutes: options.invalidatedRoutes?.slice() ?? [],
     routes: results,
   };
 }
@@ -37,6 +64,13 @@ export function resultToMetadata(result: SSGResult): SSGMetadata {
     successful: result.successful,
     failed: result.failed,
     totalDuration: result.totalDuration,
+    mode: result.mode,
+    rebuilt: result.rebuilt,
+    skipped: result.skipped,
+    removed: result.removed,
+    cacheHits: result.cacheHits,
+    invalidatedKeys: result.invalidatedKeys.slice(),
+    invalidatedRoutes: result.invalidatedRoutes.slice(),
     routes: result.routes.map((r) => ({
       path: r.path,
       filePath: r.filePath,
@@ -44,6 +78,8 @@ export function resultToMetadata(result: SSGResult): SSGMetadata {
       renderDuration: r.renderDuration,
       resourceCount: r.resourceCount,
       status: r.status,
+      reason: r.reason,
+      written: r.written,
       error: r.error,
     })),
   };

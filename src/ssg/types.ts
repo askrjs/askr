@@ -5,6 +5,19 @@
 import type { ComponentFunction } from '../common/component';
 import type { RouteHandler } from '../common/router';
 
+export type SSGMode = 'full' | 'incremental';
+
+export type RouteRenderStatus = 'success' | 'error' | 'skipped' | 'removed';
+
+export type RouteRenderReason =
+  | 'full'
+  | 'changed-key'
+  | 'changed-route'
+  | 'new-route'
+  | 'no-keys'
+  | 'unchanged'
+  | 'deleted';
+
 /**
  * Route config accepted by SSG.
  *
@@ -24,6 +37,8 @@ export interface RouteConfig {
   namespace?: string;
   /** Optional path parameter map for template paths like "/blog/{slug}" */
   params?: Record<string, string>;
+  /** Optional explicit invalidation keys for incremental generation */
+  invalidationKeys?: string[];
 }
 
 /** Options for createStaticGen */
@@ -40,6 +55,18 @@ export interface SSGOptions {
   concurrency?: number;
 }
 
+/** Options for a single generation run */
+export interface SSGGenerateOptions {
+  /** Generation mode */
+  mode?: SSGMode;
+  /** Changed invalidation keys for incremental runs */
+  changedKeys?: string[];
+  /** Changed concrete route paths for incremental runs */
+  changedRoutes?: string[];
+  /** Force a full rebuild even when incremental mode was requested */
+  forceFull?: boolean;
+}
+
 /** Result of rendering a single route */
 export interface RouteRenderResult {
   /** URL path */
@@ -54,8 +81,12 @@ export interface RouteRenderResult {
   renderDuration: number;
   /** Number of resources discovered and rendered */
   resourceCount: number;
-  /** Status: success or error */
-  status: 'success' | 'error';
+  /** Render or generation status */
+  status: RouteRenderStatus;
+  /** Why this route was rendered, skipped, or removed */
+  reason: RouteRenderReason;
+  /** Whether the output file was written during this run */
+  written: boolean;
   /** Error message if rendering failed */
   error?: string;
 }
@@ -72,6 +103,20 @@ export interface SSGResult {
   failed: number;
   /** Total generation duration in milliseconds */
   totalDuration: number;
+  /** Effective generation mode */
+  mode: SSGMode;
+  /** Number of routes rendered during this run */
+  rebuilt: number;
+  /** Number of current routes skipped as unchanged */
+  skipped: number;
+  /** Number of stale routes removed from output */
+  removed: number;
+  /** Number of rendered routes whose HTML bytes were unchanged */
+  cacheHits: number;
+  /** Invalidation keys applied to this run */
+  invalidatedKeys: string[];
+  /** Concrete route paths applied to this run */
+  invalidatedRoutes: string[];
   /** Per-route results */
   routes: RouteRenderResult[];
 }
@@ -88,6 +133,20 @@ export interface SSGMetadata extends Record<string, unknown> {
   failed: number;
   /** Total generation duration in milliseconds */
   totalDuration: number;
+  /** Effective generation mode */
+  mode: SSGMode;
+  /** Number of routes rendered during this run */
+  rebuilt: number;
+  /** Number of current routes skipped as unchanged */
+  skipped: number;
+  /** Number of stale routes removed from output */
+  removed: number;
+  /** Number of rendered routes whose HTML bytes were unchanged */
+  cacheHits: number;
+  /** Invalidation keys applied to this run */
+  invalidatedKeys: string[];
+  /** Concrete route paths applied to this run */
+  invalidatedRoutes: string[];
   /** Per-route details */
   routes: Array<{
     /** URL path */
@@ -100,8 +159,12 @@ export interface SSGMetadata extends Record<string, unknown> {
     renderDuration: number;
     /** Number of resources discovered and rendered */
     resourceCount: number;
-    /** Status: success or error */
-    status: 'success' | 'error';
+    /** Render or generation status */
+    status: RouteRenderStatus;
+    /** Why this route was rendered, skipped, or removed */
+    reason: RouteRenderReason;
+    /** Whether the output file was written during this run */
+    written: boolean;
     /** Error message if rendering failed */
     error?: string;
   }>;

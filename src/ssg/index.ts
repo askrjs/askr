@@ -23,10 +23,14 @@
 export { createStaticGen } from './create-static-gen';
 export type {
   RouteConfig,
+  RouteRenderReason,
   SSGOptions,
+  SSGGenerateOptions,
+  SSGMode,
   SSGResult,
   SSGMetadata,
   RouteRenderResult,
+  RouteRenderStatus,
   DiscoveredResources,
 } from './types';
 
