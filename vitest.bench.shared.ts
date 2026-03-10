@@ -34,15 +34,18 @@ export const benchResolve = {
 };
 
 export const domBenchIncludes = [
-  'benches/tier1-hotpath-*.{ts,tsx}',
-  'benches/tier2-subsystem-*.{ts,tsx}',
-  'benches/tier3-system-*.{ts,tsx}',
-  'benches/tier4-integration-*.tsx',
+  'benches/tier1/**/*.{ts,tsx}',
+  'benches/tier2/**/*.{ts,tsx}',
+  'benches/tier3/**/*.{ts,tsx}',
+  'benches/tier4/**/*.tsx',
 ];
 
-export const domBenchExcludes = ['benches/*-ssr-*', 'benches/_shared.*'];
+export const domBenchExcludes = [
+  'benches/**/*-ssr-*',
+  'benches/shared/_shared.*',
+];
 
 export const ssrBenchIncludes = [
-  'benches/tier1-hotpath-ssr-*.ts',
-  'benches/tier2-subsystem-ssr-*.ts',
+  'benches/tier1/**/tier1-hotpath-ssr-*.ts',
+  'benches/tier2/**/tier2-subsystem-ssr-*.ts',
 ];
