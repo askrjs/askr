@@ -17,9 +17,9 @@ import {
   type ComponentFunction,
 } from '../runtime/component';
 import {
-  cleanupInstanceIfPresent,
   elementListeners,
   removeAllListeners,
+  teardownNodeSubtree,
   elementReactivePropsCleanup,
   removeElementReactiveProps,
 } from './cleanup';
@@ -46,11 +46,11 @@ import {
 } from './utils';
 import type { State } from '../runtime/state';
 import { globalScheduler } from '../runtime/scheduler';
+import { incrementPerfMetric } from '../runtime/perf-metrics';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
   removeDelegatedListener,
-  getDelegatedHandlersForElement,
   clearDelegatedHandlersForElement as _clearDelegatedHandlersForElement,
   isDelegatedEvent,
 } from '../runtime/events';
@@ -114,14 +114,16 @@ function addTrackedListener(
     addDelegatedListener(el, eventName, handler, handler, undefined);
   }
 
-  const wrappedHandler = createWrappedHandler(handler, true);
   const options = getPassiveOptions(eventName);
+  const trackedHandler = useDelegation
+    ? handler
+    : createWrappedHandler(handler, true);
 
   if (!useDelegation) {
     if (options !== undefined) {
-      el.addEventListener(eventName, wrappedHandler, options);
+      el.addEventListener(eventName, trackedHandler, options);
     } else {
-      el.addEventListener(eventName, wrappedHandler);
+      el.addEventListener(eventName, trackedHandler);
     }
   }
 
@@ -129,30 +131,15 @@ function addTrackedListener(
     elementListeners.set(el, new Map());
   }
   elementListeners.get(el)!.set(eventName, {
-    handler: useDelegatedListener(useDelegation, el, eventName, wrappedHandler),
+    handler: trackedHandler,
     original: handler,
     options,
     isDelegated: useDelegation,
   });
 }
 
-function useDelegatedListener(
-  isDelegated: boolean,
-  el: Element,
-  eventName: string,
-  wrappedHandler: EventListener
-): EventListener {
-  if (!isDelegated) return wrappedHandler;
-  const delegatedHandlers = getDelegatedHandlersForElement(el);
-  if (delegatedHandlers) {
-    const entry = delegatedHandlers.get(eventName);
-    if (entry) return entry.handler;
-  }
-  return wrappedHandler;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Reactive Prop Management - Batching Coordinator
+// Reactive Prop Management - Dirty Descriptor Invalidation
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ReactivePropDescriptor {
@@ -162,120 +149,152 @@ interface ReactivePropDescriptor {
   tagName: string;
   readStates: Set<State<unknown>>;
   isActive: boolean;
+  lastValue: unknown;
 }
 
-// Global registry of all reactive props
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
+const dirtyReactiveProps = new Set<ReactivePropDescriptor>();
+const reactivePropsByState = new WeakMap<
+  State<unknown>,
+  Set<ReactivePropDescriptor>
+>();
+let hasPendingReactivePropFlush = false;
+let reactivePropTrackingToken = 0;
 
-// Single pseudo-component for coordinating all reactive prop updates
-let reactivePropCoordinator: ComponentInstance | null = null;
-let hasPendingBatchUpdate = false;
+const reactivePropTrackingInstance = {
+  _pendingReadStates: new Set<State<unknown>>(),
+  _currentRenderToken: 0,
+} as Partial<ComponentInstance> as ComponentInstance;
 
-/**
- * Initialize the reactive prop coordinator (lazy)
- */
-function ensureReactivePropCoordinator(): ComponentInstance {
-  if (!reactivePropCoordinator) {
-    reactivePropCoordinator = {
-      id: 'reactive-props-coordinator',
-      lastRenderToken: 0,
-      hasPendingUpdate: false,
-      notifyUpdate: null,
-      abortController: new AbortController(),
-    } as ComponentInstance;
-
-    // Batch update function - updates all dirty props in one pass
-    const batchUpdate = () => {
-      if (!hasPendingBatchUpdate) return;
-      hasPendingBatchUpdate = false;
-
-      const prevInstance = getCurrentInstance();
-
-      try {
-        // Update all active reactive props synchronously
-        for (const descriptor of reactivePropRegistry) {
-          if (!descriptor.isActive) continue;
-
-          // Clear old subscriptions
-          for (const state of descriptor.readStates) {
-            if (state._readers) {
-              state._readers.delete(reactivePropCoordinator!);
-            }
-          }
-          descriptor.readStates.clear();
-
-          // Track what states this prop reads
-          const tempReadStates = new Set<State<unknown>>();
-          const trackingContext: Partial<ComponentInstance> = {
-            _pendingReadStates: tempReadStates,
-            _currentRenderToken: reactivePropCoordinator!.lastRenderToken,
-          } as Partial<ComponentInstance>;
-
-          _setCurrentInstance(trackingContext as unknown as ComponentInstance);
-
-          try {
-            // Execute prop function and update DOM
-            const value = descriptor.propFn();
-            applyPropValue(
-              descriptor.el,
-              descriptor.propName,
-              value,
-              descriptor.tagName
-            );
-
-            // Register new subscriptions
-            descriptor.readStates = tempReadStates;
-          } catch (err) {
-            if (process.env.NODE_ENV !== 'production') {
-              logger.warn('[Askr] Reactive prop update failed:', err);
-            }
-          }
-        }
-
-        // Increment token after successful batch update
-        if (reactivePropCoordinator)
-          reactivePropCoordinator.lastRenderToken =
-            (reactivePropCoordinator.lastRenderToken ?? 0) + 1;
-
-        // Re-register coordinator with all states
-        for (const descriptor of reactivePropRegistry) {
-          if (!descriptor.isActive) continue;
-          for (const state of descriptor.readStates) {
-            if (!state._readers) {
-              (
-                state as { _readers?: Map<ComponentInstance, number> }
-              )._readers = new Map();
-            }
-            (state._readers as Map<ComponentInstance, number>).set(
-              reactivePropCoordinator!,
-              reactivePropCoordinator!.lastRenderToken ?? 0
-            );
-          }
-        }
-      } finally {
-        _setCurrentInstance(prevInstance);
-      }
-    };
-
-    reactivePropCoordinator.notifyUpdate = () => {
-      if (hasPendingBatchUpdate) return; // Already scheduled
-      hasPendingBatchUpdate = true;
-      // If we're inside a scheduler flush, run the batch update inline immediately
-      // so that DOM updates are visible synchronously to event handlers.
-      // Otherwise enqueue for the next flush.
-      if (globalScheduler.isExecuting()) {
-        batchUpdate();
-      } else {
-        globalScheduler.enqueue(batchUpdate);
-      }
-    };
-
-    reactivePropCoordinator._pendingFlushTask = () => {
-      reactivePropCoordinator!.hasPendingUpdate = false;
-      reactivePropCoordinator!.notifyUpdate!();
-    };
+function registerReactivePropState(
+  stateValue: State<unknown>,
+  descriptor: ReactivePropDescriptor
+): void {
+  let descriptors = reactivePropsByState.get(stateValue);
+  if (!descriptors) {
+    descriptors = new Set();
+    reactivePropsByState.set(stateValue, descriptors);
   }
-  return reactivePropCoordinator;
+  descriptors.add(descriptor);
+}
+
+function unregisterReactivePropState(
+  stateValue: State<unknown>,
+  descriptor: ReactivePropDescriptor
+): void {
+  reactivePropsByState.get(stateValue)?.delete(descriptor);
+}
+
+function syncReactivePropSubscriptions(
+  descriptor: ReactivePropDescriptor,
+  nextReadStates: Set<State<unknown>>
+): void {
+  for (const stateValue of descriptor.readStates) {
+    if (!nextReadStates.has(stateValue)) {
+      unregisterReactivePropState(stateValue, descriptor);
+    }
+  }
+
+  for (const stateValue of nextReadStates) {
+    if (!descriptor.readStates.has(stateValue)) {
+      registerReactivePropState(stateValue, descriptor);
+    }
+  }
+
+  descriptor.readStates = nextReadStates;
+}
+
+function clearReactivePropSubscriptions(descriptor: ReactivePropDescriptor): void {
+  for (const stateValue of descriptor.readStates) {
+    unregisterReactivePropState(stateValue, descriptor);
+  }
+  descriptor.readStates.clear();
+}
+
+function evaluateReactiveProp(
+  descriptor: ReactivePropDescriptor
+): { value: unknown; readStates: Set<State<unknown>> } {
+  const prevInstance = getCurrentInstance();
+  const nextReadStates = new Set<State<unknown>>();
+
+  reactivePropTrackingToken += 1;
+  reactivePropTrackingInstance._pendingReadStates = nextReadStates;
+  reactivePropTrackingInstance._currentRenderToken = reactivePropTrackingToken;
+
+  _setCurrentInstance(reactivePropTrackingInstance);
+
+  try {
+    return {
+      value: descriptor.propFn(),
+      readStates: nextReadStates,
+    };
+  } finally {
+    reactivePropTrackingInstance._pendingReadStates = new Set();
+    reactivePropTrackingInstance._currentRenderToken = 0;
+    _setCurrentInstance(prevInstance);
+  }
+}
+
+function flushDirtyReactiveProps(): void {
+  hasPendingReactivePropFlush = false;
+
+  if (dirtyReactiveProps.size === 0) {
+    return;
+  }
+
+  const pending = Array.from(dirtyReactiveProps);
+  dirtyReactiveProps.clear();
+
+  for (const descriptor of pending) {
+    if (!descriptor.isActive) continue;
+
+    incrementPerfMetric('reactivePropReevaluations');
+
+    try {
+      const { value, readStates } = evaluateReactiveProp(descriptor);
+      syncReactivePropSubscriptions(descriptor, readStates);
+
+      if (Object.is(descriptor.lastValue, value)) {
+        incrementPerfMetric('skippedDomPropWrites');
+        continue;
+      }
+
+      descriptor.lastValue = value;
+      applyPropValue(
+        descriptor.el,
+        descriptor.propName,
+        value,
+        descriptor.tagName
+      );
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn('[Askr] Reactive prop update failed:', err);
+      }
+    }
+  }
+}
+
+export function markReactivePropsDirtyState(
+  stateValue: State<unknown>
+): void {
+  const descriptors = reactivePropsByState.get(stateValue);
+  if (!descriptors || descriptors.size === 0) {
+    return;
+  }
+
+  let shouldScheduleFlush = false;
+  for (const descriptor of descriptors) {
+    if (!descriptor.isActive || dirtyReactiveProps.has(descriptor)) {
+      continue;
+    }
+    dirtyReactiveProps.add(descriptor);
+    shouldScheduleFlush = true;
+  }
+
+  if (shouldScheduleFlush && !hasPendingReactivePropFlush) {
+    hasPendingReactivePropFlush = true;
+    globalScheduler.enqueue(flushDirtyReactiveProps);
+  }
 }
 
 /**
@@ -288,8 +307,6 @@ function setupReactiveProp(
   propFn: () => unknown,
   tagName: string
 ): () => void {
-  const coordinator = ensureReactivePropCoordinator();
-
   const descriptor: ReactivePropDescriptor = {
     el,
     propName,
@@ -297,63 +314,21 @@ function setupReactiveProp(
     tagName,
     readStates: new Set(),
     isActive: true,
+    lastValue: undefined,
   };
 
   reactivePropRegistry.add(descriptor);
-
-  // Perform initial evaluation
-  const prevInstance = getCurrentInstance();
-  const tempReadStates = new Set<State<unknown>>();
-  const trackingContext: Partial<ComponentInstance> = {
-    _pendingReadStates: tempReadStates,
-    _currentRenderToken: coordinator.lastRenderToken,
-  } as Partial<ComponentInstance>;
-
-  _setCurrentInstance(trackingContext as unknown as ComponentInstance);
-
-  try {
-    const value = propFn();
-    applyPropValue(el, propName, value, tagName);
-    descriptor.readStates = tempReadStates;
-
-    // Register coordinator with the states this prop reads
-    for (const state of tempReadStates) {
-      if (!state._readers) {
-        (state as { _readers?: Map<ComponentInstance, number> })._readers =
-          new Map();
-      }
-      (state._readers as Map<ComponentInstance, number>).set(
-        coordinator,
-        coordinator.lastRenderToken ?? 0
-      );
-    }
-  } finally {
-    _setCurrentInstance(prevInstance);
-  }
+  const { value, readStates } = evaluateReactiveProp(descriptor);
+  descriptor.lastValue = value;
+  syncReactivePropSubscriptions(descriptor, readStates);
+  applyPropValue(el, propName, value, tagName);
 
   // Return cleanup function
   return () => {
     descriptor.isActive = false;
-
-    // Remove from registry
     reactivePropRegistry.delete(descriptor);
-
-    // Always clean up state subscriptions for this descriptor immediately
-    if (reactivePropCoordinator) {
-      for (const state of descriptor.readStates) {
-        if (state._readers) {
-          state._readers.delete(reactivePropCoordinator);
-        }
-      }
-    }
-
-    descriptor.readStates.clear();
-
-    // If this was the last reactive prop, abort the coordinator
-    if (reactivePropRegistry.size === 0 && reactivePropCoordinator) {
-      reactivePropCoordinator.abortController.abort();
-      reactivePropCoordinator = null;
-    }
+    dirtyReactiveProps.delete(descriptor);
+    clearReactivePropSubscriptions(descriptor);
   };
 }
 
@@ -891,9 +866,11 @@ export function updateElementFromVnode(
 
   // Diff and update event listeners and other attributes
   const existingListeners = elementListeners.get(el);
+  const existingReactiveProps = elementReactivePropsCleanup.get(el);
   // Lazily materialize desired event names only if we need to diff against existing listeners.
   // This avoids allocating a Set for the common case (no listeners, or no event props).
   let desiredEventNames: Set<string> | null = null;
+  let desiredReactivePropNames: Set<string> | null = null;
 
   for (const key in props) {
     const value = props[key];
@@ -917,6 +894,9 @@ export function updateElementFromVnode(
           }
         }
         existingListeners.delete(eventName);
+      } else if (existingReactiveProps?.has(key)) {
+        existingReactiveProps.get(key)!.cleanup();
+        existingReactiveProps.delete(key);
       } else {
         el.removeAttribute(key);
       }
@@ -925,8 +905,10 @@ export function updateElementFromVnode(
 
     // Handle reactive props (functions)
     if (typeof value === 'function' && !eventName && key !== 'ref') {
-      const existingReactiveProps = elementReactivePropsCleanup.get(el);
       const existingEntry = existingReactiveProps?.get(key);
+      if (existingReactiveProps && existingReactiveProps.size > 0) {
+        (desiredReactivePropNames ??= new Set()).add(key);
+      }
 
       // Only cleanup and re-setup if function reference changed (Issue 1 fix)
       if (existingEntry && existingEntry.fnRef === value) {
@@ -954,6 +936,11 @@ export function updateElementFromVnode(
         fnRef: value as () => unknown,
       });
       continue;
+    }
+
+    if (existingReactiveProps?.has(key)) {
+      existingReactiveProps.get(key)!.cleanup();
+      existingReactiveProps.delete(key);
     }
 
     if (key === 'class' || key === 'className') {
@@ -999,14 +986,16 @@ export function updateElementFromVnode(
         );
       }
 
-      const wrappedHandler = createWrappedHandler(value as EventListener, true);
       const options = getPassiveOptions(eventName);
+      const trackedHandler = useDelegation
+        ? (value as EventListener)
+        : createWrappedHandler(value as EventListener, true);
 
       if (!useDelegation) {
         if (options !== undefined) {
-          el.addEventListener(eventName, wrappedHandler, options);
+          el.addEventListener(eventName, trackedHandler, options);
         } else {
-          el.addEventListener(eventName, wrappedHandler);
+          el.addEventListener(eventName, trackedHandler);
         }
       }
 
@@ -1014,12 +1003,7 @@ export function updateElementFromVnode(
         elementListeners.set(el, new Map());
       }
       elementListeners.get(el)!.set(eventName, {
-        handler: useDelegatedListener(
-          useDelegation,
-          el,
-          eventName,
-          wrappedHandler
-        ),
+        handler: trackedHandler,
         original: value as EventListener,
         options,
         isDelegated: useDelegation,
@@ -1064,6 +1048,25 @@ export function updateElementFromVnode(
     }
   }
 
+  if (existingReactiveProps && existingReactiveProps.size > 0) {
+    if (desiredReactivePropNames === null) {
+      for (const [, entry] of existingReactiveProps) {
+        entry.cleanup();
+      }
+      elementReactivePropsCleanup.delete(el);
+    } else {
+      for (const [key, entry] of existingReactiveProps) {
+        if (!desiredReactivePropNames.has(key)) {
+          entry.cleanup();
+          existingReactiveProps.delete(key);
+        }
+      }
+      if (existingReactiveProps.size === 0) {
+        elementReactivePropsCleanup.delete(el);
+      }
+    }
+  }
+
   // Update children
   if (updateChildren) {
     const children =
@@ -1083,8 +1086,7 @@ export function updateElementChildren(
     for (let n = el.firstChild; n; ) {
       const next = n.nextSibling;
       if (n instanceof Element) {
-        removeAllListeners(n);
-        cleanupInstanceIfPresent(n);
+        teardownNodeSubtree(n);
       }
       n = next;
     }
@@ -1103,8 +1105,7 @@ export function updateElementChildren(
       for (let n = el.firstChild; n; ) {
         const next = n.nextSibling;
         if (n instanceof Element) {
-          removeAllListeners(n);
-          cleanupInstanceIfPresent(n);
+          teardownNodeSubtree(n);
         }
         n = next;
       }
@@ -1149,8 +1150,7 @@ export function updateElementChildren(
   for (let n = el.firstChild; n; ) {
     const next = n.nextSibling;
     if (n instanceof Element) {
-      removeAllListeners(n);
-      cleanupInstanceIfPresent(n);
+      teardownNodeSubtree(n);
     }
     n = next;
   }
@@ -1183,10 +1183,7 @@ export function updateUnkeyedChildren(
 
       // Remove extra existing nodes
       if (next === undefined && currentNode) {
-        if (currentNode.nodeType === 1) {
-          // Element node
-          cleanupInstanceIfPresent(currentNode as Element);
-        }
+        teardownNodeSubtree(currentNode);
         currentNode.remove();
         continue;
       }
@@ -1224,8 +1221,7 @@ export function updateUnkeyedChildren(
               // Different type - replace
               const dom = createDOMNode(next);
               if (dom) {
-                removeAllListeners(currentEl);
-                cleanupInstanceIfPresent(currentEl);
+                teardownNodeSubtree(currentEl);
                 parent.replaceChild(dom, currentNode);
               }
             }
@@ -1265,8 +1261,7 @@ export function updateUnkeyedChildren(
     for (let n = parent.firstChild; n; ) {
       const next = n.nextSibling;
       if (n instanceof Element) {
-        removeAllListeners(n);
-        cleanupInstanceIfPresent(n);
+        teardownNodeSubtree(n);
       }
       n = next;
     }
@@ -1281,7 +1276,7 @@ export function updateUnkeyedChildren(
     // Remove extra existing children
     if (next === undefined && current) {
       // Clean up any component instance mounted on this node
-      cleanupInstanceIfPresent(current);
+      teardownNodeSubtree(current);
       current.remove();
       continue;
     }
@@ -1302,8 +1297,7 @@ export function updateUnkeyedChildren(
         for (let n = current.firstChild; n; ) {
           const nextNode = n.nextSibling;
           if (n instanceof Element) {
-            removeAllListeners(n);
-            cleanupInstanceIfPresent(n);
+            teardownNodeSubtree(n);
           }
           n = nextNode;
         }
@@ -1317,8 +1311,7 @@ export function updateUnkeyedChildren(
         } else {
           const dom = createDOMNode(next);
           if (dom) {
-            if (current instanceof Element) removeAllListeners(current);
-            cleanupInstanceIfPresent(current);
+            teardownNodeSubtree(current);
             parent.replaceChild(dom, current);
           }
         }
@@ -1326,8 +1319,7 @@ export function updateUnkeyedChildren(
         // Non-string types: replace conservatively
         const dom = createDOMNode(next);
         if (dom) {
-          if (current instanceof Element) removeAllListeners(current);
-          cleanupInstanceIfPresent(current);
+          teardownNodeSubtree(current);
           parent.replaceChild(dom, current);
         }
       }
@@ -1335,8 +1327,7 @@ export function updateUnkeyedChildren(
       // Fallback for other types: replace
       const dom = createDOMNode(next);
       if (dom) {
-        if (current instanceof Element) removeAllListeners(current);
-        cleanupInstanceIfPresent(current);
+        teardownNodeSubtree(current);
         parent.replaceChild(dom, current);
       }
     }
@@ -1589,7 +1580,7 @@ function replaceNodeAtPosition(
   if (dom) {
     const existing = parent.children[index];
     if (existing) {
-      cleanupInstanceIfPresent(existing);
+      teardownNodeSubtree(existing);
       parent.replaceChild(dom, existing);
     } else {
       parent.appendChild(dom);
@@ -1726,8 +1717,7 @@ function commitBulkReplace(parent: Element, nodes: Node[]): number {
   try {
     for (let n = parent.firstChild; n; ) {
       const next = n.nextSibling;
-      if (n instanceof Element) removeAllListeners(n);
-      cleanupInstanceIfPresent(n);
+      teardownNodeSubtree(n);
       n = next;
     }
   } catch {

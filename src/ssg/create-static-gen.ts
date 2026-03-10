@@ -34,6 +34,7 @@ import {
   resolveRouteDescriptor,
   type ResolvedRouteDescriptor,
 } from './route-utils';
+import { addPerfDuration } from '../runtime/perf-metrics';
 
 interface SelectedRoute {
   descriptor: ResolvedRouteDescriptor;
@@ -125,6 +126,7 @@ export function createStaticGen(options: SSGOptions) {
       const routesToRender = selected.filter(
         (entry) => entry.reason !== 'unchanged'
       );
+      const renderStartTime = performance.now();
       const renderedResults =
         routesToRender.length > 0
           ? await batchRenderRoutes(
@@ -136,6 +138,7 @@ export function createStaticGen(options: SSGOptions) {
               }
             )
           : [];
+      addPerfDuration('ssgRenderTimeMs', performance.now() - renderStartTime);
       const renderedByRouteId = new Map(
         renderedResults.map((rendered, index) => [
           routesToRender[index].descriptor.routeId,
@@ -241,7 +244,11 @@ export function createStaticGen(options: SSGOptions) {
       routeResults.push(...removedResults);
 
       // Write HTML files to disk and remove stale output
-      writeStaticFiles(routeResults, options.outputDir);
+      const writeStartTime = performance.now();
+      await writeStaticFiles(routeResults, options.outputDir, {
+        concurrency: options.concurrency ?? 10,
+      });
+      addPerfDuration('ssgWriteTimeMs', performance.now() - writeStartTime);
 
       // Generate result object
       result = generateSSGResult(routeResults, {
@@ -253,9 +260,9 @@ export function createStaticGen(options: SSGOptions) {
 
       // Write metadata
       const metadata = resultToMetadata(result);
-      writeMetadata(metadata, options.outputDir);
+      await writeMetadata(metadata, options.outputDir);
 
-      writeIncrementalManifest(
+      await writeIncrementalManifest(
         {
           schemaVersion: SSG_MANIFEST_SCHEMA_VERSION,
           seed,

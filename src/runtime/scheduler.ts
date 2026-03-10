@@ -11,6 +11,7 @@
 
 import { assertSchedulingPrecondition, invariant } from '../dev/invariant';
 import { logger } from '../dev/logger';
+import { recordSchedulerFlushTaskCount } from './perf-metrics';
 
 const MAX_FLUSH_DEPTH = 50;
 
@@ -61,6 +62,37 @@ export class Scheduler {
   // Keep a lightweight taskCount for compatibility/diagnostics
   private taskCount = 0;
 
+  private hasPendingTasks(): boolean {
+    return this.head < this.q.length;
+  }
+
+  private scheduleFlushKick(): void {
+    if (
+      this.running ||
+      this.kickScheduled ||
+      this.inHandler ||
+      isBulkCommitActive() ||
+      !this.hasPendingTasks()
+    ) {
+      return;
+    }
+
+    this.kickScheduled = true;
+    queueMicrotask(() => {
+      this.kickScheduled = false;
+      if (this.running || isBulkCommitActive() || !this.hasPendingTasks()) {
+        return;
+      }
+      try {
+        this.flush();
+      } catch (err) {
+        setTimeout(() => {
+          throw err;
+        });
+      }
+    });
+  }
+
   enqueue(task: Task): void {
     assertSchedulingPrecondition(
       typeof task === 'function',
@@ -81,28 +113,7 @@ export class Scheduler {
     this.q.push(task);
     this.taskCount++;
 
-    // Optional debug trace for enqueue
-    // Microtask kick: best-effort, but avoid if we are in handler or running or bulk commit
-    if (
-      !this.running &&
-      !this.kickScheduled &&
-      !this.inHandler &&
-      !isBulkCommitActive()
-    ) {
-      this.kickScheduled = true;
-      queueMicrotask(() => {
-        this.kickScheduled = false;
-        if (this.running) return;
-        if (isBulkCommitActive()) return;
-        try {
-          this.flush();
-        } catch (err) {
-          setTimeout(() => {
-            throw err;
-          });
-        }
-      });
-    }
+    this.scheduleFlushKick();
   }
 
   flush(): void {
@@ -123,6 +134,7 @@ export class Scheduler {
     this.running = true;
     this.depth = 0;
     let fatal: unknown = null;
+    let executedTaskCount = 0;
 
     try {
       while (this.head < this.q.length) {
@@ -141,6 +153,7 @@ export class Scheduler {
           this.executionDepth++;
           task();
           this.executionDepth--;
+          executedTaskCount++;
         } catch (err) {
           // ensure executionDepth stays balanced
           if (this.executionDepth > 0) this.executionDepth = 0;
@@ -173,6 +186,7 @@ export class Scheduler {
       // Advance flush epoch and resolve waiters
       this.flushVersion++;
       this.resolveWaiters();
+      recordSchedulerFlushTaskCount(executedTaskCount);
     }
 
     if (fatal) throw fatal;
@@ -296,8 +310,40 @@ export class Scheduler {
     };
   }
 
+  getFlushVersion(): number {
+    return this.flushVersion;
+  }
+
+  flushIfQueued(): void {
+    if (!this.running && this.hasPendingTasks()) {
+      this.flush();
+    }
+  }
+
+  runInHandlerScope<T>(fn: () => T, flushMode: 'defer' | 'sync' = 'defer'): T {
+    const prevInHandler = this.inHandler;
+    this.inHandler = true;
+
+    try {
+      return fn();
+    } finally {
+      this.inHandler = prevInHandler;
+
+      if (!this.inHandler) {
+        if (flushMode === 'sync') {
+          this.flushIfQueued();
+        } else {
+          this.scheduleFlushKick();
+        }
+      }
+    }
+  }
+
   setInHandler(v: boolean) {
     this.inHandler = v;
+    if (!v) {
+      this.scheduleFlushKick();
+    }
   }
 
   isInHandler(): boolean {
@@ -362,28 +408,12 @@ export function isSchedulerExecuting(): boolean {
 
 export function scheduleEventHandler(handler: EventListener): EventListener {
   return (event: Event) => {
-    globalScheduler.setInHandler(true);
     try {
-      handler.call(null, event);
+      globalScheduler.runInHandlerScope(() => {
+        handler.call(null, event);
+      });
     } catch (error) {
       logger.error('[Askr] Event handler error:', error);
-    } finally {
-      globalScheduler.setInHandler(false);
-      // If the handler enqueued tasks while we disallowed microtask kicks,
-      // ensure we schedule a microtask to flush them now that the handler
-      // has completed. This avoids tests timing out waiting for flush.
-      const state = globalScheduler.getState();
-      if ((state.queueLength ?? 0) > 0 && !state.running) {
-        queueMicrotask(() => {
-          try {
-            if (!globalScheduler.isExecuting()) globalScheduler.flush();
-          } catch (err) {
-            setTimeout(() => {
-              throw err;
-            });
-          }
-        });
-      }
     }
   };
 }

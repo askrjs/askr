@@ -2,7 +2,7 @@
  * Batch rendering of multiple routes for SSG
  */
 
-import { renderToStringSyncForUrl } from '../ssr';
+import { renderResolvedToStringSync } from '../ssr';
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
 import type { ComponentFunction } from '../common/component';
@@ -44,15 +44,17 @@ export async function batchRenderRoutes(
         };
 
     try {
-      const html = renderToStringSyncForUrl({
+      const routeEntry = {
+        path: route.path,
+        handler: mergedHandler,
+        namespace: route.namespace,
+      };
+
+      const html = renderResolvedToStringSync({
         url,
-        routes: [
-          {
-            path: route.path,
-            handler: mergedHandler,
-            namespace: route.namespace,
-          },
-        ],
+        routes: [routeEntry],
+        handler: mergedHandler,
+        params: route.params,
         options: {
           seed,
           data: baseData,

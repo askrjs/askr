@@ -5,8 +5,8 @@
  * This module is Node-only and not intended for browser builds.
  */
 
-import * as fs from 'fs';
-import * as pathModule from 'path';
+import * as fs from 'node:fs/promises';
+import * as pathModule from 'node:path';
 import type {
   RouteRenderResult,
   SSGMetadata,
@@ -88,15 +88,15 @@ export function resultToMetadata(result: SSGResult): SSGMetadata {
 /**
  * Write metadata.json to output directory
  */
-export function writeMetadata(
+export async function writeMetadata(
   metadata: Record<string, unknown>,
   outputDir: string
-): void {
+): Promise<void> {
   const filePath = pathModule.join(outputDir, 'metadata.json');
 
   // Ensure directory exists
-  fs.mkdirSync(outputDir, { recursive: true });
+  await fs.mkdir(outputDir, { recursive: true });
 
   // Write metadata file with formatting
-  fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2), 'utf8');
+  await fs.writeFile(filePath, JSON.stringify(metadata, null, 2), 'utf8');
 }

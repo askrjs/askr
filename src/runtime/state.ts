@@ -20,6 +20,22 @@ import {
 import { invariant } from '../dev/invariant';
 import { isBulkCommitActive } from './fastlane';
 
+type RendererBridge = {
+  markReactivePropsDirtyState?: (state: State<unknown>) => void;
+};
+
+function markReactivePropsDirty(stateValue: State<unknown>): void {
+  try {
+    (
+      globalThis as {
+        __ASKR_RENDERER?: RendererBridge;
+      }
+    ).__ASKR_RENDERER?.markReactivePropsDirtyState?.(stateValue);
+  } catch {
+    // Ignore bridge failures to keep state updates side-effect safe.
+  }
+}
+
 /**
  * State value holder - callable to read, has set method to update
  * @example
@@ -145,6 +161,7 @@ function createStateCell<T>(
   instance: ComponentInstance
 ): State<T> {
   let value = initialValue;
+  let pendingNotifyFlushVersion = -1;
 
   // Per-state reader map: component -> last-committed render token
   const readers = new Map<ComponentInstance, number>();
@@ -212,15 +229,26 @@ function createStateCell<T>(
     // INVARIANT: Update the value
     value = newValue;
 
+    markReactivePropsDirty(read as State<T>);
+
     // notifyUpdate may be temporarily unavailable (e.g. during hydration).
     // We intentionally avoid logging here to keep the state mutation path
     // side-effect free. The scheduler will process updates when the system
     // is stable.
+    const flushVersion = globalScheduler.getFlushVersion();
+    const canSkipNotifyPass =
+      pendingNotifyFlushVersion === flushVersion &&
+      !globalScheduler.isExecuting();
+
+    if (canSkipNotifyPass) {
+      return;
+    }
 
     // After value change, notify only components that *read* this state in their last committed render
     const readersMap = (read as State<T>)._readers as
       | Map<ComponentInstance, number>
       | undefined;
+    let didScheduleUpdate = false;
     if (readersMap) {
       for (const [subInst, token] of readersMap) {
         // Only notify if the component's last committed render token matches the token recorded
@@ -238,6 +266,7 @@ function createStateCell<T>(
               subInst.notifyUpdate?.();
             });
           }
+          didScheduleUpdate = true;
         }
       }
     }
@@ -265,7 +294,11 @@ function createStateCell<T>(
           instance.notifyUpdate?.();
         });
       }
+      didScheduleUpdate = true;
     }
+
+    pendingNotifyFlushVersion =
+      didScheduleUpdate && !globalScheduler.isExecuting() ? flushVersion : -1;
   };
 
   // Allow destructuring assignment: const [get, set] = state(0);

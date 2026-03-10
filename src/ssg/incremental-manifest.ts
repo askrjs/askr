@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
 import * as pathModule from 'node:path';
 import type { RouteRenderStatus, SSGMode } from './types';
 
@@ -83,13 +84,17 @@ export function readIncrementalManifest(
   }
 }
 
-export function writeIncrementalManifest(
+export async function writeIncrementalManifest(
   manifest: IncrementalManifest,
   outputDir: string
-): void {
+): Promise<void> {
   const manifestPath = getIncrementalManifestPath(outputDir);
-  fs.mkdirSync(pathModule.dirname(manifestPath), { recursive: true });
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+  await fsPromises.mkdir(pathModule.dirname(manifestPath), { recursive: true });
+  await fsPromises.writeFile(
+    manifestPath,
+    JSON.stringify(manifest, null, 2),
+    'utf8'
+  );
 }
 
 export function getExistingOutputFileSize(

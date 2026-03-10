@@ -94,7 +94,7 @@ import {
   _reconcilerRecordedParents,
   isKeyedReorderFastPathEligible,
 } from './keyed';
-import { removeAllListeners, cleanupInstanceIfPresent } from './cleanup';
+import { teardownNodeSubtree } from './cleanup';
 import { isBulkCommitActive } from '../runtime/fastlane';
 import { applyRendererFastPath } from './fastpath';
 import {
@@ -679,8 +679,7 @@ function commitReconciliation(parent: Element, finalNodes: Node[]): void {
     // HOT PATH: avoid Array.from(parent.childNodes) allocation
     for (let n = parent.firstChild; n; ) {
       const next = n.nextSibling;
-      if (n instanceof Element) removeAllListeners(n);
-      cleanupInstanceIfPresent(n);
+      teardownNodeSubtree(n);
       n = next;
     }
   } catch {

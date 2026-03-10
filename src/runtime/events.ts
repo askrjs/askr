@@ -10,6 +10,7 @@
 
 import { globalScheduler } from './scheduler';
 import { logger } from '../dev/logger';
+import { incrementPerfMetric } from './perf-metrics';
 
 export interface DelegatedEventMap {
   click: MouseEvent;
@@ -67,7 +68,9 @@ interface DelegatedHandler {
   options?: AddEventListenerOptions;
 }
 
-const delegatedHandlers = new WeakMap<Element, Map<string, DelegatedHandler>>();
+type DelegatedHandlerStore = DelegatedHandler | Map<string, DelegatedHandler>;
+
+const delegatedHandlers = new WeakMap<Element, DelegatedHandlerStore>();
 
 let eventDelegationEnabled = false;
 let defaultContainer: Element | null = null;
@@ -126,66 +129,41 @@ function attachDelegatedListener(
   }
   const containerListeners = containerDelegatedListeners.get(container)!;
 
-  const key = `${eventName}`;
-  if (!containerListeners.has(key)) {
+  if (!containerListeners.has(eventName)) {
     const delegatedHandler = (e: Event) => {
       const target = e.target as Element;
       if (!target) return;
 
-      const matchingElements = findMatchingElements(
-        container,
-        target,
-        eventName
-      );
-
-      for (const matchingElement of matchingElements) {
-        const elementHandlers = delegatedHandlers.get(matchingElement);
-        if (elementHandlers) {
-          const entry = elementHandlers.get(eventName);
+      globalScheduler.runInHandlerScope(() => {
+        let current: Element | null = target;
+        while (current && current !== container) {
+          incrementPerfMetric('delegatedAncestorHops');
+          const entry = getDelegatedHandlerForElement(current, eventName);
           if (entry) {
-            const event = e;
-            globalScheduler.setInHandler(true);
             try {
-              entry.handler(event);
+              entry.handler(e);
             } catch (error) {
               logger.error('[Askr] Delegated event error:', error);
-            } finally {
-              globalScheduler.setInHandler(false);
             }
           }
-        }
 
-        // Check if propagation has been stopped after handling
-        if (e.cancelBubble) break;
-      }
-
-      // Flush scheduler after all delegated handlers execute
-      const state = globalScheduler.getState();
-      if ((state.queueLength ?? 0) > 0 && !state.running) {
-        queueMicrotask(() => {
-          try {
-            if (!globalScheduler.isExecuting()) globalScheduler.flush();
-          } catch (err) {
-            setTimeout(() => {
-              throw err;
-            });
+          if (e.cancelBubble) {
+            break;
           }
-        });
-      }
+
+          current = current.parentElement;
+        }
+      });
     };
 
     const passiveOptions = getPassiveOptions(eventName);
     const listenerOptions = passiveOptions ?? options;
 
     container.addEventListener(eventName, delegatedHandler, listenerOptions);
-    containerListeners.set(key, delegatedHandler);
+    containerListeners.set(eventName, delegatedHandler);
   }
 
-  if (!delegatedHandlers.has(element)) {
-    delegatedHandlers.set(element, new Map());
-  }
-  const elementHandlers = delegatedHandlers.get(element)!;
-  elementHandlers.set(eventName, {
+  setDelegatedHandlerForElement(element, {
     handler,
     original: originalHandler,
     element,
@@ -194,20 +172,30 @@ function attachDelegatedListener(
   });
 }
 
-function findMatchingElements(
-  container: Element,
-  target: Element,
-  _eventName: string
-): Element[] {
-  const matches: Element[] = [];
-  let current: Element | null = target;
-
-  while (current && current !== container) {
-    matches.push(current);
-    current = current.parentElement;
+function setDelegatedHandlerForElement(
+  element: Element,
+  entry: DelegatedHandler
+): void {
+  const existing = delegatedHandlers.get(element);
+  if (!existing) {
+    delegatedHandlers.set(element, entry);
+    return;
   }
 
-  return matches;
+  if (existing instanceof Map) {
+    existing.set(entry.eventName, entry);
+    return;
+  }
+
+  if (existing.eventName === entry.eventName) {
+    delegatedHandlers.set(element, entry);
+    return;
+  }
+
+  const next = new Map<string, DelegatedHandler>();
+  next.set(existing.eventName, existing);
+  next.set(entry.eventName, entry);
+  delegatedHandlers.set(element, next);
 }
 
 function getPassiveOptions(
@@ -249,27 +237,53 @@ export function removeDelegatedListener(
   element: Element,
   eventName: string
 ): void {
-  const elementHandlers = delegatedHandlers.get(element);
-  if (elementHandlers) {
-    elementHandlers.delete(eventName);
-    if (elementHandlers.size === 0) {
-      delegatedHandlers.delete(element);
-    }
+  const existing = delegatedHandlers.get(element);
+  if (!existing) {
+    return;
   }
+
+  if (existing instanceof Map) {
+    existing.delete(eventName);
+    if (existing.size === 0) {
+      delegatedHandlers.delete(element);
+      return;
+    }
+    if (existing.size === 1) {
+      const only = existing.values().next().value as DelegatedHandler;
+      delegatedHandlers.set(element, only);
+    }
+    return;
+  }
+
+  if (existing.eventName === eventName) {
+    delegatedHandlers.delete(element);
+  }
+}
+
+export function getDelegatedHandlerForElement(
+  element: Element,
+  eventName: string
+): DelegatedHandler | undefined {
+  const store = delegatedHandlers.get(element);
+  if (!store) return undefined;
+  if (store instanceof Map) return store.get(eventName);
+  return store.eventName === eventName ? store : undefined;
 }
 
 export function getDelegatedHandlersForElement(
   element: Element
 ): Map<string, DelegatedHandler> | undefined {
-  return delegatedHandlers.get(element);
+  const store = delegatedHandlers.get(element);
+  if (!store) return undefined;
+  if (store instanceof Map) return store;
+  return new Map([[store.eventName, store]]);
 }
 
 export function hasDelegatedHandler(
   element: Element,
   eventName: string
 ): boolean {
-  const elementHandlers = delegatedHandlers.get(element);
-  return elementHandlers ? elementHandlers.has(eventName) : false;
+  return getDelegatedHandlerForElement(element, eventName) !== undefined;
 }
 
 export function clearDelegatedHandlersForElement(element: Element): void {

@@ -419,6 +419,63 @@ function markSkippedElements(root: Element, skipSelectors: string[]): void {
   }
 }
 
+function collectDeferredBelowFoldBoundaries(
+  root: Element,
+  foldY: number
+): Element[] {
+  const boundaries: Element[] = [];
+  const stack: Element[] = [];
+
+  for (let index = root.children.length - 1; index >= 0; index -= 1) {
+    stack.push(root.children[index]);
+  }
+
+  while (stack.length > 0) {
+    const element = stack.pop()!;
+
+    if (element.hasAttribute('data-skip-hydrate')) {
+      continue;
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (rect.top >= foldY) {
+      element.setAttribute('data-skip-hydrate', 'true');
+      boundaries.push(element);
+      continue;
+    }
+
+    for (let index = element.children.length - 1; index >= 0; index -= 1) {
+      stack.push(element.children[index]);
+    }
+  }
+
+  return boundaries;
+}
+
+function activateVisibleDeferredBoundaries(
+  boundaries: Element[],
+  foldY: number
+): { activated: boolean; remaining: number } {
+  let activated = false;
+  let remaining = 0;
+
+  for (const element of boundaries) {
+    if (!element.hasAttribute('data-skip-hydrate')) {
+      continue;
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (rect.top < foldY) {
+      element.removeAttribute('data-skip-hydrate');
+      activated = true;
+    } else {
+      remaining += 1;
+    }
+  }
+
+  return { activated, remaining };
+}
+
 function queueIdleWork(work: () => void): Promise<void> {
   return new Promise((resolve) => {
     if (typeof requestIdleCallback !== 'undefined') {
@@ -473,37 +530,24 @@ async function applySelectiveHydration(
     markSkippedElements(rootElement, hydrateOptions.skipSelectors);
   }
 
-  let belowFoldElements: Element[] = [];
+  let deferredBoundaries: Element[] = [];
   if (hydrateOptions.deferBelowFold) {
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
-    belowFoldElements = Array.from(rootElement.querySelectorAll('*')).filter(
-      (el) => {
-        const rect = el.getBoundingClientRect();
-        return rect.top >= foldY;
-      }
-    );
-
-    for (const el of belowFoldElements) {
-      el.setAttribute('data-skip-hydrate', 'true');
-    }
+    deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
 
     const handleScroll = () => {
-      const visibleBelowFold = belowFoldElements.filter((el) => {
-        const rect = el.getBoundingClientRect();
-        return rect.top < foldY;
-      });
+      const { activated, remaining } = activateVisibleDeferredBoundaries(
+        deferredBoundaries,
+        foldY
+      );
 
-      if (visibleBelowFold.length === 0) {
+      if (!activated) {
         return;
-      }
-
-      for (const el of visibleBelowFold) {
-        el.removeAttribute('data-skip-hydrate');
       }
 
       flushHydrationActivation(rootElement);
 
-      if (visibleBelowFold.length === belowFoldElements.length) {
+      if (remaining === 0) {
         window.removeEventListener('scroll', handleScroll);
       }
     };
@@ -526,15 +570,12 @@ async function applySelectiveHydration(
   });
   await registerHydratedNavigation(rootElement, path);
 
-  if (hydrateOptions.deferUntilIdle && belowFoldElements.length > 0) {
+  if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
     await queueIdleWork(() => {
-      let activated = false;
-      for (const el of belowFoldElements) {
-        if (el.hasAttribute('data-skip-hydrate')) {
-          el.removeAttribute('data-skip-hydrate');
-          activated = true;
-        }
-      }
+      const { activated } = activateVisibleDeferredBoundaries(
+        deferredBoundaries,
+        Number.POSITIVE_INFINITY
+      );
       if (activated) {
         flushHydrationActivation(rootElement);
       }
@@ -562,9 +603,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
-  // Capture server HTML for mismatch detection
-  const serverHTML = rootElement.innerHTML;
-
   // Register routes for hydration and set server location for deterministic route()
   const {
     clearRoutes,
@@ -580,7 +618,11 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   }
   // Set server location so route() reflects server URL during SSR checks
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  setServerLocation(path);
+  const currentUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : path;
+  setServerLocation(currentUrl);
   if (process.env.NODE_ENV === 'production') lockRouteRegistration();
 
   // Resolve handler for current path
@@ -589,25 +631,14 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     throw new Error(`hydrateSPA: no route found for current path (${path}).`);
   }
 
-  // Synchronously render expected HTML using SSR helper
-  const { renderToStringSync } = await import('../ssr');
-  // renderToStringSync takes a zero-arg component factory; wrap the handler to pass params
-  const expectedHTML = renderToStringSync(() => {
-    const out = resolved.handler(resolved.params);
-    return (out ?? {
-      type: 'div',
-      children: [],
-    }) as ReturnType<ComponentFunction>;
-  });
-
-  // Prefer a DOM-based comparison to avoid false positives from attribute order
-  // or whitespace differences between server and expected HTML.
-  const serverContainer = document.createElement('div');
-  serverContainer.innerHTML = serverHTML;
-  const expectedContainer = document.createElement('div');
-  expectedContainer.innerHTML = expectedHTML;
-
-  if (!serverContainer.isEqualNode(expectedContainer)) {
+  const { verifyHydrationSyncForUrl } = await import('../ssr');
+  if (
+    !verifyHydrationSyncForUrl({
+      root: rootElement,
+      url: currentUrl,
+      routes: config.routes,
+    })
+  ) {
     throw new Error(
       '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
     );

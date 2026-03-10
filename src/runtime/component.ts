@@ -112,12 +112,9 @@ export function createComponentInstance(
     }
   };
 
-  instance._pendingFlushTask = () => {
-    // Called by state.set() when we want to flush a pending update
-    instance.hasPendingUpdate = false;
-    // Trigger a run via enqueue helper — this will schedule the component run
-    instance._enqueueRun?.();
-  };
+  // Default state-driven updates enqueue the run task directly. Specialized
+  // runtimes (for example `For` item instances) can still override this hook.
+  instance._pendingFlushTask = instance._pendingRunTask;
 
   return instance;
 }
@@ -565,7 +562,7 @@ export function executeComponent(instance: ComponentInstance): void {
   instance.notifyUpdate = instance._enqueueRun!;
 
   // Enqueue the initial component run
-  globalScheduler.enqueue(() => runComponent(instance));
+  globalScheduler.enqueue(instance._pendingRunTask!);
 }
 
 export function getCurrentInstance(): ComponentInstance | null {

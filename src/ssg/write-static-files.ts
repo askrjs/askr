@@ -5,20 +5,25 @@
  * This module is Node-only and not intended for browser builds.
  */
 
-import * as fs from 'fs';
-import * as pathModule from 'path';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as pathModule from 'node:path';
 import type { RouteRenderResult } from './types';
+
+interface WriteStaticFilesOptions {
+  concurrency?: number;
+}
 
 /**
  * Write rendered routes to disk
  * Creates outputDir/{route-path}/index.html structure
  */
-export function writeStaticFiles(
+export async function writeStaticFiles(
   results: RouteRenderResult[],
-  outputDir: string
-): void {
-  // Ensure output directory exists
-  fs.mkdirSync(outputDir, { recursive: true });
+  outputDir: string,
+  options: WriteStaticFilesOptions = {}
+): Promise<void> {
+  await fs.mkdir(outputDir, { recursive: true });
 
   for (const result of results) {
     if (result.status !== 'removed') {
@@ -26,30 +31,55 @@ export function writeStaticFiles(
     }
 
     const fullPath = pathModule.join(outputDir, result.filePath);
-    if (fs.existsSync(fullPath)) {
-      fs.rmSync(fullPath, { force: true });
-      pruneEmptyDirs(pathModule.dirname(fullPath), outputDir);
+    if (fsSync.existsSync(fullPath)) {
+      await fs.rm(fullPath, { force: true });
+      await pruneEmptyDirs(pathModule.dirname(fullPath), outputDir);
     }
   }
 
-  for (const result of results) {
+  const pendingWrites = results.filter((result) => {
     if (result.status === 'error') {
       console.warn(`Skipping failed route: ${result.path} - ${result.error}`);
-      continue;
+      return false;
     }
-    if (result.status !== 'success' || !result.written) {
-      continue;
+    return result.status === 'success' && result.written;
+  });
+
+  const directories: string[] = [];
+  const seenDirectories = new Set<string>();
+  for (const result of pendingWrites) {
+    const dir = pathModule.dirname(pathModule.join(outputDir, result.filePath));
+    if (!seenDirectories.has(dir)) {
+      seenDirectories.add(dir);
+      directories.push(dir);
     }
-
-    const fullPath = pathModule.join(outputDir, result.filePath);
-    const dir = pathModule.dirname(fullPath);
-
-    // Create parent directories
-    fs.mkdirSync(dir, { recursive: true });
-
-    // Write HTML file
-    fs.writeFileSync(fullPath, result.html, 'utf8');
   }
+
+  for (const dir of directories) {
+    await fs.mkdir(dir, { recursive: true });
+  }
+
+  const concurrency = Math.max(
+    1,
+    Math.min(options.concurrency ?? 8, pendingWrites.length || 1)
+  );
+  let nextIndex = 0;
+
+  const worker = async () => {
+    while (true) {
+      const current = nextIndex;
+      nextIndex += 1;
+      if (current >= pendingWrites.length) {
+        return;
+      }
+
+      const result = pendingWrites[current];
+      const fullPath = pathModule.join(outputDir, result.filePath);
+      await fs.writeFile(fullPath, result.html, 'utf8');
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
 }
 
 /**
@@ -58,20 +88,20 @@ export function writeStaticFiles(
  */
 export { getOutputFilePath } from './route-utils';
 
-function pruneEmptyDirs(startDir: string, rootDir: string): void {
+async function pruneEmptyDirs(startDir: string, rootDir: string): Promise<void> {
   let current = startDir;
   const normalizedRoot = pathModule.resolve(rootDir);
 
   while (current.startsWith(normalizedRoot)) {
-    if (!fs.existsSync(current)) {
+    if (!fsSync.existsSync(current)) {
       break;
     }
 
-    if (fs.readdirSync(current).length > 0) {
+    if ((await fs.readdir(current)).length > 0) {
       break;
     }
 
-    fs.rmdirSync(current);
+    await fs.rmdir(current);
     if (pathModule.resolve(current) === normalizedRoot) {
       break;
     }
