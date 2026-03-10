@@ -59,7 +59,10 @@ function getPerfStore(): PerfMetrics | null {
 }
 
 export function incrementPerfMetric(
-  key: 'reactivePropReevaluations' | 'skippedDomPropWrites' | 'delegatedAncestorHops',
+  key:
+    | 'reactivePropReevaluations'
+    | 'skippedDomPropWrites'
+    | 'delegatedAncestorHops',
   delta = 1
 ): void {
   const store = getPerfStore();
@@ -101,4 +104,3 @@ export function resetPerfMetrics(): void {
     store[key] = next[key];
   });
 }
-

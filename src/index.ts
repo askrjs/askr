@@ -18,6 +18,7 @@ export type { SPAConfig, IslandConfig } from './boot';
 export { state } from './runtime/state';
 export type { State } from './runtime/state';
 export { derive } from './runtime/derive';
+export type { Derived } from './runtime/derive';
 
 // List iteration primitive - part of the pit of success
 export { For } from './for';

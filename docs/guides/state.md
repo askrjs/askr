@@ -48,10 +48,10 @@ setCount((prev) => prev + 1);
 const [count, setCount] = state(0);
 const doubled = derive(() => count() * 2);
 
-return <div>{count()} doubled is {doubled}</div>;
+return <div>{count()} doubled is {doubled()}</div>;
 ```
 
-`derive()` returns the derived value for the current render. When upstream state changes and the component re-renders, the derived value is recomputed.
+`derive()` returns a derived getter. When upstream state changes, the getter recomputes and only notifies downstream readers when the projected value changes.
 
 You can also use the two-argument form when you want to separate the source read from the projection:
 
@@ -59,7 +59,19 @@ You can also use the two-argument form when you want to separate the source read
 const [user, setUser] = state({ name: 'Jeff', age: 42 });
 const isAdult = derive(() => user(), (currentUser) => currentUser.age >= 18);
 
-return <div>{isAdult ? 'adult' : 'minor'}</div>;
+return <div>{isAdult() ? 'adult' : 'minor'}</div>;
+```
+
+Migration:
+
+```typescript
+const doubled = derive(() => count() * 2);
+
+// Before
+return <div>{doubled}</div>;
+
+// Now
+return <div>{doubled()}</div>;
 ```
 
 ## Rules

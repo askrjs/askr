@@ -1,6 +1,7 @@
 import { globalScheduler } from './scheduler';
 import { logger } from '../dev/logger';
 import type { ComponentInstance } from './component';
+import { finalizeReadableSubscriptions } from './readable';
 import {
   getKeyMapForElement,
   isKeyedReorderFastPathEligible,
@@ -53,37 +54,7 @@ export function isFastPathApplied(parent: Element): boolean {
 }
 
 function finalizeReadSubscriptions(instance: ComponentInstance): void {
-  const newSet = instance._pendingReadStates ?? new Set();
-  const oldSet = instance._lastReadStates ?? new Set();
-  const token = instance._currentRenderToken;
-
-  if (token === undefined) return;
-
-  // Remove subscriptions for states that were read previously but not in this render
-  for (const s of oldSet) {
-    if (!newSet.has(s)) {
-      const readers = (s as { _readers?: Map<ComponentInstance, number> })
-        ._readers;
-      if (readers) readers.delete(instance);
-    }
-  }
-
-  // Commit token becomes the authoritative token for this instance's last render
-  instance.lastRenderToken = token;
-
-  // Record subscriptions for states read during this render
-  for (const s of newSet) {
-    let readers = (s as { _readers?: Map<ComponentInstance, number> })._readers;
-    if (!readers) {
-      readers = new Map();
-      (s as { _readers?: Map<ComponentInstance, number> })._readers = readers;
-    }
-    readers.set(instance, instance.lastRenderToken ?? 0);
-  }
-
-  instance._lastReadStates = newSet;
-  instance._pendingReadStates = new Set();
-  instance._currentRenderToken = undefined;
+  finalizeReadableSubscriptions(instance);
 }
 
 /**

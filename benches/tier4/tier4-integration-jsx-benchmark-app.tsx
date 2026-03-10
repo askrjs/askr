@@ -1,5 +1,5 @@
 import { bench, describe, expect } from 'vitest';
-import { createIsland, state, type State } from '../../src';
+import { createIsland, derive, state, type State } from '../../src';
 import { For } from '../../src/for';
 import {
   createTestContainer,
@@ -21,8 +21,10 @@ interface RowProps {
 }
 
 function Row({ item, selected, onSelect, onRemove }: RowProps) {
+  const isSelected = derive(selected, (value) => value === item.id);
+
   return (
-    <tr class={() => (selected() === item.id ? 'danger' : '')}>
+    <tr class={() => (isSelected() ? 'danger' : '')}>
       <td>{item.id}</td>
       <td>
         <a

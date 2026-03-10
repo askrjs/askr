@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createIsland, state, State } from '../index';
+import { createIsland, derive, state, State } from '../index';
 import { For } from '../for';
 import { globalScheduler } from '../runtime/scheduler';
 
@@ -33,32 +33,38 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
                 For(
                   () => dataState(),
                   (item: RowData) => item.id,
-                  (item: RowData) => ({
-                    type: 'tr',
-                    props: {
-                      class: () =>
-                        selectedState() === item.id ? 'danger' : '',
-                    },
-                    children: [
-                      { type: 'td', props: {}, children: [String(item.id)] },
-                      {
-                        type: 'td',
-                        props: {},
-                        children: [
-                          {
-                            type: 'a',
-                            props: {
-                              onClick: (e: MouseEvent) => {
-                                e.preventDefault();
-                                select(item.id);
-                              },
-                            },
-                            children: [item.label],
-                          },
-                        ],
+                  (item: RowData) => {
+                    const isSelected = derive(
+                      selectedState,
+                      (value) => value === item.id
+                    );
+
+                    return {
+                      type: 'tr',
+                      props: {
+                        class: () => (isSelected() ? 'danger' : ''),
                       },
-                    ],
-                  })
+                      children: [
+                        { type: 'td', props: {}, children: [String(item.id)] },
+                        {
+                          type: 'td',
+                          props: {},
+                          children: [
+                            {
+                              type: 'a',
+                              props: {
+                                onClick: (e: MouseEvent) => {
+                                  e.preventDefault();
+                                  select(item.id);
+                                },
+                              },
+                              children: [item.label],
+                            },
+                          ],
+                        },
+                      ],
+                    };
+                  }
                 ),
               ],
             },

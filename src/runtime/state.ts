@@ -13,28 +13,18 @@
 
 import { globalScheduler } from './scheduler';
 import {
+  claimHookIndex,
   getCurrentInstance,
-  getNextStateIndex,
   type ComponentInstance,
 } from './component';
-import { invariant } from '../dev/invariant';
 import { isBulkCommitActive } from './fastlane';
-
-type RendererBridge = {
-  markReactivePropsDirtyState?: (state: State<unknown>) => void;
-};
-
-function markReactivePropsDirty(stateValue: State<unknown>): void {
-  try {
-    (
-      globalThis as {
-        __ASKR_RENDERER?: RendererBridge;
-      }
-    ).__ASKR_RENDERER?.markReactivePropsDirtyState?.(stateValue);
-  } catch {
-    // Ignore bridge failures to keep state updates side-effect safe.
-  }
-}
+import {
+  recordReadableRead,
+  type ReadableSource,
+  markReadableDerivedSubscribersDirty,
+  markReactivePropsDirtySource,
+  notifyReadableReaders,
+} from './readable';
 
 /**
  * State value holder - callable to read, has set method to update
@@ -43,13 +33,11 @@ function markReactivePropsDirty(stateValue: State<unknown>): void {
  * count();           // read: 0
  * count.set(1);      // write: triggers re-render
  */
-export interface State<T> {
+export interface State<T> extends ReadableSource<T> {
   (): T;
   set(value: T): void;
   set(updater: (prev: T) => T): void;
   [Symbol.iterator](): Iterator<State<T> | State<T>['set']>; // Allows destructuring: const [get, set] = state(0)
-  _hasBeenRead?: boolean; // Internal: track if state has been read during render
-  _readers?: Map<ComponentInstance, number>; // Internal: map of readers -> last committed token
 }
 
 /**
@@ -88,43 +76,8 @@ export function state<T>(initialValue: T): State<T> {
     );
   }
 
-  const index = getNextStateIndex();
+  const index = claimHookIndex(instance, 'state');
   const stateValues = instance.stateValues;
-
-  // INVARIANT: Detect conditional state() calls by validating index order
-  // If indices go backward, state() was called conditionally
-  if (index < instance.stateIndexCheck) {
-    throw new Error(
-      `State index violation: state() call at index ${index}, ` +
-        `but previously saw index ${instance.stateIndexCheck}. ` +
-        `This happens when state() is called conditionally (inside if/for/etc). ` +
-        `Move all state() calls to the top level of your component function, ` +
-        `before any conditionals.`
-    );
-  }
-
-  // INVARIANT: stateIndexCheck advances monotonically
-  invariant(
-    index >= instance.stateIndexCheck,
-    '[State] State indices must increase monotonically'
-  );
-  instance.stateIndexCheck = index;
-
-  // INVARIANT: On subsequent renders, validate that state calls happen in same order
-  if (instance.firstRenderComplete) {
-    // Check if this index was expected based on first render
-    if (!instance.expectedStateIndices.includes(index)) {
-      throw new Error(
-        `Hook order violation: state() called at index ${index}, ` +
-          `but this index was not in the first render's sequence [${instance.expectedStateIndices.join(', ')}]. ` +
-          `This usually means state() is inside a conditional or loop. ` +
-          `Move all state() calls to the top level of your component function.`
-      );
-    }
-  } else {
-    // First render - record this index in the expected sequence
-    instance.expectedStateIndices.push(index);
-  }
 
   // INVARIANT: Reuse existing state if it exists (fast path on re-renders)
   // This ensures state identity and persistence and enforces ownership stability
@@ -169,13 +122,7 @@ function createStateCell<T>(
   // Use a function as the state object (callable directly)
   function read(): T {
     (read as State<T>)._hasBeenRead = true;
-
-    // Record that the current instance read this state during its in-progress render
-    const inst = getCurrentInstance();
-    if (inst && inst._currentRenderToken !== undefined) {
-      if (!inst._pendingReadStates) inst._pendingReadStates = new Set();
-      inst._pendingReadStates.add(read as State<T>);
-    }
+    recordReadableRead(read as State<T>);
 
     return value;
   }
@@ -229,7 +176,8 @@ function createStateCell<T>(
     // INVARIANT: Update the value
     value = newValue;
 
-    markReactivePropsDirty(read as State<T>);
+    markReadableDerivedSubscribersDirty(read as State<T>);
+    markReactivePropsDirtySource(read as State<T>);
 
     // notifyUpdate may be temporarily unavailable (e.g. during hydration).
     // We intentionally avoid logging here to keep the state mutation path
@@ -244,58 +192,8 @@ function createStateCell<T>(
       return;
     }
 
-    // After value change, notify only components that *read* this state in their last committed render
-    const readersMap = (read as State<T>)._readers as
-      | Map<ComponentInstance, number>
-      | undefined;
-    let didScheduleUpdate = false;
-    if (readersMap) {
-      for (const [subInst, token] of readersMap) {
-        // Only notify if the component's last committed render token matches the token recorded
-        // when it last read this state. This ensures we only wake components that actually
-        // observed the state in their most recent render.
-        if (subInst.lastRenderToken !== token) continue;
-        if (!subInst.hasPendingUpdate) {
-          subInst.hasPendingUpdate = true;
-          const subTask = subInst._pendingFlushTask;
-          if (subTask) {
-            globalScheduler.enqueue(subTask);
-          } else {
-            globalScheduler.enqueue(() => {
-              subInst.hasPendingUpdate = false;
-              subInst.notifyUpdate?.();
-            });
-          }
-          didScheduleUpdate = true;
-        }
-      }
-    }
-
-    // OPTIMIZATION: Batch state updates from the same component within the same event loop tick
-    // Only enqueue the owner component if it actually read this state during its last committed render
-    const readersMapForOwner = readersMap;
-    const ownerRecordedToken = readersMapForOwner?.get(instance);
-    const ownerShouldEnqueue =
-      // Normal case: owner read this state in last committed render
-      ownerRecordedToken !== undefined &&
-      instance.lastRenderToken === ownerRecordedToken;
-
-    if (ownerShouldEnqueue && !instance.hasPendingUpdate) {
-      instance.hasPendingUpdate = true;
-      // INVARIANT: All state updates go through scheduler
-      // Use prebound task to avoid allocating a closure per update
-      // Fallback to a safe closure if the prebound task is not present
-      const task = instance._pendingFlushTask;
-      if (task) {
-        globalScheduler.enqueue(task);
-      } else {
-        globalScheduler.enqueue(() => {
-          instance.hasPendingUpdate = false;
-          instance.notifyUpdate?.();
-        });
-      }
-      didScheduleUpdate = true;
-    }
+    // After value change, notify only components that *read* this state in their last committed render.
+    const didScheduleUpdate = notifyReadableReaders(read as State<T>);
 
     pendingNotifyFlushVersion =
       didScheduleUpdate && !globalScheduler.isExecuting() ? flushVersion : -1;

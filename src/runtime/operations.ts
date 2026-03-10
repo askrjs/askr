@@ -10,8 +10,6 @@ import { globalScheduler } from './scheduler';
 import { getSSRBridge } from './ssr-bridge';
 import { SSRDataMissingError } from '../common/ssr-errors';
 
-// Memoization cache for derive() (centralized)
-
 export interface ResourceResult<T> {
   value: T | null;
   pending: boolean;

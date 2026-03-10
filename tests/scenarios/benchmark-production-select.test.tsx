@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { test } from 'vitest';
-import { createIsland, state } from '../../src';
+import { createIsland, derive, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { For } from '../../src/for';
 
@@ -18,8 +18,10 @@ function Row({
   selected: () => number | null;
   onSelect: (id: number) => void;
 }) {
+  const isSelected = derive(selected, (value) => value === item.id);
+
   return (
-    <tr class={() => (selected() === item.id ? 'danger' : '')}>
+    <tr class={() => (isSelected() ? 'danger' : '')}>
       <td>{item.id}</td>
       <td>
         <a
@@ -126,23 +128,28 @@ test(
               {For(
                 () => dataState(),
                 (item) => item.id,
-                (item) => (
-                  <tr
-                    class={() => (selectedState() === item.id ? 'danger' : '')}
-                  >
-                    <td>{item.id}</td>
-                    <td>
-                      <a
-                        onClick={(e: MouseEvent) => {
-                          e.preventDefault();
-                          select(item.id);
-                        }}
-                      >
-                        {item.label}
-                      </a>
-                    </td>
-                  </tr>
-                )
+                (item) => {
+                  const isSelected = derive(
+                    selectedState,
+                    (value) => value === item.id
+                  );
+
+                  return (
+                    <tr class={() => (isSelected() ? 'danger' : '')}>
+                      <td>{item.id}</td>
+                      <td>
+                        <a
+                          onClick={(e: MouseEvent) => {
+                            e.preventDefault();
+                            select(item.id);
+                          }}
+                        >
+                          {item.label}
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                }
               )}
             </tbody>
           </table>

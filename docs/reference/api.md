@@ -7,8 +7,8 @@ Askr keeps the root API minimal and exposes advanced features through explicit s
 - `createIsland(config)`
 - `createSPA(config)`
 - `state(initialValue)`
-- `derive(selector)`
-- `derive(source, map)`
+- `derive(selector) -> getter`
+- `derive(source, map) -> getter`
 - `For(...)`
 - Event delegation controls (`enableEventDelegation`, `disableEventDelegation`, `isEventDelegationEnabled`, `setGlobalDelegationContainer`)
 
@@ -30,6 +30,16 @@ import { createIsland, state } from '@askrjs/askr';
 import { route, navigate } from '@askrjs/askr/router';
 import { resource } from '@askrjs/askr/resources';
 import { createStaticGen } from '@askrjs/askr/ssg';
+```
+
+`derive()` returns a callable getter. Example:
+
+```ts
+import { derive, state } from '@askrjs/askr';
+
+const count = state(0);
+const doubled = derive(() => count() * 2);
+console.log(doubled());
 ```
 
 ## Next

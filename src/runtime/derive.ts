@@ -1,73 +1,255 @@
-import type { ComponentInstance } from './component';
-import { getCurrentComponentInstance } from './component';
+import {
+  claimHookIndex,
+  getCurrentInstance,
+  type ComponentInstance,
+} from './component';
+import { globalScheduler } from './scheduler';
+import {
+  clearDerivedDependencySubscriptions,
+  markReadableDerivedSubscribersDirty,
+  markReactivePropsDirtySource,
+  notifyReadableReaders,
+  recordReadableRead,
+  syncDerivedDependencySubscriptions,
+  type DerivedSubscriber,
+  type ReadableSource,
+  withDerivedReadTracking,
+} from './readable';
 
-const deriveCaches = new WeakMap<ComponentInstance, Map<unknown, unknown>>();
-
-function getDeriveCache(instance: ComponentInstance): Map<unknown, unknown> {
-  let cache = deriveCaches.get(instance);
-  if (!cache) {
-    cache = new Map();
-    deriveCaches.set(instance, cache);
-  }
-  return cache;
+export interface Derived<T> extends ReadableSource<T> {
+  (): T;
 }
 
-// Short-form overload: accept a single function that returns the derived value
-export function derive<TOut>(fn: () => TOut): TOut | null;
+interface DerivedCell<T> extends Derived<T>, DerivedSubscriber {
+  _owner: ComponentInstance;
+  _hookIndex: number;
+  _compute: () => T;
+  _value: T;
+  _hasValue: boolean;
+  _dirty: boolean;
+  _scheduled: boolean;
+  _evaluating: boolean;
+  _sources: Set<ReadableSource<unknown>>;
+  _pendingDependencySources?: Set<ReadableSource<unknown>>;
+  _cleanup(): void;
+}
 
-// Normal-form overload: derive(source, map)
-export function derive<TIn, TOut>(
-  source:
-    | { value: TIn | null; pending?: boolean; error?: Error | null }
-    | TIn
-    | (() => TIn),
+type SnapshotSource<T> = {
+  value: T | null;
+  pending?: boolean;
+  error?: Error | null;
+};
+
+const deriveCells = new WeakMap<
+  ComponentInstance,
+  Map<number, DerivedCell<unknown>>
+>();
+const dirtyDerivedCells = new Set<DerivedCell<unknown>>();
+let hasPendingDerivedFlush = false;
+
+function getDeriveStore(
+  instance: ComponentInstance
+): Map<number, DerivedCell<unknown>> {
+  let store = deriveCells.get(instance);
+  if (!store) {
+    store = new Map();
+    deriveCells.set(instance, store);
+  }
+  return store;
+}
+
+function markDerivedCellDirty(cell: DerivedCell<unknown>): void {
+  cell._dirty = true;
+  if (cell._scheduled) {
+    return;
+  }
+
+  cell._scheduled = true;
+  dirtyDerivedCells.add(cell);
+
+  if (!hasPendingDerivedFlush) {
+    hasPendingDerivedFlush = true;
+    globalScheduler.enqueue(flushDirtyDerivedCells);
+  }
+}
+
+function flushDirtyDerivedCells(): void {
+  hasPendingDerivedFlush = false;
+
+  if (dirtyDerivedCells.size === 0) {
+    return;
+  }
+
+  const pending = Array.from(dirtyDerivedCells);
+  dirtyDerivedCells.clear();
+
+  for (const cell of pending) {
+    cell._scheduled = false;
+    if (!cell._dirty) {
+      continue;
+    }
+    recomputeDerivedCell(cell, true);
+  }
+}
+
+function recomputeDerivedCell<T>(
+  cell: DerivedCell<T>,
+  notifyDownstream: boolean
+): T {
+  if (!cell._dirty && cell._hasValue) {
+    return cell._value;
+  }
+
+  if (cell._evaluating) {
+    throw new Error('derive() cannot read itself recursively');
+  }
+
+  cell._evaluating = true;
+  cell._dirty = false;
+  cell._pendingDependencySources = new Set();
+
+  const prevSources = cell._sources;
+  let nextValue: T;
+
+  try {
+    nextValue = withDerivedReadTracking(cell, cell._compute);
+  } catch (error) {
+    cell._dirty = true;
+    cell._pendingDependencySources = undefined;
+    throw error;
+  } finally {
+    cell._evaluating = false;
+  }
+
+  const nextSources = cell._pendingDependencySources ?? new Set();
+  cell._pendingDependencySources = undefined;
+  syncDerivedDependencySubscriptions(cell, prevSources, nextSources);
+  cell._sources = nextSources;
+
+  const valueChanged = !cell._hasValue || !Object.is(cell._value, nextValue);
+  cell._hasValue = true;
+  cell._value = nextValue;
+
+  if (valueChanged && notifyDownstream) {
+    markReadableDerivedSubscribersDirty(cell);
+    markReactivePropsDirtySource(cell);
+    notifyReadableReaders(cell);
+  }
+
+  return cell._value;
+}
+
+function createDerivedCell<T>(
+  instance: ComponentInstance,
+  hookIndex: number,
+  compute: () => T
+): DerivedCell<T> {
+  const cell = function derivedGetter(): T {
+    recordReadableRead(cell as DerivedCell<T>);
+    return recomputeDerivedCell(
+      cell as DerivedCell<T>,
+      (cell as DerivedCell<T>)._scheduled
+    );
+  } as DerivedCell<T>;
+
+  cell._owner = instance;
+  cell._hookIndex = hookIndex;
+  cell._compute = compute;
+  cell._value = undefined as T;
+  cell._hasValue = false;
+  cell._dirty = true;
+  cell._scheduled = false;
+  cell._evaluating = false;
+  cell._sources = new Set();
+  cell._markDirty = () => {
+    markDerivedCellDirty(cell);
+  };
+  cell._cleanup = () => {
+    cell._scheduled = false;
+    cell._dirty = false;
+    cell._hasValue = false;
+    dirtyDerivedCells.delete(cell);
+    clearDerivedDependencySubscriptions(cell, cell._sources);
+    cell._derivedSubscribers?.clear();
+    cell._readers?.clear();
+  };
+
+  instance.cleanupFns.push(() => {
+    cell._cleanup();
+    deriveCells.get(instance)?.delete(hookIndex);
+  });
+
+  return cell;
+}
+
+function getOrCreateDerivedCell<T>(
+  instance: ComponentInstance,
+  hookIndex: number,
+  compute: () => T
+): DerivedCell<T> {
+  const store = getDeriveStore(instance);
+  const existing = store.get(hookIndex) as DerivedCell<T> | undefined;
+  if (existing) {
+    existing._compute = compute;
+    existing._dirty = true;
+    return existing;
+  }
+
+  const created = createDerivedCell(instance, hookIndex, compute);
+  store.set(hookIndex, created as DerivedCell<unknown>);
+  return created;
+}
+
+function createSelector<TOut>(selector: () => TOut): () => TOut {
+  return selector;
+}
+
+function createMappedSelector<TIn, TOut>(
+  source: SnapshotSource<TIn> | TIn | (() => TIn),
   map: (value: TIn) => TOut
-): TOut | null;
+): () => TOut | null {
+  return () => {
+    let value: TIn;
+    if (typeof source === 'function' && !('value' in source)) {
+      value = (source as () => TIn)();
+    } else {
+      value = (source as SnapshotSource<TIn>)?.value ?? (source as TIn);
+    }
+
+    if (value == null) {
+      return null;
+    }
+
+    return map(value);
+  };
+}
+
+export function derive<TOut>(fn: () => TOut): Derived<TOut>;
 
 export function derive<TIn, TOut>(
-  source:
-    | { value: TIn | null; pending?: boolean; error?: Error | null }
-    | TIn
-    | (() => TIn),
+  source: SnapshotSource<TIn> | TIn | (() => TIn),
+  map: (value: TIn) => TOut
+): Derived<TOut | null>;
+
+export function derive<TIn, TOut>(
+  source: SnapshotSource<TIn> | TIn | (() => TIn),
   map?: (value: TIn) => TOut
-): TOut | null {
-  // Short-form: derive(() => someExpression)
-  // This form is re-evaluated on each render, so it tracks upstream state the
-  // same way any other render-time expression does. The two-argument form is
-  // still useful when you want an explicit source + projection shape.
-  if (map === undefined && typeof source === 'function') {
-    const value = (source as () => TOut)();
-    if (value == null) return null;
-    return value;
-  }
-
-  // Normal form: derive(source, map)
-  // Extract the actual value
-  let value: TIn;
-  if (typeof source === 'function' && !('value' in source)) {
-    // It's a function (not a binding object with value property)
-    value = (source as () => TIn)();
-  } else {
-    value = (source as { value?: TIn | null })?.value ?? (source as TIn);
-  }
-  if (value == null) return null;
-
-  // Get or create memoization cache for this component
-  const instance = getCurrentComponentInstance();
+): Derived<TOut | null> | Derived<TIn> {
+  const instance = getCurrentInstance();
   if (!instance) {
-    // No component context - just compute eagerly
-    return (map as (v: TIn) => TOut)(value as TIn);
+    throw new Error(
+      'derive() can only be called during component render execution. ' +
+        'Move derive() calls to the top level of your component function.'
+    );
   }
 
-  const cache = getDeriveCache(instance);
+  const hookIndex = claimHookIndex(instance, 'derive');
+  const selector =
+    map === undefined
+      ? createSelector(source as () => TIn)
+      : createMappedSelector(source, map);
 
-  // Check if we already have a cached result for this source value
-  if (cache.has(value as unknown)) {
-    return cache.get(value as unknown) as TOut;
-  }
-
-  // Compute and cache the result
-  const result = (map as (v: TIn) => TOut)(value as TIn);
-  cache.set(value as unknown, result as unknown);
-  return result;
+  const cell = getOrCreateDerivedCell(instance, hookIndex, selector);
+  recomputeDerivedCell(cell, false);
+  return cell;
 }

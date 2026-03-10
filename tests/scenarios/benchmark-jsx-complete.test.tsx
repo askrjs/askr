@@ -4,7 +4,7 @@
  */
 import { expect } from 'chai';
 import { test, describe } from 'vitest';
-import { createIsland, state } from '../../src';
+import { createIsland, derive, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { For } from '../../src/for';
 import type { State } from '../../src';
@@ -22,8 +22,7 @@ interface RowProps {
 }
 
 function Row({ item, selected, onSelect, onRemove }: RowProps) {
-  // Compute the className reactively
-  const isSelected = () => selected() === item.id;
+  const isSelected = derive(selected, (value) => value === item.id);
 
   return (
     <tr class={() => (isSelected() ? 'danger' : '')}>

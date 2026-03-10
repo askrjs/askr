@@ -10,7 +10,7 @@ export { evaluate, clearDOMRange } from './evaluate';
 
 import { evaluate as _evaluate } from './evaluate';
 import { isKeyedReorderFastPathEligible, getKeyMapForElement } from './keyed';
-import { markReactivePropsDirtyState as _markReactivePropsDirtyState } from './dom';
+import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
 
 // Expose minimal renderer bridge for runtime fast-lane to call `evaluate`
 if (typeof globalThis !== 'undefined') {
@@ -19,6 +19,6 @@ if (typeof globalThis !== 'undefined') {
     evaluate: _evaluate,
     isKeyedReorderFastPathEligible,
     getKeyMapForElement,
-    markReactivePropsDirtyState: _markReactivePropsDirtyState,
+    markReactivePropsDirtySource: _markReactivePropsDirtySource,
   };
 }

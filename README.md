@@ -112,11 +112,13 @@ function Counter() {
 
   return (
     <button onClick={() => setCount((prev) => prev + 1)}>
-      {count()} -> {doubled}
+      {count()} -> {doubled()}
     </button>
   );
 }
 ```
+
+`derive()` now returns a getter. Migrate `const doubled = derive(...); {doubled}` to `const doubled = derive(...); {doubled()}`.
 
 ### Lists
 

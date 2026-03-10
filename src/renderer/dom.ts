@@ -45,6 +45,7 @@ import {
   logFastPathDebug,
 } from './utils';
 import type { State } from '../runtime/state';
+import type { ReadableSource } from '../runtime/readable';
 import { globalScheduler } from '../runtime/scheduler';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
 import {
@@ -147,78 +148,81 @@ interface ReactivePropDescriptor {
   propName: string;
   propFn: () => unknown;
   tagName: string;
-  readStates: Set<State<unknown>>;
+  readSources: Set<ReadableSource<unknown>>;
   isActive: boolean;
   lastValue: unknown;
 }
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const dirtyReactiveProps = new Set<ReactivePropDescriptor>();
-const reactivePropsByState = new WeakMap<
-  State<unknown>,
+const reactivePropsBySource = new WeakMap<
+  ReadableSource<unknown>,
   Set<ReactivePropDescriptor>
 >();
 let hasPendingReactivePropFlush = false;
 let reactivePropTrackingToken = 0;
 
 const reactivePropTrackingInstance = {
-  _pendingReadStates: new Set<State<unknown>>(),
+  _pendingReadSources: new Set<ReadableSource<unknown>>(),
   _currentRenderToken: 0,
 } as Partial<ComponentInstance> as ComponentInstance;
 
-function registerReactivePropState(
-  stateValue: State<unknown>,
+function registerReactivePropSource(
+  source: ReadableSource<unknown>,
   descriptor: ReactivePropDescriptor
 ): void {
-  let descriptors = reactivePropsByState.get(stateValue);
+  let descriptors = reactivePropsBySource.get(source);
   if (!descriptors) {
     descriptors = new Set();
-    reactivePropsByState.set(stateValue, descriptors);
+    reactivePropsBySource.set(source, descriptors);
   }
   descriptors.add(descriptor);
 }
 
-function unregisterReactivePropState(
-  stateValue: State<unknown>,
+function unregisterReactivePropSource(
+  source: ReadableSource<unknown>,
   descriptor: ReactivePropDescriptor
 ): void {
-  reactivePropsByState.get(stateValue)?.delete(descriptor);
+  reactivePropsBySource.get(source)?.delete(descriptor);
 }
 
 function syncReactivePropSubscriptions(
   descriptor: ReactivePropDescriptor,
-  nextReadStates: Set<State<unknown>>
+  nextReadSources: Set<ReadableSource<unknown>>
 ): void {
-  for (const stateValue of descriptor.readStates) {
-    if (!nextReadStates.has(stateValue)) {
-      unregisterReactivePropState(stateValue, descriptor);
+  for (const source of descriptor.readSources) {
+    if (!nextReadSources.has(source)) {
+      unregisterReactivePropSource(source, descriptor);
     }
   }
 
-  for (const stateValue of nextReadStates) {
-    if (!descriptor.readStates.has(stateValue)) {
-      registerReactivePropState(stateValue, descriptor);
+  for (const source of nextReadSources) {
+    if (!descriptor.readSources.has(source)) {
+      registerReactivePropSource(source, descriptor);
     }
   }
 
-  descriptor.readStates = nextReadStates;
+  descriptor.readSources = nextReadSources;
 }
 
-function clearReactivePropSubscriptions(descriptor: ReactivePropDescriptor): void {
-  for (const stateValue of descriptor.readStates) {
-    unregisterReactivePropState(stateValue, descriptor);
-  }
-  descriptor.readStates.clear();
-}
-
-function evaluateReactiveProp(
+function clearReactivePropSubscriptions(
   descriptor: ReactivePropDescriptor
-): { value: unknown; readStates: Set<State<unknown>> } {
+): void {
+  for (const source of descriptor.readSources) {
+    unregisterReactivePropSource(source, descriptor);
+  }
+  descriptor.readSources.clear();
+}
+
+function evaluateReactiveProp(descriptor: ReactivePropDescriptor): {
+  value: unknown;
+  readSources: Set<ReadableSource<unknown>>;
+} {
   const prevInstance = getCurrentInstance();
-  const nextReadStates = new Set<State<unknown>>();
+  const nextReadSources = new Set<ReadableSource<unknown>>();
 
   reactivePropTrackingToken += 1;
-  reactivePropTrackingInstance._pendingReadStates = nextReadStates;
+  reactivePropTrackingInstance._pendingReadSources = nextReadSources;
   reactivePropTrackingInstance._currentRenderToken = reactivePropTrackingToken;
 
   _setCurrentInstance(reactivePropTrackingInstance);
@@ -226,10 +230,10 @@ function evaluateReactiveProp(
   try {
     return {
       value: descriptor.propFn(),
-      readStates: nextReadStates,
+      readSources: nextReadSources,
     };
   } finally {
-    reactivePropTrackingInstance._pendingReadStates = new Set();
+    reactivePropTrackingInstance._pendingReadSources = new Set();
     reactivePropTrackingInstance._currentRenderToken = 0;
     _setCurrentInstance(prevInstance);
   }
@@ -251,8 +255,8 @@ function flushDirtyReactiveProps(): void {
     incrementPerfMetric('reactivePropReevaluations');
 
     try {
-      const { value, readStates } = evaluateReactiveProp(descriptor);
-      syncReactivePropSubscriptions(descriptor, readStates);
+      const { value, readSources } = evaluateReactiveProp(descriptor);
+      syncReactivePropSubscriptions(descriptor, readSources);
 
       if (Object.is(descriptor.lastValue, value)) {
         incrementPerfMetric('skippedDomPropWrites');
@@ -274,10 +278,10 @@ function flushDirtyReactiveProps(): void {
   }
 }
 
-export function markReactivePropsDirtyState(
-  stateValue: State<unknown>
+export function markReactivePropsDirtySource(
+  source: ReadableSource<unknown>
 ): void {
-  const descriptors = reactivePropsByState.get(stateValue);
+  const descriptors = reactivePropsBySource.get(source);
   if (!descriptors || descriptors.size === 0) {
     return;
   }
@@ -312,15 +316,15 @@ function setupReactiveProp(
     propName,
     propFn,
     tagName,
-    readStates: new Set(),
+    readSources: new Set(),
     isActive: true,
     lastValue: undefined,
   };
 
   reactivePropRegistry.add(descriptor);
-  const { value, readStates } = evaluateReactiveProp(descriptor);
+  const { value, readSources } = evaluateReactiveProp(descriptor);
   descriptor.lastValue = value;
-  syncReactivePropSubscriptions(descriptor, readStates);
+  syncReactivePropSubscriptions(descriptor, readSources);
   applyPropValue(el, propName, value, tagName);
 
   // Return cleanup function

@@ -867,7 +867,9 @@ export function verifyHydrationSyncForUrl(opts: {
     routeTable
   );
   if (!resolved) {
-    throw new Error(`verifyHydrationSyncForUrl: no route found for url: ${url}`);
+    throw new Error(
+      `verifyHydrationSyncForUrl: no route found for url: ${url}`
+    );
   }
 
   const seed = options?.seed ?? 12345;

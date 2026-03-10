@@ -88,7 +88,10 @@ export async function writeStaticFiles(
  */
 export { getOutputFilePath } from './route-utils';
 
-async function pruneEmptyDirs(startDir: string, rootDir: string): Promise<void> {
+async function pruneEmptyDirs(
+  startDir: string,
+  rootDir: string
+): Promise<void> {
   let current = startDir;
   const normalizedRoot = pathModule.resolve(rootDir);
 
