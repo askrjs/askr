@@ -267,13 +267,13 @@ function createSelectorCell<T>(
   cell._objectCandidates = new WeakMap();
   cell._objectCandidateSources = new Set();
   cell._markDirty = () => {
-    markSelectorCellDirty(cell);
+    markSelectorCellDirty(cell as unknown as SelectorCell<unknown>);
   };
   cell._cleanup = () => {
     cell._scheduled = false;
     cell._dirty = false;
     cell._hasValue = false;
-    dirtySelectorCells.delete(cell);
+    dirtySelectorCells.delete(cell as unknown as SelectorCell<unknown>);
     clearDerivedDependencySubscriptions(cell, cell._sources);
     for (const sourceRef of cell._primitiveCandidates.values()) {
       sourceRef._readers?.clear();
