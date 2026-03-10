@@ -120,6 +120,29 @@ function Counter() {
 
 `derive()` now returns a getter. Migrate `const doubled = derive(...); {doubled}` to `const doubled = derive(...); {doubled()}`.
 
+### Keyed Selectors
+
+```typescript
+function Table({ rows }) {
+  const [selectedId, setSelectedId] = state<number | null>(null);
+  const isSelected = selector(selectedId);
+
+  return For(
+    () => rows(),
+    (row) => row.id,
+    (row) => (
+      <tr class={() => (isSelected(row.id) ? 'danger' : '')}>
+        <td>
+          <a onClick={() => setSelectedId(row.id)}>{row.id}</a>
+        </td>
+      </tr>
+    )
+  );
+}
+```
+
+Use `selector()` for row selection, active-route checks, and similar keyed fanout hotspots. Create it once in the owner component and reuse the keyed predicate across rows.
+
 ### Lists
 
 ```typescript

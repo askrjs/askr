@@ -11,6 +11,11 @@ export interface AskrVitePluginOptions {
   /** Enable the built-in JSX transform that rewrites JSX to Askr's automatic runtime. */
   transformJsx?: boolean;
   /**
+   * Opt-in lightweight template lowering.
+   * Current v1 optimization hoists repeated static class and style string literals.
+   */
+  optimizeTemplates?: boolean;
+  /**
    * Deprecated no-op kept for compatibility with older configs.
    * SSR precompilation is no longer supported by this plugin.
    */
@@ -20,12 +25,16 @@ export interface AskrVitePluginOptions {
 export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
   const pluginName = 'askr:vite';
   const shouldTransform = opts.transformJsx ?? true;
+  const shouldOptimizeTemplates = opts.optimizeTemplates ?? false;
 
   return {
     name: pluginName,
     enforce: 'pre',
     config() {
       return {
+        define: {
+          __ASKR_OPTIMIZE_TEMPLATES__: JSON.stringify(shouldOptimizeTemplates),
+        },
         resolve: {
           alias: [],
         },
@@ -86,8 +95,12 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
 
         if (!result || !result.code) return null;
 
+        const codeOut = shouldOptimizeTemplates
+          ? optimizeTemplateOutput(result.code)
+          : result.code;
+
         return {
-          code: result.code,
+          code: codeOut,
           map: result.map as import('rollup').SourceMapInput,
         };
       } catch {
@@ -96,6 +109,39 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
       }
     },
   };
+}
+
+function optimizeTemplateOutput(code: string): string {
+  const hoists = new Map<string, string>();
+  let hoistIndex = 0;
+
+  const optimized = code.replace(
+    /\b(class|className|style):\s*("([^"\\]|\\.)*")/g,
+    (fullMatch, key, literal) => {
+      const cacheKey = `${key}:${literal}`;
+      let identifier = hoists.get(cacheKey);
+      if (!identifier) {
+        const occurrenceCount = code.split(fullMatch).length - 1;
+        if (occurrenceCount < 2) {
+          return fullMatch;
+        }
+        identifier = `__askrStaticLiteral${hoistIndex++}`;
+        hoists.set(cacheKey, identifier);
+      }
+      return `${key}: ${identifier}`;
+    }
+  );
+
+  if (hoists.size === 0) {
+    return code;
+  }
+
+  const declarations = Array.from(hoists.entries()).map(([cacheKey, name]) => {
+    const literal = cacheKey.slice(cacheKey.indexOf(':') + 1);
+    return `const ${name} = ${literal};`;
+  });
+
+  return `${declarations.join('\n')}\n${optimized}`;
 }
 
 // Convenience alias for `import { askr } from '@askrjs/askr/vite'`

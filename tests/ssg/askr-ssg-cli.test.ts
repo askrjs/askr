@@ -46,6 +46,8 @@ describe('askr-ssg CLI', () => {
       './ssg.config.ts',
       '--output',
       './dist/static',
+      '--workers',
+      'auto',
       '--incremental',
       '--changed-key',
       'blog/a',
@@ -60,6 +62,7 @@ describe('askr-ssg CLI', () => {
     expect(parsed).toEqual<ParsedCliArgs>({
       configPath: './ssg.config.ts',
       outputDir: './dist/static',
+      workers: 'auto',
       incremental: true,
       changedKeys: ['blog/a', 'blog/b'],
       changedRoutes: ['/blog/a', '/blog/b'],
@@ -83,6 +86,8 @@ describe('askr-ssg CLI', () => {
         './ssg.config.ts',
         '--output',
         './dist/static',
+        '--workers',
+        '4',
         '--incremental',
         '--changed-key',
         'home',
@@ -102,6 +107,11 @@ describe('askr-ssg CLI', () => {
     );
 
     expect(exitCode).toBe(0);
+    expect(createStaticGen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parallelism: 4,
+      })
+    );
     expect(generate).toHaveBeenCalledWith({
       mode: 'incremental',
       changedKeys: ['home'],
@@ -146,6 +156,8 @@ describe('askr-ssg CLI', () => {
         './ssg.config.ts',
         '--output',
         './dist/static',
+        '--workers',
+        '2',
         '--incremental',
         '--changed-key',
         'broken',

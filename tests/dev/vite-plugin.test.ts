@@ -36,6 +36,9 @@ describe('askrVitePlugin', () => {
       true
     );
 
+    const define = userCfg?.define as Record<string, string> | undefined;
+    expect(define?.__ASKR_OPTIMIZE_TEMPLATES__).toBe('false');
+
     const includes = userCfg?.optimizeDeps?.include ?? [];
     expect(includes.includes('@askrjs/askr/jsx-runtime')).toBe(true);
   });
@@ -62,5 +65,21 @@ describe('askrVitePlugin', () => {
     );
 
     expect(result).toBeNull();
+  });
+
+  it('should expose optimizeTemplates in Vite define config', async () => {
+    const plugin = askrVitePlugin({ optimizeTemplates: true });
+
+    let cfg: unknown;
+    if (plugin.config && typeof plugin.config === 'function') {
+      cfg = await plugin.config.call({} as ConfigPluginContext, {}, {
+        command: 'build',
+        mode: 'production',
+      } as ConfigEnv);
+    }
+
+    const userCfg = cfg as UserConfig;
+    const define = userCfg?.define as Record<string, string> | undefined;
+    expect(define?.__ASKR_OPTIMIZE_TEMPLATES__).toBe('true');
   });
 });

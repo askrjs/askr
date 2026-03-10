@@ -1,5 +1,5 @@
 import { bench, describe, expect } from 'vitest';
-import { createIsland, derive, state, type State } from '../../src';
+import { createIsland, selector, state, type State } from '../../src';
 import { For } from '../../src/for';
 import {
   createTestContainer,
@@ -15,16 +15,14 @@ import {
 
 interface RowProps {
   item: { id: number; label: string };
-  selected: () => number | null;
+  isSelected: (candidate: number) => boolean;
   onSelect: (id: number) => void;
   onRemove: (id: number) => void;
 }
 
-function Row({ item, selected, onSelect, onRemove }: RowProps) {
-  const isSelected = derive(selected, (value) => value === item.id);
-
+function Row({ item, isSelected, onSelect, onRemove }: RowProps) {
   return (
-    <tr class={() => (isSelected() ? 'danger' : '')}>
+    <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
       <td>{item.id}</td>
       <td>
         <a
@@ -56,10 +54,24 @@ function mountJsxBenchmarkApp(
   const { container, cleanup } = createTestContainer();
   let dataState!: State<Array<{ id: number; label: string }>>;
   let selectedState!: State<number | null>;
+  let primaryLinks: HTMLElement[] | null = null;
+
+  function getPrimaryLinks(): HTMLElement[] {
+    if (primaryLinks) {
+      return primaryLinks;
+    }
+
+    primaryLinks = Array.from(
+      container.querySelectorAll('tbody tr td:nth-child(2) a')
+    ) as HTMLElement[];
+
+    return primaryLinks;
+  }
 
   const App = () => {
     dataState = state(initialRows);
     selectedState = state<number | null>(null);
+    const isSelected = selector(selectedState);
 
     const remove = (id: number) =>
       dataState.set((rows) => rows.filter((row) => row.id !== id));
@@ -75,7 +87,7 @@ function mountJsxBenchmarkApp(
               (item) => (
                 <Row
                   item={item}
-                  selected={selectedState}
+                  isSelected={isSelected}
                   onSelect={select}
                   onRemove={remove}
                 />
@@ -96,11 +108,10 @@ function mountJsxBenchmarkApp(
     setRows(rows: Array<{ id: number; label: string }>) {
       dataState.set(rows);
       flushScheduler();
+      primaryLinks = null;
     },
     clickRow(index: number) {
-      (
-        container.querySelectorAll('tbody tr a')[index * 2] as HTMLElement
-      ).dispatchEvent(
+      getPrimaryLinks()[index].dispatchEvent(
         new MouseEvent('click', { bubbles: true, cancelable: true })
       );
       flushScheduler();

@@ -34,12 +34,38 @@ import {
   resolveRouteDescriptor,
   type ResolvedRouteDescriptor,
 } from './route-utils';
-import { addPerfDuration } from '../runtime/perf-metrics';
+import { addPerfDuration, incrementPerfMetric } from '../runtime/perf-metrics';
 
 interface SelectedRoute {
   descriptor: ResolvedRouteDescriptor;
   reason: RouteRenderReason;
   previous: IncrementalManifestRouteEntry | null;
+}
+
+function resolveParallelism(requested: number | 'auto' | undefined): number {
+  if (requested !== 'auto') {
+    return Math.max(1, requested ?? 1);
+  }
+
+  const maybeNavigator = globalThis as typeof globalThis & {
+    navigator?: { hardwareConcurrency?: number };
+    process?: { env?: Record<string, string | undefined> };
+  };
+
+  const envWorkers = Number(
+    maybeNavigator.process?.env?.ASKR_SSG_WORKERS ??
+      maybeNavigator.process?.env?.NUMBER_OF_PROCESSORS ??
+      maybeNavigator.process?.env?.UV_THREADPOOL_SIZE
+  );
+  if (Number.isFinite(envWorkers) && envWorkers > 0) {
+    return Math.max(1, Math.trunc(envWorkers));
+  }
+
+  if (typeof maybeNavigator.navigator?.hardwareConcurrency === 'number') {
+    return Math.max(1, maybeNavigator.navigator.hardwareConcurrency);
+  }
+
+  return 1;
 }
 
 /**
@@ -65,6 +91,11 @@ interface SelectedRoute {
 export function createStaticGen(options: SSGOptions) {
   let result: SSGResult | null = null;
   const seed = options.seed ?? 12345;
+  const resolvedParallelism = resolveParallelism(options.parallelism);
+  const resolvedConcurrency = Math.max(
+    1,
+    options.concurrency ?? resolvedParallelism
+  );
 
   if (!Array.isArray(options.routes) || options.routes.length === 0) {
     throw new Error('routes array is required');
@@ -127,6 +158,7 @@ export function createStaticGen(options: SSGOptions) {
         (entry) => entry.reason !== 'unchanged'
       );
       const renderStartTime = performance.now();
+      incrementPerfMetric('ssgWorkerCount', resolvedParallelism);
       const renderedResults =
         routesToRender.length > 0
           ? await batchRenderRoutes(
@@ -134,7 +166,7 @@ export function createStaticGen(options: SSGOptions) {
               {
                 seed,
                 dataMap,
-                concurrency: options.concurrency ?? 10,
+                concurrency: resolvedConcurrency,
               }
             )
           : [];
@@ -246,7 +278,7 @@ export function createStaticGen(options: SSGOptions) {
       // Write HTML files to disk and remove stale output
       const writeStartTime = performance.now();
       await writeStaticFiles(routeResults, options.outputDir, {
-        concurrency: options.concurrency ?? 10,
+        concurrency: resolvedConcurrency,
       });
       addPerfDuration('ssgWriteTimeMs', performance.now() - writeStartTime);
 
@@ -283,7 +315,8 @@ export function createStaticGen(options: SSGOptions) {
         routeCount: options.routes.length,
         outputDir: options.outputDir,
         seed,
-        concurrency: options.concurrency ?? 10,
+        concurrency: resolvedConcurrency,
+        parallelism: resolvedParallelism,
         hasDataOverrides: !!options.dataOverrides,
       };
     },

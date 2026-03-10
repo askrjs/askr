@@ -1,12 +1,19 @@
 type PerfMetrics = {
+  selectorInvalidations: number;
+  selectorCandidateReads: number;
   reactivePropReevaluations: number;
   skippedDomPropWrites: number;
+  classListPatchOps: number;
   delegatedAncestorHops: number;
+  hydrationBoundaryActivations: number;
+  ssrTagCacheHits: number;
   lastSchedulerTaskCountPerFlush: number;
   maxSchedulerTaskCountPerFlush: number;
   schedulerFlushCount: number;
   schedulerTaskExecutions: number;
+  ssgWorkerCount: number;
   ssgRenderTimeMs: number;
+  ssgWorkerRenderTimeMs: number;
   ssgWriteTimeMs: number;
 };
 
@@ -19,14 +26,21 @@ type AskrPerfGlobal = typeof globalThis & {
 
 function createInitialPerfMetrics(): PerfMetrics {
   return {
+    selectorInvalidations: 0,
+    selectorCandidateReads: 0,
     reactivePropReevaluations: 0,
     skippedDomPropWrites: 0,
+    classListPatchOps: 0,
     delegatedAncestorHops: 0,
+    hydrationBoundaryActivations: 0,
+    ssrTagCacheHits: 0,
     lastSchedulerTaskCountPerFlush: 0,
     maxSchedulerTaskCountPerFlush: 0,
     schedulerFlushCount: 0,
     schedulerTaskExecutions: 0,
+    ssgWorkerCount: 0,
     ssgRenderTimeMs: 0,
+    ssgWorkerRenderTimeMs: 0,
     ssgWriteTimeMs: 0,
   };
 }
@@ -60,9 +74,15 @@ function getPerfStore(): PerfMetrics | null {
 
 export function incrementPerfMetric(
   key:
+    | 'selectorInvalidations'
+    | 'selectorCandidateReads'
     | 'reactivePropReevaluations'
     | 'skippedDomPropWrites'
-    | 'delegatedAncestorHops',
+    | 'classListPatchOps'
+    | 'delegatedAncestorHops'
+    | 'hydrationBoundaryActivations'
+    | 'ssrTagCacheHits'
+    | 'ssgWorkerCount',
   delta = 1
 ): void {
   const store = getPerfStore();
@@ -71,7 +91,7 @@ export function incrementPerfMetric(
 }
 
 export function addPerfDuration(
-  key: 'ssgRenderTimeMs' | 'ssgWriteTimeMs',
+  key: 'ssgRenderTimeMs' | 'ssgWorkerRenderTimeMs' | 'ssgWriteTimeMs',
   deltaMs: number
 ): void {
   const store = getPerfStore();

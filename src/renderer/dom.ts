@@ -151,6 +151,7 @@ interface ReactivePropDescriptor {
   readSources: Set<ReadableSource<unknown>>;
   isActive: boolean;
   lastValue: unknown;
+  lastClassTokens: string[] | null;
 }
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
@@ -263,13 +264,15 @@ function flushDirtyReactiveProps(): void {
         continue;
       }
 
-      descriptor.lastValue = value;
       applyPropValue(
         descriptor.el,
         descriptor.propName,
         value,
-        descriptor.tagName
+        descriptor.tagName,
+        descriptor.lastValue,
+        descriptor
       );
+      descriptor.lastValue = value;
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
         logger.warn('[Askr] Reactive prop update failed:', err);
@@ -297,7 +300,7 @@ export function markReactivePropsDirtySource(
 
   if (shouldScheduleFlush && !hasPendingReactivePropFlush) {
     hasPendingReactivePropFlush = true;
-    globalScheduler.enqueue(flushDirtyReactiveProps);
+    globalScheduler.enqueueInLane('reactive', flushDirtyReactiveProps);
   }
 }
 
@@ -319,13 +322,14 @@ function setupReactiveProp(
     readSources: new Set(),
     isActive: true,
     lastValue: undefined,
+    lastClassTokens: null,
   };
 
   reactivePropRegistry.add(descriptor);
   const { value, readSources } = evaluateReactiveProp(descriptor);
-  descriptor.lastValue = value;
   syncReactivePropSubscriptions(descriptor, readSources);
-  applyPropValue(el, propName, value, tagName);
+  applyPropValue(el, propName, value, tagName, undefined, descriptor);
+  descriptor.lastValue = value;
 
   // Return cleanup function
   return () => {
@@ -343,11 +347,22 @@ function applyPropValue(
   el: Element,
   key: string,
   value: unknown,
-  tagName: string
+  tagName: string,
+  previousValue?: unknown,
+  descriptor?: ReactivePropDescriptor
 ): void {
   if (value === undefined || value === null || value === false) {
     if (key === 'class' || key === 'className') {
-      el.className = '';
+      const previousTokens = descriptor?.lastClassTokens;
+      if (previousTokens && previousTokens.length > 0) {
+        el.classList.remove(...previousTokens);
+        incrementPerfMetric('classListPatchOps');
+      } else {
+        el.className = '';
+      }
+      if (descriptor) {
+        descriptor.lastClassTokens = [];
+      }
     } else {
       el.removeAttribute(key);
     }
@@ -355,11 +370,72 @@ function applyPropValue(
   }
 
   if (key === 'class' || key === 'className') {
-    el.className = String(value);
+    applyClassPropValue(el, value, previousValue, descriptor);
   } else if (key === 'value' || key === 'checked') {
     applyFormControlProp(el, key, value, tagName);
   } else {
     el.setAttribute(key, String(value));
+  }
+}
+
+function tokenizeClassValue(value: unknown): string[] | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return [];
+  }
+
+  return trimmed.split(/\s+/);
+}
+
+function patchClassList(
+  el: Element,
+  previousTokens: string[],
+  nextTokens: string[]
+): void {
+  const nextSet = new Set(nextTokens);
+  const previousSet = new Set(previousTokens);
+
+  for (const token of previousTokens) {
+    if (!nextSet.has(token)) {
+      el.classList.remove(token);
+    }
+  }
+
+  for (const token of nextTokens) {
+    if (!previousSet.has(token)) {
+      el.classList.add(token);
+    }
+  }
+
+  incrementPerfMetric('classListPatchOps');
+}
+
+function applyClassPropValue(
+  el: Element,
+  value: unknown,
+  previousValue: unknown,
+  descriptor?: ReactivePropDescriptor
+): void {
+  const nextString = String(value);
+  const nextTokens = tokenizeClassValue(nextString);
+  const previousTokens =
+    descriptor?.lastClassTokens ?? tokenizeClassValue(previousValue);
+
+  if (nextTokens && previousTokens) {
+    patchClassList(el, previousTokens, nextTokens);
+    if (descriptor) {
+      descriptor.lastClassTokens = nextTokens;
+    }
+    return;
+  }
+
+  el.className = nextString;
+  if (descriptor) {
+    descriptor.lastClassTokens = nextTokens;
   }
 }
 

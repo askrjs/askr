@@ -16,6 +16,19 @@ import { recordSchedulerFlushTaskCount } from './perf-metrics';
 const MAX_FLUSH_DEPTH = 50;
 
 type Task = () => void;
+export type SchedulerLane = 'derived' | 'component' | 'reactive' | 'post';
+
+const SCHEDULER_LANES: SchedulerLane[] = [
+  'derived',
+  'component',
+  'reactive',
+  'post',
+];
+
+interface LaneQueue {
+  tasks: Task[];
+  head: number;
+}
 
 function isBulkCommitActive(): boolean {
   try {
@@ -34,8 +47,12 @@ function isBulkCommitActive(): boolean {
 }
 
 export class Scheduler {
-  private q: Task[] = [];
-  private head = 0;
+  private lanes: Record<SchedulerLane, LaneQueue> = {
+    derived: { tasks: [], head: 0 },
+    component: { tasks: [], head: 0 },
+    reactive: { tasks: [], head: 0 },
+    post: { tasks: [], head: 0 },
+  };
 
   private running = false;
   private inHandler = false;
@@ -63,7 +80,51 @@ export class Scheduler {
   private taskCount = 0;
 
   private hasPendingTasks(): boolean {
-    return this.head < this.q.length;
+    for (const lane of SCHEDULER_LANES) {
+      const queue = this.lanes[lane];
+      if (queue.head < queue.tasks.length) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private getPendingTaskCount(): number {
+    let total = 0;
+    for (const lane of SCHEDULER_LANES) {
+      const queue = this.lanes[lane];
+      total += queue.tasks.length - queue.head;
+    }
+    return total;
+  }
+
+  private getNextPendingLane(): SchedulerLane | null {
+    for (const lane of SCHEDULER_LANES) {
+      const queue = this.lanes[lane];
+      if (queue.head < queue.tasks.length) {
+        return lane;
+      }
+    }
+    return null;
+  }
+
+  private compactLane(queue: LaneQueue): void {
+    if (queue.head >= queue.tasks.length) {
+      queue.tasks.length = 0;
+      queue.head = 0;
+      return;
+    }
+
+    if (queue.head <= 0) {
+      return;
+    }
+
+    const remaining = queue.tasks.length - queue.head;
+    for (let i = 0; i < remaining; i++) {
+      queue.tasks[i] = queue.tasks[queue.head + i];
+    }
+    queue.tasks.length = remaining;
+    queue.head = 0;
   }
 
   private scheduleFlushKick(): void {
@@ -94,6 +155,10 @@ export class Scheduler {
   }
 
   enqueue(task: Task): void {
+    this.enqueueInLane('component', task);
+  }
+
+  enqueueInLane(lane: SchedulerLane, task: Task): void {
     assertSchedulingPrecondition(
       typeof task === 'function',
       'enqueue() requires a function'
@@ -110,7 +175,7 @@ export class Scheduler {
     }
 
     // Enqueue task and account counts
-    this.q.push(task);
+    this.lanes[lane].tasks.push(task);
     this.taskCount++;
 
     this.scheduleFlushKick();
@@ -137,7 +202,12 @@ export class Scheduler {
     let executedTaskCount = 0;
 
     try {
-      while (this.head < this.q.length) {
+      while (true) {
+        const lane = this.getNextPendingLane();
+        if (!lane) {
+          break;
+        }
+
         this.depth++;
         if (
           process.env.NODE_ENV !== 'production' &&
@@ -148,7 +218,8 @@ export class Scheduler {
           );
         }
 
-        const task = this.q[this.head++];
+        const laneQueue = this.lanes[lane];
+        const task = laneQueue.tasks[laneQueue.head++];
         try {
           this.executionDepth++;
           task();
@@ -169,18 +240,8 @@ export class Scheduler {
       this.depth = 0;
       this.executionDepth = 0;
 
-      // Compact queue
-      if (this.head >= this.q.length) {
-        this.q.length = 0;
-        this.head = 0;
-      } else if (this.head > 0) {
-        const remaining = this.q.length - this.head;
-        // HOT PATH: compact in-place to avoid slice() allocations (GC tail spikes)
-        for (let i = 0; i < remaining; i++) {
-          this.q[i] = this.q[this.head + i];
-        }
-        this.q.length = remaining;
-        this.head = 0;
+      for (const lane of SCHEDULER_LANES) {
+        this.compactLane(this.lanes[lane]);
       }
 
       // Advance flush epoch and resolve waiters
@@ -227,12 +288,12 @@ export class Scheduler {
       const res = fn();
 
       // Flush deterministically if tasks were enqueued (and we're not already running)
-      if (!this.running && this.q.length - this.head > 0) {
+      if (!this.running && this.hasPendingTasks()) {
         this.flush();
       }
 
       if (process.env.NODE_ENV !== 'production') {
-        if (this.q.length - this.head > 0) {
+        if (this.hasPendingTasks()) {
           throw new Error(
             '[Scheduler] tasks remain after runWithSyncProgress flush'
           );
@@ -278,7 +339,7 @@ export class Scheduler {
           ).__ASKR__ || {};
         const diag = {
           flushVersion: this.flushVersion,
-          queueLen: this.q.length - this.head,
+          queueLen: this.getPendingTaskCount(),
           running: this.running,
           inHandler: this.inHandler,
           bulk: isBulkCommitActive(),
@@ -298,12 +359,19 @@ export class Scheduler {
   getState() {
     // Provide the compatibility shape expected by diagnostics/tests
     return {
-      queueLength: this.q.length - this.head,
+      queueLength: this.getPendingTaskCount(),
       running: this.running,
       depth: this.depth,
       executionDepth: this.executionDepth,
       taskCount: this.taskCount,
       flushVersion: this.flushVersion,
+      laneQueues: {
+        derived: this.lanes.derived.tasks.length - this.lanes.derived.head,
+        component:
+          this.lanes.component.tasks.length - this.lanes.component.head,
+        reactive: this.lanes.reactive.tasks.length - this.lanes.reactive.head,
+        post: this.lanes.post.tasks.length - this.lanes.post.head,
+      },
       // New fields for optional inspection
       inHandler: this.inHandler,
       allowSyncProgress: this.allowSyncProgress,
@@ -356,11 +424,14 @@ export class Scheduler {
 
   // Clear pending synchronous tasks (used by fastlane enter/exit)
   clearPendingSyncTasks(): number {
-    const remaining = this.q.length - this.head;
+    const remaining = this.getPendingTaskCount();
     if (remaining <= 0) return 0;
 
     if (this.running) {
-      this.q.length = this.head;
+      for (const lane of SCHEDULER_LANES) {
+        const queue = this.lanes[lane];
+        queue.tasks.length = queue.head;
+      }
       this.taskCount = Math.max(0, this.taskCount - remaining);
       queueMicrotask(() => {
         try {
@@ -373,8 +444,11 @@ export class Scheduler {
       return remaining;
     }
 
-    this.q.length = 0;
-    this.head = 0;
+    for (const lane of SCHEDULER_LANES) {
+      const queue = this.lanes[lane];
+      queue.tasks.length = 0;
+      queue.head = 0;
+    }
     this.taskCount = Math.max(0, this.taskCount - remaining);
     this.flushVersion++;
     this.resolveWaiters();

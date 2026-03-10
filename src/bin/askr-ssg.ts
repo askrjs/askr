@@ -24,6 +24,7 @@ function toFileUrl(filePath: string): string {
 export interface ParsedCliArgs {
   configPath: string;
   outputDir: string;
+  workers: number | 'auto';
   incremental: boolean;
   changedKeys: string[];
   changedRoutes: string[];
@@ -69,6 +70,7 @@ Usage:
 Options:
   --config <path>         Path to SSG config file (TypeScript module)
   --output <dir>          Output directory for generated HTML
+  --workers <n|auto>      Preferred render worker count for SSG throughput
   --incremental           Use incremental generation if a manifest exists
   --changed-key <key>     Mark an invalidation key as changed (repeatable)
   --changed-route <path>  Mark a concrete route path as changed (repeatable)
@@ -87,6 +89,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
   const parsed: ParsedCliArgs = {
     configPath: '',
     outputDir: '',
+    workers: 1,
     incremental: false,
     changedKeys: [],
     changedRoutes: [],
@@ -100,6 +103,9 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       i++;
     } else if (args[i] === '--output' && i + 1 < args.length) {
       parsed.outputDir = args[i + 1];
+      i++;
+    } else if (args[i] === '--workers' && i + 1 < args.length) {
+      parsed.workers = args[i + 1] === 'auto' ? 'auto' : Number(args[i + 1]);
       i++;
     } else if (args[i] === '--changed-key' && i + 1 < args.length) {
       parsed.changedKeys.push(args[i + 1]);
@@ -202,6 +208,7 @@ export async function runCli(
       seed: config.seed,
       dataOverrides: config.dataOverrides,
       concurrency: config.concurrency,
+      parallelism: parsed.workers,
     });
 
     const startTime = resolvedDeps.now();

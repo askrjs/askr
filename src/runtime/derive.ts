@@ -69,7 +69,7 @@ function markDerivedCellDirty(cell: DerivedCell<unknown>): void {
 
   if (!hasPendingDerivedFlush) {
     hasPendingDerivedFlush = true;
-    globalScheduler.enqueue(flushDirtyDerivedCells);
+    globalScheduler.enqueueInLane('derived', flushDirtyDerivedCells);
   }
 }
 
@@ -244,12 +244,16 @@ export function derive<TIn, TOut>(
   }
 
   const hookIndex = claimHookIndex(instance, 'derive');
-  const selector =
+  const compute =
     map === undefined
       ? createSelector(source as () => TIn)
       : createMappedSelector(source, map);
 
-  const cell = getOrCreateDerivedCell(instance, hookIndex, selector);
+  const cell = getOrCreateDerivedCell(
+    instance,
+    hookIndex,
+    compute as () => TOut | null | TIn
+  );
   recomputeDerivedCell(cell, false);
-  return cell;
+  return cell as Derived<TOut | null> | Derived<TIn>;
 }

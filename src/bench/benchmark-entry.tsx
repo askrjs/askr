@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createIsland, derive, state, State } from '../index';
+import { createIsland, selector, state, State } from '../index';
 import { For } from '../for';
 import { globalScheduler } from '../runtime/scheduler';
 
@@ -15,6 +15,7 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   const App = () => {
     dataState = state<RowData[]>([]);
     selectedState = state<number | null>(null);
+    const isSelected = selector(selectedState);
 
     const select = (id: number) => selectedState.set(id);
 
@@ -34,15 +35,10 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
                   () => dataState(),
                   (item: RowData) => item.id,
                   (item: RowData) => {
-                    const isSelected = derive(
-                      selectedState,
-                      (value) => value === item.id
-                    );
-
                     return {
                       type: 'tr',
                       props: {
-                        class: () => (isSelected() ? 'danger' : ''),
+                        class: () => (isSelected(item.id) ? 'danger' : ''),
                       },
                       children: [
                         { type: 'td', props: {}, children: [String(item.id)] },

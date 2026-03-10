@@ -4,7 +4,7 @@
  */
 import { expect } from 'chai';
 import { test, describe } from 'vitest';
-import { createIsland, derive, state } from '../../src';
+import { createIsland, selector, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { For } from '../../src/for';
 import type { State } from '../../src';
@@ -16,16 +16,14 @@ interface RowData {
 
 interface RowProps {
   item: RowData;
-  selected: () => number | null;
+  isSelected: (candidate: number) => boolean;
   onSelect: (id: number) => void;
   onRemove: (id: number) => void;
 }
 
-function Row({ item, selected, onSelect, onRemove }: RowProps) {
-  const isSelected = derive(selected, (value) => value === item.id);
-
+function Row({ item, isSelected, onSelect, onRemove }: RowProps) {
   return (
-    <tr class={() => (isSelected() ? 'danger' : '')}>
+    <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
       <td class="col-md-1">{item.id}</td>
       <td class="col-md-4">
         <a
@@ -74,6 +72,7 @@ describe(
       const App = () => {
         dataState = state<RowData[]>([]);
         selectedState = state<number | null>(null);
+        const isSelected = selector(selectedState);
 
         const remove = (id: number) =>
           dataState.set((d) => d.filter((it) => it.id !== id));
@@ -89,7 +88,7 @@ describe(
                   (item) => (
                     <Row
                       item={item}
-                      selected={selectedState}
+                      isSelected={isSelected}
                       onSelect={select}
                       onRemove={remove}
                     />
@@ -127,6 +126,7 @@ describe(
       const App = () => {
         const dataState = state<RowData[]>(buildData(10));
         const selectedState = state<number | null>(null);
+        const isSelected = selector(selectedState);
 
         const remove = (id: number) =>
           dataState.set((d) => d.filter((it) => it.id !== id));
@@ -142,7 +142,7 @@ describe(
                   (item) => (
                     <Row
                       item={item}
-                      selected={selectedState}
+                      isSelected={isSelected}
                       onSelect={select}
                       onRemove={remove}
                     />
@@ -190,6 +190,7 @@ describe(
       const App = () => {
         dataState = state<RowData[]>(buildData(100));
         const selectedState = state<number | null>(null);
+        const isSelected = selector(selectedState);
 
         const remove = (id: number) =>
           dataState.set((d) => d.filter((it) => it.id !== id));
@@ -204,7 +205,7 @@ describe(
                 (item) => (
                   <Row
                     item={item}
-                    selected={selectedState}
+                    isSelected={isSelected}
                     onSelect={select}
                     onRemove={remove}
                   />
@@ -249,6 +250,7 @@ describe(
       const App = () => {
         dataState = state<RowData[]>(buildData(1000));
         const selectedState = state<number | null>(null);
+        const isSelected = selector(selectedState);
 
         const remove = (id: number) =>
           dataState.set((d) => d.filter((it) => it.id !== id));
@@ -263,7 +265,7 @@ describe(
                 (item) => (
                   <Row
                     item={item}
-                    selected={selectedState}
+                    isSelected={isSelected}
                     onSelect={select}
                     onRemove={remove}
                   />
@@ -322,6 +324,7 @@ describe(
       const App = () => {
         dataState = state<RowData[]>(buildData(10));
         const selectedState = state<number | null>(null);
+        const isSelected = selector(selectedState);
 
         const remove = (id: number) => {
           removeCalled++;
@@ -338,7 +341,7 @@ describe(
                 (item) => (
                   <Row
                     item={item}
-                    selected={selectedState}
+                    isSelected={isSelected}
                     onSelect={select}
                     onRemove={remove}
                   />
@@ -388,6 +391,7 @@ describe(
       const App = () => {
         dataState = state<RowData[]>(buildData(1000));
         const selectedState = state<number | null>(null);
+        const isSelected = selector(selectedState);
 
         const remove = (id: number) =>
           dataState.set((d) => d.filter((it) => it.id !== id));
@@ -402,7 +406,7 @@ describe(
                 (item) => (
                   <Row
                     item={item}
-                    selected={selectedState}
+                    isSelected={isSelected}
                     onSelect={select}
                     onRemove={remove}
                   />
@@ -441,6 +445,7 @@ describe(
       const App = () => {
         dataState = state<RowData[]>(buildData(1000));
         const selectedState = state<number | null>(null);
+        const isSelected = selector(selectedState);
 
         const remove = (id: number) =>
           dataState.set((d) => d.filter((it) => it.id !== id));
@@ -455,7 +460,7 @@ describe(
                 (item) => (
                   <Row
                     item={item}
-                    selected={selectedState}
+                    isSelected={isSelected}
                     onSelect={select}
                     onRemove={remove}
                   />

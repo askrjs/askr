@@ -53,6 +53,8 @@ export interface SSGOptions {
   dataOverrides?: Record<string, unknown>;
   /** Optional concurrency limit for rendering (default: 10) */
   concurrency?: number;
+  /** Preferred render parallelism. `'auto'` resolves from the host machine. */
+  parallelism?: number | 'auto';
 }
 
 /** Options for a single generation run */

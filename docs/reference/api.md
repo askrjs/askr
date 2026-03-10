@@ -9,6 +9,7 @@ Askr keeps the root API minimal and exposes advanced features through explicit s
 - `state(initialValue)`
 - `derive(selector) -> getter`
 - `derive(source, map) -> getter`
+- `selector(source, equals?) -> keyed predicate`
 - `For(...)`
 - Event delegation controls (`enableEventDelegation`, `disableEventDelegation`, `isEventDelegationEnabled`, `setGlobalDelegationContainer`)
 
@@ -41,6 +42,21 @@ const count = state(0);
 const doubled = derive(() => count() * 2);
 console.log(doubled());
 ```
+
+`selector()` returns a keyed predicate. Example:
+
+```ts
+import { selector, state } from '@askrjs/askr';
+
+const selectedId = state<number | null>(null);
+const isSelected = selector(selectedId);
+
+console.log(isSelected(42));
+```
+
+For large keyed lists, call `selector()` once in the owner component and pass the returned predicate to child rows instead of creating a new selector per item.
+
+`@askrjs/askr/ssg` also accepts `parallelism?: number | 'auto'`, and the Vite plugin accepts `optimizeTemplates?: boolean` for opt-in compile-time literal hoisting.
 
 ## Next
 

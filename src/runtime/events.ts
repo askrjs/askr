@@ -138,7 +138,14 @@ function attachDelegatedListener(
         let current: Element | null = target;
         while (current && current !== container) {
           incrementPerfMetric('delegatedAncestorHops');
-          const entry = getDelegatedHandlerForElement(current, eventName);
+          const store = delegatedHandlers.get(current);
+          const entry = !store
+            ? undefined
+            : store instanceof Map
+              ? store.get(eventName)
+              : store.eventName === eventName
+                ? store
+                : undefined;
           if (entry) {
             try {
               entry.handler(e);

@@ -50,7 +50,7 @@ function getEscapedAttrValue(value: string): string {
  */
 export function renderAttrsDirect(
   props: Props | undefined,
-  sink: RenderSink
+  sink: Pick<RenderSink, 'write'>
 ): void {
   if (!props || typeof props !== 'object') return;
 

@@ -25,13 +25,12 @@ const initialRows = buildRows(3);
 
 describe('tier3 system table production select', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
+  let rowLink: HTMLElement | null = null;
 
   bench(
     'select a row through the DOM click path',
     () => {
-      (
-        mounted!.container.querySelectorAll('a')[1] as HTMLElement
-      ).dispatchEvent(
+      rowLink!.dispatchEvent(
         new MouseEvent('click', { bubbles: true, cancelable: true })
       );
       flushScheduler();
@@ -40,10 +39,12 @@ describe('tier3 system table production select', () => {
       ...tier3BenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
+        rowLink = mounted.container.querySelectorAll('a')[1] as HTMLElement;
       },
       teardown() {
         mounted?.cleanup();
         mounted = null;
+        rowLink = null;
       },
     }
   );

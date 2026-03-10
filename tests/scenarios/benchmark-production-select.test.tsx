@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { test } from 'vitest';
-import { createIsland, derive, state } from '../../src';
+import { createIsland, selector, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { For } from '../../src/for';
 
@@ -11,17 +11,15 @@ interface RowData {
 
 function Row({
   item,
-  selected,
+  isSelected,
   onSelect,
 }: {
   item: RowData;
-  selected: () => number | null;
+  isSelected: (candidate: number) => boolean;
   onSelect: (id: number) => void;
 }) {
-  const isSelected = derive(selected, (value) => value === item.id);
-
   return (
-    <tr class={() => (isSelected() ? 'danger' : '')}>
+    <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
       <td>{item.id}</td>
       <td>
         <a
@@ -51,6 +49,7 @@ test(
     const App = () => {
       dataState = state<RowData[]>([]);
       selectedState = state<number | null>(null);
+      const isSelected = selector(selectedState);
 
       const _remove = (_: number) => undefined;
       const select = (id: number) => selectedState.set(id);
@@ -63,7 +62,7 @@ test(
                 () => dataState(),
                 (item) => item.id,
                 (item) => (
-                  <Row item={item} selected={selectedState} onSelect={select} />
+                  <Row item={item} isSelected={isSelected} onSelect={select} />
                 )
               )}
             </tbody>
@@ -118,6 +117,7 @@ test(
     const App = () => {
       dataState = state<RowData[]>([]);
       selectedState = state<number | null>(null);
+      const isSelected = selector(selectedState);
 
       const select = (id: number) => selectedState.set(id);
 
@@ -128,28 +128,21 @@ test(
               {For(
                 () => dataState(),
                 (item) => item.id,
-                (item) => {
-                  const isSelected = derive(
-                    selectedState,
-                    (value) => value === item.id
-                  );
-
-                  return (
-                    <tr class={() => (isSelected() ? 'danger' : '')}>
-                      <td>{item.id}</td>
-                      <td>
-                        <a
-                          onClick={(e: MouseEvent) => {
-                            e.preventDefault();
-                            select(item.id);
-                          }}
-                        >
-                          {item.label}
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                }
+                (item) => (
+                  <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
+                    <td>{item.id}</td>
+                    <td>
+                      <a
+                        onClick={(e: MouseEvent) => {
+                          e.preventDefault();
+                          select(item.id);
+                        }}
+                      >
+                        {item.label}
+                      </a>
+                    </td>
+                  </tr>
+                )
               )}
             </tbody>
           </table>
