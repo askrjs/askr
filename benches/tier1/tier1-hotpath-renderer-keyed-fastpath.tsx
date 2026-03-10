@@ -4,7 +4,13 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../tests/helpers/test-renderer';
-import { buildRows, tier1BenchOptions } from '../shared/_shared';
+import type { BenchToggle, RowData } from '../shared/_shared';
+import {
+  assertToggleMutationGuard,
+  buildRows,
+  createRowToggle,
+  tier1BenchOptions,
+} from '../shared/_shared';
 
 const initialItems = buildRows(200);
 const reversedItems = initialItems.slice().reverse();
@@ -30,9 +36,34 @@ const reversedItems = initialItems.slice().reverse();
     createIsland({ root: container, component: Component });
     flushScheduler();
     const preserved = container.querySelector('[data-key="10"]');
-    itemsState.set(reversedItems);
-    flushScheduler();
-    expect(container.querySelector('[data-key="10"]')).toBe(preserved);
+    const toggle = createRowToggle(initialItems, reversedItems, 'initial');
+
+    assertToggleMutationGuard(
+      container,
+      () => {
+        itemsState.set(toggle.next() as RowData[]);
+        flushScheduler();
+      },
+      () => {
+        itemsState.set(toggle.next() as RowData[]);
+        flushScheduler();
+      },
+      {
+        label: 'tier1 renderer keyed fastpath',
+        afterForward: () => {
+          expect(container.querySelector('[data-key="10"]')).toBe(preserved);
+          expect(
+            container.firstElementChild?.firstElementChild?.textContent
+          ).toBe('Item 200');
+        },
+        afterBackward: () => {
+          expect(container.querySelector('[data-key="10"]')).toBe(preserved);
+          expect(
+            container.firstElementChild?.firstElementChild?.textContent
+          ).toBe('Item 1');
+        },
+      }
+    );
   } finally {
     cleanup();
   }
@@ -41,11 +72,12 @@ const reversedItems = initialItems.slice().reverse();
 describe('tier1 renderer keyed fastpath', () => {
   let cleanup: (() => void) | null = null;
   let itemsState: ReturnType<typeof state<typeof initialItems>> | null = null;
+  let toggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
     'reorder a large keyed div list',
     () => {
-      itemsState!.set(reversedItems);
+      itemsState!.set(toggle!.next() as RowData[]);
       flushScheduler();
     },
     {
@@ -69,11 +101,13 @@ describe('tier1 renderer keyed fastpath', () => {
 
         createIsland({ root: result.container, component: Component });
         flushScheduler();
+        toggle = createRowToggle(initialItems, reversedItems, 'initial');
       },
       teardown() {
         cleanup?.();
         cleanup = null;
         itemsState = null;
+        toggle = null;
       },
     }
   );

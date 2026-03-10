@@ -11,7 +11,17 @@ import type { RouteConfig } from '../../src/ssg/types';
 import {
   createTestContainer,
   flushScheduler,
+  trackDOMMutations,
 } from '../../tests/helpers/test-renderer';
+
+/**
+ * DOM bench methodology rules:
+ * - Timed closures may only do state changes, event dispatch, and flushes.
+ * - DOM queries, assertions, and data allocation belong in setup/preflight.
+ * - Stateful DOM benches must alternate between concrete A/B states so repeated
+ *   iterations cannot collapse into Object.is no-op steady state.
+ * - DOM numbers collected before this methodology repair are non-canonical.
+ */
 
 export interface RowData {
   id: number;
@@ -69,6 +79,21 @@ type SsrTreeNode = {
   children?: Array<SsrTreeNode | string>;
 };
 
+type ToggleStart = 'first' | 'second';
+
+export interface BenchToggle<T> {
+  current(): T;
+  peekNext(): T;
+  next(): T;
+  reset(start?: ToggleStart): T;
+}
+
+export interface CachedElementQuery<T extends Element> {
+  getAll(): T[];
+  getAt(index: number): T;
+  invalidate(): void;
+}
+
 export const tier1BenchOptions = {
   time: 400,
   iterations: 20,
@@ -105,6 +130,79 @@ export function buildRows(count: number, startId = 1): RowData[] {
       label: `Item ${id}`,
     };
   });
+}
+
+function createAlternatingToggle<T>(
+  first: T,
+  second: T,
+  start: ToggleStart = 'first'
+): BenchToggle<T> {
+  let currentValue = start === 'first' ? first : second;
+
+  return {
+    current() {
+      return currentValue;
+    },
+    peekNext() {
+      return Object.is(currentValue, first) ? second : first;
+    },
+    next() {
+      currentValue = Object.is(currentValue, first) ? second : first;
+      return currentValue;
+    },
+    reset(nextStart: ToggleStart = 'first') {
+      currentValue = nextStart === 'first' ? first : second;
+      return currentValue;
+    },
+  };
+}
+
+export function createRowToggle<T>(
+  initialRows: readonly T[],
+  nextRows: readonly T[],
+  start: 'initial' | 'next' = 'initial'
+): BenchToggle<readonly T[]> {
+  return createAlternatingToggle(
+    initialRows,
+    nextRows,
+    start === 'initial' ? 'first' : 'second'
+  );
+}
+
+export function createSelectionToggle<T>(
+  first: T,
+  second: T,
+  start: ToggleStart = 'first'
+): BenchToggle<T> {
+  return createAlternatingToggle(first, second, start);
+}
+
+export function createCachedElementQuery<T extends Element = HTMLElement>(
+  container: ParentNode,
+  selector: string
+): CachedElementQuery<T> {
+  let cached: T[] | null = null;
+
+  return {
+    getAll() {
+      if (!cached) {
+        cached = Array.from(container.querySelectorAll(selector)) as T[];
+      }
+      return cached;
+    },
+    getAt(index: number) {
+      const element = this.getAll()[index];
+      if (!element) {
+        throw new Error(
+          `Expected cached query "${selector}" to contain index ${index}.`
+        );
+      }
+      return element;
+    },
+    invalidate() {
+      cached = null;
+    },
+  };
 }
 
 export function updateEveryNthRow(
@@ -171,6 +269,118 @@ export function replaceAllRows(
   startId = 10_001
 ): RowData[] {
   return buildRows(rows.length, startId);
+}
+
+function getMutationCount(
+  result: ReturnType<typeof trackDOMMutations>
+): number {
+  return (
+    result.addedNodes +
+    result.removedNodes +
+    result.changedAttributes +
+    result.changedText
+  );
+}
+
+function assertObservedMutation(
+  label: string,
+  result: ReturnType<typeof trackDOMMutations>
+): void {
+  if (getMutationCount(result) === 0) {
+    throw new Error(`${label} produced no observable DOM mutations.`);
+  }
+}
+
+export function assertToggleMutationGuard(
+  node: Element,
+  applyForward: () => void,
+  applyBackward: () => void,
+  options: {
+    label: string;
+    afterForward?: () => void;
+    afterBackward?: () => void;
+  }
+): void {
+  const forwardMutations = trackDOMMutations(node, applyForward);
+  assertObservedMutation(`${options.label} forward`, forwardMutations);
+  options.afterForward?.();
+
+  const backwardMutations = trackDOMMutations(node, applyBackward);
+  assertObservedMutation(`${options.label} backward`, backwardMutations);
+  options.afterBackward?.();
+}
+
+export function assertRowCountTransition(
+  container: ParentNode,
+  expectedCount: number
+): void {
+  const actualCount = container.querySelectorAll('tr').length;
+  if (actualCount !== expectedCount) {
+    throw new Error(
+      `Expected ${expectedCount} table rows, but found ${actualCount}.`
+    );
+  }
+}
+
+export function assertSelectionTransition(
+  container: ParentNode,
+  selectedRowIndex: number,
+  className = 'danger'
+): void {
+  const rows = Array.from(container.querySelectorAll('tr'));
+  if (!rows[selectedRowIndex]) {
+    throw new Error(
+      `Expected row index ${selectedRowIndex} to exist for selection check.`
+    );
+  }
+
+  const selectedRows = rows.filter((row) => row.classList.contains(className));
+  if (selectedRows.length !== 1 || selectedRows[0] !== rows[selectedRowIndex]) {
+    throw new Error(
+      `Expected only row ${selectedRowIndex} to have class "${className}".`
+    );
+  }
+}
+
+export function assertTextTransition(
+  container: ParentNode,
+  selector: string,
+  expectedText: string
+): void {
+  const element = container.querySelector(selector);
+  if (!element) {
+    throw new Error(`Expected selector "${selector}" to exist.`);
+  }
+
+  if (!element.textContent?.includes(expectedText)) {
+    throw new Error(
+      `Expected selector "${selector}" to contain "${expectedText}", got "${element.textContent || ''}".`
+    );
+  }
+}
+
+export function assertOrderTransition(
+  container: ParentNode,
+  expectedIds: readonly number[]
+): void {
+  const actualIds = Array.from(container.querySelectorAll('tr'), (row) => {
+    const idCell = row.querySelector('td');
+    return Number(idCell?.textContent ?? Number.NaN);
+  });
+
+  if (actualIds.length !== expectedIds.length) {
+    throw new Error(
+      `Expected ${expectedIds.length} ordered rows, but found ${actualIds.length}.`
+    );
+  }
+
+  for (let index = 0; index < expectedIds.length; index += 1) {
+    if (actualIds[index] !== expectedIds[index]) {
+      throw new Error(
+        `Expected row order id ${expectedIds[index]} at index ${index}, got ${actualIds[index]}.`
+      );
+    }
+  }
 }
 
 export function buildDeepSsrTree(depth = 300): SsrTreeNode {

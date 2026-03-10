@@ -1,10 +1,16 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe } from 'vitest';
 import { createIsland, state } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../tests/helpers/test-renderer';
-import { tier2BenchOptions } from '../shared/_shared';
+import type { BenchToggle } from '../shared/_shared';
+import {
+  assertTextTransition,
+  assertToggleMutationGuard,
+  createSelectionToggle,
+  tier2BenchOptions,
+} from '../shared/_shared';
 
 {
   const { container, cleanup } = createTestContainer();
@@ -26,10 +32,30 @@ import { tier2BenchOptions } from '../shared/_shared';
   try {
     createIsland({ root: container, component: Component });
     flushScheduler();
-    tickState.set(1);
-    flushScheduler();
-    expect(container.textContent).toContain('0:1');
-    expect(container.textContent).toContain('999:1');
+    const toggle = createSelectionToggle(0, 1, 'first');
+
+    assertToggleMutationGuard(
+      container,
+      () => {
+        tickState.set(toggle.next());
+        flushScheduler();
+      },
+      () => {
+        tickState.set(toggle.next());
+        flushScheduler();
+      },
+      {
+        label: 'tier2 runtime large tree',
+        afterForward: () => {
+          assertTextTransition(container, '[data-i="0"]', '0:1');
+          assertTextTransition(container, '[data-i="999"]', '999:1');
+        },
+        afterBackward: () => {
+          assertTextTransition(container, '[data-i="0"]', '0:0');
+          assertTextTransition(container, '[data-i="999"]', '999:0');
+        },
+      }
+    );
   } finally {
     cleanup();
   }
@@ -38,11 +64,12 @@ import { tier2BenchOptions } from '../shared/_shared';
 describe('tier2 runtime large tree', () => {
   let cleanup: (() => void) | null = null;
   let tickState: ReturnType<typeof state<number>> | null = null;
+  let toggle: BenchToggle<number> | null = null;
 
   bench(
     'update a 1,000-node reactive span tree',
     () => {
-      tickState!.set(1);
+      tickState!.set(toggle!.next());
       flushScheduler();
     },
     {
@@ -66,11 +93,13 @@ describe('tier2 runtime large tree', () => {
 
         createIsland({ root: result.container, component: Component });
         flushScheduler();
+        toggle = createSelectionToggle(0, 1, 'first');
       },
       teardown() {
         cleanup?.();
         cleanup = null;
         tickState = null;
+        toggle = null;
       },
     }
   );
