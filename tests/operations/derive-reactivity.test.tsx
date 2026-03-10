@@ -22,7 +22,7 @@ describe('derive reactivity', () => {
     ];
   });
 
-  it('suppresses downstream reactive prop updates when the projection is unchanged', () => {
+  it('should suppress downstream reactive prop updates when the projection is unchanged', () => {
     let countState!: ReturnType<typeof state<number>>;
     let propEvaluations = 0;
 
@@ -54,7 +54,7 @@ describe('derive reactivity', () => {
     expect(propEvaluations).toBe(0);
   });
 
-  it('notifies downstream readers only when the derived value changes', () => {
+  it('should notify downstream readers only when the derived value changes', () => {
     let countState!: ReturnType<typeof state<number>>;
     let propEvaluations = 0;
 
@@ -86,7 +86,7 @@ describe('derive reactivity', () => {
     expect(propEvaluations).toBe(1);
   });
 
-  it('propagates nested derive changes without rerendering when the outer projection is unchanged', () => {
+  it('should propagate nested derive changes without rerendering when the outer projection is unchanged', () => {
     let countState!: ReturnType<typeof state<number>>;
     let renders = 0;
 
@@ -113,7 +113,7 @@ describe('derive reactivity', () => {
     expect(renders).toBe(2);
   });
 
-  it('cleans up derived subscriptions on unmount and For item removal', () => {
+  it('should clean up derived subscriptions on unmount and For item removal', () => {
     let showChild!: ReturnType<typeof state<boolean>>;
     let shared!: ReturnType<typeof state<number>>;
     let rows!: ReturnType<typeof state<Array<{ id: number; label: string }>>>;
@@ -183,7 +183,7 @@ describe('derive reactivity', () => {
     expect(selected._derivedSubscribers?.size ?? 0).toBe(2);
   });
 
-  it('enforces stable hook order for derive()', () => {
+  it('should enforce stable hook order for derive()', () => {
     let enabled!: ReturnType<typeof state<boolean>>;
 
     const App = () => {
@@ -205,7 +205,7 @@ describe('derive reactivity', () => {
     }).toThrow(/hook order|derive|conditionally/i);
   });
 
-  it('supports SSR render and hydration with derived getters', async () => {
+  it('should support SSR render and hydration with derived getters', async () => {
     let clicks = 0;
 
     const Component = () => {

@@ -15,7 +15,7 @@ describe('selector reactivity', () => {
     cleanup();
   });
 
-  it('invalidates only the previous and next keyed candidates', () => {
+  it('should invalidate only the previous and next keyed candidates', () => {
     let selected!: ReturnType<typeof state<number | null>>;
     const classEvaluations = new Map<number, number>();
 
@@ -75,7 +75,7 @@ describe('selector reactivity', () => {
     expect(classEvaluations.get(4) ?? 0).toBe(0);
   });
 
-  it('falls back to broad invalidation when a custom comparator is used', () => {
+  it('should fall back to broad invalidation when a custom comparator is used', () => {
     let selected!: ReturnType<typeof state<{ id: number } | null>>;
     const evaluations = new Map<number, number>();
 
@@ -123,7 +123,7 @@ describe('selector reactivity', () => {
     expect(evaluations.get(3) ?? 0).toBe(1);
   });
 
-  it('cleans up selector subscriptions when rows are removed', () => {
+  it('should clean up selector subscriptions when rows are removed', () => {
     let selected!: ReturnType<typeof state<number | null>>;
     let rows!: ReturnType<typeof state<number[]>>;
 
@@ -160,7 +160,7 @@ describe('selector reactivity', () => {
     expect(selected._derivedSubscribers?.size ?? 0).toBe(2);
   });
 
-  it('enforces stable hook order for selector()', () => {
+  it('should enforce stable hook order for selector()', () => {
     let enabled!: ReturnType<typeof state<boolean>>;
 
     const App = () => {
