@@ -202,6 +202,25 @@ describe('event delegation', () => {
       expect(getCount!()).toBe(1);
     });
 
+    it('should flush delegated DOM updates synchronously after click', () => {
+      const Component = () => {
+        const count = state(0);
+        return (
+          <button id="btn" onClick={() => count.set(count() + 1)}>
+            {count()}
+          </button>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const btn = container.querySelector('#btn') as HTMLButtonElement;
+      fireEvent.click(btn);
+
+      expect(btn.textContent).toBe('1');
+    });
+
     it('should batch state updates in delegated handlers', () => {
       const updates: number[] = [];
       let getCount: (() => number) | undefined;

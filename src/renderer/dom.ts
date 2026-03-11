@@ -30,9 +30,12 @@ import {
 } from '../runtime/dev-namespace';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
-import { evaluateForState } from '../runtime/for';
+import {
+  evaluateForState,
+  clearForDomUpdateState,
+  type ForState,
+} from '../runtime/for';
 import { keyedElements } from './keyed';
-import { reconcileKeyedChildren } from './reconcile';
 import {
   parseEventName,
   getPassiveOptions,
@@ -915,7 +918,186 @@ export function createForBoundary(
     }
   }
 
+  clearForDomUpdateState(forState);
   return fragment;
+}
+
+function syncForItemDom(
+  parent: Element,
+  itemInstance: {
+    _dom?: Node;
+    _needsDomUpdate: boolean;
+  },
+  vnode: VNode
+): Node | null {
+  let dom = itemInstance._dom ?? null;
+  let created = false;
+
+  if (dom && checkVNodeShapeChanged(dom, vnode)) {
+    const nextDom = createDOMNode(vnode);
+    if (!nextDom) {
+      if (dom.parentNode === parent) {
+        dom.parentNode.removeChild(dom);
+      }
+      itemInstance._dom = undefined;
+      return null;
+    }
+
+    if (dom instanceof Element) {
+      teardownNodeSubtree(dom);
+    }
+
+    if (dom.parentNode === parent) {
+      parent.replaceChild(nextDom, dom);
+    }
+
+    itemInstance._dom = nextDom;
+    dom = nextDom;
+    created = true;
+  } else if (!dom) {
+    dom = createDOMNode(vnode);
+    itemInstance._dom = dom ?? undefined;
+    created = true;
+  }
+
+  if (!dom) {
+    return null;
+  }
+
+  if (!created && itemInstance._needsDomUpdate) {
+    if (dom instanceof Element) {
+      updateElementFromVnode(dom, vnode, true);
+    } else if (
+      dom.nodeType === 3 &&
+      (typeof vnode === 'string' || typeof vnode === 'number')
+    ) {
+      (dom as Text).data = String(vnode);
+    }
+  }
+
+  return dom;
+}
+
+function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
+  for (let i = 0; i < removedNodes.length; i++) {
+    const node = removedNodes[i];
+    if (node.parentNode === parent) {
+      parent.removeChild(node);
+    }
+  }
+}
+
+function syncKeyedMapFromForState(
+  parent: Element,
+  forState: ForState<unknown>
+): void {
+  const existing = keyedElements.get(parent);
+  const nextMap = existing ?? new Map<string | number, Element>();
+  nextMap.clear();
+
+  for (let i = 0; i < forState.orderedKeys.length; i++) {
+    const key = forState.orderedKeys[i];
+    if (key === null) continue;
+    const itemInstance = forState.items.get(key);
+    if (itemInstance?._dom instanceof Element) {
+      nextMap.set(key, itemInstance._dom);
+      const keyString = String(key);
+      nextMap.set(keyString, itemInstance._dom);
+      const keyNumber = Number(keyString);
+      if (!Number.isNaN(keyNumber)) {
+        nextMap.set(keyNumber, itemInstance._dom);
+      }
+    }
+  }
+
+  if (nextMap.size > 0) {
+    keyedElements.set(parent, nextMap);
+  } else {
+    keyedElements.delete(parent);
+  }
+}
+
+function commitForBoundaryChildren(
+  parent: Element,
+  forState: ForState<unknown>,
+  childrenVNodes: VNode[]
+): void {
+  const commitPositional = (): void => {
+    for (let i = 0; i < forState.orderedKeys.length; i++) {
+      const itemKey = forState.orderedKeys[i];
+      const itemInstance = forState.items.get(itemKey);
+      if (!itemInstance) {
+        continue;
+      }
+
+      const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+      if (!dom) {
+        continue;
+      }
+
+      if (dom.parentNode !== parent) {
+        const anchor = parent.childNodes[i] ?? null;
+        parent.insertBefore(dom, anchor);
+      }
+    }
+  };
+
+  const commitAppend = (): void => {
+    for (let i = 0; i < forState.orderedKeys.length; i++) {
+      const itemKey = forState.orderedKeys[i];
+      const itemInstance = forState.items.get(itemKey);
+      if (!itemInstance) {
+        continue;
+      }
+
+      const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+      if (!dom) {
+        continue;
+      }
+
+      if (dom.parentNode !== parent) {
+        parent.appendChild(dom);
+      }
+    }
+  };
+
+  const commitReorder = (): void => {
+    for (let i = 0; i < forState.orderedKeys.length; i++) {
+      const itemKey = forState.orderedKeys[i];
+      const itemInstance = forState.items.get(itemKey);
+      if (!itemInstance) {
+        continue;
+      }
+
+      const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+      if (!dom) {
+        continue;
+      }
+
+      const anchor = parent.childNodes[i] ?? null;
+      if (dom !== anchor) {
+        parent.insertBefore(dom, anchor);
+      }
+    }
+  };
+
+  switch (forState.lastCommitStrategy) {
+    case 'NO_REORDER':
+    case 'TRUNCATE':
+      commitPositional();
+      break;
+    case 'APPEND':
+      commitAppend();
+      break;
+    case 'FULL_KEYED':
+    default:
+      commitReorder();
+      break;
+  }
+
+  removeForBoundaryNodes(parent, forState.lastRemovedNodes);
+  syncKeyedMapFromForState(parent, forState);
+  clearForDomUpdateState(forState);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1211,13 +1393,7 @@ export function updateElementChildren(
       | State<unknown[]>
       | (() => unknown[]);
     const childrenVNodes = evaluateForState(forState, source);
-    const oldKeyMap = keyedElements.get(el);
-    const newKeyMap = reconcileKeyedChildren(
-      el,
-      childrenVNodes as VNode[],
-      oldKeyMap || new Map()
-    );
-    keyedElements.set(el, newKeyMap);
+    commitForBoundaryChildren(el, forState, childrenVNodes as VNode[]);
     return;
   }
 

@@ -176,7 +176,14 @@ export interface ForItemInstance<T> {
   vnode: VNode | undefined;
   _startStateIndex: number; // Global state index when item was created
   _dom?: Node; // Cached DOM node for efficient updates
+  _needsDomUpdate: boolean;
 }
+
+export type ForCommitStrategy =
+  | 'APPEND'
+  | 'TRUNCATE'
+  | 'NO_REORDER'
+  | 'FULL_KEYED';
 
 export interface ForState<T> {
   sourceState: State<T[]> | null;
@@ -186,6 +193,8 @@ export interface ForState<T> {
   renderFn: (item: T, index: () => number) => VNode;
   parentInstance: ComponentInstance | null;
   mounted: boolean;
+  lastCommitStrategy: ForCommitStrategy;
+  lastRemovedNodes: Node[];
 }
 
 /**
@@ -238,6 +247,8 @@ export function createForState<T>(
     renderFn,
     parentInstance,
     mounted: false,
+    lastCommitStrategy: 'NO_REORDER',
+    lastRemovedNodes: [],
   };
 }
 
@@ -347,6 +358,7 @@ export function createItemInstance<T>(
     componentInstance: itemComponent,
     vnode,
     _startStateIndex: startStateIndex,
+    _needsDomUpdate: true,
   };
 
   // Override the pending flush task for this item so that when nested state
@@ -382,6 +394,7 @@ export function createItemInstance<T>(
       );
       // Update the stored vnode directly in captured instance
       itemInstance.vnode = newVnode;
+      itemInstance._needsDomUpdate = true;
       // Commit read subscriptions for this re-render
       finalizeReadSubscriptions(itemComponent);
     } finally {
@@ -425,6 +438,7 @@ function rerenderItemInstance<T>(
     itemInstance.vnode = evaluateJSXElement(
       forState.renderFn(item, () => itemInstance.indexSignal())
     );
+    itemInstance._needsDomUpdate = true;
     try {
       if (
         itemInstance.vnode &&
@@ -457,6 +471,7 @@ export function reconcileForItems<T>(
   const { items, orderedKeys, byFn } = forState;
   const oldLen = orderedKeys.length;
   const newLen = newArray.length;
+  forState.lastRemovedNodes = [];
 
   // ─────────────────────────────────────────────────────────────────────────
   // FAST PATH A: APPEND
@@ -474,6 +489,7 @@ export function reconcileForItems<T>(
 
     if (canUseAppendPath) {
       recordBenchFastLane('APPEND');
+      forState.lastCommitStrategy = 'APPEND';
       const resultVNodes: VNode[] = [];
 
       // Update existing rows in-place
@@ -532,6 +548,7 @@ export function reconcileForItems<T>(
 
     if (canUseTruncatePath) {
       recordBenchFastLane('TRUNCATE');
+      forState.lastCommitStrategy = 'TRUNCATE';
       const resultVNodes: VNode[] = [];
 
       // Update existing rows in-place
@@ -571,8 +588,11 @@ export function reconcileForItems<T>(
             }
           }
           // Clean up cached DOM node if present
-          if (itemInstance._dom instanceof Element) {
-            teardownNodeSubtree(itemInstance._dom);
+          if (itemInstance._dom) {
+            if (itemInstance._dom instanceof Element) {
+              teardownNodeSubtree(itemInstance._dom);
+            }
+            forState.lastRemovedNodes.push(itemInstance._dom);
           }
           itemInstance.vnode = undefined;
           itemInstance._dom = undefined;
@@ -607,6 +627,7 @@ export function reconcileForItems<T>(
 
     if (canUseNoReorderPath) {
       recordBenchFastLane('NO_REORDER');
+      forState.lastCommitStrategy = 'NO_REORDER';
       const resultVNodes: VNode[] = [];
 
       // Update in-place only, no DOM moves needed
@@ -644,6 +665,7 @@ export function reconcileForItems<T>(
   // Avoid allocating newKeyMap: iterate directly and track removals
   // ─────────────────────────────────────────────────────────────────────────
   recordBenchFastLane('FULL_KEYED');
+  forState.lastCommitStrategy = 'FULL_KEYED';
 
   const toRemove = new Set(orderedKeys);
   const newOrderedKeys: Array<string | number | null> = [];
@@ -703,8 +725,11 @@ export function reconcileForItems<T>(
       }
 
       // Clean up cached DOM node if present
-      if (itemInstance._dom instanceof Element) {
-        teardownNodeSubtree(itemInstance._dom);
+      if (itemInstance._dom) {
+        if (itemInstance._dom instanceof Element) {
+          teardownNodeSubtree(itemInstance._dom);
+        }
+        forState.lastRemovedNodes.push(itemInstance._dom);
       }
 
       itemInstance.vnode = undefined;
@@ -736,4 +761,15 @@ export function evaluateForState<T>(
   }
 
   return reconcileForItems(forState, currentArray);
+}
+
+export function clearForDomUpdateState<T>(forState: ForState<T>): void {
+  for (let i = 0; i < forState.orderedKeys.length; i++) {
+    const key = forState.orderedKeys[i];
+    const itemInstance = forState.items.get(key);
+    if (itemInstance) {
+      itemInstance._needsDomUpdate = false;
+    }
+  }
+  forState.lastRemovedNodes = [];
 }

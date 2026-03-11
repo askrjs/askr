@@ -667,26 +667,43 @@ function tryReuseElement(
 
 /** Commit reconciliation by replacing parent children */
 function commitReconciliation(parent: Element, finalNodes: Node[]): void {
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < finalNodes.length; i++) {
-    fragment.appendChild(finalNodes[i]);
-  }
-
-  // Cleanup existing nodes
-  // NOTE: At this point, any reused nodes have been moved into the fragment,
-  // so whatever remains under parent will be removed by replaceChildren.
   try {
-    // HOT PATH: avoid Array.from(parent.childNodes) allocation
+    const finalSet = new Set<Node>(finalNodes);
+
     for (let n = parent.firstChild; n; ) {
       const next = n.nextSibling;
-      teardownNodeSubtree(n);
+      if (!finalSet.has(n)) {
+        teardownNodeSubtree(n);
+        parent.removeChild(n);
+      }
       n = next;
     }
-  } catch {
-    // SLOW PATH: cleanup failure (dev-only diagnostics live elsewhere)
-    // Ignore
-  }
 
-  recordDOMReplace('reconcile');
-  parent.replaceChildren(fragment);
+    for (let i = 0; i < finalNodes.length; i++) {
+      const desiredNode = finalNodes[i];
+      const anchor = parent.childNodes[i] ?? null;
+      if (desiredNode !== anchor) {
+        parent.insertBefore(desiredNode, anchor);
+      }
+    }
+  } catch {
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < finalNodes.length; i++) {
+      fragment.appendChild(finalNodes[i]);
+    }
+
+    try {
+      for (let n = parent.firstChild; n; ) {
+        const next = n.nextSibling;
+        teardownNodeSubtree(n);
+        n = next;
+      }
+    } catch {
+      // Ignore fallback cleanup failures.
+    }
+
+    recordDOMReplace('reconcile');
+    parent.replaceChildren(fragment);
+    return;
+  }
 }

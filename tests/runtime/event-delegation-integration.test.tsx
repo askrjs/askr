@@ -3,10 +3,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   createIsland,
   state,
+} from '../../src/index';
+import {
   disableEventDelegation,
   enableEventDelegation,
-} from '../../src/index';
-import { setGlobalDelegationContainer } from '../../src/runtime/events';
+  setGlobalDelegationContainer,
+} from '../../src/runtime/events';
 import {
   createTestContainer,
   flushScheduler,
