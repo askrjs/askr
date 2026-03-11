@@ -4,7 +4,10 @@ Event delegation is an optimization that reduces memory usage and improves perfo
 
 ## How It Works
 
-When event delegation is enabled (the default), Askr automatically delegates these event types:
+Askr delegates supported DOM events automatically. There is no app-level setup
+for the common case.
+
+These event types are delegated:
 
 - **Mouse events**: `click`, `dblclick`, `mousedown`, `mouseup`, `mousemove`
 - **Pointer events**: `pointerdown`, `pointerup`, `pointermove`, `pointercancel`
@@ -14,46 +17,6 @@ When event delegation is enabled (the default), Askr automatically delegates the
 - **Form events**: `input`, `change`, `submit`, `reset`
 
 Non-delegated events (e.g., `scroll`, `load`) attach listeners directly to elements.
-
-## API
-
-### Control Delegation
-
-```typescript
-import {
-  enableEventDelegation,
-  disableEventDelegation,
-  isEventDelegationEnabled,
-} from '@askrjs/askr';
-
-// Disable delegation globally
-disableEventDelegation();
-
-// Re-enable delegation
-enableEventDelegation();
-
-// Check if delegation is enabled
-if (isEventDelegationEnabled()) {
-  console.log('Delegation active');
-}
-```
-
-### Custom Delegation Container
-
-By default, delegated listeners attach to `document.body`. You can change this:
-
-```typescript
-import { setGlobalDelegationContainer } from '@askrjs/askr';
-
-const customContainer = document.getElementById('app-root');
-setGlobalDelegationContainer(customContainer!);
-```
-
-**When to use a custom container:**
-
-- Shadow DOM boundaries
-- Iframe integration
-- Isolated widget environments
 
 ## Usage
 
@@ -75,7 +38,8 @@ function Counter() {
 createIsland({ root: document.body, component: Counter });
 ```
 
-The `onClick` handler is automatically delegated - no direct listener is attached to the button.
+The `onClick` handler is delegated automatically. No extra framework setup is
+required.
 
 ### Event Propagation
 
@@ -136,21 +100,6 @@ function BatchedUpdates() {
 
 For most applications, delegation is faster overall due to reduced memory allocation and cleanup.
 
-## Opt-Out
-
-Disable delegation for specific use cases:
-
-```typescript
-import { disableEventDelegation } from '@askrjs/askr';
-
-// Before creating islands
-disableEventDelegation();
-
-createIsland({ root: container, component: MyComponent });
-```
-
-Existing islands continue to use their initial delegation mode. Call `disable` before mounting components.
-
 ## Edge Cases
 
 ### Custom Events
@@ -192,19 +141,16 @@ onMount(() => {
 
 ### Event not firing
 
-1. **Check delegation is enabled**: Call `isEventDelegationEnabled()`
-2. **Verify event type is delegated**: See list above
-3. **Check stopPropagation**: Earlier handlers might prevent bubbling
+1. **Verify event type is delegated**: See list above
+2. **Check stopPropagation**: Earlier handlers might prevent bubbling
 
 ### Performance issues
 
 1. **Too many handlers**: Consider using a single handler with logic
-2. **Large delegation container**: Use a custom container closer to your elements
-3. **Excessive bubbling**: Opt out of delegation for deeply nested structures
+2. **Excessive bubbling**: Reduce unnecessary nesting around hot interactive regions
 
 ## Best Practices
 
-1. **Leave delegation enabled** unless you have a specific reason to disable it
-2. **Use standard event names** (`onClick`, `onInput`) - they automatically delegate
-3. **Avoid stopPropagation** unless necessary - it breaks delegation benefits
-4. **Clean up properly**: Delegation cleans up automatically when islands are destroyed
+1. **Use standard event names** (`onClick`, `onInput`) so the runtime can delegate them automatically
+2. **Avoid stopPropagation** unless necessary because it cuts off delegated bubbling
+3. **Clean up properly**: Delegation cleans up automatically when islands are destroyed

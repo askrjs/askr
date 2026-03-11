@@ -41,14 +41,25 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
                         class: () => (isSelected(item.id) ? 'danger' : ''),
                       },
                       children: [
-                        { type: 'td', props: {}, children: [String(item.id)] },
                         {
                           type: 'td',
-                          props: {},
+                          props: { class: 'col-md-1' },
+                          children: [String(item.id)],
+                        },
+                        {
+                          type: 'td',
+                          props: {
+                            class: 'col-md-4',
+                            onClick: (e: MouseEvent) => {
+                              e.preventDefault();
+                              select(item.id);
+                            },
+                          },
                           children: [
                             {
                               type: 'a',
                               props: {
+                                class: 'lbl',
                                 onClick: (e: MouseEvent) => {
                                   e.preventDefault();
                                   select(item.id);
@@ -57,6 +68,36 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
                               children: [item.label],
                             },
                           ],
+                        },
+                        {
+                          type: 'td',
+                          props: { class: 'col-md-1' },
+                          children: [
+                            {
+                              type: 'a',
+                              props: {
+                                class: 'remove',
+                                onClick: (e: MouseEvent) => {
+                                  e.preventDefault();
+                                },
+                              },
+                              children: [
+                                {
+                                  type: 'span',
+                                  props: {
+                                    class: 'glyphicon glyphicon-remove',
+                                    'aria-hidden': 'true',
+                                  },
+                                  children: [],
+                                },
+                              ],
+                            },
+                          ],
+                        },
+                        {
+                          type: 'td',
+                          props: { class: 'col-md-6' },
+                          children: [],
                         },
                       ],
                     };

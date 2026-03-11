@@ -12,13 +12,15 @@ import { evaluate as _evaluate } from './evaluate';
 import { isKeyedReorderFastPathEligible, getKeyMapForElement } from './keyed';
 import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
 
-// Expose minimal renderer bridge for runtime fast-lane to call `evaluate`
-if (typeof globalThis !== 'undefined') {
-  const _g = globalThis as Record<string, unknown>;
-  _g.__ASKR_RENDERER = {
-    evaluate: _evaluate,
-    isKeyedReorderFastPathEligible,
-    getKeyMapForElement,
-    markReactivePropsDirtySource: _markReactivePropsDirtySource,
-  };
+export function installRendererBridge(): true {
+  if (typeof globalThis !== 'undefined') {
+    const _g = globalThis as Record<string, unknown>;
+    _g.__ASKR_RENDERER = {
+      evaluate: _evaluate,
+      isKeyedReorderFastPathEligible,
+      getKeyMapForElement,
+      markReactivePropsDirtySource: _markReactivePropsDirtySource,
+    };
+  }
+  return true;
 }

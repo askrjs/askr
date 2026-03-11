@@ -5,7 +5,8 @@
  * instead of individual elements. This significantly reduces memory usage
  * and improves performance when many elements have the same event type.
  *
- * OPT-IN: Call enableEventDelegation() to use delegated event handling.
+ * Delegated handling is enabled by default. Tests and internal runtime code
+ * can still disable or re-enable it when they need to exercise both modes.
  */
 
 import { globalScheduler } from './scheduler';
@@ -72,7 +73,7 @@ type DelegatedHandlerStore = DelegatedHandler | Map<string, DelegatedHandler>;
 
 const delegatedHandlers = new WeakMap<Element, DelegatedHandlerStore>();
 
-let eventDelegationEnabled = false;
+let eventDelegationEnabled = true;
 let defaultContainer: Element | null = null;
 let globalDelegationContainer: Element | null = null;
 const containerDelegatedListeners = new Map<
@@ -160,7 +161,7 @@ function attachDelegatedListener(
 
           current = current.parentElement;
         }
-      });
+      }, 'sync');
     };
 
     const passiveOptions = getPassiveOptions(eventName);

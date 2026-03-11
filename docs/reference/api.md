@@ -11,7 +11,8 @@ Askr keeps the root API minimal and exposes advanced features through explicit s
 - `derive(source, map) -> getter`
 - `selector(source, equals?) -> keyed predicate`
 - `For(...)`
-- Event delegation controls (`enableEventDelegation`, `disableEventDelegation`, `isEventDelegationEnabled`, `setGlobalDelegationContainer`)
+
+Supported DOM events are delegated automatically as part of the renderer; normal app code does not need a separate event-delegation API.
 
 ## Subpath packages
 
