@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createIsland, state, State } from '../index';
+import { createIsland, selector, state, State } from '../index';
 import { For } from '../for';
 import { globalScheduler } from '../runtime/scheduler';
 
@@ -15,6 +15,7 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   const App = () => {
     dataState = state<RowData[]>([]);
     selectedState = state<number | null>(null);
+    const isSelected = selector(selectedState);
 
     const select = (id: number) => selectedState.set(id);
 
@@ -33,32 +34,33 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
                 For(
                   () => dataState(),
                   (item: RowData) => item.id,
-                  (item: RowData) => ({
-                    type: 'tr',
-                    props: {
-                      class: () =>
-                        selectedState() === item.id ? 'danger' : '',
-                    },
-                    children: [
-                      { type: 'td', props: {}, children: [String(item.id)] },
-                      {
-                        type: 'td',
-                        props: {},
-                        children: [
-                          {
-                            type: 'a',
-                            props: {
-                              onClick: (e: MouseEvent) => {
-                                e.preventDefault();
-                                select(item.id);
-                              },
-                            },
-                            children: [item.label],
-                          },
-                        ],
+                  (item: RowData) => {
+                    return {
+                      type: 'tr',
+                      props: {
+                        class: () => (isSelected(item.id) ? 'danger' : ''),
                       },
-                    ],
-                  })
+                      children: [
+                        { type: 'td', props: {}, children: [String(item.id)] },
+                        {
+                          type: 'td',
+                          props: {},
+                          children: [
+                            {
+                              type: 'a',
+                              props: {
+                                onClick: (e: MouseEvent) => {
+                                  e.preventDefault();
+                                  select(item.id);
+                                },
+                              },
+                              children: [item.label],
+                            },
+                          ],
+                        },
+                      ],
+                    };
+                  }
                 ),
               ],
             },

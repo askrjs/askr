@@ -43,7 +43,7 @@ if (isEventDelegationEnabled()) {
 By default, delegated listeners attach to `document.body`. You can change this:
 
 ```typescript
-import { setGlobalDelegationContainer } from '@askrjs/askr/runtime/events';
+import { setGlobalDelegationContainer } from '@askrjs/askr';
 
 const customContainer = document.getElementById('app-root');
 setGlobalDelegationContainer(customContainer!);

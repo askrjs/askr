@@ -37,7 +37,7 @@ export function resetSelectiveHydrationOptions(): void {
 }
 
 export function shouldSkipHydrationOnElement(element: Element): boolean {
-  if (element.hasAttribute('data-skip-hydrate')) {
+  if (element.closest('[data-skip-hydrate="true"]')) {
     return true;
   }
 

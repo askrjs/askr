@@ -1,10 +1,17 @@
-import { expect } from 'chai';
-import { test, describe } from 'vitest';
+import { describe, expect, beforeEach, test } from 'vitest';
 import { createIsland, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import {
+  getPerfMetrics,
+  resetPerfMetrics,
+} from '../../src/runtime/perf-metrics';
 
-describe('Reactive props issues validation', () => {
-  test('should not recreate reactive prop subscription when function reference stays the same (Issue 1)', () => {
+describe('reactive props issues validation', () => {
+  beforeEach(() => {
+    resetPerfMetrics();
+  });
+
+  test('should not recreate reactive prop subscription when function reference stays the same', () => {
     const { container, cleanup } = createTestContainer();
 
     const Component = () => {
@@ -24,21 +31,18 @@ describe('Reactive props issues validation', () => {
     flushScheduler();
 
     const div = container.querySelector('div');
-    expect(div?.getAttribute('title')).to.equal('initial');
-
-    // Issue: Currently, updateElementFromVnode always cleans up and re-sets up
-    // even when the function reference hasn't changed, which is wasteful
-    // This test passes but documents the issue
+    expect(div?.getAttribute('title')).toBe('initial');
 
     cleanup();
   });
 
-  test('should clean up state subscriptions immediately when reactive prop is removed (Issue 2)', () => {
+  test('should clean up reactive prop subscriptions immediately when a prop is removed', () => {
     const { container, cleanup } = createTestContainer();
 
     let externalState1: ReturnType<typeof state<string>>;
     let externalState2: ReturnType<typeof state<string>>;
     let showBothState: ReturnType<typeof state<boolean>>;
+    let prop2Evaluations = 0;
 
     const Component = () => {
       externalState1 = state('value1');
@@ -53,7 +57,12 @@ describe('Reactive props issues validation', () => {
             type: 'span',
             props: {
               'data-prop1': () => externalState1(),
-              'data-prop2': showBothState() ? () => externalState2() : 'static',
+              'data-prop2': showBothState()
+                ? () => {
+                    prop2Evaluations += 1;
+                    return externalState2();
+                  }
+                : 'static',
             },
             children: ['test'],
           },
@@ -65,95 +74,104 @@ describe('Reactive props issues validation', () => {
     flushScheduler();
 
     const span = container.querySelector('span');
-    expect(span?.getAttribute('data-prop1')).to.equal('value1');
-    expect(span?.getAttribute('data-prop2')).to.equal('value2');
+    expect(span?.getAttribute('data-prop1')).toBe('value1');
+    expect(span?.getAttribute('data-prop2')).toBe('value2');
 
-    // Access internal _readers to check subscription cleanup
-    // This is testing implementation details but validates the memory leak issue
-    const state2Internal = externalState2! as unknown as {
-      _readers?: Map<unknown, number>;
-    };
-
-    // State2 should have readers (coordinator)
-    const initialReaderCount = state2Internal._readers?.size || 0;
-    expect(initialReaderCount).to.be.greaterThan(0);
-
-    // Remove prop2 by setting showBoth to false
+    prop2Evaluations = 0;
     showBothState!.set(false);
     flushScheduler();
 
-    expect(span?.getAttribute('data-prop2')).to.equal('static');
+    expect(span?.getAttribute('data-prop2')).toBe('static');
 
-    // Issue: State2 subscriptions might not be cleaned up immediately
-    // They should be removed when the reactive prop is replaced with a static value
-    // Current bug: cleanup only happens when registry becomes empty
+    externalState2!.set('value3');
+    flushScheduler();
+
+    expect(span?.getAttribute('data-prop2')).toBe('static');
+    expect(prop2Evaluations).toBe(0);
 
     cleanup();
   });
 
-  test('should have an abortController in reactive prop coordinator (Issue 3)', () => {
+  test('should only reevaluate dirty reactive props', () => {
     const { container, cleanup } = createTestContainer();
 
-    const Component = () => {
-      const textState = state('test');
+    let leftState: ReturnType<typeof state<string>>;
+    let rightState: ReturnType<typeof state<string>>;
+    let leftEvaluations = 0;
+    let rightEvaluations = 0;
 
-      return {
-        type: 'div',
-        props: {
-          title: () => textState(),
-        },
-        children: ['content'],
-      };
+    const Component = () => {
+      leftState = state('left-1');
+      rightState = state('right-1');
+
+      return (
+        <div>
+          <span
+            id="left"
+            data-value={() => {
+              leftEvaluations += 1;
+              return leftState();
+            }}
+          />
+          <span
+            id="right"
+            data-value={() => {
+              rightEvaluations += 1;
+              return rightState();
+            }}
+          />
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    // The reactive prop coordinator is created lazily
-    // According to copilot-instructions.md, it should have an abortController
-    // for proper cancellation semantics
+    leftEvaluations = 0;
+    rightEvaluations = 0;
 
-    // We can't easily test this without accessing internals,
-    // but this test documents the requirement
-
-    cleanup();
-
-    // After cleanup, the coordinator should have aborted its controller
-    // to signal cancellation of any ongoing operations
-  });
-
-  test('should avoid unnecessary cleanup when function reference unchanged (Performance)', () => {
-    const { container, cleanup } = createTestContainer();
-
-    let renderCount = 0;
-
-    const Component = () => {
-      const textState = state('initial');
-      renderCount++;
-
-      // Create a stable function reference outside the vnode
-      const stableGetter = () => textState();
-
-      return {
-        type: 'div',
-        props: {
-          title: stableGetter, // Same reference every render
-        },
-        children: ['test'],
-      };
-    };
-
-    createIsland({ root: container, component: Component });
+    leftState!.set('left-2');
     flushScheduler();
 
-    expect(container.querySelector('div')?.getAttribute('title')).to.equal(
-      'initial'
+    expect(container.querySelector('#left')?.getAttribute('data-value')).toBe(
+      'left-2'
     );
-    expect(renderCount).to.equal(1);
+    expect(container.querySelector('#right')?.getAttribute('data-value')).toBe(
+      'right-1'
+    );
+    expect(leftEvaluations).toBe(1);
+    expect(rightEvaluations).toBe(0);
+    expect(getPerfMetrics()?.reactivePropReevaluations).toBeGreaterThan(0);
 
-    // The issue: updateElementFromVnode always calls cleanup() and setupReactiveProp()
-    // even when the function reference is identical. This is wasteful.
-    // We can't easily test this without internal instrumentation, but it's a valid concern
+    cleanup();
+  });
+
+  test('should skip DOM writes when a reactive prop value is unchanged', () => {
+    const { container, cleanup } = createTestContainer();
+
+    let countState: ReturnType<typeof state<number>>;
+
+    const Component = () => {
+      countState = state(0);
+      return (
+        <div
+          id="subject"
+          data-parity={() => (countState() % 2 === 0 ? 'even' : 'odd')}
+        />
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    resetPerfMetrics();
+    countState!.set(2);
+    flushScheduler();
+
+    expect(
+      container.querySelector('#subject')?.getAttribute('data-parity')
+    ).toBe('even');
+    expect(getPerfMetrics()?.skippedDomPropWrites).toBeGreaterThan(0);
 
     cleanup();
   });

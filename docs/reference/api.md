@@ -7,17 +7,20 @@ Askr keeps the root API minimal and exposes advanced features through explicit s
 - `createIsland(config)`
 - `createSPA(config)`
 - `state(initialValue)`
-- `derive(selector)`
+- `derive(selector) -> getter`
+- `derive(source, map) -> getter`
+- `selector(source, equals?) -> keyed predicate`
 - `For(...)`
 - Event delegation controls (`enableEventDelegation`, `disableEventDelegation`, `isEventDelegationEnabled`, `setGlobalDelegationContainer`)
 
 ## Subpath packages
 
-- `@askrjs/askr/router` → routing primitives (`route`, `getRoutes`, `clearRoutes`, `navigate`, `Link`, `layout`)
-- `@askrjs/askr/resources` → async resource primitives (`resource`, `getSignal`)
-- `@askrjs/askr/fx` → timing and scheduling utilities (`debounce`, `throttle`, `retry`, `defer`, etc.)
-- `@askrjs/askr/ssr` → server-side rendering helpers
-- `@askrjs/askr/for`, `@askrjs/askr/foundations` → lower-level framework primitives
+- `@askrjs/askr/router` -> routing primitives (`route`, `getRoutes`, `clearRoutes`, `navigate`, `Link`, `layout`)
+- `@askrjs/askr/resources` -> async resource primitives (`resource`, `getSignal`)
+- `@askrjs/askr/fx` -> timing and scheduling utilities (`debounce`, `throttle`, `retry`, `defer`, etc.)
+- `@askrjs/askr/ssr` -> server-side rendering helpers
+- `@askrjs/askr/ssg` -> static-site generation helpers (`createStaticGen`)
+- `@askrjs/askr/for`, `@askrjs/askr/foundations` -> lower-level framework primitives
 
 ## Import style
 
@@ -26,11 +29,38 @@ Use root imports for common app code and subpath imports when you need feature-s
 ```ts
 import { createIsland, state } from '@askrjs/askr';
 import { route, navigate } from '@askrjs/askr/router';
-import { resource, getSignal } from '@askrjs/askr/resources';
+import { resource } from '@askrjs/askr/resources';
+import { createStaticGen } from '@askrjs/askr/ssg';
 ```
+
+`derive()` returns a callable getter. Example:
+
+```ts
+import { derive, state } from '@askrjs/askr';
+
+const count = state(0);
+const doubled = derive(() => count() * 2);
+console.log(doubled());
+```
+
+`selector()` returns a keyed predicate. Example:
+
+```ts
+import { selector, state } from '@askrjs/askr';
+
+const selectedId = state<number | null>(null);
+const isSelected = selector(selectedId);
+
+console.log(isSelected(42));
+```
+
+For large keyed lists, call `selector()` once in the owner component and pass the returned predicate to child rows instead of creating a new selector per item.
+
+`@askrjs/askr/ssg` also accepts `parallelism?: number | 'auto'`, and the Vite plugin accepts `optimizeTemplates?: boolean` for opt-in compile-time literal hoisting.
 
 ## Next
 
 - [Router API](router.md)
 - [Resources API](resources.md)
 - [FX API](fx.md)
+- [SSG Guide](../guides/ssg.md)

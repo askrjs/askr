@@ -3,7 +3,12 @@ import { askrVitePlugin } from '../../src/dev/vite-plugin-askr';
 
 const sample = `
 export default function Hello() {
-  return <div class="x">Hello</div>;
+  return (
+    <section>
+      <div class="x y">Hello</div>
+      <span class="x y">World</span>
+    </section>
+  );
 }
 `;
 
@@ -33,5 +38,29 @@ describe('askrVitePlugin JSX transform', () => {
 
     // Ensure a jsx/jsxs call exists in the output
     expect(/\bjsx\(|\bjsxs\(/.test(code)).toBe(true);
+  });
+
+  it('should hoist repeated static literals when optimizeTemplates is enabled', async () => {
+    const plugin = askrVitePlugin({
+      transformJsx: true,
+      optimizeTemplates: true,
+    });
+
+    if (!plugin.transform) throw new Error('plugin missing transform hook');
+
+    type TransformHook = (
+      code: string,
+      id: string
+    ) => Promise<{ code: string; map?: unknown } | null>;
+
+    const res = await (plugin.transform as TransformHook)(sample, 'file.tsx');
+    if (!res) {
+      console.warn(
+        'Skipping optimizeTemplates assertion: esbuild not available in this environment.'
+      );
+      return;
+    }
+
+    expect(res.code).toMatch(/const __askrStaticLiteral0 = "x y";/);
   });
 });

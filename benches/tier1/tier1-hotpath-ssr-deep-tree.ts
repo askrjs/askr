@@ -1,0 +1,19 @@
+import { bench, describe, expect } from 'vitest';
+import { renderToStringSync } from '../../src/ssr';
+import { buildDeepSsrTree, tier1BenchOptions } from '../shared/_shared';
+
+const deepTree = buildDeepSsrTree(300);
+const deepTreeHtml = renderToStringSync(() => deepTree);
+
+expect(deepTreeHtml).toContain('Deep leaf marker');
+expect(deepTreeHtml).toContain('id="deep-level-299"');
+
+describe('tier1 ssr deep tree', () => {
+  bench(
+    'render a 300-level nested sync tree',
+    () => {
+      renderToStringSync(() => deepTree);
+    },
+    tier1BenchOptions
+  );
+});

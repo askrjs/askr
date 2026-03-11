@@ -46,7 +46,7 @@ Events serialize through a scheduler. State updates are atomic. Renders follow s
 // No race conditions
 ```
 
-Proven with 133 tests covering:
+Proven with 524 tests covering:
 
 - Event ordering (12 tests)
 - State atomicity (12 tests)
@@ -57,16 +57,17 @@ Proven with 133 tests covering:
 Every component gets an AbortSignal for automatic cancellation.
 
 ```typescript
-import { resource, getSignal } from '@askrjs/askr/resources';
+import { resource } from '@askrjs/askr/resources';
 
 function Data({ id }) {
-  const data = resource(async () => {
-    const res = await fetch(`/api/${id}`, { signal: getSignal() });
+  const data = resource(async ({ signal }) => {
+    const res = await fetch(`/api/${id}`, { signal });
     return res.json();
   }, [id]);
 
-  if (!data) return <div>Loading...</div>;
-  return <div>{data.name}</div>;
+  if (data.pending || !data.value) return <div>Loading...</div>;
+  if (data.error) return <div>Failed to load</div>;
+  return <div>{data.value.name}</div>;
 }
 // Async work is cancelled automatically on unmount/navigation
 ```
@@ -105,11 +106,42 @@ setValue((prev) => prev + 1);
 ### Derived State
 
 ```typescript
-const [count, setCount] = state(0);
-const doubled = derive(() => count() * 2);
+function Counter() {
+  const [count, setCount] = state(0);
+  const doubled = derive(() => count() * 2);
 
-console.log(doubled()); // Automatically updates
+  return (
+    <button onClick={() => setCount((prev) => prev + 1)}>
+      {count()} -> {doubled()}
+    </button>
+  );
+}
 ```
+
+`derive()` now returns a getter. Migrate `const doubled = derive(...); {doubled}` to `const doubled = derive(...); {doubled()}`.
+
+### Keyed Selectors
+
+```typescript
+function Table({ rows }) {
+  const [selectedId, setSelectedId] = state<number | null>(null);
+  const isSelected = selector(selectedId);
+
+  return For(
+    () => rows(),
+    (row) => row.id,
+    (row) => (
+      <tr class={() => (isSelected(row.id) ? 'danger' : '')}>
+        <td>
+          <a onClick={() => setSelectedId(row.id)}>{row.id}</a>
+        </td>
+      </tr>
+    )
+  );
+}
+```
+
+Use `selector()` for row selection, active-route checks, and similar keyed fanout hotspots. Create it once in the owner component and reuse the keyed predicate across rows.
 
 ### Lists
 
@@ -133,13 +165,12 @@ createIsland({
 });
 
 // Routed app
+route('/', () => <Home />);
+route('/about', () => <About />);
+
 createSPA({
   root: document.body,
-  component: Layout,
-  routes: [
-    { path: '/', component: Home },
-    { path: '/about', component: About },
-  ],
+  routes: getRoutes(),
 });
 ```
 
@@ -153,6 +184,7 @@ createSPA({
 - [State Management](docs/guides/state.md)
 - [Router Guide](docs/guides/router.md)
 - [Resources Guide](docs/guides/resources.md)
+- [SSG Guide (Advanced)](docs/guides/ssg.md)
 - [Runtime Enforcement](docs/concepts/runtime-enforcement.md)
 - [Deterministic Execution](docs/concepts/determinism.md)
 - [API Reference](docs/reference/api.md)
@@ -161,7 +193,7 @@ createSPA({
 
 ## Guarantees
 
-Askr provides provable guarantees, tested with 133 tests:
+Askr provides provable guarantees, tested with 524 tests:
 
 - Hook order enforcement (12 tests)
 - Event serialization (12 tests)

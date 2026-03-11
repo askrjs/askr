@@ -19,6 +19,14 @@ function unique(arr) {
   return Array.from(new Set(arr));
 }
 
+function isTypeScriptFile(filePath) {
+  return /\.(ts|tsx|mts|cts)$/.test(filePath);
+}
+
+function isMarkdownFile(filePath) {
+  return /\.(md|mdx)$/.test(filePath);
+}
+
 function extractTypeScriptSymbols(content) {
   const symbols = {
     functions: [],
@@ -100,40 +108,35 @@ function extractTypeScriptSymbols(content) {
 
 function extractBenchmarkNames(content) {
   const benches = [];
-  const benchPattern = /bench\(\s*['"]([^'"]+)['"]/g;
+  const benchPattern =
+    /\bbench(?:\.(?:skip|only|todo|fails|concurrent|each))?\s*\(\s*(['"`])([^'"`]+)\1/g;
   let m;
-  while ((m = benchPattern.exec(content))) benches.push(m[1]);
+  while ((m = benchPattern.exec(content))) benches.push(m[2]);
 
-  const describePattern = /describe\(\s*['"]([^'"]+)['"]/g;
-  while ((m = describePattern.exec(content))) benches.push(m[1]);
+  const describePattern =
+    /\bdescribe(?:\.(?:skip|only|todo|concurrent|each))?\s*\(\s*(['"`])([^'"`]+)\1/g;
+  while ((m = describePattern.exec(content))) benches.push(m[2]);
 
   return unique(benches);
 }
 
 function extractTestBehaviors(content) {
   const behaviors = [];
-  const testPattern = /(?:it|test)\(\s*['"]([^'"]+)['"]/g;
+  const testPattern =
+    /\b(?:it|test)(?:\.(?:skip|only|todo|fails|concurrent|each))?\s*\(\s*(['"`])([^'"`]+)\1/g;
   let m;
-  while ((m = testPattern.exec(content))) behaviors.push(m[1]);
+  while ((m = testPattern.exec(content))) behaviors.push(m[2]);
   return unique(behaviors);
 }
 
 function generateSrcInventory(srcDir) {
   const inventory = {};
-  const patterns = ['.ts', '.tsx'];
-
-  for (const ext of patterns) {
-    const glob = `**/*${ext}`; // not using glob lib, we'll walk manually
-  }
 
   function walk(dir) {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, ent.name);
       if (ent.isDirectory()) walk(full);
-      else if (
-        ent.isFile() &&
-        (full.endsWith('.ts') || full.endsWith('.tsx'))
-      ) {
+      else if (ent.isFile() && isTypeScriptFile(full)) {
         try {
           const content = fs.readFileSync(full, 'utf8');
           const relativePath = path.relative(repoRoot, full);
@@ -160,7 +163,7 @@ function generateBenchesInventory(benchesDir) {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, ent.name);
       if (ent.isDirectory()) walk(full);
-      else if (ent.isFile() && full.endsWith('.ts')) {
+      else if (ent.isFile() && isTypeScriptFile(full)) {
         try {
           const content = fs.readFileSync(full, 'utf8');
           const relativePath = path.relative(repoRoot, full);
@@ -186,10 +189,7 @@ function generateTestsInventory(testsDir) {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, ent.name);
       if (ent.isDirectory()) walk(full);
-      else if (
-        ent.isFile() &&
-        (full.endsWith('.ts') || full.endsWith('.tsx'))
-      ) {
+      else if (ent.isFile() && isTypeScriptFile(full)) {
         try {
           const content = fs.readFileSync(full, 'utf8');
           const relativePath = path.relative(repoRoot, full);
@@ -209,10 +209,31 @@ function generateTestsInventory(testsDir) {
   return inventory;
 }
 
+function generateDocsInventory(docsDir) {
+  const inventory = {};
+  function walk(dir) {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, ent.name);
+      if (ent.isDirectory()) walk(full);
+      else if (ent.isFile() && isMarkdownFile(full)) {
+        try {
+          const relativePath = path.relative(repoRoot, full);
+          inventory[relativePath] = true;
+        } catch (e) {
+          console.error('Error processing', full, e);
+        }
+      }
+    }
+  }
+  walk(docsDir);
+  return inventory;
+}
+
 function generateMarkdownInventory(
   srcInventory,
   benchesInventory,
-  testsInventory
+  testsInventory,
+  docsInventory
 ) {
   const lines = [];
   lines.push('# Askr Framework Inventory');
@@ -224,6 +245,7 @@ function generateMarkdownInventory(
   lines.push(`- **Source files**: ${Object.keys(srcInventory).length}`);
   lines.push(`- **Benchmark files**: ${Object.keys(benchesInventory).length}`);
   lines.push(`- **Test files**: ${Object.keys(testsInventory).length}`);
+  lines.push(`- **Docs files**: ${Object.keys(docsInventory).length}`);
   lines.push('');
 
   const totalSrcSymbols = Object.values(srcInventory).reduce((acc, file) => {
@@ -297,6 +319,13 @@ function generateMarkdownInventory(
     lines.push('');
   }
 
+  lines.push('## Docs Files (`docs/`)');
+  lines.push('');
+
+  for (const filePath of Object.keys(docsInventory).sort()) {
+    lines.push(`- \`${filePath}\``);
+  }
+
   return lines.join('\n');
 }
 
@@ -307,11 +336,13 @@ function main() {
     path.join(repoRoot, 'benches')
   );
   const testsInventory = generateTestsInventory(path.join(repoRoot, 'tests'));
+  const docsInventory = generateDocsInventory(path.join(repoRoot, 'docs'));
 
   const markdown = generateMarkdownInventory(
     srcInventory,
     benchesInventory,
-    testsInventory
+    testsInventory,
+    docsInventory
   );
   const outFile = path.join(repoRoot, 'inventory.md');
   fs.writeFileSync(outFile, markdown, 'utf8');
@@ -322,6 +353,7 @@ function main() {
   console.log(`  Source files: ${Object.keys(srcInventory).length}`);
   console.log(`  Benchmark files: ${Object.keys(benchesInventory).length}`);
   console.log(`  Test files: ${Object.keys(testsInventory).length}`);
+  console.log(`  Docs files: ${Object.keys(docsInventory).length}`);
 
   const totalSrcSymbols = Object.values(srcInventory).reduce(
     (acc, file) =>

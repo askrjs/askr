@@ -10,6 +10,7 @@ import { SSRDataMissingError } from './errors';
 
 export type { SSRData } from '../common/ssr';
 import type { SSRData } from '../common/ssr';
+import type { Route } from '../common/router';
 
 // Unified per-render context combining SSRContext and RenderContext
 export interface RenderContext {
@@ -17,6 +18,7 @@ export interface RenderContext {
   seed: number;
   data?: SSRData;
   params?: Record<string, string>;
+  routes?: readonly Route[];
   signal?: AbortSignal;
   // Per-render key state (moved from render-keys.ts globals)
   keyCounter: number;
@@ -56,6 +58,7 @@ export function createRenderContext(
     url?: string;
     data?: SSRData;
     params?: Record<string, string>;
+    routes?: readonly Route[];
     signal?: AbortSignal;
   } = {}
 ): RenderContext {
@@ -64,6 +67,7 @@ export function createRenderContext(
     seed,
     data: opts.data,
     params: opts.params,
+    routes: opts.routes,
     signal: opts.signal,
     keyCounter: 0,
     renderData: null,

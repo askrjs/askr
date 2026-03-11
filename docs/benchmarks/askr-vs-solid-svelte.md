@@ -1,8 +1,10 @@
-# Benchmark: Askr vs Solid vs Svelte ⚖️
+# Historical Benchmark Snapshot: Askr vs Solid vs Svelte
 
 ## Summary
 
-This document records benchmark results comparing Askr (v0.0.9), Solid, and Svelte across key metrics: runtime performance for creating and updating 1,000 rows, bundle size (uncompressed), and memory usage in ready state.
+This document records a historical benchmark snapshot captured on 2026-01-13 for
+Askr `v0.0.9`, Solid, and Svelte across a small set of metrics. Do not treat
+these numbers as current release guidance.
 
 ---
 
@@ -36,7 +38,7 @@ This document records benchmark results comparing Askr (v0.0.9), Solid, and Svel
 
 ## Analysis & Takeaways
 
-- **Performance gap on updates:** Askr (v0.0.9) is significantly slower on updates—roughly 8–9x slower than Solid and Svelte in the `update every 10th row` benchmark. This suggests Askr's reactivity and partial-update path need optimization.
+- **Performance gap on updates:** In this historical `v0.0.9` snapshot, Askr was significantly slower on updates - roughly 8-9x slower than Solid and Svelte in the `update every 10th row` benchmark.
 - **Creation cost is reasonable:** Askr's initial create cost is within ~20% of competitors but still slower.
 - **Bundle size is larger:** Askr's uncompressed bundle is notably larger than Solid and somewhat larger than Svelte—opportunity for tree-shaking and code-size optimizations.
 - **Memory:** Askr uses somewhat more memory at ready state; optimizations here may reduce footprint.
@@ -50,8 +52,8 @@ This document records benchmark results comparing Askr (v0.0.9), Solid, and Svel
 
 ---
 
-> Notes: All implementations passed smoke tests and produced complete benchmark results; this provides a solid baseline for iterative improvements.
+> Notes: This file is archival context, not a current performance claim.
 
 ---
 
-_File generated from benchmark summary provided on 2026-01-13._
+_Snapshot recorded on 2026-01-13._

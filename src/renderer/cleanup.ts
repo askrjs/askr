@@ -34,6 +34,33 @@ function cleanupSingleInstance(
   }
 }
 
+function teardownSingleElement(
+  element: Element,
+  errors: unknown[] | null,
+  strict: boolean
+): void {
+  try {
+    removeElementListeners(element);
+  } catch (err) {
+    if (strict) errors!.push(err);
+    else logger.warn('[Askr] removeElementListeners failed:', err);
+  }
+
+  try {
+    removeElementReactiveProps(element);
+  } catch (err) {
+    if (strict) errors!.push(err);
+    else logger.warn('[Askr] removeElementReactiveProps failed:', err);
+  }
+
+  try {
+    cleanupSingleInstance(element as InstanceHost, errors, strict);
+  } catch (err) {
+    if (strict) errors!.push(err);
+    else logger.warn('[Askr] cleanupSingleInstance failed:', err);
+  }
+}
+
 // Walk descendant elements with minimal allocations.
 // HOT PATH: used during subtree teardown (replace/unmount).
 function forEachDescendantElement(root: Element, visit: (el: Element) => void) {
@@ -60,6 +87,11 @@ function forEachDescendantElement(root: Element, visit: (el: Element) => void) {
   for (let i = 0; i < descendants.length; i++) {
     visit(descendants[i]);
   }
+}
+
+function forEachElementInSubtree(root: Element, visit: (el: Element) => void) {
+  visit(root);
+  forEachDescendantElement(root, visit);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +157,29 @@ export function cleanupInstancesUnder(
   cleanupInstanceIfPresent(node, opts);
 }
 
+export function teardownNodeSubtree(
+  node: Node | null,
+  opts?: { strict?: boolean }
+): void {
+  if (!node || !(node instanceof Element)) return;
+
+  const strict = opts?.strict ?? false;
+  const errors: unknown[] | null = strict ? [] : null;
+
+  try {
+    forEachElementInSubtree(node, (element) => {
+      teardownSingleElement(element, errors, strict);
+    });
+  } catch (err) {
+    if (strict) errors!.push(err);
+    else logger.warn('[Askr] teardownNodeSubtree failed:', err);
+  }
+
+  if (errors && errors.length > 0) {
+    throw new AggregateError(errors, 'teardownNodeSubtree failed');
+  }
+}
+
 // Track listeners so we can remove them on cleanup
 export interface ListenerMapEntry {
   handler: EventListener;
@@ -178,12 +233,7 @@ export function removeElementListeners(element: Element): void {
 export function removeAllListeners(root: Element | null): void {
   if (!root) return;
 
-  // Remove listeners from root
-  removeElementListeners(root);
-  removeElementReactiveProps(root);
-
-  // Recursively remove from all children
-  forEachDescendantElement(root, (el) => {
+  forEachElementInSubtree(root, (el) => {
     removeElementListeners(el);
     removeElementReactiveProps(el);
     clearDelegatedHandlersForElement(el);

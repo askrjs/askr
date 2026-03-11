@@ -6,9 +6,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { renderToStringSync } from '../../src/ssr';
+import {
+  renderToString,
+  renderToStringSync,
+  renderToStringSyncForUrl,
+} from '../../src/ssr';
 import { getNextKey, getCurrentRenderData } from '../../src/ssr/render-keys';
 import { getRenderContext } from '../../src/ssr/context';
+import { route } from '../../src/router/route';
 
 describe('SSR concurrency isolation', () => {
   it('should isolate render context between concurrent renders', async () => {
@@ -152,6 +157,96 @@ describe('SSR concurrency isolation', () => {
     for (const result of results) {
       expect(result.keys).toEqual(['r:0', 'r:1', 'r:2']);
     }
+  });
+
+  it('should isolate URL-based route snapshots between concurrent renders', async () => {
+    const [htmlA, htmlB] = await Promise.all([
+      Promise.resolve().then(() =>
+        renderToString({
+          url: '/users/1?q=alpha#one',
+          routes: [
+            {
+              path: '/users/{id}',
+              handler: () => {
+                const snapshot = route();
+                return (
+                  <div>
+                    A:{snapshot.params.id}:{snapshot.query.get('q')}:
+                    {snapshot.hash}
+                  </div>
+                );
+              },
+            },
+          ],
+        })
+      ),
+      Promise.resolve().then(() =>
+        renderToString({
+          url: '/posts/2?q=beta#two',
+          routes: [
+            {
+              path: '/posts/{id}',
+              handler: () => {
+                const snapshot = route();
+                return (
+                  <div>
+                    B:{snapshot.params.id}:{snapshot.query.get('q')}:
+                    {snapshot.hash}
+                  </div>
+                );
+              },
+            },
+          ],
+        })
+      ),
+    ]);
+
+    expect(htmlA).toContain('A:1:alpha:#one');
+    expect(htmlB).toContain('B:2:beta:#two');
+  });
+
+  it('should isolate route tables between concurrent URL renders', async () => {
+    const [htmlA, htmlB] = await Promise.all([
+      Promise.resolve().then(() =>
+        renderToStringSyncForUrl({
+          url: '/account/7',
+          routes: [
+            {
+              path: '/account/{id}',
+              handler: () => {
+                const snapshot = route();
+                return (
+                  <div>
+                    account:{snapshot.matches[0]?.path}:{snapshot.params.id}
+                  </div>
+                );
+              },
+            },
+          ],
+        })
+      ),
+      Promise.resolve().then(() =>
+        renderToStringSyncForUrl({
+          url: '/settings/profile',
+          routes: [
+            {
+              path: '/settings/profile',
+              handler: () => {
+                const snapshot = route();
+                return (
+                  <div>
+                    settings:{snapshot.matches[0]?.path}:{snapshot.path}
+                  </div>
+                );
+              },
+            },
+          ],
+        })
+      ),
+    ]);
+
+    expect(htmlA).toContain('account:/account/{id}:7');
+    expect(htmlB).toContain('settings:/settings/profile:/settings/profile');
   });
 });
 

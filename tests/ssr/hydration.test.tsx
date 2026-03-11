@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { JSXElement } from '../../src/jsx/types';
 import { hydrateSPA } from '../../src/boot';
 import { renderToStringSync, renderToString } from '../../src/ssr';
 import { renderToStringSyncForUrl } from '../../src/ssr';
 import { state } from '../../src/index';
-import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+  fireEvent,
+} from '../helpers/test-renderer';
 
 describe('hydration (SSR)', () => {
   describe('hydration mismatch', () => {
@@ -279,6 +283,173 @@ describe('hydration (SSR)', () => {
       flushScheduler();
 
       expect(clicks).toBe(1);
+    });
+  });
+
+  describe('selective hydration', () => {
+    let { container, cleanup } = createTestContainer();
+    beforeEach(() => ({ container, cleanup } = createTestContainer()));
+    afterEach(() => {
+      cleanup();
+      vi.unstubAllGlobals();
+    });
+
+    it('should defer full hydration until idle when configured', async () => {
+      let clicks = 0;
+
+      const Component = () => (
+        <button id="idle-btn" onClick={() => (clicks += 1)}>
+          idle
+        </button>
+      );
+
+      const routes = [{ path: '/', handler: Component }];
+      container.innerHTML = renderToStringSyncForUrl({ url: '/', routes });
+
+      const hydration = hydrateSPA({
+        root: container,
+        routes,
+        hydrate: { deferUntilIdle: true },
+      });
+
+      fireEvent.click(container.querySelector('#idle-btn') as HTMLElement);
+      expect(clicks).toBe(0);
+
+      await hydration;
+      flushScheduler();
+
+      fireEvent.click(container.querySelector('#idle-btn') as HTMLElement);
+      flushScheduler();
+      expect(clicks).toBe(1);
+    });
+
+    it('should keep skipped selectors static during hydration', async () => {
+      const clicks: string[] = [];
+
+      const Component = () => (
+        <div>
+          <button id="live" onClick={() => clicks.push('live')}>
+            live
+          </button>
+          <div class="static-footer">
+            <button id="static" onClick={() => clicks.push('static')}>
+              static
+            </button>
+          </div>
+        </div>
+      );
+
+      const routes = [{ path: '/', handler: Component }];
+      container.innerHTML = renderToStringSyncForUrl({ url: '/', routes });
+
+      await hydrateSPA({
+        root: container,
+        routes,
+        hydrate: { skipSelectors: ['.static-footer'] },
+      });
+      flushScheduler();
+
+      fireEvent.click(container.querySelector('#live') as HTMLElement);
+      fireEvent.click(container.querySelector('#static') as HTMLElement);
+      flushScheduler();
+
+      expect(clicks).toEqual(['live']);
+      expect(
+        (container.querySelector('.static-footer') as Element).hasAttribute(
+          'data-skip-hydrate'
+        )
+      ).toBe(true);
+    });
+
+    it('should activate below-fold content after scroll makes it visible', async () => {
+      const clicks: string[] = [];
+      const originalRect = Element.prototype.getBoundingClientRect;
+
+      Element.prototype.getBoundingClientRect = function () {
+        const className = (this as Element).className;
+        if (typeof className === 'string' && className.includes('below-fold')) {
+          return {
+            top: 1000,
+            left: 0,
+            bottom: 1100,
+            right: 100,
+            width: 100,
+            height: 100,
+            x: 0,
+            y: 1000,
+            toJSON: () => undefined,
+          } as DOMRect;
+        }
+
+        return {
+          top: 0,
+          left: 0,
+          bottom: 100,
+          right: 100,
+          width: 100,
+          height: 100,
+          x: 0,
+          y: 0,
+          toJSON: () => undefined,
+        } as DOMRect;
+      };
+
+      try {
+        const Component = () => (
+          <div>
+            <div class="hero">
+              <button id="hero-btn" onClick={() => clicks.push('hero')}>
+                hero
+              </button>
+            </div>
+            <div class="below-fold">
+              <button id="below-btn" onClick={() => clicks.push('below')}>
+                below
+              </button>
+            </div>
+          </div>
+        );
+
+        const routes = [{ path: '/', handler: Component }];
+        container.innerHTML = renderToStringSyncForUrl({ url: '/', routes });
+
+        await hydrateSPA({
+          root: container,
+          routes,
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+
+        fireEvent.click(container.querySelector('#hero-btn') as HTMLElement);
+        fireEvent.click(container.querySelector('#below-btn') as HTMLElement);
+        flushScheduler();
+
+        expect(clicks).toEqual(['hero']);
+
+        Element.prototype.getBoundingClientRect = function () {
+          return {
+            top: 0,
+            left: 0,
+            bottom: 100,
+            right: 100,
+            width: 100,
+            height: 100,
+            x: 0,
+            y: 0,
+            toJSON: () => undefined,
+          } as DOMRect;
+        };
+
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+
+        fireEvent.click(container.querySelector('#below-btn') as HTMLElement);
+        flushScheduler();
+
+        expect(clicks).toEqual(['hero', 'below']);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+      }
     });
   });
 });

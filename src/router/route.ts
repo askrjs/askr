@@ -8,6 +8,7 @@
 import { match as matchPath } from './match';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { getExecutionModel } from '../runtime/execution-model';
+import { getRenderContext } from '../ssr/context';
 
 export type {
   RouteHandler,
@@ -154,9 +155,11 @@ function makeQuery(search: string): RouteQuery {
   return deepFreeze(obj);
 }
 
-// Compute matches by scanning registered routes (public API: getRoutes)
-function computeMatches(pathname: string): RouteMatch[] {
-  const routesList = getRoutes();
+// Compute matches for a specific route list.
+function computeMatchesFromRoutes(
+  pathname: string,
+  routesList: readonly Route[]
+): RouteMatch[] {
   const matches: Array<{
     pattern: string;
     params: Record<string, string>;
@@ -201,6 +204,11 @@ function computeMatches(pathname: string): RouteMatch[] {
     name: m.name,
     namespace: m.namespace,
   }));
+}
+
+function getActiveRoutes(): readonly Route[] {
+  const renderContext = getRenderContext();
+  return renderContext?.routes ?? routes;
 }
 
 /**
@@ -253,12 +261,19 @@ export function route(
       );
     }
 
-    // Determine location source: client window if present; otherwise SSR override
+    // Determine location source: client window if present; otherwise per-render
+    // SSR context, then legacy SSR override.
     let pathname = '/';
     let search = '';
     let hash = '';
+    const renderContext = getRenderContext();
 
-    if (typeof window !== 'undefined' && window.location) {
+    if (instance.ssr && renderContext?.url) {
+      const parsed = parseLocation(renderContext.url);
+      pathname = parsed.pathname;
+      search = parsed.search;
+      hash = parsed.hash;
+    } else if (typeof window !== 'undefined' && window.location) {
       pathname = window.location.pathname || '/';
       search = window.location.search || '';
       hash = window.location.hash || '';
@@ -273,7 +288,7 @@ export function route(
       ...((instance.props as Record<string, string>) || {}),
     });
     const query = makeQuery(search);
-    const matches = computeMatches(pathname);
+    const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
 
     const snapshot: RouteSnapshot = Object.freeze({
       path: pathname,
@@ -498,6 +513,13 @@ export function getLoadedNamespaces(): string[] {
  * Routes are matched by specificity: literals > parameters > wildcards > catch-all
  */
 export function resolveRoute(pathname: string): ResolvedRoute | null {
+  return resolveRouteFromRoutes(pathname, routes);
+}
+
+export function resolveRouteFromRoutes(
+  pathname: string,
+  routeList: readonly Route[]
+): ResolvedRoute | null {
   const normalized =
     pathname.endsWith('/') && pathname !== '/'
       ? pathname.slice(0, -1)
@@ -512,11 +534,13 @@ export function resolveRoute(pathname: string): ResolvedRoute | null {
     params: Record<string, string>;
   }> = [];
 
-  // Try routes at this depth first (most likely match)
-  const depthRoutes = routesByDepth.get(depth);
+  // Try same-depth routes first when resolving the global client table.
+  // For explicit per-render route lists, fall back to a full scan.
+  const depthRoutes =
+    routeList === routes ? routesByDepth.get(depth) : undefined;
   if (depthRoutes) {
     for (const r of depthRoutes) {
-      const result = matchPath(pathname, r.path);
+      const result = matchPath(normalized, r.path);
       if (result.matched) {
         candidates.push({
           route: r,
@@ -527,13 +551,12 @@ export function resolveRoute(pathname: string): ResolvedRoute | null {
     }
   }
 
-  // Fallback: scan all routes for different depths
-  // (handles edge cases like wildcard routes)
-  for (const r of routes) {
+  // Fallback: scan all routes for different depths or explicit render-local tables.
+  for (const r of routeList) {
     // Skip if already checked in depth routes
     if (depthRoutes?.includes(r)) continue;
 
-    const result = matchPath(pathname, r.path);
+    const result = matchPath(normalized, r.path);
     if (result.matched) {
       candidates.push({
         route: r,

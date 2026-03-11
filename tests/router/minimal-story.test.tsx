@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createSPA } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { navigate } from '../../src/router/navigate';
@@ -71,6 +71,66 @@ describe('Minimal router story (authoritative)', () => {
     // Expect only the longest match handler to have run
     expect(container.textContent).toBe('child');
     expect(calls).toEqual(['child']);
+  });
+
+  it('should mount the current matching route during startup', async () => {
+    const calls: string[] = [];
+
+    setGlobalWindow('/startup');
+    await createSPA({
+      root: container,
+      routes: [
+        {
+          path: '/startup',
+          handler: () => {
+            calls.push('startup');
+            return <div>startup</div>;
+          },
+        },
+      ],
+    });
+
+    await flushScheduler();
+
+    expect(container.textContent).toBe('startup');
+    expect(calls).toEqual(['startup']);
+  });
+
+  it('should stay idle without warning until a matching navigation occurs', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let calls = 0;
+
+    setGlobalWindow('/missing');
+    await createSPA({
+      root: container,
+      routes: [
+        {
+          path: '/ready',
+          handler: () => {
+            calls += 1;
+            return <div>ready</div>;
+          },
+        },
+      ],
+    });
+
+    await flushScheduler();
+
+    expect(container.textContent).toBe('');
+    expect(calls).toBe(0);
+    expect(
+      warnSpy.mock.calls.some((call) =>
+        String(call[0]).includes('createSPA: no route found for current path')
+      )
+    ).toBe(false);
+
+    navigate('/ready');
+    await flushScheduler();
+
+    expect(container.textContent).toBe('ready');
+    expect(calls).toBe(1);
+
+    warnSpy.mockRestore();
   });
 
   it('should preserve shared layout DOM across navigations (atomic commit)', async () => {

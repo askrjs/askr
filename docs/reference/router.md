@@ -2,6 +2,8 @@
 
 Import from `@askrjs/askr/router`.
 
+`createSPA({ root, routes })` mounts the current browser path immediately when it matches a registered route. If no route matches yet, the router remains idle until `navigate()` or a `popstate` event resolves one.
+
 ## `route(path, handler, namespace?)`
 
 Registers a route handler.
@@ -21,6 +23,8 @@ Clears route registrations.
 ## `navigate(path)`
 
 Triggers client-side navigation.
+
+Use this for route changes after startup. It is not required to activate the initial matching URL.
 
 ## `Link`
 

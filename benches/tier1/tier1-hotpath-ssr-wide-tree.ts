@@ -1,0 +1,19 @@
+import { bench, describe, expect } from 'vitest';
+import { renderToStringSync } from '../../src/ssr';
+import { buildWideSsrTree, tier1BenchOptions } from '../shared/_shared';
+
+const wideTree = buildWideSsrTree(1500);
+const wideTreeHtml = renderToStringSync(() => wideTree);
+
+expect(wideTreeHtml).toContain('Wide card 0');
+expect(wideTreeHtml).toContain('Wide card 1499');
+
+describe('tier1 ssr wide tree', () => {
+  bench(
+    'render a 1,500-sibling sync tree',
+    () => {
+      renderToStringSync(() => wideTree);
+    },
+    tier1BenchOptions
+  );
+});

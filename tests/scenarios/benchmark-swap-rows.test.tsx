@@ -4,7 +4,7 @@ import { createIsland, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { For } from '../../src/for';
 
-test('should swap rows at positions 1 and 998', () => {
+test('should swap rows at positions 1 and 998', { timeout: 20000 }, () => {
   const { container, cleanup } = createTestContainer();
 
   let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;

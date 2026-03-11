@@ -12,6 +12,9 @@ export type AttrsResult = {
   dangerousHtml?: string;
 };
 
+const ESCAPED_ATTR_VALUE_CACHE_LIMIT = 512;
+const escapedAttrValueCache = new Map<string, string>();
+
 // Fast check for event handler pattern (on + uppercase letter)
 function isEventHandler(key: string): boolean {
   return (
@@ -23,13 +26,31 @@ function isEventHandler(key: string): boolean {
   );
 }
 
+function getEscapedAttrValue(value: string): string {
+  if (value.length > 64) {
+    return escapeAttr(value);
+  }
+
+  const cached = escapedAttrValueCache.get(value);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const escaped = escapeAttr(value);
+  if (escapedAttrValueCache.size >= ESCAPED_ATTR_VALUE_CACHE_LIMIT) {
+    escapedAttrValueCache.clear();
+  }
+  escapedAttrValueCache.set(value, escaped);
+  return escaped;
+}
+
 /**
  * Render attributes directly to a sink without intermediate string allocations.
  * This is the hot path for streaming SSR.
  */
 export function renderAttrsDirect(
   props: Props | undefined,
-  sink: RenderSink
+  sink: Pick<RenderSink, 'write'>
 ): void {
   if (!props || typeof props !== 'object') return;
 
@@ -62,7 +83,7 @@ export function renderAttrsDirect(
       sink.write(' style="');
       // Escape inline - most style values don't need escaping
       if (needsEscapeAttr(css)) {
-        sink.write(escapeAttr(css));
+        sink.write(getEscapedAttrValue(css));
       } else {
         sink.write(css);
       }
@@ -85,7 +106,7 @@ export function renderAttrsDirect(
     sink.write(attrName);
     sink.write('="');
     if (needsEscapeAttr(strValue)) {
-      sink.write(escapeAttr(strValue));
+      sink.write(getEscapedAttrValue(strValue));
     } else {
       sink.write(strValue);
     }
@@ -146,7 +167,7 @@ export function renderAttrs(
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);
       if (css === null || css === '') continue;
-      attrParts.push(` style="${escapeAttr(css)}"`);
+      attrParts.push(` style="${getEscapedAttrValue(css)}"`);
       continue;
     }
 
@@ -157,7 +178,7 @@ export function renderAttrs(
       continue;
     } else {
       const strValue = String(value);
-      attrParts.push(` ${attrName}="${escapeAttr(strValue)}"`);
+      attrParts.push(` ${attrName}="${getEscapedAttrValue(strValue)}"`);
     }
   }
 

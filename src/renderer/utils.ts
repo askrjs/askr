@@ -69,27 +69,24 @@ export function createWrappedHandler(
   }
 
   const wrapped: EventListener = (event: Event) => {
-    globalScheduler.setInHandler(true);
     try {
-      handler(event);
-    } catch (error) {
-      logger.error('[Askr] Event handler error:', error);
-    } finally {
-      globalScheduler.setInHandler(false);
-      if (flushAfter) {
-        try {
-          const state = globalScheduler.getState();
-
-          // Flush queued tasks so DOM updates are visible synchronously
-          if ((state.queueLength ?? 0) > 0 && !state.running) {
-            if (!globalScheduler.isExecuting()) globalScheduler.flush();
+      globalScheduler.runInHandlerScope(
+        () => {
+          try {
+            handler(event);
+          } catch (error) {
+            logger.error('[Askr] Event handler error:', error);
           }
-        } catch (err) {
-          // preserve previous behavior of throwing asynchronously
-          queueMicrotask(() => {
-            throw err;
-          });
-        }
+        },
+        flushAfter ? 'sync' : 'defer'
+      );
+    } catch (err) {
+      if (flushAfter) {
+        queueMicrotask(() => {
+          throw err;
+        });
+      } else {
+        logger.error('[Askr] Event handler error:', err);
       }
     }
   };

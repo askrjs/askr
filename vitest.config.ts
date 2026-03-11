@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    include: ['tests/**/*.test.{ts,tsx}'],
+    include: ['tests/**/*.test.{ts,tsx}', 'checks/**/*.test.{ts,tsx}'],
     setupFiles: ['tests/setup-env.ts'],
   },
   esbuild: {
@@ -27,6 +27,7 @@ export default defineConfig({
       '@askrjs/askr/fx': path.resolve(__dirname, 'src/fx/index.ts'),
       '@askrjs/askr/router': path.resolve(__dirname, 'src/router/index.ts'),
       '@askrjs/askr/ssr': path.resolve(__dirname, 'src/ssr/index.ts'),
+      '@askrjs/askr/ssg': path.resolve(__dirname, 'src/ssg/index.ts'),
       '@askrjs/askr/vite': path.resolve(
         __dirname,
         'src/dev/vite-plugin-askr.ts'

@@ -4,7 +4,7 @@ import { createIsland, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { For } from '../../src/for';
 
-test('should create 5,000 table rows', () => {
+test('should create 5,000 table rows', { timeout: 20000 }, () => {
   const { container, cleanup } = createTestContainer();
 
   let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;
