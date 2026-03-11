@@ -1,0 +1,79 @@
+import { bench, describe } from 'vitest';
+import { flushScheduler } from '../../tests/helpers/test-renderer';
+import type { BenchToggle } from '../shared/_shared';
+import {
+  assertSelectionTransition,
+  assertToggleMutationGuard,
+  buildRows,
+  createCachedElementQuery,
+  createSelectionToggle,
+  mountTableBenchmark,
+  tier3BenchOptions,
+} from '../shared/_shared';
+
+const initialRows = buildRows(3);
+
+function dispatchPrimaryLink(
+  query: ReturnType<typeof createCachedElementQuery<HTMLElement>>,
+  index: number
+): void {
+  query
+    .getAt(index)
+    .dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true })
+    );
+  flushScheduler();
+}
+
+{
+  const mounted = mountTableBenchmark(initialRows);
+  try {
+    const links = createCachedElementQuery<HTMLElement>(mounted.container, 'a');
+    const toggle = createSelectionToggle(1, 2, 'first');
+
+    dispatchPrimaryLink(links, toggle.current());
+    assertSelectionTransition(mounted.container, 1);
+
+    assertToggleMutationGuard(
+      mounted.container,
+      () => dispatchPrimaryLink(links, toggle.next()),
+      () => dispatchPrimaryLink(links, toggle.next()),
+      {
+        label: 'tier3 production select',
+        afterForward: () => assertSelectionTransition(mounted.container, 2),
+        afterBackward: () => assertSelectionTransition(mounted.container, 1),
+      }
+    );
+  } finally {
+    mounted.cleanup();
+  }
+}
+
+describe('tier3 system table production select', () => {
+  let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
+  let links: ReturnType<typeof createCachedElementQuery<HTMLElement>> | null =
+    null;
+  let toggle: BenchToggle<number> | null = null;
+
+  bench(
+    'select a row through the DOM click path',
+    () => {
+      dispatchPrimaryLink(links!, toggle!.next());
+    },
+    {
+      ...tier3BenchOptions,
+      setup() {
+        mounted = mountTableBenchmark(initialRows);
+        links = createCachedElementQuery<HTMLElement>(mounted.container, 'a');
+        toggle = createSelectionToggle(1, 2, 'first');
+        dispatchPrimaryLink(links, toggle.current());
+      },
+      teardown() {
+        mounted?.cleanup();
+        mounted = null;
+        links = null;
+        toggle = null;
+      },
+    }
+  );
+});

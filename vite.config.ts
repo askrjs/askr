@@ -1,10 +1,13 @@
 import { defineConfig } from 'vite';
 import path from 'path';
 
+const nodeBuiltins = ['fs', 'path', 'node:fs', 'node:path'];
+
 const isProd =
   process.env.NODE_ENV === 'production' || process.env.BUILD === 'production';
+const isBenchBuild = process.env.BUILD === 'bench';
 
-const input = {
+const input: Record<string, string> = {
   index: path.resolve(__dirname, 'src/index.ts'),
 
   'for/index': path.resolve(__dirname, 'src/for/index.ts'),
@@ -14,6 +17,7 @@ const input = {
   'fx/index': path.resolve(__dirname, 'src/fx/index.ts'),
   'router/index': path.resolve(__dirname, 'src/router/index.ts'),
   'ssr/index': path.resolve(__dirname, 'src/ssr/index.ts'),
+  'ssg/index': path.resolve(__dirname, 'src/ssg/index.ts'),
 
   'jsx-runtime': path.resolve(__dirname, 'src/jsx/jsx-runtime.ts'),
   'jsx-dev-runtime': path.resolve(__dirname, 'src/jsx/jsx-dev-runtime.ts'),
@@ -23,6 +27,11 @@ const input = {
 
   'vite/index': path.resolve(__dirname, 'src/dev/vite-plugin-askr.ts'),
 };
+
+if (!isBenchBuild) {
+  // CLI entry for askr-ssg (excluded in bench-only browser bundle builds)
+  input['bin/askr-ssg'] = path.resolve(__dirname, 'src/bin/askr-ssg.ts');
+}
 
 export default defineConfig({
   define: {
@@ -34,6 +43,7 @@ export default defineConfig({
     // Use rollup input to support multiple named entry points
     rollupOptions: {
       input,
+      external: nodeBuiltins,
       // Disable aggressive treeshaking for our multi-entry library bundle to ensure
       // entries that export utilities or entry functions (like `benchmark`) are
       // preserved even if not referenced by other modules.

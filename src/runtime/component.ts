@@ -12,6 +12,11 @@ import {
   withContext,
   type ContextFrame,
 } from './context';
+import {
+  type ReadableSource,
+  finalizeReadableSubscriptions,
+  cleanupReadableSubscriptions,
+} from './readable';
 import { logger } from '../dev/logger';
 import { incDevCounter, setDevValue } from './dev-namespace';
 
@@ -35,7 +40,7 @@ export interface ComponentInstance {
   _pendingRunTask?: () => void; // Clears hasPendingUpdate and runs component
   _enqueueRun?: () => void; // Batches run requests and enqueues _pendingRunTask
   stateIndexCheck: number; // Track state indices to catch conditional calls
-  expectedStateIndices: number[]; // Expected sequence of state indices (frozen after first render)
+  expectedStateIndices: number[]; // Expected sequence of render-scoped hook indices (frozen after first render)
   firstRenderComplete: boolean; // Flag to detect transition from first to subsequent renders
   mountOperations: Array<
     () => void | (() => void) | Promise<void | (() => void)>
@@ -48,8 +53,9 @@ export interface ComponentInstance {
   // Render-tracking for precise subscriptions (internal)
   _currentRenderToken?: number; // Token for the in-progress render (set before render)
   lastRenderToken?: number; // Token of the last *committed* render
-  _pendingReadStates?: Set<State<unknown>>; // States read during the in-progress render
-  _lastReadStates?: Set<State<unknown>>; // States read during the last committed render
+  _pendingReadSources?: Set<ReadableSource<unknown>>; // Readables read during the in-progress render
+  _lastReadSources?: Set<ReadableSource<unknown>>; // Readables read during the last committed render
+  devWarningsEmitted: Set<string>; // Dev-only warning dedupe for this instance
 
   // Placeholder for null-returning components. When a component initially returns
   // null, we create a comment placeholder so updates can replace it with content.
@@ -90,8 +96,9 @@ export function createComponentInstance(
     // Render-tracking (for precise state subscriptions)
     _currentRenderToken: undefined,
     lastRenderToken: 0,
-    _pendingReadStates: new Set(),
-    _lastReadStates: new Set(),
+    _pendingReadSources: new Set(),
+    _lastReadSources: new Set(),
+    devWarningsEmitted: new Set(),
   };
 
   // Initialize prebound helper tasks once per instance to avoid allocations
@@ -110,12 +117,9 @@ export function createComponentInstance(
     }
   };
 
-  instance._pendingFlushTask = () => {
-    // Called by state.set() when we want to flush a pending update
-    instance.hasPendingUpdate = false;
-    // Trigger a run via enqueue helper — this will schedule the component run
-    instance._enqueueRun?.();
-  };
+  // Default state-driven updates enqueue the run task directly. Specialized
+  // runtimes (for example `For` item instances) can still override this hook.
+  instance._pendingFlushTask = instance._pendingRunTask;
 
   return instance;
 }
@@ -233,7 +237,7 @@ function runComponent(instance: ComponentInstance): void {
 
   // Assign a token for this in-progress render and start a fresh pending-read set
   instance._currentRenderToken = ++_globalRenderCounter;
-  instance._pendingReadStates = new Set();
+  instance._pendingReadSources = new Set();
 
   // Atomic rendering: capture DOM state for rollback on error
   const domSnapshot = instance.target ? instance.target.innerHTML : '';
@@ -441,10 +445,10 @@ export function renderComponentInline(
   // runComponent and we should not overwrite it.
   const hadToken = instance._currentRenderToken !== undefined;
   const prevToken = instance._currentRenderToken;
-  const prevPendingReads = instance._pendingReadStates;
+  const prevPendingReads = instance._pendingReadSources;
   if (!hadToken) {
     instance._currentRenderToken = ++_globalRenderCounter;
-    instance._pendingReadStates = new Set();
+    instance._pendingReadSources = new Set();
   }
 
   try {
@@ -459,7 +463,7 @@ export function renderComponentInline(
   } finally {
     // Restore previous token/read states for nested inline render scenarios
     instance._currentRenderToken = prevToken;
-    instance._pendingReadStates = prevPendingReads ?? new Set();
+    instance._pendingReadSources = prevPendingReads ?? new Set();
   }
 }
 
@@ -477,7 +481,7 @@ function executeComponentSync(
   }
 
   // Prepare pending read set for this render (reads will be finalized on commit)
-  instance._pendingReadStates = new Set();
+  instance._pendingReadSources = new Set();
 
   currentInstance = instance;
   stateIndex = 0;
@@ -508,8 +512,9 @@ function executeComponentSync(
     // Check render time
     const renderTime = Date.now() - renderStartTime;
     if (renderTime > 5) {
-      // Warn if render takes more than 5ms
-      logger.warn(
+      warnInstanceOnce(
+        instance,
+        'slow-render',
         `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
       );
     }
@@ -526,11 +531,15 @@ function executeComponentSync(
       if (state && !state._hasBeenRead) {
         try {
           const name = instance.fn?.name || '<anonymous>';
-          logger.warn(
+          warnInstanceOnce(
+            instance,
+            `unused-state:${i}`,
             `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
           );
         } catch {
-          logger.warn(
+          warnInstanceOnce(
+            instance,
+            `unused-state:${i}`,
             `[askr] Unused state variable detected. State should be read during render or removed.`
           );
         }
@@ -558,7 +567,7 @@ export function executeComponent(instance: ComponentInstance): void {
   instance.notifyUpdate = instance._enqueueRun!;
 
   // Enqueue the initial component run
-  globalScheduler.enqueue(() => runComponent(instance));
+  globalScheduler.enqueue(instance._pendingRunTask!);
 }
 
 export function getCurrentInstance(): ComponentInstance | null {
@@ -625,41 +634,45 @@ export function getSignal(): AbortSignal {
  * last committed render.
  */
 export function finalizeReadSubscriptions(instance: ComponentInstance): void {
-  const newSet = instance._pendingReadStates ?? new Set();
-  const oldSet = instance._lastReadStates ?? new Set();
-  const token = instance._currentRenderToken;
-
-  if (token === undefined) return;
-
-  // Remove subscriptions for states that were read previously but not in this render
-  for (const s of oldSet) {
-    if (!newSet.has(s)) {
-      const readers = (s as State<unknown>)._readers;
-      if (readers) readers.delete(instance);
-    }
-  }
-
-  // Commit token becomes the authoritative token for this instance's last render
-  instance.lastRenderToken = token;
-
-  // Record subscriptions for states read during this render
-  for (const s of newSet) {
-    let readers = (s as State<unknown>)._readers;
-    if (!readers) {
-      readers = new Map();
-      // s is a State object; assign its _readers map
-      (s as State<unknown>)._readers = readers;
-    }
-    readers.set(instance, instance.lastRenderToken ?? 0);
-  }
-
-  instance._lastReadStates = newSet;
-  instance._pendingReadStates = new Set();
-  instance._currentRenderToken = undefined;
+  finalizeReadableSubscriptions(instance);
 }
 
 export function getNextStateIndex(): number {
   return stateIndex++;
+}
+
+export function claimHookIndex(
+  instance: ComponentInstance,
+  hookName: string
+): number {
+  const index = getNextStateIndex();
+
+  if (index < instance.stateIndexCheck) {
+    throw new Error(
+      `Hook index violation: ${hookName}() call at index ${index}, ` +
+        `but previously saw index ${instance.stateIndexCheck}. ` +
+        `This happens when render-scoped hooks are called conditionally (inside if/for/etc). ` +
+        `Move all ${hookName}() calls to the top level of your component function, ` +
+        `before any conditionals.`
+    );
+  }
+
+  instance.stateIndexCheck = index;
+
+  if (instance.firstRenderComplete) {
+    if (!instance.expectedStateIndices.includes(index)) {
+      throw new Error(
+        `Hook order violation: ${hookName}() called at index ${index}, ` +
+          `but this index was not in the first render's sequence [${instance.expectedStateIndices.join(', ')}]. ` +
+          `This usually means ${hookName}() is inside a conditional or loop. ` +
+          `Move all render-scoped hooks to the top level of your component function.`
+      );
+    }
+  } else {
+    instance.expectedStateIndices.push(index);
+  }
+
+  return index;
 }
 
 export function getCurrentStateIndex(): number {
@@ -714,13 +727,7 @@ export function cleanupComponent(instance: ComponentInstance): void {
   }
 
   // Remove deterministic state subscriptions for this instance
-  if (instance._lastReadStates) {
-    for (const s of instance._lastReadStates) {
-      const readers = (s as State<unknown>)._readers;
-      if (readers) readers.delete(instance);
-    }
-    instance._lastReadStates = new Set();
-  }
+  cleanupReadableSubscriptions(instance);
 
   // Abort all pending operations
   instance.abortController.abort();
@@ -733,4 +740,15 @@ export function cleanupComponent(instance: ComponentInstance): void {
   // retained "mounted" flags across cleanup boundaries which breaks
   // owner selection in the portal fallback.
   instance.mounted = false;
+}
+
+function warnInstanceOnce(
+  instance: ComponentInstance,
+  key: string,
+  message: string
+): void {
+  if (process.env.NODE_ENV === 'production') return;
+  if (instance.devWarningsEmitted.has(key)) return;
+  instance.devWarningsEmitted.add(key);
+  logger.warn(message);
 }

@@ -4,38 +4,38 @@ This document maps old documentation paths to their new locations in the reorgan
 
 ## Migration Map (Old → New)
 
-| Old Path | New Path | Status |
-| --- | --- | --- |
-| `docs/quick-start.md` | `docs/getting-started/quick-start.md` | ✅ Moved & cleaned |
-| `docs/state.md` | `docs/guides/state.md` | ✅ Moved |
-| `docs/enforcement.md` | `docs/concepts/runtime-enforcement.md` | ✅ Moved & renamed |
-| `docs/determinism.md` | `docs/concepts/determinism.md` | ✅ Moved |
-| `docs/event-delegation.md` | `docs/advanced/event-delegation.md` | ✅ Moved |
-| `docs/selective-hydration.md` | `docs/advanced/selective-hydration.md` | ✅ Moved |
-| `docs/ssr-events.md` | `docs/guides/ssr-events.md` | ✅ Moved |
-| `docs/for-primitive-design.md` | `docs/internals/for-primitive-design.md` | ✅ Moved |
-| `docs/foundations-pit-of-success.md` | `docs/internals/foundations-pit-of-success.md` | ✅ Moved |
-| `docs/foundations-audit-report.md` | `docs/internals/foundations-audit-report.md` | ✅ Moved |
-| `docs/benchmarks/askr-vs-solid-svelte.md` | `docs/benchmarks/askr-vs-solid-svelte.md` | ✅ Preserved |
+| Old Path                                  | New Path                                       | Status             |
+| ----------------------------------------- | ---------------------------------------------- | ------------------ |
+| `docs/quick-start.md`                     | `docs/getting-started/quick-start.md`          | ✅ Moved & cleaned |
+| `docs/state.md`                           | `docs/guides/state.md`                         | ✅ Moved           |
+| `docs/enforcement.md`                     | `docs/concepts/runtime-enforcement.md`         | ✅ Moved & renamed |
+| `docs/determinism.md`                     | `docs/concepts/determinism.md`                 | ✅ Moved           |
+| `docs/event-delegation.md`                | `docs/advanced/event-delegation.md`            | ✅ Moved           |
+| `docs/selective-hydration.md`             | `docs/advanced/selective-hydration.md`         | ✅ Moved           |
+| `docs/ssr-events.md`                      | `docs/guides/ssr-events.md`                    | ✅ Moved           |
+| `docs/for-primitive-design.md`            | `docs/internals/for-primitive-design.md`       | ✅ Moved           |
+| `docs/foundations-pit-of-success.md`      | `docs/internals/foundations-pit-of-success.md` | ✅ Moved           |
+| `docs/foundations-audit-report.md`        | `docs/internals/foundations-audit-report.md`   | ✅ Moved           |
+| `docs/benchmarks/askr-vs-solid-svelte.md` | `docs/benchmarks/askr-vs-solid-svelte.md`      | ✅ Preserved       |
 
 ## New Files Added
 
-| Path | Purpose |
-| --- | --- |
-| `docs/index.md` | Documentation hub and navigation |
-| `docs/getting-started/installation.md` | Package installation and setup guide |
-| `docs/guides/router.md` | Router usage guide |
-| `docs/guides/resources.md` | Resources (async data) usage guide |
-| `docs/guides/ssr.md` | SSR high-level guide |
-| `docs/reference/api.md` | API overview and import styles |
-| `docs/reference/router.md` | Router API reference |
-| `docs/reference/resources.md` | Resources API reference |
-| `docs/reference/fx.md` | FX utilities API reference |
-| `docs/reference/spec-guarantees.md` | Framework guarantees index |
-| `docs/troubleshooting/common-issues.md` | Troubleshooting index |
-| `docs/contributing/docs-style-guide.md` | Documentation standards |
-| `docs/contributing/testing.md` | Testing guide |
-| `docs/migration/from-react.md` | React → Askr migration guide |
+| Path                                    | Purpose                              |
+| --------------------------------------- | ------------------------------------ |
+| `docs/index.md`                         | Documentation hub and navigation     |
+| `docs/getting-started/installation.md`  | Package installation and setup guide |
+| `docs/guides/router.md`                 | Router usage guide                   |
+| `docs/guides/resources.md`              | Resources (async data) usage guide   |
+| `docs/guides/ssr.md`                    | SSR high-level guide                 |
+| `docs/reference/api.md`                 | API overview and import styles       |
+| `docs/reference/router.md`              | Router API reference                 |
+| `docs/reference/resources.md`           | Resources API reference              |
+| `docs/reference/fx.md`                  | FX utilities API reference           |
+| `docs/reference/spec-guarantees.md`     | Framework guarantees index           |
+| `docs/troubleshooting/common-issues.md` | Troubleshooting index                |
+| `docs/contributing/docs-style-guide.md` | Documentation standards              |
+| `docs/contributing/testing.md`          | Testing guide                        |
+| `docs/migration/from-react.md`          | React → Askr migration guide         |
 
 ## Information Architecture
 
@@ -82,6 +82,7 @@ docs/
 ## Audience Pathways
 
 ### 👶 **New User (First-time discoverer)**
+
 1. [Install](getting-started/installation.md)
 2. [Quick Start](getting-started/quick-start.md)
 3. [State Guide](guides/state.md)
@@ -89,6 +90,7 @@ docs/
 5. [API Overview](reference/api.md)
 
 ### 👨‍💻 **Developer (Building an app)**
+
 1. [Quick Start](getting-started/quick-start.md)
 2. [State Guide](guides/state.md)
 3. [Router Guide](guides/router.md)
@@ -96,12 +98,14 @@ docs/
 5. [Troubleshooting](troubleshooting/common-issues.md)
 
 ### 🚀 **Advanced (Scaling, optimizing, SSR)**
+
 1. [SSR Guide](guides/ssr.md)
 2. [Selective Hydration](advanced/selective-hydration.md)
 3. [Event Delegation](advanced/event-delegation.md)
 4. [Benchmarks](benchmarks/askr-vs-solid-svelte.md)
 
 ### 🔬 **Internal/Maintainer (Framework design)**
+
 1. [Guarantees Index](reference/spec-guarantees.md)
 2. [Runtime Enforcement](concepts/runtime-enforcement.md)
 3. [Determinism](concepts/determinism.md)
@@ -113,9 +117,9 @@ docs/
 
 ## Link Updates in Root Docs
 
-| File | Change |
-| --- | --- |
-| [README.md](../README.md#L150-L158) | Updated 9 doc links to new structure |
+| File                                        | Change                                                         |
+| ------------------------------------------- | -------------------------------------------------------------- |
+| [README.md](../README.md#L150-L158)         | Updated 9 doc links to new structure                           |
 | [tests/README.md](../../tests/README.md#L5) | Fixed SPEC.md reference to `docs/reference/spec-guarantees.md` |
 
 ## Quality Validation
@@ -129,6 +133,7 @@ docs/
 ## Review Checklist
 
 Before finalizing, verify:
+
 - [ ] All links in [docs/index.md](index.md) resolve correctly
 - [ ] All "Next" links at page footers are current
 - [ ] Terminology is consistent across all pages

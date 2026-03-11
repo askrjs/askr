@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { state, createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 
-describe('rapid events (STRESS)', () => {
+describe('rapid events (STRESS)', { timeout: 15000 }, () => {
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {

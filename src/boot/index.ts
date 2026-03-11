@@ -377,20 +377,11 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   const resolved = resolveRoute(path);
   if (!resolved) {
-    // If no route currently matches, mount an empty placeholder and continue.
-    // This supports cases where routes are registered but the current URL is
-    // not one of them (common in router tests that navigate programmatically).
-    if (process.env.NODE_ENV !== 'production') {
-      getLogger().then((logger) => {
-        logger.warn(
-          `createSPA: no route found for current path (${path}). Mounting empty placeholder; navigation will activate routes when requested.`
-        );
-      });
-    }
-
-    // Mount a no-op component until navigation occurs
+    // No initial route match is a supported startup state.
+    // Keep the root mounted and navigation-ready so the app can activate the
+    // first matching route later without treating boot as an error.
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
-      cleanupStrict: false,
+      cleanupStrict: config.cleanupStrict,
     });
 
     // Still register app instance and initialize navigation so future navigations work
@@ -406,7 +397,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   // Mount resolved handler as the root component
   // Convert resolved.handler to a ComponentFunction-compatible shape
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict: false,
+    cleanupStrict: config.cleanupStrict,
   });
 
   // Register for navigation and wire up history handling
@@ -428,50 +419,135 @@ function markSkippedElements(root: Element, skipSelectors: string[]): void {
   }
 }
 
+function collectDeferredBelowFoldBoundaries(
+  root: Element,
+  foldY: number
+): Element[] {
+  const boundaries: Element[] = [];
+  const stack: Element[] = [];
+
+  for (let index = root.children.length - 1; index >= 0; index -= 1) {
+    stack.push(root.children[index]);
+  }
+
+  while (stack.length > 0) {
+    const element = stack.pop()!;
+
+    if (element.hasAttribute('data-skip-hydrate')) {
+      continue;
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (rect.top >= foldY) {
+      element.setAttribute('data-skip-hydrate', 'true');
+      boundaries.push(element);
+      continue;
+    }
+
+    for (let index = element.children.length - 1; index >= 0; index -= 1) {
+      stack.push(element.children[index]);
+    }
+  }
+
+  return boundaries;
+}
+
+function activateVisibleDeferredBoundaries(
+  boundaries: Element[],
+  foldY: number
+): { activated: boolean; remaining: number } {
+  let activated = false;
+  let remaining = 0;
+
+  for (const element of boundaries) {
+    if (!element.hasAttribute('data-skip-hydrate')) {
+      continue;
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (rect.top < foldY) {
+      element.removeAttribute('data-skip-hydrate');
+      activated = true;
+    } else {
+      remaining += 1;
+    }
+  }
+
+  return { activated, remaining };
+}
+
+function queueIdleWork(work: () => void): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(
+        () => {
+          work();
+          resolve();
+        },
+        { timeout: 2000 }
+      );
+      return;
+    }
+
+    setTimeout(() => {
+      work();
+      resolve();
+    }, 0);
+  });
+}
+
+function flushHydrationActivation(rootElement: Element): void {
+  const instance = instancesByRoot.get(rootElement);
+  if (!instance) return;
+  instance._enqueueRun?.();
+  globalScheduler.flush();
+}
+
+async function registerHydratedNavigation(rootElement: Element, path: string) {
+  const { registerAppInstance, initializeNavigation } =
+    await import('../router/navigate');
+  const instance = instancesByRoot.get(rootElement);
+  if (!instance) throw new Error('Internal error: app instance missing');
+  registerAppInstance(instance as ComponentInstance, path);
+  initializeNavigation();
+}
+
 /**
  * Apply selective hydration with deferral options
  */
 async function applySelectiveHydration(
   rootElement: Element,
   resolved: { handler: ComponentFunction; params: Record<string, unknown> },
+  path: string,
+  cleanupStrict: boolean | undefined,
   hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>
 ): Promise<void> {
-  const { renderToStringSync: _renderToStringSync } = await import('../ssr');
+  const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
+  const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
+  const hasSelectiveBoundaries = hasPermanentSkips || hasBelowFoldDeferral;
 
-  if (hydrateOptions.deferUntilIdle) {
-    if (typeof requestIdleCallback !== 'undefined') {
-      await new Promise((resolve) => {
-        requestIdleCallback(() => resolve(undefined), { timeout: 2000 });
-      });
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
+  if (hydrateOptions.skipSelectors?.length) {
+    markSkippedElements(rootElement, hydrateOptions.skipSelectors);
   }
 
+  let deferredBoundaries: Element[] = [];
   if (hydrateOptions.deferBelowFold) {
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
-    const belowFoldElements = Array.from(
-      rootElement.querySelectorAll('*')
-    ).filter((el) => {
-      const rect = el.getBoundingClientRect();
-      return rect.top >= foldY;
-    });
-
-    for (const el of belowFoldElements) {
-      el.setAttribute('data-skip-hydrate', 'true');
-    }
+    deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
 
     const handleScroll = () => {
-      const visibleBelowFold = belowFoldElements.filter((el) => {
-        const rect = el.getBoundingClientRect();
-        return rect.top < foldY;
-      });
+      const { activated, remaining } = activateVisibleDeferredBoundaries(
+        deferredBoundaries,
+        foldY
+      );
 
-      for (const el of visibleBelowFold) {
-        el.removeAttribute('data-skip-hydrate');
+      if (!activated) {
+        return;
       }
 
-      if (visibleBelowFold.length === belowFoldElements.length) {
+      flushHydrationActivation(rootElement);
+
+      if (remaining === 0) {
         window.removeEventListener('scroll', handleScroll);
       }
     };
@@ -479,9 +555,32 @@ async function applySelectiveHydration(
     window.addEventListener('scroll', handleScroll, { passive: true });
   }
 
+  if (hydrateOptions.deferUntilIdle && !hasSelectiveBoundaries) {
+    await queueIdleWork(() => {
+      mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
+        cleanupStrict,
+      });
+    });
+    await registerHydratedNavigation(rootElement, path);
+    return;
+  }
+
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict: false,
+    cleanupStrict,
   });
+  await registerHydratedNavigation(rootElement, path);
+
+  if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
+    await queueIdleWork(() => {
+      const { activated } = activateVisibleDeferredBoundaries(
+        deferredBoundaries,
+        Number.POSITIVE_INFINITY
+      );
+      if (activated) {
+        flushHydrationActivation(rootElement);
+      }
+    });
+  }
 }
 
 /**
@@ -504,9 +603,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
-  // Capture server HTML for mismatch detection
-  const serverHTML = rootElement.innerHTML;
-
   // Register routes for hydration and set server location for deterministic route()
   const {
     clearRoutes,
@@ -522,7 +618,11 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   }
   // Set server location so route() reflects server URL during SSR checks
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  setServerLocation(path);
+  const currentUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : path;
+  setServerLocation(currentUrl);
   if (process.env.NODE_ENV === 'production') lockRouteRegistration();
 
   // Resolve handler for current path
@@ -531,25 +631,14 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     throw new Error(`hydrateSPA: no route found for current path (${path}).`);
   }
 
-  // Synchronously render expected HTML using SSR helper
-  const { renderToStringSync } = await import('../ssr');
-  // renderToStringSync takes a zero-arg component factory; wrap the handler to pass params
-  const expectedHTML = renderToStringSync(() => {
-    const out = resolved.handler(resolved.params);
-    return (out ?? {
-      type: 'div',
-      children: [],
-    }) as ReturnType<ComponentFunction>;
-  });
-
-  // Prefer a DOM-based comparison to avoid false positives from attribute order
-  // or whitespace differences between server and expected HTML.
-  const serverContainer = document.createElement('div');
-  serverContainer.innerHTML = serverHTML;
-  const expectedContainer = document.createElement('div');
-  expectedContainer.innerHTML = expectedHTML;
-
-  if (!serverContainer.isEqualNode(expectedContainer)) {
+  const { verifyHydrationSyncForUrl } = await import('../ssr');
+  if (
+    !verifyHydrationSyncForUrl({
+      root: rootElement,
+      url: currentUrl,
+      routes: config.routes,
+    })
+  ) {
     throw new Error(
       '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
     );
@@ -565,6 +654,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           handler: resolved.handler as ComponentFunction,
           params: resolved.params as Record<string, unknown>,
         },
+        path,
+        config.cleanupStrict,
         hydrateOptions
       );
       return;
@@ -579,16 +670,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   // Reuse createSPA path but we already registered routes and set server location, so just mount
   // Mount resolved handler
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict: false,
+    cleanupStrict: config.cleanupStrict,
   });
-
-  // Register navigation and instance
-  const { registerAppInstance, initializeNavigation } =
-    await import('../router/navigate');
-  const instance = instancesByRoot.get(rootElement);
-  if (!instance) throw new Error('Internal error: app instance missing');
-  registerAppInstance(instance as ComponentInstance, path);
-  initializeNavigation();
+  await registerHydratedNavigation(rootElement, path);
 }
 
 export async function hydrate(_config: AppConfig): Promise<void> {

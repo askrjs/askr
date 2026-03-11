@@ -32,8 +32,8 @@ import {
   getCurrentComponentInstance,
 } from '../runtime/component';
 import type { ComponentFunction } from '../common/component';
-import { VOID_ELEMENTS, escapeText } from './escape';
-import { renderAttrs } from './attrs';
+import { VOID_ELEMENTS, escapeText, styleObjToCss } from './escape';
+import { renderAttrs, renderAttrsDirect } from './attrs';
 import type { VNode, SSRComponent } from './types';
 
 import { logger } from '../dev/logger';
@@ -42,26 +42,14 @@ const __SSR_DEBUG =
   process.env.NODE_ENV !== 'production' &&
   (process.env.ASKR_SSR_DEBUG === '1' || process.env.ASKR_SSR_DEBUG === 'true');
 
-// Tag cache for hot-path elements - avoid repeated tag string construction
-// Maps tagName to {open, close, selfClose} strings
-const tagCache = new Map<
-  string,
-  { open: string; close: string; selfClose: string }
->();
-
-function getTagStrings(tagName: string) {
-  let cached = tagCache.get(tagName);
-  if (!cached) {
-    cached = {
-      open: `<${tagName}`,
-      close: `</${tagName}>`,
-      selfClose: `<${tagName} />`,
-    };
-    if (tagCache.size < 256) {
-      tagCache.set(tagName, cached);
-    }
-  }
-  return cached;
+function isSSRAttrEventHandler(key: string): boolean {
+  return (
+    key.length >= 3 &&
+    key.charCodeAt(0) === 111 &&
+    key.charCodeAt(1) === 110 &&
+    key.charCodeAt(2) >= 65 &&
+    key.charCodeAt(2) <= 90
+  );
 }
 
 // Install SSR bridge once so runtime primitives (resource/derive/etc) can
@@ -177,9 +165,58 @@ function renderChildrenSyncToSink(
   ctx: RenderContext
 ): void {
   if (!children || !Array.isArray(children) || children.length === 0) return;
+  if (children.length >= 32) {
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      if (child === null || child === undefined || child === false) continue;
+      if (typeof child === 'string') {
+        sink.write(escapeText(child));
+        continue;
+      }
+      if (typeof child === 'number') {
+        sink.write(escapeText(String(child)));
+        continue;
+      }
+      if (child && typeof child === 'object' && 'type' in child) {
+        renderNodeSyncToSink(child as VNode, sink, ctx);
+      }
+    }
+    return;
+  }
   for (let i = 0; i < children.length; i++) {
     renderChildSyncToSink(children[i], sink, ctx);
   }
+}
+
+function sinkWrite2(
+  sink: { write(html: string): void; write2?: (a: string, b: string) => void },
+  a: string,
+  b: string
+): void {
+  if (typeof sink.write2 === 'function') {
+    sink.write2(a, b);
+    return;
+  }
+  sink.write(a);
+  sink.write(b);
+}
+
+function sinkWrite3(
+  sink: {
+    write(html: string): void;
+    write3?: (a: string, b: string, c: string) => void;
+  },
+  a: string,
+  b: string,
+  c: string
+): void {
+  if (typeof sink.write3 === 'function') {
+    sink.write3(a, b, c);
+    return;
+  }
+  sink.write(a);
+  sink.write(b);
+  sink.write(c);
 }
 
 /**
@@ -264,7 +301,11 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
 
 function renderNodeSyncToSink(
   node: VNode | JSXElement,
-  sink: { write(html: string): void },
+  sink: {
+    write(html: string): void;
+    write2?: (a: string, b: string) => void;
+    write3?: (a: string, b: string, c: string) => void;
+  },
   ctx: RenderContext
 ): void {
   const { type, props } = node;
@@ -294,10 +335,9 @@ function renderNodeSyncToSink(
 
   const typeStr = type as string;
   if (VOID_ELEMENTS.has(typeStr)) {
-    const attrs = props ? renderAttrs(props) : '';
-    // Use cached tag strings to avoid repeated string construction
-    const { selfClose } = getTagStrings(typeStr);
-    sink.write(attrs ? `${selfClose.slice(0, -3)}${attrs} />` : selfClose);
+    sinkWrite2(sink, '<', typeStr);
+    renderAttrsDirect(props, sink);
+    sink.write(' />');
     return;
   }
 
@@ -307,22 +347,21 @@ function renderNodeSyncToSink(
     : undefined;
 
   if (maybeDangerous !== undefined && maybeDangerous !== null) {
-    const { attrs, dangerousHtml } = renderAttrs(props, {
-      returnDangerousHtml: true,
-    });
-    const { open, close } = getTagStrings(typeStr);
-    sink.write(attrs ? `${open}${attrs}>` : `${open}>`);
+    const dangerousHtml =
+      typeof maybeDangerous === 'object' && '__html' in maybeDangerous
+        ? String((maybeDangerous as { __html: unknown }).__html)
+        : undefined;
+    sinkWrite2(sink, '<', typeStr);
+    renderAttrsDirect(props, sink);
+    sink.write('>');
     if (dangerousHtml !== undefined) {
       sink.write(dangerousHtml);
     } else {
       renderChildrenSyncToSink((node as VNode).children, sink, ctx);
     }
-    sink.write(close);
+    sinkWrite3(sink, '</', typeStr, '>');
     return;
   }
-
-  // Compute attrs once upfront (renderAttrs already handles null/undefined efficiently)
-  const attrs = props ? renderAttrs(props) : '';
 
   // Normalize children: prefer node.children, fallback to props.children (for JSXElement)
   let children = (node as VNode).children;
@@ -337,8 +376,10 @@ function renderNodeSyncToSink(
 
   // Hot path: empty element (no children) - single write
   if (!children || (Array.isArray(children) && children.length === 0)) {
-    const { open, close } = getTagStrings(typeStr);
-    sink.write(attrs ? `${open}${attrs}>${close}` : `${open}>${close}`);
+    sinkWrite2(sink, '<', typeStr);
+    renderAttrsDirect(props, sink);
+    sink.write('>');
+    sinkWrite3(sink, '</', typeStr, '>');
     return;
   }
 
@@ -346,32 +387,31 @@ function renderNodeSyncToSink(
   if (Array.isArray(children) && children.length === 1) {
     const only = children[0];
     if (typeof only === 'string') {
-      const { open, close } = getTagStrings(typeStr);
       const content = escapeText(only);
-      sink.write(
-        attrs
-          ? `${open}${attrs}>${content}${close}`
-          : `${open}>${content}${close}`
-      );
+      sinkWrite2(sink, '<', typeStr);
+      renderAttrsDirect(props, sink);
+      sink.write('>');
+      sink.write(content);
+      sinkWrite3(sink, '</', typeStr, '>');
       return;
     }
     if (typeof only === 'number') {
-      const { open, close } = getTagStrings(typeStr);
       const content = escapeText(String(only));
-      sink.write(
-        attrs
-          ? `${open}${attrs}>${content}${close}`
-          : `${open}>${content}${close}`
-      );
+      sinkWrite2(sink, '<', typeStr);
+      renderAttrsDirect(props, sink);
+      sink.write('>');
+      sink.write(content);
+      sinkWrite3(sink, '</', typeStr, '>');
       return;
     }
   }
 
   // General case: element with complex children
-  const { open, close } = getTagStrings(typeStr);
-  sink.write(attrs ? `${open}${attrs}>` : `${open}>`);
+  sinkWrite2(sink, '<', typeStr);
+  renderAttrsDirect(props, sink);
+  sink.write('>');
   renderChildrenSyncToSink(children, sink, ctx);
-  sink.write(close);
+  sinkWrite3(sink, '</', typeStr, '>');
 }
 
 /**
@@ -447,6 +487,275 @@ function executeComponentSync(
   }
 }
 
+function wrapWithDefaultPortal(out: unknown): VNode | JSXElement {
+  const portalVNode = {
+    $$typeof: ELEMENT_TYPE,
+    type: DefaultPortal,
+    props: {},
+    key: '__default_portal',
+  } as unknown;
+
+  if (out == null) {
+    return {
+      $$typeof: ELEMENT_TYPE,
+      type: Fragment,
+      props: { children: [portalVNode] },
+    } as unknown as VNode | JSXElement;
+  }
+
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: Fragment,
+    props: { children: [out as unknown, portalVNode] },
+  } as unknown as VNode | JSXElement;
+}
+
+function renderSyncComponentRoot(
+  component: Component,
+  props: Record<string, unknown> | undefined,
+  ctx: RenderContext
+): VNode | JSXElement {
+  const wrapped: Component = (
+    p?: Record<string, unknown>,
+    c?: { signal?: AbortSignal; ssr?: RenderContext }
+  ) => wrapWithDefaultPortal(component(p ?? {}, c));
+
+  return executeComponentSync(wrapped, props || {}, ctx);
+}
+
+function getRenderableChildren(
+  node: VNode | JSXElement
+): unknown[] | undefined {
+  if (Array.isArray((node as VNode).children)) {
+    return (node as VNode).children;
+  }
+  if (Array.isArray(node.props?.children)) {
+    return node.props.children as unknown[];
+  }
+  if (
+    node.props?.children !== undefined &&
+    node.props.children !== null &&
+    node.props.children !== false
+  ) {
+    return [node.props.children];
+  }
+  return undefined;
+}
+
+type VerifyState = {
+  current: ChildNode | null;
+  pendingText: string;
+};
+
+function flushPendingText(state: VerifyState): boolean {
+  if (state.pendingText.length === 0) {
+    return true;
+  }
+  if (!state.current || state.current.nodeType !== Node.TEXT_NODE) {
+    return false;
+  }
+  if (state.current.textContent !== state.pendingText) {
+    return false;
+  }
+  state.current = state.current.nextSibling;
+  state.pendingText = '';
+  return true;
+}
+
+function verifyRenderedAttrs(
+  element: Element,
+  props: Props | undefined
+): { matched: boolean; dangerousHtml?: string } {
+  const matchedAttrs = new Set<string>();
+  let dangerousHtml: string | undefined;
+
+  if (!props || typeof props !== 'object') {
+    return {
+      matched: element.attributes.length === 0,
+      dangerousHtml,
+    };
+  }
+
+  const propsObj = props as Record<string, unknown>;
+  for (const key in propsObj) {
+    const value = propsObj[key];
+
+    if (
+      key === 'children' ||
+      key === 'key' ||
+      key === 'ref' ||
+      key === 'dangerouslySetInnerHTML'
+    ) {
+      if (
+        key === 'dangerouslySetInnerHTML' &&
+        value &&
+        typeof value === 'object' &&
+        '__html' in value
+      ) {
+        dangerousHtml = String((value as { __html: unknown }).__html);
+      }
+      continue;
+    }
+
+    if (isSSRAttrEventHandler(key) || key.charCodeAt(0) === 95) {
+      continue;
+    }
+
+    const attrName = key === 'class' || key === 'className' ? 'class' : key;
+
+    if (attrName === 'style') {
+      const css = typeof value === 'string' ? value : styleObjToCss(value);
+      if (!css) continue;
+      if (element.getAttribute('style') !== css) {
+        return { matched: false };
+      }
+      matchedAttrs.add('style');
+      continue;
+    }
+
+    if (value === true) {
+      if (!element.hasAttribute(attrName)) {
+        return { matched: false };
+      }
+      matchedAttrs.add(attrName);
+      continue;
+    }
+
+    if (value === false || value === null || value === undefined) {
+      continue;
+    }
+
+    const stringValue = String(value);
+    if (element.getAttribute(attrName) !== stringValue) {
+      return { matched: false };
+    }
+    matchedAttrs.add(attrName);
+  }
+
+  if (element.attributes.length !== matchedAttrs.size) {
+    return { matched: false };
+  }
+
+  return { matched: true, dangerousHtml };
+}
+
+function verifyExpectedNode(
+  node: unknown,
+  state: VerifyState,
+  ctx: RenderContext
+): boolean {
+  if (node === null || node === undefined || node === false) {
+    return true;
+  }
+
+  if (typeof node === 'string' || typeof node === 'number') {
+    state.pendingText += String(node);
+    return true;
+  }
+
+  if (!node || typeof node !== 'object' || !('type' in node)) {
+    return true;
+  }
+
+  const vnode = node as VNode | JSXElement;
+  const { type, props } = vnode;
+
+  if (typeof type === 'function') {
+    return verifyExpectedNode(
+      executeComponentSync(type as Component, props, ctx),
+      state,
+      ctx
+    );
+  }
+
+  if (typeof type === 'symbol') {
+    if (type !== Fragment) {
+      throw new Error(
+        `verifyHydrationSyncForUrl: unsupported VNode symbol type: ${String(type)}`
+      );
+    }
+    const children = getRenderableChildren(vnode);
+    if (!children || children.length === 0) {
+      return true;
+    }
+    for (let index = 0; index < children.length; index += 1) {
+      if (!verifyExpectedNode(children[index], state, ctx)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (!flushPendingText(state)) {
+    return false;
+  }
+
+  if (!state.current || state.current.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+
+  const actualElement = state.current as Element;
+  if (actualElement.tagName.toLowerCase() !== String(type).toLowerCase()) {
+    return false;
+  }
+
+  const attrMatch = verifyRenderedAttrs(actualElement, props);
+  if (!attrMatch.matched) {
+    return false;
+  }
+
+  if (VOID_ELEMENTS.has(String(type))) {
+    if (actualElement.firstChild !== null) {
+      return false;
+    }
+    state.current = actualElement.nextSibling;
+    return true;
+  }
+
+  if (attrMatch.dangerousHtml !== undefined) {
+    if (actualElement.innerHTML !== attrMatch.dangerousHtml) {
+      return false;
+    }
+    state.current = actualElement.nextSibling;
+    return true;
+  }
+
+  const childState: VerifyState = {
+    current: actualElement.firstChild,
+    pendingText: '',
+  };
+  const children = getRenderableChildren(vnode);
+  if (children && children.length > 0) {
+    for (let index = 0; index < children.length; index += 1) {
+      if (!verifyExpectedNode(children[index], childState, ctx)) {
+        return false;
+      }
+    }
+  }
+
+  if (!flushPendingText(childState) || childState.current !== null) {
+    return false;
+  }
+
+  state.current = actualElement.nextSibling;
+  return true;
+}
+
+function verifyHydrationRoot(
+  root: Element,
+  node: VNode | JSXElement,
+  ctx: RenderContext
+): boolean {
+  const state: VerifyState = {
+    current: root.firstChild,
+    pendingText: '',
+  };
+  if (!verifyExpectedNode(node, state, ctx)) {
+    return false;
+  }
+  return flushPendingText(state) && state.current === null;
+}
+
 /**
  * Single synchronous SSR entrypoint: render a component to an HTML string.
  * This is strictly synchronous and deterministic. Optionally provide a seed
@@ -466,32 +775,11 @@ export function renderToStringSync(
     // Set render data on context (startRenderPhase now reads from context)
     startRenderPhase(options?.data ?? null);
     try {
-      const wrapped: Component = (
-        p?: Record<string, unknown>,
-        c?: { signal?: AbortSignal; ssr?: RenderContext }
-      ) => {
-        const out = (component as unknown as Component)(p ?? {}, c);
-        const portalVNode = {
-          $$typeof: ELEMENT_TYPE,
-          type: DefaultPortal,
-          props: {},
-          key: '__default_portal',
-        } as unknown;
-        if (out == null) {
-          return {
-            $$typeof: ELEMENT_TYPE,
-            type: Fragment,
-            props: { children: [portalVNode] },
-          } as unknown as VNode | JSXElement;
-        }
-        return {
-          $$typeof: ELEMENT_TYPE,
-          type: Fragment,
-          props: { children: [out as unknown, portalVNode] },
-        } as unknown as VNode | JSXElement;
-      };
-
-      const node = executeComponentSync(wrapped, props || {}, ctx);
+      const node = renderSyncComponentRoot(
+        component as unknown as Component,
+        props || {},
+        ctx
+      );
       if (!node) {
         throw new Error('renderToStringSync: wrapped component returned empty');
       }
@@ -505,75 +793,102 @@ export function renderToStringSync(
   });
 }
 
-// Synchronous server render for strict checks. Routes must be resolved before
-// the render pass so no route() calls happen during rendering.
-//
-// ⚠️ WARNING: This function mutates global route state. It is NOT safe to call
-// concurrently from multiple async contexts. In long-running servers, ensure
-// SSR requests are serialized or use isolated route contexts per request.
+export function renderResolvedToStringSync(opts: {
+  url: string;
+  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
+  handler: RouteHandler;
+  params?: Record<string, string>;
+  options?: { seed?: number; data?: SSRData };
+}): string {
+  const { url, routes, handler, params, options } = opts;
+  const seed = options?.seed ?? 12345;
+  const ctx = createRenderContext(seed, {
+    url,
+    data: options?.data,
+    params,
+    routes,
+  });
+
+  return withRenderContext(ctx, () => {
+    startRenderPhase(options?.data ?? null);
+    try {
+      const node = renderSyncComponentRoot(
+        handler as unknown as Component,
+        params || {},
+        ctx
+      );
+      const sink = new StringSink();
+      renderNodeSyncToSink(node, sink, ctx);
+      sink.end();
+      return sink.toString();
+    } finally {
+      stopRenderPhase();
+    }
+  });
+}
+
+// Synchronous server render for strict checks. Routes are resolved against the
+// provided route table and kept in the per-render SSR context.
 export function renderToStringSyncForUrl(opts: {
   url: string;
   routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
   options?: { seed?: number; data?: SSRData };
 }): string {
   const { url, routes, options } = opts;
-  // Register routes synchronously using route() (already available in module scope)
-  const {
-    clearRoutes,
-    route,
-    setServerLocation,
-    lockRouteRegistration,
-    resolveRoute,
-  } = RouteModule;
+  const routeTable = routes.map((route) => ({ ...route }));
+  const requestUrl = new URL(url, 'http://localhost');
+  const resolved = RouteModule.resolveRouteFromRoutes(
+    requestUrl.pathname,
+    routeTable
+  );
+  if (!resolved)
+    throw new Error(`renderToStringSyncForUrl: no route found for url: ${url}`);
 
-  clearRoutes();
-  for (const r of routes) {
-    route(r.path, r.handler, r.namespace);
+  return renderResolvedToStringSync({
+    url,
+    routes: routeTable,
+    handler: resolved.handler,
+    params: resolved.params,
+    options,
+  });
+}
+
+export function verifyHydrationSyncForUrl(opts: {
+  root: Element;
+  url: string;
+  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
+  options?: { seed?: number; data?: SSRData };
+}): boolean {
+  const { root, url, routes, options } = opts;
+  const routeTable = routes.map((route) => ({ ...route }));
+  const requestUrl = new URL(url, 'http://localhost');
+  const resolved = RouteModule.resolveRouteFromRoutes(
+    requestUrl.pathname,
+    routeTable
+  );
+  if (!resolved) {
+    throw new Error(
+      `verifyHydrationSyncForUrl: no route found for url: ${url}`
+    );
   }
 
-  setServerLocation(url);
-  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
-
-  const resolved = resolveRoute(url);
-  if (!resolved)
-    throw new Error(`renderToStringSync: no route found for url: ${url}`);
-
   const seed = options?.seed ?? 12345;
-  const ctx = createRenderContext(seed, { url, data: options?.data });
+  const ctx = createRenderContext(seed, {
+    url,
+    data: options?.data,
+    params: resolved.params,
+    routes: routeTable,
+  });
 
   return withRenderContext(ctx, () => {
     startRenderPhase(options?.data ?? null);
     try {
-      const wrapped: Component = (
-        p?: Record<string, unknown>,
-        c?: { signal?: AbortSignal; ssr?: RenderContext }
-      ) => {
-        const out = (resolved.handler as unknown as Component)(p ?? {}, c);
-        const portalVNode = {
-          $$typeof: ELEMENT_TYPE,
-          type: DefaultPortal,
-          props: {},
-          key: '__default_portal',
-        } as unknown;
-        if (out == null) {
-          return {
-            $$typeof: ELEMENT_TYPE,
-            type: Fragment,
-            props: { children: [portalVNode] },
-          } as unknown as VNode | JSXElement;
-        }
-        return {
-          $$typeof: ELEMENT_TYPE,
-          type: Fragment,
-          props: { children: [out as unknown, portalVNode] },
-        } as unknown as VNode | JSXElement;
-      };
-
-      const node = executeComponentSync(wrapped, resolved.params || {}, ctx);
-      const sink = new StringSink();
-      renderNodeSyncToSink(node, sink, ctx);
-      sink.end();
-      return sink.toString();
+      const node = renderSyncComponentRoot(
+        resolved.handler as unknown as Component,
+        resolved.params || {},
+        ctx
+      );
+      return verifyHydrationRoot(root, node, ctx);
     } finally {
       stopRenderPhase();
     }
@@ -652,46 +967,30 @@ function renderToSinkInternal(opts: {
 }) {
   const { url, routes, seed = 12345, data, sink } = opts;
 
-  // ⚠️ WARNING: This function mutates global route state. It is NOT safe to call
-  // concurrently from multiple async contexts. In long-running servers, ensure
-  // SSR requests are serialized or use isolated route contexts per request.
-  //
-  // Route resolution happens BEFORE render pass
-  const {
-    clearRoutes,
-    route,
-    setServerLocation,
-    lockRouteRegistration,
-    resolveRoute,
-  } = RouteModule;
-
-  clearRoutes();
-  for (const r of routes) route(r.path, r.handler, r.namespace);
-
-  setServerLocation(url);
-  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
-
-  const resolved = resolveRoute(url);
+  const routeTable = routes.map((route) => ({ ...route }));
+  const requestUrl = new URL(url, 'http://localhost');
+  const resolved = RouteModule.resolveRouteFromRoutes(
+    requestUrl.pathname,
+    routeTable
+  );
   if (!resolved) throw new Error(`SSR: no route found for url: ${url}`);
 
   const ctx = createRenderContext(seed, {
     url,
     data,
     params: resolved.params,
+    routes: routeTable,
   });
-
-  // Render the resolved handler with params
-  const node = resolved.handler(resolved.params) as
-    | VNode
-    | JSXElement
-    | string
-    | number
-    | null;
 
   withRenderContext(ctx, () => {
     // Start render-phase keying so resource() can lookup resolved `data` by key
     startRenderPhase(data || null);
     try {
+      const node = executeComponentSync(
+        resolved.handler as unknown as Component,
+        resolved.params,
+        ctx
+      );
       renderNodeToSink(node, sink, ctx);
     } finally {
       stopRenderPhase();

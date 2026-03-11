@@ -20,10 +20,7 @@ import type { DOMElement, VNode } from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
-import {
-  removeAllListeners,
-  cleanupInstanceIfPresent,
-} from '../renderer/cleanup';
+import { teardownNodeSubtree } from '../renderer/cleanup';
 
 const askrGlobal = globalThis as typeof globalThis & {
   __ASKR_BENCH__?: boolean;
@@ -313,7 +310,7 @@ export function createItemInstance<T>(
   // Prepare render token and pending reads so finalizeReadSubscriptions works
   // (this mirrors behavior in runComponent).
   itemComponent._currentRenderToken = _forRenderCounter++;
-  itemComponent._pendingReadStates = new Set();
+  itemComponent._pendingReadSources = new Set();
 
   recordBenchEvent('rowFactory');
   const vnode = evaluateJSXElement(
@@ -376,7 +373,7 @@ export function createItemInstance<T>(
     setStateIndex(startStateIndex);
 
     itemComponent._currentRenderToken = _forRenderCounter++;
-    itemComponent._pendingReadStates = new Set();
+    itemComponent._pendingReadSources = new Set();
 
     // Safely re-render into vnode slot for this item
     try {
@@ -397,6 +394,54 @@ export function createItemInstance<T>(
   };
 
   return itemInstance;
+}
+
+function rerenderItemInstance<T>(
+  forState: ForState<T>,
+  itemInstance: ForItemInstance<T>,
+  item: T
+): void {
+  const component = itemInstance.componentInstance;
+  const savedInstance = getCurrentInstance();
+  const savedStateIndex = getCurrentStateIndex();
+
+  setCurrentComponentInstance(component);
+  component.stateIndexCheck = -1;
+
+  const stateValues = component.stateValues;
+  for (let i = 0; i < stateValues.length; i++) {
+    const state = stateValues[i];
+    if (state) {
+      state._hasBeenRead = false;
+    }
+  }
+
+  setStateIndex(itemInstance._startStateIndex);
+  component._currentRenderToken = _forRenderCounter++;
+  component._pendingReadSources = new Set();
+
+  try {
+    recordBenchEvent('rowFactory');
+    itemInstance.vnode = evaluateJSXElement(
+      forState.renderFn(item, () => itemInstance.indexSignal())
+    );
+    try {
+      if (
+        itemInstance.vnode &&
+        typeof itemInstance.vnode === 'object' &&
+        'type' in itemInstance.vnode
+      ) {
+        (itemInstance.vnode as { key?: string | number | null }).key =
+          itemInstance.key;
+      }
+    } catch (e) {
+      void e;
+    }
+    finalizeReadSubscriptions(component);
+  } finally {
+    setStateIndex(savedStateIndex);
+    setCurrentComponentInstance(savedInstance);
+  }
 }
 
 export function reconcileForItems<T>(
@@ -443,24 +488,7 @@ export function reconcileForItems<T>(
 
         if (itemChanged) {
           existing.item = item;
-          const savedInst = getCurrentInstance();
-          setCurrentComponentInstance(existing.componentInstance);
-          recordBenchEvent('rowFactory');
-          existing.vnode = evaluateJSXElement(
-            forState.renderFn(item, () => existing.indexSignal())
-          );
-          try {
-            if (
-              existing.vnode &&
-              typeof existing.vnode === 'object' &&
-              'type' in existing.vnode
-            )
-              (existing.vnode as { key?: string | number | null }).key = key;
-          } catch (e) {
-            void e;
-          }
-
-          setCurrentComponentInstance(savedInst);
+          rerenderItemInstance(forState, existing, item);
         }
 
         if (indexChanged) {
@@ -518,23 +546,7 @@ export function reconcileForItems<T>(
 
         if (itemChanged) {
           existing.item = item;
-          const savedInst = getCurrentInstance();
-          setCurrentComponentInstance(existing.componentInstance);
-          recordBenchEvent('rowFactory');
-          existing.vnode = evaluateJSXElement(
-            forState.renderFn(item, () => existing.indexSignal())
-          );
-          try {
-            if (
-              existing.vnode &&
-              typeof existing.vnode === 'object' &&
-              'type' in existing.vnode
-            )
-              (existing.vnode as { key?: string | number | null }).key = key;
-          } catch (e) {
-            void e;
-          }
-          setCurrentComponentInstance(savedInst);
+          rerenderItemInstance(forState, existing, item);
         }
 
         if (indexChanged) {
@@ -560,8 +572,7 @@ export function reconcileForItems<T>(
           }
           // Clean up cached DOM node if present
           if (itemInstance._dom instanceof Element) {
-            removeAllListeners(itemInstance._dom);
-            cleanupInstanceIfPresent(itemInstance._dom);
+            teardownNodeSubtree(itemInstance._dom);
           }
           itemInstance.vnode = undefined;
           itemInstance._dom = undefined;
@@ -610,24 +621,7 @@ export function reconcileForItems<T>(
 
         if (itemChanged) {
           existing.item = item;
-          const savedInst = getCurrentInstance();
-          setCurrentComponentInstance(existing.componentInstance);
-          recordBenchEvent('rowFactory');
-          const newVNode = evaluateJSXElement(
-            forState.renderFn(item, () => existing.indexSignal())
-          );
-          existing.vnode = newVNode;
-          try {
-            if (
-              existing.vnode &&
-              typeof existing.vnode === 'object' &&
-              'type' in existing.vnode
-            )
-              (existing.vnode as { key?: string | number | null }).key = key;
-          } catch (e) {
-            void e;
-          }
-          setCurrentComponentInstance(savedInst);
+          rerenderItemInstance(forState, existing, item);
         }
 
         if (indexChanged) {
@@ -681,26 +675,7 @@ export function reconcileForItems<T>(
       if (itemChanged) {
         // Item data changed: update and re-execute
         existing.item = item;
-
-        const savedInst = getCurrentInstance();
-        setCurrentComponentInstance(existing.componentInstance);
-
-        recordBenchEvent('rowFactory');
-        existing.vnode = evaluateJSXElement(
-          forState.renderFn(item, () => existing.indexSignal())
-        );
-        try {
-          if (
-            existing.vnode &&
-            typeof existing.vnode === 'object' &&
-            'type' in existing.vnode
-          )
-            (existing.vnode as { key?: string | number | null }).key = key;
-        } catch (e) {
-          void e;
-        }
-
-        setCurrentComponentInstance(savedInst);
+        rerenderItemInstance(forState, existing, item);
       }
 
       if (indexChanged) {
@@ -729,8 +704,7 @@ export function reconcileForItems<T>(
 
       // Clean up cached DOM node if present
       if (itemInstance._dom instanceof Element) {
-        removeAllListeners(itemInstance._dom);
-        cleanupInstanceIfPresent(itemInstance._dom);
+        teardownNodeSubtree(itemInstance._dom);
       }
 
       itemInstance.vnode = undefined;
