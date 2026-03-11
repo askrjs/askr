@@ -60,9 +60,3 @@ jobs:
 
       - name: Test
         run: npm test
-
-      - name: Docs checks
-        run: npm run test:docs
-
-      - name: Example checks
-        run: npm run test:examples

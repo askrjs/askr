@@ -27,7 +27,7 @@ function Row({ item, isSelected, onSelect, onRemove }: RowProps) {
       <td class="col-md-1">{item.id}</td>
       <td class="col-md-4">
         <a
-          onClick={(e) => {
+          onClick={(e: MouseEvent) => {
             e.preventDefault();
             onSelect(item.id);
           }}
@@ -37,7 +37,7 @@ function Row({ item, isSelected, onSelect, onRemove }: RowProps) {
       </td>
       <td class="col-md-1">
         <a
-          onClick={(e) => {
+          onClick={(e: MouseEvent) => {
             e.preventDefault();
             onRemove(item.id);
           }}
@@ -319,7 +319,7 @@ describe(
     test('should remove row via callback with JSX', () => {
       const { container, cleanup } = createTestContainer();
       let dataState!: State<RowData[]>;
-      const _removeCalled = 0;
+      let removeCalled = 0;
 
       const App = () => {
         dataState = state<RowData[]>(buildData(10));
@@ -361,19 +361,16 @@ describe(
       // Simulate clicking remove on row 5
       const removeLink = tbody
         .querySelectorAll('tr')[4]
-        .querySelector('a:last-child');
+        .querySelector('td:last-child a');
       void expect(removeLink).to.not.be.null;
 
-      // Manually trigger the remove callback
-      const row5Data = dataState()[4];
-      expect(row5Data.id).to.equal(5);
-
-      // Remove row 5
-      dataState.set((d) => d.filter((it) => it.id !== 5));
+      // Trigger the same callback path the component uses.
+      (removeLink as HTMLAnchorElement).click();
       flushScheduler();
 
       const rows = tbody.querySelectorAll('tr');
       expect(rows.length).to.equal(9);
+      expect(removeCalled).to.equal(1);
 
       // Verify row 5 is gone and order is preserved
       const ids = Array.from(rows).map(

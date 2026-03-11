@@ -842,7 +842,7 @@ export function renderToStringSyncForUrl(opts: {
     routeTable
   );
   if (!resolved)
-    throw new Error(`renderToStringSync: no route found for url: ${url}`);
+    throw new Error(`renderToStringSyncForUrl: no route found for url: ${url}`);
 
   return renderResolvedToStringSync({
     url,
