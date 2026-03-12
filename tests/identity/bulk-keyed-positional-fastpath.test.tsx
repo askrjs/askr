@@ -35,19 +35,20 @@ describe('bulk keyed positional fast-path', () => {
       selected = state<number | null>(null);
       labelOverrides = state<Record<number, string>>({});
       const overrides = labelOverrides();
-      return {
-        type: 'ul',
-        children: items().map((item: number) => ({
-          type: 'li',
-          key: item,
-          props: {
-            'data-key': String(item),
-            class: selected() === item ? 'danger' : '',
-            'aria-selected': selected() === item ? 'true' : 'false',
-          },
-          children: [overrides[item] ?? 'Item ' + item],
-        })),
-      };
+      return (
+        <ul>
+          {items().map((item: number) => (
+            <li
+              key={item}
+              data-key={String(item)}
+              class={selected() === item ? 'danger' : ''}
+              aria-selected={selected() === item ? 'true' : 'false'}
+            >
+              {overrides[item] ?? 'Item ' + item}
+            </li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as askr from '../../src/index';
 
 describe('public entry renderer bridge', () => {
-  it('installs the renderer bridge on globalThis', () => {
+  it('should install the renderer bridge on globalThis', () => {
     const bridge = (
       globalThis as typeof globalThis & {
         __ASKR_RENDERER?: Record<string, unknown>;
@@ -15,7 +15,7 @@ describe('public entry renderer bridge', () => {
     expect(typeof bridge?.getKeyMapForElement).toBe('function');
   });
 
-  it('does not expose event delegation toggles on the public entry', () => {
+  it('should not expose event delegation toggles on the public entry', () => {
     expect('enableEventDelegation' in askr).toBe(false);
   });
 });

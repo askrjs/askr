@@ -16,38 +16,22 @@ test(
       dataState = state<{ id: number; label: string }[]>([]);
       dataState();
 
-      return {
-        type: 'table',
-        props: {},
-        children: [
-          {
-            type: 'tbody',
-            props: {},
-            children: [
-              For(
-                () => dataState(),
-                (row) => row.id,
-                (row) => ({
-                  type: 'tr',
-                  props: { key: row.id },
-                  children: [
-                    {
-                      type: 'td',
-                      props: {},
-                      children: [String(row.id)],
-                    },
-                    {
-                      type: 'td',
-                      props: {},
-                      children: [row.label],
-                    },
-                  ],
-                })
-              ),
-            ],
-          },
-        ],
-      };
+      return (
+        <table>
+          <tbody>
+            {For(
+              () => dataState(),
+              (row) => row.id,
+              (row) => (
+                <tr key={row.id}>
+                  <td>{String(row.id)}</td>
+                  <td>{row.label}</td>
+                </tr>
+              )
+            )}
+          </tbody>
+        </table>
+      );
     };
 
     createIsland({ root: container, component: Component });

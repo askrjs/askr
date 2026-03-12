@@ -1,22 +1,22 @@
 # API Overview
 
-Askr keeps the root API minimal and exposes advanced features through explicit subpaths.
+Askr treats the published package entrypoints as the public API contract.
+
+Use the root package for common app/runtime APIs. Prefer explicit subpaths when you are working primarily inside a specific subsystem such as routing, resources, or FX.
 
 ## Root package (`@askrjs/askr`)
 
-- `createIsland(config)`
-- `createSPA(config)`
-- `state(initialValue)`
-- `derive(selector) -> getter`
-- `derive(source, map) -> getter`
-- `selector(source, equals?) -> keyed predicate`
-- `For(...)`
+- App/runtime: `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, `hasApp`
+- Reactivity: `state(initialValue)`, `derive(selector) -> getter`, `derive(source, map) -> getter`, `selector(source, equals?) -> keyed predicate`
+- Operations: `resource`, `on`, `timer`, `task`, `stream`, `capture`
+- Common helpers: `For`, FX utilities, SSR helpers, JSX runtime exports
+- Supported router compatibility exports: `route`, `navigate`, `Link`, `getRoutes`, `clearRoutes`, `registerRoute`, `defineRoute`, namespace helpers, and `setServerLocation`
 
 Supported DOM events are delegated automatically as part of the renderer; normal app code does not need a separate event-delegation API.
 
-## Subpath packages
+## Preferred subpath packages
 
-- `@askrjs/askr/router` -> routing primitives (`route`, `getRoutes`, `clearRoutes`, `navigate`, `Link`, `layout`)
+- `@askrjs/askr/router` -> preferred router entrypoint (`route`, `getRoutes`, `clearRoutes`, `navigate`, `Link`, `layout`, route types)
 - `@askrjs/askr/resources` -> async resource primitives (`resource`, `getSignal`)
 - `@askrjs/askr/fx` -> timing and scheduling utilities (`debounce`, `throttle`, `retry`, `defer`, etc.)
 - `@askrjs/askr/ssr` -> server-side rendering helpers
@@ -33,6 +33,8 @@ import { route, navigate } from '@askrjs/askr/router';
 import { resource } from '@askrjs/askr/resources';
 import { createStaticGen } from '@askrjs/askr/ssg';
 ```
+
+For router-specific code, prefer `@askrjs/askr/router`. The root barrel keeps router helpers available for compatibility and shared convenience imports.
 
 `derive()` returns a callable getter. Example:
 
@@ -56,6 +58,13 @@ console.log(isSelected(42));
 ```
 
 For large keyed lists, call `selector()` once in the owner component and pass the returned predicate to child rows instead of creating a new selector per item.
+
+`route()` is overloaded:
+
+- `route(path, handler, namespace?)` registers a route
+- `route()` inside render returns the current read-only route snapshot
+
+`createSPA({ routes })` is the authoritative boot input. `route(...)` plus `getRoutes()` is the convenience way to assemble that route table for SPA startup.
 
 `@askrjs/askr/ssg` also accepts `parallelism?: number | 'auto'`, and the Vite plugin accepts `optimizeTemplates?: boolean` for opt-in compile-time literal hoisting.
 

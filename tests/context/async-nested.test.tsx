@@ -41,11 +41,7 @@ describe('nested context continuations preserve captured snapshot', () => {
         return `${beforeAwait}->${afterAwait}`;
       }, []);
 
-      return {
-        type: 'div',
-        props: {},
-        children: [r.value ?? (r.pending ? 'pending' : 'error')],
-      };
+      return <div>{r.value ?? (r.pending ? 'pending' : 'error')}</div>;
     };
 
     const Outer = () => {
@@ -97,11 +93,7 @@ describe('nested context continuations preserve captured snapshot', () => {
         return `${beforeAwait}->${afterAwait}`;
       }, []);
 
-      return {
-        type: 'div',
-        props: {},
-        children: [r.value ?? 'pending'],
-      } as unknown as JSXElement;
+      return (<div>{r.value ?? 'pending'}</div>) as unknown as JSXElement;
     };
 
     const App = () => {

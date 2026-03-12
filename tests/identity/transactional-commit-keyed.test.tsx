@@ -12,17 +12,18 @@ describe('transactional commit - keyed list identity', () => {
     const Controlled = () => {
       const s = state(['a', 'b', 'c']);
       setOrder = (v: string[]) => s.set(v);
-      return {
-        type: 'div',
-        children: s().map(
-          (k) =>
-            ({
-              type: 'div',
-              props: { key: k, 'data-key': k },
-              children: [k],
-            }) as unknown as JSXElement
-        ),
-      } as unknown as JSXElement;
+      return (
+        <div>
+          {s().map(
+            (k) =>
+              (
+                <div key={k} data-key={k}>
+                  {k}
+                </div>
+              ) as unknown as JSXElement
+          )}
+        </div>
+      ) as unknown as JSXElement;
     };
 
     const { container, cleanup: cleanup2 } = createTestContainer();

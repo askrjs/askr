@@ -35,15 +35,15 @@ describe('runtime fast-lane', () => {
             text: `Item ${i + 1}`,
           }))
         );
-        return {
-          type: 'ul',
-          children: items().map((item) => ({
-            type: 'li',
-            key: item.id,
-            props: { 'data-key': String(item.id) },
-            children: [item.text],
-          })),
-        };
+        return (
+          <ul>
+            {items().map((item) => (
+              <li key={item.id} data-key={String(item.id)}>
+                {item.text}
+              </li>
+            ))}
+          </ul>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -129,18 +129,19 @@ describe('runtime fast-lane', () => {
             togg: i % 2,
           }))
         );
-        return {
-          type: 'ul',
-          children: items().map((item) => ({
-            type: 'li',
-            key: item.id,
-            props: {
-              'data-key': String(item.id),
-              class: String(item.togg),
-            },
-            children: [item.text],
-          })),
-        };
+        return (
+          <ul>
+            {items().map((item) => (
+              <li
+                key={item.id}
+                data-key={String(item.id)}
+                class={String(item.togg)}
+              >
+                {item.text}
+              </li>
+            ))}
+          </ul>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -197,15 +198,15 @@ describe('fast-lane large reorder regression', () => {
 
     const Component = () => {
       items = state(Array.from({ length: N }, (_, i) => i));
-      return {
-        type: 'ul',
-        children: items().map((item: number) => ({
-          type: 'li',
-          key: item,
-          props: { 'data-key': String(item) },
-          children: ['Item ' + item],
-        })),
-      };
+      return (
+        <ul>
+          {items().map((item: number) => (
+            <li key={item} data-key={String(item)}>
+              {'Item ' + item}
+            </li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -269,15 +270,15 @@ describe('fast-lane scheduler progress escape hatch', () => {
         marker = true;
       });
 
-      return {
-        type: 'ul',
-        children: items().map((item: { id: number; text: string }) => ({
-          type: 'li',
-          key: item.id,
-          props: { 'data-key': String(item.id) },
-          children: [item.text],
-        })),
-      };
+      return (
+        <ul>
+          {items().map((item: { id: number; text: string }) => (
+            <li key={item.id} data-key={String(item.id)}>
+              {item.text}
+            </li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });

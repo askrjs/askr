@@ -11,6 +11,8 @@ installRendererBridge();
 // Runtime primitives
 export { state } from './runtime/state';
 export type { State } from './runtime/state';
+export { derive } from './runtime/derive';
+export type { Derived } from './runtime/derive';
 export { getSignal } from './runtime/component';
 export { selector } from './runtime/selector';
 export type { Selector } from './runtime/selector';

@@ -32,16 +32,11 @@ describe('rollback behavior', () => {
         throw new Error('render failed intentionally');
       }
 
-      return {
-        type: 'div',
-        children: [
-          {
-            type: 'button',
-            props: { id: 'btn' },
-            children: ['click'],
-          },
-        ],
-      } as unknown as JSXElement;
+      return (
+        <div>
+          <button id={'btn'}>{'click'}</button>
+        </div>
+      ) as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Component });

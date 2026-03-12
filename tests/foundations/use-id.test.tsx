@@ -22,16 +22,16 @@ describe('formatId (FOUNDATIONS)', () => {
       const tick = state(0);
       const id = formatId({ id: 'app' });
 
-      return {
-        type: 'button',
-        props: {
-          id,
-          onClick: () => {
+      return (
+        <button
+          id={id}
+          onClick={() => {
             tick.set(tick() + 1);
-          },
-        },
-        children: [`tick=${tick()}`],
-      };
+          }}
+        >
+          {`tick=${tick()}`}
+        </button>
+      );
     };
 
     createIsland({ root: container, component: App });
@@ -50,10 +50,7 @@ describe('formatId (FOUNDATIONS)', () => {
 
   it('should apply the provided prefix', () => {
     const App = () => {
-      return {
-        type: 'div',
-        props: { id: formatId({ prefix: 'x', id: 1 }) },
-      };
+      return <div id={formatId({ prefix: 'x', id: 1 })} />;
     };
 
     createIsland({ root: container, component: App });

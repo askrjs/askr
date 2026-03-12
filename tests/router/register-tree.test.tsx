@@ -8,9 +8,9 @@ describe('explicit `route()` registrations', () => {
 
   it('should register equivalent routes when using explicit `route()` calls', () => {
     // flat registration
-    route('/', () => ({ type: 'div', children: ['root'] }));
-    route('/pages', () => ({ type: 'div', children: ['list'] }));
-    route('/pages/{id}', () => ({ type: 'div', children: ['detail'] }));
+    route('/', () => <div>{'root'}</div>);
+    route('/pages', () => <div>{'list'}</div>);
+    route('/pages/{id}', () => <div>{'detail'}</div>);
 
     const flat = getRoutes()
       .map((r) => r.path)
@@ -19,9 +19,9 @@ describe('explicit `route()` registrations', () => {
     clearRoutes();
 
     // explicit re-registration (same as flat)
-    route('/', () => ({ type: 'div', children: ['root'] }));
-    route('/pages', () => ({ type: 'div', children: ['list'] }));
-    route('/pages/{id}', () => ({ type: 'div', children: ['detail'] }));
+    route('/', () => <div>{'root'}</div>);
+    route('/pages', () => <div>{'list'}</div>);
+    route('/pages/{id}', () => <div>{'detail'}</div>);
 
     const explicit = getRoutes()
       .map((r) => r.path)

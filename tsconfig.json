@@ -13,6 +13,20 @@
 
     "outDir": "./dist",
     "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@askrjs/askr": ["./src/index.ts"],
+      "@askrjs/askr/for": ["./src/for/index.ts"],
+      "@askrjs/askr/foundations": ["./src/foundations/index.ts"],
+      "@askrjs/askr/resources": ["./src/resources/index.ts"],
+      "@askrjs/askr/fx": ["./src/fx/index.ts"],
+      "@askrjs/askr/router": ["./src/router/index.ts"],
+      "@askrjs/askr/ssr": ["./src/ssr/index.ts"],
+      "@askrjs/askr/ssg": ["./src/ssg/index.ts"],
+      "@askrjs/askr/vite": ["./src/dev/vite-plugin-askr.ts"],
+      "@askrjs/askr/jsx-runtime": ["./src/jsx/jsx-runtime.ts"],
+      "@askrjs/askr/jsx-dev-runtime": ["./src/jsx/jsx-dev-runtime.ts"]
+    },
 
     "strict": true,
     "esModuleInterop": true,

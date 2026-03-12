@@ -37,15 +37,15 @@ describe('keyed lists (SPEC 2.4)', () => {
           { id: 2, label: 'B' },
           { id: 3, label: 'C' },
         ]);
-        return {
-          type: 'div',
-          children: items().map((item) => ({
-            type: 'div',
-            key: item.id,
-            props: { 'data-id': item.id },
-            children: [item.label],
-          })),
-        };
+        return (
+          <div>
+            {items().map((item) => (
+              <div key={item.id} data-id={item.id}>
+                {item.label}
+              </div>
+            ))}
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -74,14 +74,13 @@ describe('keyed lists (SPEC 2.4)', () => {
 
       const Component = () => {
         items = state(['A', 'B', 'C']);
-        return {
-          type: 'div',
-          children: items().map((label, i) => ({
-            type: 'div',
-            props: { 'data-index': i },
-            children: [label],
-          })),
-        };
+        return (
+          <div>
+            {items().map((label, i) => (
+              <div data-index={i}>{label}</div>
+            ))}
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -112,15 +111,13 @@ describe('keyed lists (SPEC 2.4)', () => {
           { id: 'x', value: 10 },
           { id: 'y', value: 20 },
         ]);
-        return {
-          type: 'div',
-          children: items().map((item) => ({
-            type: 'div',
-            key: item.id,
-            props: { 'data-key': item.id },
-            children: [`${item.value}`],
-          })),
-        };
+        return (
+          <div>
+            {items().map((item) => (
+              <div key={item.id} data-key={item.id}>{`${item.value}`}</div>
+            ))}
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });

@@ -9,25 +9,20 @@ test('should update item when nested state changes', () => {
 
   const Component = () => {
     const rows = [1];
-    return {
-      type: 'div',
-      children: [
-        For(
+    return (
+      <div>
+        {For(
           () => rows,
           (_, index) => index,
           (_n) => {
             const c = state(0);
-            return {
-              type: 'button',
-              props: {
-                onClick: () => c.set(c() + 1),
-              },
-              children: [String(c())],
-            };
+            return (
+              <button onClick={() => c.set(c() + 1)}>{String(c())}</button>
+            );
           }
-        ),
-      ],
-    };
+        )}
+      </div>
+    );
   };
 
   createIsland({ root: container, component: Component });

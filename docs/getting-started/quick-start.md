@@ -42,7 +42,7 @@ Use router subpath APIs when you need navigation.
 
 ```tsx
 import { createSPA } from '@askrjs/askr';
-import { route, getRoutes, navigate, Link } from '@askrjs/askr/router';
+import { route, getRoutes, Link } from '@askrjs/askr/router';
 
 function Home() {
   return (
@@ -64,9 +64,9 @@ await createSPA({
   root: document.getElementById('app')!,
   routes: getRoutes(),
 });
-
-navigate(window.location.pathname);
 ```
+
+`createSPA()` already mounts the current browser URL when it matches one of the provided routes. Use `navigate(path)` later for user-driven transitions.
 
 ## 4) Async data pattern
 

@@ -18,7 +18,7 @@ export const SlowAsync = ({
     await new Promise((r) => setTimeout(r, delay));
     return id;
   }, [delay, id]);
-  return { type: 'div', children: [r.value ?? ''] };
+  return <div>{r.value ?? ''}</div>;
 };
 
 export const FailingAsync = ({ delay = 50 }: { delay?: number }) => {
@@ -27,10 +27,7 @@ export const FailingAsync = ({ delay = 50 }: { delay?: number }) => {
     throw new Error('Async failure');
   }, [delay]);
 
-  return {
-    type: 'div',
-    children: [r.error ? 'error' : r.pending ? 'pending' : 'ok'],
-  };
+  return <div>{r.error ? 'error' : r.pending ? 'pending' : 'ok'}</div>;
 };
 
 export const CancelDetector = ({ delay = 50 }: { delay?: number }) => {
@@ -52,10 +49,7 @@ export const CancelDetector = ({ delay = 50 }: { delay?: number }) => {
     [delay]
   );
 
-  return {
-    type: 'div',
-    children: [r.value ?? (r.pending ? 'pending' : 'error')],
-  };
+  return <div>{r.value ?? (r.pending ? 'pending' : 'error')}</div>;
 };
 
 export const RenderCounter = ({ id = 'comp' }: { id?: string }) => {
@@ -64,5 +58,5 @@ export const RenderCounter = ({ id = 'comp' }: { id?: string }) => {
     await new Promise((r) => setTimeout(r, 10));
     return id;
   }, [id]);
-  return { type: 'div', props: { 'data-id': id }, children: [r.value ?? ''] };
+  return <div data-id={id}>{r.value ?? ''}</div>;
 };

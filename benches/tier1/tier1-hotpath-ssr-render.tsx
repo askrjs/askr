@@ -3,21 +3,16 @@ import { renderToStringSync } from '../../src/ssr';
 import { tier1BenchOptions } from '../shared/_shared';
 
 function renderHotTree() {
-  return renderToStringSync(() => ({
-    type: 'section',
-    props: { id: 'root' },
-    children: [
-      { type: 'h1', children: ['SSR hot path'] },
-      {
-        type: 'ul',
-        children: Array.from({ length: 250 }, (_, index) => ({
-          type: 'li',
-          props: { 'data-row': index },
-          children: [`Item ${index}`],
-        })),
-      },
-    ],
-  }));
+  return renderToStringSync(() => (
+    <section id={'root'}>
+      <h1>{'SSR hot path'}</h1>
+      <ul>
+        {Array.from({ length: 250 }, (_, index) => (
+          <li data-row={index}>{`Item ${index}`}</li>
+        ))}
+      </ul>
+    </section>
+  ));
 }
 
 expect(renderHotTree()).toContain('SSR hot path');

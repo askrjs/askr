@@ -13,7 +13,7 @@ describe('text node updates (DOM)', () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
       text = state('a');
-      return { type: 'div', props: { children: [text()] } };
+      return <div>{text()}</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -38,9 +38,7 @@ describe('text node updates (DOM)', () => {
 
     const Component = () => {
       mode = state<'element' | 'text'>('element');
-      return mode() === 'element'
-        ? { type: 'span', props: { id: 'node', children: ['x'] } }
-        : 'x';
+      return mode() === 'element' ? <span id={'node'}>{'x'}</span> : 'x';
     };
 
     createIsland({ root: container, component: Component });

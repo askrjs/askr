@@ -17,7 +17,7 @@ describe('createIsland cleanup', () => {
           cleaned = true;
         };
       });
-      return { type: 'div', children: [] } as unknown as JSXElement;
+      return (<div></div>) as unknown as JSXElement;
     };
 
     // Simulate mounting by creating island and then cleanupApp

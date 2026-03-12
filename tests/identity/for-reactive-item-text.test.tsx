@@ -42,19 +42,19 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
         { id: 3, label: 'Item 3' },
       ]);
 
-      return {
-        type: 'div',
-        children: For(
-          () => items!(),
-          (item) => item.id,
-          (item) => ({
-            type: 'div',
-            key: item.id,
-            props: { 'data-id': item.id },
-            children: [item.label],
-          })
-        ),
-      };
+      return (
+        <div>
+          {For(
+            () => items!(),
+            (item) => item.id,
+            (item) => (
+              <div key={item.id} data-id={item.id}>
+                {item.label}
+              </div>
+            )
+          )}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -102,19 +102,19 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
         }))
       );
 
-      return {
-        type: 'div',
-        children: For(
-          () => items!(),
-          (item) => item.id,
-          (item) => ({
-            type: 'div',
-            key: item.id,
-            props: { 'data-id': item.id },
-            children: [item.label],
-          })
-        ),
-      };
+      return (
+        <div>
+          {For(
+            () => items!(),
+            (item) => item.id,
+            (item) => (
+              <div key={item.id} data-id={item.id}>
+                {item.label}
+              </div>
+            )
+          )}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -163,25 +163,20 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
         { id: 2, prefix: 'Item', count: 2 },
       ]);
 
-      return {
-        type: 'div',
-        children: For(
-          () => items!(),
-          (item) => item.id,
-          (item) => ({
-            type: 'div',
-            key: item.id,
-            props: { 'data-id': item.id },
-            children: [
-              `${item.prefix} ${item.count}`,
-              {
-                type: 'span',
-                children: [` (count: ${item.count})`],
-              },
-            ],
-          })
-        ),
-      };
+      return (
+        <div>
+          {For(
+            () => items!(),
+            (item) => item.id,
+            (item) => (
+              <div key={item.id} data-id={item.id}>
+                {`${item.prefix} ${item.count}`}
+                <span>{` (count: ${item.count})`}</span>
+              </div>
+            )
+          )}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -219,19 +214,19 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
         { id: 3, label: 'C' },
       ]);
 
-      return {
-        type: 'div',
-        children: For(
-          () => items!(),
-          (item) => item.id,
-          (item) => ({
-            type: 'div',
-            key: item.id,
-            props: { 'data-id': item.id },
-            children: [item.label],
-          })
-        ),
-      };
+      return (
+        <div>
+          {For(
+            () => items!(),
+            (item) => item.id,
+            (item) => (
+              <div key={item.id} data-id={item.id}>
+                {item.label}
+              </div>
+            )
+          )}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

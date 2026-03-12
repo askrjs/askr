@@ -15,16 +15,14 @@ describe('listener lifecycle (DOM)', () => {
 
     const Component = () => {
       tick = state(0);
-      return {
-        type: 'button',
-        props: {
-          id: 'btn',
-          onClick: () => {
+      return (
+        <button
+          id={'btn'}
+          onClick={() => {
             clicks++;
-          },
-        },
-        children: [`${tick()}`],
-      };
+          }}
+        >{`${tick()}`}</button>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -44,12 +42,12 @@ describe('listener lifecycle (DOM)', () => {
 
   it('should remove listener when component unmounts', async () => {
     let clicks = 0;
-    const With = () => ({
-      type: 'button',
-      props: { id: 'btn', onClick: () => (clicks += 1) },
-      children: ['x'],
-    });
-    const Without = () => ({ type: 'div', children: ['gone'] });
+    const With = () => (
+      <button id={'btn'} onClick={() => (clicks += 1)}>
+        {'x'}
+      </button>
+    );
+    const Without = () => <div>{'gone'}</div>;
 
     createIsland({ root: container, component: With });
     flushScheduler();
@@ -74,17 +72,17 @@ describe('listener lifecycle (DOM)', () => {
 
     const Component = () => {
       mode = state<'a' | 'b'>('a');
-      return {
-        type: 'button',
-        props: {
-          id: 'btn',
-          onClick: () => {
+      return (
+        <button
+          id={'btn'}
+          onClick={() => {
             if (mode!() === 'a') aClicks++;
             else bClicks++;
-          },
-        },
-        children: [mode()],
-      };
+          }}
+        >
+          {mode()}
+        </button>
+      );
     };
 
     createIsland({ root: container, component: Component });

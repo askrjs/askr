@@ -6,29 +6,21 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     const routes = [
       {
         path: '/',
-        handler: () => ({
-          type: 'div',
-          props: { class: 'root' },
-          children: [
-            { type: 'h1', children: ['Title'] },
-            {
-              type: 'p',
-              children: [
-                'This is ',
-                { type: 'em', children: ['important'] },
-                '.',
-              ],
-            },
-            {
-              type: 'ul',
-              children: [
-                { type: 'li', children: ['One'] },
-                { type: 'li', children: ['Two'] },
-                { type: 'li', children: ['Three'] },
-              ],
-            },
-          ],
-        }),
+        handler: () => (
+          <div class={'root'}>
+            <h1>{'Title'}</h1>
+            <p>
+              {'This is '}
+              <em>{'important'}</em>
+              {'.'}
+            </p>
+            <ul>
+              <li>{'One'}</li>
+              <li>{'Two'}</li>
+              <li>{'Three'}</li>
+            </ul>
+          </div>
+        ),
       },
     ];
 
@@ -52,14 +44,14 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     const routes = [
       {
         path: '/',
-        handler: () => ({
-          type: 'article',
-          props: { id: 'main' },
-          children: [
-            { type: 'header', children: [{ type: 'h1', children: ['Hello'] }] },
-            { type: 'p', children: ['World'] },
-          ],
-        }),
+        handler: () => (
+          <article id={'main'}>
+            <header>
+              <h1>{'Hello'}</h1>
+            </header>
+            <p>{'World'}</p>
+          </article>
+        ),
       },
     ];
 

@@ -23,15 +23,15 @@ describe('fast-lane DOM commit count', () => {
           text: `Item ${i + 1}`,
         }))
       );
-      return {
-        type: 'ul',
-        children: items().map((item) => ({
-          type: 'li',
-          key: item.id,
-          props: { 'data-key': String(item.id) },
-          children: [item.text],
-        })),
-      };
+      return (
+        <ul>
+          {items().map((item) => (
+            <li key={item.id} data-key={String(item.id)}>
+              {item.text}
+            </li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });

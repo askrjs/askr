@@ -13,18 +13,19 @@ describe('strict keyed list guarantees', () => {
       const s = state(['a', 'u1', 'b', 'c']);
       setItems = (v: string[]) => s.set(v);
 
-      return {
-        type: 'div',
-        children: s().map((k) =>
-          k.startsWith('u')
-            ? ({ type: 'div', children: ['unkeyed'] } as unknown as JSXElement)
-            : ({
-                type: 'div',
-                props: { key: k, 'data-key': k },
-                children: [k],
-              } as unknown as JSXElement)
-        ),
-      } as unknown as JSXElement;
+      return (
+        <div>
+          {s().map((k) =>
+            k.startsWith('u')
+              ? ((<div>{'unkeyed'}</div>) as unknown as JSXElement)
+              : ((
+                  <div key={k} data-key={k}>
+                    {k}
+                  </div>
+                ) as unknown as JSXElement)
+          )}
+        </div>
+      ) as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Controlled });
@@ -60,17 +61,18 @@ describe('strict keyed list guarantees', () => {
       const prop = state<Record<string, string>>({ a: 'x', b: 'x', c: 'x' });
       setProp = (k: string, v: string) => prop.set({ ...prop(), [k]: v });
 
-      return {
-        type: 'div',
-        children: keys.map(
-          (k) =>
-            ({
-              type: 'div',
-              props: { key: k, 'data-key': k, 'data-prop': prop()[k] },
-              children: [k],
-            }) as unknown as JSXElement
-        ),
-      } as unknown as JSXElement;
+      return (
+        <div>
+          {keys.map(
+            (k) =>
+              (
+                <div key={k} data-key={k} data-prop={prop()[k]}>
+                  {k}
+                </div>
+              ) as unknown as JSXElement
+          )}
+        </div>
+      ) as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Controlled });
@@ -110,16 +112,19 @@ describe('strict keyed list guarantees', () => {
       const tagMap = state<Record<string, string>>({ a: 'div' });
       setTag = (k: string, t: string) => tagMap.set({ ...tagMap(), [k]: t });
 
-      return {
-        type: 'div',
-        children: [
-          {
-            type: tagMap().a as string,
-            props: { key: 'a', 'data-key': 'a' },
-            children: ['a'],
-          } as unknown as JSXElement,
-        ],
-      } as unknown as JSXElement;
+      return (
+        <div>
+          {tagMap().a === 'span' ? (
+            <span key="a" data-key="a">
+              a
+            </span>
+          ) : (
+            <div key="a" data-key="a">
+              a
+            </div>
+          )}
+        </div>
+      ) as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Controlled });
@@ -148,17 +153,18 @@ describe('strict keyed list guarantees', () => {
       const s = state(initial.slice());
       setOrder = (v: string[]) => s.set(v);
 
-      return {
-        type: 'div',
-        children: s().map(
-          (k) =>
-            ({
-              type: 'div',
-              props: { key: k, 'data-key': k },
-              children: [k],
-            }) as unknown as JSXElement
-        ),
-      } as unknown as JSXElement;
+      return (
+        <div>
+          {s().map(
+            (k) =>
+              (
+                <div key={k} data-key={k}>
+                  {k}
+                </div>
+              ) as unknown as JSXElement
+          )}
+        </div>
+      ) as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Controlled });

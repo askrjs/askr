@@ -20,7 +20,7 @@ describe('resource() (unified async primitive) — gaps', () => {
     function App(): JSXElement {
       // Spec: this must NOT execute fetchUser during render.
       resource(() => fetchUser('123'), ['123']);
-      return { type: 'div', props: { children: ['ok'] } };
+      return <div>{'ok'}</div>;
     }
 
     const { container, cleanup } = createTestContainer();
@@ -50,10 +50,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     function App(): JSXElement {
       const result = resource(() => fetchUser(), []);
-      return {
-        type: 'div',
-        props: { children: [result.pending ? 'pending' : 'ready'] },
-      };
+      return <div>{result.pending ? 'pending' : 'ready'}</div>;
     }
 
     const { container, cleanup } = createTestContainer();
@@ -82,10 +79,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     function App(): JSXElement {
       const result = resource(() => fetchUser(), []);
-      return {
-        type: 'div',
-        props: { children: [result.error ? result.error.message : 'no error'] },
-      };
+      return <div>{result.error ? result.error.message : 'no error'}</div>;
     }
 
     const { container, cleanup } = createTestContainer();
@@ -111,13 +105,11 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     function App(): JSXElement {
       const result = resource(() => fetchUser(), []);
-      return {
-        type: 'div',
-        props: {
-          children: [result.value?.name || 'loading'],
-          onClick: () => result.refresh(),
-        },
-      };
+      return (
+        <div onClick={() => result.refresh()}>
+          {result.value?.name || 'loading'}
+        </div>
+      );
     }
 
     const { container, cleanup } = createTestContainer();
@@ -156,7 +148,7 @@ describe('resource() (unified async primitive) — gaps', () => {
 
     function App(): JSXElement {
       resource(({ signal }) => fetchUser({ signal }), []);
-      return { type: 'div', props: { children: ['ok'] } };
+      return <div>{'ok'}</div>;
     }
 
     const { container, cleanup } = createTestContainer();

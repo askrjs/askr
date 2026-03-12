@@ -7,13 +7,13 @@ import { state } from '../../src/index';
 /**
  * Basic list without keys - identity follows position
  */
-export const SimpleList = ({ items }: { items: string[] }) => ({
-  type: 'ul',
-  children: items.map((item) => ({
-    type: 'li',
-    children: [item],
-  })),
-});
+export const SimpleList = ({ items }: { items: string[] }) => (
+  <ul>
+    {items.map((item) => (
+      <li>{item}</li>
+    ))}
+  </ul>
+);
 
 /**
  * List with stable keys - identity follows keys
@@ -22,14 +22,15 @@ export const KeyedList = ({
   items,
 }: {
   items: Array<{ id: string; text: string }>;
-}) => ({
-  type: 'ul',
-  children: items.map(({ id, text }) => ({
-    type: 'li',
-    props: { key: id, 'data-id': id },
-    children: [text],
-  })),
-});
+}) => (
+  <ul>
+    {items.map(({ id, text }) => (
+      <li key={id} data-id={id}>
+        {text}
+      </li>
+    ))}
+  </ul>
+);
 
 /**
  * Interactive list that can reorder, insert, delete
@@ -43,64 +44,48 @@ export const ReorderableList = () => {
 
   const ItemComponent = ({ id }: { id: string }) => {
     const localCount = state(0);
-    return {
-      type: 'li',
-      props: {
-        key: id,
-        'data-id': id,
-        onClick: () => localCount.set(localCount() + 1),
-      },
-      children: [`${id}: ${localCount()}`],
-    };
+    return (
+      <li
+        key={id}
+        data-id={id}
+        onClick={() => localCount.set(localCount() + 1)}
+      >{`${id}: ${localCount()}`}</li>
+    );
   };
 
-  return {
-    type: 'div',
-    children: [
-      {
-        type: 'div',
-        props: { class: 'controls' },
-        children: [
-          {
-            type: 'button',
-            props: {
-              onClick: () => {
-                const current = items();
-                items.set([...current].reverse());
-              },
-            },
-            children: ['Reverse'],
-          },
-          {
-            type: 'button',
-            props: {
-              onClick: () => {
-                const current = items();
-                items.set(current.filter((_, i) => i !== 1));
-              },
-            },
-            children: ['Delete Middle'],
-          },
-          {
-            type: 'button',
-            props: {
-              onClick: () => {
-                const current = items();
-                items.set([
-                  ...current.slice(0, 1),
-                  { id: 'x', value: 0 },
-                  ...current.slice(1),
-                ]);
-              },
-            },
-            children: ['Insert After First'],
-          },
-        ],
-      },
-      {
-        type: 'ul',
-        children: items().map(({ id }) => ItemComponent({ id })),
-      },
-    ],
-  };
+  return (
+    <div>
+      <div class={'controls'}>
+        <button
+          onClick={() => {
+            const current = items();
+            items.set([...current].reverse());
+          }}
+        >
+          {'Reverse'}
+        </button>
+        <button
+          onClick={() => {
+            const current = items();
+            items.set(current.filter((_, i) => i !== 1));
+          }}
+        >
+          {'Delete Middle'}
+        </button>
+        <button
+          onClick={() => {
+            const current = items();
+            items.set([
+              ...current.slice(0, 1),
+              { id: 'x', value: 0 },
+              ...current.slice(1),
+            ]);
+          }}
+        >
+          {'Insert After First'}
+        </button>
+      </div>
+      <ul>{items().map(({ id }) => ItemComponent({ id }))}</ul>
+    </div>
+  );
 };

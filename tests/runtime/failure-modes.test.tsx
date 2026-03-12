@@ -35,7 +35,7 @@ describe('failure modes (RUNTIME)', () => {
     flushScheduler(); // Ensure the handler runs
 
     expect(errorSpy).toHaveBeenCalledWith(
-      '[Askr] Event handler error:',
+      '[Askr] Delegated event error:',
       expect.any(Error)
     );
     expect((errorSpy.mock.calls[0][1] as Error).message).toContain(

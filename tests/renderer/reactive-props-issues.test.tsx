@@ -18,13 +18,7 @@ describe('reactive props issues validation', () => {
       const textState = state('initial');
       const stableFunction = () => textState();
 
-      return {
-        type: 'div',
-        props: {
-          title: stableFunction,
-        },
-        children: ['test'],
-      };
+      return <div title={stableFunction}>{'test'}</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -49,25 +43,23 @@ describe('reactive props issues validation', () => {
       externalState2 = state('value2');
       showBothState = state(true);
 
-      return {
-        type: 'div',
-        props: {},
-        children: [
-          {
-            type: 'span',
-            props: {
-              'data-prop1': () => externalState1(),
-              'data-prop2': showBothState()
+      return (
+        <div>
+          <span
+            data-prop1={() => externalState1()}
+            data-prop2={
+              showBothState()
                 ? () => {
                     prop2Evaluations += 1;
                     return externalState2();
                   }
-                : 'static',
-            },
-            children: ['test'],
-          },
-        ],
-      };
+                : 'static'
+            }
+          >
+            {'test'}
+          </span>
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

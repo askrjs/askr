@@ -30,16 +30,16 @@ describe('resource() stale result handling', () => {
         return await delayed(window._nextVal, window._nextDelay!);
       }, [window._nextToken]);
 
-      return {
-        type: 'div',
-        props: {
-          children: [r.value ?? 'loading'],
-          onClick: () => {
+      return (
+        <div
+          onClick={() => {
             // trigger a refresh via setting globals and calling refresh
             r.refresh();
-          },
-        },
-      };
+          }}
+        >
+          {r.value ?? 'loading'}
+        </div>
+      );
     }
 
     const { container, cleanup } = createTestContainer();

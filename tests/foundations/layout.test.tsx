@@ -48,7 +48,7 @@ describe('layout (FOUNDATIONS)', () => {
   });
 
   it('should handle complex children', () => {
-    const children = [{ type: 'div' }, { type: 'span' }];
+    const children = [<div />, <span />];
     const Layout = ({ children }: { children?: unknown }) => ({ children });
 
     const result = layout(Layout)(children);

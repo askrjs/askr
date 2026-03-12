@@ -22,7 +22,7 @@ describe('commit & rollback (RUNTIME)', () => {
   });
 
   it('should roll back completely when render fails', async () => {
-    const ok = () => ({ type: 'div', children: ['ok'] });
+    const ok = () => <div>{'ok'}</div>;
     createIsland({ root: container, component: ok });
     flushScheduler();
     const stable = container.innerHTML;

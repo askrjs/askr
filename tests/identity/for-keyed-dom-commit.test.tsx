@@ -42,32 +42,21 @@ describe('for keyed DOM commit', () => {
       selectedState = state<number | null>(null);
       const isSelected = selector(selectedState);
 
-      return {
-        type: 'table',
-        children: [
-          {
-            type: 'tbody',
-            children: [
-              For(
-                () => rowsState(),
-                (item) => item.id,
-                (item) => ({
-                  type: 'tr',
-                  props: {
-                    class: () => (isSelected(item.id) ? 'danger' : ''),
-                  },
-                  children: [
-                    {
-                      type: 'td',
-                      children: [item.label],
-                    },
-                  ],
-                })
-              ),
-            ],
-          },
-        ],
-      };
+      return (
+        <table>
+          <tbody>
+            {For(
+              () => rowsState(),
+              (item) => item.id,
+              (item) => (
+                <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
+                  <td>{item.label}</td>
+                </tr>
+              )
+            )}
+          </tbody>
+        </table>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -98,9 +87,9 @@ describe('for keyed DOM commit', () => {
   });
 
   it('should keep keyed row identity for same-order updates', () => {
-    let rowsState:
-      | ReturnType<typeof state<Array<{ id: number; label: string }>>>
-      | null = null;
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
 
     const Component = () => {
       rowsState = state(
@@ -110,29 +99,21 @@ describe('for keyed DOM commit', () => {
         }))
       );
 
-      return {
-        type: 'table',
-        children: [
-          {
-            type: 'tbody',
-            children: [
-              For(
-                () => rowsState(),
-                (item) => item.id,
-                (item) => ({
-                  type: 'tr',
-                  children: [
-                    {
-                      type: 'td',
-                      children: [item.label],
-                    },
-                  ],
-                })
-              ),
-            ],
-          },
-        ],
-      };
+      return (
+        <table>
+          <tbody>
+            {For(
+              () => rowsState(),
+              (item) => item.id,
+              (item) => (
+                <tr>
+                  <td>{item.label}</td>
+                </tr>
+              )
+            )}
+          </tbody>
+        </table>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -156,22 +137,22 @@ describe('for keyed DOM commit', () => {
       expect(row).toBe(rowsBefore.get(key));
     });
 
-    expect(
-      container.querySelector('tr[data-key="1"] td')?.textContent
-    ).toBe('Row 1 !!!');
-    expect(
-      container.querySelector('tr[data-key="2"] td')?.textContent
-    ).toBe('Row 2');
-    expect(
-      container.querySelector('tr[data-key="11"] td')?.textContent
-    ).toBe('Row 11 !!!');
+    expect(container.querySelector('tr[data-key="1"] td')?.textContent).toBe(
+      'Row 1 !!!'
+    );
+    expect(container.querySelector('tr[data-key="2"] td')?.textContent).toBe(
+      'Row 2'
+    );
+    expect(container.querySelector('tr[data-key="11"] td')?.textContent).toBe(
+      'Row 11 !!!'
+    );
     expect(getDomReplaceCount() - replaceBefore).toBe(0);
   });
 
   it('should reorder keyed rows without recreating them', () => {
-    let rowsState:
-      | ReturnType<typeof state<Array<{ id: number; label: string }>>>
-      | null = null;
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
 
     const Component = () => {
       rowsState = state([
@@ -182,29 +163,21 @@ describe('for keyed DOM commit', () => {
         { id: 5, label: 'Row 5' },
       ]);
 
-      return {
-        type: 'table',
-        children: [
-          {
-            type: 'tbody',
-            children: [
-              For(
-                () => rowsState(),
-                (item) => item.id,
-                (item) => ({
-                  type: 'tr',
-                  children: [
-                    {
-                      type: 'td',
-                      children: [item.label],
-                    },
-                  ],
-                })
-              ),
-            ],
-          },
-        ],
-      };
+      return (
+        <table>
+          <tbody>
+            {For(
+              () => rowsState(),
+              (item) => item.id,
+              (item) => (
+                <tr>
+                  <td>{item.label}</td>
+                </tr>
+              )
+            )}
+          </tbody>
+        </table>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -270,7 +243,9 @@ describe('for keyed DOM commit', () => {
             {For(
               () => rows(),
               (item) => item.id,
-              (item) => <KeyedRow item={item} isSelected={isSelected} />
+              (item) => (
+                <KeyedRow item={item} isSelected={isSelected} />
+              )
             )}
           </tbody>
         </table>

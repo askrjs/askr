@@ -23,7 +23,7 @@ describe('startup API guards', () => {
       expect(() =>
         (createIsland as unknown as (cfg: unknown) => void)({
           root: container,
-          component: () => ({ type: 'div' }),
+          component: () => <div />,
           routes: [],
         })
       ).toThrow();

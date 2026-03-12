@@ -32,14 +32,13 @@ describe('minimal DOM mutation (DOM)', () => {
 
       const Component = () => {
         value = state(1);
-        return {
-          type: 'div',
-          children: [
-            { type: 'span', props: { id: 'a' }, children: ['A'] },
-            { type: 'span', props: { id: 'b' }, children: [`${value()}`] },
-            { type: 'span', props: { id: 'c' }, children: ['C'] },
-          ],
-        };
+        return (
+          <div>
+            <span id={'a'}>{'A'}</span>
+            <span id={'b'}>{`${value()}`}</span>
+            <span id={'c'}>{'C'}</span>
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -80,10 +79,7 @@ describe('minimal DOM mutation (DOM)', () => {
 
       const Component = () => {
         text = state('hello');
-        return {
-          type: 'div',
-          children: [text()],
-        };
+        return <div>{text()}</div>;
       };
 
       createIsland({ root: container, component: Component });
@@ -101,11 +97,11 @@ describe('minimal DOM mutation (DOM)', () => {
 
       const Component = () => {
         color = state('red');
-        return {
-          type: 'div',
-          props: { class: 'box', style: `color: ${color()}` },
-          children: ['content'],
-        };
+        return (
+          <div class={'box'} style={`color: ${color()}`}>
+            {'content'}
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });

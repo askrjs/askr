@@ -25,18 +25,17 @@ describe('layout helper (ROUTER)', () => {
 
   it('should pass children to a layout component', async () => {
     // Layout defined as a component that accepts children and returns a vnode-like object
-    const ParentLayout = ({ children }: { children?: unknown }) => ({
-      type: 'div',
-      props: { class: 'parent' },
-      children: Array.isArray(children) ? children : children ? [children] : [],
-    });
+    const ParentLayout = ({ children }: { children?: unknown }) => (
+      <div class={'parent'}>
+        {Array.isArray(children) ? children : children ? [children] : []}
+      </div>
+    );
     const parent = layout(ParentLayout);
 
     const routes = [
       {
         path: '/p',
-        handler: () =>
-          parent({ type: 'div', props: { class: 'child' }, children: ['C'] }),
+        handler: () => parent(<div class={'child'}>{'C'}</div>),
       },
     ];
 

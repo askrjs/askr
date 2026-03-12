@@ -5,11 +5,7 @@ import { renderToStringSync } from '../../src/ssr';
 describe('Render idempotence', () => {
   it('should produce identical output and leave no residual global state when rendering the same tree twice', () => {
     const Component = () =>
-      ({
-        type: 'div',
-        props: { class: 'x' },
-        children: ['a'],
-      }) as unknown as JSXElement;
+      (<div class={'x'}>{'a'}</div>) as unknown as JSXElement;
 
     const originalRandom = Math.random;
     const originalDateNow = Date.now;

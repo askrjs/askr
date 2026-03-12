@@ -26,7 +26,7 @@ describe('DefaultPortal', () => {
   it('should be present by default and render nothing until used', () => {
     createIsland({
       root: container,
-      component: () => ({ type: 'div', children: ['App'] }),
+      component: () => <div>{'App'}</div>,
     });
     flushScheduler();
     expect(container.textContent).toBe('App');
@@ -35,13 +35,9 @@ describe('DefaultPortal', () => {
   it('should render content into the default portal and clear it', () => {
     const App = () => {
       const tick = state(0);
-      return {
-        type: 'button',
-        props: {
-          onClick: () => tick.set(tick() + 1),
-        },
-        children: [`tick=${tick()}`],
-      };
+      return (
+        <button onClick={() => tick.set(tick() + 1)}>{`tick=${tick()}`}</button>
+      );
     };
 
     createIsland({ root: container, component: App });

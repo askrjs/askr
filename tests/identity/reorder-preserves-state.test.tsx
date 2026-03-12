@@ -20,15 +20,15 @@ describe('reorder preserves state (IDENTITY)', () => {
         { id: 'b', label: 'B' },
         { id: 'c', label: 'C' },
       ]);
-      return {
-        type: 'div',
-        children: items().map((item) => ({
-          type: 'div',
-          key: item.id,
-          props: { 'data-id': item.id },
-          children: [item.label],
-        })),
-      };
+      return (
+        <div>
+          {items().map((item) => (
+            <div key={item.id} data-id={item.id}>
+              {item.label}
+            </div>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -59,15 +59,15 @@ describe('reorder preserves state (IDENTITY)', () => {
         { id: 'x', label: 'X' },
         { id: 'y', label: 'Y' },
       ]);
-      return {
-        type: 'div',
-        children: items().map((item) => ({
-          type: 'div',
-          key: item.id,
-          props: { 'data-id': item.id },
-          children: [item.label],
-        })),
-      };
+      return (
+        <div>
+          {items().map((item) => (
+            <div key={item.id} data-id={item.id}>
+              {item.label}
+            </div>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

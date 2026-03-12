@@ -10,15 +10,16 @@ describe('minimal update preserves siblings', () => {
 
     const Component = () => {
       const flag = state(false);
-      return {
-        type: 'div',
-        children: [
-          { type: 'span', props: { id: 'keep' }, children: ['keep'] },
-          flag()
-            ? { type: 'span', props: { id: 'maybe' }, children: ['A'] }
-            : { type: 'span', props: { id: 'maybe' }, children: ['B'] },
-        ],
-      } as unknown as JSXElement;
+      return (
+        <div>
+          <span id={'keep'}>{'keep'}</span>
+          {flag() ? (
+            <span id={'maybe'}>{'A'}</span>
+          ) : (
+            <span id={'maybe'}>{'B'}</span>
+          )}
+        </div>
+      ) as unknown as JSXElement;
     };
 
     createIsland({ root: container, component: Component });
@@ -32,15 +33,16 @@ describe('minimal update preserves siblings', () => {
     const Controlled = () => {
       const s = state(false);
       setFlag = (v: boolean) => s.set(v);
-      return {
-        type: 'div',
-        children: [
-          { type: 'span', props: { id: 'keep' }, children: ['keep'] },
-          s()
-            ? { type: 'span', props: { id: 'maybe' }, children: ['A'] }
-            : { type: 'span', props: { id: 'maybe' }, children: ['B'] },
-        ],
-      } as unknown as JSXElement;
+      return (
+        <div>
+          <span id={'keep'}>{'keep'}</span>
+          {s() ? (
+            <span id={'maybe'}>{'A'}</span>
+          ) : (
+            <span id={'maybe'}>{'B'}</span>
+          )}
+        </div>
+      ) as unknown as JSXElement;
     };
 
     cleanup();
