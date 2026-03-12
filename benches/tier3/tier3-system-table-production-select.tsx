@@ -28,7 +28,10 @@ function dispatchPrimaryLink(
 {
   const mounted = mountTableBenchmark(initialRows);
   try {
-    const links = createCachedElementQuery<HTMLElement>(mounted.container, 'a');
+    const links = createCachedElementQuery<HTMLElement>(
+      mounted.container,
+      'tbody tr td:nth-child(2) a'
+    );
     const toggle = createSelectionToggle(1, 2, 'first');
 
     dispatchPrimaryLink(links, toggle.current());
@@ -64,7 +67,10 @@ describe('tier3 system table production select', () => {
       ...tier3BenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
-        links = createCachedElementQuery<HTMLElement>(mounted.container, 'a');
+        links = createCachedElementQuery<HTMLElement>(
+          mounted.container,
+          'tbody tr td:nth-child(2) a'
+        );
         toggle = createSelectionToggle(1, 2, 'first');
         dispatchPrimaryLink(links, toggle.current());
       },

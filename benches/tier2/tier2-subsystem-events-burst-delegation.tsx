@@ -1,10 +1,10 @@
 import { bench, describe, expect } from 'vitest';
+import { createIsland } from '../../src';
 import {
-  createIsland,
   disableEventDelegation,
   enableEventDelegation,
   setGlobalDelegationContainer,
-} from '../../src';
+} from '../../src/runtime/events';
 import {
   createTestContainer,
   fireEvent,
