@@ -99,6 +99,7 @@ describe('tier2 subsystem hydration skip selectors', () => {
   bench(
     'hydrate around skipped static islands',
     async () => {
+      fixture!.reset();
       await hydrateSPA({
         root: fixture!.container,
         routes: fixture!.routes,

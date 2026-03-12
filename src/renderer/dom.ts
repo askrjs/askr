@@ -1022,6 +1022,32 @@ function commitForBoundaryChildren(
   forState: ForState<unknown>,
   childrenVNodes: VNode[]
 ): void {
+  const commitDirtyNoReorder = (): void => {
+    const dirtyIndices = forState.pendingDirtyIndices;
+    if (!dirtyIndices || dirtyIndices.length === 0) {
+      return;
+    }
+
+    for (let dirtyIndex = 0; dirtyIndex < dirtyIndices.length; dirtyIndex++) {
+      const i = dirtyIndices[dirtyIndex];
+      const itemKey = forState.orderedKeys[i];
+      const itemInstance = forState.items.get(itemKey);
+      if (!itemInstance) {
+        continue;
+      }
+
+      const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+      if (!dom) {
+        continue;
+      }
+
+      if (dom.parentNode !== parent) {
+        const anchor = parent.childNodes[i] ?? null;
+        parent.insertBefore(dom, anchor);
+      }
+    }
+  };
+
   const commitPositional = (): void => {
     for (let i = 0; i < forState.orderedKeys.length; i++) {
       const itemKey = forState.orderedKeys[i];
@@ -1083,6 +1109,8 @@ function commitForBoundaryChildren(
 
   switch (forState.lastCommitStrategy) {
     case 'NO_REORDER':
+      commitDirtyNoReorder();
+      break;
     case 'TRUNCATE':
       commitPositional();
       break;

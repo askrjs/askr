@@ -106,7 +106,9 @@ describe('tier2 subsystem hydration interactive table', () => {
   bench(
     'hydrate a 1,000-row interactive table and use it immediately',
     async () => {
+      fixture!.reset();
       await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      flushScheduler();
       fireEvent.click(
         fixture!.container.querySelector('#table-select-500') as HTMLElement
       );

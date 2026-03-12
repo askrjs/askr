@@ -63,7 +63,9 @@ describe('tier2 subsystem hydration to navigation', () => {
   bench(
     'hydrate and immediately navigate to a sibling route',
     async () => {
+      fixture!.reset();
       await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      flushScheduler();
       navigate('/reports/42');
       flushScheduler();
     },

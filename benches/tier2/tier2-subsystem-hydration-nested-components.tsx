@@ -112,6 +112,7 @@ describe('tier2 subsystem hydration nested components', () => {
   bench(
     'hydrate a nested dashboard component tree',
     async () => {
+      fixture!.reset();
       await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
       flushScheduler();
     },

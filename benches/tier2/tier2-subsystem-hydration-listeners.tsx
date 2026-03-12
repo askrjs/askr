@@ -105,6 +105,7 @@ describe('tier2 subsystem hydration listeners', () => {
   bench(
     'hydrate a listener-heavy interactive tree',
     async () => {
+      fixture!.reset();
       await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
       flushScheduler();
     },

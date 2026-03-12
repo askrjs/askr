@@ -164,6 +164,7 @@ describe('tier2 subsystem hydration form', () => {
   bench(
     'hydrate a 60-field interactive form',
     async () => {
+      fixture!.reset();
       await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
       flushScheduler();
     },
