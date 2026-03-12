@@ -3,26 +3,18 @@ import {
   benchDefine,
   benchEsbuild,
   benchResolve,
+  createBenchTestConfig,
   domBenchExcludes,
   domBenchIncludes,
 } from './vitest.bench.shared';
 
 export default defineConfig({
   define: benchDefine,
-  test: {
+  test: createBenchTestConfig({
     environment: 'jsdom',
-    globals: true,
     include: domBenchIncludes,
     exclude: domBenchExcludes,
-    fileParallelism: false,
-    maxWorkers: 1,
-    pool: 'forks',
-    benchmark: {
-      include: domBenchIncludes,
-      exclude: domBenchExcludes,
-      includeSamples: false,
-    },
-  },
+  }),
   esbuild: benchEsbuild,
   resolve: benchResolve,
 });

@@ -3,23 +3,16 @@ import {
   benchDefine,
   benchEsbuild,
   benchResolve,
+  createBenchTestConfig,
   ssrBenchIncludes,
 } from './vitest.bench.shared';
 
 export default defineConfig({
   define: benchDefine,
-  test: {
+  test: createBenchTestConfig({
     environment: 'node',
-    globals: true,
     include: ssrBenchIncludes,
-    fileParallelism: false,
-    maxWorkers: 1,
-    pool: 'forks',
-    benchmark: {
-      include: ssrBenchIncludes,
-      includeSamples: false,
-    },
-  },
+  }),
   esbuild: benchEsbuild,
   resolve: benchResolve,
 });
