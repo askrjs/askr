@@ -37,6 +37,9 @@ function getEscapedAttrValue(value: string): string {
   }
 
   const escaped = escapeAttr(value);
+  // Skip caching strings that required no escaping — same reference returned,
+  // no point occupying cache slots with identity entries.
+  if (escaped === value) return value;
   if (escapedAttrValueCache.size >= ESCAPED_ATTR_VALUE_CACHE_LIMIT) {
     escapedAttrValueCache.clear();
   }
@@ -105,11 +108,9 @@ export function renderAttrsDirect(
     sink.write(' ');
     sink.write(attrName);
     sink.write('="');
-    if (needsEscapeAttr(strValue)) {
-      sink.write(getEscapedAttrValue(strValue));
-    } else {
-      sink.write(strValue);
-    }
+    // escapeAttr returns the original string when nothing needs escaping,
+    // so no separate needsEscapeAttr pre-scan is required.
+    sink.write(getEscapedAttrValue(strValue));
     sink.write('"');
   }
 }
