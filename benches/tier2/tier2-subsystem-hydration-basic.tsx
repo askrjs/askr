@@ -30,7 +30,9 @@ describe('tier2 subsystem hydration basic', () => {
   bench(
     'hydrate a 1,000-row server-rendered table',
     async () => {
+      fixture!.reset();
       await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      flushScheduler();
     },
     {
       ...tier2BenchOptions,

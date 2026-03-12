@@ -38,6 +38,7 @@ export interface MountedBenchmark {
 export interface HydrationFixture {
   container: HTMLDivElement;
   routes: Route[];
+  reset: () => void;
   cleanup: () => void;
 }
 
@@ -499,13 +500,28 @@ export function createHydrationFixture({
   mutateServerHtml?: (container: HTMLDivElement) => void;
 }): HydrationFixture {
   const { container, cleanup } = createTestContainer();
-  setLocationPath(url);
-  container.innerHTML = renderToStringSyncForUrl({ url, routes });
-  mutateServerHtml?.(container);
+
+  const renderServerHtml = () => {
+    setLocationPath(url);
+    container.innerHTML = renderToStringSyncForUrl({ url, routes });
+    mutateServerHtml?.(container);
+    return container.innerHTML;
+  };
+
+  const initialServerHtml = renderServerHtml();
+
+  const reset = () => {
+    cleanupApp(container);
+    flushScheduler();
+    resetRouterState();
+    setLocationPath(url);
+    container.innerHTML = initialServerHtml;
+  };
 
   return {
     container,
     routes,
+    reset,
     cleanup() {
       cleanupApp(container);
       resetRouterState();

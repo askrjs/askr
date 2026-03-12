@@ -189,12 +189,14 @@ export interface ForState<T> {
   sourceState: State<T[]> | null;
   items: Map<string | number | null, ForItemInstance<T>>;
   orderedKeys: Array<string | number | null>;
+  orderedVNodes: VNode[];
   byFn: (item: T, index: number) => string | number | null;
   renderFn: (item: T, index: () => number) => VNode;
   parentInstance: ComponentInstance | null;
   mounted: boolean;
   lastCommitStrategy: ForCommitStrategy;
   lastRemovedNodes: Node[];
+  pendingDirtyIndices: number[] | null;
 }
 
 /**
@@ -243,12 +245,14 @@ export function createForState<T>(
     sourceState,
     items: new Map(),
     orderedKeys: [],
+    orderedVNodes: [],
     byFn: byFn,
     renderFn,
     parentInstance,
     mounted: false,
     lastCommitStrategy: 'NO_REORDER',
     lastRemovedNodes: [],
+    pendingDirtyIndices: null,
   };
 }
 
@@ -528,6 +532,9 @@ export function reconcileForItems<T>(
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
       }
 
+      forState.orderedVNodes = resultVNodes;
+      forState.pendingDirtyIndices = null;
+
       return resultVNodes;
     }
   }
@@ -607,6 +614,9 @@ export function reconcileForItems<T>(
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
       }
 
+      forState.orderedVNodes = resultVNodes;
+      forState.pendingDirtyIndices = null;
+
       return resultVNodes;
     }
   }
@@ -628,7 +638,9 @@ export function reconcileForItems<T>(
     if (canUseNoReorderPath) {
       recordBenchFastLane('NO_REORDER');
       forState.lastCommitStrategy = 'NO_REORDER';
-      const resultVNodes: VNode[] = [];
+      const resultVNodes = forState.orderedVNodes;
+      resultVNodes.length = oldLen;
+      const dirtyIndices: number[] = [];
 
       // Update in-place only, no DOM moves needed
       for (let i = 0; i < oldLen; i++) {
@@ -643,18 +655,24 @@ export function reconcileForItems<T>(
         if (itemChanged) {
           existing.item = item;
           rerenderItemInstance(forState, existing, item);
+          dirtyIndices.push(i);
         }
 
         if (indexChanged) {
           existing.indexSignal.set(i);
+          if (!itemChanged) {
+            dirtyIndices.push(i);
+          }
         }
 
-        resultVNodes.push(existing.vnode);
+        resultVNodes[i] = existing.vnode;
       }
 
       if (askrGlobal.__ASKR_BENCH__) {
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
       }
+
+      forState.pendingDirtyIndices = dirtyIndices;
 
       return resultVNodes;
     }
@@ -746,6 +764,9 @@ export function reconcileForItems<T>(
     recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
   }
 
+  forState.orderedVNodes = resultVNodes;
+  forState.pendingDirtyIndices = null;
+
   return resultVNodes;
 }
 
@@ -772,4 +793,5 @@ export function clearForDomUpdateState<T>(forState: ForState<T>): void {
     }
   }
   forState.lastRemovedNodes = [];
+  forState.pendingDirtyIndices = null;
 }

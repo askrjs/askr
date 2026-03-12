@@ -94,11 +94,13 @@ describe('tier2 subsystem hydration deferred', () => {
   bench(
     'hydrate visible shell then activate a deferred below-fold subtree',
     async () => {
+      fixture!.reset();
       await hydrateSPA({
         root: fixture!.container,
         routes: fixture!.routes,
         hydrate: { deferBelowFold: true, foldThreshold: 100 },
       });
+      flushScheduler();
       controller!.revealAll();
       window.dispatchEvent(new Event('scroll'));
       flushScheduler();
