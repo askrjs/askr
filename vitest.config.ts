@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { askrEsbuild, createPackageAliases } from './tooling/askr-tooling';
 
 export default defineConfig({
   test: {
@@ -8,38 +8,9 @@ export default defineConfig({
     include: ['tests/**/*.test.{ts,tsx}', 'checks/**/*.test.{ts,tsx}'],
     setupFiles: ['tests/setup-env.ts'],
   },
-  esbuild: {
-    jsx: 'automatic',
-    jsxImportSource: '@askrjs/askr',
-  },
+  esbuild: askrEsbuild,
   resolve: {
-    alias: {
-      // Tests run against source, not built dist artifacts. Provide aliases for
-      // package subpath exports that normally point at dist/*.
-      '@askrjs/askr/foundations': path.resolve(
-        __dirname,
-        'src/foundations/index.ts'
-      ),
-      '@askrjs/askr/resources': path.resolve(
-        __dirname,
-        'src/resources/index.ts'
-      ),
-      '@askrjs/askr/fx': path.resolve(__dirname, 'src/fx/index.ts'),
-      '@askrjs/askr/router': path.resolve(__dirname, 'src/router/index.ts'),
-      '@askrjs/askr/ssr': path.resolve(__dirname, 'src/ssr/index.ts'),
-      '@askrjs/askr/ssg': path.resolve(__dirname, 'src/ssg/index.ts'),
-      '@askrjs/askr/vite': path.resolve(
-        __dirname,
-        'src/dev/vite-plugin-askr.ts'
-      ),
-      '@askrjs/askr/jsx-runtime': path.resolve(
-        __dirname,
-        'src/jsx/jsx-runtime.ts'
-      ),
-      '@askrjs/askr/jsx-dev-runtime': path.resolve(
-        __dirname,
-        'src/jsx/jsx-dev-runtime.ts'
-      ),
-    },
+    // Tests should bind package imports to source entries rather than dist.
+    alias: createPackageAliases(),
   },
 });
