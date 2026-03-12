@@ -13,38 +13,22 @@ test('should swap rows at positions 1 and 998', { timeout: 20000 }, () => {
     dataState = state<{ id: number; label: string }[]>([]);
     dataState();
 
-    return {
-      type: 'table',
-      props: {},
-      children: [
-        {
-          type: 'tbody',
-          props: {},
-          children: [
-            For(
-              () => dataState(),
-              (row) => row.id,
-              (row) => ({
-                type: 'tr',
-                props: {},
-                children: [
-                  {
-                    type: 'td',
-                    props: {},
-                    children: [String(row.id)],
-                  },
-                  {
-                    type: 'td',
-                    props: {},
-                    children: [row.label],
-                  },
-                ],
-              })
-            ),
-          ],
-        },
-      ],
-    };
+    return (
+      <table>
+        <tbody>
+          {For(
+            () => dataState(),
+            (row) => row.id,
+            (row) => (
+              <tr>
+                <td>{String(row.id)}</td>
+                <td>{row.label}</td>
+              </tr>
+            )
+          )}
+        </tbody>
+      </table>
+    );
   };
 
   createIsland({ root: container, component: Component });

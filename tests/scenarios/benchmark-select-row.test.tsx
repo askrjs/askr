@@ -14,41 +14,25 @@ test('should toggle selected row class', { timeout: 20000 }, () => {
     dataState = state<{ id: number; label: string }[]>([]);
     selectedState = state<number | null>(null);
 
-    return {
-      type: 'table',
-      props: {},
-      children: [
-        {
-          type: 'tbody',
-          props: {},
-          children: [
-            For(
-              () => dataState(),
-              (row) => row.id,
-              (row) => ({
-                type: 'tr',
-                props: {
-                  key: row.id,
-                  class: () => (selectedState() === row.id ? 'selected' : ''),
-                },
-                children: [
-                  {
-                    type: 'td',
-                    props: {},
-                    children: [String(row.id)],
-                  },
-                  {
-                    type: 'td',
-                    props: {},
-                    children: [row.label],
-                  },
-                ],
-              })
-            ),
-          ],
-        },
-      ],
-    };
+    return (
+      <table>
+        <tbody>
+          {For(
+            () => dataState(),
+            (row) => row.id,
+            (row) => (
+              <tr
+                key={row.id}
+                class={() => (selectedState() === row.id ? 'selected' : '')}
+              >
+                <td>{String(row.id)}</td>
+                <td>{row.label}</td>
+              </tr>
+            )
+          )}
+        </tbody>
+      </table>
+    );
   };
 
   createIsland({ root: container, component: Component });

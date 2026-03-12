@@ -10,14 +10,13 @@ describe('no partial DOM (DOM)', () => {
   afterEach(() => cleanup());
 
   it('should complete render fully or not at all', async () => {
-    const ok = () => ({
-      type: 'div',
-      children: [
-        { type: 'span', children: ['A'] },
-        { type: 'span', children: ['B'] },
-        { type: 'span', children: ['C'] },
-      ],
-    });
+    const ok = () => (
+      <div>
+        <span>{'A'}</span>
+        <span>{'B'}</span>
+        <span>{'C'}</span>
+      </div>
+    );
 
     createIsland({ root: container, component: ok });
     flushScheduler();
@@ -31,25 +30,23 @@ describe('no partial DOM (DOM)', () => {
     const Component = () => {
       phase = state<'ok' | 'fail'>('ok');
       if (phase() === 'fail') {
-        return {
-          type: 'div',
-          children: [
-            { type: 'span', children: ['A'] },
-            (() => {
+        return (
+          <div>
+            <span>{'A'}</span>
+            {(() => {
               throw new Error('boom');
-            })(),
-            { type: 'span', children: ['C'] },
-          ],
-        };
+            })()}
+            <span>{'C'}</span>
+          </div>
+        );
       }
-      return {
-        type: 'div',
-        children: [
-          { type: 'span', children: ['A'] },
-          { type: 'span', children: ['B'] },
-          { type: 'span', children: ['C'] },
-        ],
-      };
+      return (
+        <div>
+          <span>{'A'}</span>
+          <span>{'B'}</span>
+          <span>{'C'}</span>
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -71,21 +68,12 @@ describe('no partial DOM (DOM)', () => {
 
     const Component = () => {
       flip = state(false);
-      return {
-        type: 'div',
-        children: [
-          {
-            type: 'span',
-            props: { id: 'a' },
-            children: [flip() ? 'A2' : 'A1'],
-          },
-          {
-            type: 'span',
-            props: { id: 'b' },
-            children: [flip() ? 'B2' : 'B1'],
-          },
-        ],
-      };
+      return (
+        <div>
+          <span id={'a'}>{flip() ? 'A2' : 'A1'}</span>
+          <span id={'b'}>{flip() ? 'B2' : 'B1'}</span>
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

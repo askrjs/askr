@@ -12,26 +12,15 @@ describe('context (CONTEXT_SPEC) — gaps', () => {
 
     function Child(): JSXElement {
       observed = readContext(Theme);
-      return { type: 'div', props: { children: ['child'] } };
+      return <div>{'child'}</div>;
     }
 
     function App(): JSXElement {
-      return {
-        type: Theme.Scope as unknown as
-          | string
-          | ((props: Record<string, unknown>) => JSXElement),
-        props: {
-          value: 'dark',
-          children: [
-            {
-              type: Child as unknown as (
-                props: Record<string, unknown>
-              ) => JSXElement,
-              props: {},
-            },
-          ],
-        },
-      };
+      return (
+        <Theme.Scope value={'dark'}>
+          <Child />
+        </Theme.Scope>
+      );
     }
 
     const { container, cleanup } = createTestContainer();

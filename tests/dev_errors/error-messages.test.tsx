@@ -26,7 +26,7 @@ describe('error messages (DEV ERRORS)', () => {
         if (flag()) {
           state('x');
         }
-        return { type: 'div', children: ['ok'] };
+        return <div>{'ok'}</div>;
       };
 
       createIsland({ root: container, component: Component });
@@ -47,7 +47,7 @@ describe('error messages (DEV ERRORS)', () => {
       const Bad = () => {
         const s = state(0);
         s.set(1);
-        return { type: 'div', children: ['x'] };
+        return <div>{'x'}</div>;
       };
 
       expect(() => createIsland({ root: container, component: Bad })).toThrow(

@@ -39,12 +39,11 @@ describe('large tree updates (STRESS)', () => {
 
   it('should render when nesting is 100 levels deep', async () => {
     const Nested = (depth: number): JSXElement =>
-      depth === 0
-        ? { type: 'span', props: { children: ['leaf'] } }
-        : {
-            type: 'div',
-            props: { 'data-depth': depth, children: [Nested(depth - 1)] },
-          };
+      depth === 0 ? (
+        <span>{'leaf'}</span>
+      ) : (
+        <div data-depth={depth}>{Nested(depth - 1)}</div>
+      );
 
     createIsland({
       root: container,

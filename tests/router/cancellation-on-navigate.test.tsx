@@ -62,19 +62,13 @@ describe('cancellation on navigate (ROUTER)', () => {
       _props: Record<string, unknown>,
       _context?: { signal: AbortSignal }
     ) => {
-      return {
-        type: 'div',
-        children: [
-          {
-            type: 'button',
-            props: {
-              id: 'nav-btn',
-              onClick: () => navigate('/page2'),
-            },
-            children: ['Next Page'],
-          },
-        ],
-      };
+      return (
+        <div>
+          <button id={'nav-btn'} onClick={() => navigate('/page2')}>
+            {'Next Page'}
+          </button>
+        </div>
+      );
     };
 
     await createSPA({ root: container, routes: getRoutes() });
@@ -105,7 +99,7 @@ describe('cancellation on navigate (ROUTER)', () => {
     });
 
     const App = () => {
-      return { type: 'div', children: ['App'] };
+      return <div>{'App'}</div>;
     };
 
     await createSPA({ root: container, routes: getRoutes() });
@@ -132,7 +126,7 @@ describe('cancellation on navigate (ROUTER)', () => {
 
     const _App = () => {
       // Component unmounts and remounts on navigation
-      return { type: 'div', children: ['App'] };
+      return <div>{'App'}</div>;
     };
 
     await createSPA({ root: container, routes: getRoutes() });
@@ -167,7 +161,7 @@ describe('cancellation on navigate (ROUTER)', () => {
     });
 
     const App = () => {
-      return { type: 'div', children: ['App'] };
+      return <div>{'App'}</div>;
     };
 
     await createSPA({ root: container, routes: getRoutes() });
@@ -203,7 +197,7 @@ describe('cancellation on navigate (ROUTER)', () => {
     });
 
     const App = () => {
-      return { type: 'div', children: ['App'] };
+      return <div>{'App'}</div>;
     };
 
     createSPA({ root: container, routes: getRoutes() });

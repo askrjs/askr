@@ -5,21 +5,19 @@ import { tier2BenchOptions } from '../shared/_shared';
 const routes = [
   {
     path: '/',
-    handler: () => ({
-      type: 'article',
-      props: { id: 'main' },
-      children: [
-        { type: 'header', children: [{ type: 'h1', children: ['Hello'] }] },
-        { type: 'p', children: ['World'] },
-        {
-          type: 'ul',
-          children: Array.from({ length: 250 }, (_, index) => ({
-            type: 'li',
-            children: [`Chunk ${index}`],
-          })),
-        },
-      ],
-    }),
+    handler: () => (
+      <article id={'main'}>
+        <header>
+          <h1>{'Hello'}</h1>
+        </header>
+        <p>{'World'}</p>
+        <ul>
+          {Array.from({ length: 250 }, (_, index) => (
+            <li>{`Chunk ${index}`}</li>
+          ))}
+        </ul>
+      </article>
+    ),
   },
 ];
 

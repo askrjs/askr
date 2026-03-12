@@ -106,6 +106,8 @@ setValue((prev) => prev + 1);
 ### Derived State
 
 ```typescript
+import { derive, state } from '@askrjs/askr';
+
 function Counter() {
   const [count, setCount] = state(0);
   const doubled = derive(() => count() * 2);
@@ -158,6 +160,9 @@ For(
 ### Apps
 
 ```typescript
+import { createSPA } from '@askrjs/askr';
+import { getRoutes, route } from '@askrjs/askr/router';
+
 // Single component
 createIsland({
   root: document.body,
@@ -173,6 +178,8 @@ createSPA({
   routes: getRoutes(),
 });
 ```
+
+`createSPA({ routes })` is the authoritative boot API. `route(...)` plus `getRoutes()` is the convenience way to assemble that route table. Prefer `@askrjs/askr/router` for router-focused imports; the root barrel also re-exports router helpers for compatibility.
 
 ---
 

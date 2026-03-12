@@ -7,18 +7,8 @@ describe('Single-owner DOM invariant', () => {
   it('should update root and clean up prior instance when replacing a mounted component', () => {
     const { container, cleanup } = createTestContainer();
     try {
-      const A = () =>
-        ({
-          type: 'div',
-          props: { id: 'root' },
-          children: ['A'],
-        }) as unknown as JSXElement;
-      const B = () =>
-        ({
-          type: 'div',
-          props: { id: 'root' },
-          children: ['B'],
-        }) as unknown as JSXElement;
+      const A = () => (<div id={'root'}>{'A'}</div>) as unknown as JSXElement;
+      const B = () => (<div id={'root'}>{'B'}</div>) as unknown as JSXElement;
 
       // Mount A
       createIsland({ root: container, component: A });

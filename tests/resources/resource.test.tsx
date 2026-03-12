@@ -20,7 +20,7 @@ describe('data() (DATA_SPEC / BINDING_SPEC) — gaps', () => {
     const App: ComponentFunction = () => {
       // Spec: this must NOT execute fetchUser during render.
       resource(() => fetchUser({ id: '123' }), ['123']);
-      return { type: 'div', children: ['ok'] };
+      return <div>{'ok'}</div>;
     };
 
     const { container, cleanup } = createTestContainer();

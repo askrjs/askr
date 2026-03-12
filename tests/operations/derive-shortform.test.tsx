@@ -15,7 +15,7 @@ describe('derive short-form (OPERATIONS)', () => {
     const App = () => {
       user = state({ id: 1, name: 'Jeff', age: 42 });
       const userName = derive(() => user!().name);
-      return { type: 'div', children: [userName()] };
+      return <div>{userName()}</div>;
     };
 
     createIsland({ root: container, component: App });
@@ -39,7 +39,7 @@ describe('derive short-form (OPERATIONS)', () => {
         () => user!(),
         (u) => u.age >= 18
       );
-      return { type: 'div', children: [`${isAdult()}`] };
+      return <div>{`${isAdult()}`}</div>;
     };
 
     createIsland({ root: container, component: App });

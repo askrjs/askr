@@ -1,6 +1,6 @@
 import { bench, describe } from 'vitest';
 import { createIsland, selector, state, type State } from '../../src';
-import { For } from '../../src/for';
+import { BenchmarkTable } from '../../src/bench/components/benchmark-table';
 import {
   createTestContainer,
   flushScheduler,
@@ -22,41 +22,6 @@ import {
   updateEveryNthRow,
 } from '../shared/_shared';
 
-interface RowProps {
-  item: RowData;
-  isSelected: (candidate: number) => boolean;
-  onSelect: (id: number) => void;
-  onRemove: (id: number) => void;
-}
-
-function Row({ item, isSelected, onSelect, onRemove }: RowProps) {
-  return (
-    <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
-      <td>{item.id}</td>
-      <td>
-        <a
-          onClick={(event: MouseEvent) => {
-            event.preventDefault();
-            onSelect(item.id);
-          }}
-        >
-          {item.label}
-        </a>
-      </td>
-      <td>
-        <a
-          onClick={(event: MouseEvent) => {
-            event.preventDefault();
-            onRemove(item.id);
-          }}
-        >
-          remove
-        </a>
-      </td>
-    </tr>
-  );
-}
-
 function mountJsxBenchmarkApp(initialRows: RowData[]) {
   const { container, cleanup } = createTestContainer();
   let dataState!: State<RowData[]>;
@@ -77,22 +42,12 @@ function mountJsxBenchmarkApp(initialRows: RowData[]) {
 
     return (
       <div class="container">
-        <table>
-          <tbody>
-            {For(
-              () => dataState(),
-              (item) => item.id,
-              (item) => (
-                <Row
-                  item={item}
-                  isSelected={isSelected}
-                  onSelect={select}
-                  onRemove={remove}
-                />
-              )
-            )}
-          </tbody>
-        </table>
+        <BenchmarkTable
+          rows={dataState}
+          isSelected={isSelected}
+          onSelect={select}
+          onRemove={remove}
+        />
       </div>
     );
   };

@@ -21,11 +21,7 @@ describe('class / className interoperability', () => {
   });
 
   it('should accept `class` prop in JSX and set element class', () => {
-    const Component = () => ({
-      type: 'div',
-      props: { class: 'alpha' },
-      children: ['x'],
-    });
+    const Component = () => <div class={'alpha'}>{'x'}</div>;
 
     createIsland({ root: container, component: Component });
     flushScheduler();
@@ -36,11 +32,7 @@ describe('class / className interoperability', () => {
   });
 
   it('should accept `className` prop for compatibility', () => {
-    const Component = () => ({
-      type: 'div',
-      props: { className: 'beta' },
-      children: ['y'],
-    });
+    const Component = () => <div className={'beta'}>{'y'}</div>;
 
     createIsland({ root: container, component: Component });
     flushScheduler();
@@ -51,16 +43,8 @@ describe('class / className interoperability', () => {
   });
 
   it('should emit `class` attribute for both `class` and `className` inputs in SSR', async () => {
-    const CompA = () => ({
-      type: 'div',
-      props: { class: 'ssr-a' },
-      children: ['x'],
-    });
-    const CompB = () => ({
-      type: 'div',
-      props: { className: 'ssr-b' },
-      children: ['y'],
-    });
+    const CompA = () => <div class={'ssr-a'}>{'x'}</div>;
+    const CompB = () => <div className={'ssr-b'}>{'y'}</div>;
 
     const htmlA = await captureSSRSnapshot(CompA);
     const htmlB = await captureSSRSnapshot(CompB);

@@ -18,16 +18,15 @@ describe('identity edge cases', () => {
         { key: 'b', label: 'B' },
       ]);
 
-      return {
-        type: 'div',
-        children: items().map((it, i) => ({
-          type: 'div',
-          // reuse the provided key (duplicate intentionally)
-          key: it.key,
-          props: { 'data-key': it.key, 'data-pos': String(i) },
-          children: [it.label],
-        })),
-      };
+      return (
+        <div>
+          {items().map((it, i) => (
+            <div key={it.key} data-key={it.key} data-pos={String(i)}>
+              {it.label}
+            </div>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -88,25 +87,24 @@ describe('identity edge cases', () => {
         { type: 'k', key: 'b', label: 'KB' },
       ]);
 
-      return {
-        type: 'div',
-        children: mode().map((it) => {
-          if (it.type === 'k') {
-            return {
-              type: 'span',
-              key: it.key,
-              props: { 'data-key': it.key, 'data-label': it.label },
-              children: [it.label],
-            };
-          }
-          return {
-            type: 'span',
-            // mark unkeyed element with a stable attribute to find it
-            props: { 'data-unkey': 'middle', 'data-label': it.label },
-            children: [it.label],
-          };
-        }),
-      };
+      return (
+        <div>
+          {mode().map((it) => {
+            if (it.type === 'k') {
+              return (
+                <span key={it.key} data-key={it.key} data-label={it.label}>
+                  {it.label}
+                </span>
+              );
+            }
+            return (
+              <span data-unkey={'middle'} data-label={it.label}>
+                {it.label}
+              </span>
+            );
+          })}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

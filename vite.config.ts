@@ -39,6 +39,54 @@ export default defineConfig({
       isProd ? 'production' : 'development'
     ),
   },
+  resolve: {
+    alias: [
+      {
+        find: '@askrjs/askr/jsx-runtime',
+        replacement: path.resolve(__dirname, 'src/jsx/jsx-runtime.ts'),
+      },
+      {
+        find: '@askrjs/askr/jsx-dev-runtime',
+        replacement: path.resolve(__dirname, 'src/jsx/jsx-dev-runtime.ts'),
+      },
+      {
+        find: '@askrjs/askr/for',
+        replacement: path.resolve(__dirname, 'src/for/index.ts'),
+      },
+      {
+        find: '@askrjs/askr/foundations',
+        replacement: path.resolve(__dirname, 'src/foundations/index.ts'),
+      },
+      {
+        find: '@askrjs/askr/resources',
+        replacement: path.resolve(__dirname, 'src/resources/index.ts'),
+      },
+      {
+        find: '@askrjs/askr/fx',
+        replacement: path.resolve(__dirname, 'src/fx/index.ts'),
+      },
+      {
+        find: '@askrjs/askr/router',
+        replacement: path.resolve(__dirname, 'src/router/index.ts'),
+      },
+      {
+        find: '@askrjs/askr/ssr',
+        replacement: path.resolve(__dirname, 'src/ssr/index.ts'),
+      },
+      {
+        find: '@askrjs/askr/ssg',
+        replacement: path.resolve(__dirname, 'src/ssg/index.ts'),
+      },
+      {
+        find: '@askrjs/askr/vite',
+        replacement: path.resolve(__dirname, 'src/dev/vite-plugin-askr.ts'),
+      },
+      {
+        find: '@askrjs/askr',
+        replacement: path.resolve(__dirname, 'src/index.ts'),
+      },
+    ],
+  },
   build: {
     // Use rollup input to support multiple named entry points
     rollupOptions: {

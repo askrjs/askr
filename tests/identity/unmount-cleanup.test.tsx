@@ -16,14 +16,15 @@ describe('unmount cleanup (IDENTITY)', () => {
   it('should reset state when component unmounts', async () => {
     route('/a', () => {
       const count = state(0);
-      return {
-        type: 'button',
-        props: { id: 'btn', onClick: () => count.set(count() + 1) },
-        children: [`${count()}`],
-      };
+      return (
+        <button
+          id={'btn'}
+          onClick={() => count.set(count() + 1)}
+        >{`${count()}`}</button>
+      );
     });
 
-    route('/b', () => ({ type: 'div', children: ['b'] }));
+    route('/b', () => <div>{'b'}</div>);
 
     window.history.pushState({}, '', '/a');
     await createSPA({ root: container, routes: getRoutes() });
@@ -47,20 +48,22 @@ describe('unmount cleanup (IDENTITY)', () => {
   it('should not leak state between instances', async () => {
     route('/a', () => {
       const count = state(0);
-      return {
-        type: 'button',
-        props: { id: 'a', onClick: () => count.set(count() + 1) },
-        children: [`a:${count()}`],
-      };
+      return (
+        <button
+          id={'a'}
+          onClick={() => count.set(count() + 1)}
+        >{`a:${count()}`}</button>
+      );
     });
 
     route('/b', () => {
       const count = state(0);
-      return {
-        type: 'button',
-        props: { id: 'b', onClick: () => count.set(count() + 1) },
-        children: [`b:${count()}`],
-      };
+      return (
+        <button
+          id={'b'}
+          onClick={() => count.set(count() + 1)}
+        >{`b:${count()}`}</button>
+      );
     });
 
     window.history.pushState({}, '', '/a');

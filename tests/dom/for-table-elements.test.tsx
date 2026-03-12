@@ -15,38 +15,22 @@ describe('For component with table elements', () => {
         { id: 3, label: 'Row 3' },
       ];
 
-      return {
-        type: 'table',
-        props: {},
-        children: [
-          {
-            type: 'tbody',
-            props: {},
-            children: [
-              For(
-                () => rows,
-                (row) => row.id,
-                (row) => ({
-                  type: 'tr',
-                  props: { key: row.id },
-                  children: [
-                    {
-                      type: 'td',
-                      props: {},
-                      children: [String(row.id)],
-                    },
-                    {
-                      type: 'td',
-                      props: {},
-                      children: [row.label],
-                    },
-                  ],
-                })
-              ),
-            ],
-          },
-        ],
-      };
+      return (
+        <table>
+          <tbody>
+            {For(
+              () => rows,
+              (row) => row.id,
+              (row) => (
+                <tr key={row.id}>
+                  <td>{String(row.id)}</td>
+                  <td>{row.label}</td>
+                </tr>
+              )
+            )}
+          </tbody>
+        </table>
+      );
     };
 
     createIsland({ root: container, component: Component });

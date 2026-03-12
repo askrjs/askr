@@ -33,20 +33,21 @@ describe('reconcile keyed children fast-path', () => {
         }))
       );
 
-      return {
-        type: 'div',
-        children: items().map((item) => ({
-          type: 'div',
-          key: item.id,
-          props: {
-            'data-key': String(item.id),
-            onClick: () => {
-              clicks.set(item.id, (clicks.get(item.id) || 0) + 1);
-            },
-          },
-          children: [item.label],
-        })),
-      };
+      return (
+        <div>
+          {items().map((item) => (
+            <div
+              key={item.id}
+              data-key={String(item.id)}
+              onClick={() => {
+                clicks.set(item.id, (clicks.get(item.id) || 0) + 1);
+              }}
+            >
+              {item.label}
+            </div>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

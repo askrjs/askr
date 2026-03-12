@@ -9,17 +9,17 @@ test('should not emit wrapper element for For boundary', () => {
 
   const Component = () => {
     const rows = [1, 2, 3];
-    return {
-      type: 'div',
-      props: { class: 'wrap' },
-      children: [
-        For(
+    return (
+      <div class={'wrap'}>
+        {For(
           () => rows,
           (n) => n,
-          (n) => ({ type: 'div', props: {}, children: [String(n)] })
-        ),
-      ],
-    };
+          (n) => (
+            <div>{String(n)}</div>
+          )
+        )}
+      </div>
+    );
   };
 
   createIsland({ root: container, component: Component });

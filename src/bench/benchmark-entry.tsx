@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createIsland, selector, state, State } from '../index';
-import { For } from '../for';
 import { globalScheduler } from '../runtime/scheduler';
+import { BenchmarkTable } from './components/benchmark-table';
+import type { BenchmarkRowData } from './components/benchmark-row';
 
-type RowData = { id: number; label: string };
+type RowData = BenchmarkRowData;
 
 export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   const initialRowsTyped: RowData[] = Array.isArray(initialRows)
@@ -13,107 +14,29 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   let selectedState!: State<number | null>;
 
   const App = () => {
-    dataState = state<RowData[]>([]);
+    dataState = state<RowData[]>(initialRowsTyped);
     selectedState = state<number | null>(null);
     const isSelected = selector(selectedState);
 
     const select = (id: number) => selectedState.set(id);
-
-    return {
-      type: 'div',
-      props: {},
-      children: [
-        {
-          type: 'table',
-          props: {},
-          children: [
-            {
-              type: 'tbody',
-              props: {},
-              children: [
-                For(
-                  () => dataState(),
-                  (item: RowData) => item.id,
-                  (item: RowData) => {
-                    return {
-                      type: 'tr',
-                      props: {
-                        class: () => (isSelected(item.id) ? 'danger' : ''),
-                      },
-                      children: [
-                        {
-                          type: 'td',
-                          props: { class: 'col-md-1' },
-                          children: [String(item.id)],
-                        },
-                        {
-                          type: 'td',
-                          props: {
-                            class: 'col-md-4',
-                            onClick: (e: MouseEvent) => {
-                              e.preventDefault();
-                              select(item.id);
-                            },
-                          },
-                          children: [
-                            {
-                              type: 'a',
-                              props: {
-                                class: 'lbl',
-                                onClick: (e: MouseEvent) => {
-                                  e.preventDefault();
-                                  select(item.id);
-                                },
-                              },
-                              children: [item.label],
-                            },
-                          ],
-                        },
-                        {
-                          type: 'td',
-                          props: { class: 'col-md-1' },
-                          children: [
-                            {
-                              type: 'a',
-                              props: {
-                                class: 'remove',
-                                onClick: (e: MouseEvent) => {
-                                  e.preventDefault();
-                                },
-                              },
-                              children: [
-                                {
-                                  type: 'span',
-                                  props: {
-                                    class: 'glyphicon glyphicon-remove',
-                                    'aria-hidden': 'true',
-                                  },
-                                  children: [],
-                                },
-                              ],
-                            },
-                          ],
-                        },
-                        {
-                          type: 'td',
-                          props: { class: 'col-md-6' },
-                          children: [],
-                        },
-                      ],
-                    };
-                  }
-                ),
-              ],
-            },
-          ],
-        },
-      ],
+    const remove = (id: number) => {
+      dataState.set((rows) => rows.filter((item) => item.id !== id));
+      selectedState.set((selected) => (selected === id ? null : selected));
     };
+
+    return (
+      <div class="container">
+        <BenchmarkTable
+          rows={dataState}
+          isSelected={isSelected}
+          onSelect={select}
+          onRemove={remove}
+        />
+      </div>
+    );
   };
 
   createIsland({ root, component: App as any });
-
-  if (initialRowsTyped.length > 0 && dataState) dataState.set(initialRowsTyped);
 
   return {
     setRows(rows: RowData[]) {

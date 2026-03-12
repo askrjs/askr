@@ -4,10 +4,7 @@ import { tier2BenchOptions } from '../shared/_shared';
 
 const routeEntries = Array.from({ length: 250 }, (_, index) => ({
   path: `/bench/${index}/{id}`,
-  handler: () => ({
-    type: 'div',
-    children: [`Route ${index}`],
-  }),
+  handler: () => <div>{`Route ${index}`}</div>,
 }));
 
 clearRoutes();

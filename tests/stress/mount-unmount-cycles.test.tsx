@@ -64,12 +64,12 @@ describe('mount unmount cycles (STRESS)', () => {
   it('should clean up listeners properly after mount/unmount cycles', async () => {
     let clicks = 0;
 
-    const WithListener = () => ({
-      type: 'button',
-      props: { id: 'btn', onClick: () => (clicks += 1) },
-      children: ['click'],
-    });
-    const WithoutListener = () => ({ type: 'div', children: ['gone'] });
+    const WithListener = () => (
+      <button id={'btn'} onClick={() => (clicks += 1)}>
+        {'click'}
+      </button>
+    );
+    const WithoutListener = () => <div>{'gone'}</div>;
 
     createIsland({ root: container, component: WithListener });
     flushScheduler();

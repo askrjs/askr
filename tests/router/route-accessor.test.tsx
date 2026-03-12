@@ -101,15 +101,13 @@ describe('route accessor (public)', () => {
     const routes = [
       {
         path: '/home',
-        handler: () => ({ type: 'div', props: {}, children: ['home'] }),
+        handler: () => <div>{'home'}</div>,
       },
       {
         path: '/users/{id}',
-        handler: (params: Record<string, string>) => ({
-          type: 'div',
-          props: {},
-          children: [`user:${params.id}`],
-        }),
+        handler: (params: Record<string, string>) => (
+          <div>{`user:${params.id}`}</div>
+        ),
       },
     ];
 
@@ -134,13 +132,9 @@ describe('route accessor (public)', () => {
   });
 
   it('should preserve SSR/hydration equivalence for path, query, hash and params', async () => {
-    route('/items/{id}', (params) => ({
-      type: 'div',
-      props: {},
-      children: [
-        `${params.id}|${route().query.get('q') || ''}|${route().hash || ''}`,
-      ],
-    }));
+    route('/items/{id}', (params) => (
+      <div>{`${params.id}|${route().query.get('q') || ''}|${route().hash || ''}`}</div>
+    ));
 
     // Server render with explicit URL
     setServerLocation('/items/99?q=abc#frag');
@@ -151,13 +145,9 @@ describe('route accessor (public)', () => {
       /* ignore - window may not be deletable in some environments */
     }
 
-    const ServerComp = () => ({
-      type: 'div',
-      props: {},
-      children: [
-        `${route().path}|${route().query.get('q') || ''}|${route().hash || ''}`,
-      ],
-    });
+    const ServerComp = () => (
+      <div>{`${route().path}|${route().query.get('q') || ''}|${route().hash || ''}`}</div>
+    );
 
     const html = renderToStringSync(ServerComp);
 
@@ -177,13 +167,9 @@ describe('route accessor (public)', () => {
       routes: [
         {
           path: '/items/{id}',
-          handler: (params: Record<string, string>) => ({
-            type: 'div',
-            props: {},
-            children: [
-              `${params.id}|${route().query.get('q') || ''}|${route().hash || ''}`,
-            ],
-          }),
+          handler: (params: Record<string, string>) => (
+            <div>{`${params.id}|${route().query.get('q') || ''}|${route().hash || ''}`}</div>
+          ),
         },
       ],
     });

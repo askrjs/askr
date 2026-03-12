@@ -18,14 +18,11 @@ import {
 
   const Component = () => {
     valueState = state('a');
-    return {
-      type: 'div',
-      props: {},
-      children: Array.from(
-        { length: 1000 },
-        (_, index) => `${valueState()}-${index}`
-      ),
-    };
+    return (
+      <div>
+        {Array.from({ length: 1000 }, (_, index) => `${valueState()}-${index}`)}
+      </div>
+    );
   };
 
   try {
@@ -79,14 +76,14 @@ describe('tier1 renderer positional text', () => {
 
         const Component = () => {
           valueState = state('a');
-          return {
-            type: 'div',
-            props: {},
-            children: Array.from(
-              { length: 1000 },
-              (_, index) => `${valueState()}-${index}`
-            ),
-          };
+          return (
+            <div>
+              {Array.from(
+                { length: 1000 },
+                (_, index) => `${valueState()}-${index}`
+              )}
+            </div>
+          );
         };
 
         createIsland({ root: result.container, component: Component });

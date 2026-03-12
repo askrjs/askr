@@ -46,6 +46,6 @@ export const domBenchExcludes = [
 ];
 
 export const ssrBenchIncludes = [
-  'benches/tier1/**/tier1-hotpath-ssr-*.ts',
-  'benches/tier2/**/tier2-subsystem-ssr-*.ts',
+  'benches/tier1/**/tier1-hotpath-ssr-*.{ts,tsx}',
+  'benches/tier2/**/tier2-subsystem-ssr-*.{ts,tsx}',
 ];

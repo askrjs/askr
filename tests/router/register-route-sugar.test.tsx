@@ -8,9 +8,9 @@ describe('registerRoute sugar API', () => {
 
   it('should support flat registrations with JSX-like handlers', () => {
     // flat registration using function/JSX shapes
-    route('/', () => ({ type: 'div', children: ['root'] }));
-    route('/pages', () => ({ type: 'div', children: ['list'] }));
-    route('/pages/{id}', () => ({ type: 'div', children: ['detail'] }));
+    route('/', () => <div>{'root'}</div>);
+    route('/pages', () => <div>{'list'}</div>);
+    route('/pages/{id}', () => <div>{'detail'}</div>);
 
     const flat = getRoutes()
       .map((r) => r.path)
@@ -21,9 +21,9 @@ describe('registerRoute sugar API', () => {
 
   it('should support nested (inline) descriptor form and register the routes', () => {
     // explicit absolute registrations (descriptor sugar is removed)
-    route('/', () => ({ type: 'div', children: ['root'] }));
-    route('/pages', () => ({ type: 'div', children: ['list'] }));
-    route('/pages/{id}', () => ({ type: 'div', children: ['detail'] }));
+    route('/', () => <div>{'root'}</div>);
+    route('/pages', () => <div>{'list'}</div>);
+    route('/pages/{id}', () => <div>{'detail'}</div>);
 
     const registered = getRoutes()
       .map((r) => r.path)

@@ -189,10 +189,9 @@ describe('history integration (ROUTER)', () => {
       const routes = [
         {
           path: '/page/{id}',
-          handler: (params: Record<string, string>) => ({
-            type: 'div',
-            children: [`Page ${params.id}`],
-          }),
+          handler: (params: Record<string, string>) => (
+            <div>{`Page ${params.id}`}</div>
+          ),
         },
       ];
 
@@ -222,10 +221,9 @@ describe('history integration (ROUTER)', () => {
       const routes = [
         {
           path: '/search/{query}',
-          handler: (params: Record<string, string>) => ({
-            type: 'div',
-            children: [`Results for: ${params.query}`],
-          }),
+          handler: (params: Record<string, string>) => (
+            <div>{`Results for: ${params.query}`}</div>
+          ),
         },
       ];
 

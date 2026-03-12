@@ -1,4 +1,5 @@
 import type { Options } from 'tinybench';
+import type { JSXElement } from '../../src/jsx/types';
 import { cleanupApp } from '../../src/boot';
 import { mountBenchmark } from '../../src/bench/benchmark-entry';
 import type { Route, RouteHandler } from '../../src/router/route';
@@ -73,11 +74,7 @@ export interface DeferredGeometryController {
   restore: () => void;
 }
 
-type SsrTreeNode = {
-  type: string;
-  props?: Record<string, string>;
-  children?: Array<SsrTreeNode | string>;
-};
+type SsrTreeNode = JSXElement;
 
 type ToggleStart = 'first' | 'second';
 
@@ -384,94 +381,78 @@ export function assertOrderTransition(
 }
 
 export function buildDeepSsrTree(depth = 300): SsrTreeNode {
-  let current: SsrTreeNode = {
-    type: 'span',
-    props: { id: 'deep-leaf' },
-    children: ['Deep leaf marker'],
-  };
+  let current: SsrTreeNode = <span id={'deep-leaf'}>{'Deep leaf marker'}</span>;
 
   for (let index = depth - 1; index >= 0; index -= 1) {
-    const tag =
-      index % 3 === 0 ? 'section' : index % 3 === 1 ? 'article' : 'div';
-    current = {
-      type: tag,
-      props: {
-        id: `deep-level-${index}`,
-        'data-depth': String(index),
-      },
-      children: [current],
-    };
+    const Tag = (
+      index % 3 === 0 ? 'section' : index % 3 === 1 ? 'article' : 'div'
+    ) as 'section' | 'article' | 'div';
+    current = (
+      <Tag id={`deep-level-${index}`} data-depth={String(index)}>
+        {current}
+      </Tag>
+    );
   }
 
-  return {
-    type: 'main',
-    props: { id: 'deep-root' },
-    children: [current],
-  };
+  return <main id={'deep-root'}>{current}</main>;
 }
 
 export function buildWideSsrTree(count = 1500) {
-  return {
-    type: 'section',
-    props: { id: 'wide-root', class: 'wide-grid' },
-    children: Array.from({ length: count }, (_, index) => ({
-      type: 'article',
-      props: {
-        id: `wide-card-${index}`,
-        class: 'wide-card',
-        'data-card': String(index),
-      },
-      children: [
-        { type: 'h2', children: [`Wide card ${index}`] },
-        { type: 'p', children: [`Sibling payload ${index}`] },
-      ],
-    })),
-  };
+  return (
+    <section id={'wide-root'} class={'wide-grid'}>
+      {Array.from({ length: count }, (_, index) => (
+        <article
+          id={`wide-card-${index}`}
+          class={'wide-card'}
+          data-card={String(index)}
+        >
+          <h2>{`Wide card ${index}`}</h2>
+          <p>{`Sibling payload ${index}`}</p>
+        </article>
+      ))}
+    </section>
+  );
 }
 
 export function buildAttrHeavySsrTree(count = 400) {
-  return {
-    type: 'section',
-    props: { id: 'attr-root', class: 'attr-grid' },
-    children: Array.from({ length: count }, (_, index) => ({
-      type: 'div',
-      props: {
-        id: `attr-node-${index}`,
-        class: `attr-card attr-card-${index % 7}`,
-        title: `Title ${index} & "quoted" 'single'`,
-        role: 'listitem',
-        tabIndex: String(index % 5),
-        lang: 'en',
-        'aria-label': `Label ${index} & "quoted" 'single'`,
-        'aria-description': `Description ${index} & details`,
-        'aria-hidden': index % 2 === 0 ? 'false' : 'true',
-        'data-index': String(index),
-        'data-kind': index % 2 === 0 ? 'primary' : 'secondary',
-        'data-message': `Message ${index} & "quoted" 'single'`,
-      },
-      children: [`Attr node ${index}`],
-    })),
-  };
+  return (
+    <section id={'attr-root'} class={'attr-grid'}>
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          id={`attr-node-${index}`}
+          class={`attr-card attr-card-${index % 7}`}
+          title={`Title ${index} & "quoted" 'single'`}
+          role={'listitem'}
+          tabIndex={String(index % 5)}
+          lang={'en'}
+          aria-label={`Label ${index} & "quoted" 'single'`}
+          aria-description={`Description ${index} & details`}
+          aria-hidden={index % 2 === 0 ? 'false' : 'true'}
+          data-index={String(index)}
+          data-kind={index % 2 === 0 ? 'primary' : 'secondary'}
+          data-message={`Message ${index} & "quoted" 'single'`}
+        >{`Attr node ${index}`}</div>
+      ))}
+    </section>
+  );
 }
 
 export function buildTextHeavySsrTree(count = 400) {
-  return {
-    type: 'section',
-    props: { id: 'text-root' },
-    children: Array.from({ length: count }, (_, index) => ({
-      type: 'p',
-      props: { id: `text-block-${index}` },
-      children: [
-        `Text block ${index} start & `,
-        { type: 'em', children: [`em-${index}`] },
-        ' < ',
-        { type: 'strong', children: [`strong-${index}`] },
-        ' > ',
-        { type: 'span', children: [`segment-${index}`] },
-        ` tail-${index} & finish`,
-      ],
-    })),
-  };
+  return (
+    <section id={'text-root'}>
+      {Array.from({ length: count }, (_, index) => (
+        <p id={`text-block-${index}`}>
+          {`Text block ${index} start & `}
+          <em>{`em-${index}`}</em>
+          {' < '}
+          <strong>{`strong-${index}`}</strong>
+          {' > '}
+          <span>{`segment-${index}`}</span>
+          {` tail-${index} & finish`}
+        </p>
+      ))}
+    </section>
+  );
 }
 
 export function mountTableBenchmark(
@@ -497,31 +478,18 @@ export function buildTableHydrationRoutes(
   return [
     {
       path,
-      handler: () => ({
-        type: 'table',
-        props: { class: 'hydration-table' },
-        children: [
-          {
-            type: 'tbody',
-            children: rows.map((row) => ({
-              type: 'tr',
-              props: { 'data-key': String(row.id) },
-              children: [
-                {
-                  type: 'td',
-                  props: { class: 'col-id' },
-                  children: [String(row.id)],
-                },
-                {
-                  type: 'td',
-                  props: { class: 'col-label' },
-                  children: [row.label],
-                },
-              ],
-            })),
-          },
-        ],
-      }),
+      handler: () => (
+        <table class={'hydration-table'}>
+          <tbody>
+            {rows.map((row) => (
+              <tr data-key={String(row.id)}>
+                <td class={'col-id'}>{String(row.id)}</td>
+                <td class={'col-label'}>{row.label}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ),
     },
   ];
 }
@@ -556,22 +524,18 @@ export function buildSsrLayoutRouteFixture(): SsrLayoutRouteFixture {
   const shellMarker = 'Bench Shell';
   const expectedMarker = '42|chart|#summary';
 
-  const ShellLayout = (child: unknown) => ({
-    type: 'section',
-    props: { class: 'ssr-shell' },
-    children: [
-      { type: 'header', children: [shellMarker] },
-      { type: 'main', children: [child] },
-    ],
-  });
+  const ShellLayout = (child: unknown) => (
+    <section class={'ssr-shell'}>
+      <header>{shellMarker}</header>
+      <main>{child}</main>
+    </section>
+  );
 
-  const SectionLayout = (child: unknown) => ({
-    type: 'div',
-    props: { class: 'ssr-section' },
-    children: [
-      { type: 'div', props: { class: 'ssr-body' }, children: [child] },
-    ],
-  });
+  const SectionLayout = (child: unknown) => (
+    <div class={'ssr-section'}>
+      <div class={'ssr-body'}>{child}</div>
+    </div>
+  );
 
   return {
     url,
@@ -583,13 +547,11 @@ export function buildSsrLayoutRouteFixture(): SsrLayoutRouteFixture {
         handler: () => {
           const snapshot = route();
           return ShellLayout(
-            SectionLayout({
-              type: 'article',
-              props: { class: 'report-page' },
-              children: [
-                `${snapshot.params.id}|${snapshot.query.get('tab') || ''}|${snapshot.hash || ''}`,
-              ],
-            })
+            SectionLayout(
+              <article
+                class={'report-page'}
+              >{`${snapshot.params.id}|${snapshot.query.get('tab') || ''}|${snapshot.hash || ''}`}</article>
+            )
           );
         },
       },
@@ -620,20 +582,16 @@ export function buildConcurrentSsrRequests(
             } | null;
             const keys = [getNextKey(), getNextKey(), getNextKey()];
 
-            return {
-              type: 'div',
-              props: {
-                class: 'concurrent-request',
-                'data-request': requestLabel,
-              },
-              children: [
-                `${requestLabel}|${snapshot.path}|${snapshot.params.id}|${
-                  snapshot.query.get('slot') || ''
-                }|${snapshot.hash || ''}|${
-                  renderData?.requestLabel || ''
-                }|${keys.join(',')}`,
-              ],
-            };
+            return (
+              <div
+                class={'concurrent-request'}
+                data-request={requestLabel}
+              >{`${requestLabel}|${snapshot.path}|${snapshot.params.id}|${
+                snapshot.query.get('slot') || ''
+              }|${snapshot.hash || ''}|${
+                renderData?.requestLabel || ''
+              }|${keys.join(',')}`}</div>
+            );
           },
         },
       ],
@@ -766,14 +724,10 @@ export function registerRoutes(
 export function buildDenseRouteTable(routeCount = 512): DenseRouteTableFixture {
   const targetPath = '/catalog/widgets/pro/42';
   const expectedParams = { id: '42' };
-  const expectedHandler: RouteHandler = (params) => ({
-    type: 'div',
-    children: [`winner:${params.id}`],
-  });
-  const noopHandler: RouteHandler = () => ({
-    type: 'div',
-    children: ['noop'],
-  });
+  const expectedHandler: RouteHandler = (params) => (
+    <div>{`winner:${params.id}`}</div>
+  );
+  const noopHandler: RouteHandler = () => <div>{'noop'}</div>;
   const routes: Route[] = [];
   const overlapRoutes: Route[] = [
     { path: '/catalog/widgets/pro/{id}', handler: expectedHandler },

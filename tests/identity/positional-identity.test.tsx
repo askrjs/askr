@@ -14,14 +14,13 @@ describe('positional identity (IDENTITY)', () => {
 
     const Component = () => {
       items = state(['A', 'B', 'C']);
-      return {
-        type: 'div',
-        children: items().map((label, i) => ({
-          type: 'div',
-          props: { 'data-index': i },
-          children: [label],
-        })),
-      };
+      return (
+        <div>
+          {items().map((label, i) => (
+            <div data-index={i}>{label}</div>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -46,13 +45,13 @@ describe('positional identity (IDENTITY)', () => {
 
     const Component = () => {
       items = state(['A', 'B', 'C']);
-      return {
-        type: 'div',
-        children: items().map((label) => ({
-          type: 'div',
-          children: [label],
-        })),
-      };
+      return (
+        <div>
+          {items().map((label) => (
+            <div>{label}</div>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

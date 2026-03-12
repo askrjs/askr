@@ -24,7 +24,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       const Bad = () => {
         const s = state(0);
         s.set(1);
-        return { type: 'div', children: ['x'] };
+        return <div>{'x'}</div>;
       };
 
       // Spec: production may degrade gracefully for some invariant violations.
@@ -44,7 +44,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
 
       // Ensure no routes are registered and we have an active instance.
       clearRoutes();
-      createIsland({ root: container, component: () => ({ type: 'div' }) });
+      createIsland({ root: container, component: () => <div /> });
 
       // Spec: missing-route warning should be suppressed in production.
       navigate('/missing');
@@ -59,7 +59,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
   it('should have identical behavior in production and development when no checks are triggered', () => {
     const prev = process.env.NODE_ENV;
     try {
-      const Component = () => ({ type: 'div', children: ['ok'] });
+      const Component = () => <div>{'ok'}</div>;
 
       process.env.NODE_ENV = 'development';
       createIsland({ root: container, component: Component });
@@ -84,11 +84,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
 
     const Component = () => {
       const s = state(0);
-      return {
-        type: 'button',
-        props: { onClick: () => s.set(s() + 1) },
-        children: [`count: ${s()}`],
-      };
+      return <button onClick={() => s.set(s() + 1)}>{`count: ${s()}`}</button>;
     };
 
     try {
@@ -127,7 +123,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
           state(1);
         }
         state(2);
-        return { type: 'div', children: ['ok'] };
+        return <div>{'ok'}</div>;
       };
 
       // Should not throw in prod
@@ -141,29 +137,47 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
 
   it('should not impact performance with invariant checks in production', () => {
     const prev = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
 
     try {
-      const start = performance.now();
+      const runBatch = (
+        env: 'development' | 'production',
+        iterations = 250
+      ): number => {
+        process.env.NODE_ENV = env;
 
-      for (let i = 0; i < 1000; i++) {
-        const Component = () => {
-          const s = state(i);
-          return { type: 'div', children: [s().toString()] };
-        };
-        const { cleanup } = createTestContainer();
-        createIsland({
-          root: document.createElement('div'),
-          component: Component,
-        });
-        cleanup();
-      }
+        // Warm the code path once so the comparison is less sensitive to first-run cost.
+        {
+          const { container, cleanup } = createTestContainer();
+          createIsland({
+            root: container,
+            component: () => {
+              const s = state(0);
+              return <div>{s().toString()}</div>;
+            },
+          });
+          cleanup();
+        }
 
-      const end = performance.now();
-      const duration = end - start;
+        const start = performance.now();
+        for (let i = 0; i < iterations; i += 1) {
+          const { container, cleanup } = createTestContainer();
+          createIsland({
+            root: container,
+            component: () => {
+              const s = state(i);
+              return <div>{s().toString()}</div>;
+            },
+          });
+          cleanup();
+        }
+        return performance.now() - start;
+      };
 
-      // Should be fast, no significant overhead
-      expect(duration).toBeLessThan(1000); // arbitrary threshold
+      const devDuration = runBatch('development');
+      const prodDuration = runBatch('production');
+
+      // Production should not be materially slower than development on the same machine.
+      expect(prodDuration).toBeLessThan(devDuration * 1.5);
     } finally {
       process.env.NODE_ENV = prev;
     }

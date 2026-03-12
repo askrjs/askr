@@ -8,36 +8,30 @@ import { state } from '../../src/index';
 /**
  * Simplest possible component - just renders static content
  */
-export const Static = ({ text = 'Static' }: { text?: string }) => ({
-  type: 'div',
-  children: [text],
-});
+export const Static = ({ text = 'Static' }: { text?: string }) => (
+  <div>{text}</div>
+);
 
 /**
  * Component with one state value - used for basic state tests
  */
 export const SimpleCounter = () => {
   const count = state(0);
-  return {
-    type: 'div',
-    children: [
-      {
-        type: 'button',
-        props: { onClick: () => count.set(count() + 1) },
-        children: [`Count: ${count()}`],
-      },
-    ],
-  };
+  return (
+    <div>
+      <button
+        onClick={() => count.set(count() + 1)}
+      >{`Count: ${count()}`}</button>
+    </div>
+  );
 };
 
 /**
  * Component that renders children - for composition tests
  */
-export const Container = ({ children }: { children: unknown }) => ({
-  type: 'div',
-  props: { class: 'container' },
-  children,
-});
+export const Container = ({ children }: { children: unknown }) => (
+  <div class={'container'}>{children}</div>
+);
 
 /**
  * Component with multiple state values - for hook order tests
@@ -47,14 +41,13 @@ export const MultiState = () => {
   const text = state('hello');
   const active = state(true);
 
-  return {
-    type: 'div',
-    children: [
-      { type: 'span', children: [`${count()}`] },
-      { type: 'span', children: [text()] },
-      { type: 'span', children: [String(active())] },
-    ],
-  };
+  return (
+    <div>
+      <span>{`${count()}`}</span>
+      <span>{text()}</span>
+      <span>{String(active())}</span>
+    </div>
+  );
 };
 
 /**
@@ -64,7 +57,7 @@ export const MaybeThrows = ({ shouldThrow }: { shouldThrow?: boolean }) => {
   if (shouldThrow) {
     throw new Error('Intentional error');
   }
-  return { type: 'div', children: ['OK'] };
+  return <div>{'OK'}</div>;
 };
 
 /**
@@ -72,12 +65,9 @@ export const MaybeThrows = ({ shouldThrow }: { shouldThrow?: boolean }) => {
  */
 export const Nested = ({ depth = 3 }: { depth?: number }): unknown => {
   if (depth <= 0) {
-    return { type: 'span', children: ['Leaf'] };
+    return <span>{'Leaf'}</span>;
   }
-  return {
-    type: 'div',
-    children: [Nested({ depth: depth - 1 })],
-  };
+  return <div>{Nested({ depth: depth - 1 })}</div>;
 };
 
 export { SimpleList, KeyedList, ReorderableList } from './list-components';

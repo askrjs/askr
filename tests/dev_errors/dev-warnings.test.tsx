@@ -14,10 +14,13 @@ describe('dev warnings (DEV_ERRORS)', () => {
     let items: ReturnType<typeof state<string[]>> | null = null;
     const Component = () => {
       items = state(['a', 'b', 'c']);
-      return {
-        type: 'div',
-        children: items().map((x) => ({ type: 'div', children: [x] })),
-      };
+      return (
+        <div>
+          {items().map((x) => (
+            <div>{x}</div>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -32,7 +35,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const Component = () => {
       state(123);
-      return { type: 'div', children: ['x'] };
+      return <div>{'x'}</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -50,7 +53,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
       while (Date.now() - start < 10) {
         // busy loop
       }
-      return { type: 'div', children: ['slow'] };
+      return <div>{'slow'}</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -66,10 +69,13 @@ describe('dev warnings (DEV_ERRORS)', () => {
     let items: ReturnType<typeof state<string[]>> | null = null;
     const Component = () => {
       items = state(['a', 'b', 'c']);
-      return {
-        type: 'ul',
-        children: items().map((x) => ({ type: 'li', key: x, children: [x] })),
-      };
+      return (
+        <ul>
+          {items().map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });
@@ -88,10 +94,13 @@ describe('dev warnings (DEV_ERRORS)', () => {
     let items: ReturnType<typeof state<string[]>> | null = null;
     const FancyList = () => {
       items = state(['a', 'b']);
-      return {
-        type: 'div',
-        children: items().map((x) => ({ type: 'div', children: [x] })),
-      };
+      return (
+        <div>
+          {items().map((x) => (
+            <div>{x}</div>
+          ))}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: FancyList });

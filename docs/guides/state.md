@@ -45,6 +45,8 @@ setCount((prev) => prev + 1);
 ## Derived State
 
 ```typescript
+import { derive, state } from '@askrjs/askr';
+
 const [count, setCount] = state(0);
 const doubled = derive(() => count() * 2);
 
@@ -79,6 +81,8 @@ return <div>{doubled()}</div>;
 Use `selector()` when one source fans out to many keyed readers, such as row selection or active-route checks.
 
 ```typescript
+import { selector, state } from '@askrjs/askr';
+
 const [selectedId, setSelectedId] = state<number | null>(null);
 const isSelected = selector(selectedId);
 

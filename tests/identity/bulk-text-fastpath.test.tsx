@@ -23,13 +23,13 @@ describe('bulk text fast-path (unkeyed)', () => {
 
     const Component = () => {
       items = state(Array.from({ length: 20 }, (_, i) => i));
-      return {
-        type: 'ul',
-        children: items().map((item: number) => ({
-          type: 'li',
-          children: ['Item ' + item],
-        })),
-      };
+      return (
+        <ul>
+          {items().map((item: number) => (
+            <li>{'Item ' + item}</li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });

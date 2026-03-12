@@ -28,15 +28,15 @@ describe('bulk commit non-reactive invariants', () => {
       // No-op render counter attached to window scope for assertions
       globalThis.__BULK_RENDER_COUNT =
         (globalThis.__BULK_RENDER_COUNT || 0) + 1;
-      return {
-        type: 'ul',
-        children: items().map((item: number) => ({
-          type: 'li',
-          key: item,
-          props: { 'data-key': String(item) },
-          children: ['Item ' + item],
-        })),
-      };
+      return (
+        <ul>
+          {items().map((item: number) => (
+            <li key={item} data-key={String(item)}>
+              {'Item ' + item}
+            </li>
+          ))}
+        </ul>
+      );
     };
 
     createIsland({ root: container, component: Component });

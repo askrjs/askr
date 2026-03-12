@@ -34,7 +34,7 @@ describe('context snapshot stack balance (REGRESSION)', () => {
         return `${themeAtStart}->${themeAfterAwait}`;
       }, []);
 
-      return { type: 'div', children: [r.value ?? 'pending'] };
+      return <div>{r.value ?? 'pending'}</div>;
     };
 
     let themeState!: ReturnType<typeof state>;
