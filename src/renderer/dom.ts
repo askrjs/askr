@@ -1748,7 +1748,10 @@ function tryUpdateTwoChildTextPattern(
 /** Set text node data or textContent */
 function setTextNodeData(el: Element, text: string): void {
   if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
-    (el.firstChild as Text).data = text;
+    const textNode = el.firstChild as Text;
+    // Guard: skip DOM write when content is already correct to avoid
+    // unnecessary layout invalidation on unchanged rows.
+    if (textNode.data !== text) textNode.data = text;
   } else {
     el.textContent = text;
   }

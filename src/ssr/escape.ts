@@ -121,12 +121,20 @@ export function escapeText(text: string): string {
     return text;
   }
 
-  // Inline escape for common case (single char replacement)
-  // This avoids regex + function call overhead
-  let result = text;
-  result = result.replace(/&/g, '&amp;');
-  result = result.replace(/</g, '&lt;');
-  result = result.replace(/>/g, '&gt;');
+  // Single-pass scan-and-build: avoids 3 separate regex passes
+  let escaped = '';
+  let lastIndex = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    let entity: string;
+    if (ch === 38) entity = '&amp;';
+    else if (ch === 60) entity = '&lt;';
+    else if (ch === 62) entity = '&gt;';
+    else continue;
+    escaped += text.slice(lastIndex, i) + entity;
+    lastIndex = i + 1;
+  }
+  const result = escaped + text.slice(lastIndex);
 
   if (useCache && escapeCache.size < MAX_CACHE_SIZE) {
     escapeCache.set(text, result);
@@ -135,12 +143,27 @@ export function escapeText(text: string): string {
 }
 
 /**
- * Escape HTML special characters in attribute values
- * Fast-path: scan for escapable characters, only escape if found
+ * Escape HTML special characters in attribute values.
+ * Single-pass scan: returns the original string unchanged when no special
+ * characters are found, so callers can drop separate needsEscapeAttr checks.
  */
 export function escapeAttr(value: string): string {
-  // Single-pass escape only if needed (caller should use needsEscapeAttr for hot paths)
-  return value.replace(ATTR_ESCAPE_RE, attrEscapeMap);
+  let escaped = '';
+  let lastIndex = 0;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value.charCodeAt(i);
+    let entity: string;
+    if (ch === 38) entity = '&amp;';
+    else if (ch === 34) entity = '&quot;';
+    else if (ch === 39) entity = '&#x27;';
+    else if (ch === 60) entity = '&lt;';
+    else if (ch === 62) entity = '&gt;';
+    else continue;
+    escaped += value.slice(lastIndex, i) + entity;
+    lastIndex = i + 1;
+  }
+  // Return original reference when nothing needed escaping (no allocation)
+  return lastIndex === 0 ? value : escaped + value.slice(lastIndex);
 }
 
 /**
