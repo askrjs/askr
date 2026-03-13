@@ -146,7 +146,7 @@ export function resource<T>(
     });
 
     // Cleanup on unmount
-    inst.cleanupFns.push(() => {
+    (inst.cleanupFns ??= []).push(() => {
       unsubscribe();
       cell.abort();
     });

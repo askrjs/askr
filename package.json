@@ -34,6 +34,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./boot": {
+      "import": "./dist/boot/index.js",
+      "types": "./dist/boot/index.d.ts"
+    },
     "./for": {
       "import": "./dist/for/index.js",
       "types": "./dist/for/index.d.ts"

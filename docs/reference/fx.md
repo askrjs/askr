@@ -23,6 +23,7 @@ Timing and utility helpers are framework-independent.
 - `scheduleTimeout`
 - `scheduleIdle`
 - `scheduleRetry`
+- `scheduleEventHandler`
 
 ## Related
 

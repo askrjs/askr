@@ -2,7 +2,17 @@
  * askr/router — routing surface (explicit tier)
  */
 
-export { route, getRoutes, clearRoutes } from './route';
+export {
+  route,
+  registerRoute,
+  registerRoute as defineRoute,
+  getRoutes,
+  clearRoutes,
+  getNamespaceRoutes,
+  unloadNamespace,
+  getLoadedNamespaces,
+  setServerLocation,
+} from './route';
 export type {
   Route,
   RouteHandler,

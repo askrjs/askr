@@ -599,8 +599,9 @@ function warnMissingKeys(children: unknown[]): void {
 
   if (hasElements && !hasKeys) {
     const inst = getCurrentInstance();
-    if (inst?.devWarningsEmitted.has('missing-keys')) return;
-    inst?.devWarningsEmitted.add('missing-keys');
+    const warnings = inst ? (inst.devWarningsEmitted ??= new Set()) : null;
+    if (warnings?.has('missing-keys')) return;
+    warnings?.add('missing-keys');
     try {
       const name = inst?.fn?.name || '<anonymous>';
       logger.warn(

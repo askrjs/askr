@@ -174,7 +174,7 @@ function createDerivedCell<T>(
     cell._readers?.clear();
   };
 
-  instance.cleanupFns.push(() => {
+  (instance.cleanupFns ??= []).push(() => {
     cell._cleanup();
     deriveCells.get(instance)?.delete(hookIndex);
   });

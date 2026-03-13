@@ -41,6 +41,18 @@ Use it with platform APIs:
 const res = await fetch('/api/data', { signal: getSignal() });
 ```
 
+## Other resource-oriented operations
+
+The resources entrypoint also owns the specialized operation helpers:
+
+- `on`
+- `timer`
+- `task`
+- `stream`
+- `capture`
+
+Use this entrypoint when your module is primarily about async work, side effects, or lifecycle-aware operations.
+
 ## Related
 
 - [Resources Guide](../guides/resources.md)

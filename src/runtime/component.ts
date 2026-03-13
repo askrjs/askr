@@ -96,8 +96,8 @@ export function createComponentInstance(
     // Render-tracking (for precise state subscriptions)
     _currentRenderToken: undefined,
     lastRenderToken: 0,
-    _pendingReadSources: new Set(),
-    _lastReadSources: new Set(),
+    _pendingReadSources: undefined,
+    _lastReadSources: undefined,
     devWarningsEmitted: new Set(),
   };
 
@@ -126,7 +126,6 @@ export function createComponentInstance(
 
 let currentInstance: ComponentInstance | null = null;
 let stateIndex = 0;
-
 // Export for state.ts to access
 export function getCurrentComponentInstance(): ComponentInstance | null {
   return currentInstance;
@@ -176,7 +175,12 @@ function executeMountOperations(instance: ComponentInstance): void {
   // contract tests). They remain registered for cleanup purposes.
   if (!instance.isRoot) return;
 
-  for (const operation of instance.mountOperations) {
+  const mountOperations = instance.mountOperations;
+  if (mountOperations.length === 0) {
+    return;
+  }
+
+  for (const operation of mountOperations) {
     const result = operation();
     if (result instanceof Promise) {
       result.then((cleanup) => {
@@ -237,7 +241,7 @@ function runComponent(instance: ComponentInstance): void {
 
   // Assign a token for this in-progress render and start a fresh pending-read set
   instance._currentRenderToken = ++_globalRenderCounter;
-  instance._pendingReadSources = new Set();
+  instance._pendingReadSources = undefined;
 
   // Atomic rendering: capture DOM state for rollback on error
   const domSnapshot = instance.target ? instance.target.innerHTML : '';
@@ -448,7 +452,7 @@ export function renderComponentInline(
   const prevPendingReads = instance._pendingReadSources;
   if (!hadToken) {
     instance._currentRenderToken = ++_globalRenderCounter;
-    instance._pendingReadSources = new Set();
+    instance._pendingReadSources = undefined;
   }
 
   try {
@@ -463,7 +467,7 @@ export function renderComponentInline(
   } finally {
     // Restore previous token/read states for nested inline render scenarios
     instance._currentRenderToken = prevToken;
-    instance._pendingReadSources = prevPendingReads ?? new Set();
+    instance._pendingReadSources = prevPendingReads;
   }
 }
 
@@ -481,7 +485,7 @@ function executeComponentSync(
   }
 
   // Prepare pending read set for this render (reads will be finalized on commit)
-  instance._pendingReadSources = new Set();
+  instance._pendingReadSources = undefined;
 
   currentInstance = instance;
   stateIndex = 0;
@@ -703,7 +707,8 @@ export function mountComponent(instance: ComponentInstance): void {
 export function cleanupComponent(instance: ComponentInstance): void {
   // Execute cleanup functions (from mount effects)
   const cleanupErrors: unknown[] = [];
-  for (const cleanup of instance.cleanupFns) {
+  const cleanupFns = instance.cleanupFns;
+  for (const cleanup of cleanupFns) {
     try {
       cleanup();
     } catch (err) {
@@ -748,7 +753,8 @@ function warnInstanceOnce(
   message: string
 ): void {
   if (process.env.NODE_ENV === 'production') return;
-  if (instance.devWarningsEmitted.has(key)) return;
-  instance.devWarningsEmitted.add(key);
+  const warnings = (instance.devWarningsEmitted ??= new Set());
+  if (warnings.has(key)) return;
+  warnings.add(key);
   logger.warn(message);
 }

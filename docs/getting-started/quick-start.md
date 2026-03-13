@@ -26,6 +26,8 @@ export function Counter() {
 
 Use islands for a single mounted component (no router).
 
+The ergonomic default is importing boot APIs from `@askrjs/askr`. If you prefer a more explicit package shape, the same startup APIs are also available from `@askrjs/askr/boot`.
+
 ```tsx
 import { createIsland } from '@askrjs/askr';
 import { Counter } from './Counter';

@@ -287,7 +287,7 @@ function createSelectorCell<T>(
     cell._objectCandidateSources.clear();
   };
 
-  instance.cleanupFns.push(() => {
+  (instance.cleanupFns ??= []).push(() => {
     cell._cleanup();
     selectorCells.get(instance)?.delete(hookIndex);
   });
