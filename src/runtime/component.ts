@@ -28,7 +28,7 @@ export interface ComponentInstance {
   props: Props;
   target: Element | null;
   mounted: boolean;
-  abortController: AbortController; // Per-component abort lifecycle
+  abortController: AbortController | null; // Lazily created per-component abort lifecycle
   ssr?: boolean; // Set to true for SSR temporary instances
   // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
   cleanupStrict?: boolean;
@@ -74,7 +74,7 @@ export function createComponentInstance(
     props,
     target,
     mounted: false,
-    abortController: new AbortController(), // Create per-component
+    abortController: null,
     stateValues: [],
     evaluationGeneration: 0,
     notifyUpdate: null,
@@ -126,6 +126,16 @@ export function createComponentInstance(
 
 let currentInstance: ComponentInstance | null = null;
 let stateIndex = 0;
+
+function ensureAbortController(instance: ComponentInstance): AbortController {
+  let controller = instance.abortController;
+  if (!controller || controller.signal.aborted) {
+    controller = new AbortController();
+    instance.abortController = controller;
+  }
+  return controller;
+}
+
 // Export for state.ts to access
 export function getCurrentComponentInstance(): ComponentInstance | null {
   return currentInstance;
@@ -497,7 +507,9 @@ function executeComponentSync(
 
     // Create context object with abort signal
     const context = {
-      signal: instance.abortController.signal,
+      get signal(): AbortSignal {
+        return ensureAbortController(instance).signal;
+      },
     };
 
     // Execute component within its owner frame (provider chain).
@@ -563,9 +575,8 @@ function executeComponentSync(
  * Single entry point to avoid lifecycle divergence.
  */
 export function executeComponent(instance: ComponentInstance): void {
-  // Create a fresh abort controller on mount to allow remounting
-  // (old one may have been aborted during previous cleanup)
-  instance.abortController = new AbortController();
+  // Lazily recreate abort controller only when signal is actually requested.
+  instance.abortController = null;
 
   // Setup notifyUpdate callback using prebound helper to avoid per-call closures
   instance.notifyUpdate = instance._enqueueRun!;
@@ -626,7 +637,7 @@ export function getSignal(): AbortSignal {
         'Ensure you are calling this from inside your component function.'
     );
   }
-  return currentInstance.abortController.signal;
+  return ensureAbortController(currentInstance).signal;
 }
 
 /**
@@ -735,7 +746,10 @@ export function cleanupComponent(instance: ComponentInstance): void {
   cleanupReadableSubscriptions(instance);
 
   // Abort all pending operations
-  instance.abortController.abort();
+  if (instance.abortController && !instance.abortController.signal.aborted) {
+    instance.abortController.abort();
+  }
+  instance.abortController = null;
 
   // Clear update callback to prevent dangling references and stale updates
   instance.notifyUpdate = null;

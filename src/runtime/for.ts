@@ -20,7 +20,11 @@ import type { DOMElement, VNode } from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
-import { teardownNodeSubtree } from '../renderer/cleanup';
+import {
+  teardownNodeSubtree,
+  removeElementReactiveProps,
+  removeElementListeners,
+} from '../renderer/cleanup';
 import {
   flushBenchMetrics,
   getBenchMetrics,
@@ -524,6 +528,7 @@ export function reconcileForItems<T>(
       recordBenchFastLane('TRUNCATE');
       forState.lastCommitStrategy = 'TRUNCATE';
       const resultVNodes: VNode[] = [];
+      const isFullClear = newLen === 0;
 
       // Update existing rows in-place
       for (let i = 0; i < newLen; i++) {
@@ -564,7 +569,12 @@ export function reconcileForItems<T>(
           // Clean up cached DOM node if present
           if (itemInstance._dom) {
             if (itemInstance._dom instanceof Element) {
-              teardownNodeSubtree(itemInstance._dom);
+              if (isFullClear) {
+                removeElementReactiveProps(itemInstance._dom);
+                removeElementListeners(itemInstance._dom);
+              } else {
+                teardownNodeSubtree(itemInstance._dom);
+              }
             }
             forState.lastRemovedNodes.push(itemInstance._dom);
           }
