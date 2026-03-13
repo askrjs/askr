@@ -145,7 +145,7 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
     }
   }
 
-  if (instance.mountOperations.length > 0)
+  if ((instance.mountOperations?.length ?? 0) > 0)
     return { useFastPath: false, reason: 'pending-mounts' };
 
   // Ask renderer for keyed reorder eligibility (prop differences & heuristics)
@@ -236,8 +236,8 @@ function validateFastLaneInvariants(
   const commitCount = getDevValue<number>('__LAST_FASTPATH_COMMIT_COUNT') ?? 0;
   const invariants = {
     commitCount,
-    mountOps: instance.mountOperations.length,
-    cleanupFns: instance.cleanupFns.length,
+    mountOps: instance.mountOperations?.length ?? 0,
+    cleanupFns: instance.cleanupFns?.length ?? 0,
   };
   setDevValue('__LAST_FASTLANE_INVARIANTS', invariants);
 

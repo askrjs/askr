@@ -2,7 +2,7 @@
 
 Import router-specific APIs from `@askrjs/askr/router`.
 
-The root package also re-exports router helpers for compatibility, including advanced registration helpers such as `registerRoute`, `defineRoute`, namespace utilities, and `setServerLocation`.
+The root package keeps the common runtime-facing router helpers `route()` and `navigate()` for convenience. Route registration and router management belong in `@askrjs/askr/router`.
 
 `createSPA({ root, routes })` is the authoritative boot API for SPA routing. It mounts the current browser path immediately when it matches a provided route. If no route matches yet, the router remains idle until `navigate()` or a `popstate` event resolves one.
 

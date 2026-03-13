@@ -59,6 +59,15 @@ function probeDistExports(): unknown {
       const routerModuleHref = pathToFileURL(
         path.join(snapshotDir, 'router', 'index.js')
       ).href;
+      const resourcesModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'resources', 'index.js')
+      ).href;
+      const fxModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'fx', 'index.js')
+      ).href;
+      const bootModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'boot', 'index.js')
+      ).href;
 
       const probe = execFileSync(
         process.execPath,
@@ -70,6 +79,11 @@ function probeDistExports(): unknown {
             const routerModule = await import(${JSON.stringify(
               routerModuleHref
             )});
+            const resourcesModule = await import(${JSON.stringify(
+              resourcesModuleHref
+            )});
+            const fxModule = await import(${JSON.stringify(fxModuleHref)});
+            const bootModule = await import(${JSON.stringify(bootModuleHref)});
             console.log(JSON.stringify({
               root: {
                 derive: typeof rootModule.derive,
@@ -77,18 +91,42 @@ function probeDistExports(): unknown {
                 selector: typeof rootModule.selector,
                 route: typeof rootModule.route,
                 navigate: typeof rootModule.navigate,
-                registerRoute: typeof rootModule.registerRoute,
+                resource: typeof rootModule.resource,
                 Link: typeof rootModule.Link,
+                hasRegisterRoute: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'registerRoute'
+                ),
+                hasDebounce: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'debounce'
+                ),
+                hasRenderToString: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'renderToString'
+                ),
               },
               router: {
                 route: typeof routerModule.route,
                 navigate: typeof routerModule.navigate,
                 Link: typeof routerModule.Link,
                 layout: typeof routerModule.layout,
-                hasRegisterRoute: Object.prototype.hasOwnProperty.call(
-                  routerModule,
-                  'registerRoute'
-                ),
+                registerRoute: typeof routerModule.registerRoute,
+              },
+              resources: {
+                resource: typeof resourcesModule.resource,
+                getSignal: typeof resourcesModule.getSignal,
+                on: typeof resourcesModule.on,
+              },
+              fx: {
+                debounce: typeof fxModule.debounce,
+                scheduleEventHandler: typeof fxModule.scheduleEventHandler,
+              },
+              boot: {
+                createIsland: typeof bootModule.createIsland,
+                createSPA: typeof bootModule.createSPA,
+                hydrateSPA: typeof bootModule.hydrateSPA,
+                cleanupApp: typeof bootModule.cleanupApp,
               },
             }));
           `,
@@ -138,15 +176,33 @@ describe('public docs and examples', () => {
         selector: 'function',
         route: 'function',
         navigate: 'function',
-        registerRoute: 'function',
+        resource: 'function',
         Link: 'function',
+        hasRegisterRoute: false,
+        hasDebounce: false,
+        hasRenderToString: false,
       },
       router: {
         route: 'function',
         navigate: 'function',
         Link: 'function',
         layout: 'function',
-        hasRegisterRoute: false,
+        registerRoute: 'function',
+      },
+      resources: {
+        resource: 'function',
+        getSignal: 'function',
+        on: 'function',
+      },
+      fx: {
+        debounce: 'function',
+        scheduleEventHandler: 'function',
+      },
+      boot: {
+        createIsland: 'function',
+        createSPA: 'function',
+        hydrateSPA: 'function',
+        cleanupApp: 'function',
       },
     });
   });

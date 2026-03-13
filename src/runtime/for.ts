@@ -196,7 +196,7 @@ export function createItemInstance<T>(
   // Prepare render token and pending reads so finalizeReadSubscriptions works
   // (this mirrors behavior in runComponent).
   itemComponent._currentRenderToken = _forRenderCounter++;
-  itemComponent._pendingReadSources = new Set();
+  itemComponent._pendingReadSources = undefined;
 
   recordBenchEvent('rowFactory');
   const vnode = evaluateJSXElement(
@@ -260,7 +260,7 @@ export function createItemInstance<T>(
     setStateIndex(startStateIndex);
 
     itemComponent._currentRenderToken = _forRenderCounter++;
-    itemComponent._pendingReadSources = new Set();
+    itemComponent._pendingReadSources = undefined;
 
     // Safely re-render into vnode slot for this item
     try {
@@ -306,7 +306,7 @@ function rerenderItemInstance<T>(
 
   setStateIndex(itemInstance._startStateIndex);
   component._currentRenderToken = _forRenderCounter++;
-  component._pendingReadSources = new Set();
+  component._pendingReadSources = undefined;
 
   try {
     recordBenchEvent('rowFactory');

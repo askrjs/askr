@@ -8,17 +8,17 @@ Use the root package for common app/runtime APIs. Prefer explicit subpaths when 
 
 - App/runtime: `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, `hasApp`
 - Reactivity: `state(initialValue)`, `derive(selector) -> getter`, `derive(source, map) -> getter`, `selector(source, equals?) -> keyed predicate`
-- Operations: `resource`, `on`, `timer`, `task`, `stream`, `capture`
-- Common helpers: `For`, FX utilities, SSR helpers, JSX runtime exports
-- Supported router compatibility exports: `route`, `navigate`, `Link`, `getRoutes`, `clearRoutes`, `registerRoute`, `defineRoute`, namespace helpers, and `setServerLocation`
+- Context/resources: `defineContext`, `readContext`, `resource`, `getSignal`
+- Common helpers: `For`, `route`, `navigate`, `Link`, JSX runtime exports
 
 Supported DOM events are delegated automatically as part of the renderer; normal app code does not need a separate event-delegation API.
 
 ## Preferred subpath packages
 
-- `@askrjs/askr/router` -> preferred router entrypoint (`route`, `getRoutes`, `clearRoutes`, `navigate`, `Link`, `layout`, route types)
-- `@askrjs/askr/resources` -> async resource primitives (`resource`, `getSignal`)
-- `@askrjs/askr/fx` -> timing and scheduling utilities (`debounce`, `throttle`, `retry`, `defer`, etc.)
+- `@askrjs/askr/boot` -> optional explicit startup entrypoint (`createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, `hasApp`)
+- `@askrjs/askr/router` -> routing entrypoint (`route`, `registerRoute`, `getRoutes`, `clearRoutes`, namespace helpers, `navigate`, `Link`, `layout`, route types)
+- `@askrjs/askr/resources` -> resource and operation primitives (`resource`, `getSignal`, `on`, `timer`, `task`, `stream`, `capture`)
+- `@askrjs/askr/fx` -> timing and scheduling utilities (`debounce`, `throttle`, `retry`, `defer`, event helpers, `scheduleEventHandler`)
 - `@askrjs/askr/ssr` -> server-side rendering helpers
 - `@askrjs/askr/ssg` -> static-site generation helpers (`createStaticGen`)
 - `@askrjs/askr/for`, `@askrjs/askr/foundations` -> lower-level framework primitives
@@ -28,13 +28,16 @@ Supported DOM events are delegated automatically as part of the renderer; normal
 Use root imports for common app code and subpath imports when you need feature-specific APIs.
 
 ```ts
-import { createIsland, state } from '@askrjs/askr';
-import { route, navigate } from '@askrjs/askr/router';
-import { resource } from '@askrjs/askr/resources';
+import { createIsland, state, route, navigate } from '@askrjs/askr';
+import { createSPA as bootCreateSPA } from '@askrjs/askr/boot';
+import { registerRoute } from '@askrjs/askr/router';
+import { resource, on } from '@askrjs/askr/resources';
+import { debounce } from '@askrjs/askr/fx';
 import { createStaticGen } from '@askrjs/askr/ssg';
 ```
 
-For router-specific code, prefer `@askrjs/askr/router`. The root barrel keeps router helpers available for compatibility and shared convenience imports.
+For router-specific code beyond `route()` and `navigate()`, prefer `@askrjs/askr/router`.
+Use `@askrjs/askr/boot` when you want an explicit startup-only import path without giving up the ergonomic root imports.
 
 `derive()` returns a callable getter. Example:
 
@@ -64,7 +67,7 @@ For large keyed lists, call `selector()` once in the owner component and pass th
 - `route(path, handler, namespace?)` registers a route
 - `route()` inside render returns the current read-only route snapshot
 
-`createSPA({ routes })` is the authoritative boot input. `route(...)` plus `getRoutes()` is the convenience way to assemble that route table for SPA startup.
+`createSPA({ routes })` is the authoritative boot input. For explicit router management, use `registerRoute(...)` plus `getRoutes()` from `@askrjs/askr/router`.
 
 `@askrjs/askr/ssg` also accepts `parallelism?: number | 'auto'`, and the Vite plugin accepts `optimizeTemplates?: boolean` for opt-in compile-time literal hoisting.
 

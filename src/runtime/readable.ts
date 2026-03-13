@@ -46,44 +46,49 @@ export function recordReadableRead(source: ReadableSource<unknown>): void {
 export function finalizeReadableSubscriptions(
   instance: ComponentInstance
 ): void {
-  const newSet = instance._pendingReadSources ?? new Set();
-  const oldSet = instance._lastReadSources ?? new Set();
+  const newSet = instance._pendingReadSources;
+  const oldSet = instance._lastReadSources;
   const token = instance._currentRenderToken;
 
   if (token === undefined) {
     return;
   }
 
-  for (const source of oldSet) {
-    if (!newSet.has(source)) {
-      source._readers?.delete(instance);
+  if (oldSet) {
+    for (const source of oldSet) {
+      if (!newSet?.has(source)) {
+        source._readers?.delete(instance);
+      }
     }
   }
 
   instance.lastRenderToken = token;
 
-  for (const source of newSet) {
-    let readers = source._readers;
-    if (!readers) {
-      readers = new Map();
-      source._readers = readers;
+  if (newSet) {
+    for (const source of newSet) {
+      let readers = source._readers;
+      if (!readers) {
+        readers = new Map();
+        source._readers = readers;
+      }
+      readers.set(instance, instance.lastRenderToken ?? 0);
     }
-    readers.set(instance, instance.lastRenderToken ?? 0);
   }
 
-  instance._lastReadSources = newSet;
-  instance._pendingReadSources = new Set();
+  instance._lastReadSources = newSet ?? new Set();
+  instance._pendingReadSources = undefined;
   instance._currentRenderToken = undefined;
 }
 
 export function cleanupReadableSubscriptions(
   instance: ComponentInstance
 ): void {
-  if (!instance._lastReadSources) {
+  const sources = instance._lastReadSources;
+  if (!sources || sources.size === 0) {
     return;
   }
 
-  for (const source of instance._lastReadSources) {
+  for (const source of sources) {
     source._readers?.delete(instance);
   }
   instance._lastReadSources = new Set();

@@ -16,6 +16,7 @@
     "baseUrl": ".",
     "paths": {
       "@askrjs/askr": ["./src/index.ts"],
+      "@askrjs/askr/boot": ["./src/boot/index.ts"],
       "@askrjs/askr/for": ["./src/for/index.ts"],
       "@askrjs/askr/foundations": ["./src/foundations/index.ts"],
       "@askrjs/askr/resources": ["./src/resources/index.ts"],

@@ -73,6 +73,57 @@ describe('for bench metrics', () => {
     expect(metrics.domMoves).toBe(0);
   });
 
+  it('records append metrics when growing the list in place', () => {
+    let rowsState:
+      | ReturnType<typeof state<Array<{ id: number; label: string }>>>
+      | null = null;
+
+    const Component = () => {
+      rowsState = state(
+        Array.from({ length: 10 }, (_, index) => ({
+          id: index + 1,
+          label: `Row ${index + 1}`,
+        }))
+      );
+
+      return (
+        <table>
+          <tbody>
+            {For(
+              () => rowsState!(),
+              (row) => row.id,
+              (row) => (
+                <tr>
+                  <td>{row.label}</td>
+                </tr>
+              )
+            )}
+          </tbody>
+        </table>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    rowsState!.set((rows) =>
+      rows.concat(
+        Array.from({ length: 5 }, (_, index) => ({
+          id: rows.length + index + 1,
+          label: `Row ${rows.length + index + 1}`,
+        }))
+      )
+    );
+    flushScheduler();
+
+    const metrics = getBenchMetrics();
+    expect(metrics.fastLaneName).toBe('APPEND');
+    expect(metrics.itemsCreated).toBe(5);
+    expect(metrics.itemsReused).toBe(10);
+    expect(metrics.rowFactoryInvocations).toBe(5);
+    expect(metrics.domMoves).toBe(0);
+  });
+
   it('records removal and move metrics for middle-row deletion', () => {
     let rowsState:
       | ReturnType<typeof state<Array<{ id: number; label: string }>>>

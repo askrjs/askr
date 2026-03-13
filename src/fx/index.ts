@@ -25,3 +25,5 @@ export {
   scheduleIdle,
   scheduleRetry,
 } from './fx';
+
+export { scheduleEventHandler } from '../runtime/scheduler';
