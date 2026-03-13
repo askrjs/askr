@@ -36,6 +36,7 @@ import {
   recordBenchEvent,
   recordBenchTiming,
   type ForState,
+  type ForCommitStrategy,
 } from '../runtime/for';
 import { keyedElements } from './keyed';
 import {
@@ -1017,9 +1018,74 @@ function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
 
 function syncKeyedMapFromForState(
   parent: Element,
-  forState: ForState<unknown>
+  forState: ForState<unknown>,
+  strategy: ForCommitStrategy,
+  removedNodes: Node[]
 ): void {
   const existing = keyedElements.get(parent);
+  const ensureMapEntry = (map: Map<string | number, Element>, key: string | number, element: Element): void => {
+    map.set(key, element);
+    const keyString = String(key);
+    map.set(keyString, element);
+    const keyNumber = Number(keyString);
+    if (!Number.isNaN(keyNumber)) {
+      map.set(keyNumber, element);
+    }
+  };
+
+  if (strategy === 'SWAP') {
+    if (existing) {
+      return;
+    }
+  }
+
+  if (strategy === 'NO_REORDER') {
+    if (existing && removedNodes.length === 0) {
+      return;
+    }
+
+    if (existing) {
+      for (const [mapKey, element] of existing) {
+        if (element.parentNode !== parent) {
+          existing.delete(mapKey);
+        }
+      }
+
+      if (existing.size > 0) {
+        keyedElements.set(parent, existing);
+      } else {
+        keyedElements.delete(parent);
+      }
+      return;
+    }
+  }
+
+  if (strategy === 'TRUNCATE' && forState.orderedKeys.length === 0) {
+    if (existing) {
+      existing.clear();
+    }
+    keyedElements.delete(parent);
+    return;
+  }
+
+  if (strategy === 'APPEND' && existing) {
+    for (let i = 0; i < forState.orderedKeys.length; i++) {
+      const key = forState.orderedKeys[i];
+      if (key === null || existing.has(key)) continue;
+      const itemInstance = forState.items.get(key);
+      if (itemInstance?._dom instanceof Element) {
+        ensureMapEntry(existing, key, itemInstance._dom);
+      }
+    }
+
+    if (existing.size > 0) {
+      keyedElements.set(parent, existing);
+    } else {
+      keyedElements.delete(parent);
+    }
+    return;
+  }
+
   const nextMap = existing ?? new Map<string | number, Element>();
   nextMap.clear();
 
@@ -1028,13 +1094,7 @@ function syncKeyedMapFromForState(
     if (key === null) continue;
     const itemInstance = forState.items.get(key);
     if (itemInstance?._dom instanceof Element) {
-      nextMap.set(key, itemInstance._dom);
-      const keyString = String(key);
-      nextMap.set(keyString, itemInstance._dom);
-      const keyNumber = Number(keyString);
-      if (!Number.isNaN(keyNumber)) {
-        nextMap.set(keyNumber, itemInstance._dom);
-      }
+      ensureMapEntry(nextMap, key, itemInstance._dom);
     }
   }
 
@@ -1045,7 +1105,7 @@ function syncKeyedMapFromForState(
   }
 }
 
-function commitForBoundaryChildren(
+export function commitForBoundaryChildren(
   parent: Element,
   forState: ForState<unknown>,
   childrenVNodes: VNode[]
@@ -1101,6 +1161,9 @@ function commitForBoundaryChildren(
   };
 
   const commitAppend = (): void => {
+    const fragment = parent.ownerDocument.createDocumentFragment();
+    let hasPendingAppend = false;
+
     for (let i = 0; i < forState.orderedKeys.length; i++) {
       const itemKey = forState.orderedKeys[i];
       const itemInstance = forState.items.get(itemKey);
@@ -1115,8 +1178,13 @@ function commitForBoundaryChildren(
 
       if (dom.parentNode !== parent) {
         recordBenchEvent('domInsert');
-        parent.appendChild(dom);
+        fragment.appendChild(dom);
+        hasPendingAppend = true;
       }
+    }
+
+    if (hasPendingAppend) {
+      parent.appendChild(fragment);
     }
   };
 
@@ -1206,7 +1274,12 @@ function commitForBoundaryChildren(
   }
 
   removeForBoundaryNodes(parent, forState.lastRemovedNodes);
-  syncKeyedMapFromForState(parent, forState);
+  syncKeyedMapFromForState(
+    parent,
+    forState,
+    forState.lastCommitStrategy,
+    forState.lastRemovedNodes
+  );
   recordBenchTiming('domCommit', performance.now() - domCommitStart);
   clearForDomUpdateState(forState);
 }
@@ -1488,6 +1561,25 @@ export function updateElementChildren(
       n = next;
     }
     el.textContent = '';
+    return;
+  }
+
+  // Handle direct For boundary vnode (non-array) before generic scalar/non-array handling.
+  if (
+    !Array.isArray(children) &&
+    _isDOMElement(children) &&
+    (children as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    const forVnode = children as DOMElement;
+    const forState = forVnode._forState;
+    if (!forState) {
+      throw new Error('[updateElementChildren] For boundary missing _forState');
+    }
+    const source = (forVnode.props || {}).source as unknown as
+      | State<unknown[]>
+      | (() => unknown[]);
+    const childrenVNodes = evaluateForState(forState, source);
+    commitForBoundaryChildren(el, forState, childrenVNodes as VNode[]);
     return;
   }
 

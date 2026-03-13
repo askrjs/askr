@@ -13,6 +13,7 @@ import { __FOR_BOUNDARY__ } from '../common/vnode';
 import { evaluateForState } from '../runtime/for';
 import {
   createDOMNode,
+  commitForBoundaryChildren,
   updateElementFromVnode,
   updateUnkeyedChildren,
   performBulkPositionalKeyedTextUpdate,
@@ -296,70 +297,7 @@ function updateForBoundaryChildren(
     | import('../runtime/state').State<unknown[]>
     | (() => unknown[]);
   const childrenVNodes = evaluateForState(forState, source);
-
-  // Clear old children with comprehensive cleanup
-  // Walk DOM tree to clean up ALL nodes and nested structures
-  const walkAndCleanup = (node: Node) => {
-    if (node instanceof Element) {
-      removeAllListeners(node);
-      cleanupInstanceIfPresent(node);
-    }
-    let child = node.firstChild;
-    while (child) {
-      const next = child.nextSibling;
-      walkAndCleanup(child);
-      child = next;
-    }
-  };
-
-  let child = element.firstChild;
-  while (child) {
-    const next = child.nextSibling;
-    walkAndCleanup(child);
-    element.removeChild(child);
-    child = next;
-  }
-
-  // Append new vnodes directly (reusing cached DOM when possible)
-  for (let i = 0; i < childrenVNodes.length; i++) {
-    const childVNode = childrenVNodes[i];
-    const itemKey = forState.orderedKeys[i];
-    const itemInstance = itemKey != null ? forState.items.get(itemKey) : null;
-
-    let dom: Node | null = null;
-
-    // Try to reuse existing DOM if element type matches
-    if (itemInstance && itemInstance._dom) {
-      const cachedDom = itemInstance._dom;
-      if (
-        !(cachedDom instanceof Element) ||
-        !(childVNode as DOMElement)?.type ||
-        typeof (childVNode as DOMElement).type !== 'string' ||
-        (cachedDom as Element).tagName.toLowerCase() ===
-          ((childVNode as DOMElement).type as string).toLowerCase()
-      ) {
-        dom = cachedDom;
-      }
-    }
-
-    // Create new DOM if no reusable node available
-    if (!dom) {
-      dom = createDOMNode(childVNode);
-      if (itemInstance) {
-        itemInstance._dom = dom ?? undefined;
-      }
-    }
-
-    if (dom) {
-      // Always update reused DOM from current vnode
-      if (dom instanceof Element && _isDOMElement(childVNode)) {
-        updateElementFromVnode(dom, childVNode as DOMElement, true);
-      }
-      element.appendChild(dom);
-    }
-  }
-
-  keyedElements.delete(element);
+  commitForBoundaryChildren(element, forState, childrenVNodes);
 }
 
 /**
