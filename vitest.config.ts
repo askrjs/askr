@@ -1,7 +1,12 @@
 import { defineConfig } from 'vitest/config';
-import { askrEsbuild, createPackageAliases } from './tooling/askr-tooling';
+import {
+  askrEsbuild,
+  createNodeEnvDefine,
+  createPackageAliases,
+} from './tooling/askr-tooling';
 
 export default defineConfig({
+  define: createNodeEnvDefine('development', { bench: true }),
   test: {
     environment: 'jsdom',
     globals: true,

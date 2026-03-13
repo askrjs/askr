@@ -84,10 +84,12 @@ export const ssrBenchIncludes = [
 ] as const;
 
 export function createNodeEnvDefine(
-  mode: 'development' | 'production'
-): Record<'process.env.NODE_ENV', string> {
+  mode: 'development' | 'production',
+  options?: { bench?: boolean }
+): Record<'process.env.NODE_ENV' | 'process.env.ASKR_BENCH', string> {
   return {
     'process.env.NODE_ENV': JSON.stringify(mode),
+    'process.env.ASKR_BENCH': JSON.stringify(options?.bench ? '1' : '0'),
   };
 }
 

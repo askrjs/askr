@@ -241,6 +241,24 @@ export function addDelegatedListener(
   );
 }
 
+export function updateDelegatedListener(
+  element: Element,
+  eventName: string,
+  handler: EventListener,
+  originalHandler: EventListener,
+  options?: AddEventListenerOptions
+): boolean {
+  const existing = getDelegatedHandlerForElement(element, eventName);
+  if (!existing) {
+    return false;
+  }
+
+  existing.handler = handler;
+  existing.original = originalHandler;
+  existing.options = options;
+  return true;
+}
+
 export function removeDelegatedListener(
   element: Element,
   eventName: string

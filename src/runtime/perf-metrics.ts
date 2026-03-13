@@ -24,6 +24,8 @@ type AskrPerfGlobal = typeof globalThis & {
   __ASKR_PERF__?: PerfMetrics;
 };
 
+const BENCH_BUILD_ENABLED = process.env.ASKR_BENCH === '1';
+
 function createInitialPerfMetrics(): PerfMetrics {
   return {
     selectorInvalidations: 0,
@@ -48,6 +50,9 @@ function createInitialPerfMetrics(): PerfMetrics {
 function shouldCollectPerfMetrics(): boolean {
   if (process.env.NODE_ENV !== 'production') {
     return true;
+  }
+  if (!BENCH_BUILD_ENABLED) {
+    return false;
   }
   try {
     return !!(globalThis as AskrPerfGlobal).__ASKR_BENCH__;

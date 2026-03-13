@@ -9,7 +9,7 @@ import {
 
 export { domBenchExcludes, domBenchIncludes, ssrBenchIncludes };
 
-export const benchDefine = createNodeEnvDefine('production');
+export const benchDefine = createNodeEnvDefine('production', { bench: true });
 
 export const benchEsbuild = askrEsbuild;
 

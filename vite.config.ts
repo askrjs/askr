@@ -12,7 +12,9 @@ const isBenchBuild = process.env.BUILD === 'bench';
 const input = createBuildInput({ includeCli: !isBenchBuild });
 
 export default defineConfig({
-  define: createNodeEnvDefine(isProd ? 'production' : 'development'),
+  define: createNodeEnvDefine(isProd ? 'production' : 'development', {
+    bench: isBenchBuild,
+  }),
   resolve: {
     alias: createPackageAliases(),
   },

@@ -33,13 +33,15 @@ import { __FOR_BOUNDARY__ } from '../common/vnode';
 import {
   evaluateForState,
   clearForDomUpdateState,
+  recordBenchEvent,
+  recordBenchTiming,
   type ForState,
 } from '../runtime/for';
 import { keyedElements } from './keyed';
 import {
   parseEventName,
   getPassiveOptions,
-  createWrappedHandler,
+  createMutableWrappedHandler,
   isSkippedProp,
   hasNonTrivialProps,
   now,
@@ -54,6 +56,7 @@ import { incrementPerfMetric } from '../runtime/perf-metrics';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
+  updateDelegatedListener,
   removeDelegatedListener,
   clearDelegatedHandlersForElement as _clearDelegatedHandlersForElement,
   isDelegatedEvent,
@@ -119,9 +122,10 @@ function addTrackedListener(
   }
 
   const options = getPassiveOptions(eventName);
-  const trackedHandler = useDelegation
-    ? handler
-    : createWrappedHandler(handler, true);
+  const mutableHandler = useDelegation
+    ? null
+    : createMutableWrappedHandler(handler, true);
+  const trackedHandler = useDelegation ? handler : mutableHandler!.handler;
 
   if (!useDelegation) {
     if (options !== undefined) {
@@ -139,6 +143,7 @@ function addTrackedListener(
     original: handler,
     options,
     isDelegated: useDelegation,
+    updateHandler: mutableHandler?.updateHandler,
   });
 }
 
@@ -979,9 +984,31 @@ function syncForItemDom(
 }
 
 function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
+  if (
+    removedNodes.length > 0 &&
+    removedNodes.length === parent.childNodes.length
+  ) {
+    let canBulkClear = true;
+    for (let i = 0; i < removedNodes.length; i++) {
+      if (removedNodes[i].parentNode !== parent) {
+        canBulkClear = false;
+        break;
+      }
+    }
+
+    if (canBulkClear) {
+      for (let i = 0; i < removedNodes.length; i++) {
+        recordBenchEvent('domRemove');
+      }
+      parent.textContent = '';
+      return;
+    }
+  }
+
   for (let i = 0; i < removedNodes.length; i++) {
     const node = removedNodes[i];
     if (node.parentNode === parent) {
+      recordBenchEvent('domRemove');
       parent.removeChild(node);
     }
   }
@@ -1022,6 +1049,8 @@ function commitForBoundaryChildren(
   forState: ForState<unknown>,
   childrenVNodes: VNode[]
 ): void {
+  const domCommitStart = performance.now();
+
   const commitDirtyNoReorder = (): void => {
     const dirtyIndices = forState.pendingDirtyIndices;
     if (!dirtyIndices || dirtyIndices.length === 0) {
@@ -1043,6 +1072,7 @@ function commitForBoundaryChildren(
 
       if (dom.parentNode !== parent) {
         const anchor = parent.childNodes[i] ?? null;
+        recordBenchEvent('domInsert');
         parent.insertBefore(dom, anchor);
       }
     }
@@ -1063,6 +1093,7 @@ function commitForBoundaryChildren(
 
       if (dom.parentNode !== parent) {
         const anchor = parent.childNodes[i] ?? null;
+        recordBenchEvent('domInsert');
         parent.insertBefore(dom, anchor);
       }
     }
@@ -1082,9 +1113,55 @@ function commitForBoundaryChildren(
       }
 
       if (dom.parentNode !== parent) {
+        recordBenchEvent('domInsert');
         parent.appendChild(dom);
       }
     }
+  };
+
+  const commitSwap = (): void => {
+    const swapIndices = forState.pendingSwapIndices;
+    if (!swapIndices) {
+      return;
+    }
+
+    let [firstIndex, secondIndex] = swapIndices;
+    if (firstIndex === secondIndex) {
+      return;
+    }
+
+    if (firstIndex > secondIndex) {
+      [firstIndex, secondIndex] = [secondIndex, firstIndex];
+    }
+
+    const firstKey = forState.orderedKeys[firstIndex];
+    const secondKey = forState.orderedKeys[secondIndex];
+    const firstItem = forState.items.get(firstKey);
+    const secondItem = forState.items.get(secondKey);
+
+    if (!firstItem || !secondItem) {
+      commitReorder();
+      return;
+    }
+
+    const firstDom = syncForItemDom(parent, firstItem, childrenVNodes[firstIndex]);
+    const secondDom = syncForItemDom(parent, secondItem, childrenVNodes[secondIndex]);
+
+    if (!firstDom || !secondDom) {
+      commitReorder();
+      return;
+    }
+
+    if (firstDom.parentNode !== parent || secondDom.parentNode !== parent) {
+      commitReorder();
+      return;
+    }
+
+    const secondNextSibling = secondDom.nextSibling;
+    recordBenchEvent('domMove');
+    parent.insertBefore(secondDom, firstDom);
+    recordBenchEvent('domMove');
+    parent.insertBefore(firstDom, secondNextSibling);
   };
 
   const commitReorder = (): void => {
@@ -1102,6 +1179,7 @@ function commitForBoundaryChildren(
 
       const anchor = parent.childNodes[i] ?? null;
       if (dom !== anchor) {
+        recordBenchEvent('domMove');
         parent.insertBefore(dom, anchor);
       }
     }
@@ -1117,6 +1195,9 @@ function commitForBoundaryChildren(
     case 'APPEND':
       commitAppend();
       break;
+    case 'SWAP':
+      commitSwap();
+      break;
     case 'FULL_KEYED':
     default:
       commitReorder();
@@ -1125,6 +1206,7 @@ function commitForBoundaryChildren(
 
   removeForBoundaryNodes(parent, forState.lastRemovedNodes);
   syncKeyedMapFromForState(parent, forState);
+  recordBenchTiming('domCommit', performance.now() - domCommitStart);
   clearForDomUpdateState(forState);
 }
 
@@ -1251,6 +1333,26 @@ export function updateElementFromVnode(
       }
 
       if (existing) {
+        if (useDelegation && existing.isDelegated) {
+          updateDelegatedListener(
+            el,
+            eventName,
+            value as EventListener,
+            value as EventListener,
+            undefined
+          );
+          existing.handler = value as EventListener;
+          existing.original = value as EventListener;
+          existing.options = undefined;
+          continue;
+        }
+
+        if (!useDelegation && !existing.isDelegated && existing.updateHandler) {
+          existing.updateHandler(value as EventListener);
+          existing.original = value as EventListener;
+          continue;
+        }
+
         if (existing.isDelegated) {
           removeDelegatedListener(el, eventName);
         } else {
@@ -1277,9 +1379,12 @@ export function updateElementFromVnode(
       }
 
       const options = getPassiveOptions(eventName);
+      const mutableHandler = useDelegation
+        ? null
+        : createMutableWrappedHandler(value as EventListener, true);
       const trackedHandler = useDelegation
         ? (value as EventListener)
-        : createWrappedHandler(value as EventListener, true);
+        : mutableHandler!.handler;
 
       if (!useDelegation) {
         if (options !== undefined) {
@@ -1297,6 +1402,7 @@ export function updateElementFromVnode(
         original: value as EventListener,
         options,
         isDelegated: useDelegation,
+        updateHandler: mutableHandler?.updateHandler,
       });
     } else {
       el.setAttribute(key, String(value));
