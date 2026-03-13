@@ -1313,6 +1313,66 @@ export function updateElementFromVnode(
   // Diff and update event listeners and other attributes
   const existingListeners = elementListeners.get(el);
   const existingReactiveProps = elementReactivePropsCleanup.get(el);
+
+  // Fast path: when element has no tracked listeners/reactive props and all
+  // static scalar props already match, skip full prop diff machinery.
+  if (
+    (!existingListeners || existingListeners.size === 0) &&
+    (!existingReactiveProps || existingReactiveProps.size === 0)
+  ) {
+    let staticPropCount = 0;
+    let canSkipPropDiff = true;
+
+    for (const key in props) {
+      if (isSkippedProp(key)) continue;
+      const value = props[key];
+      if (value === undefined || value === null || value === false) {
+        canSkipPropDiff = false;
+        break;
+      }
+
+      const eventName = parseEventName(key);
+      if (eventName || typeof value === 'function') {
+        canSkipPropDiff = false;
+        break;
+      }
+
+      if (key === 'class' || key === 'className') {
+        if (el.className !== String(value)) {
+          canSkipPropDiff = false;
+          break;
+        }
+        staticPropCount++;
+        continue;
+      }
+
+      if (key === 'value' || key === 'checked') {
+        if ((el as HTMLElement & Record<string, unknown>)[key] !== value) {
+          canSkipPropDiff = false;
+          break;
+        }
+        staticPropCount++;
+        continue;
+      }
+
+      if (el.getAttribute(key) !== String(value)) {
+        canSkipPropDiff = false;
+        break;
+      }
+      staticPropCount++;
+    }
+
+    // Avoid skipping when the element has extra attributes that would need removal.
+    if (canSkipPropDiff && el.attributes.length === staticPropCount) {
+      if (updateChildren) {
+        const children =
+          vnode.children || (props.children as VNode | VNode[] | undefined);
+        updateElementChildren(el, children);
+      }
+      return;
+    }
+  }
+
   // Lazily materialize desired event names only if we need to diff against existing listeners.
   // This avoids allocating a Set for the common case (no listeners, or no event props).
   let desiredEventNames: Set<string> | null = null;
