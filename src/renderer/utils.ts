@@ -15,6 +15,7 @@ export interface ListenerEntry {
   handler: EventListener;
   original: EventListener;
   options?: boolean | AddEventListenerOptions;
+  updateHandler?: (nextHandler: EventListener) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,6 +109,43 @@ export function createWrappedHandler(
   }
 
   return wrapped;
+}
+
+export function createMutableWrappedHandler(
+  handler: EventListener,
+  flushAfter = false
+): { handler: EventListener; updateHandler: (nextHandler: EventListener) => void } {
+  let currentHandler = handler;
+
+  const wrapped: EventListener = (event: Event) => {
+    try {
+      globalScheduler.runInHandlerScope(
+        () => {
+          try {
+            currentHandler(event);
+          } catch (error) {
+            logger.error('[Askr] Event handler error:', error);
+          }
+        },
+        flushAfter ? 'sync' : 'defer'
+      );
+    } catch (err) {
+      if (flushAfter) {
+        queueMicrotask(() => {
+          throw err;
+        });
+      } else {
+        logger.error('[Askr] Event handler error:', err);
+      }
+    }
+  };
+
+  return {
+    handler: wrapped,
+    updateHandler(nextHandler: EventListener) {
+      currentHandler = nextHandler;
+    },
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

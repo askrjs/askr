@@ -22,6 +22,7 @@ import {
   enableEventDelegation,
   setGlobalDelegationContainer,
   isDelegatedEvent,
+  getDelegatedHandlerForElement,
 } from '../../src/runtime/events';
 import { state } from '../../src/runtime/state';
 
@@ -84,6 +85,41 @@ describe('event delegation', () => {
       flushScheduler();
 
       expect(clicks).toBe(1);
+    });
+
+    it('should update delegated handlers in place across rerenders', () => {
+      let mode: ReturnType<typeof state<'a' | 'b'>> | null = null;
+      const calls: string[] = [];
+
+      const Component = () => {
+        mode = state<'a' | 'b'>('a');
+        return (
+          <button id="btn" onClick={() => calls.push(mode!())}>
+            {mode!()}
+          </button>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const button = container.querySelector('#btn') as HTMLButtonElement;
+      const initialEntry = getDelegatedHandlerForElement(button, 'click');
+
+      expect(initialEntry).toBeDefined();
+      button.click();
+      flushScheduler();
+      expect(calls).toEqual(['a']);
+
+      mode!.set('b');
+      flushScheduler();
+
+      const updatedEntry = getDelegatedHandlerForElement(button, 'click');
+      expect(updatedEntry).toBe(initialEntry);
+
+      button.click();
+      flushScheduler();
+      expect(calls).toEqual(['a', 'b']);
     });
 
     it('should handle multiple clicks', () => {

@@ -186,6 +186,7 @@ export interface ListenerMapEntry {
   original: EventListener;
   options?: boolean | AddEventListenerOptions;
   isDelegated?: boolean;
+  updateHandler?: (nextHandler: EventListener) => void;
 }
 export const elementListeners = new WeakMap<
   Element,

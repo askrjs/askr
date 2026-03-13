@@ -21,152 +21,20 @@ import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
 import { teardownNodeSubtree } from '../renderer/cleanup';
+import {
+  flushBenchMetrics,
+  getBenchMetrics,
+  isBenchBuildEnabled,
+  recordBenchEvent,
+  recordBenchFastLane,
+  recordBenchTiming,
+  resetBenchMetrics,
+} from './for-bench';
 
-const askrGlobal = globalThis as typeof globalThis & {
-  __ASKR_BENCH__?: boolean;
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Bench Instrumentation (gate behind globalThis.__ASKR_BENCH__)
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface BenchMetrics {
-  itemsCreated: number;
-  itemsReused: number;
-  itemsRemoved: number;
-  itemsMoved: number;
-  rowFactoryInvocations: number;
-  keyLookups: number;
-  keyHits: number;
-  keyMisses: number;
-  domInserts: number;
-  domRemoves: number;
-  domMoves: number;
-  domAttrSets: number;
-  domTextSets: number;
-  reconcilePhaseMs: number;
-  domCommitPhaseMs: number;
-  fastLaneName: string | null;
-}
-
-const benchMetrics: BenchMetrics = {
-  itemsCreated: 0,
-  itemsReused: 0,
-  itemsRemoved: 0,
-  itemsMoved: 0,
-  rowFactoryInvocations: 0,
-  keyLookups: 0,
-  keyHits: 0,
-  keyMisses: 0,
-  domInserts: 0,
-  domRemoves: 0,
-  domMoves: 0,
-  domAttrSets: 0,
-  domTextSets: 0,
-  reconcilePhaseMs: 0,
-  domCommitPhaseMs: 0,
-  fastLaneName: null,
-};
-
-function resetBenchMetrics() {
-  if (!askrGlobal.__ASKR_BENCH__) return;
-  benchMetrics.itemsCreated = 0;
-  benchMetrics.itemsReused = 0;
-  benchMetrics.itemsRemoved = 0;
-  benchMetrics.itemsMoved = 0;
-  benchMetrics.rowFactoryInvocations = 0;
-  benchMetrics.keyLookups = 0;
-  benchMetrics.keyHits = 0;
-  benchMetrics.keyMisses = 0;
-  benchMetrics.domInserts = 0;
-  benchMetrics.domRemoves = 0;
-  benchMetrics.domMoves = 0;
-  benchMetrics.domAttrSets = 0;
-  benchMetrics.domTextSets = 0;
-  benchMetrics.reconcilePhaseMs = 0;
-  benchMetrics.domCommitPhaseMs = 0;
-  benchMetrics.fastLaneName = null;
-}
-
-function recordBenchEvent(
-  event:
-    | 'itemCreated'
-    | 'itemReused'
-    | 'itemRemoved'
-    | 'itemMoved'
-    | 'rowFactory'
-    | 'keyLookup'
-    | 'keyHit'
-    | 'keyMiss'
-    | 'domInsert'
-    | 'domRemove'
-    | 'domMove'
-    | 'domAttrSet'
-    | 'domTextSet'
-) {
-  if (!askrGlobal.__ASKR_BENCH__) return;
-  switch (event) {
-    case 'itemCreated':
-      benchMetrics.itemsCreated++;
-      break;
-    case 'itemReused':
-      benchMetrics.itemsReused++;
-      break;
-    case 'itemRemoved':
-      benchMetrics.itemsRemoved++;
-      break;
-    case 'itemMoved':
-      benchMetrics.itemsMoved++;
-      break;
-    case 'rowFactory':
-      benchMetrics.rowFactoryInvocations++;
-      break;
-    case 'keyLookup':
-      benchMetrics.keyLookups++;
-      break;
-    case 'keyHit':
-      benchMetrics.keyHits++;
-      break;
-    case 'keyMiss':
-      benchMetrics.keyMisses++;
-      break;
-    case 'domInsert':
-      benchMetrics.domInserts++;
-      break;
-    case 'domRemove':
-      benchMetrics.domRemoves++;
-      break;
-    case 'domMove':
-      benchMetrics.domMoves++;
-      break;
-    case 'domAttrSet':
-      benchMetrics.domAttrSets++;
-      break;
-    case 'domTextSet':
-      benchMetrics.domTextSets++;
-      break;
-  }
-}
-
-function recordBenchFastLane(name: string) {
-  if (!askrGlobal.__ASKR_BENCH__) return;
-  benchMetrics.fastLaneName = name;
-}
-
-function recordBenchTiming(phase: 'reconcile' | 'domCommit', ms: number) {
-  if (!askrGlobal.__ASKR_BENCH__) return;
-  if (phase === 'reconcile') {
-    benchMetrics.reconcilePhaseMs = ms;
-  } else {
-    benchMetrics.domCommitPhaseMs = ms;
-  }
-}
-
-function getBenchMetrics(): BenchMetrics {
-  return { ...benchMetrics };
-}
+const BENCH_BUILD_ENABLED = isBenchBuildEnabled();
 
 export { getBenchMetrics };
+export { recordBenchEvent, recordBenchTiming };
 
 export interface ForItemInstance<T> {
   key: string | number | null;
@@ -183,6 +51,7 @@ export type ForCommitStrategy =
   | 'APPEND'
   | 'TRUNCATE'
   | 'NO_REORDER'
+  | 'SWAP'
   | 'FULL_KEYED';
 
 export interface ForState<T> {
@@ -197,6 +66,7 @@ export interface ForState<T> {
   lastCommitStrategy: ForCommitStrategy;
   lastRemovedNodes: Node[];
   pendingDirtyIndices: number[] | null;
+  pendingSwapIndices: [number, number] | null;
 }
 
 /**
@@ -253,6 +123,7 @@ export function createForState<T>(
     lastCommitStrategy: 'NO_REORDER',
     lastRemovedNodes: [],
     pendingDirtyIndices: null,
+    pendingSwapIndices: null,
   };
 }
 
@@ -466,11 +337,11 @@ export function reconcileForItems<T>(
   forState: ForState<T>,
   newArray: T[]
 ): VNode[] {
-  if (askrGlobal.__ASKR_BENCH__) {
+  if (BENCH_BUILD_ENABLED) {
     resetBenchMetrics();
   }
 
-  const reconcileStartMs = askrGlobal.__ASKR_BENCH__ ? performance.now() : 0;
+  const reconcileStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
 
   const { items, orderedKeys, byFn } = forState;
   const oldLen = orderedKeys.length;
@@ -481,7 +352,7 @@ export function reconcileForItems<T>(
   // FAST PATH A: APPEND
   // Guard: oldLen <= newLen && all old keys match new keys at same indices
   // ─────────────────────────────────────────────────────────────────────────
-  if (oldLen <= newLen) {
+  if (oldLen < newLen) {
     let canUseAppendPath = true;
     for (let i = 0; i < oldLen; i++) {
       const key = byFn(newArray[i], i);
@@ -528,12 +399,14 @@ export function reconcileForItems<T>(
         orderedKeys[i] = key;
       }
 
-      if (askrGlobal.__ASKR_BENCH__) {
+      if (BENCH_BUILD_ENABLED) {
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+        flushBenchMetrics();
       }
 
       forState.orderedVNodes = resultVNodes;
       forState.pendingDirtyIndices = null;
+      forState.pendingSwapIndices = null;
 
       return resultVNodes;
     }
@@ -543,7 +416,101 @@ export function reconcileForItems<T>(
   // FAST PATH B: TRUNCATE
   // Guard: newLen <= oldLen && all new keys match old keys at same indices
   // ─────────────────────────────────────────────────────────────────────────
-  if (newLen <= oldLen) {
+  if (newLen < oldLen) {
+    if (oldLen === newLen + 1) {
+      let removedIndex = -1;
+
+      for (let i = 0; i < newLen; i++) {
+        const nextKey = byFn(newArray[i], i);
+        if (nextKey !== orderedKeys[i]) {
+          removedIndex = i;
+          break;
+        }
+      }
+
+      if (removedIndex !== -1) {
+        let canUseRemoveOnePath = true;
+        for (let i = removedIndex; i < newLen; i++) {
+          const nextKey = byFn(newArray[i], i);
+          if (nextKey !== orderedKeys[i + 1]) {
+            canUseRemoveOnePath = false;
+            break;
+          }
+        }
+
+        if (canUseRemoveOnePath) {
+          recordBenchFastLane('REMOVE_ONE');
+          forState.lastCommitStrategy = 'NO_REORDER';
+
+          const resultVNodes = forState.orderedVNodes;
+          resultVNodes.length = newLen;
+          const dirtyIndices: number[] = [];
+
+          for (let i = 0; i < newLen; i++) {
+            const item = newArray[i];
+            const key = i < removedIndex ? orderedKeys[i] : orderedKeys[i + 1];
+            const existing = items.get(key)!;
+            recordBenchEvent('itemReused');
+
+            const itemChanged = existing.item !== item;
+            const needsDomUpdate = existing._needsDomUpdate;
+
+            if (itemChanged) {
+              existing.item = item;
+              rerenderItemInstance(forState, existing, item);
+            }
+
+            if (itemChanged || needsDomUpdate || existing._needsDomUpdate) {
+              dirtyIndices.push(i);
+            }
+
+            resultVNodes[i] = existing.vnode;
+          }
+
+          const removedKey = orderedKeys[removedIndex];
+          const removedItem = items.get(removedKey);
+          if (removedItem) {
+            recordBenchEvent('itemRemoved');
+            const instance = removedItem.componentInstance;
+            try {
+              cleanupComponent(instance);
+            } catch (err) {
+              if (process.env.NODE_ENV !== 'production') {
+                console.error('[For] Cleanup error:', err);
+              }
+            }
+
+            if (removedItem._dom) {
+              if (removedItem._dom instanceof Element) {
+                teardownNodeSubtree(removedItem._dom);
+              }
+              forState.lastRemovedNodes.push(removedItem._dom);
+            }
+
+            removedItem.vnode = undefined;
+            removedItem._dom = undefined;
+            items.delete(removedKey);
+          }
+
+          const nextOrderedKeys = orderedKeys.slice(0, newLen);
+          for (let i = removedIndex; i < newLen; i++) {
+            nextOrderedKeys[i] = orderedKeys[i + 1];
+          }
+          forState.orderedKeys = nextOrderedKeys;
+
+          if (BENCH_BUILD_ENABLED) {
+            recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+            flushBenchMetrics();
+          }
+
+          forState.pendingDirtyIndices = dirtyIndices;
+          forState.pendingSwapIndices = null;
+
+          return resultVNodes;
+        }
+      }
+    }
+
     let canUseTruncatePath = true;
     for (let i = 0; i < newLen; i++) {
       const key = byFn(newArray[i], i);
@@ -610,12 +577,14 @@ export function reconcileForItems<T>(
       orderedKeys.length = newLen;
       forState.orderedKeys = orderedKeys;
 
-      if (askrGlobal.__ASKR_BENCH__) {
+      if (BENCH_BUILD_ENABLED) {
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+        flushBenchMetrics();
       }
 
       forState.orderedVNodes = resultVNodes;
       forState.pendingDirtyIndices = null;
+      forState.pendingSwapIndices = null;
 
       return resultVNodes;
     }
@@ -650,29 +619,124 @@ export function reconcileForItems<T>(
         recordBenchEvent('itemReused');
 
         const itemChanged = existing.item !== item;
-        const indexChanged = existing.indexSignal() !== i;
+        const needsDomUpdate = existing._needsDomUpdate;
 
         if (itemChanged) {
           existing.item = item;
           rerenderItemInstance(forState, existing, item);
-          dirtyIndices.push(i);
         }
 
-        if (indexChanged) {
-          existing.indexSignal.set(i);
-          if (!itemChanged) {
-            dirtyIndices.push(i);
-          }
+        if (itemChanged || needsDomUpdate || existing._needsDomUpdate) {
+          dirtyIndices.push(i);
         }
 
         resultVNodes[i] = existing.vnode;
       }
 
-      if (askrGlobal.__ASKR_BENCH__) {
+      if (BENCH_BUILD_ENABLED) {
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+        flushBenchMetrics();
       }
 
       forState.pendingDirtyIndices = dirtyIndices;
+      forState.pendingSwapIndices = null;
+
+      return resultVNodes;
+    }
+
+    let firstMismatch = -1;
+    let secondMismatch = -1;
+    let firstMismatchKey: string | number | null = null;
+    let secondMismatchKey: string | number | null = null;
+    let mismatchCount = 0;
+    let canUseSwapPath = true;
+
+    for (let i = 0; i < oldLen; i++) {
+      const item = newArray[i];
+      const key = byFn(newArray[i], i);
+      if (key === orderedKeys[i]) {
+        const existing = items.get(key);
+        if (existing && existing.item !== item) {
+          canUseSwapPath = false;
+          break;
+        }
+        continue;
+      }
+
+      mismatchCount++;
+      if (firstMismatch === -1) {
+        firstMismatch = i;
+        firstMismatchKey = key;
+        continue;
+      }
+
+      if (secondMismatch === -1) {
+        secondMismatch = i;
+        secondMismatchKey = key;
+        continue;
+      }
+
+      mismatchCount = 3;
+      break;
+    }
+
+    if (
+      canUseSwapPath &&
+      mismatchCount === 2 &&
+      firstMismatch !== -1 &&
+      secondMismatch !== -1 &&
+      firstMismatchKey === orderedKeys[secondMismatch] &&
+      secondMismatchKey === orderedKeys[firstMismatch]
+    ) {
+      recordBenchFastLane('SWAP');
+      recordBenchEvent('itemMoved');
+      recordBenchEvent('itemMoved');
+
+      forState.lastCommitStrategy = 'SWAP';
+
+      const nextOrderedKeys = orderedKeys.slice();
+      nextOrderedKeys[firstMismatch] = firstMismatchKey;
+      nextOrderedKeys[secondMismatch] = secondMismatchKey;
+
+      const resultVNodes = forState.orderedVNodes;
+      const firstExisting = items.get(firstMismatchKey)!;
+      const secondExisting = items.get(secondMismatchKey)!;
+      const firstItem = newArray[firstMismatch];
+      const secondItem = newArray[secondMismatch];
+
+      recordBenchEvent('itemReused');
+      recordBenchEvent('itemReused');
+
+      if (firstExisting.item !== firstItem) {
+        firstExisting.item = firstItem;
+        rerenderItemInstance(forState, firstExisting, firstItem);
+      }
+
+      if (secondExisting.item !== secondItem) {
+        secondExisting.item = secondItem;
+        rerenderItemInstance(forState, secondExisting, secondItem);
+      }
+
+      if (firstExisting.indexSignal() !== firstMismatch) {
+        firstExisting.indexSignal.set(firstMismatch);
+      }
+
+      if (secondExisting.indexSignal() !== secondMismatch) {
+        secondExisting.indexSignal.set(secondMismatch);
+      }
+
+      resultVNodes[firstMismatch] = firstExisting.vnode;
+      resultVNodes[secondMismatch] = secondExisting.vnode;
+
+      forState.orderedKeys = nextOrderedKeys;
+
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+        flushBenchMetrics();
+      }
+
+      forState.pendingDirtyIndices = null;
+      forState.pendingSwapIndices = [firstMismatch, secondMismatch];
 
       return resultVNodes;
     }
@@ -760,12 +824,14 @@ export function reconcileForItems<T>(
   forState.orderedKeys = newOrderedKeys;
 
   // Record reconcile timing
-  if (askrGlobal.__ASKR_BENCH__) {
+  if (BENCH_BUILD_ENABLED) {
     recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+    flushBenchMetrics();
   }
 
   forState.orderedVNodes = resultVNodes;
   forState.pendingDirtyIndices = null;
+  forState.pendingSwapIndices = null;
 
   return resultVNodes;
 }
@@ -794,4 +860,5 @@ export function clearForDomUpdateState<T>(forState: ForState<T>): void {
   }
   forState.lastRemovedNodes = [];
   forState.pendingDirtyIndices = null;
+  forState.pendingSwapIndices = null;
 }

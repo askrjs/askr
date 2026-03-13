@@ -1,13 +1,20 @@
 // tests/dom/listener_lifecycle.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
+import {
+  disableEventDelegation,
+  enableEventDelegation,
+} from '../../src/runtime/events';
 
 describe('listener lifecycle (DOM)', () => {
   let { container, cleanup } = createTestContainer();
   beforeEach(() => ({ container, cleanup } = createTestContainer()));
-  afterEach(() => cleanup());
+  afterEach(() => {
+    enableEventDelegation();
+    cleanup();
+  });
 
   it('should add event listener once when component mounts', async () => {
     let clicks = 0;
@@ -100,5 +107,46 @@ describe('listener lifecycle (DOM)', () => {
     flushScheduler();
     expect(aClicks).toBe(1);
     expect(bClicks).toBe(1);
+  });
+
+  it('should update direct listeners in place when delegation is disabled', async () => {
+    disableEventDelegation();
+
+    let mode: ReturnType<typeof state<'a' | 'b'>> | null = null;
+    const calls: string[] = [];
+
+    const addSpy = vi.spyOn(EventTarget.prototype, 'addEventListener');
+    const removeSpy = vi.spyOn(EventTarget.prototype, 'removeEventListener');
+
+    const Component = () => {
+      mode = state<'a' | 'b'>('a');
+      return (
+        <button id={'btn'} onClick={() => calls.push(mode!())}>
+          {mode!()}
+        </button>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const baselineAdds = addSpy.mock.calls.filter(([eventName]) => eventName === 'click').length;
+    const baselineRemoves = removeSpy.mock.calls.filter(([eventName]) => eventName === 'click').length;
+
+    mode!.set('b');
+    flushScheduler();
+
+    const afterAdds = addSpy.mock.calls.filter(([eventName]) => eventName === 'click').length;
+    const afterRemoves = removeSpy.mock.calls.filter(([eventName]) => eventName === 'click').length;
+
+    expect(afterAdds).toBe(baselineAdds);
+    expect(afterRemoves).toBe(baselineRemoves);
+
+    (container.querySelector('#btn') as HTMLButtonElement).click();
+    flushScheduler();
+    expect(calls).toEqual(['b']);
+
+    addSpy.mockRestore();
+    removeSpy.mockRestore();
   });
 });
