@@ -101,17 +101,17 @@ export const tier2BenchOptions = {
 } satisfies Options;
 
 export const tier3BenchOptions = {
-  time: 750,
-  iterations: 8,
-  warmupTime: 150,
-  warmupIterations: 3,
+  time: 1000,
+  iterations: 10,
+  warmupTime: 200,
+  warmupIterations: 4,
 } satisfies Options;
 
 export const tier4BenchOptions = {
-  time: 1000,
-  iterations: 5,
-  warmupTime: 200,
-  warmupIterations: 2,
+  time: 1500,
+  iterations: 8,
+  warmupTime: 300,
+  warmupIterations: 3,
 } satisfies Options;
 
 export function buildRows(count: number, startId = 1): RowData[] {

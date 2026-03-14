@@ -115,6 +115,7 @@
     "bench:tier3": "npm run bench:dom:base -- benches/tier3/ --run",
     "bench:tier4": "npm run bench:dom:base -- benches/tier4/ --run",
     "bench:json": "node -e \"const fs=require('node:fs'); fs.rmSync('bench-results',{recursive:true,force:true}); fs.mkdirSync('bench-results',{recursive:true});\" && npm run bench:dom:base -- --run --outputJson bench-results/dom.json && npm run bench:ssr:base -- --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js",
+    "bench:verify": "npm run bench:json && node scripts/generate-bench-log.js --verify",
     "fmt": "prettier --write .",
     "lint": "eslint src tests checks benches --ext .ts,.tsx"
   },
