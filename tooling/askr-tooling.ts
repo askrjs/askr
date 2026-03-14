@@ -21,6 +21,7 @@ const packageSourceEntries = {
 
 const buildSourceEntries = {
   index: 'src/index.ts',
+  'boot/index': 'src/boot/index.ts',
   'for/index': 'src/for/index.ts',
   'foundations/index': 'src/foundations/index.ts',
   'resources/index': 'src/resources/index.ts',

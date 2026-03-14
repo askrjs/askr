@@ -194,9 +194,15 @@ export const elementListeners = new WeakMap<
 >();
 
 // Track reactive props cleanup functions and their function references
+export interface ReactivePropCleanupEntry {
+  cleanup: () => void;
+  fnRef: () => unknown;
+  updateFn?: (nextFn: () => unknown) => void;
+}
+
 export const elementReactivePropsCleanup = new WeakMap<
   Element,
-  Map<string, { cleanup: () => void; fnRef: () => unknown }>
+  Map<string, ReactivePropCleanupEntry>
 >();
 
 export function removeElementReactiveProps(element: Element): void {

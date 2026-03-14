@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createIsland, selector, state, State } from '../index';
+import { createIsland } from '../boot';
+import { installRendererBridge } from '../renderer';
+import { selector } from '../runtime/selector';
+import { state, State } from '../runtime/state';
 import { globalScheduler } from '../runtime/scheduler';
 import { BenchmarkTable } from './components/benchmark-table';
 import type { BenchmarkRowData } from './components/benchmark-row';
+
+installRendererBridge();
 
 type RowData = BenchmarkRowData;
 

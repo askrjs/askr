@@ -172,6 +172,23 @@ const reactivePropsBySource = new WeakMap<
 let hasPendingReactivePropFlush = false;
 let reactivePropTrackingToken = 0;
 
+/**
+ * Pre-allocated sentinel used to reset `_pendingReadSources` in the finally
+ * block without allocating a new Set on every `evaluateAndSyncReactiveProp`
+ * call. Safe to share because `_setCurrentInstance(prevInstance)` runs
+ * immediately after in the same synchronous block, so no reactive reads will
+ * ever be attributed to `reactivePropTrackingInstance` after the reset.
+ */
+const _EMPTY_PENDING_SOURCES = new Set<ReadableSource<unknown>>();
+
+/**
+ * Reusable buffer for tracking which sources are read during a single
+ * reactive-prop evaluation.  Must *not* be relied on across call boundaries;
+ * each call clears it before use.  This avoids one `new Set()` allocation
+ * per hot-path reactive-prop re-evaluation.
+ */
+const _evalSourceBuffer = new Set<ReadableSource<unknown>>();
+
 const reactivePropTrackingInstance = {
   _pendingReadSources: new Set<ReadableSource<unknown>>(),
   _currentRenderToken: 0,
@@ -196,25 +213,6 @@ function unregisterReactivePropSource(
   reactivePropsBySource.get(source)?.delete(descriptor);
 }
 
-function syncReactivePropSubscriptions(
-  descriptor: ReactivePropDescriptor,
-  nextReadSources: Set<ReadableSource<unknown>>
-): void {
-  for (const source of descriptor.readSources) {
-    if (!nextReadSources.has(source)) {
-      unregisterReactivePropSource(source, descriptor);
-    }
-  }
-
-  for (const source of nextReadSources) {
-    if (!descriptor.readSources.has(source)) {
-      registerReactivePropSource(source, descriptor);
-    }
-  }
-
-  descriptor.readSources = nextReadSources;
-}
-
 function clearReactivePropSubscriptions(
   descriptor: ReactivePropDescriptor
 ): void {
@@ -224,29 +222,85 @@ function clearReactivePropSubscriptions(
   descriptor.readSources.clear();
 }
 
-function evaluateReactiveProp(descriptor: ReactivePropDescriptor): {
-  value: unknown;
-  readSources: Set<ReadableSource<unknown>>;
-} {
+/**
+ * Evaluate a reactive prop's function while tracking its source dependencies,
+ * then synchronise subscriptions in a single pass.
+ *
+ * Optimised hot path:
+ * - Uses `_evalSourceBuffer` (a shared reusable Set) for read tracking, saving
+ *   one `new Set()` allocation per call compared to the naïve approach.
+ * - After evaluation, checks whether the source set changed.  When sources are
+ *   identical to the previous evaluation (the overwhelmingly common case for
+ *   reactive class props that always read the same signal), no subscription
+ *   bookkeeping is needed and no new Set is allocated.
+ * - Uses `_EMPTY_PENDING_SOURCES` sentinel in the finally block instead of
+ *   `new Set()`, saving another allocation per call.
+ *
+ * Returns the evaluated value so callers can avoid a separate intermediate
+ * `{ value, readSources }` object.
+ */
+function evaluateAndSyncReactiveProp(
+  descriptor: ReactivePropDescriptor
+): unknown {
   const prevInstance = getCurrentInstance();
-  const nextReadSources = new Set<ReadableSource<unknown>>();
 
+  _evalSourceBuffer.clear();
   reactivePropTrackingToken += 1;
-  reactivePropTrackingInstance._pendingReadSources = nextReadSources;
+  reactivePropTrackingInstance._pendingReadSources = _evalSourceBuffer;
   reactivePropTrackingInstance._currentRenderToken = reactivePropTrackingToken;
 
   _setCurrentInstance(reactivePropTrackingInstance);
 
+  let value: unknown;
   try {
-    return {
-      value: descriptor.propFn(),
-      readSources: nextReadSources,
-    };
+    value = descriptor.propFn();
   } finally {
-    reactivePropTrackingInstance._pendingReadSources = new Set();
+    // Restore state without allocating a new Set.
+    reactivePropTrackingInstance._pendingReadSources =
+      _EMPTY_PENDING_SOURCES as Set<ReadableSource<unknown>>;
     reactivePropTrackingInstance._currentRenderToken = 0;
     _setCurrentInstance(prevInstance);
   }
+
+  // ── Inline syncReactivePropSubscriptions ────────────────────────────────
+  // Fast path: if the source set is unchanged, skip all bookkeeping and avoid
+  // allocating a new Set for descriptor.readSources.  This is the common case
+  // for reactive props like `() => isSelected(id) ? "danger" : ""` where the
+  // same signal is always read.
+  const prevSources = descriptor.readSources;
+  const bufSize = _evalSourceBuffer.size;
+
+  if (prevSources.size === bufSize) {
+    let same = true;
+    for (const s of prevSources) {
+      if (!_evalSourceBuffer.has(s)) {
+        same = false;
+        break;
+      }
+    }
+    if (same) {
+      // Sources unchanged — keep prevSources as descriptor.readSources (no
+      // allocation, no register/unregister calls).
+      return value;
+    }
+  }
+
+  // Sources changed — build a snapshot from the buffer and do the full diff.
+  const nextSources = new Set(_evalSourceBuffer);
+
+  for (const source of prevSources) {
+    if (!nextSources.has(source)) {
+      unregisterReactivePropSource(source, descriptor);
+    }
+  }
+  for (const source of nextSources) {
+    if (!prevSources.has(source)) {
+      registerReactivePropSource(source, descriptor);
+    }
+  }
+  descriptor.readSources = nextSources;
+
+  return value;
 }
 
 function flushDirtyReactiveProps(): void {
@@ -265,8 +319,7 @@ function flushDirtyReactiveProps(): void {
     incrementPerfMetric('reactivePropReevaluations');
 
     try {
-      const { value, readSources } = evaluateReactiveProp(descriptor);
-      syncReactivePropSubscriptions(descriptor, readSources);
+      const value = evaluateAndSyncReactiveProp(descriptor);
 
       if (Object.is(descriptor.lastValue, value)) {
         incrementPerfMetric('skippedDomPropWrites');
@@ -322,7 +375,7 @@ function setupReactiveProp(
   propName: string,
   propFn: () => unknown,
   tagName: string
-): () => void {
+): { cleanup: () => void; updateFn: (nextFn: () => unknown) => void } {
   const descriptor: ReactivePropDescriptor = {
     el,
     propName,
@@ -335,17 +388,52 @@ function setupReactiveProp(
   };
 
   reactivePropRegistry.add(descriptor);
-  const { value, readSources } = evaluateReactiveProp(descriptor);
-  syncReactivePropSubscriptions(descriptor, readSources);
+  const value = evaluateAndSyncReactiveProp(descriptor);
   applyPropValue(el, propName, value, tagName, undefined, descriptor);
   descriptor.lastValue = value;
 
-  // Return cleanup function
-  return () => {
+  const cleanup = () => {
     descriptor.isActive = false;
     reactivePropRegistry.delete(descriptor);
     dirtyReactiveProps.delete(descriptor);
     clearReactivePropSubscriptions(descriptor);
+  };
+
+  const updateFn = (nextFn: () => unknown): void => {
+    if (!descriptor.isActive) {
+      return;
+    }
+
+    descriptor.propFn = nextFn;
+
+    try {
+      const previousValue = descriptor.lastValue;
+      const value = evaluateAndSyncReactiveProp(descriptor);
+
+      if (Object.is(previousValue, value)) {
+        incrementPerfMetric('skippedDomPropWrites');
+        return;
+      }
+
+      applyPropValue(
+        descriptor.el,
+        descriptor.propName,
+        value,
+        descriptor.tagName,
+        previousValue,
+        descriptor
+      );
+      descriptor.lastValue = value;
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn('[Askr] Reactive prop update failed:', err);
+      }
+    }
+  };
+
+  return {
+    cleanup,
+    updateFn,
   };
 }
 
@@ -479,7 +567,7 @@ function applyPropsToElement(
     // Check if value is a function (reactive prop)
     if (typeof value === 'function' && !eventName && key !== 'ref') {
       // Set up reactive prop tracking
-      const cleanup = setupReactiveProp(
+      const reactive = setupReactiveProp(
         el,
         key,
         value as () => unknown,
@@ -491,7 +579,8 @@ function applyPropsToElement(
         elementReactivePropsCleanup.set(el, new Map());
       }
       elementReactivePropsCleanup.get(el)!.set(key, {
-        cleanup,
+        cleanup: reactive.cleanup,
+        updateFn: reactive.updateFn,
         fnRef: value as () => unknown,
       });
       continue;
@@ -1187,7 +1276,10 @@ export function commitForBoundaryChildren(
       // Skip already-mounted clean items without calling syncForItemDom.
       // This avoids redundant DOM reads for unchanged rows when appending to
       // an existing list (e.g. append 1,000 rows to 1,000-row table).
-      if (itemInstance._dom?.parentNode === parent && !itemInstance._needsDomUpdate) {
+      if (
+        itemInstance._dom?.parentNode === parent &&
+        !itemInstance._needsDomUpdate
+      ) {
         continue;
       }
 
@@ -1494,12 +1586,18 @@ export function updateElementFromVnode(
         continue;
       }
 
+      if (existingEntry?.updateFn) {
+        existingEntry.updateFn(value as () => unknown);
+        existingEntry.fnRef = value as () => unknown;
+        continue;
+      }
+
       // If function reference changed, cleanup old and setup new
       if (existingEntry) {
         existingEntry.cleanup();
       }
 
-      const cleanup = setupReactiveProp(
+      const reactive = setupReactiveProp(
         el,
         key,
         value as () => unknown,
@@ -1510,7 +1608,8 @@ export function updateElementFromVnode(
         elementReactivePropsCleanup.set(el, new Map());
       }
       elementReactivePropsCleanup.get(el)!.set(key, {
-        cleanup,
+        cleanup: reactive.cleanup,
+        updateFn: reactive.updateFn,
         fnRef: value as () => unknown,
       });
       continue;
