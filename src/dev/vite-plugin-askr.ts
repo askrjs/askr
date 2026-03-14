@@ -5,7 +5,7 @@
  * - Configures esbuild JSX injection and `optimizeDeps.include` so the runtime is available
  */
 
-import type { Plugin } from 'vite';
+import { transformWithEsbuild, type Plugin } from 'vite';
 
 export interface AskrVitePluginOptions {
   /** Enable the built-in JSX transform that rewrites JSX to Askr's automatic runtime. */
@@ -52,46 +52,21 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
       };
     },
 
-    async transform(
-      this: import('rollup').PluginContext,
-      code: string,
-      id: string,
-      _options?: { ssr?: boolean }
-    ): Promise<import('rollup').TransformResult | null> {
+    async transform(code: string, id: string, _options?: { ssr?: boolean }) {
       // Provide an optional esbuild-based transform for .jsx/.tsx files so users don't need extra JSX tooling
       if (!shouldTransform) return null;
       if (!/\.(jsx|tsx)$/.test(id)) return null;
       if (id.includes('node_modules')) return null;
 
       try {
-        const esbuild = (await import('esbuild')) as typeof import('esbuild');
         const loader = id.endsWith('.tsx') ? 'tsx' : 'jsx';
-        const esbuildOpts: import('esbuild').TransformOptions = {
+        const result = await transformWithEsbuild(code, id, {
           loader,
           jsx: 'automatic',
           jsxImportSource: '@askrjs/askr',
           sourcefile: id,
           sourcemap: true,
-        };
-
-        // Prefer transformSync when available to avoid Promise/async overhead in hooks
-        const mod = esbuild as {
-          transformSync?: (
-            source: string,
-            options: import('esbuild').TransformOptions
-          ) => import('esbuild').TransformResult;
-          transform?: (
-            source: string,
-            options: import('esbuild').TransformOptions
-          ) => Promise<import('esbuild').TransformResult>;
-        };
-
-        let result: import('esbuild').TransformResult | null = null;
-        if (typeof mod.transformSync === 'function') {
-          result = mod.transformSync(code, esbuildOpts);
-        } else if (typeof mod.transform === 'function') {
-          result = await mod.transform(code, esbuildOpts);
-        }
+        });
 
         if (!result || !result.code) return null;
 
@@ -101,7 +76,7 @@ export function askrVitePlugin(opts: AskrVitePluginOptions = {}): Plugin {
 
         return {
           code: codeOut,
-          map: result.map as import('rollup').SourceMapInput,
+          map: result.map,
         };
       } catch {
         // If esbuild isn't available or fails, bail and let Vite handle it.
