@@ -55,7 +55,7 @@ const swappedRows = swapRows(initialRows, 1, 998);
       }
     );
 
-    expect(metrics.fastLaneName).toBe('FULL_KEYED');
+    expect(metrics.fastLaneName).toBe('SWAP');
   } finally {
     mounted.cleanup();
   }
