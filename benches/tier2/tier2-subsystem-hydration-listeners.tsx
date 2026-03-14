@@ -1,6 +1,9 @@
 import { bench, describe, expect } from 'vitest';
 import { hydrateSPA } from '../../src/boot';
-import { createHydrationFixture, tier2BenchOptions } from '../shared/_shared';
+import {
+  createHydrationFixture,
+  noisyTier2BenchOptions,
+} from '../shared/_shared';
 import { fireEvent, flushScheduler } from '../../tests/helpers/test-renderer';
 
 function createListenerHarness() {
@@ -110,7 +113,7 @@ describe('tier2 subsystem hydration listeners', () => {
       flushScheduler();
     },
     {
-      ...tier2BenchOptions,
+      ...noisyTier2BenchOptions,
       setup() {
         harness = createListenerHarness();
         fixture = createHydrationFixture({ routes: harness.routes });

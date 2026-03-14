@@ -18,6 +18,7 @@ import {
   createSelectionToggle,
   removeRowById,
   swapRows,
+  noisyTier4BenchOptions,
   tier4BenchOptions,
   updateEveryNthRow,
 } from '../shared/_shared';
@@ -246,7 +247,7 @@ describe('tier4 integration jsx benchmark app', () => {
       app!.setRows(createToggle!.next() as RowData[]);
     },
     {
-      ...tier4BenchOptions,
+      ...noisyTier4BenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(emptyRows);
         createToggle = createRowToggle(emptyRows, rows1000, 'initial');
@@ -265,7 +266,7 @@ describe('tier4 integration jsx benchmark app', () => {
       app!.clickRow(selectToggle!.next());
     },
     {
-      ...tier4BenchOptions,
+      ...noisyTier4BenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
         selectToggle = createSelectionToggle(498, 499, 'first');
@@ -285,7 +286,7 @@ describe('tier4 integration jsx benchmark app', () => {
       app!.setRows(updateToggle!.next() as RowData[]);
     },
     {
-      ...tier4BenchOptions,
+      ...noisyTier4BenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
         updateToggle = createRowToggle(rows1000, updatedRows, 'initial');

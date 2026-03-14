@@ -10,9 +10,10 @@ import {
   assertToggleMutationGuard,
   createSelectionToggle,
   tier1BenchOptions,
+  verifyTier1Invariant,
 } from '../shared/_shared';
 
-{
+verifyTier1Invariant('tier1 hotpath renderer positional text', () => {
   const { container, cleanup } = createTestContainer();
   let valueState!: ReturnType<typeof state<string>>;
 
@@ -55,7 +56,7 @@ import {
   } finally {
     cleanup();
   }
-}
+});
 
 describe('tier1 renderer positional text', () => {
   let cleanup: (() => void) | null = null;

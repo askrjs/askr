@@ -1,6 +1,6 @@
 import { bench, describe, expect } from 'vitest';
 import { renderToStringSync } from '../../src/ssr';
-import { tier1BenchOptions } from '../shared/_shared';
+import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
 
 function renderHotTree() {
   return renderToStringSync(() => (
@@ -15,7 +15,9 @@ function renderHotTree() {
   ));
 }
 
-expect(renderHotTree()).toContain('SSR hot path');
+verifyTier1Invariant('tier1 hotpath ssr render', () => {
+  expect(renderHotTree()).toContain('SSR hot path');
+});
 
 describe('tier1 ssr render', () => {
   bench(

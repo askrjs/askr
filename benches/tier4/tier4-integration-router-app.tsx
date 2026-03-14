@@ -62,29 +62,6 @@ describe('tier4 integration router app', () => {
   let cleanup: (() => void) | null = null;
 
   bench(
-    'navigate between sibling routes in the shared shell app',
-    async () => {
-      navigate('/reports');
-      flushScheduler();
-    },
-    {
-      ...tier4BenchOptions,
-      async setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-        setLocationPath('/dashboard');
-        await createSPA({ root: result.container, routes });
-        flushScheduler();
-      },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        resetRouterState();
-      },
-    }
-  );
-
-  bench(
     'churn across dashboard, reports, and settings',
     async () => {
       navigate('/reports');

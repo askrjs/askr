@@ -9,6 +9,7 @@ import {
   mountTableBenchmark,
   shuffleRows,
   tier1BenchOptions,
+  verifyTier1Invariant,
   withForBenchDiagnostics,
 } from '../shared/_shared';
 
@@ -19,7 +20,7 @@ expect(shuffledRows.map((row) => row.id)).not.toEqual(
   initialRows.map((row) => row.id)
 );
 
-{
+verifyTier1Invariant('tier1 hotpath for random shuffle', () => {
   const mounted = mountTableBenchmark(initialRows);
 
   try {
@@ -67,7 +68,7 @@ expect(shuffledRows.map((row) => row.id)).not.toEqual(
   } finally {
     mounted.cleanup();
   }
-}
+});
 
 describe('tier1 hotpath for random shuffle', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;

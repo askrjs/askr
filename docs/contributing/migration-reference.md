@@ -4,18 +4,18 @@ This document maps old documentation paths to their new locations in the reorgan
 
 ## Migration Map (Old → New)
 
-| Old Path                                  | New Path                                       | Status             |
-| ----------------------------------------- | ---------------------------------------------- | ------------------ |
-| `docs/quick-start.md`                     | `docs/getting-started/quick-start.md`          | ✅ Moved & cleaned |
-| `docs/state.md`                           | `docs/guides/state.md`                         | ✅ Moved           |
-| `docs/enforcement.md`                     | `docs/concepts/runtime-enforcement.md`         | ✅ Moved & renamed |
-| `docs/determinism.md`                     | `docs/concepts/determinism.md`                 | ✅ Moved           |
-| `docs/event-delegation.md`                | `docs/advanced/event-delegation.md`            | ✅ Moved           |
-| `docs/selective-hydration.md`             | `docs/advanced/selective-hydration.md`         | ✅ Moved           |
-| `docs/ssr-events.md`                      | `docs/guides/ssr-events.md`                    | ✅ Moved           |
-| `docs/for-primitive-design.md`            | `docs/internals/for-primitive-design.md`       | ✅ Moved           |
-| `docs/foundations-pit-of-success.md`      | `docs/internals/foundations-pit-of-success.md` | ✅ Moved           |
-| `docs/foundations-audit-report.md`        | `docs/internals/foundations-audit-report.md`   | ✅ Moved           |
+| Old Path                             | New Path                                       | Status             |
+| ------------------------------------ | ---------------------------------------------- | ------------------ |
+| `docs/quick-start.md`                | `docs/getting-started/quick-start.md`          | ✅ Moved & cleaned |
+| `docs/state.md`                      | `docs/guides/state.md`                         | ✅ Moved           |
+| `docs/enforcement.md`                | `docs/concepts/runtime-enforcement.md`         | ✅ Moved & renamed |
+| `docs/determinism.md`                | `docs/concepts/determinism.md`                 | ✅ Moved           |
+| `docs/event-delegation.md`           | `docs/advanced/event-delegation.md`            | ✅ Moved           |
+| `docs/selective-hydration.md`        | `docs/advanced/selective-hydration.md`         | ✅ Moved           |
+| `docs/ssr-events.md`                 | `docs/guides/ssr-events.md`                    | ✅ Moved           |
+| `docs/for-primitive-design.md`       | `docs/internals/for-primitive-design.md`       | ✅ Moved           |
+| `docs/foundations-pit-of-success.md` | `docs/internals/foundations-pit-of-success.md` | ✅ Moved           |
+| `docs/foundations-audit-report.md`   | `docs/internals/foundations-audit-report.md`   | ✅ Moved           |
 
 ## New Files Added
 

@@ -1,14 +1,19 @@
 import { bench, describe, expect } from 'vitest';
 import { resolveRouteFromRoutes } from '../../src/router/route';
-import { buildDenseRouteTable, tier1BenchOptions } from '../shared/_shared';
+import {
+  buildDenseRouteTable,
+  tier1BenchOptions,
+  verifyTier1Invariant,
+} from '../shared/_shared';
 
 const fixture = buildDenseRouteTable(512);
-const resolved = resolveRouteFromRoutes(fixture.targetPath, fixture.routes);
-
-expect(fixture.routes).toHaveLength(512);
-expect(resolved).not.toBeNull();
-expect(resolved!.handler).toBe(fixture.expectedHandler);
-expect(resolved!.params).toEqual(fixture.expectedParams);
+verifyTier1Invariant('tier1 hotpath router longest match', () => {
+  const resolved = resolveRouteFromRoutes(fixture.targetPath, fixture.routes);
+  expect(fixture.routes).toHaveLength(512);
+  expect(resolved).not.toBeNull();
+  expect(resolved!.handler).toBe(fixture.expectedHandler);
+  expect(resolved!.params).toEqual(fixture.expectedParams);
+});
 
 describe('tier1 hotpath router longest match', () => {
   bench(

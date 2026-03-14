@@ -6,7 +6,7 @@ import {
   buildRows,
   createRowToggle,
   mountTableBenchmark,
-  tier3BenchOptions,
+  noisyTier3BenchOptions,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -46,7 +46,7 @@ describe('tier3 system table clear rows', () => {
       mounted!.benchmark.setRows(toggle!.next() as RowData[]);
     },
     {
-      ...tier3BenchOptions,
+      ...noisyTier3BenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
         toggle = createRowToggle(initialRows, emptyRows, 'initial');
