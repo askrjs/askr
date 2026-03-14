@@ -28,7 +28,6 @@ const escapeCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 256;
 
 const _TEXT_ESCAPE_RE = /[&<>]/g;
-const ATTR_ESCAPE_RE = /[&"'<>]/g;
 
 const CSS_UNSAFE_RE = /[{}<>\\]/g;
 const CSS_DANGEROUS_FN_RE = /(?:url|expression|javascript)\s*\(/i;
@@ -40,16 +39,6 @@ const MAX_STYLE_PROP_CACHE_SIZE = 512;
 const _textEscapeMap = (ch: string): string => {
   const code = ch.charCodeAt(0);
   if (code === 38) return '&amp;'; // &
-  if (code === 60) return '&lt;'; // <
-  if (code === 62) return '&gt;'; // >
-  return ch;
-};
-
-const attrEscapeMap = (ch: string): string => {
-  const code = ch.charCodeAt(0);
-  if (code === 38) return '&amp;'; // &
-  if (code === 34) return '&quot;'; // "
-  if (code === 39) return '&#x27;'; // '
   if (code === 60) return '&lt;'; // <
   if (code === 62) return '&gt;'; // >
   return ch;
