@@ -714,8 +714,17 @@ function createIntrinsicElement(
   if (children !== null && children !== undefined) {
     if (Array.isArray(children)) {
       warnMissingKeys(children);
-      for (const child of children) {
-        const dom = createDOMNode(child);
+      if (children.length > 1) {
+        // Batch all children into a fragment so we touch the parent only once
+        // instead of N times, reducing layout invalidations in the DOM engine.
+        const childFrag = document.createDocumentFragment();
+        for (const child of children) {
+          const dom = createDOMNode(child);
+          if (dom) childFrag.appendChild(dom);
+        }
+        el.appendChild(childFrag);
+      } else if (children.length === 1) {
+        const dom = createDOMNode(children[0]);
         if (dom) el.appendChild(dom);
       }
     } else {
@@ -1175,6 +1184,13 @@ export function commitForBoundaryChildren(
         continue;
       }
 
+      // Skip already-mounted clean items without calling syncForItemDom.
+      // This avoids redundant DOM reads for unchanged rows when appending to
+      // an existing list (e.g. append 1,000 rows to 1,000-row table).
+      if (itemInstance._dom?.parentNode === parent && !itemInstance._needsDomUpdate) {
+        continue;
+      }
+
       const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
       if (!dom) {
         continue;
@@ -1259,8 +1275,39 @@ export function commitForBoundaryChildren(
   };
 
   const commitReorder = (): void => {
-    for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const itemKey = forState.orderedKeys[i];
+    const keys = forState.orderedKeys;
+    const count = keys.length;
+
+    // Fast path: when no existing item is already a child of parent (pure
+    // creation or full-replace scenario), sync all DOM nodes and commit
+    // atomically with a single replaceChildren instead of N insertBefore calls.
+    let hasExistingChild = false;
+    for (let i = 0; i < count; i++) {
+      const inst = forState.items.get(keys[i]);
+      if (inst?._dom?.parentNode === parent) {
+        hasExistingChild = true;
+        break;
+      }
+    }
+
+    if (!hasExistingChild) {
+      const frag = parent.ownerDocument.createDocumentFragment();
+      for (let i = 0; i < count; i++) {
+        const itemKey = keys[i];
+        const itemInstance = forState.items.get(itemKey);
+        if (!itemInstance) continue;
+        const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+        if (dom) {
+          recordBenchEvent('domInsert');
+          frag.appendChild(dom);
+        }
+      }
+      parent.replaceChildren(frag);
+      return;
+    }
+
+    for (let i = 0; i < count; i++) {
+      const itemKey = keys[i];
       const itemInstance = forState.items.get(itemKey);
       if (!itemInstance) {
         continue;
@@ -1673,7 +1720,11 @@ export function updateElementChildren(
     (typeof children === 'string' || typeof children === 'number')
   ) {
     if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
-      (el.firstChild as Text).data = String(children);
+      const s = String(children);
+      const t = el.firstChild as Text;
+      // Skip the write when the text is already correct — avoids triggering
+      // DOM mutation observers and text layout passes for unchanged nodes.
+      if (t.data !== s) t.data = s;
     } else {
       // Clean up all children before replacing with text
       for (let n = el.firstChild; n; ) {
@@ -1731,13 +1782,48 @@ export function updateUnkeyedChildren(
   parent: Element,
   newChildren: unknown[]
 ): void {
-  const existing = Array.from(parent.children);
-
   // Check if newChildren has mixed content (both text/primitives and elements)
   const hasText = newChildren.some(
     (c) => typeof c === 'string' || typeof c === 'number'
   );
   const hasElements = newChildren.some((c) => _isDOMElement(c));
+
+  // Fast path: same-count, pure-element update (the common large-list re-render).
+  // Iterate parent.children by index directly to avoid the Array.from snapshot
+  // allocation for large lists. replaceChild(x, child[i]) replaces in-place so
+  // subsequent indices in the live HTMLCollection do NOT shift — safe to use.
+  if (
+    !hasText &&
+    hasElements &&
+    parent.children.length === newChildren.length
+  ) {
+    const c = parent.children;
+    for (let i = 0; i < newChildren.length; i++) {
+      const next = newChildren[i];
+      const current = c[i];
+      if (!current || next === undefined) continue;
+      if (_isDOMElement(next) && typeof next.type === 'string') {
+        if (tagsEqualIgnoreCase(current.tagName, next.type)) {
+          updateElementFromVnode(current, next);
+        } else {
+          const dom = createDOMNode(next);
+          if (dom) {
+            teardownNodeSubtree(current);
+            parent.replaceChild(dom, current);
+          }
+        }
+      } else {
+        const dom = createDOMNode(next);
+        if (dom) {
+          teardownNodeSubtree(current);
+          parent.replaceChild(dom, current);
+        }
+      }
+    }
+    return;
+  }
+
+  const existing = Array.from(parent.children);
 
   // If we have mixed content (text + elements), use childNodes instead of children
   // to handle both text nodes and elements properly
