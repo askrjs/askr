@@ -114,7 +114,10 @@ export function createWrappedHandler(
 export function createMutableWrappedHandler(
   handler: EventListener,
   flushAfter = false
-): { handler: EventListener; updateHandler: (nextHandler: EventListener) => void } {
+): {
+  handler: EventListener;
+  updateHandler: (nextHandler: EventListener) => void;
+} {
   let currentHandler = handler;
 
   const wrapped: EventListener = (event: Event) => {

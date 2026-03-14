@@ -503,7 +503,10 @@ export function reconcileForItems<T>(
           forState.orderedKeys = nextOrderedKeys;
 
           if (BENCH_BUILD_ENABLED) {
-            recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+            recordBenchTiming(
+              'reconcile',
+              performance.now() - reconcileStartMs
+            );
             flushBenchMetrics();
           }
 

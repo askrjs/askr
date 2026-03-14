@@ -23,11 +23,7 @@ import {
   type RouteQuery,
   type RouteSnapshot as RouterRouteSnapshot,
 } from '@askrjs/askr/router';
-import {
-  getSignal,
-  on,
-  type ResourceResult,
-} from '@askrjs/askr/resources';
+import { getSignal, on, type ResourceResult } from '@askrjs/askr/resources';
 import { debounce, scheduleEventHandler } from '@askrjs/askr/fx';
 import {
   cleanupApp,

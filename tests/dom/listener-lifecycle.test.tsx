@@ -130,14 +130,22 @@ describe('listener lifecycle (DOM)', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    const baselineAdds = addSpy.mock.calls.filter(([eventName]) => eventName === 'click').length;
-    const baselineRemoves = removeSpy.mock.calls.filter(([eventName]) => eventName === 'click').length;
+    const baselineAdds = addSpy.mock.calls.filter(
+      ([eventName]) => eventName === 'click'
+    ).length;
+    const baselineRemoves = removeSpy.mock.calls.filter(
+      ([eventName]) => eventName === 'click'
+    ).length;
 
     mode!.set('b');
     flushScheduler();
 
-    const afterAdds = addSpy.mock.calls.filter(([eventName]) => eventName === 'click').length;
-    const afterRemoves = removeSpy.mock.calls.filter(([eventName]) => eventName === 'click').length;
+    const afterAdds = addSpy.mock.calls.filter(
+      ([eventName]) => eventName === 'click'
+    ).length;
+    const afterRemoves = removeSpy.mock.calls.filter(
+      ([eventName]) => eventName === 'click'
+    ).length;
 
     expect(afterAdds).toBe(baselineAdds);
     expect(afterRemoves).toBe(baselineRemoves);

@@ -1023,7 +1023,11 @@ function syncKeyedMapFromForState(
   removedNodes: Node[]
 ): void {
   const existing = keyedElements.get(parent);
-  const ensureMapEntry = (map: Map<string | number, Element>, key: string | number, element: Element): void => {
+  const ensureMapEntry = (
+    map: Map<string | number, Element>,
+    key: string | number,
+    element: Element
+  ): void => {
     map.set(key, element);
     const keyString = String(key);
     map.set(keyString, element);
@@ -1213,8 +1217,16 @@ export function commitForBoundaryChildren(
       return;
     }
 
-    const firstDom = syncForItemDom(parent, firstItem, childrenVNodes[firstIndex]);
-    const secondDom = syncForItemDom(parent, secondItem, childrenVNodes[secondIndex]);
+    const firstDom = syncForItemDom(
+      parent,
+      firstItem,
+      childrenVNodes[firstIndex]
+    );
+    const secondDom = syncForItemDom(
+      parent,
+      secondItem,
+      childrenVNodes[secondIndex]
+    );
 
     if (!firstDom || !secondDom) {
       commitReorder();
@@ -1226,11 +1238,24 @@ export function commitForBoundaryChildren(
       return;
     }
 
-    const secondNextSibling = secondDom.nextSibling;
+    // orderedKeys already reflects target order: firstDom should appear before
+    // secondDom at [firstIndex, secondIndex]. If DOM already matches that
+    // relative order, we only needed vnode/prop sync above.
+    const firstBeforeSecond =
+      (firstDom.compareDocumentPosition(secondDom) &
+        Node.DOCUMENT_POSITION_FOLLOWING) !==
+      0;
+    if (firstBeforeSecond) {
+      return;
+    }
+
+    // Swap by moving firstDom into secondDom's slot, then placing secondDom
+    // where firstDom used to be. This handles adjacent and non-adjacent nodes.
+    const firstNextSibling = firstDom.nextSibling;
     recordBenchEvent('domMove');
-    parent.insertBefore(secondDom, firstDom);
+    parent.insertBefore(firstDom, secondDom);
     recordBenchEvent('domMove');
-    parent.insertBefore(firstDom, secondNextSibling);
+    parent.insertBefore(secondDom, firstNextSibling);
   };
 
   const commitReorder = (): void => {
