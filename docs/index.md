@@ -36,7 +36,6 @@ Askr documentation is organized from first use to advanced runtime internals.
 - [Event Delegation](advanced/event-delegation.md)
 - [Selective Hydration](advanced/selective-hydration.md)
 - [SSG Guide](guides/ssg.md)
-- [Benchmarks](benchmarks/askr-vs-solid-svelte.md)
 
 ## Internals
 

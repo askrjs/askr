@@ -16,7 +16,6 @@ This document maps old documentation paths to their new locations in the reorgan
 | `docs/for-primitive-design.md`            | `docs/internals/for-primitive-design.md`       | ✅ Moved           |
 | `docs/foundations-pit-of-success.md`      | `docs/internals/foundations-pit-of-success.md` | ✅ Moved           |
 | `docs/foundations-audit-report.md`        | `docs/internals/foundations-audit-report.md`   | ✅ Moved           |
-| `docs/benchmarks/askr-vs-solid-svelte.md` | `docs/benchmarks/askr-vs-solid-svelte.md`      | ✅ Preserved       |
 
 ## New Files Added
 
@@ -62,8 +61,7 @@ docs/
 │   └── spec-guarantees.md (guarantees index)
 ├── advanced/
 │   ├── event-delegation.md
-│   ├── selective-hydration.md
-│   └── benchmarks/ → see benchmarks/
+│   └── selective-hydration.md
 ├── internals/
 │   ├── for-primitive-design.md
 │   ├── foundations-pit-of-success.md
@@ -75,8 +73,6 @@ docs/
 │   └── testing.md
 ├── migration/
 │   └── from-react.md
-└── benchmarks/
-    └── askr-vs-solid-svelte.md
 ```
 
 ## Audience Pathways
@@ -102,7 +98,6 @@ docs/
 1. [SSR Guide](guides/ssr.md)
 2. [Selective Hydration](advanced/selective-hydration.md)
 3. [Event Delegation](advanced/event-delegation.md)
-4. [Benchmarks](benchmarks/askr-vs-solid-svelte.md)
 
 ### 🔬 **Internal/Maintainer (Framework design)**
 

@@ -21,7 +21,6 @@ import {
  * - DOM queries, assertions, and data allocation belong in setup/preflight.
  * - Stateful DOM benches must alternate between concrete A/B states so repeated
  *   iterations cannot collapse into Object.is no-op steady state.
- * - DOM numbers collected before this methodology repair are non-canonical.
  */
 
 export interface RowData {

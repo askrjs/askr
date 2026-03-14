@@ -93,7 +93,6 @@ async function main() {
     '# Bench Results',
     '',
     'Generated from `bench-results/dom.json` and `bench-results/ssr.json` only.',
-    'DOM throughput numbers recorded before the methodology repair are non-canonical and should not be used as regression baselines.',
     '',
     ...renderSection('DOM', domBenchmarks),
     ...renderSection('SSR', ssrBenchmarks),
