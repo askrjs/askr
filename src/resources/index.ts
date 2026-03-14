@@ -6,6 +6,9 @@
 
 export { resource } from '../runtime/operations';
 export { on, timer, task, stream, capture } from '../runtime/operations';
-export type { ResourceResult, ResourceResult as DataResult } from '../runtime/operations';
+export type {
+  ResourceResult,
+  ResourceResult as DataResult,
+} from '../runtime/operations';
 
 export { getSignal } from '../runtime/component';

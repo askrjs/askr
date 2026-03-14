@@ -24,10 +24,10 @@ describe('for bench metrics', () => {
     cleanup();
   });
 
-  it('records focused metrics for same-order partial updates', () => {
-    let rowsState:
-      | ReturnType<typeof state<Array<{ id: number; label: string }>>>
-      | null = null;
+  it('should record focused metrics for same-order partial updates', () => {
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
 
     const Component = () => {
       rowsState = state(
@@ -73,10 +73,10 @@ describe('for bench metrics', () => {
     expect(metrics.domMoves).toBe(0);
   });
 
-  it('records append metrics when growing the list in place', () => {
-    let rowsState:
-      | ReturnType<typeof state<Array<{ id: number; label: string }>>>
-      | null = null;
+  it('should record append metrics when growing the list in place', () => {
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
 
     const Component = () => {
       rowsState = state(
@@ -124,10 +124,10 @@ describe('for bench metrics', () => {
     expect(metrics.domMoves).toBe(0);
   });
 
-  it('records removal and move metrics for middle-row deletion', () => {
-    let rowsState:
-      | ReturnType<typeof state<Array<{ id: number; label: string }>>>
-      | null = null;
+  it('should record removal and move metrics for middle-row deletion', () => {
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
 
     const Component = () => {
       rowsState = state(
@@ -167,10 +167,10 @@ describe('for bench metrics', () => {
     expect(metrics.itemsReused).toBe(99);
   });
 
-  it('records truncate metrics for clearing the list', () => {
-    let rowsState:
-      | ReturnType<typeof state<Array<{ id: number; label: string }>>>
-      | null = null;
+  it('should record truncate metrics for clearing the list', () => {
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
 
     const Component = () => {
       rowsState = state(

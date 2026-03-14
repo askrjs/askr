@@ -53,7 +53,10 @@ test('should preserve DOM identity when nested state changes without list reorde
           (row) => {
             const count = state(0);
             return (
-              <button data-row={String(row)} onClick={() => count.set(count() + 1)}>
+              <button
+                data-row={String(row)}
+                onClick={() => count.set(count() + 1)}
+              >
                 {`${row}:${count()}`}
               </button>
             );
