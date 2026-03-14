@@ -9,13 +9,14 @@ import {
   mountTableBenchmark,
   reverseRows,
   tier1BenchOptions,
+  verifyTier1Invariant,
   withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
 const reversedRows = reverseRows(initialRows);
 
-{
+verifyTier1Invariant('tier1 hotpath for reverse', () => {
   const mounted = mountTableBenchmark(initialRows);
 
   try {
@@ -66,7 +67,7 @@ const reversedRows = reverseRows(initialRows);
   } finally {
     mounted.cleanup();
   }
-}
+});
 
 describe('tier1 hotpath for reverse', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;

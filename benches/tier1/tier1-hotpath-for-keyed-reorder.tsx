@@ -8,13 +8,14 @@ import {
   mountTableBenchmark,
   swapRows,
   tier1BenchOptions,
+  verifyTier1Invariant,
   withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
 const swappedRows = swapRows(initialRows, 1, 998);
 
-{
+verifyTier1Invariant('tier1 hotpath for keyed reorder', () => {
   const mounted = mountTableBenchmark(initialRows);
   try {
     const toggle = createRowToggle(initialRows, swappedRows, 'initial');
@@ -59,7 +60,7 @@ const swappedRows = swapRows(initialRows, 1, 998);
   } finally {
     mounted.cleanup();
   }
-}
+});
 
 describe('tier1 hotpath for keyed reorder', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;

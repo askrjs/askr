@@ -7,6 +7,7 @@ import {
   createRowToggle,
   mountTableBenchmark,
   tier1BenchOptions,
+  verifyTier1Invariant,
   updateEveryNthRow,
   withForBenchDiagnostics,
 } from '../shared/_shared';
@@ -14,7 +15,7 @@ import {
 const initialRows = buildRows(1000);
 const updatedRows = updateEveryNthRow(initialRows);
 
-{
+verifyTier1Invariant('tier1 hotpath for stable keyed update', () => {
   const mounted = mountTableBenchmark(initialRows);
   try {
     const toggle = createRowToggle(initialRows, updatedRows, 'initial');
@@ -53,7 +54,7 @@ const updatedRows = updateEveryNthRow(initialRows);
   } finally {
     mounted.cleanup();
   }
-}
+});
 
 describe('tier1 hotpath for stable keyed update', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;

@@ -16,6 +16,12 @@ import {
 } from '../../tests/helpers/test-renderer';
 
 /**
+ * Bench tier contracts:
+ * - Tier 1: verified internal hot paths and fast lanes.
+ * - Tier 2: subsystem behavior and subsystem composition.
+ * - Tier 3: canonical benchmark-table system scenarios at realistic scale.
+ * - Tier 4: app-level integration workflows only.
+ *
  * DOM bench methodology rules:
  * - Timed closures may only do state changes, event dispatch, and flushes.
  * - DOM queries, assertions, and data allocation belong in setup/preflight.
@@ -113,6 +119,62 @@ export const tier4BenchOptions = {
   warmupTime: 300,
   warmupIterations: 3,
 } satisfies Options;
+
+export function extendBenchOptions(
+  base: Options,
+  overrides: Partial<Options>
+): Options {
+  return {
+    ...base,
+    ...overrides,
+  };
+}
+
+export const noisyTier2BenchOptions = extendBenchOptions(tier2BenchOptions, {
+  time: 1800,
+  iterations: 16,
+  warmupTime: 250,
+  warmupIterations: 5,
+});
+
+export const noisyTier3BenchOptions = extendBenchOptions(tier3BenchOptions, {
+  time: 2500,
+  iterations: 16,
+  warmupTime: 350,
+  warmupIterations: 5,
+});
+
+export const heavyTier3BenchOptions = extendBenchOptions(tier3BenchOptions, {
+  time: 4000,
+  iterations: 12,
+  warmupTime: 500,
+  warmupIterations: 5,
+});
+
+export const noisyTier4BenchOptions = extendBenchOptions(tier4BenchOptions, {
+  time: 2500,
+  iterations: 12,
+  warmupTime: 400,
+  warmupIterations: 5,
+});
+
+/**
+ * Tier 1 benches must verify the internal path they claim to measure before
+ * the timed run is considered trustworthy.
+ */
+export function verifyTier1Invariant(label: string, verify: () => void): void {
+  try {
+    verify();
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.message : 'unknown verification failure';
+    const symptom = new Error(
+      `Tier 1 benchmark verification failed for "${label}": ${reason}`
+    ) as Error & { cause?: unknown };
+    symptom.cause = error;
+    throw symptom;
+  }
+}
 
 export function buildRows(count: number, startId = 1): RowData[] {
   return Array.from({ length: count }, (_, index) => {

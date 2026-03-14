@@ -11,7 +11,7 @@ import {
   tier3BenchOptions,
 } from '../shared/_shared';
 
-const initialRows = buildRows(3);
+const initialRows = buildRows(1000);
 
 function dispatchPrimaryLink(
   query: ReturnType<typeof createCachedElementQuery<HTMLElement>>,
@@ -32,10 +32,10 @@ function dispatchPrimaryLink(
       mounted.container,
       'tbody tr td:nth-child(2) a'
     );
-    const toggle = createSelectionToggle(1, 2, 'first');
+    const toggle = createSelectionToggle(498, 499, 'first');
 
     dispatchPrimaryLink(links, toggle.current());
-    assertSelectionTransition(mounted.container, 1);
+    assertSelectionTransition(mounted.container, 498);
 
     assertToggleMutationGuard(
       mounted.container,
@@ -43,8 +43,8 @@ function dispatchPrimaryLink(
       () => dispatchPrimaryLink(links, toggle.next()),
       {
         label: 'tier3 production select',
-        afterForward: () => assertSelectionTransition(mounted.container, 2),
-        afterBackward: () => assertSelectionTransition(mounted.container, 1),
+        afterForward: () => assertSelectionTransition(mounted.container, 499),
+        afterBackward: () => assertSelectionTransition(mounted.container, 498),
       }
     );
   } finally {
@@ -71,7 +71,7 @@ describe('tier3 system table production select', () => {
           mounted.container,
           'tbody tr td:nth-child(2) a'
         );
-        toggle = createSelectionToggle(1, 2, 'first');
+        toggle = createSelectionToggle(498, 499, 'first');
         dispatchPrimaryLink(links, toggle.current());
       },
       teardown() {

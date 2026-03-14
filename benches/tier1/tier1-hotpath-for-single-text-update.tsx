@@ -8,6 +8,7 @@ import {
   mountTableBenchmark,
   replaceRowLabelById,
   tier1BenchOptions,
+  verifyTier1Invariant,
   withForBenchDiagnostics,
 } from '../shared/_shared';
 
@@ -15,7 +16,7 @@ const initialRows = buildRows(1000);
 const nextLabel = 'Item 500 updated once';
 const updatedRows = replaceRowLabelById(initialRows, 500, nextLabel);
 
-{
+verifyTier1Invariant('tier1 hotpath for single text update', () => {
   const mounted = mountTableBenchmark(initialRows);
 
   try {
@@ -63,7 +64,7 @@ const updatedRows = replaceRowLabelById(initialRows, 500, nextLabel);
   } finally {
     mounted.cleanup();
   }
-}
+});
 
 describe('tier1 hotpath for single text update', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;

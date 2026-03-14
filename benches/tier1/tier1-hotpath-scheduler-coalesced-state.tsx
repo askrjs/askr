@@ -5,9 +5,9 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../tests/helpers/test-renderer';
-import { tier1BenchOptions } from '../shared/_shared';
+import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
 
-{
+verifyTier1Invariant('tier1 hotpath scheduler coalesced state', () => {
   const { container, cleanup } = createTestContainer();
   let countState!: ReturnType<typeof state<number>>;
 
@@ -44,7 +44,7 @@ import { tier1BenchOptions } from '../shared/_shared';
     cleanup();
     globalScheduler.clearPendingSyncTasks();
   }
-}
+});
 
 describe('tier1 hotpath scheduler coalesced state', () => {
   let cleanup: (() => void) | null = null;

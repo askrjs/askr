@@ -7,13 +7,14 @@ import {
   createRowToggle,
   mountTableBenchmark,
   tier1BenchOptions,
+  verifyTier1Invariant,
   withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
 const emptyRows: RowData[] = [];
 
-{
+verifyTier1Invariant('tier1 hotpath for truncate', () => {
   const mounted = mountTableBenchmark(initialRows);
   try {
     const toggle = createRowToggle(initialRows, emptyRows, 'initial');
@@ -40,7 +41,7 @@ const emptyRows: RowData[] = [];
   } finally {
     mounted.cleanup();
   }
-}
+});
 
 describe('tier1 hotpath for truncate', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;

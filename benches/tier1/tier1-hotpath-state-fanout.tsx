@@ -10,9 +10,10 @@ import {
   assertToggleMutationGuard,
   createSelectionToggle,
   tier1BenchOptions,
+  verifyTier1Invariant,
 } from '../shared/_shared';
 
-{
+verifyTier1Invariant('tier1 hotpath state fanout', () => {
   const { container, cleanup } = createTestContainer();
   let valueState!: ReturnType<typeof state<number>>;
 
@@ -59,7 +60,7 @@ import {
   } finally {
     cleanup();
   }
-}
+});
 
 describe('tier1 state fanout', () => {
   let cleanup: (() => void) | null = null;

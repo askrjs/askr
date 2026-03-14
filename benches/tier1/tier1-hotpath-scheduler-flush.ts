@@ -1,11 +1,11 @@
 import { bench, describe, expect } from 'vitest';
 import { globalScheduler } from '../../src/runtime/scheduler';
-import { tier1BenchOptions } from '../shared/_shared';
+import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
 
 const taskCount = 500;
 const taskIndexes = Array.from({ length: taskCount }, (_, index) => index + 1);
 
-{
+verifyTier1Invariant('tier1 hotpath scheduler flush', () => {
   let total = 0;
   globalScheduler.clearPendingSyncTasks();
   for (const index of taskIndexes) {
@@ -16,7 +16,7 @@ const taskIndexes = Array.from({ length: taskCount }, (_, index) => index + 1);
   globalScheduler.flush();
   expect(total).toBeGreaterThan(0);
   expect(globalScheduler.getState().queueLength).toBe(0);
-}
+});
 
 describe('tier1 scheduler flush', () => {
   bench(

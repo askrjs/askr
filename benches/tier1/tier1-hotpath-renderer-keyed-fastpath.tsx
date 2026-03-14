@@ -10,12 +10,13 @@ import {
   buildRows,
   createRowToggle,
   tier1BenchOptions,
+  verifyTier1Invariant,
 } from '../shared/_shared';
 
 const initialItems = buildRows(200);
 const reversedItems = initialItems.slice().reverse();
 
-{
+verifyTier1Invariant('tier1 hotpath renderer keyed fastpath', () => {
   const { container, cleanup } = createTestContainer();
   let itemsState!: ReturnType<typeof state<typeof initialItems>>;
 
@@ -67,7 +68,7 @@ const reversedItems = initialItems.slice().reverse();
   } finally {
     cleanup();
   }
-}
+});
 
 describe('tier1 renderer keyed fastpath', () => {
   let cleanup: (() => void) | null = null;

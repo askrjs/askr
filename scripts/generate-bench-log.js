@@ -96,10 +96,18 @@ function createStabilityReport(benchmarks, thresholds) {
 function renderStabilitySection(report, thresholds) {
   const lines = ['## Stability', ''];
 
-  lines.push(`- Numeric benchmarks analyzed: ${formatNumber(report.numeric.length, 0)}`);
-  lines.push(`- Thresholds: max RME ${formatNumber(thresholds.maxRme)}%, min samples ${formatNumber(thresholds.minSamples, 0)}`);
-  lines.push(`- High RME violations: ${formatNumber(report.highRme.length, 0)}`);
-  lines.push(`- Low sample violations: ${formatNumber(report.lowSamples.length, 0)}`);
+  lines.push(
+    `- Numeric benchmarks analyzed: ${formatNumber(report.numeric.length, 0)}`
+  );
+  lines.push(
+    `- Thresholds: max RME ${formatNumber(thresholds.maxRme)}%, min samples ${formatNumber(thresholds.minSamples, 0)}`
+  );
+  lines.push(
+    `- High RME violations: ${formatNumber(report.highRme.length, 0)}`
+  );
+  lines.push(
+    `- Low sample violations: ${formatNumber(report.lowSamples.length, 0)}`
+  );
   lines.push('');
 
   lines.push('### Highest RME');

@@ -5,8 +5,8 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  heavyTier3BenchOptions,
   mountTableBenchmark,
-  tier3BenchOptions,
 } from '../shared/_shared';
 
 const rows = buildRows(5000);
@@ -46,7 +46,7 @@ describe('tier3 system table create many', () => {
       mounted!.benchmark.setRows(toggle!.next() as RowData[]);
     },
     {
-      ...tier3BenchOptions,
+      ...heavyTier3BenchOptions,
       setup() {
         mounted = mountTableBenchmark();
         toggle = createRowToggle(emptyRows, rows, 'initial');
