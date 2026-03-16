@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import {
+  askrEsbuild,
   createBuildInput,
   createNodeEnvDefine,
   createPackageAliases,
@@ -15,6 +16,7 @@ export default defineConfig({
   define: createNodeEnvDefine(isProd ? 'production' : 'development', {
     bench: isBenchBuild,
   }),
+  esbuild: askrEsbuild,
   resolve: {
     alias: createPackageAliases(),
   },

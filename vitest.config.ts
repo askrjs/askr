@@ -7,6 +7,12 @@ import {
 
 export default defineConfig({
   define: createNodeEnvDefine('development', { bench: true }),
+  oxc: {
+    jsx: {
+      runtime: 'automatic',
+      importSource: '@askrjs/askr',
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
