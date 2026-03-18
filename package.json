@@ -16,6 +16,9 @@
     "name": "askrjs",
     "url": "https://github.com/askrjs"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "keywords": [
     "askr",
     "ui",
