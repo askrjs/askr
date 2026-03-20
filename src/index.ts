@@ -50,6 +50,7 @@ export type AppConfig = SPAConfig;
 // Routing
 export {
   route,
+  lazy,
   type RouteSnapshot,
   type RouteMatch,
   type RouteComponent,

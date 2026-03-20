@@ -300,6 +300,74 @@ function addRouteToStores(routeObj: Route): void {
 }
 
 // ---------------------------------------------------------------------------
+// lazy() — eager-prefetch code-split component wrapper
+// ---------------------------------------------------------------------------
+
+/** Promises from in-flight lazy() imports, drained by createSPA / hydrateSPA. */
+const pendingLazy = new Set<Promise<unknown>>();
+
+/**
+ * Declare a code-split route component. The `import()` fires immediately at
+ * module evaluation time (creating a bundler split point), and the resolved
+ * chunk is guaranteed to be available before the app mounts — so the renderer
+ * always receives a plain synchronous function.
+ *
+ * ```ts
+ * layout(AppLayout, () => {
+ *   route('/',          lazy(() => import('./pages/landing')));
+ *   route('/dashboard', lazy(() => import('./pages/dashboard')));
+ * });
+ * ```
+ *
+ * The module must export the component as its **default** export:
+ * ```ts
+ * // pages/dashboard.tsx
+ * export default function DashboardPage() { … }
+ * ```
+ */
+export function lazy(
+  factory: () => Promise<{ default: RouteComponent } | RouteComponent>
+): RouteComponent {
+  let resolved: RouteComponent | null = null;
+  let loadError: unknown = null;
+
+  const promise = factory().then(
+    (mod) => {
+      resolved =
+        typeof mod === 'function'
+          ? mod
+          : (mod as { default: RouteComponent }).default;
+      pendingLazy.delete(promise);
+    },
+    (err: unknown) => {
+      loadError = err;
+      pendingLazy.delete(promise);
+    }
+  );
+  pendingLazy.add(promise);
+
+  return (params) => {
+    if (loadError) throw loadError as Error;
+    if (!resolved) {
+      throw new Error(
+        'lazy() component used before it was resolved. ' +
+          'Await createSPA() / hydrateSPA() to ensure all chunks load first.'
+      );
+    }
+    return resolved(params);
+  };
+}
+
+/**
+ * Wait for all pending `lazy()` imports to settle.
+ * Called automatically by `createSPA` / `hydrateSPA` before mounting.
+ */
+export function _drainLazy(): Promise<void> {
+  if (pendingLazy.size === 0) return Promise.resolve();
+  return Promise.allSettled([...pendingLazy]).then(() => undefined);
+}
+
+// ---------------------------------------------------------------------------
 // layout() — scoped registration primitive
 // ---------------------------------------------------------------------------
 
@@ -570,6 +638,7 @@ export function clearRoutes(): void {
   routesByDepth.clear();
   registrationLocked = false;
   setHasRoutes(false);
+  pendingLazy.clear();
 }
 
 /**
