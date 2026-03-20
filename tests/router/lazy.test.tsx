@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { lazy, route, layout, getManifest, clearRoutes, _drainLazy } from '../../src/router/route';
+import {
+  lazy,
+  route,
+  layout,
+  getManifest,
+  clearRoutes,
+  _drainLazy,
+} from '../../src/router/route';
 
 beforeEach(() => {
   clearRoutes();
@@ -22,7 +29,9 @@ describe('lazy()', () => {
 
   it('should resolve a module that exports the component directly (no default wrapper)', async () => {
     const Page = () => 'direct';
-    const stub = lazy(() => Promise.resolve(Page as unknown as { default: () => string }));
+    const stub = lazy(() =>
+      Promise.resolve(Page as unknown as { default: () => string })
+    );
 
     await _drainLazy();
 
@@ -47,7 +56,9 @@ describe('lazy()', () => {
     // Don't await — stub should still be pending
     const stub = lazy(() => new Promise(() => {})); // never resolves
 
-    expect(() => stub({})).toThrow(/lazy\(\) component used before it was resolved/i);
+    expect(() => stub({})).toThrow(
+      /lazy\(\) component used before it was resolved/i
+    );
   });
 
   it('should propagate import errors when the stub is invoked', async () => {
@@ -81,7 +92,10 @@ describe('lazy()', () => {
 
   it('should work transparently when used with route()', async () => {
     const Page = (p: Record<string, string>) => `post:${p.slug}`;
-    route('/posts/{slug}', lazy(() => Promise.resolve({ default: Page })));
+    route(
+      '/posts/{slug}',
+      lazy(() => Promise.resolve({ default: Page }))
+    );
 
     await _drainLazy();
 
@@ -102,7 +116,10 @@ describe('lazy()', () => {
     };
 
     layout(Layout, () => {
-      route('/wrapped', lazy(() => Promise.resolve({ default: Page })));
+      route(
+        '/wrapped',
+        lazy(() => Promise.resolve({ default: Page }))
+      );
     });
 
     await _drainLazy();
