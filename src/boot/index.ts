@@ -242,7 +242,7 @@ function mountOrUpdate(
 }
 
 // New strongly-typed init functions
-import type { Route } from '../common/router';
+import type { Route, RouteManifest } from '../common/router';
 import { removeAllListeners } from '../renderer';
 
 export type IslandConfig = {
@@ -260,18 +260,27 @@ export type IslandsConfig = {
 
 export type SPAConfig = {
   root: Element | string;
-  routes: Route[]; // routes are required
-  // Optional: surface cleanup errors during teardown for this SPA
+  /**
+   * Preferred: pass the route manifest built via `layout()` + `route()` calls.
+   * ```ts
+   * import { getManifest } from '@askrjs/askr/router';
+   * await createSPA({ root: '#app', manifest: getManifest() });
+   * ```
+   */
+  manifest?: RouteManifest;
+  /** Legacy: flat route array — kept for backward compatibility and test fixtures. */
+  routes?: Route[];
   cleanupStrict?: boolean;
   component?: never;
 };
 
 export type HydrateSPAConfig = {
   root: Element | string;
-  routes: Route[];
-  // Optional: surface cleanup errors during teardown for this SPA
+  /** Preferred manifest input — see `SPAConfig.manifest`. */
+  manifest?: RouteManifest;
+  /** Legacy flat route array. */
+  routes?: Route[];
   cleanupStrict?: boolean;
-  // Selective hydration options
   hydrate?: {
     deferUntilIdle?: boolean;
     deferBelowFold?: boolean;
@@ -342,16 +351,34 @@ export function createIslands(config: IslandsConfig): void {
 }
 
 /**
- * createSPA: Initializes router and mounts the app with provided route table
+ * createSPA: Initializes router and mounts the app with the provided route manifest or route table.
+ *
+ * Preferred usage with manifest:
+ * ```ts
+ * import { getManifest } from '@askrjs/askr/router';
+ * await createSPA({ root: '#app', manifest: getManifest() });
+ * ```
+ *
+ * Legacy usage with plain routes array (still supported):
+ * ```ts
+ * await createSPA({ root: '#app', routes: getRoutes() });
+ * ```
  */
 export async function createSPA(config: SPAConfig): Promise<void> {
   assertExecutionModel('spa');
   if (!config || typeof config !== 'object') {
     throw new Error('createSPA requires a config object');
   }
-  if (!Array.isArray(config.routes) || config.routes.length === 0) {
+
+  const hasManifest =
+    config.manifest != null && config.manifest.records.length > 0;
+  const hasRoutes = Array.isArray(config.routes) && config.routes.length > 0;
+
+  if (!hasManifest && !hasRoutes) {
     throw new Error(
-      'createSPA requires a route table. If you are enhancing existing HTML, use createIsland instead.'
+      'createSPA requires a route manifest or route table. ' +
+        'Pass `manifest: getManifest()` or `routes: getRoutes()`. ' +
+        'If you are enhancing existing HTML, use createIsland instead.'
     );
   }
 
@@ -361,15 +388,26 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
-  // Register routes at startup (clear previous registrations to avoid surprises)
-  const { clearRoutes, route, lockRouteRegistration, resolveRoute } =
-    await import('../router/route');
+  const {
+    clearRoutes,
+    _applyManifest,
+    route: registerRoute,
+    lockRouteRegistration,
+    resolveRoute,
+  } = await import('../router/route');
 
   clearRoutes();
-  for (const r of config.routes) {
-    // Using typed Route from router; allow handler functions
-    route(r.path, r.handler, r.namespace);
+
+  if (hasManifest) {
+    // Preferred path: apply pre-built manifest records directly
+    _applyManifest(config.manifest!);
+  } else {
+    // Legacy path: register plain Route objects (no layout metadata)
+    for (const r of config.routes!) {
+      registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
+    }
   }
+
   // Lock registration in production to prevent late registration surprises
   if (process.env.NODE_ENV === 'production') lockRouteRegistration();
 
@@ -377,14 +415,10 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   const resolved = resolveRoute(path);
   if (!resolved) {
-    // No initial route match is a supported startup state.
-    // Keep the root mounted and navigation-ready so the app can activate the
-    // first matching route later without treating boot as an error.
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
       cleanupStrict: config.cleanupStrict,
     });
 
-    // Still register app instance and initialize navigation so future navigations work
     const { registerAppInstance, initializeNavigation } =
       await import('../router/navigate');
     const instance = instancesByRoot.get(rootElement);
@@ -394,13 +428,10 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     return;
   }
 
-  // Mount resolved handler as the root component
-  // Convert resolved.handler to a ComponentFunction-compatible shape
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
     cleanupStrict: config.cleanupStrict,
   });
 
-  // Register for navigation and wire up history handling
   const { registerAppInstance, initializeNavigation } =
     await import('../router/navigate');
   const instance = instancesByRoot.get(rootElement);
@@ -584,16 +615,24 @@ async function applySelectiveHydration(
 }
 
 /**
- * hydrateSPA: Hydrate server-rendered HTML with explicit routes
+ * hydrateSPA: Hydrate server-rendered HTML.
+ * Accepts either a `manifest` (preferred) or a legacy `routes` array.
  */
 export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   assertExecutionModel('spa');
   if (!config || typeof config !== 'object') {
     throw new Error('hydrateSPA requires a config object');
   }
-  if (!Array.isArray(config.routes) || config.routes.length === 0) {
+
+  const hasManifest =
+    config.manifest != null && config.manifest.records.length > 0;
+  const hasRoutes = Array.isArray(config.routes) && config.routes.length > 0;
+
+  if (!hasManifest && !hasRoutes) {
     throw new Error(
-      'hydrateSPA requires a route table. If you are enhancing existing HTML, use createIsland instead.'
+      'hydrateSPA requires a route manifest or route table. ' +
+        'Pass `manifest: getManifest()` or `routes: getRoutes()`. ' +
+        'If you are enhancing existing HTML, use createIsland instead.'
     );
   }
 
@@ -603,20 +642,25 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
-  // Register routes for hydration and set server location for deterministic route()
   const {
     clearRoutes,
-    route,
+    _applyManifest,
+    route: registerRoute,
     setServerLocation,
     lockRouteRegistration,
     resolveRoute,
   } = await import('../router/route');
 
   clearRoutes();
-  for (const r of config.routes) {
-    route(r.path, r.handler, r.namespace);
+
+  if (hasManifest) {
+    _applyManifest(config.manifest!);
+  } else {
+    for (const r of config.routes!) {
+      registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
+    }
   }
-  // Set server location so route() reflects server URL during SSR checks
+
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   const currentUrl =
     typeof window !== 'undefined'
@@ -625,18 +669,26 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   setServerLocation(currentUrl);
   if (process.env.NODE_ENV === 'production') lockRouteRegistration();
 
-  // Resolve handler for current path
   const resolved = resolveRoute(path);
   if (!resolved) {
     throw new Error(`hydrateSPA: no route found for current path (${path}).`);
   }
+
+  // Build a legacy-compatible routes array for the hydration verify call
+  const legacyRouteTable = hasManifest
+    ? config.manifest!.records.map((r) => ({
+        path: r.path,
+        handler: r.handler,
+        namespace: r.options.namespace,
+      }))
+    : config.routes!;
 
   const { verifyHydrationSyncForUrl } = await import('../ssr');
   if (
     !verifyHydrationSyncForUrl({
       root: rootElement,
       url: currentUrl,
-      routes: config.routes,
+      routes: legacyRouteTable,
     })
   ) {
     throw new Error(
@@ -644,7 +696,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     );
   }
 
-  // Handle selective hydration options
   const hydrateOptions = config.hydrate;
   if (hydrateOptions) {
     if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
@@ -666,9 +717,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
 
-  // Proceed to mount the client SPA (this will attach listeners and start navigation)
-  // Reuse createSPA path but we already registered routes and set server location, so just mount
-  // Mount resolved handler
   mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
     cleanupStrict: config.cleanupStrict,
   });

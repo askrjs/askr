@@ -11,7 +11,7 @@ describe('startup API guards', () => {
         (createSPA as unknown as (cfg: unknown) => Promise<void>)({
           root: container,
         })
-      ).rejects.toThrow(/createSPA requires a route table/i);
+      ).rejects.toThrow(/createSPA requires a route manifest or route table/i);
     } finally {
       cleanup();
     }

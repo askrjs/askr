@@ -39,6 +39,21 @@ export interface RouteConfig {
   params?: Record<string, string>;
   /** Optional explicit invalidation keys for incremental generation */
   invalidationKeys?: string[];
+  /**
+   * SSG entry generator for parameterized routes.
+   *
+   * Return one param map per page to be generated.  The path template is
+   * expanded with each map to produce a concrete URL, e.g.:
+   *
+   * ```ts
+   * route('/posts/{slug}', PostPage, {
+   *   entries: async () => getPosts().map(p => ({ slug: p.slug })),
+   * });
+   * ```
+   */
+  entries?: () =>
+    | Array<Record<string, string>>
+    | Promise<Array<Record<string, string>>>;
 }
 
 /** Options for createStaticGen */

@@ -1,6 +1,56 @@
 /**
- * Path matching and parameter extraction
+ * Path matching, segment parsing, and specificity scoring.
  */
+
+import type { ParsedSegment } from '../common/router';
+
+/**
+ * Parse a route template path into typed segments.
+ *
+ * @example
+ * parseSegments('/users/{id}')  // [{kind:'static',value:'users'},{kind:'param',value:'id'}]
+ * parseSegments('/*')           // [{kind:'catchall',value:'*'}]
+ * parseSegments('/posts/*')     // [{kind:'static',value:'posts'},{kind:'wildcard',value:'*'}]
+ */
+export function parseSegments(path: string): ParsedSegment[] {
+  const normalized =
+    path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;
+
+  const parts = normalized.split('/').filter(Boolean);
+
+  // Bare catch-all: /*
+  if (parts.length === 1 && parts[0] === '*') {
+    return [{ kind: 'catchall', value: '*' }];
+  }
+
+  return parts.map((segment): ParsedSegment => {
+    if (segment.startsWith('{') && segment.endsWith('}')) {
+      return { kind: 'param', value: segment.slice(1, -1) };
+    }
+    if (segment === '*') {
+      return { kind: 'wildcard', value: '*' };
+    }
+    return { kind: 'static', value: segment };
+  });
+}
+
+/**
+ * Compute a numeric specificity rank from a parsed segment list.
+ *
+ * Scoring: static = 3, param = 2, wildcard = 1, catchall = 0.
+ * Higher rank wins when multiple routes match the same path.
+ */
+export function computeRank(segments: ParsedSegment[]): number {
+  if (segments.length === 1 && segments[0].kind === 'catchall') return 0;
+  let score = 0;
+  for (const seg of segments) {
+    if (seg.kind === 'static') score += 3;
+    else if (seg.kind === 'param') score += 2;
+    else if (seg.kind === 'wildcard') score += 1;
+    // catchall contributes 0
+  }
+  return score;
+}
 
 export interface MatchResult {
   matched: boolean;
