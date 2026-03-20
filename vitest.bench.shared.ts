@@ -13,6 +13,13 @@ export const benchDefine = createNodeEnvDefine('production', { bench: true });
 
 export const benchEsbuild = askrEsbuild;
 
+export const benchOxc = {
+  jsx: {
+    runtime: 'automatic' as const,
+    importSource: '@askrjs/askr',
+  },
+};
+
 export const benchResolve = {
   alias: createPackageAliases(),
 };

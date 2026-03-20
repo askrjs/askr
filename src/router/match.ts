@@ -41,15 +41,80 @@ export function parseSegments(path: string): ParsedSegment[] {
  * Higher rank wins when multiple routes match the same path.
  */
 export function computeRank(segments: ParsedSegment[]): number {
-  if (segments.length === 1 && segments[0].kind === 'catchall') return 0;
+  if (segments.length === 1 && segments[0].kind === 'catchall') return -1;
   let score = 0;
   for (const seg of segments) {
     if (seg.kind === 'static') score += 3;
     else if (seg.kind === 'param') score += 2;
     else if (seg.kind === 'wildcard') score += 1;
-    // catchall contributes 0
+    // catchall contributes 0 per segment but is handled above
   }
   return score;
+}
+
+/** Reused frozen empty params object — returned for purely-static (no-capture) routes. */
+const emptyParams: Record<string, string> = Object.freeze(
+  Object.create(null) as Record<string, string>
+);
+
+/** Returned for every failed match — avoids per-call allocation. */
+const noMatch: MatchResult = Object.freeze({
+  matched: false,
+  params: emptyParams,
+});
+
+/**
+ * Match pre-split URL parts against pre-parsed route segments.
+ *
+ * This is the hot-path matcher used by `resolveRoute` and
+ * `resolveRouteFromRoutes`. Callers split the URL path **once** and reuse
+ * `urlParts` across all route comparisons in a single resolution call.
+ *
+ * - Returns a params object (possibly the shared `{}`) on match.
+ * - Returns `null` on no match.
+ * - Params are allocated lazily — purely-static routes return the frozen
+ *   empty sentinel without any heap allocation.
+ */
+export function matchSegments(
+  urlParts: string[],
+  segments: ParsedSegment[]
+): Record<string, string> | null {
+  // catch-all /* — matches every URL at any depth
+  if (segments.length === 1 && segments[0].kind === 'catchall') {
+    return {
+      '*':
+        urlParts.length === 0
+          ? '/'
+          : urlParts.length === 1
+            ? urlParts[0]
+            : '/' + urlParts.join('/'),
+    };
+  }
+
+  // non-catchall: part count must equal segment count
+  if (urlParts.length !== segments.length) return null;
+
+  // Walk segments; allocate the params object lazily on first capture
+  let params: Record<string, string> | null = null;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const part = urlParts[i];
+    if (seg.kind === 'static') {
+      if (seg.value !== part) return null;
+    } else {
+      if (params === null) params = {};
+      if (seg.kind === 'param') {
+        // Avoid decodeURIComponent when no percent-encoding is present
+        params[seg.value] = part.includes('%')
+          ? decodeURIComponent(part)
+          : part;
+      } else {
+        // wildcard
+        params['*'] = part;
+      }
+    }
+  }
+  return params ?? emptyParams;
 }
 
 export interface MatchResult {
@@ -108,13 +173,15 @@ export function match(path: string, pattern: string): MatchResult {
     // Parameter: {paramName}
     if (patternSegment.startsWith('{') && patternSegment.endsWith('}')) {
       const paramName = patternSegment.slice(1, -1);
-      params[paramName] = decodeURIComponent(pathSegment);
+      params[paramName] = pathSegment.includes('%')
+        ? decodeURIComponent(pathSegment)
+        : pathSegment;
     } else if (patternSegment === '*') {
       // Wildcard: match single segment
       params['*'] = pathSegment;
     } else if (patternSegment !== pathSegment) {
       // Literal segment mismatch
-      return { matched: false, params: {} };
+      return noMatch;
     }
   }
 

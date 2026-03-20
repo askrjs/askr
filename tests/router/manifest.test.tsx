@@ -76,8 +76,8 @@ describe('parseSegments()', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeRank()', () => {
-  it('should score catch-all as 0', () => {
-    expect(computeRank([{ kind: 'catchall', value: '*' }])).toBe(0);
+  it('should score catch-all as -1', () => {
+    expect(computeRank([{ kind: 'catchall', value: '*' }])).toBe(-1);
   });
 
   it('should score wildcard as 1', () => {
@@ -174,7 +174,7 @@ describe('manifest shape', () => {
     const fallback = m.records.find((r) => r.path === '/*')!;
 
     expect(slugRecord.rank).toBe(5);
-    expect(fallback.rank).toBe(0);
+    expect(fallback.rank).toBe(-1);
     expect(fallback.isFallback).toBe(true);
   });
 
