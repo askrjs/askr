@@ -2,63 +2,114 @@
 
 Import router-specific APIs from `@askrjs/askr/router`.
 
-The root package keeps the common runtime-facing router helpers `route()` and `navigate()` for convenience. Route registration and router management belong in `@askrjs/askr/router`.
+## `layout(Component, fn)`
 
-`createSPA({ root, routes })` is the authoritative boot API for SPA routing. It mounts the current browser path immediately when it matches a provided route. If no route matches yet, the router remains idle until `navigate()` or a `popstate` event resolves one.
+Establishes a layout scope. Every `route()` call inside `fn` is automatically wrapped by
+`Component` at render time (no per-route manual composition needed).
 
-## `route()`
+```ts
+import { layout, route } from '@askrjs/askr/router';
 
-Inside a component render, call `route()` with no arguments to read the current route snapshot.
+layout(AppLayout, () => {
+  route('/', HomePage);
+  route('/about', AboutPage);
+  route('/*', NotFoundPage);
+});
+```
 
-The returned `RouteSnapshot` is read-only and includes:
+Layouts may nest — inner scopes add additional wrapper levels.
 
-- `path`
-- `params`
-- `query`
-- `hash`
-- `matches`
+## `route(path, Component, options?)`
 
-Use this form to read route params, query string values, and match metadata during render.
+Registers a route declaration. Must be called at module load time (before `createSPA`).
 
-## `route(path, handler, namespace?)`
+- `path` — route template using `{name}` for params and `/*` for catch-all
+- `Component` — page component function; receives URL params as props
+- `options` — optional `RouteOptions`:
+  - `load` — server data loader `({ params }) => unknown`
+  - `entries` — SSG entry generator `() => Array<Record<string, string>>`
+  - `guard` — navigation guard `({ params }) => boolean | string`
+  - `title` — string title hint for SSG / document meta
+  - `namespace` — MFE namespace key
 
-Registers a route handler.
+```ts
+route('/posts/{slug}', PostPage, {
+  load: ({ params }) => fetchPost(params.slug),
+  entries: async () => getPosts().map((p) => ({ slug: p.slug })),
+  guard: () => isAuthenticated() || '/login',
+  title: 'Post',
+});
+```
 
-- `path`: route pattern (supports path params like `/users/{id}`)
-- `handler`: function receiving params
-- `namespace`: optional grouping string
+Path syntax rules:
 
-Constraints:
+- Static segments: `/settings`
+- Parameter segments: `/posts/{slug}` — `{name}` only, `:name` is rejected
+- Single-segment wildcard: `/files/*`
+- Catch-all fallback: `/*`
 
-- Register routes before app startup; production startup locks further registration.
-- Router APIs are supported in SPA/SSR, not islands.
-- Matching prefers more specific paths: literals, then params, then wildcards, then catch-all.
+Specificity order (highest first): **static** › **param** › **wildcard** › **catch-all**.
+
+## `route()` (render-time accessor)
+
+Inside a component, call `route()` with **no arguments** to read the current route snapshot.
+
+```tsx
+const snap = route();
+// snap.path     — current pathname
+// snap.params   — extracted URL params (frozen)
+// snap.query    — query string accessor (.get, .getAll, .has, .toJSON)
+// snap.hash     — fragment or null
+// snap.matches  — all matching routes ordered by specificity
+```
+
+The snapshot is deeply frozen and read-only.
+
+## `getManifest()`
+
+Returns the normalized `RouteManifest` built from all `layout()` / `route()` declarations.
+
+```ts
+import { getManifest } from '@askrjs/askr/router';
+await createSPA({ root: '#app', manifest: getManifest() });
+```
 
 ## `getRoutes()`
 
-Returns current route registrations.
-
-Use this with `createSPA({ routes })` when you assemble the route table via `route(...)` registrations.
+Returns the flat registered route array. Prefer `getManifest()` when route metadata
+(load, guard, entries) is needed.
 
 ## `clearRoutes()`
 
-Clears route registrations.
+Clears all route registrations. Used in tests.
 
 ## `navigate(path)`
 
 Triggers client-side navigation.
 
-Use this for route changes after startup. It is not required to activate the initial matching URL because `createSPA()` already mounts the current location when it matches.
-
 ## `Link`
 
-Component for declarative navigation.
+Declarative navigation component.
 
-## `layout(component)`
+```tsx
+<Link href="/about">About</Link>
+```
 
-Creates layout wrappers for route composition.
+## Types
+
+| Type                | Description                                                             |
+| ------------------- | ----------------------------------------------------------------------- |
+| `RouteComponent`    | `(props: Record<string, string>) => unknown` — page component signature |
+| `RouteOptions`      | Options accepted by `route()` (load, entries, guard, title, namespace)  |
+| `RouteRecord`       | Normalized route record in the manifest                                 |
+| `RouteManifest`     | `{ records: RouteRecord[] }` — the full route graph                     |
+| `ParsedSegment`     | Typed segment from a path template                                      |
+| `LayoutScopeRecord` | A single layout component in the chain                                  |
+| `RouteSnapshot`     | Read-only snapshot from `route()` accessor                              |
+| `RouteMatch`        | One entry in `RouteSnapshot.matches`                                    |
 
 ## Related
 
 - [Router Guide](../guides/router.md)
+- [Router Internals](../internals/router-manifest.md)
 - [API Overview](api.md)

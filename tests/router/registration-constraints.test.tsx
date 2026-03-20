@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   route,
-  registerRoute,
   clearRoutes,
   resolveRoute,
   _unlockRouteRegistrationForTests,
@@ -12,7 +11,6 @@ import { registerAppInstance } from '../../src/router/navigate';
 describe('route registration constraints', () => {
   beforeEach(() => {
     clearRoutes();
-    // Ensure registration is allowed before each test (unlock test helper)
     try {
       _unlockRouteRegistrationForTests();
     } catch {
@@ -20,30 +18,30 @@ describe('route registration constraints', () => {
     }
   });
 
-  it('should reject non-function handlers passed to route()', () => {
+  it('should reject non-function components passed to route()', () => {
     expect(() =>
       route('/bad', {} as unknown as Parameters<typeof route>[1])
-    ).toThrow(/requires a function handler/i);
+    ).toThrow(/requires a component function/i);
   });
 
-  it('should reject non-function handlers passed to registerRoute descriptors', () => {
-    expect(() =>
-      registerRoute('/a', {} as unknown as Parameters<typeof registerRoute>[1])
-    ).toThrow(/requires a function handler/i);
+  it('should reject paths that do not start with /', () => {
+    expect(() => route('bad-path', () => null)).toThrow(/must begin with/i);
+  });
+
+  it('should reject Express-style :param syntax', () => {
+    expect(() => route('/users/:id', () => null)).toThrow(
+      /\{name\} interpolation/i
+    );
   });
 
   it('should forbid registrations after app startup', () => {
-    // pre-start registrations succeed
     expect(() => route('/ok', () => null)).not.toThrow();
 
-    // simulate app startup
     registerAppInstance(
       {} as unknown as Parameters<typeof registerAppInstance>[0],
       '/'
     );
 
-    // In test env registration lock is not automatically applied; simulate production lock
-    // by calling the public lock helper (production behavior: registrations are forbidden after startup)
     lockRouteRegistration();
 
     expect(() => route('/after', () => null)).toThrow(
@@ -52,18 +50,12 @@ describe('route registration constraints', () => {
   });
 
   it('should choose the most specific match (longest-match-wins)', () => {
-    function a() {
-      return 'A';
-    }
-    function b() {
-      return 'B';
-    }
-
-    route('/parent', a);
-    route('/parent/{id}', b);
+    route('/parent', () => 'A');
+    route('/parent/{id}', () => 'B');
 
     const resolved = resolveRoute('/parent/xyz');
     expect(resolved).not.toBeNull();
-    expect(resolved!.handler).toBe(b);
+    // The composed handler must render the more-specific route's output
+    expect(resolved!.handler({})).toBe('B');
   });
 });

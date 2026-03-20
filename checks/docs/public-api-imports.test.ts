@@ -187,7 +187,7 @@ describe('public docs and examples', () => {
         navigate: 'function',
         Link: 'function',
         layout: 'function',
-        registerRoute: 'function',
+        registerRoute: 'undefined',
       },
       resources: {
         resource: 'function',

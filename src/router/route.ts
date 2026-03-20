@@ -1,11 +1,15 @@
 /**
- * Route definition and matching
- * Supports dynamic route registration for micro frontends
+ * Route definition, registration, and matching.
  *
- * Optimization: Index by depth but maintain insertion order within each depth
+ * The authoritative implementation for the unified route model:
+ *   - `layout(Component, fn)` — declare a layout scope containing child routes
+ *   - `route(path, Component, options?)` — declare a route inside a layout scope
+ *   - `route()` (no args) — read the current route snapshot inside a component
+ *   - `getManifest()` — retrieve the normalized route graph for SPA / SSR / SSG
  */
 
 import { match as matchPath } from './match';
+import { parseSegments, computeRank } from './match';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { getExecutionModel } from '../runtime/execution-model';
 import { getRenderContext } from '../ssr/context';
@@ -17,6 +21,12 @@ export type {
   RouteMatch,
   RouteQuery,
   RouteSnapshot,
+  RouteComponent,
+  RouteOptions,
+  ParsedSegment,
+  LayoutScopeRecord,
+  RouteRecord,
+  RouteManifest,
 } from '../common/router';
 
 import type {
@@ -26,9 +36,26 @@ import type {
   RouteMatch,
   RouteQuery,
   RouteSnapshot,
+  RouteComponent,
+  RouteOptions,
+  LayoutScopeRecord,
+  RouteRecord,
+  RouteManifest,
 } from '../common/router';
 
+// ---------------------------------------------------------------------------
+// Module-level stores
+// ---------------------------------------------------------------------------
+
+/** Legacy flat route array — kept for resolver and route() accessor backward compat. */
 const routes: Route[] = [];
+
+/** Normalized route records built by the declarative registration API. */
+const records: RouteRecord[] = [];
+
+/** Active layout scope stack during module-load-time registration. */
+const layoutStack: LayoutScopeRecord[] = [];
+
 const namespaces = new Set<string>();
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
@@ -211,19 +238,20 @@ function getActiveRoutes(): readonly Route[] {
   return renderContext?.routes ?? routes;
 }
 
+// ---------------------------------------------------------------------------
+// Registration lock
+// ---------------------------------------------------------------------------
+
 /**
- * Dual-purpose `route` function:
- * - route() → returns a read-only, deeply frozen RouteSnapshot (render-time)
- * - route(path, handler, namespace?) → registers a route handler (existing semantics)
+ * Prevent route registrations after the app has started.
+ * Enforced in production; tests may unlock explicitly.
  */
-// Prevent runtime registrations after the app has started
 let registrationLocked = false;
 
 export function lockRouteRegistration(): void {
   registrationLocked = true;
 }
 
-// Internal test helpers
 export function _lockRouteRegistrationForTests(): void {
   registrationLocked = true;
 }
@@ -232,16 +260,112 @@ export function _unlockRouteRegistrationForTests(): void {
   registrationLocked = false;
 }
 
+// ---------------------------------------------------------------------------
+// Path validation
+// ---------------------------------------------------------------------------
+
+function validateRoutePath(path: string): void {
+  if (!path.startsWith('/')) {
+    throw new Error(`Route path must begin with "/". Got: "${path}"`);
+  }
+  // Reject Express-style :param syntax — Askr uses {param} interpolation
+  if (/:([^/{}]+)/.test(path)) {
+    const suggested = path.replace(/:([^/{}]+)/g, '{$1}');
+    throw new Error(
+      `Route parameter syntax uses {name} interpolation, not :name. ` +
+        `Use "${suggested}" instead of "${path}".`
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Internal helper: add a single pre-built Route object to the runtime stores
+// ---------------------------------------------------------------------------
+
+function addRouteToStores(routeObj: Route): void {
+  routes.push(routeObj);
+  setHasRoutes(true);
+
+  const depth = getDepth(routeObj.path);
+  let depthRoutes = routesByDepth.get(depth);
+  if (!depthRoutes) {
+    depthRoutes = [];
+    routesByDepth.set(depth, depthRoutes);
+  }
+  depthRoutes.push(routeObj);
+
+  if (routeObj.namespace) {
+    namespaces.add(routeObj.namespace);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// layout() — scoped registration primitive
+// ---------------------------------------------------------------------------
+
+/**
+ * Declare a layout scope.  All `route()` calls executed inside `fn` will
+ * automatically be wrapped by `Component`, outermost to innermost.
+ *
+ * ```ts
+ * layout(AppLayout, () => {
+ *   route('/',        LandingPage);
+ *   route('/about',   AboutPage);
+ *   route('/*',       ErrorPage);
+ * });
+ * ```
+ *
+ * Layouts may nest:
+ * ```ts
+ * layout(AppShell, () => {
+ *   layout(AdminShell, () => {
+ *     route('/admin', AdminDashboard);
+ *   });
+ *   route('/', HomePage);
+ * });
+ * ```
+ */
+export function layout<P = object>(
+  Component: (props: P & { children?: unknown }) => unknown,
+  fn: () => void
+): void {
+  layoutStack.push({ component: Component as LayoutScopeRecord['component'] });
+  try {
+    fn();
+  } finally {
+    layoutStack.pop();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// route() — dual-purpose: registration (module load) + accessor (render time)
+// ---------------------------------------------------------------------------
+
+/**
+ * Register a route.
+ *
+ * ```ts
+ * route('/posts/{slug}', PostPage, {
+ *   load:    ({ params }) => getPost(params.slug),
+ *   entries: async () => getPosts().map(p => ({ slug: p.slug })),
+ *   title:   'Post',
+ *   guard:   requireAuth,
+ * });
+ * ```
+ *
+ * When called with **no arguments** inside a component, returns the current
+ * read-only `RouteSnapshot` (path, params, query, hash, matches).
+ */
 export function route(): RouteSnapshot;
 export function route(
   path: string,
-  handler?: RouteHandler,
-  namespace?: string
+  Component: RouteComponent,
+  options?: RouteOptions
 ): void;
 export function route(
   path?: string,
-  handler?: RouteHandler,
-  namespace?: string
+  Component?: RouteComponent,
+  options?: RouteOptions
 ): void | RouteSnapshot {
   if (getExecutionModel() === 'islands') {
     throw new Error(
@@ -249,10 +373,8 @@ export function route(
     );
   }
 
-  // If called with no args, act as render-time accessor
+  // ── Render-time accessor (no arguments) ─────────────────────────────────
   if (typeof path === 'undefined') {
-    // Access the current component instance to ensure route() is only
-    // called during render.
     const instance = getCurrentComponentInstance();
     if (!instance) {
       throw new Error(
@@ -261,8 +383,6 @@ export function route(
       );
     }
 
-    // Determine location source: client window if present; otherwise per-render
-    // SSR context, then legacy SSR override.
     let pathname = '/';
     let search = '';
     let hash = '';
@@ -301,7 +421,9 @@ export function route(
     return snapshot;
   }
 
-  // Disallow route registration during SSR render
+  // ── Registration mode ────────────────────────────────────────────────────
+
+  // Disallow registration during SSR render
   const currentInst = getCurrentComponentInstance();
   if (currentInst && currentInst.ssr) {
     throw new Error(
@@ -309,76 +431,130 @@ export function route(
     );
   }
 
-  // Disallow registrations after app startup
   if (registrationLocked) {
     throw new Error(
-      'Route registration is locked after app startup. Register routes at module load time before calling createSPA or createSSR.'
+      'Route registration is locked after app startup. ' +
+        'Register routes at module load time before calling createSPA or createSSR.'
     );
   }
 
-  // Otherwise register a route (backwards compatible behavior)
-  if (typeof handler !== 'function') {
+  if (typeof Component !== 'function') {
     throw new Error(
-      'route(path, handler) requires a function handler that returns a VNode (e.g. () => <Page />). ' +
+      'route(path, Component) requires a component function as the second argument. ' +
         'Passing JSX elements or VNodes directly is not supported.'
     );
   }
 
-  const routeObj: Route = { path, handler: handler as RouteHandler, namespace };
-  routes.push(routeObj);
-  setHasRoutes(true);
+  validateRoutePath(path);
 
-  // Index by depth (maintains insertion order within depth)
-  const depth = getDepth(path);
+  // Snapshot the current layout chain (outermost scope first)
+  const chain: LayoutScopeRecord[] = [...layoutStack];
+  const segments = parseSegments(path);
+  const rank = computeRank(segments);
+  const isFallback = path === '/*';
+  const comp = Component;
 
-  let depthRoutes = routesByDepth.get(depth);
-  if (!depthRoutes) {
-    depthRoutes = [];
-    routesByDepth.set(depth, depthRoutes);
-  }
+  // Build a runtime handler that auto-composes the layout chain around the
+  // page component.  The handler is RouteHandler-compatible so navigation,
+  // SSR, and SSG can all call it without knowing the chain internals.
+  const handler: RouteHandler = (params) => {
+    let content: unknown = comp(params);
+    // Apply layouts from innermost to outermost
+    for (let i = chain.length - 1; i >= 0; i--) {
+      content = chain[i].component({ children: content });
+    }
+    return content;
+  };
 
-  depthRoutes.push(routeObj);
+  const record: RouteRecord = {
+    path,
+    component: comp,
+    segments,
+    rank,
+    layoutChain: chain,
+    options: { ...options },
+    isFallback,
+    handler,
+  };
 
-  if (namespace) {
-    namespaces.add(namespace);
-  }
+  records.push(record);
+  addRouteToStores({ path, handler, namespace: options?.namespace });
+}
+
+// ---------------------------------------------------------------------------
+// Manifest access
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the normalized route manifest built from all `layout()` / `route()`
+ * declarations that have run so far.
+ *
+ * Pass this to `createSPA`, `hydrateSPA`, or `renderToString` as the
+ * authoritative routing input:
+ *
+ * ```ts
+ * import { getManifest } from '@askrjs/askr/router';
+ * await createSPA({ root: '#app', manifest: getManifest() });
+ * ```
+ */
+export function getManifest(): RouteManifest {
+  return { records: [...records] };
 }
 
 /**
- * Get all registered routes
+ * Internal: apply a pre-built manifest to the runtime stores without running
+ * route() again.  Called by createSPA / hydrateSPA when a manifest is passed.
+ */
+export function _applyManifest(manifest: RouteManifest): void {
+  for (const record of manifest.records) {
+    records.push(record);
+    addRouteToStores({
+      path: record.path,
+      handler: record.handler,
+      namespace: record.options.namespace,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Route collection helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Get all registered routes (flat list, insertion order).
+ * Prefer `getManifest()` when metadata (load, guard, entries) is needed.
  */
 export function getRoutes(): Route[] {
   return [...routes];
 }
 
-/**
- * Get routes for a specific namespace
- */
+/** Get routes for a specific namespace. */
 export function getNamespaceRoutes(namespace: string): Route[] {
   return routes.filter((r) => r.namespace === namespace);
 }
 
-/**
- * Unload all routes from a namespace (for MFE unmounting)
- */
+/** Unload all routes from a namespace (for MFE unmounting). */
 export function unloadNamespace(namespace: string): number {
   const before = routes.length;
 
-  // Remove from main array
   for (let i = routes.length - 1; i >= 0; i--) {
     if (routes[i].namespace === namespace) {
       const removed = routes[i];
       routes.splice(i, 1);
 
-      // Remove from depth index
       const depth = getDepth(removed.path);
       const depthRoutes = routesByDepth.get(depth);
       if (depthRoutes) {
         const idx = depthRoutes.indexOf(removed);
-        if (idx >= 0) {
-          depthRoutes.splice(idx, 1);
-        }
+        if (idx >= 0) depthRoutes.splice(idx, 1);
       }
+    }
+  }
+
+  // Remove matching records too
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (records[i].options.namespace === namespace) {
+      records.splice(i, 1);
     }
   }
 
@@ -386,119 +562,14 @@ export function unloadNamespace(namespace: string): number {
   return before - routes.length;
 }
 
-/**
- * Clear all registered routes (mainly for testing)
- */
+/** Clear all registered routes and records (testing / boot reset). */
 export function clearRoutes(): void {
   routes.length = 0;
+  records.length = 0;
   namespaces.clear();
   routesByDepth.clear();
   registrationLocked = false;
   setHasRoutes(false);
-}
-
-/**
- * RouteDescriptor type — used by `registerRoute` for nested descriptors.
- *
- * Note: `registerRouteTree` helper was removed; prefer explicit `route()` registrations.
- */
-export type RouteDescriptor = {
-  path: string;
-  handler?: RouteHandler | unknown;
-  children?: RouteDescriptor[];
-  _isDescriptor?: true;
-};
-
-// `registerRouteTree` was removed — register explicit absolute paths with `route(path, handler)` instead.
-// If you need a helper to register descriptor trees, add a small wrapper in userland that
-// calls `route()` recursively.
-
-// Helper: normalize common handler shapes
-// NOTE: Only function handlers are accepted — passing raw JSX/VNodes at register
-// time is not allowed. This keeps registration data-only and avoids surprising
-// semantics between module-load-time and render-time.
-function normalizeHandler(handler: unknown): RouteHandler | undefined {
-  if (handler == null) return undefined;
-  if (typeof handler === 'function') {
-    // Accept both (params) => ... handlers and component functions that take no args / props
-    return (params: Record<string, string>, ctx?: { signal?: AbortSignal }) => {
-      // Call with params and ctx; component functions can ignore them
-      // Allow handler to return JSX element, VNode, Promise, etc.
-      // If the function expects only props, passing params is safe (extra args ignored)
-      try {
-        return handler(params, ctx);
-      } catch {
-        return handler(params);
-      }
-    };
-  }
-  return undefined;
-}
-
-// Register route with flexible handler shapes and optional nested descriptors.
-// Usage patterns supported:
-// - Absolute flat registration: registerRoute('/pages', () => List())
-// - Nested descriptors: registerRoute('/', () => Home(), registerRoute('pages', () => List(), registerRoute('{id}', () => Detail())))
-//   Note: child descriptors should use relative paths (no leading '/').
-export function registerRoute(
-  path: string,
-  handler?: unknown,
-  ...children: Array<RouteDescriptor | undefined>
-): RouteDescriptor {
-  const isRelative = !path.startsWith('/');
-
-  // Build descriptor that can be used for nesting
-  const descriptor: RouteDescriptor = {
-    path,
-    handler,
-    children: children.filter(Boolean) as RouteDescriptor[],
-    _isDescriptor: true,
-  };
-
-  // If path is absolute, perform registration immediately and recurse into children
-  if (!isRelative) {
-    const normalized = normalizeHandler(handler);
-    if (handler != null && !normalized) {
-      throw new Error(
-        'registerRoute(path, handler) requires a function handler. Passing JSX elements or VNodes directly is not supported.'
-      );
-    }
-    if (normalized) route(path, normalized);
-
-    for (const child of descriptor.children || []) {
-      // Compute child full path
-      const base = path === '/' ? '' : path.replace(/\/$/, '');
-      const childPath = `${base}/${child.path.replace(/^\//, '')}`.replace(
-        /\/\//g,
-        '/'
-      );
-      // Recurse: if child.handler is provided, register it
-      if (child.handler) {
-        const childNormalized = normalizeHandler(child.handler);
-        if (!childNormalized) {
-          throw new Error(
-            'registerRoute child handler must be a function. Passing JSX elements directly is not supported.'
-          );
-        }
-        if (childNormalized) route(childPath, childNormalized);
-      }
-      // Recurse into grandchildren
-      if (child.children && child.children.length) {
-        // Convert child.children into descriptors and register them
-        // Use registerRoute recursively with absolute childPath
-        registerRoute(
-          childPath,
-          null,
-          ...(child.children as RouteDescriptor[])
-        );
-      }
-    }
-
-    return descriptor;
-  }
-
-  // If relative, return descriptor for nesting (do not register yet)
-  return descriptor;
 }
 
 /**

@@ -48,7 +48,15 @@ export const hydrate = hydrateSPA;
 export type AppConfig = SPAConfig;
 
 // Routing
-export { route, type RouteSnapshot, type RouteMatch } from './router/route';
+export {
+  route,
+  type RouteSnapshot,
+  type RouteMatch,
+  type RouteComponent,
+  type RouteOptions,
+  type RouteRecord,
+  type RouteManifest,
+} from './router/route';
 export { navigate } from './router/navigate';
 
 // Components
