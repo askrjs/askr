@@ -5,8 +5,10 @@
 export {
   route,
   layout,
+  lazy,
   getManifest,
   _applyManifest,
+  _drainLazy,
   getRoutes,
   clearRoutes,
   getNamespaceRoutes,
