@@ -1,6 +1,10 @@
 # {{appName}} starter kit
 
-A production-ready Askr starter focused on practical app architecture, not toy demo code.
+A production-ready Askr starter built to feel like a real product from day one.
+
+It ships with opinionated defaults for routing boundaries, layout composition,
+state handling, and interface polish so you can focus on product behavior instead
+of project plumbing.
 
 Stack:
 
@@ -15,6 +19,27 @@ Stack:
 ```bash
 npm install
 npm run dev
+```
+
+Then run quality checks before your first commit:
+
+```bash
+npm run check
+npm run fmt:check
+```
+
+## Command reference
+
+```bash
+npm run dev         # Local dev server with HMR
+npm run build       # Production build
+npm run preview     # Preview production build
+npm run type-check  # TypeScript checks
+npm run lint        # ESLint across project files
+npm test            # Vitest suite
+npm run fmt         # Format full project with Prettier
+npm run fmt:check   # Verify formatting
+npm run check       # type-check + lint + tests
 ```
 
 ## Routes and layout model
@@ -97,6 +122,15 @@ Use app layout for authenticated product surfaces and auth layout for onboarding
 3. Place the route in the correct layout group (public, auth, protected).
 4. If protected, apply the same guard pattern used by existing app routes.
 
+## First-hour customization checklist
+
+1. Update brand name, colors, and typography tokens in src/styles/tokens.css.
+2. Replace mock user/session data in src/lib/mock-data.ts.
+3. Swap dashboard/account samples for domain-specific features.
+4. Wire login and guard logic to your real auth provider.
+5. Replace placeholders in landing and settings copy with product language.
+6. Add one end-to-end happy-path test for your primary workflow.
+
 ## How to add a component
 
 1. Put shared UI in src/components.
@@ -133,4 +167,10 @@ Guidelines:
 
 ## Notes
 
-Data is intentionally mock-only and deterministic. Replace lib/mock-data.ts with your real API layer when integrating backend services.
+Data is intentionally mock-only and deterministic.
+
+When integrating backend services:
+
+1. Keep API calls and data transforms in src/lib.
+2. Preserve AbortController signal forwarding in async operations.
+3. Keep route guards and layout boundaries explicit in src/router.tsx.

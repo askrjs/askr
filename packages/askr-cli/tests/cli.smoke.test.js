@@ -32,14 +32,14 @@ test('runCli prints top-level help', async () => {
   assert.match(logs.join('\n'), /Commands:/);
 });
 
-test('runCreateCli scaffolds a spa app without installing', async () => {
+test('runCreateCli defaults to startkit when template is omitted', async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'askr-cli-'));
   const previousCwd = process.cwd();
 
   try {
     process.chdir(tempRoot);
     const { io, errors } = createIo();
-    const code = await runCreateCli(['spa', 'sample-app', '--no-install'], io);
+    const code = await runCreateCli(['sample-app', '--no-install'], io);
 
     assert.equal(code, 0);
     assert.equal(errors.length, 0);
@@ -49,13 +49,14 @@ test('runCreateCli scaffolds a spa app without installing', async () => {
       path.join(appRoot, 'package.json'),
       'utf8'
     );
-    const mainFile = await fs.readFile(
-      path.join(appRoot, 'src', 'main.tsx'),
+    const landingFile = await fs.readFile(
+      path.join(appRoot, 'src', 'pages', 'landing.tsx'),
       'utf8'
     );
 
     assert.match(packageJson, /"name": "sample-app"/);
-    assert.match(mainFile, /createSPA\(/);
+    assert.match(packageJson, /"@askrjs\/askr-lucide"/);
+    assert.match(landingFile, /Production-ready starter/);
   } finally {
     process.chdir(previousCwd);
     await fs.rm(tempRoot, { recursive: true, force: true });

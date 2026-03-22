@@ -12,14 +12,14 @@ function printHelp(io = console) {
   io.log('  askr-cli <command> [options]');
   io.log('');
   io.log('Commands:');
-  io.log('  create     Create a new Askr app (spa, ssr, ssg, startkit)');
+  io.log('  create     Create a new Askr app (startkit, spa, ssr, ssg)');
   io.log('  ssg        Run static-site generation');
   io.log('');
   io.log('Aliases:');
   io.log('  c          Alias for create');
   io.log('');
   io.log('Examples:');
-  io.log('  askr-cli create spa my-app');
+  io.log('  askr-cli create startkit my-app');
   io.log('  askr-cli ssg --config ./ssg.config.ts --output ./dist/static');
 }
 

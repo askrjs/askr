@@ -29,7 +29,7 @@ askr-cli create [template] <name> [--no-install]
 Examples:
 
 ```bash
-askr-cli create spa hello-askr
+askr-cli create startkit hello-askr
 askr-cli create ssg docs-site
 askr-cli create startkit acme-dashboard
 askr-create ssr storefront
@@ -46,6 +46,7 @@ Options:
 - `--help`, `-h`: show create help
 
 If you omit the template or app name, the CLI falls back to an interactive prompt.
+The default template is `startkit`.
 
 #### Templates
 
@@ -106,7 +107,7 @@ export const concurrency = 10;
 Use the unified CLI first:
 
 ```bash
-npx @askrjs/askr-cli create spa my-app
+npx @askrjs/askr-cli create startkit my-app
 npx @askrjs/askr-cli ssg --config ./ssg.config.ts --output ./dist/static
 ```
 

@@ -47,8 +47,8 @@ askr-cli ssg --config <path>        # Run static site generation
 | `startkit` | Full application starter: dashboards, auth screens, full structure |
 
 ```bash
-askr-cli create spa my-app
-askr-cli create startkit my-dashboard
+askr-cli create startkit my-app
+askr-cli create spa my-dashboard
 ```
 
 ### Planned generators
