@@ -10,6 +10,6 @@ export function fetchUser(id: number) {
       }
       return { id, name: `User ${id}`, email: `user${id}@example.com` };
     },
-    [id],
+    [id]
   );
 }

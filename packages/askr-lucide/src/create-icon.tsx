@@ -8,7 +8,7 @@ export function createIcon(displayName: string, iconNode: IconNode) {
       ...rest,
       iconName: displayName,
       children: iconNode.map(([tag, attrs], i) =>
-        jsx(tag, attrs as Record<string, unknown>, i),
+        jsx(tag, attrs as Record<string, unknown>, i)
       ),
     });
   }

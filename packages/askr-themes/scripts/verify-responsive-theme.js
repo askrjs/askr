@@ -16,26 +16,38 @@ async function read(relativePath) {
 }
 
 async function main() {
-  const defaultResponsive = await read('src/themes/default/components/responsive-layout.css');
-  const templateResponsive = await read('templates/theme/components/responsive-layout.css');
+  const defaultResponsive = await read(
+    'src/themes/default/components/responsive-layout.css'
+  );
+  const templateResponsive = await read(
+    'templates/theme/components/responsive-layout.css'
+  );
   const theming = await read('THEMING.md');
 
   const requiredIndexImport = '@import "./components/responsive-layout.css";';
   for (const theme of officialThemes) {
     const indexCss = await read(`src/themes/${theme}/index.css`);
     if (!indexCss.includes(requiredIndexImport)) {
-      throw new Error(`${theme} theme is missing responsive-layout.css import.`);
+      throw new Error(
+        `${theme} theme is missing responsive-layout.css import.`
+      );
     }
 
     for (const forbiddenImport of forbiddenLegacyImports) {
       if (indexCss.includes(forbiddenImport)) {
-        throw new Error(`${theme} theme still imports legacy layout CSS: ${forbiddenImport}`);
+        throw new Error(
+          `${theme} theme still imports legacy layout CSS: ${forbiddenImport}`
+        );
       }
     }
 
-    const responsiveCss = await read(`src/themes/${theme}/components/responsive-layout.css`);
+    const responsiveCss = await read(
+      `src/themes/${theme}/components/responsive-layout.css`
+    );
     if (responsiveCss !== defaultResponsive) {
-      throw new Error(`${theme} responsive layout CSS is out of sync with default.`);
+      throw new Error(
+        `${theme} responsive layout CSS is out of sync with default.`
+      );
     }
   }
 
@@ -64,7 +76,9 @@ async function main() {
   }
 
   if (defaultResponsive !== templateResponsive) {
-    throw new Error('Template responsive layout CSS is out of sync with the default theme.');
+    throw new Error(
+      'Template responsive layout CSS is out of sync with the default theme.'
+    );
   }
 
   const requiredDocs = [

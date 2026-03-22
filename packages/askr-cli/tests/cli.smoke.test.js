@@ -45,8 +45,14 @@ test('runCreateCli scaffolds a spa app without installing', async () => {
     assert.equal(errors.length, 0);
 
     const appRoot = path.join(tempRoot, 'sample-app');
-    const packageJson = await fs.readFile(path.join(appRoot, 'package.json'), 'utf8');
-    const mainFile = await fs.readFile(path.join(appRoot, 'src', 'main.tsx'), 'utf8');
+    const packageJson = await fs.readFile(
+      path.join(appRoot, 'package.json'),
+      'utf8'
+    );
+    const mainFile = await fs.readFile(
+      path.join(appRoot, 'src', 'main.tsx'),
+      'utf8'
+    );
 
     assert.match(packageJson, /"name": "sample-app"/);
     assert.match(mainFile, /createSPA\(/);

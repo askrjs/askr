@@ -28,15 +28,15 @@ function App() {
 
 ### All props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `size` | `number | string` | `20` | Width and height of the svg |
-| `strokeWidth` | `number` | `2` | SVG stroke width |
-| `color` | `string` | `currentColor` | SVG stroke color |
-| `class` | `string` | - | CSS class applied to the svg element |
-| `title` | `string` | - | Accessible title; also removes `aria-hidden` |
-| `style` | `string | object` | - | Inline styles merged with the icon contract variables |
-| `...rest` | - | - | Any other prop is forwarded to the `<svg>` element |
+| Prop          | Type     | Default        | Description                                        |
+| ------------- | -------- | -------------- | -------------------------------------------------- | ----------------------------------------------------- |
+| `size`        | `number  | string`        | `20`                                               | Width and height of the svg                           |
+| `strokeWidth` | `number` | `2`            | SVG stroke width                                   |
+| `color`       | `string` | `currentColor` | SVG stroke color                                   |
+| `class`       | `string` | -              | CSS class applied to the svg element               |
+| `title`       | `string` | -              | Accessible title; also removes `aria-hidden`       |
+| `style`       | `string  | object`        | -                                                  | Inline styles merged with the icon contract variables |
+| `...rest`     | -        | -              | Any other prop is forwarded to the `<svg>` element |
 
 ### Theme contract
 

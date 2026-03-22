@@ -15,7 +15,9 @@ describe('lib mock data', () => {
   });
 
   it('should return dashboard stats and activities', async () => {
-    const result = await getDashboardData({ signal: new AbortController().signal });
+    const result = await getDashboardData({
+      signal: new AbortController().signal,
+    });
 
     expect(result.stats.length).toBeGreaterThan(0);
     expect(result.activities.length).toBeGreaterThan(0);
@@ -45,7 +47,10 @@ describe('lib mock data', () => {
     });
 
     const ids = before.items.slice(0, 2).map((item) => item.id);
-    const archiveResult = await archiveAccounts({ ids, signal: new AbortController().signal });
+    const archiveResult = await archiveAccounts({
+      ids,
+      signal: new AbortController().signal,
+    });
 
     expect(archiveResult.archived).toBe(2);
 

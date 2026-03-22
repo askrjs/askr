@@ -17,8 +17,21 @@ const TEMPLATE_COMPONENTS = join(
   'theme',
   'components'
 );
-const DEFAULT_TOKENS = join(__dirname, '..', 'src', 'themes', 'default', 'tokens.css');
-const TEMPLATE_TOKENS = join(__dirname, '..', 'templates', 'theme', 'tokens.css');
+const DEFAULT_TOKENS = join(
+  __dirname,
+  '..',
+  'src',
+  'themes',
+  'default',
+  'tokens.css'
+);
+const TEMPLATE_TOKENS = join(
+  __dirname,
+  '..',
+  'templates',
+  'theme',
+  'tokens.css'
+);
 const THEMES_DIR = join(__dirname, '..', 'src', 'themes');
 
 function listCssFiles(dir: string): string[] {
@@ -68,8 +81,12 @@ describe('template parity', () => {
   });
 
   it('template tokens expose the same canonical token names as the default theme', () => {
-    const defaultTokens = extractTokenNames(readFileSync(DEFAULT_TOKENS, 'utf-8'));
-    const templateTokens = extractTokenNames(readFileSync(TEMPLATE_TOKENS, 'utf-8'));
+    const defaultTokens = extractTokenNames(
+      readFileSync(DEFAULT_TOKENS, 'utf-8')
+    );
+    const templateTokens = extractTokenNames(
+      readFileSync(TEMPLATE_TOKENS, 'utf-8')
+    );
 
     expect(templateTokens).toEqual(defaultTokens);
   });
@@ -91,10 +108,9 @@ describe('template parity', () => {
 
     const defaultImports = importsByTheme.get('default') ?? [];
     for (const [theme, imports] of importsByTheme) {
-      expect(
-        imports,
-        `${theme} theme imports drift from default`
-      ).toEqual(defaultImports);
+      expect(imports, `${theme} theme imports drift from default`).toEqual(
+        defaultImports
+      );
     }
   });
 
@@ -102,7 +118,9 @@ describe('template parity', () => {
     const themeNames = readdirSync(THEMES_DIR).filter((entry) =>
       existsSync(join(THEMES_DIR, entry, 'tokens.css'))
     );
-    const defaultTokens = extractTokenNames(readFileSync(DEFAULT_TOKENS, 'utf-8'));
+    const defaultTokens = extractTokenNames(
+      readFileSync(DEFAULT_TOKENS, 'utf-8')
+    );
 
     for (const theme of themeNames) {
       const themeTokens = extractTokenNames(

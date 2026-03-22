@@ -6,7 +6,13 @@ const DEFAULT_THEME_DIR = join(__dirname, '..', 'src', 'themes', 'default');
 const TOKENS_FILE = join(DEFAULT_THEME_DIR, 'tokens.css');
 const COMPONENTS_DIR = join(DEFAULT_THEME_DIR, 'components');
 const THEMES_DIR = join(__dirname, '..', 'src', 'themes');
-const TEMPLATE_COMPONENTS_DIR = join(__dirname, '..', 'templates', 'theme', 'components');
+const TEMPLATE_COMPONENTS_DIR = join(
+  __dirname,
+  '..',
+  'templates',
+  'theme',
+  'components'
+);
 
 const REQUIRED_ROOT_TOKENS = [
   '--ak-font-family-body',
@@ -119,7 +125,10 @@ const REQUIRED_COLOR_TOKENS = [
   '--ak-color-backdrop',
 ] as const;
 
-function extractDefinedTokens(css: string, selectorFilter?: string): Set<string> {
+function extractDefinedTokens(
+  css: string,
+  selectorFilter?: string
+): Set<string> {
   const tokens = new Set<string>();
   const lines = css.split('\n');
 
@@ -201,7 +210,9 @@ describe('token completeness', () => {
   });
 
   it('should define every required root token in :root', () => {
-    const missing = REQUIRED_ROOT_TOKENS.filter((token) => !rootTokens.has(token));
+    const missing = REQUIRED_ROOT_TOKENS.filter(
+      (token) => !rootTokens.has(token)
+    );
     expect(
       missing,
       `Required root tokens missing: ${missing.join(', ')}`
@@ -209,7 +220,9 @@ describe('token completeness', () => {
   });
 
   it('should define every required color token in the light theme block', () => {
-    const missing = REQUIRED_COLOR_TOKENS.filter((token) => !lightTokens.has(token));
+    const missing = REQUIRED_COLOR_TOKENS.filter(
+      (token) => !lightTokens.has(token)
+    );
     expect(
       missing,
       `Required light color tokens missing: ${missing.join(', ')}`
@@ -217,7 +230,9 @@ describe('token completeness', () => {
   });
 
   it('should define every required color token in the dark theme block', () => {
-    const missing = REQUIRED_COLOR_TOKENS.filter((token) => !darkTokens.has(token));
+    const missing = REQUIRED_COLOR_TOKENS.filter(
+      (token) => !darkTokens.has(token)
+    );
     expect(
       missing,
       `Required dark color tokens missing: ${missing.join(', ')}`

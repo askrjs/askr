@@ -1,5 +1,11 @@
 import { Link, route } from '@askrjs/askr/router';
-import { LayoutDashboard, Users, Settings, Layers, ShieldCheck } from '@askrjs/askr-lucide';
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  Layers,
+  ShieldCheck,
+} from '@askrjs/askr-lucide';
 import { joinClasses } from '../utils/join-classes';
 
 type NavItem = {
@@ -44,7 +50,10 @@ export default function AppSidebar() {
           return (
             <Link
               href={item.href}
-              class={joinClasses('sidebar-link', isActive(item.href) ? 'is-active' : undefined)}
+              class={joinClasses(
+                'sidebar-link',
+                isActive(item.href) ? 'is-active' : undefined
+              )}
             >
               <Icon size={16} aria-hidden={true} />
               <span>{item.label}</span>

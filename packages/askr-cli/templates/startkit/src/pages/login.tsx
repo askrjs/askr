@@ -45,7 +45,9 @@ export default function LoginPage() {
       });
       window.location.assign('/dashboard');
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Could not sign in.');
+      setErrorText(
+        error instanceof Error ? error.message : 'Could not sign in.'
+      );
       setSubmitting(false);
     }
   };
@@ -63,7 +65,9 @@ export default function LoginPage() {
             <Input
               type="email"
               value={email()}
-              onInput={(event: Event) => setEmail((event.target as HTMLInputElement).value)}
+              onInput={(event: Event) =>
+                setEmail((event.target as HTMLInputElement).value)
+              }
             />
           </label>
         </Field>
@@ -75,7 +79,9 @@ export default function LoginPage() {
             <Input
               type="password"
               value={password()}
-              onInput={(event: Event) => setPassword((event.target as HTMLInputElement).value)}
+              onInput={(event: Event) =>
+                setPassword((event.target as HTMLInputElement).value)
+              }
             />
           </label>
         </Field>
@@ -99,7 +105,8 @@ export default function LoginPage() {
           onClick={() =>
             showToast({
               title: 'Reset link sent',
-              description: 'This is a starter example. Replace with your auth flow.',
+              description:
+                'This is a starter example. Replace with your auth flow.',
             })
           }
         >

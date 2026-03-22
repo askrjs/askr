@@ -7,7 +7,7 @@ import { isAuthenticated } from './lib/mock-data';
 layout(App, () => {
   route(
     '/',
-    lazy(() => import('./pages/landing')),
+    lazy(() => import('./pages/landing'))
   );
 
   layout(AuthLayout, () => {
@@ -16,7 +16,7 @@ layout(App, () => {
       lazy(() => import('./pages/login')),
       {
         guard: () => (isAuthenticated() ? '/dashboard' : true),
-      },
+      }
     );
   });
 
@@ -26,7 +26,7 @@ layout(App, () => {
       lazy(() => import('./pages/dashboard')),
       {
         guard: () => (isAuthenticated() ? true : '/login'),
-      },
+      }
     );
 
     route(
@@ -34,7 +34,7 @@ layout(App, () => {
       lazy(() => import('./pages/accounts')),
       {
         guard: () => (isAuthenticated() ? true : '/login'),
-      },
+      }
     );
 
     route(
@@ -42,12 +42,12 @@ layout(App, () => {
       lazy(() => import('./pages/settings')),
       {
         guard: () => (isAuthenticated() ? true : '/login'),
-      },
+      }
     );
   });
 
   route(
     '/*',
-    lazy(() => import('./pages/not-found')),
+    lazy(() => import('./pages/not-found'))
   );
 });

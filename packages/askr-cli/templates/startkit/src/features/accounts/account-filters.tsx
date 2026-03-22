@@ -18,7 +18,8 @@ export default function AccountFilters(props: {
   onStatusChange: (next: AccountStatus | 'all') => void;
   onReset: () => void;
 }) {
-  const hasFilters = () => props.query.trim().length > 0 || props.status !== 'all';
+  const hasFilters = () =>
+    props.query.trim().length > 0 || props.status !== 'all';
 
   return (
     <div class="account-filters">
@@ -27,11 +28,18 @@ export default function AccountFilters(props: {
         <Input
           placeholder="Search by name, email, or id"
           value={props.query}
-          onInput={(event: Event) => props.onQueryChange((event.target as HTMLInputElement).value)}
+          onInput={(event: Event) =>
+            props.onQueryChange((event.target as HTMLInputElement).value)
+          }
         />
       </label>
 
-      <Select value={props.status} onValueChange={(value) => props.onStatusChange(value as AccountStatus | 'all')}>
+      <Select
+        value={props.status}
+        onValueChange={(value) =>
+          props.onStatusChange(value as AccountStatus | 'all')
+        }
+      >
         <SelectTrigger aria-label="Status filter">
           <SelectValue placeholder="Filter by status" />
         </SelectTrigger>

@@ -24,16 +24,16 @@ export default function DataTable<Row>(props: {
 }) {
   if (props.errorText) {
     return (
-      <EmptyState
-        title="Could not load table"
-        description={props.errorText}
-      />
+      <EmptyState title="Could not load table" description={props.errorText} />
     );
   }
 
   if (props.isLoading) {
     return (
-      <div class={joinClasses('panel stack-sm', props.class)} aria-hidden="true">
+      <div
+        class={joinClasses('panel stack-sm', props.class)}
+        aria-hidden="true"
+      >
         <Skeleton class="skeleton-line" />
         <Skeleton class="skeleton-line" />
         <Skeleton class="skeleton-line" />
@@ -45,7 +45,10 @@ export default function DataTable<Row>(props: {
     return (
       <EmptyState
         title={props.emptyTitle ?? 'No rows found'}
-        description={props.emptyDescription ?? 'Try changing filters or adding new records.'}
+        description={
+          props.emptyDescription ??
+          'Try changing filters or adding new records.'
+        }
       />
     );
   }
@@ -77,5 +80,3 @@ export default function DataTable<Row>(props: {
     </div>
   );
 }
-
-

@@ -21,19 +21,19 @@ declare module '@askrjs/askr/jsx-runtime' {
   export function jsx(
     type: unknown,
     props: Record<string, unknown> | null,
-    key?: string | number,
+    key?: string | number
   ): JSXElement;
 
   export function jsxs(
     type: unknown,
     props: Record<string, unknown> | null,
-    key?: string | number,
+    key?: string | number
   ): JSXElement;
 
   export function jsxDEV(
     type: unknown,
     props: Record<string, unknown> | null,
-    key?: string | number,
+    key?: string | number
   ): JSXElement;
 
   export const Fragment: symbol;

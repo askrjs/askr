@@ -21,7 +21,9 @@ if (!isProd) {
   });
   app.use(vite.middlewares);
 } else {
-  app.use(express.static(path.resolve(__dirname, '../client'), { index: false }));
+  app.use(
+    express.static(path.resolve(__dirname, '../client'), { index: false })
+  );
 }
 
 app.get('/api/*', (_req, res) => {
@@ -36,12 +38,20 @@ app.get('*', async (req, res) => {
     let render: (url: string) => Promise<string> | string;
 
     if (!isProd) {
-      template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
+      template = fs.readFileSync(
+        path.resolve(__dirname, 'index.html'),
+        'utf-8'
+      );
       template = await vite!.transformIndexHtml(url, template);
       ({ render } = await vite!.ssrLoadModule('/src/entry-server.tsx'));
     } else {
-      template = fs.readFileSync(path.resolve(__dirname, '../client/index.html'), 'utf-8');
-      const modUrl = pathToFileURL(path.resolve(__dirname, 'entry-server.js')).href;
+      template = fs.readFileSync(
+        path.resolve(__dirname, '../client/index.html'),
+        'utf-8'
+      );
+      const modUrl = pathToFileURL(
+        path.resolve(__dirname, 'entry-server.js')
+      ).href;
       ({ render } = await import(modUrl));
     }
 

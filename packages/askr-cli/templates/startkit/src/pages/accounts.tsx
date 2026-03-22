@@ -44,7 +44,7 @@ export default function AccountsPage() {
         page: page(),
         pageSize,
       }),
-    [query(), status(), page()],
+    [query(), status(), page()]
   );
 
   const rows = () => accountsResource.value?.items ?? [];
@@ -52,7 +52,9 @@ export default function AccountsPage() {
 
   const toggleRow = (id: string) => {
     setSelectedIds((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id]
     );
   };
 
@@ -87,7 +89,10 @@ export default function AccountsPage() {
     } catch (error) {
       showToast({
         title: 'Archive failed',
-        description: error instanceof Error ? error.message : 'Could not archive selected rows.',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not archive selected rows.',
       });
     } finally {
       setArchiving(false);
@@ -104,7 +109,8 @@ export default function AccountsPage() {
             onPress={() =>
               showToast({
                 title: 'Create account',
-                description: 'Wire this button into your real create-account form flow.',
+                description:
+                  'Wire this button into your real create-account form flow.',
               })
             }
           >
@@ -142,7 +148,10 @@ export default function AccountsPage() {
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button disabled={selectedIds().length === 0} class="button-secondary">
+              <Button
+                disabled={selectedIds().length === 0}
+                class="button-secondary"
+              >
                 <Archive size={14} aria-hidden="true" /> Archive selected
               </Button>
             </AlertDialogTrigger>
@@ -158,7 +167,10 @@ export default function AccountsPage() {
                     <Button class="button-secondary">Cancel</Button>
                   </AlertDialogCancel>
                   <AlertDialogAction asChild>
-                    <Button onPress={() => void archiveSelected()} disabled={archiving()}>
+                    <Button
+                      onPress={() => void archiveSelected()}
+                      disabled={archiving()}
+                    >
                       {archiving() ? 'Archiving...' : 'Confirm archive'}
                     </Button>
                   </AlertDialogAction>
@@ -167,7 +179,11 @@ export default function AccountsPage() {
             </AlertDialogPortal>
           </AlertDialog>
 
-          <Pagination count={totalPages()} page={page()} onPageChange={setPage} />
+          <Pagination
+            count={totalPages()}
+            page={page()}
+            onPageChange={setPage}
+          />
         </Inline>
       </section>
     </section>
