@@ -2,28 +2,47 @@
 
 @layer theme {
   body {
-    background: var(--ak-color-bg);
+    background:
+      radial-gradient(
+        1100px 620px at 100% -12%,
+        color-mix(in srgb, var(--ak-color-primary) 13%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        820px 420px at -8% 14%,
+        color-mix(in srgb, var(--ak-color-primary) 8%, transparent),
+        transparent 64%
+      ),
+      var(--ak-color-bg);
     color: var(--ak-color-fg);
     font-family: var(--ak-font-family);
     font-size: var(--ak-font-size-md);
-    line-height: 1.5;
+    line-height: 1.55;
   }
 
   h1 {
-    font-size: var(--ak-font-size-2xl);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
+    font-size: var(--ak-font-size-display);
+    line-height: 1.06;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
   }
 
   h2 {
-    font-size: var(--ak-font-size-xl);
+    font-size: var(--ak-font-size-heading);
     line-height: 1.3;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
   }
 
   .muted,
   p {
     color: var(--ak-color-muted);
+    line-height: 1.65;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--ak-color-primary) 30%, transparent);
+    color: var(--ak-color-fg);
   }
 
   .stack-sm,
@@ -42,5 +61,16 @@
 
   .stack-lg {
     gap: var(--ak-space-xl);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

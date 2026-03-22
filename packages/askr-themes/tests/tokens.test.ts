@@ -3,9 +3,9 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DEFAULT_THEME_DIR = join(__dirname, '..', 'src', 'themes', 'default');
-const TOKENS_FILE = join(DEFAULT_THEME_DIR, 'tokens.css');
 const COMPONENTS_DIR = join(DEFAULT_THEME_DIR, 'components');
 const THEMES_DIR = join(__dirname, '..', 'src', 'themes');
+const OFFICIAL_THEMES = ['default', 'tuxedo', 'calico', 'ginger'] as const;
 const TEMPLATE_COMPONENTS_DIR = join(
   __dirname,
   '..',
@@ -23,6 +23,8 @@ const REQUIRED_ROOT_TOKENS = [
   '--ak-font-size-lg',
   '--ak-font-size-xl',
   '--ak-font-size-2xl',
+  '--ak-font-size-heading',
+  '--ak-font-size-display',
   '--ak-font-weight-regular',
   '--ak-font-weight-medium',
   '--ak-font-weight-semibold',
@@ -72,6 +74,8 @@ const REQUIRED_ROOT_TOKENS = [
   '--ak-layout-sidebar-width-xl',
   '--ak-layout-sidebar-width',
   '--ak-layout-content-max-width',
+  '--ak-layout-page-gutter',
+  '--ak-layout-panel-padding',
   '--ak-z-dropdown',
   '--ak-z-sticky',
   '--ak-z-fixed',
@@ -125,38 +129,66 @@ const REQUIRED_COLOR_TOKENS = [
   '--ak-color-backdrop',
 ] as const;
 
-function extractDefinedTokens(
+function parseBlocks(
+  css: string
+): Array<{ selectors: string[]; body: string }> {
+  const blocks: Array<{ selectors: string[]; body: string }> = [];
+  const pattern = /([^{}]+)\{([^{}]*)\}/gms;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(css))) {
+    const selectors = match[1]
+      .split(',')
+      .map((selector) => selector.replace(/\/\*[\s\S]*?\*\//g, '').trim())
+      .filter(Boolean);
+
+    blocks.push({ selectors, body: match[2] });
+  }
+
+  return blocks;
+}
+
+function extractDefinedTokens(css: string): Set<string> {
+  const tokens = new Set<string>();
+  for (const block of parseBlocks(css)) {
+    const matches = block.body.matchAll(/(--ak-[a-z0-9-]+)\s*:/g);
+    for (const match of matches) {
+      tokens.add(match[1]);
+    }
+  }
+  return tokens;
+}
+
+function extractTokensForSelector(
   css: string,
-  selectorFilter?: string
+  selectorPredicate: (selector: string) => boolean
 ): Set<string> {
   const tokens = new Set<string>();
-  const lines = css.split('\n');
 
-  let inBlock = false;
-  let currentSelector = '';
-
-  for (const line of lines) {
-    const selectorMatch = line.match(/^([^{]+)\{/);
-    if (selectorMatch) {
-      currentSelector = selectorMatch[1].trim();
-      inBlock = true;
+  for (const block of parseBlocks(css)) {
+    if (!block.selectors.some(selectorPredicate)) {
+      continue;
     }
 
-    if (line.includes('}')) {
-      inBlock = false;
-      currentSelector = '';
-    }
-
-    if (inBlock) {
-      if (selectorFilter && currentSelector !== selectorFilter) continue;
-      const match = line.match(/(--ak-[a-z0-9-]+)\s*:/);
-      if (match) {
-        tokens.add(match[1]);
-      }
+    const matches = block.body.matchAll(/(--ak-[a-z0-9-]+)\s*:/g);
+    for (const match of matches) {
+      tokens.add(match[1]);
     }
   }
 
   return tokens;
+}
+
+function isRootSelector(selector: string): boolean {
+  return selector === ':root';
+}
+
+function isLightSelector(selector: string): boolean {
+  return /\[data-theme=(['"])light\1\]/.test(selector);
+}
+
+function isDarkSelector(selector: string): boolean {
+  return /\[data-theme=(['"])dark\1\]/.test(selector);
 }
 
 function extractReferencedTokens(css: string): Set<string> {
@@ -196,52 +228,72 @@ function getAllThemeComponentCss(): string {
   return cssParts.join('\n');
 }
 
+function getThemeTokensCss(theme: string): string {
+  return readFileSync(join(THEMES_DIR, theme, 'tokens.css'), 'utf-8');
+}
+
+function getThemeTokenSets(theme: string) {
+  const css = getThemeTokensCss(theme);
+  const allDefinedTokens = extractDefinedTokens(css);
+  const rootTokens = extractTokensForSelector(css, isRootSelector);
+  const lightTokens = extractTokensForSelector(css, isLightSelector);
+  const darkTokens = extractTokensForSelector(css, isDarkSelector);
+
+  return { allDefinedTokens, rootTokens, lightTokens, darkTokens };
+}
+
 describe('token completeness', () => {
-  const tokensCss = readFileSync(TOKENS_FILE, 'utf-8');
-  const allDefinedTokens = extractDefinedTokens(tokensCss);
-  const rootTokens = extractDefinedTokens(tokensCss, ':root');
-  const lightTokens = extractDefinedTokens(tokensCss, '[data-theme="light"]');
-  const darkTokens = extractDefinedTokens(tokensCss, '[data-theme="dark"]');
+  const defaultSets = getThemeTokenSets('default');
   const componentCss = getComponentCss();
   const referencedTokens = extractReferencedTokens(componentCss);
 
   it('should define tokens in :root', () => {
-    expect(allDefinedTokens.size).toBeGreaterThan(0);
+    expect(defaultSets.allDefinedTokens.size).toBeGreaterThan(0);
   });
 
-  it('should define every required root token in :root', () => {
-    const missing = REQUIRED_ROOT_TOKENS.filter(
-      (token) => !rootTokens.has(token)
-    );
-    expect(
-      missing,
-      `Required root tokens missing: ${missing.join(', ')}`
-    ).toEqual([]);
+  it('should define every required root token in :root for all official themes', () => {
+    for (const theme of OFFICIAL_THEMES) {
+      const { rootTokens } = getThemeTokenSets(theme);
+      const missing = REQUIRED_ROOT_TOKENS.filter(
+        (token) => !rootTokens.has(token)
+      );
+
+      expect(
+        missing,
+        `${theme} required root tokens missing: ${missing.join(', ')}`
+      ).toEqual([]);
+    }
   });
 
-  it('should define every required color token in the light theme block', () => {
-    const missing = REQUIRED_COLOR_TOKENS.filter(
-      (token) => !lightTokens.has(token)
-    );
-    expect(
-      missing,
-      `Required light color tokens missing: ${missing.join(', ')}`
-    ).toEqual([]);
+  it('should define every required color token in the light theme block for all official themes', () => {
+    for (const theme of OFFICIAL_THEMES) {
+      const { lightTokens } = getThemeTokenSets(theme);
+      const missing = REQUIRED_COLOR_TOKENS.filter(
+        (token) => !lightTokens.has(token)
+      );
+
+      expect(
+        missing,
+        `${theme} required light color tokens missing: ${missing.join(', ')}`
+      ).toEqual([]);
+    }
   });
 
-  it('should define every required color token in the dark theme block', () => {
-    const missing = REQUIRED_COLOR_TOKENS.filter(
-      (token) => !darkTokens.has(token)
-    );
-    expect(
-      missing,
-      `Required dark color tokens missing: ${missing.join(', ')}`
-    ).toEqual([]);
+  it('should define every required color token in the dark theme block for all official themes', () => {
+    for (const theme of OFFICIAL_THEMES) {
+      const { darkTokens } = getThemeTokenSets(theme);
+      const missing = REQUIRED_COLOR_TOKENS.filter(
+        (token) => !darkTokens.has(token)
+      );
+
+      expect(
+        missing,
+        `${theme} required dark color tokens missing: ${missing.join(', ')}`
+      ).toEqual([]);
+    }
   });
 
-  it('should define every design token referenced by components in tokens.css', () => {
-    // Some --ak-* variables are component-scoped (set at runtime via inline
-    // styles, not design tokens). Exclude these from the check.
+  it('should define every design token referenced by default components in default tokens.css', () => {
     const componentScopedVars = new Set([
       '--ak-progress-percentage',
       '--ak-slider-percentage',
@@ -254,30 +306,58 @@ describe('token completeness', () => {
     ]);
 
     const missing = [...referencedTokens].filter(
-      (token) => !allDefinedTokens.has(token) && !componentScopedVars.has(token)
+      (token) =>
+        !defaultSets.allDefinedTokens.has(token) &&
+        !componentScopedVars.has(token)
     );
     expect(missing).toEqual([]);
   });
 
-  it('should keep light and dark theme color token sets aligned', () => {
-    const lightColors = [...lightTokens].filter((t) =>
-      t.startsWith('--ak-color-')
-    );
-    const darkColors = [...darkTokens].filter((t) =>
-      t.startsWith('--ak-color-')
-    );
+  it('should keep light and dark theme color token sets aligned for all official themes', () => {
+    for (const theme of OFFICIAL_THEMES) {
+      const { lightTokens, darkTokens } = getThemeTokenSets(theme);
+      const lightColors = [...lightTokens].filter((t) =>
+        t.startsWith('--ak-color-')
+      );
+      const darkColors = [...darkTokens].filter((t) =>
+        t.startsWith('--ak-color-')
+      );
 
-    const missingInDark = lightColors.filter((t) => !darkTokens.has(t));
-    const missingInLight = darkColors.filter((t) => !lightTokens.has(t));
+      const missingInDark = lightColors.filter((t) => !darkTokens.has(t));
+      const missingInLight = darkColors.filter((t) => !lightTokens.has(t));
 
-    expect(
-      missingInDark,
-      `Color tokens in light but missing in dark: ${missingInDark.join(', ')}`
-    ).toEqual([]);
-    expect(
-      missingInLight,
-      `Color tokens in dark but missing in light: ${missingInLight.join(', ')}`
-    ).toEqual([]);
+      expect(
+        missingInDark,
+        `${theme} color tokens in light but missing in dark: ${missingInDark.join(', ')}`
+      ).toEqual([]);
+      expect(
+        missingInLight,
+        `${theme} color tokens in dark but missing in light: ${missingInLight.join(', ')}`
+      ).toEqual([]);
+    }
+  });
+
+  it('should keep root token contract keys identical across official themes', () => {
+    const baseRoot = getThemeTokenSets('default').rootTokens;
+
+    for (const theme of OFFICIAL_THEMES.slice(1)) {
+      const rootTokens = getThemeTokenSets(theme).rootTokens;
+      const missingComparedToBase = [...baseRoot].filter(
+        (token) => !rootTokens.has(token)
+      );
+      const extraComparedToBase = [...rootTokens].filter(
+        (token) => !baseRoot.has(token)
+      );
+
+      expect(
+        missingComparedToBase,
+        `${theme} is missing root tokens from default: ${missingComparedToBase.join(', ')}`
+      ).toEqual([]);
+      expect(
+        extraComparedToBase,
+        `${theme} has extra root tokens not in default: ${extraComparedToBase.join(', ')}`
+      ).toEqual([]);
+    }
   });
 
   it('should not consume deprecated alias tokens in official theme component CSS', () => {

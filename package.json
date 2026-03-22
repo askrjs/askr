@@ -17,8 +17,9 @@
     "fmt:root": "prettier --write .",
     "dev": "npm run --workspace @askrjs/askr dev",
     "inventory": "node scripts/generate-inventory.js",
+    "verify:themes": "npm run --workspace @askrjs/askr-themes verify:token-contract && npm run --workspace @askrjs/askr-themes verify:responsive && npm run --workspace @askrjs/askr-themes verify:slots",
     "verify:platform-version": "node scripts/validate-platform-version.js",
-    "verify:monorepo": "node scripts/validate-monorepo.js && npm run verify:platform-version"
+    "verify:monorepo": "node scripts/validate-monorepo.js && npm run verify:platform-version && npm run verify:themes"
   },
   "devDependencies": {
     "prettier": "^3.8.1"

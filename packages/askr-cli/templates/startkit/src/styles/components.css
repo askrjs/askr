@@ -3,7 +3,30 @@
     border: 1px solid var(--ak-color-border);
     border-radius: var(--ak-radius-lg);
     background: var(--ak-color-surface);
-    padding: var(--ak-space-lg-plus);
+    padding: var(--ak-layout-panel-padding);
+    box-shadow: var(--starter-shadow-soft);
+  }
+
+  .feature-card {
+    display: grid;
+    align-content: start;
+    gap: var(--ak-space-sm);
+    transition:
+      transform 220ms ease,
+      box-shadow 220ms ease,
+      border-color 220ms ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--ak-color-primary) 28%, transparent);
+    box-shadow: var(--starter-shadow-press);
+  }
+
+  .feature-card svg {
+    color: var(--ak-color-primary);
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
   }
 
   .eyebrow {
@@ -27,9 +50,14 @@
     inline-size: 1.8rem;
     block-size: 1.8rem;
     border-radius: 999px;
-    background: var(--ak-color-primary);
+    background: linear-gradient(
+      145deg,
+      var(--ak-color-primary),
+      var(--ak-color-primary-hover)
+    );
     color: #fff;
     font-weight: 700;
+    box-shadow: var(--starter-shadow-press);
   }
 
   .sidebar-title {
@@ -62,6 +90,9 @@
     border-radius: var(--ak-radius-sm);
     padding: var(--ak-space-sm) var(--ak-space-md);
     color: var(--ak-color-muted);
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
   }
 
   .sidebar-link:hover {
@@ -85,7 +116,7 @@
     background: var(--ak-color-surface);
     color: var(--ak-color-muted);
     padding-inline: var(--ak-space-md);
-    min-block-size: 2.35rem;
+    min-block-size: 2.5rem;
   }
 
   .header-search [data-slot='input'],
@@ -107,6 +138,14 @@
     border-radius: var(--ak-radius-md);
     background: var(--ak-color-surface);
     padding: var(--ak-space-2xs) var(--ak-space-sm);
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .header-account-trigger:hover {
+    border-color: color-mix(in srgb, var(--ak-color-primary) 22%, transparent);
+    background: var(--ak-color-surface-muted);
   }
 
   .page-header-copy {
@@ -128,7 +167,7 @@
   }
 
   .stat-card strong {
-    font-size: 1.6rem;
+    font-size: clamp(1.4rem, 1.16rem + 0.85vw, 1.8rem);
     line-height: 1.1;
     letter-spacing: -0.02em;
   }
@@ -168,7 +207,7 @@
   td {
     text-align: start;
     border-block-end: 1px solid var(--ak-color-border);
-    padding: var(--ak-space-md) var(--ak-space-lg);
+    padding: var(--ak-space-md) var(--ak-space-lg-plus);
   }
 
   th {
@@ -259,21 +298,33 @@
   [data-slot='button'] {
     border-radius: var(--ak-radius-md);
     border: 1px solid transparent;
-    min-block-size: 2.35rem;
+    min-block-size: 2.5rem;
+    transition:
+      transform 150ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  [data-slot='button']:hover {
+    box-shadow: var(--starter-shadow-press);
+    transform: translateY(-1px);
   }
 
   [data-slot='button']:focus-visible,
   [data-slot='dropdown-menu-item']:focus-visible,
   [data-slot='toast-close']:focus-visible,
   [data-slot='dialog-close']:focus-visible {
-    outline: 2px solid var(--ak-color-primary);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ak-color-focus-ring);
   }
 
   [data-slot='button'][data-disabled='true'],
   [data-slot='button']:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 
   [data-slot='dropdown-menu-content'] {
@@ -334,6 +385,7 @@
     position: fixed;
     inset: 0;
     background: color-mix(in srgb, var(--ak-color-fg) 25%, transparent);
+    backdrop-filter: blur(2px);
   }
 
   [data-slot='dialog-content'] {
