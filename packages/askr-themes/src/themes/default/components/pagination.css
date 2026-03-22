@@ -1,0 +1,42 @@
+[data-slot='pagination'] {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+[data-slot='pagination-previous'],
+[data-slot='pagination-next'],
+[data-slot='pagination-page'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 var(--ak-space-sm);
+  border: 1px solid var(--ak-color-border);
+  border-radius: var(--ak-radius-md);
+  background: var(--ak-color-surface);
+  color: var(--ak-color-text);
+  cursor: pointer;
+}
+
+[data-slot='pagination-page'][data-state='active'] {
+  border-color: var(--ak-color-primary);
+  background: var(--ak-color-primary-soft);
+  color: var(--ak-color-primary-ink);
+}
+
+[data-slot='pagination-previous'][data-disabled],
+[data-slot='pagination-next'][data-disabled],
+[data-slot='pagination-page'][data-disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+[data-slot='pagination-ellipsis'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  color: var(--ak-color-text-muted);
+}

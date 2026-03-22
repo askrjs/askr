@@ -82,9 +82,6 @@
       "types": "./dist/vite/index.d.ts"
     }
   },
-  "bin": {
-    "askr-ssg": "./dist/bin/askr-ssg.js"
-  },
   "publishConfig": {
     "access": "public"
   },

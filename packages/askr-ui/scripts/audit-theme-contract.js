@@ -200,14 +200,14 @@ function analyze(uiHooks, themeHooks) {
 
   const onlyInUi = [...uiAttrs].filter((attr) => !themeAttrs.has(attr)).sort();
   const onlyInThemes = [...themeAttrs]
-    .filter(
-      (attr) => !uiAttrs.has(attr) && !ALLOWED_THEME_ONLY_ATTRS.has(attr)
-    )
+    .filter((attr) => !uiAttrs.has(attr) && !ALLOWED_THEME_ONLY_ATTRS.has(attr))
     .sort();
 
   const valueMismatches = [];
 
-  for (const attr of [...uiAttrs].filter((candidate) => themeAttrs.has(candidate))) {
+  for (const attr of [...uiAttrs].filter((candidate) =>
+    themeAttrs.has(candidate)
+  )) {
     const ui = uiHooks.get(attr);
     const theme = themeHooks.get(attr);
 
@@ -230,7 +230,9 @@ function analyze(uiHooks, themeHooks) {
     }
 
     const hasPresenceBridge =
-      theme.hasPresenceSelector && uiValues.size > 0 && valuesOnlyInUi.length === uiValues.size;
+      theme.hasPresenceSelector &&
+      uiValues.size > 0 &&
+      valuesOnlyInUi.length === uiValues.size;
 
     if (!hasPresenceBridge) {
       valueMismatches.push({
@@ -258,7 +260,9 @@ function countStrictBlockers(analysis) {
     }
   }
 
-  return analysis.onlyInUi.length + analysis.onlyInThemes.length + mismatchBlockers;
+  return (
+    analysis.onlyInUi.length + analysis.onlyInThemes.length + mismatchBlockers
+  );
 }
 
 function reportToMarkdown(summary) {
@@ -308,7 +312,9 @@ function reportToMarkdown(summary) {
     for (const mismatch of summary.analysis.valueMismatches) {
       lines.push(`- ${mismatch.attr}`);
       if (mismatch.valuesOnlyInUi.length > 0) {
-        lines.push(`  - values only in UI: ${mismatch.valuesOnlyInUi.join(', ')}`);
+        lines.push(
+          `  - values only in UI: ${mismatch.valuesOnlyInUi.join(', ')}`
+        );
       }
       if (mismatch.valuesOnlyInThemes.length > 0) {
         lines.push(
@@ -346,7 +352,9 @@ function printConsoleSummary(summary) {
 
 function run() {
   if (!fs.existsSync(UI_COMPONENTS_DIR)) {
-    throw new Error(`Missing askr-ui components directory: ${UI_COMPONENTS_DIR}`);
+    throw new Error(
+      `Missing askr-ui components directory: ${UI_COMPONENTS_DIR}`
+    );
   }
   if (!fs.existsSync(THEMES_DEFAULT_INDEX_CSS)) {
     throw new Error(
@@ -371,7 +379,10 @@ function run() {
     templateThemeFiles,
     'template'
   );
-  const allThemeHooks = mergeSelectorMaps(defaultThemeHooks, templateThemeHooks);
+  const allThemeHooks = mergeSelectorMaps(
+    defaultThemeHooks,
+    templateThemeHooks
+  );
 
   const analysis = analyze(uiHooks, allThemeHooks);
 
@@ -410,7 +421,9 @@ function run() {
   if (process.argv.includes('--strict')) {
     const failureCount = countStrictBlockers(analysis);
     if (failureCount > 0) {
-      process.stderr.write(`Strict mode failed with ${failureCount} finding(s).\n`);
+      process.stderr.write(
+        `Strict mode failed with ${failureCount} finding(s).\n`
+      );
       process.exitCode = 1;
     }
   }

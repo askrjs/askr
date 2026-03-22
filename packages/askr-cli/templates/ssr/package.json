@@ -1,0 +1,38 @@
+{
+  "name": "{{appName}}",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development node --loader tsx ./server.ts",
+    "build": "vite build && vite build --ssr src/entry-server.tsx && tsc -p tsconfig.server.json",
+    "preview": "cross-env NODE_ENV=production node dist/server/server.js",
+    "test": "vitest",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src server.ts tests",
+    "lint:fix": "eslint src server.ts tests --fix",
+    "fmt": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server.ts\" \"tests/**/*.{ts,tsx}\" \"*.md\""
+  },
+  "dependencies": {
+    "@askrjs/askr": ">=0.0.28 <1.0.0",
+    "@askrjs/askr-ui": "^1.0.0",
+    "@askrjs/askr-themes": "^0.1.0",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.9",
+    "@eslint/js": "^9.39.2",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "@vitest/ui": "^4.0.17",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.39.2",
+    "jiti": "^2.6.1",
+    "jsdom": "^27.4.0",
+    "prettier": "^3.8.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.17"
+  }
+}

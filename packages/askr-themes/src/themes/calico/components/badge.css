@@ -1,0 +1,12 @@
+[data-slot='badge'] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.5rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  background: var(--ak-color-primary-soft);
+  color: var(--ak-color-primary-ink);
+  font-size: var(--ak-font-size-sm);
+  font-weight: 600;
+}

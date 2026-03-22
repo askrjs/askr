@@ -1,0 +1,28 @@
+[data-slot='switch'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  inline-size: 3rem;
+  block-size: 1.75rem;
+  padding: 0.2rem;
+  border: 1px solid var(--ak-color-border);
+  border-radius: 999px;
+  background: var(--ak-color-surface-muted);
+  color: var(--ak-color-text);
+  cursor: pointer;
+}
+
+[data-slot='switch'][data-state='checked'] {
+  background: var(--ak-color-primary-soft);
+  border-color: var(--ak-color-primary);
+}
+
+[data-slot='switch']:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ak-color-focus-ring);
+}
+
+[data-slot='switch'][data-disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

@@ -55,10 +55,16 @@ const ssg = createStaticGen({
 
 ## CLI usage
 
-`askr-ssg` expects a TypeScript config file.
+The unified CLI expects a TypeScript config file for SSG generation.
 
 ```bash
-tsx node_modules/@askrjs/askr/dist/bin/askr-ssg.js --config ./examples/ssg.config.ts --output ./dist/static
+npx @askrjs/askr-cli ssg --config ./examples/ssg.config.ts --output ./dist/static
+```
+
+If you already have the CLI installed, you can also run the direct bin:
+
+```bash
+askr-ssg --config ./examples/ssg.config.ts --output ./dist/static
 ```
 
 Required args:
@@ -104,4 +110,5 @@ The generator writes `metadata.json` into the output directory with:
 
 - [SSR Guide](ssr.md)
 - [Router Guide](router.md)
+- [CLI Reference](../reference/cli.md)
 - [API Overview](../reference/api.md)

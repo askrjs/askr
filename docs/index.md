@@ -6,9 +6,10 @@ Askr documentation is organized around how people learn, build, and scale with t
 
 1. [Installation](./getting-started/installation.md)
 2. [Quick Start](./getting-started/quick-start.md)
-3. [State Guide](./guides/state.md)
-4. [Router Guide](./guides/router.md)
-5. [Resources Guide](./guides/resources.md)
+3. [CLI Reference](./reference/cli.md)
+4. [State Guide](./guides/state.md)
+5. [Router Guide](./guides/router.md)
+6. [Resources Guide](./guides/resources.md)
 
 ## Build With Askr
 
@@ -24,6 +25,7 @@ Askr documentation is organized around how people learn, build, and scale with t
 - [Determinism](./concepts/determinism.md)
 - [Runtime Enforcement](./concepts/runtime-enforcement.md)
 - [API Reference](./reference/api.md)
+- [CLI Reference](./reference/cli.md)
 - [Router Reference](./reference/router.md)
 - [Resources Reference](./reference/resources.md)
 - [FX Reference](./reference/fx.md)
