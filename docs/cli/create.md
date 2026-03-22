@@ -23,6 +23,7 @@ askr-cli create [template] <name> [--no-install]
 | `--help`, `-h` | Show help                                          |
 
 If you omit the template or name, the CLI falls back to an interactive prompt.
+The default template is `startkit`.
 
 ## Templates
 
@@ -32,6 +33,12 @@ Client-rendered SPA with router support. Use this for standard interactive appli
 
 ```bash
 askr-cli create spa my-app
+```
+
+If you omit the template, you still get `startkit` by default:
+
+```bash
+askr-cli create my-app
 ```
 
 ### `ssr`

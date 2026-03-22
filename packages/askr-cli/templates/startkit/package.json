@@ -7,10 +7,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:watch": "vitest --watch",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src tests",
-    "lint:fix": "eslint src tests --fix",
-    "fmt": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,tsx}\" \"*.md\""
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "fmt": "prettier --write .",
+    "fmt:check": "prettier --check .",
+    "check": "npm run type-check && npm run lint && npm test"
   },
   "dependencies": {
     "@askrjs/askr": ">=0.0.28 <1.0.0",

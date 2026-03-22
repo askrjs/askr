@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import readline from 'node:readline';
 
-const TEMPLATE_TYPES = new Set(['spa', 'ssr', 'ssg', 'startkit']);
+const TEMPLATE_TYPES = new Set(['startkit', 'spa', 'ssr', 'ssg']);
 
 function helpText() {
   return [
@@ -17,10 +17,10 @@ function helpText() {
     '  askr-cli create [template] <name> [--no-install]',
     '',
     'Templates:',
-    '  spa, ssr, ssg, startkit',
+    '  startkit, spa, ssr, ssg',
     '',
     'Examples:',
-    '  askr-create spa my-app',
+    '  askr-create startkit my-app',
     '  askr-cli create startkit acme-dashboard',
   ].join('\n');
 }
@@ -111,7 +111,7 @@ export async function runCreateCli(args = process.argv.slice(2), io = console) {
     return 0;
   }
 
-  let templateType = 'spa';
+  let templateType = 'startkit';
   let name = '';
 
   if (parsed.positional.length > 0) {
@@ -125,12 +125,13 @@ export async function runCreateCli(args = process.argv.slice(2), io = console) {
   }
 
   if (!name) {
-    io.log('Available templates: spa, ssr, ssg, startkit');
+    io.log('Available templates: startkit, spa, ssr, ssg');
     io.log('');
 
     const selectedTemplate =
-      (await prompt('Template type (spa/ssr/ssg/startkit) [spa]: ')).trim() ||
-      'spa';
+      (
+        await prompt('Template type (startkit/spa/ssr/ssg) [startkit]: ')
+      ).trim() || 'startkit';
     if (!TEMPLATE_TYPES.has(selectedTemplate)) {
       io.error('Invalid template type');
       return 1;
