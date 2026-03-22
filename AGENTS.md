@@ -36,6 +36,7 @@ Before considering work complete, run from root:
 
 ```bash
 npm run verify:monorepo
+npm run verify:platform-version
 npm run lint
 npm run build
 npm test
@@ -69,6 +70,7 @@ Primary docs entry points:
 - Use `AbortController` for cancellation semantics.
 - Forward `signal` rather than creating custom cancel APIs.
 - Keep async behavior deterministic and testable.
+- Do not hardcode Askr theme tokens (for example `--ak-*`) in runtime TS/JS; keep token definitions and mappings in theme CSS.
 
 ## Editing Rules
 

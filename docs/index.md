@@ -69,20 +69,21 @@ The runtime, routing, rendering, and data primitives.
 
 Real app workflows by use case.
 
-| Page                                 | Description                            |
-| ------------------------------------ | -------------------------------------- |
-| [First app](./guides/first-app.md)   | Full walkthrough from scratch          |
-| [CRUD](./guides/crud.md)             | List, detail, create, edit, delete     |
-| [Dashboard](./guides/dashboard.md)   | Shell layout + stat cards + tables     |
-| [Forms](./guides/forms.md)           | Validation, submission, async feedback |
-| [Tables](./guides/tables.md)         | Filtering, sorting, pagination         |
-| [Layouts](./guides/layouts.md)       | Layout groups, app shell, auth shell   |
-| [State](./guides/state.md)           | state(), derive(), selector() in depth |
-| [Router](./guides/router.md)         | Router in depth                        |
-| [Resources](./guides/resources.md)   | resource() in depth                    |
-| [SSR](./guides/ssr.md)               | Server rendering                       |
-| [SSR Events](./guides/ssr-events.md) | SSR event patterns                     |
-| [SSG](./guides/ssg.md)               | Static site generation                 |
+| Page                                                     | Description                                  |
+| -------------------------------------------------------- | -------------------------------------------- |
+| [First app](./guides/first-app.md)                       | Full walkthrough from scratch                |
+| [CRUD](./guides/crud.md)                                 | List, detail, create, edit, delete           |
+| [Dashboard](./guides/dashboard.md)                       | Shell layout + stat cards + tables           |
+| [Forms](./guides/forms.md)                               | Validation, submission, async feedback       |
+| [Tables](./guides/tables.md)                             | Filtering, sorting, pagination               |
+| [Layouts](./guides/layouts.md)                           | Layout groups, app shell, auth shell         |
+| [State](./guides/state.md)                               | state(), derive(), selector() in depth       |
+| [Router](./guides/router.md)                             | Router in depth                              |
+| [Resources](./guides/resources.md)                       | resource() in depth                          |
+| [SSR](./guides/ssr.md)                                   | Server rendering                             |
+| [SSR Events](./guides/ssr-events.md)                     | SSR event patterns                           |
+| [SSG](./guides/ssg.md)                                   | Static site generation                       |
+| [Component generation](./guides/component-generation.md) | Canonical AI/manual component authoring spec |
 
 ---
 
@@ -122,13 +123,14 @@ Real app workflows by use case.
 
 ## Development
 
-| Page                                                   | Description                        |
-| ------------------------------------------------------ | ---------------------------------- |
-| [Repo structure](./development/repo-structure.md)      | Monorepo layout, packages, scripts |
-| [Contributing](./development/contributing.md)          | Setup, build, test, lint           |
-| [Release](./development/release.md)                    | Versioning and publish process     |
-| [Docs style guide](./contributing/docs-style-guide.md) | Writing conventions                |
-| [Testing guide](./contributing/testing.md)             | Test patterns                      |
+| Page                                                        | Description                             |
+| ----------------------------------------------------------- | --------------------------------------- |
+| [Repo structure](./development/repo-structure.md)           | Monorepo layout, packages, scripts      |
+| [Contributing](./development/contributing.md)               | Setup, build, test, lint                |
+| [Release](./development/release.md)                         | Versioning and publish process          |
+| [Platform versioning](./development/platform-versioning.md) | Cross-package platform release contract |
+| [Docs style guide](./contributing/docs-style-guide.md)      | Writing conventions                     |
+| [Testing guide](./contributing/testing.md)                  | Test patterns                           |
 
 ---
 

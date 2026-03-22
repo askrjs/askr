@@ -127,6 +127,15 @@ const users = resource(
 Never use `useEffect` patterns for data loading — `resource()` handles cancellation,
 pending state, and error boundaries automatically.
 
+## Theming in Runtime Code
+
+Runtime TS/JS should not hardcode Askr token names like `--ak-*`.
+
+- Keep token declarations and semantic mappings in theme CSS.
+- Use component state hooks and slot/state attributes for runtime behavior.
+- If a dynamic style is needed, route through a semantic class or data attribute,
+  then resolve it in CSS.
+
 ## See also
 
 - [Project structure](./project-structure.md)

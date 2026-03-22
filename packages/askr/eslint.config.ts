@@ -1,12 +1,16 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import askrPlugin from '@askrjs/eslint-plugin-askr';
 
 export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
   {
+    plugins: {
+      askr: askrPlugin,
+    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
@@ -14,6 +18,13 @@ export default [
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
+        },
+      ],
+      'askr/no-hardcoded-theme-tokens': [
+        'warn',
+        {
+          tokenPrefix: '--ak-',
+          allowInTests: true,
         },
       ],
       'no-console': [
