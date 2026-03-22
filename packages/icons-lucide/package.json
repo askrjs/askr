@@ -1,0 +1,54 @@
+{
+  "name": "@askrjs/icons-lucide",
+  "version": "0.0.1",
+  "description": "Thin Askr wrappers for the Lucide SVG icon set",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "askr",
+    "askrjs",
+    "icons",
+    "lucide",
+    "svg",
+    "components"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./icons/*": {
+      "types": "./dist/icons/*.d.ts",
+      "import": "./dist/icons/*.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@askrjs/askr": ">=0.0.28 <1.0.0",
+    "@askrjs/askr-ui": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@askrjs/askr": "file:../askr",
+    "@askrjs/askr-ui": "file:../askr-ui",
+    "jsdom": "^29.0.0",
+    "lucide": "latest",
+    "typescript": "^5.9.0",
+    "vite": "^8.0.0",
+    "vitest": "^4.0.0"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.js",
+    "build": "npm run generate && vite build && tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "dev": "vite build --watch",
+    "test": "vitest run",
+    "typecheck": "npm run generate && tsc -p tsconfig.build.json --noEmit"
+  }
+}

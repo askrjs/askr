@@ -1,140 +1,18 @@
 {
-  "name": "@askrjs/askr",
-  "version": "0.0.29",
-  "description": "Actor-backed deterministic UI framework",
+  "name": "@askrjs/monorepo",
+  "private": true,
   "type": "module",
+  "version": "0.0.0",
+  "description": "Askr monorepo",
   "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/askrjs/askr"
-  },
-  "homepage": "https://github.com/askrjs/askr#readme",
-  "bugs": {
-    "url": "https://github.com/askrjs/askr/issues"
-  },
-  "author": {
-    "name": "askrjs",
-    "url": "https://github.com/askrjs"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "keywords": [
-    "askr",
-    "ui",
-    "framework",
-    "jsx",
-    "ssr"
+  "workspaces": [
+    "packages/*"
   ],
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "sideEffects": [],
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./boot": {
-      "import": "./dist/boot/index.js",
-      "types": "./dist/boot/index.d.ts"
-    },
-    "./for": {
-      "import": "./dist/for/index.js",
-      "types": "./dist/for/index.d.ts"
-    },
-    "./foundations": {
-      "import": "./dist/foundations/index.js",
-      "types": "./dist/foundations/index.d.ts"
-    },
-    "./resources": {
-      "import": "./dist/resources/index.js",
-      "types": "./dist/resources/index.d.ts"
-    },
-    "./fx": {
-      "import": "./dist/fx/index.js",
-      "types": "./dist/fx/index.d.ts"
-    },
-    "./router": {
-      "import": "./dist/router/index.js",
-      "types": "./dist/router/index.d.ts"
-    },
-    "./ssr": {
-      "import": "./dist/ssr/index.js",
-      "types": "./dist/ssr/index.d.ts"
-    },
-    "./ssg": {
-      "import": "./dist/ssg/index.js",
-      "types": "./dist/ssg/index.d.ts"
-    },
-    "./jsx-runtime": {
-      "import": "./dist/jsx-runtime.js",
-      "types": "./dist/jsx-runtime.d.ts"
-    },
-    "./jsx-dev-runtime": {
-      "import": "./dist/jsx-dev-runtime.js",
-      "types": "./dist/jsx-dev-runtime.d.ts"
-    },
-    "./vite": {
-      "import": "./dist/vite/index.js",
-      "types": "./dist/vite/index.d.ts"
-    }
-  },
-  "bin": {
-    "askr-ssg": "./dist/bin/askr-ssg.js"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
-    "build": "npm run build:prod",
-    "build:prod": "cross-env NODE_ENV=production vite build && npm run build:types",
-    "build:dev": "cross-env NODE_ENV=development vite build && npm run build:types",
-    "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
-    "build:bench": "cross-env BUILD=bench NODE_ENV=production vite build && npm run build:types",
-    "dev:watch": "vite build --watch --mode development",
-    "prepare": "npm run build:prod",
-    "dev": "vite",
-    "test": "vitest run",
-    "test:docs": "vitest run checks/docs/public-api-imports.test.ts",
-    "test:examples": "vitest run checks/examples/ssg-config.test.ts",
-    "test:types": "npm run build && tsd",
-    "verify:release": "npm run lint && npm run build && npm test && npm run test:docs && npm run test:examples && npm run perf:size",
-    "bench": "npm run bench:dom && npm run bench:ssr",
-    "bench:dom:base": "cross-env NODE_ENV=production vitest bench -c vitest.bench.dom.config.ts",
-    "bench:ssr:base": "cross-env NODE_ENV=production vitest bench -c vitest.bench.ssr.config.ts",
-    "bench:dom": "npm run bench:dom:base -- --run",
-    "bench:ssr": "npm run bench:ssr:base -- --run",
-    "bench:watch": "npm run bench:dom:base -- --watch",
-    "bench:watch:ssr": "npm run bench:ssr:base -- --watch",
-    "bench:tier1": "npm run bench:tier1:dom && npm run bench:tier1:ssr",
-    "bench:tier1:dom": "npm run bench:dom:base -- benches/tier1/ --run",
-    "bench:tier1:ssr": "npm run bench:ssr:base -- benches/tier1/ --run",
-    "bench:tier2": "npm run bench:tier2:dom && npm run bench:tier2:ssr",
-    "bench:tier2:dom": "npm run bench:dom:base -- benches/tier2/ --run",
-    "bench:tier2:ssr": "npm run bench:ssr:base -- benches/tier2/ --run",
-    "bench:tier3": "npm run bench:dom:base -- benches/tier3/ --run",
-    "bench:tier4": "npm run bench:dom:base -- benches/tier4/ --run",
-    "bench:json": "node -e \"const fs=require('node:fs'); fs.rmSync('bench-results',{recursive:true,force:true}); fs.mkdirSync('bench-results',{recursive:true});\" && npm run bench:dom:base -- --run --outputJson bench-results/dom.json && npm run bench:ssr:base -- --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js",
-    "bench:verify": "npm run bench:json && node scripts/generate-bench-log.js --verify",
-    "fmt": "prettier --write .",
-    "lint": "eslint src tests checks benches --ext .ts,.tsx"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.0",
-    "cross-env": "^10.1.0",
-    "eslint": "^10.0.3",
-    "eslint-config-prettier": "^10.1.8",
-    "jiti": "^2.6.1",
-    "jsdom": "^29.0.0",
-    "prettier": "^3.8.1",
-    "tsd": "^0.33.0",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.0",
-    "vite": "^8.0.0",
-    "vitest": "^4.1.0"
+    "build": "npm run -ws --if-present build",
+    "test": "npm run -ws --if-present test",
+    "lint": "npm run -ws --if-present lint",
+    "dev": "npm run -w @askrjs/askr dev",
+    "inventory": "node scripts/generate-inventory.js"
   }
 }

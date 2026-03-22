@@ -1,0 +1,323 @@
+{
+  "name": "@askrjs/askr-ui",
+  "version": "0.0.1",
+  "description": "Headless askr components",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askrjs/askr-ui"
+  },
+  "homepage": "https://github.com/askrjs/askr-ui#readme",
+  "bugs": {
+    "url": "https://github.com/askrjs/askr-ui/issues"
+  },
+  "author": {
+    "name": "askrjs",
+    "url": "https://github.com/askrjs"
+  },
+  "keywords": [
+    "askr",
+    "ui",
+    "components",
+    "headless",
+    "accessible"
+  ],
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./button": {
+      "types": "./dist/components/button/button.d.ts",
+      "import": "./dist/components/button/button.js",
+      "require": "./dist/components/button/button.cjs"
+    },
+    "./toggle": {
+      "types": "./dist/components/toggle/toggle.d.ts",
+      "import": "./dist/components/toggle/toggle.js",
+      "require": "./dist/components/toggle/toggle.cjs"
+    },
+    "./checkbox": {
+      "types": "./dist/components/checkbox/checkbox.d.ts",
+      "import": "./dist/components/checkbox/checkbox.js",
+      "require": "./dist/components/checkbox/checkbox.cjs"
+    },
+    "./focus-ring": {
+      "types": "./dist/components/focus-ring/focus-ring.d.ts",
+      "import": "./dist/components/focus-ring/focus-ring.js",
+      "require": "./dist/components/focus-ring/focus-ring.cjs"
+    },
+    "./focus-scope": {
+      "types": "./dist/components/focus-scope/focus-scope.d.ts",
+      "import": "./dist/components/focus-scope/focus-scope.js",
+      "require": "./dist/components/focus-scope/focus-scope.cjs"
+    },
+    "./dismissable-layer": {
+      "types": "./dist/components/dismissable-layer/dismissable-layer.d.ts",
+      "import": "./dist/components/dismissable-layer/dismissable-layer.js",
+      "require": "./dist/components/dismissable-layer/dismissable-layer.cjs"
+    },
+    "./dialog": {
+      "types": "./dist/components/dialog/dialog.d.ts",
+      "import": "./dist/components/dialog/dialog.js",
+      "require": "./dist/components/dialog/dialog.cjs"
+    },
+    "./alert-dialog": {
+      "types": "./dist/components/alert-dialog/alert-dialog.d.ts",
+      "import": "./dist/components/alert-dialog/alert-dialog.js",
+      "require": "./dist/components/alert-dialog/alert-dialog.cjs"
+    },
+    "./popover": {
+      "types": "./dist/components/popover/popover.d.ts",
+      "import": "./dist/components/popover/popover.js",
+      "require": "./dist/components/popover/popover.cjs"
+    },
+    "./tooltip": {
+      "types": "./dist/components/tooltip/tooltip.d.ts",
+      "import": "./dist/components/tooltip/tooltip.js",
+      "require": "./dist/components/tooltip/tooltip.cjs"
+    },
+    "./menu": {
+      "types": "./dist/components/menu/menu.d.ts",
+      "import": "./dist/components/menu/menu.js",
+      "require": "./dist/components/menu/menu.cjs"
+    },
+    "./dropdown-menu": {
+      "types": "./dist/components/dropdown-menu/dropdown-menu.d.ts",
+      "import": "./dist/components/dropdown-menu/dropdown-menu.js",
+      "require": "./dist/components/dropdown-menu/dropdown-menu.cjs"
+    },
+    "./select": {
+      "types": "./dist/components/select/select.d.ts",
+      "import": "./dist/components/select/select.js",
+      "require": "./dist/components/select/select.cjs"
+    },
+    "./menubar": {
+      "types": "./dist/components/menubar/menubar.d.ts",
+      "import": "./dist/components/menubar/menubar.js",
+      "require": "./dist/components/menubar/menubar.cjs"
+    },
+    "./navigation-menu": {
+      "types": "./dist/components/navigation-menu/navigation-menu.d.ts",
+      "import": "./dist/components/navigation-menu/navigation-menu.js",
+      "require": "./dist/components/navigation-menu/navigation-menu.cjs"
+    },
+    "./collapsible": {
+      "types": "./dist/components/collapsible/collapsible.d.ts",
+      "import": "./dist/components/collapsible/collapsible.js",
+      "require": "./dist/components/collapsible/collapsible.cjs"
+    },
+    "./badge": {
+      "types": "./dist/components/badge/badge.d.ts",
+      "import": "./dist/components/badge/badge.js",
+      "require": "./dist/components/badge/badge.cjs"
+    },
+    "./avatar": {
+      "types": "./dist/components/avatar/avatar.d.ts",
+      "import": "./dist/components/avatar/avatar.js",
+      "require": "./dist/components/avatar/avatar.cjs"
+    },
+    "./skeleton": {
+      "types": "./dist/components/skeleton/skeleton.d.ts",
+      "import": "./dist/components/skeleton/skeleton.js",
+      "require": "./dist/components/skeleton/skeleton.cjs"
+    },
+    "./progress": {
+      "types": "./dist/components/progress/progress.d.ts",
+      "import": "./dist/components/progress/progress.js",
+      "require": "./dist/components/progress/progress.cjs"
+    },
+    "./progress-circle": {
+      "types": "./dist/components/progress-circle/progress-circle.d.ts",
+      "import": "./dist/components/progress-circle/progress-circle.js",
+      "require": "./dist/components/progress-circle/progress-circle.cjs"
+    },
+    "./spinner": {
+      "types": "./dist/components/spinner/spinner.d.ts",
+      "import": "./dist/components/spinner/spinner.js",
+      "require": "./dist/components/spinner/spinner.cjs"
+    },
+    "./breadcrumb": {
+      "types": "./dist/components/breadcrumb/breadcrumb.d.ts",
+      "import": "./dist/components/breadcrumb/breadcrumb.js",
+      "require": "./dist/components/breadcrumb/breadcrumb.cjs"
+    },
+    "./pagination": {
+      "types": "./dist/components/pagination/pagination.d.ts",
+      "import": "./dist/components/pagination/pagination.js",
+      "require": "./dist/components/pagination/pagination.cjs"
+    },
+    "./accordion": {
+      "types": "./dist/components/accordion/accordion.d.ts",
+      "import": "./dist/components/accordion/accordion.js",
+      "require": "./dist/components/accordion/accordion.cjs"
+    },
+    "./tabs": {
+      "types": "./dist/components/tabs/tabs.d.ts",
+      "import": "./dist/components/tabs/tabs.js",
+      "require": "./dist/components/tabs/tabs.cjs"
+    },
+    "./toggle-group": {
+      "types": "./dist/components/toggle-group/toggle-group.d.ts",
+      "import": "./dist/components/toggle-group/toggle-group.js",
+      "require": "./dist/components/toggle-group/toggle-group.cjs"
+    },
+    "./toast": {
+      "types": "./dist/components/toast/toast.d.ts",
+      "import": "./dist/components/toast/toast.js",
+      "require": "./dist/components/toast/toast.cjs"
+    },
+    "./slider": {
+      "types": "./dist/components/slider/slider.d.ts",
+      "import": "./dist/components/slider/slider.js",
+      "require": "./dist/components/slider/slider.cjs"
+    },
+    "./input": {
+      "types": "./dist/components/input/input.d.ts",
+      "import": "./dist/components/input/input.js",
+      "require": "./dist/components/input/input.cjs"
+    },
+    "./field": {
+      "types": "./dist/components/field/field.d.ts",
+      "import": "./dist/components/field/field.js",
+      "require": "./dist/components/field/field.cjs"
+    },
+    "./label": {
+      "types": "./dist/components/label/label.d.ts",
+      "import": "./dist/components/label/label.js",
+      "require": "./dist/components/label/label.cjs"
+    },
+    "./radio-group": {
+      "types": "./dist/components/radio-group/radio-group.d.ts",
+      "import": "./dist/components/radio-group/radio-group.js",
+      "require": "./dist/components/radio-group/radio-group.cjs"
+    },
+    "./separator": {
+      "types": "./dist/components/separator/separator.d.ts",
+      "import": "./dist/components/separator/separator.js",
+      "require": "./dist/components/separator/separator.cjs"
+    },
+    "./switch": {
+      "types": "./dist/components/switch/switch.d.ts",
+      "import": "./dist/components/switch/switch.js",
+      "require": "./dist/components/switch/switch.cjs"
+    },
+    "./textarea": {
+      "types": "./dist/components/textarea/textarea.d.ts",
+      "import": "./dist/components/textarea/textarea.js",
+      "require": "./dist/components/textarea/textarea.cjs"
+    },
+    "./visually-hidden": {
+      "types": "./dist/components/visually-hidden/visually-hidden.d.ts",
+      "import": "./dist/components/visually-hidden/visually-hidden.js",
+      "require": "./dist/components/visually-hidden/visually-hidden.cjs"
+    },
+    "./container": {
+      "types": "./dist/components/container/container.d.ts",
+      "import": "./dist/components/container/container.js",
+      "require": "./dist/components/container/container.cjs"
+    },
+    "./stack": {
+      "types": "./dist/components/stack/stack.d.ts",
+      "import": "./dist/components/stack/stack.js",
+      "require": "./dist/components/stack/stack.cjs"
+    },
+    "./inline": {
+      "types": "./dist/components/inline/inline.d.ts",
+      "import": "./dist/components/inline/inline.js",
+      "require": "./dist/components/inline/inline.cjs"
+    },
+    "./grid": {
+      "types": "./dist/components/grid/grid.d.ts",
+      "import": "./dist/components/grid/grid.js",
+      "require": "./dist/components/grid/grid.cjs"
+    },
+    "./center": {
+      "types": "./dist/components/center/center.d.ts",
+      "import": "./dist/components/center/center.js",
+      "require": "./dist/components/center/center.cjs"
+    },
+    "./spacer": {
+      "types": "./dist/components/spacer/spacer.d.ts",
+      "import": "./dist/components/spacer/spacer.js",
+      "require": "./dist/components/spacer/spacer.cjs"
+    },
+    "./sidebar-layout": {
+      "types": "./dist/components/sidebar-layout/sidebar-layout.d.ts",
+      "import": "./dist/components/sidebar-layout/sidebar-layout.js",
+      "require": "./dist/components/sidebar-layout/sidebar-layout.cjs"
+    },
+    "./topbar-layout": {
+      "types": "./dist/components/topbar-layout/topbar-layout.d.ts",
+      "import": "./dist/components/topbar-layout/topbar-layout.js",
+      "require": "./dist/components/topbar-layout/topbar-layout.cjs"
+    },
+    "./icon": {
+      "types": "./dist/components/icon/icon.d.ts",
+      "import": "./dist/components/icon/icon.js",
+      "require": "./dist/components/icon/icon.cjs"
+    },
+    "./data-table": {
+      "types": "./dist/components/data-table/data-table.d.ts",
+      "import": "./dist/components/data-table/data-table.js",
+      "require": "./dist/components/data-table/data-table.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "@askrjs/askr": ">=0.0.28 <1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@askrjs/askr": {
+      "optional": false
+    }
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build:js": "vite build",
+    "build:types": "tsc -p tsconfig.build.json",
+    "build": "npm run clean && npm run build:js && npm run build:types",
+    "dev": "vite build --watch",
+    "verify:foundations": "node scripts/check-foundations-contract.js",
+    "audit:theme-contract": "node scripts/audit-theme-contract.js",
+    "audit:theme-contract:strict": "node scripts/audit-theme-contract.js --strict",
+    "test": "npm run verify:foundations && vitest run",
+    "test:types": "tsc -p tsconfig.type-tests.json --noEmit",
+    "bench": "cross-env NODE_ENV=production vitest bench --run --reporter=default --config vitest.bench.config.ts",
+    "fmt": "prettier --write .",
+    "lint": "eslint src tests benches --ext .ts,.tsx"
+  },
+  "devDependencies": {
+    "@askrjs/askr": ">=0.0.28 <1.0.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
+    "axe-core": "^4.11.1",
+    "cross-env": "^10.1.0",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "jiti": "^2.6.1",
+    "jsdom": "^28.1.0",
+    "prettier": "^3.8.1",
+    "tsd": "^0.33.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.0",
+    "vitest-axe": "^0.1.0"
+  }
+}

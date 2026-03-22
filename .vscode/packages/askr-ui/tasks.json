@@ -1,0 +1,27 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "verify-layout-tests",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"vitest",
+				"run",
+				"tests/components/container",
+				"tests/components/stack",
+				"tests/components/inline",
+				"tests/components/grid",
+				"tests/components/center",
+				"tests/components/spacer",
+				"tests/components/sidebar-layout",
+				"tests/components/topbar-layout"
+			]
+		},
+		{
+			"label": "layout-tests-run",
+			"type": "shell",
+			"command": "npx vitest run tests/components/container tests/components/stack tests/components/inline tests/components/grid tests/components/center tests/components/spacer tests/components/sidebar-layout tests/components/topbar-layout"
+		}
+	]
+}
