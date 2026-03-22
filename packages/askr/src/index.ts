@@ -40,12 +40,6 @@ export type {
   SPAConfig,
   HydrateSPAConfig,
 } from './boot';
-// Backwards compatibility aliases
-import { createSPA, hydrateSPA } from './boot';
-import type { SPAConfig } from './boot';
-export const createApp = createSPA;
-export const hydrate = hydrateSPA;
-export type AppConfig = SPAConfig;
 
 // Routing
 export {
