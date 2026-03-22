@@ -1,0 +1,21 @@
+{
+  "platformVersion": "0.1.0-alpha.0",
+  "workspacePackages": {
+    "@askrjs/askr": "0.0.29",
+    "@askrjs/askr-cli": "0.1.0",
+    "@askrjs/askr-lucide": "0.0.1",
+    "@askrjs/askr-themes": "0.0.1",
+    "@askrjs/askr-ui": "0.0.1",
+    "@askrjs/eslint-plugin-askr": "0.1.0"
+  },
+  "relatedProjects": {
+    "website": {
+      "repository": "askrjs/website",
+      "branch": "main"
+    },
+    "js-framework-benchmark": {
+      "repository": "krausest/js-framework-benchmark",
+      "branch": "master"
+    }
+  }
+}

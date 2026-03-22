@@ -303,6 +303,7 @@
     "lint": "eslint src tests benches --ext .ts,.tsx"
   },
   "devDependencies": {
+    "@askrjs/eslint-plugin-askr": "file:../eslint-plugin-askr",
     "@askrjs/askr": ">=0.0.28 <1.0.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.5.0",
