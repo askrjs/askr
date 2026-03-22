@@ -1,6 +1,6 @@
 import { Link } from '@askrjs/askr/router';
 import { Button } from '@askrjs/askr-ui/button';
-import { ShieldCheck, Workflow, LayoutPanelTop, Sparkles } from '@askrjs/icons-lucide';
+import { ShieldCheck, Workflow, LayoutPanelTop, Sparkles } from '@askrjs/askr-lucide';
 
 export default function LandingPage() {
   return (

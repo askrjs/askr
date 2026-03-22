@@ -1,6 +1,6 @@
 import { Checkbox } from '@askrjs/askr-ui/checkbox';
 import { Button } from '@askrjs/askr-ui/button';
-import { Eye } from '@askrjs/icons-lucide';
+import { Eye } from '@askrjs/askr-lucide';
 import DataTable, { type DataTableColumn } from '../../components/data-table';
 import type { AccountRecord } from '../../lib/mock-data';
 import { formatCurrency } from '../../lib/format';

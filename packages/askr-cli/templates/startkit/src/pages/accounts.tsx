@@ -14,7 +14,7 @@ import {
 import { Button } from '@askrjs/askr-ui/button';
 import { Inline } from '@askrjs/askr-ui/inline';
 import { Pagination } from '@askrjs/askr-ui/pagination';
-import { Archive, Plus } from '@askrjs/icons-lucide';
+import { Archive, Plus } from '@askrjs/askr-lucide';
 import PageHeader from '../components/page-header';
 import AccountFilters from '../features/accounts/account-filters';
 import AccountTable from '../features/accounts/account-table';

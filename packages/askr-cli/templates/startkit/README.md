@@ -6,7 +6,7 @@ Stack:
 - askr
 - askr-ui
 - askr-themes (default)
-- lucide icons via @askrjs/icons-lucide
+- lucide icons via @askrjs/askr-lucide
 - plain CSS with layers and design tokens
 
 ## Quick start
