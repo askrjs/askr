@@ -1,0 +1,15 @@
+[data-slot='container'] {
+  max-inline-size: var(--ak-layout-content-max-width);
+}
+
+[data-slot='grid'] {
+  gap: var(--ak-space-md);
+}
+
+[data-slot='grid'][data-columns='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-slot='grid'][data-columns='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

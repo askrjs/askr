@@ -1,0 +1,29 @@
+[data-slot='field'] {
+  display: grid;
+  gap: var(--ak-space-sm);
+}
+
+[data-slot='field-label'] {
+  color: var(--ak-color-text);
+  font-size: var(--ak-font-size-sm);
+  font-weight: 600;
+}
+
+[data-slot='field-description'] {
+  color: var(--ak-color-text-muted);
+  font-size: var(--ak-font-size-sm);
+}
+
+[data-slot='field-error'] {
+  color: var(--ak-color-danger);
+  font-size: var(--ak-font-size-sm);
+}
+
+[data-slot='field'][data-disabled] {
+  opacity: 0.7;
+}
+
+[data-slot='field-control'][data-invalid] {
+  border-color: var(--ak-color-danger);
+  box-shadow: 0 0 0 3px var(--ak-color-danger-soft);
+}

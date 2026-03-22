@@ -1,0 +1,22 @@
+/* __THEME_NAME__ theme button styles (public data-* contract only) */
+[data-slot='button'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ak-space-sm);
+  padding: var(--ak-space-sm) var(--ak-space-md);
+  border-radius: var(--ak-radius-md);
+  font-size: var(--ak-font-size-md);
+  background: var(--ak-color-primary);
+  border: 1px solid var(--ak-color-primary);
+  color: white;
+}
+
+[data-slot='button']:hover {
+  background: var(--ak-color-primary-hover);
+}
+
+[data-slot='button'][data-disabled] {
+  opacity: 0.6;
+  pointer-events: none;
+}

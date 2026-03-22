@@ -9,10 +9,17 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run -ws --if-present build",
-    "test": "npm run -ws --if-present test",
-    "lint": "npm run -ws --if-present lint",
-    "dev": "npm run -w @askrjs/askr dev",
-    "inventory": "node scripts/generate-inventory.js"
+    "build": "npm run --workspaces --if-present build",
+    "test": "npm run --workspaces --if-present test",
+    "lint": "npm run lint:root && npm run --workspaces --if-present lint",
+    "lint:root": "prettier --check \"package.json\" \"README.md\" \"MONOREPO_MIGRATION.md\" \"docs/**/*.md\" \"scripts/**/*.js\"",
+    "fmt": "npm run fmt:root && npm run --workspaces --if-present fmt",
+    "fmt:root": "prettier --write \"package.json\" \"README.md\" \"MONOREPO_MIGRATION.md\" \"docs/**/*.md\" \"scripts/**/*.js\"",
+    "dev": "npm run --workspace @askrjs/askr dev",
+    "inventory": "node scripts/generate-inventory.js",
+    "verify:monorepo": "node scripts/validate-monorepo.js"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1"
   }
 }

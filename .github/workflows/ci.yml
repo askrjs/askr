@@ -7,30 +7,32 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/**'
+      - '.github/packages/**'
+      - '.claude/**'
+      - '.vscode/**'
       - 'README.md'
+      - 'MONOREPO_MIGRATION.md'
       - 'docs/**'
       - 'examples/**'
       - 'package.json'
       - 'package-lock.json'
-      - 'src/**'
-      - 'tests/**'
-      - 'checks/**'
-      - 'benches/**'
-      - 'vitest.config.ts'
+      - 'packages/**'
+      - 'scripts/**'
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/**'
+      - '.github/packages/**'
+      - '.claude/**'
+      - '.vscode/**'
       - 'README.md'
+      - 'MONOREPO_MIGRATION.md'
       - 'docs/**'
       - 'examples/**'
       - 'package.json'
       - 'package-lock.json'
-      - 'src/**'
-      - 'tests/**'
-      - 'checks/**'
-      - 'benches/**'
-      - 'vitest.config.ts'
+      - 'packages/**'
+      - 'scripts/**'
 
 permissions:
   contents: read
@@ -51,6 +53,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate Monorepo
+        run: npm run verify:monorepo
 
       - name: Lint
         run: npm run lint

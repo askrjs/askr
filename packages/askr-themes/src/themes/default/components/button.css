@@ -1,0 +1,27 @@
+[data-slot='button'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ak-space-sm);
+  padding: var(--ak-space-sm) var(--ak-space-md);
+  border-radius: var(--ak-radius-md);
+  font-size: var(--ak-font-size-md);
+  border: 1px solid var(--ak-color-border);
+  background: var(--ak-color-surface);
+  color: var(--ak-color-text);
+  cursor: pointer;
+}
+
+[data-slot='button']:hover {
+  border-color: var(--ak-color-primary);
+}
+
+[data-slot='button']:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ak-color-focus-ring);
+}
+
+[data-slot='button'][data-disabled] {
+  opacity: 0.6;
+  pointer-events: none;
+}
