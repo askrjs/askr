@@ -1,0 +1,106 @@
+{
+  "name": "@askrjs/askr-themes",
+  "version": "0.0.1",
+  "description": "CSS-only official themes for askr-ui.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askrjs/askr-themes"
+  },
+  "homepage": "https://github.com/askrjs/askr-themes#readme",
+  "bugs": {
+    "url": "https://github.com/askrjs/askr-themes/issues"
+  },
+  "author": {
+    "name": "askrjs",
+    "url": "https://github.com/askrjs"
+  },
+  "keywords": [
+    "askr",
+    "themes",
+    "css",
+    "design-tokens"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "src",
+    "templates",
+    "scripts/new-theme.js",
+    "THEMING.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./src/index.css",
+    "./default": "./src/themes/default/index.css",
+    "./default/tokens.css": "./src/themes/default/tokens.css",
+    "./default/accordion.css": "./src/themes/default/components/accordion.css",
+    "./default/alert-dialog.css": "./src/themes/default/components/alert-dialog.css",
+    "./default/app-shell.css": "./src/themes/default/components/app-shell.css",
+    "./default/avatar.css": "./src/themes/default/components/avatar.css",
+    "./default/badge.css": "./src/themes/default/components/badge.css",
+    "./default/breadcrumb.css": "./src/themes/default/components/breadcrumb.css",
+    "./default/button.css": "./src/themes/default/components/button.css",
+    "./default/checkbox.css": "./src/themes/default/components/checkbox.css",
+    "./default/collapsible.css": "./src/themes/default/components/collapsible.css",
+    "./default/coverage.css": "./src/themes/default/components/coverage.css",
+    "./default/dashboard-layout.css": "./src/themes/default/components/dashboard-layout.css",
+    "./default/dialog.css": "./src/themes/default/components/dialog.css",
+    "./default/docs-layout.css": "./src/themes/default/components/docs-layout.css",
+    "./default/dropdown-menu.css": "./src/themes/default/components/dropdown-menu.css",
+    "./default/field.css": "./src/themes/default/components/field.css",
+    "./default/input.css": "./src/themes/default/components/input.css",
+    "./default/label.css": "./src/themes/default/components/label.css",
+    "./default/menu.css": "./src/themes/default/components/menu.css",
+    "./default/menubar.css": "./src/themes/default/components/menubar.css",
+    "./default/navbar.css": "./src/themes/default/components/navbar.css",
+    "./default/navigation-menu.css": "./src/themes/default/components/navigation-menu.css",
+    "./default/pagination.css": "./src/themes/default/components/pagination.css",
+    "./default/popover.css": "./src/themes/default/components/popover.css",
+    "./default/progress.css": "./src/themes/default/components/progress.css",
+    "./default/progress-circle.css": "./src/themes/default/components/progress-circle.css",
+    "./default/radio-group.css": "./src/themes/default/components/radio-group.css",
+    "./default/responsive-layout.css": "./src/themes/default/components/responsive-layout.css",
+    "./default/select.css": "./src/themes/default/components/select.css",
+    "./default/separator.css": "./src/themes/default/components/separator.css",
+    "./default/sidebar.css": "./src/themes/default/components/sidebar.css",
+    "./default/skeleton.css": "./src/themes/default/components/skeleton.css",
+    "./default/slider.css": "./src/themes/default/components/slider.css",
+    "./default/spinner.css": "./src/themes/default/components/spinner.css",
+    "./default/switch.css": "./src/themes/default/components/switch.css",
+    "./default/tabs.css": "./src/themes/default/components/tabs.css",
+    "./default/textarea.css": "./src/themes/default/components/textarea.css",
+    "./default/toast.css": "./src/themes/default/components/toast.css",
+    "./default/toggle.css": "./src/themes/default/components/toggle.css",
+    "./default/toggle-group.css": "./src/themes/default/components/toggle-group.css",
+    "./default/tooltip.css": "./src/themes/default/components/tooltip.css",
+    "./tuxedo": "./src/themes/tuxedo/index.css",
+    "./tuxedo/tokens.css": "./src/themes/tuxedo/tokens.css",
+    "./calico": "./src/themes/calico/index.css",
+    "./calico/tokens.css": "./src/themes/calico/tokens.css",
+    "./ginger": "./src/themes/ginger/index.css",
+    "./ginger/tokens.css": "./src/themes/ginger/tokens.css",
+    "./templates/*": "./templates/*"
+  },
+  "scripts": {
+    "new:theme": "node ./scripts/new-theme.js",
+    "verify:responsive": "node ./scripts/verify-responsive-theme.js",
+    "verify:slots": "node ./scripts/verify-slot-coverage.js",
+    "test": "vitest run",
+    "fmt": "prettier --write \"src/**/*.css\" \"templates/**/*.css\" \"THEMING.md\" \"package.json\"",
+    "lint": "prettier --check \"src/**/*.css\" \"templates/**/*.css\" \"THEMING.md\" \"package.json\"",
+    "build": "node -e \"console.log('askr-themes is CSS-only; no build step required')\""
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1",
+    "vitest": "^4.1.0"
+  }
+}
