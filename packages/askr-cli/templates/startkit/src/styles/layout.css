@@ -7,7 +7,7 @@
   .not-found-page {
     inline-size: min(
       var(--ak-layout-content-max-width),
-      calc(100% - 2 * var(--ak-space-xl))
+      calc(100% - 2 * var(--ak-layout-page-gutter))
     );
     margin-inline: auto;
     padding-block: var(--ak-space-xl) var(--ak-space-2xl);
@@ -15,16 +15,29 @@
     gap: var(--ak-space-xl);
   }
 
+  .marketing-page > * {
+    animation: starter-fade-up 520ms ease-out both;
+  }
+
+  .marketing-page > :nth-child(2) {
+    animation-delay: 70ms;
+  }
+
+  .marketing-page > :nth-child(3) {
+    animation-delay: 130ms;
+  }
+
   .marketing-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--ak-space-md);
+    padding-block-start: var(--ak-space-sm);
   }
 
   .hero-block {
     display: grid;
-    gap: var(--ak-space-lg);
+    gap: var(--ak-space-lg-plus);
   }
 
   .hero-block p {
@@ -39,7 +52,7 @@
 
   .feature-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(236px, 1fr));
     gap: var(--ak-space-lg);
   }
 
@@ -71,7 +84,7 @@
   .app-main {
     inline-size: min(
       var(--ak-layout-content-max-width),
-      calc(100% - 2 * var(--ak-space-xl))
+      calc(100% - 2 * var(--ak-layout-page-gutter))
     );
     margin-inline: auto;
     padding-block: var(--ak-space-xl) var(--ak-space-2xl);
@@ -83,9 +96,9 @@
     position: sticky;
     inset-block-start: 0;
     border-block-end: 1px solid var(--ak-color-border);
-    background: color-mix(in srgb, var(--ak-color-surface) 94%, transparent);
-    backdrop-filter: blur(4px);
-    padding: var(--ak-space-lg) var(--ak-space-xl);
+    background: var(--starter-surface-glass);
+    backdrop-filter: blur(8px);
+    padding: var(--ak-space-lg) var(--ak-layout-page-gutter);
     z-index: 15;
   }
 
@@ -119,6 +132,18 @@
     inline-size: 100%;
   }
 
+  @keyframes starter-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   @media (max-width: 960px) {
     [data-slot='sidebar-layout'] {
       flex-direction: column;
@@ -131,6 +156,23 @@
     }
 
     .settings-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .marketing-page,
+    .not-found-page,
+    .app-main {
+      gap: var(--ak-space-lg);
+      padding-block: var(--ak-space-lg) var(--ak-space-xl);
+    }
+
+    .app-header {
+      padding-block: var(--ak-space-md);
+    }
+
+    .feature-grid {
       grid-template-columns: minmax(0, 1fr);
     }
   }

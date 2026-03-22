@@ -21,6 +21,13 @@
 
     --starter-color-success: #1f7a43;
     --starter-content-max-ch: 74ch;
+    --starter-shadow-soft: 0 10px 30px rgba(13, 24, 43, 0.08);
+    --starter-shadow-press: 0 4px 14px rgba(13, 24, 43, 0.1);
+    --starter-surface-glass: color-mix(
+      in srgb,
+      var(--ak-color-surface) 88%,
+      transparent
+    );
   }
 
   :root[data-sk-appearance='harbor'] {
@@ -34,6 +41,8 @@
     --ak-color-muted: #4f6879;
     --ak-color-focus-ring: rgba(15, 123, 143, 0.24);
     --starter-color-success: #0f7a4b;
+    --starter-shadow-soft: 0 10px 30px rgba(8, 34, 45, 0.08);
+    --starter-shadow-press: 0 4px 14px rgba(8, 34, 45, 0.1);
   }
 
   :root[data-sk-appearance='ink'] {
@@ -47,5 +56,12 @@
     --ak-color-muted: #aeb9d2;
     --ak-color-focus-ring: rgba(111, 166, 255, 0.3);
     --starter-color-success: #58c38a;
+    --starter-shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.3);
+    --starter-shadow-press: 0 5px 16px rgba(0, 0, 0, 0.34);
+    --starter-surface-glass: color-mix(
+      in srgb,
+      var(--ak-color-surface) 78%,
+      transparent
+    );
   }
 }

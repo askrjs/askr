@@ -92,6 +92,7 @@
   },
   "scripts": {
     "new:theme": "node ./scripts/new-theme.js",
+    "verify:token-contract": "node ./scripts/verify-token-contract.js",
     "verify:responsive": "node ./scripts/verify-responsive-theme.js",
     "verify:slots": "node ./scripts/verify-slot-coverage.js",
     "test": "vitest run",

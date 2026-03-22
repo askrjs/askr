@@ -240,6 +240,8 @@ Required:
 - `--ak-font-size-lg`
 - `--ak-font-size-xl`
 - `--ak-font-size-2xl`
+- `--ak-font-size-heading`
+- `--ak-font-size-display`
 - `--ak-font-weight-regular`
 - `--ak-font-weight-medium`
 - `--ak-font-weight-semibold`
@@ -347,6 +349,8 @@ Required:
 - `--ak-layout-sidebar-width-xl`
 - `--ak-layout-sidebar-width`
 - `--ak-layout-content-max-width`
+- `--ak-layout-page-gutter`
+- `--ak-layout-panel-padding`
 
 ---
 
