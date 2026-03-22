@@ -1,26 +1,82 @@
-# askr monorepo
+# Askr Monorepo
 
-This repository contains the askr platform packages and tools.
+Askr is a modern application development platform focused on strong conventions,
+AI-assisted workflows, and practical primitives.
 
-## Workspaces
+This monorepo contains the official platform packages, docs, and release automation.
 
-- packages/askr
-- packages/askr-ui
-- packages/askr-themes
-- packages/icons-lucide
-- packages/askr-cli
+## Packages
 
-## Docs
+| Package               | Purpose                                              |
+| --------------------- | ---------------------------------------------------- |
+| `@askrjs/askr`        | Core runtime: rendering, routing, lifecycle, SSR/SSG |
+| `@askrjs/askr-ui`     | Headless UI primitives and accessibility behavior    |
+| `@askrjs/askr-themes` | Optional styling layer (tokens and base theme)       |
+| `@askrjs/askr-lucide` | Lucide icon wrappers for Askr                        |
+| `@askrjs/askr-cli`    | Project scaffolding and SSG workflows                |
 
-- Root platform docs live in `docs/`
-- Docs are organized by learning path, guides, reference, internals, and roadmap
-- The docs hub starts at `docs/index.md`
+## Repository Structure
 
-## Current status
+```text
+packages/
+	askr/
+	askr-ui/
+	askr-themes/
+	askr-lucide/
+	askr-cli/
 
-- askr package has been moved under packages/askr
-- askr-ui has been imported under packages/askr-ui
-- askr-themes has been imported under packages/askr-themes
-- icons-lucide has been imported under packages/icons-lucide
-- askr-cli is the only planned CLI package
-- docs are centralized at the root and organized as one cohesive platform
+docs/
+scripts/
+.github/
+```
+
+## Prerequisites
+
+- Node.js 20+
+- npm 10+
+
+## Setup
+
+```bash
+npm install
+```
+
+## Common Commands
+
+Run from the repository root.
+
+```bash
+npm run verify:monorepo   # validate workspace/package invariants
+npm run lint              # root + workspace lint
+npm run build             # build all workspaces
+npm test                  # run all workspace tests
+npm run fmt               # format root + workspaces
+```
+
+Run a command in a single workspace:
+
+```bash
+npm run --workspace @askrjs/askr build
+npm run --workspace @askrjs/askr-ui test
+```
+
+## Documentation
+
+Platform docs are centralized under `docs/`.
+
+- Start here: `docs/index.md`
+- Platform overview: `docs/README.md`
+
+## Contributing
+
+- Contributor guide: `CONTRIBUTING.md`
+- Agent-specific workflow and guardrails: `AGENTS.md`
+
+## CI Gate
+
+Pull requests are expected to pass:
+
+1. `npm run verify:monorepo`
+2. `npm run lint`
+3. `npm run build`
+4. `npm test`

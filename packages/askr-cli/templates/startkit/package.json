@@ -16,7 +16,7 @@
     "@askrjs/askr": ">=0.0.28 <1.0.0",
     "@askrjs/askr-ui": "^1.0.0",
     "@askrjs/askr-themes": "^0.1.0",
-    "@askrjs/icons-lucide": "^0.0.1"
+    "@askrjs/askr-lucide": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^25.0.9",

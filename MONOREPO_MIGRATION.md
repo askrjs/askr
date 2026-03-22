@@ -7,7 +7,7 @@ This repository now contains the initial monorepo directory skeleton:
 - `packages/askr`
 - `packages/askr-ui`
 - `packages/askr-themes`
-- `packages/icons-lucide`
+- `packages/askr-lucide`
 - `packages/askr-cli`
 
 Current implementation progress:
@@ -15,7 +15,7 @@ Current implementation progress:
 - `askr` has been moved to `packages/askr`
 - `askr-ui` has been imported to `packages/askr-ui`
 - `askr-themes` has been imported to `packages/askr-themes`
-- `icons-lucide` has been imported to `packages/icons-lucide`
+- `askr-lucide` has been imported to `packages/askr-lucide`
 - `askr-cli` package has been initialized under `packages/askr-cli`
 - scaffolding templates have been copied into `packages/askr-cli/templates`
 - askr-cli command entrypoints are implemented in `packages/askr-cli/src/bin/*.js`
@@ -27,7 +27,7 @@ Current implementation progress:
 1. Move the current `askr` codebase into `packages/askr` with history preserved. (done)
 2. Move the current `askr-ui` codebase into `packages/askr-ui` with history preserved. (done)
 3. Move the current `askr-themes` codebase into `packages/askr-themes` with history preserved. (done)
-4. Import `icons-lucide` into `packages/icons-lucide`. (done)
+4. Import `askr-lucide` into `packages/askr-lucide`. (done)
 5. After each move, run package-local build and test before continuing.
 6. Consolidate package docs into root `docs/` and organize them by user journey and topic instead of package boundaries.
 

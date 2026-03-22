@@ -3,7 +3,7 @@ import { Link } from '@askrjs/askr/router';
 import { Button } from '@askrjs/askr-ui/button';
 import { Field, FieldLabel } from '@askrjs/askr-ui/field';
 import { Input } from '@askrjs/askr-ui/input';
-import { LockKeyhole, Mail } from '@askrjs/icons-lucide';
+import { LockKeyhole, Mail } from '@askrjs/askr-lucide';
 import { signIn } from '../lib/mock-data';
 import { showToast } from '../toast';
 

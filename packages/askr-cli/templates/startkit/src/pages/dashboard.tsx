@@ -1,7 +1,7 @@
 import { state } from '@askrjs/askr';
 import { resource } from '@askrjs/askr/resources';
 import { Button } from '@askrjs/askr-ui/button';
-import { BarChart3, CircleDollarSign, Clock3, Users } from '@askrjs/icons-lucide';
+import { BarChart3, CircleDollarSign, Clock3, Users } from '@askrjs/askr-lucide';
 import DataTable, { type DataTableColumn } from '../components/data-table';
 import EmptyState from '../components/empty-state';
 import PageHeader from '../components/page-header';

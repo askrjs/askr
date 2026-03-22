@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@askrjs/askr-ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@askrjs/askr-ui/avatar';
-import { Search } from '@askrjs/icons-lucide';
+import { Search } from '@askrjs/askr-lucide';
 import { showToast } from '../toast';
 import { signOut } from '../lib/mock-data';
 

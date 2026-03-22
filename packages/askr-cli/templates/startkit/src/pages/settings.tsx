@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@askrjs/askr-ui/select';
 import { Switch } from '@askrjs/askr-ui/switch';
-import { Save } from '@askrjs/icons-lucide';
+import { Save } from '@askrjs/askr-lucide';
 import PageHeader from '../components/page-header';
 import { appearanceMode, setAppearance, type AppearanceMode } from '../lib/mock-data';
 import { showToast } from '../toast';

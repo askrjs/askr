@@ -1,5 +1,5 @@
 import { Input } from '@askrjs/askr-ui/input';
-import { Search } from '@askrjs/icons-lucide';
+import { Search } from '@askrjs/askr-lucide';
 import {
   Select,
   SelectContent,

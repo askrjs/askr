@@ -1,5 +1,5 @@
 import { Link, route } from '@askrjs/askr/router';
-import { LayoutDashboard, Users, Settings, Layers, ShieldCheck } from '@askrjs/icons-lucide';
+import { LayoutDashboard, Users, Settings, Layers, ShieldCheck } from '@askrjs/askr-lucide';
 import { joinClasses } from '../utils/join-classes';
 
 type NavItem = {

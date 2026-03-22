@@ -1,11 +1,11 @@
-# @askrjs/icons-lucide
+# @askrjs/askr-lucide
 
 Thin Askr wrappers for the [Lucide](https://lucide.dev) SVG icon set.
 
 ## Install
 
 ```bash
-npm install @askrjs/icons-lucide
+npm install @askrjs/askr-lucide
 ```
 
 Requires `@askrjs/askr` and `@askrjs/askr-ui` as peer dependencies.
@@ -13,7 +13,7 @@ Requires `@askrjs/askr` and `@askrjs/askr-ui` as peer dependencies.
 ## Usage
 
 ```tsx
-import { Search, X, Menu } from '@askrjs/icons-lucide';
+import { Search, X, Menu } from '@askrjs/askr-lucide';
 
 function App() {
   return (
@@ -73,10 +73,10 @@ Each icon is a named export. Import only what you use:
 
 ```tsx
 // Only Search is included in your bundle
-import { Search } from '@askrjs/icons-lucide';
+import { Search } from '@askrjs/askr-lucide';
 
 // Deep import, same effect, explicit path
-import { Search } from '@askrjs/icons-lucide/icons/search';
+import { Search } from '@askrjs/askr-lucide/icons/search';
 ```
 
 The package is marked `"sideEffects": false` and built with `preserveModules`, so bundlers can eliminate unused icons completely.
