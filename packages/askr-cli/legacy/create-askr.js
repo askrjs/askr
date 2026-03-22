@@ -6,12 +6,15 @@ import { spawnSync } from 'child_process';
 import readline from 'readline';
 
 async function prompt(question) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
   return new Promise((res) =>
     rl.question(question, (ans) => {
       rl.close();
       res(ans);
-    }),
+    })
   );
 }
 
@@ -39,7 +42,7 @@ async function copyDir(src, dest, replacements) {
     const srcPath = path.join(src, e.name);
     const destPath = path.join(
       dest,
-      e.name.replace(/\{\{\s*appName\s*\}\}/g, replacements['{{appName}}']),
+      e.name.replace(/\{\{\s*appName\s*\}\}/g, replacements['{{appName}}'])
     );
     if (e.isDirectory()) {
       await copyDir(srcPath, destPath, replacements);
@@ -72,7 +75,12 @@ async function main() {
   let templateType = 'spa'; // default
   let name = '';
 
-  if (arg1 === 'spa' || arg1 === 'ssr' || arg1 === 'ssg' || arg1 === 'startkit') {
+  if (
+    arg1 === 'spa' ||
+    arg1 === 'ssr' ||
+    arg1 === 'ssg' ||
+    arg1 === 'startkit'
+  ) {
     templateType = arg1;
     name = arg2;
   } else {
@@ -81,8 +89,15 @@ async function main() {
 
   if (!name) {
     console.log('Available templates: spa, ssr, ssg, startkit\n');
-    const type = (await prompt('Template type (spa/ssr/ssg/startkit) [spa]: ')).trim() || 'spa';
-    if (type !== 'spa' && type !== 'ssr' && type !== 'ssg' && type !== 'startkit') {
+    const type =
+      (await prompt('Template type (spa/ssr/ssg/startkit) [spa]: ')).trim() ||
+      'spa';
+    if (
+      type !== 'spa' &&
+      type !== 'ssr' &&
+      type !== 'ssg' &&
+      type !== 'startkit'
+    ) {
       console.error('Invalid template type');
       process.exit(1);
     }
@@ -121,7 +136,12 @@ async function main() {
     process.exit(1);
   }
 
-  const typeLabels = { spa: 'SPA', ssr: 'SSR', ssg: 'SSG', startkit: 'StartKit' };
+  const typeLabels = {
+    spa: 'SPA',
+    ssr: 'SSR',
+    ssg: 'SSG',
+    startkit: 'StartKit',
+  };
   console.log(`Creating ${typeLabels[templateType]} project: ${name}...\n`);
 
   try {
@@ -151,7 +171,8 @@ async function main() {
       spa: 'Client-side SPA',
       ssr: 'Server-side SSR',
       ssg: 'Static Site (SSG)',
-      startkit: 'Production SaaS starter (landing + login + dashboard + accounts + settings)',
+      startkit:
+        'Production SaaS starter (landing + login + dashboard + accounts + settings)',
     };
     console.log(`Documentation: ${typeDescs[templateType]} with Askr`);
     console.log('Happy coding.\n');

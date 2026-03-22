@@ -4,7 +4,9 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export function toKebab(name) {
-  return name.replace(/([A-Z])/g, (_, c, i) => (i > 0 ? `-${c}` : c)).toLowerCase();
+  return name
+    .replace(/([A-Z])/g, (_, c, i) => (i > 0 ? `-${c}` : c))
+    .toLowerCase();
 }
 
 export function iconFileContent(name, iconNode) {
@@ -48,7 +50,11 @@ export function generate() {
   const indexLines = [indexPreamble()];
 
   for (const { name, kebab, iconNode } of icons) {
-    writeFileSync(join(iconsDir, `${kebab}.ts`), iconFileContent(name, iconNode), 'utf8');
+    writeFileSync(
+      join(iconsDir, `${kebab}.ts`),
+      iconFileContent(name, iconNode),
+      'utf8'
+    );
     indexLines.push(indexEntry(name, kebab));
   }
 
@@ -62,7 +68,11 @@ export function generate() {
     rmSync(legacyGeneratedIndex, { force: true });
   }
 
-  writeFileSync(join(__dirname, '../src/index.ts'), indexLines.join('\n') + '\n', 'utf8');
+  writeFileSync(
+    join(__dirname, '../src/index.ts'),
+    indexLines.join('\n') + '\n',
+    'utf8'
+  );
   return icons.length;
 }
 

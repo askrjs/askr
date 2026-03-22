@@ -60,7 +60,8 @@ export default function AppHeader() {
                   onSelect={() =>
                     showToast({
                       title: 'Notifications enabled',
-                      description: 'Connect this action to your notification center.',
+                      description:
+                        'Connect this action to your notification center.',
                     })
                   }
                 >
@@ -73,7 +74,8 @@ export default function AppHeader() {
                   signOut();
                   showToast({
                     title: 'Signed out',
-                    description: 'Session state is now cleared from local storage.',
+                    description:
+                      'Session state is now cleared from local storage.',
                   });
                   window.location.assign('/login');
                 }}

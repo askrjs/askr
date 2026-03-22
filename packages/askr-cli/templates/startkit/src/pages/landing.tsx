@@ -1,6 +1,11 @@
 import { Link } from '@askrjs/askr/router';
 import { Button } from '@askrjs/askr-ui/button';
-import { ShieldCheck, Workflow, LayoutPanelTop, Sparkles } from '@askrjs/askr-lucide';
+import {
+  ShieldCheck,
+  Workflow,
+  LayoutPanelTop,
+  Sparkles,
+} from '@askrjs/askr-lucide';
 
 export default function LandingPage() {
   return (
@@ -23,8 +28,9 @@ export default function LandingPage() {
         <p class="eyebrow">Production-ready starter</p>
         <h1>Build your Askr app like a real product from day one.</h1>
         <p>
-          This starter combines Askr, askr-ui, askr-themes, and lucide icons in a practical SaaS
-          baseline with clear route boundaries, shared layouts, and reusable app components.
+          This starter combines Askr, askr-ui, askr-themes, and lucide icons in
+          a practical SaaS baseline with clear route boundaries, shared layouts,
+          and reusable app components.
         </p>
         <div class="hero-cta">
           <Button asChild>
@@ -40,22 +46,34 @@ export default function LandingPage() {
         <article class="panel feature-card">
           <Workflow size={18} aria-hidden="true" />
           <h2>Routing and layout boundaries</h2>
-          <p>Public, auth, protected, and 404 routes with separate app and auth shells.</p>
+          <p>
+            Public, auth, protected, and 404 routes with separate app and auth
+            shells.
+          </p>
         </article>
         <article class="panel feature-card">
           <LayoutPanelTop size={18} aria-hidden="true" />
           <h2>Composed UI patterns</h2>
-          <p>Reusable table, headers, empty states, stat cards, sidebar, and top app header.</p>
+          <p>
+            Reusable table, headers, empty states, stat cards, sidebar, and top
+            app header.
+          </p>
         </article>
         <article class="panel feature-card">
           <ShieldCheck size={18} aria-hidden="true" />
           <h2>State and data flow</h2>
-          <p>Deterministic mock data with loading, empty, error, and mutation states.</p>
+          <p>
+            Deterministic mock data with loading, empty, error, and mutation
+            states.
+          </p>
         </article>
         <article class="panel feature-card">
           <Sparkles size={18} aria-hidden="true" />
           <h2>Calm visual baseline</h2>
-          <p>CSS token system, neutral palette, one accent color, and restrained depth.</p>
+          <p>
+            CSS token system, neutral palette, one accent color, and restrained
+            depth.
+          </p>
         </article>
       </section>
     </section>

@@ -110,7 +110,11 @@ function printSummary(io, outputDir, durationSeconds, result) {
   io.log('');
 }
 
-export async function runSsgCli(args = process.argv.slice(2), deps = {}, io = console) {
+export async function runSsgCli(
+  args = process.argv.slice(2),
+  deps = {},
+  io = console
+) {
   const parsed = parseCliArgs(args);
   if (parsed.help) {
     io.log(helpText);

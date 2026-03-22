@@ -24,7 +24,11 @@ import {
 import { Switch } from '@askrjs/askr-ui/switch';
 import { Save } from '@askrjs/askr-lucide';
 import PageHeader from '../components/page-header';
-import { appearanceMode, setAppearance, type AppearanceMode } from '../lib/mock-data';
+import {
+  appearanceMode,
+  setAppearance,
+  type AppearanceMode,
+} from '../lib/mock-data';
 import { showToast } from '../toast';
 
 export default function SettingsPage() {
@@ -55,7 +59,8 @@ export default function SettingsPage() {
     setSaving(false);
     showToast({
       title: 'Settings saved',
-      description: 'Profile and preference values were persisted in mock state.',
+      description:
+        'Profile and preference values were persisted in mock state.',
     });
   };
 
@@ -66,7 +71,8 @@ export default function SettingsPage() {
         description="Profile settings, workspace preferences, and production form patterns."
         actions={
           <Button onPress={() => void save()} disabled={saving()}>
-            <Save size={14} aria-hidden="true" /> {saving() ? 'Saving...' : 'Save changes'}
+            <Save size={14} aria-hidden="true" />{' '}
+            {saving() ? 'Saving...' : 'Save changes'}
           </Button>
         }
       />
@@ -79,7 +85,9 @@ export default function SettingsPage() {
             <FieldLabel fieldId="profile-name">Full name</FieldLabel>
             <Input
               value={fullName()}
-              onInput={(event: Event) => setFullName((event.target as HTMLInputElement).value)}
+              onInput={(event: Event) =>
+                setFullName((event.target as HTMLInputElement).value)
+              }
             />
           </Field>
 
@@ -88,7 +96,9 @@ export default function SettingsPage() {
             <Input
               type="email"
               value={email()}
-              onInput={(event: Event) => setEmail((event.target as HTMLInputElement).value)}
+              onInput={(event: Event) =>
+                setEmail((event.target as HTMLInputElement).value)
+              }
             />
           </Field>
 
@@ -121,9 +131,14 @@ export default function SettingsPage() {
           <label class="switch-row">
             <div>
               <strong>Incident alerts</strong>
-              <p class="muted">Receive critical service incident notifications.</p>
+              <p class="muted">
+                Receive critical service incident notifications.
+              </p>
             </div>
-            <Switch checked={incidentAlerts()} onCheckedChange={setIncidentAlerts} />
+            <Switch
+              checked={incidentAlerts()}
+              onCheckedChange={setIncidentAlerts}
+            />
           </label>
 
           <label class="switch-row">
@@ -131,7 +146,10 @@ export default function SettingsPage() {
               <strong>Marketing emails</strong>
               <p class="muted">Product updates and launch notes.</p>
             </div>
-            <Switch checked={marketingEmails()} onCheckedChange={setMarketingEmails} />
+            <Switch
+              checked={marketingEmails()}
+              onCheckedChange={setMarketingEmails}
+            />
           </label>
 
           <Field id="appearance-mode">
@@ -167,7 +185,8 @@ export default function SettingsPage() {
                 <DialogContent class="panel stack-md">
                   <DialogTitle>Reset workspace preferences?</DialogTitle>
                   <DialogDescription>
-                    This is a modal wiring example. Connect this to real persistence logic.
+                    This is a modal wiring example. Connect this to real
+                    persistence logic.
                   </DialogDescription>
                   <div class="inline-end">
                     <DialogClose asChild>
@@ -178,7 +197,8 @@ export default function SettingsPage() {
                         onPress={() =>
                           showToast({
                             title: 'Preferences reset',
-                            description: 'Demonstration modal action completed.',
+                            description:
+                              'Demonstration modal action completed.',
                           })
                         }
                       >

@@ -49,7 +49,9 @@ export default function AccountTable(props: {
     {
       key: 'status',
       header: 'Status',
-      render: (row) => <span class={`status-pill status-${row.status}`}>{row.status}</span>,
+      render: (row) => (
+        <span class={`status-pill status-${row.status}`}>{row.status}</span>
+      ),
     },
     {
       key: 'actions',

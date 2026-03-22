@@ -5,7 +5,10 @@
 
   .marketing-page,
   .not-found-page {
-    inline-size: min(var(--ak-layout-content-max-width), calc(100% - 2 * var(--ak-space-xl)));
+    inline-size: min(
+      var(--ak-layout-content-max-width),
+      calc(100% - 2 * var(--ak-space-xl))
+    );
     margin-inline: auto;
     padding-block: var(--ak-space-xl) var(--ak-space-2xl);
     display: grid;
@@ -66,7 +69,10 @@
   }
 
   .app-main {
-    inline-size: min(var(--ak-layout-content-max-width), calc(100% - 2 * var(--ak-space-xl)));
+    inline-size: min(
+      var(--ak-layout-content-max-width),
+      calc(100% - 2 * var(--ak-space-xl))
+    );
     margin-inline: auto;
     padding-block: var(--ak-space-xl) var(--ak-space-2xl);
     display: grid;
@@ -129,4 +135,3 @@
     }
   }
 }
-

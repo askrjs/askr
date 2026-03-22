@@ -26,7 +26,10 @@ function helpText() {
 }
 
 async function prompt(question) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
   return new Promise((resolveAnswer) => {
     rl.question(question, (answer) => {
       rl.close();
@@ -43,7 +46,10 @@ function detectPm() {
 
   const candidates = ['pnpm', 'yarn'];
   for (const candidate of candidates) {
-    const check = spawnSync(candidate, ['--version'], { stdio: 'ignore', shell: process.platform === 'win32' });
+    const check = spawnSync(candidate, ['--version'], {
+      stdio: 'ignore',
+      shell: process.platform === 'win32',
+    });
     if (!check.error && check.status === 0) {
       return candidate;
     }
@@ -58,7 +64,10 @@ async function copyDir(src, dest, replacements) {
 
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
-    const outputName = entry.name.replace(/\{\{\s*appName\s*\}\}/g, replacements.appName);
+    const outputName = entry.name.replace(
+      /\{\{\s*appName\s*\}\}/g,
+      replacements.appName
+    );
     const destPath = path.join(dest, outputName);
 
     if (entry.isDirectory()) {
@@ -119,7 +128,9 @@ export async function runCreateCli(args = process.argv.slice(2), io = console) {
     io.log('Available templates: spa, ssr, ssg, startkit');
     io.log('');
 
-    const selectedTemplate = (await prompt('Template type (spa/ssr/ssg/startkit) [spa]: ')).trim() || 'spa';
+    const selectedTemplate =
+      (await prompt('Template type (spa/ssr/ssg/startkit) [spa]: ')).trim() ||
+      'spa';
     if (!TEMPLATE_TYPES.has(selectedTemplate)) {
       io.error('Invalid template type');
       return 1;
@@ -136,7 +147,13 @@ export async function runCreateCli(args = process.argv.slice(2), io = console) {
 
   const target = path.resolve(process.cwd(), name);
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const templateDir = path.resolve(__dirname, '..', '..', 'templates', templateType);
+  const templateDir = path.resolve(
+    __dirname,
+    '..',
+    '..',
+    'templates',
+    templateType
+  );
 
   try {
     await fs.access(templateDir);

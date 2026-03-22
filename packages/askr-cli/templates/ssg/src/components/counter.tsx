@@ -17,7 +17,9 @@ export default function Counter() {
         <Badge>{parity()}</Badge>
       </div>
       <div class="counter-controls">
-        <Button onPress={() => count.set((c) => Math.max(0, c - 1))}>- Decrement</Button>
+        <Button onPress={() => count.set((c) => Math.max(0, c - 1))}>
+          - Decrement
+        </Button>
         <Button onPress={() => count.set((c) => c + 1)}>+ Increment</Button>
       </div>
     </div>

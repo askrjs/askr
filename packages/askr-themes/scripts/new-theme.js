@@ -18,7 +18,11 @@ async function pathExists(targetPath) {
 }
 
 async function replacePlaceholdersInCssFiles(dirPath, themeName) {
-  const files = ['tokens.css', path.join('components', 'button.css'), 'index.css'];
+  const files = [
+    'tokens.css',
+    path.join('components', 'button.css'),
+    'index.css',
+  ];
 
   for (const file of files) {
     const filePath = path.join(dirPath, file);
@@ -60,7 +64,9 @@ async function main() {
   await replacePlaceholdersInCssFiles(outputDir, themeName);
 
   console.log(`Created theme at src/themes/${themeName}`);
-  console.log('Next step: add exports in package.json for your new theme entrypoints.');
+  console.log(
+    'Next step: add exports in package.json for your new theme entrypoints.'
+  );
 }
 
 main().catch((error) => {

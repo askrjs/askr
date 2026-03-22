@@ -62,7 +62,9 @@ describe('createIcon — rendered output', () => {
     container = mount(<TestIcon size="sm" />);
     const svg = container.querySelector('svg')!;
     expect(svg.getAttribute('data-size')).toBe('sm');
-    expect(svg.getAttribute('style')).toContain('--ak-icon-size:var(--ak-icon-size-sm');
+    expect(svg.getAttribute('style')).toContain(
+      '--ak-icon-size:var(--ak-icon-size-sm'
+    );
   });
 
   it('does not emit semantic size hooks for raw CSS sizes', () => {
@@ -89,8 +91,12 @@ describe('createIcon — rendered output', () => {
   it('routes stroke width through the theme contract variable', () => {
     container = mount(<TestIcon />);
     const svg = container.querySelector('svg')!;
-    expect(svg.getAttribute('stroke-width')).toBe('var(--ak-icon-stroke-width)');
-    expect(svg.getAttribute('style')).toContain('--ak-icon-stroke-width:var(--ak-icon-stroke-width-md, 2)');
+    expect(svg.getAttribute('stroke-width')).toBe(
+      'var(--ak-icon-stroke-width)'
+    );
+    expect(svg.getAttribute('style')).toContain(
+      '--ak-icon-stroke-width:var(--ak-icon-stroke-width-md, 2)'
+    );
   });
 
   it('preserves explicit stroke width overrides', () => {
@@ -134,7 +140,9 @@ describe('createIcon — rendered output', () => {
 
   it('applies class prop', () => {
     container = mount(<TestIcon class="icon-sm" />);
-    expect(container.querySelector('svg')!.getAttribute('class')).toBe('icon-sm');
+    expect(container.querySelector('svg')!.getAttribute('class')).toBe(
+      'icon-sm'
+    );
   });
 
   it('merges user style with icon contract variables', () => {
@@ -146,6 +154,8 @@ describe('createIcon — rendered output', () => {
 
   it('passes arbitrary props through to the svg element', () => {
     container = mount(<TestIcon data-testid="my-icon" />);
-    expect(container.querySelector('svg')!.getAttribute('data-testid')).toBe('my-icon');
+    expect(container.querySelector('svg')!.getAttribute('data-testid')).toBe(
+      'my-icon'
+    );
   });
 });

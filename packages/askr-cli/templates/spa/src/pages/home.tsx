@@ -8,8 +8,8 @@ export default function Home() {
       <section class="text-center section">
         <h1>Welcome to Askr</h1>
         <p class="text-muted">
-          A minimalist reactive framework for modern web applications. Fine-grained reactivity, zero
-          runtime dependencies, TypeScript-first.
+          A minimalist reactive framework for modern web applications.
+          Fine-grained reactivity, zero runtime dependencies, TypeScript-first.
         </p>
         <div class="hero-actions">
           <Button asChild>
@@ -27,8 +27,9 @@ export default function Home() {
             <Badge>Reactive</Badge>
           </h3>
           <p>
-            <code>state()</code> and <code>derive()</code> give you fine-grained reactivity. Only
-            the DOM nodes that depend on changed values update — nothing more.
+            <code>state()</code> and <code>derive()</code> give you fine-grained
+            reactivity. Only the DOM nodes that depend on changed values update
+            — nothing more.
           </p>
         </div>
         <div class="feature-card">
@@ -36,8 +37,9 @@ export default function Home() {
             <Badge>Async</Badge>
           </h3>
           <p>
-            <code>resource()</code> handles data fetching with built-in loading states, error
-            handling, and automatic refetching when dependencies change.
+            <code>resource()</code> handles data fetching with built-in loading
+            states, error handling, and automatic refetching when dependencies
+            change.
           </p>
         </div>
         <div class="feature-card">
@@ -45,8 +47,8 @@ export default function Home() {
             <Badge>Composable</Badge>
           </h3>
           <p>
-            askr-ui provides headless components. askr-themes provides CSS themes. Mix and match —
-            or build your own.
+            askr-ui provides headless components. askr-themes provides CSS
+            themes. Mix and match — or build your own.
           </p>
         </div>
       </div>

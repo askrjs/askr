@@ -82,7 +82,7 @@ app.get('*', async (req, res) => {
         <script type="module" src="/main.tsx"></script>
       </body>
     </html>,
-    { routes: getRoutes() },
+    { routes: getRoutes() }
   );
 
   res.send('<!DOCTYPE html>' + html);
@@ -167,7 +167,7 @@ app.get('*', async (req, res) => {
   const user = await fetch('/api/user').then((r) => r.json());
 
   const html = await renderToString(
-    <App user={user} />, // Pass pre-fetched data
+    <App user={user} /> // Pass pre-fetched data
   );
 
   res.send('<!DOCTYPE html>' + html);
@@ -220,7 +220,9 @@ NODE_ENV=production npm run preview
 app.get('*', async (req, res) => {
   const data = await fetch('/api/initial-data').then((r) => r.json());
 
-  const html = await renderToString(<App initialData={data} />, { routes: getRoutes() });
+  const html = await renderToString(<App initialData={data} />, {
+    routes: getRoutes(),
+  });
 
   res.send('<!DOCTYPE html>' + html);
 });

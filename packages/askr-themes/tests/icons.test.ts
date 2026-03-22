@@ -20,7 +20,14 @@ const TEMPLATE_ICON_CSS = join(
   'icon.css'
 );
 const THEMING_FILE = join(__dirname, '..', 'THEMING.md');
-const TOKENS_FILE = join(__dirname, '..', 'src', 'themes', 'default', 'tokens.css');
+const TOKENS_FILE = join(
+  __dirname,
+  '..',
+  'src',
+  'themes',
+  'default',
+  'tokens.css'
+);
 
 describe('icon theme contract', () => {
   it('ships the same icon baseline in default and template themes', () => {

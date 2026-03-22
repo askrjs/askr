@@ -3,6 +3,7 @@
 A production-ready Askr starter focused on practical app architecture, not toy demo code.
 
 Stack:
+
 - askr
 - askr-ui
 - askr-themes (default)
@@ -19,10 +20,11 @@ npm run dev
 ## Routes and layout model
 
 Routes are registered in src/router.tsx and split into explicit groups:
+
 - Public routes: / (landing)
 - Auth routes: /login (centered auth layout)
 - Protected routes: /dashboard, /accounts, /settings (app shell layout)
-- Fallback route: /* (not found)
+- Fallback route: /\* (not found)
 
 The root app wrapper in src/app.tsx hosts cross-cutting providers such as toast.
 
@@ -73,6 +75,7 @@ src/
 ## How routing works
 
 src/router.tsx uses layout() + route() to compose route groups:
+
 - A shared root wrapper for providers
 - Auth layout only for /login
 - App layout only for protected routes
@@ -104,6 +107,7 @@ Use app layout for authenticated product surfaces and auth layout for onboarding
 ## Styling organization
 
 The CSS architecture is intentionally layered:
+
 - reset.css: baseline resets
 - tokens.css: design tokens (colors, spacing, type scale, radius)
 - theme.css: global typography and high-level theme values
@@ -111,6 +115,7 @@ The CSS architecture is intentionally layered:
 - components.css: component and slot-level styling
 
 Guidelines:
+
 - Use token variables for spacing and colors.
 - Keep a calm neutral palette and one accent color.
 - Prefer subtle borders over heavy shadows.

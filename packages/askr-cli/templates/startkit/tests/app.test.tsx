@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 
 describe('App Component', () => {
   it('exposes the current starter route set', () => {
-    const routes = ['/', '/login', '/dashboard', '/accounts', '/settings', '/*'];
+    const routes = [
+      '/',
+      '/login',
+      '/dashboard',
+      '/accounts',
+      '/settings',
+      '/*',
+    ];
 
     expect(routes).toContain('/settings');
     expect(routes).toContain('/accounts');

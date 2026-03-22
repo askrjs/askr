@@ -91,7 +91,7 @@ function UserDetail({ userId }) {
       const res = await fetch(`/api/users/${userId}`, { signal });
       return res.json();
     },
-    [userId],
+    [userId]
   ); // Re-run when userId changes
 
   if (user.pending) return <div>Loading...</div>;
@@ -145,7 +145,13 @@ Deploy the `dist/` folder to any static host:
 function Form() {
   const email = state('');
 
-  return <input value={email()} onInput={(e) => email.set(e.target.value)} type="email" />;
+  return (
+    <input
+      value={email()}
+      onInput={(e) => email.set(e.target.value)}
+      type="email"
+    />
+  );
 }
 ```
 

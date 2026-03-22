@@ -178,7 +178,9 @@ export function initializeAppSession() {
     return;
   }
 
-  const storedAppearance = normalizeAppearance(window.localStorage.getItem(appearanceStorageKey));
+  const storedAppearance = normalizeAppearance(
+    window.localStorage.getItem(appearanceStorageKey)
+  );
   setAppearance(storedAppearance);
 
   const email = window.localStorage.getItem(sessionStorageKey);
@@ -264,8 +266,12 @@ export async function getDashboardData(input: {
 }): Promise<{ stats: DashboardStat[]; activities: ActivityEntry[] }> {
   await wait(input.signal, 240);
 
-  const activeAccounts = accountsDb.filter((item) => item.status === 'active').length;
-  const pendingAccounts = accountsDb.filter((item) => item.status === 'pending').length;
+  const activeAccounts = accountsDb.filter(
+    (item) => item.status === 'active'
+  ).length;
+  const pendingAccounts = accountsDb.filter(
+    (item) => item.status === 'pending'
+  ).length;
   const mrr = accountsDb.reduce((sum, item) => sum + item.mrr, 0);
   const seats = accountsDb.reduce((sum, item) => sum + item.seats, 0);
 
@@ -315,7 +321,8 @@ export async function listAccounts(input: {
 
   const normalizedQuery = input.query.trim().toLowerCase();
   const filtered = accountsDb.filter((item) => {
-    const statusMatch = input.status === 'all' ? true : item.status === input.status;
+    const statusMatch =
+      input.status === 'all' ? true : item.status === input.status;
     if (!statusMatch) {
       return false;
     }

@@ -19,6 +19,7 @@ export default defineConfig({
   },
   oxc: {
     jsx: { runtime: 'automatic', importSource: '@askrjs/askr' },
-    jsxInject: "import { jsx, jsxs, Fragment } from '@askrjs/askr/jsx-runtime';",
+    jsxInject:
+      "import { jsx, jsxs, Fragment } from '@askrjs/askr/jsx-runtime';",
   },
 });

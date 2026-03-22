@@ -7,7 +7,13 @@ import {
   ToastTitle,
   ToastViewport,
 } from '@askrjs/askr-ui/toast';
-import { clearToast, setToastOpen, showToast, toastMessage, toastOpen } from './toast';
+import {
+  clearToast,
+  setToastOpen,
+  showToast,
+  toastMessage,
+  toastOpen,
+} from './toast';
 
 export default function App({ children }: { children?: unknown }) {
   const message = toastMessage();
@@ -29,7 +35,9 @@ export default function App({ children }: { children?: unknown }) {
           class="app-toast"
         >
           <ToastTitle>{message.title}</ToastTitle>
-          {message.description && <ToastDescription>{message.description}</ToastDescription>}
+          {message.description && (
+            <ToastDescription>{message.description}</ToastDescription>
+          )}
           <ToastClose aria-label="Dismiss notification">Dismiss</ToastClose>
         </Toast>
       )}
