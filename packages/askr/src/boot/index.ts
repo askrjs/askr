@@ -31,13 +31,6 @@ interface ElementWithCleanup extends Element {
   [CLEANUP_SYMBOL]?: () => void;
 }
 
-export interface AppConfig {
-  root: Element | string;
-  component: ComponentFunction;
-  // Opt-in: surface cleanup errors during teardown for this app instance
-  cleanupStrict?: boolean;
-}
-
 function attachCleanupForRoot(
   rootElement: Element,
   instance: ComponentInstance
@@ -729,12 +722,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     cleanupStrict: config.cleanupStrict,
   });
   await registerHydratedNavigation(rootElement, path);
-}
-
-export async function hydrate(_config: AppConfig): Promise<void> {
-  throw new Error(
-    'The legacy `hydrate` API is removed. Use `hydrateSPA({ root, routes })` for SSR hydration with an explicit route table.'
-  );
 }
 
 /**
