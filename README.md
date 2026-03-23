@@ -19,7 +19,7 @@ This monorepo contains the official platform packages, docs, and release automat
 
 ```text
 packages/
-	askr/
+	askr-core/
 	askr-ui/
 	askr-themes/
 	askr-lucide/

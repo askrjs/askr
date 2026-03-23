@@ -6,7 +6,7 @@ The Askr platform lives in a single monorepo at `askrjs/askr`.
 
 ```
 packages/
-  askr/             — core runtime
+  askr-core/        — core runtime
   askr-ui/          — headless UI primitives
   askr-themes/      — optional styling layer
   askr-lucide/      — Lucide icon wrappers
