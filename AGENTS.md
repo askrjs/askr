@@ -12,7 +12,7 @@ Applies to the repository root and all workspace packages.
 
 ```text
 packages/
-  askr/
+  askr-core/
   askr-ui/
   askr-themes/
   askr-lucide/

@@ -21,6 +21,6 @@
     "test": "node --test ./tests/*.test.js"
   },
   "dependencies": {
-    "@askrjs/askr": "file:../askr"
+    "@askrjs/askr": "file:../askr-core"
   }
 }
