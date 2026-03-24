@@ -1,4 +1,4 @@
-import type { Ref } from '@askrjs/askr/foundations';
+import type { Ref } from '../utilities/compose-ref';
 
 export type IconSizeToken = 'sm' | 'md' | 'lg' | 'xl';
 

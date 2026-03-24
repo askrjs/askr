@@ -20,10 +20,14 @@ Official packages in the Askr platform, their responsibilities, and their bounda
 - SSR output: `renderToString()` and URL-based helpers
 - SSG output: `createStaticGen()`
 - Event delegation
+- Foundation primitives via `@askrjs/askr/foundations`:
+  - interactions (`pressable`, `hoverable`, `focusable`, `rovingFocus`, `dismissable`)
+  - structures (`Slot`, `Presence`, `DefaultPortal`, `createCollection`, `createLayer`, `layout`)
+  - utilities (`composeHandlers`, `mergeProps`, `composeRefs`, `formatId`, ARIA helpers)
+  - controllable state helpers
 
 ### Does not include
 
-- UI components or interaction primitives
 - Visual styling or tokens
 - Project generators or CLI tools
 
@@ -37,6 +41,7 @@ import { createSPA } from '@askrjs/askr/boot';
 import { layout, registerRoute } from '@askrjs/askr/router';
 import { resource, on } from '@askrjs/askr/resources';
 import { debounce } from '@askrjs/askr/fx';
+import { Slot, DefaultPortal, pressable } from '@askrjs/askr/foundations';
 import { renderToString } from '@askrjs/askr/ssr';
 import { createStaticGen } from '@askrjs/askr/ssg';
 ```

@@ -36,7 +36,6 @@
   },
   "devDependencies": {
     "@askrjs/askr": "file:../askr-core",
-    "@askrjs/askr-ui": "file:../askr-ui",
     "jsdom": "^29.0.0",
     "lucide": "latest",
     "typescript": "^5.9.0",

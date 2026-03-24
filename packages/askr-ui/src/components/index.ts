@@ -43,5 +43,4 @@ export * from './center';
 export * from './spacer';
 export * from './sidebar-layout';
 export * from './topbar-layout';
-export * from './icon';
 export * from './data-table';

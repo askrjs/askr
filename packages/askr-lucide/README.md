@@ -8,7 +8,7 @@ Thin Askr wrappers for the [Lucide](https://lucide.dev) SVG icon set.
 npm install @askrjs/askr-lucide
 ```
 
-Requires `@askrjs/askr` and `@askrjs/askr-ui` as peer dependencies.
+Requires `@askrjs/askr` as a peer dependency.
 
 ## Usage
 
@@ -53,7 +53,7 @@ Icons also resolve size and stroke width through CSS custom properties:
 - `--ak-icon-size`
 - `--ak-icon-stroke-width`
 
-The icon contract itself is owned by `@askrjs/askr-ui`. Official themes are expected to provide the semantic token layer behind those variables, for example `--ak-icon-size-sm` or `--ak-icon-stroke-width-md`.
+The icon contract itself is owned by `@askrjs/askr/foundations`. Official themes are expected to provide the semantic token layer behind those variables, for example `--ak-icon-size-sm` or `--ak-icon-stroke-width-md`.
 
 ## Accessibility
 
@@ -89,4 +89,4 @@ This package is a binding layer, not an icon framework. It does not:
 - ship a runtime icon registry
 - depend on Lucide at runtime
 
-`createIcon` is a thin adapter over `@askrjs/askr-ui`'s `IconBase`. It closes over static SVG node data and returns a plain Askr component function that implements the shared icon contract. Each icon is a direct named export, nothing more.
+`createIcon` is a thin adapter over `@askrjs/askr/foundations`' `IconBase`. It closes over static SVG node data and returns a plain Askr component function that implements the shared icon contract. Each icon is a direct named export, nothing more.

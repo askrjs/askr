@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { IconBase } from '../../../src/components/icon/icon';
+import { IconBase } from '@askrjs/askr/foundations';
 import { mount, unmount } from '../../test-utils';
 
 describe('IconBase', () => {

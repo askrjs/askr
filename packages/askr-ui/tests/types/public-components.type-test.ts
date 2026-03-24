@@ -127,7 +127,6 @@ import {
   Stack,
   Inline,
   Grid,
-  IconBase,
   Center,
   Spacer,
   SidebarLayout,
@@ -136,8 +135,6 @@ import {
   type StackProps,
   type InlineProps,
   type GridProps,
-  type IconProps,
-  type IconSizeToken,
   type CenterProps,
   type SpacerProps,
   type SidebarLayoutProps,
@@ -163,7 +160,6 @@ import { Container as ContainerSubpath } from '@askrjs/askr-ui/container';
 import { Stack as StackSubpath } from '@askrjs/askr-ui/stack';
 import { Inline as InlineSubpath } from '@askrjs/askr-ui/inline';
 import { Grid as GridSubpath } from '@askrjs/askr-ui/grid';
-import { IconBase as IconBaseSubpath } from '@askrjs/askr-ui/icon';
 import { Center as CenterSubpath } from '@askrjs/askr-ui/center';
 import { Spacer as SpacerSubpath } from '@askrjs/askr-ui/spacer';
 import { SidebarLayout as SidebarLayoutSubpath } from '@askrjs/askr-ui/sidebar-layout';
@@ -193,7 +189,6 @@ const containerFromSubpath: typeof Container = ContainerSubpath;
 const stackFromSubpath: typeof Stack = StackSubpath;
 const inlineFromSubpath: typeof Inline = InlineSubpath;
 const gridFromSubpath: typeof Grid = GridSubpath;
-const iconBaseFromSubpath: typeof IconBase = IconBaseSubpath;
 const centerFromSubpath: typeof Center = CenterSubpath;
 const spacerFromSubpath: typeof Spacer = SpacerSubpath;
 const sidebarLayoutFromSubpath: typeof SidebarLayout = SidebarLayoutSubpath;
@@ -203,8 +198,6 @@ const containerLayoutProps: ContainerProps = { maxWidth: '64rem' };
 const stackLayoutProps: StackProps = { gap: '1rem', align: 'center' };
 const inlineLayoutProps: InlineProps = { gap: '0.5rem', wrap: 'wrap' };
 const gridLayoutProps: GridProps = { columns: 3, gap: '1rem' };
-const iconProps: IconProps = { iconName: 'Search', size: 'sm', children: 'x' };
-const iconSizeToken: IconSizeToken = 'md';
 const centerLayoutProps: CenterProps = {
   axis: 'horizontal',
   minHeight: '100vh',
@@ -550,7 +543,6 @@ void [
   stackFromSubpath,
   inlineFromSubpath,
   gridFromSubpath,
-  iconBaseFromSubpath,
   centerFromSubpath,
   spacerFromSubpath,
   sidebarLayoutFromSubpath,
@@ -559,7 +551,6 @@ void [
   Stack,
   Inline,
   Grid,
-  IconBase,
   Center,
   Spacer,
   SidebarLayout,
@@ -568,8 +559,6 @@ void [
   stackLayoutProps,
   inlineLayoutProps,
   gridLayoutProps,
-  iconProps,
-  iconSizeToken,
   centerLayoutProps,
   spacerLayoutProps,
   sidebarLayoutLayoutProps,

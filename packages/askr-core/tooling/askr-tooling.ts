@@ -15,7 +15,6 @@ const packageSourceEntries = {
   '@askrjs/askr/router': 'src/router/index.ts',
   '@askrjs/askr/ssr': 'src/ssr/index.ts',
   '@askrjs/askr/ssg': 'src/ssg/index.ts',
-  '@askrjs/askr/vite': 'src/dev/vite-plugin-askr.ts',
   '@askrjs/askr': 'src/index.ts',
 } as const satisfies Record<string, string>;
 
@@ -32,7 +31,6 @@ const buildSourceEntries = {
   'jsx-runtime': 'src/jsx/jsx-runtime.ts',
   'jsx-dev-runtime': 'src/jsx/jsx-dev-runtime.ts',
   benchmark: 'src/bench/benchmark-entry.tsx',
-  'vite/index': 'src/dev/vite-plugin-askr.ts',
 } as const satisfies Record<string, string>;
 
 function escapeRegExp(value: string): string {

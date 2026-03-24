@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ConfigEnv, UserConfig, ConfigPluginContext } from 'vite';
-import { askrVitePlugin } from '../../src/dev/vite-plugin-askr';
+import { askrVitePlugin } from '@askrjs/askr-vite';
 
 describe('askrVitePlugin', () => {
   it('should configure oxc injection and include runtime in optimizeDeps', async () => {

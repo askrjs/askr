@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { askrVitePlugin } from '../../src/dev/vite-plugin-askr';
+import { askrVitePlugin } from '@askrjs/askr-vite';
 
 const sample = `
 export default function Hello() {

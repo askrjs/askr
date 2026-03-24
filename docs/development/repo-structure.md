@@ -28,6 +28,9 @@ application
   askr-ui, askr-themes, askr-lucide, askr-cli (as dev dep)
     ↑ depends on
   askr (peer)
+
+askr-ui and askr-lucide consume foundational primitives from:
+  @askrjs/askr/foundations
 ```
 
 All packages in `packages/` are npm workspaces. The root `package.json` manages them
