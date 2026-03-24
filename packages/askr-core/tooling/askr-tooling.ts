@@ -56,6 +56,8 @@ export const nodeBuiltins = Array.from(
 
 export function isBuildExternal(source: string): boolean {
   return (
+    source === '@askrjs/askr-vite' ||
+    source === 'vite' ||
     source === 'esbuild' ||
     source.startsWith('node:') ||
     bareNodeBuiltins.has(source)

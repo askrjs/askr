@@ -3,7 +3,7 @@ import type { ConfigEnv, UserConfig, ConfigPluginContext } from 'vite';
 import { askrVitePlugin } from '../../src/dev/vite-plugin-askr';
 
 describe('askrVitePlugin', () => {
-  it('should configure esbuild injection and include runtime in optimizeDeps', async () => {
+  it('should configure oxc injection and include runtime in optimizeDeps', async () => {
     const plugin = askrVitePlugin();
 
     let cfg: unknown;
@@ -30,9 +30,12 @@ describe('askrVitePlugin', () => {
 
     const userCfg = cfg as UserConfig;
 
-    const esbuild = userCfg?.esbuild as unknown as { jsxInject?: string };
-    expect(esbuild).toBeDefined();
-    expect(String(esbuild.jsxInject).includes('@askrjs/askr/jsx-runtime')).toBe(
+    // Plugin uses oxc (not esbuild) for JSX transforms
+    const oxc = (userCfg as Record<string, unknown>)?.oxc as
+      | { jsxInject?: string }
+      | undefined;
+    expect(oxc).toBeDefined();
+    expect(String(oxc?.jsxInject).includes('@askrjs/askr/jsx-runtime')).toBe(
       true
     );
 
@@ -41,6 +44,7 @@ describe('askrVitePlugin', () => {
 
     const includes = userCfg?.optimizeDeps?.include ?? [];
     expect(includes.includes('@askrjs/askr/jsx-runtime')).toBe(true);
+    expect(includes.includes('@askrjs/askr/router')).toBe(true);
   });
 
   it('should ignore unsupported ssrPrecompile flags instead of injecting fake helpers', async () => {

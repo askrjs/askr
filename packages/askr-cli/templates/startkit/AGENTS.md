@@ -23,7 +23,7 @@ npm run fmt        # Prettier
 - **State:** Prefer `const [count, setCount] = state(initial)`. Read with `count()`, update with `setCount(v => v + 1)`. `derive()` for computed values. `resource()` for async data.
 - **Data flow:** Keep sample data in `src/lib/mock-data.ts`, not inline in pages. Read async data with `resource()` and keep mock mutations in the same lib boundary.
 - **Preferences:** Keep persistent appearance/session helpers in the lib boundary and initialize at app bootstrap.
-- **Vite plugin:** `askr()` from `@askrjs/askr/vite` handles JSX transform — no manual esbuild config needed.
+- **Vite plugin:** `askr()` from `@askrjs/askr-vite` handles JSX transform — no manual esbuild config needed.
 
 ## File Structure
 

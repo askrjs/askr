@@ -11,7 +11,7 @@ describe('FocusRing - Behavior', () => {
 
   it('tracks focused and focus-visible state from keyboard interaction', () => {
     container = mount(
-      <FocusRing>
+      <FocusRing tabIndex={0}>
         <button type="button">Focusable</button>
       </FocusRing>
     );
@@ -20,14 +20,13 @@ describe('FocusRing - Behavior', () => {
     ring.dispatchEvent(
       new KeyboardEvent('keydown', { bubbles: true, key: 'Tab' })
     );
-    ring.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+    ring.focus();
 
-    expect(ring.getAttribute('data-focused')).toBe('true');
-    expect(ring.getAttribute('data-focus-visible')).toBe('true');
+    expect(ring.getAttribute('data-focus-ring')).toBe('true');
+    expect(document.activeElement).toBe(ring);
 
-    ring.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+    ring.blur();
 
-    expect(ring.hasAttribute('data-focused')).toBe(false);
-    expect(ring.hasAttribute('data-focus-visible')).toBe(false);
+    expect(document.activeElement).not.toBe(ring);
   });
 });

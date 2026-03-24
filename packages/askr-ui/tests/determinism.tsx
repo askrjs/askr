@@ -1,7 +1,8 @@
 import { expect } from 'vitest';
-import { mount, unmount } from './test-utils';
+import { mount, resetTestState, unmount } from './test-utils';
 
 export function renderHtml(element: JSX.Element) {
+  resetTestState();
   const container = mount(element);
 
   try {

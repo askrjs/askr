@@ -74,7 +74,7 @@ function extractThemeSlots() {
 
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf-8');
-    const pattern = /\[data-slot="([^"]+)"\]/g;
+    const pattern = /\[data-slot=['\"]([^'\"]+)['\"]\]/g;
     let match;
     while ((match = pattern.exec(content))) {
       slots.add(match[1]);

@@ -21,7 +21,7 @@ npm run fmt        # Prettier
 - **Styling:** askr-themes CSS via `[data-slot]` selectors. Design tokens use `--ak-*` prefix. Theme import in `src/styles.css`. Switch themes by changing the import (e.g., `@askrjs/askr-themes/tuxedo`).
 - **Routing:** `route()` and `layout()` register routes at module-load time in `src/routes.tsx`. Navigate with `<Link href="...">`. No config file.
 - **State:** `state(initial)` creates reactive values. Read with `count()`, update with `count.set(v => v + 1)`. `derive()` for computed values. `resource()` for async data.
-- **Vite plugin:** `askr()` from `@askrjs/askr/vite` handles JSX transform — no manual esbuild config needed.
+- **Vite plugin:** `askr()` from `@askrjs/askr-vite` handles JSX transform — no manual esbuild config needed.
 
 ## File Structure
 

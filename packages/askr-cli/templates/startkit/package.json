@@ -22,6 +22,7 @@
     "@askrjs/askr-lucide": "^0.0.1"
   },
   "devDependencies": {
+    "@askrjs/askr-vite": "^0.1.0",
     "@types/node": "^25.0.9",
     "@eslint/js": "^9.39.2",
     "@typescript-eslint/eslint-plugin": "^8.53.1",
@@ -32,7 +33,7 @@
     "jsdom": "^27.4.0",
     "prettier": "^3.8.0",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1",
+    "vite": "^8.0.1",
     "vitest": "^4.0.17"
   }
 }

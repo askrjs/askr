@@ -6,7 +6,7 @@ export default defineConfig({
   esbuild: {
     jsx: 'automatic',
     jsxImportSource: '@askrjs/askr',
-  } as any,
+  },
   build: {
     minify: false,
     sourcemap: true,

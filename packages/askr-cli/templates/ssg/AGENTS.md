@@ -23,7 +23,7 @@ npm run fmt        # Prettier
 - **Styling:** askr-themes CSS via `[data-slot]` selectors. Design tokens use `--ak-*` prefix. Theme import in `src/styles.css`.
 - **Routing:** `route()` and `layout()` in `src/routes.tsx` for dev SPA mode. `ssg.config.ts` defines the same routes for static generation using `RouteConfig[]`.
 - **State:** `state(initial)`, `derive()`, `resource()`. Static generation renders components synchronously; interactive state works at runtime in the browser.
-- **Vite plugin:** `askr()` from `@askrjs/askr/vite` handles JSX transform.
+- **Vite plugin:** `askr()` from `@askrjs/askr-vite` handles JSX transform.
 
 ## File Structure
 

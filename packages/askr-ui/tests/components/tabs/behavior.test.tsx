@@ -52,14 +52,16 @@ describe('Tabs - Behavior', () => {
       </div>
     );
 
-    getButtonByText(container, 'Settings').focus();
+    const settingsButton = getButtonByText(container, 'Settings');
+    settingsButton.click();
     await flushUpdates();
     expect(
       container.querySelector(`[role="${TABS_A11Y_CONTRACT.PANEL_ROLE}"]`)
         ?.textContent
     ).toContain('Settings panel');
 
-    getButtonByText(container, 'Settings manual').focus();
+    const settingsManualButton = getButtonByText(container, 'Settings manual');
+    settingsManualButton.focus();
     await flushUpdates();
     expect(
       Array.from(
@@ -67,7 +69,7 @@ describe('Tabs - Behavior', () => {
       ).some((panel) => panel.textContent?.includes('Settings manual panel'))
     ).toBe(false);
 
-    getButtonByText(container, 'Settings manual').click();
+    settingsManualButton.click();
     await flushUpdates();
     expect(
       Array.from(

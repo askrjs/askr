@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import { askr } from '@askrjs/askr/vite';
+import { askr } from '@askrjs/askr-vite';
 
 export default defineConfig({
   plugins: [askr()],

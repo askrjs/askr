@@ -13,8 +13,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "preserve",
-    "jsxImportSource": "@askrjs/askr",
-    "types": ["vitest/globals", "node", "@askrjs/askr"]
+    "jsxImportSource": "@askrjs/askr"
   },
   "include": ["src", "server.ts"],
   "exclude": ["dist"],
