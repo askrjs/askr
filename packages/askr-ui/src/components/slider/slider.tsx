@@ -1,3 +1,4 @@
+/* eslint-disable askr/no-hardcoded-theme-tokens -- Slider exports stable CSS variable hooks used by theme CSS. */
 import {
   Slot,
   composeRefs,

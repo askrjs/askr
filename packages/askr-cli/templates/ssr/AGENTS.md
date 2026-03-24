@@ -22,7 +22,7 @@ npm run fmt        # Prettier
 - **Styling:** askr-themes CSS via `[data-slot]` selectors. Design tokens use `--ak-*` prefix. Theme import in `src/styles.css`.
 - **Routing:** `route()` and `layout()` register routes at module-load time in `src/routes.tsx`. Both server and client import the same routes file.
 - **State:** `state(initial)`, `derive()`, `resource()` — same primitives as SPA. SSR renders deterministically; hydration attaches interactivity.
-- **Vite plugin:** `askr()` from `@askrjs/askr/vite` handles JSX transform.
+- **Vite plugin:** `askr()` from `@askrjs/askr-vite` handles JSX transform.
 
 ## File Structure
 

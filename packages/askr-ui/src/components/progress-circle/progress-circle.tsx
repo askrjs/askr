@@ -1,3 +1,4 @@
+/* eslint-disable askr/no-hardcoded-theme-tokens -- ProgressCircle exports stable CSS variable hooks used by theme CSS. */
 import { Slot, mergeProps } from '@askrjs/askr/foundations';
 import { mergeCssVar } from '../_internal/style';
 import { resolveCompoundId, resolvePartId } from '../_internal/id';

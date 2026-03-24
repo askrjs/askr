@@ -122,6 +122,30 @@ import { Search } from '@askrjs/askr-lucide/icons/search';
 
 ---
 
+## `@askrjs/askr-vite`
+
+**Vite integration plugin for Askr projects.**
+
+### Responsibilities
+
+- JSX transform wiring for Askr runtime in Vite
+- Template optimization hooks used by Askr starter projects
+- Vite config defaults needed for Askr runtime imports
+
+### Does not include
+
+- Runtime rendering or routing APIs
+- UI components or themes
+- CLI scaffolding
+
+### Import style
+
+```ts
+import { askr } from '@askrjs/askr-vite';
+```
+
+---
+
 ## `@askrjs/askr-cli`
 
 **Developer workflow tooling.**

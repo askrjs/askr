@@ -1,5 +1,12 @@
 import { createIsland } from '@askrjs/askr';
-import { _resetDefaultPortal } from '../node_modules/@askrjs/askr/dist/foundations/structures/portal.js';
+import { DefaultPortal } from '@askrjs/askr/foundations';
+
+export function resetTestState() {
+  DefaultPortal.render({ children: undefined });
+  document
+    .querySelectorAll('[data-key="__default_portal"]')
+    .forEach((node) => node.parentNode?.removeChild(node));
+}
 
 export function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');
@@ -21,5 +28,5 @@ export function unmount(container: HTMLElement | undefined) {
     container.parentNode.removeChild(container);
   }
 
-  _resetDefaultPortal();
+  resetTestState();
 }

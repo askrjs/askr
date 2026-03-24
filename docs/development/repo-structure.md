@@ -2,6 +2,8 @@
 
 The Askr platform lives in a single monorepo at `askrjs/askr`.
 
+**For dependency configuration patterns in npm workspaces, see [Peer Dependencies in npm Workspaces](./peer-dependencies-monorepo.md).**
+
 ## Monorepo layout
 
 ```

@@ -50,6 +50,18 @@
   display: inline;
 }
 
+[data-slot='data-table-sort-trigger'],
+[data-slot='data-table-pagination-previous'],
+[data-slot='data-table-pagination-next'] {
+  cursor: pointer;
+}
+
+[data-slot='data-table-pagination-info'],
+[data-slot='data-table-list-secondary-item'],
+[data-slot='data-table-list-meta-item'] {
+  display: inline;
+}
+
 [data-slot='toast-provider'] {
   position: fixed;
   inset: 0;

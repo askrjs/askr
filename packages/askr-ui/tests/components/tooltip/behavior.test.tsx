@@ -25,7 +25,7 @@ describe('Tooltip - Behavior', () => {
     );
 
     let trigger = container.querySelector('button') as HTMLButtonElement;
-    trigger.focus();
+    trigger.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
     await flushUpdates();
     trigger = container.querySelector('button') as HTMLButtonElement;
 

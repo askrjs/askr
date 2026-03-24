@@ -305,6 +305,7 @@
   "devDependencies": {
     "@askrjs/eslint-plugin-askr": "file:../eslint-plugin-askr",
     "@askrjs/askr": ">=0.0.28 <1.0.0",
+    "@askrjs/askr-vite": "file:../askr-vite",
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.5.0",
     "axe-core": "^4.11.1",
@@ -317,7 +318,7 @@
     "tsd": "^0.33.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",
-    "vite": "^8.0.0",
+    "vite": "^8.0.1",
     "vitest": "^4.1.0",
     "vitest-axe": "^0.1.0"
   }

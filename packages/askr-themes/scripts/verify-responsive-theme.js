@@ -24,10 +24,11 @@ async function main() {
   );
   const theming = await read('THEMING.md');
 
-  const requiredIndexImport = '@import "./components/responsive-layout.css";';
+  const responsiveImportPattern =
+    /@import\s+['\"]\.\/components\/responsive-layout\.css['\"];?/;
   for (const theme of officialThemes) {
     const indexCss = await read(`src/themes/${theme}/index.css`);
-    if (!indexCss.includes(requiredIndexImport)) {
+    if (!responsiveImportPattern.test(indexCss)) {
       throw new Error(
         `${theme} theme is missing responsive-layout.css import.`
       );
@@ -52,7 +53,7 @@ async function main() {
   }
 
   const templateIndex = await read('templates/theme/index.css');
-  if (!templateIndex.includes(requiredIndexImport)) {
+  if (!responsiveImportPattern.test(templateIndex)) {
     throw new Error('Theme template is missing responsive-layout.css import.');
   }
 
@@ -69,8 +70,10 @@ async function main() {
     '@media (min-width: 80rem)',
   ];
 
+  const normalizedResponsive = defaultResponsive.replace(/'/g, '"');
+
   for (const snippet of requiredResponsiveSnippets) {
-    if (!defaultResponsive.includes(snippet)) {
+    if (!normalizedResponsive.includes(snippet)) {
       throw new Error(`Default responsive layout CSS is missing: ${snippet}`);
     }
   }

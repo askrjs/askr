@@ -102,7 +102,9 @@ describe('createIcon — rendered output', () => {
   it('preserves explicit stroke width overrides', () => {
     container = mount(<TestIcon strokeWidth={1.5} />);
     const svg = container.querySelector('svg')!;
-    expect(svg.getAttribute('style')).toContain('--ak-icon-stroke-width:1.5');
+    expect(svg.getAttribute('style')).toContain(
+      '--ak-icon-stroke-width:var(--ak-icon-stroke-width-md, 1.5)'
+    );
   });
 
   it('sets aria-hidden when no title is provided', () => {
