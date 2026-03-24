@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createIsland } from '@askrjs/askr';
-import { Input } from '../../../src/components/input/input';
+import { DebouncedInput, Input } from '../../../src/components/input/input';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');
@@ -22,6 +22,8 @@ describe('Input — Behavior', () => {
   let container: HTMLElement;
 
   afterEach(() => {
+    vi.useRealTimers();
+
     if (container) {
       unmount(container);
     }
@@ -49,5 +51,58 @@ describe('Input — Behavior', () => {
     );
     const div = container.querySelector('div');
     expect(div?.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('forwards onInput and debounces committed value', () => {
+    vi.useFakeTimers();
+
+    const typedValues: string[] = [];
+    const committedValues: string[] = [];
+
+    container = mount(
+      <DebouncedInput
+        debounceMs={200}
+        onInput={(event) => typedValues.push(event.currentTarget.value)}
+        onDebouncedInput={(value) => committedValues.push(value)}
+      />
+    );
+
+    const input = container.querySelector('input') as HTMLInputElement;
+
+    input.value = 'n';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    input.value = 'no';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    input.value = 'nor';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(typedValues).toEqual(['n', 'no', 'nor']);
+    expect(committedValues).toEqual([]);
+
+    vi.advanceTimersByTime(199);
+    expect(committedValues).toEqual([]);
+
+    vi.advanceTimersByTime(1);
+    expect(committedValues).toEqual(['nor']);
+
+  });
+
+  it('emits immediate committed input when debounceMs is zero', () => {
+    const committedValues: string[] = [];
+
+    container = mount(
+      <DebouncedInput
+        debounceMs={0}
+        onDebouncedInput={(value) => committedValues.push(value)}
+      />
+    );
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    input.value = 'northwind';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(committedValues).toEqual(['northwind']);
   });
 });
