@@ -424,7 +424,7 @@ export function MenubarTrigger(
 
 export function MenubarPortal(
   props: MenubarPortalProps & MenubarMenuInjectedProps
-) {
+): JSX.Element | null {
   readMenubarMenuInjectedProps(props);
 
   return <>{props.children}</>;

@@ -199,7 +199,9 @@ export function DialogTrigger(
   );
 }
 
-export function DialogPortal(props: DialogPortalProps & InjectedDialogProps) {
+export function DialogPortal(
+  props: DialogPortalProps & InjectedDialogProps
+): JSX.Element | null {
   const {
     children,
     __dialogId,
@@ -224,7 +226,7 @@ export function DialogPortal(props: DialogPortalProps & InjectedDialogProps) {
 
   return injected.__portal.render({
     children,
-  });
+  }) as JSX.Element | null;
 }
 
 export function DialogOverlay(props: DialogOverlayProps): JSX.Element | null;

@@ -1,4 +1,3 @@
-import { state } from '@askrjs/askr';
 import { formatCurrency, formatPercent } from './format';
 
 export type AppearanceMode = 'default' | 'harbor' | 'ink';
@@ -39,9 +38,10 @@ export type PagedResult<T> = {
 const appearanceStorageKey = 'startkit:appearance';
 const sessionStorageKey = 'startkit:session';
 const appearanceOrder: AppearanceMode[] = ['default', 'harbor', 'ink'];
+const storageFallback = new Map<string, string>();
 
-const [appearance, setAppearanceState] = state<AppearanceMode>('default');
-const [sessionEmail, setSessionEmail] = state<string | null>(null);
+let appearance: AppearanceMode = 'default';
+let sessionEmail: string | null = null;
 
 const accountSeed: AccountRecord[] = [
   {
@@ -173,35 +173,95 @@ function wait(signal?: AbortSignal, delay = 220): Promise<void> {
   });
 }
 
+function readStorage(key: string): string | null {
+  const fallback = storageFallback.get(key) ?? null;
+
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  try {
+    const storage = window.localStorage as {
+      getItem?: (storageKey: string) => string | null;
+    };
+    if (typeof storage.getItem !== 'function') {
+      return fallback;
+    }
+
+    return storage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStorage(key: string, value: string) {
+  storageFallback.set(key, value);
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const storage = window.localStorage as {
+      setItem?: (storageKey: string, storageValue: string) => void;
+    };
+    if (typeof storage.setItem !== 'function') {
+      return;
+    }
+
+    storage.setItem(key, value);
+  } catch {
+    // Ignore storage write failures in non-browser or restricted test envs.
+  }
+}
+
+function removeStorage(key: string) {
+  storageFallback.delete(key);
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const storage = window.localStorage as {
+      removeItem?: (storageKey: string) => void;
+    };
+    if (typeof storage.removeItem !== 'function') {
+      return;
+    }
+
+    storage.removeItem(key);
+  } catch {
+    // Ignore storage delete failures in non-browser or restricted test envs.
+  }
+}
+
 export function initializeAppSession() {
   if (typeof window === 'undefined') {
     return;
   }
 
   const storedAppearance = normalizeAppearance(
-    window.localStorage.getItem(appearanceStorageKey)
+    readStorage(appearanceStorageKey) ?? appearance
   );
   setAppearance(storedAppearance);
 
-  const email = window.localStorage.getItem(sessionStorageKey);
-  setSessionEmail(email);
+  sessionEmail = readStorage(sessionStorageKey) ?? sessionEmail;
 }
 
 export function appearanceMode() {
-  return appearance();
+  return appearance;
 }
 
 export function setAppearance(mode: AppearanceMode) {
   const normalized = normalizeAppearance(mode);
-  setAppearanceState(normalized);
+  appearance = normalized;
 
   if (typeof document !== 'undefined') {
     document.documentElement.dataset.skAppearance = normalized;
   }
 
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(appearanceStorageKey, normalized);
-  }
+  writeStorage(appearanceStorageKey, normalized);
 }
 
 export function nextAppearance(mode: AppearanceMode): AppearanceMode {
@@ -211,23 +271,21 @@ export function nextAppearance(mode: AppearanceMode): AppearanceMode {
 }
 
 export function resetAppearancePreference() {
-  setAppearanceState('default');
+  appearance = 'default';
 
   if (typeof document !== 'undefined') {
     delete document.documentElement.dataset.skAppearance;
   }
 
-  if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(appearanceStorageKey);
-  }
+  removeStorage(appearanceStorageKey);
 }
 
 export function isAuthenticated(): boolean {
-  return sessionEmail() !== null;
+  return sessionEmail !== null;
 }
 
 export function getSessionEmail(): string | null {
-  return sessionEmail();
+  return sessionEmail;
 }
 
 export async function signIn(input: {
@@ -246,19 +304,15 @@ export async function signIn(input: {
     throw new Error('Password must be at least 8 characters.');
   }
 
-  setSessionEmail(email);
+  sessionEmail = email;
 
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(sessionStorageKey, email);
-  }
+  writeStorage(sessionStorageKey, email);
 }
 
 export function signOut() {
-  setSessionEmail(null);
+  sessionEmail = null;
 
-  if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(sessionStorageKey);
-  }
+  removeStorage(sessionStorageKey);
 }
 
 export async function getDashboardData(input: {

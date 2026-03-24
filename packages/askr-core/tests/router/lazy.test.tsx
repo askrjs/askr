@@ -1,15 +1,35 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createSPA } from '../../src/index';
 import {
   lazy,
   route,
   layout,
   getManifest,
+  getRoutes,
   clearRoutes,
   _drainLazy,
 } from '../../src/router/route';
+import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+
+function setGlobalWindow(path: string) {
+  (global as unknown as { window?: Window }).window = {
+    location: { pathname: path, search: '', hash: '' } as Location,
+    history: { pushState() {} } as unknown as History,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as Window;
+}
 
 beforeEach(() => {
   clearRoutes();
+});
+
+afterEach(() => {
+  try {
+    delete (global as unknown as { window?: Window }).window;
+  } catch {
+    // ignore: test helper window may not be present
+  }
 });
 
 describe('lazy()', () => {
@@ -132,5 +152,95 @@ describe('lazy()', () => {
     expect(output.type).toBe('layout');
     expect(output.children).toBe('content');
     expect(calls).toEqual(['page', 'layout']);
+  });
+
+  it('should wait for manifest lazy imports across createSPA boot reset', async () => {
+    const t = createTestContainer();
+    const { container, cleanup } = t;
+    let resolveModule: ((value: { default: () => unknown }) => void) | null =
+      null;
+
+    try {
+      route(
+        '/lazy-manifest',
+        lazy(
+          () =>
+            new Promise<{ default: () => unknown }>((resolve) => {
+              resolveModule = resolve;
+            })
+        )
+      );
+
+      const manifest = getManifest();
+      setGlobalWindow('/lazy-manifest');
+
+      const startup = createSPA({ root: container, manifest });
+
+      let settled = false;
+      startup.then(() => {
+        settled = true;
+      });
+
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      resolveModule?.({
+        default: () => <div class="lazy-manifest">lazy manifest</div>,
+      });
+
+      await expect(startup).resolves.toBeUndefined();
+      flushScheduler();
+
+      expect(container.querySelector('.lazy-manifest')?.textContent).toBe(
+        'lazy manifest'
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should wait for route-table lazy imports across createSPA boot reset', async () => {
+    const t = createTestContainer();
+    const { container, cleanup } = t;
+    let resolveModule: ((value: { default: () => unknown }) => void) | null =
+      null;
+
+    try {
+      route(
+        '/lazy-routes',
+        lazy(
+          () =>
+            new Promise<{ default: () => unknown }>((resolve) => {
+              resolveModule = resolve;
+            })
+        )
+      );
+
+      const routes = getRoutes();
+      setGlobalWindow('/lazy-routes');
+
+      const startup = createSPA({ root: container, routes });
+
+      let settled = false;
+      startup.then(() => {
+        settled = true;
+      });
+
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      resolveModule?.({
+        default: () => <div class="lazy-routes">lazy routes</div>,
+      });
+
+      await expect(startup).resolves.toBeUndefined();
+      flushScheduler();
+
+      expect(container.querySelector('.lazy-routes')?.textContent).toBe(
+        'lazy routes'
+      );
+    } finally {
+      cleanup();
+    }
   });
 });

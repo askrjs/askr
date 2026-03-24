@@ -384,11 +384,14 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   const {
     clearRoutes,
     _applyManifest,
+    _snapshotLazy,
     _drainLazy,
     route: registerRoute,
     lockRouteRegistration,
     resolveRoute,
   } = await import('../router/route');
+
+  const pendingLazyAtBoot = _snapshotLazy();
 
   clearRoutes();
 
@@ -403,7 +406,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   }
 
   // Drain any lazy() imports so all split chunks are ready before mounting
-  await _drainLazy();
+  await _drainLazy(pendingLazyAtBoot);
 
   // Lock registration in production to prevent late registration surprises
   if (process.env.NODE_ENV === 'production') lockRouteRegistration();
@@ -642,12 +645,15 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   const {
     clearRoutes,
     _applyManifest,
+    _snapshotLazy,
     _drainLazy,
     route: registerRoute,
     setServerLocation,
     lockRouteRegistration,
     resolveRoute,
   } = await import('../router/route');
+
+  const pendingLazyAtHydrationBoot = _snapshotLazy();
 
   clearRoutes();
 
@@ -660,7 +666,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   }
 
   // Drain any lazy() imports so all split chunks are ready before mounting
-  await _drainLazy();
+  await _drainLazy(pendingLazyAtHydrationBoot);
 
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   const currentUrl =

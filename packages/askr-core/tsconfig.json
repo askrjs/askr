@@ -24,8 +24,8 @@
       "@askrjs/askr/router": ["./src/router/index.ts"],
       "@askrjs/askr/ssr": ["./src/ssr/index.ts"],
       "@askrjs/askr/ssg": ["./src/ssg/index.ts"],
-      "@askrjs/askr/jsx-runtime": ["./src/jsx/jsx-runtime.ts"],
-      "@askrjs/askr/jsx-dev-runtime": ["./src/jsx/jsx-dev-runtime.ts"]
+      "@askrjs/askr/jsx-runtime": ["./src/jsx-runtime.ts"],
+      "@askrjs/askr/jsx-dev-runtime": ["./src/jsx-dev-runtime.ts"]
     },
 
     "strict": true,

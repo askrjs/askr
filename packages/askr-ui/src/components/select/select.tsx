@@ -332,12 +332,14 @@ export function SelectValue(
   return <span {...finalProps}>{renderedChildren}</span>;
 }
 
-export function SelectPortal(props: SelectPortalProps & InjectedSelectProps) {
+export function SelectPortal(
+  props: SelectPortalProps & InjectedSelectProps
+): JSX.Element | null {
   const injected = readInjectedSelectProps(props);
 
   return injected.__portal.render({
     children: props.children,
-  });
+  }) as JSX.Element | null;
 }
 
 export function SelectContent(props: SelectContentProps): JSX.Element | null;
