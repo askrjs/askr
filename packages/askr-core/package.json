@@ -76,18 +76,12 @@
     "./jsx-dev-runtime": {
       "import": "./dist/jsx-dev-runtime.js",
       "types": "./dist/jsx-dev-runtime.d.ts"
-    },
-    "./vite": {
-      "import": "./dist/vite/index.js",
-      "types": "./dist/vite/index.d.ts"
     }
   },
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "@askrjs/askr-vite": "file:../askr-vite"
-  },
+  "dependencies": {},
   "scripts": {
     "build": "npm run build:prod",
     "build:prod": "cross-env NODE_ENV=production vite build && npm run build:types",
@@ -123,6 +117,7 @@
     "lint": "eslint src tests checks benches --ext .ts,.tsx"
   },
   "devDependencies": {
+    "@askrjs/askr-vite": "file:../askr-vite",
     "@askrjs/eslint-plugin-askr": "file:../eslint-plugin-askr",
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.5.0",

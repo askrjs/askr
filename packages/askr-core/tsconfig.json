@@ -24,8 +24,6 @@
       "@askrjs/askr/router": ["./src/router/index.ts"],
       "@askrjs/askr/ssr": ["./src/ssr/index.ts"],
       "@askrjs/askr/ssg": ["./src/ssg/index.ts"],
-      "@askrjs/askr/vite": ["./src/dev/vite-plugin-askr.ts"],
-      "@askrjs/askr-vite": ["../askr-vite/src/index.d.ts"],
       "@askrjs/askr/jsx-runtime": ["./src/jsx/jsx-runtime.ts"],
       "@askrjs/askr/jsx-dev-runtime": ["./src/jsx/jsx-dev-runtime.ts"]
     },

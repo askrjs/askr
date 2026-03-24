@@ -1,5 +1,5 @@
 /* eslint-disable askr/no-hardcoded-theme-tokens -- Icon exposes a stable CSS variable contract consumed by themes. */
-import { jsx, jsxs } from '@askrjs/askr/jsx-runtime';
+import { jsx, jsxs } from '../../jsx/jsx-runtime';
 import type { IconProps, IconSizeToken, IconStyleObject } from './icon.types';
 
 const ICON_SIZE_TOKENS: readonly IconSizeToken[] = ['sm', 'md', 'lg', 'xl'];

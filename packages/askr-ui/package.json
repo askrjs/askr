@@ -261,11 +261,6 @@
       "import": "./dist/components/topbar-layout/topbar-layout.js",
       "require": "./dist/components/topbar-layout/topbar-layout.cjs"
     },
-    "./icon": {
-      "types": "./dist/components/icon/icon.d.ts",
-      "import": "./dist/components/icon/icon.js",
-      "require": "./dist/components/icon/icon.cjs"
-    },
     "./data-table": {
       "types": "./dist/components/data-table/data-table.d.ts",
       "import": "./dist/components/data-table/data-table.js",

@@ -1,5 +1,5 @@
 import { jsx } from '@askrjs/askr/jsx-runtime';
-import { IconBase } from '@askrjs/askr-ui';
+import { IconBase } from '@askrjs/askr/foundations';
 import type { IconNode, IconProps } from './types';
 
 export function createIcon(displayName: string, iconNode: IconNode) {
