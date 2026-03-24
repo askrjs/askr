@@ -233,12 +233,12 @@ export function DropdownMenuTrigger(
 
 export function DropdownMenuPortal(
   props: DropdownMenuPortalProps & InjectedDropdownMenuProps
-) {
+): JSX.Element | null {
   const injected = readInjectedDropdownMenuProps(props);
 
   return injected.__portal.render({
     children: props.children,
-  });
+  }) as JSX.Element | null;
 }
 
 type DropdownMenuContentInjectedProps = InjectedDropdownMenuProps;

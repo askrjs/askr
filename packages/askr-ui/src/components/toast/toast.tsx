@@ -31,10 +31,13 @@ type InjectedToastProviderProps = {
 
 type InjectedToastProps = InjectedToastProviderProps & {
   __toastId?: string;
-  __open?: boolean;
-  __setOpen?: (open: boolean) => void;
   __titleId?: string;
   __descriptionId?: string;
+};
+
+type ToastStateInjectedProps = InjectedToastProps & {
+  __open?: boolean;
+  __setOpen?: (open: boolean) => void;
 };
 
 type ToastLifecycleEntry = {
@@ -77,8 +80,8 @@ function readInjectedToastProviderProps(
 }
 
 function readInjectedToastProps(
-  props: InjectedToastProps
-): Required<InjectedToastProps> {
+  props: ToastStateInjectedProps
+): Required<ToastStateInjectedProps> {
   const provider = readInjectedToastProviderProps(props);
 
   if (
@@ -156,18 +159,9 @@ function enhanceToastElement(
       `${providerProps.__providerId}-${index}`,
     element.props?.children
   );
-  const openState = controllableState({
-    value: element.props?.open as boolean | undefined,
-    defaultValue: (element.props?.defaultOpen as boolean | undefined) ?? true,
-    onChange: element.props?.onOpenChange as
-      | ((open: boolean) => void)
-      | undefined,
-  });
   const injectedToastProps: InjectedToastProps = {
     ...providerProps,
     __toastId: toastId,
-    __open: openState(),
-    __setOpen: openState.set,
     __titleId: resolvePartId(toastId, 'title'),
     __descriptionId: resolvePartId(toastId, 'description'),
   };
@@ -284,23 +278,29 @@ export function Toast(
 ): JSX.Element | null {
   const {
     children,
+    open,
+    defaultOpen = true,
+    onOpenChange,
     duration,
     ref,
     __providerId,
     __duration,
     __toastId,
-    __open,
-    __setOpen,
     __titleId,
     __descriptionId,
     ...rest
   } = props;
+  const openState = controllableState({
+    value: open,
+    defaultValue: defaultOpen,
+    onChange: onOpenChange,
+  });
   const injected = readInjectedToastProps({
     __providerId,
     __duration,
     __toastId,
-    __open,
-    __setOpen,
+    __open: openState(),
+    __setOpen: openState.set,
     __titleId,
     __descriptionId,
   });
@@ -370,8 +370,8 @@ export function ToastTitle(props: ToastTitleProps): JSX.Element;
 export function ToastTitle(props: ToastTitleAsChildProps): JSX.Element;
 export function ToastTitle(
   props:
-    | (ToastTitleProps & InjectedToastProps)
-    | (ToastTitleAsChildProps & InjectedToastProps)
+    | (ToastTitleProps & ToastStateInjectedProps)
+    | (ToastTitleAsChildProps & ToastStateInjectedProps)
 ) {
   const {
     asChild,
@@ -415,8 +415,8 @@ export function ToastDescription(
 ): JSX.Element;
 export function ToastDescription(
   props:
-    | (ToastDescriptionProps & InjectedToastProps)
-    | (ToastDescriptionAsChildProps & InjectedToastProps)
+    | (ToastDescriptionProps & ToastStateInjectedProps)
+    | (ToastDescriptionAsChildProps & ToastStateInjectedProps)
 ) {
   const {
     asChild,
@@ -458,8 +458,8 @@ export function ToastAction(props: ToastActionProps): JSX.Element;
 export function ToastAction(props: ToastActionAsChildProps): JSX.Element;
 export function ToastAction(
   props:
-    | (ToastActionProps & InjectedToastProps)
-    | (ToastActionAsChildProps & InjectedToastProps)
+    | (ToastActionProps & ToastStateInjectedProps)
+    | (ToastActionAsChildProps & ToastStateInjectedProps)
 ) {
   const {
     asChild,
@@ -520,8 +520,8 @@ export function ToastClose(props: ToastCloseProps): JSX.Element;
 export function ToastClose(props: ToastCloseAsChildProps): JSX.Element;
 export function ToastClose(
   props:
-    | (ToastCloseProps & InjectedToastProps)
-    | (ToastCloseAsChildProps & InjectedToastProps)
+    | (ToastCloseProps & ToastStateInjectedProps)
+    | (ToastCloseAsChildProps & ToastStateInjectedProps)
 ) {
   const {
     asChild,

@@ -9,14 +9,21 @@ import {
 } from '@askrjs/askr-ui/toast';
 import {
   clearToast,
+  bindToast,
   setToastOpen,
-  showToast,
   toastMessage,
   toastOpen,
 } from './toast';
+import { state } from '@askrjs/askr';
 
 export default function App({ children }: { children?: unknown }) {
-  const message = toastMessage();
+  const [message, setMessage] = state(toastMessage());
+  const [open, setOpen] = state(toastOpen());
+
+  bindToast({
+    setMessage,
+    setOpen,
+  });
 
   return (
     <ToastProvider duration={2400}>
@@ -25,7 +32,7 @@ export default function App({ children }: { children?: unknown }) {
       <ToastViewport class="app-toast-viewport" />
       {message && (
         <Toast
-          open={toastOpen()}
+          open={open()}
           onOpenChange={(open) => {
             setToastOpen(open);
             if (!open) {

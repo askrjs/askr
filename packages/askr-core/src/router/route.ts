@@ -328,6 +328,15 @@ function addRouteToStores(routeObj: Route): void {
 const pendingLazy = new Set<Promise<unknown>>();
 
 /**
+ * Snapshot the current in-flight lazy() imports.
+ * Boot uses this before clearing route state so manifest-based startup can
+ * still await chunks that were kicked off during route module evaluation.
+ */
+export function _snapshotLazy(): Promise<unknown>[] {
+  return [...pendingLazy];
+}
+
+/**
  * Declare a code-split route component. The `import()` fires immediately at
  * module evaluation time (creating a bundler split point), and the resolved
  * chunk is guaranteed to be available before the app mounts — so the renderer
@@ -383,9 +392,15 @@ export function lazy(
  * Wait for all pending `lazy()` imports to settle.
  * Called automatically by `createSPA` / `hydrateSPA` before mounting.
  */
-export function _drainLazy(): Promise<void> {
-  if (pendingLazy.size === 0) return Promise.resolve();
-  return Promise.allSettled([...pendingLazy]).then(() => undefined);
+export function _drainLazy(
+  additionalPending: Iterable<Promise<unknown>> = []
+): Promise<void> {
+  const combined = new Set<Promise<unknown>>([
+    ...additionalPending,
+    ...pendingLazy,
+  ]);
+  if (combined.size === 0) return Promise.resolve();
+  return Promise.allSettled([...combined]).then(() => undefined);
 }
 
 // ---------------------------------------------------------------------------

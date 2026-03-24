@@ -60,7 +60,7 @@ export type { LinkProps } from './components/link';
 export { For } from './for';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
-export { jsx, jsxs, Fragment } from './jsx/jsx-runtime';
+export { jsx, jsxs, Fragment } from './jsx-runtime';
 
 // Public types
 export type { Props } from './common/props';

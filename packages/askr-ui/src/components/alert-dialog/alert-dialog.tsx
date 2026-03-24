@@ -135,7 +135,7 @@ export function AlertDialogTrigger(
 
 export function AlertDialogPortal(
   props: AlertDialogPortalProps & InjectedAlertDialogProps
-) {
+): JSX.Element | null {
   readInjectedAlertDialogProps(props);
   return DialogPortal(props);
 }

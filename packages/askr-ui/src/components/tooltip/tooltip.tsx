@@ -163,7 +163,7 @@ export function TooltipTrigger(
 
 export function TooltipPortal(
   props: TooltipPortalProps & InjectedTooltipProps
-) {
+): JSX.Element | null {
   const { children, __tooltipId, __open, __setOpen, __contentId, __portal } =
     props;
   const injected = readInjectedTooltipProps({
@@ -176,7 +176,7 @@ export function TooltipPortal(
 
   return injected.__portal.render({
     children,
-  });
+  }) as JSX.Element | null;
 }
 
 export function TooltipContent(props: TooltipContentProps): JSX.Element | null;

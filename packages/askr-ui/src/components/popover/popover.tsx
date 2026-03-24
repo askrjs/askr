@@ -172,7 +172,7 @@ export function PopoverTrigger(
 
 export function PopoverPortal(
   props: PopoverPortalProps & InjectedPopoverProps
-) {
+): JSX.Element | null {
   const {
     children,
     __popoverId,
@@ -193,7 +193,7 @@ export function PopoverPortal(
 
   return injected.__portal.render({
     children,
-  });
+  }) as JSX.Element | null;
 }
 
 export function PopoverContent(props: PopoverContentProps): JSX.Element | null;

@@ -21,6 +21,7 @@ export default defineConfig({
     alias: createPackageAliases(),
   },
   build: {
+    modulePreload: false,
     // Use rollup input to support multiple named entry points
     rollupOptions: {
       input,
