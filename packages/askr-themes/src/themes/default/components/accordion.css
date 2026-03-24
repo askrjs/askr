@@ -8,6 +8,7 @@
   border-radius: var(--ak-radius-md);
   background: var(--ak-color-surface);
   overflow: hidden;
+  transition: border-color var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
 [data-slot='accordion-item'][data-state='open'] {
@@ -29,6 +30,18 @@
   background: transparent;
   color: var(--ak-color-text);
   cursor: pointer;
+  transition:
+    background var(--ak-duration-fast) var(--ak-ease-standard),
+    color var(--ak-duration-fast) var(--ak-ease-standard),
+    box-shadow var(--ak-duration-fast) var(--ak-ease-standard);
+}
+
+[data-slot='accordion-trigger']:hover {
+  background: var(--ak-color-hover);
+}
+
+[data-slot='accordion-trigger']:active {
+  background: var(--ak-color-active);
 }
 
 [data-slot='accordion-trigger']:focus-visible {
@@ -37,11 +50,13 @@
 }
 
 [data-slot='accordion-trigger'][data-disabled] {
-  opacity: 0.65;
+  opacity: 0.5;
+  pointer-events: none;
   cursor: not-allowed;
 }
 
 [data-slot='accordion-content'] {
   padding: 0 var(--ak-space-md) var(--ak-space-md);
   color: var(--ak-color-text-muted);
+  line-height: var(--ak-line-height-normal);
 }

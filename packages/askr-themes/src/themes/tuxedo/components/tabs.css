@@ -29,12 +29,16 @@
   background: transparent;
   color: var(--ak-color-text-muted);
   cursor: pointer;
+  transition:
+    background var(--ak-duration-fast) var(--ak-ease-standard),
+    color var(--ak-duration-fast) var(--ak-ease-standard),
+    box-shadow var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
 [data-slot='tabs-trigger'][data-state='active'] {
   background: var(--ak-color-surface);
   color: var(--ak-color-text);
-  box-shadow: 0 1px 2px rgba(31, 34, 37, 0.08);
+  box-shadow: var(--ak-shadow-sm);
 }
 
 [data-slot='tabs-trigger']:focus-visible {
@@ -43,7 +47,8 @@
 }
 
 [data-slot='tabs-trigger'][data-disabled] {
-  opacity: 0.65;
+  opacity: 0.5;
+  pointer-events: none;
   cursor: not-allowed;
 }
 

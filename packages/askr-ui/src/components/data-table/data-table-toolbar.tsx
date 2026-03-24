@@ -34,6 +34,9 @@ export function DataTableSearch<T>(
   } = props;
 
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  const providedName = (rest as { name?: string }).name;
+  const providedId = (rest as { id?: string }).id;
+  const fallbackFieldId = __tableId ? `${__tableId}-search` : undefined;
 
   const handleInput = (event: Event) => {
     const target = event.target as HTMLInputElement;
@@ -52,6 +55,8 @@ export function DataTableSearch<T>(
   const finalProps = mergeProps(rest, {
     ref,
     type: 'search',
+    id: providedId ?? fallbackFieldId,
+    name: providedName ?? fallbackFieldId,
     placeholder: placeholder ?? 'Search...',
     'data-slot': SLOTS.search,
     'aria-label': placeholder ?? 'Search',

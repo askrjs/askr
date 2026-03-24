@@ -21,5 +21,5 @@
   inline-size: 100%;
   block-size: 100%;
   font-size: var(--ak-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--ak-font-weight-semibold);
 }

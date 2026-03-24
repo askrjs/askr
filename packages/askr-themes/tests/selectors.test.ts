@@ -51,6 +51,12 @@ function extractSelectors(css: string): string[] {
           depth++;
           continue;
         }
+        if (trimmed.startsWith('@keyframes')) {
+          // Skip the entire @keyframes block
+          current = '';
+          depth++;
+          continue;
+        }
         // It's a selector — split on commas for compound selectors
         const parts = trimmed
           .split(',')
@@ -213,9 +219,10 @@ describe('tokens.css selector contract', () => {
 
     for (const sel of selectors) {
       const isRoot = sel === ':root';
+      const isRootNot = sel === ':root:not([data-theme])';
       const isDataTheme = /^\[data-theme=/.test(sel);
       expect(
-        isRoot || isDataTheme,
+        isRoot || isRootNot || isDataTheme,
         `Unexpected selector in tokens.css: "${sel}"`
       ).toBe(true);
     }

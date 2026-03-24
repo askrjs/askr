@@ -72,6 +72,7 @@ const requiredRootTokens = [
   '--ak-z-modal-backdrop',
   '--ak-z-modal',
   '--ak-z-popover',
+  '--ak-z-toast',
   '--ak-z-tooltip',
 ];
 

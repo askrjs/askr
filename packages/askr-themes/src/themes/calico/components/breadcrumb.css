@@ -14,6 +14,7 @@
 [data-slot='breadcrumb-link'] {
   color: var(--ak-color-text-muted);
   text-decoration: none;
+  transition: color var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
 [data-slot='breadcrumb-link']:hover {
@@ -22,7 +23,7 @@
 
 [data-slot='breadcrumb-current'] {
   color: var(--ak-color-text);
-  font-weight: 600;
+  font-weight: var(--ak-font-weight-semibold);
 }
 
 [data-slot='breadcrumb-separator'] {

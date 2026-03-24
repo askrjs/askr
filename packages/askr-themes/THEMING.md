@@ -364,6 +364,7 @@ Required:
 - `--ak-z-modal-backdrop`
 - `--ak-z-modal`
 - `--ak-z-popover`
+- `--ak-z-toast`
 - `--ak-z-tooltip`
 
 ---
@@ -651,6 +652,7 @@ These are recommended implementation defaults for component authors:
   --ak-z-modal-backdrop: 1300;
   --ak-z-modal: 1400;
   --ak-z-popover: 1500;
+  --ak-z-toast: 1550;
   --ak-z-tooltip: 1600;
 }
 
@@ -757,6 +759,145 @@ These are recommended implementation defaults for component authors:
   color-scheme: dark;
 }
 ```
+
+## Component Variants
+
+Components support variant styling through `data-variant` and `data-size` attributes.
+
+### Button Variants
+
+```html
+<button data-slot="button" data-variant="primary">Primary</button>
+<button data-slot="button" data-variant="secondary">Secondary</button>
+<button data-slot="button" data-variant="outline">Outline</button>
+<button data-slot="button" data-variant="ghost">Ghost</button>
+<button data-slot="button" data-variant="destructive">Destructive</button>
+<button data-slot="button" data-variant="link">Link</button>
+```
+
+### Button Sizes
+
+```html
+<button data-slot="button" data-size="sm">Small</button>
+<button data-slot="button">Default (md)</button>
+<button data-slot="button" data-size="lg">Large</button>
+<button data-slot="button" data-size="icon">Icon</button>
+```
+
+### Badge Variants
+
+```html
+<span data-slot="badge">Default</span>
+<span data-slot="badge" data-variant="secondary">Secondary</span>
+<span data-slot="badge" data-variant="outline">Outline</span>
+<span data-slot="badge" data-variant="success">Success</span>
+<span data-slot="badge" data-variant="warning">Warning</span>
+<span data-slot="badge" data-variant="danger">Danger</span>
+<span data-slot="badge" data-variant="info">Info</span>
+```
+
+### Toast Variants
+
+```html
+<div data-slot="toast" data-variant="success">Success toast</div>
+<div data-slot="toast" data-variant="warning">Warning toast</div>
+<div data-slot="toast" data-variant="danger">Danger toast</div>
+<div data-slot="toast" data-variant="info">Info toast</div>
+```
+
+### Customizing Variants
+
+Override variant styles using the same selector pattern:
+
+```css
+[data-slot='button'][data-variant='primary'] {
+  background: linear-gradient(
+    135deg,
+    var(--ak-color-primary),
+    var(--ak-color-primary-hover)
+  );
+}
+```
+
+---
+
+## Animations
+
+Overlay components include enter/exit animations using `@keyframes` and motion tokens:
+
+- **Dialog**: fade-in overlay + scale-in content
+- **Popover/Dropdown/Select**: slide-up with fade
+- **Tooltip**: subtle slide-up
+- **Toast**: slide-in from right
+
+All animations use `--ak-duration-fast` and `--ak-duration-normal` tokens. To customize:
+
+```css
+:root {
+  --ak-duration-fast: 80ms; /* snappier */
+  --ak-duration-normal: 150ms;
+}
+```
+
+Exit animations are triggered via `[data-state='closed']` selectors.
+
+---
+
+## Accessibility
+
+### Reduced Motion
+
+All themes respect `prefers-reduced-motion`. When enabled, all duration tokens are set to `0s`:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ak-duration-fast: 0s;
+    --ak-duration-normal: 0s;
+    --ak-duration-slow: 0s;
+  }
+}
+```
+
+### Automatic Dark Mode
+
+When no `data-theme` attribute is set, themes auto-detect OS preference:
+
+```css
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    /* dark color tokens applied automatically */
+  }
+}
+```
+
+Explicit `data-theme="light"` or `data-theme="dark"` always takes precedence.
+
+### WCAG Contrast
+
+All official themes are tested for WCAG AA compliance:
+
+- Text on backgrounds: 4.5:1 minimum
+- UI components and large text: 3:1 minimum
+- Status ink on soft backgrounds: 3:1 minimum
+- Inverse text on primary: 4.5:1 minimum
+
+The automated test suite (`tests/contrast.test.ts`) validates these pairs across all themes in both light and dark modes.
+
+---
+
+## Theme Personalities
+
+Each official theme has a distinct visual personality beyond color:
+
+| Theme              | Radius       | Shadows        | Feel              |
+| ------------------ | ------------ | -------------- | ----------------- |
+| Default (green)    | 6/10/14/22px | Neutral        | Natural, balanced |
+| Tuxedo (blue-gray) | 4/8/12/20px  | Cool blue-gray | Sharp, corporate  |
+| Calico (brown)     | 8/12/16/24px | Warm brown     | Soft, organic     |
+| Ginger (orange)    | 8/12/16/24px | Warm orange    | Bold, energetic   |
+
+---
 
 ## Implementation Note
 

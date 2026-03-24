@@ -19,6 +19,13 @@
   background: transparent;
   color: var(--ak-color-text);
   cursor: pointer;
+  transition:
+    background var(--ak-duration-fast) var(--ak-ease-standard),
+    color var(--ak-duration-fast) var(--ak-ease-standard);
+}
+
+[data-slot='menu-item']:hover {
+  background: var(--ak-color-surface-muted);
 }
 
 [data-slot='menu-item']:focus-visible {
@@ -27,7 +34,8 @@
 }
 
 [data-slot='menu-item'][data-disabled] {
-  opacity: 0.65;
+  opacity: 0.5;
+  pointer-events: none;
   cursor: not-allowed;
 }
 
@@ -35,7 +43,7 @@
   padding: 0 var(--ak-space-sm);
   color: var(--ak-color-text-muted);
   font-size: var(--ak-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--ak-font-weight-semibold);
 }
 
 [data-slot='menu-separator'] {

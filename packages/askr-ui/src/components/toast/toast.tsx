@@ -282,6 +282,7 @@ export function Toast(
     defaultOpen = true,
     onOpenChange,
     duration,
+    variant,
     ref,
     __providerId,
     __duration,
@@ -348,6 +349,7 @@ export function Toast(
     'data-slot': 'toast',
     'data-state': injected.__open ? 'open' : 'closed',
     'data-toast': 'true',
+    'data-variant': variant && variant !== 'default' ? variant : undefined,
   });
 
   return (

@@ -7,10 +7,17 @@
   background: var(--ak-color-surface);
   color: var(--ak-color-text);
   font-size: var(--ak-font-size-md);
+  transition:
+    border-color var(--ak-duration-fast) var(--ak-ease-standard),
+    box-shadow var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
 [data-slot='input']::placeholder {
   color: var(--ak-color-text-muted);
+}
+
+[data-slot='input']:hover {
+  border-color: var(--ak-color-border-strong);
 }
 
 [data-slot='input']:focus-visible {
@@ -20,6 +27,7 @@
 }
 
 [data-slot='input'][data-disabled] {
-  opacity: 0.65;
+  opacity: 0.5;
+  pointer-events: none;
   cursor: not-allowed;
 }

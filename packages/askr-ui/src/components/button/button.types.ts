@@ -12,6 +12,17 @@ export type PressEvent = {
   defaultPrevented?: boolean;
 };
 
+export type ButtonVariant =
+  | 'default'
+  | 'primary'
+  | 'secondary'
+  | 'outline'
+  | 'ghost'
+  | 'destructive'
+  | 'link';
+
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
+
 /**
  * Core Button props shared across all variants
  */
@@ -19,6 +30,8 @@ export type ButtonOwnProps = {
   children?: unknown;
   onPress?: (e: PressEvent) => void;
   disabled?: boolean;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
 };
 
 /**

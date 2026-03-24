@@ -6,7 +6,7 @@
 [data-slot='field-label'] {
   color: var(--ak-color-text);
   font-size: var(--ak-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--ak-font-weight-semibold);
 }
 
 [data-slot='field-description'] {
@@ -20,7 +20,9 @@
 }
 
 [data-slot='field'][data-disabled] {
-  opacity: 0.7;
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 [data-slot='field-control'][data-invalid] {
