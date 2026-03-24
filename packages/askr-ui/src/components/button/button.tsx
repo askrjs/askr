@@ -47,6 +47,8 @@ export function Button(props: ButtonButtonProps | ButtonAsChildProps) {
     onPress,
     type: typeProp,
     disabled = false,
+    variant,
+    size,
     ref,
     ...rest
   } = props;
@@ -63,6 +65,8 @@ export function Button(props: ButtonButtonProps | ButtonAsChildProps) {
     ...interactionProps,
     'data-slot': 'button',
     'data-disabled': disabled ? 'true' : undefined,
+    'data-variant': variant && variant !== 'default' ? variant : undefined,
+    'data-size': size && size !== 'md' ? size : undefined,
     ref,
   });
 

@@ -11,6 +11,9 @@
   background: var(--ak-color-surface);
   color: var(--ak-color-text);
   cursor: pointer;
+  transition:
+    border-color var(--ak-duration-fast) var(--ak-ease-standard),
+    box-shadow var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
 [data-slot='select-trigger']:focus-visible {
@@ -24,7 +27,8 @@
 }
 
 [data-slot='select-trigger'][data-disabled] {
-  opacity: 0.65;
+  opacity: 0.5;
+  pointer-events: none;
   cursor: not-allowed;
 }
 
@@ -32,15 +36,44 @@
   color: var(--ak-color-text-muted);
 }
 
+@keyframes ak-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ak-select-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
 [data-slot='select-content'] {
   display: grid;
   gap: 0.25rem;
   min-width: 12rem;
+  max-block-size: min(20rem, calc(100vh - 4rem));
+  overflow-y: auto;
   padding: var(--ak-space-sm);
   border: 1px solid var(--ak-color-border);
   border-radius: var(--ak-radius-md);
   background: var(--ak-color-surface);
-  box-shadow: 0 10px 30px rgba(47, 43, 42, 0.12);
+  box-shadow: var(--ak-shadow-md);
+  animation: ak-select-in var(--ak-duration-fast) var(--ak-ease-standard);
+}
+
+[data-slot='select-content'][data-state='closed'] {
+  animation: ak-select-out var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
 [data-slot='select-item'] {
@@ -51,11 +84,18 @@
   border-radius: var(--ak-radius-sm);
   color: var(--ak-color-text);
   cursor: pointer;
+  transition:
+    background var(--ak-duration-fast) var(--ak-ease-standard),
+    color var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
 [data-slot='select-item'][data-state='checked'] {
   background: var(--ak-color-primary-soft);
   color: var(--ak-color-primary-ink);
+}
+
+[data-slot='select-item']:hover {
+  background: var(--ak-color-surface-muted);
 }
 
 [data-slot='select-item']:focus-visible {
@@ -64,7 +104,8 @@
 }
 
 [data-slot='select-item'][data-disabled] {
-  opacity: 0.65;
+  opacity: 0.5;
+  pointer-events: none;
   cursor: not-allowed;
 }
 
@@ -72,7 +113,7 @@
   padding: 0 var(--ak-space-sm);
   color: var(--ak-color-text-muted);
   font-size: var(--ak-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--ak-font-weight-semibold);
 }
 
 [data-slot='select-separator'] {

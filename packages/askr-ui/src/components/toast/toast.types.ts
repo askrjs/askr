@@ -17,6 +17,13 @@ export type ToastProviderProps = BoxProps<'div', HTMLDivElement> &
 export type ToastViewportProps = BoxProps<'div', HTMLDivElement>;
 export type ToastViewportAsChildProps = BoxAsChildProps;
 
+export type ToastVariant =
+  | 'default'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info';
+
 export type ToastOwnProps = {
   children?: unknown;
   id?: string;
@@ -24,6 +31,7 @@ export type ToastOwnProps = {
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   duration?: number;
+  variant?: ToastVariant;
 };
 
 export type ToastProps = BoxProps<'div', HTMLDivElement> & ToastOwnProps;

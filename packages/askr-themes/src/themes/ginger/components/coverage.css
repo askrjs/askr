@@ -50,12 +50,6 @@
   display: inline;
 }
 
-[data-slot='toast-provider'] {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-}
-
 [data-state='closed'] {
   --ak-state-closed: 1;
 }

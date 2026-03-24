@@ -2,5 +2,5 @@
   display: inline-block;
   color: var(--ak-color-text);
   font-size: var(--ak-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--ak-font-weight-semibold);
 }
