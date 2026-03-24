@@ -39,26 +39,25 @@ export function DebouncedInput(props: DebouncedInputProps) {
 
   const signal = getSignal();
   const isDisabled = disabled === true;
-  const debounceTimer = state<ReturnType<typeof setTimeout> | null>(null);
-  const cleanupRegistered = state(false);
+  const debounceState = state<{
+    timer: ReturnType<typeof setTimeout> | null;
+    cleanupRegistered: boolean;
+  }>({
+    timer: null,
+    cleanupRegistered: false,
+  });
 
   const clearDebounce = () => {
-    const pending = debounceTimer();
+    const pending = debounceState().timer;
     if (pending !== null) {
       clearTimeout(pending);
-      debounceTimer.set(null);
+      debounceState().timer = null;
     }
   };
 
-  if (!cleanupRegistered()) {
-    cleanupRegistered.set(true);
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearDebounce();
-      },
-      { once: true }
-    );
+  if (!debounceState().cleanupRegistered) {
+    debounceState().cleanupRegistered = true;
+    signal.addEventListener('abort', clearDebounce, { once: true });
   }
 
   const handleInput = (event: Event) => {
@@ -78,12 +77,10 @@ export function DebouncedInput(props: DebouncedInputProps) {
     }
 
     clearDebounce();
-    debounceTimer.set(
-      setTimeout(() => {
-        debounceTimer.set(null);
-        onDebouncedInput(value);
-      }, debounceMs)
-    );
+    debounceState().timer = setTimeout(() => {
+      debounceState().timer = null;
+      onDebouncedInput(value);
+    }, debounceMs);
   };
 
   return (
