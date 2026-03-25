@@ -22,10 +22,9 @@ shared operating model is documented in [docs/development/platform-charter.md](d
 
 ### Platform tooling
 
-| Package                     | Purpose                                 |
-| --------------------------- | --------------------------------------- |
-| `@askrjs/askr-vite`         | Vite integration and project transforms |
-| `@askrjs/eslint-plugin-askr` | Repository guardrails and conventions   |
+| Package             | Purpose                                 |
+| ------------------- | --------------------------------------- |
+| `@askrjs/askr-vite` | Vite integration and project transforms |
 
 ## Repository Structure
 
