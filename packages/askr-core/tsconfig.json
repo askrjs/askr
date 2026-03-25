@@ -1,16 +1,10 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2021",
-    "module": "ESNext",
     "lib": ["ES2021", "DOM"],
-
     "jsx": "preserve",
     "jsxImportSource": "@askrjs/askr",
-
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-
     "outDir": "./dist",
     "rootDir": "./src",
     "paths": {
@@ -25,18 +19,8 @@
       "@askrjs/askr/ssg": ["./src/ssg/index.ts"],
       "@askrjs/askr/jsx-runtime": ["./src/jsx-runtime.ts"],
       "@askrjs/askr/jsx-dev-runtime": ["./src/jsx-dev-runtime.ts"]
-    },
-
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "types": ["node"],
-    "forceConsistentCasingInFileNames": true,
-    "composite": true,
-
-    "moduleResolution": "bundler"
+    }
   },
-
   "include": ["src/**/*"],
   "exclude": ["tests", "benches", "examples"]
 }

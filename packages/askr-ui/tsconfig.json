@@ -1,22 +1,12 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ESNext",
     "lib": ["ES2020", "DOM"],
     "jsx": "preserve",
     "jsxImportSource": "@askrjs/askr",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": ".",
-    "types": ["node"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "composite": true,
-    "moduleResolution": "bundler"
+    "rootDir": "."
   },
   "include": ["src/**/*", "benches/**/*", "tests/**/*", "examples/**/*"]
 }
