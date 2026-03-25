@@ -36,7 +36,6 @@ Before considering work complete, run from root:
 
 ```bash
 npm run verify:monorepo
-npm run verify:platform-version
 npm run lint
 npm run build
 npm test

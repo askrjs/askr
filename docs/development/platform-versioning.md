@@ -1,37 +1,24 @@
 # Platform Versioning
 
-Askr coordinates a platform release across runtime, UI, themes, CLI, docs, and benchmark-facing references.
-
-## Source of truth
-
-`platform-version.json` at repository root is the release contract for:
-
-- `platformVersion`: the platform release identifier
-- `workspacePackages`: required versions for all workspace packages
-- `relatedProjects`: tracked external repos and default branches
+Askr uses each workspace package's `package.json` version as the source of truth. The old repository-level `platform-version.json` contract and its separate validation step have been retired.
 
 ## Update workflow
 
-1. Bump package versions that are part of the release.
-2. Update `platform-version.json` to match package versions exactly.
-3. Run root validation:
+1. Bump the `package.json` version for each package that is part of the release.
+2. Run the root checks that still apply:
 
 ```bash
 npm run verify:monorepo
 ```
 
-Validation includes:
+3. Run the normal quality gates before publishing:
 
-- monorepo structure checks (`scripts/validate-monorepo.js`)
-- platform version checks (`scripts/validate-platform-version.js`)
+```bash
+npm run lint
+npm run build
+npm test
+```
 
-## Rules
+## Why
 
-- Every workspace package must be represented in `workspacePackages`.
-- Every `workspacePackages` entry must exist in `packages/*/package.json`.
-- Version strings must match exactly.
-- Related project metadata must include `repository` and `branch`.
-
-## Why this exists
-
-A single contract prevents drift between package versions and platform claims, and creates a foundation for coordinated releases across related repositories.
+Keeping version state in package manifests avoids a second contract that can drift from npm publish metadata.
