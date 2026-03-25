@@ -1,4 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+} from 'vite-plus/test';
 import { controllableState } from '@askrjs/askr/foundations';
 import { createIsland } from '../helpers/create-island';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';

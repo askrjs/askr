@@ -40,10 +40,10 @@ export function applyRendererFastPath(
   if (totalKeyed <= 20) {
     // Small lists: use array scan (faster than Map overhead for ≤20 items)
     try {
-      const pc = parent.children;
-      parentChildrenArr = new Array(pc.length);
-      for (let i = 0; i < pc.length; i++)
-        parentChildrenArr[i] = pc[i] as Element;
+      parentChildrenArr = Array.from(
+        parent.children,
+        (child) => child as Element
+      );
     } catch (e) {
       parentChildrenArr = undefined;
       void e;

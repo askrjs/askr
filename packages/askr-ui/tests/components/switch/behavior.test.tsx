@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
 import { Switch } from '../../../src/components/switch/switch';
 

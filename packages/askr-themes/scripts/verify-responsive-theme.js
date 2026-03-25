@@ -25,7 +25,7 @@ async function main() {
   const theming = await read('THEMING.md');
 
   const responsiveImportPattern =
-    /@import\s+['\"]\.\/components\/responsive-layout\.css['\"];?/;
+    /@import\s+['"]\.\/components\/responsive-layout\.css['"];?/;
   for (const theme of officialThemes) {
     const indexCss = await read(`src/themes/${theme}/index.css`);
     if (!responsiveImportPattern.test(indexCss)) {

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite-plus';
 
 // We replicate the relevant JSX parts of the askr() vite plugin inline rather
 // than importing it, because the plugin's dist bundles its own Vite copy which

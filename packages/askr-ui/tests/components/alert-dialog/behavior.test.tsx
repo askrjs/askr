@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -24,14 +24,20 @@ describe('AlertDialog - Behavior', () => {
       </AlertDialog>
     );
 
-    let trigger = container.querySelector('[aria-haspopup="dialog"]')!;
+    let trigger = container.querySelector(
+      '[aria-haspopup="dialog"]'
+    ) as HTMLButtonElement;
     trigger.click();
     await flushUpdates();
-    trigger = container.querySelector('[aria-haspopup="dialog"]')!;
+    trigger = container.querySelector(
+      '[aria-haspopup="dialog"]'
+    ) as HTMLButtonElement;
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     trigger.click();
     await flushUpdates();
-    trigger = container.querySelector('[aria-haspopup="dialog"]')!;
+    trigger = container.querySelector(
+      '[aria-haspopup="dialog"]'
+    ) as HTMLButtonElement;
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
 });

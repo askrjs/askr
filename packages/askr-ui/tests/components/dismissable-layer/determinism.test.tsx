@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { DismissableLayer } from '../../../src/components/dismissable-layer';
 import { expectDeterministicRender } from '../../determinism';
 

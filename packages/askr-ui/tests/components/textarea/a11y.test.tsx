@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { Textarea } from '../../../src/components/textarea/textarea';
 import { TEXTAREA_A11Y_CONTRACT } from '../../../src/components/textarea/textarea.a11y';
 import { expectNoAxeViolations } from '../../accessibility';

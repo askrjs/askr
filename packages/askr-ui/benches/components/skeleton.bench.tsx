@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest';
+import { bench, describe } from 'vite-plus/test';
 import { Skeleton } from '../../src/components/skeleton';
 
 describe('Skeleton benches', () => {

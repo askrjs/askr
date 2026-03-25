@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { renderToStream, renderToString } from '../../src/ssr';
 import { tier2BenchOptions } from '../shared/_shared';
 

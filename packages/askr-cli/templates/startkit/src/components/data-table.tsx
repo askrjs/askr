@@ -64,17 +64,13 @@ export default function DataTable<Row>(props: {
           </tr>
         </thead>
         <tbody>
-          <For
-            source={props.rows}
-            key={props.rowKey}
-            render={(row: Row) => (
-              <tr class={props.rowClass?.(row)}>
-                {props.columns.map((column) => (
-                  <td class={column.class}>{column.render(row)}</td>
-                ))}
-              </tr>
-            )}
-          />
+          {For(props.rows, props.rowKey, (row: Row) => (
+            <tr class={props.rowClass?.(row)}>
+              {props.columns.map((column) => (
+                <td class={column.class}>{column.render(row)}</td>
+              ))}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

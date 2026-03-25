@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { Spinner } from '../../../src/components/spinner';
 import { SPINNER_A11Y_CONTRACT } from '../../../src/components/spinner/spinner.a11y';
 import { mount, unmount } from '../../test-utils';

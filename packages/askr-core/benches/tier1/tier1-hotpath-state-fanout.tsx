@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest';
+import { bench, describe } from 'vite-plus/test';
 import { createIsland, state } from '../../src';
 import {
   createTestContainer,
@@ -85,7 +85,7 @@ describe('tier1 state fanout', () => {
             <div>
               {Array.from({ length: 1000 }, (_, index) => (
                 <span data-i={index}>
-                  {valueState()}-{index}
+                  {valueState!()}-{index}
                 </span>
               ))}
             </div>

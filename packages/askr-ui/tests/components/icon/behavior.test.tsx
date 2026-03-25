@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { IconBase } from '@askrjs/askr/foundations';
 import { mount, unmount } from '../../test-utils';
 

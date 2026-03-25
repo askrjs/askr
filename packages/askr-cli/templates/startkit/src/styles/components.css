@@ -273,6 +273,33 @@
     font-size: var(--ak-font-size-sm);
   }
 
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ak-space-xs);
+    border-radius: var(--ak-radius-md);
+    border: 1px solid transparent;
+    min-block-size: 2.5rem;
+    padding-inline: var(--ak-space-md);
+    text-decoration: none;
+    transition:
+      transform 150ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .button:hover {
+    box-shadow: var(--starter-shadow-press);
+    transform: translateY(-1px);
+  }
+
+  .button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ak-color-focus-ring);
+  }
+
   .link-button {
     border: none;
     background: transparent;

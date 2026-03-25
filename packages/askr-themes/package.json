@@ -95,13 +95,12 @@
     "verify:token-contract": "node ./scripts/verify-token-contract.js",
     "verify:responsive": "node ./scripts/verify-responsive-theme.js",
     "verify:slots": "node ./scripts/verify-slot-coverage.js",
-    "test": "vitest run",
-    "fmt": "prettier --write \"src/**/*.css\" \"templates/**/*.css\" \"THEMING.md\" \"package.json\"",
-    "lint": "prettier --check \"src/**/*.css\" \"templates/**/*.css\" \"THEMING.md\" \"package.json\"",
+    "test": "vp test run",
+    "fmt": "vp fmt \"src/**/*.css\" \"templates/**/*.css\" \"THEMING.md\" \"package.json\"",
+    "lint": "vp fmt --check \"src/**/*.css\" \"templates/**/*.css\" \"THEMING.md\" \"package.json\"",
     "build": "node -e \"console.log('askr-themes is CSS-only; no build step required')\""
   },
   "devDependencies": {
-    "prettier": "^3.8.1",
-    "vitest": "^4.1.0"
+    "vite-plus": "latest"
   }
 }

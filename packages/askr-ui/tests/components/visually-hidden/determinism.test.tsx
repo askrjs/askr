@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { VisuallyHidden } from '../../../src/components/visually-hidden/visually-hidden';
 import { expectDeterministicRender } from '../../determinism';
 

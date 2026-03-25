@@ -5,7 +5,14 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { state, createSPA } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { clearRoutes, getRoutes, route } from '../../src/router/route';
@@ -129,7 +136,7 @@ describe('route navigation (ROUTER)', () => {
           namespace = 'admin-mfe';
           return <div>Admin Panel</div>;
         },
-        'admin-mfe'
+        { namespace: 'admin-mfe' }
       );
 
       route(
@@ -138,7 +145,7 @@ describe('route navigation (ROUTER)', () => {
           namespace = 'dashboard-mfe';
           return <div>Dashboard</div>;
         },
-        'dashboard-mfe'
+        { namespace: 'dashboard-mfe' }
       );
 
       const App = () => {

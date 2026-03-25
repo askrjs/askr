@@ -400,7 +400,7 @@ export function _drainLazy(
     ...pendingLazy,
   ]);
   if (combined.size === 0) return Promise.resolve();
-  return Promise.allSettled([...combined]).then(() => undefined);
+  return Promise.allSettled(combined).then(() => undefined);
 }
 
 // ---------------------------------------------------------------------------
@@ -509,7 +509,7 @@ export function route(
     }
 
     const params = deepFreeze({
-      ...((instance.props as Record<string, string>) || {}),
+      ...(instance.props as Record<string, string>),
     });
     const query = makeQuery(search);
     const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());

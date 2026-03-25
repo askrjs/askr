@@ -1,5 +1,5 @@
 // tests/runtime/event-delegation-integration.test.tsx
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../src/index';
 import {
   disableEventDelegation,

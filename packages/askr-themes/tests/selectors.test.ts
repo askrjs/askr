@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -220,7 +220,7 @@ describe('tokens.css selector contract', () => {
     for (const sel of selectors) {
       const isRoot = sel === ':root';
       const isRootNot = sel === ':root:not([data-theme])';
-      const isDataTheme = /^\[data-theme=/.test(sel);
+      const isDataTheme = sel.startsWith('[data-theme=');
       expect(
         isRoot || isRootNot || isDataTheme,
         `Unexpected selector in tokens.css: "${sel}"`

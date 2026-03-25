@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { fetchUser } from '../src/resources/user';
 
 describe('SSR Resources', () => {

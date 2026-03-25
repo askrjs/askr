@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { Spacer } from '../../../src/components/spacer/spacer';
 import { expectDeterministicRender } from '../../determinism';
 

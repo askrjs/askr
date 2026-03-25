@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "vitest",
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "test": "vp test run",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src tests",
-    "lint:fix": "eslint src tests --fix",
-    "fmt": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,tsx}\" \"*.md\""
+    "lint": "cross-env OXLINT_TSGOLINT_PATH=../../../../node_modules/.bin/tsgolint.cmd vp lint src tests",
+    "lint:fix": "cross-env OXLINT_TSGOLINT_PATH=../../../../node_modules/.bin/tsgolint.cmd vp lint --fix src tests",
+    "fmt": "vp fmt \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,tsx}\" \"*.md\""
   },
   "dependencies": {
     "@askrjs/askr": ">=0.0.28 <1.0.0",
@@ -20,16 +20,9 @@
   "devDependencies": {
     "@askrjs/askr-vite": "^0.1.0",
     "@types/node": "^25.0.9",
-    "@eslint/js": "^9.39.2",
-    "@typescript-eslint/eslint-plugin": "^8.53.1",
-    "@typescript-eslint/parser": "^8.53.1",
-    "@vitest/ui": "^4.0.17",
-    "eslint": "^9.39.2",
     "jiti": "^2.6.1",
     "jsdom": "^27.4.0",
-    "prettier": "^3.8.0",
     "typescript": "^5.9.3",
-    "vite": "^8.0.1",
-    "vitest": "^4.0.17"
+    "vite-plus": "latest"
   }
 }

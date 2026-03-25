@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 
 describe('data() deprecated', () => {
   it('should not be exported as a public API', async () => {

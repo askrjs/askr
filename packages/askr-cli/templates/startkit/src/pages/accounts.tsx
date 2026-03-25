@@ -27,11 +27,11 @@ import {
 import { showToast } from '../toast';
 
 export default function AccountsPage() {
-  const [query, setQuery] = state('');
-  const [status, setStatus] = state<AccountStatus | 'all'>('all');
-  const [page, setPage] = state(1);
-  const [selectedIds, setSelectedIds] = state<string[]>([]);
-  const [archiving, setArchiving] = state(false);
+  const queryState = state('');
+  const statusState = state<AccountStatus | 'all'>('all');
+  const pageState = state(1);
+  const selectedIdsState = state<string[]>([]);
+  const archivingState = state(false);
 
   const pageSize = 5;
 
@@ -39,19 +39,19 @@ export default function AccountsPage() {
     async ({ signal }) =>
       listAccounts({
         signal,
-        query: query(),
-        status: status(),
-        page: page(),
+        query: queryState(),
+        status: statusState(),
+        page: pageState(),
         pageSize,
       }),
-    [query(), status(), page()]
+    [queryState(), statusState(), pageState()]
   );
 
   const rows = () => accountsResource.value?.items ?? [];
   const totalPages = () => accountsResource.value?.totalPages ?? 1;
 
   const toggleRow = (id: string) => {
-    setSelectedIds((current) =>
+    selectedIdsState.set((current) =>
       current.includes(id)
         ? current.filter((value) => value !== id)
         : [...current, id]
@@ -59,9 +59,9 @@ export default function AccountsPage() {
   };
 
   const resetFilters = () => {
-    setQuery('');
-    setStatus('all');
-    setPage(1);
+    queryState.set('');
+    statusState.set('all');
+    pageState.set(1);
   };
 
   const openRow = (row: AccountRecord) => {
@@ -72,15 +72,15 @@ export default function AccountsPage() {
   };
 
   const archiveSelected = async () => {
-    if (selectedIds().length === 0) {
+    if (selectedIdsState().length === 0) {
       return;
     }
 
-    setArchiving(true);
+    archivingState.set(true);
 
     try {
-      const result = await archiveAccounts({ ids: selectedIds() });
-      setSelectedIds([]);
+      const result = await archiveAccounts({ ids: selectedIdsState() });
+      selectedIdsState.set([]);
       showToast({
         title: 'Accounts archived',
         description: `${result.archived} account records moved to archived status.`,
@@ -95,7 +95,7 @@ export default function AccountsPage() {
             : 'Could not archive selected rows.',
       });
     } finally {
-      setArchiving(false);
+      archivingState.set(false);
     }
   };
 
@@ -121,22 +121,22 @@ export default function AccountsPage() {
 
       <section class="panel stack-md">
         <AccountFilters
-          query={query()}
-          status={status()}
+          query={queryState()}
+          status={statusState()}
           onQueryChange={(next) => {
-            setQuery(next);
-            setPage(1);
+            queryState.set(next);
+            pageState.set(1);
           }}
           onStatusChange={(next) => {
-            setStatus(next);
-            setPage(1);
+            statusState.set(next);
+            pageState.set(1);
           }}
           onReset={resetFilters}
         />
 
         <AccountTable
           rows={rows}
-          selectedIds={selectedIds}
+          selectedIds={selectedIdsState}
           onToggleRow={toggleRow}
           onOpenRow={openRow}
           loading={accountsResource.pending && !accountsResource.value}
@@ -144,12 +144,12 @@ export default function AccountsPage() {
         />
 
         <Inline align="center" gap="var(--ak-space-lg)" wrap="wrap">
-          <span class="muted">{selectedIds().length} selected</span>
+          <span class="muted">{selectedIdsState().length} selected</span>
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
-                disabled={selectedIds().length === 0}
+                disabled={selectedIdsState().length === 0}
                 class="button-secondary"
               >
                 <Archive size={14} aria-hidden="true" /> Archive selected
@@ -169,9 +169,9 @@ export default function AccountsPage() {
                   <AlertDialogAction asChild>
                     <Button
                       onPress={() => void archiveSelected()}
-                      disabled={archiving()}
+                      disabled={archivingState()}
                     >
-                      {archiving() ? 'Archiving...' : 'Confirm archive'}
+                      {archivingState() ? 'Archiving...' : 'Confirm archive'}
                     </Button>
                   </AlertDialogAction>
                 </div>
@@ -181,8 +181,8 @@ export default function AccountsPage() {
 
           <Pagination
             count={totalPages()}
-            page={page()}
-            onPageChange={setPage}
+            page={pageState()}
+            onPageChange={pageState.set}
           />
         </Inline>
       </section>

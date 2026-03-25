@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createStaticGen } from '../../src/ssg/create-static-gen';

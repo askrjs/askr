@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite-plus';
 import {
   askrEsbuild,
   createBuildInput,
@@ -16,6 +16,20 @@ export default defineConfig({
   define: createNodeEnvDefine(isProd ? 'production' : 'development', {
     bench: isBenchBuild,
   }),
+  lint: {
+    ignorePatterns: ['dist/**', 'node_modules/**', 'coverage/**'],
+    options: {
+      typeAware: false,
+      typeCheck: false,
+    },
+  },
+  fmt: {
+    semi: true,
+    singleQuote: true,
+    trailingComma: 'es5',
+    printWidth: 80,
+    tabWidth: 2,
+  },
   esbuild: askrEsbuild,
   resolve: {
     alias: createPackageAliases(),

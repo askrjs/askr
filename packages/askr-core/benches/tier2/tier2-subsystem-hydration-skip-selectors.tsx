@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { createHydrationFixture, tier2BenchOptions } from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
 import { fireEvent, flushScheduler } from '../../tests/helpers/test-renderer';

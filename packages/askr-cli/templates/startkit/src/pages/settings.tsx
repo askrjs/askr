@@ -32,31 +32,31 @@ import {
 import { showToast } from '../toast';
 
 export default function SettingsPage() {
-  const [fullName, setFullName] = state('Alex Morgan');
-  const [email, setEmail] = state('alex@example.com');
-  const [timezone, setTimezone] = state('utc');
-  const [marketingEmails, setMarketingEmails] = state(false);
-  const [incidentAlerts, setIncidentAlerts] = state(true);
-  const [validationError, setValidationError] = state('');
-  const [saving, setSaving] = state(false);
+  const fullNameState = state('Alex Morgan');
+  const emailState = state('alex@example.com');
+  const timezoneState = state('utc');
+  const marketingEmailsState = state(false);
+  const incidentAlertsState = state(true);
+  const validationErrorState = state('');
+  const savingState = state(false);
 
   const save = async () => {
-    if (!fullName().trim()) {
-      setValidationError('Full name is required.');
+    if (!fullNameState().trim()) {
+      validationErrorState.set('Full name is required.');
       return;
     }
 
-    if (!email().trim().includes('@')) {
-      setValidationError('Email must be valid.');
+    if (!emailState().trim().includes('@')) {
+      validationErrorState.set('Email must be valid.');
       return;
     }
 
-    setValidationError('');
-    setSaving(true);
+    validationErrorState.set('');
+    savingState.set(true);
 
     await new Promise((resolve) => setTimeout(resolve, 260));
 
-    setSaving(false);
+    savingState.set(false);
     showToast({
       title: 'Settings saved',
       description:
@@ -70,9 +70,9 @@ export default function SettingsPage() {
         title="Settings"
         description="Profile settings, workspace preferences, and production form patterns."
         actions={
-          <Button onPress={() => void save()} disabled={saving()}>
+          <Button onPress={() => void save()} disabled={savingState()}>
             <Save size={14} aria-hidden="true" />{' '}
-            {saving() ? 'Saving...' : 'Save changes'}
+            {savingState() ? 'Saving...' : 'Save changes'}
           </Button>
         }
       />
@@ -84,9 +84,9 @@ export default function SettingsPage() {
           <Field id="profile-name">
             <FieldLabel fieldId="profile-name">Full name</FieldLabel>
             <Input
-              value={fullName()}
+              value={fullNameState()}
               onInput={(event: Event) =>
-                setFullName((event.target as HTMLInputElement).value)
+                fullNameState.set((event.target as HTMLInputElement).value)
               }
             />
           </Field>
@@ -95,16 +95,16 @@ export default function SettingsPage() {
             <FieldLabel fieldId="profile-email">Email</FieldLabel>
             <Input
               type="email"
-              value={email()}
+              value={emailState()}
               onInput={(event: Event) =>
-                setEmail((event.target as HTMLInputElement).value)
+                emailState.set((event.target as HTMLInputElement).value)
               }
             />
           </Field>
 
           <Field id="profile-timezone">
             <FieldLabel fieldId="profile-timezone">Timezone</FieldLabel>
-            <Select value={timezone()} onValueChange={setTimezone}>
+            <Select value={timezoneState()} onValueChange={timezoneState.set}>
               <SelectTrigger aria-label="Timezone">
                 <SelectValue placeholder="Select timezone" />
               </SelectTrigger>
@@ -118,9 +118,9 @@ export default function SettingsPage() {
             </Select>
           </Field>
 
-          {validationError() && (
+          {validationErrorState() && (
             <p class="field-error" role="alert">
-              {validationError()}
+              {validationErrorState()}
             </p>
           )}
         </section>
@@ -136,8 +136,8 @@ export default function SettingsPage() {
               </p>
             </div>
             <Switch
-              checked={incidentAlerts()}
-              onCheckedChange={setIncidentAlerts}
+              checked={incidentAlertsState()}
+              onCheckedChange={incidentAlertsState.set}
             />
           </label>
 
@@ -147,8 +147,8 @@ export default function SettingsPage() {
               <p class="muted">Product updates and launch notes.</p>
             </div>
             <Switch
-              checked={marketingEmails()}
-              onCheckedChange={setMarketingEmails}
+              checked={marketingEmailsState()}
+              onCheckedChange={marketingEmailsState.set}
             />
           </label>
 

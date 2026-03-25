@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vite-plus/test';
 import { Button } from '../../../src/components/button/button';
 import { createIsland } from '@askrjs/askr';
 
@@ -35,7 +35,7 @@ describe('Button - Behavior', () => {
       const onPress = vi.fn();
 
       container = mount(<Button onPress={onPress}>Click me</Button>);
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       button.click();
       expect(onPress).toHaveBeenCalledTimes(1);
@@ -50,7 +50,7 @@ describe('Button - Behavior', () => {
         </Button>
       );
 
-      const element = container.querySelector('[role="button"]')!;
+      const element = container.querySelector('[role="button"]') as HTMLElement;
 
       element.click();
       expect(onPress).toHaveBeenCalledTimes(1);
@@ -64,7 +64,7 @@ describe('Button - Behavior', () => {
           Click me
         </Button>
       );
-      const button = container.querySelector('button')! as HTMLButtonElement;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       expect(button.disabled).toBe(true);
       button.click();
@@ -80,7 +80,7 @@ describe('Button - Behavior', () => {
         </Button>
       );
 
-      const link = container.querySelector('a')!;
+      const link = container.querySelector('a') as HTMLAnchorElement;
 
       expect(link.getAttribute('aria-disabled')).toBe('true');
       expect(link.getAttribute('tabindex')).toBe('-1');
@@ -98,7 +98,7 @@ describe('Button - Behavior', () => {
         </Button>
       );
 
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       expect(button.getAttribute('data-custom')).toBe('value');
       expect(button.getAttribute('aria-label')).toBe('test');
@@ -114,7 +114,7 @@ describe('Button - Behavior', () => {
   describe('semantic contract', () => {
     it('should render a native button element given no asChild prop', () => {
       container = mount(<Button>Click me</Button>);
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       expect(button).toBeTruthy();
       expect(button.tagName).toBe('BUTTON');
@@ -123,21 +123,21 @@ describe('Button - Behavior', () => {
 
     it('should render with button type by default given no type prop', () => {
       container = mount(<Button>Click me</Button>);
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       expect(button.getAttribute('type')).toBe('button');
     });
 
     it('should render with submit type given type="submit"', () => {
       container = mount(<Button type="submit">Submit</Button>);
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       expect(button.getAttribute('type')).toBe('submit');
     });
 
     it('should render with reset type given type="reset"', () => {
       container = mount(<Button type="reset">Reset</Button>);
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       expect(button.getAttribute('type')).toBe('reset');
     });
@@ -177,7 +177,7 @@ describe('Button - Behavior', () => {
           <a href="/test">Link</a>
         </Button>
       );
-      const link = container.querySelector('a')!;
+      const link = container.querySelector('a') as HTMLAnchorElement;
 
       expect(link).toBeTruthy();
       expect(link.tagName).toBe('A');
@@ -193,7 +193,7 @@ describe('Button - Behavior', () => {
         </Button>
       );
 
-      const link = container.querySelector('a')!;
+      const link = container.querySelector('a') as HTMLAnchorElement;
       link.click();
 
       expect(onPress).toHaveBeenCalledTimes(1);
@@ -222,7 +222,9 @@ describe('Button - Behavior', () => {
           <a href="/test">Link</a>
         </Button>
       );
-      const link = container.querySelector('[data-testid="custom-link"]')!;
+      const link = container.querySelector(
+        '[data-testid="custom-link"]'
+      ) as HTMLAnchorElement;
 
       expect(link).toBeTruthy();
       expect(link.tagName).toBe('A');
@@ -236,7 +238,7 @@ describe('Button - Behavior', () => {
         </Button>
       );
 
-      const div = container.querySelector('div')!;
+      const div = container.querySelector('div') as HTMLElement;
       div.click();
 
       expect(onPress).toHaveBeenCalledTimes(1);
@@ -256,7 +258,7 @@ describe('Button - Behavior', () => {
         </Button>
       );
 
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       expect(button.getAttribute('data-testid')).toBe('test');
       expect(button.getAttribute('class')).toBe('custom');
@@ -269,7 +271,7 @@ describe('Button - Behavior', () => {
       const onPress = vi.fn();
       container = mount(<Button onPress={onPress}>Click me</Button>);
 
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
       button.click();
 
       expect(onPress).toHaveBeenCalledTimes(1);
@@ -286,7 +288,7 @@ describe('Button - Behavior', () => {
         </Button>
       );
 
-      const link = container.querySelector('a')!;
+      const link = container.querySelector('a') as HTMLAnchorElement;
 
       expect(link.getAttribute('data-from-button')).toBe('yes');
       expect(link.getAttribute('data-from-child')).toBe('yes');
@@ -305,7 +307,6 @@ describe('Button - Behavior', () => {
       const onClick = vi.fn();
       const onPress = vi.fn();
 
-      // @ts-expect-error - onClick should not be in the type signature
       container = mount(
         <Button onClick={onClick} onPress={onPress}>
           Click me
@@ -344,7 +345,7 @@ describe('Button - Behavior', () => {
         </Button>
       );
 
-      const element = container.querySelector('[role="button"]')!;
+      const element = container.querySelector('[role="button"]') as HTMLElement;
 
       element.click();
       element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
@@ -361,7 +362,7 @@ describe('Button - Behavior', () => {
       const onPress = vi.fn();
 
       container = mount(<Button onPress={onPress}>Click me</Button>);
-      const button = container.querySelector('button')!;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
       button.click();
       expect(onPress).toHaveBeenCalledTimes(1);

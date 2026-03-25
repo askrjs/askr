@@ -1,5 +1,5 @@
 // tests/stress/mount_unmount_cycles.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../src/index';
 import {
   createTestContainer,

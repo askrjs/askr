@@ -1,5 +1,12 @@
 // tests/dev_errors/prod_fallbacks.test.ts
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { state } from '../../src/index';
 import { _resetDefaultPortal } from '../../src/foundations/structures/portal';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';

@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { globalScheduler } from '../../src/runtime/scheduler';
 import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
 

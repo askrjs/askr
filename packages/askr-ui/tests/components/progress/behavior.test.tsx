@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { Progress, ProgressIndicator } from '../../../src/components/progress';
 import { PROGRESS_A11Y_CONTRACT } from '../../../src/components/progress/progress.a11y';
 import { mount, unmount } from '../../test-utils';

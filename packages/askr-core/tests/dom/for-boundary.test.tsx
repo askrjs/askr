@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { test } from 'vitest';
+import { test } from 'vite-plus/test';
 import { createIsland } from '../../src';
 import { createTestContainer } from '../helpers/test-renderer';
 import { For } from '../../src/for';

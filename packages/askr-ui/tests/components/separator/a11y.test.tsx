@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { Separator } from '../../../src/components/separator/separator';
 import { SEPARATOR_A11Y_CONTRACT } from '../../../src/components/separator/separator.a11y';
 import { expectNoAxeViolations } from '../../accessibility';

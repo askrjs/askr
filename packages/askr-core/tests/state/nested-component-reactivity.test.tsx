@@ -10,7 +10,7 @@
  */
 
 import { expect } from 'chai';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { createIsland, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 

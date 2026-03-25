@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { DismissableLayer } from '../../../src/components/dismissable-layer';
 import { mount, unmount } from '../../test-utils';
 

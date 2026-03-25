@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { createSPA } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { navigate } from '../../src/router/navigate';

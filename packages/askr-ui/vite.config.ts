@@ -1,8 +1,22 @@
 import { resolve } from 'node:path';
 
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
+  lint: {
+    ignorePatterns: ['dist/**', 'node_modules/**', 'coverage/**'],
+    options: {
+      typeAware: false,
+      typeCheck: false,
+    },
+  },
+  fmt: {
+    semi: true,
+    singleQuote: true,
+    trailingComma: 'es5',
+    printWidth: 80,
+    tabWidth: 2,
+  },
   esbuild: {
     jsx: 'automatic',
     jsxImportSource: '@askrjs/askr',

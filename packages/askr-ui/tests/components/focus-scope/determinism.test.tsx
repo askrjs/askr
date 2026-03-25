@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { FocusScope } from '../../../src/components/focus-scope';
 import { expectDeterministicRender } from '../../determinism';
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { Skeleton } from '../../../src/components/skeleton';
 import { SKELETON_A11Y_CONTRACT } from '../../../src/components/skeleton/skeleton.a11y';
 import { mount, unmount } from '../../test-utils';

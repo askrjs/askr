@@ -1,5 +1,5 @@
 // tests/stress/large_tree_updates.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../src/index';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';

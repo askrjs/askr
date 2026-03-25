@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { Spinner } from '../../../src/components/spinner';
 import { expectNoAxeViolations } from '../../accessibility';
 

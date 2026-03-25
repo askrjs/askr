@@ -4,7 +4,7 @@
  * DOM updates must be minimal: only changed attributes/content updated.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../src/index';
 import {
   createTestContainer,

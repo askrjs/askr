@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import {
   Select,
   SelectContent,
@@ -31,7 +31,9 @@ describe('Select - Behavior', () => {
       </Select>
     );
 
-    let trigger = container.querySelector('[aria-haspopup="listbox"]')!;
+    let trigger = container.querySelector(
+      '[aria-haspopup="listbox"]'
+    ) as HTMLButtonElement;
     const input = container.querySelector(
       'input[type="hidden"]'
     ) as HTMLInputElement;
@@ -41,7 +43,9 @@ describe('Select - Behavior', () => {
 
     trigger.click();
     await flushUpdates();
-    trigger = container.querySelector('[aria-haspopup="listbox"]')!;
+    trigger = container.querySelector(
+      '[aria-haspopup="listbox"]'
+    ) as HTMLButtonElement;
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
   });
 });

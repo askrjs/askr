@@ -771,7 +771,11 @@ export function registerRoutes(
 ): void {
   clearRoutes();
   for (const entry of entries) {
-    route(entry.path, entry.handler, entry.namespace);
+    route(
+      entry.path,
+      entry.handler,
+      entry.namespace ? { namespace: entry.namespace } : undefined
+    );
   }
 }
 

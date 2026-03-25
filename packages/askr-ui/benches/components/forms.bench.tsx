@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest';
+import { bench, describe } from 'vite-plus/test';
 import { Field, FieldControl } from '../../src/components/field';
 import { Input } from '../../src/components/input';
 import { Label } from '../../src/components/label';

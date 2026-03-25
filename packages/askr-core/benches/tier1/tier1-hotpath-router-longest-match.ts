@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { resolveRouteFromRoutes } from '../../src/router/route';
 import {
   buildDenseRouteTable,
