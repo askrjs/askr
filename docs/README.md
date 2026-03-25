@@ -5,17 +5,22 @@ conventions, and batteries-included primitives. It provides a cohesive runtime, 
 system, optional theming, and official tooling to build complete applications with minimal
 external dependencies.
 
+The platform is intentionally modular. The package boundaries are part of the design, and the
+shared operating model is documented in [Platform charter](./development/platform-charter.md).
+
 ## What Askr is
 
 Askr is a **platform**, not just a framework.
 
-| Package       | Responsibility                    |
-| ------------- | --------------------------------- |
-| `askr`        | Core runtime and rendering system |
-| `askr-ui`     | Headless UI primitives            |
-| `askr-themes` | Optional styling layer            |
-| `askr-lucide` | Lucide icon wrappers for Askr     |
-| `askr-cli`    | Project lifecycle and generators  |
+| Package               | Responsibility                          |
+| --------------------- | --------------------------------------- |
+| `askr`                | Core runtime and rendering system       |
+| `askr-ui`             | Headless UI primitives                  |
+| `askr-themes`         | Optional styling layer                  |
+| `askr-lucide`         | Lucide icon wrappers for Askr           |
+| `askr-cli`            | Project lifecycle and generators        |
+| `askr-vite`           | Vite integration for Askr projects      |
+| `eslint-plugin-askr`  | Repository guardrails and conventions   |
 
 Every package is optional except `askr`. You add the others as your application needs them.
 
@@ -60,7 +65,7 @@ Askr focuses on frontend application structure and developer workflow. It is not
 | [CLI](./cli/)                         | Project creation, generators, workflows               |
 | [Guides](./guides/)                   | Real-app walkthroughs by use case                     |
 | [Reference](./reference/)             | Package map, project structure, conventions, glossary |
-| [Development](./development/)         | Monorepo layout, contributing, release process        |
+| [Development](./development/)         | Platform charter, monorepo layout, release process    |
 
 ## The most important rule
 

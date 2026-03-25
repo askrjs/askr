@@ -18,15 +18,15 @@ npm install
 ## Build
 
 ```bash
-npm run build                          # all packages
+npm run build                        # all packages
 npm run --workspace @askrjs/askr build # single package
 ```
 
 ## Test
 
 ```bash
-npm run test                           # all packages
-npm run --workspace @askrjs/askr test  # single package
+npm test                             # all packages
+npm run --workspace @askrjs/askr test # single package
 ```
 
 ## Lint and format

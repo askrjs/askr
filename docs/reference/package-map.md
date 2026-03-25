@@ -2,6 +2,9 @@
 
 Official packages in the Askr platform, their responsibilities, and their boundaries.
 
+For the platform-level operating model and how the packages fit together, see
+[Platform charter](../development/platform-charter.md).
+
 ---
 
 ## `@askrjs/askr`

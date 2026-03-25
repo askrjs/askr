@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/askr-core" },
+    { "path": "./packages/askr-ui/tsconfig.build.json" },
+    { "path": "./packages/askr-lucide/tsconfig.build.json" }
+  ]
+}

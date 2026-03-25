@@ -125,6 +125,7 @@ Real app workflows by use case.
 
 | Page                                                        | Description                             |
 | ----------------------------------------------------------- | --------------------------------------- |
+| [Platform charter](./development/platform-charter.md)      | Package roles and platform operating model |
 | [Repo structure](./development/repo-structure.md)           | Monorepo layout, packages, scripts      |
 | [Contributing](./development/contributing.md)               | Setup, build, test, lint                |
 | [Release](./development/release.md)                         | Versioning and publish process          |

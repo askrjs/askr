@@ -86,7 +86,7 @@
     "build": "npm run build:prod",
     "build:prod": "cross-env NODE_ENV=production vp build && npm run build:types",
     "build:dev": "cross-env NODE_ENV=development vp build && npm run build:types",
-    "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
+    "build:types": "tsc -b tsconfig.json --emitDeclarationOnly --force",
     "build:bench": "cross-env BUILD=bench NODE_ENV=production vp build && npm run build:types",
     "dev:watch": "vp build --watch --mode development",
     "prepare": "npm run build:prod",

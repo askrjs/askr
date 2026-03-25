@@ -59,7 +59,7 @@ packages/askr-cli/
 | Script                               | Purpose                          |
 | ------------------------------------ | -------------------------------- |
 | `npm run build`                      | Build all packages               |
-| `npm run test`                       | Test all packages                |
+| `npm test`                           | Test all packages                |
 | `npm run lint`                       | Lint the root and all packages   |
 | `npm run fmt`                        | Format all docs and scripts      |
 | `node scripts/validate-monorepo.js`  | Validate workspace configuration |

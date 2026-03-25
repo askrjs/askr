@@ -34,8 +34,9 @@ When Package A depends on Package B (both in the same monorepo):
 
 ```json
 {
+  "private": true,
   "workspaces": ["packages/*"],
-  "private": true
+  "packageManager": "npm@11.12.0"
 }
 ```
 
@@ -64,7 +65,7 @@ When Package A depends on Package B (both in the same monorepo):
 
 - `npm install` creates symlink: `root/node_modules/@scope/package-b → packages/package-b`
 - `package-a` resolves `@scope/package-b` via the symlink during dev
-- Published `package-a` declares `@scope/package-b@1.0.0` in `dependencies`; npm finds it published on registry
+- Published `package-a` declares `@scope/package-b@1.0.0` in `dependencies`; npm finds it published on the registry
 
 **Why version must match:**
 
@@ -235,8 +236,8 @@ root/
 
 **Hoisting behavior:**
 
-- `core` is a common dependency; npm hoists to root `node_modules`
-- `plugin` resolves `core` peer via hoisted symlink
+- `core` is a common dependency; npm hoists it to root `node_modules`
+- `plugin` resolves `core` peer via the hoisted symlink
 - All packages access same `core` instance (no duplication)
 
 ---
@@ -249,7 +250,6 @@ root/
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
   "scripts": {
     "build": "npm run --workspaces --if-present build",
     "test": "npm run --workspaces --if-present test"
