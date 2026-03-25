@@ -123,15 +123,15 @@ Real app workflows by use case.
 
 ## Development
 
-| Page                                                        | Description                             |
-| ----------------------------------------------------------- | --------------------------------------- |
-| [Platform charter](./development/platform-charter.md)      | Package roles and platform operating model |
-| [Repo structure](./development/repo-structure.md)           | Monorepo layout, packages, scripts      |
-| [Contributing](./development/contributing.md)               | Setup, build, test, lint                |
-| [Release](./development/release.md)                         | Versioning and publish process          |
-| [Platform versioning](./development/platform-versioning.md) | Cross-package platform release contract |
-| [Docs style guide](./contributing/docs-style-guide.md)      | Writing conventions                     |
-| [Testing guide](./contributing/testing.md)                  | Test patterns                           |
+| Page                                                        | Description                                |
+| ----------------------------------------------------------- | ------------------------------------------ |
+| [Platform charter](./development/platform-charter.md)       | Package roles and platform operating model |
+| [Repo structure](./development/repo-structure.md)           | Monorepo layout, packages, scripts         |
+| [Contributing](./development/contributing.md)               | Setup, build, test, lint                   |
+| [Release](./development/release.md)                         | Versioning and publish process             |
+| [Platform versioning](./development/platform-versioning.md) | Cross-package platform release contract    |
+| [Docs style guide](./contributing/docs-style-guide.md)      | Writing conventions                        |
+| [Testing guide](./contributing/testing.md)                  | Test patterns                              |
 
 ---
 

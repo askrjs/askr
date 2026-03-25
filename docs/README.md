@@ -12,15 +12,14 @@ shared operating model is documented in [Platform charter](./development/platfor
 
 Askr is a **platform**, not just a framework.
 
-| Package               | Responsibility                          |
-| --------------------- | --------------------------------------- |
-| `askr`                | Core runtime and rendering system       |
-| `askr-ui`             | Headless UI primitives                  |
-| `askr-themes`         | Optional styling layer                  |
-| `askr-lucide`         | Lucide icon wrappers for Askr           |
-| `askr-cli`            | Project lifecycle and generators        |
-| `askr-vite`           | Vite integration for Askr projects      |
-| `eslint-plugin-askr`  | Repository guardrails and conventions   |
+| Package       | Responsibility                     |
+| ------------- | ---------------------------------- |
+| `askr`        | Core runtime and rendering system  |
+| `askr-ui`     | Headless UI primitives             |
+| `askr-themes` | Optional styling layer             |
+| `askr-lucide` | Lucide icon wrappers for Askr      |
+| `askr-cli`    | Project lifecycle and generators   |
+| `askr-vite`   | Vite integration for Askr projects |
 
 Every package is optional except `askr`. You add the others as your application needs them.
 

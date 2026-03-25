@@ -15,7 +15,6 @@ The platform is split by responsibility, not by implementation convenience:
 - `@askrjs/askr-lucide` provides generated icon wrappers for common app surfaces.
 - `@askrjs/askr-cli` provides project scaffolding and workflow tools.
 - `@askrjs/askr-vite` provides Vite integration for the runtime and starter workflows.
-- `@askrjs/eslint-plugin-askr` provides repository guardrails so the platform stays consistent.
 
 ## How the parts work together
 
@@ -37,6 +36,7 @@ That model keeps the package boundaries visible while still making the platform 
 - Build and type-check behavior should be predictable from package metadata, not from ad hoc scripts.
 - Package roles should be obvious from the package name and docs.
 - Consolidation is only worth doing when two packages no longer have distinct contracts.
+- The machine-readable companion to this charter is [platform.manifest.json](../../platform.manifest.json).
 
 ## What the platform should avoid
 
