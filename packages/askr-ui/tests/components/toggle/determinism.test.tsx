@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vite-plus/test';
 import { Toggle } from '../../../src/components/toggle/toggle';
 import { createIsland } from '@askrjs/askr';
 

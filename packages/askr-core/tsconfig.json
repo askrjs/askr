@@ -13,7 +13,6 @@
 
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": ".",
     "paths": {
       "@askrjs/askr": ["./src/index.ts"],
       "@askrjs/askr/boot": ["./src/boot/index.ts"],
@@ -31,6 +30,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "types": ["node"],
     "forceConsistentCasingInFileNames": true,
 
     "moduleResolution": "bundler"

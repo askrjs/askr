@@ -5,7 +5,7 @@
  * declarations and the invariants required by SPA/SSR/SSG consumers.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import {
   route,
   layout,

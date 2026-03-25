@@ -17,12 +17,12 @@ import {
 import { state } from '@askrjs/askr';
 
 export default function App({ children }: { children?: unknown }) {
-  const [message, setMessage] = state(toastMessage());
-  const [open, setOpen] = state(toastOpen());
+  const messageState = state(toastMessage());
+  const openState = state(toastOpen());
 
   bindToast({
-    setMessage,
-    setOpen,
+    setMessage: messageState.set,
+    setOpen: openState.set,
   });
 
   return (
@@ -30,9 +30,9 @@ export default function App({ children }: { children?: unknown }) {
       <div class="app-root">{children}</div>
 
       <ToastViewport class="app-toast-viewport" />
-      {message && (
+      {messageState() && (
         <Toast
-          open={open()}
+          open={openState()}
           onOpenChange={(open) => {
             setToastOpen(open);
             if (!open) {
@@ -41,9 +41,9 @@ export default function App({ children }: { children?: unknown }) {
           }}
           class="app-toast"
         >
-          <ToastTitle>{message.title}</ToastTitle>
-          {message.description && (
-            <ToastDescription>{message.description}</ToastDescription>
+          <ToastTitle>{messageState().title}</ToastTitle>
+          {messageState().description && (
+            <ToastDescription>{messageState().description}</ToastDescription>
           )}
           <ToastClose aria-label="Dismiss notification">Dismiss</ToastClose>
         </Toast>

@@ -152,10 +152,9 @@ function renderChildrenSync(
     return result;
   }
 
-  const parts = new Array<string>(children.length);
-  for (let i = 0; i < children.length; i++) {
-    parts[i] = renderChildSync(children[i], ctx);
-  }
+  const parts = Array.from({ length: children.length }, (_, index) =>
+    renderChildSync(children[index], ctx)
+  );
   return parts.join('');
 }
 

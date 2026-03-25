@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
 import { VisuallyHidden } from '../../../src/components/visually-hidden/visually-hidden';
 

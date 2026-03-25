@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { Switch } from '../../../src/components/switch/switch';
 import { SWITCH_A11Y_CONTRACT } from '../../../src/components/switch/switch.a11y';
 import { expectNoAxeViolations } from '../../accessibility';

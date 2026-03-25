@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA } from '../../src/index';
 import {
   lazy,
@@ -184,9 +184,11 @@ describe('lazy()', () => {
       await Promise.resolve();
       expect(settled).toBe(false);
 
-      resolveModule?.({
-        default: () => <div class="lazy-manifest">lazy manifest</div>,
-      });
+      if (resolveModule) {
+        resolveModule({
+          default: () => <div class="lazy-manifest">lazy manifest</div>,
+        });
+      }
 
       await expect(startup).resolves.toBeUndefined();
       flushScheduler();
@@ -229,9 +231,11 @@ describe('lazy()', () => {
       await Promise.resolve();
       expect(settled).toBe(false);
 
-      resolveModule?.({
-        default: () => <div class="lazy-routes">lazy routes</div>,
-      });
+      if (resolveModule) {
+        resolveModule({
+          default: () => <div class="lazy-routes">lazy routes</div>,
+        });
+      }
 
       await expect(startup).resolves.toBeUndefined();
       flushScheduler();

@@ -15,7 +15,7 @@ import { getDashboardData, type ActivityEntry } from '../lib/mock-data';
 import { formatRelativeDate } from '../lib/format';
 
 export default function DashboardPage() {
-  const [hideActivity, setHideActivity] = state(false);
+  const hideActivityState = state(false);
   const dashboardResource = resource(
     async ({ signal }) => getDashboardData({ signal }),
     []
@@ -23,7 +23,7 @@ export default function DashboardPage() {
 
   const stats = () => dashboardResource.value?.stats ?? [];
   const activities = () =>
-    hideActivity() ? [] : (dashboardResource.value?.activities ?? []);
+    hideActivityState() ? [] : (dashboardResource.value?.activities ?? []);
 
   const columns: DataTableColumn<ActivityEntry>[] = [
     { key: 'actor', header: 'Actor', render: (row) => row.actor },
@@ -85,11 +85,11 @@ export default function DashboardPage() {
             </p>
           </div>
           <Button
-            onPress={() => setHideActivity((current) => !current)}
+            onPress={() => hideActivityState.set((current) => !current)}
             class="button-secondary"
             disabled={dashboardResource.pending}
           >
-            {hideActivity() ? 'Show activity' : 'Show empty state'}
+            {hideActivityState() ? 'Show activity' : 'Show empty state'}
           </Button>
         </div>
 

@@ -12,16 +12,22 @@
     "build": "npm run --workspaces --if-present build",
     "test": "npm run --workspaces --if-present test",
     "lint": "npm run lint:root && npm run --workspaces --if-present lint",
-    "lint:root": "prettier --check .",
+    "lint:root": "vp fmt --check .",
     "fmt": "npm run fmt:root && npm run --workspaces --if-present fmt",
-    "fmt:root": "prettier --write .",
+    "fmt:root": "vp fmt .",
     "dev": "npm run --workspace @askrjs/askr dev",
     "inventory": "node scripts/generate-inventory.js",
     "verify:themes": "npm run --workspace @askrjs/askr-themes verify:token-contract && npm run --workspace @askrjs/askr-themes verify:responsive && npm run --workspace @askrjs/askr-themes verify:slots",
     "verify:platform-version": "node scripts/validate-platform-version.js",
-    "verify:monorepo": "node scripts/validate-monorepo.js && npm run verify:platform-version && npm run verify:themes"
+    "verify:monorepo": "node scripts/validate-monorepo.js && npm run verify:platform-version && npm run verify:themes",
+    "prepare": "vp config"
   },
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "vite-plus": "latest"
+  },
+  "packageManager": "npm@11.12.0",
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   }
 }

@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest';
+import { bench, describe } from 'vite-plus/test';
 import { DismissableLayer } from '../../src/components/dismissable-layer';
 import { FocusRing } from '../../src/components/focus-ring';
 import { FocusScope } from '../../src/components/focus-scope';

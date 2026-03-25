@@ -1,5 +1,6 @@
 import { Link } from '@askrjs/askr/router';
-import { Button } from '@askrjs/askr-ui/button';
+
+const navButtonClass = 'button button-secondary';
 
 export default function NotFoundPage() {
   return (
@@ -11,12 +12,12 @@ export default function NotFoundPage() {
         wire your own fallback analytics and recovery flow.
       </p>
       <div class="hero-cta">
-        <Button asChild>
-          <Link href="/dashboard">Go to dashboard</Link>
-        </Button>
-        <Button asChild class="button-secondary">
-          <Link href="/">Back to landing</Link>
-        </Button>
+        <Link href="/dashboard" class="button">
+          Go to dashboard
+        </Link>
+        <Link href="/" class={navButtonClass}>
+          Back to landing
+        </Link>
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { Stack } from '../../../src/components/stack/stack';
 import { STACK_A11Y_CONTRACT } from '../../../src/components/stack/stack.a11y';
 import { mount, unmount } from '../../test-utils';

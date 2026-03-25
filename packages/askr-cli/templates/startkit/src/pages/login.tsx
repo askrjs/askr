@@ -8,17 +8,17 @@ import { signIn } from '../lib/mock-data';
 import { showToast } from '../toast';
 
 export default function LoginPage() {
-  const [email, setEmail] = state('alex@example.com');
-  const [password, setPassword] = state('askr1234');
-  const [errorText, setErrorText] = state('');
-  const [submitting, setSubmitting] = state(false);
+  const emailState = state('alex@example.com');
+  const passwordState = state('askr1234');
+  const errorTextState = state('');
+  const submittingState = state(false);
 
   const validate = () => {
-    if (!email().trim().includes('@')) {
+    if (!emailState().trim().includes('@')) {
       return 'Enter a valid email address.';
     }
 
-    if (password().trim().length < 8) {
+    if (passwordState().trim().length < 8) {
       return 'Password must be at least 8 characters.';
     }
 
@@ -30,25 +30,25 @@ export default function LoginPage() {
 
     const validationError = validate();
     if (validationError) {
-      setErrorText(validationError);
+      errorTextState.set(validationError);
       return;
     }
 
-    setSubmitting(true);
-    setErrorText('');
+    submittingState.set(true);
+    errorTextState.set('');
 
     try {
-      await signIn({ email: email(), password: password() });
+      await signIn({ email: emailState(), password: passwordState() });
       showToast({
         title: 'Signed in',
         description: 'Welcome back. You can now access protected routes.',
       });
       window.location.assign('/dashboard');
     } catch (error) {
-      setErrorText(
+      errorTextState.set(
         error instanceof Error ? error.message : 'Could not sign in.'
       );
-      setSubmitting(false);
+      submittingState.set(false);
     }
   };
 
@@ -64,9 +64,9 @@ export default function LoginPage() {
             <Mail size={15} aria-hidden="true" />
             <Input
               type="email"
-              value={email()}
+              value={emailState()}
               onInput={(event: Event) =>
-                setEmail((event.target as HTMLInputElement).value)
+                emailState.set((event.target as HTMLInputElement).value)
               }
             />
           </label>
@@ -78,22 +78,22 @@ export default function LoginPage() {
             <LockKeyhole size={15} aria-hidden="true" />
             <Input
               type="password"
-              value={password()}
+              value={passwordState()}
               onInput={(event: Event) =>
-                setPassword((event.target as HTMLInputElement).value)
+                passwordState.set((event.target as HTMLInputElement).value)
               }
             />
           </label>
         </Field>
 
-        {errorText() && (
+        {errorTextState() && (
           <p class="field-error" role="alert">
-            {errorText()}
+            {errorTextState()}
           </p>
         )}
 
-        <Button type="submit" disabled={submitting()}>
-          {submitting() ? 'Signing in...' : 'Sign in'}
+        <Button type="submit" disabled={submittingState()}>
+          {submittingState() ? 'Signing in...' : 'Sign in'}
         </Button>
       </form>
 

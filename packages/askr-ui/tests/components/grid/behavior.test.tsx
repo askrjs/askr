@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { Grid } from '../../../src/components/grid/grid';
 import { GRID_A11Y_CONTRACT } from '../../../src/components/grid/grid.a11y';
 import { mount, unmount } from '../../test-utils';

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { cleanupApp } from '../../src/boot';
 import { createTestContainer } from '../helpers/test-renderer';
 import { registerMountOperation } from '../../src/runtime/component';

@@ -1,7 +1,7 @@
 type IconComponent = (props: {
   size?: number;
   'aria-hidden'?: boolean | 'true' | 'false';
-}) => unknown;
+}) => JSX.Element;
 
 export default function StatCard(props: {
   label: string;

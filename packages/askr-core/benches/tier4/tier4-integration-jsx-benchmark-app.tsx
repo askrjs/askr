@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest';
+import { bench, describe } from 'vite-plus/test';
 import { createIsland, selector, state, type State } from '../../src';
 import { BenchmarkTable } from '../../src/bench/components/benchmark-table';
 import {

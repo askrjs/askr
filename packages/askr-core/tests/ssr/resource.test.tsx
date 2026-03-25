@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { renderToStringSync, SSRDataMissingError } from '../../src/ssr';
 import { resource as runtimeResource } from '../../src/runtime/operations';
 import { resource } from '../../src/resources';

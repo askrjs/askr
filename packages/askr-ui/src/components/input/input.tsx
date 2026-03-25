@@ -69,7 +69,7 @@ export function DebouncedInput(props: DebouncedInputProps) {
       return;
     }
 
-    const value = inputEvent.currentTarget.value;
+    const value = (inputEvent.target as HTMLInputElement).value;
     if (debounceMs <= 0) {
       clearDebounce();
       onDebouncedInput(value);

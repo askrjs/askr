@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { FocusRing } from '../../../src/components/focus-ring';
 import { mount, unmount } from '../../test-utils';
 
@@ -16,7 +16,9 @@ describe('FocusRing - Behavior', () => {
       </FocusRing>
     );
 
-    const ring = container.querySelector('[data-focus-ring="true"]')!;
+    const ring = container.querySelector(
+      '[data-focus-ring="true"]'
+    ) as HTMLElement;
     ring.dispatchEvent(
       new KeyboardEvent('keydown', { bubbles: true, key: 'Tab' })
     );

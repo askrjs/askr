@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { TopbarLayout } from '../../../src/components/topbar-layout/topbar-layout';
 import { expectNoAxeViolations } from '../../accessibility';
 

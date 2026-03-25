@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA } from '../../src/index';
 import { renderToStringSync } from '../../src/ssr';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';

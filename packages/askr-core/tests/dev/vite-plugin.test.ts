@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import type { ConfigEnv, UserConfig, ConfigPluginContext } from 'vite';
+import { describe, it, expect } from 'vite-plus/test';
+import type { ConfigEnv, UserConfig, ConfigPluginContext } from 'vite-plus';
 import { askrVitePlugin } from '@askrjs/askr-vite';
 
 describe('askrVitePlugin', () => {

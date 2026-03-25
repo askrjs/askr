@@ -1,9 +1,9 @@
-import { bench, describe } from 'vitest';
+import { bench, describe } from 'vite-plus/test';
 import { Button, type ButtonButtonProps } from '../../src/components/button';
 
 describe('Button benches', () => {
   bench('create native <button>', () => {
-    Button({ children: 'bench' } as ButtonButtonProps);
+    Button({ children: 'bench' } as unknown as ButtonButtonProps);
   });
 
   bench('create with asChild and prop merging', () => {
@@ -13,7 +13,7 @@ describe('Button benches', () => {
       children: child,
       'data-test': 'ok',
       onPress: () => {},
-    } as ButtonButtonProps);
+    } as unknown as ButtonButtonProps);
   });
 
   bench('activation - dispatch click on native button (with handler)', () => {
@@ -21,7 +21,7 @@ describe('Button benches', () => {
     const el = Button({
       children: 'x',
       onPress: fn,
-    } as ButtonButtonProps) as Element;
+    } as unknown as ButtonButtonProps) as unknown as HTMLElement;
     el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
 
@@ -32,7 +32,7 @@ describe('Button benches', () => {
       asChild: true,
       children: child,
       onPress: fn,
-    } as ButtonButtonProps) as Element;
+    } as unknown as ButtonButtonProps) as unknown as HTMLElement;
     el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
 });

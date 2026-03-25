@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vite-plus/test';
 import { Checkbox } from '../../../src/components/checkbox/checkbox';
 import { createIsland } from '@askrjs/askr';
 

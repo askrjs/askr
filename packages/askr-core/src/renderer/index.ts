@@ -1,6 +1,6 @@
-﻿// Renderer barrel entrypoint.
-// Keep this file small: re-export the public surface and attach the
-// runtime fast-lane bridge on import.
+// Renderer barrel entrypoint.
+// Keep this file small: re-export the public surface and attach the runtime
+// fast-lane bridge on import.
 
 export * from './types';
 export * from './cleanup';

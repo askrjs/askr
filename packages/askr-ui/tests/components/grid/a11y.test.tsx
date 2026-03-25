@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { Grid } from '../../../src/components/grid/grid';
 import { expectNoAxeViolations } from '../../accessibility';
 

@@ -4,7 +4,7 @@
  * These tests use a hand-crafted fixture IconNode — they do NOT import from
  * any generated file (src/icons/ is gitignored and not checked in).
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
 import { createIcon } from '../src/create-icon';
 import type { IconNode } from '../src/types';

@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { createIsland, state } from '../../src';
 import { globalScheduler } from '../../src/runtime/scheduler';
 import {
@@ -71,7 +71,7 @@ describe('tier1 hotpath scheduler coalesced state', () => {
             <div>
               {Array.from({ length: 200 }, (_, index) => (
                 <span class="subscriber" data-i={index}>
-                  {countState()}-{index}
+                  {countState!()}-{index}
                 </span>
               ))}
             </div>

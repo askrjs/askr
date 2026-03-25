@@ -1,5 +1,5 @@
 import { state } from '@askrjs/askr';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
   Toast,
   ToastAction,
@@ -26,7 +26,7 @@ function ControlledToastFixture() {
       </button>
       <ToastProvider duration={1000}>
         <ToastViewport />
-        <Toast open={openState()} onOpenChange={openState.set}>
+        <Toast open={openState()} onOpenChange={(open) => openState.set(open)}>
           <ToastTitle>Saved</ToastTitle>
           <ToastDescription>Changes stored</ToastDescription>
           <ToastClose>Dismiss</ToastClose>

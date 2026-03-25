@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect } from 'vite-plus/test';
 import { mount, resetTestState, unmount } from './test-utils';
 
 export function renderHtml(element: JSX.Element) {

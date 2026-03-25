@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { TopbarLayout } from '../../../src/components/topbar-layout/topbar-layout';
 import { TOPBAR_LAYOUT_A11Y_CONTRACT } from '../../../src/components/topbar-layout/topbar-layout.a11y';
 import { mount, unmount } from '../../test-utils';

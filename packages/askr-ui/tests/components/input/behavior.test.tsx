@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
 import { DebouncedInput, Input } from '../../../src/components/input/input';
 
@@ -62,7 +62,7 @@ describe('Input — Behavior', () => {
     container = mount(
       <DebouncedInput
         debounceMs={200}
-        onInput={(event) => typedValues.push(event.currentTarget.value)}
+        onInput={(event) => typedValues.push(event.target.value)}
         onDebouncedInput={(value) => committedValues.push(value)}
       />
     );
@@ -86,7 +86,6 @@ describe('Input — Behavior', () => {
 
     vi.advanceTimersByTime(1);
     expect(committedValues).toEqual(['nor']);
-
   });
 
   it('emits immediate committed input when debounceMs is zero', () => {

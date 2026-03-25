@@ -7,6 +7,8 @@ import {
   Sparkles,
 } from '@askrjs/askr-lucide';
 
+const navButtonClass = 'button button-secondary';
+
 export default function LandingPage() {
   return (
     <section class="marketing-page">
@@ -18,9 +20,9 @@ export default function LandingPage() {
           <strong>{'{{appName}}'}</strong>
         </Link>
         <div class="marketing-actions">
-          <Button asChild>
-            <Link href="/login">Sign in</Link>
-          </Button>
+          <Link href="/login" class={navButtonClass}>
+            Sign in
+          </Link>
         </div>
       </header>
 
@@ -33,12 +35,12 @@ export default function LandingPage() {
           and reusable app components.
         </p>
         <div class="hero-cta">
-          <Button asChild>
-            <Link href="/dashboard">Open dashboard</Link>
-          </Button>
-          <Button asChild class="button-secondary">
-            <Link href="/login">Try login flow</Link>
-          </Button>
+          <Link href="/dashboard" class="button">
+            Open dashboard
+          </Link>
+          <Link href="/login" class={navButtonClass}>
+            Try login flow
+          </Link>
         </div>
       </div>
 

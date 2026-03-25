@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import { state } from '../../src/runtime/state';
 import { For } from '../../src/for';

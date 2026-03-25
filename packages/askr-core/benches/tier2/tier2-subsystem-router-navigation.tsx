@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { createSPA } from '../../src';
 import { navigate } from '../../src/router/navigate';
 import {

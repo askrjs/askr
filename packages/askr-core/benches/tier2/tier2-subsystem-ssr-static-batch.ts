@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { createStaticGen } from '../../src/ssg/create-static-gen';
 import { buildStaticBatchRoutes, tier2BenchOptions } from '../shared/_shared';
 import { createBenchTempDir, removeBenchTempDir } from '../shared/node';

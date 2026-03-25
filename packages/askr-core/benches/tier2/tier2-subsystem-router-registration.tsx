@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { clearRoutes, getRoutes, route } from '../../src/router/route';
 import { tier2BenchOptions } from '../shared/_shared';
 

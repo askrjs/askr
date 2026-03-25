@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { Input } from '../../../src/components/input/input';
 import { expectDeterministicRender } from '../../determinism';
 
