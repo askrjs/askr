@@ -25,7 +25,8 @@ The intended dependency flow is simple:
 3. Themes provide presentation for the UI layer without adding runtime behavior.
 4. Icon wrappers stay thin and deterministic so they can be swapped or regenerated easily.
 5. CLI and Vite improve the developer experience without becoming runtime dependencies.
-6. The ESLint plugin enforces the architecture instead of participating in it.
+6. The platform contract in [packages/askr-core/tooling/platform-contract.ts](../../packages/askr-core/tooling/platform-contract.ts)
+   captures the package boundaries and validation inputs for the architecture.
 
 That model keeps the package boundaries visible while still making the platform feel cohesive.
 
@@ -36,7 +37,8 @@ That model keeps the package boundaries visible while still making the platform 
 - Build and type-check behavior should be predictable from package metadata, not from ad hoc scripts.
 - Package roles should be obvious from the package name and docs.
 - Consolidation is only worth doing when two packages no longer have distinct contracts.
-- The machine-readable companion to this charter is [platform.manifest.json](../../platform.manifest.json).
+- The machine-readable companion to this charter is
+  [packages/askr-core/tooling/platform-contract.ts](../../packages/askr-core/tooling/platform-contract.ts).
 
 ## What the platform should avoid
 
