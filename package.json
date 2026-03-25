@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "npm run --workspaces --if-present build",
+    "bench": "npm run --workspaces --if-present bench",
     "test": "npm run --workspaces --if-present test",
     "lint": "npm run lint:root && npm run --workspaces --if-present lint",
     "lint:root": "vp fmt --check .",
