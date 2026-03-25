@@ -2,7 +2,6 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { spawnSync } from 'child_process';
 import readline from 'readline';
 
 async function prompt(question) {
@@ -20,18 +19,8 @@ async function prompt(question) {
 
 function detectPm() {
   const ua = process.env.npm_config_user_agent || '';
-  if (ua.startsWith('pnpm')) return 'pnpm';
   if (ua.startsWith('yarn')) return 'yarn';
   if (ua.startsWith('npm')) return 'npm';
-  // fallback: check if pnpm/yarn available
-  try {
-    spawnSync('pnpm', ['--version'], { stdio: 'ignore' });
-    return 'pnpm';
-  } catch {}
-  try {
-    spawnSync('yarn', ['--version'], { stdio: 'ignore' });
-    return 'yarn';
-  } catch {}
   return 'npm';
 }
 

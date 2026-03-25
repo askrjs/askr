@@ -3,7 +3,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import readline from 'node:readline';
 
 const TEMPLATE_TYPES = new Set(['startkit', 'spa', 'ssr', 'ssg']);
@@ -40,20 +39,8 @@ async function prompt(question) {
 
 function detectPm() {
   const ua = process.env.npm_config_user_agent || '';
-  if (ua.startsWith('pnpm')) return 'pnpm';
   if (ua.startsWith('yarn')) return 'yarn';
   if (ua.startsWith('npm')) return 'npm';
-
-  const candidates = ['pnpm', 'yarn'];
-  for (const candidate of candidates) {
-    const check = spawnSync(candidate, ['--version'], {
-      stdio: 'ignore',
-      shell: process.platform === 'win32',
-    });
-    if (!check.error && check.status === 0) {
-      return candidate;
-    }
-  }
 
   return 'npm';
 }

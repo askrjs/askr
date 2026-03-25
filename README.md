@@ -7,6 +7,11 @@ This monorepo contains the official platform packages, docs, and release automat
 
 ## Packages
 
+The platform is deliberately split into product packages and supporting tooling packages. The
+shared operating model is documented in [docs/development/platform-charter.md](docs/development/platform-charter.md).
+
+### Product packages
+
 | Package               | Purpose                                              |
 | --------------------- | ---------------------------------------------------- |
 | `@askrjs/askr`        | Core runtime: rendering, routing, lifecycle, SSR/SSG |
@@ -14,6 +19,13 @@ This monorepo contains the official platform packages, docs, and release automat
 | `@askrjs/askr-themes` | Optional styling layer (tokens and base theme)       |
 | `@askrjs/askr-lucide` | Lucide icon wrappers for Askr                        |
 | `@askrjs/askr-cli`    | Project scaffolding and SSG workflows                |
+
+### Platform tooling
+
+| Package                     | Purpose                                 |
+| --------------------------- | --------------------------------------- |
+| `@askrjs/askr-vite`         | Vite integration and project transforms |
+| `@askrjs/eslint-plugin-askr` | Repository guardrails and conventions   |
 
 ## Repository Structure
 

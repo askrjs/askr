@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const packagesRoot = path.join(repoRoot, 'packages');
+const rootPackageJsonPath = path.join(repoRoot, 'package.json');
 
 const forbiddenPackageDirs = new Set(['.github', '.claude', '.vscode', 'docs']);
 const errors = [];
@@ -19,8 +20,35 @@ function assert(condition, message) {
 }
 
 function validateRootLockfile() {
+  const rootPackageJson = JSON.parse(
+    fs.readFileSync(rootPackageJsonPath, 'utf8')
+  );
+  assert(
+    Array.isArray(rootPackageJson.workspaces),
+    'Missing root workspaces config'
+  );
+  assert(
+    rootPackageJson.workspaces.length === 1 &&
+      rootPackageJson.workspaces[0] === 'packages/*',
+    'Unexpected root workspaces config'
+  );
+  assert(
+    typeof rootPackageJson.packageManager === 'string' &&
+      rootPackageJson.packageManager.startsWith('npm@'),
+    'Root packageManager must use npm'
+  );
+
   const rootLockfile = path.join(repoRoot, 'package-lock.json');
   assert(fs.existsSync(rootLockfile), 'Missing root package-lock.json');
+
+  const unexpectedWorkspaceFile = path.join(repoRoot, 'pnpm-workspace.yaml');
+  assert(
+    !fs.existsSync(unexpectedWorkspaceFile),
+    'Unexpected root pnpm-workspace.yaml'
+  );
+
+  const unexpectedLockfile = path.join(repoRoot, 'pnpm-lock.yaml');
+  assert(!fs.existsSync(unexpectedLockfile), 'Unexpected root pnpm-lock.yaml');
 }
 
 function validatePackages() {
