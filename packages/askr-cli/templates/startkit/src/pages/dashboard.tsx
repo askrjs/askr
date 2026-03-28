@@ -15,7 +15,7 @@ import { getDashboardData, type ActivityEntry } from '../lib/mock-data';
 import { formatRelativeDate } from '../lib/format';
 
 export default function DashboardPage() {
-  const hideActivityState = state(false);
+  const [hideActivityState, setHideActivityState] = state(false);
   const dashboardResource = resource(
     async ({ signal }) => getDashboardData({ signal }),
     []
@@ -85,7 +85,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <Button
-            onPress={() => hideActivityState.set((current) => !current)}
+            onPress={() => setHideActivityState((current) => !current)}
             class="button-secondary"
             disabled={dashboardResource.pending}
           >

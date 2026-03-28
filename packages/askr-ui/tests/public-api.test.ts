@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test';
 import * as askrUi from '../src';
+import * as foundation from '../src/categories/foundation';
+import * as identity from '../src/categories/identity';
+import * as layout from '../src/categories/layout';
+import * as navigation from '../src/categories/navigation';
+import * as overlay from '../src/categories/overlay';
 
 describe('Public API', () => {
   it('exposes the 1.0 public component surface from the root entrypoint', () => {
@@ -75,5 +80,18 @@ describe('Public API', () => {
     expect(askrUi.DataTableLoading).toBeDefined();
     expect(askrUi.DataTableError).toBeDefined();
     expect(askrUi.DATA_TABLE_A11Y_CONTRACT).toBeDefined();
+  });
+
+  it('exposes grouped category entrypoints for focused imports', () => {
+    expect(foundation.Button).toBeDefined();
+    expect(foundation.Input).toBeDefined();
+    expect(foundation.Field).toBeDefined();
+    expect(overlay.Dialog).toBeDefined();
+    expect(overlay.Menu).toBeDefined();
+    expect(identity.Avatar).toBeDefined();
+    expect(navigation.Menubar).toBeDefined();
+    expect(navigation.NavigationMenu).toBeDefined();
+    expect(layout.Stack).toBeDefined();
+    expect(layout.DataTableRoot).toBeDefined();
   });
 });

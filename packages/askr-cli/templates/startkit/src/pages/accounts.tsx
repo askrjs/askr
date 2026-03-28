@@ -27,11 +27,11 @@ import {
 import { showToast } from '../toast';
 
 export default function AccountsPage() {
-  const queryState = state('');
-  const statusState = state<AccountStatus | 'all'>('all');
-  const pageState = state(1);
-  const selectedIdsState = state<string[]>([]);
-  const archivingState = state(false);
+  const [queryState, setQueryState] = state('');
+  const [statusState, setStatusState] = state<AccountStatus | 'all'>('all');
+  const [pageState, setPageState] = state(1);
+  const [selectedIdsState, setSelectedIdsState] = state<string[]>([]);
+  const [archivingState, setArchivingState] = state(false);
 
   const pageSize = 5;
 
@@ -51,7 +51,7 @@ export default function AccountsPage() {
   const totalPages = () => accountsResource.value?.totalPages ?? 1;
 
   const toggleRow = (id: string) => {
-    selectedIdsState.set((current) =>
+    setSelectedIdsState((current) =>
       current.includes(id)
         ? current.filter((value) => value !== id)
         : [...current, id]
@@ -59,9 +59,9 @@ export default function AccountsPage() {
   };
 
   const resetFilters = () => {
-    queryState.set('');
-    statusState.set('all');
-    pageState.set(1);
+    setQueryState('');
+    setStatusState('all');
+    setPageState(1);
   };
 
   const openRow = (row: AccountRecord) => {
@@ -76,11 +76,11 @@ export default function AccountsPage() {
       return;
     }
 
-    archivingState.set(true);
+    setArchivingState(true);
 
     try {
       const result = await archiveAccounts({ ids: selectedIdsState() });
-      selectedIdsState.set([]);
+      setSelectedIdsState([]);
       showToast({
         title: 'Accounts archived',
         description: `${result.archived} account records moved to archived status.`,
@@ -95,7 +95,7 @@ export default function AccountsPage() {
             : 'Could not archive selected rows.',
       });
     } finally {
-      archivingState.set(false);
+      setArchivingState(false);
     }
   };
 
@@ -124,12 +124,12 @@ export default function AccountsPage() {
           query={queryState()}
           status={statusState()}
           onQueryChange={(next) => {
-            queryState.set(next);
-            pageState.set(1);
+              setQueryState(next);
+              setPageState(1);
           }}
           onStatusChange={(next) => {
-            statusState.set(next);
-            pageState.set(1);
+              setStatusState(next);
+              setPageState(1);
           }}
           onReset={resetFilters}
         />
@@ -182,7 +182,7 @@ export default function AccountsPage() {
           <Pagination
             count={totalPages()}
             page={pageState()}
-            onPageChange={pageState.set}
+            onPageChange={setPageState}
           />
         </Inline>
       </section>

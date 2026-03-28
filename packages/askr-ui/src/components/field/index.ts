@@ -1,20 +1,34 @@
 export {
   Field,
-  FieldControl,
+  FieldCheckbox,
   FieldDescription,
   FieldError,
+  FieldInput,
+  FieldLegend,
   FieldLabel,
+  FieldRadioGroup,
+  FieldRow,
+  FieldSelectTrigger,
+  FieldSwitch,
+  Fieldset,
 } from './field';
-export { FIELD_A11Y_CONTRACT, type FieldA11yContract } from './field.a11y';
+export { FIELD_A11Y_CONTRACT, type FieldA11yContract } from './field-a11y';
 export type {
   FieldProps,
   FieldOwnProps,
+  FieldsetProps,
+  FieldsetOwnProps,
+  FieldCheckboxProps,
+  FieldLegendProps,
+  FieldRowProps,
   FieldLabelProps,
   FieldLabelAsChildProps,
   FieldDescriptionProps,
   FieldDescriptionAsChildProps,
   FieldErrorProps,
   FieldErrorAsChildProps,
-  FieldControlProps,
-  FieldControlAsChildProps,
-} from './field.types';
+  FieldInputProps,
+  FieldRadioGroupProps,
+  FieldSelectTriggerProps,
+  FieldSwitchProps,
+} from './field-types';

@@ -3,7 +3,7 @@ import { Button } from '@askrjs/askr-ui/button';
 import { Badge } from '@askrjs/askr-ui/badge';
 
 export default function Counter() {
-  const count = state(0);
+  const [count, setCount] = state(0);
   const parity = derive(() => (count() % 2 === 0 ? 'even' : 'odd'));
 
   return (
@@ -17,10 +17,10 @@ export default function Counter() {
         <Badge>{parity()}</Badge>
       </div>
       <div class="counter-controls">
-        <Button onPress={() => count.set((c) => Math.max(0, c - 1))}>
+        <Button onPress={() => setCount((c) => Math.max(0, c - 1))}>
           - Decrement
         </Button>
-        <Button onPress={() => count.set((c) => c + 1)}>+ Increment</Button>
+        <Button onPress={() => setCount((c) => c + 1)}>+ Increment</Button>
       </div>
     </div>
   );

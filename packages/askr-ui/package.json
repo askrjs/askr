@@ -36,6 +36,46 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./foundation": {
+      "types": "./dist/categories/foundation/index.d.ts",
+      "import": "./dist/categories/foundation/index.js",
+      "require": "./dist/categories/foundation/index.cjs"
+    },
+    "./focus": {
+      "types": "./dist/categories/focus/index.d.ts",
+      "import": "./dist/categories/focus/index.js",
+      "require": "./dist/categories/focus/index.cjs"
+    },
+    "./overlay": {
+      "types": "./dist/categories/overlay/index.d.ts",
+      "import": "./dist/categories/overlay/index.js",
+      "require": "./dist/categories/overlay/index.cjs"
+    },
+    "./disclosure": {
+      "types": "./dist/categories/disclosure/index.d.ts",
+      "import": "./dist/categories/disclosure/index.js",
+      "require": "./dist/categories/disclosure/index.cjs"
+    },
+    "./status": {
+      "types": "./dist/categories/status/index.d.ts",
+      "import": "./dist/categories/status/index.js",
+      "require": "./dist/categories/status/index.cjs"
+    },
+    "./identity": {
+      "types": "./dist/categories/identity/index.d.ts",
+      "import": "./dist/categories/identity/index.js",
+      "require": "./dist/categories/identity/index.cjs"
+    },
+    "./navigation": {
+      "types": "./dist/categories/navigation/index.d.ts",
+      "import": "./dist/categories/navigation/index.js",
+      "require": "./dist/categories/navigation/index.cjs"
+    },
+    "./layout": {
+      "types": "./dist/categories/layout/index.d.ts",
+      "import": "./dist/categories/layout/index.js",
+      "require": "./dist/categories/layout/index.cjs"
+    },
     "./accordion": {
       "types": "./dist/components/accordion/accordion.d.ts",
       "import": "./dist/components/accordion/accordion.js",
@@ -190,6 +230,21 @@
       "types": "./dist/components/separator/separator.d.ts",
       "import": "./dist/components/separator/separator.js",
       "require": "./dist/components/separator/separator.cjs"
+    },
+    "./field-controls": {
+      "types": "./dist/components/field/field-controls.d.ts",
+      "import": "./dist/components/field/field-controls.js",
+      "require": "./dist/components/field/field-controls.cjs"
+    },
+    "./field-structure": {
+      "types": "./dist/components/field/field-structure.d.ts",
+      "import": "./dist/components/field/field-structure.js",
+      "require": "./dist/components/field/field-structure.cjs"
+    },
+    "./field-text": {
+      "types": "./dist/components/field/field-text.d.ts",
+      "import": "./dist/components/field/field-text.js",
+      "require": "./dist/components/field/field-text.cjs"
     },
     "./sidebar-layout": {
       "types": "./dist/components/sidebar-layout/sidebar-layout.d.ts",
