@@ -4,8 +4,8 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '../../../src/components/tabs';
-import { TABS_A11Y_CONTRACT } from '../../../src/components/tabs/tabs.a11y';
+} from '../../../src/components/composites/tabs';
+import { TABS_A11Y_CONTRACT } from '../../../src/components/composites/tabs/tabs.a11y';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 function getButtonByText(

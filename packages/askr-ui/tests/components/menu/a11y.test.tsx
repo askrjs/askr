@@ -1,5 +1,9 @@
 import { describe, it } from 'vite-plus/test';
-import { Menu, MenuContent, MenuItem } from '../../../src/components/menu';
+import {
+  Menu,
+  MenuContent,
+  MenuItem,
+} from '../../../src/components/composites/menu';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Menu - Accessibility', () => {

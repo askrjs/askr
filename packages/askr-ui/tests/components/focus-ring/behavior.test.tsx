@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { FocusRing } from '../../../src/components/focus-ring';
+import { FocusRing } from '../../../src/components/composites/focus-ring';
 import { mount, unmount } from '../../test-utils';
 
 describe('FocusRing - Behavior', () => {

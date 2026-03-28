@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Inline } from '../../../src/components/inline/inline';
+import { Inline } from '../../../src/components/primitives/inline/inline';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Inline - Determinism', () => {

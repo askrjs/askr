@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { FocusRing } from '../../../src/components/focus-ring';
+import { FocusRing } from '../../../src/components/composites/focus-ring';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('FocusRing - Accessibility', () => {

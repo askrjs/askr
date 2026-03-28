@@ -3,7 +3,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '../../../src/components/popover';
+} from '../../../src/components/composites/popover';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Popover - Determinism', () => {

@@ -4,7 +4,7 @@ import {
   BreadcrumbCurrent,
   BreadcrumbItem,
   BreadcrumbList,
-} from '../../../src/components/breadcrumb';
+} from '../../../src/components/composites/breadcrumb';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Breadcrumb - Determinism', () => {

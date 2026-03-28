@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach, vi } from 'vite-plus/test';
-import { Checkbox } from '../../../src/components/checkbox/checkbox';
+import { Checkbox } from '../../../src/components/primitives/checkbox/checkbox';
 import { createIsland } from '@askrjs/askr';
 import { axe } from 'vitest-axe';
-import { CHECKBOX_A11Y_CONTRACT } from '../../../src/components/checkbox/checkbox.a11y';
+import { CHECKBOX_A11Y_CONTRACT } from '../../../src/components/primitives/checkbox/checkbox.a11y';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');

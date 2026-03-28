@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { Pagination } from '../../../src/components/pagination';
-import { PAGINATION_A11Y_CONTRACT } from '../../../src/components/pagination/pagination.a11y';
+import { Pagination } from '../../../src/components/composites/pagination';
+import { PAGINATION_A11Y_CONTRACT } from '../../../src/components/composites/pagination/pagination.a11y';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 describe('Pagination - Behavior', () => {

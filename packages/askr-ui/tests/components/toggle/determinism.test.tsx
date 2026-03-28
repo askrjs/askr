@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vite-plus/test';
-import { Toggle } from '../../../src/components/toggle/toggle';
+import { Toggle } from '../../../src/components/primitives/toggle/toggle';
 import { createIsland } from '@askrjs/askr';
 
 function mount(element: JSX.Element): HTMLElement {

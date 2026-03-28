@@ -11,8 +11,8 @@ import {
   NavigationMenuSubTrigger,
   NavigationMenuTrigger,
   NavigationMenuViewport,
-} from '../../../src/components/navigation-menu';
-import { NAVIGATION_MENU_A11Y_CONTRACT } from '../../../src/components/navigation-menu/navigation-menu.a11y';
+} from '../../../src/components/composites/navigation-menu';
+import { NAVIGATION_MENU_A11Y_CONTRACT } from '../../../src/components/composites/navigation-menu/navigation-menu.a11y';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 function getButtonByText(text: string): HTMLButtonElement {

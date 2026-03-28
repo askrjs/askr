@@ -2,14 +2,9 @@ import { resolve } from 'node:path';
 
 import { defineConfig } from 'vite-plus';
 
+const srcRoot = resolve(__dirname, 'src');
+
 export default defineConfig({
-  lint: {
-    ignorePatterns: ['dist/**', 'node_modules/**', 'coverage/**'],
-    options: {
-      typeAware: false,
-      typeCheck: false,
-    },
-  },
   fmt: {
     semi: true,
     singleQuote: true,
@@ -25,7 +20,13 @@ export default defineConfig({
     minify: false,
     sourcemap: true,
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: {
+        index: resolve(srcRoot, 'index.ts'),
+        'components/composites/field/field': resolve(
+          srcRoot,
+          'components/composites/field/field.tsx'
+        ),
+      },
     },
     rollupOptions: {
       external: (id) => /^@askrjs\/askr(?:\/.*)?$/.test(id),

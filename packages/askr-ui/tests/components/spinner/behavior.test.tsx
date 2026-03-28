@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { Spinner } from '../../../src/components/spinner';
-import { SPINNER_A11Y_CONTRACT } from '../../../src/components/spinner/spinner.a11y';
+import { Spinner } from '../../../src/components/primitives/spinner';
+import { SPINNER_A11Y_CONTRACT } from '../../../src/components/primitives/spinner/spinner.a11y';
 import { mount, unmount } from '../../test-utils';
 
 describe('Spinner - Behavior', () => {

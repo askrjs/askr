@@ -1,9 +1,22 @@
 {
   "name": "@askrjs/askr-cli",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Unified CLI for the askr platform",
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askrjs/askr.git",
+    "directory": "packages/askr-cli"
+  },
+  "homepage": "https://github.com/askrjs/askr/tree/main/packages/askr-cli",
+  "bugs": {
+    "url": "https://github.com/askrjs/askr/issues"
+  },
+  "author": {
+    "name": "askrjs",
+    "url": "https://github.com/askrjs"
+  },
   "engines": {
     "node": ">=18"
   },
@@ -16,11 +29,19 @@
     "src",
     "templates"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "node -e \"console.log('askr-cli uses source bins; no build step required')\"",
-    "test": "node --test ./tests/*.test.js"
+    "build": "node --check ./src/bin/cli.js && node --check ./src/bin/create.js && node --check ./src/bin/ssg.js",
+    "test": "node --test ./tests/*.test.js",
+    "fmt": "vp fmt .",
+    "lint": "vp fmt --check ."
   },
   "dependencies": {
-    "@askrjs/askr": "file:../askr-core"
+    "@askrjs/askr": "0.0.1"
+  },
+  "devDependencies": {
+    "vite-plus": "latest"
   }
 }

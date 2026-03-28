@@ -6,8 +6,8 @@ import {
   BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbSeparator,
-} from '../../../src/components/breadcrumb';
-import { BREADCRUMB_A11Y_CONTRACT } from '../../../src/components/breadcrumb/breadcrumb.a11y';
+} from '../../../src/components/composites/breadcrumb';
+import { BREADCRUMB_A11Y_CONTRACT } from '../../../src/components/composites/breadcrumb/breadcrumb.a11y';
 import { mount, unmount } from '../../test-utils';
 
 describe('Breadcrumb - Behavior', () => {

@@ -3,8 +3,8 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from '../../../src/components/avatar';
-import { AVATAR_A11Y_CONTRACT } from '../../../src/components/avatar/avatar.a11y';
+} from '../../../src/components/primitives/avatar';
+import { AVATAR_A11Y_CONTRACT } from '../../../src/components/primitives/avatar/avatar.a11y';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 describe('Avatar - Behavior', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { Input } from '../../../src/components/input/input';
-import { INPUT_A11Y_CONTRACT } from '../../../src/components/input/input.a11y';
+import { Input } from '../../../src/components/primitives/input/input';
+import { INPUT_A11Y_CONTRACT } from '../../../src/components/primitives/input/input.a11y';
 import { expectNoAxeViolations } from '../../accessibility';
 import { mount, unmount } from '../../test-utils';
 

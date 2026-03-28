@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vite-plus/test';
 
 describe('App Component', () => {
   it('renders layout with navigation', () => {
-    const app = (
+    const app = `
       <div>
         <header>
           <nav>
@@ -17,7 +17,7 @@ describe('App Component', () => {
           <p>Content goes here</p>
         </main>
       </div>
-    );
+    `;
 
     expect(app).toBeDefined();
   });

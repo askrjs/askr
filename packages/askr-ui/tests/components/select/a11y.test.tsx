@@ -6,7 +6,7 @@ import {
   SelectPortal,
   SelectTrigger,
   SelectValue,
-} from '../../../src/components/select';
+} from '../../../src/components/primitives/select';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Select - Accessibility', () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { Center } from '../../../src/components/center/center';
-import { CENTER_A11Y_CONTRACT } from '../../../src/components/center/center.a11y';
+import { Center } from '../../../src/components/primitives/center/center';
+import { CENTER_A11Y_CONTRACT } from '../../../src/components/primitives/center/center.a11y';
 import { mount, unmount } from '../../test-utils';
 
 describe('Center - Behavior', () => {

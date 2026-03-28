@@ -4,7 +4,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '../../../src/components/tabs';
+} from '../../../src/components/composites/tabs';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Tabs - Determinism', () => {

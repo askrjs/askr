@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
-import { VisuallyHidden } from '../../../src/components/visually-hidden/visually-hidden';
+import { VisuallyHidden } from '../../../src/components/primitives/visually-hidden/visually-hidden';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');

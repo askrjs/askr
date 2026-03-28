@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Spinner } from '../../../src/components/spinner';
+import { Spinner } from '../../../src/components/primitives/spinner';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Spinner - Determinism', () => {

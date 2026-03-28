@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { Separator } from '../../../src/components/separator/separator';
-import { SEPARATOR_A11Y_CONTRACT } from '../../../src/components/separator/separator.a11y';
+import { Separator } from '../../../src/components/primitives/separator/separator';
+import { SEPARATOR_A11Y_CONTRACT } from '../../../src/components/primitives/separator/separator.a11y';
 import { expectNoAxeViolations } from '../../accessibility';
 import { mount, unmount } from '../../test-utils';
 

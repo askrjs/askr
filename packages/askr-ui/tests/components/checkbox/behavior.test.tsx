@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vite-plus/test';
-import { Checkbox } from '../../../src/components/checkbox/checkbox';
+import { Checkbox } from '../../../src/components/primitives/checkbox/checkbox';
 import { createIsland } from '@askrjs/askr';
 
 function mount(element: JSX.Element): HTMLElement {

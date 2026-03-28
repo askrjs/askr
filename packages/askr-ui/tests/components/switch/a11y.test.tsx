@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { Switch } from '../../../src/components/switch/switch';
-import { SWITCH_A11Y_CONTRACT } from '../../../src/components/switch/switch.a11y';
+import { Switch } from '../../../src/components/primitives/switch/switch';
+import { SWITCH_A11Y_CONTRACT } from '../../../src/components/primitives/switch/switch.a11y';
 import { expectNoAxeViolations } from '../../accessibility';
 import { mount, unmount } from '../../test-utils';
 

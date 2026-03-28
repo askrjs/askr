@@ -1,93 +1,94 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CATEGORY_GROUPS = [
+const COMPONENT_REGISTRY = [
+  { name: 'avatar', bucket: 'primitives' },
+  { name: 'badge', bucket: 'primitives' },
+  { name: 'button', bucket: 'primitives' },
+  { name: 'center', bucket: 'primitives' },
+  { name: 'checkbox', bucket: 'primitives' },
+  { name: 'container', bucket: 'primitives' },
+  { name: 'grid', bucket: 'primitives' },
+  { name: 'inline', bucket: 'primitives' },
+  { name: 'input', bucket: 'primitives' },
+  { name: 'label', bucket: 'primitives' },
+  { name: 'progress', bucket: 'primitives' },
+  { name: 'progress-circle', bucket: 'primitives' },
+  { name: 'radio-group', bucket: 'primitives' },
+  { name: 'select', bucket: 'primitives' },
+  { name: 'separator', bucket: 'primitives' },
+  { name: 'skeleton', bucket: 'primitives' },
+  { name: 'slider', bucket: 'primitives' },
+  { name: 'spacer', bucket: 'primitives' },
+  { name: 'spinner', bucket: 'primitives' },
+  { name: 'stack', bucket: 'primitives' },
+  { name: 'switch', bucket: 'primitives' },
+  { name: 'textarea', bucket: 'primitives' },
+  { name: 'toggle', bucket: 'primitives' },
+  { name: 'toggle-group', bucket: 'primitives' },
+  { name: 'visually-hidden', bucket: 'primitives' },
+  { name: 'accordion', bucket: 'composites' },
+  { name: 'alert-dialog', bucket: 'composites' },
+  { name: 'breadcrumb', bucket: 'composites' },
+  { name: 'collapsible', bucket: 'composites' },
+  { name: 'dialog', bucket: 'composites' },
+  { name: 'dismissable-layer', bucket: 'composites' },
+  { name: 'dropdown-menu', bucket: 'composites' },
+  { name: 'field', bucket: 'composites' },
+  { name: 'focus-ring', bucket: 'composites' },
+  { name: 'focus-scope', bucket: 'composites' },
+  { name: 'menu', bucket: 'composites' },
+  { name: 'menubar', bucket: 'composites' },
+  { name: 'navigation-menu', bucket: 'composites' },
+  { name: 'pagination', bucket: 'composites' },
+  { name: 'popover', bucket: 'composites' },
+  { name: 'tabs', bucket: 'composites' },
+  { name: 'toast', bucket: 'composites' },
+  { name: 'tooltip', bucket: 'composites' },
+  { name: 'data-table', bucket: 'patterns' },
+  { name: 'sidebar-layout', bucket: 'patterns' },
+  { name: 'topbar-layout', bucket: 'patterns' },
+];
+
+const EXPORT_PATTERNS = [
   {
-    name: 'foundation',
-    components: [
-      'button',
-      'checkbox',
-      'field',
-      'input',
-      'label',
-      'radio-group',
-      'select',
-      'separator',
-      'slider',
-      'switch',
-      'textarea',
-      'toggle',
-      'toggle-group',
-      'visually-hidden',
-    ],
+    key: './primitives/*',
+    basePath: './dist/components/primitives/*/*',
   },
   {
-    name: 'focus',
-    components: ['dismissable-layer', 'focus-ring', 'focus-scope'],
+    key: './composites/field/*',
+    basePath: './dist/components/composites/field/*',
   },
   {
-    name: 'overlay',
-    components: [
-      'alert-dialog',
-      'dialog',
-      'dropdown-menu',
-      'menu',
-      'popover',
-      'tooltip',
-    ],
+    key: './composites/*',
+    basePath: './dist/components/composites/*/*',
   },
   {
-    name: 'disclosure',
-    components: ['accordion', 'collapsible', 'tabs'],
-  },
-  {
-    name: 'status',
-    components: ['badge', 'progress', 'progress-circle', 'skeleton', 'spinner', 'toast'],
-  },
-  {
-    name: 'identity',
-    components: ['avatar'],
-  },
-  {
-    name: 'navigation',
-    components: ['breadcrumb', 'menubar', 'navigation-menu', 'pagination'],
-  },
-  {
-    name: 'layout',
-    components: [
-      'center',
-      'container',
-      'data-table',
-      'grid',
-      'inline',
-      'sidebar-layout',
-      'spacer',
-      'stack',
-      'topbar-layout',
-    ],
+    key: './patterns/*',
+    basePath: './dist/components/patterns/*/*',
   },
 ];
 
-function collectComponentNames() {
+function validateRegistry() {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const componentsDir = join(__dirname, '../src/components');
 
-  return readdirSync(componentsDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name !== '_internal')
-    .filter((entry) => existsSync(join(componentsDir, entry.name, 'index.ts')))
-    .map((entry) => entry.name)
-    .sort((left, right) => left.localeCompare(right));
+  for (const component of COMPONENT_REGISTRY) {
+    const componentIndexPath = join(
+      componentsDir,
+      component.bucket,
+      component.name,
+      'index.ts'
+    );
+
+    if (!existsSync(componentIndexPath)) {
+      throw new Error(`Missing component entrypoint: ${componentIndexPath}`);
+    }
+  }
 }
 
-function createComponentExport(name) {
-  const basePath = `./dist/components/${name}/${name}`;
+function createDistExport(basePath) {
   return {
     types: `${basePath}.d.ts`,
     import: `${basePath}.js`,
@@ -95,16 +96,7 @@ function createComponentExport(name) {
   };
 }
 
-function createCategoryExport(name) {
-  const basePath = `./dist/categories/${name}/index`;
-  return {
-    types: `${basePath}.d.ts`,
-    import: `${basePath}.js`,
-    require: `${basePath}.cjs`,
-  };
-}
-
-function generateComponentsIndex(componentNames) {
+function generateComponentsIndex() {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const indexPath = join(__dirname, '../src/components/index.ts');
   const lines = [
@@ -112,58 +104,21 @@ function generateComponentsIndex(componentNames) {
     '',
   ];
 
-  for (const name of componentNames) {
-    lines.push(`export * from './${name}';`);
+  for (const component of COMPONENT_REGISTRY) {
+    lines.push(`export * from './${component.bucket}/${component.name}';`);
   }
 
   lines.push('');
   writeFileSync(indexPath, `${lines.join('\n')}`, 'utf8');
 }
 
-function generateCategoryEntries() {
+function removeCategoriesDirectory() {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const categoriesDir = join(__dirname, '../src/categories');
-  mkdirSync(categoriesDir, { recursive: true });
-
-  const registryLines = [
-    '// Generated - do not edit. Run `npm run generate` to update.',
-    '',
-    "import './foundation';",
-    "import './focus';",
-    "import './overlay';",
-    "import './disclosure';",
-    "import './status';",
-    "import './identity';",
-    "import './navigation';",
-    "import './layout';",
-    '',
-  ];
-
-  for (const category of CATEGORY_GROUPS) {
-    const categoryDir = join(categoriesDir, category.name);
-    mkdirSync(categoryDir, { recursive: true });
-
-    const lines = [
-      '// Generated - do not edit. Run `npm run generate` to update.',
-      '',
-    ];
-
-    for (const component of category.components) {
-      lines.push(`export * from '../../components/${component}';`);
-    }
-
-    lines.push('');
-    writeFileSync(join(categoryDir, 'index.ts'), `${lines.join('\n')}`, 'utf8');
-  }
-
-  writeFileSync(
-    join(categoriesDir, 'index.ts'),
-    `${registryLines.join('\n')}`,
-    'utf8'
-  );
+  rmSync(categoriesDir, { force: true, recursive: true });
 }
 
-function generatePackageJson(componentNames) {
+function generatePackageJson() {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const packageJsonPath = join(__dirname, '../package.json');
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
@@ -171,12 +126,8 @@ function generatePackageJson(componentNames) {
     '.': packageJson.exports['.'],
   };
 
-  for (const category of CATEGORY_GROUPS) {
-    exportsMap[`./${category.name}`] = createCategoryExport(category.name);
-  }
-
-  for (const name of componentNames) {
-    exportsMap[`./${name}`] = createComponentExport(name);
+  for (const exportPattern of EXPORT_PATTERNS) {
+    exportsMap[exportPattern.key] = createDistExport(exportPattern.basePath);
   }
 
   exportsMap['./package.json'] = './package.json';
@@ -193,11 +144,11 @@ function generatePackageJson(componentNames) {
 }
 
 export function generate() {
-  const componentNames = collectComponentNames();
-  generateCategoryEntries();
-  generateComponentsIndex(componentNames);
-  generatePackageJson(componentNames);
-  return componentNames.length;
+  validateRegistry();
+  removeCategoriesDirectory();
+  generateComponentsIndex();
+  generatePackageJson();
+  return COMPONENT_REGISTRY.length;
 }
 
 if (process.argv[1]) {

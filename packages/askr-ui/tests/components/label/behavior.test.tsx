@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
-import { Label } from '../../../src/components/label/label';
+import { Label } from '../../../src/components/primitives/label/label';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');

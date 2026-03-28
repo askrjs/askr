@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { TopbarLayout } from '../../../src/components/topbar-layout/topbar-layout';
+import { TopbarLayout } from '../../../src/components/patterns/topbar-layout/topbar-layout';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('TopbarLayout - Accessibility', () => {

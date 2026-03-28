@@ -9,7 +9,7 @@ import {
   MenubarSubContent,
   MenubarSubTrigger,
   MenubarTrigger,
-} from '../../../src/components/menubar';
+} from '../../../src/components/composites/menubar';
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -20,7 +20,7 @@ import {
   NavigationMenuSubContent,
   NavigationMenuSubTrigger,
   NavigationMenuTrigger,
-} from '../../../src/components/navigation-menu';
+} from '../../../src/components/composites/navigation-menu';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 function collectInternalAttributes(root: ParentNode) {

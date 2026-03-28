@@ -2,7 +2,7 @@ import { describe, it } from 'vite-plus/test';
 import {
   ProgressCircle,
   ProgressCircleIndicator,
-} from '../../../src/components/progress-circle';
+} from '../../../src/components/primitives/progress-circle';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('ProgressCircle - Accessibility', () => {

@@ -11,9 +11,9 @@ import {
   FieldRow,
   FieldSwitch,
   Fieldset,
-} from '../../../src/components/field/field';
-import { RadioGroupItem } from '../../../src/components/radio-group/radio-group';
-import { FIELD_A11Y_CONTRACT } from '../../../src/components/field/field-a11y';
+} from '../../../src/components/composites/field/field';
+import { RadioGroupItem } from '../../../src/components/primitives/radio-group/radio-group';
+import { FIELD_A11Y_CONTRACT } from '../../../src/components/composites/field/field-a11y';
 import { expectNoAxeViolations } from '../../accessibility';
 import { mount, unmount } from '../../test-utils';
 

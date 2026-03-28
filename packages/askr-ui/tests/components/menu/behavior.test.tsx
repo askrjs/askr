@@ -5,7 +5,7 @@ import {
   MenuItem,
   MenuLabel,
   MenuSeparator,
-} from '../../../src/components/menu';
+} from '../../../src/components/composites/menu';
 import { mount, unmount } from '../../test-utils';
 
 describe('Menu - Behavior', () => {

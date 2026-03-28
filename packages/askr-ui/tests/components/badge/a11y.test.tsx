@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Badge } from '../../../src/components/badge';
+import { Badge } from '../../../src/components/primitives/badge';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Badge - Accessibility', () => {

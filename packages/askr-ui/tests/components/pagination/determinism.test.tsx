@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Pagination } from '../../../src/components/pagination';
+import { Pagination } from '../../../src/components/composites/pagination';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Pagination - Determinism', () => {

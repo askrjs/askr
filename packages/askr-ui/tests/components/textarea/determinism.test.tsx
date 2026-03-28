@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Textarea } from '../../../src/components/textarea/textarea';
+import { Textarea } from '../../../src/components/primitives/textarea/textarea';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Textarea - Determinism', () => {

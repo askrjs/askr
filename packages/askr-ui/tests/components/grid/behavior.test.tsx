@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { Grid } from '../../../src/components/grid/grid';
-import { GRID_A11Y_CONTRACT } from '../../../src/components/grid/grid.a11y';
+import { Grid } from '../../../src/components/primitives/grid/grid';
+import { GRID_A11Y_CONTRACT } from '../../../src/components/primitives/grid/grid.a11y';
 import { mount, unmount } from '../../test-utils';
 
 describe('Grid - Behavior', () => {

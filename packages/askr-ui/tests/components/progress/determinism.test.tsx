@@ -1,5 +1,8 @@
 import { describe, it } from 'vite-plus/test';
-import { Progress, ProgressIndicator } from '../../../src/components/progress';
+import {
+  Progress,
+  ProgressIndicator,
+} from '../../../src/components/primitives/progress';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Progress - Determinism', () => {
