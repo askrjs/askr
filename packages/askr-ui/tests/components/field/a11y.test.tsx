@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
   Field,
-  FieldControl,
+  FieldCheckbox,
   FieldDescription,
   FieldError,
+  FieldInput,
+  FieldLegend,
   FieldLabel,
+  FieldRadioGroup,
+  FieldRow,
+  FieldSwitch,
+  Fieldset,
 } from '../../../src/components/field/field';
-import { FIELD_A11Y_CONTRACT } from '../../../src/components/field/field.a11y';
+import { RadioGroupItem } from '../../../src/components/radio-group/radio-group';
+import { FIELD_A11Y_CONTRACT } from '../../../src/components/field/field-a11y';
 import { expectNoAxeViolations } from '../../accessibility';
 import { mount, unmount } from '../../test-utils';
 
@@ -14,9 +21,9 @@ describe('Field - Accessibility', () => {
   it('should have no automated axe violations given composed field control', async () => {
     await expectNoAxeViolations(
       <Field id="email" required>
-        <FieldLabel fieldId="email">Email</FieldLabel>
-        <FieldControl asChild fieldId="email" required children={<input />} />
-        <FieldDescription fieldId="email">Used for login</FieldDescription>
+        <FieldLabel>Email</FieldLabel>
+        <FieldInput />
+        <FieldDescription>Used for login</FieldDescription>
       </Field>
     );
   });
@@ -24,16 +31,10 @@ describe('Field - Accessibility', () => {
   it('should wire label and descriptions onto the control', () => {
     const container = mount(
       <Field id="email" invalid required>
-        <FieldLabel fieldId="email">Email</FieldLabel>
-        <FieldControl
-          asChild
-          fieldId="email"
-          invalid
-          required
-          children={<input />}
-        />
-        <FieldDescription fieldId="email">Used for login</FieldDescription>
-        <FieldError fieldId="email">Required</FieldError>
+        <FieldLabel>Email</FieldLabel>
+        <FieldInput />
+        <FieldDescription>Used for login</FieldDescription>
+        <FieldError>Required</FieldError>
       </Field>
     );
 
@@ -51,5 +52,32 @@ describe('Field - Accessibility', () => {
     } finally {
       unmount(container);
     }
+  });
+
+  it('should have no automated axe violations for grouped controls', async () => {
+    await expectNoAxeViolations(
+      <Fieldset>
+        <FieldLegend>Preferences</FieldLegend>
+        <Field id="alerts">
+          <FieldRow>
+            <span>Incident alerts</span>
+            <FieldSwitch checked />
+          </FieldRow>
+        </Field>
+        <Field id="terms">
+          <FieldRow>
+            <span>Accept terms</span>
+            <FieldCheckbox checked />
+          </FieldRow>
+        </Field>
+        <Field id="size">
+          <FieldLabel>Size</FieldLabel>
+          <FieldRadioGroup value="m">
+            <RadioGroupItem value="s">Small</RadioGroupItem>
+            <RadioGroupItem value="m">Medium</RadioGroupItem>
+          </FieldRadioGroup>
+        </Field>
+      </Fieldset>
+    );
   });
 });

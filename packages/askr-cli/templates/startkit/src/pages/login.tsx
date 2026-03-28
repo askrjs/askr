@@ -8,10 +8,10 @@ import { signIn } from '../lib/mock-data';
 import { showToast } from '../toast';
 
 export default function LoginPage() {
-  const emailState = state('alex@example.com');
-  const passwordState = state('askr1234');
-  const errorTextState = state('');
-  const submittingState = state(false);
+  const [emailState, setEmailState] = state('alex@example.com');
+  const [passwordState, setPasswordState] = state('askr1234');
+  const [errorTextState, setErrorTextState] = state('');
+  const [submittingState, setSubmittingState] = state(false);
 
   const validate = () => {
     if (!emailState().trim().includes('@')) {
@@ -30,12 +30,12 @@ export default function LoginPage() {
 
     const validationError = validate();
     if (validationError) {
-      errorTextState.set(validationError);
+      setErrorTextState(validationError);
       return;
     }
 
-    submittingState.set(true);
-    errorTextState.set('');
+    setSubmittingState(true);
+    setErrorTextState('');
 
     try {
       await signIn({ email: emailState(), password: passwordState() });
@@ -45,10 +45,10 @@ export default function LoginPage() {
       });
       window.location.assign('/dashboard');
     } catch (error) {
-      errorTextState.set(
+      setErrorTextState(
         error instanceof Error ? error.message : 'Could not sign in.'
       );
-      submittingState.set(false);
+      setSubmittingState(false);
     }
   };
 
@@ -65,9 +65,7 @@ export default function LoginPage() {
             <Input
               type="email"
               value={emailState()}
-              onInput={(event: Event) =>
-                emailState.set((event.target as HTMLInputElement).value)
-              }
+              onInput={(event: Event) => setEmailState((event.target as HTMLInputElement).value)}
             />
           </label>
         </Field>
@@ -79,9 +77,7 @@ export default function LoginPage() {
             <Input
               type="password"
               value={passwordState()}
-              onInput={(event: Event) =>
-                passwordState.set((event.target as HTMLInputElement).value)
-              }
+              onInput={(event: Event) => setPasswordState((event.target as HTMLInputElement).value)}
             />
           </label>
         </Field>

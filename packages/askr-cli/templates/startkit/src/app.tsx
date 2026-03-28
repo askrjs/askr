@@ -17,12 +17,12 @@ import {
 import { state } from '@askrjs/askr';
 
 export default function App({ children }: { children?: unknown }) {
-  const messageState = state(toastMessage());
-  const openState = state(toastOpen());
+  const [messageState, setMessageState] = state(toastMessage());
+  const [openState, setOpenState] = state(toastOpen());
 
   bindToast({
-    setMessage: messageState.set,
-    setOpen: openState.set,
+    setMessage: setMessageState,
+    setOpen: setOpenState,
   });
 
   return (

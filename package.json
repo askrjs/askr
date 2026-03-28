@@ -18,8 +18,9 @@
     "fmt:root": "vp fmt .",
     "dev": "npm run --workspace @askrjs/askr dev",
     "inventory": "node scripts/generate-inventory.js",
+    "validate:state-patterns": "node scripts/validate-state-patterns.js packages/askr-cli/templates/startkit packages/askr-cli/templates/spa packages/askr-cli/templates/ssr packages/askr-cli/templates/ssg",
     "verify:themes": "npm run --workspace @askrjs/askr-themes verify:token-contract && npm run --workspace @askrjs/askr-themes verify:responsive && npm run --workspace @askrjs/askr-themes verify:slots",
-    "verify:monorepo": "node scripts/validate-monorepo.js && npm run verify:themes",
+    "verify:monorepo": "node scripts/validate-monorepo.js && npm run validate:state-patterns && npm run verify:themes",
     "prepare": "vp config"
   },
   "devDependencies": {

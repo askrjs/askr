@@ -12,8 +12,8 @@ import { Input } from '@askrjs/askr-ui/input';
 import Counter from '../components/counter';
 
 export default function Example() {
-  const name = state('');
-  const bold = state(false);
+  const [name, setName] = state('');
+  const [bold, setBold] = state(false);
 
   return (
     <>
@@ -42,9 +42,9 @@ export default function Example() {
           </TabsContent>
           <TabsContent value="code">
             <p>
-              Create reactive state with <code>const count = state(0)</code>,
+              Create reactive state with <code>const [count, setCount] = state(0)</code>,
               read with <code>count()</code>, and update with{' '}
-              <code>count.set(n =&gt; n + 1)</code>.
+              <code>setCount(n =&gt; n + 1)</code>.
             </p>
           </TabsContent>
           <TabsContent value="api">
@@ -107,15 +107,13 @@ export default function Example() {
           Reactive state driving UI updates in real time.
         </p>
         <div style="display: flex; align-items: center; gap: var(--ak-space-md); margin-bottom: var(--ak-space-md);">
-          <Toggle pressed={bold()} onPress={() => bold.set((b) => !b)}>
+          <Toggle pressed={bold()} onPress={() => setBold((b) => !b)}>
             Bold
           </Toggle>
           <Input
             placeholder="Type your name..."
             value={name()}
-            onInput={(e: Event) =>
-              name.set((e.target as HTMLInputElement).value)
-            }
+              onInput={(e: Event) => setName((e.target as HTMLInputElement).value)}
           />
         </div>
         <p style={`font-weight: ${bold() ? '700' : '400'}`}>

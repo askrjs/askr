@@ -32,31 +32,31 @@ import {
 import { showToast } from '../toast';
 
 export default function SettingsPage() {
-  const fullNameState = state('Alex Morgan');
-  const emailState = state('alex@example.com');
-  const timezoneState = state('utc');
-  const marketingEmailsState = state(false);
-  const incidentAlertsState = state(true);
-  const validationErrorState = state('');
-  const savingState = state(false);
+  const [fullNameState, setFullNameState] = state('Alex Morgan');
+  const [emailState, setEmailState] = state('alex@example.com');
+  const [timezoneState, setTimezoneState] = state('utc');
+  const [marketingEmailsState, setMarketingEmailsState] = state(false);
+  const [incidentAlertsState, setIncidentAlertsState] = state(true);
+  const [validationErrorState, setValidationErrorState] = state('');
+  const [savingState, setSavingState] = state(false);
 
   const save = async () => {
     if (!fullNameState().trim()) {
-      validationErrorState.set('Full name is required.');
+      setValidationErrorState('Full name is required.');
       return;
     }
 
     if (!emailState().trim().includes('@')) {
-      validationErrorState.set('Email must be valid.');
+      setValidationErrorState('Email must be valid.');
       return;
     }
 
-    validationErrorState.set('');
-    savingState.set(true);
+    setValidationErrorState('');
+    setSavingState(true);
 
     await new Promise((resolve) => setTimeout(resolve, 260));
 
-    savingState.set(false);
+    setSavingState(false);
     showToast({
       title: 'Settings saved',
       description:
@@ -85,9 +85,7 @@ export default function SettingsPage() {
             <FieldLabel fieldId="profile-name">Full name</FieldLabel>
             <Input
               value={fullNameState()}
-              onInput={(event: Event) =>
-                fullNameState.set((event.target as HTMLInputElement).value)
-              }
+              onInput={(event: Event) => setFullNameState((event.target as HTMLInputElement).value)}
             />
           </Field>
 
@@ -96,15 +94,13 @@ export default function SettingsPage() {
             <Input
               type="email"
               value={emailState()}
-              onInput={(event: Event) =>
-                emailState.set((event.target as HTMLInputElement).value)
-              }
+              onInput={(event: Event) => setEmailState((event.target as HTMLInputElement).value)}
             />
           </Field>
 
           <Field id="profile-timezone">
             <FieldLabel fieldId="profile-timezone">Timezone</FieldLabel>
-            <Select value={timezoneState()} onValueChange={timezoneState.set}>
+            <Select value={timezoneState()} onValueChange={setTimezoneState}>
               <SelectTrigger aria-label="Timezone">
                 <SelectValue placeholder="Select timezone" />
               </SelectTrigger>
@@ -137,7 +133,7 @@ export default function SettingsPage() {
             </div>
             <Switch
               checked={incidentAlertsState()}
-              onCheckedChange={incidentAlertsState.set}
+              onCheckedChange={setIncidentAlertsState}
             />
           </label>
 
@@ -148,7 +144,7 @@ export default function SettingsPage() {
             </div>
             <Switch
               checked={marketingEmailsState()}
-              onCheckedChange={marketingEmailsState.set}
+              onCheckedChange={setMarketingEmailsState}
             />
           </label>
 
