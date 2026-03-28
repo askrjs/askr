@@ -388,7 +388,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     _drainLazy,
     route: registerRoute,
     lockRouteRegistration,
-    resolveRoute,
+    resolveRouteWithGuards,
   } = await import('../router/route');
 
   const pendingLazyAtBoot = _snapshotLazy();
@@ -412,9 +412,18 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (process.env.NODE_ENV === 'production') lockRouteRegistration();
 
   // Mount the currently-resolved route handler (if any)
-  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  const resolved = resolveRoute(path);
-  if (!resolved) {
+  let path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  let resolved = await Promise.resolve(resolveRouteWithGuards(path));
+
+  while (typeof window !== 'undefined' && resolved && 'redirect' in resolved) {
+    const redirectTarget = new URL(resolved.redirect, window.location.href);
+    const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
+    window.history.replaceState({ path: redirectHref }, '', redirectHref);
+    path = redirectTarget.pathname;
+    resolved = await Promise.resolve(resolveRouteWithGuards(path));
+  }
+
+  if (!resolved || 'redirect' in resolved) {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
       cleanupStrict: config.cleanupStrict,
     });

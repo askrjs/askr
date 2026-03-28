@@ -711,6 +711,59 @@ export function resolveRoute(pathname: string): ResolvedRoute | null {
   return null;
 }
 
+function applyGuardResult(
+  handler: RouteHandler,
+  params: Record<string, string>,
+  guardResult: boolean | string
+): ResolvedRoute | { redirect: string } | null {
+  if (guardResult === true) {
+    return { handler, params };
+  }
+
+  if (guardResult === false) {
+    return null;
+  }
+
+  return { redirect: guardResult };
+}
+
+export function resolveRouteWithGuards(
+  pathname: string
+):
+  | ResolvedRoute
+  | { redirect: string }
+  | null
+  | Promise<ResolvedRoute | { redirect: string } | null> {
+  const normalized =
+    pathname.endsWith('/') && pathname !== '/'
+      ? pathname.slice(0, -1)
+      : pathname;
+  const urlParts =
+    normalized === '/' ? [] : normalized.split('/').filter(Boolean);
+
+  for (const record of records) {
+    const params = matchSegments(urlParts, record.segments);
+    if (params === null) {
+      continue;
+    }
+
+    if (!record.options.guard) {
+      return { handler: record.handler, params };
+    }
+
+    const guardResult = record.options.guard({ params });
+    if (guardResult instanceof Promise) {
+      return guardResult.then((next) =>
+        applyGuardResult(record.handler, params, next)
+      );
+    }
+
+    return applyGuardResult(record.handler, params, guardResult);
+  }
+
+  return null;
+}
+
 /**
  * Resolve a path against an explicit route list (e.g. an SSR per-render
  * context).  When called with the global `routes` array this delegates to

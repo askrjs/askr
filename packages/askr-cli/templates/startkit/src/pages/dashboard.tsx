@@ -2,10 +2,10 @@ import { state } from '@askrjs/askr';
 import { resource } from '@askrjs/askr/resources';
 import { Button } from '@askrjs/askr-ui/button';
 import {
-  BarChart3,
-  CircleDollarSign,
-  Clock3,
-  Users,
+  BarChart3Icon,
+  CircleDollarSignIcon,
+  Clock3Icon,
+  UsersIcon,
 } from '@askrjs/askr-lucide';
 import DataTable, { type DataTableColumn } from '../components/data-table';
 import EmptyState from '../components/empty-state';
@@ -39,10 +39,10 @@ export default function DashboardPage() {
   ];
 
   const iconByStatKey = {
-    mrr: CircleDollarSign,
-    accounts: Users,
-    pending: Clock3,
-    seats: BarChart3,
+    mrr: CircleDollarSignIcon,
+    accounts: UsersIcon,
+    pending: Clock3Icon,
+    seats: BarChart3Icon,
   } as const;
 
   return (
@@ -63,7 +63,8 @@ export default function DashboardPage() {
       <div class="stat-grid">
         {stats().map((stat) => {
           const Icon =
-            iconByStatKey[stat.key as keyof typeof iconByStatKey] ?? BarChart3;
+            iconByStatKey[stat.key as keyof typeof iconByStatKey] ??
+            BarChart3Icon;
           return (
             <StatCard
               label={stat.label}

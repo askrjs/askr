@@ -10,10 +10,10 @@ Rather than `<Button icon="save" iconPosition="left">`, you compose:
 
 ```tsx
 import { Button } from '@askrjs/askr-ui/button';
-import { Save } from '@askrjs/askr-lucide';
+import { SaveIcon } from '@askrjs/askr-lucide';
 
 <Button onPress={save}>
-  <Save size={14} aria-hidden="true" /> Save changes
+  <SaveIcon size={14} aria-hidden="true" /> Save changes
 </Button>;
 ```
 

@@ -2,12 +2,18 @@
  * Client-side navigation with History API
  */
 
-import { resolveRoute, lockRouteRegistration } from './route';
+import {
+  resolveRoute,
+  resolveRouteWithGuards,
+  lockRouteRegistration,
+  type ResolvedRoute,
+} from './route';
 import {
   mountComponent,
   cleanupComponent,
   type ComponentInstance,
 } from '../runtime/component';
+import { teardownNodeSubtree } from '../renderer';
 import { logger } from '../dev/logger';
 
 // Global app state for navigation
@@ -22,18 +28,38 @@ function parseTargetUrl(path: string): URL {
   return new URL(path, window.location.href);
 }
 
-function remountResolvedRoute(pathname: string): boolean {
+function isRedirectResult(
+  result: ResolvedRoute | { redirect: string } | null
+): result is { redirect: string } {
+  return result !== null && 'redirect' in result;
+}
+
+function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
+  return value instanceof Promise;
+}
+
+function remountResolvedRoute(
+  resolved: ResolvedRoute,
+  pathname: string
+): boolean {
   if (!currentInstance) {
     return false;
   }
 
-  const resolved = resolveRoute(pathname);
-  if (!resolved) {
-    return false;
-  }
+  const target = currentInstance.target;
 
   // Cleanup previous route (abort pending operations)
   cleanupComponent(currentInstance);
+
+  if (target) {
+    const previousChildren = Array.from(target.childNodes);
+    for (const child of previousChildren) {
+      if (child instanceof Element) {
+        teardownNodeSubtree(child);
+      }
+    }
+    target.replaceChildren();
+  }
 
   // The route handler IS the component function
   // It takes params as props and renders the route
@@ -74,6 +100,67 @@ function rerenderResolvedRoute(pathname: string): boolean {
   return true;
 }
 
+function resolveNavigationTarget(path: string) {
+  const target = parseTargetUrl(path);
+  const pathname = target.pathname;
+  const href = `${target.pathname}${target.search}${target.hash}`;
+  const resolved = resolveRouteWithGuards(pathname);
+
+  if (isPromise(resolved)) {
+    return resolved.then((next) => ({ href, pathname, resolved: next }));
+  }
+
+  return { href, pathname, resolved };
+}
+
+function applyNavigationTarget(
+  path: string,
+  options: NavigateOptions,
+  target: {
+    href: string;
+    pathname: string;
+    resolved: ResolvedRoute | { redirect: string } | null;
+  }
+): void {
+  const { href, pathname, resolved } = target;
+
+  if (!resolved) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn(`No route found for path: ${path}`);
+    }
+    return;
+  }
+
+  if (isRedirectResult(resolved)) {
+    const redirectTarget = parseTargetUrl(resolved.redirect);
+    const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
+    if (redirectHref === href) {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn(
+          `Navigation guard redirected to the same path: ${redirectHref}`
+        );
+      }
+      return;
+    }
+
+    navigate(redirectHref, { history: 'replace' });
+    return;
+  }
+
+  const historyMethod =
+    options.history === 'replace' ? 'replaceState' : 'pushState';
+  window.history[historyMethod]({ path: href }, '', href);
+
+  if (currentInstance) {
+    if (pathname === currentPathname) {
+      rerenderResolvedRoute(pathname);
+      return;
+    }
+
+    remountResolvedRoute(resolved, pathname);
+  }
+}
+
 /** Register the current app instance (called by createSPA/hydrateSPA). */
 export function registerAppInstance(
   instance: ComponentInstance,
@@ -98,34 +185,15 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
     return;
   }
 
-  const target = parseTargetUrl(path);
-  const pathname = target.pathname;
-
-  // Resolve the new path to a route
-  const resolved = resolveRoute(pathname);
-
-  if (!resolved) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn(`No route found for path: ${path}`);
-    }
+  const target = resolveNavigationTarget(path);
+  if (isPromise(target)) {
+    void target.then((resolvedTarget) =>
+      applyNavigationTarget(path, options, resolvedTarget)
+    );
     return;
   }
 
-  // Update browser history
-  const historyMethod =
-    options.history === 'replace' ? 'replaceState' : 'pushState';
-  const href = `${target.pathname}${target.search}${target.hash}`;
-  window.history[historyMethod]({ path: href }, '', href);
-
-  // Query/hash-only updates should preserve route component state and focus.
-  if (currentInstance) {
-    if (pathname === currentPathname) {
-      rerenderResolvedRoute(pathname);
-      return;
-    }
-
-    remountResolvedRoute(pathname);
-  }
+  applyNavigationTarget(path, options, target);
 }
 
 /**
@@ -138,17 +206,49 @@ function handlePopState(_event: PopStateEvent): void {
     return;
   }
 
+  const resolved = resolveRouteWithGuards(pathname);
+  if (isPromise(resolved)) {
+    void resolved.then((next) => {
+      if (!next) {
+        if (process.env.NODE_ENV !== 'production') {
+          logger.warn(`No route found for path: ${pathname}`);
+        }
+        return;
+      }
+
+      if (isRedirectResult(next)) {
+        navigate(next.redirect, { history: 'replace' });
+        return;
+      }
+
+      if (pathname === currentPathname) {
+        rerenderResolvedRoute(pathname);
+        return;
+      }
+
+      remountResolvedRoute(next, pathname);
+    });
+    return;
+  }
+
+  if (!resolved) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn(`No route found for path: ${pathname}`);
+    }
+    return;
+  }
+
+  if (isRedirectResult(resolved)) {
+    navigate(resolved.redirect, { history: 'replace' });
+    return;
+  }
+
   if (pathname === currentPathname) {
     rerenderResolvedRoute(pathname);
     return;
   }
 
-  if (
-    !remountResolvedRoute(pathname) &&
-    process.env.NODE_ENV !== 'production'
-  ) {
-    logger.warn(`No route found for path: ${pathname}`);
-  }
+  remountResolvedRoute(resolved, pathname);
 }
 
 /**

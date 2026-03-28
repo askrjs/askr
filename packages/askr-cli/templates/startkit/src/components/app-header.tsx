@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@askrjs/askr-ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@askrjs/askr-ui/avatar';
-import { Search } from '@askrjs/askr-lucide';
+import { SearchIcon } from '@askrjs/askr-lucide';
 import { showToast } from '../toast';
 import { signOut } from '../lib/mock-data';
 
@@ -36,7 +36,7 @@ export default function AppHeader() {
         </div>
 
         <label class="header-search" aria-label="Search">
-          <Search size={15} aria-hidden="true" />
+          <SearchIcon size={15} aria-hidden="true" />
           <Input placeholder="Search docs, accounts, settings..." disabled />
         </label>
 

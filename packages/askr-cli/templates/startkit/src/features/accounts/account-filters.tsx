@@ -1,5 +1,5 @@
 import { Input } from '@askrjs/askr-ui/input';
-import { Search } from '@askrjs/askr-lucide';
+import { SearchIcon } from '@askrjs/askr-lucide';
 import {
   Select,
   SelectContent,
@@ -24,7 +24,7 @@ export default function AccountFilters(props: {
   return (
     <div class="account-filters">
       <label class="input-row account-search" aria-label="Search accounts">
-        <Search size={15} aria-hidden="true" />
+        <SearchIcon size={15} aria-hidden="true" />
         <Input
           placeholder="Search by name, email, or id"
           value={props.query}
