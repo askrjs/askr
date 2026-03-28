@@ -62,4 +62,16 @@ describe('IconBase', () => {
       '--ak-icon-stroke-width:var(--ak-icon-stroke-width-md, 1.5)'
     );
   });
+
+  it('pins intrinsic svg sizing while exposing css size hooks', () => {
+    container = mount(IconBase({ size: 15 }));
+
+    const svg = container.querySelector('svg')!;
+    const style = svg.getAttribute('style') ?? '';
+    expect(svg.getAttribute('width')).toBe('24');
+    expect(svg.getAttribute('height')).toBe('24');
+    expect(style).toContain('--ak-icon-size:15px');
+    expect(style).toContain('display:inline-block');
+    expect(style).toContain('flex-shrink:0');
+  });
 });

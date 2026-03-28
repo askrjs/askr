@@ -45,10 +45,12 @@ import {
   createMutableWrappedHandler,
   isSkippedProp,
   hasNonTrivialProps,
+  readElementClassName,
   now,
   recordDOMReplace,
   recordFastPathStats,
   logFastPathDebug,
+  writeElementClassName,
 } from './utils';
 import type { State } from '../runtime/state';
 import type { ReadableSource } from '../runtime/readable';
@@ -69,6 +71,29 @@ type ElementWithContext = DOMElement & {
 };
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
+
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
+function resolveChildNamespace(
+  type: string,
+  parentNamespace?: string
+): string | undefined {
+  if (type === 'svg') return SVG_NAMESPACE;
+  if (parentNamespace === SVG_NAMESPACE && type !== 'foreignObject') {
+    return SVG_NAMESPACE;
+  }
+  return undefined;
+}
+
+function createElementForNamespace(
+  type: string,
+  parentNamespace?: string
+): Element {
+  const namespace = resolveChildNamespace(type, parentNamespace);
+  return namespace
+    ? document.createElementNS(namespace, type)
+    : document.createElement(type);
+}
 
 function getHydrationSkipBoundary(el: Element): Element | null {
   return el.closest('[data-skip-hydrate="true"]');
@@ -455,7 +480,7 @@ function applyPropValue(
         el.classList.remove(...previousTokens);
         incrementPerfMetric('classListPatchOps');
       } else {
-        el.className = '';
+        writeElementClassName(el, '');
       }
       if (descriptor) {
         descriptor.lastClassTokens = [];
@@ -530,7 +555,7 @@ function applyClassPropValue(
     return;
   }
 
-  el.className = nextString;
+  writeElementClassName(el, nextString);
   if (descriptor) {
     descriptor.lastClassTokens = nextTokens;
   }
@@ -587,7 +612,7 @@ function applyPropsToElement(
     }
 
     if (key === 'class' || key === 'className') {
-      el.className = String(value);
+      writeElementClassName(el, String(value));
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
     } else {
@@ -712,7 +737,10 @@ function warnMissingKeys(children: unknown[]): void {
 /**
  * Create a DOM node from a VNode
  */
-export function createDOMNode(node: unknown): Node | null {
+export function createDOMNode(
+  node: unknown,
+  parentNamespace?: string
+): Node | null {
   // SSR guard: don't attempt DOM ops when document is unavailable
   if (!IS_DOM_AVAILABLE) {
     if (process.env.NODE_ENV !== 'production') {
@@ -742,7 +770,7 @@ export function createDOMNode(node: unknown): Node | null {
   if (Array.isArray(node)) {
     const fragment = document.createDocumentFragment();
     for (const child of node) {
-      const dom = createDOMNode(child);
+      const dom = createDOMNode(child, parentNamespace);
       if (dom) fragment.appendChild(dom);
     }
     return fragment;
@@ -755,12 +783,22 @@ export function createDOMNode(node: unknown): Node | null {
 
     // Intrinsic element (string type)
     if (typeof type === 'string') {
-      return createIntrinsicElement(node as DOMElement, type, props);
+      return createIntrinsicElement(
+        node as DOMElement,
+        type,
+        props,
+        parentNamespace
+      );
     }
 
     // Component (function type) - inline execution
     if (typeof type === 'function') {
-      return createComponentElement(node as ElementWithContext, type, props);
+      return createComponentElement(
+        node as ElementWithContext,
+        type,
+        props,
+        parentNamespace
+      );
     }
 
     // For boundary - special handling
@@ -773,7 +811,7 @@ export function createDOMNode(node: unknown): Node | null {
       typeof type === 'symbol' &&
       (type === Fragment || String(type) === 'Symbol(Fragment)')
     ) {
-      return createFragmentElement(node as DOMElement, props);
+      return createFragmentElement(node as DOMElement, props, parentNamespace);
     }
   }
 
@@ -786,9 +824,11 @@ export function createDOMNode(node: unknown): Node | null {
 function createIntrinsicElement(
   node: DOMElement,
   type: string,
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
+  parentNamespace?: string
 ): Element {
-  const el = document.createElement(type);
+  const elementNamespace = resolveChildNamespace(type, parentNamespace);
+  const el = createElementForNamespace(type, parentNamespace);
 
   // Materialize key into DOM attribute
   materializeKey(el, node, props);
@@ -808,16 +848,16 @@ function createIntrinsicElement(
         // instead of N times, reducing layout invalidations in the DOM engine.
         const childFrag = document.createDocumentFragment();
         for (const child of children) {
-          const dom = createDOMNode(child);
+          const dom = createDOMNode(child, elementNamespace);
           if (dom) childFrag.appendChild(dom);
         }
         el.appendChild(childFrag);
       } else if (children.length === 1) {
-        const dom = createDOMNode(children[0]);
+        const dom = createDOMNode(children[0], elementNamespace);
         if (dom) el.appendChild(dom);
       }
     } else {
-      const dom = createDOMNode(children);
+      const dom = createDOMNode(children, elementNamespace);
       if (dom) el.appendChild(dom);
     }
   }
@@ -831,7 +871,8 @@ function createIntrinsicElement(
 function createComponentElement(
   node: ElementWithContext,
   type: (props: Props) => unknown,
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
+  parentNamespace?: string
 ): Node {
   // Check if this vnode has a marked context frame
   const frame = node[CONTEXT_FRAME_SYMBOL];
@@ -872,7 +913,9 @@ function createComponentElement(
     );
   }
 
-  const dom = withContext(snapshot, () => createDOMNode(result));
+  const dom = withContext(snapshot, () =>
+    createDOMNode(result, parentNamespace)
+  );
 
   if (dom instanceof Element) {
     mountInstanceInline(childInstance, dom);
@@ -909,18 +952,19 @@ function createComponentElement(
  */
 function createFragmentElement(
   node: DOMElement,
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
+  parentNamespace?: string
 ): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const children = props.children || node.children;
   if (children) {
     if (Array.isArray(children)) {
       for (const child of children) {
-        const dom = createDOMNode(child);
+        const dom = createDOMNode(child, parentNamespace);
         if (dom) fragment.appendChild(dom);
       }
     } else {
-      const dom = createDOMNode(children);
+      const dom = createDOMNode(children, parentNamespace);
       if (dom) fragment.appendChild(dom);
     }
   }
@@ -1502,7 +1546,7 @@ export function updateElementFromVnode(
       }
 
       if (key === 'class' || key === 'className') {
-        if (el.className !== String(value)) {
+        if (readElementClassName(el) !== String(value)) {
           canSkipPropDiff = false;
           break;
         }
@@ -1551,7 +1595,7 @@ export function updateElementFromVnode(
     // Handle removal cases
     if (value === undefined || value === null || value === false) {
       if (key === 'class' || key === 'className') {
-        el.className = '';
+        writeElementClassName(el, '');
       } else if (eventName && existingListeners?.has(eventName)) {
         const entry = existingListeners.get(eventName)!;
         if (entry.isDelegated) {
@@ -1621,7 +1665,7 @@ export function updateElementFromVnode(
     }
 
     if (key === 'class' || key === 'className') {
-      el.className = String(value);
+      writeElementClassName(el, String(value));
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
     } else if (eventName) {

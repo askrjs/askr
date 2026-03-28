@@ -76,6 +76,8 @@ export function getIconContractProps({
   const iconStyle = joinIconStyle(
     `--ak-icon-size:${resolvedSize}`,
     `--ak-icon-stroke-width:${resolvedStrokeWidth}`,
+    'display:inline-block',
+    'flex-shrink:0',
     'width:var(--ak-icon-size)',
     'height:var(--ak-icon-size)',
     'stroke-width:var(--ak-icon-stroke-width)',
@@ -88,8 +90,8 @@ export function getIconContractProps({
     iconStyle,
     attrs: {
       xmlns: 'http://www.w3.org/2000/svg',
-      width: 'var(--ak-icon-size)',
-      height: 'var(--ak-icon-size)',
+      width: '24',
+      height: '24',
       fill: 'none',
       stroke: color,
       'stroke-width': 'var(--ak-icon-stroke-width)',

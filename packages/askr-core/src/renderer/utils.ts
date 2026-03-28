@@ -178,7 +178,7 @@ export function hasPropChanged(
 ): boolean {
   try {
     if (key === 'class' || key === 'className') {
-      return el.className !== String(value);
+      return readElementClassName(el) !== String(value);
     }
     if (key === 'value' || key === 'checked') {
       return (el as HTMLElement & Record<string, unknown>)[key] !== value;
@@ -191,6 +191,31 @@ export function hasPropChanged(
   } catch {
     return true;
   }
+}
+
+export function isSVGDomElement(el: Element): el is SVGElement {
+  return typeof SVGElement !== 'undefined' && el instanceof SVGElement;
+}
+
+export function readElementClassName(el: Element): string {
+  if (isSVGDomElement(el)) {
+    return el.getAttribute('class') ?? '';
+  }
+
+  return (el as HTMLElement).className;
+}
+
+export function writeElementClassName(el: Element, value: string): void {
+  if (isSVGDomElement(el)) {
+    if (value.length > 0) {
+      el.setAttribute('class', value);
+    } else {
+      el.removeAttribute('class');
+    }
+    return;
+  }
+
+  (el as HTMLElement).className = value;
 }
 
 /**
