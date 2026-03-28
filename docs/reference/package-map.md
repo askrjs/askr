@@ -126,10 +126,10 @@ import '@askrjs/askr-themes/default';
 ### Import style
 
 ```ts
-import { Search, X, Menu } from '@askrjs/askr-lucide';
+import { SearchIcon, XIcon, MenuIcon } from '@askrjs/askr-lucide';
 
 // Per-icon (better tree-shaking):
-import { Search } from '@askrjs/askr-lucide/icons/search';
+import { SearchIcon } from '@askrjs/askr-lucide/icons/search';
 ```
 
 ---

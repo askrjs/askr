@@ -14,7 +14,7 @@ import {
 import { Button } from '@askrjs/askr-ui/button';
 import { Inline } from '@askrjs/askr-ui/inline';
 import { Pagination } from '@askrjs/askr-ui/pagination';
-import { Archive, Plus } from '@askrjs/askr-lucide';
+import { ArchiveIcon, PlusIcon } from '@askrjs/askr-lucide';
 import PageHeader from '../components/page-header';
 import AccountFilters from '../features/accounts/account-filters';
 import AccountTable from '../features/accounts/account-table';
@@ -114,7 +114,7 @@ export default function AccountsPage() {
               })
             }
           >
-            <Plus size={14} aria-hidden="true" /> Add account
+            <PlusIcon size={14} aria-hidden="true" /> Add account
           </Button>
         }
       />
@@ -124,12 +124,12 @@ export default function AccountsPage() {
           query={queryState()}
           status={statusState()}
           onQueryChange={(next) => {
-              setQueryState(next);
-              setPageState(1);
+            setQueryState(next);
+            setPageState(1);
           }}
           onStatusChange={(next) => {
-              setStatusState(next);
-              setPageState(1);
+            setStatusState(next);
+            setPageState(1);
           }}
           onReset={resetFilters}
         />

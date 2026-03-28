@@ -13,14 +13,14 @@ Requires `@askrjs/askr` as a peer dependency.
 ## Usage
 
 ```tsx
-import { Search, X, Menu } from '@askrjs/askr-lucide';
+import { SearchIcon, XIcon, MenuIcon } from '@askrjs/askr-lucide';
 
 function App() {
   return (
     <div>
-      <Search />
-      <X size={16} />
-      <Menu color="blue" strokeWidth={1.5} />
+      <SearchIcon />
+      <XIcon size={16} />
+      <MenuIcon color="blue" strokeWidth={1.5} />
     </div>
   );
 }
@@ -62,7 +62,7 @@ By default every icon renders with `aria-hidden="true"` so it is invisible to sc
 To make an icon meaningful on its own, pass a `title` prop:
 
 ```tsx
-<Search title="Search" />
+<SearchIcon title="Search" />
 ```
 
 This removes `aria-hidden` and renders a `<title>` element inside the SVG, making it readable by assistive technology.
@@ -72,11 +72,11 @@ This removes `aria-hidden` and renders a `<title>` element inside the SVG, makin
 Each icon is a named export. Import only what you use:
 
 ```tsx
-// Only Search is included in your bundle
-import { Search } from '@askrjs/askr-lucide';
+// Only SearchIcon is included in your bundle
+import { SearchIcon } from '@askrjs/askr-lucide';
 
 // Deep import, same effect, explicit path
-import { Search } from '@askrjs/askr-lucide/icons/search';
+import { SearchIcon } from '@askrjs/askr-lucide/icons/search';
 ```
 
 The package is marked `"sideEffects": false` and built with `preserveModules`, so bundlers can eliminate unused icons completely.

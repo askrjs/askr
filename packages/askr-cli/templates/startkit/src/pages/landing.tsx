@@ -1,10 +1,10 @@
 import { Link } from '@askrjs/askr/router';
 import { Button } from '@askrjs/askr-ui/button';
 import {
-  ShieldCheck,
-  Workflow,
-  LayoutPanelTop,
-  Sparkles,
+  ShieldCheckIcon,
+  WorkflowIcon,
+  LayoutPanelTopIcon,
+  SparklesIcon,
 } from '@askrjs/askr-lucide';
 
 const navButtonClass = 'button button-secondary';
@@ -46,7 +46,7 @@ export default function LandingPage() {
 
       <section class="feature-grid">
         <article class="panel feature-card">
-          <Workflow size={18} aria-hidden="true" />
+          <WorkflowIcon size={18} aria-hidden="true" />
           <h2>Routing and layout boundaries</h2>
           <p>
             Public, auth, protected, and 404 routes with separate app and auth
@@ -54,7 +54,7 @@ export default function LandingPage() {
           </p>
         </article>
         <article class="panel feature-card">
-          <LayoutPanelTop size={18} aria-hidden="true" />
+          <LayoutPanelTopIcon size={18} aria-hidden="true" />
           <h2>Composed UI patterns</h2>
           <p>
             Reusable table, headers, empty states, stat cards, sidebar, and top
@@ -62,7 +62,7 @@ export default function LandingPage() {
           </p>
         </article>
         <article class="panel feature-card">
-          <ShieldCheck size={18} aria-hidden="true" />
+          <ShieldCheckIcon size={18} aria-hidden="true" />
           <h2>State and data flow</h2>
           <p>
             Deterministic mock data with loading, empty, error, and mutation
@@ -70,7 +70,7 @@ export default function LandingPage() {
           </p>
         </article>
         <article class="panel feature-card">
-          <Sparkles size={18} aria-hidden="true" />
+          <SparklesIcon size={18} aria-hidden="true" />
           <h2>Calm visual baseline</h2>
           <p>
             CSS token system, neutral palette, one accent color, and restrained

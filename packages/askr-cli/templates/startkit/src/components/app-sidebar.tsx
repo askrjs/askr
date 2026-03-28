@@ -1,10 +1,10 @@
 import { Link, route } from '@askrjs/askr/router';
 import {
-  LayoutDashboard,
-  Users,
-  Settings,
-  Layers,
-  ShieldCheck,
+  LayoutDashboardIcon,
+  UsersIcon,
+  SettingsIcon,
+  LayersIcon,
+  ShieldCheckIcon,
 } from '@askrjs/askr-lucide';
 import { joinClasses } from '../utils/join-classes';
 
@@ -15,14 +15,14 @@ type NavItem = {
 };
 
 const primaryNav: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/accounts', label: 'Accounts', icon: Users },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboardIcon },
+  { href: '/accounts', label: 'Accounts', icon: UsersIcon },
+  { href: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 
 const secondaryNav: NavItem[] = [
-  { href: '/', label: 'Marketing site', icon: Layers },
-  { href: '/login', label: 'Auth entry', icon: ShieldCheck },
+  { href: '/', label: 'Marketing site', icon: LayersIcon },
+  { href: '/login', label: 'Auth entry', icon: ShieldCheckIcon },
 ];
 
 export default function AppSidebar() {

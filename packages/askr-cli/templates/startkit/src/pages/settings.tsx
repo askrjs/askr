@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@askrjs/askr-ui/select';
 import { Switch } from '@askrjs/askr-ui/switch';
-import { Save } from '@askrjs/askr-lucide';
+import { SaveIcon } from '@askrjs/askr-lucide';
 import PageHeader from '../components/page-header';
 import {
   appearanceMode,
@@ -71,7 +71,7 @@ export default function SettingsPage() {
         description="Profile settings, workspace preferences, and production form patterns."
         actions={
           <Button onPress={() => void save()} disabled={savingState()}>
-            <Save size={14} aria-hidden="true" />{' '}
+            <SaveIcon size={14} aria-hidden="true" />{' '}
             {savingState() ? 'Saving...' : 'Save changes'}
           </Button>
         }
@@ -85,7 +85,9 @@ export default function SettingsPage() {
             <FieldLabel fieldId="profile-name">Full name</FieldLabel>
             <Input
               value={fullNameState()}
-              onInput={(event: Event) => setFullNameState((event.target as HTMLInputElement).value)}
+              onInput={(event: Event) =>
+                setFullNameState((event.target as HTMLInputElement).value)
+              }
             />
           </Field>
 
@@ -94,7 +96,9 @@ export default function SettingsPage() {
             <Input
               type="email"
               value={emailState()}
-              onInput={(event: Event) => setEmailState((event.target as HTMLInputElement).value)}
+              onInput={(event: Event) =>
+                setEmailState((event.target as HTMLInputElement).value)
+              }
             />
           </Field>
 

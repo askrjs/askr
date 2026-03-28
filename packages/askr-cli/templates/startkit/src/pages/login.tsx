@@ -3,7 +3,7 @@ import { Link } from '@askrjs/askr/router';
 import { Button } from '@askrjs/askr-ui/button';
 import { Field, FieldLabel } from '@askrjs/askr-ui/field';
 import { Input } from '@askrjs/askr-ui/input';
-import { LockKeyhole, Mail } from '@askrjs/askr-lucide';
+import { LockKeyholeIcon, MailIcon } from '@askrjs/askr-lucide';
 import { signIn } from '../lib/mock-data';
 import { showToast } from '../toast';
 
@@ -61,11 +61,13 @@ export default function LoginPage() {
         <Field id="login-email">
           <FieldLabel fieldId="login-email">Email</FieldLabel>
           <label class="input-row">
-            <Mail size={15} aria-hidden="true" />
+            <MailIcon size={15} aria-hidden="true" />
             <Input
               type="email"
               value={emailState()}
-              onInput={(event: Event) => setEmailState((event.target as HTMLInputElement).value)}
+              onInput={(event: Event) =>
+                setEmailState((event.target as HTMLInputElement).value)
+              }
             />
           </label>
         </Field>
@@ -73,11 +75,13 @@ export default function LoginPage() {
         <Field id="login-password">
           <FieldLabel fieldId="login-password">Password</FieldLabel>
           <label class="input-row">
-            <LockKeyhole size={15} aria-hidden="true" />
+            <LockKeyholeIcon size={15} aria-hidden="true" />
             <Input
               type="password"
               value={passwordState()}
-              onInput={(event: Event) => setPasswordState((event.target as HTMLInputElement).value)}
+              onInput={(event: Event) =>
+                setPasswordState((event.target as HTMLInputElement).value)
+              }
             />
           </label>
         </Field>

@@ -13,12 +13,12 @@ export function iconFileContent(name, iconNode) {
   return (
     `// Generated - do not edit. Run \`npm run generate\` to update.\n` +
     `import { createIcon } from '../create-icon';\n\n` +
-    `export const ${name} = createIcon('${name}', ${JSON.stringify(iconNode)});\n`
+    `export const ${name}Icon = createIcon('${name}Icon', ${JSON.stringify(iconNode)});\n`
   );
 }
 
 export function indexEntry(name, kebab) {
-  return `export { ${name} } from './icons/${kebab}';`;
+  return `export { ${name}Icon } from './icons/${kebab}';`;
 }
 
 export function indexPreamble() {

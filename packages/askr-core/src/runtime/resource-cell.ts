@@ -108,6 +108,18 @@ export class ResourceCell<U> {
       .catch((err) => {
         if (this.generation !== generation) return;
         if (this.controller !== controller) return;
+
+        const isAbortError =
+          controller.signal.aborted ||
+          (err instanceof Error && err.name === 'AbortError') ||
+          (typeof DOMException !== 'undefined' &&
+            err instanceof DOMException &&
+            err.name === 'AbortError');
+
+        if (isAbortError) {
+          return;
+        }
+
         this.pending = false;
         this.error = err as Error;
         try {

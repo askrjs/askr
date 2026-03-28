@@ -1,6 +1,6 @@
 import { Checkbox } from '@askrjs/askr-ui/checkbox';
 import { Button } from '@askrjs/askr-ui/button';
-import { Eye } from '@askrjs/askr-lucide';
+import { EyeIcon } from '@askrjs/askr-lucide';
 import DataTable, { type DataTableColumn } from '../../components/data-table';
 import type { AccountRecord } from '../../lib/mock-data';
 import { formatCurrency } from '../../lib/format';
@@ -59,7 +59,7 @@ export default function AccountTable(props: {
       class: 'cell-actions',
       render: (row) => (
         <Button onPress={() => props.onOpenRow(row)}>
-          <Eye size={14} aria-hidden="true" /> View
+          <EyeIcon size={14} aria-hidden="true" /> View
         </Button>
       ),
     },
