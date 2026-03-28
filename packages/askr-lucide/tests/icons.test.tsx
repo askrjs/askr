@@ -42,19 +42,30 @@ describe('createIcon — rendered output', () => {
     expect(container.querySelector('svg path')).not.toBeNull();
   });
 
+  it('renders the svg tree in the SVG namespace', () => {
+    container = mount(<TestIcon />);
+    const svg = container.querySelector('svg');
+    const circle = container.querySelector('svg circle');
+    const path = container.querySelector('svg path');
+
+    expect(svg?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    expect(circle?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    expect(path?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+  });
+
   it('applies default size of 20', () => {
     container = mount(<TestIcon />);
     const svg = container.querySelector('svg')!;
-    expect(svg.getAttribute('width')).toBe('var(--ak-icon-size)');
-    expect(svg.getAttribute('height')).toBe('var(--ak-icon-size)');
+    expect(svg.getAttribute('width')).toBe('24');
+    expect(svg.getAttribute('height')).toBe('24');
     expect(svg.getAttribute('style')).toContain('--ak-icon-size:20px');
   });
 
   it('applies custom size', () => {
     container = mount(<TestIcon size={32} />);
     const svg = container.querySelector('svg')!;
-    expect(svg.getAttribute('width')).toBe('var(--ak-icon-size)');
-    expect(svg.getAttribute('height')).toBe('var(--ak-icon-size)');
+    expect(svg.getAttribute('width')).toBe('24');
+    expect(svg.getAttribute('height')).toBe('24');
     expect(svg.getAttribute('style')).toContain('--ak-icon-size:32px');
   });
 
@@ -151,6 +162,8 @@ describe('createIcon — rendered output', () => {
     container = mount(<TestIcon style="opacity:0.5" />);
     const style = container.querySelector('svg')!.getAttribute('style') ?? '';
     expect(style).toContain('--ak-icon-size:20px');
+    expect(style).toContain('display:inline-block');
+    expect(style).toContain('flex-shrink:0');
     expect(style).toContain('opacity:0.5');
   });
 
