@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Spacer } from '../../../src/components/spacer/spacer';
+import { Spacer } from '../../../src/components/primitives/spacer/spacer';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Spacer - Determinism', () => {

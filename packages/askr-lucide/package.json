@@ -4,6 +4,22 @@
   "description": "Thin Askr wrappers for the Lucide SVG icon set",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askrjs/askr.git",
+    "directory": "packages/askr-lucide"
+  },
+  "homepage": "https://github.com/askrjs/askr/tree/main/packages/askr-lucide",
+  "bugs": {
+    "url": "https://github.com/askrjs/askr/issues"
+  },
+  "author": {
+    "name": "askrjs",
+    "url": "https://github.com/askrjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -31,14 +47,17 @@
     },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
-    "@askrjs/askr": ">=0.0.28 <1.0.0"
+    "@askrjs/askr": "0.0.1"
   },
   "devDependencies": {
-    "@askrjs/askr": "file:../askr-core",
-    "jsdom": "^29.0.0",
+    "@askrjs/askr": "0.0.1",
+    "jsdom": "^29.0.1",
     "lucide": "latest",
-    "typescript": "^5.9.0",
+    "typescript": "^6.0.2",
     "vite-plus": "latest"
   },
   "scripts": {
@@ -46,6 +65,8 @@
     "build": "npm run generate && vp build && tsc -p tsconfig.build.json --emitDeclarationOnly",
     "dev": "vp build --watch",
     "test": "vp test run",
-    "typecheck": "npm run generate && tsc -p tsconfig.build.json --noEmit"
+    "test:types": "npm run generate && tsc -p tsconfig.build.json --noEmit",
+    "fmt": "vp fmt .",
+    "lint": "vp fmt --check ."
   }
 }

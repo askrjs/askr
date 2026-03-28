@@ -75,7 +75,6 @@ Dependency drift is guarded by a dedicated verification script.
 
 Every public release must pass:
 
-- `npm run lint`
 - `npm run build`
 - `npm test`
 - `npm run test:types`

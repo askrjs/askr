@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
-import { Switch } from '../../../src/components/switch/switch';
+import { Switch } from '../../../src/components/primitives/switch/switch';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');

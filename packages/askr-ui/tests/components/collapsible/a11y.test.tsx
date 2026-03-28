@@ -3,8 +3,8 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from '../../../src/components/collapsible/collapsible';
-import { COLLAPSIBLE_A11Y_CONTRACT } from '../../../src/components/collapsible/collapsible.a11y';
+} from '../../../src/components/composites/collapsible/collapsible';
+import { COLLAPSIBLE_A11Y_CONTRACT } from '../../../src/components/composites/collapsible/collapsible.a11y';
 import { createIsland } from '@askrjs/askr';
 import { axe } from 'vitest-axe';
 

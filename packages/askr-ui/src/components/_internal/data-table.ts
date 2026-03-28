@@ -14,7 +14,7 @@ import type {
   SortDescriptor,
   SortingConfig,
   SortingState,
-} from '../data-table/data-table.types';
+} from '../patterns/data-table/data-table.types';
 
 // ─── Feature config resolution ───
 

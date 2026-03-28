@@ -3,8 +3,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '../../../src/components/popover';
-import { POPOVER_A11Y_CONTRACT } from '../../../src/components/popover/popover.a11y';
+} from '../../../src/components/composites/popover';
+import { POPOVER_A11Y_CONTRACT } from '../../../src/components/composites/popover/popover.a11y';
 import { expectNoAxeViolations } from '../../accessibility';
 import { mount, unmount } from '../../test-utils';
 

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
-import { DebouncedInput, Input } from '../../../src/components/input/input';
+import {
+  DebouncedInput,
+  Input,
+} from '../../../src/components/primitives/input/input';
+import { flushUpdates } from '../../test-utils';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');
@@ -53,7 +57,7 @@ describe('Input — Behavior', () => {
     expect(div?.getAttribute('aria-disabled')).toBe('true');
   });
 
-  it('forwards onInput and debounces committed value', () => {
+  it('forwards onInput and debounces committed value', async () => {
     vi.useFakeTimers();
 
     const typedValues: string[] = [];
@@ -85,6 +89,7 @@ describe('Input — Behavior', () => {
     expect(committedValues).toEqual([]);
 
     vi.advanceTimersByTime(1);
+    await flushUpdates();
     expect(committedValues).toEqual(['nor']);
   });
 
@@ -103,5 +108,29 @@ describe('Input — Behavior', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(committedValues).toEqual(['northwind']);
+  });
+
+  it('should cancel pending debounced input on unmount', () => {
+    vi.useFakeTimers();
+
+    const committedValues: string[] = [];
+
+    container = mount(
+      <DebouncedInput
+        debounceMs={200}
+        onDebouncedInput={(value) => committedValues.push(value)}
+      />
+    );
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    input.value = 'pending';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    unmount(container);
+    container = undefined as unknown as HTMLElement;
+
+    vi.advanceTimersByTime(250);
+
+    expect(committedValues).toEqual([]);
   });
 });

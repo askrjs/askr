@@ -2,11 +2,31 @@
   "name": "@askrjs/monorepo",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Askr monorepo",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askrjs/askr.git"
+  },
+  "homepage": "https://github.com/askrjs/askr#readme",
+  "bugs": {
+    "url": "https://github.com/askrjs/askr/issues"
+  },
+  "author": {
+    "name": "askrjs",
+    "url": "https://github.com/askrjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "workspaces": [
-    "packages/*"
+    "packages/askr-core",
+    "packages/askr-cli",
+    "packages/askr-ui",
+    "packages/askr-lucide",
+    "packages/askr-themes",
+    "packages/askr-vite"
   ],
   "scripts": {
     "build": "npm run --workspaces --if-present build",
@@ -26,7 +46,7 @@
   "devDependencies": {
     "vite-plus": "latest"
   },
-  "packageManager": "npm@11.12.0",
+  "packageManager": "npm@11.12.1",
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest"

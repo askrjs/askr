@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { TopbarLayout } from '../../../src/components/topbar-layout/topbar-layout';
-import { TOPBAR_LAYOUT_A11Y_CONTRACT } from '../../../src/components/topbar-layout/topbar-layout.a11y';
+import { TopbarLayout } from '../../../src/components/patterns/topbar-layout/topbar-layout';
+import { TOPBAR_LAYOUT_A11Y_CONTRACT } from '../../../src/components/patterns/topbar-layout/topbar-layout.a11y';
 import { mount, unmount } from '../../test-utils';
 
 describe('TopbarLayout - Behavior', () => {

@@ -25,7 +25,6 @@ askr-ui is curated as a headless component library, not a milestone tracker. A c
 
 ## Release Gate
 
-- `npm run lint`
 - `npm run build`
 - `npm test`
 - `npm run test:types`

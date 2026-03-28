@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import {
   ToggleGroup,
   ToggleGroupItem,
-} from '../../../src/components/toggle-group';
-import { TOGGLE_GROUP_A11Y_CONTRACT } from '../../../src/components/toggle-group/toggle-group.a11y';
+} from '../../../src/components/primitives/toggle-group';
+import { TOGGLE_GROUP_A11Y_CONTRACT } from '../../../src/components/primitives/toggle-group/toggle-group.a11y';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 function getButtonByText(

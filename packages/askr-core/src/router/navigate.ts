@@ -12,13 +12,75 @@ import { logger } from '../dev/logger';
 
 // Global app state for navigation
 let currentInstance: ComponentInstance | null = null;
+let currentPathname = '/';
+
+export type NavigateOptions = {
+  history?: 'push' | 'replace';
+};
+
+function parseTargetUrl(path: string): URL {
+  return new URL(path, window.location.href);
+}
+
+function remountResolvedRoute(pathname: string): boolean {
+  if (!currentInstance) {
+    return false;
+  }
+
+  const resolved = resolveRoute(pathname);
+  if (!resolved) {
+    return false;
+  }
+
+  // Cleanup previous route (abort pending operations)
+  cleanupComponent(currentInstance);
+
+  // The route handler IS the component function
+  // It takes params as props and renders the route
+  currentInstance.fn = resolved.handler as ComponentInstance['fn'];
+  currentInstance.props = resolved.params;
+
+  // Reset state to prevent leakage from previous route
+  // Each route navigation starts completely fresh
+  currentInstance.stateValues = [];
+  currentInstance.expectedStateIndices = [];
+  currentInstance.firstRenderComplete = false;
+  currentInstance.stateIndexCheck = -1;
+  // Increment generation to invalidate pending async evaluations from previous route
+  currentInstance.evaluationGeneration++;
+  currentInstance.notifyUpdate = null;
+
+  // Create new AbortController for the new route lifecycle.
+  currentInstance.abortController = new AbortController();
+
+  // Re-execute and re-mount component
+  mountComponent(currentInstance);
+  currentPathname = pathname;
+  return true;
+}
+
+function rerenderResolvedRoute(pathname: string): boolean {
+  if (!currentInstance) {
+    return false;
+  }
+
+  const resolved = resolveRoute(pathname);
+  if (!resolved) {
+    return false;
+  }
+
+  currentPathname = pathname;
+  currentInstance._enqueueRun?.();
+  return true;
+}
 
 /** Register the current app instance (called by createSPA/hydrateSPA). */
 export function registerAppInstance(
   instance: ComponentInstance,
-  _path: string
+  path: string
 ): void {
   currentInstance = instance;
+  currentPathname = path;
   // Lock further route registrations after the app has started — but allow tests to register routes.
   // Enforce only in production to avoid breaking test infra which registers routes dynamically.
   if (process.env.NODE_ENV === 'production') {
@@ -30,14 +92,17 @@ export function registerAppInstance(
  * Navigate to a new path
  * Updates URL, resolves route, and re-mounts app with new handler
  */
-export function navigate(path: string): void {
+export function navigate(path: string, options: NavigateOptions = {}): void {
   if (typeof window === 'undefined') {
     // SSR context
     return;
   }
 
+  const target = parseTargetUrl(path);
+  const pathname = target.pathname;
+
   // Resolve the new path to a route
-  const resolved = resolveRoute(path);
+  const resolved = resolveRoute(pathname);
 
   if (!resolved) {
     if (process.env.NODE_ENV !== 'production') {
@@ -47,34 +112,19 @@ export function navigate(path: string): void {
   }
 
   // Update browser history
-  window.history.pushState({ path }, '', path);
+  const historyMethod =
+    options.history === 'replace' ? 'replaceState' : 'pushState';
+  const href = `${target.pathname}${target.search}${target.hash}`;
+  window.history[historyMethod]({ path: href }, '', href);
 
-  // Re-render with the new route handler and params
+  // Query/hash-only updates should preserve route component state and focus.
   if (currentInstance) {
-    // Cleanup previous route (abort pending operations)
-    cleanupComponent(currentInstance);
+    if (pathname === currentPathname) {
+      rerenderResolvedRoute(pathname);
+      return;
+    }
 
-    // The route handler IS the component function
-    // It takes params as props and renders the route
-    currentInstance.fn = resolved.handler as ComponentInstance['fn'];
-    currentInstance.props = resolved.params;
-
-    // Reset state to prevent leakage from previous route
-    // Each route navigation starts completely fresh
-    currentInstance.stateValues = [];
-    currentInstance.expectedStateIndices = [];
-    currentInstance.firstRenderComplete = false;
-    currentInstance.stateIndexCheck = -1;
-    // Increment generation to invalidate pending async evaluations from previous route
-    currentInstance.evaluationGeneration++;
-    currentInstance.notifyUpdate = null;
-
-    // CRITICAL FIX: Create new AbortController for new route
-    // Old controller is already aborted; we need a fresh one for async operations
-    currentInstance.abortController = new AbortController();
-
-    // Re-execute and re-mount component
-    mountComponent(currentInstance);
+    remountResolvedRoute(pathname);
   }
 }
 
@@ -82,35 +132,22 @@ export function navigate(path: string): void {
  * Handle browser back/forward buttons
  */
 function handlePopState(_event: PopStateEvent): void {
-  const path = window.location.pathname;
+  const pathname = window.location.pathname;
 
   if (!currentInstance) {
     return;
   }
 
-  const resolved = resolveRoute(path);
+  if (pathname === currentPathname) {
+    rerenderResolvedRoute(pathname);
+    return;
+  }
 
-  if (resolved) {
-    // Cleanup old component
-    cleanupComponent(currentInstance);
-
-    // The route handler IS the component function
-    currentInstance.fn = resolved.handler as ComponentInstance['fn'];
-    currentInstance.props = resolved.params;
-
-    // Reset state to prevent leakage from previous route
-    currentInstance.stateValues = [];
-    currentInstance.expectedStateIndices = [];
-    currentInstance.firstRenderComplete = false;
-    currentInstance.stateIndexCheck = -1;
-    // Increment generation to invalidate pending async evaluations from previous route
-    currentInstance.evaluationGeneration++;
-    currentInstance.notifyUpdate = null;
-
-    // CRITICAL FIX: Create new AbortController for back/forward navigation
-    currentInstance.abortController = new AbortController();
-
-    mountComponent(currentInstance);
+  if (
+    !remountResolvedRoute(pathname) &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    logger.warn(`No route found for path: ${pathname}`);
   }
 }
 

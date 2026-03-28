@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Label } from '../../../src/components/label/label';
+import { Label } from '../../../src/components/primitives/label/label';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Label - Determinism', () => {

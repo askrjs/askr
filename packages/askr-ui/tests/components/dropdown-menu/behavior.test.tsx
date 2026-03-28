@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuPortal,
   DropdownMenuTrigger,
-} from '../../../src/components/dropdown-menu';
+} from '../../../src/components/composites/dropdown-menu';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 describe('DropdownMenu - Behavior', () => {

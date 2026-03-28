@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { FocusScope } from '../../../src/components/focus-scope';
+import { FocusScope } from '../../../src/components/composites/focus-scope';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('FocusScope - Accessibility', () => {

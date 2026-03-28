@@ -11,8 +11,8 @@ import {
   FieldRow,
   FieldSwitch,
   Fieldset,
-} from '../../../src/components/field/field';
-import { RadioGroupItem } from '../../../src/components/radio-group/radio-group';
+} from '../../../src/components/composites/field/field';
+import { RadioGroupItem } from '../../../src/components/primitives/radio-group/radio-group';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Field - Determinism', () => {

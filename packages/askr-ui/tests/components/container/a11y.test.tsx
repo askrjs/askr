@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Container } from '../../../src/components/container/container';
+import { Container } from '../../../src/components/primitives/container/container';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Container - Accessibility', () => {

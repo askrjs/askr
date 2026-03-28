@@ -1,9 +1,22 @@
 {
   "name": "@askrjs/askr-vite",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Vite plugin for Askr JSX and template transforms",
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askrjs/askr.git",
+    "directory": "packages/askr-vite"
+  },
+  "homepage": "https://github.com/askrjs/askr/tree/main/packages/askr-vite",
+  "bugs": {
+    "url": "https://github.com/askrjs/askr/issues"
+  },
+  "author": {
+    "name": "askrjs",
+    "url": "https://github.com/askrjs"
+  },
   "engines": {
     "node": ">=18"
   },
@@ -17,11 +30,20 @@
       "types": "./src/index.d.ts"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
-    "@askrjs/askr": ">=0.0.28 <1.0.0",
+    "@askrjs/askr": "0.0.1",
     "vite": "^8.0.1"
   },
   "scripts": {
-    "build": "node -e \"console.log('askr-vite uses source exports; no build step required')\""
+    "build": "node --check ./src/index.js",
+    "test": "node --check ./src/index.js",
+    "fmt": "vp fmt .",
+    "lint": "vp fmt --check ."
+  },
+  "devDependencies": {
+    "vite-plus": "latest"
   }
 }

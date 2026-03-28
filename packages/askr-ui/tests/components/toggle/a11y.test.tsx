@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vite-plus/test';
-import { Toggle } from '../../../src/components/toggle/toggle';
+import { Toggle } from '../../../src/components/primitives/toggle/toggle';
 import { createIsland } from '@askrjs/askr';
 import { axe } from 'vitest-axe';
-import { TOGGLE_A11Y_CONTRACT } from '../../../src/components/toggle/toggle.a11y';
+import { TOGGLE_A11Y_CONTRACT } from '../../../src/components/primitives/toggle/toggle.a11y';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');

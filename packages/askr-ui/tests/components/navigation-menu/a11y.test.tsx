@@ -7,7 +7,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
   NavigationMenuViewport,
-} from '../../../src/components/navigation-menu';
+} from '../../../src/components/composites/navigation-menu';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('NavigationMenu - Accessibility', () => {

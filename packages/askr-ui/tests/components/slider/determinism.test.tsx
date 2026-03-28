@@ -4,7 +4,7 @@ import {
   SliderRange,
   SliderThumb,
   SliderTrack,
-} from '../../../src/components/slider';
+} from '../../../src/components/primitives/slider';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Slider - Determinism', () => {

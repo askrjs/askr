@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipPortal,
   TooltipTrigger,
-} from '../../../src/components/tooltip';
+} from '../../../src/components/composites/tooltip';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 describe('Tooltip - Behavior', () => {

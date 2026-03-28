@@ -27,9 +27,20 @@ function validateRootLockfile() {
     Array.isArray(rootPackageJson.workspaces),
     'Missing root workspaces config'
   );
+  const expectedWorkspaces = [
+    'packages/askr-core',
+    'packages/askr-cli',
+    'packages/askr-ui',
+    'packages/askr-lucide',
+    'packages/askr-themes',
+    'packages/askr-vite',
+  ];
+
   assert(
-    rootPackageJson.workspaces.length === 1 &&
-      rootPackageJson.workspaces[0] === 'packages/*',
+    rootPackageJson.workspaces.length === expectedWorkspaces.length &&
+      expectedWorkspaces.every(
+        (workspace, index) => rootPackageJson.workspaces[index] === workspace
+      ),
     'Unexpected root workspaces config'
   );
   assert(
@@ -46,45 +57,49 @@ function validateRootLockfile() {
 
   const unexpectedLockfile = path.join(repoRoot, 'pnpm-lock.yaml');
   assert(!fs.existsSync(unexpectedLockfile), 'Unexpected root pnpm-lock.yaml');
+
+  return rootPackageJson.workspaces;
 }
 
-function validatePackages() {
+function validatePackages(workspaces) {
   if (!fs.existsSync(packagesRoot)) {
     errors.push('Missing packages directory');
     return;
   }
 
-  const packageEntries = fs
-    .readdirSync(packagesRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory());
-
-  for (const entry of packageEntries) {
-    const packageRoot = path.join(packagesRoot, entry.name);
+  for (const workspace of workspaces) {
+    const packageRoot = path.join(repoRoot, workspace);
     const packageJsonPath = path.join(packageRoot, 'package.json');
+    const packageLabel = workspace.replace(/\\/g, '/');
+
     assert(
       fs.existsSync(packageJsonPath),
-      `Missing package.json in packages/${entry.name}`
+      `Missing package.json in ${packageLabel}`
     );
+
+    if (!fs.existsSync(packageRoot)) {
+      continue;
+    }
 
     for (const forbidden of forbiddenPackageDirs) {
       const candidate = path.join(packageRoot, forbidden);
       assert(
         !fs.existsSync(candidate),
-        `Forbidden package directory found: packages/${entry.name}/${forbidden}`
+        `Forbidden package directory found: ${packageLabel}/${forbidden}`
       );
     }
 
     const packageLock = path.join(packageRoot, 'package-lock.json');
     assert(
       !fs.existsSync(packageLock),
-      `Package-local lockfile found: packages/${entry.name}/package-lock.json`
+      `Package-local lockfile found: ${packageLabel}/package-lock.json`
     );
   }
 }
 
 function main() {
-  validateRootLockfile();
-  validatePackages();
+  const workspaces = validateRootLockfile();
+  validatePackages(workspaces);
 
   if (errors.length > 0) {
     console.error('Monorepo validation failed:');

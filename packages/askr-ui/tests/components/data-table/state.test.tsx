@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   createDataTable,
   column,
-} from '../../../src/components/data-table/create-data-table';
-import type { DataTableInstance } from '../../../src/components/data-table/data-table.types';
+} from '../../../src/components/patterns/data-table/create-data-table';
+import type { DataTableInstance } from '../../../src/components/patterns/data-table/data-table.types';
 import { mount, unmount } from '../../test-utils';
 
 type User = {

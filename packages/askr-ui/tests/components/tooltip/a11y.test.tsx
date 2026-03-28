@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipPortal,
   TooltipTrigger,
-} from '../../../src/components/tooltip';
+} from '../../../src/components/composites/tooltip';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Tooltip - Accessibility', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { Badge } from '../../../src/components/badge';
-import { BADGE_A11Y_CONTRACT } from '../../../src/components/badge/badge.a11y';
+import { Badge } from '../../../src/components/primitives/badge';
+import { BADGE_A11Y_CONTRACT } from '../../../src/components/primitives/badge/badge.a11y';
 import { mount, unmount } from '../../test-utils';
 
 describe('Badge - Behavior', () => {

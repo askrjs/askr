@@ -53,6 +53,7 @@ export {
   type RouteManifest,
 } from './router/route';
 export { navigate } from './router/navigate';
+export type { NavigateOptions } from './router/navigate';
 
 // Components
 export { Link } from './components/link';

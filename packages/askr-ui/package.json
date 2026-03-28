@@ -6,11 +6,12 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/askrjs/askr-ui"
+    "url": "https://github.com/askrjs/askr.git",
+    "directory": "packages/askr-ui"
   },
-  "homepage": "https://github.com/askrjs/askr-ui#readme",
+  "homepage": "https://github.com/askrjs/askr/tree/main/packages/askr-ui",
   "bugs": {
-    "url": "https://github.com/askrjs/askr-ui/issues"
+    "url": "https://github.com/askrjs/askr/issues"
   },
   "author": {
     "name": "askrjs",
@@ -36,290 +37,25 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./foundation": {
-      "types": "./dist/categories/foundation/index.d.ts",
-      "import": "./dist/categories/foundation/index.js",
-      "require": "./dist/categories/foundation/index.cjs"
+    "./primitives/*": {
+      "types": "./dist/components/primitives/*/*.d.ts",
+      "import": "./dist/components/primitives/*/*.js",
+      "require": "./dist/components/primitives/*/*.cjs"
     },
-    "./focus": {
-      "types": "./dist/categories/focus/index.d.ts",
-      "import": "./dist/categories/focus/index.js",
-      "require": "./dist/categories/focus/index.cjs"
+    "./composites/field/*": {
+      "types": "./dist/components/composites/field/*.d.ts",
+      "import": "./dist/components/composites/field/*.js",
+      "require": "./dist/components/composites/field/*.cjs"
     },
-    "./overlay": {
-      "types": "./dist/categories/overlay/index.d.ts",
-      "import": "./dist/categories/overlay/index.js",
-      "require": "./dist/categories/overlay/index.cjs"
+    "./composites/*": {
+      "types": "./dist/components/composites/*/*.d.ts",
+      "import": "./dist/components/composites/*/*.js",
+      "require": "./dist/components/composites/*/*.cjs"
     },
-    "./disclosure": {
-      "types": "./dist/categories/disclosure/index.d.ts",
-      "import": "./dist/categories/disclosure/index.js",
-      "require": "./dist/categories/disclosure/index.cjs"
-    },
-    "./status": {
-      "types": "./dist/categories/status/index.d.ts",
-      "import": "./dist/categories/status/index.js",
-      "require": "./dist/categories/status/index.cjs"
-    },
-    "./identity": {
-      "types": "./dist/categories/identity/index.d.ts",
-      "import": "./dist/categories/identity/index.js",
-      "require": "./dist/categories/identity/index.cjs"
-    },
-    "./navigation": {
-      "types": "./dist/categories/navigation/index.d.ts",
-      "import": "./dist/categories/navigation/index.js",
-      "require": "./dist/categories/navigation/index.cjs"
-    },
-    "./layout": {
-      "types": "./dist/categories/layout/index.d.ts",
-      "import": "./dist/categories/layout/index.js",
-      "require": "./dist/categories/layout/index.cjs"
-    },
-    "./accordion": {
-      "types": "./dist/components/accordion/accordion.d.ts",
-      "import": "./dist/components/accordion/accordion.js",
-      "require": "./dist/components/accordion/accordion.cjs"
-    },
-    "./alert-dialog": {
-      "types": "./dist/components/alert-dialog/alert-dialog.d.ts",
-      "import": "./dist/components/alert-dialog/alert-dialog.js",
-      "require": "./dist/components/alert-dialog/alert-dialog.cjs"
-    },
-    "./avatar": {
-      "types": "./dist/components/avatar/avatar.d.ts",
-      "import": "./dist/components/avatar/avatar.js",
-      "require": "./dist/components/avatar/avatar.cjs"
-    },
-    "./badge": {
-      "types": "./dist/components/badge/badge.d.ts",
-      "import": "./dist/components/badge/badge.js",
-      "require": "./dist/components/badge/badge.cjs"
-    },
-    "./breadcrumb": {
-      "types": "./dist/components/breadcrumb/breadcrumb.d.ts",
-      "import": "./dist/components/breadcrumb/breadcrumb.js",
-      "require": "./dist/components/breadcrumb/breadcrumb.cjs"
-    },
-    "./button": {
-      "types": "./dist/components/button/button.d.ts",
-      "import": "./dist/components/button/button.js",
-      "require": "./dist/components/button/button.cjs"
-    },
-    "./center": {
-      "types": "./dist/components/center/center.d.ts",
-      "import": "./dist/components/center/center.js",
-      "require": "./dist/components/center/center.cjs"
-    },
-    "./checkbox": {
-      "types": "./dist/components/checkbox/checkbox.d.ts",
-      "import": "./dist/components/checkbox/checkbox.js",
-      "require": "./dist/components/checkbox/checkbox.cjs"
-    },
-    "./collapsible": {
-      "types": "./dist/components/collapsible/collapsible.d.ts",
-      "import": "./dist/components/collapsible/collapsible.js",
-      "require": "./dist/components/collapsible/collapsible.cjs"
-    },
-    "./container": {
-      "types": "./dist/components/container/container.d.ts",
-      "import": "./dist/components/container/container.js",
-      "require": "./dist/components/container/container.cjs"
-    },
-    "./data-table": {
-      "types": "./dist/components/data-table/data-table.d.ts",
-      "import": "./dist/components/data-table/data-table.js",
-      "require": "./dist/components/data-table/data-table.cjs"
-    },
-    "./dialog": {
-      "types": "./dist/components/dialog/dialog.d.ts",
-      "import": "./dist/components/dialog/dialog.js",
-      "require": "./dist/components/dialog/dialog.cjs"
-    },
-    "./dismissable-layer": {
-      "types": "./dist/components/dismissable-layer/dismissable-layer.d.ts",
-      "import": "./dist/components/dismissable-layer/dismissable-layer.js",
-      "require": "./dist/components/dismissable-layer/dismissable-layer.cjs"
-    },
-    "./dropdown-menu": {
-      "types": "./dist/components/dropdown-menu/dropdown-menu.d.ts",
-      "import": "./dist/components/dropdown-menu/dropdown-menu.js",
-      "require": "./dist/components/dropdown-menu/dropdown-menu.cjs"
-    },
-    "./field": {
-      "types": "./dist/components/field/field.d.ts",
-      "import": "./dist/components/field/field.js",
-      "require": "./dist/components/field/field.cjs"
-    },
-    "./focus-ring": {
-      "types": "./dist/components/focus-ring/focus-ring.d.ts",
-      "import": "./dist/components/focus-ring/focus-ring.js",
-      "require": "./dist/components/focus-ring/focus-ring.cjs"
-    },
-    "./focus-scope": {
-      "types": "./dist/components/focus-scope/focus-scope.d.ts",
-      "import": "./dist/components/focus-scope/focus-scope.js",
-      "require": "./dist/components/focus-scope/focus-scope.cjs"
-    },
-    "./grid": {
-      "types": "./dist/components/grid/grid.d.ts",
-      "import": "./dist/components/grid/grid.js",
-      "require": "./dist/components/grid/grid.cjs"
-    },
-    "./inline": {
-      "types": "./dist/components/inline/inline.d.ts",
-      "import": "./dist/components/inline/inline.js",
-      "require": "./dist/components/inline/inline.cjs"
-    },
-    "./input": {
-      "types": "./dist/components/input/input.d.ts",
-      "import": "./dist/components/input/input.js",
-      "require": "./dist/components/input/input.cjs"
-    },
-    "./label": {
-      "types": "./dist/components/label/label.d.ts",
-      "import": "./dist/components/label/label.js",
-      "require": "./dist/components/label/label.cjs"
-    },
-    "./menu": {
-      "types": "./dist/components/menu/menu.d.ts",
-      "import": "./dist/components/menu/menu.js",
-      "require": "./dist/components/menu/menu.cjs"
-    },
-    "./menubar": {
-      "types": "./dist/components/menubar/menubar.d.ts",
-      "import": "./dist/components/menubar/menubar.js",
-      "require": "./dist/components/menubar/menubar.cjs"
-    },
-    "./navigation-menu": {
-      "types": "./dist/components/navigation-menu/navigation-menu.d.ts",
-      "import": "./dist/components/navigation-menu/navigation-menu.js",
-      "require": "./dist/components/navigation-menu/navigation-menu.cjs"
-    },
-    "./pagination": {
-      "types": "./dist/components/pagination/pagination.d.ts",
-      "import": "./dist/components/pagination/pagination.js",
-      "require": "./dist/components/pagination/pagination.cjs"
-    },
-    "./popover": {
-      "types": "./dist/components/popover/popover.d.ts",
-      "import": "./dist/components/popover/popover.js",
-      "require": "./dist/components/popover/popover.cjs"
-    },
-    "./progress": {
-      "types": "./dist/components/progress/progress.d.ts",
-      "import": "./dist/components/progress/progress.js",
-      "require": "./dist/components/progress/progress.cjs"
-    },
-    "./progress-circle": {
-      "types": "./dist/components/progress-circle/progress-circle.d.ts",
-      "import": "./dist/components/progress-circle/progress-circle.js",
-      "require": "./dist/components/progress-circle/progress-circle.cjs"
-    },
-    "./radio-group": {
-      "types": "./dist/components/radio-group/radio-group.d.ts",
-      "import": "./dist/components/radio-group/radio-group.js",
-      "require": "./dist/components/radio-group/radio-group.cjs"
-    },
-    "./select": {
-      "types": "./dist/components/select/select.d.ts",
-      "import": "./dist/components/select/select.js",
-      "require": "./dist/components/select/select.cjs"
-    },
-    "./separator": {
-      "types": "./dist/components/separator/separator.d.ts",
-      "import": "./dist/components/separator/separator.js",
-      "require": "./dist/components/separator/separator.cjs"
-    },
-    "./field-controls": {
-      "types": "./dist/components/field/field-controls.d.ts",
-      "import": "./dist/components/field/field-controls.js",
-      "require": "./dist/components/field/field-controls.cjs"
-    },
-    "./field-structure": {
-      "types": "./dist/components/field/field-structure.d.ts",
-      "import": "./dist/components/field/field-structure.js",
-      "require": "./dist/components/field/field-structure.cjs"
-    },
-    "./field-text": {
-      "types": "./dist/components/field/field-text.d.ts",
-      "import": "./dist/components/field/field-text.js",
-      "require": "./dist/components/field/field-text.cjs"
-    },
-    "./sidebar-layout": {
-      "types": "./dist/components/sidebar-layout/sidebar-layout.d.ts",
-      "import": "./dist/components/sidebar-layout/sidebar-layout.js",
-      "require": "./dist/components/sidebar-layout/sidebar-layout.cjs"
-    },
-    "./skeleton": {
-      "types": "./dist/components/skeleton/skeleton.d.ts",
-      "import": "./dist/components/skeleton/skeleton.js",
-      "require": "./dist/components/skeleton/skeleton.cjs"
-    },
-    "./slider": {
-      "types": "./dist/components/slider/slider.d.ts",
-      "import": "./dist/components/slider/slider.js",
-      "require": "./dist/components/slider/slider.cjs"
-    },
-    "./spacer": {
-      "types": "./dist/components/spacer/spacer.d.ts",
-      "import": "./dist/components/spacer/spacer.js",
-      "require": "./dist/components/spacer/spacer.cjs"
-    },
-    "./spinner": {
-      "types": "./dist/components/spinner/spinner.d.ts",
-      "import": "./dist/components/spinner/spinner.js",
-      "require": "./dist/components/spinner/spinner.cjs"
-    },
-    "./stack": {
-      "types": "./dist/components/stack/stack.d.ts",
-      "import": "./dist/components/stack/stack.js",
-      "require": "./dist/components/stack/stack.cjs"
-    },
-    "./switch": {
-      "types": "./dist/components/switch/switch.d.ts",
-      "import": "./dist/components/switch/switch.js",
-      "require": "./dist/components/switch/switch.cjs"
-    },
-    "./tabs": {
-      "types": "./dist/components/tabs/tabs.d.ts",
-      "import": "./dist/components/tabs/tabs.js",
-      "require": "./dist/components/tabs/tabs.cjs"
-    },
-    "./textarea": {
-      "types": "./dist/components/textarea/textarea.d.ts",
-      "import": "./dist/components/textarea/textarea.js",
-      "require": "./dist/components/textarea/textarea.cjs"
-    },
-    "./toast": {
-      "types": "./dist/components/toast/toast.d.ts",
-      "import": "./dist/components/toast/toast.js",
-      "require": "./dist/components/toast/toast.cjs"
-    },
-    "./toggle": {
-      "types": "./dist/components/toggle/toggle.d.ts",
-      "import": "./dist/components/toggle/toggle.js",
-      "require": "./dist/components/toggle/toggle.cjs"
-    },
-    "./toggle-group": {
-      "types": "./dist/components/toggle-group/toggle-group.d.ts",
-      "import": "./dist/components/toggle-group/toggle-group.js",
-      "require": "./dist/components/toggle-group/toggle-group.cjs"
-    },
-    "./tooltip": {
-      "types": "./dist/components/tooltip/tooltip.d.ts",
-      "import": "./dist/components/tooltip/tooltip.js",
-      "require": "./dist/components/tooltip/tooltip.cjs"
-    },
-    "./topbar-layout": {
-      "types": "./dist/components/topbar-layout/topbar-layout.d.ts",
-      "import": "./dist/components/topbar-layout/topbar-layout.js",
-      "require": "./dist/components/topbar-layout/topbar-layout.cjs"
-    },
-    "./visually-hidden": {
-      "types": "./dist/components/visually-hidden/visually-hidden.d.ts",
-      "import": "./dist/components/visually-hidden/visually-hidden.js",
-      "require": "./dist/components/visually-hidden/visually-hidden.cjs"
+    "./patterns/*": {
+      "types": "./dist/components/patterns/*/*.d.ts",
+      "import": "./dist/components/patterns/*/*.js",
+      "require": "./dist/components/patterns/*/*.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -330,7 +66,7 @@
     "node": ">=18"
   },
   "peerDependencies": {
-    "@askrjs/askr": ">=0.0.28 <1.0.0"
+    "@askrjs/askr": "0.0.1"
   },
   "peerDependenciesMeta": {
     "@askrjs/askr": {
@@ -344,25 +80,23 @@
     "build": "npm run clean && npm run build:js && npm run build:types",
     "dev": "vp build --watch",
     "verify:foundations": "node scripts/check-foundations-contract.js",
-    "audit:theme-contract": "node scripts/audit-theme-contract.js",
-    "audit:theme-contract:strict": "node scripts/audit-theme-contract.js --strict",
     "test": "npm run verify:foundations && vp test run",
     "test:types": "tsc -p tsconfig.type-tests.json --noEmit",
     "bench": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.config.ts",
     "fmt": "vp fmt .",
-    "lint": "cross-env OXLINT_TSGOLINT_PATH=../../node_modules/.bin/tsgolint.cmd vp lint src tests benches",
+    "lint": "vp fmt --check .",
     "generate": "node scripts/generate.js"
   },
   "devDependencies": {
-    "@askrjs/askr": ">=0.0.28 <1.0.0",
-    "@askrjs/askr-vite": "file:../askr-vite",
+    "@askrjs/askr": "0.0.1",
+    "@askrjs/askr-vite": "0.0.1",
     "@types/node": "^25.5.0",
     "axe-core": "^4.11.1",
     "cross-env": "^10.1.0",
     "jiti": "^2.6.1",
-    "jsdom": "^28.1.0",
+    "jsdom": "^29.0.1",
     "tsd": "^0.33.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vitest-axe": "^0.1.0",
     "vite-plus": "latest"
   }

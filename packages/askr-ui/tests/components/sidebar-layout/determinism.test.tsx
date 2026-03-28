@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { SidebarLayout } from '../../../src/components/sidebar-layout/sidebar-layout';
+import { SidebarLayout } from '../../../src/components/patterns/sidebar-layout/sidebar-layout';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('SidebarLayout - Determinism', () => {

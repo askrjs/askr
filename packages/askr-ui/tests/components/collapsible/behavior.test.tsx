@@ -3,7 +3,7 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from '../../../src/components/collapsible/collapsible';
+} from '../../../src/components/composites/collapsible/collapsible';
 import { createIsland } from '@askrjs/askr';
 
 function mount(element: JSX.Element): HTMLElement {

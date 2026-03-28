@@ -4,7 +4,7 @@ import {
   SliderRange,
   SliderThumb,
   SliderTrack,
-} from '../../../src/components/slider';
+} from '../../../src/components/primitives/slider';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Slider - Accessibility', () => {

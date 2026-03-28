@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Skeleton } from '../../../src/components/skeleton';
+import { Skeleton } from '../../../src/components/primitives/skeleton';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Skeleton - Determinism', () => {

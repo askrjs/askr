@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { Textarea } from '../../../src/components/textarea/textarea';
-import { TEXTAREA_A11Y_CONTRACT } from '../../../src/components/textarea/textarea.a11y';
+import { Textarea } from '../../../src/components/primitives/textarea/textarea';
+import { TEXTAREA_A11Y_CONTRACT } from '../../../src/components/primitives/textarea/textarea.a11y';
 import { expectNoAxeViolations } from '../../accessibility';
 import { mount, unmount } from '../../test-utils';
 

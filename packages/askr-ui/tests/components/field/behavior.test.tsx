@@ -12,8 +12,8 @@ import {
   FieldRow,
   FieldSwitch,
   Fieldset,
-} from '../../../src/components/field/field';
-import { RadioGroupItem } from '../../../src/components/radio-group/radio-group';
+} from '../../../src/components/composites/field/field';
+import { RadioGroupItem } from '../../../src/components/primitives/radio-group/radio-group';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');
@@ -60,6 +60,32 @@ describe('Field — Behavior', () => {
     );
     expect(input?.getAttribute('aria-invalid')).toBe('true');
     expect(input?.getAttribute('aria-required')).toBe('true');
+  });
+
+  it('should allow nested field text when fieldId is explicit', () => {
+    container = mount(
+      <Field id="alerts">
+        <div>
+          <FieldLabel fieldId="alerts">Incident alerts</FieldLabel>
+          <FieldDescription fieldId="alerts">
+            Receive critical service incident notifications.
+          </FieldDescription>
+        </div>
+        <FieldSwitch fieldId="alerts" checked />
+      </Field>
+    );
+
+    const label = container.querySelector('[data-slot="field-label"]');
+    const description = container.querySelector(
+      '[data-slot="field-description"]'
+    );
+    const switchButton = container.querySelector('[data-slot="field-switch"]');
+
+    expect(label?.getAttribute('for')).toBe('alerts-control');
+    expect(description?.getAttribute('id')).toBe('alerts-description');
+    expect(switchButton?.getAttribute('aria-describedby')).toBe(
+      'alerts-description'
+    );
   });
 
   it('throws when a field subcomponent is rendered without a field', () => {
@@ -117,7 +143,9 @@ describe('Field — Behavior', () => {
 
     const checkbox = container.querySelector('input[type="checkbox"]');
     const switchButton = container.querySelector('[data-slot="field-switch"]');
-    const radioGroup = container.querySelector('[data-slot="field-radio-group"]');
+    const radioGroup = container.querySelector(
+      '[data-slot="field-radio-group"]'
+    );
 
     expect(checkbox?.getAttribute('id')).toBe('terms-control');
     expect(checkbox?.getAttribute('aria-required')).toBe('true');

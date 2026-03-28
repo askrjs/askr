@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { Spacer } from '../../../src/components/spacer/spacer';
-import { SPACER_A11Y_CONTRACT } from '../../../src/components/spacer/spacer.a11y';
+import { Spacer } from '../../../src/components/primitives/spacer/spacer';
+import { SPACER_A11Y_CONTRACT } from '../../../src/components/primitives/spacer/spacer.a11y';
 import { mount, unmount } from '../../test-utils';
 
 describe('Spacer - Behavior', () => {

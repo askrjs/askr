@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
-import { Textarea } from '../../../src/components/textarea/textarea';
+import { Textarea } from '../../../src/components/primitives/textarea/textarea';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');

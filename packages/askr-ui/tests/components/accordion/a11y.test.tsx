@@ -5,7 +5,7 @@ import {
   AccordionHeader,
   AccordionItem,
   AccordionTrigger,
-} from '../../../src/components/accordion';
+} from '../../../src/components/composites/accordion';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Accordion - Accessibility', () => {

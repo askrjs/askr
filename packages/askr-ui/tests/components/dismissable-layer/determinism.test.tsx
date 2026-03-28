@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { DismissableLayer } from '../../../src/components/dismissable-layer';
+import { DismissableLayer } from '../../../src/components/composites/dismissable-layer';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('DismissableLayer - Determinism', () => {

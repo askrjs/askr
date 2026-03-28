@@ -32,7 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Field,
-  FieldControl,
+  FieldInput,
   FocusRing,
   FocusScope,
   Menu,
@@ -99,7 +99,7 @@ import {
   type DropdownMenuContentProps,
   type DropdownMenuItemAsChildProps,
   type DropdownMenuItemProps,
-  type FieldControlAsChildProps,
+  type FieldInputProps,
   type FieldProps,
   type FocusRingAsChildProps,
   type FocusRingProps,
@@ -162,28 +162,28 @@ import {
   type SidebarLayoutProps,
   type TopbarLayoutProps,
 } from '@askrjs/askr-ui';
-import { AlertDialog as AlertDialogSubpath } from '@askrjs/askr-ui/alert-dialog';
-import { Button as ButtonSubpath } from '@askrjs/askr-ui/button';
-import { Checkbox as CheckboxSubpath } from '@askrjs/askr-ui/checkbox';
-import { Collapsible as CollapsibleSubpath } from '@askrjs/askr-ui/collapsible';
-import { Dialog as DialogSubpath } from '@askrjs/askr-ui/dialog';
-import { DropdownMenu as DropdownMenuSubpath } from '@askrjs/askr-ui/dropdown-menu';
-import { FocusRing as FocusRingSubpath } from '@askrjs/askr-ui/focus-ring';
-import { FocusScope as FocusScopeSubpath } from '@askrjs/askr-ui/focus-scope';
-import { Menu as MenuSubpath } from '@askrjs/askr-ui/menu';
-import { Popover as PopoverSubpath } from '@askrjs/askr-ui/popover';
-import { Select as SelectSubpath } from '@askrjs/askr-ui/select';
-import { Switch as SwitchSubpath } from '@askrjs/askr-ui/switch';
-import { Toggle as ToggleSubpath } from '@askrjs/askr-ui/toggle';
-import { Tooltip as TooltipSubpath } from '@askrjs/askr-ui/tooltip';
-import { Container as ContainerSubpath } from '@askrjs/askr-ui/container';
-import { Stack as StackSubpath } from '@askrjs/askr-ui/stack';
-import { Inline as InlineSubpath } from '@askrjs/askr-ui/inline';
-import { Grid as GridSubpath } from '@askrjs/askr-ui/grid';
-import { Center as CenterSubpath } from '@askrjs/askr-ui/center';
-import { Spacer as SpacerSubpath } from '@askrjs/askr-ui/spacer';
-import { SidebarLayout as SidebarLayoutSubpath } from '@askrjs/askr-ui/sidebar-layout';
-import { TopbarLayout as TopbarLayoutSubpath } from '@askrjs/askr-ui/topbar-layout';
+import { AlertDialog as AlertDialogSubpath } from '@askrjs/askr-ui/composites/alert-dialog';
+import { Button as ButtonSubpath } from '@askrjs/askr-ui/primitives/button';
+import { Checkbox as CheckboxSubpath } from '@askrjs/askr-ui/primitives/checkbox';
+import { Collapsible as CollapsibleSubpath } from '@askrjs/askr-ui/composites/collapsible';
+import { Dialog as DialogSubpath } from '@askrjs/askr-ui/composites/dialog';
+import { DropdownMenu as DropdownMenuSubpath } from '@askrjs/askr-ui/composites/dropdown-menu';
+import { FocusRing as FocusRingSubpath } from '@askrjs/askr-ui/composites/focus-ring';
+import { FocusScope as FocusScopeSubpath } from '@askrjs/askr-ui/composites/focus-scope';
+import { Menu as MenuSubpath } from '@askrjs/askr-ui/composites/menu';
+import { Popover as PopoverSubpath } from '@askrjs/askr-ui/composites/popover';
+import { Select as SelectSubpath } from '@askrjs/askr-ui/primitives/select';
+import { Switch as SwitchSubpath } from '@askrjs/askr-ui/primitives/switch';
+import { Toggle as ToggleSubpath } from '@askrjs/askr-ui/primitives/toggle';
+import { Tooltip as TooltipSubpath } from '@askrjs/askr-ui/composites/tooltip';
+import { Container as ContainerSubpath } from '@askrjs/askr-ui/primitives/container';
+import { Stack as StackSubpath } from '@askrjs/askr-ui/primitives/stack';
+import { Inline as InlineSubpath } from '@askrjs/askr-ui/primitives/inline';
+import { Grid as GridSubpath } from '@askrjs/askr-ui/primitives/grid';
+import { Center as CenterSubpath } from '@askrjs/askr-ui/primitives/center';
+import { Spacer as SpacerSubpath } from '@askrjs/askr-ui/primitives/spacer';
+import { SidebarLayout as SidebarLayoutSubpath } from '@askrjs/askr-ui/patterns/sidebar-layout';
+import { TopbarLayout as TopbarLayoutSubpath } from '@askrjs/askr-ui/patterns/topbar-layout';
 
 const slotChild = {} as JSXElement;
 
@@ -202,7 +202,7 @@ const dropdownMenuFromSubpath: typeof DropdownMenu = DropdownMenuSubpath;
 const selectFromSubpath: typeof Select = SelectSubpath;
 const tooltipFromSubpath: typeof Tooltip = TooltipSubpath;
 const fieldFromRoot: typeof Field = Field;
-const fieldControlFromRoot: typeof FieldControl = FieldControl;
+const fieldInputFromRoot: typeof FieldInput = FieldInput;
 const radioGroupFromRoot: typeof RadioGroup = RadioGroup;
 const radioGroupItemFromRoot: typeof RadioGroupItem = RadioGroupItem;
 const switchFromSubpath: typeof Switch = SwitchSubpath;
@@ -215,6 +215,8 @@ const centerFromSubpath: typeof Center = CenterSubpath;
 const spacerFromSubpath: typeof Spacer = SpacerSubpath;
 const sidebarLayoutFromSubpath: typeof SidebarLayout = SidebarLayoutSubpath;
 const topbarLayoutFromSubpath: typeof TopbarLayout = TopbarLayoutSubpath;
+
+const fieldInputProps: FieldInputProps = {};
 
 const containerProps: ContainerProps = { children: 'Content' };
 const containerAsChildProps: ContainerAsChildProps = {
@@ -475,11 +477,6 @@ const selectItemAsChildProps: SelectItemAsChildProps = {
 };
 
 const fieldProps: FieldProps = { id: 'email', invalid: true };
-const fieldControlAsChildProps: FieldControlAsChildProps = {
-  asChild: true,
-  fieldId: 'email',
-  children: slotChild,
-};
 
 const _invalidButtonAsChild: ButtonAsChildProps = {
   asChild: true,
@@ -506,12 +503,6 @@ const _invalidSwitchAsChild: SwitchAsChildProps = {
 const _invalidRadioItemAsChild: RadioGroupItemAsChildProps = {
   asChild: true,
   value: 'one',
-};
-
-// @ts-expect-error asChild field controls require a JSX child.
-const _invalidFieldControlAsChild: FieldControlAsChildProps = {
-  asChild: true,
-  fieldId: 'email',
 };
 
 const _invalidSelectTriggerAsChild: SelectTriggerAsChildProps = {
@@ -546,7 +537,8 @@ void [
   selectFromSubpath,
   tooltipFromSubpath,
   fieldFromRoot,
-  fieldControlFromRoot,
+  fieldInputFromRoot,
+  fieldInputProps,
   radioGroupFromRoot,
   radioGroupItemFromRoot,
   switchFromSubpath,
@@ -676,7 +668,6 @@ void [
   selectItemProps,
   selectItemAsChildProps,
   fieldProps,
-  fieldControlAsChildProps,
   containerFromSubpath,
   stackFromSubpath,
   inlineFromSubpath,

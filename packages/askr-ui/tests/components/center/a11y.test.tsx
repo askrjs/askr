@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Center } from '../../../src/components/center/center';
+import { Center } from '../../../src/components/primitives/center/center';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Center - Accessibility', () => {

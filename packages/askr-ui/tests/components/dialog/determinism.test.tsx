@@ -6,7 +6,7 @@ import {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
-} from '../../../src/components/dialog';
+} from '../../../src/components/composites/dialog';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Dialog - Determinism', () => {

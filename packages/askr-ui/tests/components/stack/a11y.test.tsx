@@ -1,5 +1,5 @@
 import { describe, it } from 'vite-plus/test';
-import { Stack } from '../../../src/components/stack/stack';
+import { Stack } from '../../../src/components/primitives/stack/stack';
 import { expectNoAxeViolations } from '../../accessibility';
 
 describe('Stack - Accessibility', () => {

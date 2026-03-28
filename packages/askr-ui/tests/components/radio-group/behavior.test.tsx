@@ -3,7 +3,7 @@ import { createIsland } from '@askrjs/askr';
 import {
   RadioGroup,
   RadioGroupItem,
-} from '../../../src/components/radio-group/radio-group';
+} from '../../../src/components/primitives/radio-group/radio-group';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');

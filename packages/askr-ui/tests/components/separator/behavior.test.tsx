@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr';
-import { Separator } from '../../../src/components/separator/separator';
+import { Separator } from '../../../src/components/primitives/separator/separator';
 
 function mount(element: JSX.Element): HTMLElement {
   const container = document.createElement('div');

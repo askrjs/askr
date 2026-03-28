@@ -5,7 +5,7 @@ import {
   AccordionHeader,
   AccordionItem,
   AccordionTrigger,
-} from '../../../src/components/accordion';
+} from '../../../src/components/composites/accordion';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('Accordion - Determinism', () => {

@@ -2,7 +2,7 @@ import { describe, it } from 'vite-plus/test';
 import {
   RadioGroup,
   RadioGroupItem,
-} from '../../../src/components/radio-group/radio-group';
+} from '../../../src/components/primitives/radio-group/radio-group';
 import { expectDeterministicRender } from '../../determinism';
 
 describe('RadioGroup - Determinism', () => {

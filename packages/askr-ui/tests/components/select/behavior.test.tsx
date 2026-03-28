@@ -6,7 +6,7 @@ import {
   SelectPortal,
   SelectTrigger,
   SelectValue,
-} from '../../../src/components/select';
+} from '../../../src/components/primitives/select';
 import { flushUpdates, mount, unmount } from '../../test-utils';
 
 describe('Select - Behavior', () => {
