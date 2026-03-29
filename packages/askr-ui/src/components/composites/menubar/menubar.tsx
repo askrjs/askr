@@ -24,7 +24,12 @@ import {
 } from '../../_internal/hierarchical-menu';
 import { resolveCompoundId, resolvePartId } from '../../_internal/id';
 import { collectJsxElements, mapJsxTree } from '../../_internal/jsx';
-import { getPersistentPortal } from '../../_internal/overlay';
+import {
+  clearOverlayPosition,
+  getOverlayNodes,
+  getPersistentPortal,
+  syncOverlayPosition,
+} from '../../_internal/overlay';
 import { stripInternalProps } from '../../_internal/props';
 import type {
   MenubarContentAsChildProps,
@@ -380,6 +385,7 @@ export function MenubarTrigger(
         | null
         | undefined,
       (node: HTMLElement | null) => {
+        getOverlayNodes(injected.__triggerId).trigger = node;
         registerCompositeNode(injected.__triggerId, collection, node, {
           index: injected.__menuIndex,
           disabled,
@@ -561,6 +567,8 @@ export function MenubarContent(
   };
   const injected = readMenubarContentInjectedProps(injectedContent);
   const open = pathIsOpen(injected.__openPath, injected.__path);
+  const overlayId = _surfaceId ?? injected.__triggerId;
+  const overlayNodes = getOverlayNodes(overlayId);
   const collection = getCompositeCollection(injected.__contentId);
   const nav = rovingFocus({
     currentIndex: injected.__contentCurrentIndex,
@@ -582,6 +590,17 @@ export function MenubarContent(
         | null
         | undefined,
       (node: HTMLElement | null) => {
+        overlayNodes.content = node;
+        if (node && open) {
+          syncOverlayPosition(overlayId, {
+            side,
+            align,
+            sideOffset,
+          });
+        } else {
+          clearOverlayPosition(overlayId);
+        }
+
         if (node && open) {
           focusSelectedCollectionItem(
             collection,
@@ -606,19 +625,21 @@ export function MenubarContent(
     <div {...finalProps}>{contentChildren}</div>
   );
 
-  return (
-    <Presence present={forceMount || open}>
-      <FocusScope restoreFocus>
-        <DismissableLayer
-          onDismiss={() => {
-            injected.__setOpenPath(injected.__path.slice(0, -1));
-          }}
-        >
-          {contentNode}
-        </DismissableLayer>
-      </FocusScope>
-    </Presence>
-  );
+  return injected.__portal.render({
+    children: (
+      <Presence present={forceMount || open}>
+        <FocusScope restoreFocus>
+          <DismissableLayer
+            onDismiss={() => {
+              injected.__setOpenPath(injected.__path.slice(0, -1));
+            }}
+          >
+            {contentNode}
+          </DismissableLayer>
+        </FocusScope>
+      </Presence>
+    ),
+  }) as JSX.Element | null;
 }
 
 export function MenubarItem(props: MenubarItemProps): JSX.Element;
@@ -714,6 +735,7 @@ export function MenubarItem(
         | null
         | undefined,
       (node: HTMLElement | null) => {
+        getOverlayNodes(injected.__surfaceId).trigger = node;
         registerCompositeNode(injected.__surfaceId, collection, node, {
           index: injected.__surfaceIndex,
           disabled: isDisabled,

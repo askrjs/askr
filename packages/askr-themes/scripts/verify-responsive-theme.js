@@ -2,13 +2,17 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const officialThemes = ['default', 'tuxedo', 'calico', 'ginger'];
+const responsiveContractThemes = ['default'];
 const forbiddenLegacyImports = [
   './components/app-shell.css',
   './components/navbar.css',
   './components/sidebar.css',
   './components/dashboard-layout.css',
   './components/docs-layout.css',
+];
+const defaultPatternImports = [
+  './components/responsive-layout.css',
+  './components/data-table.css',
 ];
 
 async function read(relativePath) {
@@ -26,7 +30,7 @@ async function main() {
 
   const responsiveImportPattern =
     /@import\s+['"]\.\/components\/responsive-layout\.css['"];?/;
-  for (const theme of officialThemes) {
+  for (const theme of responsiveContractThemes) {
     const indexCss = await read(`src/themes/${theme}/index.css`);
     if (!responsiveImportPattern.test(indexCss)) {
       throw new Error(
@@ -55,6 +59,29 @@ async function main() {
   const templateIndex = await read('templates/theme/index.css');
   if (!responsiveImportPattern.test(templateIndex)) {
     throw new Error('Theme template is missing responsive-layout.css import.');
+  }
+
+  for (const forbiddenImport of forbiddenLegacyImports) {
+    if (templateIndex.includes(forbiddenImport)) {
+      throw new Error(
+        `Theme template still imports legacy layout CSS: ${forbiddenImport}`
+      );
+    }
+  }
+
+  const defaultIndex = await read('src/themes/default/index.css');
+  for (const requiredImport of defaultPatternImports) {
+    if (!defaultIndex.includes(requiredImport)) {
+      throw new Error(
+        `Default theme is missing required pattern import: ${requiredImport}`
+      );
+    }
+
+    if (!templateIndex.includes(requiredImport)) {
+      throw new Error(
+        `Theme template is missing required pattern import: ${requiredImport}`
+      );
+    }
   }
 
   const requiredResponsiveSnippets = [

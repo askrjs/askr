@@ -25,13 +25,18 @@ const THEMES_COMPONENTS_DIR = path.join(
 );
 const ALLOWED_THEME_ONLY_SLOTS = new Set(['icon']);
 
-function walkFiles(dirPath, ext) {
+function walkFiles(dirPath, extensions) {
+  const normalizedExtensions = Array.isArray(extensions)
+    ? extensions
+    : [extensions];
   const results = [];
   for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
     const fullPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
-      results.push(...walkFiles(fullPath, ext));
-    } else if (entry.name.endsWith(ext)) {
+      results.push(...walkFiles(fullPath, extensions));
+    } else if (
+      normalizedExtensions.some((extension) => entry.name.endsWith(extension))
+    ) {
       results.push(fullPath);
     }
   }
@@ -48,7 +53,7 @@ function extractUiSlots() {
   }
 
   const slots = new Set();
-  const files = walkFiles(UI_COMPONENTS_DIR, '.tsx');
+  const files = walkFiles(UI_COMPONENTS_DIR, ['.ts', '.tsx']);
 
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf-8');
@@ -61,6 +66,22 @@ function extractUiSlots() {
       let match;
       while ((match = pattern.exec(content))) {
         slots.add(match[1]);
+      }
+    }
+
+    const slotBlockPatterns = [
+      /SLOTS\s*:\s*\{([\s\S]*?)\n\s*\}(?:\s*,|\s*as const)?/g,
+      /const\s+SLOTS\s*=\s*\{([\s\S]*?)\n\s*\}(?:\s*as const)?/g,
+    ];
+
+    for (const blockPattern of slotBlockPatterns) {
+      let blockMatch;
+      while ((blockMatch = blockPattern.exec(content))) {
+        for (const valueMatch of blockMatch[1].matchAll(
+          /:\s*['"]([^'"]+)['"](?:\s+as const)?/g
+        )) {
+          slots.add(valueMatch[1]);
+        }
       }
     }
   }

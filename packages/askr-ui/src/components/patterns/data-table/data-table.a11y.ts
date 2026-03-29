@@ -38,6 +38,7 @@ export const DATA_TABLE_A11Y_CONTRACT = {
     row: 'data-table-row' as const,
     cell: 'data-table-cell' as const,
     expandedRow: 'data-table-expanded-row' as const,
+    expandedCell: 'data-table-expanded-cell' as const,
     list: 'data-table-list' as const,
     listItem: 'data-table-list-item' as const,
     listMain: 'data-table-list-main' as const,

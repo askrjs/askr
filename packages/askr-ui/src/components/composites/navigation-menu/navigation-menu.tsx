@@ -24,7 +24,12 @@ import {
 } from '../../_internal/hierarchical-menu';
 import { resolveCompoundId, resolvePartId } from '../../_internal/id';
 import { collectJsxElements, mapJsxTree } from '../../_internal/jsx';
-import { getPersistentPortal } from '../../_internal/overlay';
+import {
+  clearOverlayPosition,
+  getOverlayNodes,
+  getPersistentPortal,
+  syncOverlayPosition,
+} from '../../_internal/overlay';
 import { stripInternalProps } from '../../_internal/props';
 import type {
   NavigationMenuContentAsChildProps,
@@ -453,6 +458,7 @@ export function NavigationMenuTrigger(
         | null
         | undefined,
       (node: HTMLElement | null) => {
+        getOverlayNodes(injected.__triggerId).trigger = node;
         registerCompositeNode(injected.__triggerId, collection, node, {
           index: injected.__itemIndex,
           disabled,
@@ -618,6 +624,8 @@ export function NavigationMenuContent(
   };
   const injected = readContentInjected(injectedContent);
   const open = pathIsOpen(injected.__openPath, injected.__path);
+  const overlayId = _surfaceId ?? injected.__triggerId;
+  const overlayNodes = getOverlayNodes(overlayId);
   const collection = getCompositeCollection(injected.__contentId);
   const nav = rovingFocus({
     currentIndex: injected.__contentCurrentIndex,
@@ -639,6 +647,17 @@ export function NavigationMenuContent(
         | null
         | undefined,
       (node: HTMLElement | null) => {
+        overlayNodes.content = node;
+        if (node && open) {
+          syncOverlayPosition(overlayId, {
+            side,
+            align,
+            sideOffset,
+          });
+        } else {
+          clearOverlayPosition(overlayId);
+        }
+
         if (node && open) {
           focusSelectedCollectionItem(
             collection,
@@ -675,7 +694,9 @@ export function NavigationMenuContent(
     </Presence>
   );
 
-  return rendered;
+  return injected.__portal.render({
+    children: rendered,
+  }) as JSX.Element | null;
 }
 
 export function NavigationMenuLink(props: NavigationMenuLinkProps): JSX.Element;
@@ -1009,6 +1030,7 @@ export function NavigationMenuSubTrigger(
         | null
         | undefined,
       (node: HTMLElement | null) => {
+        getOverlayNodes(injected.__surfaceId).trigger = node;
         registerCompositeNode(injected.__surfaceId, collection, node, {
           index: injected.__surfaceIndex,
           disabled: isDisabled,

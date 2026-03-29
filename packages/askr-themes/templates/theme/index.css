@@ -34,9 +34,6 @@
 @import './components/field.css';
 @import './components/icon.css';
 @import './components/responsive-layout.css';
-@import './components/app-shell.css';
-@import './components/navbar.css';
-@import './components/sidebar.css';
-@import './components/dashboard-layout.css';
-@import './components/docs-layout.css';
+@import './components/product-shell.css';
+@import './components/data-table.css';
 @import './components/coverage.css';
