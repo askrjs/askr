@@ -2,6 +2,7 @@
 :where([data-slot='sidebar-layout']) {
   min-block-size: 100vh;
   background: var(--ak-color-bg);
+  color: var(--ak-color-text);
 }
 
 :where([data-slot='topbar-layout']) > :where([data-slot='navbar']) {
@@ -10,16 +11,21 @@
   align-items: center;
   justify-content: space-between;
   min-block-size: var(--ak-layout-navbar-height);
-  padding: var(--ak-space-md);
+  padding: 0.875rem var(--ak-layout-page-gutter);
   gap: var(--ak-space-sm) var(--ak-space-md);
   border-bottom: 1px solid var(--ak-color-border);
-  background: var(--ak-color-bg);
+  background: color-mix(
+    in srgb,
+    var(--ak-color-surface-overlay) 95%,
+    var(--ak-color-surface)
+  );
+  backdrop-filter: blur(12px);
 }
 
 :where([data-slot='sidebar-layout']) {
   display: flex;
   flex-direction: column;
-  gap: var(--ak-space-md);
+  gap: var(--ak-space-lg);
 }
 
 :where([data-slot='stack'][data-gap='sm']),
@@ -62,7 +68,15 @@
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
-  background: var(--ak-color-surface);
+  background: linear-gradient(
+    180deg,
+    color-mix(
+      in srgb,
+      var(--ak-color-primary-soft) 22%,
+      var(--ak-color-surface-muted)
+    ),
+    var(--ak-color-surface)
+  );
   border-inline-end: 0;
   border-block-end: 1px solid var(--ak-color-border);
 }
@@ -70,12 +84,15 @@
 :where([data-slot='topbar-layout']) > :where([data-slot='main']),
 :where([data-slot='sidebar-layout']) > :where([data-slot='main']) {
   min-inline-size: 0;
-  padding: var(--ak-space-md);
+  inline-size: 100%;
+  padding: var(--ak-layout-page-gutter);
 }
 
 :where([data-slot='container']) {
   inline-size: 100%;
+  margin-inline: auto;
   max-inline-size: min(100%, var(--ak-layout-content-max-width));
+  padding-inline: var(--ak-layout-page-gutter);
 }
 
 :where([data-slot='container'][data-size='sm']),
@@ -225,12 +242,12 @@
 
 @media (min-width: 48rem) {
   :where([data-slot='topbar-layout']) > :where([data-slot='navbar']) {
-    padding-inline: var(--ak-space-lg);
+    padding-inline: var(--ak-layout-page-gutter);
   }
 
   :where([data-slot='topbar-layout']) > :where([data-slot='main']),
   :where([data-slot='sidebar-layout']) > :where([data-slot='main']) {
-    padding: var(--ak-space-lg);
+    padding: var(--ak-layout-page-gutter);
   }
 
   :where([data-slot='grid'][data-columns='3']) {

@@ -1,10 +1,14 @@
-[data-slot='toast-viewport'] {
+:where([data-slot='toast-provider']) {
+  display: contents;
+}
+
+:where([data-slot='toast-viewport']) {
   position: fixed;
   inset-block-end: 1rem;
   inset-inline-end: 1rem;
   display: grid;
-  gap: var(--ak-space-sm);
-  width: min(24rem, calc(100vw - 2rem));
+  gap: var(--ak-space-md);
+  width: min(27rem, calc(100vw - 2rem));
   z-index: var(--ak-z-toast);
 }
 
@@ -30,79 +34,106 @@
   }
 }
 
-[data-slot='toast'] {
+:where([data-slot='toast']) {
   display: grid;
-  gap: 0.35rem;
-  padding: var(--ak-space-md);
-  border: 1px solid var(--ak-color-border);
-  border-radius: var(--ak-radius-md);
-  background: var(--ak-color-surface);
+  gap: var(--ak-space-sm);
+  padding: calc(var(--ak-layout-panel-padding) - 0.15rem)
+    var(--ak-layout-panel-padding);
+  border: 1px solid var(--ak-color-border-subtle);
+  border-radius: var(--ak-radius-xl);
+  background: color-mix(
+    in srgb,
+    var(--ak-color-surface-overlay) 92%,
+    var(--ak-color-surface)
+  );
   color: var(--ak-color-text);
-  box-shadow: var(--ak-shadow-lg);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 56%, transparent),
+    var(--ak-shadow-lg);
+  backdrop-filter: blur(22px);
   animation: ak-toast-in var(--ak-duration-normal) var(--ak-ease-standard);
 }
 
-[data-slot='toast'][data-state='closed'] {
+:where([data-slot='toast'][data-state='closed']) {
   animation: ak-toast-out var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
-[data-slot='toast-title'] {
+:where([data-slot='toast-title']) {
   font-weight: var(--ak-font-weight-bold);
   line-height: var(--ak-line-height-tight);
 }
 
-[data-slot='toast-description'] {
+:where([data-slot='toast-description']) {
   color: var(--ak-color-text-muted);
   line-height: var(--ak-line-height-normal);
 }
 
-[data-slot='toast-action'],
-[data-slot='toast-close'] {
+:where([data-slot='toast-action']),
+:where([data-slot='toast-close']) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   padding: 0 var(--ak-space-md);
   border: 1px solid var(--ak-color-border);
-  border-radius: var(--ak-radius-md);
-  background: var(--ak-color-surface-muted);
+  border-radius: var(--ak-radius-lg);
+  background: color-mix(
+    in srgb,
+    var(--ak-color-primary-soft) 18%,
+    var(--ak-color-surface-muted)
+  );
   color: var(--ak-color-text);
   cursor: pointer;
   transition:
     background var(--ak-duration-fast) var(--ak-ease-standard),
-    border-color var(--ak-duration-fast) var(--ak-ease-standard);
+    border-color var(--ak-duration-fast) var(--ak-ease-standard),
+    box-shadow var(--ak-duration-fast) var(--ak-ease-standard);
 }
 
-[data-slot='toast-action']:hover,
-[data-slot='toast-close']:hover {
-  background: var(--ak-color-hover);
+:where([data-slot='toast-action']:hover),
+:where([data-slot='toast-close']:hover) {
+  background: color-mix(
+    in srgb,
+    var(--ak-color-primary-soft) 42%,
+    var(--ak-color-surface)
+  );
   border-color: var(--ak-color-border-strong);
+  box-shadow: var(--ak-shadow-sm);
 }
 
-[data-slot='toast-action'][data-disabled],
-[data-slot='toast-close'][data-disabled] {
-  opacity: 0.5;
+:where([data-slot='toast-action'][data-disabled]),
+:where([data-slot='toast-close'][data-disabled]) {
+  background: var(--ak-color-disabled-surface);
+  border-color: var(--ak-color-disabled-border);
+  color: var(--ak-color-disabled-text);
   pointer-events: none;
   cursor: not-allowed;
 }
 
 /* toast variants */
-[data-slot='toast'][data-variant='success'] {
+:where([data-slot='toast'][data-variant='success']) {
   background: var(--ak-color-success-soft);
   border-color: var(--ak-color-success);
 }
 
-[data-slot='toast'][data-variant='warning'] {
+:where([data-slot='toast'][data-variant='warning']) {
   background: var(--ak-color-warning-soft);
   border-color: var(--ak-color-warning);
 }
 
-[data-slot='toast'][data-variant='danger'] {
+:where([data-slot='toast'][data-variant='danger']) {
   background: var(--ak-color-danger-soft);
   border-color: var(--ak-color-danger);
 }
 
-[data-slot='toast'][data-variant='info'] {
+:where([data-slot='toast'][data-variant='info']) {
   background: var(--ak-color-info-soft);
   border-color: var(--ak-color-info);
+}
+
+@media (max-width: 40rem) {
+  :where([data-slot='toast-viewport']) {
+    inset-inline: 1rem;
+    width: auto;
+  }
 }

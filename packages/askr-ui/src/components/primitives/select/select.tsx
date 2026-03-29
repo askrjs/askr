@@ -19,7 +19,12 @@ import {
   registerCollectionNode,
 } from '../../_internal/menu';
 import { mapJsxTree } from '../../_internal/jsx';
-import { getOverlayNodes, getPersistentPortal } from '../../_internal/overlay';
+import {
+  clearOverlayPosition,
+  getOverlayNodes,
+  getPersistentPortal,
+  syncOverlayPosition,
+} from '../../_internal/overlay';
 import type {
   SelectContentAsChildProps,
   SelectContentProps,
@@ -410,6 +415,17 @@ export function SelectContent(
         | undefined,
       (node: HTMLElement | null) => {
         overlayNodes.content = node;
+        if (node && injected.__open) {
+          syncOverlayPosition(injected.__selectId, {
+            side,
+            align,
+            sideOffset,
+            matchTriggerWidth: true,
+          });
+        } else {
+          clearOverlayPosition(injected.__selectId);
+        }
+
         if (node && injected.__open) {
           focusSelectedCollectionItem(collection, injected.__currentIndex);
         }

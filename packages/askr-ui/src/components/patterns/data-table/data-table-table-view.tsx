@@ -240,7 +240,7 @@ export function DataTableExpandedRow<T>(
 
   return (
     <tr {...finalProps}>
-      <td colSpan={colCount} role="region">
+      <td colSpan={colCount} role="region" data-slot={SLOTS.expandedCell}>
         {children}
       </td>
     </tr>

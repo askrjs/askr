@@ -19,7 +19,12 @@ import {
   registerCollectionNode,
 } from '../../_internal/menu';
 import { mapJsxTree } from '../../_internal/jsx';
-import { getOverlayNodes, getPersistentPortal } from '../../_internal/overlay';
+import {
+  clearOverlayPosition,
+  getOverlayNodes,
+  getPersistentPortal,
+  syncOverlayPosition,
+} from '../../_internal/overlay';
 import type {
   DropdownMenuContentAsChildProps,
   DropdownMenuContentProps,
@@ -307,6 +312,16 @@ export function DropdownMenuContent(
         | undefined,
       (node: HTMLElement | null) => {
         overlayNodes.content = node;
+        if (node && injected.__open) {
+          syncOverlayPosition(injected.__dropdownMenuId, {
+            side,
+            align,
+            sideOffset,
+          });
+        } else {
+          clearOverlayPosition(injected.__dropdownMenuId);
+        }
+
         if (node && injected.__open) {
           focusSelectedCollectionItem(collection, injected.__currentIndex);
         }

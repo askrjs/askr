@@ -1,43 +1,79 @@
-[data-slot='badge'] {
+:where([data-slot='badge']) {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  min-height: 1.5rem;
-  padding: 0 0.55rem;
-  border-radius: 999px;
-  background: var(--ak-color-primary-soft);
+  gap: 0.4rem;
+  min-height: 1.75rem;
+  padding: 0 0.8rem;
+  border: 1px solid transparent;
+  border-radius: var(--ak-radius-round);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 45%, var(--ak-color-primary-soft)),
+    color-mix(
+      in srgb,
+      var(--ak-color-primary-soft) 78%,
+      var(--ak-color-surface)
+    )
+  );
   color: var(--ak-color-primary-ink);
-  font-size: var(--ak-font-size-sm);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  font-size: var(--ak-font-size-xs);
   font-weight: var(--ak-font-weight-semibold);
+  letter-spacing: 0.02em;
 }
 
-[data-slot='badge'][data-variant='secondary'] {
-  background: var(--ak-color-surface-muted);
+:where([data-slot='badge'][data-variant='secondary']) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 40%, var(--ak-color-surface-muted)),
+    var(--ak-color-surface-muted)
+  );
+  border-color: color-mix(in srgb, var(--ak-color-border-subtle) 88%, white);
   color: var(--ak-color-text);
 }
 
-[data-slot='badge'][data-variant='outline'] {
-  background: transparent;
-  border: 1px solid var(--ak-color-border);
+:where([data-slot='badge'][data-variant='outline']) {
+  background: color-mix(
+    in srgb,
+    var(--ak-color-surface-overlay) 84%,
+    transparent
+  );
+  border-color: var(--ak-color-border);
   color: var(--ak-color-text);
 }
 
-[data-slot='badge'][data-variant='success'] {
-  background: var(--ak-color-success-soft);
+:where([data-slot='badge'][data-variant='success']) {
+  background: color-mix(
+    in srgb,
+    var(--ak-color-success-soft) 92%,
+    var(--ak-color-surface)
+  );
   color: var(--ak-color-success-ink);
 }
 
-[data-slot='badge'][data-variant='warning'] {
-  background: var(--ak-color-warning-soft);
+:where([data-slot='badge'][data-variant='warning']) {
+  background: color-mix(
+    in srgb,
+    var(--ak-color-warning-soft) 92%,
+    var(--ak-color-surface)
+  );
   color: var(--ak-color-warning-ink);
 }
 
-[data-slot='badge'][data-variant='danger'] {
-  background: var(--ak-color-danger-soft);
+:where([data-slot='badge'][data-variant='danger']) {
+  background: color-mix(
+    in srgb,
+    var(--ak-color-danger-soft) 92%,
+    var(--ak-color-surface)
+  );
   color: var(--ak-color-danger-ink);
 }
 
-[data-slot='badge'][data-variant='info'] {
-  background: var(--ak-color-info-soft);
+:where([data-slot='badge'][data-variant='info']) {
+  background: color-mix(
+    in srgb,
+    var(--ak-color-info-soft) 92%,
+    var(--ak-color-surface)
+  );
   color: var(--ak-color-info-ink);
 }

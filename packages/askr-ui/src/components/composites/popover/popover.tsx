@@ -10,7 +10,12 @@ import { DismissableLayer } from '../../composites/dismissable-layer';
 import { FocusScope } from '../../composites/focus-scope';
 import { resolveCompoundId, resolvePartId } from '../../_internal/id';
 import { mapJsxTree } from '../../_internal/jsx';
-import { getOverlayNodes, getPersistentPortal } from '../../_internal/overlay';
+import {
+  clearOverlayPosition,
+  getOverlayNodes,
+  getPersistentPortal,
+  syncOverlayPosition,
+} from '../../_internal/overlay';
 import type {
   PopoverCloseAsChildProps,
   PopoverCloseProps,
@@ -251,6 +256,15 @@ export function PopoverContent(
         | undefined,
       (node: HTMLElement | null) => {
         overlayNodes.content = node;
+        if (node && injected.__open) {
+          syncOverlayPosition(injected.__popoverId, {
+            side,
+            align,
+            sideOffset,
+          });
+        } else {
+          clearOverlayPosition(injected.__popoverId);
+        }
       }
     ),
     id: injected.__contentId,

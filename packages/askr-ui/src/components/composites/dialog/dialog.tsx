@@ -10,7 +10,12 @@ import { DismissableLayer } from '../../composites/dismissable-layer';
 import { FocusScope } from '../../composites/focus-scope';
 import { resolveCompoundId, resolvePartId } from '../../_internal/id';
 import { mapJsxTree } from '../../_internal/jsx';
-import { getOverlayNodes, getPersistentPortal } from '../../_internal/overlay';
+import {
+  clearOverlayPosition,
+  getOverlayNodes,
+  getPersistentPortal,
+  syncOverlayPosition,
+} from '../../_internal/overlay';
 import type {
   DialogCloseAsChildProps,
   DialogCloseProps,
@@ -330,6 +335,15 @@ export function DialogContent(
         | undefined,
       (node: HTMLElement | null) => {
         overlayNodes.content = node;
+        if (node && injected.__open) {
+          syncOverlayPosition(injected.__dialogId, {
+            mode: 'centered',
+            viewportPadding: 20,
+            zIndex: 50,
+          });
+        } else {
+          clearOverlayPosition(injected.__dialogId);
+        }
       }
     ),
     id: injected.__contentId,

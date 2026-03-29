@@ -54,7 +54,7 @@
     "@askrjs/askr": "0.0.1"
   },
   "devDependencies": {
-    "@askrjs/askr": "0.0.1",
+    "@askrjs/askr": "0.0.28",
     "jsdom": "^29.0.1",
     "lucide": "latest",
     "typescript": "^6.0.2",
