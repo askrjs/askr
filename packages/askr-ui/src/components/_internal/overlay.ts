@@ -1,7 +1,9 @@
-import { definePortal } from '@askrjs/askr/foundations';
-
 export type OverlaySide = 'top' | 'right' | 'bottom' | 'left';
 export type OverlayAlign = 'start' | 'center' | 'end';
+export type OverlayPortal = {
+  (): JSX.Element | null;
+  render(props: { children?: unknown }): JSX.Element | null;
+};
 
 type OverlayNodes = {
   trigger: HTMLElement | null;
@@ -10,7 +12,7 @@ type OverlayNodes = {
 };
 
 const overlayNodes = new Map<string, OverlayNodes>();
-const overlayPortals = new Map<string, ReturnType<typeof definePortal>>();
+const overlayPortals = new Map<string, OverlayPortal>();
 
 type OverlayPositionMode = 'anchored' | 'centered';
 
@@ -24,6 +26,23 @@ type OverlayPositionOptions = {
   zIndex?: number;
 };
 
+function createOverlayPortal(): OverlayPortal {
+  let value: unknown = null;
+
+  function OverlayPortalHost() {
+    return value as JSX.Element | null;
+  }
+
+  OverlayPortalHost.render = function OverlayPortalRender(props: {
+    children?: unknown;
+  }) {
+    value = props.children ?? null;
+    return null;
+  };
+
+  return OverlayPortalHost;
+}
+
 export function getPersistentPortal(id: string) {
   const existing = overlayPortals.get(id);
 
@@ -31,7 +50,7 @@ export function getPersistentPortal(id: string) {
     return existing;
   }
 
-  const created = definePortal();
+  const created = createOverlayPortal();
   overlayPortals.set(id, created);
   return created;
 }

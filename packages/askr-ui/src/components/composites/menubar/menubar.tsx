@@ -223,7 +223,6 @@ export function Menubar(props: MenubarProps) {
     ? currentTriggerIndexState()
     : firstEnabledCompositeIndex(triggers);
   let menuIndex = 0;
-  const portal = getPersistentPortal(menubarId);
   const nav = rovingFocus({
     currentIndex: currentTriggerIndex,
     itemCount: Math.max(triggers.length, 1),
@@ -256,7 +255,9 @@ export function Menubar(props: MenubarProps) {
         __setCurrentTriggerIndex: currentTriggerIndexState.set,
         __triggerCount: triggers.length,
         __disabledTriggerIndexes: disabledIndexes(triggers),
-        __portal: portal,
+        __portal: getPersistentPortal(
+          resolvePartId(menubarId, `portal-${index}`)
+        ),
         __menuKey: menuKey,
         __menuIndex: index,
         __triggerId: resolvePartId(menubarId, `trigger-${index}`),
@@ -272,12 +273,7 @@ export function Menubar(props: MenubarProps) {
     'data-menubar': 'true',
   });
 
-  return (
-    <>
-      <div {...finalProps}>{enhancedChildren}</div>
-      {portal()}
-    </>
-  );
+  return <div {...finalProps}>{enhancedChildren}</div>;
 }
 
 export function MenubarMenu(
@@ -568,6 +564,7 @@ export function MenubarContent(
   const injected = readMenubarContentInjectedProps(injectedContent);
   const open = pathIsOpen(injected.__openPath, injected.__path);
   const overlayId = _surfaceId ?? injected.__triggerId;
+  const portal = getPersistentPortal(overlayId);
   const overlayNodes = getOverlayNodes(overlayId);
   const collection = getCompositeCollection(injected.__contentId);
   const nav = rovingFocus({
@@ -624,22 +621,29 @@ export function MenubarContent(
   ) : (
     <div {...finalProps}>{contentChildren}</div>
   );
+  const rendered = (
+    <Presence present={forceMount || open}>
+      <FocusScope restoreFocus>
+        <DismissableLayer
+          onDismiss={() => {
+            injected.__setOpenPath(injected.__path.slice(0, -1));
+          }}
+        >
+          {contentNode}
+        </DismissableLayer>
+      </FocusScope>
+    </Presence>
+  );
+  const PortalHost = portal;
 
-  return injected.__portal.render({
-    children: (
-      <Presence present={forceMount || open}>
-        <FocusScope restoreFocus>
-          <DismissableLayer
-            onDismiss={() => {
-              injected.__setOpenPath(injected.__path.slice(0, -1));
-            }}
-          >
-            {contentNode}
-          </DismissableLayer>
-        </FocusScope>
-      </Presence>
-    ),
-  }) as JSX.Element | null;
+  return (
+    <>
+      {portal.render({
+        children: rendered,
+      })}
+      <PortalHost />
+    </>
+  );
 }
 
 export function MenubarItem(props: MenubarItemProps): JSX.Element;

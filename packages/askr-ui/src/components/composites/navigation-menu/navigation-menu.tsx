@@ -244,7 +244,9 @@ export function NavigationMenu(props: NavigationMenuProps) {
           __setCurrentTriggerIndex: currentTriggerIndexState.set,
           __triggerCount: triggers.length,
           __disabledTriggerIndexes: disabledIndexes(triggers),
-          __portal: portal,
+          __portal: getPersistentPortal(
+            resolvePartId(navigationMenuId, `portal-${index}`)
+          ),
           __itemKey: itemKey,
           __itemIndex: index,
           __triggerId: resolvePartId(navigationMenuId, `trigger-${index}`),
@@ -283,12 +285,7 @@ export function NavigationMenu(props: NavigationMenuProps) {
     'data-navigation-menu': 'true',
   });
 
-  return (
-    <>
-      <nav {...finalProps}>{enhancedChildren}</nav>
-      {portal()}
-    </>
-  );
+  return <nav {...finalProps}>{enhancedChildren}</nav>;
 }
 
 export function NavigationMenuList(props: NavigationMenuListProps): JSX.Element;
@@ -625,6 +622,7 @@ export function NavigationMenuContent(
   const injected = readContentInjected(injectedContent);
   const open = pathIsOpen(injected.__openPath, injected.__path);
   const overlayId = _surfaceId ?? injected.__triggerId;
+  const portal = getPersistentPortal(overlayId);
   const overlayNodes = getOverlayNodes(overlayId);
   const collection = getCompositeCollection(injected.__contentId);
   const nav = rovingFocus({
@@ -693,10 +691,16 @@ export function NavigationMenuContent(
       </FocusScope>
     </Presence>
   );
+  const PortalHost = portal;
 
-  return injected.__portal.render({
-    children: rendered,
-  }) as JSX.Element | null;
+  return (
+    <>
+      {portal.render({
+        children: rendered,
+      })}
+      <PortalHost />
+    </>
+  );
 }
 
 export function NavigationMenuLink(props: NavigationMenuLinkProps): JSX.Element;

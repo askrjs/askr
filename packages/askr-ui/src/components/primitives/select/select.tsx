@@ -184,11 +184,12 @@ export function Select(props: SelectProps) {
       },
     };
   });
+  const PortalHost = injectedProps.__portal;
 
   return (
     <>
       {enhancedChildren}
-      {injectedProps.__portal ? injectedProps.__portal() : null}
+      {PortalHost ? <PortalHost /> : null}
       {name ? (
         <input
           type="hidden"
