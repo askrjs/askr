@@ -145,11 +145,12 @@ export function DropdownMenu(props: DropdownMenuProps) {
       },
     };
   });
+  const PortalHost = injectedProps.__portal;
 
   return (
     <>
       {enhancedChildren}
-      {injectedProps.__portal ? injectedProps.__portal() : null}
+      {PortalHost ? <PortalHost /> : null}
     </>
   );
 }

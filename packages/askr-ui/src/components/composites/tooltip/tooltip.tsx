@@ -86,11 +86,12 @@ export function Tooltip(props: TooltipProps) {
       },
     };
   });
+  const PortalHost = injectedProps.__portal;
 
   return (
     <>
       {enhancedChildren}
-      {injectedProps.__portal ? injectedProps.__portal() : null}
+      {PortalHost ? <PortalHost /> : null}
     </>
   );
 }
