@@ -35,11 +35,7 @@ import {
 ## Focus components
 
 ```ts
-import {
-  DismissableLayer,
-  FocusRing,
-  FocusScope,
-} from '@askrjs/askr-ui/focus';
+import { DismissableLayer, FocusRing, FocusScope } from '@askrjs/askr-ui/focus';
 ```
 
 ## Overlay components
@@ -130,7 +126,11 @@ import {
   PaginationPrev,
   PaginationNext,
 } from '@askrjs/askr-ui/pagination';
-import { Menubar, MenubarMenu, MenubarTrigger } from '@askrjs/askr-ui/navigation';
+import {
+  Menubar,
+  MenubarMenu,
+  MenubarTrigger,
+} from '@askrjs/askr-ui/navigation';
 import {
   NavigationMenu,
   NavigationMenuList,

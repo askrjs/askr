@@ -1,21 +1,42 @@
 /**
  * Route definition, registration, and matching.
  *
- * The authoritative implementation for the unified route model:
- *   - `layout(Component, fn)` — declare a layout scope containing child routes
- *   - `route(path, Component, options?)` — declare a route inside a layout scope
- *   - `route()` (no args) — read the current route snapshot inside a component
- *   - `getManifest()` — retrieve the normalized route graph for SPA / SSR / SSG
+ * Primary public authoring:
+ *   - `registerRoutes(() => { ... }, options?)`
+ *   - `group(options, () => { ... })`
+ *   - `route(path, Component, options?)`
+ *   - `fallback(Component)`
+ *   - `currentRoute()` for render-time access
+ *
  */
 
 import { matchSegments, parseSegments, computeRank } from './match';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { getExecutionModel } from '../runtime/execution-model';
 import { getRenderContext } from '../ssr/context';
+import {
+  requireAuth,
+  requireGuest,
+  requirePermission,
+  requireRole,
+  withRouteAuthOptions,
+} from './policy';
 
 export type {
+  AccessDecision,
+  AccessDenyDecision,
+  AccessRedirectDecision,
+  GroupHelperOptions,
+  RegisterRoutesOptions,
+  RouteDefinition,
+  RouteAuthOptions,
   RouteHandler,
   Route,
+  RouteContext,
+  RoutePolicy,
+  RouteRenderResult,
+  RouteRequestOptions,
+  RouteRequestResult,
   ResolvedRoute,
   RouteMatch,
   RouteQuery,
@@ -29,8 +50,20 @@ export type {
 } from '../common/router';
 
 import type {
+  AccessDecision,
+  AccessDenyDecision,
+  AccessRedirectDecision,
+  GroupHelperOptions,
+  RegisterRoutesOptions,
+  RouteDefinition,
+  RouteAuthOptions,
   RouteHandler,
   Route,
+  RouteContext,
+  RoutePolicy,
+  RouteRenderResult,
+  RouteRequestOptions,
+  RouteRequestResult,
   ResolvedRoute,
   RouteMatch,
   RouteQuery,
@@ -52,10 +85,29 @@ const routes: Route[] = [];
 /** Normalized route records built by the declarative registration API. */
 const records: RouteRecord[] = [];
 
-/** Active layout scope stack during module-load-time registration. */
-const layoutStack: LayoutScopeRecord[] = [];
+type RegistrationScope = {
+  layout?: LayoutScopeRecord['component'];
+  policies: readonly RoutePolicy[];
+  state: AccessScopeState;
+};
+
+type RegistrationSession = {
+  authConfigured: boolean;
+};
+
+/** Active registration scope stack during module-load-time registration. */
+const registrationScopeStack: RegistrationScope[] = [];
+const registrationSessionStack: RegistrationSession[] = [];
 
 const namespaces = new Set<string>();
+
+type AccessScopeState = {
+  guestOnly: boolean;
+  authenticated: boolean;
+};
+
+let defaultRouteAuthOptions: RouteAuthOptions | undefined;
+let activeClientRouteAuthOptions: RouteAuthOptions | undefined;
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
@@ -193,6 +245,52 @@ function makeQuery(search: string): RouteQuery {
   return deepFreeze(obj);
 }
 
+function buildRouteContextBase(
+  target: string,
+  params: Record<string, string>,
+  options: {
+    mode: RouteContext['mode'];
+    signal: AbortSignal;
+  }
+): Omit<RouteContext, 'session' | 'user'> {
+  const parsed = parseLocation(target);
+  const href = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+
+  return {
+    mode: options.mode,
+    params,
+    pathname: parsed.pathname,
+    search: parsed.search,
+    hash: parsed.hash,
+    href,
+    signal: options.signal,
+  };
+}
+
+function buildRouteContext(
+  target: string,
+  params: Record<string, string>,
+  options: {
+    mode: RouteContext['mode'];
+    signal: AbortSignal;
+    auth?: RouteAuthOptions;
+    session?: unknown;
+    user?: unknown;
+  }
+): RouteContext {
+  const context: RouteContext = {
+    ...buildRouteContextBase(target, params, options),
+    session: options.session ?? null,
+    user: options.user ?? null,
+  };
+
+  return withRouteAuthOptions(context, options.auth);
+}
+
+function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
+  return value instanceof Promise;
+}
+
 // Compute matches for a specific route list.
 function computeMatchesFromRoutes(
   pathname: string,
@@ -239,6 +337,68 @@ function computeMatchesFromRoutes(
 function getActiveRoutes(): readonly Route[] {
   const renderContext = getRenderContext();
   return renderContext?.routes ?? routes;
+}
+
+function getActiveRouteAuthOptions(
+  override?: RouteAuthOptions
+): RouteAuthOptions | undefined {
+  if (override) {
+    return override;
+  }
+
+  const renderContext = getRenderContext();
+  return (
+    renderContext?.routeAuth ??
+    activeClientRouteAuthOptions ??
+    defaultRouteAuthOptions
+  );
+}
+
+export function _setActiveRouteAuthOptions(
+  auth: RouteAuthOptions | undefined
+): void {
+  activeClientRouteAuthOptions = auth;
+}
+
+function getCurrentRegistrationSession(): RegistrationSession {
+  return (
+    registrationSessionStack[registrationSessionStack.length - 1] ?? {
+      authConfigured: !!defaultRouteAuthOptions?.resolve,
+    }
+  );
+}
+
+function getCurrentAccessScopeState(): AccessScopeState {
+  return (
+    registrationScopeStack[registrationScopeStack.length - 1]?.state ?? {
+      guestOnly: false,
+      authenticated: false,
+    }
+  );
+}
+
+function getCurrentLayoutChain(): LayoutScopeRecord[] {
+  const layoutChain: LayoutScopeRecord[] = [];
+
+  for (const scope of registrationScopeStack) {
+    if (scope.layout) {
+      layoutChain.push({ component: scope.layout });
+    }
+  }
+
+  return layoutChain;
+}
+
+function getCurrentInheritedPolicies(): RoutePolicy[] {
+  const policies: RoutePolicy[] = [];
+
+  for (const scope of registrationScopeStack) {
+    if (scope.policies.length > 0) {
+      policies.push(...scope.policies);
+    }
+  }
+
+  return policies;
 }
 
 // ---------------------------------------------------------------------------
@@ -343,9 +503,11 @@ export function _snapshotLazy(): Promise<unknown>[] {
  * always receives a plain synchronous function.
  *
  * ```ts
- * layout(AppLayout, () => {
- *   route('/',          lazy(() => import('./pages/landing')));
- *   route('/dashboard', lazy(() => import('./pages/dashboard')));
+ * registerRoutes(() => {
+ *   group({ layout: AppLayout }, () => {
+ *     route('/', lazy(() => import('./pages/landing')));
+ *     route('/dashboard', lazy(() => import('./pages/dashboard')));
+ *   });
  * });
  * ```
  *
@@ -403,41 +565,203 @@ export function _drainLazy(
   return Promise.allSettled(combined).then(() => undefined);
 }
 
-// ---------------------------------------------------------------------------
-// layout() — scoped registration primitive
-// ---------------------------------------------------------------------------
+export function group(options: GroupHelperOptions, fn: RouteDefinition): void;
+export function group(options: GroupHelperOptions, fn: RouteDefinition): void {
+  pushGroupScope(options, fn);
+}
 
-/**
- * Declare a layout scope.  All `route()` calls executed inside `fn` will
- * automatically be wrapped by `Component`, outermost to innermost.
- *
- * ```ts
- * layout(AppLayout, () => {
- *   route('/',        LandingPage);
- *   route('/about',   AboutPage);
- *   route('/*',       ErrorPage);
- * });
- * ```
- *
- * Layouts may nest:
- * ```ts
- * layout(AppShell, () => {
- *   layout(AdminShell, () => {
- *     route('/admin', AdminDashboard);
- *   });
- *   route('/', HomePage);
- * });
- * ```
- */
-export function layout<P = object>(
-  Component: (props: P & { children?: unknown }) => unknown,
-  fn: () => void
+export function fallback(Component: RouteComponent): void {
+  const allowsRootFallback = registrationScopeStack.every(
+    (scope) =>
+      scope.policies.length === 0 &&
+      !scope.state.guestOnly &&
+      !scope.state.authenticated
+  );
+
+  if (!allowsRootFallback) {
+    throw new Error(
+      'fallback() can only be registered at the root scope. ' +
+        'Use route("/*", Component) if you need compatibility behavior.'
+    );
+  }
+
+  route('/*', Component);
+}
+
+function pushRegistrationScope(
+  scope: RegistrationScope,
+  fn: RouteDefinition
 ): void {
-  layoutStack.push({ component: Component as LayoutScopeRecord['component'] });
+  registrationScopeStack.push(scope);
   try {
     fn();
   } finally {
-    layoutStack.pop();
+    registrationScopeStack.pop();
+  }
+}
+
+function pushGroupScope(
+  options: GroupHelperOptions,
+  fn: RouteDefinition
+): void {
+  const session = getCurrentRegistrationSession();
+  validateAccessMetadata(options, {
+    authConfigured: session.authConfigured,
+    state: getCurrentAccessScopeState(),
+  });
+  const policies = compileNodePolicies(options);
+
+  pushRegistrationScope(
+    {
+      layout: options.layout,
+      policies,
+      state: nextAccessScopeState(options, getCurrentAccessScopeState()),
+    },
+    fn
+  );
+}
+
+function hasBuiltInAuthMetadata(
+  node: Pick<GroupHelperOptions | RouteOptions, 'auth' | 'role' | 'permission'>
+): boolean {
+  return node.auth !== undefined || !!node.role || !!node.permission;
+}
+
+function validateSameNodeAccessMetadata(
+  node: Pick<GroupHelperOptions | RouteOptions, 'auth' | 'role' | 'permission'>
+): void {
+  if (node.auth === 'guest' && (!!node.role || !!node.permission)) {
+    throw new Error(
+      'Guest-only routes cannot be combined with role or permission requirements.'
+    );
+  }
+}
+
+function validateAccessMetadata(
+  node: Pick<GroupHelperOptions | RouteOptions, 'auth' | 'role' | 'permission'>,
+  context: {
+    authConfigured: boolean;
+    state: AccessScopeState;
+  }
+): void {
+  validateSameNodeAccessMetadata(node);
+
+  const requiresAuthenticated =
+    node.auth === true || !!node.role || !!node.permission;
+
+  if (
+    node.auth === 'guest' &&
+    (context.state.authenticated || !!node.role || !!node.permission)
+  ) {
+    throw new Error(
+      'Guest-only routes cannot be combined with authenticated access requirements.'
+    );
+  }
+
+  if (context.state.guestOnly && requiresAuthenticated) {
+    throw new Error(
+      'Child routes cannot weaken a guest-only access scope with authenticated requirements.'
+    );
+  }
+
+  if (hasBuiltInAuthMetadata(node) && !context.authConfigured) {
+    throw new Error(
+      'Routes using `auth`, `role`, or `permission` require `auth.resolve` in registerRoutes(...).'
+    );
+  }
+}
+
+function nextAccessScopeState(
+  node: Pick<GroupHelperOptions | RouteOptions, 'auth' | 'role' | 'permission'>,
+  state: AccessScopeState
+): AccessScopeState {
+  const requiresAuthenticated =
+    node.auth === true || !!node.role || !!node.permission;
+
+  return {
+    guestOnly: state.guestOnly || node.auth === 'guest',
+    authenticated: state.authenticated || requiresAuthenticated,
+  };
+}
+
+function compileNodePolicies(
+  node: Pick<
+    RouteOptions | GroupHelperOptions,
+    'auth' | 'role' | 'permission' | 'policies'
+  >
+): RoutePolicy[] {
+  validateSameNodeAccessMetadata(node);
+
+  const compiled: RoutePolicy[] = [];
+
+  if (node.auth === true) {
+    compiled.push(requireAuth());
+  } else if (node.auth === 'guest') {
+    compiled.push(requireGuest());
+  }
+
+  if (node.role) {
+    compiled.push(requireRole(node.role));
+  }
+
+  if (node.permission) {
+    compiled.push(requirePermission(node.permission));
+  }
+
+  if (node.policies?.length) {
+    compiled.push(...node.policies);
+  }
+
+  return compiled;
+}
+
+function normalizeRouteOptions(
+  options: RouteOptions | undefined
+): RouteOptions | undefined {
+  if (!options) {
+    return undefined;
+  }
+
+  const loader = options.loader;
+  const policies = compileNodePolicies(options);
+
+  if (
+    !loader &&
+    !options.entries &&
+    policies.length === 0 &&
+    !options.title &&
+    !options.namespace &&
+    options.auth === undefined &&
+    !options.role &&
+    !options.permission
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(loader ? { loader } : {}),
+    ...(options.entries ? { entries: options.entries } : {}),
+    ...(options.auth !== undefined ? { auth: options.auth } : {}),
+    ...(options.role ? { role: options.role } : {}),
+    ...(options.permission ? { permission: options.permission } : {}),
+    ...(policies.length > 0 ? { policies } : {}),
+    ...(options.title ? { title: options.title } : {}),
+    ...(options.namespace ? { namespace: options.namespace } : {}),
+  };
+}
+export function registerRoutes(
+  definition: RouteDefinition,
+  options: RegisterRoutesOptions = {}
+): void {
+  defaultRouteAuthOptions = options.auth;
+
+  registrationSessionStack.push({
+    authConfigured: !!options.auth?.resolve,
+  });
+  try {
+    definition();
+  } finally {
+    registrationSessionStack.pop();
   }
 }
 
@@ -445,32 +769,77 @@ export function layout<P = object>(
 // route() — dual-purpose: registration (module load) + accessor (render time)
 // ---------------------------------------------------------------------------
 
+function readCurrentRouteSnapshot(): RouteSnapshot {
+  const instance = getCurrentComponentInstance();
+  if (!instance) {
+    throw new Error(
+      'currentRoute() can only be called during component render execution. ' +
+        'Call currentRoute() from inside your component function.'
+    );
+  }
+
+  let pathname = '/';
+  let search = '';
+  let hash = '';
+  const renderContext = getRenderContext();
+
+  if (instance.ssr && renderContext?.url) {
+    const parsed = parseLocation(renderContext.url);
+    pathname = parsed.pathname;
+    search = parsed.search;
+    hash = parsed.hash;
+  } else if (typeof window !== 'undefined' && window.location) {
+    pathname = window.location.pathname || '/';
+    search = window.location.search || '';
+    hash = window.location.hash || '';
+  } else if (serverLocation) {
+    const parsed = parseLocation(serverLocation);
+    pathname = parsed.pathname;
+    search = parsed.search;
+    hash = parsed.hash;
+  }
+
+  const params = deepFreeze({
+    ...(instance.props as Record<string, string>),
+  });
+  const query = makeQuery(search);
+  const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
+
+  return Object.freeze({
+    path: pathname,
+    params,
+    query,
+    hash: hash || null,
+    matches: Object.freeze(matches),
+  });
+}
+
+export function currentRoute(): RouteSnapshot {
+  return readCurrentRouteSnapshot();
+}
+
 /**
  * Register a route.
  *
  * ```ts
  * route('/posts/{slug}', PostPage, {
- *   load:    ({ params }) => getPost(params.slug),
+ *   loader:  ({ params }) => getPost(params.slug),
  *   entries: async () => getPosts().map(p => ({ slug: p.slug })),
  *   title:   'Post',
- *   guard:   requireAuth,
+ *   policies:[requireAuth()],
  * });
  * ```
- *
- * When called with **no arguments** inside a component, returns the current
- * read-only `RouteSnapshot` (path, params, query, hash, matches).
  */
-export function route(): RouteSnapshot;
 export function route(
   path: string,
   Component: RouteComponent,
   options?: RouteOptions
 ): void;
 export function route(
-  path?: string,
-  Component?: RouteComponent,
+  path: string,
+  Component: RouteComponent,
   options?: RouteOptions
-): void | RouteSnapshot {
+): void {
   if (getExecutionModel() === 'islands') {
     throw new Error(
       'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
@@ -479,50 +848,9 @@ export function route(
 
   // ── Render-time accessor (no arguments) ─────────────────────────────────
   if (typeof path === 'undefined') {
-    const instance = getCurrentComponentInstance();
-    if (!instance) {
-      throw new Error(
-        'route() can only be called during component render execution. ' +
-          'Call route() from inside your component function.'
-      );
-    }
-
-    let pathname = '/';
-    let search = '';
-    let hash = '';
-    const renderContext = getRenderContext();
-
-    if (instance.ssr && renderContext?.url) {
-      const parsed = parseLocation(renderContext.url);
-      pathname = parsed.pathname;
-      search = parsed.search;
-      hash = parsed.hash;
-    } else if (typeof window !== 'undefined' && window.location) {
-      pathname = window.location.pathname || '/';
-      search = window.location.search || '';
-      hash = window.location.hash || '';
-    } else if (serverLocation) {
-      const parsed = parseLocation(serverLocation);
-      pathname = parsed.pathname;
-      search = parsed.search;
-      hash = parsed.hash;
-    }
-
-    const params = deepFreeze({
-      ...(instance.props as Record<string, string>),
-    });
-    const query = makeQuery(search);
-    const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
-
-    const snapshot: RouteSnapshot = Object.freeze({
-      path: pathname,
-      params,
-      query,
-      hash: hash || null,
-      matches: Object.freeze(matches),
-    });
-
-    return snapshot;
+    throw new Error(
+      'route() is only for route registration. Use currentRoute() inside components.'
+    );
   }
 
   // ── Registration mode ────────────────────────────────────────────────────
@@ -550,13 +878,21 @@ export function route(
   }
 
   validateRoutePath(path);
+  validateAccessMetadata(options ?? {}, {
+    authConfigured: getCurrentRegistrationSession().authConfigured,
+    state: getCurrentAccessScopeState(),
+  });
 
-  // Snapshot the current layout chain (outermost scope first)
-  const chain: LayoutScopeRecord[] = [...layoutStack];
+  const chain = getCurrentLayoutChain();
   const segments = parseSegments(path);
   const rank = computeRank(segments);
   const isFallback = path === '/*';
   const comp = Component;
+  const normalizedOptions = normalizeRouteOptions(options);
+  const policies = [
+    ...getCurrentInheritedPolicies(),
+    ...(normalizedOptions?.policies ?? []),
+  ];
 
   // Build a runtime handler that auto-composes the layout chain around the
   // page component.  The handler is RouteHandler-compatible so navigation,
@@ -576,13 +912,24 @@ export function route(
     segments,
     rank,
     layoutChain: chain,
-    options: { ...options },
+    options: normalizedOptions
+      ? {
+          ...normalizedOptions,
+          ...(policies.length > 0 ? { policies } : {}),
+        }
+      : policies.length > 0
+        ? { policies }
+        : {},
     isFallback,
     handler,
   };
 
   insertRecordSorted(record);
-  addRouteToStores({ path, handler, namespace: options?.namespace });
+  addRouteToStores({
+    path,
+    handler,
+    namespace: normalizedOptions?.namespace ?? options?.namespace,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -590,8 +937,7 @@ export function route(
 // ---------------------------------------------------------------------------
 
 /**
- * Return the normalized route manifest built from all `layout()` / `route()`
- * declarations that have run so far.
+ * Return the normalized route manifest built from registered route definitions.
  *
  * Pass this to `createSPA`, `hydrateSPA`, or `renderToString` as the
  * authoritative routing input:
@@ -602,14 +948,18 @@ export function route(
  * ```
  */
 export function getManifest(): RouteManifest {
-  return { records: [...records] };
+  return {
+    records: [...records],
+    ...(defaultRouteAuthOptions ? { auth: defaultRouteAuthOptions } : {}),
+  };
 }
 
 /**
  * Internal: apply a pre-built manifest to the runtime stores without running
- * route() again.  Called by createSPA / hydrateSPA when a manifest is passed.
+ * route() again. Called by createSPA / hydrateSPA when a manifest is passed.
  */
 export function _applyManifest(manifest: RouteManifest): void {
+  defaultRouteAuthOptions = manifest.auth;
   for (const record of manifest.records) {
     records.push(record);
     addRouteToStores({
@@ -628,7 +978,7 @@ export function _applyManifest(manifest: RouteManifest): void {
 
 /**
  * Get all registered routes (flat list, insertion order).
- * Prefer `getManifest()` when metadata (load, guard, entries) is needed.
+ * Prefer `getManifest()` when metadata (loader, policies, entries) is needed.
  */
 export function getRoutes(): Route[] {
   return [...routes];
@@ -674,7 +1024,11 @@ export function clearRoutes(): void {
   records.length = 0;
   namespaces.clear();
   routesByDepth.clear();
+  registrationScopeStack.length = 0;
+  registrationSessionStack.length = 0;
   registrationLocked = false;
+  defaultRouteAuthOptions = undefined;
+  activeClientRouteAuthOptions = undefined;
   setHasRoutes(false);
   pendingLazy.clear();
 }
@@ -711,57 +1065,150 @@ export function resolveRoute(pathname: string): ResolvedRoute | null {
   return null;
 }
 
-function applyGuardResult(
-  handler: RouteHandler,
-  params: Record<string, string>,
-  guardResult: boolean | string
-): ResolvedRoute | { redirect: string } | null {
-  if (guardResult === true) {
-    return { handler, params };
-  }
-
-  if (guardResult === false) {
-    return null;
-  }
-
-  return { redirect: guardResult };
-}
-
-export function resolveRouteWithGuards(
-  pathname: string
-):
-  | ResolvedRoute
-  | { redirect: string }
-  | null
-  | Promise<ResolvedRoute | { redirect: string } | null> {
+function getMatchingRecord(
+  target: string,
+  routeRecords: readonly RouteRecord[]
+): { record: RouteRecord; params: Record<string, string> } | null {
+  const location = parseLocation(target);
   const normalized =
-    pathname.endsWith('/') && pathname !== '/'
-      ? pathname.slice(0, -1)
-      : pathname;
+    location.pathname.endsWith('/') && location.pathname !== '/'
+      ? location.pathname.slice(0, -1)
+      : location.pathname;
   const urlParts =
     normalized === '/' ? [] : normalized.split('/').filter(Boolean);
 
-  for (const record of records) {
+  for (const record of routeRecords) {
     const params = matchSegments(urlParts, record.segments);
-    if (params === null) {
-      continue;
+    if (params !== null) {
+      return { record, params };
     }
-
-    if (!record.options.guard) {
-      return { handler: record.handler, params };
-    }
-
-    const guardResult = record.options.guard({ params });
-    if (guardResult instanceof Promise) {
-      return guardResult.then((next) =>
-        applyGuardResult(record.handler, params, next)
-      );
-    }
-
-    return applyGuardResult(record.handler, params, guardResult);
   }
 
   return null;
+}
+
+function getRoutePolicies(
+  options: RouteOptions | undefined
+): readonly RoutePolicy[] {
+  if (!options) {
+    return [];
+  }
+
+  if (options.policies?.length) {
+    return options.policies;
+  }
+
+  return compileNodePolicies(options);
+}
+
+function getDefaultRouteMode(): RouteContext['mode'] {
+  if (typeof window !== 'undefined') {
+    return 'spa';
+  }
+
+  return 'ssr';
+}
+
+function buildRenderResult(
+  record: RouteRecord,
+  params: Record<string, string>
+): RouteRenderResult {
+  return {
+    kind: 'render',
+    handler: record.handler,
+    params,
+  };
+}
+
+function continueRoutePolicies(
+  policies: readonly RoutePolicy[],
+  context: RouteContext,
+  record: RouteRecord,
+  params: Record<string, string>,
+  startIndex = 0
+): RouteRequestResult | Promise<RouteRequestResult> {
+  for (let index = startIndex; index < policies.length; index += 1) {
+    const policyResult = policies[index](context);
+
+    if (isPromise(policyResult)) {
+      return policyResult.then((next) => {
+        if (next.kind !== 'allow') {
+          return next;
+        }
+
+        return continueRoutePolicies(
+          policies,
+          context,
+          record,
+          params,
+          index + 1
+        );
+      });
+    }
+
+    if (policyResult.kind !== 'allow') {
+      return policyResult;
+    }
+  }
+
+  return buildRenderResult(record, params);
+}
+
+export function resolveRouteRequest(
+  target: string,
+  options: RouteRequestOptions = {}
+): RouteRequestResult | Promise<RouteRequestResult> {
+  const routeRecords = options.manifest?.records ?? records;
+  const match = getMatchingRecord(target, routeRecords);
+
+  if (!match) {
+    return null;
+  }
+
+  const { record, params } = match;
+  const policies = getRoutePolicies(record.options);
+
+  if (policies.length === 0) {
+    return buildRenderResult(record, params);
+  }
+
+  const signal =
+    options.signal ??
+    getRenderContext()?.signal ??
+    new AbortController().signal;
+  const mode = options.mode ?? getDefaultRouteMode();
+  const auth = getActiveRouteAuthOptions(
+    options.auth ?? options.manifest?.auth
+  );
+  const baseContext = buildRouteContextBase(target, params, {
+    mode,
+    signal,
+  });
+
+  const finalize = (authState: { session: unknown; user: unknown }) =>
+    continueRoutePolicies(
+      policies,
+      buildRouteContext(target, params, {
+        mode,
+        signal,
+        auth,
+        session: authState.session,
+        user: authState.user,
+      }),
+      record,
+      params
+    );
+
+  if (!auth?.resolve) {
+    return finalize({ session: null, user: null });
+  }
+
+  const authState = auth.resolve(baseContext);
+  if (isPromise(authState)) {
+    return authState.then((next) => finalize(next));
+  }
+
+  return finalize(authState);
 }
 
 /**

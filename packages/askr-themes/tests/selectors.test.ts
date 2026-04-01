@@ -18,7 +18,10 @@ const TOKENS_FILE = join(
   'default',
   'tokens.css'
 );
-const CLASS_UTILITY_FILES = new Set(['product-shell.css']);
+const CLASS_UTILITY_FILES = new Set([
+  'product-shell.css',
+  'marketing-shell.css',
+]);
 
 function getComponentCssFiles(): string[] {
   return readdirSync(COMPONENTS_DIR)

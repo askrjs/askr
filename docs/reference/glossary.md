@@ -49,14 +49,14 @@ Static Site Generation. Routes are pre-rendered to `.html` files at build time u
 **Route**
 
 A mapping from a URL path to a component. Defined with `route(path, Component)`. Routes
-are always registered inside a `layout()` call.
+can be grouped under `registerRoutes()` and `group()` scopes.
 
 ---
 
 **Layout**
 
 A component that wraps one or more routes, providing shared UI structure (navigation,
-headers, sidebars). Created with `layout(Component, fn)`.
+headers, sidebars). Applied with `group({ layout: Component }, fn)`.
 
 ---
 

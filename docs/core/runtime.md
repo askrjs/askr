@@ -34,7 +34,7 @@ Use `createSPA()` for a full client-rendered application with the Askr router.
 
 ```ts
 import { createSPA } from '@askrjs/askr';
-import './router'; // registers all routes via layout() and route()
+import './router'; // registers routes via registerRoutes(), group(), and route()
 
 createSPA(document.getElementById('app'));
 ```

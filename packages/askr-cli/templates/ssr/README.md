@@ -41,7 +41,7 @@ vitest.config.ts    # Vitest config
    ↓
 3. Server calls renderToString(<App />)
    ↓
-4. setServerLocation('/about') makes route() return /about
+4. setServerLocation('/about') makes currentRoute() return /about
    ↓
 5. Router component renders matching page
    ↓
@@ -71,7 +71,7 @@ In `server.ts`, render the app on each request:
 
 ```tsx
 app.get('*', async (req, res) => {
-  setServerLocation(req.url); // Tell route() the current URL
+  setServerLocation(req.url); // Tell currentRoute() the current URL
 
   const html = await renderToString(
     <html>
@@ -116,12 +116,12 @@ route('/about', () => <About />);
 route('/users/{id}', ({ id }) => <UserDetail id={id} />);
 ```
 
-Read current route with `route()`:
+Read current route with `currentRoute()`:
 
 ```tsx
 function Page() {
-  const currentRoute = route();
-  return <h1>{currentRoute.path}</h1>;
+  const routeSnapshot = currentRoute();
+  return <h1>{routeSnapshot.path}</h1>;
 }
 ```
 
@@ -260,7 +260,7 @@ export default function Users() {
 
 ```tsx
 // server.ts
-setServerLocation(req.url); // Makes route() return correct path
+setServerLocation(req.url); // Makes currentRoute() return correct path
 const html = await renderToString(<App />);
 ```
 

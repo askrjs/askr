@@ -19,7 +19,7 @@ which is the machine-readable source of truth for package roles and workspace bo
 
 - Component rendering (DOM patches, string rendering)
 - Application lifecycle: `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`
-- Routing: `route()`, `layout()`, `navigate()`, `Link`, `getManifest()`
+- Routing: `registerRoutes()`, `group()`, `route()`, `currentRoute()`, `navigate()`, `Link`, `getManifest()`
 - Reactivity: `state()`, `derive()`, `selector()`
 - Context: `defineContext()`, `readContext()`
 - Async data: `resource()`, `on()`, `timer()`, `task()`, `stream()`, `capture()`
@@ -41,11 +41,11 @@ which is the machine-readable source of truth for package roles and workspace bo
 ### Import style
 
 ```ts
-import { state, route, navigate, resource } from '@askrjs/askr';
+import { state, route, currentRoute, navigate, resource } from '@askrjs/askr';
 
 // Explicit subpaths for feature-focused imports:
 import { createSPA } from '@askrjs/askr/boot';
-import { layout, registerRoute } from '@askrjs/askr/router';
+import { registerRoutes, group, route } from '@askrjs/askr/router';
 import { resource, on } from '@askrjs/askr/resources';
 import { debounce } from '@askrjs/askr/fx';
 import { Slot, DefaultPortal, pressable } from '@askrjs/askr/foundations';

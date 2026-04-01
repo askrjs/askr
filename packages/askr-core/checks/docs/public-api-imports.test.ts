@@ -124,9 +124,11 @@ function probeDistExports(): unknown {
               },
               router: {
                 route: typeof routerModule.route,
+                currentRoute: typeof routerModule.currentRoute,
                 navigate: typeof routerModule.navigate,
                 Link: typeof routerModule.Link,
-                layout: typeof routerModule.layout,
+                group: typeof routerModule.group,
+                fallback: typeof routerModule.fallback,
                 registerRoute: typeof routerModule.registerRoute,
               },
               resources: {
@@ -224,9 +226,11 @@ describe('public docs and examples', () => {
       },
       router: {
         route: 'function',
+        currentRoute: 'function',
         navigate: 'function',
         Link: 'function',
-        layout: 'function',
+        group: 'function',
+        fallback: 'function',
         registerRoute: 'undefined',
       },
       resources: {

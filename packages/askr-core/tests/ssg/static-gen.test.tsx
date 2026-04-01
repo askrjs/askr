@@ -279,6 +279,56 @@ describe('Static Site Generation', () => {
 
       expect(result.routes[0].html).toContain('test-value');
     });
+
+    it('should skip authenticated routes as runtime-only during SSG', async () => {
+      const ssg = createStaticGen({
+        routes: [
+          { path: '/', component: Home },
+          { path: '/dashboard', component: About, auth: true },
+          {
+            path: '/billing',
+            component: About,
+            policies: [() => ({ kind: 'allow' as const })],
+          },
+        ],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.successful).toBe(1);
+      expect(result.skipped).toBe(2);
+      expect(
+        result.routes.find((route) => route.path === '/dashboard')
+      ).toMatchObject({
+        status: 'skipped',
+        reason: 'runtime-only',
+      });
+      expect(
+        result.routes.find((route) => route.path === '/billing')
+      ).toMatchObject({
+        status: 'skipped',
+        reason: 'runtime-only',
+      });
+      expect(fs.existsSync(path.join(tempDir, 'dashboard', 'index.html'))).toBe(
+        false
+      );
+    });
+
+    it('should keep guest routes prerenderable during SSG', async () => {
+      const ssg = createStaticGen({
+        routes: [{ path: '/login', component: About, auth: 'guest' }],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.successful).toBe(1);
+      expect(result.skipped).toBe(0);
+      expect(fs.existsSync(path.join(tempDir, 'login', 'index.html'))).toBe(
+        true
+      );
+    });
   });
 
   describe('metadata', () => {

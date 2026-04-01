@@ -23,13 +23,13 @@ import {
 } from '@askrjs/askr-ui/select';
 import { Switch } from '@askrjs/askr-ui/switch';
 import { SaveIcon } from '@askrjs/askr-lucide';
-import PageHeader from '../components/page-header';
+import PageHeader from '../../components/page-header';
 import {
   appearanceMode,
   setAppearance,
   type AppearanceMode,
-} from '../lib/mock-data';
-import { showToast } from '../toast';
+} from '../../lib/mock-data';
+import { showToast } from '../../toast';
 
 export default function SettingsPage() {
   const [fullNameState, setFullNameState] = state('Alex Morgan');

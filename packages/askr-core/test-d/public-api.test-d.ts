@@ -1,5 +1,6 @@
 import { expectAssignable, expectType } from 'tsd';
 import {
+  currentRoute,
   derive,
   Link,
   navigate,
@@ -14,11 +15,9 @@ import {
 } from '@askrjs/askr';
 import {
   Link as RouterLink,
+  currentRoute as routerCurrentRoute,
   getRoutes,
-  layout,
   navigate as routerNavigate,
-  registerRoute,
-  route as routerRoute,
   type LinkProps as RouterLinkProps,
   type RouteQuery,
   type RouteSnapshot as RouterRouteSnapshot,
@@ -48,19 +47,19 @@ const user = resource(async ({ signal }) => {
 }, []);
 expectType<ResourceResult<string>>(user);
 
-const snapshot = route();
+const snapshot = currentRoute();
 expectType<RouteSnapshot>(snapshot);
 expectType<string>(snapshot.path);
 expectType<string | null>(snapshot.query.get('q'));
 expectType<Readonly<RouteQuery>>(snapshot.query);
 expectType<readonly RouteMatch[]>(snapshot.matches);
 
-expectType<RouterRouteSnapshot>(routerRoute());
+expectType<RouterRouteSnapshot>(routerCurrentRoute());
 
 navigate('/home');
 routerNavigate('/about');
 getRoutes();
-registerRoute('/users/{id}', (params: Record<string, string>) => params.id);
+route('/users/{id}', (params: Record<string, string>) => params.id);
 getSignal();
 on(window, 'click', () => {});
 expectType<(() => void) & { cancel(): void }>(debounce(() => {}, 10));
@@ -76,8 +75,4 @@ expectType<(root: Element | string) => void>(cleanupApp);
 const routerLinkProps: RouterLinkProps = { href: '/about' };
 RouterLink(routerLinkProps);
 
-const Shell = layout<{ title: string }>(({ children, title }) => ({
-  children,
-  title,
-}));
-expectAssignable<unknown>(Shell('content', { title: 'Docs' }));
+expectAssignable<RouteSnapshot>(snapshot);

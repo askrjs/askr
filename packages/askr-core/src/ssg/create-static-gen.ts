@@ -42,6 +42,30 @@ interface SelectedRoute {
   previous: IncrementalManifestRouteEntry | null;
 }
 
+function getRuntimeOnlyDiagnostic(
+  descriptor: ResolvedRouteDescriptor
+): string | null {
+  const { route } = descriptor;
+
+  if (route.auth === true) {
+    return `Skipped prerender for "${descriptor.path}": authenticated routes are runtime-only by default.`;
+  }
+
+  if (route.role) {
+    return `Skipped prerender for "${descriptor.path}": role-gated routes are runtime-only by default.`;
+  }
+
+  if (route.permission) {
+    return `Skipped prerender for "${descriptor.path}": permission-gated routes are runtime-only by default.`;
+  }
+
+  if (route.policies && route.policies.length > 0) {
+    return `Skipped prerender for "${descriptor.path}": routes with custom policies are runtime-only by default.`;
+  }
+
+  return null;
+}
+
 function resolveParallelism(requested: number | 'auto' | undefined): number {
   if (requested !== 'auto') {
     return Math.max(1, requested ?? 1);
@@ -137,14 +161,38 @@ export function createStaticGen(options: SSGOptions) {
       });
 
       const descriptors = options.routes.map(resolveRouteDescriptor);
+      const routeResultsById = new Map<string, RouteRenderResult>();
+      const eligibleDescriptors: ResolvedRouteDescriptor[] = [];
+
+      for (const descriptor of descriptors) {
+        const diagnostic = getRuntimeOnlyDiagnostic(descriptor);
+        if (diagnostic) {
+          routeResultsById.set(descriptor.routeId, {
+            path: descriptor.path,
+            filePath: descriptor.filePath,
+            html: '',
+            fileSize: 0,
+            renderDuration: 0,
+            resourceCount: 0,
+            status: 'skipped',
+            reason: 'runtime-only',
+            written: false,
+            error: diagnostic,
+          });
+          continue;
+        }
+
+        eligibleDescriptors.push(descriptor);
+      }
+
       const previousEntries = new Map(
         (previousManifest?.routes ?? []).map((entry) => [entry.routeId, entry])
       );
       const currentRouteIds = new Set(
-        descriptors.map((descriptor) => descriptor.routeId)
+        eligibleDescriptors.map((descriptor) => descriptor.routeId)
       );
 
-      const selected = descriptors.map((descriptor) =>
+      const selected = eligibleDescriptors.map((descriptor) =>
         selectRouteForGeneration(
           descriptor,
           previousEntries.get(descriptor.routeId) ?? null,
@@ -179,7 +227,6 @@ export function createStaticGen(options: SSGOptions) {
       );
 
       let cacheHits = 0;
-      const routeResults: RouteRenderResult[] = [];
       const nextManifestRoutes: IncrementalManifestRouteEntry[] = [];
 
       for (const entry of selected) {
@@ -189,7 +236,7 @@ export function createStaticGen(options: SSGOptions) {
         const resourceCount = Object.keys(baseData).length;
 
         if (reason === 'unchanged') {
-          routeResults.push({
+          routeResultsById.set(descriptor.routeId, {
             path: descriptor.path,
             filePath: descriptor.filePath,
             html: '',
@@ -266,13 +313,16 @@ export function createStaticGen(options: SSGOptions) {
           });
         }
 
-        routeResults.push(nextResult);
+        routeResultsById.set(descriptor.routeId, nextResult);
       }
 
       const removedResults = collectRemovedRouteResults(
         previousManifest,
         currentRouteIds
       );
+      const routeResults = descriptors
+        .map((descriptor) => routeResultsById.get(descriptor.routeId))
+        .filter((result): result is RouteRenderResult => !!result);
       routeResults.push(...removedResults);
 
       // Write HTML files to disk and remove stale output

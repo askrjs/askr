@@ -50,13 +50,27 @@ test('runCreateCli defaults to startkit when template is omitted', async () => {
       'utf8'
     );
     const landingFile = await fs.readFile(
-      path.join(appRoot, 'src', 'pages', 'landing.tsx'),
+      path.join(appRoot, 'src', 'pages', 'home.tsx'),
+      'utf8'
+    );
+    const routesFile = await fs.readFile(
+      path.join(appRoot, 'src', 'routes', 'index.ts'),
+      'utf8'
+    );
+    const routerFile = await fs.readFile(
+      path.join(appRoot, 'src', 'router.tsx'),
       'utf8'
     );
 
     assert.match(packageJson, /"name": "sample-app"/);
     assert.match(packageJson, /"@askrjs\/askr-lucide"/);
     assert.match(landingFile, /Production-ready starter/);
+    assert.match(routesFile, /auth:\s*'guest'/);
+    assert.match(routesFile, /auth:\s*true/);
+    assert.match(routesFile, /group\(\{\s*layout:\s*App\s*\}/);
+    assert.match(routesFile, /fallback\(/);
+    assert.match(routerFile, /registerRoutes/);
+    assert.match(routerFile, /auth:\s*routeAuth/);
   } finally {
     process.chdir(previousCwd);
     await fs.rm(tempRoot, { recursive: true, force: true });

@@ -23,12 +23,12 @@ learn, build, and scale with the platform — not around package boundaries.
 
 The runtime, routing, rendering, and data primitives.
 
-| Page                             | Description                                    |
-| -------------------------------- | ---------------------------------------------- |
-| [Runtime](./core/runtime.md)     | createIsland, createSPA, hydrateSPA, lifecycle |
-| [Routing](./core/routing.md)     | route(), layout(), params, guards, Link        |
-| [Rendering](./core/rendering.md) | SSR and SSG output                             |
-| [Data](./core/data.md)           | state(), derive(), resource(), context         |
+| Page                             | Description                                                      |
+| -------------------------------- | ---------------------------------------------------------------- |
+| [Runtime](./core/runtime.md)     | createIsland, createSPA, hydrateSPA, lifecycle                   |
+| [Routing](./core/routing.md)     | registerRoutes(), group(), route(), currentRoute(), params, Link |
+| [Rendering](./core/rendering.md) | SSR and SSG output                                               |
+| [Data](./core/data.md)           | state(), derive(), resource(), context                           |
 
 ---
 

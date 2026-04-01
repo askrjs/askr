@@ -1,17 +1,26 @@
 import { state } from '@askrjs/askr';
-import { Link } from '@askrjs/askr/router';
+import { Link, currentRoute, navigate } from '@askrjs/askr/router';
 import { Button } from '@askrjs/askr-ui/button';
 import { Field, FieldLabel } from '@askrjs/askr-ui/field';
 import { Input } from '@askrjs/askr-ui/input';
 import { LockKeyholeIcon, MailIcon } from '@askrjs/askr-lucide';
-import { signIn } from '../lib/mock-data';
-import { showToast } from '../toast';
+import { signIn } from '../../lib/mock-data';
+import {
+  dashboardRoute,
+  normalizeProtectedRouteTarget,
+} from '../../lib/routes';
+import { showToast } from '../../toast';
 
 export default function LoginPage() {
   const [emailState, setEmailState] = state('alex@example.com');
   const [passwordState, setPasswordState] = state('askr1234');
   const [errorTextState, setErrorTextState] = state('');
   const [submittingState, setSubmittingState] = state(false);
+  const routeSnapshot = currentRoute();
+
+  const redirectTarget = () =>
+    normalizeProtectedRouteTarget(routeSnapshot.query.get('next')) ||
+    dashboardRoute.href;
 
   const validate = () => {
     if (!emailState().trim().includes('@')) {
@@ -43,7 +52,7 @@ export default function LoginPage() {
         title: 'Signed in',
         description: 'Welcome back. You can now access protected routes.',
       });
-      window.location.assign('/dashboard');
+      navigate(redirectTarget(), { history: 'replace' });
     } catch (error) {
       setErrorTextState(
         error instanceof Error ? error.message : 'Could not sign in.'

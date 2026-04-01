@@ -2,7 +2,7 @@ import { createSPA } from '@askrjs/askr';
 import { getManifest } from '@askrjs/askr/router';
 import { initializeAppSession } from './lib/mock-data';
 
-// Import routes (they auto-register via layout() + route() calls)
+// Import routes so the route tree registers at module load time.
 import './router';
 
 initializeAppSession();

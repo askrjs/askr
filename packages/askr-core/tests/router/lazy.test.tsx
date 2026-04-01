@@ -3,7 +3,7 @@ import { createSPA } from '../../src/index';
 import {
   lazy,
   route,
-  layout,
+  group,
   getManifest,
   getRoutes,
   clearRoutes,
@@ -124,7 +124,7 @@ describe('lazy()', () => {
     expect(record.handler({ slug: 'hello' })).toBe('post:hello');
   });
 
-  it('should work inside a layout() scope', async () => {
+  it('should work inside a grouped layout scope', async () => {
     const calls: string[] = [];
     const Layout = ({ children }: { children?: unknown }) => {
       calls.push('layout');
@@ -135,7 +135,7 @@ describe('lazy()', () => {
       return 'content';
     };
 
-    layout(Layout, () => {
+    group({ layout: Layout }, () => {
       route(
         '/wrapped',
         lazy(() => Promise.resolve({ default: Page }))

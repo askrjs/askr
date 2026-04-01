@@ -7,12 +7,12 @@ import {
   Clock3Icon,
   UsersIcon,
 } from '@askrjs/askr-lucide';
-import DataTable, { type DataTableColumn } from '../components/data-table';
-import EmptyState from '../components/empty-state';
-import PageHeader from '../components/page-header';
-import StatCard from '../components/stat-card';
-import { getDashboardData, type ActivityEntry } from '../lib/mock-data';
-import { formatRelativeDate } from '../lib/format';
+import DataTable, { type DataTableColumn } from '../../components/data-table';
+import EmptyState from '../../components/empty-state';
+import PageHeader from '../../components/page-header';
+import StatCard from '../../components/stat-card';
+import { getDashboardData, type ActivityEntry } from '../../lib/mock-data';
+import { formatRelativeDate } from '../../lib/format';
 
 export default function DashboardPage() {
   const [hideActivityState, setHideActivityState] = state(false);

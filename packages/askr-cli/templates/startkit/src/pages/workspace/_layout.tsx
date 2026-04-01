@@ -1,6 +1,6 @@
 import { SidebarLayout } from '@askrjs/askr-ui/sidebar-layout';
-import AppHeader from '../components/app-header';
-import AppSidebar from '../components/app-sidebar';
+import AppHeader from '../../components/app-header';
+import AppSidebar from '../../components/app-sidebar';
 
 export default function AppLayout(props: { children?: unknown }) {
   return (

@@ -1,11 +1,11 @@
 import { Link } from '@askrjs/askr/router';
-import { Button } from '@askrjs/askr-ui/button';
 import {
   ShieldCheckIcon,
   WorkflowIcon,
   LayoutPanelTopIcon,
   SparklesIcon,
 } from '@askrjs/askr-lucide';
+import { dashboardRoute, loginRoute } from '../lib/routes';
 
 const navButtonClass = 'button button-secondary';
 
@@ -20,8 +20,8 @@ export default function LandingPage() {
           <strong>{'{{appName}}'}</strong>
         </Link>
         <div class="marketing-actions">
-          <Link href="/login" class={navButtonClass}>
-            Sign in
+          <Link href={loginRoute.href} class={navButtonClass}>
+            {loginRoute.navLabel}
           </Link>
         </div>
       </header>
@@ -31,14 +31,14 @@ export default function LandingPage() {
         <h1>Build your Askr app like a real product from day one.</h1>
         <p>
           This starter combines Askr, askr-ui, askr-themes, and lucide icons in
-          a practical SaaS baseline with clear route boundaries, shared layouts,
-          and reusable app components.
+          a practical SaaS baseline with semantic pages, composed route trees,
+          and shared layouts.
         </p>
         <div class="hero-cta">
-          <Link href="/dashboard" class="button">
+          <Link href={dashboardRoute.href} class="button">
             Open dashboard
           </Link>
-          <Link href="/login" class={navButtonClass}>
+          <Link href={loginRoute.href} class={navButtonClass}>
             Try login flow
           </Link>
         </div>
@@ -47,10 +47,10 @@ export default function LandingPage() {
       <section class="feature-grid">
         <article class="panel feature-card">
           <WorkflowIcon size={18} aria-hidden="true" />
-          <h2>Routing and layout boundaries</h2>
+          <h2>Composed routes</h2>
           <p>
-            Public, auth, protected, and 404 routes with separate app and auth
-            shells.
+            Public, auth, protected, and 404 routes are assembled from small
+            child route modules instead of one large router file.
           </p>
         </article>
         <article class="panel feature-card">

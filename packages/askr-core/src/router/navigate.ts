@@ -4,7 +4,7 @@
 
 import {
   resolveRoute,
-  resolveRouteWithGuards,
+  resolveRouteRequest,
   lockRouteRegistration,
   type ResolvedRoute,
 } from './route';
@@ -13,8 +13,8 @@ import {
   cleanupComponent,
   type ComponentInstance,
 } from '../runtime/component';
-import { teardownNodeSubtree } from '../renderer';
 import { logger } from '../dev/logger';
+import type { RouteRenderResult, RouteRequestResult } from '../common/router';
 
 // Global app state for navigation
 let currentInstance: ComponentInstance | null = null;
@@ -25,17 +25,43 @@ export type NavigateOptions = {
 };
 
 function parseTargetUrl(path: string): URL {
-  return new URL(path, window.location.href);
+  const pathname = window.location.pathname || '/';
+  const search = window.location.search || '';
+  const hash = window.location.hash || '';
+  const href =
+    typeof window.location.href === 'string' ? window.location.href : '';
+  const base =
+    href &&
+    href !== 'about:blank' &&
+    !href.startsWith('about:') &&
+    !href.startsWith('data:')
+      ? href
+      : `http://localhost${pathname}${search}${hash}`;
+
+  return new URL(path, base);
 }
 
-function isRedirectResult(
-  result: ResolvedRoute | { redirect: string } | null
-): result is { redirect: string } {
-  return result !== null && 'redirect' in result;
+function isRenderResult(
+  result: RouteRequestResult
+): result is RouteRenderResult {
+  return result !== null && result.kind === 'render';
 }
 
 function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
   return value instanceof Promise;
+}
+
+function createDeniedResolvedRoute(status: number): ResolvedRoute {
+  return {
+    handler: () => ({
+      type: 'div',
+      props: {
+        'data-route-denied': String(status),
+      },
+      children: [String(status)],
+    }),
+    params: {},
+  };
 }
 
 function remountResolvedRoute(
@@ -46,20 +72,9 @@ function remountResolvedRoute(
     return false;
   }
 
-  const target = currentInstance.target;
-
-  // Cleanup previous route (abort pending operations)
+  // Cleanup previous route lifecycle, but keep the host node so the next route
+  // can reconcile against the existing DOM and preserve shared layout shells.
   cleanupComponent(currentInstance);
-
-  if (target) {
-    const previousChildren = Array.from(target.childNodes);
-    for (const child of previousChildren) {
-      if (child instanceof Element) {
-        teardownNodeSubtree(child);
-      }
-    }
-    target.replaceChildren();
-  }
 
   // The route handler IS the component function
   // It takes params as props and renders the route
@@ -75,11 +90,15 @@ function remountResolvedRoute(
   // Increment generation to invalidate pending async evaluations from previous route
   currentInstance.evaluationGeneration++;
   currentInstance.notifyUpdate = null;
+  currentInstance.mountOperations = [];
+  currentInstance._placeholder = undefined;
+  currentInstance.hasPendingUpdate = false;
 
-  // Create new AbortController for the new route lifecycle.
-  currentInstance.abortController = new AbortController();
+  // Route-local async work should create a fresh abort controller lazily.
+  currentInstance.abortController = null;
 
-  // Re-execute and re-mount component
+  // Re-execute component against the existing host so reconciliation can
+  // preserve any shared layout DOM between sibling routes.
   mountComponent(currentInstance);
   currentPathname = pathname;
   return true;
@@ -104,13 +123,21 @@ function resolveNavigationTarget(path: string) {
   const target = parseTargetUrl(path);
   const pathname = target.pathname;
   const href = `${target.pathname}${target.search}${target.hash}`;
-  const resolved = resolveRouteWithGuards(pathname);
+  const resolved = resolveRouteRequest(href);
 
   if (isPromise(resolved)) {
-    return resolved.then((next) => ({ href, pathname, resolved: next }));
+    return resolved.then((next) => ({
+      href,
+      pathname,
+      resolved: next,
+    }));
   }
 
-  return { href, pathname, resolved };
+  return {
+    href,
+    pathname,
+    resolved,
+  };
 }
 
 function applyNavigationTarget(
@@ -119,7 +146,7 @@ function applyNavigationTarget(
   target: {
     href: string;
     pathname: string;
-    resolved: ResolvedRoute | { redirect: string } | null;
+    resolved: RouteRequestResult;
   }
 ): void {
   const { href, pathname, resolved } = target;
@@ -131,8 +158,8 @@ function applyNavigationTarget(
     return;
   }
 
-  if (isRedirectResult(resolved)) {
-    const redirectTarget = parseTargetUrl(resolved.redirect);
+  if (resolved.kind === 'redirect') {
+    const redirectTarget = parseTargetUrl(resolved.to);
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
     if (redirectHref === href) {
       if (process.env.NODE_ENV !== 'production') {
@@ -147,17 +174,25 @@ function applyNavigationTarget(
     return;
   }
 
+  const nextResolved =
+    resolved.kind === 'deny'
+      ? createDeniedResolvedRoute(resolved.status)
+      : {
+          handler: resolved.handler,
+          params: resolved.params,
+        };
+
   const historyMethod =
     options.history === 'replace' ? 'replaceState' : 'pushState';
   window.history[historyMethod]({ path: href }, '', href);
 
   if (currentInstance) {
-    if (pathname === currentPathname) {
+    if (pathname === currentPathname && isRenderResult(resolved)) {
       rerenderResolvedRoute(pathname);
       return;
     }
 
-    remountResolvedRoute(resolved, pathname);
+    remountResolvedRoute(nextResolved, pathname);
   }
 }
 
@@ -201,54 +236,49 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
  */
 function handlePopState(_event: PopStateEvent): void {
   const pathname = window.location.pathname;
+  const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
   if (!currentInstance) {
     return;
   }
 
-  const resolved = resolveRouteWithGuards(pathname);
-  if (isPromise(resolved)) {
-    void resolved.then((next) => {
-      if (!next) {
-        if (process.env.NODE_ENV !== 'production') {
-          logger.warn(`No route found for path: ${pathname}`);
-        }
-        return;
+  const resolved = resolveRouteRequest(href);
+
+  const applyResolved = (resolved: RouteRequestResult) => {
+    if (!resolved) {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn(`No route found for path: ${pathname}`);
       }
-
-      if (isRedirectResult(next)) {
-        navigate(next.redirect, { history: 'replace' });
-        return;
-      }
-
-      if (pathname === currentPathname) {
-        rerenderResolvedRoute(pathname);
-        return;
-      }
-
-      remountResolvedRoute(next, pathname);
-    });
-    return;
-  }
-
-  if (!resolved) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn(`No route found for path: ${pathname}`);
+      return;
     }
+
+    if (resolved.kind === 'redirect') {
+      navigate(resolved.to, { history: 'replace' });
+      return;
+    }
+
+    if (pathname === currentPathname && isRenderResult(resolved)) {
+      rerenderResolvedRoute(pathname);
+      return;
+    }
+
+    remountResolvedRoute(
+      resolved.kind === 'deny'
+        ? createDeniedResolvedRoute(resolved.status)
+        : {
+            handler: resolved.handler,
+            params: resolved.params,
+          },
+      pathname
+    );
+  };
+
+  if (isPromise(resolved)) {
+    void resolved.then((next) => applyResolved(next));
     return;
   }
 
-  if (isRedirectResult(resolved)) {
-    navigate(resolved.redirect, { history: 'replace' });
-    return;
-  }
-
-  if (pathname === currentPathname) {
-    rerenderResolvedRoute(pathname);
-    return;
-  }
-
-  remountResolvedRoute(resolved, pathname);
+  applyResolved(resolved);
 }
 
 /**
