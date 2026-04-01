@@ -5,8 +5,14 @@ import path from 'node:path';
 import process from 'node:process';
 
 const allowedExtensions = new Set(['.ts', '.tsx', '.js', '.jsx']);
-const ignoredDirectories = new Set(['dist', 'node_modules', 'coverage', '.vite']);
-const stateDeclarationPattern = /\b(?:const|let|var)\s+(?!\[)[A-Za-z_$][\w$]*(?:\s*:\s*[^=]+?)?\s*=\s*state\s*\(/;
+const ignoredDirectories = new Set([
+  'dist',
+  'node_modules',
+  'coverage',
+  '.vite',
+]);
+const stateDeclarationPattern =
+  /\b(?:const|let|var)\s+(?!\[)[A-Za-z_$][\w$]*(?:\s*:\s*[^=]+?)?\s*=\s*state\s*\(/;
 
 function toPosix(relativePath) {
   return relativePath.split(path.sep).join('/');
@@ -87,8 +93,12 @@ for (const targetPath of targetPaths) {
 if (problems.length > 0) {
   console.error('State pattern validation failed:');
   for (const problem of problems) {
-    const relativePath = toPosix(path.relative(process.cwd(), problem.filePath));
-    console.error(`- ${relativePath}:${problem.line} use array destructuring for state(): ${problem.text}`);
+    const relativePath = toPosix(
+      path.relative(process.cwd(), problem.filePath)
+    );
+    console.error(
+      `- ${relativePath}:${problem.line} use array destructuring for state(): ${problem.text}`
+    );
   }
   process.exit(1);
 }

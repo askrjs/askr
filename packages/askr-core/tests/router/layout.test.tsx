@@ -2,12 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { navigate } from '../../src/router/navigate';
-import {
-  clearRoutes,
-  layout,
-  route,
-  getManifest,
-} from '../../src/router/route';
+import { clearRoutes, group, route, getManifest } from '../../src/router/route';
 
 describe('layout scoping (ROUTER)', () => {
   let container: HTMLElement;
@@ -30,7 +25,7 @@ describe('layout scoping (ROUTER)', () => {
     );
     const HomePage = () => <span class="home">Home</span>;
 
-    layout(AppLayout, () => {
+    group({ layout: AppLayout }, () => {
       route('/home', HomePage);
     });
 
@@ -51,7 +46,7 @@ describe('layout scoping (ROUTER)', () => {
 
     route('/bare', Bare);
 
-    layout(AppLayout, () => {
+    group({ layout: AppLayout }, () => {
       route('/wrapped', () => <div class="inner">inner</div>);
     });
 
@@ -72,8 +67,8 @@ describe('layout scoping (ROUTER)', () => {
     );
     const Page = () => <span class="page">page</span>;
 
-    layout(Outer, () => {
-      layout(Inner, () => {
+    group({ layout: Outer }, () => {
+      group({ layout: Inner }, () => {
         route('/nested', Page);
       });
     });
@@ -98,7 +93,7 @@ describe('layout scoping (ROUTER)', () => {
     const AppLayout = ({ children }: { children?: unknown }) => children;
     const Page = () => null;
 
-    layout(AppLayout, () => {
+    group({ layout: AppLayout }, () => {
       route('/page', Page);
     });
 
@@ -118,7 +113,7 @@ describe('layout scoping (ROUTER)', () => {
     const PageA = () => <div class="inner">A</div>;
     const PageB = () => <div class="inner">B</div>;
 
-    layout(AppLayout, () => {
+    group({ layout: AppLayout }, () => {
       route('/layout/a', PageA);
       route('/layout/b', PageB);
     });

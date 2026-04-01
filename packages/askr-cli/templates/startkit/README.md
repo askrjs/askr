@@ -99,12 +99,12 @@ src/
 
 ## How routing works
 
-src/router.tsx uses layout() + route() to compose route groups:
+src/router.tsx uses `registerRoutes()`, `group()`, and `route()` to compose route groups:
 
 - A shared root wrapper for providers
 - Auth layout only for /login
 - App layout only for protected routes
-- Route guards redirect unauthenticated users from protected routes to /login
+- Built-in auth metadata redirects unauthenticated users from protected routes to /login
 
 This keeps route ownership clear and avoids one mega-layout for every page type.
 
@@ -120,14 +120,14 @@ Use app layout for authenticated product surfaces and auth layout for onboarding
 1. Create a new page file in src/pages.
 2. Register a route in src/router.tsx.
 3. Place the route in the correct layout group (public, auth, protected).
-4. If protected, apply the same guard pattern used by existing app routes.
+4. If protected, apply the same `auth`, `role`, `permission`, or `policies` pattern used by existing app routes.
 
 ## First-hour customization checklist
 
 1. Update brand name, colors, and typography tokens in src/styles/tokens.css.
 2. Replace mock user/session data in src/lib/mock-data.ts.
 3. Swap dashboard/account samples for domain-specific features.
-4. Wire login and guard logic to your real auth provider.
+4. Wire login and route auth logic to your real auth provider.
 5. Replace placeholders in landing and settings copy with product language.
 6. Add one end-to-end happy-path test for your primary workflow.
 

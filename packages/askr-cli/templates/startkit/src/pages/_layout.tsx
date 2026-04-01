@@ -13,7 +13,7 @@ import {
   setToastOpen,
   toastMessage,
   toastOpen,
-} from './toast';
+} from '../toast';
 import { state } from '@askrjs/askr';
 
 export default function App({ children }: { children?: unknown }) {

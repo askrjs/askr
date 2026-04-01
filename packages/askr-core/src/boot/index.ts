@@ -234,8 +234,28 @@ function mountOrUpdate(
   globalScheduler.flush();
 }
 
+function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentFunction {
+  return () =>
+    resolved.handler(resolved.params) as ReturnType<ComponentFunction>;
+}
+
+function bindDeniedStatus(status: number): ComponentFunction {
+  return () => ({
+    type: 'div',
+    props: {
+      'data-route-denied': String(status),
+    },
+    children: [String(status)],
+  });
+}
+
 // New strongly-typed init functions
-import type { Route, RouteManifest } from '../common/router';
+import type {
+  Route,
+  RouteManifest,
+  ResolvedRoute,
+  RouteAuthOptions,
+} from '../common/router';
 import { removeAllListeners } from '../renderer';
 
 export type IslandConfig = {
@@ -254,7 +274,7 @@ export type IslandsConfig = {
 export type SPAConfig = {
   root: Element | string;
   /**
-   * Preferred: pass the route manifest built via `layout()` + `route()` calls.
+   * Preferred: pass the route manifest built via `registerRoutes(() => { ... })`.
    * ```ts
    * import { getManifest } from '@askrjs/askr/router';
    * await createSPA({ root: '#app', manifest: getManifest() });
@@ -263,6 +283,7 @@ export type SPAConfig = {
   manifest?: RouteManifest;
   /** Legacy: flat route array — kept for backward compatibility and test fixtures. */
   routes?: Route[];
+  auth?: RouteAuthOptions;
   cleanupStrict?: boolean;
   component?: never;
 };
@@ -273,6 +294,7 @@ export type HydrateSPAConfig = {
   manifest?: RouteManifest;
   /** Legacy flat route array. */
   routes?: Route[];
+  auth?: RouteAuthOptions;
   cleanupStrict?: boolean;
   hydrate?: {
     deferUntilIdle?: boolean;
@@ -384,11 +406,12 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   const {
     clearRoutes,
     _applyManifest,
+    _setActiveRouteAuthOptions,
     _snapshotLazy,
     _drainLazy,
     route: registerRoute,
     lockRouteRegistration,
-    resolveRouteWithGuards,
+    resolveRouteRequest,
   } = await import('../router/route');
 
   const pendingLazyAtBoot = _snapshotLazy();
@@ -405,6 +428,9 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     }
   }
 
+  const routeAuth = config.auth ?? config.manifest?.auth;
+  _setActiveRouteAuthOptions(routeAuth);
+
   // Drain any lazy() imports so all split chunks are ready before mounting
   await _drainLazy(pendingLazyAtBoot);
 
@@ -413,17 +439,26 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
   // Mount the currently-resolved route handler (if any)
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  let resolved = await Promise.resolve(resolveRouteWithGuards(path));
+  let href =
+    typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : path;
+  let resolved = await resolveRouteRequest(href, { auth: routeAuth });
 
-  while (typeof window !== 'undefined' && resolved && 'redirect' in resolved) {
-    const redirectTarget = new URL(resolved.redirect, window.location.href);
+  while (
+    typeof window !== 'undefined' &&
+    resolved &&
+    resolved.kind === 'redirect'
+  ) {
+    const redirectTarget = new URL(resolved.to, window.location.href);
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
     window.history.replaceState({ path: redirectHref }, '', redirectHref);
     path = redirectTarget.pathname;
-    resolved = await Promise.resolve(resolveRouteWithGuards(path));
+    href = redirectHref;
+    resolved = await resolveRouteRequest(href, { auth: routeAuth });
   }
 
-  if (!resolved || 'redirect' in resolved) {
+  if (!resolved) {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
       cleanupStrict: config.cleanupStrict,
     });
@@ -437,9 +472,32 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     return;
   }
 
-  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict: config.cleanupStrict,
-  });
+  if (resolved.kind === 'redirect') {
+    mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
+      cleanupStrict: config.cleanupStrict,
+    });
+
+    const { registerAppInstance, initializeNavigation } =
+      await import('../router/navigate');
+    const instance = instancesByRoot.get(rootElement);
+    if (!instance) throw new Error('Internal error: app instance missing');
+    registerAppInstance(instance as ComponentInstance, path);
+    initializeNavigation();
+    return;
+  }
+
+  mountOrUpdate(
+    rootElement,
+    resolved.kind === 'deny'
+      ? bindDeniedStatus(resolved.status)
+      : bindResolvedRouteHandler({
+          handler: resolved.handler,
+          params: resolved.params,
+        }),
+    {
+      cleanupStrict: config.cleanupStrict,
+    }
+  );
 
   const { registerAppInstance, initializeNavigation } =
     await import('../router/navigate');
@@ -597,17 +655,25 @@ async function applySelectiveHydration(
 
   if (hydrateOptions.deferUntilIdle && !hasSelectiveBoundaries) {
     await queueIdleWork(() => {
-      mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-        cleanupStrict,
-      });
+      mountOrUpdate(
+        rootElement,
+        (() => resolved.handler(resolved.params)) as ComponentFunction,
+        {
+          cleanupStrict,
+        }
+      );
     });
     await registerHydratedNavigation(rootElement, path);
     return;
   }
 
-  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict,
-  });
+  mountOrUpdate(
+    rootElement,
+    (() => resolved.handler(resolved.params)) as ComponentFunction,
+    {
+      cleanupStrict,
+    }
+  );
   await registerHydratedNavigation(rootElement, path);
 
   if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
@@ -654,6 +720,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   const {
     clearRoutes,
     _applyManifest,
+    _setActiveRouteAuthOptions,
     _snapshotLazy,
     _drainLazy,
     route: registerRoute,
@@ -673,6 +740,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
     }
   }
+
+  _setActiveRouteAuthOptions(config.auth ?? config.manifest?.auth);
 
   // Drain any lazy() imports so all split chunks are ready before mounting
   await _drainLazy(pendingLazyAtHydrationBoot);
@@ -733,7 +802,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
 
-  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
+  mountOrUpdate(rootElement, bindResolvedRouteHandler(resolved), {
     cleanupStrict: config.cleanupStrict,
   });
   await registerHydratedNavigation(rootElement, path);

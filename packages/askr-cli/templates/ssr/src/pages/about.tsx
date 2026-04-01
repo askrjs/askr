@@ -44,9 +44,10 @@ export default function About() {
           <div class="feature-card">
             <h3>Declarative Routing</h3>
             <p>
-              Routes are declared at module-load time with <code>route()</code>{' '}
-              and composed with <code>layout()</code>. Clean, type-safe, and no
-              configuration needed.
+              Routes are declared at module-load time with{' '}
+              <code>registerRoutes()</code>, <code>group()</code>, and{' '}
+              <code>route()</code>. Clean, type-safe, and no configuration
+              needed.
             </p>
           </div>
         </div>

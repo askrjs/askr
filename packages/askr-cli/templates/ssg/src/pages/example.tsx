@@ -42,8 +42,9 @@ export default function Example() {
           </TabsContent>
           <TabsContent value="code">
             <p>
-              Create reactive state with <code>const [count, setCount] = state(0)</code>,
-              read with <code>count()</code>, and update with{' '}
+              Create reactive state with{' '}
+              <code>const [count, setCount] = state(0)</code>, read with{' '}
+              <code>count()</code>, and update with{' '}
               <code>setCount(n =&gt; n + 1)</code>.
             </p>
           </TabsContent>
@@ -113,7 +114,9 @@ export default function Example() {
           <Input
             placeholder="Type your name..."
             value={name()}
-              onInput={(e: Event) => setName((e.target as HTMLInputElement).value)}
+            onInput={(e: Event) =>
+              setName((e.target as HTMLInputElement).value)
+            }
           />
         </div>
         <p style={`font-weight: ${bold() ? '700' : '400'}`}>

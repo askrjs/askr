@@ -89,19 +89,21 @@ Components should not:
 
 ## Route registration
 
-All routes are registered in one file using `layout()` and `route()`:
+All routes are registered in one file using `registerRoutes()`, `group()`, and `route()`:
 
 ```ts
 // src/router.tsx
-layout(AppLayout, () => {
-  route('/', Home);
-  route('/users', Users);
-  route('/settings', Settings);
-  route('/*', NotFound);
+registerRoutes(() => {
+  group({ layout: AppLayout }, () => {
+    route('/', Home);
+    route('/users', Users);
+    route('/settings', Settings);
+    route('/*', NotFound);
+  });
 });
 ```
 
-Layout groups are explicit. Nested layouts are composed with nested `layout()` calls.
+Layout groups are explicit. Nested layouts are composed with nested `group({ layout })` scopes.
 
 ## State
 

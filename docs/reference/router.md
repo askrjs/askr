@@ -2,41 +2,72 @@
 
 Import router-specific APIs from `@askrjs/askr/router`.
 
-## `layout(Component, fn)`
+## `registerRoutes(definition, options?)`
 
-Establishes a layout scope. Every `route()` call inside `fn` is automatically wrapped by
-`Component` at render time (no per-route manual composition needed).
+Runs a callback-based route definition and optionally attaches app-level auth resolution.
 
 ```ts
-import { layout, route } from '@askrjs/askr/router';
+import { registerRoutes } from '@askrjs/askr/router';
+import { routeAuth } from './auth';
+import { registerAppRoutes } from './routes';
 
-layout(AppLayout, () => {
-  route('/', HomePage);
-  route('/about', AboutPage);
-  route('/*', NotFoundPage);
+registerRoutes(registerAppRoutes, {
+  auth: routeAuth,
 });
 ```
 
-Layouts may nest — inner scopes add additional wrapper levels.
+`registerRoutes()` is the canonical place to supply `auth.resolve` for built-in
+`auth`, `role`, and `permission` route metadata.
+
+## `group(options, fn)`
+
+Establishes a pathless behavioral scope. Child routes keep absolute paths, while
+`group()` provides inherited layout and access metadata.
+
+```ts
+import { group, route, fallback } from '@askrjs/askr/router';
+
+group({ layout: AppLayout }, () => {
+  route('/', HomePage);
+
+  group({ auth: true, layout: WorkspaceLayout }, () => {
+    route('/dashboard', DashboardPage);
+    route('/settings', SettingsPage);
+  });
+
+  fallback(NotFoundPage);
+});
+```
+
+Supported group options:
+
+- `layout`
+- `auth`
+- `role`
+- `permission`
+- `policies`
 
 ## `route(path, Component, options?)`
 
-Registers a route declaration. Must be called at module load time (before `createSPA`).
+Registers a route declaration. Must be called during route registration.
 
-- `path` — route template using `{name}` for params and `/*` for catch-all
-- `Component` — page component function; receives URL params as props
-- `options` — optional `RouteOptions`:
-  - `load` — server data loader `({ params }) => unknown`
-  - `entries` — SSG entry generator `() => Array<Record<string, string>>`
-  - `guard` — navigation guard `({ params }) => boolean | string`
-  - `title` — string title hint for SSG / document meta
-  - `namespace` — MFE namespace key
+- `path`: route template using `{name}` for params and `/*` for catch-all
+- `Component`: page component function; receives URL params as props
+- `options`
+  - `auth`: `true` for authenticated routes, `"guest"` for signed-out-only routes
+  - `role`: role-gated route; implies `auth: true`
+  - `permission`: permission-gated route; implies `auth: true`
+  - `policies`: ordered advanced access checks
+  - `loader`: canonical route loader `({ params }) => unknown`
+  - `entries`: SSG entry generator
+  - `title`: page title hint
+  - `namespace`: MFE namespace key
 
 ```ts
 route('/posts/{slug}', PostPage, {
-  load: ({ params }) => fetchPost(params.slug),
-  entries: async () => getPosts().map((p) => ({ slug: p.slug })),
-  guard: () => isAuthenticated() || '/login',
+  loader: ({ params }) => fetchPost(params.slug),
+  entries: async () => getPosts().map((post) => ({ slug: post.slug })),
+  auth: true,
   title: 'Post',
 });
 ```
@@ -44,30 +75,38 @@ route('/posts/{slug}', PostPage, {
 Path syntax rules:
 
 - Static segments: `/settings`
-- Parameter segments: `/posts/{slug}` — `{name}` only, `:name` is rejected
+- Parameter segments: `/posts/{slug}`
 - Single-segment wildcard: `/files/*`
 - Catch-all fallback: `/*`
 
-Specificity order (highest first): **static** › **param** › **wildcard** › **catch-all**.
+Specificity order (highest first): static > param > wildcard > catch-all.
 
-## `route()` (render-time accessor)
+## `fallback(Component)`
 
-Inside a component, call `route()` with **no arguments** to read the current route snapshot.
+Registers the root catch-all page for the current top-level route scope.
+
+```ts
+fallback(NotFoundPage);
+```
+
+## `currentRoute()`
+
+Inside a component, call `currentRoute()` to read the current route snapshot.
 
 ```tsx
-const snap = route();
-// snap.path     — current pathname
-// snap.params   — extracted URL params (frozen)
-// snap.query    — query string accessor (.get, .getAll, .has, .toJSON)
-// snap.hash     — fragment or null
-// snap.matches  — all matching routes ordered by specificity
+const snap = currentRoute();
+// snap.path
+// snap.params
+// snap.query
+// snap.hash
+// snap.matches
 ```
 
 The snapshot is deeply frozen and read-only.
 
 ## `getManifest()`
 
-Returns the normalized `RouteManifest` built from all `layout()` / `route()` declarations.
+Returns the normalized `RouteManifest` built from registered routes.
 
 ```ts
 import { getManifest } from '@askrjs/askr/router';
@@ -77,7 +116,7 @@ await createSPA({ root: '#app', manifest: getManifest() });
 ## `getRoutes()`
 
 Returns the flat registered route array. Prefer `getManifest()` when route metadata
-(load, guard, entries) is needed.
+is needed.
 
 ## `clearRoutes()`
 
@@ -97,16 +136,13 @@ Declarative navigation component.
 
 ## Types
 
-| Type                | Description                                                             |
-| ------------------- | ----------------------------------------------------------------------- |
-| `RouteComponent`    | `(props: Record<string, string>) => unknown` — page component signature |
-| `RouteOptions`      | Options accepted by `route()` (load, entries, guard, title, namespace)  |
-| `RouteRecord`       | Normalized route record in the manifest                                 |
-| `RouteManifest`     | `{ records: RouteRecord[] }` — the full route graph                     |
-| `ParsedSegment`     | Typed segment from a path template                                      |
-| `LayoutScopeRecord` | A single layout component in the chain                                  |
-| `RouteSnapshot`     | Read-only snapshot from `route()` accessor                              |
-| `RouteMatch`        | One entry in `RouteSnapshot.matches`                                    |
+| Type             | Description                                                           |
+| ---------------- | --------------------------------------------------------------------- |
+| `RouteComponent` | `(props: Record<string, string>) => unknown` page component signature |
+| `RouteOptions`   | Options accepted by `route()`                                         |
+| `RouteRecord`    | Normalized route record in the manifest                               |
+| `RouteManifest`  | `{ records: RouteRecord[] }` full route graph                         |
+| `RouteSnapshot`  | Read-only snapshot from `currentRoute()`                              |
 
 ## Related
 

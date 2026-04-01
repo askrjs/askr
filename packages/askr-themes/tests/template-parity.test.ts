@@ -133,4 +133,18 @@ describe('template parity', () => {
       ).toEqual(defaultTokens);
     }
   });
+
+  it('official theme component directories keep the same canonical files as default', () => {
+    const themeNames = readdirSync(THEMES_DIR).filter((entry) =>
+      existsSync(join(THEMES_DIR, entry, 'components'))
+    );
+
+    for (const theme of themeNames) {
+      const themeFiles = listCssFiles(join(THEMES_DIR, theme, 'components'));
+      expect(
+        themeFiles,
+        `${theme} theme component files drift from default`
+      ).toEqual(defaultFiles);
+    }
+  });
 });

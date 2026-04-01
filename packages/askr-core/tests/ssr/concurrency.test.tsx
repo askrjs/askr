@@ -13,7 +13,7 @@ import {
 } from '../../src/ssr';
 import { getNextKey, getCurrentRenderData } from '../../src/ssr/render-keys';
 import { getRenderContext } from '../../src/ssr/context';
-import { route } from '../../src/router/route';
+import { currentRoute } from '../../src/router/route';
 
 describe('SSR concurrency isolation', () => {
   it('should isolate render context between concurrent renders', async () => {
@@ -168,7 +168,7 @@ describe('SSR concurrency isolation', () => {
             {
               path: '/users/{id}',
               handler: () => {
-                const snapshot = route();
+                const snapshot = currentRoute();
                 return (
                   <div>
                     A:{snapshot.params.id}:{snapshot.query.get('q')}:
@@ -187,7 +187,7 @@ describe('SSR concurrency isolation', () => {
             {
               path: '/posts/{id}',
               handler: () => {
-                const snapshot = route();
+                const snapshot = currentRoute();
                 return (
                   <div>
                     B:{snapshot.params.id}:{snapshot.query.get('q')}:
@@ -214,7 +214,7 @@ describe('SSR concurrency isolation', () => {
             {
               path: '/account/{id}',
               handler: () => {
-                const snapshot = route();
+                const snapshot = currentRoute();
                 return (
                   <div>
                     account:{snapshot.matches[0]?.path}:{snapshot.params.id}
@@ -232,7 +232,7 @@ describe('SSR concurrency isolation', () => {
             {
               path: '/settings/profile',
               handler: () => {
-                const snapshot = route();
+                const snapshot = currentRoute();
                 return (
                   <div>
                     settings:{snapshot.matches[0]?.path}:{snapshot.path}

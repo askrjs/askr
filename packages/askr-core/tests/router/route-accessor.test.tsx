@@ -4,6 +4,7 @@ import { renderToStringSync } from '../../src/ssr';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { navigate } from '../../src/router/navigate';
 import {
+  currentRoute,
   route,
   setServerLocation,
   type RouteSnapshot,
@@ -49,8 +50,9 @@ describe('route accessor (public)', () => {
   });
 
   it('should throw when called outside render', () => {
-    expect(() => (route as () => unknown)()).toThrow(
-      /route\(\) can only be called/
+    expect(() => currentRoute()).toThrow(/currentRoute\(\) can only be called/);
+    expect(() => (route as unknown as () => unknown)()).toThrow(
+      /route\(\) is only for route registration/i
     );
   });
 
@@ -61,7 +63,7 @@ describe('route accessor (public)', () => {
       {
         path: '/users/{id}',
         handler: (_params: Record<string, string>) => {
-          const s = route();
+          const s = currentRoute();
           snapDuringRender = s as RouteSnapshot;
           return <div>user:{s.params.id}</div>;
         },
@@ -133,7 +135,7 @@ describe('route accessor (public)', () => {
 
   it('should preserve SSR/hydration equivalence for path, query, hash and params', async () => {
     route('/items/{id}', (params) => (
-      <div>{`${params.id}|${route().query.get('q') || ''}|${route().hash || ''}`}</div>
+      <div>{`${params.id}|${currentRoute().query.get('q') || ''}|${currentRoute().hash || ''}`}</div>
     ));
 
     // Server render with explicit URL
@@ -146,7 +148,7 @@ describe('route accessor (public)', () => {
     }
 
     const ServerComp = () => (
-      <div>{`${route().path}|${route().query.get('q') || ''}|${route().hash || ''}`}</div>
+      <div>{`${currentRoute().path}|${currentRoute().query.get('q') || ''}|${currentRoute().hash || ''}`}</div>
     );
 
     const html = renderToStringSync(ServerComp);
@@ -168,7 +170,7 @@ describe('route accessor (public)', () => {
         {
           path: '/items/{id}',
           handler: (params: Record<string, string>) => (
-            <div>{`${params.id}|${route().query.get('q') || ''}|${route().hash || ''}`}</div>
+            <div>{`${params.id}|${currentRoute().query.get('q') || ''}|${currentRoute().hash || ''}`}</div>
           ),
         },
       ],
@@ -180,5 +182,14 @@ describe('route accessor (public)', () => {
 
     // Expect the client hydration render to match server snapshot values
     expect(container.textContent).toBe('99|abc|#frag');
+  });
+
+  it('should reject route() as a render-time accessor', () => {
+    expect(() =>
+      renderToStringSync(() => {
+        (route as unknown as () => RouteSnapshot)();
+        return <div>ok</div>;
+      })
+    ).toThrow(/route\(\) is only for route registration/i);
   });
 });

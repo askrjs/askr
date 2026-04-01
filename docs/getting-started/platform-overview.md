@@ -27,7 +27,7 @@ Responsibilities:
 
 - Component rendering (DOM and string)
 - Application lifecycle (`createIsland`, `createSPA`, `hydrateSPA`)
-- Routing: `route()`, `layout()`, `navigate()`, `Link`
+- Routing: `registerRoutes()`, `group()`, `route()`, `currentRoute()`, `navigate()`, `Link`
 - Reactivity: `state()`, `derive()`, `selector()`
 - Async data: `resource()`, `on()`, `timer()`, `task()`
 - SSR and SSG output

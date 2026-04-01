@@ -1,19 +1,23 @@
 # Core: Routing
 
-The Askr router uses a single, consistent model that scales from small apps to large ones
-and works cleanly across SPA, SSR, and SSG. There is one way to define routes.
+The Askr router uses one route model across SPA, SSR, and SSG:
 
-## One model
+- `registerRoutes()` starts registration
+- `group()` defines inherited layout and access behavior
+- `route()` defines pages
+- `fallback()` defines the root catch-all
 
-Route definitions are always written as `route(path, Component, options?)` calls placed
-inside a `layout(Component, fn)` scope. The same declarations drive SPA navigation, SSR
-request resolution, and SSG page expansion — no mode-specific APIs.
-
-## Register routes and boot
+## Register routes
 
 ```ts
-// src/router.tsx
-import { layout, route } from '@askrjs/askr/router';
+import {
+  fallback,
+  getManifest,
+  group,
+  registerRoutes,
+  route,
+} from '@askrjs/askr/router';
+
 import AppLayout from './layouts/app-layout';
 import AuthLayout from './layouts/auth-layout';
 import Home from './routes/home';
@@ -21,91 +25,77 @@ import Dashboard from './routes/dashboard';
 import Login from './routes/login';
 import NotFound from './routes/not-found';
 
-layout(AppLayout, () => {
-  route('/', Home);
-  route('/dashboard', Dashboard);
-});
+registerRoutes(() => {
+  group({ layout: AppLayout }, () => {
+    route('/', Home);
 
-layout(AuthLayout, () => {
-  route('/login', Login);
-});
+    group({ layout: AuthLayout, auth: 'guest' }, () => {
+      route('/login', Login);
+    });
 
-route('/*', NotFound);
+    group({ auth: true }, () => {
+      route('/dashboard', Dashboard);
+    });
+
+    fallback(NotFound);
+  });
+});
 ```
 
-```ts
-// src/main.ts
-import { createSPA } from '@askrjs/askr';
-import { getManifest } from '@askrjs/askr/router';
-import './router'; // side-effect: runs layout() + route() declarations
+## Read the route
 
-createSPA(document.getElementById('app'), { manifest: getManifest() });
-```
-
-## Route path syntax
-
-| Pattern   | Example         | Description                                        |
-| --------- | --------------- | -------------------------------------------------- |
-| Static    | `/settings`     | Literal segment — highest specificity              |
-| Param     | `/posts/{slug}` | Captures one URL segment by name                   |
-| Wildcard  | `/files/*`      | Captures exactly one segment (unnamed)             |
-| Catch-all | `/*`            | Matches any path at any depth — lowest specificity |
-
-**Parameter syntax**: always `{name}`. The `:name` Express style is not supported.
-
-## Read the current route
-
-Inside a component, call `route()` with no arguments:
+Inside a component, call `currentRoute()`:
 
 ```tsx
-import { route } from '@askrjs/askr/router';
+import { currentRoute } from '@askrjs/askr/router';
 
 function PostPage() {
-  const snap = route();
-  // snap.params.slug — extracted from the URL
-  // snap.query.get('tab') — query string value
-  // snap.hash — fragment
-
+  const snap = currentRoute();
   return <article>{snap.params.slug}</article>;
 }
 ```
-
-The snapshot is read-only and deeply frozen.
 
 ## Route options
 
 ```ts
 route('/posts/{slug}', PostPage, {
-  // Data loader: called before render; result accessible inside the component
-  load: ({ params }) => fetchPost(params.slug),
-
-  // SSG: return one param map per static page to pre-render
-  entries: async () => getPosts().map((p) => ({ slug: p.slug })),
-
-  // Navigation guard: return false to block, a path string to redirect
-  guard: ({ params }) => isAuthenticated() || '/login',
-
-  // Page title hint for SSG and document-meta integrations
+  auth: true,
+  loader: ({ params }) => fetchPost(params.slug),
+  entries: async () => getPosts().map((post) => ({ slug: post.slug })),
+  policies: [requireVerifiedEmail()],
   title: 'Post',
 });
 ```
 
-## Layout composition
+## Group inheritance
 
-`layout(Component, fn)` wraps all routes declared inside `fn` in `Component`. Layouts nest:
+Groups are pathless scopes. Child routes keep absolute paths.
 
 ```ts
-layout(AppShell, () => {
-  layout(AdminPanel, () => {
-    route('/admin/users', AdminUsers);
-    route('/admin/settings', AdminSettings);
+group({ layout: AppShell }, () => {
+  route('/', HomePage);
+
+  group({ auth: true }, () => {
+    route('/dashboard', DashboardPage);
+
+    group({ layout: AdminPanel, role: 'admin' }, () => {
+      route('/admin/users', AdminUsersPage);
+      route('/admin/settings', AdminSettingsPage);
+    });
   });
-  route('/dashboard', Dashboard);
-  route('/*', NotFound);
+
+  fallback(NotFoundPage);
 });
 ```
 
-Layout wrapping is applied automatically — no manual wrapping needed per route.
+## Path syntax
+
+- Static: `/settings`
+- Param: `/posts/{slug}`
+- Wildcard: `/files/*`
+- Catch-all: `/*`
+
+Always use `{name}` for params.
 
 ## Navigation
 
@@ -115,22 +105,3 @@ import { navigate } from '@askrjs/askr/router';
 navigate('/dashboard');
 navigate('/users/42', { replace: true });
 ```
-
-## Link component
-
-```tsx
-import { Link } from '@askrjs/askr/router';
-
-<Link href="/about">About</Link>;
-```
-
-## Specificity order
-
-From highest to lowest: **literal** › **param** › **wildcard** › **catch-all**.
-
-## See also
-
-- [Router guide](../guides/router.md) — original detailed guide
-- [Router reference](../reference/router.md)
-- [Runtime](./runtime.md)
-- [Rendering](./rendering.md)

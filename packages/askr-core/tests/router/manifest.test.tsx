@@ -1,14 +1,14 @@
 /**
  * tests/router/manifest.test.tsx
  *
- * Validates the normalized route manifest produced by layout() + route()
+ * Validates the normalized route manifest produced by grouped route
  * declarations and the invariants required by SPA/SSR/SSG consumers.
  */
 
 import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import {
   route,
-  layout,
+  group,
   getManifest,
   clearRoutes,
   resolveRoute,
@@ -189,20 +189,20 @@ describe('manifest shape', () => {
   });
 
   it('should store route options on the record', () => {
-    const load = ({ params }: { params: Record<string, string> }) =>
+    const loader = ({ params }: { params: Record<string, string> }) =>
       Promise.resolve({ id: params.id });
-    const guard = () => true;
+    const policy = () => ({ kind: 'allow' as const });
 
     route('/items/{id}', () => null, {
-      load,
-      guard,
+      loader,
+      policies: [policy],
       title: 'Item detail',
       namespace: 'items-ns',
     });
 
     const record = getManifest().records.find((r) => r.path === '/items/{id}')!;
-    expect(record.options.load).toBe(load);
-    expect(record.options.guard).toBe(guard);
+    expect(record.options.loader).toBe(loader);
+    expect(record.options.policies).toEqual([policy]);
     expect(record.options.title).toBe('Item detail');
     expect(record.options.namespace).toBe('items-ns');
   });
@@ -217,18 +217,18 @@ describe('manifest shape', () => {
     expect(record.options.entries).toBe(entries);
   });
 
-  it('should record empty layoutChain when registered outside any layout()', () => {
+  it('should record empty layoutChain when registered outside any layout group', () => {
     route('/bare', () => null);
 
     const record = getManifest().records.find((r) => r.path === '/bare')!;
     expect(record.layoutChain).toHaveLength(0);
   });
 
-  it('should record layout chain from enclosing layout() scope', () => {
+  it('should record layout chain from an enclosing layout group', () => {
     const L1 = ({ children }: { children?: unknown }) => children;
     const Page = () => null;
 
-    layout(L1, () => {
+    group({ layout: L1 }, () => {
       route('/scoped', Page);
     });
 
@@ -242,8 +242,8 @@ describe('manifest shape', () => {
     const Inner = ({ children }: { children?: unknown }) => children;
     const Page = () => null;
 
-    layout(Outer, () => {
-      layout(Inner, () => {
+    group({ layout: Outer }, () => {
+      group({ layout: Inner }, () => {
         route('/deep', Page);
       });
     });
@@ -258,11 +258,11 @@ describe('manifest shape', () => {
     const L1 = ({ children }: { children?: unknown }) => children;
     const L2 = ({ children }: { children?: unknown }) => children;
 
-    layout(L1, () => {
+    group({ layout: L1 }, () => {
       route('/a', () => null);
     });
 
-    layout(L2, () => {
+    group({ layout: L2 }, () => {
       route('/b', () => null);
     });
 
@@ -300,7 +300,7 @@ describe('auto-composed handler', () => {
       return 'page-output';
     };
 
-    layout(Layout, () => {
+    group({ layout: Layout }, () => {
       route('/wrapped', Page);
     });
 

@@ -1,4 +1,4 @@
-import { Link, route } from '@askrjs/askr/router';
+import { Link, currentRoute } from '@askrjs/askr/router';
 import {
   LayoutDashboardIcon,
   UsersIcon,
@@ -6,6 +6,13 @@ import {
   LayersIcon,
   ShieldCheckIcon,
 } from '@askrjs/askr-lucide';
+import {
+  accountsRoute,
+  dashboardRoute,
+  landingRoute,
+  loginRoute,
+  settingsRoute,
+} from '../lib/routes';
 import { joinClasses } from '../utils/join-classes';
 
 type NavItem = {
@@ -15,19 +22,31 @@ type NavItem = {
 };
 
 const primaryNav: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboardIcon },
-  { href: '/accounts', label: 'Accounts', icon: UsersIcon },
-  { href: '/settings', label: 'Settings', icon: SettingsIcon },
+  {
+    href: dashboardRoute.href,
+    label: dashboardRoute.navLabel,
+    icon: LayoutDashboardIcon,
+  },
+  {
+    href: accountsRoute.href,
+    label: accountsRoute.navLabel,
+    icon: UsersIcon,
+  },
+  {
+    href: settingsRoute.href,
+    label: settingsRoute.navLabel,
+    icon: SettingsIcon,
+  },
 ];
 
 const secondaryNav: NavItem[] = [
-  { href: '/', label: 'Marketing site', icon: LayersIcon },
-  { href: '/login', label: 'Auth entry', icon: ShieldCheckIcon },
+  { href: landingRoute.href, label: 'Marketing site', icon: LayersIcon },
+  { href: loginRoute.href, label: 'Auth entry', icon: ShieldCheckIcon },
 ];
 
 export default function AppSidebar() {
   const isActive = (href: string) => {
-    const current = route().path;
+    const current = currentRoute().path;
     return current === href || current.startsWith(`${href}/`);
   };
 

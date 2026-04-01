@@ -43,15 +43,45 @@ export type {
 
 // Routing
 export {
+  registerRoutes,
   route,
+  currentRoute,
+  group,
+  fallback,
   lazy,
+  allow,
+  redirect,
+  deny,
+  unauthorized,
+  forbidden,
+  notFound,
+  requireAuth,
+  requireRole,
+  requirePermission,
+  resolveRouteRequest,
   type RouteSnapshot,
   type RouteMatch,
   type RouteComponent,
+  type RouteMode,
+  type RouteAuthMode,
+  type RouteContext,
+  type RoutePolicy,
   type RouteOptions,
   type RouteRecord,
   type RouteManifest,
-} from './router/route';
+  type AccessDecision,
+  type AccessDenyDecision,
+  type AccessRedirectDecision,
+  type GroupHelperOptions,
+  type RegisterRoutesOptions,
+  type RouteDefinition,
+  type RouteAuthOptions,
+  type RouteAuthResolver,
+  type RouteAuthState,
+  type RouteRenderResult,
+  type RouteRequestOptions,
+  type RouteRequestResult,
+} from './router';
 export { navigate } from './router/navigate';
 export type { NavigateOptions } from './router/navigate';
 

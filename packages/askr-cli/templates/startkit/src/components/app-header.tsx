@@ -1,4 +1,4 @@
-import { route, Link } from '@askrjs/askr/router';
+import { currentRoute, Link } from '@askrjs/askr/router';
 import { Input } from '@askrjs/askr-ui/input';
 import { Inline } from '@askrjs/askr-ui/inline';
 import { Spacer } from '@askrjs/askr-ui/spacer';
@@ -14,17 +14,12 @@ import {
 } from '@askrjs/askr-ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@askrjs/askr-ui/avatar';
 import { SearchIcon } from '@askrjs/askr-lucide';
+import { buildLoginHref, getRouteLabel, settingsRoute } from '../lib/routes';
 import { showToast } from '../toast';
 import { signOut } from '../lib/mock-data';
 
-const labelsByPath = new Map<string, string>([
-  ['/dashboard', 'Dashboard'],
-  ['/accounts', 'Accounts'],
-  ['/settings', 'Settings'],
-]);
-
 export default function AppHeader() {
-  const breadcrumb = () => labelsByPath.get(route().path) ?? 'Workspace';
+  const breadcrumb = () => getRouteLabel(currentRoute().path);
 
   return (
     <header class="app-header">
@@ -54,7 +49,7 @@ export default function AppHeader() {
               <DropdownMenuLabel>Workspace</DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings">Profile settings</Link>
+                  <Link href={settingsRoute.href}>Profile settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() =>
@@ -71,13 +66,17 @@ export default function AppHeader() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
+                  const nextTarget =
+                    typeof window === 'undefined'
+                      ? undefined
+                      : `${window.location.pathname}${window.location.search}${window.location.hash}`;
                   signOut();
                   showToast({
                     title: 'Signed out',
                     description:
                       'Session state is now cleared from local storage.',
                   });
-                  window.location.assign('/login');
+                  window.location.assign(buildLoginHref(nextTarget));
                 }}
               >
                 Sign out

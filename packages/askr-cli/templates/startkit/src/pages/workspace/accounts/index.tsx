@@ -15,16 +15,16 @@ import { Button } from '@askrjs/askr-ui/button';
 import { Inline } from '@askrjs/askr-ui/inline';
 import { Pagination } from '@askrjs/askr-ui/pagination';
 import { ArchiveIcon, PlusIcon } from '@askrjs/askr-lucide';
-import PageHeader from '../components/page-header';
-import AccountFilters from '../features/accounts/account-filters';
-import AccountTable from '../features/accounts/account-table';
+import PageHeader from '../../../components/page-header';
+import AccountFilters from '../../../features/accounts/account-filters';
+import AccountTable from '../../../features/accounts/account-table';
 import {
   archiveAccounts,
   listAccounts,
   type AccountRecord,
   type AccountStatus,
-} from '../lib/mock-data';
-import { showToast } from '../toast';
+} from '../../../lib/mock-data';
+import { showToast } from '../../../toast';
 
 export default function AccountsPage() {
   const [queryState, setQueryState] = state('');
@@ -152,7 +152,7 @@ export default function AccountsPage() {
                 disabled={selectedIdsState().length === 0}
                 class="button-secondary"
               >
-                <Archive size={14} aria-hidden="true" /> Archive selected
+                <ArchiveIcon size={14} aria-hidden="true" /> Archive selected
               </Button>
             </AlertDialogTrigger>
             <AlertDialogPortal>
