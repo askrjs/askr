@@ -2,6 +2,8 @@
  * Common call contracts: Router types
  */
 
+import { JSXElement } from './jsx';
+
 /**
  * A route page component: a regular component that receives route params as
  * props (always `Record<string, string>` derived from the URL pattern).
