@@ -91,7 +91,7 @@
     "@askrjs/askr": "0.0.28",
     "@askrjs/askr-vite": "0.0.1",
     "@types/node": "^25.5.0",
-    "axe-core": "^4.11.1",
+    "axe-core": "^4.11.2",
     "cross-env": "^10.1.0",
     "jiti": "^2.6.1",
     "jsdom": "^29.0.1",
