@@ -1,54 +1,130 @@
 {
-  "name": "@askrjs/monorepo",
-  "private": true,
-  "type": "module",
+  "name": "@askrjs/askr",
   "version": "0.0.1",
-  "description": "Askr monorepo",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/askrjs/askr.git"
-  },
+  "description": "Actor-backed deterministic UI framework",
+  "keywords": [
+    "askr",
+    "framework",
+    "jsx",
+    "ssr",
+    "ui"
+  ],
   "homepage": "https://github.com/askrjs/askr#readme",
   "bugs": {
     "url": "https://github.com/askrjs/askr/issues"
   },
+  "license": "Apache-2.0",
   "author": {
     "name": "askrjs",
     "url": "https://github.com/askrjs"
   },
-  "engines": {
-    "node": ">=18"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askrjs/askr.git"
   },
-  "workspaces": [
-    "packages/askr-core",
-    "packages/askr-cli",
-    "packages/askr-ui",
-    "packages/askr-lucide",
-    "packages/askr-themes",
-    "packages/askr-vite"
+  "files": [
+    "dist"
   ],
-  "scripts": {
-    "build": "npm run --workspaces --if-present build",
-    "bench": "npm run --workspaces --if-present bench",
-    "test": "npm run --workspaces --if-present test",
-    "lint": "npm run lint:root && npm run --workspaces --if-present lint",
-    "lint:root": "vp fmt --check .",
-    "fmt": "npm run fmt:root && npm run --workspaces --if-present fmt",
-    "fmt:root": "vp fmt .",
-    "dev": "npm run --workspace @askrjs/askr dev",
-    "inventory": "node scripts/generate-inventory.js",
-    "validate:state-patterns": "node scripts/validate-state-patterns.js packages/askr-cli/templates/startkit packages/askr-cli/templates/spa packages/askr-cli/templates/ssr packages/askr-cli/templates/ssg",
-    "verify:themes": "npm run --workspace @askrjs/askr-themes verify:token-contract && npm run --workspace @askrjs/askr-themes verify:responsive && npm run --workspace @askrjs/askr-themes verify:slots",
-    "verify:monorepo": "node scripts/validate-monorepo.js && npm run validate:state-patterns && npm run verify:themes",
-    "prepare": "vp config"
+  "type": "module",
+  "sideEffects": [],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./boot": {
+      "import": "./dist/boot/index.js",
+      "types": "./dist/boot/index.d.ts"
+    },
+    "./for": {
+      "import": "./dist/for/index.js",
+      "types": "./dist/for/index.d.ts"
+    },
+    "./foundations": {
+      "import": "./dist/foundations/index.js",
+      "types": "./dist/foundations/index.d.ts"
+    },
+    "./resources": {
+      "import": "./dist/resources/index.js",
+      "types": "./dist/resources/index.d.ts"
+    },
+    "./fx": {
+      "import": "./dist/fx/index.js",
+      "types": "./dist/fx/index.d.ts"
+    },
+    "./router": {
+      "import": "./dist/router/index.js",
+      "types": "./dist/router/index.d.ts"
+    },
+    "./ssr": {
+      "import": "./dist/ssr/index.js",
+      "types": "./dist/ssr/index.d.ts"
+    },
+    "./ssg": {
+      "import": "./dist/ssg/index.js",
+      "types": "./dist/ssg/index.d.ts"
+    },
+    "./jsx-runtime": {
+      "import": "./dist/jsx-runtime.js",
+      "types": "./dist/jsx-runtime.d.ts"
+    },
+    "./jsx-dev-runtime": {
+      "import": "./dist/jsx-dev-runtime.js",
+      "types": "./dist/jsx-dev-runtime.d.ts"
+    }
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "npm run build:prod",
+    "build:prod": "cross-env NODE_ENV=production vp build && npm run build:types",
+    "build:dev": "cross-env NODE_ENV=development vp build && npm run build:types",
+    "build:types": "tsc -b tsconfig.json --emitDeclarationOnly --force",
+    "build:bench": "cross-env BUILD=bench NODE_ENV=production vp build && npm run build:types",
+    "dev:watch": "vp build --watch --mode development",
+    "prepare": "npm run build:prod",
+    "dev": "vp dev",
+    "test": "vp test run",
+    "test:docs": "vp test run checks/docs/public-api-imports.test.ts",
+    "test:examples": "vp test run checks/examples/ssg-config.test.ts",
+    "test:types": "npm run build && tsd",
+    "verify:release": "npm run lint && npm run build && npm test && npm run test:docs && npm run test:examples && npm run perf:size",
+    "bench": "npm run bench:dom && npm run bench:ssr",
+    "bench:dom:base": "cross-env NODE_ENV=production vp test bench -c vitest.bench.dom.config.ts",
+    "bench:ssr:base": "cross-env NODE_ENV=production vp test bench -c vitest.bench.ssr.config.ts",
+    "bench:dom": "npm run bench:dom:base -- --run",
+    "bench:ssr": "npm run bench:ssr:base -- --run",
+    "bench:watch": "npm run bench:dom:base -- --watch",
+    "bench:watch:ssr": "npm run bench:ssr:base -- --watch",
+    "bench:tier1": "npm run bench:tier1:dom && npm run bench:tier1:ssr",
+    "bench:tier1:dom": "npm run bench:dom:base -- benches/tier1/ --run",
+    "bench:tier1:ssr": "npm run bench:ssr:base -- benches/tier1/ --run",
+    "bench:tier2": "npm run bench:tier2:dom && npm run bench:tier2:ssr",
+    "bench:tier2:dom": "npm run bench:dom:base -- benches/tier2/ --run",
+    "bench:tier2:ssr": "npm run bench:ssr:base -- benches/tier2/ --run",
+    "bench:tier3": "npm run bench:dom:base -- benches/tier3/ --run",
+    "bench:tier4": "npm run bench:dom:base -- benches/tier4/ --run",
+    "bench:json": "node -e \"const fs=require('node:fs'); fs.rmSync('bench-results',{recursive:true,force:true}); fs.mkdirSync('bench-results',{recursive:true});\" && npm run bench:dom:base -- --run --outputJson bench-results/dom.json && npm run bench:ssr:base -- --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js",
+    "bench:verify": "npm run bench:json && node scripts/generate-bench-log.js --verify",
+    "fmt": "vp fmt .",
+    "lint": "cross-env OXLINT_TSGOLINT_PATH=./node_modules/.bin/tsgolint.cmd vp lint src tests checks benches"
+  },
+  "dependencies": {},
   "devDependencies": {
+    "@askrjs/askr-vite": "file:../askr-vite",
+    "@types/node": "^25.5.0",
+    "chai": "^6.2.2",
+    "cross-env": "^10.1.0",
+    "jiti": "^2.6.1",
+    "jsdom": "^29.0.1",
+    "tsd": "^0.33.0",
+    "typescript": "^6.0.2",
     "vite-plus": "latest"
   },
-  "packageManager": "npm@11.12.1",
-  "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+  "engines": {
+    "node": ">=18"
   }
 }

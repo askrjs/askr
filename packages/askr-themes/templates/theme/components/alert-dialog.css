@@ -1,8 +1,0 @@
-/*
-  AlertDialog composes Dialog primitives in askr-ui.
-  Styling is intentionally shared through dialog slots.
-*/
-
-[data-slot='dialog-content'] {
-  border-width: 2px;
-}
