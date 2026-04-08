@@ -121,7 +121,7 @@
     "jiti": "^2.6.1",
     "jsdom": "^29.0.1",
     "tsd": "^0.33.0",
-    "typescript": "^6.0.2",
+    "typescript": "^5.0.0",
     "vite-plus": "latest"
   },
   "engines": {
