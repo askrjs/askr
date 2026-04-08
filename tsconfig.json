@@ -1,8 +1,26 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./packages/askr-core" },
-    { "path": "./packages/askr-ui/tsconfig.build.json" },
-    { "path": "./packages/askr-lucide/tsconfig.build.json" }
-  ]
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2021",
+    "lib": ["ES2021", "DOM"],
+    "jsx": "preserve",
+    "jsxImportSource": "@askrjs/askr",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@askrjs/askr": ["./src/index.ts"],
+      "@askrjs/askr/boot": ["./src/boot/index.ts"],
+      "@askrjs/askr/for": ["./src/for/index.ts"],
+      "@askrjs/askr/foundations": ["./src/foundations/index.ts"],
+      "@askrjs/askr/resources": ["./src/resources/index.ts"],
+      "@askrjs/askr/fx": ["./src/fx/index.ts"],
+      "@askrjs/askr/router": ["./src/router/index.ts"],
+      "@askrjs/askr/ssr": ["./src/ssr/index.ts"],
+      "@askrjs/askr/ssg": ["./src/ssg/index.ts"],
+      "@askrjs/askr/jsx-runtime": ["./src/jsx-runtime.ts"],
+      "@askrjs/askr/jsx-dev-runtime": ["./src/jsx-dev-runtime.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["tests", "benches", "examples"]
 }

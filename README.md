@@ -1,93 +1,237 @@
-# Askr Monorepo
+# Askr
 
-Askr is a modern application development platform focused on strong conventions,
-AI-assisted workflows, and practical primitives.
+Deterministic UI runtime with runtime enforcement.
 
-This monorepo contains the official platform packages, docs, and release automation.
+## Quick Start
 
-## Packages
+```typescript
+import { createIsland, state } from '@askrjs/askr';
 
-The platform is deliberately split into product packages and supporting tooling packages. The
-shared operating model is documented in [docs/development/platform-charter.md](docs/development/platform-charter.md).
+function Counter() {
+  const [count, setCount] = state(0);
+  return <button onClick={() => setCount(count() + 1)}>{count()}</button>;
+}
 
-### Product packages
-
-| Package               | Purpose                                              |
-| --------------------- | ---------------------------------------------------- |
-| `@askrjs/askr`        | Core runtime: rendering, routing, lifecycle, SSR/SSG |
-| `@askrjs/askr-ui`     | Headless UI primitives and accessibility behavior    |
-| `@askrjs/askr-themes` | Optional styling layer (tokens and base theme)       |
-| `@askrjs/askr-lucide` | Lucide icon wrappers for Askr                        |
-| `@askrjs/askr-cli`    | Project scaffolding and SSG workflows                |
-
-### Platform tooling
-
-| Package             | Purpose                                 |
-| ------------------- | --------------------------------------- |
-| `@askrjs/askr-vite` | Vite integration and project transforms |
-
-## Repository Structure
-
-```text
-packages/
-	askr-core/
-	askr-ui/
-	askr-themes/
-	askr-lucide/
-	askr-cli/
-
-docs/
-scripts/
-.github/
+createIsland({ root: document.body, component: Counter });
 ```
 
-## Prerequisites
+---
 
-- Node.js 20+
-- npm 10+
+## Core Features
 
-## Setup
+### Runtime Enforcement
 
-```bash
-npm install
+Askr validates component structure as it runs, catching mistakes with clear error messages.
+
+```typescript
+// This error is caught immediately:
+if (condition) {
+  const [x, setX] = state(0); // ❌ Hook order violation
+}
+
+// Error shows the fix:
+const [x, setX] = state(0);
+if (condition) {
+  setX(newValue); // ✅ Correct
+}
 ```
 
-## Common Commands
+### Deterministic Execution
 
-Run from the repository root.
+Events serialize through a scheduler. State updates are atomic. Renders follow strict ordering.
 
-```bash
-npm run verify:monorepo   # validate workspace/package invariants
-npm run lint              # root + workspace lint
-npm run build             # build all workspaces
-npm test                  # run all workspace tests
-npm run fmt               # format root + workspaces
+```typescript
+// Event 1 completes (handler + state + DOM)
+// Then Event 2 starts
+// No race conditions
 ```
 
-Run a command in a single workspace:
+Proven with 524 tests covering:
 
-```bash
-npm run --workspace @askrjs/askr build
-npm run --workspace @askrjs/askr-ui test
+- Event ordering (12 tests)
+- State atomicity (12 tests)
+- Transaction semantics (30 tests)
+
+### Automatic Cleanup
+
+Every component gets an AbortSignal for automatic cancellation.
+
+```typescript
+import { resource } from '@askrjs/askr/resources';
+
+function Data({ id }) {
+  const data = resource(async ({ signal }) => {
+    const res = await fetch(`/api/${id}`, { signal });
+    return res.json();
+  }, [id]);
+
+  if (data.pending || !data.value) return <div>Loading...</div>;
+  if (data.error) return <div>Failed to load</div>;
+  return <div>{data.value.name}</div>;
+}
+// Async work is cancelled automatically on unmount/navigation
 ```
+
+### Explicit Reactivity
+
+Getters and setters are functions. Call the getter to read and the setter to update — this makes reactivity explicit in your code.
+
+```typescript
+const [count, setCount] = state(0);
+console.log(count()); // getter: read
+setCount(1); // setter: write
+```
+
+Clear data flow. No hidden subscriptions.
+
+---
+
+## API
+
+### State
+
+```typescript
+const [value, setValue] = state(initialValue);
+
+// Read
+value();
+
+// Write
+setValue(newValue);
+
+// Update
+setValue((prev) => prev + 1);
+```
+
+### Derived State
+
+```typescript
+import { derive, state } from '@askrjs/askr';
+
+function Counter() {
+  const [count, setCount] = state(0);
+  const doubled = derive(() => count() * 2);
+
+  return (
+    <button onClick={() => setCount((prev) => prev + 1)}>
+      {count()} -> {doubled()}
+    </button>
+  );
+}
+```
+
+`derive()` now returns a getter. Migrate `const doubled = derive(...); {doubled}` to `const doubled = derive(...); {doubled()}`.
+
+### Keyed Selectors
+
+```typescript
+function Table({ rows }) {
+  const [selectedId, setSelectedId] = state<number | null>(null);
+  const isSelected = selector(selectedId);
+
+  return For(
+    () => rows(),
+    (row) => row.id,
+    (row) => (
+      <tr class={() => (isSelected(row.id) ? 'danger' : '')}>
+        <td>
+          <a onClick={() => setSelectedId(row.id)}>{row.id}</a>
+        </td>
+      </tr>
+    )
+  );
+}
+```
+
+Use `selector()` for row selection, active-route checks, and similar keyed fanout hotspots. Create it once in the owner component and reuse the keyed predicate across rows.
+
+### Lists
+
+```typescript
+const [items, setItems] = state([...]);
+
+For(
+  items,
+  (item) => item.id,
+  (item) => <Item {...item} />
+)
+```
+
+### Apps
+
+```typescript
+import { createSPA } from '@askrjs/askr';
+import { getRoutes, route } from '@askrjs/askr/router';
+
+// Single component
+createIsland({
+  root: document.body,
+  component: MyComponent,
+});
+
+// Routed app
+route('/', () => <Home />);
+route('/about', () => <About />);
+
+createSPA({
+  root: document.body,
+  routes: getRoutes(),
+});
+```
+
+`createSPA({ routes })` is the authoritative boot API. `route(...)` plus `getRoutes()` is the convenience way to assemble that route table. Prefer `@askrjs/askr/router` for router-focused imports; the root barrel also re-exports router helpers for compatibility.
+
+---
 
 ## Documentation
 
-Platform docs are centralized under `docs/`.
+- [Documentation Index](docs/index.md)
+- [Install](docs/getting-started/installation.md)
+- [Quick Start](docs/getting-started/quick-start.md)
+- [State Management](docs/guides/state.md)
+- [Router Guide](docs/guides/router.md)
+- [Resources Guide](docs/guides/resources.md)
+- [SSG Guide (Advanced)](docs/guides/ssg.md)
+- [Runtime Enforcement](docs/concepts/runtime-enforcement.md)
+- [Deterministic Execution](docs/concepts/determinism.md)
+- [API Reference](docs/reference/api.md)
 
-- Start here: `docs/index.md`
-- Platform overview: `docs/README.md`
+---
 
-## Contributing
+## Guarantees
 
-- Contributor guide: `CONTRIBUTING.md`
-- Agent-specific workflow and guardrails: `AGENTS.md`
+Askr provides provable guarantees, tested with 524 tests:
 
-## CI Gate
+- Hook order enforcement (12 tests)
+- Event serialization (12 tests)
+- Atomic transactions (30 tests)
+- Keyed reconciliation (12 tests)
+- Memory safety (8 tests)
 
-Pull requests are expected to pass:
+[See test suite →](tests/README.md)
 
-1. `npm run verify:monorepo`
-2. `npm run lint`
-3. `npm run build`
-4. `npm test`
+---
+
+## Migration
+
+### Coming from React
+
+| React                           | Askr                         |
+| ------------------------------- | ---------------------------- |
+| `const [x, setX] = useState(0)` | `const [x, setX] = state(0)` |
+| `x`                             | `x()`                        |
+| `setX(1)`                       | `setX(1)`                    |
+
+The main difference: values are functions that you call to read.
+
+---
+
+## Install
+
+```bash
+npm install @askrjs/askr
+```
+
+## License
+
+Apache 2.0

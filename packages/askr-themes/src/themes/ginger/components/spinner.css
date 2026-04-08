@@ -1,9 +1,0 @@
-/*
-  Spinner composes ProgressCircle in askr-ui.
-  Styling is intentionally shared through progress-circle slots.
-*/
-
-[data-slot='progress-circle'][data-state='indeterminate'] {
-  inline-size: 2.25rem;
-  block-size: 2.25rem;
-}
