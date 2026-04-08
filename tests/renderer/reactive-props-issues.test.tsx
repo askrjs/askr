@@ -167,4 +167,36 @@ describe('reactive props issues validation', () => {
 
     cleanup();
   });
+
+  test('should preserve stable class tokens when a reactive class toggles', () => {
+    const { container, cleanup } = createTestContainer();
+
+    let selectedState: ReturnType<typeof state<boolean>>;
+
+    const Component = () => {
+      selectedState = state(false);
+      return (
+        <div
+          id="subject"
+          class={() => (selectedState() ? 'row danger' : 'row')}
+        />
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const subject = container.querySelector('#subject');
+    expect(subject?.className).toBe('row');
+
+    selectedState!.set(true);
+    flushScheduler();
+    expect(subject?.className).toBe('row danger');
+
+    selectedState!.set(false);
+    flushScheduler();
+    expect(subject?.className).toBe('row');
+
+    cleanup();
+  });
 });

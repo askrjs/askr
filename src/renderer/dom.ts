@@ -518,6 +518,41 @@ function patchClassList(
   previousTokens: string[],
   nextTokens: string[]
 ): void {
+  if (previousTokens.length === nextTokens.length) {
+    let identical = true;
+    for (let index = 0; index < previousTokens.length; index += 1) {
+      if (previousTokens[index] !== nextTokens[index]) {
+        identical = false;
+        break;
+      }
+    }
+    if (identical) {
+      return;
+    }
+  }
+
+  if (previousTokens.length === 0) {
+    if (nextTokens.length === 0) {
+      return;
+    }
+    el.classList.add(...nextTokens);
+    incrementPerfMetric('classListPatchOps');
+    return;
+  }
+
+  if (nextTokens.length === 0) {
+    el.classList.remove(...previousTokens);
+    incrementPerfMetric('classListPatchOps');
+    return;
+  }
+
+  if (previousTokens.length === 1 && nextTokens.length === 1) {
+    el.classList.remove(previousTokens[0]);
+    el.classList.add(nextTokens[0]);
+    incrementPerfMetric('classListPatchOps');
+    return;
+  }
+
   const nextSet = new Set(nextTokens);
   const previousSet = new Set(previousTokens);
 
@@ -1082,6 +1117,10 @@ function syncForItemDom(
   let dom = itemInstance._dom ?? null;
   let created = false;
 
+  if (dom && !itemInstance._needsDomUpdate) {
+    return dom;
+  }
+
   if (dom && checkVNodeShapeChanged(dom, vnode)) {
     const nextDom = createDOMNode(vnode);
     if (!nextDom) {
@@ -1438,6 +1477,29 @@ export function commitForBoundaryChildren(
           frag.appendChild(dom);
         }
       }
+      parent.replaceChildren(frag);
+      return;
+    }
+
+    if (forState.lastRemovedNodes.length === 0) {
+      const frag = parent.ownerDocument.createDocumentFragment();
+
+      for (let i = 0; i < count; i++) {
+        const itemKey = keys[i];
+        const itemInstance = forState.items.get(itemKey);
+        if (!itemInstance) {
+          continue;
+        }
+
+        const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+        if (!dom) {
+          continue;
+        }
+
+        recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
+        frag.appendChild(dom);
+      }
+
       parent.replaceChildren(frag);
       return;
     }

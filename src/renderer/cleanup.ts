@@ -243,6 +243,5 @@ export function removeAllListeners(root: Element | null): void {
   forEachElementInSubtree(root, (el) => {
     removeElementListeners(el);
     removeElementReactiveProps(el);
-    clearDelegatedHandlersForElement(el);
   });
 }
