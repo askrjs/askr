@@ -55,7 +55,7 @@ export interface ComponentInstance {
   lastRenderToken?: number; // Token of the last *committed* render
   _pendingReadSources?: Set<ReadableSource<unknown>>; // Readables read during the in-progress render
   _lastReadSources?: Set<ReadableSource<unknown>>; // Readables read during the last committed render
-  devWarningsEmitted: Set<string>; // Dev-only warning dedupe for this instance
+  devWarningsEmitted?: Set<string>; // Dev-only warning dedupe for this instance
 
   // Placeholder for null-returning components. When a component initially returns
   // null, we create a comment placeholder so updates can replace it with content.
@@ -98,7 +98,7 @@ export function createComponentInstance(
     lastRenderToken: 0,
     _pendingReadSources: undefined,
     _lastReadSources: undefined,
-    devWarningsEmitted: new Set(),
+    devWarningsEmitted: undefined,
   };
 
   // Initialize prebound helper tasks once per instance to avoid allocations

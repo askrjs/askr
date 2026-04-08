@@ -256,7 +256,9 @@ import type {
   ResolvedRoute,
   RouteAuthOptions,
 } from '../common/router';
-import { removeAllListeners } from '../renderer';
+import { installRendererBridge, removeAllListeners } from '../renderer';
+  installRendererBridge();
+
 
 export type IslandConfig = {
   root: Element | string;
