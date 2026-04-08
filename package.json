@@ -114,7 +114,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@askrjs/askr-vite": "github:askrjs/askr-vite",
+    "@askrjs/askr-vite": "file:../askr-vite",
     "@types/node": "^25.5.0",
     "chai": "^6.2.2",
     "cross-env": "^10.1.0",
