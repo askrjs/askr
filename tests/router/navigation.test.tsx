@@ -5,7 +5,14 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { state, createSPA } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { clearRoutes, getRoutes, route } from '../../src/router/route';
@@ -129,7 +136,7 @@ describe('route navigation (ROUTER)', () => {
           namespace = 'admin-mfe';
           return <div>Admin Panel</div>;
         },
-        'admin-mfe'
+        { namespace: 'admin-mfe' }
       );
 
       route(
@@ -138,7 +145,7 @@ describe('route navigation (ROUTER)', () => {
           namespace = 'dashboard-mfe';
           return <div>Dashboard</div>;
         },
-        'dashboard-mfe'
+        { namespace: 'dashboard-mfe' }
       );
 
       const App = () => {
@@ -176,6 +183,73 @@ describe('route navigation (ROUTER)', () => {
       );
 
       historyPushSpy.mockRestore();
+    });
+
+    it('should replace browser history when navigating with replace mode', async () => {
+      const historyReplaceSpy = vi.spyOn(window.history, 'replaceState');
+
+      route('/page', () => {
+        return <div>Page</div>;
+      });
+
+      await createSPA({ root: container, routes: getRoutes() });
+      navigate('/page?tab=details', { history: 'replace' });
+      flushScheduler();
+
+      expect(historyReplaceSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/page?tab=details' }),
+        '',
+        '/page?tab=details'
+      );
+
+      historyReplaceSpy.mockRestore();
+    });
+
+    it('should preserve state and focus for same-path query updates', async () => {
+      route('/accounts', () => {
+        const query = state('');
+        const clicks = state(0);
+
+        return (
+          <div>
+            <input
+              id="search"
+              value={query()}
+              onInput={(event: Event) =>
+                query.set((event.target as HTMLInputElement).value)
+              }
+            />
+            <button id="inc" onClick={() => clicks.set((value) => value + 1)}>
+              Inc
+            </button>
+            <span id="click-count">{String(clicks())}</span>
+          </div>
+        );
+      });
+
+      window.history.replaceState({}, '', '/accounts');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      const input = container.querySelector('#search') as HTMLInputElement;
+      const button = container.querySelector('#inc') as HTMLButtonElement;
+      const countNode = container.querySelector('#click-count');
+
+      input.focus();
+      button.click();
+      flushScheduler();
+
+      expect(countNode?.textContent).toBe('1');
+      expect(document.activeElement).toBe(input);
+
+      navigate('/accounts?q=northwind', { history: 'replace' });
+      flushScheduler();
+
+      const nextInput = container.querySelector('#search') as HTMLInputElement;
+      const nextCountNode = container.querySelector('#click-count');
+
+      expect(nextCountNode?.textContent).toBe('1');
+      expect(document.activeElement).toBe(nextInput);
     });
   });
 

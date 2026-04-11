@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest';
+import { bench, describe } from 'vite-plus/test';
 import { createIsland, state } from '../../src';
 import {
   createTestContainer,
@@ -84,7 +84,7 @@ describe('tier2 runtime large tree', () => {
             <div>
               {Array.from({ length: 1000 }, (_, index) => (
                 <span data-i={index}>
-                  {index}:{tickState()}
+                  {index}:{tickState!()}
                 </span>
               ))}
             </div>

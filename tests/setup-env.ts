@@ -1,4 +1,4 @@
-import { beforeEach, afterEach } from 'vitest';
+import { beforeEach, afterEach } from 'vite-plus/test';
 
 // Ensure tests run in a deterministic dev-like environment regardless of
 // the shell's NODE_ENV (bench/profiling commands may set it to 'production').

@@ -5,8 +5,16 @@
  * Browser History API integration
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { createSPA } from '../../src/index';
+import { state } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { clearRoutes, getRoutes, route } from '../../src/router/route';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
@@ -156,6 +164,42 @@ describe('history integration (ROUTER)', () => {
 
       // Event was dispatched (whether handler processes it is app-dependent)
       expect(true).toBe(true);
+    });
+
+    it('should preserve state when popstate changes query on the same pathname', async () => {
+      route('/accounts', () => {
+        const count = state(0);
+        return (
+          <div>
+            <button
+              id="increment"
+              onClick={() => count.set((value) => value + 1)}
+            >
+              Increment
+            </button>
+            <span id="value">{String(count())}</span>
+          </div>
+        );
+      });
+
+      window.history.replaceState({}, '', '/accounts');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      const increment = container.querySelector(
+        '#increment'
+      ) as HTMLButtonElement;
+      increment.click();
+      flushScheduler();
+      expect(container.querySelector('#value')?.textContent).toBe('1');
+
+      window.history.pushState({ path: '/accounts?q=a' }, '', '/accounts?q=a');
+      window.dispatchEvent(
+        new PopStateEvent('popstate', { state: { path: '/accounts?q=a' } })
+      );
+      flushScheduler();
+
+      expect(container.querySelector('#value')?.textContent).toBe('1');
     });
   });
 

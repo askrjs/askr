@@ -4,7 +4,7 @@
  * Path matching and parameter extraction
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { match } from '../../src/router/match';
 
 describe('route matching (ROUTER)', () => {

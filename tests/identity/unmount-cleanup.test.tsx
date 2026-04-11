@@ -1,5 +1,5 @@
 // tests/identity/unmount_cleanup.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA, state } from '../../src/index';
 import { navigate } from '../../src/router/navigate';
 import { clearRoutes, getRoutes, route } from '../../src/router/route';

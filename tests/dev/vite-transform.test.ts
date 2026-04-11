@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { askrVitePlugin } from '../../src/dev/vite-plugin-askr';
+import { describe, it, expect } from 'vite-plus/test';
+import { askrVitePlugin } from '@askrjs/askr-vite';
 
 const sample = `
 export default function Hello() {
@@ -36,8 +36,8 @@ describe('askrVitePlugin JSX transform', () => {
 
     const code = res.code as string;
 
-    // Ensure a jsx/jsxs call exists in the output
-    expect(/\bjsx\(|\bjsxs\(/.test(code)).toBe(true);
+    // OXC automatic runtime emits an import from the configured importSource.
+    expect(code.includes('@askrjs/askr/jsx-runtime')).toBe(true);
   });
 
   it('should hoist repeated static literals when optimizeTemplates is enabled', async () => {

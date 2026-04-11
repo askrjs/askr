@@ -4,7 +4,7 @@
  * Stress test: Framework handles high-frequency events correctly.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state, createIsland } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 

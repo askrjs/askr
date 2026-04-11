@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import type { JSXElement } from '../../src/jsx/types';
 import { hydrateSPA } from '../../src/boot';
 import { renderToStringSync, renderToString } from '../../src/ssr';

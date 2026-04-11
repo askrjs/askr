@@ -8,7 +8,7 @@
  * No race conditions. Ever.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../src/index';
 import {
   createTestContainer,

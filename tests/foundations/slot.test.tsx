@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { Slot } from '@askrjs/askr/foundations';
 
 type VNodeShape = {

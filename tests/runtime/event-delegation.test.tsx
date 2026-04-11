@@ -9,7 +9,7 @@
  * - Scheduler integration works
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import {
   createTestContainer,
   flushScheduler,

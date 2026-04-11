@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it } from 'vite-plus/test';
 
 // This test simulates an SSR-like environment by temporarily removing
 // `document` and `window` from globalThis and dynamically importing the

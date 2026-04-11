@@ -1,19 +1,12 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2021",
-    "module": "ESNext",
     "lib": ["ES2021", "DOM"],
-
     "jsx": "preserve",
     "jsxImportSource": "@askrjs/askr",
-
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": ".",
     "paths": {
       "@askrjs/askr": ["./src/index.ts"],
       "@askrjs/askr/boot": ["./src/boot/index.ts"],
@@ -24,19 +17,10 @@
       "@askrjs/askr/router": ["./src/router/index.ts"],
       "@askrjs/askr/ssr": ["./src/ssr/index.ts"],
       "@askrjs/askr/ssg": ["./src/ssg/index.ts"],
-      "@askrjs/askr/vite": ["./src/dev/vite-plugin-askr.ts"],
-      "@askrjs/askr/jsx-runtime": ["./src/jsx/jsx-runtime.ts"],
-      "@askrjs/askr/jsx-dev-runtime": ["./src/jsx/jsx-dev-runtime.ts"]
-    },
-
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-
-    "moduleResolution": "bundler"
+      "@askrjs/askr/jsx-runtime": ["./src/jsx-runtime.ts"],
+      "@askrjs/askr/jsx-dev-runtime": ["./src/jsx-dev-runtime.ts"]
+    }
   },
-
   "include": ["src/**/*"],
   "exclude": ["tests", "benches", "examples"]
 }

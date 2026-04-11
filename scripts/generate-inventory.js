@@ -330,13 +330,42 @@ function generateMarkdownInventory(
 }
 
 function main() {
-  console.log('Generating Askr inventory...');
-  const srcInventory = generateSrcInventory(path.join(repoRoot, 'src'));
-  const benchesInventory = generateBenchesInventory(
-    path.join(repoRoot, 'benches')
-  );
-  const testsInventory = generateTestsInventory(path.join(repoRoot, 'tests'));
-  const docsInventory = generateDocsInventory(path.join(repoRoot, 'docs'));
+  console.log('Generating Askr monorepo inventory...');
+
+  const srcInventory = {};
+  const benchesInventory = {};
+  const testsInventory = {};
+
+  const packagesDir = path.join(repoRoot, 'packages');
+  const packageNames = fs.existsSync(packagesDir)
+    ? fs
+        .readdirSync(packagesDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+    : [];
+
+  for (const pkg of packageNames) {
+    const pkgRoot = path.join(packagesDir, pkg);
+
+    const srcDir = path.join(pkgRoot, 'src');
+    if (fs.existsSync(srcDir)) {
+      Object.assign(srcInventory, generateSrcInventory(srcDir));
+    }
+
+    const benchesDir = path.join(pkgRoot, 'benches');
+    if (fs.existsSync(benchesDir)) {
+      Object.assign(benchesInventory, generateBenchesInventory(benchesDir));
+    }
+
+    const testsDir = path.join(pkgRoot, 'tests');
+    if (fs.existsSync(testsDir)) {
+      Object.assign(testsInventory, generateTestsInventory(testsDir));
+    }
+  }
+
+  const docsInventory = fs.existsSync(path.join(repoRoot, 'docs'))
+    ? generateDocsInventory(path.join(repoRoot, 'docs'))
+    : {};
 
   const markdown = generateMarkdownInventory(
     srcInventory,
@@ -372,7 +401,7 @@ function main() {
     0
   );
 
-  console.log(`  Total symbols in src/: ${totalSrcSymbols}`);
+  console.log(`  Total symbols in packages/*/src: ${totalSrcSymbols}`);
   console.log(`  Total benchmarks: ${totalBenchmarks}`);
   console.log(`  Total test behaviors: ${totalBehaviors}`);
 }

@@ -7,7 +7,7 @@
  * or is replaced. This allows async work to be cancelled properly.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { resource } from '../../src/resources';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';

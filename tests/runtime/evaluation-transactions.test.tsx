@@ -8,7 +8,7 @@
  * There is no partial DOM state visible.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland } from '../../src/index';
 import { resource } from '../../src/resources';
 import { _resetDefaultPortal } from '../../src/foundations/structures/portal';

@@ -1,4 +1,4 @@
-import { describe, expect, beforeEach, test } from 'vitest';
+import { describe, expect, beforeEach, test } from 'vite-plus/test';
 import { createIsland, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import {
@@ -164,6 +164,38 @@ describe('reactive props issues validation', () => {
       container.querySelector('#subject')?.getAttribute('data-parity')
     ).toBe('even');
     expect(getPerfMetrics()?.skippedDomPropWrites).toBeGreaterThan(0);
+
+    cleanup();
+  });
+
+  test('should preserve stable class tokens when a reactive class toggles', () => {
+    const { container, cleanup } = createTestContainer();
+
+    let selectedState: ReturnType<typeof state<boolean>>;
+
+    const Component = () => {
+      selectedState = state(false);
+      return (
+        <div
+          id="subject"
+          class={() => (selectedState() ? 'row danger' : 'row')}
+        />
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const subject = container.querySelector('#subject');
+    expect(subject?.className).toBe('row');
+
+    selectedState!.set(true);
+    flushScheduler();
+    expect(subject?.className).toBe('row danger');
+
+    selectedState!.set(false);
+    flushScheduler();
+    expect(subject?.className).toBe('row');
 
     cleanup();
   });

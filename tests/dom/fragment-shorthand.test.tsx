@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland } from '../helpers/create-island';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 

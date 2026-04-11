@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../src/boot';
 import { createIsland, derive, state } from '../../src/index';
 import { For } from '../../src/for';

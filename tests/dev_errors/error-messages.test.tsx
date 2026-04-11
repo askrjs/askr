@@ -4,7 +4,7 @@
  * Error messages must be actionable and guide developers to solutions.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';

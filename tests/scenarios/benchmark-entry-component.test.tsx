@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { mountBenchmark } from '../../src/bench/benchmark-entry';
 import { createTestContainer } from '../helpers/test-renderer';

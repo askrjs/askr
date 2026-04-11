@@ -2,7 +2,7 @@
  * tests/runtime/commit_rollback.test.ts
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../src/index';
 import type { State } from '../../src/runtime/state';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';

@@ -2,9 +2,12 @@
 
 This guide gets a small Askr app running with state and routing.
 
+If you want a generated starter instead of building the example by hand, use the [CLI Reference](../reference/cli.md) and scaffold a project with `askr-cli create`.
+
 ## Prerequisites
 
 - [Installation](installation.md)
+- [CLI Reference](../reference/cli.md)
 
 ## 1) Create a component
 
@@ -26,10 +29,8 @@ export function Counter() {
 
 Use islands for a single mounted component (no router).
 
-The ergonomic default is importing boot APIs from `@askrjs/askr`. If you prefer a more explicit package shape, the same startup APIs are also available from `@askrjs/askr/boot`.
-
 ```tsx
-import { createIsland } from '@askrjs/askr';
+import { createIsland } from '@askrjs/askr/boot';
 import { Counter } from './Counter';
 
 createIsland({
@@ -43,7 +44,7 @@ createIsland({
 Use router subpath APIs when you need navigation.
 
 ```tsx
-import { createSPA } from '@askrjs/askr';
+import { createSPA } from '@askrjs/askr/boot';
 import { route, getRoutes, Link } from '@askrjs/askr/router';
 
 function Home() {

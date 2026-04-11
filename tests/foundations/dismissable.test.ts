@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { dismissable } from '@askrjs/askr/foundations';
 
 describe('dismissable (FOUNDATIONS)', () => {

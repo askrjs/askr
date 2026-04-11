@@ -1,11 +1,11 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite-plus';
 import {
   askrEsbuild,
   createBuildInput,
   createNodeEnvDefine,
   createPackageAliases,
   isBuildExternal,
-} from './tooling/askr-tooling';
+} from './tooling/askr-tooling.ts';
 
 const isProd =
   process.env.NODE_ENV === 'production' || process.env.BUILD === 'production';
@@ -16,11 +16,26 @@ export default defineConfig({
   define: createNodeEnvDefine(isProd ? 'production' : 'development', {
     bench: isBenchBuild,
   }),
+  lint: {
+    ignorePatterns: ['dist/**', 'node_modules/**', 'coverage/**'],
+    options: {
+      typeAware: false,
+      typeCheck: false,
+    },
+  },
+  fmt: {
+    semi: true,
+    singleQuote: true,
+    trailingComma: 'es5',
+    printWidth: 80,
+    tabWidth: 2,
+  },
   esbuild: askrEsbuild,
   resolve: {
     alias: createPackageAliases(),
   },
   build: {
+    modulePreload: false,
     // Use rollup input to support multiple named entry points
     rollupOptions: {
       input,
