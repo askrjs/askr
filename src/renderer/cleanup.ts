@@ -94,6 +94,19 @@ function forEachElementInSubtree(root: Element, visit: (el: Element) => void) {
   forEachDescendantElement(root, visit);
 }
 
+// Track listeners so we can remove them on cleanup
+export interface ListenerMapEntry {
+  handler: EventListener;
+  original: EventListener;
+  options?: boolean | AddEventListenerOptions;
+  isDelegated?: boolean;
+  updateHandler?: (nextHandler: EventListener) => void;
+}
+export const elementListeners = new WeakMap<
+  Element,
+  Map<string, ListenerMapEntry>
+>();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
@@ -180,26 +193,12 @@ export function teardownNodeSubtree(
   }
 }
 
-// Track listeners so we can remove them on cleanup
-export interface ListenerMapEntry {
-  handler: EventListener;
-  original: EventListener;
-  options?: boolean | AddEventListenerOptions;
-  isDelegated?: boolean;
-  updateHandler?: (nextHandler: EventListener) => void;
-}
-export const elementListeners = new WeakMap<
-  Element,
-  Map<string, ListenerMapEntry>
->();
-
 // Track reactive props cleanup functions and their function references
 export interface ReactivePropCleanupEntry {
   cleanup: () => void;
   fnRef: () => unknown;
   updateFn?: (nextFn: () => unknown) => void;
 }
-
 export const elementReactivePropsCleanup = new WeakMap<
   Element,
   Map<string, ReactivePropCleanupEntry>

@@ -1,4 +1,4 @@
-import { logger } from '../dev/logger';
+﻿import { logger } from '../dev/logger';
 import type { Props } from '../common/props';
 import { Fragment } from '../jsx/jsx-runtime';
 import {
@@ -33,10 +33,13 @@ import { __FOR_BOUNDARY__ } from '../common/vnode';
 import {
   evaluateForState,
   clearForDomUpdateState,
+  isBenchMetricScopeActive,
+  recordBenchCounter,
   recordBenchEvent,
   recordBenchTiming,
   type ForState,
   type ForCommitStrategy,
+  withBenchMetricScope,
 } from '../runtime/for';
 import { keyedElements } from './keyed';
 import {
@@ -59,9 +62,7 @@ import { incrementPerfMetric } from '../runtime/perf-metrics';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
-  updateDelegatedListener,
   removeDelegatedListener,
-  clearDelegatedHandlersForElement as _clearDelegatedHandlersForElement,
   isDelegatedEvent,
 } from '../runtime/events';
 
@@ -127,9 +128,9 @@ function nextComponentInstanceId(): string {
   return `comp-${fallbackComponentInstanceId}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Event Handler Management
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Add an event listener to an element with tracking
@@ -171,11 +172,15 @@ function addTrackedListener(
     isDelegated: useDelegation,
     updateHandler: mutableHandler?.updateHandler,
   });
+
+  if (isBenchMetricScopeActive('coldCreate')) {
+    recordBenchCounter('listenerBindings');
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Reactive Prop Management - Dirty Descriptor Invalidation
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ReactivePropDescriptor {
   el: Element;
@@ -253,7 +258,7 @@ function clearReactivePropSubscriptions(
  *
  * Optimised hot path:
  * - Uses `_evalSourceBuffer` (a shared reusable Set) for read tracking, saving
- *   one `new Set()` allocation per call compared to the naïve approach.
+ *   one `new Set()` allocation per call compared to the naÃ¯ve approach.
  * - After evaluation, checks whether the source set changed.  When sources are
  *   identical to the previous evaluation (the overwhelmingly common case for
  *   reactive class props that always read the same signal), no subscription
@@ -287,7 +292,7 @@ function evaluateAndSyncReactiveProp(
     _setCurrentInstance(prevInstance);
   }
 
-  // ── Inline syncReactivePropSubscriptions ────────────────────────────────
+  // â”€â”€ Inline syncReactivePropSubscriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Fast path: if the source set is unchanged, skip all bookkeeping and avoid
   // allocating a new Set for descriptor.readSources.  This is the common case
   // for reactive props like `() => isSelected(id) ? "danger" : ""` where the
@@ -304,13 +309,13 @@ function evaluateAndSyncReactiveProp(
       }
     }
     if (same) {
-      // Sources unchanged — keep prevSources as descriptor.readSources (no
+      // Sources unchanged â€” keep prevSources as descriptor.readSources (no
       // allocation, no register/unregister calls).
       return value;
     }
   }
 
-  // Sources changed — build a snapshot from the buffer and do the full diff.
+  // Sources changed â€” build a snapshot from the buffer and do the full diff.
   const nextSources = new Set(_evalSourceBuffer);
 
   for (const source of prevSources) {
@@ -416,6 +421,10 @@ function setupReactiveProp(
   const value = evaluateAndSyncReactiveProp(descriptor);
   applyPropValue(el, propName, value, tagName, undefined, descriptor);
   descriptor.lastValue = value;
+
+  if (isBenchMetricScopeActive('coldCreate')) {
+    recordBenchCounter('reactivePropsMounted');
+  }
 
   const cleanup = () => {
     descriptor.isActive = false;
@@ -719,9 +728,9 @@ function materializeKey(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Dynamic List Warnings
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Warn about missing keys on dynamic lists (dev only)
@@ -765,9 +774,9 @@ function warnMissingKeys(children: unknown[]): void {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // DOM Node Creation
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Create a DOM node from a VNode
@@ -790,9 +799,15 @@ export function createDOMNode(
 
   // Fast paths for primitives (most common)
   if (typeof node === 'string') {
+    if (isBenchMetricScopeActive('coldCreate')) {
+      recordBenchCounter('domNodesCreated');
+    }
     return document.createTextNode(node);
   }
   if (typeof node === 'number') {
+    if (isBenchMetricScopeActive('coldCreate')) {
+      recordBenchCounter('domNodesCreated');
+    }
     return document.createTextNode(String(node));
   }
 
@@ -853,6 +868,97 @@ export function createDOMNode(
   return null;
 }
 
+type StaticCreateChildShape = {
+  textContent: string | null;
+};
+
+function tryGetStaticCreateChildShape(
+  children: unknown
+): StaticCreateChildShape | null {
+  if (children === null || children === undefined || children === false) {
+    return { textContent: null };
+  }
+
+  if (typeof children === 'string' || typeof children === 'number') {
+    return { textContent: String(children) };
+  }
+
+  if (Array.isArray(children) && children.length === 1) {
+    const child = children[0];
+    if (child === null || child === undefined || child === false) {
+      return { textContent: null };
+    }
+    if (typeof child === 'string' || typeof child === 'number') {
+      return { textContent: String(child) };
+    }
+  }
+
+  return null;
+}
+
+function isStaticCreateScalarValue(value: unknown): boolean {
+  const valueType = typeof value;
+  return (
+    valueType === 'string' ||
+    valueType === 'number' ||
+    valueType === 'boolean'
+  );
+}
+
+function tryGetStaticCreateFastPathShape(
+  props: Record<string, unknown>,
+  children: unknown
+): StaticCreateChildShape | null {
+  const childShape = tryGetStaticCreateChildShape(children);
+  if (!childShape) {
+    return null;
+  }
+
+  for (const key in props) {
+    if (key === 'ref') {
+      return null;
+    }
+    if (isSkippedProp(key)) {
+      continue;
+    }
+
+    const value = props[key];
+    if (value === undefined || value === null || value === false) {
+      continue;
+    }
+
+    if (parseEventName(key) || !isStaticCreateScalarValue(value)) {
+      return null;
+    }
+  }
+
+  return childShape;
+}
+
+function applyStaticScalarPropsToElement(
+  el: Element,
+  props: Record<string, unknown>
+): void {
+  for (const key in props) {
+    if (isSkippedProp(key)) {
+      continue;
+    }
+
+    const value = props[key];
+    if (value === undefined || value === null || value === false) {
+      continue;
+    }
+
+    if (key === 'class' || key === 'className') {
+      writeElementClassName(el, String(value));
+    } else if (key === 'value' || key === 'checked') {
+      (el as HTMLElement & Record<string, unknown>)[key] = value;
+    } else {
+      el.setAttribute(key, String(value));
+    }
+  }
+}
+
 /**
  * Create an intrinsic DOM element (div, span, etc.)
  */
@@ -862,18 +968,35 @@ function createIntrinsicElement(
   props: Record<string, unknown>,
   parentNamespace?: string
 ): Element {
+  const children = props.children ?? node.children;
   const elementNamespace = resolveChildNamespace(type, parentNamespace);
   const el = createElementForNamespace(type, parentNamespace);
 
+  if (isBenchMetricScopeActive('coldCreate')) {
+    recordBenchCounter('domNodesCreated');
+  }
+
   // Materialize key into DOM attribute
   materializeKey(el, node, props);
+
+  const staticCreateFastPath = tryGetStaticCreateFastPathShape(props, children);
+
+  if (staticCreateFastPath) {
+    applyStaticScalarPropsToElement(el, props);
+    if (staticCreateFastPath.textContent !== null) {
+      el.textContent = staticCreateFastPath.textContent;
+      if (isBenchMetricScopeActive('coldCreate')) {
+        recordBenchCounter('domNodesCreated');
+      }
+    }
+    return el;
+  }
 
   // Apply props/attributes
   applyPropsToElement(el, props, type);
 
   // Add children
   // CRITICAL: Use nullish coalescing (?) instead of || because children can be 0, false, or empty string
-  const children = props.children ?? node.children;
 
   if (children !== null && children !== undefined) {
     if (Array.isArray(children)) {
@@ -1011,7 +1134,7 @@ function createFragmentElement(
  *
  * Returns true if shape has changed (i.e., DOM cannot be reused).
  * Structural check: compares DOM tagName with vnode type.
- * Do NOT rely on vnode identity (===) — vnodes are mutable.
+ * Do NOT rely on vnode identity (===) â€” vnodes are mutable.
  */
 function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
   if (!_isDOMElement(vnode)) return true;
@@ -1063,7 +1186,7 @@ export function createForBoundary(
 
   for (let i = 0; i < childrenVNodes.length; i++) {
     const childVNode = childrenVNodes[i];
-    // Use orderedKeys[i] to look up items — this is aligned with vnode order
+    // Use orderedKeys[i] to look up items â€” this is aligned with vnode order
     // after reconciliation. Do NOT use childVNode.key (JSX key may differ).
     const itemKey = forState.orderedKeys[i];
     const itemInstance = itemKey != null ? forState.items.get(itemKey) : null;
@@ -1071,7 +1194,7 @@ export function createForBoundary(
     let dom: Node | null = null;
 
     // Try to reuse existing DOM if element type matches (structural check).
-    // Do NOT rely on vnode identity (===) — vnodes are mutable.
+    // Do NOT rely on vnode identity (===) â€” vnodes are mutable.
     if (itemInstance && itemInstance._dom) {
       const cachedDom = itemInstance._dom;
       // Structural check: element type must match for safe reuse
@@ -1095,8 +1218,8 @@ export function createForBoundary(
         updateElementFromVnode(dom, childVNode, true);
       }
 
-      // ALWAYS append to fragment — this is mandatory for correct ordering.
-      // Appending an existing node moves it (DOM spec) — this is how reordering works.
+      // ALWAYS append to fragment â€” this is mandatory for correct ordering.
+      // Appending an existing node moves it (DOM spec) â€” this is how reordering works.
       // No parentElement checks may gate insertion.
       fragment.appendChild(dom);
     }
@@ -1183,7 +1306,10 @@ function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
       for (let i = 0; i < removedNodes.length; i++) {
         recordBenchEvent('domRemove');
       }
-      parent.textContent = '';
+      withBenchMetricScope('fullClear', () => {
+        recordBenchCounter('bulkClearCommits');
+        parent.textContent = '';
+      });
       return;
     }
   }
@@ -1346,41 +1472,43 @@ export function commitForBoundaryChildren(
   };
 
   const commitAppend = (): void => {
-    const fragment = parent.ownerDocument.createDocumentFragment();
-    let hasPendingAppend = false;
+    withBenchMetricScope('coldCreate', () => {
+      const fragment = parent.ownerDocument.createDocumentFragment();
+      let hasPendingAppend = false;
 
-    for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const itemKey = forState.orderedKeys[i];
-      const itemInstance = forState.items.get(itemKey);
-      if (!itemInstance) {
-        continue;
+      for (let i = 0; i < forState.orderedKeys.length; i++) {
+        const itemKey = forState.orderedKeys[i];
+        const itemInstance = forState.items.get(itemKey);
+        if (!itemInstance) {
+          continue;
+        }
+
+        // Skip already-mounted clean items without calling syncForItemDom.
+        // This avoids redundant DOM reads for unchanged rows when appending to
+        // an existing list (e.g. append 1,000 rows to 1,000-row table).
+        if (
+          itemInstance._dom?.parentNode === parent &&
+          !itemInstance._needsDomUpdate
+        ) {
+          continue;
+        }
+
+        const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+        if (!dom) {
+          continue;
+        }
+
+        if (dom.parentNode !== parent) {
+          recordBenchEvent('domInsert');
+          fragment.appendChild(dom);
+          hasPendingAppend = true;
+        }
       }
 
-      // Skip already-mounted clean items without calling syncForItemDom.
-      // This avoids redundant DOM reads for unchanged rows when appending to
-      // an existing list (e.g. append 1,000 rows to 1,000-row table).
-      if (
-        itemInstance._dom?.parentNode === parent &&
-        !itemInstance._needsDomUpdate
-      ) {
-        continue;
+      if (hasPendingAppend) {
+        parent.appendChild(fragment);
       }
-
-      const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
-      if (!dom) {
-        continue;
-      }
-
-      if (dom.parentNode !== parent) {
-        recordBenchEvent('domInsert');
-        fragment.appendChild(dom);
-        hasPendingAppend = true;
-      }
-    }
-
-    if (hasPendingAppend) {
-      parent.appendChild(fragment);
-    }
+    });
   };
 
   const commitSwap = (): void => {
@@ -1466,18 +1594,21 @@ export function commitForBoundaryChildren(
     }
 
     if (!hasExistingChild) {
-      const frag = parent.ownerDocument.createDocumentFragment();
-      for (let i = 0; i < count; i++) {
-        const itemKey = keys[i];
-        const itemInstance = forState.items.get(itemKey);
-        if (!itemInstance) continue;
-        const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
-        if (dom) {
-          recordBenchEvent('domInsert');
-          frag.appendChild(dom);
+      withBenchMetricScope('coldCreate', () => {
+        const frag = parent.ownerDocument.createDocumentFragment();
+        for (let i = 0; i < count; i++) {
+          const itemKey = keys[i];
+          const itemInstance = forState.items.get(itemKey);
+          if (!itemInstance) continue;
+          const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+          if (dom) {
+            recordBenchEvent('domInsert');
+            frag.appendChild(dom);
+          }
         }
-      }
-      parent.replaceChildren(frag);
+        recordBenchCounter('replaceChildrenCommits');
+        parent.replaceChildren(frag);
+      });
       return;
     }
 
@@ -1554,9 +1685,9 @@ export function commitForBoundaryChildren(
   clearForDomUpdateState(forState);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Element Updates
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Update an existing element's attributes and children from vnode
@@ -1648,7 +1779,7 @@ export function updateElementFromVnode(
   let desiredEventNames: Set<string> | null = null;
   let desiredReactivePropNames: Set<string> | null = null;
 
-  for (const key in props) {
+    for (const key in props) {
     const value = props[key];
     if (isSkippedProp(key)) continue;
 
@@ -1670,11 +1801,14 @@ export function updateElementFromVnode(
           }
         }
         existingListeners.delete(eventName);
-      } else if (existingReactiveProps?.has(key)) {
-        existingReactiveProps.get(key)!.cleanup();
-        existingReactiveProps.delete(key);
       } else {
-        el.removeAttribute(key);
+        const entry = existingReactiveProps?.get(key);
+        if (entry) {
+          entry.cleanup();
+          existingReactiveProps?.delete(key);
+        } else {
+          el.removeAttribute(key);
+        }
       }
       continue;
     }
@@ -1721,9 +1855,10 @@ export function updateElementFromVnode(
       continue;
     }
 
-    if (existingReactiveProps?.has(key)) {
-      existingReactiveProps.get(key)!.cleanup();
-      existingReactiveProps.delete(key);
+    const existingReactiveEntry = existingReactiveProps?.get(key);
+    if (existingReactiveEntry) {
+      existingReactiveEntry.cleanup();
+      existingReactiveProps?.delete(key);
     }
 
     if (key === 'class' || key === 'className') {
@@ -1731,7 +1866,9 @@ export function updateElementFromVnode(
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
     } else if (eventName) {
-      if (existingListeners && existingListeners.size > 0) {
+      if (
+        existingListeners && existingListeners.size > 0
+      ) {
         (desiredEventNames ??= new Set()).add(eventName);
       }
 
@@ -1744,20 +1881,6 @@ export function updateElementFromVnode(
       }
 
       if (existing) {
-        if (useDelegation && existing.isDelegated) {
-          updateDelegatedListener(
-            el,
-            eventName,
-            value as EventListener,
-            value as EventListener,
-            undefined
-          );
-          existing.handler = value as EventListener;
-          existing.original = value as EventListener;
-          existing.options = undefined;
-          continue;
-        }
-
         if (!useDelegation && !existing.isDelegated && existing.updateHandler) {
           existing.updateHandler(value as EventListener);
           existing.original = value as EventListener;
@@ -1787,6 +1910,7 @@ export function updateElementFromVnode(
           value as EventListener,
           undefined
         );
+        continue;
       }
 
       const options = getPassiveOptions(eventName);
@@ -1805,26 +1929,26 @@ export function updateElementFromVnode(
         }
       }
 
-      if (!elementListeners.has(el)) {
-        elementListeners.set(el, new Map());
-      }
-      elementListeners.get(el)!.set(eventName, {
+      const listenerEntry = {
         handler: trackedHandler,
         original: value as EventListener,
         options,
         isDelegated: useDelegation,
         updateHandler: mutableHandler?.updateHandler,
-      });
+      };
+      if (!elementListeners.has(el)) {
+        elementListeners.set(el, new Map());
+      }
+      elementListeners.get(el)!.set(eventName, listenerEntry);
     } else {
       el.setAttribute(key, String(value));
     }
   }
 
-  // Remove any remaining listeners not desired by current props
   if (existingListeners && existingListeners.size > 0) {
     // If no event props were present, all existing listeners are undesired.
     if (desiredEventNames === null) {
-      for (const [eventName, entry] of existingListeners) {
+      existingListeners.forEach((entry, eventName) => {
         if (entry.isDelegated) {
           removeDelegatedListener(el, eventName);
         } else {
@@ -1834,10 +1958,10 @@ export function updateElementFromVnode(
             el.removeEventListener(eventName, entry.handler);
           }
         }
-      }
+      });
       elementListeners.delete(el);
     } else {
-      for (const [eventName, entry] of existingListeners) {
+      existingListeners.forEach((entry, eventName) => {
         if (!desiredEventNames.has(eventName)) {
           if (entry.isDelegated) {
             removeDelegatedListener(el, eventName);
@@ -1850,24 +1974,24 @@ export function updateElementFromVnode(
           }
           existingListeners.delete(eventName);
         }
-      }
+      });
       if (existingListeners.size === 0) elementListeners.delete(el);
     }
   }
 
   if (existingReactiveProps && existingReactiveProps.size > 0) {
     if (desiredReactivePropNames === null) {
-      for (const [, entry] of existingReactiveProps) {
+      existingReactiveProps.forEach((entry) => {
         entry.cleanup();
-      }
+      });
       elementReactivePropsCleanup.delete(el);
     } else {
-      for (const [key, entry] of existingReactiveProps) {
+      existingReactiveProps.forEach((entry, key) => {
         if (!desiredReactivePropNames.has(key)) {
           entry.cleanup();
           existingReactiveProps.delete(key);
         }
-      }
+      });
       if (existingReactiveProps.size === 0) {
         elementReactivePropsCleanup.delete(el);
       }
@@ -1927,7 +2051,7 @@ export function updateElementChildren(
     if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
       const s = String(children);
       const t = el.firstChild as Text;
-      // Skip the write when the text is already correct — avoids triggering
+      // Skip the write when the text is already correct â€” avoids triggering
       // DOM mutation observers and text layout passes for unchanged nodes.
       if (t.data !== s) t.data = s;
     } else {
@@ -1996,7 +2120,7 @@ export function updateUnkeyedChildren(
   // Fast path: same-count, pure-element update (the common large-list re-render).
   // Iterate parent.children by index directly to avoid the Array.from snapshot
   // allocation for large lists. replaceChild(x, child[i]) replaces in-place so
-  // subsequent indices in the live HTMLCollection do NOT shift — safe to use.
+  // subsequent indices in the live HTMLCollection do NOT shift â€” safe to use.
   if (
     !hasText &&
     hasElements &&
@@ -2730,3 +2854,4 @@ function recordBulkDiag(data: Record<string, unknown>): void {
     }
   }
 }
+
