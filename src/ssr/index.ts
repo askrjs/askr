@@ -11,7 +11,12 @@
  */
 
 import type { JSXElement } from '../common/jsx';
-import type { RouteHandler } from '../common/router';
+import type {
+  RouteAuthOptions,
+  RouteHandler,
+  RouteManifest,
+  RouteRequestResult,
+} from '../common/router';
 import * as RouteModule from '../router/route';
 import type { Props } from '../common/props';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
@@ -152,10 +157,9 @@ function renderChildrenSync(
     return result;
   }
 
-  const parts = new Array<string>(children.length);
-  for (let i = 0; i < children.length; i++) {
-    parts[i] = renderChildSync(children[i], ctx);
-  }
+  const parts = Array.from({ length: children.length }, (_, index) =>
+    renderChildSync(children[index], ctx)
+  );
   return parts.join('');
 }
 
@@ -441,7 +445,7 @@ function executeComponentSync(
       pushSSRStrictPurityGuard();
     }
     // Create a temporary, lightweight component instance so runtime APIs like
-    // `state()` and `route()` can be called during SSR render. We avoid mounting
+    // `state()` and `currentRoute()` can be called during SSR render. We avoid mounting
     // or side-effects by not attaching the instance to any DOM target.
     const prev = getCurrentComponentInstance();
     const temp = createComponentInstance(
@@ -825,6 +829,45 @@ export function renderResolvedToStringSync(opts: {
       stopRenderPhase();
     }
   });
+}
+
+export async function resolveRequest(opts: {
+  url: string;
+  manifest?: RouteManifest;
+  routes?: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
+  auth?: RouteAuthOptions;
+  signal?: AbortSignal;
+}): Promise<RouteRequestResult> {
+  const { url, manifest, routes, auth, signal } = opts;
+
+  if (manifest) {
+    return await RouteModule.resolveRouteRequest(url, {
+      manifest,
+      mode: 'ssr',
+      auth,
+      signal,
+    });
+  }
+
+  if (!routes) {
+    throw new Error('resolveRequest requires a route manifest or route table.');
+  }
+
+  const requestUrl = new URL(url, 'http://localhost');
+  const resolved = RouteModule.resolveRouteFromRoutes(
+    requestUrl.pathname,
+    routes
+  );
+
+  if (!resolved) {
+    return null;
+  }
+
+  return {
+    kind: 'render',
+    handler: resolved.handler,
+    params: resolved.params,
+  };
 }
 
 // Synchronous server render for strict checks. Routes are resolved against the

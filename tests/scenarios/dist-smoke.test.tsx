@@ -1,5 +1,5 @@
 import { expect as expectChai } from 'chai';
-import { test, vi, expect } from 'vitest';
+import { test, vi, expect } from 'vite-plus/test';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { exec } from 'child_process';
 import { promisify } from 'util';

@@ -52,3 +52,20 @@ export {
   controllableState,
 } from './state/controllable';
 export type { ControllableState } from './state/controllable';
+
+export {
+  IconBase,
+  getIconContractProps,
+  isIconSizeToken,
+  joinIconStyle,
+  normalizeIconSizeValue,
+  resolveIconSizeVariable,
+  resolveIconStrokeWidthVariable,
+  serializeIconStyle,
+} from './icon/icon';
+export type {
+  IconOwnProps,
+  IconProps,
+  IconSizeToken,
+  IconStyleObject,
+} from './icon/icon.types';

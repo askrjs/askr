@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import fs from 'fs';
 import path from 'path';
 

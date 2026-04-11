@@ -10,23 +10,97 @@
  */
 export type RouteComponent = (props: Record<string, string>) => unknown;
 
+export type RouteMode = 'spa' | 'ssr' | 'ssg';
+export type RouteAuthMode = true | 'guest';
+export type AccessRedirectStatus = 301 | 302 | 303 | 307 | 308;
+export type AccessDenyStatus = 401 | 403 | 404;
+
+export interface AccessAllowDecision {
+  kind: 'allow';
+}
+
+export interface AccessRedirectDecision {
+  kind: 'redirect';
+  to: string;
+  status?: AccessRedirectStatus;
+  replace?: boolean;
+}
+
+export interface AccessDenyDecision {
+  kind: 'deny';
+  status: AccessDenyStatus;
+}
+
+export type AccessDecision =
+  | AccessAllowDecision
+  | AccessRedirectDecision
+  | AccessDenyDecision;
+
+export interface RouteContext<Session = unknown, User = unknown> {
+  mode: RouteMode;
+  params: Record<string, string>;
+  pathname: string;
+  search: string;
+  hash: string;
+  href: string;
+  session: Session | null;
+  user: User | null;
+  signal: AbortSignal;
+}
+
+export type RoutePolicy = (
+  context: RouteContext
+) => AccessDecision | Promise<AccessDecision>;
+
+export interface RouteAuthState<Session = unknown, User = unknown> {
+  session: Session | null;
+  user: User | null;
+}
+
+export type RouteAuthResolver<Session = unknown, User = unknown> = (
+  context: Omit<RouteContext<Session, User>, 'session' | 'user'>
+) => RouteAuthState<Session, User> | Promise<RouteAuthState<Session, User>>;
+
+export interface RouteAuthOptions<Session = unknown, User = unknown> {
+  resolve: RouteAuthResolver<Session, User>;
+  loginPath?:
+    | string
+    | ((context: RouteContext<Session, User>) => string | Promise<string>);
+  guestRedirectTo?:
+    | string
+    | ((context: RouteContext<Session, User>) => string | Promise<string>);
+  hasRole?: (
+    user: User,
+    role: string,
+    context: RouteContext<Session, User>
+  ) => boolean | Promise<boolean>;
+  hasPermission?: (
+    user: User,
+    permission: string,
+    context: RouteContext<Session, User>
+  ) => boolean | Promise<boolean>;
+}
+
+export interface CommonAccessOptions {
+  auth?: RouteAuthMode;
+  role?: string;
+  permission?: string;
+  policies?: readonly RoutePolicy[];
+}
+
 /**
  * Options for `route()` declarations.
  *
- * - `load`: server data loader called before render, result passed as SSR data
+ * - `loader`: server data loader called before render, result passed as SSR data
  * - `entries`: SSG entry generator — returns one param map per static page
- * - `guard`: navigation guard — return `false` to block or a path string to redirect
  * - `title`: page title hint used by SSG and document-meta integrations
  * - `namespace`: MFE namespace key for grouped route management
  */
-export interface RouteOptions {
-  load?: (context: { params: Record<string, string> }) => unknown;
+export interface RouteOptions extends CommonAccessOptions {
+  loader?: (context: { params: Record<string, string> }) => unknown;
   entries?: () =>
     | Array<Record<string, string>>
     | Promise<Array<Record<string, string>>>;
-  guard?: (context: {
-    params: Record<string, string>;
-  }) => boolean | string | Promise<boolean | string>;
   title?: string;
   namespace?: string;
 }
@@ -50,6 +124,35 @@ export interface LayoutScopeRecord {
   component: (props: { children?: unknown }) => unknown;
 }
 
+export interface RegisterRoutesOptions {
+  auth?: RouteAuthOptions;
+}
+
+export type RouteDefinition = () => void;
+
+export interface RouteRequestOptions {
+  manifest?: RouteManifest;
+  mode?: RouteMode;
+  auth?: RouteAuthOptions;
+  signal?: AbortSignal;
+}
+
+export interface RouteRenderResult {
+  kind: 'render';
+  handler: RouteHandler;
+  params: Record<string, string>;
+}
+
+export type RouteRequestResult =
+  | RouteRenderResult
+  | AccessRedirectDecision
+  | AccessDenyDecision
+  | null;
+
+export interface GroupHelperOptions extends CommonAccessOptions {
+  layout?: (props: { children?: unknown }) => unknown;
+}
+
 /**
  * A fully normalized route record produced by `route(path, Component, options?)`.
  *
@@ -69,7 +172,7 @@ export interface RouteRecord {
   rank: number;
   /** Layout chain from outermost to innermost, applied automatically on render */
   layoutChain: LayoutScopeRecord[];
-  /** Route metadata: load, entries, guard, title, namespace */
+  /** Route metadata: loader, entries, policies, title, namespace */
   options: RouteOptions;
   /** True when this is the `/*` catch-all fallback route */
   isFallback: boolean;
@@ -82,7 +185,7 @@ export interface RouteRecord {
 }
 
 /**
- * The normalized route manifest produced by a set of `layout()` and `route()`
+ * The normalized route manifest produced by registered route definitions.
  * declarations.  Pass it to `createSPA`, `hydrateSPA`, or `renderToString`
  * instead of assembling plain `Route[]` arrays.
  *
@@ -93,6 +196,7 @@ export interface RouteRecord {
  */
 export interface RouteManifest {
   records: RouteRecord[];
+  auth?: RouteAuthOptions;
 }
 
 export interface RouteHandler {

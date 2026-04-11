@@ -5,32 +5,8 @@ on:
   workflow_call:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/**'
-      - 'README.md'
-      - 'docs/**'
-      - 'examples/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'src/**'
-      - 'tests/**'
-      - 'checks/**'
-      - 'benches/**'
-      - 'vitest.config.ts'
   pull_request:
     branches: [main]
-    paths:
-      - '.github/workflows/**'
-      - 'README.md'
-      - 'docs/**'
-      - 'examples/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'src/**'
-      - 'tests/**'
-      - 'checks/**'
-      - 'benches/**'
-      - 'vitest.config.ts'
 
 permissions:
   contents: read

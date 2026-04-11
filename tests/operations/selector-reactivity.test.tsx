@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland, selector, state } from '../../src/index';
 import { For } from '../../src/for';
 import { flushScheduler } from '../helpers/test-renderer';
@@ -158,6 +158,65 @@ describe('selector reactivity', () => {
     flushScheduler();
 
     expect(selected._derivedSubscribers?.size ?? 0).toBe(2);
+  });
+
+  it('should update class when selector is created in parent and passed as prop', () => {
+    let selected!: ReturnType<typeof state<number | null>>;
+
+    const Row = ({ id, isSelected }: { id: number; isSelected: (id: number) => boolean }) => {
+      return (
+        <tr data-id={String(id)} class={() => (isSelected(id) ? 'danger' : '')}>
+          <td>{id}</td>
+        </tr>
+      );
+    };
+
+    const App = () => {
+      selected = state<number | null>(null);
+      const isSelected = selector(selected);
+
+      return (
+        <table>
+          <tbody>
+            {For(
+              () => [1, 2, 3, 4, 5],
+              (item) => item,
+              (item) => (
+                <Row id={item} isSelected={isSelected} />
+              )
+            )}
+          </tbody>
+        </table>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    // Initially no row is selected
+    const rows = () => container.querySelectorAll('tr');
+    for (let i = 0; i < 5; i++) {
+      expect(rows()[i].className).toBe('');
+    }
+
+    // Select row 5
+    selected.set(5);
+    flushScheduler();
+
+    expect(rows()[4].className).toBe('danger');
+    for (let i = 0; i < 4; i++) {
+      expect(rows()[i].className).toBe('');
+    }
+
+    // Move selection to row 2
+    selected.set(2);
+    flushScheduler();
+
+    expect(rows()[1].className).toBe('danger');
+    expect(rows()[4].className).toBe('');
+    for (const i of [0, 2, 3]) {
+      expect(rows()[i].className).toBe('');
+    }
   });
 
   it('should enforce stable hook order for selector()', () => {

@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { match } from '../../src/router/match';
 import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../src/boot';
 import { route } from '../../src/router/route';
 import {

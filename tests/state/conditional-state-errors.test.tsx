@@ -1,5 +1,5 @@
 // tests/state/conditional_state_errors.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 

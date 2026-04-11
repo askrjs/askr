@@ -29,7 +29,9 @@ declare global {
     interface ElementAttributesProperty {
       props: Props;
     }
+
+    interface ElementChildrenAttribute {
+      children: unknown;
+    }
   }
 }
-
-export {};

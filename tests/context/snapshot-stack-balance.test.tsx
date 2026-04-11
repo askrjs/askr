@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../src/index';
 import { defineContext, readContext } from '../../src/runtime/context';
 import { resource } from '../../src/resources';

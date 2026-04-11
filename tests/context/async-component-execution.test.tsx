@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { createTestContainer } from '../helpers/test-renderer';
 import type { JSXElement } from '../../src/jsx/types';
 

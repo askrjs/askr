@@ -1,5 +1,12 @@
 // tests/runtime/failure_modes.test.ts
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { createIsland } from '../../src/index';
 import { resource } from '../../src/resources';
 import {

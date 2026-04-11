@@ -25,7 +25,8 @@ export async function batchRenderRoutes(
   const { seed = 12345, dataMap = {}, concurrency = 1 } = options;
 
   const workerCount = Math.max(1, Math.min(concurrency, routes.length || 1));
-  const results = new Array<RouteRenderResult>(routes.length);
+  const results: RouteRenderResult[] = [];
+  results.length = routes.length;
   let nextIndex = 0;
 
   const renderOne = async (route: RouteConfig): Promise<RouteRenderResult> => {
@@ -38,7 +39,7 @@ export async function batchRenderRoutes(
       : (params, ctx?: unknown) => {
           const component = route.component as ComponentFunction;
           return component(
-            { ...(route.props || {}), ...(params || {}) },
+            { ...route.props, ...params },
             ctx as { signal: AbortSignal; ssr?: unknown }
           );
         };

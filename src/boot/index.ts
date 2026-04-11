@@ -31,13 +31,6 @@ interface ElementWithCleanup extends Element {
   [CLEANUP_SYMBOL]?: () => void;
 }
 
-export interface AppConfig {
-  root: Element | string;
-  component: ComponentFunction;
-  // Opt-in: surface cleanup errors during teardown for this app instance
-  cleanupStrict?: boolean;
-}
-
 function attachCleanupForRoot(
   rootElement: Element,
   instance: ComponentInstance
@@ -241,9 +234,31 @@ function mountOrUpdate(
   globalScheduler.flush();
 }
 
+function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentFunction {
+  return () =>
+    resolved.handler(resolved.params) as ReturnType<ComponentFunction>;
+}
+
+function bindDeniedStatus(status: number): ComponentFunction {
+  return () => ({
+    type: 'div',
+    props: {
+      'data-route-denied': String(status),
+    },
+    children: [String(status)],
+  });
+}
+
 // New strongly-typed init functions
-import type { Route, RouteManifest } from '../common/router';
-import { removeAllListeners } from '../renderer';
+import type {
+  Route,
+  RouteManifest,
+  ResolvedRoute,
+  RouteAuthOptions,
+} from '../common/router';
+import { installRendererBridge, removeAllListeners } from '../renderer';
+  installRendererBridge();
+
 
 export type IslandConfig = {
   root: Element | string;
@@ -261,7 +276,7 @@ export type IslandsConfig = {
 export type SPAConfig = {
   root: Element | string;
   /**
-   * Preferred: pass the route manifest built via `layout()` + `route()` calls.
+   * Preferred: pass the route manifest built via `registerRoutes(() => { ... })`.
    * ```ts
    * import { getManifest } from '@askrjs/askr/router';
    * await createSPA({ root: '#app', manifest: getManifest() });
@@ -270,6 +285,7 @@ export type SPAConfig = {
   manifest?: RouteManifest;
   /** Legacy: flat route array — kept for backward compatibility and test fixtures. */
   routes?: Route[];
+  auth?: RouteAuthOptions;
   cleanupStrict?: boolean;
   component?: never;
 };
@@ -280,6 +296,7 @@ export type HydrateSPAConfig = {
   manifest?: RouteManifest;
   /** Legacy flat route array. */
   routes?: Route[];
+  auth?: RouteAuthOptions;
   cleanupStrict?: boolean;
   hydrate?: {
     deferUntilIdle?: boolean;
@@ -391,11 +408,15 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   const {
     clearRoutes,
     _applyManifest,
+    _setActiveRouteAuthOptions,
+    _snapshotLazy,
     _drainLazy,
     route: registerRoute,
     lockRouteRegistration,
-    resolveRoute,
+    resolveRouteRequest,
   } = await import('../router/route');
+
+  const pendingLazyAtBoot = _snapshotLazy();
 
   clearRoutes();
 
@@ -409,15 +430,36 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     }
   }
 
+  const routeAuth = config.auth ?? config.manifest?.auth;
+  _setActiveRouteAuthOptions(routeAuth);
+
   // Drain any lazy() imports so all split chunks are ready before mounting
-  await _drainLazy();
+  await _drainLazy(pendingLazyAtBoot);
 
   // Lock registration in production to prevent late registration surprises
   if (process.env.NODE_ENV === 'production') lockRouteRegistration();
 
   // Mount the currently-resolved route handler (if any)
-  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  const resolved = resolveRoute(path);
+  let path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  let href =
+    typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : path;
+  let resolved = await resolveRouteRequest(href, { auth: routeAuth });
+
+  while (
+    typeof window !== 'undefined' &&
+    resolved &&
+    resolved.kind === 'redirect'
+  ) {
+    const redirectTarget = new URL(resolved.to, window.location.href);
+    const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
+    window.history.replaceState({ path: redirectHref }, '', redirectHref);
+    path = redirectTarget.pathname;
+    href = redirectHref;
+    resolved = await resolveRouteRequest(href, { auth: routeAuth });
+  }
+
   if (!resolved) {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
       cleanupStrict: config.cleanupStrict,
@@ -432,9 +474,32 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     return;
   }
 
-  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict: config.cleanupStrict,
-  });
+  if (resolved.kind === 'redirect') {
+    mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
+      cleanupStrict: config.cleanupStrict,
+    });
+
+    const { registerAppInstance, initializeNavigation } =
+      await import('../router/navigate');
+    const instance = instancesByRoot.get(rootElement);
+    if (!instance) throw new Error('Internal error: app instance missing');
+    registerAppInstance(instance as ComponentInstance, path);
+    initializeNavigation();
+    return;
+  }
+
+  mountOrUpdate(
+    rootElement,
+    resolved.kind === 'deny'
+      ? bindDeniedStatus(resolved.status)
+      : bindResolvedRouteHandler({
+          handler: resolved.handler,
+          params: resolved.params,
+        }),
+    {
+      cleanupStrict: config.cleanupStrict,
+    }
+  );
 
   const { registerAppInstance, initializeNavigation } =
     await import('../router/navigate');
@@ -592,17 +657,25 @@ async function applySelectiveHydration(
 
   if (hydrateOptions.deferUntilIdle && !hasSelectiveBoundaries) {
     await queueIdleWork(() => {
-      mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-        cleanupStrict,
-      });
+      mountOrUpdate(
+        rootElement,
+        (() => resolved.handler(resolved.params)) as ComponentFunction,
+        {
+          cleanupStrict,
+        }
+      );
     });
     await registerHydratedNavigation(rootElement, path);
     return;
   }
 
-  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
-    cleanupStrict,
-  });
+  mountOrUpdate(
+    rootElement,
+    (() => resolved.handler(resolved.params)) as ComponentFunction,
+    {
+      cleanupStrict,
+    }
+  );
   await registerHydratedNavigation(rootElement, path);
 
   if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
@@ -649,12 +722,16 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   const {
     clearRoutes,
     _applyManifest,
+    _setActiveRouteAuthOptions,
+    _snapshotLazy,
     _drainLazy,
     route: registerRoute,
     setServerLocation,
     lockRouteRegistration,
     resolveRoute,
   } = await import('../router/route');
+
+  const pendingLazyAtHydrationBoot = _snapshotLazy();
 
   clearRoutes();
 
@@ -666,8 +743,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
 
+  _setActiveRouteAuthOptions(config.auth ?? config.manifest?.auth);
+
   // Drain any lazy() imports so all split chunks are ready before mounting
-  await _drainLazy();
+  await _drainLazy(pendingLazyAtHydrationBoot);
 
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   const currentUrl =
@@ -725,16 +804,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
 
-  mountOrUpdate(rootElement, resolved.handler as ComponentFunction, {
+  mountOrUpdate(rootElement, bindResolvedRouteHandler(resolved), {
     cleanupStrict: config.cleanupStrict,
   });
   await registerHydratedNavigation(rootElement, path);
-}
-
-export async function hydrate(_config: AppConfig): Promise<void> {
-  throw new Error(
-    'The legacy `hydrate` API is removed. Use `hydrateSPA({ root, routes })` for SSR hydration with an explicit route table.'
-  );
 }
 
 /**

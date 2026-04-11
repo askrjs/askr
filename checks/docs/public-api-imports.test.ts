@@ -3,10 +3,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..', '..');
+const monorepoRootDir = path.resolve(rootDir, '..', '..');
 const scanDirs = ['docs', 'examples'];
 const scanFiles = ['README.md'];
 const forbiddenPatterns = [
@@ -25,6 +26,9 @@ const forbiddenPatterns = [
 ];
 
 function collectFiles(dirPath: string): string[] {
+  if (!fs.existsSync(dirPath)) {
+    return [];
+  }
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
   const files: string[] = [];
 
@@ -93,6 +97,18 @@ function probeDistExports(): unknown {
                 navigate: typeof rootModule.navigate,
                 resource: typeof rootModule.resource,
                 Link: typeof rootModule.Link,
+                hasCreateApp: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'createApp'
+                ),
+                hasHydrateAlias: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'hydrate'
+                ),
+                hasAppConfigAlias: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'AppConfig'
+                ),
                 hasRegisterRoute: Object.prototype.hasOwnProperty.call(
                   rootModule,
                   'registerRoute'
@@ -108,15 +124,21 @@ function probeDistExports(): unknown {
               },
               router: {
                 route: typeof routerModule.route,
+                currentRoute: typeof routerModule.currentRoute,
                 navigate: typeof routerModule.navigate,
                 Link: typeof routerModule.Link,
-                layout: typeof routerModule.layout,
+                group: typeof routerModule.group,
+                fallback: typeof routerModule.fallback,
                 registerRoute: typeof routerModule.registerRoute,
               },
               resources: {
                 resource: typeof resourcesModule.resource,
                 getSignal: typeof resourcesModule.getSignal,
                 on: typeof resourcesModule.on,
+                hasDataResultAlias: Object.prototype.hasOwnProperty.call(
+                  resourcesModule,
+                  'DataResult'
+                ),
               },
               fx: {
                 debounce: typeof fxModule.debounce,
@@ -127,6 +149,14 @@ function probeDistExports(): unknown {
                 createSPA: typeof bootModule.createSPA,
                 hydrateSPA: typeof bootModule.hydrateSPA,
                 cleanupApp: typeof bootModule.cleanupApp,
+                hasHydrateAlias: Object.prototype.hasOwnProperty.call(
+                  bootModule,
+                  'hydrate'
+                ),
+                hasAppConfigAlias: Object.prototype.hasOwnProperty.call(
+                  bootModule,
+                  'AppConfig'
+                ),
               },
             }));
           `,
@@ -151,9 +181,18 @@ function probeDistExports(): unknown {
 
 describe('public docs and examples', () => {
   it('do not reference private or non-exported package paths', () => {
+    const rootsToScan = [rootDir, monorepoRootDir].filter((dirPath) =>
+      fs.existsSync(dirPath)
+    );
     const files = [
-      ...scanFiles.map((file) => path.join(rootDir, file)),
-      ...scanDirs.flatMap((dir) => collectFiles(path.join(rootDir, dir))),
+      ...rootsToScan.flatMap((scanRoot) =>
+        scanFiles
+          .map((file) => path.join(scanRoot, file))
+          .filter((filePath) => fs.existsSync(filePath))
+      ),
+      ...rootsToScan.flatMap((scanRoot) =>
+        scanDirs.flatMap((dir) => collectFiles(path.join(scanRoot, dir)))
+      ),
     ];
 
     for (const file of files) {
@@ -178,21 +217,27 @@ describe('public docs and examples', () => {
         navigate: 'function',
         resource: 'function',
         Link: 'function',
+        hasCreateApp: false,
+        hasHydrateAlias: false,
+        hasAppConfigAlias: false,
         hasRegisterRoute: false,
         hasDebounce: false,
         hasRenderToString: false,
       },
       router: {
         route: 'function',
+        currentRoute: 'function',
         navigate: 'function',
         Link: 'function',
-        layout: 'function',
+        group: 'function',
+        fallback: 'function',
         registerRoute: 'undefined',
       },
       resources: {
         resource: 'function',
         getSignal: 'function',
         on: 'function',
+        hasDataResultAlias: false,
       },
       fx: {
         debounce: 'function',
@@ -203,6 +248,8 @@ describe('public docs and examples', () => {
         createSPA: 'function',
         hydrateSPA: 'function',
         cleanupApp: 'function',
+        hasHydrateAlias: false,
+        hasAppConfigAlias: false,
       },
     });
   });

@@ -3,7 +3,11 @@
  */
 
 import type { ComponentFunction } from '../common/component';
-import type { RouteHandler } from '../common/router';
+import type {
+  RouteAuthMode,
+  RouteHandler,
+  RoutePolicy,
+} from '../common/router';
 
 export type SSGMode = 'full' | 'incremental';
 
@@ -16,7 +20,8 @@ export type RouteRenderReason =
   | 'new-route'
   | 'no-keys'
   | 'unchanged'
-  | 'deleted';
+  | 'deleted'
+  | 'runtime-only';
 
 /**
  * Route config accepted by SSG.
@@ -35,6 +40,14 @@ export interface RouteConfig {
   props?: Record<string, unknown>;
   /** Optional namespace for router compatibility */
   namespace?: string;
+  /** Guest routes remain prerenderable; authenticated routes are runtime-only by default */
+  auth?: RouteAuthMode;
+  /** Role-gated routes are runtime-only by default */
+  role?: string;
+  /** Permission-gated routes are runtime-only by default */
+  permission?: string;
+  /** Advanced runtime access checks disable prerendering by default */
+  policies?: readonly RoutePolicy[];
   /** Optional path parameter map for template paths like "/blog/{slug}" */
   params?: Record<string, string>;
   /** Optional explicit invalidation keys for incremental generation */

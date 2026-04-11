@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { collectResources, type SSRRoute } from '../../src/ssr';
 
 describe('SSR prepass collection (deprecated)', () => {

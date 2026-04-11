@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest';
+import { bench, describe } from 'vite-plus/test';
 import { createIsland, state } from '../../src';
 import {
   createTestContainer,
@@ -81,7 +81,7 @@ describe('tier1 renderer positional text', () => {
             <div>
               {Array.from(
                 { length: 1000 },
-                (_, index) => `${valueState()}-${index}`
+                (_, index) => `${valueState!()}-${index}`
               )}
             </div>
           );

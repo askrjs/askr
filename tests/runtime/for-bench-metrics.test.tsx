@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland, state } from '../../src';
 import { For } from '../../src/for';
 import { getBenchMetrics } from '../../src/runtime/for';

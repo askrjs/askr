@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../src/index';
 import { resource } from '../../src/resources';
 import { scheduleEventHandler } from '../../src/runtime/scheduler';

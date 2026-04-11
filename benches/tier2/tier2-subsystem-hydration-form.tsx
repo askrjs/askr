@@ -1,11 +1,15 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { createHydrationFixture, tier2BenchOptions } from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
 import { state } from '../../src';
 import { fireEvent, flushScheduler } from '../../tests/helpers/test-renderer';
 
+type FormState = {
+  note: string;
+} & Record<string, string | boolean>;
+
 function createFormHarness() {
-  const initialForm = {
+  const initialForm: FormState = {
     note: 'Initial note',
     ...Object.fromEntries(
       Array.from({ length: 20 }, (_, index) => [

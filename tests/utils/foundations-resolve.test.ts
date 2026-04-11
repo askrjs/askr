@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 
 describe('foundations resolution', () => {
   it('should resolve foundations via package subpath', async () => {

@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import type { BenchToggle, RowData } from '../shared/_shared';
 import {
   assertRowCountTransition,
@@ -38,6 +38,11 @@ verifyTier1Invariant('tier1 hotpath for truncate', () => {
     );
 
     expect(metrics.fastLaneName).toBe('TRUNCATE');
+    expect(metrics.domNodesCreated).toBe(0);
+    expect(metrics.listenerBindings).toBe(0);
+    expect(metrics.reactivePropsMounted).toBe(0);
+    expect(metrics.replaceChildrenCommits).toBe(0);
+    expect(metrics.bulkClearCommits).toBe(1);
   } finally {
     mounted.cleanup();
   }

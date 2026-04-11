@@ -3,8 +3,11 @@
  */
 
 export {
+  registerRoutes,
   route,
-  layout,
+  currentRoute,
+  group,
+  fallback,
   lazy,
   getManifest,
   _applyManifest,
@@ -14,11 +17,39 @@ export {
   getNamespaceRoutes,
   unloadNamespace,
   getLoadedNamespaces,
+  resolveRouteRequest,
   setServerLocation,
 } from './route';
+export {
+  allow,
+  redirect,
+  deny,
+  unauthorized,
+  forbidden,
+  notFound,
+  requireAuth,
+  requireRole,
+  requirePermission,
+} from './policy';
 export type {
+  AccessDecision,
+  AccessDenyDecision,
+  AccessRedirectDecision,
+  GroupHelperOptions,
+  RegisterRoutesOptions,
+  RouteDefinition,
   Route,
+  RouteAuthMode,
+  RouteAuthOptions,
+  RouteAuthResolver,
+  RouteAuthState,
   RouteHandler,
+  RouteMode,
+  RouteContext,
+  RoutePolicy,
+  RouteRenderResult,
+  RouteRequestOptions,
+  RouteRequestResult,
   RouteSnapshot,
   RouteMatch,
   RouteQuery,
@@ -31,6 +62,7 @@ export type {
 } from '../common/router';
 
 export { navigate } from './navigate';
+export type { NavigateOptions } from './navigate';
 
 export { Link } from '../components/link';
 export type { LinkProps } from '../components/link';

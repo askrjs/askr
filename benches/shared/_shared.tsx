@@ -3,7 +3,7 @@ import type { JSXElement } from '../../src/jsx/types';
 import { cleanupApp } from '../../src/boot';
 import { mountBenchmark } from '../../src/bench/benchmark-entry';
 import type { Route, RouteHandler } from '../../src/router/route';
-import { clearRoutes, route } from '../../src/router/route';
+import { clearRoutes, currentRoute, route } from '../../src/router/route';
 import { cleanupNavigation } from '../../src/router/navigate';
 import { getBenchMetrics } from '../../src/runtime/for';
 import { renderToStringSyncForUrl } from '../../src/ssr';
@@ -617,7 +617,7 @@ export function buildSsrLayoutRouteFixture(): SsrLayoutRouteFixture {
       {
         path: '/dashboard/reports/{id}',
         handler: () => {
-          const snapshot = route();
+          const snapshot = currentRoute();
           return ShellLayout(
             SectionLayout(
               <article
@@ -648,7 +648,7 @@ export function buildConcurrentSsrRequests(
         {
           path: '/requests/{id}',
           handler: () => {
-            const snapshot = route();
+            const snapshot = currentRoute();
             const renderData = getCurrentRenderData() as {
               requestLabel?: string;
             } | null;
@@ -771,7 +771,11 @@ export function registerRoutes(
 ): void {
   clearRoutes();
   for (const entry of entries) {
-    route(entry.path, entry.handler, entry.namespace);
+    route(
+      entry.path,
+      entry.handler,
+      entry.namespace ? { namespace: entry.namespace } : undefined
+    );
   }
 }
 

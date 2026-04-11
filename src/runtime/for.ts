@@ -16,7 +16,10 @@ import {
   setStateIndex,
   cleanupComponent,
 } from './component';
-import type { DOMElement, VNode } from '../common/vnode';
+import {
+  type DOMElement,
+  type VNode,
+} from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
@@ -29,27 +32,40 @@ import {
   flushBenchMetrics,
   getBenchMetrics,
   isBenchBuildEnabled,
+  isBenchMetricScopeActive,
   recordBenchEvent,
+  recordBenchCounter,
   recordBenchFastLane,
   recordBenchTiming,
   resetBenchMetrics,
+  withBenchMetricScope,
 } from './for-bench';
 
 const BENCH_BUILD_ENABLED = isBenchBuildEnabled();
 
-export { getBenchMetrics };
-export { recordBenchEvent, recordBenchTiming };
+export {
+  getBenchMetrics,
+  isBenchMetricScopeActive,
+  recordBenchCounter,
+  recordBenchEvent,
+  recordBenchTiming,
+  withBenchMetricScope,
+};
 
 export interface ForItemInstance<T> {
   key: string | number | null;
   item: T;
-  indexSignal: State<number>;
+  indexSignal: ForIndexSignal;
   componentInstance: ComponentInstance;
   vnode: VNode | undefined;
   _startStateIndex: number; // Global state index when item was created
   _dom?: Node; // Cached DOM node for efficient updates
   _needsDomUpdate: boolean;
 }
+
+type ForIndexSignal = (() => number) & {
+  set(newValue: number | ((prev: number) => number)): void;
+};
 
 export type ForCommitStrategy =
   | 'APPEND'
@@ -132,6 +148,22 @@ export function createForState<T>(
 }
 
 let _forRenderCounter = 1;
+const NOOP_COMPONENT_FN: ComponentFunction = () => null;
+
+function createForIndexSignal(initialIndex: number): ForIndexSignal {
+  let indexValue = initialIndex;
+
+  const indexSignal = (() => indexValue) as ForIndexSignal;
+  indexSignal.set = (newValue: number | ((prev: number) => number)) => {
+    const nextValue =
+      typeof newValue === 'function' ? newValue(indexValue) : newValue;
+    if (nextValue !== indexValue) {
+      indexValue = nextValue;
+    }
+  };
+
+  return indexSignal;
+}
 
 export function createItemInstance<T>(
   key: string | number | null,
@@ -143,43 +175,14 @@ export function createItemInstance<T>(
 
   // Create index signal manually without going through state() hook
   // to avoid hook order violations (each For item creates its signal dynamically)
-  let indexValue = index;
-  // Cast to avoid strict structural check during dts build — we'll add iterator below
-  const indexSignal: State<number> = Object.assign(() => indexValue, {
-    set(newValue: number | ((prev: number) => number)) {
-      const nextValue =
-        typeof newValue === 'function' ? newValue(indexValue) : newValue;
-      if (nextValue !== indexValue) {
-        indexValue = nextValue;
-        // Index changes typically don't need to trigger re-renders
-        // but we provide the signal for user convenience
-      }
-    },
-  }) as unknown as State<number>;
-
-  // Provide iterable interface so callers can destructure: const [i, setI] = indexSignal
-  (
-    indexSignal as unknown as {
-      [Symbol.iterator]?: () => Iterator<
-        State<number> | typeof indexSignal.set
-      >;
-    }
-  )[Symbol.iterator] = function* (): Generator<
-    State<number> | typeof indexSignal.set,
-    void,
-    unknown
-  > {
-    yield indexSignal;
-    yield indexSignal.set;
-  };
+  const indexSignal = createForIndexSignal(index);
 
   // Create isolated component for this item. The renderFn is executed while
   // this instance is the current component so nested state() calls register
   // readers against this instance for precise notification.
-  const noopComponentFn: ComponentFunction = () => null;
   const itemComponent = createComponentInstance(
     `for-item-${key}`,
-    noopComponentFn,
+    NOOP_COMPONENT_FN,
     {},
     null
   );
@@ -203,9 +206,7 @@ export function createItemInstance<T>(
   itemComponent._pendingReadSources = undefined;
 
   recordBenchEvent('rowFactory');
-  const vnode = evaluateJSXElement(
-    forState.renderFn(item, () => indexSignal())
-  );
+  const vnode = evaluateJSXElement(forState.renderFn(item, indexSignal));
 
   // Materialize key on vnode so renderer key extraction works
   if (vnode && typeof vnode === 'object' && 'type' in vnode) {
@@ -268,9 +269,7 @@ export function createItemInstance<T>(
 
     // Safely re-render into vnode slot for this item
     try {
-      const newVnode = evaluateJSXElement(
-        forState.renderFn(item, () => indexSignal())
-      );
+      const newVnode = evaluateJSXElement(forState.renderFn(item, indexSignal));
       // Update the stored vnode directly in captured instance
       itemInstance.vnode = newVnode;
       itemInstance._needsDomUpdate = true;
@@ -315,7 +314,7 @@ function rerenderItemInstance<T>(
   try {
     recordBenchEvent('rowFactory');
     itemInstance.vnode = evaluateJSXElement(
-      forState.renderFn(item, () => itemInstance.indexSignal())
+      forState.renderFn(item, itemInstance.indexSignal)
     );
     itemInstance._needsDomUpdate = true;
     try {
@@ -369,7 +368,8 @@ export function reconcileForItems<T>(
     if (canUseAppendPath) {
       recordBenchFastLane('APPEND');
       forState.lastCommitStrategy = 'APPEND';
-      const resultVNodes: VNode[] = [];
+      const resultVNodes = forState.orderedVNodes;
+      resultVNodes.length = newLen;
 
       // Update existing rows in-place
       for (let i = 0; i < oldLen; i++) {
@@ -379,18 +379,12 @@ export function reconcileForItems<T>(
         recordBenchEvent('itemReused');
 
         const itemChanged = existing.item !== item;
-        const indexChanged = existing.indexSignal() !== i;
-
         if (itemChanged) {
           existing.item = item;
           rerenderItemInstance(forState, existing, item);
         }
 
-        if (indexChanged) {
-          existing.indexSignal.set(i);
-        }
-
-        resultVNodes.push(existing.vnode);
+        resultVNodes[i] = existing.vnode;
       }
 
       // Create and append new rows
@@ -399,7 +393,7 @@ export function reconcileForItems<T>(
         const key = byFn(item, i);
         const itemInstance = createItemInstance(key, item, i, forState);
         items.set(key, itemInstance);
-        resultVNodes.push(itemInstance.vnode);
+        resultVNodes[i] = itemInstance.vnode;
         orderedKeys[i] = key;
       }
 
@@ -530,7 +524,8 @@ export function reconcileForItems<T>(
     if (canUseTruncatePath) {
       recordBenchFastLane('TRUNCATE');
       forState.lastCommitStrategy = 'TRUNCATE';
-      const resultVNodes: VNode[] = [];
+      const resultVNodes = forState.orderedVNodes;
+      resultVNodes.length = newLen;
       const isFullClear = newLen === 0;
 
       // Update existing rows in-place
@@ -541,18 +536,12 @@ export function reconcileForItems<T>(
         recordBenchEvent('itemReused');
 
         const itemChanged = existing.item !== item;
-        const indexChanged = existing.indexSignal() !== i;
-
         if (itemChanged) {
           existing.item = item;
           rerenderItemInstance(forState, existing, item);
         }
 
-        if (indexChanged) {
-          existing.indexSignal.set(i);
-        }
-
-        resultVNodes.push(existing.vnode);
+        resultVNodes[i] = existing.vnode;
       }
 
       // Remove tail rows
@@ -809,8 +798,8 @@ export function reconcileForItems<T>(
     const itemInstance = items.get(key);
     if (itemInstance) {
       recordBenchEvent('itemRemoved');
-      // Clean up component instance
       const instance = itemInstance.componentInstance;
+      // Clean up component instance
       try {
         cleanupComponent(instance);
       } catch (err) {
@@ -821,9 +810,6 @@ export function reconcileForItems<T>(
 
       // Clean up cached DOM node if present
       if (itemInstance._dom) {
-        if (itemInstance._dom instanceof Element) {
-          teardownNodeSubtree(itemInstance._dom);
-        }
         forState.lastRemovedNodes.push(itemInstance._dom);
       }
 

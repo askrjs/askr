@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { createSPA } from '../../src/boot';
 import { navigate } from '../../src/router/navigate';
 import { state } from '../../src';

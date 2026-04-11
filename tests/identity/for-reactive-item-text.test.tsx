@@ -11,7 +11,7 @@
  * detection logic from working. This caused text content updates to be missed.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../src/index';
 import type { State } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';

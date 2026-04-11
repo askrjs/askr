@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vitest';
+import { bench, describe, expect } from 'vite-plus/test';
 import { hydrateSPA } from '../../src/boot';
 import { flushScheduler } from '../../tests/helpers/test-renderer';
 import {

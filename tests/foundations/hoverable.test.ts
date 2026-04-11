@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { hoverable } from '@askrjs/askr/foundations';
 
 describe('hoverable (FOUNDATIONS)', () => {
