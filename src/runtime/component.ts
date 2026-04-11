@@ -252,8 +252,6 @@ function runComponent(instance: ComponentInstance): void {
   // Assign a token for this in-progress render and start a fresh pending-read set
   instance._currentRenderToken = ++_globalRenderCounter;
   instance._pendingReadSources = undefined;
-
-  // Atomic rendering: capture DOM state for rollback on error
   const domSnapshot = instance.target ? instance.target.innerHTML : '';
 
   const result = executeComponentSync(instance);
@@ -336,9 +334,6 @@ function runComponent(instance: ComponentInstance): void {
       }
 
       if (instance.target) {
-        // Keep `oldChildren` in the outer scope so rollback handlers can
-        // reference the original node list even if the inner try block
-        // throws. This preserves listeners and instance backrefs on rollback.
         let oldChildren: Node[] = [];
         try {
           const wasFirstMount = !instance.mounted;
@@ -422,15 +417,11 @@ function runComponent(instance: ComponentInstance): void {
           }
 
           try {
-            try {
-              incDevCounter('__DOM_REPLACE_COUNT');
-              setDevValue(
-                '__LAST_DOM_REPLACE_STACK_COMPONENT_ROLLBACK',
-                new Error().stack
-              );
-            } catch (e) {
-              void e;
-            }
+            incDevCounter('__DOM_REPLACE_COUNT');
+            setDevValue(
+              '__LAST_DOM_REPLACE_STACK_COMPONENT_ROLLBACK',
+              new Error().stack
+            );
             instance.target.replaceChildren(...oldChildren);
           } catch {
             // Fallback to innerHTML restore if replaceChildren fails for some reason.

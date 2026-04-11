@@ -16,7 +16,10 @@ import {
   setStateIndex,
   cleanupComponent,
 } from './component';
-import type { DOMElement, VNode } from '../common/vnode';
+import {
+  type DOMElement,
+  type VNode,
+} from '../common/vnode';
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
@@ -29,16 +32,25 @@ import {
   flushBenchMetrics,
   getBenchMetrics,
   isBenchBuildEnabled,
+  isBenchMetricScopeActive,
   recordBenchEvent,
+  recordBenchCounter,
   recordBenchFastLane,
   recordBenchTiming,
   resetBenchMetrics,
+  withBenchMetricScope,
 } from './for-bench';
 
 const BENCH_BUILD_ENABLED = isBenchBuildEnabled();
 
-export { getBenchMetrics };
-export { recordBenchEvent, recordBenchTiming };
+export {
+  getBenchMetrics,
+  isBenchMetricScopeActive,
+  recordBenchCounter,
+  recordBenchEvent,
+  recordBenchTiming,
+  withBenchMetricScope,
+};
 
 export interface ForItemInstance<T> {
   key: string | number | null;
@@ -786,8 +798,8 @@ export function reconcileForItems<T>(
     const itemInstance = items.get(key);
     if (itemInstance) {
       recordBenchEvent('itemRemoved');
-      // Clean up component instance
       const instance = itemInstance.componentInstance;
+      // Clean up component instance
       try {
         cleanupComponent(instance);
       } catch (err) {
