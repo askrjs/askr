@@ -79,14 +79,12 @@
     "access": "public"
   },
   "scripts": {
-    "build": "npm run build:prod",
-    "build:prod": "cross-env NODE_ENV=production vp build && npm run build:types",
-    "build:dev": "cross-env NODE_ENV=development vp build && npm run build:types",
-    "build:types": "tsc -b tsconfig.json --emitDeclarationOnly --force",
-    "build:bench": "cross-env BUILD=bench NODE_ENV=production vp build && npm run build:types",
-    "dev:watch": "vp build --watch --mode development",
-    "prepare": "npm run build:prod",
+    "build": "cross-env NODE_ENV=production vp pack",
+    "build:dev": "cross-env NODE_ENV=development vp pack",
+    "build:bench": "cross-env BUILD=bench NODE_ENV=production vp build",
     "dev": "vp dev",
+    "dev:watch": "cross-env NODE_ENV=development vp pack --watch",
+    "prepare": "npm run build",
     "test": "vp test run",
     "test:docs": "vp test run checks/docs/public-api-imports.test.ts",
     "test:examples": "vp test run checks/examples/ssg-config.test.ts",
@@ -118,17 +116,16 @@
     "fmt": "vp fmt .",
     "lint": "cross-env OXLINT_TSGOLINT_PATH=./node_modules/.bin/tsgolint.cmd vp lint src tests checks benches"
   },
-  "dependencies": {},
   "devDependencies": {
     "@askrjs/askr-vite": "file:../askr-vite",
-    "@types/node": "^25.5.0",
+    "@types/node": "^25.6.0",
     "chai": "^6.2.2",
     "cross-env": "^10.1.0",
     "jiti": "^2.6.1",
-    "jsdom": "^29.0.1",
+    "jsdom": "^29.0.2",
     "tsd": "^0.33.0",
-    "typescript": "^5.0.0",
-    "vite-plus": "latest"
+    "typescript": "^6.0.3",
+    "vite-plus": "^0.1.19"
   },
   "engines": {
     "node": ">=18"
