@@ -5,6 +5,7 @@ import {
   createNodeEnvDefine,
   createPackageAliases,
   isBuildExternal,
+  nodeBuiltins,
 } from './tooling/askr-tooling.ts';
 
 const isProd =
@@ -33,6 +34,21 @@ export default defineConfig({
   esbuild: askrEsbuild,
   resolve: {
     alias: createPackageAliases(),
+  },
+  pack: {
+    entry: createBuildInput(),
+    format: ['esm'],
+    outDir: 'dist',
+    platform: 'neutral',
+    tsconfig: 'tsconfig.pack.json',
+    dts: true,
+    sourcemap: true,
+    unbundle: true,
+    treeshake: false,
+    define: createNodeEnvDefine(isProd ? 'production' : 'development'),
+    deps: {
+      neverBundle: ['vite', 'esbuild', '@askrjs/askr-vite', ...nodeBuiltins],
+    },
   },
   build: {
     modulePreload: false,
