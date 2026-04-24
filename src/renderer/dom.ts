@@ -1,4 +1,5 @@
 ﻿import { logger } from '../dev/logger';
+import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
 import { Fragment } from '../jsx/jsx-runtime';
 import {
@@ -366,7 +367,7 @@ function flushDirtyReactiveProps(): void {
       );
       descriptor.lastValue = value;
     } catch (err) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (getRuntimeEnv().NODE_ENV !== 'production') {
         logger.warn('[Askr] Reactive prop update failed:', err);
       }
     }
@@ -459,7 +460,7 @@ function setupReactiveProp(
       );
       descriptor.lastValue = value;
     } catch (err) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (getRuntimeEnv().NODE_ENV !== 'production') {
         logger.warn('[Askr] Reactive prop update failed:', err);
       }
     }
@@ -736,7 +737,7 @@ function materializeKey(
  * Warn about missing keys on dynamic lists (dev only)
  */
 function warnMissingKeys(children: unknown[]): void {
-  if (process.env.NODE_ENV === 'production') return;
+  if (getRuntimeEnv().NODE_ENV === 'production') return;
 
   let hasElements = false;
   let hasKeys = false;
@@ -787,7 +788,7 @@ export function createDOMNode(
 ): Node | null {
   // SSR guard: don't attempt DOM ops when document is unavailable
   if (!IS_DOM_AVAILABLE) {
-    if (process.env.NODE_ENV !== 'production') {
+    if (getRuntimeEnv().NODE_ENV !== 'production') {
       try {
         logger.warn('[Askr] createDOMNode called in non-DOM environment');
       } catch {
@@ -1169,7 +1170,7 @@ export function createForBoundary(
   const forState = node._forState;
 
   if (!forState) {
-    if (process.env.NODE_ENV !== 'production') {
+    if (getRuntimeEnv().NODE_ENV !== 'production') {
       logger.warn('[Askr] For boundary missing _forState');
     }
     return document.createDocumentFragment();
@@ -2331,9 +2332,9 @@ export function performBulkPositionalKeyedTextUpdate(
   let reused = 0;
   let updatedKeys = 0;
   const t0 = now();
+  const env = getRuntimeEnv();
   const debugFastPath =
-    process.env.ASKR_FASTPATH_DEBUG === '1' ||
-    process.env.ASKR_FASTPATH_DEBUG === 'true';
+    env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true';
 
   for (let i = 0; i < total; i++) {
     const { key, vnode } = keyedVnodes[i];
@@ -2745,7 +2746,8 @@ export function isBulkTextFastPathEligible(
   parent: Element,
   newChildren: VNode[]
 ) {
-  const threshold = Number(process.env.ASKR_BULK_TEXT_THRESHOLD) || 1024;
+  const env = getRuntimeEnv();
+  const threshold = Number(env.ASKR_BULK_TEXT_THRESHOLD) || 1024;
   const requiredFraction = 0.8;
 
   const total = Array.isArray(newChildren) ? newChildren.length : 0;
@@ -2843,10 +2845,8 @@ function isSimpleElement(dv: DOMElement): boolean {
 
 /** Record bulk diagnostics */
 function recordBulkDiag(data: Record<string, unknown>): void {
-  if (
-    process.env.NODE_ENV !== 'production' ||
-    process.env.ASKR_FASTPATH_DEBUG === '1'
-  ) {
+  const env = getRuntimeEnv();
+  if (env.NODE_ENV !== 'production' || env.ASKR_FASTPATH_DEBUG === '1') {
     try {
       setDevValue('__BULK_DIAG', data);
     } catch {
