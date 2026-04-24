@@ -17,6 +17,10 @@ import {
   finalizeReadableSubscriptions,
   cleanupReadableSubscriptions,
 } from './readable';
+import {
+  isDevelopmentEnvironment,
+  isProductionEnvironment,
+} from '../common/env';
 import { logger } from '../dev/logger';
 import { incDevCounter, setDevValue } from './dev-namespace';
 
@@ -164,7 +168,7 @@ export function registerMountOperation(
     // violation of the fast-lane preconditions. Throw in dev, otherwise ignore
     // silently in production (we must avoid scheduling work during bulk commit).
     if (isBulkCommitActive()) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (isDevelopmentEnvironment()) {
         throw new Error(
           'registerMountOperation called during bulk commit fast-lane'
         );
@@ -280,7 +284,7 @@ function runComponent(instance: ComponentInstance): void {
       if (used) return;
     } catch (err) {
       // If invariant check failed in dev, surface the error; otherwise fall back
-      if (process.env.NODE_ENV !== 'production') throw err;
+      if (isDevelopmentEnvironment()) throw err;
     }
 
     // Fallback: enqueue the render/commit normally
@@ -494,7 +498,7 @@ function executeComponentSync(
   try {
     // Track render time in dev mode
     const renderStartTime =
-      process.env.NODE_ENV !== 'production' ? Date.now() : 0;
+      isDevelopmentEnvironment() ? Date.now() : 0;
 
     // Create context object with abort signal
     const context = {
@@ -718,7 +722,7 @@ export function cleanupComponent(instance: ComponentInstance): void {
         cleanupErrors.push(err);
       } else {
         // Preserve previous behavior: log warnings in dev and continue
-        if (process.env.NODE_ENV !== 'production') {
+        if (isDevelopmentEnvironment()) {
           logger.warn('[Askr] cleanup function threw:', err);
         }
       }
@@ -757,7 +761,7 @@ function warnInstanceOnce(
   key: string,
   message: string
 ): void {
-  if (process.env.NODE_ENV === 'production') return;
+  if (isProductionEnvironment()) return;
   const warnings = (instance.devWarningsEmitted ??= new Set());
   if (warnings.has(key)) return;
   warnings.add(key);

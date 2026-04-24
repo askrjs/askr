@@ -5,6 +5,8 @@
  * used throughout runtime for dev-mode diagnostics.
  */
 
+import { isProductionEnvironment } from '../common/env';
+
 type DevNamespace = Record<string, unknown>;
 
 /**
@@ -12,7 +14,7 @@ type DevNamespace = Record<string, unknown>;
  * Returns empty object in production to avoid allocations.
  */
 export function getDevNamespace(): DevNamespace {
-  if (process.env.NODE_ENV === 'production') return {};
+  if (isProductionEnvironment()) return {};
   try {
     const g = globalThis as unknown as Record<string, DevNamespace>;
     if (!g.__ASKR__) g.__ASKR__ = {};
@@ -26,7 +28,7 @@ export function getDevNamespace(): DevNamespace {
  * Set a value in the dev namespace (no-op in production).
  */
 export function setDevValue(key: string, value: unknown): void {
-  if (process.env.NODE_ENV === 'production') return;
+  if (isProductionEnvironment()) return;
   try {
     getDevNamespace()[key] = value;
   } catch {
@@ -38,7 +40,7 @@ export function setDevValue(key: string, value: unknown): void {
  * Get a value from the dev namespace (returns undefined in production).
  */
 export function getDevValue<T>(key: string): T | undefined {
-  if (process.env.NODE_ENV === 'production') return undefined;
+  if (isProductionEnvironment()) return undefined;
   try {
     return getDevNamespace()[key] as T | undefined;
   } catch {
@@ -50,7 +52,7 @@ export function getDevValue<T>(key: string): T | undefined {
  * Delete a value from the dev namespace (no-op in production).
  */
 export function deleteDevValue(key: string): void {
-  if (process.env.NODE_ENV === 'production') return;
+  if (isProductionEnvironment()) return;
   try {
     delete getDevNamespace()[key];
   } catch {
@@ -63,7 +65,7 @@ export function deleteDevValue(key: string): void {
  * Safely handles non-number values by resetting to 1.
  */
 export function incDevCounter(key: string): void {
-  if (process.env.NODE_ENV === 'production') return;
+  if (isProductionEnvironment()) return;
   try {
     const ns = getDevNamespace();
     const prev = typeof ns[key] === 'number' ? (ns[key] as number) : 0;

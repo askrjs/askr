@@ -5,6 +5,8 @@
  * - Protects against missing `console` in some environments
  */
 
+import { isProductionEnvironment } from '../common/env';
+
 function callConsole(method: string, args: unknown[]): void {
   const c = typeof console !== 'undefined' ? (console as unknown) : undefined;
   if (!c) return;
@@ -20,17 +22,17 @@ function callConsole(method: string, args: unknown[]): void {
 
 export const logger = {
   debug: (...args: unknown[]) => {
-    if (process.env.NODE_ENV === 'production') return;
+    if (isProductionEnvironment()) return;
     callConsole('debug', args);
   },
 
   info: (...args: unknown[]) => {
-    if (process.env.NODE_ENV === 'production') return;
+    if (isProductionEnvironment()) return;
     callConsole('info', args);
   },
 
   warn: (...args: unknown[]) => {
-    if (process.env.NODE_ENV === 'production') return;
+    if (isProductionEnvironment()) return;
     callConsole('warn', args);
   },
 

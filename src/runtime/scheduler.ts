@@ -9,6 +9,7 @@
  * - `waitForFlush()` is race-free with a monotonic `flushVersion`.
  */
 
+import { isDevelopmentEnvironment } from '../common/env';
 import { assertSchedulingPrecondition, invariant } from '../dev/invariant';
 import { logger } from '../dev/logger';
 import { recordSchedulerFlushTaskCount } from './perf-metrics';
@@ -166,7 +167,7 @@ export class Scheduler {
 
     // Strict rule: during bulk commit, only allow enqueues if runWithSyncProgress enabled
     if (isBulkCommitActive() && !this.allowSyncProgress) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (isDevelopmentEnvironment()) {
         throw new Error(
           '[Scheduler] enqueue() during bulk commit (not allowed)'
         );
@@ -188,7 +189,7 @@ export class Scheduler {
     );
 
     // Dev-only guard: disallow flush during bulk commit unless allowed
-    if (process.env.NODE_ENV !== 'production') {
+    if (isDevelopmentEnvironment()) {
       if (isBulkCommitActive() && !this.allowSyncProgress) {
         throw new Error(
           '[Scheduler] flush() started during bulk commit (not allowed)'
@@ -209,10 +210,7 @@ export class Scheduler {
         }
 
         this.depth++;
-        if (
-          process.env.NODE_ENV !== 'production' &&
-          this.depth > MAX_FLUSH_DEPTH
-        ) {
+        if (isDevelopmentEnvironment() && this.depth > MAX_FLUSH_DEPTH) {
           throw new Error(
             `[Scheduler] exceeded MAX_FLUSH_DEPTH (${MAX_FLUSH_DEPTH}). Likely infinite update loop.`
           );
@@ -268,7 +266,7 @@ export class Scheduler {
     const origQueueMicrotask = g.queueMicrotask;
     const origSetTimeout = g.setTimeout;
 
-    if (process.env.NODE_ENV !== 'production') {
+    if (isDevelopmentEnvironment()) {
       g.queueMicrotask = () => {
         throw new Error(
           '[Scheduler] queueMicrotask not allowed during runWithSyncProgress'
@@ -292,7 +290,7 @@ export class Scheduler {
         this.flush();
       }
 
-      if (process.env.NODE_ENV !== 'production') {
+      if (isDevelopmentEnvironment()) {
         if (this.hasPendingTasks()) {
           throw new Error(
             '[Scheduler] tasks remain after runWithSyncProgress flush'
@@ -303,7 +301,7 @@ export class Scheduler {
       return res;
     } finally {
       // Restore guarded globals
-      if (process.env.NODE_ENV !== 'production') {
+      if (isDevelopmentEnvironment()) {
         g.queueMicrotask = origQueueMicrotask;
         g.setTimeout = origSetTimeout;
       }

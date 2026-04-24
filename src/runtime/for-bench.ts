@@ -1,4 +1,6 @@
-const BENCH_BUILD_ENABLED = process.env.ASKR_BENCH === '1';
+import { isRuntimeEnvFlagEnabled } from '../common/env';
+
+const BENCH_BUILD_ENABLED = isRuntimeEnvFlagEnabled('ASKR_BENCH');
 
 type BenchGlobal = typeof globalThis & {
   __ASKR_BENCH__?: boolean;
