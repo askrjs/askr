@@ -147,13 +147,11 @@ describe('derive reactivity', () => {
         <div>
           {showChild() ? <Child /> : null}
           <section>
-            {For(
-              rows,
-              (item) => item.id,
-              (item) => (
-                <Row item={item} />
-              )
-            )}
+            {
+              <For each={rows} by={(item) => item.id}>
+                {(item) => <Row item={item} />}
+              </For>
+            }
           </section>
         </div>
       );

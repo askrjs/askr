@@ -94,22 +94,44 @@ return <tr class={() => (isSelected(row.id) ? 'danger' : '')} />;
 For list hot paths, create the selector once in the owner component and pass the keyed predicate down instead of calling `selector()` per row:
 
 ```typescript
+import { For, selector, state } from '@askrjs/askr';
+
 function Table() {
   const [selectedId, setSelectedId] = state<number | null>(null);
   const isSelected = selector(selectedId);
 
-  return For(
-    rows,
-    (row) => row.id,
-    (row) => (
+  return (
+    <For each={rows} by={(row) => row.id}>
+      {(row) => (
       <Row
         row={row}
         isSelected={isSelected}
         onSelect={() => setSelectedId(row.id)}
       />
-    )
+      )}
+    </For>
   );
 }
+```
+
+Use `Show`, `Case`, and `Match` for conditional control flow with the same child-scope lifecycle model:
+
+```tsx
+import { Case, Match, Show } from '@askrjs/askr';
+
+<Show when={user} fallback={<Login />}>
+  {(value) => <Dashboard user={value} />}
+</Show>;
+
+<Case fallback={<NotFound />}>
+  <Match when={status() === 'loading'}>
+    <Spinner />
+  </Match>
+
+  <Match when={status() === 'ready'}>
+    <Dashboard />
+  </Match>
+</Case>;
 ```
 
 ## Rules

@@ -40,15 +40,15 @@ describe('for bench metrics', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rowsState!(),
-              (row) => row.id,
-              (row) => (
-                <tr>
-                  <td>{row.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => rowsState!()} by={(row) => row.id}>
+                {(row) => (
+                  <tr>
+                    <td>{row.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );
@@ -89,15 +89,15 @@ describe('for bench metrics', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rowsState!(),
-              (row) => row.id,
-              (row) => (
-                <tr>
-                  <td>{row.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => rowsState!()} by={(row) => row.id}>
+                {(row) => (
+                  <tr>
+                    <td>{row.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );
@@ -140,15 +140,15 @@ describe('for bench metrics', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rowsState!(),
-              (row) => row.id,
-              (row) => (
-                <tr>
-                  <td>{row.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => rowsState!()} by={(row) => row.id}>
+                {(row) => (
+                  <tr>
+                    <td>{row.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );
@@ -183,15 +183,15 @@ describe('for bench metrics', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rowsState!(),
-              (row) => row.id,
-              (row) => (
-                <tr>
-                  <td>{row.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => rowsState!()} by={(row) => row.id}>
+                {(row) => (
+                  <tr>
+                    <td>{row.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );

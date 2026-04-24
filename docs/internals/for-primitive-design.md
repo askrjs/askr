@@ -1,481 +1,137 @@
-# `For` Primitive Design
+# Control-Flow Primitive Design
 
-## Type Signature
+This note documents the current control-flow model for `@askrjs/askr`.
 
-```typescript
-interface ForOptions<T> {
-  by?: (item: T, index: number) => string | number;
-  fallback?: VNode;
-}
+## Public API
 
-function For<T>(
-  source: State<T[]> | (() => T[]),
-  render: (item: T, index: () => number) => VNode,
-  options?: ForOptions<T>
-): VNode;
+```tsx
+import { Case, For, Match, Show } from '@askrjs/askr';
+
+<For each={rows} by={(row) => row.id} fallback={<EmptyState />}>
+  {(row, index) => <Row row={row} index={index()} />}
+</For>;
+
+<Show when={user} fallback={<Login />}>
+  {(value) => <Dashboard user={value} />}
+</Show>;
+
+<Case fallback={<NotFound />}>
+  <Match when={status() === 'loading'}>
+    <Spinner />
+  </Match>
+
+  <Match when={status() === 'ready'}>
+    <Dashboard />
+  </Match>
+</Case>;
 ```
 
-## Semantics
+`For` is JSX-only. Stable keyed identity requires `by`. Positional identity is opt-in through `byIndex={true}`.
 
-### Ownership Boundary
+## Core Runtime Primitive
 
-`For` creates a **reactivity firewall**:
+Control flow is built on runtime-owned child scopes:
 
-- Parent component reads `source()` once during parent render
-- `For` returns a special marker vnode: `{ type: __FOR_BOUNDARY__, ... }`
-- Renderer recognizes marker and delegates to `For` runtime
-- Each item gets an isolated child scope owned by the runtime
-- Item updates do NOT invalidate parent
-
-### Keying Strategy
-
-```typescript
-// Default: Use item.id if present, else index
-const defaultKey = (item: T, index: number) => (item as any).id ?? index;
-
-// Explicit keying via options
-For(rows, (row) => Row({ row }), { by: (row) => row.id });
-```
-
-Keys are expected to be stable, non-null, and unique within a list. The runtime
-currently preserves production behavior for invalid keys, but emits dev-only
-warnings for `null` / `undefined` keys and duplicates.
-
-### Array Diffing
-
-On `source` change:
-
-1. Read new array value
-2. Build new key map: `Map<Key, { item: T, index: number }>`
-3. Compare with previous key map
-4. Identify: added, removed, moved, updated items
-5. Only re-execute render for updated items
-6. Reconcile resulting vnodes with keyed reconciler
-
-### Item Instance Lifecycle
-
-Each item has:
-
-```typescript
+```ts
 interface ChildScope {
-  key: string | number | null;
-  componentInstance: ComponentInstance;
-  vnode: VNode | undefined;
-  dom?: Node;
-  needsDomUpdate: boolean;
-  render(renderFn: () => VNode): VNode;
+  key: string | number;
+  render(fn: () => VNode): VNode;
   markDirty(): void;
   dispose(): void;
 }
-
-interface ForItemInstance {
-  key: string | number;
-  item: T;
-  indexSignal: State<number>; // reactive index facade
-  scope: ChildScope;
-}
 ```
 
-When item data changes (object identity or by shallow equality):
+The runtime owns:
 
-- `For` reuses the existing child scope for that key
-- The runtime re-runs the scope render with the original hook/state index seed
-- The scope updates its cached vnode and marks its DOM as dirty
-- `For` keeps ownership of ordered keys, diff strategy selection, and ordered vnode output
+- component instance switching
+- state index reset and restore
+- reactive read tracking and finalization
+- scheduler integration
+- cleanup and disposal
 
-When nested state inside a row changes:
+The control primitives own only:
 
-- The row's child scope is scheduled through the normal readable/state pipeline
-- The scope re-renders itself and finalizes its subscriptions
-- The scope asks the parent `For` boundary owner to enqueue a render so DOM updates can commit
+- branch selection
+- keyed reconciliation
+- ordered output
+- fallback selection
+- development validation
 
-## Runtime Integration Points
+## Control Boundary VNodes
 
-### 1. New VNode Type
+`For`, `Show`, and `Case` are eager JSX primitives. During parent render they allocate persistent state with `state()` and return a small internal control-boundary vnode.
 
-```typescript
-// src/common/vnode.ts
-export const __FOR_BOUNDARY__ = Symbol('__FOR_BOUNDARY__');
+The renderer recognizes that boundary and delegates to runtime state:
 
-export interface ForBoundaryVNode {
-  type: typeof __FOR_BOUNDARY__;
-  props: {
-    source: State<unknown[]> | (() => unknown[]);
-    render: (item: unknown, index: () => number) => VNode;
-    by?: (item: unknown, index: number) => string | number;
-    fallback?: VNode;
-  };
-  children: VNode[]; // cached children for reconciler
-  _forState?: ForState; // internal state (item instances)
-}
-```
+- `ForState`
+- `ShowState`
+- `CaseState`
 
-### 2. For State Management
+`Match` is metadata-only. `Case` reads its direct children and turns them into branch descriptors. `Match` does not render independently.
 
-```typescript
-// src/runtime/for.ts
-interface ForState<T> {
-  sourceState: State<T[]> | null;
-  items: Map<string | number, ForItemInstance<T>>;
-  orderedKeys: Array<string | number>;
-  orderedVNodes: VNode[];
-  byFn: (item: T, index: number) => string | number;
-  renderFn: (item: T, index: () => number) => VNode;
-  parentInstance: ComponentInstance;
-  mounted: boolean;
-  lastCommitStrategy: ForCommitStrategy;
-  lastRemovedNodes: Node[];
-  pendingDirtyIndices: number[] | null;
-  pendingSwapIndices: [number, number] | null;
-}
-```
+## For
 
-### 3. Evaluate Integration
+`For` is a thin keyed reconciliation layer over child scopes.
 
-```typescript
-// src/renderer/evaluate.ts
+- keyed mode: `each`, `by`, `fallback?`, `children`
+- positional mode: `each`, `byIndex={true}`, `fallback?`, `children`
+- `by` and `byIndex` are mutually exclusive
+- missing both is a hard error
 
-function evaluateVNode(vnode: VNode, parent: Element): void {
-  if (vnode.type === __FOR_BOUNDARY__) {
-    evaluateForBoundary(vnode as ForBoundaryVNode, parent);
-    return;
-  }
-  // ... existing logic
-}
+Each live key owns:
 
-function evaluateForBoundary(vnode: ForBoundaryVNode, parent: Element): void {
-  const forState = vnode._forState || initializeForState(vnode);
-  const currentArray =
-    typeof vnode.props.source === 'function'
-      ? vnode.props.source()
-      : vnode.props.source();
+- one `ChildScope`
+- one reactive index accessor
+- one cached vnode
+- one cached DOM root
 
-  // Diff array, update item instances, rebuild children
-  const newChildren = reconcileForItems(forState, currentArray);
-  vnode.children = newChildren;
+The runtime keeps the existing fast lanes:
 
-  // Now reconcile resulting vnodes normally
-  reconcileKeyed(parent, newChildren, extractKeyMap(parent));
-}
-```
+- `APPEND`
+- `TRUNCATE`
+- `NO_REORDER`
+- `SWAP`
+- `FULL_KEYED`
 
-### 4. Child Scope Creation
+Fallback rendering also uses a child scope, so empty-list behavior follows the same lifecycle and cleanup rules as keyed rows.
 
-```typescript
-// src/runtime/child-scope.ts
+## Show
 
-function createChildScope(
-  parent: ComponentInstance | null,
-  key: string | number | null,
-  onDirty?: () => void
-): ChildScope;
+`Show` keeps one truthy child scope and one fallback child scope.
 
-function rerenderChildScope(scope: ChildScope): VNode | undefined;
+- when the condition stays truthy, the truthy scope is reused
+- when the condition switches to falsy, the truthy scope is disposed
+- when fallback becomes active, it is rendered through its own scope
 
-function disposeChildScope(scope: ChildScope): void;
-```
+Function children receive the resolved truthy value. Static children are rendered inside the active scope.
 
-`ChildScope` is the runtime-owned abstraction that encapsulates:
+## Case and Match
 
-- current component switching
-- state index restore/reset
-- render token assignment
-- readable subscription finalization
-- per-row scheduling via `_pendingFlushTask`
-- cached vnode and cached DOM ownership
+`Case` owns selection and lifecycle. It scans direct `Match` children, picks the first truthy branch, and renders only that branch.
 
-`For` consumes that primitive rather than mutating component internals directly.
+- selected branch key: `match.key ?? matchIndex`
+- fallback is prop-only
+- replaced branches are disposed immediately
+- invalid direct children throw in development
 
-### 5. Item Instance Creation
+`Match` only describes a branch:
 
-```typescript
-// src/runtime/for.ts
-
-function createItemInstance<T>(
-  key: string | number,
-  item: T,
-  index: number,
-  forState: ForState<T>
-): ForItemInstance<T> {
-  const indexSignal = createForIndexSignal(index);
-  const scope = createChildScope(forState.parentInstance, key, () => {
-    forState.parentInstance?._enqueueRun?.();
-  });
-
-  const vnode = scope.render(() =>
-    evaluateJSXElement(forState.renderFn(item, indexSignal))
-  );
-
-  materializeItemVnode(key, vnode);
-
-  return {
-    key,
-    item,
-    indexSignal,
-    scope,
-  };
-}
-```
-
-### 6. Array Reconciliation
-
-```typescript
-// src/runtime/for.ts
-
-function reconcileForItems<T>(forState: ForState<T>, newArray: T[]): VNode[] {
-  validateForKeys(forState, newArray); // dev-only diagnostics
-
-  // Choose the cheapest valid strategy first.
-  // Fast lanes are preserved for append, truncate, same-order updates, swaps,
-  // and the fully keyed slow path.
-  if (canUseAppendPath(forState, newArray)) {
-    return reconcileAppend(forState, newArray);
-  }
-
-  if (canUseTruncatePath(forState, newArray)) {
-    return reconcileTruncate(forState, newArray);
-  }
-
-  if (canUseNoReorderPath(forState, newArray)) {
-    return reconcileNoReorder(forState, newArray);
-  }
-
-  if (canUseSwapPath(forState, newArray)) {
-    return reconcileSwap(forState, newArray);
-  }
-
-  return reconcileFullKeyed(forState, newArray);
-}
-```
-
-The renderer still owns DOM commit strategy. `For` records `pendingDirtyIndices`,
-`pendingSwapIndices`, and `lastCommitStrategy`, while the child scope owns the
-cached vnode, cached DOM node, and dirty flag that the commit helpers consume.
-
-## User API
-
-### Basic Usage
-
-```typescript
-import { For, state } from 'askr';
-
-const Component = () => {
-  const rows = state<Row[]>([...]);
-
-  return {
-    type: 'div',
-    children: [
-      For(rows, (row) => ({
-        type: 'div',
-        props: { key: row.id },
-        children: [row.label]
-      }))
-    ]
-  };
+```ts
+type MatchProps = {
+  when: unknown;
+  children: JSXNode | (() => JSXNode);
 };
 ```
 
-### With Custom Key
+Using `Match` outside `Case` throws in development and returns `null` in production.
 
-```typescript
-For(items, (item) => Item({ item }), { by: (item) => item.uid });
-```
+## Disposal Model
 
-### With Reactive Index
+When a child scope is disposed:
 
-```typescript
-For(items, (item, index) => ({
-  type: 'div',
-  children: [`${index()}: ${item.label}`],
-}));
-```
+- readable subscriptions are cleaned up
+- cleanup hooks run
+- owned child scopes are released
+- cached vnode and DOM references are cleared
 
-### With Fallback
-
-```typescript
-For(items, (item) => Item({ item }), {
-  fallback: { type: 'div', children: ['No items'] },
-});
-```
-
-## Execution Model
-
-### Parent Render
-
-```typescript
-const Component = () => {
-  const rows = state(createRows(1000));
-
-  // Parent reads rows() ONCE during this execution
-  // Returns For boundary vnode
-  // Parent does NOT re-execute when individual rows update
-  return {
-    type: 'div',
-    children: [For(rows, (row) => RowComponent(row))],
-  };
-};
-```
-
-### Item Update Flow
-
-```typescript
-// Update every 10th row
-rows.set(
-  rows().map((r, i) => (i % 10 === 0 ? { ...r, label: r.label + '!' } : r))
-);
-```
-
-**Execution trace:**
-
-1. `rows.set()` invalidates subscribers
-2. Parent component does NOT re-execute (not subscribed to rows directly)
-3. `For` boundary evaluates new array
-4. Diff detects ~100 changed items (by object identity)
-5. Only those 100 item instances re-execute
-6. 900 unchanged items use cached vnodes
-7. Keyed reconciler updates only changed DOM nodes
-
-**Result:** 100 executions instead of 1000
-
-## Rules for Usage
-
-### MUST use `For` when:
-
-- Rendering arrays
-- Items can update independently
-- List size > 10 items
-
-### MAY use `.map()` when:
-
-- Static arrays (no updates)
-- Derived display data (no item identity)
-- Parent re-execution is intentional
-
-### MUST NOT:
-
-- Nest `For` render functions with parent state reads
-- Return `For` from conditional branches (wrap in fragment)
-- Use `For` for non-array iteration
-
-## Integration with Existing Code
-
-### State Subscription Model
-
-```typescript
-// Current: Parent subscribes to state
-const rows = state([...]);
-const currentRows = rows();  // Parent subscribes
-
-// With For: For subscribes, parent does not
-For(rows, (row) => ...)  // For subscribes, parent unaffected
-```
-
-### Scheduler Integration
-
-Each item instance has its own component:
-
-- Uses existing `scheduleComponent()`
-- Flushes normally via scheduler
-- No new scheduler primitives needed
-
-### Reconciler Integration
-
-`For` produces flat vnode array:
-
-- Keyed vnodes with stable keys
-- Works with existing `reconcileKeyedChildren()`
-- No changes to reconciler needed
-
-## Benchmark Update
-
-### Before
-
-```typescript
-const Component = () => {
-  rows = state(createRows(1000));
-  const currentRows = rows();
-  const children = [];
-  for (let i = 0; i < currentRows.length; i++) {
-    const row = currentRows[i];
-    children.push({
-      type: 'div',
-      props: { key: row.id },
-      children: [String(row.label)],
-    });
-  }
-  return { type: 'div', children };
-};
-
-// Result: 1000 executions on update
-```
-
-### After
-
-```typescript
-const Component = () => {
-  const rows = state(createRows(1000));
-
-  return {
-    type: 'div',
-    children: [
-      For(rows, (row) => ({
-        type: 'div',
-        props: { key: row.id },
-        children: [String(row.label)],
-      })),
-    ],
-  };
-};
-
-// Result: ~100 executions on update
-```
-
-## Implementation Checklist
-
-- [ ] Add `__FOR_BOUNDARY__` symbol to vnode types
-- [ ] Create `src/runtime/for.ts` with ForState and reconciliation logic
-- [ ] Add `For()` function export to main index
-- [ ] Integrate `evaluateForBoundary()` into renderer/evaluate.ts
-- [ ] Add item instance management (create/update/unmount)
-- [ ] Implement array diffing with key extraction
-- [ ] Update benchmark to use `For`
-- [ ] Verify ~100 executions instead of 1000
-- [ ] Add tests for add/remove/move/update scenarios
-- [ ] Document when to use `For` vs `.map()`
-
-## Performance Characteristics
-
-### Memory
-
-- O(n) item instances for n items
-- Each instance: component state + vnode cache
-- Bounded by list size, not update frequency
-
-### CPU
-
-- Initial render: O(n) - create all item instances
-- Update: O(changed items) - only re-execute changed items
-- Reconciliation: O(n log n) - keyed diffing unchanged
-
-### Invalidation Width
-
-- Current: Component-level (1000 executions)
-- With For: Item-level (~100 executions)
-- Reduction: 10x for update-every-10th pattern
-
-## Correctness Guarantees
-
-1. **Determinism**: Same input array → same output vnodes
-2. **Identity**: Keys preserved across updates
-3. **Ordering**: Array order matches DOM order after reconciliation
-4. **Isolation**: Item updates don't affect parent or siblings
-5. **Cleanup**: Removed items properly unmounted
-
-## Non-Features (Intentionally Omitted)
-
-- No automatic memoization of item render functions
-- No dependency tracking within item render
-- No shallow equality checks on item data
-- No virtualization or windowing
-- No transition animations (separate concern)
-- No `each` vs `for` variants (one primitive only)
+Parent component cleanup disposes all owned child scopes automatically, which keeps control-flow lifecycles bounded to the owning render tree.

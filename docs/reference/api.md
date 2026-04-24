@@ -8,7 +8,7 @@ Use explicit subpaths by default. Startup belongs in `@askrjs/askr/boot`, runtim
 
 - Runtime primitives: `state(initialValue)`, `derive(selector) -> getter`, `derive(source, map) -> getter`, `selector(source, equals?) -> keyed predicate`
 - Context/resources: `defineContext`, `readContext`, `resource`, `getSignal`
-- Common helpers: `For`, `route`, `navigate`, `Link`, JSX runtime exports
+- Common helpers: `For`, `Show`, `Case`, `Match`, `route`, `navigate`, `Link`, JSX runtime exports
 
 Supported DOM events are delegated automatically as part of the renderer; normal app code does not need a separate event-delegation API.
 
@@ -21,6 +21,31 @@ Supported DOM events are delegated automatically as part of the renderer; normal
 - `@askrjs/askr/ssr` -> server-side rendering helpers
 - `@askrjs/askr/ssg` -> static-site generation helpers (`createStaticGen`)
 - `@askrjs/askr/for`, `@askrjs/askr/foundations` -> lower-level framework primitives
+
+Control-flow primitives use JSX directly:
+
+```tsx
+import { Case, For, Match, Show } from '@askrjs/askr';
+
+<For each={rows} by={(row) => row.id}>
+  {(row, index) => <Row row={row} index={index()} />}
+</For>;
+
+<Show when={user} fallback={<Login />}>
+  {(value) => <Dashboard user={value} />}
+</Show>;
+
+<Case fallback={<NotFound />}>
+  <Match when={mode() === 'loading'}>
+    <Spinner />
+  </Match>
+  <Match when={mode() === 'ready'}>
+    <Dashboard />
+  </Match>
+</Case>;
+```
+
+`For` requires `by` for stable keyed identity. Use `byIndex={true}` only as an explicit positional escape hatch.
 
 ## Import style
 

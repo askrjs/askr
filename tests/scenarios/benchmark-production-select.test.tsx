@@ -58,13 +58,17 @@ test(
         <div>
           <table>
             <tbody>
-              {For(
-                () => dataState(),
-                (item) => item.id,
-                (item) => (
-                  <Row item={item} isSelected={isSelected} onSelect={select} />
-                )
-              )}
+              {
+                <For each={() => dataState()} by={(item) => item.id}>
+                  {(item) => (
+                    <Row
+                      item={item}
+                      isSelected={isSelected}
+                      onSelect={select}
+                    />
+                  )}
+                </For>
+              }
             </tbody>
           </table>
         </div>
@@ -125,25 +129,25 @@ test(
         <div>
           <table>
             <tbody>
-              {For(
-                () => dataState(),
-                (item) => item.id,
-                (item) => (
-                  <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
-                    <td>{item.id}</td>
-                    <td>
-                      <a
-                        onClick={(e: MouseEvent) => {
-                          e.preventDefault();
-                          select(item.id);
-                        }}
-                      >
-                        {item.label}
-                      </a>
-                    </td>
-                  </tr>
-                )
-              )}
+              {
+                <For each={() => dataState()} by={(item) => item.id}>
+                  {(item) => (
+                    <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
+                      <td>{item.id}</td>
+                      <td>
+                        <a
+                          onClick={(e: MouseEvent) => {
+                            e.preventDefault();
+                            select(item.id);
+                          }}
+                        >
+                          {item.label}
+                        </a>
+                      </td>
+                    </tr>
+                  )}
+                </For>
+              }
             </tbody>
           </table>
         </div>

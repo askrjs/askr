@@ -64,6 +64,10 @@ export interface ComponentInstance {
   // Placeholder for null-returning components. When a component initially returns
   // null, we create a comment placeholder so updates can replace it with content.
   _placeholder?: Comment;
+  _ownedChildScopes?: Set<{
+    key: string | number;
+    dispose(): void;
+  }>;
 }
 
 export function createComponentInstance(
@@ -130,6 +134,11 @@ export function createComponentInstance(
 
 let currentInstance: ComponentInstance | null = null;
 let stateIndex = 0;
+
+type OwnedChildScope = {
+  key: string | number;
+  dispose(): void;
+};
 
 function ensureAbortController(instance: ComponentInstance): AbortController {
   let controller = instance.abortController;
@@ -247,6 +256,57 @@ export function mountInstanceInline(
  */
 let _globalRenderCounter = 0;
 
+function resetRenderState(instance: ComponentInstance): void {
+  instance.stateIndexCheck = -1;
+
+  for (const state of instance.stateValues) {
+    if (state) {
+      state._hasBeenRead = false;
+    }
+  }
+
+  instance._pendingReadSources = undefined;
+}
+
+function nextRenderToken(): number {
+  return ++_globalRenderCounter;
+}
+
+export function renderScopedComponent<T>(
+  instance: ComponentInstance,
+  startStateIndex: number,
+  render: () => T
+): T {
+  const savedInstance = currentInstance;
+  const savedStateIndex = stateIndex;
+
+  instance.notifyUpdate = instance._enqueueRun!;
+  resetRenderState(instance);
+  instance._currentRenderToken = nextRenderToken();
+
+  currentInstance = instance;
+  stateIndex = startStateIndex;
+
+  let didComplete = false;
+
+  try {
+    const executionFrame: ContextFrame = {
+      parent: instance.ownerFrame,
+      values: null,
+    };
+    const result = withContext(executionFrame, render);
+    didComplete = true;
+    return result;
+  } finally {
+    if (!didComplete) {
+      instance._pendingReadSources = undefined;
+      instance._currentRenderToken = undefined;
+    }
+    currentInstance = savedInstance;
+    stateIndex = savedStateIndex;
+  }
+}
+
 function runComponent(instance: ComponentInstance): void {
   // CRITICAL: Ensure notifyUpdate is available for state.set() calls during this render.
   // This must be set before executeComponentSync() runs, not after.
@@ -254,7 +314,7 @@ function runComponent(instance: ComponentInstance): void {
   instance.notifyUpdate = instance._enqueueRun!;
 
   // Assign a token for this in-progress render and start a fresh pending-read set
-  instance._currentRenderToken = ++_globalRenderCounter;
+  instance._currentRenderToken = nextRenderToken();
   instance._pendingReadSources = undefined;
   const domSnapshot = instance.target ? instance.target.innerHTML : '';
 
@@ -462,7 +522,7 @@ export function renderComponentInline(
   const prevToken = instance._currentRenderToken;
   const prevPendingReads = instance._pendingReadSources;
   if (!hadToken) {
-    instance._currentRenderToken = ++_globalRenderCounter;
+    instance._currentRenderToken = nextRenderToken();
     instance._pendingReadSources = undefined;
   }
 
@@ -512,18 +572,7 @@ export function warnUnusedStateReads(instance: ComponentInstance): void {
 function executeComponentSync(
   instance: ComponentInstance
 ): unknown | Promise<unknown> {
-  // Reset state index tracking for this render
-  instance.stateIndexCheck = -1;
-
-  // Reset read tracking for all existing state
-  for (const state of instance.stateValues) {
-    if (state) {
-      state._hasBeenRead = false;
-    }
-  }
-
-  // Prepare pending read set for this render (reads will be finalized on commit)
-  instance._pendingReadSources = undefined;
+  resetRenderState(instance);
 
   currentInstance = instance;
   stateIndex = 0;
@@ -722,6 +771,14 @@ export function mountComponent(instance: ComponentInstance): void {
  * Called on unmount or route change
  */
 export function cleanupComponent(instance: ComponentInstance): void {
+  const ownedChildScopes = instance._ownedChildScopes;
+  if (ownedChildScopes && ownedChildScopes.size > 0) {
+    instance._ownedChildScopes = new Set();
+    for (const scope of ownedChildScopes) {
+      scope.dispose();
+    }
+  }
+
   // Execute cleanup functions (from mount effects)
   const cleanupErrors: unknown[] = [];
   const cleanupFns = instance.cleanupFns;
@@ -765,6 +822,21 @@ export function cleanupComponent(instance: ComponentInstance): void {
   // retained "mounted" flags across cleanup boundaries which breaks
   // owner selection in the portal fallback.
   instance.mounted = false;
+}
+
+export function registerOwnedChildScope(
+  instance: ComponentInstance,
+  scope: OwnedChildScope
+): void {
+  const scopes = (instance._ownedChildScopes ??= new Set());
+  scopes.add(scope);
+}
+
+export function unregisterOwnedChildScope(
+  instance: ComponentInstance,
+  scope: OwnedChildScope
+): void {
+  instance._ownedChildScopes?.delete(scope);
 }
 
 function warnInstanceOnce(

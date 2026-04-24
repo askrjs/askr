@@ -16,16 +16,16 @@ test('should replace all 1,000 rows with new data', { timeout: 20000 }, () => {
     return (
       <table>
         <tbody>
-          {For(
-            () => dataState(),
-            (row) => row.id,
-            (row) => (
-              <tr key={row.id}>
-                <td>{String(row.id)}</td>
-                <td>{row.label}</td>
-              </tr>
-            )
-          )}
+          {
+            <For each={() => dataState()} by={(row) => row.id}>
+              {(row) => (
+                <tr key={row.id}>
+                  <td>{String(row.id)}</td>
+                  <td>{row.label}</td>
+                </tr>
+              )}
+            </For>
+          }
         </tbody>
       </table>
     );

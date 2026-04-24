@@ -18,19 +18,19 @@ test('should toggle selected row class', { timeout: 20000 }, () => {
     return (
       <table>
         <tbody data-selected={selectedId == null ? '' : String(selectedId)}>
-          {For(
-            () => dataState(),
-            (row) => row.id,
-            (row) => (
-              <tr
-                key={row.id}
-                class={() => (selectedState() === row.id ? 'selected' : '')}
-              >
-                <td>{String(row.id)}</td>
-                <td>{row.label}</td>
-              </tr>
-            )
-          )}
+          {
+            <For each={() => dataState()} by={(row) => row.id}>
+              {(row) => (
+                <tr
+                  key={row.id}
+                  class={() => (selectedState() === row.id ? 'selected' : '')}
+                >
+                  <td>{String(row.id)}</td>
+                  <td>{row.label}</td>
+                </tr>
+              )}
+            </For>
+          }
         </tbody>
       </table>
     );

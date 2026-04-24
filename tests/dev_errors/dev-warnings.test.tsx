@@ -125,59 +125,48 @@ describe('dev warnings (DEV_ERRORS)', () => {
     warn.mockRestore();
   });
 
-  it('should warn when For receives null keys', async () => {
-    allowFrameworkWarnings(/Invalid For key detected/);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('should throw when For receives null keys', async () => {
     let items: ReturnType<typeof state<string[]>> | null = null;
 
     const Component = () => {
       items = state(['a', 'b']);
       return (
         <div>
-          {For(
-            () => items!(),
-            () => null as unknown as string | number,
-            (item) => (
-              <span>{item}</span>
-            )
-          )}
+          {
+            <For
+              each={() => items!()}
+              by={() => null as unknown as string | number}
+            >
+              {(item) => <span>{item}</span>}
+            </For>
+          }
         </div>
       );
     };
 
-    createIsland({ root: container, component: Component });
-    flushScheduler();
-
-    const calledWith = warn.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(calledWith).toContain('Invalid For key detected');
-    warn.mockRestore();
+    expect(() =>
+      createIsland({ root: container, component: Component })
+    ).toThrow(/Invalid For key detected/);
   });
 
-  it('should warn when For receives duplicate keys', async () => {
-    allowFrameworkWarnings(/Duplicate For key detected: dup/);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('should throw when For receives duplicate keys', async () => {
     let items: ReturnType<typeof state<string[]>> | null = null;
 
     const Component = () => {
       items = state(['left', 'right']);
       return (
         <div>
-          {For(
-            () => items!(),
-            () => 'dup',
-            (item) => (
-              <span>{item}</span>
-            )
-          )}
+          {
+            <For each={() => items!()} by={() => 'dup'}>
+              {(item) => <span>{item}</span>}
+            </For>
+          }
         </div>
       );
     };
 
-    createIsland({ root: container, component: Component });
-    flushScheduler();
-
-    const calledWith = warn.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(calledWith).toContain('Duplicate For key detected: dup');
-    warn.mockRestore();
+    expect(() =>
+      createIsland({ root: container, component: Component })
+    ).toThrow(/Duplicate For key detected: dup/);
   });
 });

@@ -11,6 +11,7 @@ import {
 } from '../runtime/context';
 import {
   createComponentInstance,
+  cleanupComponent,
   renderComponentInline,
   mountInstanceInline,
   getCurrentInstance,
@@ -24,6 +25,7 @@ import {
   removeAllListeners,
   teardownNodeSubtree,
   elementReactivePropsCleanup,
+  removeElementListeners,
   removeElementReactiveProps,
 } from './cleanup';
 import {
@@ -44,6 +46,13 @@ import {
   type ForCommitStrategy,
   withBenchMetricScope,
 } from '../runtime/for';
+import {
+  clearCaseDomUpdateState,
+  clearShowDomUpdateState,
+  evaluateCaseState,
+  evaluateShowState,
+  type ControlBoundaryState,
+} from '../runtime/control';
 import { keyedElements } from './keyed';
 import {
   parseEventName,
@@ -58,7 +67,6 @@ import {
   logFastPathDebug,
   writeElementClassName,
 } from './utils';
-import type { State } from '../runtime/state';
 import type { ReadableSource } from '../runtime/readable';
 import { globalScheduler } from '../runtime/scheduler';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
@@ -73,6 +81,11 @@ import {
 type ElementWithContext = DOMElement & {
   [CONTEXT_FRAME_SYMBOL]?: ContextFrame;
   __instance?: ComponentInstance;
+};
+
+type InstanceHostElement = Element & {
+  __ASKR_INSTANCE?: ComponentInstance;
+  __ASKR_WRAPPER_HOST?: boolean;
 };
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
@@ -1045,6 +1058,189 @@ function createIntrinsicElement(
 /**
  * Create element from a component function
  */
+function cleanupDetachedComponentHost(host: InstanceHostElement): void {
+  removeElementListeners(host);
+  removeElementReactiveProps(host);
+
+  const descendants = host.querySelectorAll('*');
+  for (let index = 0; index < descendants.length; index += 1) {
+    const descendant = descendants[index] as InstanceHostElement;
+    removeElementListeners(descendant);
+    removeElementReactiveProps(descendant);
+
+    if (descendant.__ASKR_INSTANCE) {
+      cleanupComponent(descendant.__ASKR_INSTANCE);
+      try {
+        delete descendant.__ASKR_INSTANCE;
+      } catch {
+        // Ignore host cleanup failures.
+      }
+    }
+  }
+
+  try {
+    delete host.__ASKR_INSTANCE;
+    delete host.__ASKR_WRAPPER_HOST;
+  } catch {
+    // Ignore host cleanup failures.
+  }
+}
+
+function materializeComponentResultNode(
+  childInstance: ComponentInstance,
+  result: unknown,
+  parentNamespace?: string
+): Node {
+  const dom = createDOMNode(result, parentNamespace);
+
+  if (dom instanceof Element) {
+    mountInstanceInline(childInstance, dom);
+    return dom;
+  }
+
+  if (!dom) {
+    const placeholder = document.createComment('');
+    childInstance._placeholder = placeholder;
+    childInstance.mounted = true;
+    childInstance.notifyUpdate = childInstance._enqueueRun!;
+    childInstance.target = null;
+    return placeholder;
+  }
+
+  const host = document.createElement('div') as InstanceHostElement;
+  host.appendChild(dom);
+  host.__ASKR_WRAPPER_HOST = true;
+  mountInstanceInline(childInstance, host);
+  return host;
+}
+
+function resolveNestedComponentResult(
+  result: unknown,
+  snapshot: ContextFrame | null
+): VNode {
+  let currentResult = result as VNode;
+  let depth = 0;
+
+  while (
+    _isDOMElement(currentResult) &&
+    typeof currentResult.type === 'function' &&
+    depth < 16
+  ) {
+    const nestedInstance = createComponentInstance(
+      nextComponentInstanceId(),
+      currentResult.type as ComponentFunction,
+      ((currentResult as DOMElement).props ?? {}) as Props,
+      null
+    );
+
+    if (snapshot) {
+      nestedInstance.ownerFrame = snapshot;
+    }
+
+    const nextResult = renderComponentInline(nestedInstance);
+    cleanupComponent(nestedInstance);
+
+    if (nextResult instanceof Promise) {
+      throw new Error(
+        'Async components are not supported. Components must return synchronously.'
+      );
+    }
+
+    currentResult = nextResult as VNode;
+    depth += 1;
+  }
+
+  return currentResult;
+}
+
+function syncComponentElement(
+  currentDom: Node | null,
+  node: ElementWithContext,
+  type: (props: Props) => unknown,
+  props: Record<string, unknown>,
+  parentNamespace?: string
+): Node | null {
+  const existingHost =
+    currentDom instanceof Element ? (currentDom as InstanceHostElement) : null;
+  const existingInstance = existingHost?.__ASKR_INSTANCE;
+  if (!existingHost || !existingInstance || existingInstance.fn !== type) {
+    return null;
+  }
+
+  const snapshot = node[CONTEXT_FRAME_SYMBOL] || getCurrentContextFrame();
+  existingInstance.props = props || {};
+
+  if (snapshot) {
+    existingInstance.ownerFrame = snapshot;
+  }
+
+  const result = withContext(snapshot, () =>
+    renderComponentInline(existingInstance)
+  );
+  if (result instanceof Promise) {
+    throw new Error(
+      'Async components are not supported. Components must return synchronously.'
+    );
+  }
+
+  if (existingHost.__ASKR_WRAPPER_HOST) {
+    for (let child = existingHost.firstChild; child; ) {
+      const next = child.nextSibling;
+      if (child instanceof Element) {
+        cleanupDetachedComponentHost(child as InstanceHostElement);
+      }
+      child = next;
+    }
+    existingHost.textContent = '';
+    const nextDom = createDOMNode(result, parentNamespace);
+    if (nextDom) {
+      existingHost.appendChild(nextDom);
+    }
+    warnUnusedStateReads(existingInstance);
+    return existingHost;
+  }
+
+  if (
+    result &&
+    typeof result === 'object' &&
+    'type' in (result as DOMElement) &&
+    typeof (result as DOMElement).type === 'string' &&
+    tagNamesEqualIgnoreCase(
+      existingHost.tagName,
+      (result as DOMElement).type as string
+    )
+  ) {
+    updateElementFromVnode(existingHost, result as DOMElement, true);
+    warnUnusedStateReads(existingInstance);
+    return existingHost;
+  }
+
+  const resolvedResult = resolveNestedComponentResult(result, snapshot ?? null);
+  if (
+    _isDOMElement(resolvedResult) &&
+    typeof resolvedResult.type === 'string' &&
+    tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.type)
+  ) {
+    updateElementFromVnode(existingHost, resolvedResult, true);
+    warnUnusedStateReads(existingInstance);
+    return existingHost;
+  }
+
+  const nextDom = materializeComponentResultNode(
+    existingInstance,
+    result,
+    parentNamespace
+  );
+
+  if (nextDom !== existingHost && existingHost.parentNode) {
+    existingHost.parentNode.replaceChild(nextDom, existingHost);
+    cleanupDetachedComponentHost(existingHost);
+  }
+
+  warnUnusedStateReads(existingInstance);
+  return nextDom;
+}
+
 function createComponentElement(
   node: ElementWithContext,
   type: (props: Props) => unknown,
@@ -1076,6 +1272,8 @@ function createComponentElement(
     node.__instance = childInstance;
   }
 
+  childInstance.props = props || {};
+
   if (snapshot) {
     childInstance.ownerFrame = snapshot;
   }
@@ -1091,39 +1289,15 @@ function createComponentElement(
   }
 
   const dom = withContext(snapshot, () =>
-    createDOMNode(result, parentNamespace)
+    materializeComponentResultNode(childInstance, result, parentNamespace)
   );
 
   warnUnusedStateReads(childInstance);
 
   if (dom instanceof Element) {
-    mountInstanceInline(childInstance, dom);
-    // Materialize key from component vnode onto the root element
-    // This ensures keyed reconciliation works for lists of components
     materializeKey(dom, node, props);
-    return dom;
   }
-
-  // For null/undefined returns, use a comment placeholder that can be replaced
-  // when the component re-renders with actual content. This is necessary for
-  // portals and other components that may initially return null but later have content.
-  if (!dom) {
-    const placeholder = document.createComment('');
-    // Store reference so we can find and replace it on re-render
-    childInstance._placeholder = placeholder;
-    childInstance.mounted = true;
-    // Ensure notifyUpdate is set so the component can be re-rendered when content appears
-    childInstance.notifyUpdate = childInstance._enqueueRun!;
-    return placeholder;
-  }
-
-  // For non-Element returns (Text nodes or DocumentFragment), wrap in host
-  const host = document.createElement('div');
-  host.appendChild(dom);
-  mountInstanceInline(childInstance, host);
-  // Materialize key from component vnode onto the wrapper element
-  materializeKey(host, node, props);
-  return host;
+  return dom;
 }
 
 /**
@@ -1167,6 +1341,63 @@ function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
   return dom.tagName.toLowerCase() !== vnodeType.toLowerCase();
 }
 
+function materializeChildScopeDom(vnode: VNode): Node | null {
+  if (vnode === null || vnode === undefined || vnode === false) {
+    return document.createComment('');
+  }
+
+  const dom = createDOMNode(vnode);
+  if (!(dom instanceof DocumentFragment)) {
+    return dom;
+  }
+
+  const firstChild = dom.firstChild;
+  const secondChild = firstChild?.nextSibling ?? null;
+  if (!firstChild) {
+    return document.createComment('');
+  }
+  if (secondChild) {
+    throw new Error('[askr] Child scopes must render a single DOM root node.');
+  }
+  return firstChild;
+}
+
+function evaluateControlBoundaryState(
+  controlState: ControlBoundaryState
+): VNode[] {
+  if (controlState.kind === 'for') {
+    return evaluateForState(controlState);
+  }
+  if (controlState.kind === 'show') {
+    return evaluateShowState(controlState);
+  }
+  return evaluateCaseState(controlState);
+}
+
+function clearControlBoundaryDomUpdateState(
+  controlState: ControlBoundaryState
+): void {
+  if (controlState.kind === 'for') {
+    clearForDomUpdateState(controlState);
+    return;
+  }
+  if (controlState.kind === 'show') {
+    clearShowDomUpdateState(controlState);
+    return;
+  }
+  clearCaseDomUpdateState(controlState);
+}
+
+function getControlBoundaryState(
+  node: DOMElement
+): ControlBoundaryState | null {
+  return (
+    node._controlState ??
+    (node._forState as ControlBoundaryState | undefined) ??
+    null
+  );
+}
+
 /**
  * Create DOM from For boundary - evaluates list and renders items
  *
@@ -1188,23 +1419,50 @@ export function createForBoundary(
   node: DOMElement,
   props: Record<string, unknown>
 ): DocumentFragment {
-  const forState = node._forState;
+  void props;
+  const controlState = getControlBoundaryState(node);
 
-  if (!forState) {
+  if (!controlState) {
     if (getRuntimeEnv().NODE_ENV !== 'production') {
-      logger.warn('[Askr] For boundary missing _forState');
+      logger.warn('[Askr] Control boundary missing state');
     }
     return document.createDocumentFragment();
   }
 
-  const source = props.source as unknown as
-    | import('../runtime/state').State<unknown[]>
-    | (() => unknown[]);
-  const childrenVNodes = evaluateForState(forState, source);
+  const childrenVNodes = evaluateControlBoundaryState(controlState);
 
   // DOM order MUST be reconstructed from the current vnode list on every render.
   // Reusing DOM nodes never implies preserving their position.
   const fragment = document.createDocumentFragment();
+
+  if (controlState.kind !== 'for') {
+    const activeScope = controlState.activeScope;
+    const vnode = childrenVNodes[0];
+    if (activeScope && vnode !== undefined) {
+      const dom = materializeChildScopeDom(vnode);
+      activeScope.dom = dom ?? undefined;
+      if (dom) {
+        fragment.appendChild(dom);
+      }
+    }
+    clearControlBoundaryDomUpdateState(controlState);
+    return fragment;
+  }
+
+  const forState = controlState;
+  if (forState.orderedKeys.length === 0) {
+    const fallbackScope = forState.fallbackScope;
+    const fallbackVNode = childrenVNodes[0];
+    if (fallbackScope && fallbackVNode !== undefined) {
+      const dom = materializeChildScopeDom(fallbackVNode);
+      fallbackScope.dom = dom ?? undefined;
+      if (dom) {
+        fragment.appendChild(dom);
+      }
+    }
+    clearControlBoundaryDomUpdateState(controlState);
+    return fragment;
+  }
 
   for (let i = 0; i < childrenVNodes.length; i++) {
     const childVNode = childrenVNodes[i];
@@ -1227,7 +1485,7 @@ export function createForBoundary(
 
     // Create new DOM if no reusable node available
     if (!dom) {
-      dom = createDOMNode(childVNode);
+      dom = materializeChildScopeDom(childVNode);
       // Cache the DOM in the item instance for future reuse
       if (itemInstance) {
         itemInstance.scope.dom = dom ?? undefined;
@@ -1236,9 +1494,6 @@ export function createForBoundary(
 
     if (dom) {
       // Always update reused DOM from current vnode (never rely on vnode identity)
-      if (dom instanceof Element) {
-        updateElementFromVnode(dom, childVNode, true);
-      }
 
       // ALWAYS append to fragment â€” this is mandatory for correct ordering.
       // Appending an existing node moves it (DOM spec) â€” this is how reordering works.
@@ -1247,7 +1502,7 @@ export function createForBoundary(
     }
   }
 
-  clearForDomUpdateState(forState);
+  clearControlBoundaryDomUpdateState(controlState);
   return fragment;
 }
 
@@ -1260,55 +1515,74 @@ function syncForItemDom(
   vnode: VNode
 ): Node | null {
   let dom = scope.dom ?? null;
-  let created = false;
 
   if (dom && !scope.needsDomUpdate) {
     return dom;
   }
 
-  if (dom && checkVNodeShapeChanged(dom, vnode)) {
-    const nextDom = createDOMNode(vnode);
-    if (!nextDom) {
-      if (dom.parentNode === parent) {
-        dom.parentNode.removeChild(dom);
-      }
-      scope.dom = undefined;
-      return null;
+  if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
+    const syncedComponentDom = syncComponentElement(
+      dom,
+      vnode as ElementWithContext,
+      vnode.type as (props: Props) => unknown,
+      ((vnode as DOMElement).props ?? {}) as Record<string, unknown>
+    );
+    if (syncedComponentDom) {
+      scope.dom = syncedComponentDom ?? undefined;
+      return syncedComponentDom;
     }
-
-    if (dom instanceof Element) {
-      teardownNodeSubtree(dom);
-    }
-
-    if (dom.parentNode === parent) {
-      parent.replaceChild(nextDom, dom);
-    }
-
-    scope.dom = nextDom;
-    dom = nextDom;
-    created = true;
-  } else if (!dom) {
-    dom = createDOMNode(vnode);
-    scope.dom = dom ?? undefined;
-    created = true;
   }
 
   if (!dom) {
+    dom = materializeChildScopeDom(vnode);
+    scope.dom = dom ?? undefined;
+    return dom;
+  }
+
+  if (
+    dom.nodeType === 3 &&
+    (typeof vnode === 'string' || typeof vnode === 'number')
+  ) {
+    (dom as Text).data = String(vnode);
+    return dom;
+  }
+
+  if (
+    dom.nodeType === 8 &&
+    (vnode === null || vnode === undefined || vnode === false)
+  ) {
+    return dom;
+  }
+
+  if (
+    dom instanceof Element &&
+    _isDOMElement(vnode) &&
+    typeof vnode.type === 'string' &&
+    tagNamesEqualIgnoreCase(dom.tagName, vnode.type)
+  ) {
+    updateElementFromVnode(dom, vnode, true);
+    return dom;
+  }
+
+  const nextDom = materializeChildScopeDom(vnode);
+  if (!nextDom) {
+    if (dom.parentNode === parent) {
+      dom.parentNode.removeChild(dom);
+    }
+    scope.dom = undefined;
     return null;
   }
 
-  if (!created && scope.needsDomUpdate) {
-    if (dom instanceof Element) {
-      updateElementFromVnode(dom, vnode, true);
-    } else if (
-      dom.nodeType === 3 &&
-      (typeof vnode === 'string' || typeof vnode === 'number')
-    ) {
-      (dom as Text).data = String(vnode);
-    }
+  if (dom.parentNode === parent) {
+    parent.replaceChild(nextDom, dom);
   }
 
-  return dom;
+  if (dom instanceof Element) {
+    teardownNodeSubtree(dom);
+  }
+
+  scope.dom = nextDom;
+  return nextDom;
 }
 
 function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
@@ -1440,10 +1714,75 @@ function syncKeyedMapFromForState(
 
 export function commitForBoundaryChildren(
   parent: Element,
-  forState: ForState<unknown>,
+  controlState: ControlBoundaryState,
   childrenVNodes: VNode[]
 ): void {
+  if (controlState.kind !== 'for') {
+    const activeScope = controlState.activeScope;
+    const activeVNode = childrenVNodes[0];
+    const nextDom =
+      activeScope && activeVNode !== undefined
+        ? syncForItemDom(parent, activeScope, activeVNode)
+        : null;
+
+    for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
+      const removedNode = controlState.lastRemovedNodes[i];
+      if (removedNode instanceof Element) {
+        teardownNodeSubtree(removedNode);
+      }
+      if (removedNode.parentNode === parent) {
+        recordBenchEvent('domRemove');
+        parent.removeChild(removedNode);
+      }
+    }
+
+    if (nextDom) {
+      if (
+        parent.childNodes.length !== 1 ||
+        parent.firstChild !== nextDom ||
+        controlState.lastRemovedNodes.length > 0
+      ) {
+        parent.replaceChildren(nextDom);
+      }
+    } else if (parent.firstChild) {
+      parent.textContent = '';
+    }
+
+    keyedElements.delete(parent);
+    clearControlBoundaryDomUpdateState(controlState);
+    return;
+  }
+
+  const forState = controlState;
   const domCommitStart = performance.now();
+
+  if (forState.orderedKeys.length === 0) {
+    removeForBoundaryNodes(parent, forState.lastRemovedNodes);
+
+    const fallbackScope = forState.fallbackScope;
+    const fallbackVNode = childrenVNodes[0];
+    const nextDom =
+      fallbackScope && fallbackVNode !== undefined
+        ? syncForItemDom(parent, fallbackScope, fallbackVNode)
+        : null;
+
+    if (nextDom) {
+      if (
+        parent.childNodes.length !== 1 ||
+        parent.firstChild !== nextDom ||
+        forState.lastRemovedNodes.length > 0
+      ) {
+        parent.replaceChildren(nextDom);
+      }
+    } else if (parent.firstChild) {
+      parent.textContent = '';
+    }
+
+    keyedElements.delete(parent);
+    recordBenchTiming('domCommit', performance.now() - domCommitStart);
+    clearForDomUpdateState(forState);
+    return;
+  }
 
   const commitDirtyNoReorder = (): void => {
     const dirtyIndices = forState.pendingDirtyIndices;
@@ -2080,16 +2419,15 @@ export function updateElementChildren(
     _isDOMElement(children) &&
     (children as DOMElement).type === __FOR_BOUNDARY__
   ) {
-    const forVnode = children as DOMElement;
-    const forState = forVnode._forState;
-    if (!forState) {
-      throw new Error('[updateElementChildren] For boundary missing _forState');
+    const controlVnode = children as DOMElement;
+    const controlState = getControlBoundaryState(controlVnode);
+    if (!controlState) {
+      throw new Error(
+        '[updateElementChildren] Control boundary missing internal state'
+      );
     }
-    const source = (forVnode.props || {}).source as unknown as
-      | State<unknown[]>
-      | (() => unknown[]);
-    const childrenVNodes = evaluateForState(forState, source);
-    commitForBoundaryChildren(el, forState, childrenVNodes as VNode[]);
+    const childrenVNodes = evaluateControlBoundaryState(controlState);
+    commitForBoundaryChildren(el, controlState, childrenVNodes as VNode[]);
     return;
   }
 
@@ -2124,17 +2462,15 @@ export function updateElementChildren(
     _isDOMElement(children[0]) &&
     (children[0] as DOMElement).type === __FOR_BOUNDARY__
   ) {
-    // Evaluate For boundary and reconcile children
-    const forVnode = children[0] as DOMElement;
-    const forState = forVnode._forState;
-    if (!forState) {
-      throw new Error('[updateElementChildren] For boundary missing _forState');
+    const controlVnode = children[0] as DOMElement;
+    const controlState = getControlBoundaryState(controlVnode);
+    if (!controlState) {
+      throw new Error(
+        '[updateElementChildren] Control boundary missing internal state'
+      );
     }
-    const source = (forVnode.props || {}).source as unknown as
-      | State<unknown[]>
-      | (() => unknown[]);
-    const childrenVNodes = evaluateForState(forState, source);
-    commitForBoundaryChildren(el, forState, childrenVNodes as VNode[]);
+    const childrenVNodes = evaluateControlBoundaryState(controlState);
+    commitForBoundaryChildren(el, controlState, childrenVNodes as VNode[]);
     return;
   }
 

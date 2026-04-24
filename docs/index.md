@@ -137,7 +137,7 @@ Real app workflows by use case.
 
 ## More
 
-- [Internals: For primitive design](./internals/for-primitive-design.md)
+- [Internals: Control-flow primitive design](./internals/for-primitive-design.md)
 - [Internals: Foundations pit of success](./internals/foundations-pit-of-success.md)
 - [Internals: Foundations audit report](./internals/foundations-audit-report.md)
 - [Internals: Router manifest](./internals/router-manifest.md)

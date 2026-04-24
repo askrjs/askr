@@ -5,13 +5,9 @@
  * to eliminate over-invalidation in list rendering.
  */
 
-import { type State } from './state';
 import { type ComponentInstance, getCurrentInstance } from './component';
 import { type DOMElement, type VNode } from '../common/vnode';
-import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
-import type { Props } from '../common/props';
 import { isDevelopmentEnvironment } from '../common/env';
-import { logger } from '../dev/logger';
 import {
   teardownNodeSubtree,
   removeElementReactiveProps,
@@ -22,6 +18,14 @@ import {
   disposeChildScope,
   type ChildScope,
 } from './child-scope';
+import type { ForProps } from '../for/for';
+import {
+  markReactivePropsDirtySource,
+  markReadableDerivedSubscribersDirty,
+  notifyReadableReaders,
+  recordReadableRead,
+  type ReadableSource,
+} from './readable';
 import {
   flushBenchMetrics,
   getBenchMetrics,
@@ -47,15 +51,17 @@ export {
 };
 
 export interface ForItemInstance<T> {
-  key: string | number | null;
+  key: string | number;
   item: T;
   indexSignal: ForIndexSignal;
   scope: ChildScope;
 }
 
-type ForIndexSignal = (() => number) & {
-  set(newValue: number | ((prev: number) => number)): void;
-};
+type ForIndexSignal = ReadableSource<number> &
+  (() => number) & {
+    peek(): number;
+    set(newValue: number | ((prev: number) => number)): void;
+  };
 
 export type ForCommitStrategy =
   | 'APPEND'
@@ -65,70 +71,42 @@ export type ForCommitStrategy =
   | 'FULL_KEYED';
 
 export interface ForState<T> {
-  sourceState: State<T[]> | null;
-  items: Map<string | number | null, ForItemInstance<T>>;
-  orderedKeys: Array<string | number | null>;
+  kind: 'for';
+  currentItems: T[];
+  fallback: VNode | null;
+  fallbackScope: ChildScope | null;
+  items: Map<string | number, ForItemInstance<T>>;
+  orderedKeys: Array<string | number>;
   orderedVNodes: VNode[];
-  byFn: (item: T, index: number) => string | number | null;
+  byFn: NonNullable<ForProps<T>['by']> | ((item: T, index: number) => number);
   renderFn: (item: T, index: () => number) => VNode;
   parentInstance: ComponentInstance | null;
-  mounted: boolean;
   lastCommitStrategy: ForCommitStrategy;
   lastRemovedNodes: Node[];
   pendingDirtyIndices: number[] | null;
   pendingSwapIndices: [number, number] | null;
-  devWarningsEmitted?: Set<string>;
-}
-
-/**
- * Evaluate JSXElement to VNode
- *
- * When a For render function returns a JSXElement (from JSX syntax like <Row .../>),
- * we need to evaluate it by calling the component function to get the actual vnode.
- * This handles the common case of returning a component from For's render function.
- */
-function evaluateJSXElement(value: unknown): VNode {
-  if (value && typeof value === 'object' && 'type' in value) {
-    const jsxEl = value as JSXElement & { props?: Props };
-
-    if ('$$typeof' in jsxEl && jsxEl.$$typeof !== ELEMENT_TYPE) {
-      return value as VNode;
-    }
-
-    // If the type is a function (component), call it to get the vnode
-    if (typeof jsxEl.type === 'function') {
-      const componentFn = jsxEl.type as (props: Props) => unknown;
-      const result = componentFn(jsxEl.props || {});
-      // Recursively evaluate in case the component returns another JSXElement
-      return evaluateJSXElement(result);
-    }
-
-    // For intrinsic elements (string type) or symbols, return as-is
-    // The renderer will handle these
-    return jsxEl as VNode;
-  }
-
-  // Not a JSXElement, return as-is
-  return value as VNode;
+  devKeyKinds?: Map<string, 'number' | 'string'>;
 }
 
 export function createForState<T>(
-  source: State<T[]> | (() => T[]),
-  byFn: (item: T, index: number) => string | number,
-  renderFn: (item: T, index: () => number) => VNode
+  items: T[],
+  byFn: ForState<T>['byFn'],
+  renderFn: (item: T, index: () => number) => VNode,
+  fallback: VNode | null
 ): ForState<T> {
-  const sourceState = typeof source === 'function' ? null : source;
   const parentInstance = getCurrentInstance();
 
   return {
-    sourceState,
+    kind: 'for',
+    currentItems: items,
+    fallback,
+    fallbackScope: null,
     items: new Map(),
     orderedKeys: [],
     orderedVNodes: [],
-    byFn: byFn,
+    byFn,
     renderFn,
     parentInstance,
-    mounted: false,
     lastCommitStrategy: 'NO_REORDER',
     lastRemovedNodes: [],
     pendingDirtyIndices: null,
@@ -138,21 +116,32 @@ export function createForState<T>(
 
 function createForIndexSignal(initialIndex: number): ForIndexSignal {
   let indexValue = initialIndex;
+  const readers = new Map<ComponentInstance, number>();
 
-  const indexSignal = (() => indexValue) as ForIndexSignal;
+  const indexSignal = (() => {
+    indexSignal._hasBeenRead = true;
+    recordReadableRead(indexSignal);
+    return indexValue;
+  }) as ForIndexSignal;
+  indexSignal._readers = readers;
+  indexSignal.peek = () => indexValue;
   indexSignal.set = (newValue: number | ((prev: number) => number)) => {
     const nextValue =
       typeof newValue === 'function' ? newValue(indexValue) : newValue;
     if (nextValue !== indexValue) {
       indexValue = nextValue;
+      markReadableDerivedSubscribersDirty(indexSignal);
+      markReactivePropsDirtySource(indexSignal);
+      notifyReadableReaders(indexSignal);
     }
   };
+  indexSignal._hasBeenRead = false;
 
   return indexSignal;
 }
 
 function materializeItemVnode(
-  key: string | number | null,
+  key: string | number,
   vnode: VNode | undefined
 ): void {
   if (vnode && typeof vnode === 'object' && 'type' in vnode) {
@@ -173,32 +162,16 @@ function renderItemScope<T>(
   scope: ChildScope,
   item: T,
   indexSignal: ForIndexSignal,
-  key: string | number | null
+  key: string | number
 ): VNode {
   recordBenchEvent('rowFactory');
-  const vnode = scope.render(() =>
-    evaluateJSXElement(forState.renderFn(item, indexSignal))
-  );
+  const vnode = scope.render(() => forState.renderFn(item, indexSignal));
   materializeItemVnode(key, vnode);
   return vnode;
 }
 
-function warnForStateOnce(
-  forState: ForState<unknown>,
-  key: string,
-  message: string
-): void {
-  if (!isDevelopmentEnvironment()) {
-    return;
-  }
-
-  const warnings = (forState.devWarningsEmitted ??= new Set());
-  if (warnings.has(key)) {
-    return;
-  }
-
-  warnings.add(key);
-  logger.warn(message);
+function failForValidation(message: string): never {
+  throw new Error(message);
 }
 
 function validateForKeys<T>(forState: ForState<T>, newArray: T[]): void {
@@ -206,30 +179,37 @@ function validateForKeys<T>(forState: ForState<T>, newArray: T[]): void {
     return;
   }
 
-  const seen = new Set<string | number | null>();
+  const seen = new Set<string | number>();
+  const keyKinds = new Map<string, 'number' | 'string'>();
   for (let i = 0; i < newArray.length; i++) {
     const key = forState.byFn(newArray[i], i);
 
     if (key === null || key === undefined) {
-      warnForStateOnce(
-        forState as ForState<unknown>,
-        'invalid-key:null',
+      failForValidation(
         '[askr] Invalid For key detected. Keys should be stable, non-null, and unique within a For list.'
       );
-      continue;
     }
 
     if (seen.has(key)) {
-      warnForStateOnce(
-        forState as ForState<unknown>,
-        `duplicate-key:${String(key)}`,
+      failForValidation(
         `[askr] Duplicate For key detected: ${String(key)}. Keys should be stable, non-null, and unique within a For list.`
       );
-      continue;
     }
 
     seen.add(key);
+
+    const keyString = String(key);
+    const keyKind = typeof key;
+    const previousKeyKind = forState.devKeyKinds?.get(keyString);
+    if (previousKeyKind && previousKeyKind !== keyKind) {
+      failForValidation(
+        `[askr] For key type changed for ${keyString}. Keys must remain consistently typed across renders.`
+      );
+    }
+    keyKinds.set(keyString, keyKind as 'number' | 'string');
   }
+
+  forState.devKeyKinds = keyKinds;
 }
 
 type RemovedDomCleanupMode = 'none' | 'teardown' | 'full-clear';
@@ -267,7 +247,7 @@ function disposeItemInstance<T>(
 }
 
 export function createItemInstance<T>(
-  key: string | number | null,
+  key: string | number,
   item: T,
   index: number,
   forState: ForState<T>
@@ -310,10 +290,81 @@ function rerenderItemInstance<T>(
   );
 }
 
+const FOR_FALLBACK_SCOPE_KEY = '__for-fallback__';
+
+function disposeFallbackScope<T>(
+  forState: ForState<T>,
+  domCleanup: RemovedDomCleanupMode
+): void {
+  const fallbackScope = forState.fallbackScope;
+  if (!fallbackScope) {
+    return;
+  }
+
+  const removedDom = fallbackScope.dom;
+  disposeChildScope(fallbackScope);
+  forState.fallbackScope = null;
+
+  if (!removedDom) {
+    return;
+  }
+
+  if (removedDom instanceof Element) {
+    if (domCleanup === 'full-clear') {
+      removeElementReactiveProps(removedDom);
+      removeElementListeners(removedDom);
+    } else if (domCleanup === 'teardown') {
+      teardownNodeSubtree(removedDom);
+    }
+  }
+
+  forState.lastRemovedNodes.push(removedDom);
+}
+
+function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
+  if (forState.fallback == null || forState.fallback === false) {
+    if (forState.fallbackScope) {
+      disposeFallbackScope(forState, 'none');
+    }
+    forState.orderedVNodes = [];
+    return [];
+  }
+
+  const fallbackScope =
+    forState.fallbackScope ??
+    createChildScope(forState.parentInstance, FOR_FALLBACK_SCOPE_KEY, () => {
+      forState.parentInstance?._enqueueRun?.();
+    });
+  forState.fallbackScope = fallbackScope;
+
+  const vnode = fallbackScope.render(() => forState.fallback as VNode);
+  forState.orderedVNodes = vnode == null || vnode === false ? [] : [vnode];
+  return forState.orderedVNodes;
+}
+
+function disposeAllItems<T>(
+  forState: ForState<T>,
+  domCleanup: RemovedDomCleanupMode
+): void {
+  const { items, orderedKeys } = forState;
+  for (let index = 0; index < orderedKeys.length; index += 1) {
+    const key = orderedKeys[index];
+    const itemInstance = items.get(key);
+    if (!itemInstance) {
+      continue;
+    }
+    disposeItemInstance(forState, itemInstance, domCleanup);
+    items.delete(key);
+  }
+  orderedKeys.length = 0;
+  forState.orderedKeys = orderedKeys;
+}
+
 export function reconcileForItems<T>(
   forState: ForState<T>,
   newArray: T[]
 ): VNode[] {
+  forState.currentItems = newArray;
   validateForKeys(forState, newArray);
 
   if (BENCH_BUILD_ENABLED) {
@@ -326,6 +377,27 @@ export function reconcileForItems<T>(
   const oldLen = orderedKeys.length;
   const newLen = newArray.length;
   forState.lastRemovedNodes = [];
+
+  if (newLen === 0) {
+    if (oldLen > 0) {
+      disposeAllItems(forState, forState.fallback ? 'teardown' : 'full-clear');
+    }
+    recordBenchFastLane('TRUNCATE');
+    forState.lastCommitStrategy = 'TRUNCATE';
+    forState.pendingDirtyIndices = null;
+    forState.pendingSwapIndices = null;
+
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+      flushBenchMetrics();
+    }
+
+    return renderFallbackScope(forState);
+  }
+
+  if (forState.fallbackScope) {
+    disposeFallbackScope(forState, 'none');
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // FAST PATH A: APPEND
@@ -663,11 +735,11 @@ export function reconcileForItems<T>(
         rerenderItemInstance(forState, secondExisting, secondItem);
       }
 
-      if (firstExisting.indexSignal() !== firstMismatch) {
+      if (firstExisting.indexSignal.peek() !== firstMismatch) {
         firstExisting.indexSignal.set(firstMismatch);
       }
 
-      if (secondExisting.indexSignal() !== secondMismatch) {
+      if (secondExisting.indexSignal.peek() !== secondMismatch) {
         secondExisting.indexSignal.set(secondMismatch);
       }
 
@@ -696,7 +768,7 @@ export function reconcileForItems<T>(
   forState.lastCommitStrategy = 'FULL_KEYED';
 
   const toRemove = new Set(orderedKeys);
-  const newOrderedKeys: Array<string | number | null> = [];
+  const newOrderedKeys: Array<string | number> = [];
   const resultVNodes: VNode[] = [];
 
   // Single pass: iterate new array directly, no intermediate map
@@ -720,7 +792,7 @@ export function reconcileForItems<T>(
       // Exists: check if item changed (by identity)
       recordBenchEvent('itemReused');
       const itemChanged = existing.item !== item;
-      const indexChanged = existing.indexSignal() !== i;
+      const indexChanged = existing.indexSignal.peek() !== i;
 
       if (itemChanged) {
         // Item data changed: update and re-execute
@@ -761,18 +833,12 @@ export function reconcileForItems<T>(
   return resultVNodes;
 }
 
-export function evaluateForState<T>(
-  forState: ForState<T>,
-  source: State<T[]> | (() => T[])
-): VNode[] {
-  const currentArray =
-    typeof source === 'function' ? source() : (source as State<T[]>)();
-
-  if (!Array.isArray(currentArray)) {
+export function evaluateForState<T>(forState: ForState<T>): VNode[] {
+  if (!Array.isArray(forState.currentItems)) {
     throw new Error('For source must evaluate to an array');
   }
 
-  return reconcileForItems(forState, currentArray);
+  return reconcileForItems(forState, forState.currentItems);
 }
 
 export function clearForDomUpdateState<T>(forState: ForState<T>): void {
@@ -782,6 +848,9 @@ export function clearForDomUpdateState<T>(forState: ForState<T>): void {
     if (itemInstance) {
       itemInstance.scope.needsDomUpdate = false;
     }
+  }
+  if (forState.fallbackScope) {
+    forState.fallbackScope.needsDomUpdate = false;
   }
   forState.lastRemovedNodes = [];
   forState.pendingDirtyIndices = null;

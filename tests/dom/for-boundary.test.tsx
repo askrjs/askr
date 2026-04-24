@@ -11,13 +11,11 @@ test('should not emit wrapper element for For boundary', () => {
     const rows = [1, 2, 3];
     return (
       <div class={'wrap'}>
-        {For(
-          () => rows,
-          (n) => n,
-          (n) => (
-            <div>{String(n)}</div>
-          )
-        )}
+        {
+          <For each={() => rows} by={(n) => n}>
+            {(n) => <div>{String(n)}</div>}
+          </For>
+        }
       </div>
     );
   };

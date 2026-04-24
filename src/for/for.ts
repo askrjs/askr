@@ -1,49 +1,116 @@
 /**
- * For component primitive
+ * For JSX primitive
  *
- * Creates a reactivity boundary for list iteration, preventing
- * parent re-execution when individual items update.
+ * Creates a keyed child-scope boundary for efficient list rendering.
  */
 
-import { state, type State } from '../runtime/state';
-import { type DOMElement, type VNode, __FOR_BOUNDARY__ } from '../common/vnode';
+import {
+  __CONTROL_BOUNDARY__,
+  markEagerControlPrimitive,
+} from '../common/control';
+import { Fragment } from '../common/jsx';
+import type { JSXElement } from '../common/jsx';
+import { type DOMElement, type VNode } from '../common/vnode';
 import { createForState, type ForState } from '../runtime/for';
+import { state } from '../runtime/state';
 
-/**
- * For primitive - creates a reactivity boundary for efficient list rendering.
- *
- * Instead of re-executing all rows when one changes, For creates isolated
- * component instances for each item, re-executing only items that changed.
- */
-export function For<T>(
-  source: State<T[]> | (() => T[]),
-  key: (item: T, index: number) => string | number,
-  render: (item: T, index: () => number) => VNode
-): DOMElement {
-  if (typeof source === 'function') {
-    // Subscribe the current owner component to dependencies of the source
-    // callback so keyed list updates still rerender through component boundaries.
-    source();
+type ForEachSource<T> = T[] | (() => T[]);
+
+type ForBaseProps<T> = {
+  each: ForEachSource<T>;
+  fallback?: unknown;
+  children: (item: T, index: () => number) => VNode;
+};
+
+type KeyedForProps<T, K extends string | number> = ForBaseProps<T> & {
+  by: (item: T, index: number) => K;
+  byIndex?: never;
+};
+
+type IndexedForProps<T> = ForBaseProps<T> & {
+  by?: never;
+  byIndex: true;
+};
+
+export type ForProps<T, K extends string | number = string | number> =
+  | KeyedForProps<T, K>
+  | IndexedForProps<T>;
+
+function normalizeBoundaryChild(value: unknown): VNode | null {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return null;
+    }
+    if (value.length === 1) {
+      return normalizeBoundaryChild(value[0]);
+    }
+    return {
+      type: Fragment,
+      props: {
+        children: value,
+      },
+    } as DOMElement;
   }
 
-  // Persist ForState across renders using the state() hook so that For can
-  // be used inline within component render functions without creating an
-  // extra wrapper host element (which would break markup/styling).
-  const forStateContainer = state<ForState<T>>(
-    createForState(source, key, render)
-  );
+  return (value ?? null) as VNode | null;
+}
 
+function resolveEach<T>(each: ForEachSource<T>): T[] {
+  const resolved = typeof each === 'function' ? each() : each;
+  if (!Array.isArray(resolved)) {
+    throw new Error('For each must resolve to an array.');
+  }
+  return resolved;
+}
+
+function resolveKeyFn<T>(
+  props: ForProps<T>
+): (item: T, index: number) => string | number {
+  if ('by' in props && typeof props.by === 'function') {
+    return props.by;
+  }
+  if ('byIndex' in props && props.byIndex === true) {
+    return (_item, index) => index;
+  }
+  throw new Error(
+    '[askr] <For> requires a stable `by` key function. Use `byIndex` only as an explicit positional escape hatch.'
+  );
+}
+
+function createForBoundary<T>(props: ForProps<T>): DOMElement {
+  if ('by' in props && typeof props.by === 'function' && 'byIndex' in props) {
+    throw new Error('[askr] <For> accepts either `by` or `byIndex`, not both.');
+  }
+
+  const items = resolveEach(props.each);
+  const byFn = resolveKeyFn(props);
+  const fallback = normalizeBoundaryChild(props.fallback);
+
+  const forStateContainer = state<ForState<T>>(
+    createForState(items, byFn, props.children, fallback)
+  );
   const forState = forStateContainer();
 
-  // Return a raw For boundary vnode (renderer will look for _forState)
-  const vnode: DOMElement = {
-    type: __FOR_BOUNDARY__,
-    props: { source },
-    // _forState is stored as unknown to avoid a problematic variance issue when
-    // assigning `ForState<T>` to the internal `_forState` slot typed as
-    // `ForState<unknown>` in `DOMElement`.
+  forState.currentItems = items;
+  forState.byFn = byFn;
+  forState.renderFn = props.children;
+  forState.fallback = fallback;
+
+  return {
+    type: __CONTROL_BOUNDARY__,
+    _controlState: forState as unknown as ForState<unknown>,
     _forState: forState as unknown as ForState<unknown>,
   };
-
-  return vnode;
 }
+
+function ForPrimitive<T>(props: ForProps<T>): JSXElement {
+  return createForBoundary(props) as unknown as JSXElement;
+}
+
+export const For = markEagerControlPrimitive(
+  ForPrimitive as <T, K extends string | number = string | number>(
+    props: ForProps<T, K>
+  ) => JSXElement
+) as <T, K extends string | number = string | number>(
+  props: ForProps<T, K>
+) => JSXElement;
