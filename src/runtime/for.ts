@@ -23,6 +23,7 @@ import {
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
+import { isDevelopmentEnvironment } from '../common/env';
 import {
   teardownNodeSubtree,
   removeElementReactiveProps,
@@ -473,7 +474,7 @@ export function reconcileForItems<T>(
             try {
               cleanupComponent(instance);
             } catch (err) {
-              if (process.env.NODE_ENV !== 'production') {
+              if (isDevelopmentEnvironment()) {
                 console.error('[For] Cleanup error:', err);
               }
             }
@@ -554,7 +555,7 @@ export function reconcileForItems<T>(
           try {
             cleanupComponent(instance);
           } catch (err) {
-            if (process.env.NODE_ENV !== 'production') {
+            if (isDevelopmentEnvironment()) {
               console.error('[For] Cleanup error:', err);
             }
           }
@@ -803,7 +804,7 @@ export function reconcileForItems<T>(
       try {
         cleanupComponent(instance);
       } catch (err) {
-        if (process.env.NODE_ENV !== 'production') {
+        if (isDevelopmentEnvironment()) {
           console.error('[For] Cleanup error:', err);
         }
       }

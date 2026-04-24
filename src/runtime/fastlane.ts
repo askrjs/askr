@@ -1,3 +1,4 @@
+import { isDevelopmentEnvironment } from '../common/env';
 import { globalScheduler } from './scheduler';
 import { logger } from '../dev/logger';
 import type { ComponentInstance } from './component';
@@ -24,7 +25,7 @@ export function enterBulkCommit(): void {
     const cleared = globalScheduler.clearPendingSyncTasks?.() ?? 0;
     setDevValue('__ASKR_FASTLANE_CLEARED_TASKS', cleared);
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') throw err;
+    if (isDevelopmentEnvironment()) throw err;
   }
 }
 
@@ -190,7 +191,7 @@ export function commitReorderOnly(
   }
 
   const schedBefore =
-    process.env.NODE_ENV !== 'production' ? globalScheduler.getState() : null;
+    isDevelopmentEnvironment() ? globalScheduler.getState() : null;
 
   enterBulkCommit();
 
@@ -202,7 +203,7 @@ export function commitReorderOnly(
       try {
         finalizeReadSubscriptions(instance);
       } catch (e) {
-        if (process.env.NODE_ENV !== 'production') throw e;
+        if (isDevelopmentEnvironment()) throw e;
       }
     });
 
@@ -211,7 +212,7 @@ export function commitReorderOnly(
     setDevValue('__FASTLANE_CLEARED_AFTER', clearedAfter);
 
     // Dev-only invariant checks
-    if (process.env.NODE_ENV !== 'production') {
+    if (isDevelopmentEnvironment()) {
       validateFastLaneInvariants(instance, schedBefore);
     }
 
@@ -336,7 +337,7 @@ export function tryRuntimeFastLaneSync(
     return commitReorderOnly(instance, result);
   } catch (err) {
     // Surface dev-only invariant failures, otherwise decline silently
-    if (process.env.NODE_ENV !== 'production') throw err;
+    if (isDevelopmentEnvironment()) throw err;
     return false;
   }
 }

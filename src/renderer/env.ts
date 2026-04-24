@@ -1,5 +1,7 @@
-type RuntimeEnv = Record<string, string | undefined>;
-
-export function getRuntimeEnv(): RuntimeEnv {
-  return globalThis.process?.env ?? {};
-}
+export {
+  getRuntimeEnv,
+  isDevelopmentEnvironment,
+  isProductionEnvironment,
+  isRuntimeEnvFlagEnabled,
+  type RuntimeEnv,
+} from '../common/env';

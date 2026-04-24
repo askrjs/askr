@@ -9,6 +9,10 @@ import {
   type ComponentFunction,
   type ComponentInstance,
 } from '../runtime/component';
+import {
+  isDevelopmentEnvironment,
+  isProductionEnvironment,
+} from '../common/env';
 import { globalScheduler } from '../runtime/scheduler';
 import { assertExecutionModel } from '../runtime/execution-model';
 
@@ -84,7 +88,7 @@ function attachCleanupForRoot(
     if (errors.length > 0) {
       if (instance.cleanupStrict) {
         throw new AggregateError(errors, `cleanup failed for app root`);
-      } else if (process.env.NODE_ENV !== 'production') {
+      } else if (isDevelopmentEnvironment()) {
         getLogger().then((logger) => {
           for (const err of errors) logger.warn('[Askr] cleanup error:', err);
         });
@@ -114,7 +118,7 @@ function attachCleanupForRoot(
               removeAllListeners(rootElement);
             } catch (e) {
               if (instance.cleanupStrict) throw e;
-              if (process.env.NODE_ENV !== 'production') {
+              if (isDevelopmentEnvironment()) {
                 getLogger().then((logger) => {
                   logger.warn('[Askr] cleanup error:', e);
                 });
@@ -125,7 +129,7 @@ function attachCleanupForRoot(
               cleanupComponent(instance as ComponentInstance);
             } catch (e) {
               if (instance.cleanupStrict) throw e;
-              if (process.env.NODE_ENV !== 'production') {
+              if (isDevelopmentEnvironment()) {
                 getLogger().then((logger) => {
                   logger.warn('[Askr] cleanup error:', e);
                 });
@@ -201,7 +205,7 @@ function mountOrUpdate(
       cleanupComponent(instance);
     } catch (e) {
       // If previous cleanup threw in strict mode, log but continue mounting new instance
-      if (process.env.NODE_ENV !== 'production') {
+      if (isDevelopmentEnvironment()) {
         getLogger().then((logger) => {
           logger.warn('[Askr] prior cleanup threw:', e);
         });
@@ -437,7 +441,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   await _drainLazy(pendingLazyAtBoot);
 
   // Lock registration in production to prevent late registration surprises
-  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
+  if (isProductionEnvironment()) lockRouteRegistration();
 
   // Mount the currently-resolved route handler (if any)
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
@@ -754,7 +758,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       ? `${window.location.pathname}${window.location.search}${window.location.hash}`
       : path;
   setServerLocation(currentUrl);
-  if (process.env.NODE_ENV === 'production') lockRouteRegistration();
+  if (isProductionEnvironment()) lockRouteRegistration();
 
   const resolved = resolveRoute(path);
   if (!resolved) {

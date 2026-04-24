@@ -13,6 +13,10 @@ import {
   cleanupComponent,
   type ComponentInstance,
 } from '../runtime/component';
+import {
+  isDevelopmentEnvironment,
+  isProductionEnvironment,
+} from '../common/env';
 import { logger } from '../dev/logger';
 import type { RouteRenderResult, RouteRequestResult } from '../common/router';
 
@@ -152,7 +156,7 @@ function applyNavigationTarget(
   const { href, pathname, resolved } = target;
 
   if (!resolved) {
-    if (process.env.NODE_ENV !== 'production') {
+    if (isDevelopmentEnvironment()) {
       logger.warn(`No route found for path: ${path}`);
     }
     return;
@@ -162,7 +166,7 @@ function applyNavigationTarget(
     const redirectTarget = parseTargetUrl(resolved.to);
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
     if (redirectHref === href) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (isDevelopmentEnvironment()) {
         logger.warn(
           `Navigation guard redirected to the same path: ${redirectHref}`
         );
@@ -205,7 +209,7 @@ export function registerAppInstance(
   currentPathname = path;
   // Lock further route registrations after the app has started — but allow tests to register routes.
   // Enforce only in production to avoid breaking test infra which registers routes dynamically.
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnvironment()) {
     lockRouteRegistration();
   }
 }
@@ -246,7 +250,7 @@ function handlePopState(_event: PopStateEvent): void {
 
   const applyResolved = (resolved: RouteRequestResult) => {
     if (!resolved) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (isDevelopmentEnvironment()) {
         logger.warn(`No route found for path: ${pathname}`);
       }
       return;

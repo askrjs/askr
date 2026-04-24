@@ -1,3 +1,8 @@
+import {
+  isDevelopmentEnvironment,
+  isRuntimeEnvFlagEnabled,
+} from '../common/env';
+
 type PerfMetrics = {
   selectorInvalidations: number;
   selectorCandidateReads: number;
@@ -24,7 +29,7 @@ type AskrPerfGlobal = typeof globalThis & {
   __ASKR_PERF__?: PerfMetrics;
 };
 
-const BENCH_BUILD_ENABLED = process.env.ASKR_BENCH === '1';
+const BENCH_BUILD_ENABLED = isRuntimeEnvFlagEnabled('ASKR_BENCH');
 
 function createInitialPerfMetrics(): PerfMetrics {
   return {
@@ -48,7 +53,7 @@ function createInitialPerfMetrics(): PerfMetrics {
 }
 
 function shouldCollectPerfMetrics(): boolean {
-  if (process.env.NODE_ENV !== 'production') {
+  if (isDevelopmentEnvironment()) {
     return true;
   }
   if (!BENCH_BUILD_ENABLED) {
