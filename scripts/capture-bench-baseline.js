@@ -66,15 +66,11 @@ async function runNpmScript(args, cwd) {
   await new Promise((resolve, reject) => {
     const child =
       process.platform === 'win32'
-        ? spawn(
-            'cmd.exe',
-            ['/d', '/s', '/c', `npm ${args.join(' ')}`],
-            {
-              cwd,
-              stdio: 'inherit',
-              shell: false,
-            }
-          )
+        ? spawn('cmd.exe', ['/d', '/s', '/c', `npm ${args.join(' ')}`], {
+            cwd,
+            stdio: 'inherit',
+            shell: false,
+          })
         : spawn('npm', args, {
             cwd,
             stdio: 'inherit',
@@ -86,7 +82,11 @@ async function runNpmScript(args, cwd) {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`Command failed with exit code ${code}: npm ${args.join(' ')}`));
+        reject(
+          new Error(
+            `Command failed with exit code ${code}: npm ${args.join(' ')}`
+          )
+        );
       }
     });
   });
@@ -118,7 +118,9 @@ function collectBenchmarks(report) {
           rme: benchmark.rme,
           sampleCount:
             benchmark.sampleCount ??
-            (Array.isArray(benchmark.samples) ? benchmark.samples.length : null),
+            (Array.isArray(benchmark.samples)
+              ? benchmark.samples.length
+              : null),
         });
       }
     }
@@ -241,7 +243,11 @@ function renderMarkdown(snapshot, outputRoot) {
   }
 
   allBenchmarks
-    .filter((item) => typeof item.medianMeanMs === 'number' && Number.isFinite(item.medianMeanMs))
+    .filter(
+      (item) =>
+        typeof item.medianMeanMs === 'number' &&
+        Number.isFinite(item.medianMeanMs)
+    )
     .sort((left, right) => right.medianMeanMs - left.medianMeanMs)
     .slice(0, 20)
     .forEach((item) => {
@@ -317,17 +323,34 @@ async function main() {
 
   const summaryJsonPath = path.join(outputRoot, 'summary.json');
   const summaryMdPath = path.join(outputRoot, 'summary.md');
-  await fs.writeFile(summaryJsonPath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
-  await fs.writeFile(summaryMdPath, renderMarkdown(snapshot, outputRoot), 'utf8');
+  await fs.writeFile(
+    summaryJsonPath,
+    `${JSON.stringify(snapshot, null, 2)}\n`,
+    'utf8'
+  );
+  await fs.writeFile(
+    summaryMdPath,
+    renderMarkdown(snapshot, outputRoot),
+    'utf8'
+  );
 
-  const latestPath = path.join(path.resolve(rootDir, options.outputDir), 'latest.json');
+  const latestPath = path.join(
+    path.resolve(rootDir, options.outputDir),
+    'latest.json'
+  );
   await fs.writeFile(
     latestPath,
     `${JSON.stringify(
       {
         timestamp,
-        summary: relativePosix(path.resolve(rootDir, options.outputDir), summaryJsonPath),
-        markdown: relativePosix(path.resolve(rootDir, options.outputDir), summaryMdPath),
+        summary: relativePosix(
+          path.resolve(rootDir, options.outputDir),
+          summaryJsonPath
+        ),
+        markdown: relativePosix(
+          path.resolve(rootDir, options.outputDir),
+          summaryMdPath
+        ),
       },
       null,
       2
@@ -335,8 +358,12 @@ async function main() {
     'utf8'
   );
 
-  console.log(`[baseline] snapshot created: ${relativePosix(rootDir, summaryJsonPath)}`);
-  console.log(`[baseline] markdown summary: ${relativePosix(rootDir, summaryMdPath)}`);
+  console.log(
+    `[baseline] snapshot created: ${relativePosix(rootDir, summaryJsonPath)}`
+  );
+  console.log(
+    `[baseline] markdown summary: ${relativePosix(rootDir, summaryMdPath)}`
+  );
 }
 
 await main();

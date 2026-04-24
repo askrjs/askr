@@ -193,10 +193,7 @@ const recordBenchFastLaneLive = (name: string): void => {
   benchMetrics.fastLaneName = name;
 };
 
-const recordBenchCounterLive = (
-  counter: BenchCounter,
-  delta = 1
-): void => {
+const recordBenchCounterLive = (counter: BenchCounter, delta = 1): void => {
   if (!isBenchRuntimeEnabled() || !benchMetrics || delta === 0) {
     return;
   }
@@ -220,10 +217,7 @@ const recordBenchCounterLive = (
   }
 };
 
-function withBenchMetricScopeLive<T>(
-  scope: BenchMetricScope,
-  run: () => T
-): T {
+function withBenchMetricScopeLive<T>(scope: BenchMetricScope, run: () => T): T {
   if (!isBenchRuntimeEnabled()) {
     return run();
   }

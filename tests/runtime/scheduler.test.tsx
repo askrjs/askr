@@ -66,7 +66,7 @@ describe('scheduler (SPEC 2.2)', () => {
         renderLog.push(1);
         return (
           <button onClick={() => count.set(count() + 1)} id="a">
-            A
+            {`A ${count()}`}
           </button>
         );
       };
@@ -76,7 +76,7 @@ describe('scheduler (SPEC 2.2)', () => {
         renderLog.push(2);
         return (
           <button onClick={() => count.set(count() + 1)} id="b">
-            B
+            {`B ${count()}`}
           </button>
         );
       };
@@ -179,7 +179,9 @@ describe('scheduler (SPEC 2.2)', () => {
 
         // Intentionally try to mutate during render
         // This should throw or be prevented, not cause reentrancy
-        return <div>Renders: {String(renderAttempts)}</div>;
+        return (
+          <div>{`Renders: ${String(renderAttempts)} count: ${String(_count())}`}</div>
+        );
       };
 
       createIsland({ root: container, component: Component });
@@ -203,7 +205,7 @@ describe('scheduler (SPEC 2.2)', () => {
         return (
           <div>
             <button onClick={handleOuter} id="outer">
-              Outer
+              {`Outer ${String(count())}`}
             </button>
           </div>
         );
@@ -276,7 +278,7 @@ describe('scheduler (SPEC 2.2)', () => {
           // Expected - state.set() guards against render-time mutation
         }
 
-        return <div />;
+        return <div>{String(count())}</div>;
       };
 
       // Should not throw during component creation (guards are in place)

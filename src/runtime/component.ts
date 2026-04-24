@@ -281,7 +281,10 @@ function runComponent(instance: ComponentInstance): void {
     ).__ASKR_FASTLANE;
     try {
       const used = fastlaneBridge?.tryRuntimeFastLaneSync?.(instance, result);
-      if (used) return;
+      if (used) {
+        warnUnusedStateReads(instance);
+        return;
+      }
     } catch (err) {
       // If invariant check failed in dev, surface the error; otherwise fall back
       if (isDevelopmentEnvironment()) throw err;
@@ -297,6 +300,7 @@ function runComponent(instance: ComponentInstance): void {
         if (result === null || result === undefined) {
           // Still null - nothing to do, keep placeholder
           finalizeReadSubscriptions(instance);
+          warnUnusedStateReads(instance);
           return;
         }
 
@@ -331,6 +335,7 @@ function runComponent(instance: ComponentInstance): void {
           ).__ASKR_INSTANCE = instance;
 
           finalizeReadSubscriptions(instance);
+          warnUnusedStateReads(instance);
         } finally {
           currentInstance = oldInstance;
         }
@@ -394,6 +399,7 @@ function runComponent(instance: ComponentInstance): void {
           // the last *committed* render. This updates per-state reader maps
           // deterministically and synchronously with the commit.
           finalizeReadSubscriptions(instance);
+          warnUnusedStateReads(instance);
 
           instance.mounted = true;
           // Execute mount operations after first mount (do NOT run these with
@@ -476,6 +482,33 @@ export function renderComponentInline(
   }
 }
 
+export function warnUnusedStateReads(instance: ComponentInstance): void {
+  for (let i = 0; i < instance.stateValues.length; i++) {
+    const state = instance.stateValues[i];
+    const hasCommittedUsage =
+      (state?._readers?.size ?? 0) > 0 ||
+      ((state as { _derivedSubscribers?: Set<unknown> } | undefined)
+        ?._derivedSubscribers?.size ?? 0) > 0;
+
+    if (state && !state._hasBeenRead && !hasCommittedUsage) {
+      try {
+        const name = instance.fn?.name || '<anonymous>';
+        warnInstanceOnce(
+          instance,
+          `unused-state:${i}`,
+          `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
+        );
+      } catch {
+        warnInstanceOnce(
+          instance,
+          `unused-state:${i}`,
+          `[askr] Unused state variable detected. State should be read during render or removed.`
+        );
+      }
+    }
+  }
+}
+
 function executeComponentSync(
   instance: ComponentInstance
 ): unknown | Promise<unknown> {
@@ -497,8 +530,7 @@ function executeComponentSync(
 
   try {
     // Track render time in dev mode
-    const renderStartTime =
-      isDevelopmentEnvironment() ? Date.now() : 0;
+    const renderStartTime = isDevelopmentEnvironment() ? Date.now() : 0;
 
     // Create context object with abort signal
     const context = {
@@ -534,27 +566,6 @@ function executeComponentSync(
     // This enables hook order validation on subsequent renders
     if (!instance.firstRenderComplete) {
       instance.firstRenderComplete = true;
-    }
-
-    // Check for unused state
-    for (let i = 0; i < instance.stateValues.length; i++) {
-      const state = instance.stateValues[i];
-      if (state && !state._hasBeenRead) {
-        try {
-          const name = instance.fn?.name || '<anonymous>';
-          warnInstanceOnce(
-            instance,
-            `unused-state:${i}`,
-            `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
-          );
-        } catch {
-          warnInstanceOnce(
-            instance,
-            `unused-state:${i}`,
-            `[askr] Unused state variable detected. State should be read during render or removed.`
-          );
-        }
-      }
     }
 
     return result;

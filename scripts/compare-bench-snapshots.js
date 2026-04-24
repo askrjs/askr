@@ -89,7 +89,9 @@ function getFocusedBenchmarkRows(baseBenchmarks, candidateBenchmarks) {
   const rows = [];
 
   for (const name of interestingNames) {
-    const baseEntry = [...baseBenchmarks.values()].find((entry) => entry.name === name);
+    const baseEntry = [...baseBenchmarks.values()].find(
+      (entry) => entry.name === name
+    );
     const candidateEntry = [...candidateBenchmarks.values()].find(
       (entry) => entry.name === name
     );
@@ -98,7 +100,10 @@ function getFocusedBenchmarkRows(baseBenchmarks, candidateBenchmarks) {
       continue;
     }
 
-    const delta = relativePct(baseEntry.medianMeanMs, candidateEntry.medianMeanMs);
+    const delta = relativePct(
+      baseEntry.medianMeanMs,
+      candidateEntry.medianMeanMs
+    );
     rows.push({
       suite: candidateEntry.suite,
       name,
@@ -111,7 +116,12 @@ function getFocusedBenchmarkRows(baseBenchmarks, candidateBenchmarks) {
   return rows;
 }
 
-function renderMarkdown({ basePath, candidatePath, baseSnapshot, candidateSnapshot }) {
+function renderMarkdown({
+  basePath,
+  candidatePath,
+  baseSnapshot,
+  candidateSnapshot,
+}) {
   const baseSuiteMap = getSuiteMap(baseSnapshot);
   const candidateSuiteMap = getSuiteMap(candidateSnapshot);
 
@@ -135,7 +145,10 @@ function renderMarkdown({ basePath, candidatePath, baseSnapshot, candidateSnapsh
     });
   }
 
-  const benchmarkRows = getFocusedBenchmarkRows(baseBenchmarks, candidateBenchmarks);
+  const benchmarkRows = getFocusedBenchmarkRows(
+    baseBenchmarks,
+    candidateBenchmarks
+  );
 
   const lines = [
     '# Bench Snapshot Comparison',
@@ -159,7 +172,13 @@ function renderMarkdown({ basePath, candidatePath, baseSnapshot, candidateSnapsh
       );
     });
 
-  lines.push('', '## Focus Workloads', '', '| Suite | Workload | Base (ms) | Candidate (ms) | Delta |', '| --- | --- | ---: | ---: | ---: |');
+  lines.push(
+    '',
+    '## Focus Workloads',
+    '',
+    '| Suite | Workload | Base (ms) | Candidate (ms) | Delta |',
+    '| --- | --- | ---: | ---: | ---: |'
+  );
 
   benchmarkRows.forEach((row) => {
     lines.push(
@@ -167,8 +186,12 @@ function renderMarkdown({ basePath, candidatePath, baseSnapshot, candidateSnapsh
     );
   });
 
-  const regressions = benchmarkRows.filter((row) => row.delta !== null && row.delta > 5);
-  const wins = benchmarkRows.filter((row) => row.delta !== null && row.delta < -5);
+  const regressions = benchmarkRows.filter(
+    (row) => row.delta !== null && row.delta > 5
+  );
+  const wins = benchmarkRows.filter(
+    (row) => row.delta !== null && row.delta < -5
+  );
 
   lines.push('', '## Summary', '');
   lines.push(`- Focus workloads improved (>5% faster): ${wins.length}`);
@@ -207,7 +230,9 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
 
   if (!args.base || !args.candidate) {
-    console.error('Usage: node scripts/compare-bench-snapshots.js --base=<summary.json> --candidate=<summary.json> [--out=<file>]');
+    console.error(
+      'Usage: node scripts/compare-bench-snapshots.js --base=<summary.json> --candidate=<summary.json> [--out=<file>]'
+    );
     process.exit(1);
   }
 
@@ -222,7 +247,10 @@ async function main() {
 
   const markdown = renderMarkdown({
     basePath: path.relative(rootDir, basePath).split(path.sep).join('/'),
-    candidatePath: path.relative(rootDir, candidatePath).split(path.sep).join('/'),
+    candidatePath: path
+      .relative(rootDir, candidatePath)
+      .split(path.sep)
+      .join('/'),
     baseSnapshot,
     candidateSnapshot,
   });
@@ -231,7 +259,9 @@ async function main() {
     const outPath = path.resolve(rootDir, args.out);
     await fs.mkdir(path.dirname(outPath), { recursive: true });
     await fs.writeFile(outPath, markdown, 'utf8');
-    console.log(`[bench:compare] wrote ${path.relative(rootDir, outPath).split(path.sep).join('/')}`);
+    console.log(
+      `[bench:compare] wrote ${path.relative(rootDir, outPath).split(path.sep).join('/')}`
+    );
   } else {
     process.stdout.write(markdown);
   }

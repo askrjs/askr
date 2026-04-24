@@ -13,10 +13,11 @@ test('should toggle selected row class', { timeout: 20000 }, () => {
   const Component = () => {
     dataState = state<{ id: number; label: string }[]>([]);
     selectedState = state<number | null>(null);
+    const selectedId = selectedState();
 
     return (
       <table>
-        <tbody>
+        <tbody data-selected={selectedId == null ? '' : String(selectedId)}>
           {For(
             () => dataState(),
             (row) => row.id,

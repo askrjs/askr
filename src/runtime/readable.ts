@@ -13,6 +13,16 @@ export interface ReadableSource<T = unknown> {
   _derivedSubscribers?: Set<DerivedSubscriber>;
 }
 
+export function markReadableUsage(source: unknown): void {
+  if (
+    source &&
+    typeof source === 'function' &&
+    ('_hasBeenRead' in source || '_readers' in source)
+  ) {
+    (source as ReadableSource<unknown>)._hasBeenRead = true;
+  }
+}
+
 type RendererBridge = {
   markReactivePropsDirtySource?: (source: ReadableSource<unknown>) => void;
 };

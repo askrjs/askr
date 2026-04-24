@@ -192,7 +192,10 @@ export function applyRendererFastPath(
         incDevCounter('fastpathHistoryPush');
       }
       const env = getRuntimeEnv();
-      if (env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true') {
+      if (
+        env.ASKR_FASTPATH_DEBUG === '1' ||
+        env.ASKR_FASTPATH_DEBUG === 'true'
+      ) {
         logger.warn(
           '[Askr][FASTPATH]',
           JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })

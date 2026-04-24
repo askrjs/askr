@@ -264,7 +264,10 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
     const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
 
     const statsEnv = getRuntimeEnv();
-    if (statsEnv.NODE_ENV !== 'production' || statsEnv.ASKR_FASTPATH_DEBUG === '1') {
+    if (
+      statsEnv.NODE_ENV !== 'production' ||
+      statsEnv.ASKR_FASTPATH_DEBUG === '1'
+    ) {
       try {
         setDevValue('__LAST_FASTPATH_STATS', stats);
         setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);

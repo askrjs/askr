@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite-plus';
 import {
   benchDefine,
-  benchEsbuild,
   benchOxc,
   benchResolve,
   createBenchTestConfig,
@@ -15,6 +14,5 @@ export default defineConfig({
     environment: 'node',
     include: ssrBenchIncludes,
   }),
-  esbuild: benchEsbuild,
   resolve: benchResolve,
 });

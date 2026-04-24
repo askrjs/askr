@@ -14,7 +14,7 @@ describe('Event causality across async boundaries', () => {
         const count = state(0);
 
         return (
-          <div>
+          <div data-count={String(count())}>
             <button
               id="observe"
               onClick={() => {

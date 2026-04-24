@@ -5,6 +5,7 @@ import {
   getPerfMetrics,
   resetPerfMetrics,
 } from '../../src/runtime/perf-metrics';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('reactive props issues validation', () => {
   beforeEach(() => {
@@ -31,6 +32,9 @@ describe('reactive props issues validation', () => {
   });
 
   test('should clean up reactive prop subscriptions immediately when a prop is removed', () => {
+    allowFrameworkWarnings(
+      /Unused state variable detected in Component at index 1/
+    );
     const { container, cleanup } = createTestContainer();
 
     let externalState1: ReturnType<typeof state<string>>;

@@ -5,6 +5,7 @@ import { For } from '../../src/for';
 import { cleanupComponent } from '../../src/runtime/component';
 import { renderToStringSync } from '../../src/ssr';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { allowFrameworkWarnings } from '../setup-env';
 
 const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
 
@@ -114,6 +115,7 @@ describe('derive reactivity', () => {
   });
 
   it('should clean up derived subscriptions on unmount and For item removal', () => {
+    allowFrameworkWarnings(/Unused state variable detected in App at index 1/);
     let showChild!: ReturnType<typeof state<boolean>>;
     let shared!: ReturnType<typeof state<number>>;
     let rows!: ReturnType<typeof state<Array<{ id: number; label: string }>>>;

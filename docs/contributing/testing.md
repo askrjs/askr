@@ -11,7 +11,21 @@ Askr tests validate framework guarantees and developer ergonomics.
 
 ```bash
 npm test
+npm run test:jsdom
+npm run test:browser
 ```
+
+`npm test` runs both the jsdom/node-oriented suite and the Playwright-backed browser suite.
+
+`npm run test:jsdom` runs just the jsdom and node-oriented suite.
+
+`npm run test:browser` runs Vite Plus browser tests with the Playwright provider against Chromium. Install the browser binary once per machine with:
+
+```bash
+npm run test:browser:install
+```
+
+The browser suite is intended to complement jsdom coverage for real-browser event, DOM, and rendering behavior. Add new browser tests under `tests/playwright/**/*.browser.{ts,tsx}`.
 
 ## Scope guidance
 

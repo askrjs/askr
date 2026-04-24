@@ -7,6 +7,7 @@ import { globalScheduler } from './scheduler';
 import {
   clearDerivedDependencySubscriptions,
   markReadableDerivedSubscribersDirty,
+  markReadableUsage,
   markReactivePropsDirtySource,
   notifyReadableReaders,
   recordReadableRead,
@@ -319,6 +320,8 @@ export function selector<T>(
   source: () => T,
   equals: SelectorEquals<T> = Object.is
 ): Selector<T> {
+  markReadableUsage(source);
+
   const instance = getCurrentInstance();
   if (!instance) {
     throw new Error(

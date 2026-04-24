@@ -24,7 +24,7 @@ function For<T>(
 - Parent component reads `source()` once during parent render
 - `For` returns a special marker vnode: `{ type: __FOR_BOUNDARY__, ... }`
 - Renderer recognizes marker and delegates to `For` runtime
-- Each item gets isolated component instance
+- Each item gets an isolated child scope owned by the runtime
 - Item updates do NOT invalidate parent
 
 ### Keying Strategy
@@ -36,6 +36,10 @@ const defaultKey = (item: T, index: number) => (item as any).id ?? index;
 // Explicit keying via options
 For(rows, (row) => Row({ row }), { by: (row) => row.id });
 ```
+
+Keys are expected to be stable, non-null, and unique within a list. The runtime
+currently preserves production behavior for invalid keys, but emits dev-only
+warnings for `null` / `undefined` keys and duplicates.
 
 ### Array Diffing
 
@@ -53,21 +57,37 @@ On `source` change:
 Each item has:
 
 ```typescript
+interface ChildScope {
+  key: string | number | null;
+  componentInstance: ComponentInstance;
+  vnode: VNode | undefined;
+  dom?: Node;
+  needsDomUpdate: boolean;
+  render(renderFn: () => VNode): VNode;
+  markDirty(): void;
+  dispose(): void;
+}
+
 interface ForItemInstance {
   key: string | number;
   item: T;
-  indexSignal: State<number>; // reactive index
-  componentInstance: ComponentInstance; // owns render()
-  vnode: VNode; // cached result
+  indexSignal: State<number>; // reactive index facade
+  scope: ChildScope;
 }
 ```
 
 When item data changes (object identity or by shallow equality):
 
-- Mark item instance dirty
-- Schedule item re-execution via scheduler
-- Item component re-runs: `render(item, () => indexSignal())`
-- Resulting vnode replaces old vnode in parent children array
+- `For` reuses the existing child scope for that key
+- The runtime re-runs the scope render with the original hook/state index seed
+- The scope updates its cached vnode and marks its DOM as dirty
+- `For` keeps ownership of ordered keys, diff strategy selection, and ordered vnode output
+
+When nested state inside a row changes:
+
+- The row's child scope is scheduled through the normal readable/state pipeline
+- The scope re-renders itself and finalizes its subscriptions
+- The scope asks the parent `For` boundary owner to enqueue a render so DOM updates can commit
 
 ## Runtime Integration Points
 
@@ -98,10 +118,15 @@ interface ForState<T> {
   sourceState: State<T[]> | null;
   items: Map<string | number, ForItemInstance<T>>;
   orderedKeys: Array<string | number>;
+  orderedVNodes: VNode[];
   byFn: (item: T, index: number) => string | number;
   renderFn: (item: T, index: () => number) => VNode;
   parentInstance: ComponentInstance;
   mounted: boolean;
+  lastCommitStrategy: ForCommitStrategy;
+  lastRemovedNodes: Node[];
+  pendingDirtyIndices: number[] | null;
+  pendingSwapIndices: [number, number] | null;
 }
 ```
 
@@ -134,7 +159,34 @@ function evaluateForBoundary(vnode: ForBoundaryVNode, parent: Element): void {
 }
 ```
 
-### 4. Item Instance Creation
+### 4. Child Scope Creation
+
+```typescript
+// src/runtime/child-scope.ts
+
+function createChildScope(
+  parent: ComponentInstance | null,
+  key: string | number | null,
+  onDirty?: () => void
+): ChildScope;
+
+function rerenderChildScope(scope: ChildScope): VNode | undefined;
+
+function disposeChildScope(scope: ChildScope): void;
+```
+
+`ChildScope` is the runtime-owned abstraction that encapsulates:
+
+- current component switching
+- state index restore/reset
+- render token assignment
+- readable subscription finalization
+- per-row scheduling via `_pendingFlushTask`
+- cached vnode and cached DOM ownership
+
+`For` consumes that primitive rather than mutating component internals directly.
+
+### 5. Item Instance Creation
 
 ```typescript
 // src/runtime/for.ts
@@ -145,96 +197,60 @@ function createItemInstance<T>(
   index: number,
   forState: ForState<T>
 ): ForItemInstance<T> {
-  const indexSignal = state(index);
+  const indexSignal = createForIndexSignal(index);
+  const scope = createChildScope(forState.parentInstance, key, () => {
+    forState.parentInstance?._enqueueRun?.();
+  });
 
-  // Create isolated component for this item
-  const itemComponent = createComponentInstance(
-    `for-item-${key}`,
-    () => forState.renderFn(item, () => indexSignal()),
-    {},
-    null
+  const vnode = scope.render(() =>
+    evaluateJSXElement(forState.renderFn(item, indexSignal))
   );
 
-  // Subscribe to parent context but don't propagate updates
-  itemComponent.ownerFrame = forState.parentInstance.ownerFrame;
-
-  const vnode = executeComponent(itemComponent);
+  materializeItemVnode(key, vnode);
 
   return {
     key,
     item,
     indexSignal,
-    componentInstance: itemComponent,
-    vnode,
+    scope,
   };
 }
 ```
 
-### 5. Array Reconciliation
+### 6. Array Reconciliation
 
 ```typescript
 // src/runtime/for.ts
 
 function reconcileForItems<T>(forState: ForState<T>, newArray: T[]): VNode[] {
-  const { items, orderedKeys, byFn, renderFn } = forState;
-  const newKeyMap = new Map<string | number, { item: T; index: number }>();
+  validateForKeys(forState, newArray); // dev-only diagnostics
 
-  // Build new key map
-  for (let i = 0; i < newArray.length; i++) {
-    const item = newArray[i];
-    const key = byFn(item, i);
-    newKeyMap.set(key, { item, index: i });
+  // Choose the cheapest valid strategy first.
+  // Fast lanes are preserved for append, truncate, same-order updates, swaps,
+  // and the fully keyed slow path.
+  if (canUseAppendPath(forState, newArray)) {
+    return reconcileAppend(forState, newArray);
   }
 
-  const newOrderedKeys: Array<string | number> = [];
-  const resultVNodes: VNode[] = [];
-  const toRemove = new Set(orderedKeys);
-
-  // Process new array
-  for (const [key, { item, index }] of newKeyMap) {
-    toRemove.delete(key);
-    newOrderedKeys.push(key);
-
-    const existing = items.get(key);
-
-    if (!existing) {
-      // Added: create new item instance
-      const itemInstance = createItemInstance(key, item, index, forState);
-      items.set(key, itemInstance);
-      resultVNodes.push(itemInstance.vnode);
-    } else {
-      // Exists: check if item changed
-      const itemChanged = existing.item !== item;
-      const indexChanged = existing.indexSignal() !== index;
-
-      if (itemChanged) {
-        // Item data changed: update and re-execute
-        existing.item = item;
-        existing.vnode = executeComponent(existing.componentInstance);
-      }
-
-      if (indexChanged) {
-        // Index changed: update index signal
-        existing.indexSignal.set(index);
-      }
-
-      resultVNodes.push(existing.vnode);
-    }
+  if (canUseTruncatePath(forState, newArray)) {
+    return reconcileTruncate(forState, newArray);
   }
 
-  // Remove deleted items
-  for (const key of toRemove) {
-    const itemInstance = items.get(key);
-    if (itemInstance) {
-      unmountComponent(itemInstance.componentInstance);
-      items.delete(key);
-    }
+  if (canUseNoReorderPath(forState, newArray)) {
+    return reconcileNoReorder(forState, newArray);
   }
 
-  forState.orderedKeys = newOrderedKeys;
-  return resultVNodes;
+  if (canUseSwapPath(forState, newArray)) {
+    return reconcileSwap(forState, newArray);
+  }
+
+  return reconcileFullKeyed(forState, newArray);
 }
 ```
+
+The renderer still owns DOM commit strategy. `For` records `pendingDirtyIndices`,
+`pendingSwapIndices`, and `lastCommitStrategy`, while the child scope owns the
+cached vnode, cached DOM node, and dirty flag that the commit helpers consume.
 
 ## User API
 

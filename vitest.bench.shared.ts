@@ -1,5 +1,4 @@
 import {
-  askrEsbuild,
   createNodeEnvDefine,
   createPackageAliases,
   domBenchExcludes,
@@ -10,8 +9,6 @@ import {
 export { domBenchExcludes, domBenchIncludes, ssrBenchIncludes };
 
 export const benchDefine = createNodeEnvDefine('production', { bench: true });
-
-export const benchEsbuild = askrEsbuild;
 
 export const benchOxc = {
   jsx: {

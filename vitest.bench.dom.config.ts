@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite-plus';
 import {
   benchDefine,
-  benchEsbuild,
   benchOxc,
   benchResolve,
   createBenchTestConfig,
@@ -17,6 +16,5 @@ export default defineConfig({
     include: domBenchIncludes,
     exclude: domBenchExcludes,
   }),
-  esbuild: benchEsbuild,
   resolve: benchResolve,
 });

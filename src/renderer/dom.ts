@@ -1,4 +1,5 @@
-﻿import { logger } from '../dev/logger';
+import { logger } from '../dev/logger';
+import { STATIC_CHILDREN } from '../common/jsx';
 import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
 import { Fragment } from '../jsx/jsx-runtime';
@@ -14,6 +15,7 @@ import {
   mountInstanceInline,
   getCurrentInstance,
   setCurrentComponentInstance as _setCurrentInstance,
+  warnUnusedStateReads,
   type ComponentInstance,
   type ComponentFunction,
 } from '../runtime/component';
@@ -63,6 +65,7 @@ import { incrementPerfMetric } from '../runtime/perf-metrics';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
+  updateDelegatedListener,
   removeDelegatedListener,
   isDelegatedEvent,
 } from '../runtime/events';
@@ -775,6 +778,22 @@ function warnMissingKeys(children: unknown[]): void {
   }
 }
 
+function hasStaticChildrenMarker(children: unknown[]): boolean {
+  return (
+    (
+      children as unknown as {
+        [STATIC_CHILDREN]?: boolean;
+      }
+    )[STATIC_CHILDREN] === true
+  );
+}
+
+function maybeWarnMissingKeys(children: unknown[]): void {
+  if (!hasStaticChildrenMarker(children)) {
+    warnMissingKeys(children);
+  }
+}
+
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // DOM Node Creation
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -819,6 +838,7 @@ export function createDOMNode(
 
   // Array (fragment) - batch all at once
   if (Array.isArray(node)) {
+    maybeWarnMissingKeys(node);
     const fragment = document.createDocumentFragment();
     for (const child of node) {
       const dom = createDOMNode(child, parentNamespace);
@@ -900,9 +920,7 @@ function tryGetStaticCreateChildShape(
 function isStaticCreateScalarValue(value: unknown): boolean {
   const valueType = typeof value;
   return (
-    valueType === 'string' ||
-    valueType === 'number' ||
-    valueType === 'boolean'
+    valueType === 'string' || valueType === 'number' || valueType === 'boolean'
   );
 }
 
@@ -1001,7 +1019,7 @@ function createIntrinsicElement(
 
   if (children !== null && children !== undefined) {
     if (Array.isArray(children)) {
-      warnMissingKeys(children);
+      maybeWarnMissingKeys(children);
       if (children.length > 1) {
         // Batch all children into a fragment so we touch the parent only once
         // instead of N times, reducing layout invalidations in the DOM engine.
@@ -1076,6 +1094,8 @@ function createComponentElement(
     createDOMNode(result, parentNamespace)
   );
 
+  warnUnusedStateReads(childInstance);
+
   if (dom instanceof Element) {
     mountInstanceInline(childInstance, dom);
     // Materialize key from component vnode onto the root element
@@ -1118,6 +1138,7 @@ function createFragmentElement(
   const children = props.children || node.children;
   if (children) {
     if (Array.isArray(children)) {
+      maybeWarnMissingKeys(children);
       for (const child of children) {
         const dom = createDOMNode(child, parentNamespace);
         if (dom) fragment.appendChild(dom);
@@ -1196,8 +1217,8 @@ export function createForBoundary(
 
     // Try to reuse existing DOM if element type matches (structural check).
     // Do NOT rely on vnode identity (===) â€” vnodes are mutable.
-    if (itemInstance && itemInstance._dom) {
-      const cachedDom = itemInstance._dom;
+    if (itemInstance && itemInstance.scope.dom) {
+      const cachedDom = itemInstance.scope.dom;
       // Structural check: element type must match for safe reuse
       if (!checkVNodeShapeChanged(cachedDom, childVNode)) {
         dom = cachedDom;
@@ -1209,7 +1230,7 @@ export function createForBoundary(
       dom = createDOMNode(childVNode);
       // Cache the DOM in the item instance for future reuse
       if (itemInstance) {
-        itemInstance._dom = dom ?? undefined;
+        itemInstance.scope.dom = dom ?? undefined;
       }
     }
 
@@ -1232,16 +1253,16 @@ export function createForBoundary(
 
 function syncForItemDom(
   parent: Element,
-  itemInstance: {
-    _dom?: Node;
-    _needsDomUpdate: boolean;
+  scope: {
+    dom?: Node;
+    needsDomUpdate: boolean;
   },
   vnode: VNode
 ): Node | null {
-  let dom = itemInstance._dom ?? null;
+  let dom = scope.dom ?? null;
   let created = false;
 
-  if (dom && !itemInstance._needsDomUpdate) {
+  if (dom && !scope.needsDomUpdate) {
     return dom;
   }
 
@@ -1251,7 +1272,7 @@ function syncForItemDom(
       if (dom.parentNode === parent) {
         dom.parentNode.removeChild(dom);
       }
-      itemInstance._dom = undefined;
+      scope.dom = undefined;
       return null;
     }
 
@@ -1263,12 +1284,12 @@ function syncForItemDom(
       parent.replaceChild(nextDom, dom);
     }
 
-    itemInstance._dom = nextDom;
+    scope.dom = nextDom;
     dom = nextDom;
     created = true;
   } else if (!dom) {
     dom = createDOMNode(vnode);
-    itemInstance._dom = dom ?? undefined;
+    scope.dom = dom ?? undefined;
     created = true;
   }
 
@@ -1276,7 +1297,7 @@ function syncForItemDom(
     return null;
   }
 
-  if (!created && itemInstance._needsDomUpdate) {
+  if (!created && scope.needsDomUpdate) {
     if (dom instanceof Element) {
       updateElementFromVnode(dom, vnode, true);
     } else if (
@@ -1385,8 +1406,8 @@ function syncKeyedMapFromForState(
       const key = forState.orderedKeys[i];
       if (key === null || existing.has(key)) continue;
       const itemInstance = forState.items.get(key);
-      if (itemInstance?._dom instanceof Element) {
-        ensureMapEntry(existing, key, itemInstance._dom);
+      if (itemInstance?.scope.dom instanceof Element) {
+        ensureMapEntry(existing, key, itemInstance.scope.dom);
       }
     }
 
@@ -1405,8 +1426,8 @@ function syncKeyedMapFromForState(
     const key = forState.orderedKeys[i];
     if (key === null) continue;
     const itemInstance = forState.items.get(key);
-    if (itemInstance?._dom instanceof Element) {
-      ensureMapEntry(nextMap, key, itemInstance._dom);
+    if (itemInstance?.scope.dom instanceof Element) {
+      ensureMapEntry(nextMap, key, itemInstance.scope.dom);
     }
   }
 
@@ -1438,7 +1459,7 @@ export function commitForBoundaryChildren(
         continue;
       }
 
-      const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+      const dom = syncForItemDom(parent, itemInstance.scope, childrenVNodes[i]);
       if (!dom) {
         continue;
       }
@@ -1459,7 +1480,7 @@ export function commitForBoundaryChildren(
         continue;
       }
 
-      const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+      const dom = syncForItemDom(parent, itemInstance.scope, childrenVNodes[i]);
       if (!dom) {
         continue;
       }
@@ -1488,13 +1509,17 @@ export function commitForBoundaryChildren(
         // This avoids redundant DOM reads for unchanged rows when appending to
         // an existing list (e.g. append 1,000 rows to 1,000-row table).
         if (
-          itemInstance._dom?.parentNode === parent &&
-          !itemInstance._needsDomUpdate
+          itemInstance.scope.dom?.parentNode === parent &&
+          !itemInstance.scope.needsDomUpdate
         ) {
           continue;
         }
 
-        const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+        const dom = syncForItemDom(
+          parent,
+          itemInstance.scope,
+          childrenVNodes[i]
+        );
         if (!dom) {
           continue;
         }
@@ -1539,12 +1564,12 @@ export function commitForBoundaryChildren(
 
     const firstDom = syncForItemDom(
       parent,
-      firstItem,
+      firstItem.scope,
       childrenVNodes[firstIndex]
     );
     const secondDom = syncForItemDom(
       parent,
-      secondItem,
+      secondItem.scope,
       childrenVNodes[secondIndex]
     );
 
@@ -1588,7 +1613,7 @@ export function commitForBoundaryChildren(
     let hasExistingChild = false;
     for (let i = 0; i < count; i++) {
       const inst = forState.items.get(keys[i]);
-      if (inst?._dom?.parentNode === parent) {
+      if (inst?.scope.dom?.parentNode === parent) {
         hasExistingChild = true;
         break;
       }
@@ -1601,7 +1626,11 @@ export function commitForBoundaryChildren(
           const itemKey = keys[i];
           const itemInstance = forState.items.get(itemKey);
           if (!itemInstance) continue;
-          const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+          const dom = syncForItemDom(
+            parent,
+            itemInstance.scope,
+            childrenVNodes[i]
+          );
           if (dom) {
             recordBenchEvent('domInsert');
             frag.appendChild(dom);
@@ -1623,7 +1652,11 @@ export function commitForBoundaryChildren(
           continue;
         }
 
-        const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+        const dom = syncForItemDom(
+          parent,
+          itemInstance.scope,
+          childrenVNodes[i]
+        );
         if (!dom) {
           continue;
         }
@@ -1643,7 +1676,7 @@ export function commitForBoundaryChildren(
         continue;
       }
 
-      const dom = syncForItemDom(parent, itemInstance, childrenVNodes[i]);
+      const dom = syncForItemDom(parent, itemInstance.scope, childrenVNodes[i]);
       if (!dom) {
         continue;
       }
@@ -1780,7 +1813,7 @@ export function updateElementFromVnode(
   let desiredEventNames: Set<string> | null = null;
   let desiredReactivePropNames: Set<string> | null = null;
 
-    for (const key in props) {
+  for (const key in props) {
     const value = props[key];
     if (isSkippedProp(key)) continue;
 
@@ -1867,9 +1900,7 @@ export function updateElementFromVnode(
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
     } else if (eventName) {
-      if (
-        existingListeners && existingListeners.size > 0
-      ) {
+      if (existingListeners && existingListeners.size > 0) {
         (desiredEventNames ??= new Set()).add(eventName);
       }
 
@@ -1882,6 +1913,23 @@ export function updateElementFromVnode(
       }
 
       if (existing) {
+        if (
+          useDelegation &&
+          existing.isDelegated &&
+          updateDelegatedListener(
+            el,
+            eventName,
+            value as EventListener,
+            value as EventListener,
+            undefined
+          )
+        ) {
+          existing.handler = value as EventListener;
+          existing.original = value as EventListener;
+          existing.options = undefined;
+          continue;
+        }
+
         if (!useDelegation && !existing.isDelegated && existing.updateHandler) {
           existing.updateHandler(value as EventListener);
           existing.original = value as EventListener;
@@ -2854,4 +2902,3 @@ function recordBulkDiag(data: Record<string, unknown>): void {
     }
   }
 }
-

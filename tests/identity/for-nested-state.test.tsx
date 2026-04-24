@@ -90,3 +90,53 @@ test('should preserve DOM identity when nested state changes without list reorde
 
   cleanup();
 });
+
+test('should stop removed row scopes from enqueueing parent rerenders', () => {
+  const { container, cleanup } = createTestContainer();
+
+  let rowsState!: ReturnType<typeof state<number[]>>;
+  const rowSetters = new Map<number, (next: number) => void>();
+  let parentRenderCount = 0;
+
+  const Component = () => {
+    parentRenderCount++;
+    rowsState = state([1, 2]);
+
+    return (
+      <div>
+        {For(
+          rowsState,
+          (row) => row,
+          (row) => {
+            const local = state(0);
+            rowSetters.set(row, local.set);
+
+            return (
+              <button data-row={String(row)}>{`${row}:${local()}`}</button>
+            );
+          }
+        )}
+      </div>
+    );
+  };
+
+  createIsland({ root: container, component: Component });
+  flushScheduler();
+
+  rowsState.set([1]);
+  flushScheduler();
+
+  const renderCountAfterRemoval = parentRenderCount;
+  const removedRowSetter = rowSetters.get(2);
+
+  expect(removedRowSetter).to.be.a('function');
+  expect(container.querySelector('[data-row="2"]')).to.equal(null);
+
+  removedRowSetter!(1);
+  flushScheduler();
+
+  expect(parentRenderCount).to.equal(renderCountAfterRemoval);
+  expect(container.querySelector('[data-row="2"]')).to.equal(null);
+
+  cleanup();
+});

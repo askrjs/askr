@@ -21,6 +21,7 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   const App = () => {
     dataState = state<RowData[]>(initialRowsTyped);
     selectedState = state<number | null>(null);
+    dataState._hasBeenRead = true;
     const isSelected = selector(selectedState);
 
     const select = (id: number) => selectedState.set(id);

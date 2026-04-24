@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../src/index';
 import type { JSXElement } from '../../src/jsx/types';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('large tree updates (STRESS)', () => {
   let { container, cleanup } = createTestContainer();
@@ -10,6 +11,7 @@ describe('large tree updates (STRESS)', () => {
   afterEach(() => cleanup());
 
   it('should render and update when list has 1000 items', async () => {
+    allowFrameworkWarnings(/Missing keys on dynamic lists/);
     let tick: ReturnType<typeof state<number>> | null = null;
 
     const Component = () => {
@@ -59,6 +61,7 @@ describe('large tree updates (STRESS)', () => {
   });
 
   it('should update efficiently when tree has 1000 siblings', async () => {
+    allowFrameworkWarnings(/Missing keys on dynamic lists/);
     let value: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
       value = state('a');

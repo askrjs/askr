@@ -18,8 +18,10 @@ export function BenchmarkRow({
 }: BenchmarkRowProps) {
   return (
     <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
-      <td class="col-md-1">{item.id}</td>
-      <td class="col-md-4">
+      <td key="id" class="col-md-1">
+        {item.id}
+      </td>
+      <td key="label" class="col-md-4">
         <a
           onClick={(event: MouseEvent) => {
             event.preventDefault();
@@ -29,7 +31,7 @@ export function BenchmarkRow({
           {item.label}
         </a>
       </td>
-      <td class="col-md-1">
+      <td key="remove" class="col-md-1">
         <a
           onClick={(event: MouseEvent) => {
             event.preventDefault();
@@ -39,7 +41,7 @@ export function BenchmarkRow({
           <span class="glyphicon glyphicon-remove" aria-hidden="true" />
         </a>
       </td>
-      <td class="col-md-6" />
+      <td key="spacer" class="col-md-6" />
     </tr>
   );
 }

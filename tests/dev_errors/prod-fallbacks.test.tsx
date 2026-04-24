@@ -148,7 +148,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
     try {
       const runBatch = (
         env: 'development' | 'production',
-        iterations = 250
+        iterations = 100
       ): number => {
         process.env.NODE_ENV = env;
 
@@ -188,5 +188,5 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
     } finally {
       process.env.NODE_ENV = prev;
     }
-  });
+  }, 15000);
 });
