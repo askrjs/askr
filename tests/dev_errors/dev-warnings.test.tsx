@@ -8,8 +8,10 @@ import {
   vi,
 } from 'vite-plus/test';
 import { state } from '../../src/index';
+import { For } from '../../src/for';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('dev warnings (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();
@@ -17,6 +19,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
   afterEach(() => cleanup());
 
   it('should warn given missing keys when rendering dynamic lists', async () => {
+    allowFrameworkWarnings(/Missing keys on dynamic lists/);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let items: ReturnType<typeof state<string[]>> | null = null;
     const Component = () => {
@@ -39,6 +42,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
   });
 
   it('should warn given unused state variable when rendering', async () => {
+    allowFrameworkWarnings(/\[askr\] Unused state variable detected/);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const Component = () => {
       state(123);
@@ -54,6 +58,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
   });
 
   it('should warn given slow render when in dev mode', async () => {
+    allowFrameworkWarnings(/\[askr\] Slow render detected/);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const Component = () => {
       const start = Date.now();
@@ -97,6 +102,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
   });
 
   it('should include component name in missing-keys warning', async () => {
+    allowFrameworkWarnings(/Missing keys on dynamic lists in FancyList/);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let items: ReturnType<typeof state<string[]>> | null = null;
     const FancyList = () => {
@@ -116,6 +122,62 @@ describe('dev warnings (DEV_ERRORS)', () => {
     // Verify the warning message contains the component name
     const calledWith = warn.mock.calls.map((c) => String(c[0])).join('\n');
     expect(calledWith).toContain('Missing keys on dynamic lists in FancyList');
+    warn.mockRestore();
+  });
+
+  it('should warn when For receives null keys', async () => {
+    allowFrameworkWarnings(/Invalid For key detected/);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let items: ReturnType<typeof state<string[]>> | null = null;
+
+    const Component = () => {
+      items = state(['a', 'b']);
+      return (
+        <div>
+          {For(
+            () => items!(),
+            () => null as unknown as string | number,
+            (item) => (
+              <span>{item}</span>
+            )
+          )}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const calledWith = warn.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(calledWith).toContain('Invalid For key detected');
+    warn.mockRestore();
+  });
+
+  it('should warn when For receives duplicate keys', async () => {
+    allowFrameworkWarnings(/Duplicate For key detected: dup/);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let items: ReturnType<typeof state<string[]>> | null = null;
+
+    const Component = () => {
+      items = state(['left', 'right']);
+      return (
+        <div>
+          {For(
+            () => items!(),
+            () => 'dup',
+            (item) => (
+              <span>{item}</span>
+            )
+          )}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const calledWith = warn.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(calledWith).toContain('Duplicate For key detected: dup');
     warn.mockRestore();
   });
 });

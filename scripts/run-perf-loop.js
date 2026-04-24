@@ -41,7 +41,11 @@ async function runNodeScript(scriptPath, args, cwd) {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`${path.basename(scriptPath)} failed with exit code ${code}`));
+        reject(
+          new Error(
+            `${path.basename(scriptPath)} failed with exit code ${code}`
+          )
+        );
       }
     });
   });
@@ -51,8 +55,16 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const rootDir = process.cwd();
 
-  const perfScenarioScript = path.join(rootDir, 'scripts', 'run-perf-scenarios.js');
-  const captureBaselineScript = path.join(rootDir, 'scripts', 'capture-bench-baseline.js');
+  const perfScenarioScript = path.join(
+    rootDir,
+    'scripts',
+    'run-perf-scenarios.js'
+  );
+  const captureBaselineScript = path.join(
+    rootDir,
+    'scripts',
+    'capture-bench-baseline.js'
+  );
 
   console.log('[perf:loop] running benchmark-aligned scenario guardrails');
   await runNodeScript(perfScenarioScript, [], rootDir);
@@ -62,7 +74,9 @@ async function main() {
     baselineArgs.push(`--output-dir=${options.outputDir}`);
   }
 
-  console.log(`[perf:loop] capturing baseline snapshot with ${options.runs} run(s) per suite`);
+  console.log(
+    `[perf:loop] capturing baseline snapshot with ${options.runs} run(s) per suite`
+  );
   await runNodeScript(captureBaselineScript, baselineArgs, rootDir);
 }
 

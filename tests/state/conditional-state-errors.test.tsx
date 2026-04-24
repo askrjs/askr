@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('conditional state errors (STATE)', () => {
   let { container, cleanup } = createTestContainer();
@@ -48,6 +49,7 @@ describe('conditional state errors (STATE)', () => {
   });
 
   it('should not throw error when state() is called in try/catch', () => {
+    allowFrameworkWarnings(/Unused state variable detected/);
     const Component = () => {
       try {
         state('x');

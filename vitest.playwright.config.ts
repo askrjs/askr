@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite-plus';
+import { playwright } from 'vite-plus/test/browser/providers/playwright';
 import {
   createNodeEnvDefine,
   createPackageAliases,
@@ -13,13 +14,16 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
     globals: true,
-    include: ['tests/**/*.test.{ts,tsx}', 'checks/**/*.test.{ts,tsx}'],
-    setupFiles: ['tests/setup-env.ts'],
+    include: ['tests/playwright/**/*.browser.{ts,tsx}'],
+    browser: {
+      enabled: true,
+      provider: playwright(),
+      headless: true,
+      instances: [{ browser: 'chromium' }],
+    },
   },
   resolve: {
-    // Tests should bind package imports to source entries rather than dist.
     alias: createPackageAliases(),
   },
 });

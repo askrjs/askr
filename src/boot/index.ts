@@ -13,14 +13,24 @@ import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
 } from '../common/env';
+import { logger } from '../dev/logger';
+import { initializeNavigation, registerAppInstance } from '../router/navigate';
+import {
+  _applyManifest,
+  _drainLazy,
+  _setActiveRouteAuthOptions,
+  _snapshotLazy,
+  clearRoutes,
+  lockRouteRegistration,
+  resolveRoute,
+  resolveRouteRequest,
+  route as registerRoute,
+  setServerLocation,
+} from '../router/route';
 import { globalScheduler } from '../runtime/scheduler';
 import { assertExecutionModel } from '../runtime/execution-model';
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
-
-function getLogger() {
-  return import('../dev/logger').then((m) => m.logger);
-}
 
 let componentIdCounter = 0;
 
@@ -89,9 +99,7 @@ function attachCleanupForRoot(
       if (instance.cleanupStrict) {
         throw new AggregateError(errors, `cleanup failed for app root`);
       } else if (isDevelopmentEnvironment()) {
-        getLogger().then((logger) => {
-          for (const err of errors) logger.warn('[Askr] cleanup error:', err);
-        });
+        for (const err of errors) logger.warn('[Askr] cleanup error:', err);
       }
     }
   };
@@ -119,9 +127,7 @@ function attachCleanupForRoot(
             } catch (e) {
               if (instance.cleanupStrict) throw e;
               if (isDevelopmentEnvironment()) {
-                getLogger().then((logger) => {
-                  logger.warn('[Askr] cleanup error:', e);
-                });
+                logger.warn('[Askr] cleanup error:', e);
               }
             }
 
@@ -130,9 +136,7 @@ function attachCleanupForRoot(
             } catch (e) {
               if (instance.cleanupStrict) throw e;
               if (isDevelopmentEnvironment()) {
-                getLogger().then((logger) => {
-                  logger.warn('[Askr] cleanup error:', e);
-                });
+                logger.warn('[Askr] cleanup error:', e);
               }
             }
           }
@@ -206,9 +210,7 @@ function mountOrUpdate(
     } catch (e) {
       // If previous cleanup threw in strict mode, log but continue mounting new instance
       if (isDevelopmentEnvironment()) {
-        getLogger().then((logger) => {
-          logger.warn('[Askr] prior cleanup threw:', e);
-        });
+        logger.warn('[Askr] prior cleanup threw:', e);
       }
     }
 
@@ -261,8 +263,7 @@ import type {
   RouteAuthOptions,
 } from '../common/router';
 import { installRendererBridge, removeAllListeners } from '../renderer';
-  installRendererBridge();
-
+installRendererBridge();
 
 export type IslandConfig = {
   root: Element | string;
@@ -409,17 +410,6 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
-  const {
-    clearRoutes,
-    _applyManifest,
-    _setActiveRouteAuthOptions,
-    _snapshotLazy,
-    _drainLazy,
-    route: registerRoute,
-    lockRouteRegistration,
-    resolveRouteRequest,
-  } = await import('../router/route');
-
   const pendingLazyAtBoot = _snapshotLazy();
 
   clearRoutes();
@@ -469,12 +459,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       cleanupStrict: config.cleanupStrict,
     });
 
-    const { registerAppInstance, initializeNavigation } =
-      await import('../router/navigate');
-    const instance = instancesByRoot.get(rootElement);
-    if (!instance) throw new Error('Internal error: app instance missing');
-    registerAppInstance(instance as ComponentInstance, path);
-    initializeNavigation();
+    await registerAppNavigation(rootElement, path);
     return;
   }
 
@@ -483,12 +468,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       cleanupStrict: config.cleanupStrict,
     });
 
-    const { registerAppInstance, initializeNavigation } =
-      await import('../router/navigate');
-    const instance = instancesByRoot.get(rootElement);
-    if (!instance) throw new Error('Internal error: app instance missing');
-    registerAppInstance(instance as ComponentInstance, path);
-    initializeNavigation();
+    await registerAppNavigation(rootElement, path);
     return;
   }
 
@@ -505,12 +485,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     }
   );
 
-  const { registerAppInstance, initializeNavigation } =
-    await import('../router/navigate');
-  const instance = instancesByRoot.get(rootElement);
-  if (!instance) throw new Error('Internal error: app instance missing');
-  registerAppInstance(instance as ComponentInstance, path);
-  initializeNavigation();
+  await registerAppNavigation(rootElement, path);
 }
 
 /**
@@ -607,9 +582,7 @@ function flushHydrationActivation(rootElement: Element): void {
   globalScheduler.flush();
 }
 
-async function registerHydratedNavigation(rootElement: Element, path: string) {
-  const { registerAppInstance, initializeNavigation } =
-    await import('../router/navigate');
+async function registerAppNavigation(rootElement: Element, path: string) {
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
   registerAppInstance(instance as ComponentInstance, path);
@@ -669,7 +642,7 @@ async function applySelectiveHydration(
         }
       );
     });
-    await registerHydratedNavigation(rootElement, path);
+    await registerAppNavigation(rootElement, path);
     return;
   }
 
@@ -680,7 +653,7 @@ async function applySelectiveHydration(
       cleanupStrict,
     }
   );
-  await registerHydratedNavigation(rootElement, path);
+  await registerAppNavigation(rootElement, path);
 
   if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
     await queueIdleWork(() => {
@@ -722,18 +695,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       ? document.getElementById(config.root)
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
-
-  const {
-    clearRoutes,
-    _applyManifest,
-    _setActiveRouteAuthOptions,
-    _snapshotLazy,
-    _drainLazy,
-    route: registerRoute,
-    setServerLocation,
-    lockRouteRegistration,
-    resolveRoute,
-  } = await import('../router/route');
 
   const pendingLazyAtHydrationBoot = _snapshotLazy();
 
@@ -811,7 +772,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   mountOrUpdate(rootElement, bindResolvedRouteHandler(resolved), {
     cleanupStrict: config.cleanupStrict,
   });
-  await registerHydratedNavigation(rootElement, path);
+  await registerAppNavigation(rootElement, path);
 }
 
 /**

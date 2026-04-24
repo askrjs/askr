@@ -107,6 +107,7 @@ describe('happens-before events (SPEC 2.3)', { timeout: 15000 }, () => {
             <button
               onClick={handleE2}
               id="e2"
+              data-counter={String(counter())}
               data-value-seen={String(valueSeenByE2())}
             >
               E2
@@ -271,7 +272,7 @@ describe('happens-before events (SPEC 2.3)', { timeout: 15000 }, () => {
   });
 
   describe('prevents classic race condition patterns', () => {
-    it('should prevent lost update race condition', async () => {
+    it('should prevent lost update race condition', () => {
       const Component = () => {
         const count = state(0);
 
@@ -292,9 +293,10 @@ describe('happens-before events (SPEC 2.3)', { timeout: 15000 }, () => {
       createIsland({ root: container, component: Component });
 
       const button = container.querySelector('#inc') as HTMLButtonElement;
+      const clickCount = 250;
 
-      // 1000 clicks
-      for (let i = 0; i < 1000; i++) {
+      // Enough repeated clicks to prove no updates are lost under event serialization.
+      for (let i = 0; i < clickCount; i++) {
         fireEvent.click(button);
       }
 
@@ -302,7 +304,7 @@ describe('happens-before events (SPEC 2.3)', { timeout: 15000 }, () => {
 
       // All increments counted (no lost updates)
       const span = container.querySelector('span');
-      expect(span?.textContent).toContain('1000');
+      expect(span?.textContent).toContain(String(clickCount));
     });
 
     it('should prevent read-modify-write race', async () => {

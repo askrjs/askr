@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('keyed lists (SPEC 2.4)', () => {
   let { container, cleanup } = createTestContainer();
@@ -70,6 +71,7 @@ describe('keyed lists (SPEC 2.4)', () => {
     });
 
     it('should lose identity of unkeyed items when list is reordered', async () => {
+      allowFrameworkWarnings(/Missing keys on dynamic lists/);
       let items: ReturnType<typeof state<string[]>> | null = null;
 
       const Component = () => {

@@ -42,7 +42,7 @@ describe('performance optimizations (RENDERER)', () => {
               Click
             </button>
             <button id="trigger" onClick={() => count.set(count() + 1)}>
-              Trigger
+              Trigger {count()}
             </button>
           </div>
         );

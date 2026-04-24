@@ -6,6 +6,7 @@ import type { Props } from './props';
 
 export const ELEMENT_TYPE = Symbol.for('askr.element');
 export const Fragment = Symbol.for('askr.fragment');
+export const STATIC_CHILDREN = Symbol.for('askr.static-children');
 
 export interface JSXElement {
   /** Internal element marker */

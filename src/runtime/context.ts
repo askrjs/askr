@@ -21,7 +21,7 @@
  */
 
 import type { JSXElement } from '../common/jsx';
-import { ELEMENT_TYPE } from '../common/jsx';
+import { ELEMENT_TYPE, STATIC_CHILDREN } from '../common/jsx';
 import type { Props } from '../common/props';
 import { getCurrentComponentInstance } from './component';
 import type { ComponentInstance } from './component';
@@ -136,6 +136,27 @@ export function defineContext<T>(defaultValue: T): Context<T> {
   };
 }
 
+function preserveStaticChildrenMarker(
+  source: readonly unknown[],
+  target: unknown[]
+): unknown[] {
+  if (
+    (
+      source as {
+        [STATIC_CHILDREN]?: boolean;
+      }
+    )[STATIC_CHILDREN] === true
+  ) {
+    Object.defineProperty(target, STATIC_CHILDREN, {
+      value: true,
+      enumerable: false,
+      configurable: true,
+    });
+  }
+
+  return target;
+}
+
 export function readContext<T>(context: Context<T>): T {
   // Check render frame first (components), then async resource frame (resources)
   const frame = currentContextFrame || currentAsyncResourceFrame;
@@ -209,16 +230,19 @@ function ContextScopeComponent(props: Props): Renderable {
   if (Array.isArray(children)) {
     // Mark array elements with the frame. If an element is a function-child,
     // convert it into a lazy invoker so it's executed later inside the frame.
-    return children.map((child) => {
-      if (typeof child === 'function') {
-        return createFunctionChildInvoker(
-          child as () => Renderable,
-          newFrame,
-          getCurrentComponentInstance()
-        );
-      }
-      return markWithFrame(child, newFrame);
-    }) as unknown as Renderable;
+    return preserveStaticChildrenMarker(
+      children,
+      children.map((child) => {
+        if (typeof child === 'function') {
+          return createFunctionChildInvoker(
+            child as () => Renderable,
+            newFrame,
+            getCurrentComponentInstance()
+          );
+        }
+        return markWithFrame(child, newFrame);
+      })
+    ) as unknown as Renderable;
   } else if (typeof children === 'function') {
     // If children is a function (render callback), do NOT execute it eagerly
     // during the parent render. Instead, return a small internal component

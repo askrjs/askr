@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('positional identity (IDENTITY)', () => {
   let { container, cleanup } = createTestContainer();
@@ -10,6 +11,7 @@ describe('positional identity (IDENTITY)', () => {
   afterEach(() => cleanup());
 
   it('should use positional identity for unkeyed items', async () => {
+    allowFrameworkWarnings(/Missing keys on dynamic lists/);
     let items: ReturnType<typeof state<string[]>> | null = null;
 
     const Component = () => {
@@ -41,6 +43,7 @@ describe('positional identity (IDENTITY)', () => {
   });
 
   it('should affect which element renders when position changes', async () => {
+    allowFrameworkWarnings(/Missing keys on dynamic lists/);
     let items: ReturnType<typeof state<string[]>> | null = null;
 
     const Component = () => {

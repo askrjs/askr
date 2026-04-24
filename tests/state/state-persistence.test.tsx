@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('state persistence (SPEC 2.5)', () => {
   let { container, cleanup } = createTestContainer();
@@ -108,6 +109,7 @@ describe('state persistence (SPEC 2.5)', () => {
 
   describe('state indices remain stable', () => {
     it('should maintain same index for state calls in same order', async () => {
+      allowFrameworkWarnings(/Unused state variable detected/);
       const _indices: number[] = [];
 
       const Component = () => {

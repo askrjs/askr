@@ -163,7 +163,13 @@ describe('selector reactivity', () => {
   it('should update class when selector is created in parent and passed as prop', () => {
     let selected!: ReturnType<typeof state<number | null>>;
 
-    const Row = ({ id, isSelected }: { id: number; isSelected: (id: number) => boolean }) => {
+    const Row = ({
+      id,
+      isSelected,
+    }: {
+      id: number;
+      isSelected: (id: number) => boolean;
+    }) => {
       return (
         <tr data-id={String(id)} class={() => (isSelected(id) ? 'danger' : '')}>
           <td>{id}</td>

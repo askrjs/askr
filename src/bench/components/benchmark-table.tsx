@@ -22,6 +22,7 @@ export function BenchmarkTable({
           (item) => item.id,
           (item) => (
             <BenchmarkRow
+              key={item.id}
               item={item}
               isSelected={isSelected}
               onSelect={onSelect}

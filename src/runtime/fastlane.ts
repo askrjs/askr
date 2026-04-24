@@ -190,8 +190,9 @@ export function commitReorderOnly(
     return false;
   }
 
-  const schedBefore =
-    isDevelopmentEnvironment() ? globalScheduler.getState() : null;
+  const schedBefore = isDevelopmentEnvironment()
+    ? globalScheduler.getState()
+    : null;
 
   enterBulkCommit();
 

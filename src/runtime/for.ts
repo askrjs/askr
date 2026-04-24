@@ -6,29 +6,22 @@
  */
 
 import { type State } from './state';
-import {
-  type ComponentInstance,
-  createComponentInstance,
-  getCurrentInstance,
-  setCurrentComponentInstance,
-  finalizeReadSubscriptions,
-  getCurrentStateIndex,
-  setStateIndex,
-  cleanupComponent,
-} from './component';
-import {
-  type DOMElement,
-  type VNode,
-} from '../common/vnode';
-import type { ComponentFunction } from '../common/component';
+import { type ComponentInstance, getCurrentInstance } from './component';
+import { type DOMElement, type VNode } from '../common/vnode';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
 import { isDevelopmentEnvironment } from '../common/env';
+import { logger } from '../dev/logger';
 import {
   teardownNodeSubtree,
   removeElementReactiveProps,
   removeElementListeners,
 } from '../renderer/cleanup';
+import {
+  createChildScope,
+  disposeChildScope,
+  type ChildScope,
+} from './child-scope';
 import {
   flushBenchMetrics,
   getBenchMetrics,
@@ -57,11 +50,7 @@ export interface ForItemInstance<T> {
   key: string | number | null;
   item: T;
   indexSignal: ForIndexSignal;
-  componentInstance: ComponentInstance;
-  vnode: VNode | undefined;
-  _startStateIndex: number; // Global state index when item was created
-  _dom?: Node; // Cached DOM node for efficient updates
-  _needsDomUpdate: boolean;
+  scope: ChildScope;
 }
 
 type ForIndexSignal = (() => number) & {
@@ -88,6 +77,7 @@ export interface ForState<T> {
   lastRemovedNodes: Node[];
   pendingDirtyIndices: number[] | null;
   pendingSwapIndices: [number, number] | null;
+  devWarningsEmitted?: Set<string>;
 }
 
 /**
@@ -98,14 +88,12 @@ export interface ForState<T> {
  * This handles the common case of returning a component from For's render function.
  */
 function evaluateJSXElement(value: unknown): VNode {
-  // Check if this is a JSXElement (has $$typeof marker)
-  if (
-    value &&
-    typeof value === 'object' &&
-    '$$typeof' in value &&
-    (value as JSXElement).$$typeof === ELEMENT_TYPE
-  ) {
-    const jsxEl = value as JSXElement;
+  if (value && typeof value === 'object' && 'type' in value) {
+    const jsxEl = value as JSXElement & { props?: Props };
+
+    if ('$$typeof' in jsxEl && jsxEl.$$typeof !== ELEMENT_TYPE) {
+      return value as VNode;
+    }
 
     // If the type is a function (component), call it to get the vnode
     if (typeof jsxEl.type === 'function') {
@@ -148,9 +136,6 @@ export function createForState<T>(
   };
 }
 
-let _forRenderCounter = 1;
-const NOOP_COMPONENT_FN: ComponentFunction = () => null;
-
 function createForIndexSignal(initialIndex: number): ForIndexSignal {
   let indexValue = initialIndex;
 
@@ -166,6 +151,121 @@ function createForIndexSignal(initialIndex: number): ForIndexSignal {
   return indexSignal;
 }
 
+function materializeItemVnode(
+  key: string | number | null,
+  vnode: VNode | undefined
+): void {
+  if (vnode && typeof vnode === 'object' && 'type' in vnode) {
+    const vn = vnode as DOMElement;
+    vn.key = key;
+
+    if (typeof vn.type === 'string') {
+      if (!vn.props) vn.props = {};
+      if (vn.props['data-key'] === undefined) {
+        vn.props['data-key'] = String(key);
+      }
+    }
+  }
+}
+
+function renderItemScope<T>(
+  forState: ForState<T>,
+  scope: ChildScope,
+  item: T,
+  indexSignal: ForIndexSignal,
+  key: string | number | null
+): VNode {
+  recordBenchEvent('rowFactory');
+  const vnode = scope.render(() =>
+    evaluateJSXElement(forState.renderFn(item, indexSignal))
+  );
+  materializeItemVnode(key, vnode);
+  return vnode;
+}
+
+function warnForStateOnce(
+  forState: ForState<unknown>,
+  key: string,
+  message: string
+): void {
+  if (!isDevelopmentEnvironment()) {
+    return;
+  }
+
+  const warnings = (forState.devWarningsEmitted ??= new Set());
+  if (warnings.has(key)) {
+    return;
+  }
+
+  warnings.add(key);
+  logger.warn(message);
+}
+
+function validateForKeys<T>(forState: ForState<T>, newArray: T[]): void {
+  if (!isDevelopmentEnvironment()) {
+    return;
+  }
+
+  const seen = new Set<string | number | null>();
+  for (let i = 0; i < newArray.length; i++) {
+    const key = forState.byFn(newArray[i], i);
+
+    if (key === null || key === undefined) {
+      warnForStateOnce(
+        forState as ForState<unknown>,
+        'invalid-key:null',
+        '[askr] Invalid For key detected. Keys should be stable, non-null, and unique within a For list.'
+      );
+      continue;
+    }
+
+    if (seen.has(key)) {
+      warnForStateOnce(
+        forState as ForState<unknown>,
+        `duplicate-key:${String(key)}`,
+        `[askr] Duplicate For key detected: ${String(key)}. Keys should be stable, non-null, and unique within a For list.`
+      );
+      continue;
+    }
+
+    seen.add(key);
+  }
+}
+
+type RemovedDomCleanupMode = 'none' | 'teardown' | 'full-clear';
+
+function disposeItemInstance<T>(
+  forState: ForState<T>,
+  itemInstance: ForItemInstance<T>,
+  domCleanup: RemovedDomCleanupMode
+): void {
+  recordBenchEvent('itemRemoved');
+  const removedDom = itemInstance.scope.dom;
+
+  try {
+    disposeChildScope(itemInstance.scope);
+  } catch (err) {
+    if (isDevelopmentEnvironment()) {
+      console.error('[For] Cleanup error:', err);
+    }
+  }
+
+  if (!removedDom) {
+    return;
+  }
+
+  if (removedDom instanceof Element) {
+    if (domCleanup === 'full-clear') {
+      removeElementReactiveProps(removedDom);
+      removeElementListeners(removedDom);
+    } else if (domCleanup === 'teardown') {
+      teardownNodeSubtree(removedDom);
+    }
+  }
+
+  forState.lastRemovedNodes.push(removedDom);
+}
+
 export function createItemInstance<T>(
   key: string | number | null,
   item: T,
@@ -177,112 +277,20 @@ export function createItemInstance<T>(
   // Create index signal manually without going through state() hook
   // to avoid hook order violations (each For item creates its signal dynamically)
   const indexSignal = createForIndexSignal(index);
-
-  // Create isolated component for this item. The renderFn is executed while
-  // this instance is the current component so nested state() calls register
-  // readers against this instance for precise notification.
-  const itemComponent = createComponentInstance(
-    `for-item-${key}`,
-    NOOP_COMPONENT_FN,
-    {},
-    null
-  );
-
-  // Inherit parent context
-  if (forState.parentInstance) {
-    itemComponent.ownerFrame = forState.parentInstance.ownerFrame;
-  }
-
-  // Execute initial render function while treating this instance as the
-  // current component so `state()` calls register correctly.
-  const savedInst = getCurrentInstance();
-  setCurrentComponentInstance(itemComponent);
-
-  // Capture the current global state index so we can restore it on re-renders
-  const startStateIndex = getCurrentStateIndex();
-
-  // Prepare render token and pending reads so finalizeReadSubscriptions works
-  // (this mirrors behavior in runComponent).
-  itemComponent._currentRenderToken = _forRenderCounter++;
-  itemComponent._pendingReadSources = undefined;
-
-  recordBenchEvent('rowFactory');
-  const vnode = evaluateJSXElement(forState.renderFn(item, indexSignal));
-
-  // Materialize key on vnode so renderer key extraction works
-  if (vnode && typeof vnode === 'object' && 'type' in vnode) {
-    const vn = vnode as DOMElement;
-    vn.key = key;
-
-    // Automatically add data-key to intrinsic elements (tr, li, etc)
-    // so we don't need to manually add it in the render function.
-    if (typeof vn.type === 'string') {
-      if (!vn.props) vn.props = {};
-      if (vn.props['data-key'] === undefined) {
-        vn.props['data-key'] = String(key);
-      }
+  const scope = createChildScope(forState.parentInstance, key, () => {
+    const parent = forState.parentInstance;
+    if (parent) {
+      parent._enqueueRun?.();
     }
-  }
+  });
 
-  // Commit initial subscriptions so nested state changes will notify this
-  // instance's pending task appropriately.
-  finalizeReadSubscriptions(itemComponent);
+  renderItemScope(forState, scope, item, indexSignal, key);
 
-  // Restore previous current instance
-  setCurrentComponentInstance(savedInst);
-
-  // Create the item instance to capture in closure (avoids redundant Map lookup)
   const itemInstance: ForItemInstance<T> = {
     key,
     item,
     indexSignal,
-    componentInstance: itemComponent,
-    vnode,
-    _startStateIndex: startStateIndex,
-    _needsDomUpdate: true,
-  };
-
-  // Override the pending flush task for this item so that when nested state
-  // changes we recompute this item's vnode and request the parent to re-render.
-  // Perf: capture itemInstance directly to avoid Map.get() during flush
-  itemComponent._pendingFlushTask = () => {
-    const saved = getCurrentInstance();
-    setCurrentComponentInstance(itemComponent);
-
-    // Reset state index tracking for this re-render (same as executeComponentSync)
-    itemComponent.stateIndexCheck = -1;
-
-    // Reset read tracking: iterate only if states exist (O(states) not O(items))
-    const stateValues = itemComponent.stateValues;
-    for (let i = 0; i < stateValues.length; i++) {
-      const state = stateValues[i];
-      if (state) {
-        state._hasBeenRead = false;
-      }
-    }
-
-    // Restore the global state index to where it was when this item was created
-    // This ensures state() calls use the same indices as during initial render
-    setStateIndex(startStateIndex);
-
-    itemComponent._currentRenderToken = _forRenderCounter++;
-    itemComponent._pendingReadSources = undefined;
-
-    // Safely re-render into vnode slot for this item
-    try {
-      const newVnode = evaluateJSXElement(forState.renderFn(item, indexSignal));
-      // Update the stored vnode directly in captured instance
-      itemInstance.vnode = newVnode;
-      itemInstance._needsDomUpdate = true;
-      // Commit read subscriptions for this re-render
-      finalizeReadSubscriptions(itemComponent);
-    } finally {
-      setCurrentComponentInstance(saved);
-    }
-
-    // Ask parent For boundary to re-render so DOM updates are applied
-    const parent = forState.parentInstance;
-    if (parent) parent._enqueueRun?.();
+    scope,
   };
 
   return itemInstance;
@@ -293,54 +301,21 @@ function rerenderItemInstance<T>(
   itemInstance: ForItemInstance<T>,
   item: T
 ): void {
-  const component = itemInstance.componentInstance;
-  const savedInstance = getCurrentInstance();
-  const savedStateIndex = getCurrentStateIndex();
-
-  setCurrentComponentInstance(component);
-  component.stateIndexCheck = -1;
-
-  const stateValues = component.stateValues;
-  for (let i = 0; i < stateValues.length; i++) {
-    const state = stateValues[i];
-    if (state) {
-      state._hasBeenRead = false;
-    }
-  }
-
-  setStateIndex(itemInstance._startStateIndex);
-  component._currentRenderToken = _forRenderCounter++;
-  component._pendingReadSources = undefined;
-
-  try {
-    recordBenchEvent('rowFactory');
-    itemInstance.vnode = evaluateJSXElement(
-      forState.renderFn(item, itemInstance.indexSignal)
-    );
-    itemInstance._needsDomUpdate = true;
-    try {
-      if (
-        itemInstance.vnode &&
-        typeof itemInstance.vnode === 'object' &&
-        'type' in itemInstance.vnode
-      ) {
-        (itemInstance.vnode as { key?: string | number | null }).key =
-          itemInstance.key;
-      }
-    } catch (e) {
-      void e;
-    }
-    finalizeReadSubscriptions(component);
-  } finally {
-    setStateIndex(savedStateIndex);
-    setCurrentComponentInstance(savedInstance);
-  }
+  renderItemScope(
+    forState,
+    itemInstance.scope,
+    item,
+    itemInstance.indexSignal,
+    itemInstance.key
+  );
 }
 
 export function reconcileForItems<T>(
   forState: ForState<T>,
   newArray: T[]
 ): VNode[] {
+  validateForKeys(forState, newArray);
+
   if (BENCH_BUILD_ENABLED) {
     resetBenchMetrics();
   }
@@ -385,7 +360,7 @@ export function reconcileForItems<T>(
           rerenderItemInstance(forState, existing, item);
         }
 
-        resultVNodes[i] = existing.vnode;
+        resultVNodes[i] = existing.scope.vnode as VNode;
       }
 
       // Create and append new rows
@@ -394,7 +369,7 @@ export function reconcileForItems<T>(
         const key = byFn(item, i);
         const itemInstance = createItemInstance(key, item, i, forState);
         items.set(key, itemInstance);
-        resultVNodes[i] = itemInstance.vnode;
+        resultVNodes[i] = itemInstance.scope.vnode as VNode;
         orderedKeys[i] = key;
       }
 
@@ -452,42 +427,28 @@ export function reconcileForItems<T>(
             recordBenchEvent('itemReused');
 
             const itemChanged = existing.item !== item;
-            const needsDomUpdate = existing._needsDomUpdate;
+            const needsDomUpdate = existing.scope.needsDomUpdate;
 
             if (itemChanged) {
               existing.item = item;
               rerenderItemInstance(forState, existing, item);
             }
 
-            if (itemChanged || needsDomUpdate || existing._needsDomUpdate) {
+            if (
+              itemChanged ||
+              needsDomUpdate ||
+              existing.scope.needsDomUpdate
+            ) {
               dirtyIndices.push(i);
             }
 
-            resultVNodes[i] = existing.vnode;
+            resultVNodes[i] = existing.scope.vnode as VNode;
           }
 
           const removedKey = orderedKeys[removedIndex];
           const removedItem = items.get(removedKey);
           if (removedItem) {
-            recordBenchEvent('itemRemoved');
-            const instance = removedItem.componentInstance;
-            try {
-              cleanupComponent(instance);
-            } catch (err) {
-              if (isDevelopmentEnvironment()) {
-                console.error('[For] Cleanup error:', err);
-              }
-            }
-
-            if (removedItem._dom) {
-              if (removedItem._dom instanceof Element) {
-                teardownNodeSubtree(removedItem._dom);
-              }
-              forState.lastRemovedNodes.push(removedItem._dom);
-            }
-
-            removedItem.vnode = undefined;
-            removedItem._dom = undefined;
+            disposeItemInstance(forState, removedItem, 'teardown');
             items.delete(removedKey);
           }
 
@@ -542,7 +503,7 @@ export function reconcileForItems<T>(
           rerenderItemInstance(forState, existing, item);
         }
 
-        resultVNodes[i] = existing.vnode;
+        resultVNodes[i] = existing.scope.vnode as VNode;
       }
 
       // Remove tail rows
@@ -550,29 +511,11 @@ export function reconcileForItems<T>(
         const key = orderedKeys[i];
         const itemInstance = items.get(key);
         if (itemInstance) {
-          recordBenchEvent('itemRemoved');
-          const instance = itemInstance.componentInstance;
-          try {
-            cleanupComponent(instance);
-          } catch (err) {
-            if (isDevelopmentEnvironment()) {
-              console.error('[For] Cleanup error:', err);
-            }
-          }
-          // Clean up cached DOM node if present
-          if (itemInstance._dom) {
-            if (itemInstance._dom instanceof Element) {
-              if (isFullClear) {
-                removeElementReactiveProps(itemInstance._dom);
-                removeElementListeners(itemInstance._dom);
-              } else {
-                teardownNodeSubtree(itemInstance._dom);
-              }
-            }
-            forState.lastRemovedNodes.push(itemInstance._dom);
-          }
-          itemInstance.vnode = undefined;
-          itemInstance._dom = undefined;
+          disposeItemInstance(
+            forState,
+            itemInstance,
+            isFullClear ? 'full-clear' : 'teardown'
+          );
           items.delete(key);
         }
       }
@@ -622,18 +565,18 @@ export function reconcileForItems<T>(
         recordBenchEvent('itemReused');
 
         const itemChanged = existing.item !== item;
-        const needsDomUpdate = existing._needsDomUpdate;
+        const needsDomUpdate = existing.scope.needsDomUpdate;
 
         if (itemChanged) {
           existing.item = item;
           rerenderItemInstance(forState, existing, item);
         }
 
-        if (itemChanged || needsDomUpdate || existing._needsDomUpdate) {
+        if (itemChanged || needsDomUpdate || existing.scope.needsDomUpdate) {
           dirtyIndices.push(i);
         }
 
-        resultVNodes[i] = existing.vnode;
+        resultVNodes[i] = existing.scope.vnode as VNode;
       }
 
       if (BENCH_BUILD_ENABLED) {
@@ -728,8 +671,8 @@ export function reconcileForItems<T>(
         secondExisting.indexSignal.set(secondMismatch);
       }
 
-      resultVNodes[firstMismatch] = firstExisting.vnode;
-      resultVNodes[secondMismatch] = secondExisting.vnode;
+      resultVNodes[firstMismatch] = firstExisting.scope.vnode as VNode;
+      resultVNodes[secondMismatch] = secondExisting.scope.vnode as VNode;
 
       forState.orderedKeys = nextOrderedKeys;
 
@@ -772,7 +715,7 @@ export function reconcileForItems<T>(
       // Added: create new item instance
       const itemInstance = createItemInstance(key, item, i, forState);
       items.set(key, itemInstance);
-      resultVNodes.push(itemInstance.vnode);
+      resultVNodes.push(itemInstance.scope.vnode as VNode);
     } else {
       // Exists: check if item changed (by identity)
       recordBenchEvent('itemReused');
@@ -790,7 +733,7 @@ export function reconcileForItems<T>(
         existing.indexSignal.set(i);
       }
 
-      resultVNodes.push(existing.vnode);
+      resultVNodes.push(existing.scope.vnode as VNode);
     }
   }
 
@@ -798,25 +741,7 @@ export function reconcileForItems<T>(
   for (const key of toRemove) {
     const itemInstance = items.get(key);
     if (itemInstance) {
-      recordBenchEvent('itemRemoved');
-      const instance = itemInstance.componentInstance;
-      // Clean up component instance
-      try {
-        cleanupComponent(instance);
-      } catch (err) {
-        if (isDevelopmentEnvironment()) {
-          console.error('[For] Cleanup error:', err);
-        }
-      }
-
-      // Clean up cached DOM node if present
-      if (itemInstance._dom) {
-        forState.lastRemovedNodes.push(itemInstance._dom);
-      }
-
-      itemInstance.vnode = undefined;
-      itemInstance._dom = undefined;
-
+      disposeItemInstance(forState, itemInstance, 'none');
       items.delete(key);
     }
   }
@@ -855,7 +780,7 @@ export function clearForDomUpdateState<T>(forState: ForState<T>): void {
     const key = forState.orderedKeys[i];
     const itemInstance = forState.items.get(key);
     if (itemInstance) {
-      itemInstance._needsDomUpdate = false;
+      itemInstance.scope.needsDomUpdate = false;
     }
   }
   forState.lastRemovedNodes = [];

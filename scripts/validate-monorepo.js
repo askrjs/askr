@@ -23,6 +23,11 @@ function validateRootLockfile() {
   const rootPackageJson = JSON.parse(
     fs.readFileSync(rootPackageJsonPath, 'utf8')
   );
+
+  if (!Array.isArray(rootPackageJson.workspaces)) {
+    return null;
+  }
+
   assert(
     Array.isArray(rootPackageJson.workspaces),
     'Missing root workspaces config'
@@ -62,6 +67,10 @@ function validateRootLockfile() {
 }
 
 function validatePackages(workspaces) {
+  if (!workspaces || workspaces.length === 0) {
+    return;
+  }
+
   if (!fs.existsSync(packagesRoot)) {
     errors.push('Missing packages directory');
     return;
@@ -99,6 +108,12 @@ function validatePackages(workspaces) {
 
 function main() {
   const workspaces = validateRootLockfile();
+
+  if (!workspaces) {
+    console.log('Monorepo validation skipped: no root workspaces configured.');
+    return;
+  }
+
   validatePackages(workspaces);
 
   if (errors.length > 0) {

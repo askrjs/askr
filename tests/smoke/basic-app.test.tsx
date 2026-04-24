@@ -107,7 +107,7 @@ describe('basic app smoke test', () => {
       return (
         <ul>
           {items().map((item) => (
-            <li>{item}</li>
+            <li key={item}>{item}</li>
           ))}
         </ul>
       );

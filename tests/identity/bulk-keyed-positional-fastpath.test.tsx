@@ -34,15 +34,16 @@ describe('bulk keyed positional fast-path', () => {
       items = state(Array.from({ length: 50 }, (_, i) => i));
       selected = state<number | null>(null);
       labelOverrides = state<Record<number, string>>({});
+      const selectedId = selected();
       const overrides = labelOverrides();
       return (
-        <ul>
+        <ul data-selected={selectedId == null ? '' : String(selectedId)}>
           {items().map((item: number) => (
             <li
               key={item}
               data-key={String(item)}
-              class={selected() === item ? 'danger' : ''}
-              aria-selected={selected() === item ? 'true' : 'false'}
+              class={selectedId === item ? 'danger' : ''}
+              aria-selected={selectedId === item ? 'true' : 'false'}
             >
               {overrides[item] ?? 'Item ' + item}
             </li>

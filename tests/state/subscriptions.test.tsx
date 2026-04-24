@@ -5,6 +5,7 @@ import {
   flushScheduler,
   waitForNextEvaluation,
 } from '../helpers/test-renderer';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('state subscription invariants', () => {
   it('should notify only components that read the state', async () => {
@@ -53,6 +54,7 @@ describe('state subscription invariants', () => {
   });
 
   it('should remove subscriptions on unmount (no leaks)', async () => {
+    allowFrameworkWarnings(/Unused state variable detected in App at index 1/);
     const { container, cleanup } = createTestContainer();
 
     let shared: ReturnType<typeof state> | null = null;

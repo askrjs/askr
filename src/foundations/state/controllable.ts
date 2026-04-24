@@ -73,11 +73,15 @@ export function controllableState<T>(options: {
   defaultValue: T;
   onChange?: (next: T) => void;
 }): ControllableState<T> {
-  const internal = state<T>(options.defaultValue);
   const isControlled = options.value !== undefined;
+  const internal = isControlled ? null : state<T>(options.defaultValue);
 
   function read(): T {
-    return isControlled ? (options.value as T) : internal();
+    if (isControlled) {
+      return options.value as T;
+    }
+
+    return internal!();
   }
 
   read.set = (nextOrUpdater: T | ((prev: T) => T)) => {
@@ -94,7 +98,7 @@ export function controllableState<T>(options: {
       return;
     }
 
-    internal.set(nextOrUpdater as never);
+    internal!.set(nextOrUpdater as never);
     options.onChange?.(next);
   };
 

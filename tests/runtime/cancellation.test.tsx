@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { resource } from '../../src/resources';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
+import { allowFrameworkWarnings } from '../setup-env';
 
 describe('cancellation (SPEC 2.6)', () => {
   let { container, cleanup } = createTestContainer();
@@ -165,6 +166,7 @@ describe('cancellation (SPEC 2.6)', () => {
   });
 
   it('should fire abort signal when component is replaced', async () => {
+    allowFrameworkWarnings(/Unused state variable detected/);
     let aborted = false;
 
     const Component1 = () => {
