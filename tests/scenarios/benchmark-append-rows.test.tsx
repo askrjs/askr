@@ -19,16 +19,16 @@ test(
       return (
         <table>
           <tbody>
-            {For(
-              () => dataState(),
-              (row) => row.id,
-              (row) => (
-                <tr key={row.id}>
-                  <td>{String(row.id)}</td>
-                  <td>{row.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => dataState()} by={(row) => row.id}>
+                {(row) => (
+                  <tr key={row.id}>
+                    <td>{String(row.id)}</td>
+                    <td>{row.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );

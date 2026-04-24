@@ -13,6 +13,11 @@ import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
 import { evaluateForState } from '../runtime/for';
 import {
+  evaluateCaseState,
+  evaluateShowState,
+  type ControlBoundaryState,
+} from '../runtime/control';
+import {
   createDOMNode,
   commitForBoundaryChildren,
   updateElementFromVnode,
@@ -318,14 +323,18 @@ function updateForBoundaryChildren(
   element: Element,
   forVnode: DOMElement
 ): void {
-  const forState = forVnode._forState;
-  if (!forState) return;
+  const controlState =
+    forVnode._controlState ??
+    (forVnode._forState as ControlBoundaryState | undefined);
+  if (!controlState) return;
 
-  const source = (forVnode.props || {}).source as unknown as
-    | import('../runtime/state').State<unknown[]>
-    | (() => unknown[]);
-  const childrenVNodes = evaluateForState(forState, source);
-  commitForBoundaryChildren(element, forState, childrenVNodes);
+  const childrenVNodes =
+    controlState.kind === 'for'
+      ? evaluateForState(controlState)
+      : controlState.kind === 'show'
+        ? evaluateShowState(controlState)
+        : evaluateCaseState(controlState);
+  commitForBoundaryChildren(element, controlState, childrenVNodes);
 }
 
 /**
@@ -684,6 +693,14 @@ export function evaluate(
         processFragmentChildren(target, childArray);
         return;
       }
+    }
+
+    if (
+      _isDOMElement(vnode) &&
+      (vnode as DOMElement).type === __FOR_BOUNDARY__
+    ) {
+      updateForBoundaryChildren(target, vnode as DOMElement);
+      return;
     }
 
     // CRITICAL FIX: Check if target itself matches the vnode type AND target is the component's own element

@@ -18,16 +18,16 @@ describe('For component with table elements', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rows,
-              (row) => row.id,
-              (row) => (
-                <tr key={row.id}>
-                  <td>{String(row.id)}</td>
-                  <td>{row.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => rows} by={(row) => row.id}>
+                {(row) => (
+                  <tr key={row.id}>
+                    <td>{String(row.id)}</td>
+                    <td>{row.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );

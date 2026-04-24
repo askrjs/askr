@@ -34,20 +34,20 @@ describe('event handler flush guarantees - robust', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => data(),
-              (item) => item.id,
-              (item) => (
-                <tr class={selected() === item.id ? 'danger' : ''}>
-                  <td class="col-md-1">{item.id}</td>
-                  <td>
-                    <a id={`link-${item.id}`} onClick={() => select(item.id)}>
-                      {item.label}
-                    </a>
-                  </td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => data()} by={(item) => item.id}>
+                {(item) => (
+                  <tr class={selected() === item.id ? 'danger' : ''}>
+                    <td class="col-md-1">{item.id}</td>
+                    <td>
+                      <a id={`link-${item.id}`} onClick={() => select(item.id)}>
+                        {item.label}
+                      </a>
+                    </td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );

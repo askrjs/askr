@@ -1,17 +1,19 @@
 import type { VNode } from '../common/vnode';
+import { _isDOMElement } from '../common/vnode';
 import {
   cleanupComponent,
   createComponentInstance,
   finalizeReadSubscriptions,
-  getCurrentInstance,
   getCurrentStateIndex,
-  setCurrentComponentInstance,
-  setStateIndex,
+  registerOwnedChildScope,
+  renderScopedComponent,
+  unregisterOwnedChildScope,
   type ComponentInstance,
 } from './component';
+import { isDevelopmentEnvironment } from '../common/env';
 
 export interface ChildScope {
-  key: string | number | null;
+  key: string | number;
   componentInstance: ComponentInstance;
   vnode: VNode | undefined;
   dom?: Node;
@@ -25,42 +27,60 @@ interface MutableChildScope extends ChildScope {
   _startStateIndex: number;
   _renderFn?: (() => VNode) | undefined;
   _onDirty?: (() => void) | undefined;
+  _parent?: ComponentInstance | null;
+  _disposed: boolean;
 }
 
-let _childScopeRenderCounter = 1;
-
 function renderScope(scope: MutableChildScope): VNode | undefined {
+  if (scope._disposed) {
+    if (isDevelopmentEnvironment()) {
+      throw new Error(
+        `[askr] Attempted to render disposed child scope ${String(scope.key)}.`
+      );
+    }
+    return scope.vnode;
+  }
+
   if (!scope._renderFn) {
     return scope.vnode;
   }
 
   const { componentInstance } = scope;
-  const savedInstance = getCurrentInstance();
-  const savedStateIndex = getCurrentStateIndex();
-
-  setCurrentComponentInstance(componentInstance);
-  componentInstance.stateIndexCheck = -1;
-
-  const stateValues = componentInstance.stateValues;
-  for (let i = 0; i < stateValues.length; i++) {
-    const state = stateValues[i];
-    if (state) {
-      state._hasBeenRead = false;
-    }
-  }
-
-  setStateIndex(scope._startStateIndex);
-  componentInstance._currentRenderToken = _childScopeRenderCounter++;
-  componentInstance._pendingReadSources = undefined;
+  const previousVNode = scope.vnode;
 
   try {
-    scope.vnode = scope._renderFn();
+    const nextVNode = renderScopedComponent(
+      componentInstance,
+      scope._startStateIndex,
+      scope._renderFn
+    );
+    if (
+      previousVNode &&
+      nextVNode &&
+      _isDOMElement(previousVNode) &&
+      _isDOMElement(nextVNode) &&
+      typeof previousVNode.type === 'function' &&
+      previousVNode.type === nextVNode.type &&
+      '__instance' in previousVNode &&
+      !('__instance' in nextVNode)
+    ) {
+      (
+        nextVNode as VNode & {
+          __instance?: ComponentInstance;
+        }
+      ).__instance = (
+        previousVNode as VNode & {
+          __instance?: ComponentInstance;
+        }
+      ).__instance;
+    }
+    scope.vnode = nextVNode;
     scope.markDirty();
     finalizeReadSubscriptions(componentInstance);
     return scope.vnode;
-  } finally {
-    setStateIndex(savedStateIndex);
-    setCurrentComponentInstance(savedInstance);
+  } catch (error) {
+    componentInstance.hasPendingUpdate = false;
+    throw error;
   }
 }
 
@@ -74,7 +94,7 @@ export function disposeChildScope(scope: ChildScope): void {
 
 export function createChildScope(
   parent: ComponentInstance | null,
-  key: string | number | null,
+  key: string | number,
   onDirty?: () => void
 ): ChildScope {
   const scope = {} as MutableChildScope;
@@ -98,6 +118,8 @@ export function createChildScope(
   scope._startStateIndex = getCurrentStateIndex();
   scope._renderFn = undefined;
   scope._onDirty = onDirty;
+  scope._parent = parent;
+  scope._disposed = false;
   scope.markDirty = () => {
     scope.needsDomUpdate = true;
   };
@@ -106,6 +128,13 @@ export function createChildScope(
     return renderScope(scope) as VNode;
   };
   scope.dispose = () => {
+    if (scope._disposed) {
+      return;
+    }
+    scope._disposed = true;
+    if (scope._parent) {
+      unregisterOwnedChildScope(scope._parent, scope);
+    }
     cleanupComponent(componentInstance);
     scope._renderFn = undefined;
     scope.vnode = undefined;
@@ -119,6 +148,10 @@ export function createChildScope(
     renderScope(scope);
     scope._onDirty?.();
   };
+
+  if (parent) {
+    registerOwnedChildScope(parent, scope);
+  }
 
   return scope;
 }

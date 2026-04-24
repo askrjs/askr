@@ -45,15 +45,15 @@ describe('for keyed DOM commit', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rowsState(),
-              (item) => item.id,
-              (item) => (
-                <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
-                  <td>{item.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => rowsState()} by={(item) => item.id}>
+                {(item) => (
+                  <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
+                    <td>{item.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );
@@ -102,15 +102,15 @@ describe('for keyed DOM commit', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rowsState(),
-              (item) => item.id,
-              (item) => (
-                <tr>
-                  <td>{item.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => rowsState()} by={(item) => item.id}>
+                {(item) => (
+                  <tr>
+                    <td>{item.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );
@@ -166,15 +166,15 @@ describe('for keyed DOM commit', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rowsState(),
-              (item) => item.id,
-              (item) => (
-                <tr>
-                  <td>{item.label}</td>
-                </tr>
-              )
-            )}
+            {
+              <For each={() => rowsState()} by={(item) => item.id}>
+                {(item) => (
+                  <tr>
+                    <td>{item.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
           </tbody>
         </table>
       );
@@ -240,13 +240,11 @@ describe('for keyed DOM commit', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => rows(),
-              (item) => item.id,
-              (item) => (
-                <KeyedRow item={item} isSelected={isSelected} />
-              )
-            )}
+            {
+              <For each={() => rows()} by={(item) => item.id}>
+                {(item) => <KeyedRow item={item} isSelected={isSelected} />}
+              </For>
+            }
           </tbody>
         </table>
       );

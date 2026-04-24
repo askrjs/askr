@@ -39,13 +39,11 @@ describe('selector reactivity', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => [1, 2, 3, 4, 5],
-              (item) => item,
-              (item) => (
-                <Row id={item} />
-              )
-            )}
+            {
+              <For each={() => [1, 2, 3, 4, 5]} by={(item) => item}>
+                {(item) => <Row id={item} />}
+              </For>
+            }
           </tbody>
         </table>
       );
@@ -99,13 +97,11 @@ describe('selector reactivity', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => [1, 2, 3],
-              (item) => item,
-              (item) => (
-                <Row id={item} />
-              )
-            )}
+            {
+              <For each={() => [1, 2, 3]} by={(item) => item}>
+                {(item) => <Row id={item} />}
+              </For>
+            }
           </tbody>
         </table>
       );
@@ -138,13 +134,11 @@ describe('selector reactivity', () => {
 
       return (
         <section>
-          {For(
-            rows,
-            (item) => item,
-            (item) => (
-              <Row id={item} />
-            )
-          )}
+          {
+            <For each={rows} by={(item) => item}>
+              {(item) => <Row id={item} />}
+            </For>
+          }
         </section>
       );
     };
@@ -184,13 +178,11 @@ describe('selector reactivity', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => [1, 2, 3, 4, 5],
-              (item) => item,
-              (item) => (
-                <Row id={item} isSelected={isSelected} />
-              )
-            )}
+            {
+              <For each={() => [1, 2, 3, 4, 5]} by={(item) => item}>
+                {(item) => <Row id={item} isSelected={isSelected} />}
+              </For>
+            }
           </tbody>
         </table>
       );

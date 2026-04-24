@@ -44,15 +44,15 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
 
       return (
         <div>
-          {For(
-            () => items!(),
-            (item) => item.id,
-            (item) => (
-              <div key={item.id} data-id={item.id}>
-                {item.label}
-              </div>
-            )
-          )}
+          {
+            <For each={() => items!()} by={(item) => item.id}>
+              {(item) => (
+                <div key={item.id} data-id={item.id}>
+                  {item.label}
+                </div>
+              )}
+            </For>
+          }
         </div>
       );
     };
@@ -104,15 +104,15 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
 
       return (
         <div>
-          {For(
-            () => items!(),
-            (item) => item.id,
-            (item) => (
-              <div key={item.id} data-id={item.id}>
-                {item.label}
-              </div>
-            )
-          )}
+          {
+            <For each={() => items!()} by={(item) => item.id}>
+              {(item) => (
+                <div key={item.id} data-id={item.id}>
+                  {item.label}
+                </div>
+              )}
+            </For>
+          }
         </div>
       );
     };
@@ -165,16 +165,16 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
 
       return (
         <div>
-          {For(
-            () => items!(),
-            (item) => item.id,
-            (item) => (
-              <div key={item.id} data-id={item.id}>
-                {`${item.prefix} ${item.count}`}
-                <span>{` (count: ${item.count})`}</span>
-              </div>
-            )
-          )}
+          {
+            <For each={() => items!()} by={(item) => item.id}>
+              {(item) => (
+                <div key={item.id} data-id={item.id}>
+                  {`${item.prefix} ${item.count}`}
+                  <span>{` (count: ${item.count})`}</span>
+                </div>
+              )}
+            </For>
+          }
         </div>
       );
     };
@@ -216,15 +216,15 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
 
       return (
         <div>
-          {For(
-            () => items!(),
-            (item) => item.id,
-            (item) => (
-              <div key={item.id} data-id={item.id}>
-                {item.label}
-              </div>
-            )
-          )}
+          {
+            <For each={() => items!()} by={(item) => item.id}>
+              {(item) => (
+                <div key={item.id} data-id={item.id}>
+                  {item.label}
+                </div>
+              )}
+            </For>
+          }
         </div>
       );
     };

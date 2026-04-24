@@ -25,13 +25,11 @@ describe('keyed component identity in For loop', () => {
 
       return (
         <div>
-          {For(
-            items,
-            (i) => i.id,
-            (item) => (
-              <Row label={item.label} />
-            )
-          )}
+          {
+            <For each={items} by={(i) => i.id}>
+              {(item) => <Row label={item.label} />}
+            </For>
+          }
         </div>
       );
     };
@@ -99,13 +97,11 @@ describe('keyed component identity in For loop', () => {
 
       return (
         <div>
-          {For(
-            items,
-            (i) => i.id,
-            (item) => (
-              <Outer label={item.label} />
-            )
-          )}
+          {
+            <For each={items} by={(i) => i.id}>
+              {(item) => <Outer label={item.label} />}
+            </For>
+          }
         </div>
       );
     };

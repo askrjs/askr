@@ -68,13 +68,11 @@ describe('JSX For minimal repro', () => {
       return (
         <table>
           <tbody>
-            {For(
-              () => items(),
-              (item) => item.id,
-              (item) => (
-                <Row id={item.id} label={item.label} />
-              )
-            )}
+            {
+              <For each={() => items()} by={(item) => item.id}>
+                {(item) => <Row id={item.id} label={item.label} />}
+              </For>
+            }
           </tbody>
         </table>
       );

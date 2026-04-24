@@ -4,6 +4,10 @@
  */
 import type { Props } from '../common/props';
 import {
+  isEagerControlPrimitive,
+  type EagerControlPrimitive,
+} from '../common/control';
+import {
   ELEMENT_TYPE,
   Fragment,
   STATIC_CHILDREN,
@@ -33,19 +37,36 @@ function markStaticChildren(props: Props): Props {
 }
 
 export function jsxDEV(
+  type: EagerControlPrimitive,
+  props: Record<string, unknown> | null,
+  key?: string | number,
+  isStaticChildren?: boolean
+): unknown;
+export function jsxDEV(
+  type: unknown,
+  props: Record<string, unknown> | null,
+  key?: string | number,
+  isStaticChildren?: boolean
+): JSXElement;
+export function jsxDEV(
   type: unknown,
   props: Record<string, unknown> | null,
   key?: string | number,
   isStaticChildren = false
-): JSXElement {
+): JSXElement | unknown {
   const normalizedProps = annotatePropsUsage(props);
+  const preparedProps = isStaticChildren
+    ? markStaticChildren(normalizedProps)
+    : normalizedProps;
+
+  if (isEagerControlPrimitive(type)) {
+    return type(preparedProps);
+  }
 
   return {
     $$typeof: ELEMENT_TYPE,
     type: type as string | ((props: Props) => unknown) | symbol,
-    props: isStaticChildren
-      ? markStaticChildren(normalizedProps)
-      : normalizedProps,
+    props: preparedProps,
     key: key ?? null,
   };
 }

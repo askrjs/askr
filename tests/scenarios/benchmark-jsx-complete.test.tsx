@@ -82,18 +82,18 @@ describe(
           <div class="container">
             <table class="table">
               <tbody>
-                {For(
-                  () => dataState(),
-                  (item) => item.id,
-                  (item) => (
-                    <Row
-                      item={item}
-                      isSelected={isSelected}
-                      onSelect={select}
-                      onRemove={remove}
-                    />
-                  )
-                )}
+                {
+                  <For each={() => dataState()} by={(item) => item.id}>
+                    {(item) => (
+                      <Row
+                        item={item}
+                        isSelected={isSelected}
+                        onSelect={select}
+                        onRemove={remove}
+                      />
+                    )}
+                  </For>
+                }
               </tbody>
             </table>
           </div>
@@ -136,18 +136,18 @@ describe(
           <div>
             <table>
               <tbody>
-                {For(
-                  () => dataState(),
-                  (item) => item.id,
-                  (item) => (
-                    <Row
-                      item={item}
-                      isSelected={isSelected}
-                      onSelect={select}
-                      onRemove={remove}
-                    />
-                  )
-                )}
+                {
+                  <For each={() => dataState()} by={(item) => item.id}>
+                    {(item) => (
+                      <Row
+                        item={item}
+                        isSelected={isSelected}
+                        onSelect={select}
+                        onRemove={remove}
+                      />
+                    )}
+                  </For>
+                }
               </tbody>
             </table>
           </div>
@@ -199,18 +199,18 @@ describe(
         return (
           <table>
             <tbody>
-              {For(
-                () => dataState(),
-                (item) => item.id,
-                (item) => (
-                  <Row
-                    item={item}
-                    isSelected={isSelected}
-                    onSelect={select}
-                    onRemove={remove}
-                  />
-                )
-              )}
+              {
+                <For each={() => dataState()} by={(item) => item.id}>
+                  {(item) => (
+                    <Row
+                      item={item}
+                      isSelected={isSelected}
+                      onSelect={select}
+                      onRemove={remove}
+                    />
+                  )}
+                </For>
+              }
             </tbody>
           </table>
         );
@@ -259,18 +259,18 @@ describe(
         return (
           <table>
             <tbody>
-              {For(
-                () => dataState(),
-                (item) => item.id,
-                (item) => (
-                  <Row
-                    item={item}
-                    isSelected={isSelected}
-                    onSelect={select}
-                    onRemove={remove}
-                  />
-                )
-              )}
+              {
+                <For each={() => dataState()} by={(item) => item.id}>
+                  {(item) => (
+                    <Row
+                      item={item}
+                      isSelected={isSelected}
+                      onSelect={select}
+                      onRemove={remove}
+                    />
+                  )}
+                </For>
+              }
             </tbody>
           </table>
         );
@@ -335,18 +335,18 @@ describe(
         return (
           <table>
             <tbody>
-              {For(
-                () => dataState(),
-                (item) => item.id,
-                (item) => (
-                  <Row
-                    item={item}
-                    isSelected={isSelected}
-                    onSelect={select}
-                    onRemove={remove}
-                  />
-                )
-              )}
+              {
+                <For each={() => dataState()} by={(item) => item.id}>
+                  {(item) => (
+                    <Row
+                      item={item}
+                      isSelected={isSelected}
+                      onSelect={select}
+                      onRemove={remove}
+                    />
+                  )}
+                </For>
+              }
             </tbody>
           </table>
         );
@@ -397,18 +397,18 @@ describe(
         return (
           <table>
             <tbody>
-              {For(
-                () => dataState(),
-                (item) => item.id,
-                (item) => (
-                  <Row
-                    item={item}
-                    isSelected={isSelected}
-                    onSelect={select}
-                    onRemove={remove}
-                  />
-                )
-              )}
+              {
+                <For each={() => dataState()} by={(item) => item.id}>
+                  {(item) => (
+                    <Row
+                      item={item}
+                      isSelected={isSelected}
+                      onSelect={select}
+                      onRemove={remove}
+                    />
+                  )}
+                </For>
+              }
             </tbody>
           </table>
         );
@@ -451,18 +451,18 @@ describe(
         return (
           <table>
             <tbody>
-              {For(
-                () => dataState(),
-                (item) => item.id,
-                (item) => (
-                  <Row
-                    item={item}
-                    isSelected={isSelected}
-                    onSelect={select}
-                    onRemove={remove}
-                  />
-                )
-              )}
+              {
+                <For each={() => dataState()} by={(item) => item.id}>
+                  {(item) => (
+                    <Row
+                      item={item}
+                      isSelected={isSelected}
+                      onSelect={select}
+                      onRemove={remove}
+                    />
+                  )}
+                </For>
+              }
             </tbody>
           </table>
         );

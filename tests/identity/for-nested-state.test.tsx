@@ -11,16 +11,16 @@ test('should update item when nested state changes', () => {
     const rows = [1];
     return (
       <div>
-        {For(
-          () => rows,
-          (_, index) => index,
-          (_n) => {
-            const c = state(0);
-            return (
-              <button onClick={() => c.set(c() + 1)}>{String(c())}</button>
-            );
-          }
-        )}
+        {
+          <For each={() => rows} by={(_, index) => index}>
+            {(_n) => {
+              const c = state(0);
+              return (
+                <button onClick={() => c.set(c() + 1)}>{String(c())}</button>
+              );
+            }}
+          </For>
+        }
       </div>
     );
   };
@@ -47,21 +47,21 @@ test('should preserve DOM identity when nested state changes without list reorde
     const rows = [1, 2, 3];
     return (
       <div>
-        {For(
-          () => rows,
-          (row) => row,
-          (row) => {
-            const count = state(0);
-            return (
-              <button
-                data-row={String(row)}
-                onClick={() => count.set(count() + 1)}
-              >
-                {`${row}:${count()}`}
-              </button>
-            );
-          }
-        )}
+        {
+          <For each={() => rows} by={(row) => row}>
+            {(row) => {
+              const count = state(0);
+              return (
+                <button
+                  data-row={String(row)}
+                  onClick={() => count.set(count() + 1)}
+                >
+                  {`${row}:${count()}`}
+                </button>
+              );
+            }}
+          </For>
+        }
       </div>
     );
   };
@@ -104,18 +104,18 @@ test('should stop removed row scopes from enqueueing parent rerenders', () => {
 
     return (
       <div>
-        {For(
-          rowsState,
-          (row) => row,
-          (row) => {
-            const local = state(0);
-            rowSetters.set(row, local.set);
+        {
+          <For each={rowsState} by={(row) => row}>
+            {(row) => {
+              const local = state(0);
+              rowSetters.set(row, local.set);
 
-            return (
-              <button data-row={String(row)}>{`${row}:${local()}`}</button>
-            );
-          }
-        )}
+              return (
+                <button data-row={String(row)}>{`${row}:${local()}`}</button>
+              );
+            }}
+          </For>
+        }
       </div>
     );
   };
