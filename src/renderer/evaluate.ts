@@ -1,4 +1,5 @@
 import { logger } from '../dev/logger';
+import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
 import type { ComponentInstance } from '../runtime/component';
 import {
@@ -183,7 +184,7 @@ function hasKeyedChildren(children: unknown[]): boolean {
 function trackBulkTextStats(
   stats: ReturnType<typeof performBulkTextReplace>
 ): void {
-  if (process.env.NODE_ENV !== 'production') {
+  if (getRuntimeEnv().NODE_ENV !== 'production') {
     try {
       setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
       incDevCounter('bulkTextHits');
@@ -197,7 +198,7 @@ function trackBulkTextStats(
  * Track bulk text miss (dev only)
  */
 function trackBulkTextMiss(): void {
-  if (process.env.NODE_ENV !== 'production') {
+  if (getRuntimeEnv().NODE_ENV !== 'production') {
     try {
       incDevCounter('bulkTextMisses');
     } catch {
@@ -219,7 +220,7 @@ function reconcileKeyed(
   oldKeyMap: Map<string | number, Element> | undefined
 ): void {
   // Optional forced positional bulk path for large keyed lists
-  if (process.env.ASKR_FORCE_BULK_POSREUSE === '1') {
+  if (getRuntimeEnv().ASKR_FORCE_BULK_POSREUSE === '1') {
     const result = tryForcedBulkKeyedPath(parent, children);
     if (result) return;
   }
@@ -250,9 +251,10 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
       return false;
     }
 
+    const fastPathEnv = getRuntimeEnv();
     if (
-      process.env.ASKR_FASTPATH_DEBUG === '1' ||
-      process.env.ASKR_FASTPATH_DEBUG === 'true'
+      fastPathEnv.ASKR_FASTPATH_DEBUG === '1' ||
+      fastPathEnv.ASKR_FASTPATH_DEBUG === 'true'
     ) {
       logger.warn(
         '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
@@ -261,10 +263,8 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
 
     const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
 
-    if (
-      process.env.NODE_ENV !== 'production' ||
-      process.env.ASKR_FASTPATH_DEBUG === '1'
-    ) {
+    const statsEnv = getRuntimeEnv();
+    if (statsEnv.NODE_ENV !== 'production' || statsEnv.ASKR_FASTPATH_DEBUG === '1') {
       try {
         setDevValue('__LAST_FASTPATH_STATS', stats);
         setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
@@ -279,9 +279,10 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
     keyedElements.set(parent, newMap);
     return true;
   } catch (err) {
+    const fallbackEnv = getRuntimeEnv();
     if (
-      process.env.ASKR_FASTPATH_DEBUG === '1' ||
-      process.env.ASKR_FASTPATH_DEBUG === 'true'
+      fallbackEnv.ASKR_FASTPATH_DEBUG === '1' ||
+      fallbackEnv.ASKR_FASTPATH_DEBUG === 'true'
     ) {
       logger.warn(
         '[Askr][FASTPATH] forced bulk path failed, falling back',
@@ -612,7 +613,7 @@ export function evaluate(
   if (!target) return;
   // SSR guard: avoid DOM ops when not in a browser-like environment
   if (typeof document === 'undefined') {
-    if (process.env.NODE_ENV !== 'production') {
+    if (getRuntimeEnv().NODE_ENV !== 'production') {
       try {
         // Keep this lightweight and non-throwing so test harnesses and SSR
         // imports don't crash at runtime; callers should avoid calling

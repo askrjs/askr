@@ -5,6 +5,7 @@
 
 import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
+import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -323,10 +324,8 @@ export function logFastPathDebug(
   indexOrData?: number | unknown,
   data?: unknown
 ): void {
-  if (
-    process.env.ASKR_FASTPATH_DEBUG === '1' ||
-    process.env.ASKR_FASTPATH_DEBUG === 'true'
-  ) {
+  const env = getRuntimeEnv();
+  if (env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true') {
     if (data !== undefined) {
       logger.warn(`[Askr][FASTPATH] ${message}`, indexOrData, data);
     } else if (indexOrData !== undefined) {
