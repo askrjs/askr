@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vite-plus/test';
-import { pressable } from '@askrjs/askr/foundations';
+import { pressable } from '../../../src/foundations/interactions/pressable';
 
 describe('pressable (FOUNDATIONS)', () => {
   describe('non-native button (default)', () => {

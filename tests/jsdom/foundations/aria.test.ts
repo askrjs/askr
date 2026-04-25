@@ -3,7 +3,7 @@ import {
   ariaDisabled,
   ariaExpanded,
   ariaSelected,
-} from '@askrjs/askr/foundations';
+} from '../../../src/foundations/utilities/aria';
 
 describe('aria helpers (FOUNDATIONS)', () => {
   describe('ariaDisabled', () => {

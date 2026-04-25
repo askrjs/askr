@@ -76,9 +76,9 @@ styling. `@askrjs/askr-ui` is headless. Pair it with `askr-themes` or your own C
 
 **Foundation**
 
-A low-level behavior primitive from `@askrjs/askr/foundations`. Foundations define the only
-correct way to implement a given interaction policy. `askr-ui` components are built on
-foundations.
+A low-level primitive used to build framework structure or headless UI behavior. Structural
+foundations live in `@askrjs/askr/foundations`; behavior foundations used by `askr-ui`
+live in `@askrjs/askr-ui/foundations`.
 
 ---
 

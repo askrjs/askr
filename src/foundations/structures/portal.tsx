@@ -20,12 +20,52 @@
  *    or DOM node types, maintaining runtime-agnostic portability.
  */
 
+import {
+  markReactivePropsDirtySource,
+  markReadableDerivedSubscribersDirty,
+  notifyReadableReaders,
+  recordReadableRead,
+  type ReadableSource,
+} from '../../runtime/readable';
+
 export interface Portal<T = unknown> {
   /** Mount point — rendered exactly once */
   (): unknown;
 
   /** Render content into the portal */
   render(props: { children?: T }): unknown;
+}
+
+export interface PortalProps {
+  children?: unknown;
+}
+
+function createPortalSlot<T>(): {
+  read(): unknown;
+  write(value: T | undefined): void;
+} {
+  let currentValue: T | undefined;
+
+  const source = (() => {
+    recordReadableRead(source);
+    return currentValue;
+  }) as ReadableSource<T | undefined>;
+
+  return {
+    read() {
+      return source();
+    },
+    write(value: T | undefined) {
+      if (Object.is(currentValue, value)) {
+        return;
+      }
+
+      currentValue = value;
+      markReadableDerivedSubscribersDirty(source);
+      markReactivePropsDirtySource(source);
+      notifyReadableReaders(source);
+    },
+  };
 }
 
 export function definePortal<T = unknown>(): Portal<T> {
@@ -107,12 +147,13 @@ export const DefaultPortal: Portal<unknown> = (() => {
   return Host as Portal<unknown>;
 })();
 
+export function Portal(props: PortalProps): null {
+  DefaultPortal.render(props);
+  return null;
+}
+
 /**
  * NOTE:
  * createPortalSlot is a runtime primitive.
  * It owns scheduling, consistency, and SSR behavior.
  */
-declare function createPortalSlot<T>(): {
-  read(): unknown;
-  write(value: T | undefined): void;
-};

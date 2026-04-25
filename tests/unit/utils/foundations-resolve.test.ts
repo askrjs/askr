@@ -9,11 +9,6 @@ describe('foundations resolution', () => {
         definePortal: unknown;
         DefaultPortal: unknown;
         Presence: unknown;
-        composeHandlers: unknown;
-        mergeProps: unknown;
-        composeRefs: unknown;
-        formatId: unknown;
-        controllableState: unknown;
       };
 
     expect(typeof foundations.layout).toBe('function');
@@ -26,10 +21,5 @@ describe('foundations resolution', () => {
     ).toBe('function');
 
     expect(typeof foundations.Presence).toBe('function');
-    expect(typeof foundations.composeHandlers).toBe('function');
-    expect(typeof foundations.mergeProps).toBe('function');
-    expect(typeof foundations.composeRefs).toBe('function');
-    expect(typeof foundations.formatId).toBe('function');
-    expect(typeof foundations.controllableState).toBe('function');
   }, 20_000);
 });

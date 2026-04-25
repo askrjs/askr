@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { focusable } from '@askrjs/askr/foundations';
+import { focusable } from '../../../src/foundations/interactions/focusable';
 
 describe('focusable (FOUNDATIONS)', () => {
   describe('enabled state (default)', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vite-plus/test';
-import { dismissable } from '@askrjs/askr/foundations';
+import { dismissable } from '../../../src/foundations/interactions/dismissable';
 
 describe('dismissable (FOUNDATIONS)', () => {
   describe('keyboard dismissal', () => {
