@@ -1,0 +1,41 @@
+import { describe, it, expect } from 'vite-plus/test';
+import type { JSXElement } from '../../../src/jsx/types';
+import { cleanupApp } from '../../../src/boot';
+import { createTestContainer } from '../../../test-utils/render/test-renderer';
+import { registerMountOperation } from '../../../src/runtime/component';
+import { createIsland } from '../../../test-utils/render/create-island';
+
+describe('createIsland cleanup strict mode', () => {
+  it('should surface cleanup errors in strict mode', () => {
+    const { container, cleanup } = createTestContainer();
+    let cleaned = false;
+
+    const Component = () => {
+      // Register a mount operation that returns a cleanup function which throws
+      // This simulates a user error during cleanup that would otherwise be swallowed
+      // Directly push a cleanup fn to instance via mount operation registration
+      registerMountOperation(() => {
+        return () => {
+          cleaned = true;
+          throw new Error('cleanup oops');
+        };
+      });
+      return (<div></div>) as unknown as JSXElement;
+    };
+
+    // Mount with cleanupStrict enabled by passing option through createIsland
+    createIsland({
+      root: container,
+      component: Component,
+      cleanupStrict: true,
+    });
+
+    // Cleanup should throw an AggregateError that contains the thrown error
+    expect(() => cleanupApp(container)).toThrow(AggregateError);
+
+    // Ensure cleanup function ran (even though it threw)
+    expect(cleaned).toBe(true);
+
+    cleanup();
+  });
+});

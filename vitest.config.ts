@@ -13,10 +13,9 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
+    environment: 'node',
     globals: true,
-    include: ['tests/**/*.test.{ts,tsx}', 'checks/**/*.test.{ts,tsx}'],
-    setupFiles: ['tests/setup-env.ts'],
+    include: ['tests/unit/**/*.test.{ts,tsx}', 'checks/**/*.test.{ts,tsx}'],
   },
   resolve: {
     // Tests should bind package imports to source entries rather than dist.

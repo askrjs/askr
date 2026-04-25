@@ -1,0 +1,195 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import { createSPA } from '../../../src/index';
+import { renderToStringSync } from '../../../src/ssr';
+import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import { navigate } from '../../../src/router/navigate';
+import {
+  currentRoute,
+  route,
+  setServerLocation,
+  type RouteSnapshot,
+} from '../../../src/router/route';
+
+// Minimal testing window type helpers to avoid `any` casts
+type TestWindow = {
+  location: { pathname: string; search?: string; hash?: string };
+  history: { pushState(...args: unknown[]): void };
+  addEventListener: (...args: unknown[]) => void;
+  removeEventListener: (...args: unknown[]) => void;
+};
+
+function setGlobalWindow(w?: TestWindow) {
+  (global as unknown as { window?: TestWindow }).window = w;
+}
+
+function updateGlobalPath(path: string) {
+  const gw = (global as unknown as { window?: TestWindow }).window;
+  if (gw && gw.location) gw.location.pathname = path;
+  else
+    setGlobalWindow({
+      location: { pathname: path },
+      history: { pushState() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    });
+}
+
+describe('route accessor (public)', () => {
+  let container: HTMLElement;
+  let cleanup: () => void;
+
+  beforeEach(() => {
+    const t = createTestContainer();
+    container = t.container;
+    cleanup = t.cleanup;
+  });
+
+  afterEach(() => {
+    cleanup();
+    setServerLocation(null);
+  });
+
+  it('should throw when called outside render', () => {
+    expect(() => currentRoute()).toThrow(/currentRoute\(\) can only be called/);
+    expect(() => (route as unknown as () => unknown)()).toThrow(
+      /route\(\) is only for route registration/i
+    );
+  });
+
+  it('should return params and keep snapshot immutable', async () => {
+    let snapDuringRender: RouteSnapshot | null = null;
+
+    const routes = [
+      {
+        path: '/users/{id}',
+        handler: (_params: Record<string, string>) => {
+          const s = currentRoute();
+          snapDuringRender = s as RouteSnapshot;
+          return <div>user:{s.params.id}</div>;
+        },
+      },
+    ];
+
+    // mount app
+    // Provide a minimal window object expected by initializeNavigation
+    setGlobalWindow({
+      location: { pathname: '/', search: '', hash: '' },
+      history: { pushState() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    await createSPA({ root: container, routes });
+
+    // navigate to user 42
+    updateGlobalPath('/users/42');
+    navigate('/users/42');
+    await flushScheduler();
+
+    expect(container.textContent).toBe('user:42');
+    expect(snapDuringRender).not.toBeNull();
+    expect(Object.isFrozen(snapDuringRender!)).toBe(true);
+    expect(Object.isFrozen(snapDuringRender!.params)).toBe(true);
+
+    // mutation attempt should not change value
+    try {
+      (snapDuringRender!.params as unknown as Record<string, string>).id = 'x';
+    } catch {
+      /* may throw in strict mode */
+    }
+    expect(snapDuringRender!.params.id).toBe('42');
+  });
+
+  it('should re-render on navigation', async () => {
+    const routes = [
+      {
+        path: '/home',
+        handler: () => <div>{'home'}</div>,
+      },
+      {
+        path: '/users/{id}',
+        handler: (params: Record<string, string>) => (
+          <div>{`user:${params.id}`}</div>
+        ),
+      },
+    ];
+
+    // Provide a minimal window object expected by initializeNavigation
+    setGlobalWindow({
+      location: { pathname: '/home', search: '', hash: '' },
+      history: { pushState() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    });
+
+    await createSPA({ root: container, routes });
+
+    navigate('/home');
+    await flushScheduler();
+    expect(container.textContent).toBe('home');
+
+    updateGlobalPath('/users/5');
+    navigate('/users/5');
+    await flushScheduler();
+    expect(container.textContent).toBe('user:5');
+  });
+
+  it('should preserve SSR/hydration equivalence for path, query, hash and params', async () => {
+    route('/items/{id}', (params) => (
+      <div>{`${params.id}|${currentRoute().query.get('q') || ''}|${currentRoute().hash || ''}`}</div>
+    ));
+
+    // Server render with explicit URL
+    setServerLocation('/items/99?q=abc#frag');
+    // Remove any global window to simulate server environment
+    try {
+      delete (global as unknown as { window?: TestWindow }).window;
+    } catch {
+      /* ignore - window may not be deletable in some environments */
+    }
+
+    const ServerComp = () => (
+      <div>{`${currentRoute().path}|${currentRoute().query.get('q') || ''}|${currentRoute().hash || ''}`}</div>
+    );
+
+    const html = renderToStringSync(ServerComp);
+
+    expect(html).toContain('/items/99');
+    expect(html).toContain('abc');
+
+    // Hydrate on client with same location
+    setGlobalWindow({
+      location: { pathname: '/items/99', search: '?q=abc', hash: '#frag' },
+      history: { pushState() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    });
+
+    await createSPA({
+      root: container,
+      routes: [
+        {
+          path: '/items/{id}',
+          handler: (params: Record<string, string>) => (
+            <div>{`${params.id}|${currentRoute().query.get('q') || ''}|${currentRoute().hash || ''}`}</div>
+          ),
+        },
+      ],
+    });
+
+    // Mount route handler by navigating to the path
+    navigate('/items/99');
+    await flushScheduler();
+
+    // Expect the client hydration render to match server snapshot values
+    expect(container.textContent).toBe('99|abc|#frag');
+  });
+
+  it('should reject route() as a render-time accessor', () => {
+    expect(() =>
+      renderToStringSync(() => {
+        (route as unknown as () => RouteSnapshot)();
+        return <div>ok</div>;
+      })
+    ).toThrow(/route\(\) is only for route registration/i);
+  });
+});

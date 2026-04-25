@@ -41,20 +41,17 @@ export const askrEsbuild = {
 } as const;
 
 export const domBenchIncludes = [
-  'benches/tier1/**/*.{ts,tsx}',
-  'benches/tier2/**/*.{ts,tsx}',
-  'benches/tier3/**/*.{ts,tsx}',
-  'benches/tier4/**/*.tsx',
+  'benches/jsdom/**/*.{ts,tsx}',
 ] as const;
 
 export const domBenchExcludes = [
-  'benches/**/*-ssr-*',
   'benches/shared/_shared.*',
 ] as const;
 
+export const microBenchIncludes = ['benches/micro/**/*.{ts,tsx}'] as const;
+
 export const ssrBenchIncludes = [
-  'benches/tier1/**/tier1-hotpath-ssr-*.{ts,tsx}',
-  'benches/tier2/**/tier2-subsystem-ssr-*.{ts,tsx}',
+  'benches/ssr/**/*.{ts,tsx}',
 ] as const;
 
 export function createNodeEnvDefine(

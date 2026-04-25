@@ -3,10 +3,16 @@ import {
   createPackageAliases,
   domBenchExcludes,
   domBenchIncludes,
+  microBenchIncludes,
   ssrBenchIncludes,
 } from './tooling/askr-tooling';
 
-export { domBenchExcludes, domBenchIncludes, ssrBenchIncludes };
+export {
+  domBenchExcludes,
+  domBenchIncludes,
+  microBenchIncludes,
+  ssrBenchIncludes,
+};
 
 export const benchDefine = createNodeEnvDefine('production', { bench: true });
 

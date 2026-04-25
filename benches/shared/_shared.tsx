@@ -13,7 +13,7 @@ import {
   createTestContainer,
   flushScheduler,
   trackDOMMutations,
-} from '../../tests/helpers/test-renderer';
+} from '../../test-utils/render/test-renderer';
 
 /**
  * Bench tier contracts:

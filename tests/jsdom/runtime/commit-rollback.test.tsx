@@ -1,0 +1,74 @@
+/**
+ * tests/runtime/commit_rollback.test.ts
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import { state } from '../../../src/index';
+import type { State } from '../../../src/runtime/state';
+import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import { createIsland } from '../../../test-utils/render/create-island';
+
+describe('commit & rollback (RUNTIME)', () => {
+  let { container, cleanup } = createTestContainer();
+
+  beforeEach(() => {
+    const result = createTestContainer();
+    container = result.container;
+    cleanup = result.cleanup;
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('should roll back completely when render fails', async () => {
+    const ok = () => <div>{'ok'}</div>;
+    createIsland({ root: container, component: ok });
+    flushScheduler();
+    const stable = container.innerHTML;
+
+    const bad = () => {
+      throw new Error('render failed');
+    };
+
+    try {
+      createIsland({ root: container, component: bad });
+    } catch {
+      // expected
+    }
+    flushScheduler();
+
+    expect(container.innerHTML).toBe(stable);
+  });
+
+  it('should roll back to stable state when partial failures occur', async () => {
+    let flipState: State<boolean>;
+    const Component = () => {
+      const flip = state(false);
+      flipState = flip; // Capture for testing
+      if (flip()) {
+        // Throw during component execution, not during rendering
+        throw new Error('boom');
+      }
+      return (
+        <div>
+          <span>A</span>
+          <span>B</span>
+          <span>C</span>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    const stable = container.innerHTML;
+
+    // Trigger re-render that will fail
+    expect(() => {
+      flipState.set(true);
+      flushScheduler();
+    }).toThrow('boom');
+
+    expect(container.innerHTML).toBe(stable);
+  });
+});

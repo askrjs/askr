@@ -4,8 +4,10 @@ import process from 'node:process';
 
 const rootDir = process.cwd();
 const resultsDir = path.join(rootDir, 'bench-results');
-const domPath = path.join(resultsDir, 'dom.json');
+const microPath = path.join(resultsDir, 'micro.json');
+const jsdomPath = path.join(resultsDir, 'jsdom.json');
 const ssrPath = path.join(resultsDir, 'ssr.json');
+const browserPath = path.join(resultsDir, 'browser.json');
 const logPath = path.join(rootDir, 'bench-results.log');
 
 const DEFAULT_MAX_RME = 15;
@@ -237,14 +239,26 @@ function renderSection(title, benchmarks) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const [domReport, ssrReport] = await Promise.all([
-    fs.readFile(domPath, 'utf8').then(JSON.parse),
-    fs.readFile(ssrPath, 'utf8').then(JSON.parse),
-  ]);
+  const [microReport, jsdomReport, ssrReport, browserReport] =
+    await Promise.all([
+      fs.readFile(microPath, 'utf8').then(JSON.parse),
+      fs.readFile(jsdomPath, 'utf8').then(JSON.parse),
+      fs.readFile(ssrPath, 'utf8').then(JSON.parse),
+      fs
+        .readFile(browserPath, 'utf8')
+        .then(JSON.parse)
+        .catch(() => null),
+    ]);
 
-  const domBenchmarks = collectBenchmarks(domReport, 'DOM');
+  const microBenchmarks = collectBenchmarks(microReport, 'Micro');
+  const jsdomBenchmarks = collectBenchmarks(jsdomReport, 'jsdom');
   const ssrBenchmarks = collectBenchmarks(ssrReport, 'SSR');
-  const allBenchmarks = [...domBenchmarks, ...ssrBenchmarks];
+  const browserTimings = browserReport?.timings ?? null;
+  const allBenchmarks = [
+    ...microBenchmarks,
+    ...jsdomBenchmarks,
+    ...ssrBenchmarks,
+  ];
   const slowest = allBenchmarks
     .filter((benchmark) => isFiniteNumber(benchmark.hz))
     .sort((left, right) => left.hz - right.hz)
@@ -254,10 +268,19 @@ async function main() {
   const lines = [
     '# Bench Results',
     '',
-    'Generated from `bench-results/dom.json` and `bench-results/ssr.json` only.',
+    'Generated from `bench-results/micro.json`, `bench-results/jsdom.json`, and `bench-results/ssr.json`.',
     '',
-    ...renderSection('DOM', domBenchmarks),
+    ...renderSection('Micro', microBenchmarks),
+    ...renderSection('jsdom', jsdomBenchmarks),
     ...renderSection('SSR', ssrBenchmarks),
+    '## Browser Trends',
+    '',
+    ...(browserTimings
+      ? Object.entries(browserTimings).map(
+          ([name, value]) => `- ${name}: ${formatNumber(value, 4)} ms`
+        )
+      : ['- no browser trend file captured']),
+    '',
     '## Slowest Hotspots',
     '',
     ...slowest.map(
