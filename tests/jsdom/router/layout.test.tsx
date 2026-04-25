@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createSPA } from '../../../src/index';
+import { createSPA, state } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -141,5 +141,52 @@ describe('layout scoping (ROUTER)', () => {
     const layoutEl2 = container.querySelector('.layout') as HTMLElement;
     expect(layoutEl2).toBe(layoutEl1); // same DOM node preserved
     expect(container.querySelector('.inner')?.textContent).toBe('B');
+  });
+
+  it('should preserve page input focus during state updates inside a layout-wrapped route', async () => {
+    const AppLayout = ({ children }: { children?: unknown }) => (
+      <div class="layout">{children as never}</div>
+    );
+
+    const ExamplePage = () => {
+      const name = state('');
+
+      return (
+        <div class="showcase-section">
+          <div class="example-controls">
+            <button type="button">Bold</button>
+            <input
+              id="name"
+              value={name()}
+              onInput={(event: Event) =>
+                name.set((event.target as HTMLInputElement).value)
+              }
+            />
+          </div>
+          <p id="preview">{name() ? `Hello, ${name()}!` : 'Type something above...'}</p>
+        </div>
+      );
+    };
+
+    group({ layout: AppLayout }, () => {
+      route('/example', ExamplePage);
+    });
+
+    window.history.replaceState({}, '', '/example');
+    await createSPA({ root: container, manifest: getManifest() });
+    flushScheduler();
+
+    const input = container.querySelector('#name') as HTMLInputElement;
+    const preview = container.querySelector('#preview');
+
+    input.focus();
+    input.value = 'abc';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    flushScheduler();
+
+    const nextInput = container.querySelector('#name') as HTMLInputElement;
+    expect(nextInput).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(preview?.textContent).toBe('Hello, abc!');
   });
 });

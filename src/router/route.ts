@@ -14,6 +14,7 @@ import { matchSegments, parseSegments, computeRank } from './match';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { getExecutionModel } from '../runtime/execution-model';
 import { getRenderContext } from '../ssr/context';
+import { ELEMENT_TYPE } from '../common/jsx';
 import {
   requireAuth,
   requireGuest,
@@ -898,10 +899,20 @@ export function route(
   // page component.  The handler is RouteHandler-compatible so navigation,
   // SSR, and SSG can all call it without knowing the chain internals.
   const handler: RouteHandler = (params) => {
-    let content: unknown = comp(params);
+    let content: unknown = {
+      $$typeof: ELEMENT_TYPE,
+      type: comp,
+      props: params,
+      key: null,
+    };
     // Apply layouts from innermost to outermost
     for (let i = chain.length - 1; i >= 0; i--) {
-      content = chain[i].component({ children: content });
+      content = {
+        $$typeof: ELEMENT_TYPE,
+        type: chain[i].component,
+        props: { children: content },
+        key: null,
+      };
     }
     return content;
   };

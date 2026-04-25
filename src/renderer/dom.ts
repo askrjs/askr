@@ -87,6 +87,7 @@ type ElementWithContext = DOMElement & {
 
 type InstanceHostElement = Element & {
   __ASKR_INSTANCE?: ComponentInstance;
+  __ASKR_INSTANCES?: ComponentInstance[];
   __ASKR_WRAPPER_HOST?: boolean;
 };
 
@@ -1066,13 +1067,31 @@ function cleanupDetachedComponentHost(host: InstanceHostElement): void {
   removeElementListeners(host);
   removeElementReactiveProps(host);
 
+  const hostInstances = host.__ASKR_INSTANCES;
+  if (hostInstances && hostInstances.length > 0) {
+    for (const instance of hostInstances) {
+      cleanupComponent(instance);
+    }
+  } else if (host.__ASKR_INSTANCE) {
+    cleanupComponent(host.__ASKR_INSTANCE);
+  }
+
   const descendants = host.querySelectorAll('*');
   for (let index = 0; index < descendants.length; index += 1) {
     const descendant = descendants[index] as InstanceHostElement;
     removeElementListeners(descendant);
     removeElementReactiveProps(descendant);
 
-    if (descendant.__ASKR_INSTANCE) {
+    if (descendant.__ASKR_INSTANCES?.length) {
+      for (const instance of descendant.__ASKR_INSTANCES) {
+        cleanupComponent(instance);
+      }
+      try {
+        delete descendant.__ASKR_INSTANCES;
+      } catch {
+        // Ignore host cleanup failures.
+      }
+    } else if (descendant.__ASKR_INSTANCE) {
       cleanupComponent(descendant.__ASKR_INSTANCE);
       try {
         delete descendant.__ASKR_INSTANCE;
@@ -1084,10 +1103,27 @@ function cleanupDetachedComponentHost(host: InstanceHostElement): void {
 
   try {
     delete host.__ASKR_INSTANCE;
+    delete host.__ASKR_INSTANCES;
     delete host.__ASKR_WRAPPER_HOST;
   } catch {
     // Ignore host cleanup failures.
   }
+}
+
+function findHostInstanceByType(
+  host: InstanceHostElement,
+  type: (props: Props) => unknown
+): ComponentInstance | null {
+  const instances = host.__ASKR_INSTANCES;
+  if (instances && instances.length > 0) {
+    for (const instance of instances) {
+      if (instance.fn === type) {
+        return instance;
+      }
+    }
+  }
+
+  return host.__ASKR_INSTANCE?.fn === type ? host.__ASKR_INSTANCE : null;
 }
 
 function materializeComponentResultNode(
@@ -1166,7 +1202,9 @@ function syncComponentElement(
 ): Node | null {
   const existingHost =
     currentDom instanceof Element ? (currentDom as InstanceHostElement) : null;
-  const existingInstance = existingHost?.__ASKR_INSTANCE;
+  const existingInstance = existingHost
+    ? findHostInstanceByType(existingHost, type)
+    : null;
   if (!existingHost || !existingInstance || existingInstance.fn !== type) {
     return null;
   }
@@ -1685,7 +1723,10 @@ function resolveStableIntrinsicPatchVNode(
   }
 
   const host = dom as InstanceHostElement;
-  const existingInstance = host.__ASKR_INSTANCE;
+  const existingInstance = findHostInstanceByType(
+    host,
+    vnode.type as (props: Props) => unknown
+  );
   if (
     !existingInstance ||
     existingInstance.fn !== vnode.type ||
@@ -2697,6 +2738,11 @@ export function updateElementChildren(
     return;
   }
 
+  if (_isDOMElement(children)) {
+    updateUnkeyedChildren(el, [children]);
+    return;
+  }
+
   // Clean up all children before clearing
   for (let n = el.firstChild; n; ) {
     const next = n.nextSibling;
@@ -2714,6 +2760,26 @@ export function updateUnkeyedChildren(
   parent: Element,
   newChildren: unknown[]
 ): void {
+  const parentNamespace =
+    parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
+
+  const trySyncComponentChild = (
+    currentDom: Element,
+    next: DOMElement
+  ): Node | null => {
+    if (typeof next.type !== 'function') {
+      return null;
+    }
+
+    return syncComponentElement(
+      currentDom,
+      next as ElementWithContext,
+      next.type as (props: Props) => unknown,
+      (((next as DOMElement).props ?? {}) as Record<string, unknown>) || {},
+      parentNamespace
+    );
+  };
+
   // Check if newChildren has mixed content (both text/primitives and elements)
   const hasText = newChildren.some(
     (c) => typeof c === 'string' || typeof c === 'number'
@@ -2738,6 +2804,17 @@ export function updateUnkeyedChildren(
         if (tagsEqualIgnoreCase(current.tagName, next.type)) {
           updateElementFromVnode(current, next);
         } else {
+          const dom = createDOMNode(next);
+          if (dom) {
+            teardownNodeSubtree(current);
+            parent.replaceChild(dom, current);
+          }
+        }
+      } else if (_isDOMElement(next)) {
+        const synced = trySyncComponentChild(current, next);
+        if (synced && synced !== current) {
+          teardownNodeSubtree(current);
+        } else if (!synced) {
           const dom = createDOMNode(next);
           if (dom) {
             teardownNodeSubtree(current);
@@ -2805,6 +2882,17 @@ export function updateUnkeyedChildren(
               updateElementFromVnode(currentEl, next);
             } else {
               // Different type - replace
+              const dom = createDOMNode(next);
+              if (dom) {
+                teardownNodeSubtree(currentEl);
+                parent.replaceChild(dom, currentNode);
+              }
+            }
+          } else {
+            const synced = trySyncComponentChild(currentEl, next);
+            if (synced && synced !== currentNode) {
+              teardownNodeSubtree(currentEl);
+            } else if (!synced) {
               const dom = createDOMNode(next);
               if (dom) {
                 teardownNodeSubtree(currentEl);
@@ -2902,11 +2990,15 @@ export function updateUnkeyedChildren(
           }
         }
       } else {
-        // Non-string types: replace conservatively
-        const dom = createDOMNode(next);
-        if (dom) {
+        const synced = trySyncComponentChild(current, next);
+        if (synced && synced !== current) {
           teardownNodeSubtree(current);
-          parent.replaceChild(dom, current);
+        } else if (!synced) {
+          const dom = createDOMNode(next);
+          if (dom) {
+            teardownNodeSubtree(current);
+            parent.replaceChild(dom, current);
+          }
         }
       }
     } else {

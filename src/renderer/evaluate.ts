@@ -454,53 +454,89 @@ function smartUpdateElement(element: Element, vnode: DOMElement): void {
  * Process Fragment children with smart updates for each child
  */
 function processFragmentChildren(target: Element, childArray: unknown[]): void {
-  // Avoid Array.from(target.children) (expensive in jsdom).
-  // Iterate via sibling pointers; semantics remain element-only (as before).
-  let existingNode: Element | null = target.firstElementChild;
+  updateElementChildren(target, childArray);
+}
 
-  for (let i = 0; i < childArray.length; i++) {
-    const childVnode = childArray[i];
-    const nextExisting = existingNode ? existingNode.nextElementSibling : null;
+function cleanupRangeNode(node: Node): void {
+  if (node instanceof Element) {
+    removeAllListeners(node);
+    cleanupInstanceIfPresent(node);
+  }
+}
 
-    // Apply the same smart update logic as the single-element case
-    if (
-      existingNode &&
-      _isDOMElement(childVnode) &&
-      typeof (childVnode as DOMElement).type === 'string' &&
-      tagNamesEqualIgnoreCase(
-        existingNode.tagName,
-        (childVnode as DOMElement).type as string
-      )
-    ) {
-      // Same element type - do smart update
-      smartUpdateElement(existingNode, childVnode as DOMElement);
-      existingNode = nextExisting;
+function updateDOMRange(
+  target: Element,
+  range: DOMRange,
+  children: unknown[]
+): void {
+  let current: Node | null = range.start.nextSibling;
+
+  for (let i = 0; i < children.length; i++) {
+    const nextChild = children[i];
+    const currentNode = current === range.end ? null : current;
+    const nextCurrent = currentNode?.nextSibling ?? null;
+
+    if (nextChild === null || nextChild === undefined || nextChild === false) {
+      if (currentNode) {
+        cleanupRangeNode(currentNode);
+        target.removeChild(currentNode);
+      }
+      current = nextCurrent;
       continue;
     }
 
-    // Different type or no existing node - replace
-    const newDom = createDOMNode(childVnode);
-    if (newDom) {
-      if (existingNode) {
-        // Clean up existing node before replacing
-        removeAllListeners(existingNode);
-        cleanupInstanceIfPresent(existingNode);
-        target.replaceChild(newDom, existingNode);
+    if (typeof nextChild === 'string' || typeof nextChild === 'number') {
+      if (currentNode?.nodeType === 3) {
+        (currentNode as Text).data = String(nextChild);
       } else {
-        target.appendChild(newDom);
+        const textNode = document.createTextNode(String(nextChild));
+        if (currentNode) {
+          cleanupRangeNode(currentNode);
+          target.replaceChild(textNode, currentNode);
+        } else {
+          target.insertBefore(textNode, range.end);
+        }
       }
+      current = nextCurrent;
+      continue;
     }
 
-    existingNode = nextExisting;
+    if (
+      currentNode instanceof Element &&
+      _isDOMElement(nextChild) &&
+      typeof nextChild.type === 'string' &&
+      tagNamesEqualIgnoreCase(currentNode.tagName, nextChild.type)
+    ) {
+      smartUpdateElement(currentNode, nextChild);
+      current = nextCurrent;
+      continue;
+    }
+
+    const newDom = createDOMNode(nextChild);
+    if (!newDom) {
+      if (currentNode) {
+        cleanupRangeNode(currentNode);
+        target.removeChild(currentNode);
+      }
+      current = nextCurrent;
+      continue;
+    }
+
+    if (currentNode) {
+      cleanupRangeNode(currentNode);
+      target.replaceChild(newDom, currentNode);
+    } else {
+      target.insertBefore(newDom, range.end);
+    }
+
+    current = nextCurrent;
   }
 
-  // Remove extra element-children (preserves previous element-only behavior)
-  while (existingNode) {
-    const next = existingNode.nextElementSibling;
-    removeAllListeners(existingNode);
-    cleanupInstanceIfPresent(existingNode);
-    target.removeChild(existingNode);
-    existingNode = next;
+  while (current && current !== range.end) {
+    const next = current.nextSibling;
+    cleanupRangeNode(current);
+    target.removeChild(current);
+    current = next;
   }
 }
 
@@ -643,18 +679,16 @@ export function evaluate(
   // If context provided, use component-owned DOM range (only replace that range)
   if (context && domRanges.has(context)) {
     const range = domRanges.get(context)!;
-    // Remove all nodes between start and end markers
-    let current = range.start.nextSibling;
-    while (current && current !== range.end) {
-      const next = current.nextSibling;
-      current.remove();
-      current = next;
-    }
-    // Append new DOM before end marker
-    const dom = createDOMNode(node);
-    if (dom) {
-      target.insertBefore(dom, range.end);
-    }
+    const normalizedChildren =
+      node === null || node === undefined || node === false
+        ? []
+        : isFragment(node)
+          ? getFragmentChildren(node as DOMElement)
+          : Array.isArray(node)
+            ? node
+            : [node];
+
+    updateDOMRange(target, range, normalizedChildren);
   } else if (context) {
     // First render with context: create range markers
     const start = document.createComment('component-start');
@@ -700,6 +734,11 @@ export function evaluate(
       (vnode as DOMElement).type === __FOR_BOUNDARY__
     ) {
       updateForBoundaryChildren(target, vnode as DOMElement);
+      return;
+    }
+
+    if (Array.isArray(vnode)) {
+      updateElementChildren(target, vnode);
       return;
     }
 

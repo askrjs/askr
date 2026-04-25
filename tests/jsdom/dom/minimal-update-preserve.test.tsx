@@ -63,4 +63,265 @@ describe('minimal update preserves siblings', () => {
 
     cleanup2();
   });
+
+  it('should preserve component child identity and focus during sibling text updates', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const Field = ({
+      onInput,
+    }: {
+      onInput: (event: Event) => void;
+    }) => <input id={'name'} placeholder={'Type your name...'} onInput={onInput} />;
+
+    const Toggle = () => <button type={'button'}>{'Bold'}</button>;
+
+    const App = () => {
+      const name = state('');
+
+      return (
+        <div>
+          <div class={'example-controls'}>
+            <Toggle />
+            <Field
+              onInput={(event: Event) =>
+                name.set((event.target as HTMLInputElement).value)
+              }
+            />
+          </div>
+          <p id={'preview'}>{name() ? `Hello, ${name()}!` : 'Type something above...'}</p>
+        </div>
+      ) as unknown as JSXElement;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const input = container.querySelector('#name') as HTMLInputElement | null;
+    const preview = container.querySelector('#preview') as HTMLElement | null;
+
+    expect(input).not.toBeNull();
+    expect(preview?.textContent).toBe('Type something above...');
+
+    input!.focus();
+    input!.value = 'abc';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    flushScheduler();
+
+    const inputAfter = container.querySelector('#name') as HTMLInputElement | null;
+    expect(inputAfter).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(preview?.textContent).toBe('Hello, abc!');
+
+    cleanup();
+  });
+
+  it('should preserve a later nested page section during sibling text updates', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const Counter = () => <div class={'counter'}>{'0'}</div>;
+    const IconLabel = ({ children }: { children?: unknown }) => <span>{children}</span>;
+    const Toggle = () => <button type={'button'}>{'Bold'}</button>;
+    const Field = ({
+      onInput,
+    }: {
+      onInput: (event: Event) => void;
+    }) => <input id={'fragment-name'} placeholder={'Type your name...'} onInput={onInput} />;
+
+    const Page = () => {
+      const name = state('');
+
+      return (
+        <>
+          <h1>{'Component Showcase'}</h1>
+          <p>{'Intro'}</p>
+          <Counter />
+
+          <div class={'showcase-section'}>
+            <h3>
+              <IconLabel>{'Tabs'}</IconLabel>
+            </h3>
+            <p>{'Tabs content'}</p>
+          </div>
+
+          <div class={'showcase-section'}>
+            <h3>
+              <IconLabel>{'Accordion'}</IconLabel>
+            </h3>
+            <p>{'Accordion content'}</p>
+          </div>
+
+          <div class={'showcase-section'}>
+            <h3>
+              <IconLabel>{'Toggle & Input'}</IconLabel>
+            </h3>
+            <p>{'Reactive state driving UI updates in real time.'}</p>
+            <div class={'example-controls'}>
+              <Toggle />
+              <Field
+                onInput={(event: Event) =>
+                  name.set((event.target as HTMLInputElement).value)
+                }
+              />
+            </div>
+            <p>{name() ? `Hello, ${name()}!` : 'Type something above...'}</p>
+          </div>
+        </>
+      ) as unknown as JSXElement;
+    };
+
+    const App = () => (
+      <main>
+        <Page />
+      </main>
+    );
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const sections = container.querySelectorAll('.showcase-section');
+    const lastSection = sections[sections.length - 1] as HTMLDivElement | undefined;
+    const input = container.querySelector('#fragment-name') as HTMLInputElement | null;
+
+    expect(lastSection).toBeDefined();
+    expect(input).not.toBeNull();
+
+    input!.focus();
+    input!.value = 'later';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    flushScheduler();
+
+    const sectionsAfter = container.querySelectorAll('.showcase-section');
+    const lastSectionAfter = sectionsAfter[
+      sectionsAfter.length - 1
+    ] as HTMLDivElement | undefined;
+    const inputAfter = container.querySelector('#fragment-name') as HTMLInputElement | null;
+
+    expect(lastSectionAfter).toBe(lastSection);
+    expect(inputAfter).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(inputAfter?.value).toBe('later');
+
+    cleanup();
+  });
+
+  it('should preserve a shared shell host and owner chain during nested page updates', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const ThemeProviderLike = ({ children }: { children?: unknown }) => (
+      <div class={'app-shell'}>
+        <header>{'Shell'}</header>
+        <main>{children}</main>
+      </div>
+    );
+
+    const AppLayout = ({ children }: { children?: unknown }) => (
+      <ThemeProviderLike>{children}</ThemeProviderLike>
+    );
+
+    const Counter = () => <div class={'counter'}>{'0'}</div>;
+    const IconLabel = ({ children }: { children?: unknown }) => <span>{children}</span>;
+    const Toggle = () => <button type={'button'}>{'Bold'}</button>;
+    const Field = ({
+      onInput,
+    }: {
+      onInput: (event: Event) => void;
+    }) => <input id={'shared-host-name'} onInput={onInput} />;
+
+    const Page = () => {
+      const name = state('');
+
+      return (
+        <>
+          <h1>{'Component Showcase'}</h1>
+          <Counter />
+
+          <div class={'showcase-section'}>
+            <h3>
+              <IconLabel>{'Tabs'}</IconLabel>
+            </h3>
+            <p>{'Tabs content'}</p>
+          </div>
+
+          <div class={'showcase-section'}>
+            <h3>
+              <IconLabel>{'Accordion'}</IconLabel>
+            </h3>
+            <p>{'Accordion content'}</p>
+          </div>
+
+          <div class={'showcase-section'}>
+            <h3>
+              <IconLabel>{'Toggle & Input'}</IconLabel>
+            </h3>
+            <div class={'example-controls'}>
+              <Toggle />
+              <Field
+                onInput={(event: Event) =>
+                  name.set((event.target as HTMLInputElement).value)
+                }
+              />
+            </div>
+            <p id={'shared-host-preview'}>
+              {name() ? `Hello, ${name()}!` : 'Type something above...'}
+            </p>
+          </div>
+        </>
+      ) as unknown as JSXElement;
+    };
+
+    const Root = () => (
+      <AppLayout>
+        <Page />
+      </AppLayout>
+    );
+
+    createIsland({ root: container, component: Root });
+    flushScheduler();
+
+    const shell = container.querySelector('.app-shell') as
+      | (HTMLElement & {
+          __ASKR_INSTANCES?: Array<{ fn?: { name?: string } }>;
+        })
+      | null;
+    const main = container.querySelector('main') as HTMLElement | null;
+    const sections = Array.from(container.querySelectorAll('.showcase-section'));
+    const input = container.querySelector(
+      '#shared-host-name'
+    ) as HTMLInputElement | null;
+
+    expect(shell).not.toBeNull();
+    expect(main).not.toBeNull();
+    expect(input).not.toBeNull();
+    expect(
+      shell?.__ASKR_INSTANCES?.map((instance) => instance.fn?.name)
+    ).toEqual(expect.arrayContaining(['ThemeProviderLike', 'AppLayout']));
+
+    input!.focus();
+    input!.value = 'shell';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    flushScheduler();
+
+    const shellAfter = container.querySelector('.app-shell') as HTMLElement | null;
+    const mainAfter = container.querySelector('main') as HTMLElement | null;
+    const sectionsAfter = Array.from(container.querySelectorAll('.showcase-section'));
+    const inputAfter = container.querySelector(
+      '#shared-host-name'
+    ) as HTMLInputElement | null;
+    const previewAfter = container.querySelector(
+      '#shared-host-preview'
+    ) as HTMLElement | null;
+
+    expect(shellAfter).toBe(shell);
+    expect(mainAfter).toBe(main);
+    expect(sectionsAfter).toHaveLength(sections.length);
+    expect(sectionsAfter[0]).toBe(sections[0]);
+    expect(sectionsAfter[1]).toBe(sections[1]);
+    expect(sectionsAfter[2]).toBe(sections[2]);
+    expect(inputAfter).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(inputAfter?.value).toBe('shell');
+    expect(previewAfter?.textContent).toBe('Hello, shell!');
+
+    cleanup();
+  });
 });
