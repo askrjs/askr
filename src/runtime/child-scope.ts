@@ -15,6 +15,7 @@ import { isDevelopmentEnvironment } from '../common/env';
 export interface ChildScope {
   key: string | number;
   componentInstance: ComponentInstance;
+  previousVnode: VNode | undefined;
   vnode: VNode | undefined;
   dom?: Node;
   needsDomUpdate: boolean;
@@ -74,6 +75,7 @@ function renderScope(scope: MutableChildScope): VNode | undefined {
         }
       ).__instance;
     }
+    scope.previousVnode = previousVNode;
     scope.vnode = nextVNode;
     scope.markDirty();
     finalizeReadSubscriptions(componentInstance);
@@ -112,6 +114,7 @@ export function createChildScope(
 
   scope.key = key;
   scope.componentInstance = componentInstance;
+  scope.previousVnode = undefined;
   scope.vnode = undefined;
   scope.dom = undefined;
   scope.needsDomUpdate = true;
@@ -137,6 +140,7 @@ export function createChildScope(
     }
     cleanupComponent(componentInstance);
     scope._renderFn = undefined;
+    scope.previousVnode = undefined;
     scope.vnode = undefined;
     scope.dom = undefined;
     scope.needsDomUpdate = false;

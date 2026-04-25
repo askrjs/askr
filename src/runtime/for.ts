@@ -47,6 +47,7 @@ export {
   recordBenchCounter,
   recordBenchEvent,
   recordBenchTiming,
+  resetBenchMetrics,
   withBenchMetricScope,
 };
 

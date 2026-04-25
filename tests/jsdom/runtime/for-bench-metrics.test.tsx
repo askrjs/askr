@@ -212,4 +212,56 @@ describe('for bench metrics', () => {
     expect(metrics.rowFactoryInvocations).toBe(0);
     expect(metrics.itemsReused).toBe(0);
   });
+
+  it('should record a two-move swap without row recreation', () => {
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
+
+    const Component = () => {
+      rowsState = state(
+        Array.from({ length: 1000 }, (_, index) => ({
+          id: index + 1,
+          label: `Row ${index + 1}`,
+        }))
+      );
+
+      return (
+        <table>
+          <tbody>
+            {
+              <For each={() => rowsState!()} by={(row) => row.id}>
+                {(row) => (
+                  <tr>
+                    <td>{row.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
+          </tbody>
+        </table>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    rowsState!.set((rows) => {
+      const next = rows.slice();
+      const swapped = next[1];
+      next[1] = next[998];
+      next[998] = swapped;
+      return next;
+    });
+    flushScheduler();
+
+    const metrics = getBenchMetrics();
+    expect(metrics.fastLaneName).toBe('SWAP');
+    expect(metrics.itemsMoved).toBe(2);
+    expect(metrics.itemsCreated).toBe(0);
+    expect(metrics.itemsRemoved).toBe(0);
+    expect(metrics.rowFactoryInvocations).toBe(0);
+    expect(metrics.domMoves).toBe(2);
+    expect(metrics.replaceChildrenCommits).toBe(0);
+  });
 });

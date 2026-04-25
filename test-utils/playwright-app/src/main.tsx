@@ -1,3 +1,5 @@
+/** @jsxImportSource @askrjs/askr */
+
 import { state } from '@askrjs/askr';
 import { cleanupApp, createIsland, createSPA } from '@askrjs/askr/boot';
 import {
@@ -7,18 +9,38 @@ import {
   redirect,
   route,
 } from '@askrjs/askr/router';
-import { mountBenchmark } from '../../../src/bench/benchmark-entry';
+import { getBenchMetrics, resetBenchMetrics } from '../../../src/runtime/for';
+import {
+  getPerfMetrics,
+  resetPerfMetrics,
+} from '../../../src/runtime/perf-metrics';
+import {
+  getBenchmarkMetadata,
+  mountBenchmark,
+} from '../../../src/bench/benchmark-entry';
 
 type RowData = {
   id: number;
   label: string;
 };
 
-const root = document.getElementById('root');
+type OperationProfile = {
+  durationMs: number;
+  benchMetrics: ReturnType<typeof getBenchMetrics>;
+  perfMetrics: ReturnType<typeof getPerfMetrics> | null;
+};
 
-if (!root) {
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
   throw new Error('Missing Playwright fixture root');
 }
+
+const root = rootElement;
+
+(
+  globalThis as typeof globalThis & { __ASKR_BENCH__?: boolean }
+).__ASKR_BENCH__ = true;
 
 let benchmarkApp: ReturnType<typeof mountBenchmark> | null = null;
 
@@ -34,6 +56,31 @@ function defaultRows(): RowData[] {
     { id: 2, label: 'Item 2' },
     { id: 3, label: 'Item 3' },
   ];
+}
+
+function makeRows(count: number, startId = 1, suffix = ''): RowData[] {
+  return Array.from({ length: count }, (_, index) => {
+    const id = startId + index;
+    return {
+      id,
+      label: `Row ${id}${suffix}`,
+    };
+  });
+}
+
+function captureOperationProfile(run: () => void): OperationProfile {
+  resetBenchMetrics();
+  resetPerfMetrics();
+
+  const start = performance.now();
+  run();
+  const durationMs = performance.now() - start;
+
+  return {
+    durationMs,
+    benchMetrics: getBenchMetrics(),
+    perfMetrics: getPerfMetrics() ?? null,
+  };
 }
 
 function mountBenchmarkScenario(rows = defaultRows()): void {
@@ -154,6 +201,70 @@ async function runBrowserPerf(): Promise<Record<string, number>> {
   return { mountMs, updateMs, firstInteractionMs };
 }
 
+function profileBenchmarkOperations() {
+  const baseRows = makeRows(1000);
+  let currentRows = baseRows;
+
+  const create1k = captureOperationProfile(() => {
+    mountBenchmarkScenario(baseRows);
+  });
+
+  const update10th1k_x16 = captureOperationProfile(() => {
+    for (let iteration = 0; iteration < 16; iteration += 1) {
+      currentRows = currentRows.map((row, index) =>
+        index % 10 === 0
+          ? { ...row, label: `Row ${row.id} update ${iteration + 1}` }
+          : row
+      );
+      benchmarkApp?.setRows(currentRows);
+    }
+  });
+
+  const swap1k = captureOperationProfile(() => {
+    currentRows = currentRows.slice();
+    const swapped = currentRows[1];
+    currentRows[1] = currentRows[998];
+    currentRows[998] = swapped;
+    benchmarkApp?.setRows(currentRows);
+  });
+
+  const select = captureOperationProfile(() => {
+    benchmarkApp?.setSelected(currentRows[499]?.id ?? null);
+  });
+
+  const append1k = captureOperationProfile(() => {
+    currentRows = currentRows.concat(makeRows(1000, currentRows.length + 1));
+    benchmarkApp?.setRows(currentRows);
+  });
+
+  const remove1 = captureOperationProfile(() => {
+    const removeId = currentRows[499]?.id;
+    currentRows = currentRows.filter((row) => row.id !== removeId);
+    benchmarkApp?.setRows(currentRows);
+  });
+
+  benchmarkApp?.setRows(baseRows);
+  currentRows = baseRows;
+
+  const clear1k = captureOperationProfile(() => {
+    currentRows = [];
+    benchmarkApp?.setRows(currentRows);
+  });
+
+  return {
+    metadata: getBenchmarkMetadata(),
+    operations: {
+      create1k,
+      update10th1k_x16,
+      swap1k,
+      select,
+      append1k,
+      remove1,
+      clear1k,
+    },
+  };
+}
+
 const scenario = new URL(window.location.href).searchParams.get('scenario');
 
 if (scenario === 'interaction') {
@@ -166,9 +277,11 @@ if (scenario === 'interaction') {
 
 Object.assign(window, {
   __askrPlaywright: {
+    getBenchmarkMetadata,
     mountBenchmarkScenario,
     mountInteractionScenario,
     mountGuardedRouterScenario,
+    profileBenchmarkOperations,
     setRows(rows: RowData[]) {
       benchmarkApp?.setRows(rows);
     },

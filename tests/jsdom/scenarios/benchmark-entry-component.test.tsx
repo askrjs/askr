@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vite-plus/test';
 
-import { mountBenchmark } from '../../../src/bench/benchmark-entry';
+import {
+  benchmarkMetadata,
+  mountBenchmark,
+} from '../../../src/bench/benchmark-entry';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 describe('benchmark entry component harness', () => {
+  it('should expose current local benchmark metadata', () => {
+    expect(benchmarkMetadata.packageName).toBe('@askrjs/askr');
+    expect(benchmarkMetadata.packageVersion).toBe('0.0.1');
+    expect(benchmarkMetadata.buildLabel).toBe('0.0.1-local');
+  });
+
   it('should preserve keyed row identity while updating selection and rows', () => {
     const { container, cleanup } = createTestContainer();
 
@@ -39,8 +48,26 @@ describe('benchmark entry component harness', () => {
       'Row 1 !!!'
     );
 
+    const selectLink = row1Before?.querySelector(
+      'td:nth-child(2) a'
+    ) as HTMLAnchorElement | null;
+    expect(selectLink).not.toBeNull();
+    selectLink!.click();
+
+    expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
+    expect((row1Before as HTMLElement).className).toBe('danger');
+
+    const removeLink = row1Before?.querySelector(
+      'td:nth-child(3) a'
+    ) as HTMLAnchorElement | null;
+    expect(removeLink).not.toBeNull();
+    removeLink!.click();
+
+    expect(container.querySelector('[data-key="1"]')).toBeNull();
+    expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
+    expect(container.querySelector('[data-key="3"]')).toBe(row3Before);
+
     benchmark.setRows([
-      { id: 1, label: 'Row 1 !!!' },
       { id: 3, label: 'Row 3' },
       { id: 2, label: 'Row 2' },
     ]);
@@ -49,8 +76,7 @@ describe('benchmark entry component harness', () => {
       container.querySelectorAll('tr[data-key]')
     ).map((row) => row.getAttribute('data-key'));
 
-    expect(orderedKeys).toEqual(['1', '3', '2']);
-    expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
+    expect(orderedKeys).toEqual(['3', '2']);
     expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
     expect(container.querySelector('[data-key="3"]')).toBe(row3Before);
 
