@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { test, describe } from 'vite-plus/test';
 import { createIsland } from '../../src';
 import { createTestContainer } from '../helpers/test-renderer';
-import { For } from '../../src/for';
+import { For } from '../../src/control';
 
 describe('For component with table elements', () => {
   test('should render table rows (tr) elements correctly with For', () => {

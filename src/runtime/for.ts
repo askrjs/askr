@@ -18,7 +18,7 @@ import {
   disposeChildScope,
   type ChildScope,
 } from './child-scope';
-import type { ForProps } from '../for/for';
+import type { ForProps } from '../control/for';
 import {
   markReactivePropsDirtySource,
   markReadableDerivedSubscribersDirty,
@@ -500,14 +500,20 @@ export function reconcileForItems<T>(
 
             const itemChanged = existing.item !== item;
             const needsDomUpdate = existing.scope.needsDomUpdate;
+            const indexChanged = existing.indexSignal.peek() !== i;
 
             if (itemChanged) {
               existing.item = item;
               rerenderItemInstance(forState, existing, item);
             }
 
+            if (indexChanged) {
+              existing.indexSignal.set(i);
+            }
+
             if (
               itemChanged ||
+              indexChanged ||
               needsDomUpdate ||
               existing.scope.needsDomUpdate
             ) {

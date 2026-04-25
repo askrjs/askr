@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { test } from 'vite-plus/test';
 import { createIsland, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
-import { For } from '../../src/for';
+import { For } from '../../src/control';
 
 test('should create 5,000 table rows', { timeout: 20000 }, () => {
   const { container, cleanup } = createTestContainer();

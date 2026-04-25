@@ -201,6 +201,103 @@ describe('Case primitive', () => {
     cleanup();
   });
 
+  it('should remount when switching from a Match whose key collides with the internal fallback key to fallback', () => {
+    const { container, cleanup } = createTestContainer();
+    let setMode: (next: 'matched' | 'fallback') => void = () => {};
+
+    const Panel = ({ id, label }: { id: string; label: string }) => {
+      const clicks = state(0);
+      return (
+        <button id={id} onClick={() => clicks.set((value) => value + 1)}>
+          {`${label}:${clicks()}`}
+        </button>
+      );
+    };
+
+    const App = () => {
+      const mode = state<'matched' | 'fallback'>('matched');
+      setMode = (next) => mode.set(next);
+
+      return (
+        <Case fallback={<Panel id="case-fallback" label="fallback" />}>
+          <Match key="__case-fallback__" when={mode() === 'matched'}>
+            <Panel id="case-matched" label="matched" />
+          </Match>
+        </Case>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      const matched = container.querySelector(
+        '#case-matched'
+      ) as HTMLButtonElement;
+      matched.click();
+      flushScheduler();
+      expect(matched.textContent).toBe('matched:1');
+
+      setMode('fallback');
+      flushScheduler();
+
+      expect(container.querySelector('#case-matched')).toBeNull();
+      expect(container.querySelector('#case-fallback')?.textContent).toBe(
+        'fallback:0'
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should remount when switching between two Match branches with the same user key', () => {
+    const { container, cleanup } = createTestContainer();
+    let setMode: (next: 'first' | 'second') => void = () => {};
+
+    const Panel = ({ id, label }: { id: string; label: string }) => {
+      const clicks = state(0);
+      return (
+        <button id={id} onClick={() => clicks.set((value) => value + 1)}>
+          {`${label}:${clicks()}`}
+        </button>
+      );
+    };
+
+    const App = () => {
+      const mode = state<'first' | 'second'>('first');
+      setMode = (next) => mode.set(next);
+
+      return (
+        <Case>
+          <Match key="same" when={mode() === 'first'}>
+            <Panel id="case-first" label="first" />
+          </Match>
+          <Match key="same" when={mode() === 'second'}>
+            <Panel id="case-second" label="second" />
+          </Match>
+        </Case>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      const first = container.querySelector('#case-first') as HTMLButtonElement;
+      first.click();
+      flushScheduler();
+      expect(first.textContent).toBe('first:1');
+
+      setMode('second');
+      flushScheduler();
+
+      expect(container.querySelector('#case-first')).toBeNull();
+      expect(container.querySelector('#case-second')?.textContent).toBe(
+        'second:0'
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should release previous branch subscriptions when selection changes', () => {
     allowFrameworkWarnings(/\[askr\] Unused state variable detected/);
     const { container, cleanup } = createTestContainer();

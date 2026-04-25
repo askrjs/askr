@@ -16,7 +16,7 @@ import { state } from '../../src/index';
 import type { State } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
-import { For } from '../../src/for';
+import { For } from '../../src/control';
 
 describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)', () => {
   let container: HTMLElement;

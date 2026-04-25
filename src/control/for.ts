@@ -8,11 +8,11 @@ import {
   __CONTROL_BOUNDARY__,
   markEagerControlPrimitive,
 } from '../common/control';
-import { Fragment } from '../common/jsx';
 import type { JSXElement } from '../common/jsx';
-import { type DOMElement, type VNode } from '../common/vnode';
+import type { VNode } from '../common/vnode';
 import { createForState, type ForState } from '../runtime/for';
 import { state } from '../runtime/state';
+import { normalizeBoundaryChild } from './shared';
 
 type ForEachSource<T> = T[] | (() => T[]);
 
@@ -35,25 +35,6 @@ type IndexedForProps<T> = ForBaseProps<T> & {
 export type ForProps<T, K extends string | number = string | number> =
   | KeyedForProps<T, K>
   | IndexedForProps<T>;
-
-function normalizeBoundaryChild(value: unknown): VNode | null {
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return null;
-    }
-    if (value.length === 1) {
-      return normalizeBoundaryChild(value[0]);
-    }
-    return {
-      type: Fragment,
-      props: {
-        children: value,
-      },
-    } as DOMElement;
-  }
-
-  return (value ?? null) as VNode | null;
-}
 
 function resolveEach<T>(each: ForEachSource<T>): T[] {
   const resolved = typeof each === 'function' ? each() : each;

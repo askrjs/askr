@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { test } from 'vite-plus/test';
 import { createIsland } from '../../src';
 import { createTestContainer } from '../helpers/test-renderer';
-import { For } from '../../src/for';
+import { For } from '../../src/control';
 
 test('should not emit wrapper element for For boundary', () => {
   const { container, cleanup } = createTestContainer();

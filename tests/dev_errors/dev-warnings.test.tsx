@@ -8,7 +8,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { state } from '../../src/index';
-import { For } from '../../src/for';
+import { For } from '../../src/control';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
 import { allowFrameworkWarnings } from '../setup-env';
