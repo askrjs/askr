@@ -5,6 +5,7 @@ import { cleanupApp, createIsland, createSPA } from '@askrjs/askr/boot';
 import {
   clearRoutes,
   getManifest,
+  group,
   navigate,
   redirect,
   route,
@@ -177,6 +178,70 @@ async function mountGuardedRouterScenario(): Promise<void> {
   await createSPA({ root, manifest: getManifest() });
 }
 
+async function mountRoutedShellScenario(): Promise<void> {
+  resetRoot();
+  clearRoutes();
+
+  const scenarioParam = new URL(window.location.href).searchParams.get('scenario');
+  const withScenario = (pathname: string) =>
+    scenarioParam ? `${pathname}?scenario=${scenarioParam}` : pathname;
+
+  const Layout = ({ children }: { children?: unknown }) => (
+    <section aria-label="Routed shell fixture">
+      <h1>Routed Shell</h1>
+      <nav aria-label="Routed shell navigation">
+        <button
+          data-testid="example-link"
+          onClick={() => navigate(withScenario('/example'))}
+        >
+          Example
+        </button>
+        <button
+          data-testid="about-link"
+          onClick={() => navigate(withScenario('/about'))}
+        >
+          About
+        </button>
+      </nav>
+      <main>{children}</main>
+    </section>
+  );
+
+  const ExamplePage = () => {
+    const name = state('');
+
+    return (
+      <section aria-label="Routed example fixture">
+        <h2>Example</h2>
+        <label>
+          Name
+          <input
+            data-testid="routed-name"
+            value={name()}
+            onInput={(event) => {
+              name.set(event.target.value);
+            }}
+          />
+        </label>
+        <p data-testid="routed-preview">{name() || 'Empty'}</p>
+      </section>
+    );
+  };
+
+  group({ layout: Layout }, () => {
+    route('/example', ExamplePage);
+    route('/about', () => (
+      <section aria-label="Routed about fixture">
+        <h2>About</h2>
+        <p data-testid="about-copy">About page</p>
+      </section>
+    ));
+  });
+
+  window.history.replaceState({}, '', withScenario('/example'));
+  await createSPA({ root, manifest: getManifest() });
+}
+
 async function runBrowserPerf(): Promise<Record<string, number>> {
   const rows = Array.from({ length: 1000 }, (_, index) => ({
     id: index + 1,
@@ -271,6 +336,8 @@ if (scenario === 'interaction') {
   mountInteractionScenario();
 } else if (scenario === 'guarded') {
   void mountGuardedRouterScenario();
+} else if (scenario === 'routed-shell') {
+  void mountRoutedShellScenario();
 } else {
   mountBenchmarkScenario();
 }
@@ -281,6 +348,7 @@ Object.assign(window, {
     mountBenchmarkScenario,
     mountInteractionScenario,
     mountGuardedRouterScenario,
+    mountRoutedShellScenario,
     profileBenchmarkOperations,
     setRows(rows: RowData[]) {
       benchmarkApp?.setRows(rows);

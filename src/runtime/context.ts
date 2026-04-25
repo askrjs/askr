@@ -272,8 +272,14 @@ function markWithFrame(node: Renderable, frame: ContextFrame): Renderable {
     const obj = node as Record<string | symbol, unknown>;
     obj[CONTEXT_FRAME_SYMBOL] = frame;
 
-    // If the node is a VNode with children, recursively mark its children
-    const children = obj.children as unknown;
+    // If the node is a VNode with children, recursively mark its children.
+    // JSX vnodes carry children in props.children, while some internal nodes
+    // still use a top-level children field.
+    const props =
+      typeof obj.props === 'object' && obj.props !== null
+        ? (obj.props as Record<string, unknown>)
+        : null;
+    const children = (props?.children ?? obj.children) as unknown;
     if (Array.isArray(children)) {
       for (let i = 0; i < children.length; i++) {
         const child = children[i] as Renderable;
@@ -282,7 +288,12 @@ function markWithFrame(node: Renderable, frame: ContextFrame): Renderable {
         }
       }
     } else if (children) {
-      obj.children = markWithFrame(children as Renderable, frame) as Renderable;
+      const nextChildren = markWithFrame(children as Renderable, frame) as Renderable;
+      if (props && 'children' in props) {
+        props.children = nextChildren;
+      } else {
+        obj.children = nextChildren;
+      }
     }
   }
   return node;

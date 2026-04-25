@@ -45,6 +45,9 @@ describe('askrVitePlugin', () => {
     const includes = userCfg?.optimizeDeps?.include ?? [];
     expect(includes.includes('@askrjs/askr/jsx-runtime')).toBe(true);
     expect(includes.includes('@askrjs/askr/router')).toBe(true);
+
+    const dedupe = userCfg?.resolve?.dedupe ?? [];
+    expect(dedupe.includes('@askrjs/askr')).toBe(true);
   });
 
   it('should ignore unsupported ssrPrecompile flags instead of injecting fake helpers', async () => {
