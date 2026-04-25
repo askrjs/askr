@@ -31,7 +31,7 @@ describe('Show primitive', () => {
 
       return (
         <Show when={user} fallback={<p id="show-fallback">login</p>}>
-          {(value) => <Counter user={value} />}
+          {(value: { name: string }) => <Counter user={value} />}
         </Show>
       );
     };

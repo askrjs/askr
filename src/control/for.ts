@@ -9,7 +9,7 @@ import {
   markEagerControlPrimitive,
 } from '../common/control';
 import type { JSXElement } from '../common/jsx';
-import type { VNode } from '../common/vnode';
+import type { DOMElement, VNode } from '../common/vnode';
 import { createForState, type ForState } from '../runtime/for';
 import { state } from '../runtime/state';
 import { normalizeBoundaryChild } from './shared';
