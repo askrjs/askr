@@ -142,6 +142,7 @@ Real app workflows by use case.
 - [Internals: Foundations audit report](./internals/foundations-audit-report.md)
 - [Internals: Router manifest](./internals/router-manifest.md)
 - [Benchmarks: Stability](./benchmarks/stability.md)
+- [Benchmarks: Performance targets](./benchmarks/performance-targets.md)
 - [Migration: From React](./migration/from-react.md)
 - [Troubleshooting: Common issues](./troubleshooting/common-issues.md)
 - [Roadmap: Navigation promotion](./roadmap/navigation-promotion.md)
