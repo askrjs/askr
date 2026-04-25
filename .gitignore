@@ -117,3 +117,4 @@ test-output.txt
 bench-results/
 
 demo/
+playwright-report/

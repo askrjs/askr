@@ -11,6 +11,6 @@
       "@askrjs/askr/jsx-dev-runtime": ["../src/jsx/jsx-dev-runtime.ts"]
     }
   },
-  "include": ["./**/*", "../src/**/*"],
+  "include": ["./**/*", "../src/**/*", "../test-utils/render/**/*"],
   "exclude": []
 }
