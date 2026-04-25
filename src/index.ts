@@ -90,6 +90,13 @@ export { Link } from './components/link';
 export type { LinkProps } from './components/link';
 export { Case, For, Match, Show } from './control';
 export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
+export {
+  Slot,
+  definePortal,
+  DefaultPortal,
+  Portal,
+} from './foundations/structures';
+export type { SlotProps, Portal, PortalProps } from './foundations/structures';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
 export { jsx, jsxs, Fragment } from './jsx-runtime';

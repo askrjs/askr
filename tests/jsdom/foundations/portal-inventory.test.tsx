@@ -30,7 +30,7 @@ describe('DefaultPortal inventory', () => {
     expect(typeof DefaultPortal.render).toBe('function');
   });
 
-  it('should drop writes before the host has mounted', () => {
+  it('should retain writes before the host has mounted', () => {
     DefaultPortal.render({ children: 'Early' });
     flushScheduler();
 
@@ -39,10 +39,10 @@ describe('DefaultPortal inventory', () => {
       component: () => <div>{'App'}</div>,
     });
     flushScheduler();
-    expect(container.textContent).toBe('App');
+    expect(container.textContent).toBe('AppEarly');
   });
 
-  it('should render written content after an explicit rerender', () => {
+  it('should render written content without requiring an explicit rerender', () => {
     const App = () => {
       const tick = state(0);
       return (
@@ -54,10 +54,6 @@ describe('DefaultPortal inventory', () => {
     flushScheduler();
 
     DefaultPortal.render({ children: 'Toast' });
-    flushScheduler();
-    expect(container.textContent).not.toContain('Toast');
-
-    (container.querySelector('button') as HTMLButtonElement).click();
     flushScheduler();
     expect(container.textContent).toContain('Toast');
   });

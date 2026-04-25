@@ -21,7 +21,8 @@ Supported DOM events are delegated automatically as part of the renderer; normal
 - `@askrjs/askr/control` -> JSX control-flow primitives (`For`, `Show`, `Case`, `Match`)
 - `@askrjs/askr/ssr` -> server-side rendering helpers
 - `@askrjs/askr/ssg` -> static-site generation helpers (`createStaticGen`)
-- `@askrjs/askr/foundations` -> lower-level framework primitives
+- `@askrjs/askr/foundations` -> lower-level structural framework primitives
+- `@askrjs/askr-ui/foundations` -> lower-level headless UI behavior primitives
 
 Control-flow primitives use JSX directly:
 

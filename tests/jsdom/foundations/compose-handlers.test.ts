@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vite-plus/test';
-import { composeHandlers } from '@askrjs/askr/foundations';
+import { composeHandlers } from '../../../src/foundations/utilities/compose-handlers';
 
 describe('composeHandlers (FOUNDATIONS)', () => {
   it('should not call the second handler when default is prevented', () => {

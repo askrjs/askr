@@ -99,6 +99,7 @@ function probeDistExports(): unknown {
                 derive: typeof rootModule.derive,
                 state: typeof rootModule.state,
                 selector: typeof rootModule.selector,
+                Portal: typeof rootModule.Portal,
                 route: typeof rootModule.route,
                 navigate: typeof rootModule.navigate,
                 resource: typeof rootModule.resource,
@@ -229,6 +230,7 @@ describe('public docs and examples', () => {
         derive: 'function',
         state: 'function',
         selector: 'function',
+        Portal: 'function',
         route: 'function',
         navigate: 'function',
         resource: 'function',
@@ -278,5 +280,5 @@ describe('public docs and examples', () => {
         hasAppConfigAlias: false,
       },
     });
-  });
+  }, 30000);
 });

@@ -8,8 +8,8 @@ export type { JSXElement } from '../jsx';
 export { Presence } from './structures/presence';
 export type { PresenceProps } from './structures/presence';
 
-export { definePortal, DefaultPortal } from './structures/portal';
-export type { Portal } from './structures/portal';
+export { definePortal, DefaultPortal, Portal } from './structures/portal';
+export type { Portal, PortalProps } from './structures/portal';
 
 export { createCollection } from './structures/collection';
 export type { Collection, CollectionItem } from './structures/collection';

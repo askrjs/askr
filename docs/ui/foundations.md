@@ -20,7 +20,7 @@ askr-ui components   (Button, Dialog, Select, ...)
     ↑ built on
 foundations          (applyInteractionPolicy, focusScope, ...)
     ↑ from
-@askrjs/askr/foundations
+@askrjs/askr-ui/foundations
 ```
 
 Your application code should compose `askr-ui` components. You only need to use foundations

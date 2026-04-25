@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vite-plus/test';
-import { hoverable } from '@askrjs/askr/foundations';
+import { hoverable } from '../../../src/foundations/interactions/hoverable';
 
 describe('hoverable (FOUNDATIONS)', () => {
   describe('pointer enter', () => {

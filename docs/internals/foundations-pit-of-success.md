@@ -13,7 +13,7 @@ This document demonstrates correct usage patterns and shows how misuse is preven
 ### ✅ CORRECT: Single entry point for all button-like interactions
 
 ```typescript
-import { applyInteractionPolicy } from '@askrjs/askr/foundations';
+import { applyInteractionPolicy } from '@askrjs/askr-ui/foundations';
 
 function Button({ onPress, disabled }) {
   const interaction = applyInteractionPolicy({
@@ -63,7 +63,7 @@ function Button({ onPress }) {
 ### ✅ CORRECT: Single dismissal foundation
 
 ```typescript
-import { dismissable } from '@askrjs/askr/foundations';
+import { dismissable } from '@askrjs/askr-ui/foundations';
 
 function Dialog({ onClose, open }) {
   const dialogRef = ref<HTMLDivElement>();
@@ -117,7 +117,7 @@ function Dialog({ onClose, disabled }) {
 ### ✅ CORRECT: Composable props
 
 ```typescript
-import { rovingFocus } from '@askrjs/askr/foundations';
+import { rovingFocus } from '@askrjs/askr-ui/foundations';
 
 function Menu() {
   const [currentIndex, setCurrentIndex] = state(0);
@@ -187,7 +187,11 @@ function Menu() {
 ### ✅ CORRECT: Foundations compose automatically
 
 ```typescript
-import { applyInteractionPolicy, dismissable, mergeProps } from '@askrjs/askr/foundations';
+import {
+  applyInteractionPolicy,
+  dismissable,
+  mergeProps,
+} from '@askrjs/askr-ui/foundations';
 
 function DialogButton({ onPress, onClose, disabled }) {
   const interaction = applyInteractionPolicy({
@@ -320,7 +324,7 @@ For each foundation, verify:
 ### Button (Complete Example)
 
 ```typescript
-import { applyInteractionPolicy } from '@askrjs/askr/foundations';
+import { applyInteractionPolicy } from '@askrjs/askr-ui/foundations';
 
 export function Button({
   onPress,
@@ -341,7 +345,8 @@ export function Button({
 ### Dialog (Complete Example)
 
 ```typescript
-import { dismissable, Presence } from '@askrjs/askr/foundations';
+import { dismissable } from '@askrjs/askr-ui/foundations';
+import { Presence } from '@askrjs/askr/foundations';
 
 export function Dialog({
   open,
@@ -373,7 +378,7 @@ export function Dialog({
 import {
   rovingFocus,
   applyInteractionPolicy
-} from '@askrjs/askr/foundations';
+} from '@askrjs/askr-ui/foundations';
 
 export function Menu({ items, onSelect }) {
   const [currentIndex, setCurrentIndex] = state(0);

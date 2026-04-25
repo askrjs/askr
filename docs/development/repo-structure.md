@@ -29,8 +29,11 @@ application
     ↑ depends on
   askr (peer)
 
-askr-ui and askr-lucide consume foundational primitives from:
+askr-ui consumes structural primitives from:
   @askrjs/askr/foundations
+
+askr-ui owns headless UI behavior helpers under:
+  @askrjs/askr-ui/foundations
 ```
 
 All packages in `packages/` are npm workspaces. The root `package.json` manages them

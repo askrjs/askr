@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vite-plus/test';
-import { composeRefs } from '@askrjs/askr/foundations';
+import { composeRefs } from '../../../src/foundations/utilities/compose-ref';
 
 describe('composeRefs (FOUNDATIONS)', () => {
   it('should call all composed callback refs', () => {

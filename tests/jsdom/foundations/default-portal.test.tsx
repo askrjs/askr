@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import {
   DefaultPortal,
+  Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
 import { state } from '../../../src/index';
@@ -50,18 +51,33 @@ describe('DefaultPortal', () => {
 
     DefaultPortal.render({ children: 'Toast' });
     flushScheduler();
-    expect(container.textContent).not.toContain('Toast');
-
-    (container.querySelector('button') as HTMLButtonElement).click();
-    flushScheduler();
     expect(container.textContent).toContain('Toast');
 
     DefaultPortal.render({ children: undefined });
     flushScheduler();
+    expect(container.textContent).not.toContain('Toast');
+  });
+
+  it('should render Portal children on initial render and update reactively', () => {
+    const App = () => {
+      const label = state('Toast');
+      return (
+        <>
+          <button onClick={() => label.set('Updated')}>{'update'}</button>
+          <Portal>{label()}</Portal>
+        </>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
     expect(container.textContent).toContain('Toast');
 
     (container.querySelector('button') as HTMLButtonElement).click();
     flushScheduler();
+
     expect(container.textContent).not.toContain('Toast');
+    expect(container.textContent).toContain('Updated');
   });
 });

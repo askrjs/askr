@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { formatId } from '@askrjs/askr/foundations';
+import { formatId } from '../../../src/foundations/utilities/use-id';
 import { state } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {

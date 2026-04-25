@@ -6,7 +6,7 @@ import {
   beforeEach,
   afterEach,
 } from 'vite-plus/test';
-import { controllableState } from '@askrjs/askr/foundations';
+import { controllableState } from '../../../src/foundations/state/controllable';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
