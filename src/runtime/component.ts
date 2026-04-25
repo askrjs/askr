@@ -384,12 +384,18 @@ function runComponent(instance: ComponentInstance): void {
 
         // Create a new host element for the content
         const host = document.createElement('div');
+        const executionFrame: ContextFrame = {
+          parent: instance.ownerFrame,
+          values: null,
+        };
 
         // Set up instance for normal updates
         const oldInstance = currentInstance;
         currentInstance = instance;
         try {
-          evaluate(result, host);
+          withContext(executionFrame, () => {
+            evaluate(result, host);
+          });
 
           // Replace placeholder with host
           parent.replaceChild(host, placeholder);
@@ -419,13 +425,19 @@ function runComponent(instance: ComponentInstance): void {
           // rely on `getCurrentComponentInstance()` being available.
           const oldInstance = currentInstance;
           currentInstance = instance;
+          const executionFrame: ContextFrame = {
+            parent: instance.ownerFrame,
+            values: null,
+          };
           // Capture snapshot of current children (by reference) so we can
           // restore them on render failure without losing event listeners or
           // instance attachments.
           oldChildren = Array.from(instance.target.childNodes);
 
           try {
-            evaluate(result, instance.target);
+            withContext(executionFrame, () => {
+              evaluate(result, instance.target);
+            });
           } catch (e) {
             // If evaluation failed, attempt to cleanup any partially-added nodes
             // and restore the old children to preserve listeners and instances.

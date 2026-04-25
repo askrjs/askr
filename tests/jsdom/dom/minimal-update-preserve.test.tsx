@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { state } from '../../../src/index';
+import { defineContext, readContext, state } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -321,6 +321,79 @@ describe('minimal update preserves siblings', () => {
     expect(document.activeElement).toBe(input);
     expect(inputAfter?.value).toBe('shell');
     expect(previewAfter?.textContent).toBe('Hello, shell!');
+
+    cleanup();
+  });
+
+  it('should preserve nested scope context during sibling input updates', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const OuterContext = defineContext<string | null>(null);
+    const InnerContext = defineContext<string | null>(null);
+
+    const ContextConsumer = () => {
+      const outer = readContext(OuterContext);
+      const inner = readContext(InnerContext);
+
+      return <p id={'context-preview'}>{`${outer}:${inner}`}</p>;
+    };
+
+    const NestedScopes = ({ children }: { children?: unknown }) => (
+      <OuterContext.Scope value={'outer'}>
+        <InnerContext.Scope value={'inner'}>
+          <section class={'scoped-shell'}>{children}</section>
+        </InnerContext.Scope>
+      </OuterContext.Scope>
+    );
+
+    const App = () => {
+      const name = state('');
+
+      return (
+        <NestedScopes>
+          <div class={'example-controls'}>
+            <input
+              id={'scoped-name'}
+              onInput={(event: Event) =>
+                name.set((event.target as HTMLInputElement).value)
+              }
+            />
+          </div>
+          <ContextConsumer />
+          <p id={'typed-preview'}>{name() || 'empty'}</p>
+        </NestedScopes>
+      ) as unknown as JSXElement;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const input = container.querySelector('#scoped-name') as HTMLInputElement | null;
+    const shell = container.querySelector('.scoped-shell') as HTMLElement | null;
+
+    expect(input).not.toBeNull();
+    expect(shell).not.toBeNull();
+    expect(container.querySelector('#context-preview')?.textContent).toBe(
+      'outer:inner'
+    );
+
+    input!.focus();
+    input!.value = 'typed';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    flushScheduler();
+
+    const shellAfter = container.querySelector('.scoped-shell') as HTMLElement | null;
+    const inputAfter = container.querySelector(
+      '#scoped-name'
+    ) as HTMLInputElement | null;
+
+    expect(shellAfter).toBe(shell);
+    expect(inputAfter).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(container.querySelector('#context-preview')?.textContent).toBe(
+      'outer:inner'
+    );
+    expect(container.querySelector('#typed-preview')?.textContent).toBe('typed');
 
     cleanup();
   });

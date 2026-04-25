@@ -1116,7 +1116,8 @@ function findHostInstanceByType(
 ): ComponentInstance | null {
   const instances = host.__ASKR_INSTANCES;
   if (instances && instances.length > 0) {
-    for (const instance of instances) {
+    for (let index = instances.length - 1; index >= 0; index -= 1) {
+      const instance = instances[index]!;
       if (instance.fn === type) {
         return instance;
       }
@@ -1166,6 +1167,8 @@ function resolveNestedComponentResult(
     typeof currentResult.type === 'function' &&
     depth < 16
   ) {
+    const nestedSnapshot =
+      (currentResult as ElementWithContext)[CONTEXT_FRAME_SYMBOL] ?? snapshot;
     const nestedInstance = createComponentInstance(
       nextComponentInstanceId(),
       currentResult.type as ComponentFunction,
@@ -1173,11 +1176,13 @@ function resolveNestedComponentResult(
       null
     );
 
-    if (snapshot) {
-      nestedInstance.ownerFrame = snapshot;
+    if (nestedSnapshot) {
+      nestedInstance.ownerFrame = nestedSnapshot;
     }
 
-    const nextResult = renderComponentInline(nestedInstance);
+    const nextResult = withContext(nestedSnapshot ?? null, () =>
+      renderComponentInline(nestedInstance)
+    );
     cleanupComponent(nestedInstance);
 
     if (nextResult instanceof Promise) {
@@ -1193,7 +1198,7 @@ function resolveNestedComponentResult(
   return currentResult;
 }
 
-function syncComponentElement(
+export function syncComponentElement(
   currentDom: Node | null,
   node: ElementWithContext,
   type: (props: Props) => unknown,
@@ -1209,7 +1214,11 @@ function syncComponentElement(
     return null;
   }
 
-  const snapshot = node[CONTEXT_FRAME_SYMBOL] || getCurrentContextFrame();
+  const snapshot =
+    node[CONTEXT_FRAME_SYMBOL] ||
+    getCurrentContextFrame() ||
+    existingInstance.ownerFrame ||
+    null;
   existingInstance.props = props || {};
 
   if (snapshot) {
@@ -1252,7 +1261,9 @@ function syncComponentElement(
       (result as DOMElement).type as string
     )
   ) {
-    updateElementFromVnode(existingHost, result as DOMElement, true);
+    withContext(snapshot, () => {
+      updateElementFromVnode(existingHost, result as DOMElement, true);
+    });
     warnUnusedStateReads(existingInstance);
     return existingHost;
   }
@@ -1263,7 +1274,9 @@ function syncComponentElement(
     typeof resolvedResult.type === 'string' &&
     tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.type)
   ) {
-    updateElementFromVnode(existingHost, resolvedResult, true);
+    withContext(snapshot, () => {
+      updateElementFromVnode(existingHost, resolvedResult, true);
+    });
     warnUnusedStateReads(existingInstance);
     return existingHost;
   }
@@ -1737,7 +1750,9 @@ function resolveStableIntrinsicPatchVNode(
 
   const snapshot =
     (vnode as ElementWithContext)[CONTEXT_FRAME_SYMBOL] ||
-    getCurrentContextFrame();
+    getCurrentContextFrame() ||
+    existingInstance.ownerFrame ||
+    null;
 
   existingInstance.props =
     (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {};
