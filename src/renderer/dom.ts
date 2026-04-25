@@ -73,6 +73,8 @@ import { incrementPerfMetric } from '../runtime/perf-metrics';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
+  getDelegatedHandlerForElement,
+  getDelegatedHandlersForElement,
   updateDelegatedListener,
   removeDelegatedListener,
   isDelegatedEvent,
@@ -163,15 +165,17 @@ function addTrackedListener(
 
   if (useDelegation) {
     addDelegatedListener(el, eventName, handler, handler, undefined);
+    if (isBenchMetricScopeActive('coldCreate')) {
+      recordBenchCounter('listenerBindings');
+    }
+    return;
   }
 
   const options = getPassiveOptions(eventName);
-  const mutableHandler = useDelegation
-    ? null
-    : createMutableWrappedHandler(handler, true);
-  const trackedHandler = useDelegation ? handler : mutableHandler!.handler;
+  const mutableHandler = createMutableWrappedHandler(handler, true);
+  const trackedHandler = mutableHandler.handler;
 
-  if (!useDelegation) {
+  {
     if (options !== undefined) {
       el.addEventListener(eventName, trackedHandler, options);
     } else {
@@ -186,7 +190,7 @@ function addTrackedListener(
     handler: trackedHandler,
     original: handler,
     options,
-    isDelegated: useDelegation,
+    isDelegated: false,
     updateHandler: mutableHandler?.updateHandler,
   });
 
@@ -1767,6 +1771,7 @@ function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
       }
       withBenchMetricScope('fullClear', () => {
         recordBenchCounter('bulkClearCommits');
+        removeAllListeners(parent);
         parent.textContent = '';
       });
       return;
@@ -2113,6 +2118,24 @@ export function commitForBoundaryChildren(
     const keys = forState.orderedKeys;
     const count = keys.length;
 
+    if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
+      const frag = parent.ownerDocument.createDocumentFragment();
+
+      for (let i = 0; i < count; i++) {
+        const itemKey = keys[i];
+        const itemInstance = forState.items.get(itemKey);
+        const dom = itemInstance?.scope.dom;
+        if (!dom) {
+          return;
+        }
+        recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
+        frag.appendChild(dom);
+      }
+
+      parent.replaceChildren(frag);
+      return;
+    }
+
     // Fast path: when no existing item is already a child of parent (pure
     // creation or full-replace scenario), sync all DOM nodes and commit
     // atomically with a single replaceChildren instead of N insertBefore calls.
@@ -2406,12 +2429,39 @@ export function updateElementFromVnode(
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
     } else if (eventName) {
-      if (existingListeners && existingListeners.size > 0) {
-        (desiredEventNames ??= new Set()).add(eventName);
-      }
-
       const useDelegation =
         isEventDelegationEnabled() && isDelegatedEvent(eventName);
+      (desiredEventNames ??= new Set()).add(eventName);
+
+      if (useDelegation) {
+        const existingDelegated = getDelegatedHandlerForElement(el, eventName);
+        if (existingDelegated?.original === value) {
+          continue;
+        }
+
+        if (
+          existingDelegated &&
+          updateDelegatedListener(
+            el,
+            eventName,
+            value as EventListener,
+            value as EventListener,
+            undefined
+          )
+        ) {
+          continue;
+        }
+
+        addDelegatedListener(
+          el,
+          eventName,
+          value as EventListener,
+          value as EventListener,
+          undefined
+        );
+        continue;
+      }
+
       const existing = existingListeners?.get(eventName);
 
       if (existing && existing.original === value) {
@@ -2457,38 +2507,24 @@ export function updateElementFromVnode(
         }
       }
 
-      if (useDelegation) {
-        addDelegatedListener(
-          el,
-          eventName,
-          value as EventListener,
-          value as EventListener,
-          undefined
-        );
-        continue;
-      }
-
       const options = getPassiveOptions(eventName);
-      const mutableHandler = useDelegation
-        ? null
-        : createMutableWrappedHandler(value as EventListener, true);
-      const trackedHandler = useDelegation
-        ? (value as EventListener)
-        : mutableHandler!.handler;
+      const mutableHandler = createMutableWrappedHandler(
+        value as EventListener,
+        true
+      );
+      const trackedHandler = mutableHandler.handler;
 
-      if (!useDelegation) {
-        if (options !== undefined) {
-          el.addEventListener(eventName, trackedHandler, options);
-        } else {
-          el.addEventListener(eventName, trackedHandler);
-        }
+      if (options !== undefined) {
+        el.addEventListener(eventName, trackedHandler, options);
+      } else {
+        el.addEventListener(eventName, trackedHandler);
       }
 
       const listenerEntry = {
         handler: trackedHandler,
         original: value as EventListener,
         options,
-        isDelegated: useDelegation,
+        isDelegated: false,
         updateHandler: mutableHandler?.updateHandler,
       };
       if (!elementListeners.has(el)) {
@@ -2531,6 +2567,21 @@ export function updateElementFromVnode(
         }
       });
       if (existingListeners.size === 0) elementListeners.delete(el);
+    }
+  }
+
+  const delegatedHandlers = getDelegatedHandlersForElement(el);
+  if (delegatedHandlers && delegatedHandlers.size > 0) {
+    if (desiredEventNames === null) {
+      for (const eventName of delegatedHandlers.keys()) {
+        removeDelegatedListener(el, eventName);
+      }
+    } else {
+      for (const eventName of delegatedHandlers.keys()) {
+        if (!desiredEventNames.has(eventName)) {
+          removeDelegatedListener(el, eventName);
+        }
+      }
     }
   }
 

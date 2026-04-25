@@ -86,6 +86,7 @@ export interface ForState<T> {
   lastRemovedNodes: Node[];
   pendingDirtyIndices: number[] | null;
   pendingSwapIndices: [number, number] | null;
+  pendingMoveOnly: boolean;
   devKeyKinds?: Map<string, 'number' | 'string'>;
 }
 
@@ -112,6 +113,7 @@ export function createForState<T>(
     lastRemovedNodes: [],
     pendingDirtyIndices: null,
     pendingSwapIndices: null,
+    pendingMoveOnly: false,
   };
 }
 
@@ -381,12 +383,13 @@ export function reconcileForItems<T>(
 
   if (newLen === 0) {
     if (oldLen > 0) {
-      disposeAllItems(forState, forState.fallback ? 'teardown' : 'full-clear');
+      disposeAllItems(forState, forState.fallback ? 'teardown' : 'none');
     }
     recordBenchFastLane('TRUNCATE');
     forState.lastCommitStrategy = 'TRUNCATE';
     forState.pendingDirtyIndices = null;
     forState.pendingSwapIndices = null;
+    forState.pendingMoveOnly = false;
 
     if (BENCH_BUILD_ENABLED) {
       recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
@@ -454,6 +457,7 @@ export function reconcileForItems<T>(
       forState.orderedVNodes = resultVNodes;
       forState.pendingDirtyIndices = null;
       forState.pendingSwapIndices = null;
+      forState.pendingMoveOnly = false;
 
       return resultVNodes;
     }
@@ -508,7 +512,7 @@ export function reconcileForItems<T>(
               rerenderItemInstance(forState, existing, item);
             }
 
-            if (indexChanged) {
+            if (indexChanged && existing.indexSignal._hasBeenRead) {
               existing.indexSignal.set(i);
             }
 
@@ -547,6 +551,7 @@ export function reconcileForItems<T>(
 
           forState.pendingDirtyIndices = dirtyIndices;
           forState.pendingSwapIndices = null;
+          forState.pendingMoveOnly = false;
 
           return resultVNodes;
         }
@@ -610,6 +615,7 @@ export function reconcileForItems<T>(
       forState.orderedVNodes = resultVNodes;
       forState.pendingDirtyIndices = null;
       forState.pendingSwapIndices = null;
+      forState.pendingMoveOnly = false;
 
       return resultVNodes;
     }
@@ -665,6 +671,7 @@ export function reconcileForItems<T>(
 
       forState.pendingDirtyIndices = dirtyIndices;
       forState.pendingSwapIndices = null;
+      forState.pendingMoveOnly = false;
 
       return resultVNodes;
     }
@@ -742,11 +749,17 @@ export function reconcileForItems<T>(
         rerenderItemInstance(forState, secondExisting, secondItem);
       }
 
-      if (firstExisting.indexSignal.peek() !== firstMismatch) {
+      if (
+        firstExisting.indexSignal._hasBeenRead &&
+        firstExisting.indexSignal.peek() !== firstMismatch
+      ) {
         firstExisting.indexSignal.set(firstMismatch);
       }
 
-      if (secondExisting.indexSignal.peek() !== secondMismatch) {
+      if (
+        secondExisting.indexSignal._hasBeenRead &&
+        secondExisting.indexSignal.peek() !== secondMismatch
+      ) {
         secondExisting.indexSignal.set(secondMismatch);
       }
 
@@ -762,8 +775,50 @@ export function reconcileForItems<T>(
 
       forState.pendingDirtyIndices = null;
       forState.pendingSwapIndices = [firstMismatch, secondMismatch];
+      forState.pendingMoveOnly = true;
 
       return resultVNodes;
+    }
+
+    let canUseMoveOnlyPath = true;
+    const moveOnlyKeys: Array<string | number> = [];
+    const moveOnlyVNodes: VNode[] = [];
+
+    for (let i = 0; i < oldLen; i++) {
+      const item = newArray[i];
+      const key = byFn(item, i);
+      const existing = items.get(key);
+
+      if (
+        !existing ||
+        existing.item !== item ||
+        (existing.indexSignal._hasBeenRead && existing.indexSignal.peek() !== i)
+      ) {
+        canUseMoveOnlyPath = false;
+        break;
+      }
+
+      moveOnlyKeys[i] = key;
+      moveOnlyVNodes[i] = existing.scope.vnode as VNode;
+      recordBenchEvent('itemReused');
+    }
+
+    if (canUseMoveOnlyPath) {
+      recordBenchFastLane('FULL_KEYED');
+      forState.lastCommitStrategy = 'FULL_KEYED';
+      forState.orderedKeys = moveOnlyKeys;
+      forState.orderedVNodes = moveOnlyVNodes;
+
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+        flushBenchMetrics();
+      }
+
+      forState.pendingDirtyIndices = null;
+      forState.pendingSwapIndices = null;
+      forState.pendingMoveOnly = true;
+
+      return moveOnlyVNodes;
     }
   }
 
@@ -777,6 +832,7 @@ export function reconcileForItems<T>(
   const toRemove = new Set(orderedKeys);
   const newOrderedKeys: Array<string | number> = [];
   const resultVNodes: VNode[] = [];
+  let moveOnly = toRemove.size === newArray.length;
 
   // Single pass: iterate new array directly, no intermediate map
   for (let i = 0; i < newArray.length; i++) {
@@ -799,9 +855,11 @@ export function reconcileForItems<T>(
       // Exists: check if item changed (by identity)
       recordBenchEvent('itemReused');
       const itemChanged = existing.item !== item;
-      const indexChanged = existing.indexSignal.peek() !== i;
+      const indexChanged =
+        existing.indexSignal._hasBeenRead && existing.indexSignal.peek() !== i;
 
       if (itemChanged) {
+        moveOnly = false;
         // Item data changed: update and re-execute
         existing.item = item;
         rerenderItemInstance(forState, existing, item);
@@ -818,6 +876,7 @@ export function reconcileForItems<T>(
 
   // Remove deleted items
   for (const key of toRemove) {
+    moveOnly = false;
     const itemInstance = items.get(key);
     if (itemInstance) {
       disposeItemInstance(forState, itemInstance, 'none');
@@ -836,6 +895,7 @@ export function reconcileForItems<T>(
   forState.orderedVNodes = resultVNodes;
   forState.pendingDirtyIndices = null;
   forState.pendingSwapIndices = null;
+  forState.pendingMoveOnly = moveOnly;
 
   return resultVNodes;
 }
@@ -862,4 +922,5 @@ export function clearForDomUpdateState<T>(forState: ForState<T>): void {
   forState.lastRemovedNodes = [];
   forState.pendingDirtyIndices = null;
   forState.pendingSwapIndices = null;
+  forState.pendingMoveOnly = false;
 }
