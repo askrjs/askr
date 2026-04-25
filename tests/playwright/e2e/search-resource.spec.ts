@@ -77,7 +77,6 @@ async function mockCustomerSearch(
     queries.push(query);
 
     await fulfillSearch(route, {
-      customers: [],
       ...customerFixtures[query],
       ...overrides[query],
     });
@@ -166,7 +165,6 @@ test.describe('customer search with route-driven resources', () => {
       }
 
       await fulfillSearch(route, {
-        customers: [],
         ...customerFixtures[query],
         delayMs: query === 'acme' ? 10 : 0,
       });
@@ -265,7 +263,6 @@ test.describe('customer search with route-driven resources', () => {
       }
 
       await fulfillSearch(route, {
-        customers: [],
         ...customerFixtures[query],
       });
     });
