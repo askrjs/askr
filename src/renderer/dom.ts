@@ -801,10 +801,41 @@ function materializeKey(
   vnode: DOMElement,
   props: Record<string, unknown>
 ): void {
-  const vnodeKey = vnode.key ?? props?.key;
+  const rawKey = vnode.key ?? props?.key;
+  const vnodeKey =
+    rawKey === null || rawKey === undefined
+      ? undefined
+      : typeof rawKey === 'symbol'
+        ? String(rawKey)
+        : (rawKey as string | number);
   if (vnodeKey !== undefined) {
     el.setAttribute('data-key', String(vnodeKey));
   }
+}
+
+function inheritComponentKey(
+  target: DOMElement,
+  source: DOMElement
+): DOMElement {
+  const inheritedKey = extractKey(source);
+  if (inheritedKey === undefined || extractKey(target) !== undefined) {
+    return target;
+  }
+
+  target.key = inheritedKey;
+
+  if (typeof target.type === 'string') {
+    if (!target.props) {
+      target.props = {};
+    }
+
+    const props = target.props as Record<string, unknown>;
+    if (props['data-key'] === undefined) {
+      props['data-key'] = String(inheritedKey);
+    }
+  }
+
+  return target;
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1337,7 +1368,12 @@ export function syncComponentElement(
     )
   ) {
     withContext(snapshot, () => {
-      updateElementFromVnode(existingHost, result as DOMElement, true);
+      updateElementFromVnode(
+        existingHost,
+        inheritComponentKey(result as DOMElement, node),
+        true
+      );
+      materializeKey(existingHost, node, props);
     });
     warnUnusedStateReads(existingInstance);
     return existingHost;
@@ -1350,7 +1386,12 @@ export function syncComponentElement(
     tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.type)
   ) {
     withContext(snapshot, () => {
-      updateElementFromVnode(existingHost, resolvedResult, true);
+      updateElementFromVnode(
+        existingHost,
+        inheritComponentKey(resolvedResult, node),
+        true
+      );
+      materializeKey(existingHost, node, props);
     });
     warnUnusedStateReads(existingInstance);
     return existingHost;
@@ -1851,7 +1892,7 @@ function resolveStableIntrinsicPatchVNode(
     typeof resolvedResult.type === 'string' &&
     tagNamesEqualIgnoreCase(dom.tagName, resolvedResult.type)
   ) {
-    return resolvedResult;
+    return inheritComponentKey(resolvedResult, vnode as DOMElement);
   }
 
   return null;
@@ -2098,6 +2139,9 @@ export function commitForBoundaryChildren(
       }
 
       if (tryPatchStableForDirtyItem(itemInstance.scope)) {
+        if (itemInstance.scope.dom instanceof Element) {
+          itemInstance.scope.dom.setAttribute('data-key', String(itemKey));
+        }
         continue;
       }
 
@@ -2876,6 +2920,10 @@ function hasKeyedVNodeChildren(children: VNode[]): boolean {
   return false;
 }
 
+function isEmptyChild(child: unknown): boolean {
+  return child === null || child === undefined || child === false;
+}
+
 function getOrBuildDomKeyMap(
   parent: Element
 ): Map<string | number, Element> | undefined {
@@ -2903,10 +2951,6 @@ export function updateUnkeyedChildren(
   parent: Element,
   newChildren: unknown[]
 ): void {
-  newChildren = newChildren.filter(
-    (child) => child !== null && child !== undefined && child !== false
-  );
-
   const parentNamespace =
     parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
 
@@ -2932,12 +2976,14 @@ export function updateUnkeyedChildren(
     (c) => typeof c === 'string' || typeof c === 'number'
   );
   const hasElements = newChildren.some((c) => _isDOMElement(c));
+  const hasEmptyChildren = newChildren.some(isEmptyChild);
 
   // Fast path: same-count, pure-element update (the common large-list re-render).
   // Iterate parent.children by index directly to avoid the Array.from snapshot
   // allocation for large lists. replaceChild(x, child[i]) replaces in-place so
   // subsequent indices in the live HTMLCollection do NOT shift â€” safe to use.
   if (
+    !hasEmptyChildren &&
     !hasText &&
     hasElements &&
     parent.children.length === newChildren.length
@@ -2990,22 +3036,23 @@ export function updateUnkeyedChildren(
     for (let i = 0; i < max; i++) {
       const currentNode = allNodes[i];
       const next = newChildren[i];
+      const nextIsEmpty = isEmptyChild(next);
 
       // Remove extra existing nodes
-      if (next === undefined && currentNode) {
+      if (nextIsEmpty && currentNode) {
         teardownNodeSubtree(currentNode);
         currentNode.remove();
         continue;
       }
 
       // Append new children beyond existing length
-      if (!currentNode && next !== undefined) {
+      if (!currentNode && !nextIsEmpty) {
         const dom = createDOMNode(next);
         if (dom) parent.appendChild(dom);
         continue;
       }
 
-      if (!currentNode || next === undefined) continue;
+      if (!currentNode || nextIsEmpty) continue;
 
       // Update existing node based on next vnode/primitive
       if (typeof next === 'string' || typeof next === 'number') {
@@ -3093,9 +3140,10 @@ export function updateUnkeyedChildren(
   for (let i = 0; i < max; i++) {
     const current = existing[i];
     const next = newChildren[i];
+    const nextIsEmpty = isEmptyChild(next);
 
     // Remove extra existing children
-    if (next === undefined && current) {
+    if (nextIsEmpty && current) {
       // Clean up any component instance mounted on this node
       teardownNodeSubtree(current);
       current.remove();
@@ -3103,13 +3151,13 @@ export function updateUnkeyedChildren(
     }
 
     // Append new children beyond existing length
-    if (!current && next !== undefined) {
+    if (!current && !nextIsEmpty) {
       const dom = createDOMNode(next);
       if (dom) parent.appendChild(dom);
       continue;
     }
 
-    if (!current || next === undefined) continue;
+    if (!current || nextIsEmpty) continue;
 
     // Update existing element based on next vnode/primitive
     if (typeof next === 'string' || typeof next === 'number') {

@@ -6,7 +6,7 @@ function wait(ms: number): Promise<void> {
 
 async function mockSignup(
   page: Page,
-  options: { delayMs?: number } = {}
+  options: { delayMs?: number; release?: Promise<void> } = {}
 ): Promise<Array<{ email: string; acceptedTerms: boolean }>> {
   const submissions: Array<{ email: string; acceptedTerms: boolean }> = [];
 
@@ -24,6 +24,9 @@ async function mockSignup(
     if (options.delayMs) {
       await wait(options.delayMs);
     }
+    if (options.release) {
+      await options.release;
+    }
 
     await route.fulfill({
       status: 200,
@@ -39,7 +42,11 @@ test.describe('hydrated signup form workflow', () => {
   test('should attach hydrated form listeners and submit controlled values @smoke', async ({
     page,
   }) => {
-    const submissions = await mockSignup(page, { delayMs: 50 });
+    let releaseSignup!: () => void;
+    const signupReleased = new Promise<void>((resolve) => {
+      releaseSignup = resolve;
+    });
+    const submissions = await mockSignup(page, { release: signupReleased });
 
     await page.goto('/signup');
 
@@ -54,6 +61,7 @@ test.describe('hydrated signup form workflow', () => {
     await expect(
       page.getByRole('button', { name: 'Signing up...' })
     ).toBeDisabled();
+    releaseSignup();
     await expect(page.getByRole('status')).toHaveText(
       'Welcome, reader@example.com.'
     );

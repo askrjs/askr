@@ -90,8 +90,14 @@ test.describe('customer search with route-driven resources', () => {
   test('should render an empty search and load featured customers', async ({
     page,
   }) => {
-    await mockCustomerSearch(page, {
-      '': { customers: featuredCustomers, delayMs: 200 },
+    let releaseFeaturedSearch!: () => void;
+    const featuredSearchReleased = new Promise<void>((resolve) => {
+      releaseFeaturedSearch = resolve;
+    });
+
+    await page.route('**/api/customers/search**', async (route) => {
+      await featuredSearchReleased;
+      await fulfillSearch(route, { customers: featuredCustomers });
     });
 
     await page.goto('/customers/search');
@@ -101,6 +107,7 @@ test.describe('customer search with route-driven resources', () => {
     ).toBeVisible();
     await expect(page.getByLabel('Search customers')).toHaveValue('');
     await expect(page.getByRole('status')).toHaveText('Searching customers...');
+    releaseFeaturedSearch();
     await expect(page.getByText('Featured Customer')).toBeVisible();
   });
 
@@ -140,9 +147,9 @@ test.describe('customer search with route-driven resources', () => {
   });
 
   test('should ignore stale slower search responses', async ({ page }) => {
-    let finishSlowSearch!: () => void;
-    const slowSearchFinished = new Promise<void>((resolve) => {
-      finishSlowSearch = resolve;
+    let releaseSlowSearch!: () => void;
+    const slowSearchReleased = new Promise<void>((resolve) => {
+      releaseSlowSearch = resolve;
     });
 
     await page.route('**/api/customers/search**', async (route) => {
@@ -150,14 +157,11 @@ test.describe('customer search with route-driven resources', () => {
       const query = requestUrl.searchParams.get('q') ?? '';
 
       if (query === 'northwind') {
-        try {
-          await fulfillSearch(route, {
-            ...customerFixtures.northwind,
-            delayMs: 150,
-          });
-        } finally {
-          finishSlowSearch();
-        }
+        await slowSearchReleased;
+        await fulfillSearch(route, {
+          ...customerFixtures.northwind,
+          delayMs: 10,
+        });
         return;
       }
 
@@ -174,7 +178,7 @@ test.describe('customer search with route-driven resources', () => {
     await page.getByLabel('Search customers').fill('acme');
 
     await expect(page.getByText('Acme Corp')).toBeVisible();
-    await slowSearchFinished;
+    releaseSlowSearch();
     await expect(page.getByText('Northwind Traders')).toHaveCount(0);
   });
 
