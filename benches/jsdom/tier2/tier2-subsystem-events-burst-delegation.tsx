@@ -1,5 +1,5 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { createIsland } from '../../src';
+import { createIsland } from '../../../src';
 import {
   disableEventDelegation,
   enableEventDelegation,
@@ -9,7 +9,7 @@ import {
   createTestContainer,
   fireEvent,
   flushScheduler,
-} from '../../tests/helpers/test-renderer';
+} from '../../../test-utils/render/test-renderer';
 import { tier2BenchOptions } from '../../shared/_shared';
 
 const targetIndexes = Array.from({ length: 1000 }, (_, index) => index % 500);

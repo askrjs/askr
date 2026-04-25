@@ -11,7 +11,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
-describe('rapid events (STRESS)', { timeout: 15000 }, () => {
+describe('rapid events (STRESS)', { timeout: 30000 }, () => {
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {

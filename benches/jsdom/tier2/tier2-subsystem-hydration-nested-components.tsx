@@ -4,8 +4,11 @@ import {
   tier2BenchOptions,
 } from '../../shared/_shared';
 import { hydrateSPA } from '../../../src/boot';
-import { state } from '../../src';
-import { fireEvent, flushScheduler } from '../../tests/helpers/test-renderer';
+import { state } from '../../../src';
+import {
+  fireEvent,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 function createNestedHydrationHarness() {
   const Panel = ({

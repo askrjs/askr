@@ -5,7 +5,7 @@ import {
 } from '../../shared/_shared';
 import { hydrateSPA } from '../../../src/boot';
 import { navigate } from '../../../src/router/navigate';
-import { flushScheduler } from '../../tests/helpers/test-renderer';
+import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 function createHydrationNavigationHarness() {
   const routes = [

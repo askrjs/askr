@@ -5,6 +5,7 @@ declare global {
     __askrPlaywright: {
       mountBenchmarkScenario(rows?: Array<{ id: number; label: string }>): void;
       mountInteractionScenario(): void;
+      mountGuardedRouterScenario(): Promise<void>;
       setRows(rows: Array<{ id: number; label: string }>): void;
       runBrowserPerf(): Promise<{
         mountMs: number;

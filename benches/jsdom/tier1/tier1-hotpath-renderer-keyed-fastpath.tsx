@@ -1,9 +1,9 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { createIsland, state } from '../../src';
+import { createIsland, state } from '../../../src';
 import {
   createTestContainer,
   flushScheduler,
-} from '../../tests/helpers/test-renderer';
+} from '../../../test-utils/render/test-renderer';
 import type { BenchToggle, RowData } from '../../shared/_shared';
 import {
   assertToggleMutationGuard,

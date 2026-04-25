@@ -4,7 +4,10 @@ import {
   createHydrationFixture,
   noisyTier2BenchOptions,
 } from '../../shared/_shared';
-import { fireEvent, flushScheduler } from '../../tests/helpers/test-renderer';
+import {
+  fireEvent,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 function createListenerHarness() {
   const state = {

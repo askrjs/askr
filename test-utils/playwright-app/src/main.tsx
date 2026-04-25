@@ -1,5 +1,12 @@
 import { state } from '@askrjs/askr';
-import { cleanupApp, createIsland } from '@askrjs/askr/boot';
+import { cleanupApp, createIsland, createSPA } from '@askrjs/askr/boot';
+import {
+  clearRoutes,
+  getManifest,
+  navigate,
+  redirect,
+  route,
+} from '@askrjs/askr/router';
 import { mountBenchmark } from '../../../src/bench/benchmark-entry';
 
 type RowData = {
@@ -86,6 +93,43 @@ function mountInteractionScenario(): void {
   createIsland({ root, component: App });
 }
 
+async function mountGuardedRouterScenario(): Promise<void> {
+  resetRoot();
+  clearRoutes();
+
+  route('/', () => (
+    <section aria-label="Guarded router fixture">
+      <h1>Router Home</h1>
+      <button data-testid="private-link" onClick={() => navigate('/private')}>
+        Private
+      </button>
+    </section>
+  ));
+  route('/login', () => (
+    <section aria-label="Login fixture">
+      <h1>Login</h1>
+      <p data-testid="login-next">{window.location.search}</p>
+      <button data-testid="home-link" onClick={() => navigate('/')}>
+        Home
+      </button>
+    </section>
+  ));
+  route(
+    '/private',
+    () => (
+      <section aria-label="Private fixture">
+        <h1>Private</h1>
+      </section>
+    ),
+    {
+      policies: [async () => redirect('/login?next=/private')],
+    }
+  );
+
+  window.history.replaceState({}, '', '/?scenario=guarded');
+  await createSPA({ root, manifest: getManifest() });
+}
+
 async function runBrowserPerf(): Promise<Record<string, number>> {
   const rows = Array.from({ length: 1000 }, (_, index) => ({
     id: index + 1,
@@ -114,6 +158,8 @@ const scenario = new URL(window.location.href).searchParams.get('scenario');
 
 if (scenario === 'interaction') {
   mountInteractionScenario();
+} else if (scenario === 'guarded') {
+  void mountGuardedRouterScenario();
 } else {
   mountBenchmarkScenario();
 }
@@ -122,6 +168,7 @@ Object.assign(window, {
   __askrPlaywright: {
     mountBenchmarkScenario,
     mountInteractionScenario,
+    mountGuardedRouterScenario,
     setRows(rows: RowData[]) {
       benchmarkApp?.setRows(rows);
     },

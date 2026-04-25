@@ -5,7 +5,10 @@ import {
   tier2BenchOptions,
 } from '../../shared/_shared';
 import { hydrateSPA } from '../../../src/boot';
-import { fireEvent, flushScheduler } from '../../tests/helpers/test-renderer';
+import {
+  fireEvent,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 function createDeferredHydrationHarness() {
   const state = {

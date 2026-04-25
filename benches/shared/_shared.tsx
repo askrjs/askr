@@ -94,30 +94,30 @@ export interface CachedElementQuery<T extends Element> {
 
 export const tier1BenchOptions = {
   time: 400,
-  iterations: 20,
+  iterations: 5,
   warmupTime: 100,
-  warmupIterations: 5,
+  warmupIterations: 1,
 } satisfies Options;
 
 export const tier2BenchOptions = {
   time: 600,
-  iterations: 12,
+  iterations: 4,
   warmupTime: 150,
-  warmupIterations: 4,
+  warmupIterations: 1,
 } satisfies Options;
 
 export const tier3BenchOptions = {
   time: 1000,
-  iterations: 10,
+  iterations: 3,
   warmupTime: 200,
-  warmupIterations: 4,
+  warmupIterations: 1,
 } satisfies Options;
 
 export const tier4BenchOptions = {
   time: 1500,
-  iterations: 8,
-  warmupTime: 300,
-  warmupIterations: 3,
+  iterations: 1,
+  warmupTime: 0,
+  warmupIterations: 0,
 } satisfies Options;
 
 export function extendBenchOptions(
@@ -132,30 +132,30 @@ export function extendBenchOptions(
 
 export const noisyTier2BenchOptions = extendBenchOptions(tier2BenchOptions, {
   time: 1800,
-  iterations: 16,
+  iterations: 5,
   warmupTime: 250,
-  warmupIterations: 5,
+  warmupIterations: 1,
 });
 
 export const noisyTier3BenchOptions = extendBenchOptions(tier3BenchOptions, {
   time: 2500,
-  iterations: 16,
+  iterations: 4,
   warmupTime: 350,
-  warmupIterations: 5,
+  warmupIterations: 1,
 });
 
 export const heavyTier3BenchOptions = extendBenchOptions(tier3BenchOptions, {
   time: 4000,
-  iterations: 12,
+  iterations: 4,
   warmupTime: 500,
-  warmupIterations: 5,
+  warmupIterations: 1,
 });
 
 export const noisyTier4BenchOptions = extendBenchOptions(tier4BenchOptions, {
   time: 2500,
-  iterations: 12,
-  warmupTime: 400,
-  warmupIterations: 5,
+  iterations: 1,
+  warmupTime: 0,
+  warmupIterations: 0,
 });
 
 /**

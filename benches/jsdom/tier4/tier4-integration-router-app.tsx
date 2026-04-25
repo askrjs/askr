@@ -1,10 +1,10 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { createSPA } from '../../src';
+import { createSPA } from '../../../src';
 import { navigate } from '../../../src/router/navigate';
 import {
   createTestContainer,
   flushScheduler,
-} from '../../tests/helpers/test-renderer';
+} from '../../../test-utils/render/test-renderer';
 import {
   resetRouterState,
   setLocationPath,
