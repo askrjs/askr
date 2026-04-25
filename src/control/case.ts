@@ -14,6 +14,7 @@ import { state } from '../runtime/state';
 import { normalizeBoundaryChild } from './shared';
 
 export type MatchProps = {
+  key?: string | number | null;
   when: unknown;
   children: unknown;
 };

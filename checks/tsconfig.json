@@ -2,8 +2,10 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    "outDir": null,
+    "rootDir": null,
     "types": ["node"]
   },
-  "include": ["./**/*"],
+  "include": ["./**/*", "../src/**/*", "../examples/**/*"],
   "exclude": []
 }
