@@ -227,10 +227,17 @@ export function mountInstanceInline(
   // Record backref on host element so renderer can clean up when the
   // node is removed. Avoids leaks if the node is detached or replaced.
   try {
-    if (target instanceof Element)
-      (
-        target as Element & { __ASKR_INSTANCE?: ComponentInstance }
-      ).__ASKR_INSTANCE = instance;
+    if (target instanceof Element) {
+      const host = target as Element & {
+        __ASKR_INSTANCE?: ComponentInstance;
+        __ASKR_INSTANCES?: ComponentInstance[];
+      };
+      const instances = host.__ASKR_INSTANCES ?? [];
+      const nextInstances = instances.filter((entry) => entry !== instance);
+      nextInstances.push(instance);
+      host.__ASKR_INSTANCES = nextInstances;
+      host.__ASKR_INSTANCE = nextInstances[0] ?? instance;
+    }
   } catch (err) {
     void err;
   }

@@ -10,7 +10,6 @@ import {
 } from './route';
 import {
   mountComponent,
-  cleanupComponent,
   type ComponentInstance,
 } from '../runtime/component';
 import {
@@ -19,6 +18,8 @@ import {
 } from '../common/env';
 import { logger } from '../dev/logger';
 import type { RouteRenderResult, RouteRequestResult } from '../common/router';
+import { Fragment, ELEMENT_TYPE } from '../jsx';
+import { DefaultPortal } from '../foundations/structures/portal';
 
 // Global app state for navigation
 let currentInstance: ComponentInstance | null = null;
@@ -68,6 +69,39 @@ function createDeniedResolvedRoute(status: number): ResolvedRoute {
   };
 }
 
+function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentInstance['fn'] {
+  return () => resolved.handler(resolved.params) as ReturnType<ComponentInstance['fn']>;
+}
+
+function wrapRootRouteHandler(
+  componentFn: ComponentInstance['fn']
+): ComponentInstance['fn'] {
+  const wrappedFn: ComponentInstance['fn'] = (props, ctx) => {
+    const out = componentFn(props, ctx);
+    const portalVNode = {
+      $$typeof: ELEMENT_TYPE,
+      type: DefaultPortal,
+      props: {},
+      key: '__default_portal',
+    } as unknown;
+
+    return {
+      $$typeof: ELEMENT_TYPE,
+      type: Fragment,
+      props: {
+        children:
+          out === undefined || out === null ? [portalVNode] : [out, portalVNode],
+      },
+    } as ReturnType<ComponentInstance['fn']>;
+  };
+
+  Object.defineProperty(wrappedFn, 'name', {
+    value: componentFn.name || 'Component',
+  });
+
+  return wrappedFn;
+}
+
 function remountResolvedRoute(
   resolved: ResolvedRoute,
   pathname: string
@@ -76,14 +110,10 @@ function remountResolvedRoute(
     return false;
   }
 
-  // Cleanup previous route lifecycle, but keep the host node so the next route
-  // can reconcile against the existing DOM and preserve shared layout shells.
-  cleanupComponent(currentInstance);
-
   // The route handler IS the component function
   // It takes params as props and renders the route
-  currentInstance.fn = resolved.handler as ComponentInstance['fn'];
-  currentInstance.props = resolved.params;
+  currentInstance.fn = wrapRootRouteHandler(bindResolvedRouteHandler(resolved));
+  currentInstance.props = {};
 
   // Reset state to prevent leakage from previous route
   // Each route navigation starts completely fresh
