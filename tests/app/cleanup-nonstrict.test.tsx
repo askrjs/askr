@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vite-plus/test';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import type { JSXElement } from '../../src/jsx/types';
 import { cleanupApp } from '../../src/boot';
 import { createTestContainer } from '../helpers/test-renderer';
@@ -7,6 +7,7 @@ import { createIsland } from '../helpers/create-island';
 
 describe('createIsland cleanup non-strict mode', () => {
   it('should swallow cleanup errors in non-strict mode', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { container, cleanup } = createTestContainer();
     let cleaned = false;
 
@@ -23,10 +24,15 @@ describe('createIsland cleanup non-strict mode', () => {
     createIsland({ root: container, component: Component });
 
     // Non-strict cleanup should not throw
-    expect(() => cleanupApp(container)).not.toThrow();
+    try {
+      expect(() => cleanupApp(container)).not.toThrow();
 
-    // Ensure cleanup function ran (even though it threw)
-    expect(cleaned).toBe(true);
+      // Ensure cleanup function ran (even though it threw)
+      expect(cleaned).toBe(true);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
 
     cleanup();
   });

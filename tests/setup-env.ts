@@ -13,6 +13,7 @@ const FRAMEWORK_WARNING_PATTERNS = [
   /Invalid For key detected/,
   /Duplicate For key detected/,
 ];
+const DIAGNOSTIC_WARNING_PATTERNS = [/\[askr\] Slow render detected/];
 const originalWarn = logger.warn;
 
 let capturedFrameworkWarnings: string[] = [];
@@ -42,6 +43,10 @@ function isFrameworkWarning(message: string): boolean {
   return FRAMEWORK_WARNING_PATTERNS.some((pattern) => pattern.test(message));
 }
 
+function isDiagnosticWarning(message: string): boolean {
+  return DIAGNOSTIC_WARNING_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 function matchesAllowedWarning(message: string): boolean {
   return allowedFrameworkWarnings.some((matcher) =>
     typeof matcher === 'string'
@@ -54,6 +59,10 @@ export function allowFrameworkWarnings(...matchers: WarningMatcher[]): void {
   allowedFrameworkWarnings.push(...matchers);
 }
 
+export function getCapturedFrameworkWarnings(): string[] {
+  return capturedFrameworkWarnings.slice();
+}
+
 beforeEach(() => {
   process.env.NODE_ENV = BASE;
   capturedFrameworkWarnings = [];
@@ -62,6 +71,13 @@ beforeEach(() => {
     const message = formatWarningArgs(args);
     if (isFrameworkWarning(message)) {
       capturedFrameworkWarnings.push(message);
+      return;
+    }
+    if (isDiagnosticWarning(message)) {
+      if (matchesAllowedWarning(message)) {
+        capturedFrameworkWarnings.push(message);
+      }
+      return;
     }
     originalWarn(...args);
   };

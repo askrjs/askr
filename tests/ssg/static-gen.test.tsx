@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createStaticGen } from '../../src/ssg/create-static-gen';
@@ -395,6 +395,7 @@ describe('Static Site Generation', () => {
     });
 
     it('should track failed routes in metadata', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const BrokenComponent = (): JSXElement => {
         throw new Error('Render failed');
       };
@@ -407,14 +408,22 @@ describe('Static Site Generation', () => {
         outputDir: tempDir,
       });
 
-      const result = await ssg.generate();
+      try {
+        const result = await ssg.generate();
 
-      expect(result.totalRoutes).toBe(2);
-      expect(result.successful).toBe(1);
-      expect(result.failed).toBe(1);
+        expect(result.totalRoutes).toBe(2);
+        expect(result.successful).toBe(1);
+        expect(result.failed).toBe(1);
+        expect(warn).toHaveBeenCalledWith(
+          'Skipping failed route: /broken - Render failed'
+        );
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     it('should record error messages for failed routes', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const BrokenComponent = (): JSXElement => {
         throw new Error('Test error message');
       };
@@ -424,13 +433,20 @@ describe('Static Site Generation', () => {
         outputDir: tempDir,
       });
 
-      await ssg.generate();
-      const failedRoute = JSON.parse(
-        fs.readFileSync(path.join(tempDir, 'metadata.json'), 'utf8')
-      ).routes[0];
+      try {
+        await ssg.generate();
+        const failedRoute = JSON.parse(
+          fs.readFileSync(path.join(tempDir, 'metadata.json'), 'utf8')
+        ).routes[0];
 
-      expect(failedRoute.status).toBe('error');
-      expect(failedRoute.error).toContain('Test error message');
+        expect(failedRoute.status).toBe('error');
+        expect(failedRoute.error).toContain('Test error message');
+        expect(warn).toHaveBeenCalledWith(
+          'Skipping failed route: /broken - Test error message'
+        );
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     it('should write metadata JSON with proper formatting', async () => {
@@ -780,6 +796,7 @@ describe('Static Site Generation', () => {
     });
 
     it('should preserve prior HTML when an incremental rebuild fails', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const initial = createStaticGen({
         routes: [
           {
@@ -811,23 +828,30 @@ describe('Static Site Generation', () => {
         outputDir: tempDir,
       });
 
-      const result = await failing.generate({
-        mode: 'incremental',
-        changedKeys: ['broken'],
-      });
+      try {
+        const result = await failing.generate({
+          mode: 'incremental',
+          changedKeys: ['broken'],
+        });
 
-      expect(result.failed).toBe(1);
-      expect(result.routes[0].status).toBe('error');
-      expect(result.routes[0].written).toBe(false);
-      expect(
-        fs.readFileSync(path.join(tempDir, 'broken', 'index.html'), 'utf8')
-      ).toBe(beforeHtml);
+        expect(result.failed).toBe(1);
+        expect(result.routes[0].status).toBe('error');
+        expect(result.routes[0].written).toBe(false);
+        expect(
+          fs.readFileSync(path.join(tempDir, 'broken', 'index.html'), 'utf8')
+        ).toBe(beforeHtml);
 
-      const afterManifest = readManifest(tempDir);
-      expect(afterManifest.routes[0].lastStatus).toBe('error');
-      expect(afterManifest.routes[0].htmlHash).toBe(
-        beforeManifest.routes[0].htmlHash
-      );
+        const afterManifest = readManifest(tempDir);
+        expect(afterManifest.routes[0].lastStatus).toBe('error');
+        expect(afterManifest.routes[0].htmlHash).toBe(
+          beforeManifest.routes[0].htmlHash
+        );
+        expect(warn).toHaveBeenCalledWith(
+          'Skipping failed route: /broken - boom'
+        );
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     it('should fall back to a full build when incremental mode has no manifest', async () => {
