@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { builtinModules } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +7,12 @@ import { buildInputEntries, packageAliasEntries } from './platform-contract.ts';
 const toolingDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(toolingDir, '..');
 
+type LocalPackageMetadata = {
+  name: string;
+  version: string;
+  buildLabel: string;
+};
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -13,6 +20,24 @@ function escapeRegExp(value: string): string {
 function resolveRepoPath(sourcePath: string): string {
   return path.resolve(repoRoot, sourcePath);
 }
+
+function readLocalPackageMetadata(): LocalPackageMetadata {
+  const packageJsonPath = resolveRepoPath('package.json');
+  const packageJson = JSON.parse(
+    fs.readFileSync(packageJsonPath, 'utf8')
+  ) as Partial<Pick<LocalPackageMetadata, 'name' | 'version'>>;
+
+  const name = packageJson.name?.trim() || '@askrjs/askr';
+  const version = packageJson.version?.trim() || '0.0.0';
+
+  return {
+    name,
+    version,
+    buildLabel: `${version}-local`,
+  };
+}
+
+const localPackageMetadata = readLocalPackageMetadata();
 
 const bareNodeBuiltins = new Set(
   builtinModules.map((moduleName) => moduleName.replace(/^node:/, ''))
@@ -62,10 +87,24 @@ export const ssrBenchIncludes = ['benches/ssr/**/*.{ts,tsx}'] as const;
 export function createNodeEnvDefine(
   mode: 'development' | 'production',
   options?: { bench?: boolean }
-): Record<'process.env.NODE_ENV' | 'process.env.ASKR_BENCH', string> {
+): Record<
+  | 'process.env.NODE_ENV'
+  | 'process.env.ASKR_BENCH'
+  | 'process.env.ASKR_PACKAGE_NAME'
+  | 'process.env.ASKR_PACKAGE_VERSION'
+  | 'process.env.ASKR_BENCHMARK_BUILD_LABEL',
+  string
+> {
   return {
     'process.env.NODE_ENV': JSON.stringify(mode),
     'process.env.ASKR_BENCH': JSON.stringify(options?.bench ? '1' : '0'),
+    'process.env.ASKR_PACKAGE_NAME': JSON.stringify(localPackageMetadata.name),
+    'process.env.ASKR_PACKAGE_VERSION': JSON.stringify(
+      localPackageMetadata.version
+    ),
+    'process.env.ASKR_BENCHMARK_BUILD_LABEL': JSON.stringify(
+      localPackageMetadata.buildLabel
+    ),
   };
 }
 

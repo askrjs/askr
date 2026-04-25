@@ -11,6 +11,22 @@ installRendererBridge();
 
 type RowData = BenchmarkRowData;
 
+export interface BenchmarkMetadata {
+  packageName: string;
+  packageVersion: string;
+  buildLabel: string;
+}
+
+export const benchmarkMetadata: BenchmarkMetadata = {
+  packageName: process.env.ASKR_PACKAGE_NAME || '@askrjs/askr',
+  packageVersion: process.env.ASKR_PACKAGE_VERSION || '0.0.0',
+  buildLabel: process.env.ASKR_BENCHMARK_BUILD_LABEL || '0.0.0-local',
+};
+
+export function getBenchmarkMetadata(): BenchmarkMetadata {
+  return { ...benchmarkMetadata };
+}
+
 export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   const initialRowsTyped: RowData[] = Array.isArray(initialRows)
     ? initialRows
@@ -43,6 +59,7 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   };
 
   createIsland({ root, component: App as any });
+  globalScheduler.flush();
 
   return {
     setRows(rows: RowData[]) {

@@ -8,7 +8,7 @@ function toPosix(filePath) {
 }
 
 async function findBenchmarkScenarioTests(rootDir) {
-  const scenariosDir = path.join(rootDir, 'tests', 'scenarios');
+  const scenariosDir = path.join(rootDir, 'tests', 'jsdom', 'scenarios');
   const entries = await fs.readdir(scenariosDir, { withFileTypes: true });
 
   const files = entries
@@ -18,14 +18,25 @@ async function findBenchmarkScenarioTests(rootDir) {
         entry.name.startsWith('benchmark-') &&
         entry.name.endsWith('.test.tsx')
     )
-    .map((entry) => toPosix(path.join('tests', 'scenarios', entry.name)))
+    .map((entry) =>
+      toPosix(path.join('tests', 'jsdom', 'scenarios', entry.name))
+    )
     .sort((left, right) => left.localeCompare(right));
 
   return files;
 }
 
 async function runTests(files, cwd) {
-  const args = ['exec', '--', 'vp', 'test', 'run', ...files];
+  const args = [
+    'exec',
+    '--',
+    'vp',
+    'test',
+    'run',
+    '-c',
+    'vitest.jsdom.config.ts',
+    ...files,
+  ];
 
   await new Promise((resolve, reject) => {
     const child =

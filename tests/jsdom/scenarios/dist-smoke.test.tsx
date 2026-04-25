@@ -6,6 +6,8 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { resolve } from 'path';
+import { pathToFileURL } from 'url';
 
 const execP = promisify(exec);
 
@@ -17,7 +19,10 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
   // Import the built bundle
-  const built = await import('../../../dist/benchmark.js');
+  const benchmarkBundleUrl = pathToFileURL(
+    resolve(process.cwd(), 'dist/benchmark.js')
+  );
+  const built = await import(/* @vite-ignore */ benchmarkBundleUrl.href);
   const mount = built.mountBenchmark ?? built.default?.mountBenchmark;
   expectChai(typeof mount).to.equal('function');
 
