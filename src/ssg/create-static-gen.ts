@@ -192,39 +192,40 @@ export function createStaticGen(options: SSGOptions) {
         eligibleDescriptors.map((descriptor) => descriptor.routeId)
       );
 
-      const selected = eligibleDescriptors.map((descriptor) =>
-        selectRouteForGeneration(
+      const selected: SelectedRoute[] = [];
+      const routesToRender: SelectedRoute[] = [];
+      for (let index = 0; index < eligibleDescriptors.length; index += 1) {
+        const descriptor = eligibleDescriptors[index];
+        const entry = selectRouteForGeneration(
           descriptor,
           previousEntries.get(descriptor.routeId) ?? null,
           effectiveMode,
           changedKeys,
           changedRoutes
-        )
-      );
-
-      const routesToRender = selected.filter(
-        (entry) => entry.reason !== 'unchanged'
-      );
+        );
+        selected.push(entry);
+        if (entry.reason !== 'unchanged') {
+          routesToRender.push(entry);
+        }
+      }
       const renderStartTime = performance.now();
       incrementPerfMetric('ssgWorkerCount', resolvedParallelism);
       const renderedResults =
         routesToRender.length > 0
-          ? await batchRenderRoutes(
-              routesToRender.map((entry) => entry.descriptor.route),
-              {
-                seed,
-                dataMap,
-                concurrency: resolvedConcurrency,
-              }
-            )
+          ? await batchRenderRoutes(getRoutesToRender(routesToRender), {
+              seed,
+              dataMap,
+              concurrency: resolvedConcurrency,
+            })
           : [];
       addPerfDuration('ssgRenderTimeMs', performance.now() - renderStartTime);
-      const renderedByRouteId = new Map(
-        renderedResults.map((rendered, index) => [
+      const renderedByRouteId = new Map<string, RouteRenderResult>();
+      for (let index = 0; index < renderedResults.length; index += 1) {
+        renderedByRouteId.set(
           routesToRender[index].descriptor.routeId,
-          rendered,
-        ])
-      );
+          renderedResults[index]
+        );
+      }
 
       let cacheHits = 0;
       const nextManifestRoutes: IncrementalManifestRouteEntry[] = [];
@@ -320,9 +321,13 @@ export function createStaticGen(options: SSGOptions) {
         previousManifest,
         currentRouteIds
       );
-      const routeResults = descriptors
-        .map((descriptor) => routeResultsById.get(descriptor.routeId))
-        .filter((result): result is RouteRenderResult => !!result);
+      const routeResults: RouteRenderResult[] = [];
+      for (let index = 0; index < descriptors.length; index += 1) {
+        const routeResult = routeResultsById.get(descriptors[index].routeId);
+        if (routeResult) {
+          routeResults.push(routeResult);
+        }
+      }
       routeResults.push(...removedResults);
 
       // Write HTML files to disk and remove stale output
@@ -385,6 +390,14 @@ function dedupeStrings(values?: string[]): string[] {
   return values ? Array.from(new Set(values)) : [];
 }
 
+function getRoutesToRender(selected: SelectedRoute[]): SSGOptions['routes'] {
+  const routes: SSGOptions['routes'] = [];
+  for (let index = 0; index < selected.length; index += 1) {
+    routes.push(selected[index].descriptor.route);
+  }
+  return routes;
+}
+
 function selectRouteForGeneration(
   descriptor: ResolvedRouteDescriptor,
   previous: IncrementalManifestRouteEntry | null,
@@ -427,9 +440,13 @@ function collectRemovedRouteResults(
     return [];
   }
 
-  return manifest.routes
-    .filter((entry) => !currentRouteIds.has(entry.routeId))
-    .map((entry) => ({
+  const results: RouteRenderResult[] = [];
+  for (let index = 0; index < manifest.routes.length; index += 1) {
+    const entry = manifest.routes[index];
+    if (currentRouteIds.has(entry.routeId)) {
+      continue;
+    }
+    results.push({
       path: entry.path,
       filePath: entry.filePath,
       html: '',
@@ -439,5 +456,8 @@ function collectRemovedRouteResults(
       status: 'removed' as const,
       reason: 'deleted' as const,
       written: false,
-    }));
+    });
+  }
+
+  return results;
 }

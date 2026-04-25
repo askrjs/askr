@@ -37,13 +37,17 @@ export async function writeStaticFiles(
     }
   }
 
-  const pendingWrites = results.filter((result) => {
+  const pendingWrites: RouteRenderResult[] = [];
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index];
     if (result.status === 'error') {
       console.warn(`Skipping failed route: ${result.path} - ${result.error}`);
-      return false;
+      continue;
     }
-    return result.status === 'success' && result.written;
-  });
+    if (result.status === 'success' && result.written) {
+      pendingWrites.push(result);
+    }
+  }
 
   const directories: string[] = [];
   const seenDirectories = new Set<string>();

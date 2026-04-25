@@ -99,16 +99,6 @@ export class Scheduler {
     return total;
   }
 
-  private getNextPendingLane(): SchedulerLane | null {
-    for (const lane of SCHEDULER_LANES) {
-      const queue = this.lanes[lane];
-      if (queue.head < queue.tasks.length) {
-        return lane;
-      }
-    }
-    return null;
-  }
-
   private compactLane(queue: LaneQueue): void {
     if (queue.head >= queue.tasks.length) {
       queue.tasks.length = 0;
@@ -201,37 +191,52 @@ export class Scheduler {
     this.depth = 0;
     let fatal: unknown = null;
     let executedTaskCount = 0;
+    const checkFlushDepth = isDevelopmentEnvironment();
 
     try {
-      while (true) {
-        const lane = this.getNextPendingLane();
-        if (!lane) {
+      while (fatal === null) {
+        let didRunTask = false;
+
+        for (const lane of SCHEDULER_LANES) {
+          const laneQueue = this.lanes[lane];
+          let executedInLane = 0;
+
+          while (laneQueue.head < laneQueue.tasks.length) {
+            this.depth++;
+            if (checkFlushDepth && this.depth > MAX_FLUSH_DEPTH) {
+              throw new Error(
+                `[Scheduler] exceeded MAX_FLUSH_DEPTH (${MAX_FLUSH_DEPTH}). Likely infinite update loop.`
+              );
+            }
+
+            const task = laneQueue.tasks[laneQueue.head++];
+            try {
+              this.executionDepth++;
+              task();
+              this.executionDepth--;
+              executedTaskCount++;
+              executedInLane++;
+              didRunTask = true;
+            } catch (err) {
+              // ensure executionDepth stays balanced
+              if (this.executionDepth > 0) this.executionDepth = 0;
+              fatal = err;
+              break;
+            }
+          }
+
+          if (executedInLane > 0) {
+            this.taskCount = Math.max(0, this.taskCount - executedInLane);
+          }
+
+          if (fatal !== null) {
+            break;
+          }
+        }
+
+        if (!didRunTask) {
           break;
         }
-
-        this.depth++;
-        if (isDevelopmentEnvironment() && this.depth > MAX_FLUSH_DEPTH) {
-          throw new Error(
-            `[Scheduler] exceeded MAX_FLUSH_DEPTH (${MAX_FLUSH_DEPTH}). Likely infinite update loop.`
-          );
-        }
-
-        const laneQueue = this.lanes[lane];
-        const task = laneQueue.tasks[laneQueue.head++];
-        try {
-          this.executionDepth++;
-          task();
-          this.executionDepth--;
-          executedTaskCount++;
-        } catch (err) {
-          // ensure executionDepth stays balanced
-          if (this.executionDepth > 0) this.executionDepth = 0;
-          fatal = err;
-          break;
-        }
-
-        // Account for executed task in taskCount
-        if (this.taskCount > 0) this.taskCount--;
       }
     } finally {
       this.running = false;

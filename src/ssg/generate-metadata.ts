@@ -28,14 +28,29 @@ export function generateSSGResult(
   results: RouteRenderResult[],
   options: GenerateResultOptions = {}
 ): SSGResult {
-  const successful = results.filter((r) => r.status === 'success').length;
-  const failed = results.filter((r) => r.status === 'error').length;
-  const totalDuration = results.reduce((sum, r) => sum + r.renderDuration, 0);
-  const rebuilt = results.filter(
-    (r) => r.status === 'success' || r.status === 'error'
-  ).length;
-  const skipped = results.filter((r) => r.status === 'skipped').length;
-  const removed = results.filter((r) => r.status === 'removed').length;
+  let successful = 0;
+  let failed = 0;
+  let totalDuration = 0;
+  let rebuilt = 0;
+  let skipped = 0;
+  let removed = 0;
+
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index];
+    totalDuration += result.renderDuration;
+
+    if (result.status === 'success') {
+      successful += 1;
+      rebuilt += 1;
+    } else if (result.status === 'error') {
+      failed += 1;
+      rebuilt += 1;
+    } else if (result.status === 'skipped') {
+      skipped += 1;
+    } else if (result.status === 'removed') {
+      removed += 1;
+    }
+  }
 
   return {
     generatedAt: new Date().toISOString(),
@@ -58,6 +73,23 @@ export function generateSSGResult(
  * Convert SSGResult to metadata for JSON serialization
  */
 export function resultToMetadata(result: SSGResult): SSGMetadata {
+  const routes: SSGMetadata['routes'] = [];
+
+  for (let index = 0; index < result.routes.length; index += 1) {
+    const route = result.routes[index];
+    routes.push({
+      path: route.path,
+      filePath: route.filePath,
+      fileSize: route.fileSize,
+      renderDuration: route.renderDuration,
+      resourceCount: route.resourceCount,
+      status: route.status,
+      reason: route.reason,
+      written: route.written,
+      error: route.error,
+    });
+  }
+
   return {
     generatedAt: result.generatedAt,
     totalRoutes: result.totalRoutes,
@@ -71,17 +103,7 @@ export function resultToMetadata(result: SSGResult): SSGMetadata {
     cacheHits: result.cacheHits,
     invalidatedKeys: result.invalidatedKeys.slice(),
     invalidatedRoutes: result.invalidatedRoutes.slice(),
-    routes: result.routes.map((r) => ({
-      path: r.path,
-      filePath: r.filePath,
-      fileSize: r.fileSize,
-      renderDuration: r.renderDuration,
-      resourceCount: r.resourceCount,
-      status: r.status,
-      reason: r.reason,
-      written: r.written,
-      error: r.error,
-    })),
+    routes,
   };
 }
 
