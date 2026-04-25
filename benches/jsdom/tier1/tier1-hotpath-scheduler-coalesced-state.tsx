@@ -1,10 +1,10 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { createIsland, state } from '../../src';
+import { createIsland, state } from '../../../src';
 import { globalScheduler } from '../../../src/runtime/scheduler';
 import {
   createTestContainer,
   flushScheduler,
-} from '../../tests/helpers/test-renderer';
+} from '../../../test-utils/render/test-renderer';
 import { tier1BenchOptions, verifyTier1Invariant } from '../../shared/_shared';
 
 verifyTier1Invariant('tier1 hotpath scheduler coalesced state', () => {

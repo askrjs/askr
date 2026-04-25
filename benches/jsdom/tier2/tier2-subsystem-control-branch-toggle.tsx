@@ -1,9 +1,9 @@
 import { bench, describe } from 'vite-plus/test';
-import { Case, Match, Show, createIsland, state } from '../../src';
+import { Case, Match, Show, createIsland, state } from '../../../src';
 import {
   createTestContainer,
   flushScheduler,
-} from '../../tests/helpers/test-renderer';
+} from '../../../test-utils/render/test-renderer';
 import { tier2BenchOptions } from '../../shared/_shared';
 
 describe('tier2 control-flow branch toggles', () => {

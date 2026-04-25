@@ -40,7 +40,18 @@ export const askrEsbuild = {
   jsxImportSource: '@askrjs/askr',
 } as const;
 
-export const domBenchIncludes = ['benches/jsdom/**/*.{ts,tsx}'] as const;
+export const domBenchIncludes = [
+  'benches/jsdom/tier1/**/*.{ts,tsx}',
+  'benches/jsdom/tier2/**/*.{ts,tsx}',
+] as const;
+
+export const domTier3BenchIncludes = [
+  'benches/jsdom/tier3/**/*.{ts,tsx}',
+] as const;
+
+export const domTier4BenchIncludes = [
+  'benches/jsdom/tier4/**/*.{ts,tsx}',
+] as const;
 
 export const domBenchExcludes = ['benches/shared/_shared.*'] as const;
 

@@ -3,6 +3,8 @@ import {
   createPackageAliases,
   domBenchExcludes,
   domBenchIncludes,
+  domTier3BenchIncludes,
+  domTier4BenchIncludes,
   microBenchIncludes,
   ssrBenchIncludes,
 } from './tooling/askr-tooling';
@@ -10,6 +12,8 @@ import {
 export {
   domBenchExcludes,
   domBenchIncludes,
+  domTier3BenchIncludes,
+  domTier4BenchIncludes,
   microBenchIncludes,
   ssrBenchIncludes,
 };
@@ -40,6 +44,8 @@ export function createBenchTestConfig(options: {
     fileParallelism: false,
     maxWorkers: 1,
     pool: 'forks' as const,
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     benchmark: {
       include: [...options.include],
       ...(options.exclude ? { exclude: [...options.exclude] } : {}),

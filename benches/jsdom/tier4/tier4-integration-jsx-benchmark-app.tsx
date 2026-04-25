@@ -1,10 +1,10 @@
 import { bench, describe } from 'vite-plus/test';
-import { createIsland, selector, state, type State } from '../../src';
+import { createIsland, selector, state, type State } from '../../../src';
 import { BenchmarkTable } from '../../../src/bench/components/benchmark-table';
 import {
   createTestContainer,
   flushScheduler,
-} from '../../tests/helpers/test-renderer';
+} from '../../../test-utils/render/test-renderer';
 import type { BenchToggle, RowData } from '../../shared/_shared';
 import {
   assertOrderTransition,

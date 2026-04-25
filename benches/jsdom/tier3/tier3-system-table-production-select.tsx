@@ -1,5 +1,5 @@
 import { bench, describe } from 'vite-plus/test';
-import { flushScheduler } from '../../tests/helpers/test-renderer';
+import { flushScheduler } from '../../../test-utils/render/test-renderer';
 import type { BenchToggle } from '../../shared/_shared';
 import {
   assertSelectionTransition,
