@@ -6,7 +6,7 @@ import { expect } from 'chai';
 import { test, describe } from 'vite-plus/test';
 import { createIsland, selector, state } from '../../src';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
-import { For } from '../../src/for';
+import { For } from '../../src/control';
 import type { State } from '../../src';
 
 interface RowData {

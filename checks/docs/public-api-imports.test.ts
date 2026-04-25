@@ -66,6 +66,9 @@ function probeDistExports(): unknown {
       const resourcesModuleHref = pathToFileURL(
         path.join(snapshotDir, 'resources', 'index.js')
       ).href;
+      const controlModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'control', 'index.js')
+      ).href;
       const fxModuleHref = pathToFileURL(
         path.join(snapshotDir, 'fx', 'index.js')
       ).href;
@@ -86,6 +89,9 @@ function probeDistExports(): unknown {
             const resourcesModule = await import(${JSON.stringify(
               resourcesModuleHref
             )});
+            const controlModule = await import(${JSON.stringify(
+              controlModuleHref
+            )});
             const fxModule = await import(${JSON.stringify(fxModuleHref)});
             const bootModule = await import(${JSON.stringify(bootModuleHref)});
             console.log(JSON.stringify({
@@ -97,6 +103,10 @@ function probeDistExports(): unknown {
                 navigate: typeof rootModule.navigate,
                 resource: typeof rootModule.resource,
                 Link: typeof rootModule.Link,
+                For: typeof rootModule.For,
+                Show: typeof rootModule.Show,
+                Case: typeof rootModule.Case,
+                Match: typeof rootModule.Match,
                 hasCreateApp: Object.prototype.hasOwnProperty.call(
                   rootModule,
                   'createApp'
@@ -139,6 +149,12 @@ function probeDistExports(): unknown {
                   resourcesModule,
                   'DataResult'
                 ),
+              },
+              control: {
+                For: typeof controlModule.For,
+                Show: typeof controlModule.Show,
+                Case: typeof controlModule.Case,
+                Match: typeof controlModule.Match,
               },
               fx: {
                 debounce: typeof fxModule.debounce,
@@ -217,6 +233,10 @@ describe('public docs and examples', () => {
         navigate: 'function',
         resource: 'function',
         Link: 'function',
+        For: 'function',
+        Show: 'function',
+        Case: 'function',
+        Match: 'function',
         hasCreateApp: false,
         hasHydrateAlias: false,
         hasAppConfigAlias: false,
@@ -238,6 +258,12 @@ describe('public docs and examples', () => {
         getSignal: 'function',
         on: 'function',
         hasDataResultAlias: false,
+      },
+      control: {
+        For: 'function',
+        Show: 'function',
+        Case: 'function',
+        Match: 'function',
       },
       fx: {
         debounce: 'function',

@@ -18,9 +18,10 @@ Supported DOM events are delegated automatically as part of the renderer; normal
 - `@askrjs/askr/router` -> routing entrypoint (`route`, `registerRoute`, `getRoutes`, `clearRoutes`, namespace helpers, `navigate`, `Link`, `layout`, route types)
 - `@askrjs/askr/resources` -> resource and operation primitives (`resource`, `getSignal`, `on`, `timer`, `task`, `stream`, `capture`)
 - `@askrjs/askr/fx` -> timing and scheduling utilities (`debounce`, `throttle`, `retry`, `defer`, event helpers, `scheduleEventHandler`)
+- `@askrjs/askr/control` -> JSX control-flow primitives (`For`, `Show`, `Case`, `Match`)
 - `@askrjs/askr/ssr` -> server-side rendering helpers
 - `@askrjs/askr/ssg` -> static-site generation helpers (`createStaticGen`)
-- `@askrjs/askr/for`, `@askrjs/askr/foundations` -> lower-level framework primitives
+- `@askrjs/askr/foundations` -> lower-level framework primitives
 
 Control-flow primitives use JSX directly:
 
@@ -57,6 +58,7 @@ import { createIsland, createSPA } from '@askrjs/askr/boot';
 import { registerRoute } from '@askrjs/askr/router';
 import { resource, on } from '@askrjs/askr/resources';
 import { debounce } from '@askrjs/askr/fx';
+import { For, Show } from '@askrjs/askr/control';
 import { createStaticGen } from '@askrjs/askr/ssg';
 ```
 

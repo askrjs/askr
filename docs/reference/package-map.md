@@ -6,7 +6,7 @@ For the platform-level operating model and how the packages fit together, see
 [Platform charter](../development/platform-charter.md).
 
 This reference stays aligned with the platform contract in
-[packages/askr-core/tooling/platform-contract.ts](../../packages/askr-core/tooling/platform-contract.ts),
+[tooling/platform-contract.ts](../../tooling/platform-contract.ts),
 which is the machine-readable source of truth for package roles and workspace boundaries.
 
 ---
@@ -45,6 +45,7 @@ import { state, route, currentRoute, navigate, resource } from '@askrjs/askr';
 
 // Explicit subpaths for feature-focused imports:
 import { createSPA } from '@askrjs/askr/boot';
+import { Case, For, Match, Show } from '@askrjs/askr/control';
 import { registerRoutes, group, route } from '@askrjs/askr/router';
 import { resource, on } from '@askrjs/askr/resources';
 import { debounce } from '@askrjs/askr/fx';

@@ -56,6 +56,16 @@ function createCaseFallbackRenderer(fallback: unknown): (() => VNode) | null {
   return () => normalizedFallback;
 }
 
+function createMatchBranchKey(
+  key: string | number | null | undefined,
+  index: number
+): string | number {
+  if (key == null) {
+    return index;
+  }
+  return `match:${index}:${typeof key}:${String(key)}`;
+}
+
 function readMatchBranches(children: unknown): MatchBranch[] {
   const branches: MatchBranch[] = [];
   const flatChildren = flattenChildren(children);
@@ -74,7 +84,7 @@ function readMatchBranches(children: unknown): MatchBranch[] {
     ) {
       const element = child as JSXElement;
       const props = (element.props ?? {}) as MatchProps;
-      const key = element.key ?? index;
+      const key = createMatchBranchKey(element.key, index);
       const render =
         typeof props.children === 'function'
           ? () =>

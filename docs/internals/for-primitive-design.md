@@ -26,7 +26,7 @@ import { Case, For, Match, Show } from '@askrjs/askr';
 </Case>;
 ```
 
-`For` is JSX-only. Stable keyed identity requires `by`. Positional identity is opt-in through `byIndex={true}`.
+`For` is JSX-only. Stable keyed identity requires `by`. Positional identity is opt-in through `byIndex={true}`. The canonical feature subpath for these primitives is `@askrjs/askr/control`.
 
 ## Core Runtime Primitive
 
@@ -109,7 +109,7 @@ Function children receive the resolved truthy value. Static children are rendere
 
 `Case` owns selection and lifecycle. It scans direct `Match` children, picks the first truthy branch, and renders only that branch.
 
-- selected branch key: `match.key ?? matchIndex`
+- selected branch key: an internal branch identity derived from match position plus user key
 - fallback is prop-only
 - replaced branches are disposed immediately
 - invalid direct children throw in development

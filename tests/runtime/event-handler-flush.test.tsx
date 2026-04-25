@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import { state } from '../../src/runtime/state';
-import { For } from '../../src/for';
+import { For } from '../../src/control';
 import type { ComponentFunction } from '../../src/runtime/component';
 
 // Lightweight mount helper (mirrors small portion of bench environment)

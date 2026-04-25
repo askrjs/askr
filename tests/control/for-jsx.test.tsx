@@ -52,6 +52,45 @@ describe('For JSX primitive', () => {
     cleanup();
   });
 
+  it('should update shifted index accessors after removing one keyed row from the middle', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    const rowA = { id: 1, label: 'a' };
+    const rowB = { id: 2, label: 'b' };
+    const rowC = { id: 3, label: 'c' };
+    let setItems: (next: Item[]) => void = () => {};
+
+    const App = () => {
+      const items = state<Item[]>([rowA, rowB, rowC]);
+      setItems = (next) => items.set(next);
+
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item, index) => (
+              <li data-id={String(item.id)}>{`${item.label}:${index()}`}</li>
+            )}
+          </For>
+        </ul>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      setItems([rowA, rowC]);
+      flushScheduler();
+
+      const shifted = Array.from(container.querySelectorAll('li')).map(
+        (node) => node.textContent
+      );
+      expect(shifted).toEqual(['a:0', 'c:1']);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should support byIndex as an explicit positional escape hatch', () => {
     const { container, cleanup } = createTestContainer();
     let setItems: (next: string[]) => void = () => {};

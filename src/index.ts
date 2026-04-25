@@ -88,12 +88,8 @@ export type { NavigateOptions } from './router/navigate';
 // Components
 export { Link } from './components/link';
 export type { LinkProps } from './components/link';
-export { For } from './for';
-export type { ForProps } from './for/for';
-export { Show } from './control/show';
-export type { ShowProps } from './control/show';
-export { Case, Match } from './control/case';
-export type { CaseProps, MatchProps } from './control/case';
+export { Case, For, Match, Show } from './control';
+export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
 export { jsx, jsxs, Fragment } from './jsx-runtime';

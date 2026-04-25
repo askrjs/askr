@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { For } from '../../src/for';
+import { For } from '../../src/control';
 import { selector, state } from '../../src/index';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
