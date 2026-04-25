@@ -66,6 +66,11 @@ Askr focuses on frontend application structure and developer workflow. It is not
 | [Reference](./reference/)             | Package map, project structure, conventions, glossary |
 | [Development](./development/)         | Platform charter, monorepo layout, release process    |
 
+Benchmark workflow and current optimization goals live under
+[Benchmarks](./benchmarks/), including the
+[stability workflow](./benchmarks/stability.md) and
+[performance targets](./benchmarks/performance-targets.md).
+
 ## The most important rule
 
 Every doc reinforces one thing: **there is a canonical way to build an Askr app**.
