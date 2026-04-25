@@ -14,7 +14,6 @@ import { matchSegments, parseSegments, computeRank } from './match';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { getExecutionModel } from '../runtime/execution-model';
 import { getRenderContext } from '../ssr/context';
-import { ELEMENT_TYPE } from '../common/jsx';
 import {
   requireAuth,
   requireGuest,
@@ -895,25 +894,13 @@ export function route(
     ...(normalizedOptions?.policies ?? []),
   ];
 
-  // Build a runtime handler that auto-composes the layout chain around the
-  // page component.  The handler is RouteHandler-compatible so navigation,
-  // SSR, and SSG can all call it without knowing the chain internals.
   const handler: RouteHandler = (params) => {
-    let content: unknown = {
-      $$typeof: ELEMENT_TYPE,
-      type: comp,
-      props: params,
-      key: null,
-    };
-    // Apply layouts from innermost to outermost
+    let content = comp(params);
+
     for (let i = chain.length - 1; i >= 0; i--) {
-      content = {
-        $$typeof: ELEMENT_TYPE,
-        type: chain[i].component,
-        props: { children: content },
-        key: null,
-      };
+      content = chain[i].component({ children: content });
     }
+
     return content;
   };
 

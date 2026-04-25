@@ -20,6 +20,7 @@ import {
 import {
   createDOMNode,
   commitForBoundaryChildren,
+  syncComponentElement,
   updateElementFromVnode,
   updateUnkeyedChildren,
   performBulkPositionalKeyedTextUpdate,
@@ -751,7 +752,23 @@ export function evaluate(
     };
     const targetInstance = targetWithInstance.__ASKR_INSTANCE;
     if (targetInstance && targetInstance.target === target) {
-      // This is a nested component's own element
+      // This is a nested component's own element.
+      if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
+        const syncedDom = syncComponentElement(
+          target,
+          vnode as DOMElement,
+          vnode.type as (props: Props) => unknown,
+          (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {}
+        );
+
+        if (syncedDom instanceof Element) {
+          (syncedDom as Element & { __ASKR_INSTANCE?: ComponentInstance }).__ASKR_INSTANCE =
+            targetInstance;
+          targetInstance.target = syncedDom;
+          return;
+        }
+      }
+
       if (
         _isDOMElement(vnode) &&
         typeof vnode.type === 'string' &&
@@ -760,23 +777,23 @@ export function evaluate(
         // Tag names match - update in place
         smartUpdateElement(target, vnode as DOMElement);
         return;
-      } else {
-        // Tag names don't match - need to replace the element
-        // Create new element and replace old one in parent
-        const newDom = createDOMNode(vnode);
-        if (newDom && target.parentNode) {
-          // Transfer the component instance to the new element
-          if (newDom instanceof Element) {
-            (
-              newDom as Element & { __ASKR_INSTANCE?: ComponentInstance }
-            ).__ASKR_INSTANCE = targetInstance;
-            targetInstance.target = newDom as Element;
-          }
-          // Clean up old element
-          removeAllListeners(target);
-          target.parentNode.replaceChild(newDom, target);
-          return;
+      }
+
+      // Tag names don't match - need to replace the element
+      // Create new element and replace old one in parent
+      const newDom = createDOMNode(vnode);
+      if (newDom && target.parentNode) {
+        // Transfer the component instance to the new element
+        if (newDom instanceof Element) {
+          (
+            newDom as Element & { __ASKR_INSTANCE?: ComponentInstance }
+          ).__ASKR_INSTANCE = targetInstance;
+          targetInstance.target = newDom as Element;
         }
+        // Clean up old element
+        removeAllListeners(target);
+        target.parentNode.replaceChild(newDom, target);
+        return;
       }
     }
 
