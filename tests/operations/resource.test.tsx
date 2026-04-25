@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vite-plus/test';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { resource } from '../../src/resources';
 import {
   createTestContainer,
@@ -73,6 +73,7 @@ describe('resource() (unified async primitive) — gaps', () => {
   });
 
   it('should expose error when resource function throws', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     async function fetchUser() {
       throw new Error('fetch failed');
     }
@@ -90,7 +91,9 @@ describe('resource() (unified async primitive) — gaps', () => {
       flushScheduler();
 
       expect(container.textContent).toBe('fetch failed');
+      expect(error).toHaveBeenCalled();
     } finally {
+      error.mockRestore();
       cleanup();
     }
   });

@@ -95,14 +95,12 @@ describe('state persistence (SPEC 2.5)', () => {
       createIsland({ root: container, component: Component });
       flushScheduler();
 
-      console.warn('Initial DOM:', container.innerHTML);
       expect(container.textContent).toContain('toggle state: false');
 
       const element = container.querySelector('div button') as HTMLElement;
       element?.click();
       flushScheduler();
 
-      console.warn('After click DOM:', container.innerHTML);
       expect(container.textContent).toContain('toggle state: true');
     });
   });

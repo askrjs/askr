@@ -11,7 +11,10 @@ import { state } from '../../src/index';
 import { For } from '../../src/control';
 import { createTestContainer, flushScheduler } from '../helpers/test-renderer';
 import { createIsland } from '../helpers/create-island';
-import { allowFrameworkWarnings } from '../setup-env';
+import {
+  allowFrameworkWarnings,
+  getCapturedFrameworkWarnings,
+} from '../setup-env';
 
 describe('dev warnings (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();
@@ -20,7 +23,6 @@ describe('dev warnings (DEV_ERRORS)', () => {
 
   it('should warn given missing keys when rendering dynamic lists', async () => {
     allowFrameworkWarnings(/Missing keys on dynamic lists/);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let items: ReturnType<typeof state<string[]>> | null = null;
     const Component = () => {
       items = state(['a', 'b', 'c']);
@@ -37,13 +39,13 @@ describe('dev warnings (DEV_ERRORS)', () => {
     flushScheduler();
 
     // Spec: missing keys on dynamic lists should warn in dev.
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
+    expect(getCapturedFrameworkWarnings().join('\n')).toContain(
+      'Missing keys on dynamic lists'
+    );
   });
 
   it('should warn given unused state variable when rendering', async () => {
     allowFrameworkWarnings(/\[askr\] Unused state variable detected/);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const Component = () => {
       state(123);
       return <div>{'x'}</div>;
@@ -53,13 +55,13 @@ describe('dev warnings (DEV_ERRORS)', () => {
     flushScheduler();
 
     // Spec: unused state should warn in dev.
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
+    expect(getCapturedFrameworkWarnings().join('\n')).toContain(
+      '[askr] Unused state variable detected'
+    );
   });
 
   it('should warn given slow render when in dev mode', async () => {
     allowFrameworkWarnings(/\[askr\] Slow render detected/);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const Component = () => {
       const start = Date.now();
       while (Date.now() - start < 10) {
@@ -72,8 +74,9 @@ describe('dev warnings (DEV_ERRORS)', () => {
     flushScheduler();
 
     // Spec: slow render should warn in dev.
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
+    expect(getCapturedFrameworkWarnings().join('\n')).toContain(
+      '[askr] Slow render detected'
+    );
   });
 
   it('should not warn when children are keyed', async () => {
@@ -103,7 +106,6 @@ describe('dev warnings (DEV_ERRORS)', () => {
 
   it('should include component name in missing-keys warning', async () => {
     allowFrameworkWarnings(/Missing keys on dynamic lists in FancyList/);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let items: ReturnType<typeof state<string[]>> | null = null;
     const FancyList = () => {
       items = state(['a', 'b']);
@@ -120,9 +122,8 @@ describe('dev warnings (DEV_ERRORS)', () => {
     flushScheduler();
 
     // Verify the warning message contains the component name
-    const calledWith = warn.mock.calls.map((c) => String(c[0])).join('\n');
+    const calledWith = getCapturedFrameworkWarnings().join('\n');
     expect(calledWith).toContain('Missing keys on dynamic lists in FancyList');
-    warn.mockRestore();
   });
 
   it('should throw when For receives null keys', async () => {
