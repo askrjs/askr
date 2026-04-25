@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
 import { scheduleEventHandler } from '../../../src/runtime/scheduler';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('scheduler (SPEC 2.2)', () => {

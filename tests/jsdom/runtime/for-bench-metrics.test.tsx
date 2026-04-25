@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland, state } from '../../../src';
 import { For } from '../../../src/control';
 import { getBenchMetrics } from '../../../src/runtime/for';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 type BenchGlobal = typeof globalThis & {
   __ASKR_BENCH__?: boolean;

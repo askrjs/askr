@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state, createSPA } from '../../../src/index';
 import { route, getRoutes, clearRoutes } from '../../../src/router/route';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('state reactivity with createSPA', () => {
   let { container, cleanup } = createTestContainer();

@@ -7,7 +7,10 @@ import {
   vi,
 } from 'vite-plus/test';
 import { createSPA } from '../../../src/index';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { navigate } from '../../../src/router/navigate';
 import { getRoutes, route } from '../../../src/router/route';
 

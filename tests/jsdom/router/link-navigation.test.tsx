@@ -7,7 +7,10 @@ import {
   Link,
   navigate,
 } from '../../../src/router';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('Link component navigation', () => {
   let { container, cleanup } = createTestContainer();

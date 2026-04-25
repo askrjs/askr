@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { formatId } from '@askrjs/askr/foundations';
 import { state } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('formatId (FOUNDATIONS)', () => {
   let { container, cleanup } = createTestContainer();

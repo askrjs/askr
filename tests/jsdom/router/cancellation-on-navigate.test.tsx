@@ -10,7 +10,10 @@ import { createSPA } from '../../../src/index';
 import { navigate } from '../../../src/router/navigate';
 import { getRoutes, route } from '../../../src/router/route';
 import { getSignal } from '../../../src/runtime/component';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('cancellation on navigate (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();

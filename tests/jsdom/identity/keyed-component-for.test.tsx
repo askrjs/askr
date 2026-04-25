@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state, For } from '../../../src/index';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('keyed component identity in For loop', () => {

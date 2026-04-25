@@ -53,7 +53,10 @@ function mountInteractionScenario(): void {
           <button data-testid="home-link" onClick={() => view.set('Home')}>
             Home
           </button>
-          <button data-testid="settings-link" onClick={() => view.set('Settings')}>
+          <button
+            data-testid="settings-link"
+            onClick={() => view.set('Settings')}
+          >
             Settings
           </button>
         </nav>

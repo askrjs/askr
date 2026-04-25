@@ -17,7 +17,10 @@ import { createSPA } from '../../../src/index';
 import { state } from '../../../src/index';
 import { navigate } from '../../../src/router/navigate';
 import { clearRoutes, getRoutes, route } from '../../../src/router/route';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('history integration (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();

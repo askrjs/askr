@@ -9,7 +9,10 @@ import {
   clearRoutes,
   _drainLazy,
 } from '../../../src/router/route';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 function setGlobalWindow(path: string) {
   (global as unknown as { window?: Window }).window = {

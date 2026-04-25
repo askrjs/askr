@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { state } from '../../../src/index';
 import { capture } from '../../../src/runtime/operations';
 import { createIsland } from '../../../test-utils/render/create-island';

@@ -40,19 +40,13 @@ export const askrEsbuild = {
   jsxImportSource: '@askrjs/askr',
 } as const;
 
-export const domBenchIncludes = [
-  'benches/jsdom/**/*.{ts,tsx}',
-] as const;
+export const domBenchIncludes = ['benches/jsdom/**/*.{ts,tsx}'] as const;
 
-export const domBenchExcludes = [
-  'benches/shared/_shared.*',
-] as const;
+export const domBenchExcludes = ['benches/shared/_shared.*'] as const;
 
 export const microBenchIncludes = ['benches/micro/**/*.{ts,tsx}'] as const;
 
-export const ssrBenchIncludes = [
-  'benches/ssr/**/*.{ts,tsx}',
-] as const;
+export const ssrBenchIncludes = ['benches/ssr/**/*.{ts,tsx}'] as const;
 
 export function createNodeEnvDefine(
   mode: 'development' | 'production',

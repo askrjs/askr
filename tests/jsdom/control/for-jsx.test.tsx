@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { For, state } from '../../../src/index';
 import type { JSXElement } from '../../../src/jsx/types';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('For JSX primitive', () => {

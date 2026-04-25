@@ -1,6 +1,9 @@
 import { describe, expect, beforeEach, test } from 'vite-plus/test';
 import { createIsland, state } from '../../../src';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import {
   getPerfMetrics,
   resetPerfMetrics,

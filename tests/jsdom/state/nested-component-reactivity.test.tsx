@@ -12,7 +12,10 @@
 import { expect } from 'chai';
 import { describe, it } from 'vite-plus/test';
 import { createIsland, state } from '../../../src';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('nested component reactivity', () => {
   it('should update DOM when nested component state changes', () => {

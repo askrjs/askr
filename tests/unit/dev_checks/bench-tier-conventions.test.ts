@@ -37,23 +37,22 @@ describe('Bench tier conventions', () => {
       const content = fs.readFileSync(file, 'utf8');
       const category = relativePath.split('/')[1];
 
-      if (
-        !['shared', 'micro', 'jsdom', 'ssr', 'browser'].includes(category)
-      ) {
+      if (!['shared', 'micro', 'jsdom', 'ssr', 'browser'].includes(category)) {
         failures.push(
           `${relativePath}: Benchmarks must live under benches/micro, benches/jsdom, benches/ssr, benches/browser, or benches/shared`
         );
       }
 
-      if (/^benches\/micro\//.test(relativePath) && file.endsWith('.tsx')) {
+      if (relativePath.startsWith('benches/micro/') && file.endsWith('.tsx')) {
         failures.push(
           `${relativePath}: Microbenchmarks must not require JSX, DOM, or jsdom setup`
         );
       }
 
       if (
-        /^benches\/browser\//.test(relativePath) &&
-        (!relativePath.endsWith('.spec.ts') || content.includes('vite-plus/test'))
+        relativePath.startsWith('benches/browser/') &&
+        (!relativePath.endsWith('.spec.ts') ||
+          content.includes('vite-plus/test'))
       ) {
         failures.push(
           `${relativePath}: Browser benchmarks must be Playwright spec files`

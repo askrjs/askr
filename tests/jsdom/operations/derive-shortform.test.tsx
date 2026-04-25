@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state, derive } from '../../../src/index';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('derive short-form (OPERATIONS)', () => {
   let { container, cleanup } = createTestContainer();

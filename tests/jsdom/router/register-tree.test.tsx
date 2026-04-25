@@ -12,7 +12,10 @@ import {
   resolveRouteRequest,
   route,
 } from '../../../src/router/route';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('callback route registration', () => {
   let container: HTMLElement;
