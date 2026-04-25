@@ -1,6 +1,7 @@
 export const packageAliasEntries = [
   ['@askrjs/askr/jsx-runtime', 'src/jsx/jsx-runtime.ts'],
   ['@askrjs/askr/jsx-dev-runtime', 'src/jsx/jsx-dev-runtime.ts'],
+  ['@askrjs/askr/boot', 'src/boot/index.ts'],
   ['@askrjs/askr/control', 'src/control/index.ts'],
   ['@askrjs/askr/foundations', 'src/foundations/index.ts'],
   ['@askrjs/askr/resources', 'src/resources/index.ts'],

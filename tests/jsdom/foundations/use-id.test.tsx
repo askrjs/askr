@@ -1,0 +1,62 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import { formatId } from '@askrjs/askr/foundations';
+import { state } from '../../../src/index';
+import { createIsland } from '../../../test-utils/render/create-island';
+import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+
+describe('formatId (FOUNDATIONS)', () => {
+  let { container, cleanup } = createTestContainer();
+
+  beforeEach(() => {
+    const next = createTestContainer();
+    container = next.container;
+    cleanup = next.cleanup;
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('should be stable across rerenders of same component instance', () => {
+    const App = () => {
+      const tick = state(0);
+      const id = formatId({ id: 'app' });
+
+      return (
+        <button
+          id={id}
+          onClick={() => {
+            tick.set(tick() + 1);
+          }}
+        >
+          {`tick=${tick()}`}
+        </button>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const button = container.querySelector('button') as HTMLButtonElement;
+    const firstId = button.id;
+
+    button.click();
+    flushScheduler();
+
+    const secondId = (container.querySelector('button') as HTMLButtonElement)
+      .id;
+    expect(secondId).toBe(firstId);
+  });
+
+  it('should apply the provided prefix', () => {
+    const App = () => {
+      return <div id={formatId({ prefix: 'x', id: 1 })} />;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const el = container.querySelector('div') as HTMLDivElement;
+    expect(el.id.startsWith('x-')).toBe(true);
+  });
+});

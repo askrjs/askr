@@ -270,16 +270,16 @@ async function main() {
 
   const suites = [
     {
-      label: 'tier1-dom',
-      scriptArgs: ['run', 'bench:dom:base', '--', 'benches/tier1/', '--run'],
+      label: 'micro',
+      scriptArgs: ['run', 'bench:micro:base', '--', '--run'],
     },
     {
-      label: 'tier1-ssr',
-      scriptArgs: ['run', 'bench:ssr:base', '--', 'benches/tier1/', '--run'],
+      label: 'jsdom',
+      scriptArgs: ['run', 'bench:dom:base', '--', '--run'],
     },
     {
-      label: 'tier3-dom',
-      scriptArgs: ['run', 'bench:dom:base', '--', 'benches/tier3/', '--run'],
+      label: 'ssr',
+      scriptArgs: ['run', 'bench:ssr:base', '--', '--run'],
     },
   ];
 

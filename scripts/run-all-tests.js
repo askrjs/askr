@@ -33,9 +33,16 @@ async function runNpmScript(scriptName) {
   });
 }
 
+const unitExitCode = await runNpmScript('test:unit');
 const jsdomExitCode = await runNpmScript('test:jsdom');
 const browserExitCode = await runNpmScript('test:browser');
+const a11yExitCode = await runNpmScript('test:a11y');
 
-if (jsdomExitCode !== 0 || browserExitCode !== 0) {
+if (
+  unitExitCode !== 0 ||
+  jsdomExitCode !== 0 ||
+  browserExitCode !== 0 ||
+  a11yExitCode !== 0
+) {
   process.exit(1);
 }

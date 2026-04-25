@@ -1,0 +1,62 @@
+import { expect } from 'chai';
+import { test } from 'vite-plus/test';
+import { createIsland, state } from '../../../src';
+import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import { For } from '../../../src/control';
+
+test('should create 5,000 table rows', { timeout: 20000 }, () => {
+  const { container, cleanup } = createTestContainer();
+
+  let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;
+
+  const Component = () => {
+    dataState = state<{ id: number; label: string }[]>([]);
+    dataState();
+
+    return (
+      <table>
+        <tbody>
+          {
+            <For each={() => dataState()} by={(row) => row.id}>
+              {(row) => (
+                <tr key={row.id}>
+                  <td>{String(row.id)}</td>
+                  <td>{row.label}</td>
+                </tr>
+              )}
+            </For>
+          }
+        </tbody>
+      </table>
+    );
+  };
+
+  createIsland({ root: container, component: Component });
+  flushScheduler();
+
+  // Build 5,000 rows
+  const rows: { id: number; label: string }[] = [];
+  for (let i = 1; i <= 5000; i++) {
+    rows.push({ id: i, label: `Item ${i}` });
+  }
+  dataState.set(rows);
+  flushScheduler();
+
+  // Verify all 5,000 rows were created
+  const tbody = container.querySelector('tbody');
+  if (!tbody) throw new Error('tbody not found');
+
+  const domRows = tbody.querySelectorAll('tr');
+  expect(domRows.length).to.equal(5000);
+
+  // Spot check a few rows
+  expect(domRows[0].querySelectorAll('td')[1].textContent).to.equal('Item 1');
+  expect(domRows[2500].querySelectorAll('td')[1].textContent).to.equal(
+    'Item 2501'
+  );
+  expect(domRows[4999].querySelectorAll('td')[1].textContent).to.equal(
+    'Item 5000'
+  );
+
+  cleanup();
+});
