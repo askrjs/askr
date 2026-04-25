@@ -163,7 +163,9 @@ describe('layout scoping (ROUTER)', () => {
               }
             />
           </div>
-          <p id="preview">{name() ? `Hello, ${name()}!` : 'Type something above...'}</p>
+          <p id="preview">
+            {name() ? `Hello, ${name()}!` : 'Type something above...'}
+          </p>
         </div>
       );
     };

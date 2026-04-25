@@ -193,6 +193,7 @@ export function resource<T>(
   }
 
   const cell = h.cell!;
+  cell.setLoader(fn);
 
   // Detect dependency changes and refresh immediately
   const depsChanged =

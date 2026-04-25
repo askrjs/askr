@@ -8,10 +8,7 @@ import {
   lockRouteRegistration,
   type ResolvedRoute,
 } from './route';
-import {
-  mountComponent,
-  type ComponentInstance,
-} from '../runtime/component';
+import { mountComponent, type ComponentInstance } from '../runtime/component';
 import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
@@ -69,8 +66,11 @@ function createDeniedResolvedRoute(status: number): ResolvedRoute {
   };
 }
 
-function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentInstance['fn'] {
-  return () => resolved.handler(resolved.params) as ReturnType<ComponentInstance['fn']>;
+function bindResolvedRouteHandler(
+  resolved: ResolvedRoute
+): ComponentInstance['fn'] {
+  return () =>
+    resolved.handler(resolved.params) as ReturnType<ComponentInstance['fn']>;
 }
 
 function wrapRootRouteHandler(
@@ -90,7 +90,9 @@ function wrapRootRouteHandler(
       type: Fragment,
       props: {
         children:
-          out === undefined || out === null ? [portalVNode] : [out, portalVNode],
+          out === undefined || out === null
+            ? [portalVNode]
+            : [out, portalVNode],
       },
     } as ReturnType<ComponentInstance['fn']>;
   };

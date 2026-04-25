@@ -799,11 +799,16 @@ function readCurrentRouteSnapshot(): RouteSnapshot {
     hash = parsed.hash;
   }
 
-  const params = deepFreeze({
-    ...(instance.props as Record<string, string>),
-  });
   const query = makeQuery(search);
   const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
+  const instanceParams = instance.props as Record<string, string>;
+  const routeParams =
+    Object.keys(instanceParams).length > 0
+      ? instanceParams
+      : (matches[0]?.params ?? {});
+  const params = deepFreeze({
+    ...routeParams,
+  });
 
   return Object.freeze({
     path: pathname,

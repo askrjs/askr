@@ -4,10 +4,12 @@ import { state } from '@askrjs/askr';
 import { cleanupApp, createIsland, createSPA } from '@askrjs/askr/boot';
 import {
   clearRoutes,
+  currentRoute,
   getManifest,
   group,
+  lazy,
   navigate,
-  redirect,
+  registerRoutes,
   route,
 } from '@askrjs/askr/router';
 import { getBenchMetrics, resetBenchMetrics } from '../../../src/runtime/for';
@@ -19,6 +21,13 @@ import {
   getBenchmarkMetadata,
   mountBenchmark,
 } from '../../../src/bench/benchmark-entry';
+import { mountFormsScenario } from './scenarios/forms';
+import { mountHydrationFormScenario } from './scenarios/hydration-form';
+import { mountOrderTableScenario } from './scenarios/order-table';
+import {
+  mountRoutedShellScenario as mountRealRoutedShellScenario,
+  shouldMountRoutedShellFromPath,
+} from './scenarios/routed-shell';
 
 type RowData = {
   id: number;
@@ -145,101 +154,310 @@ async function mountGuardedRouterScenario(): Promise<void> {
   resetRoot();
   clearRoutes();
 
-  route('/', () => (
-    <section aria-label="Guarded router fixture">
-      <h1>Router Home</h1>
-      <button data-testid="private-link" onClick={() => navigate('/private')}>
-        Private
-      </button>
-    </section>
-  ));
-  route('/login', () => (
-    <section aria-label="Login fixture">
-      <h1>Login</h1>
-      <p data-testid="login-next">{window.location.search}</p>
-      <button data-testid="home-link" onClick={() => navigate('/')}>
-        Home
-      </button>
-    </section>
-  ));
-  route(
-    '/private',
-    () => (
-      <section aria-label="Private fixture">
-        <h1>Private</h1>
-      </section>
-    ),
-    {
-      policies: [async () => redirect('/login?next=/private')],
-    }
-  );
-
-  window.history.replaceState({}, '', '/?scenario=guarded');
-  await createSPA({ root, manifest: getManifest() });
-}
-
-async function mountRoutedShellScenario(): Promise<void> {
-  resetRoot();
-  clearRoutes();
-
-  const scenarioParam = new URL(window.location.href).searchParams.get('scenario');
-  const withScenario = (pathname: string) =>
-    scenarioParam ? `${pathname}?scenario=${scenarioParam}` : pathname;
-
-  const Layout = ({ children }: { children?: unknown }) => (
-    <section aria-label="Routed shell fixture">
-      <h1>Routed Shell</h1>
-      <nav aria-label="Routed shell navigation">
-        <button
-          data-testid="example-link"
-          onClick={() => navigate(withScenario('/example'))}
-        >
-          Example
-        </button>
-        <button
-          data-testid="about-link"
-          onClick={() => navigate(withScenario('/about'))}
-        >
-          About
-        </button>
-      </nav>
-      <main>{children}</main>
-    </section>
-  );
-
-  const ExamplePage = () => {
-    const name = state('');
-
-    return (
-      <section aria-label="Routed example fixture">
-        <h2>Example</h2>
-        <label>
-          Name
-          <input
-            data-testid="routed-name"
-            value={name()}
-            onInput={(event) => {
-              name.set(event.target.value);
-            }}
-          />
-        </label>
-        <p data-testid="routed-preview">{name() || 'Empty'}</p>
-      </section>
-    );
+  type FixtureSession = {
+    id: string;
   };
 
-  group({ layout: Layout }, () => {
-    route('/example', ExamplePage);
-    route('/about', () => (
-      <section aria-label="Routed about fixture">
-        <h2>About</h2>
-        <p data-testid="about-copy">About page</p>
+  type FixtureUser = {
+    name: string;
+    roles: string[];
+    permissions: string[];
+  };
+
+  let session: FixtureSession | null = null;
+  let user: FixtureUser | null = null;
+
+  const currentUrl = new URL(window.location.href);
+  const lazyShouldFail = currentUrl.searchParams.get('lazy') === 'fail';
+
+  const setViewerSession = () => {
+    session = { id: 'viewer-session' };
+    user = {
+      name: 'Viewer',
+      roles: ['viewer'],
+      permissions: ['reports:view'],
+    };
+  };
+
+  const setAdminSession = () => {
+    session = { id: 'admin-session' };
+    user = {
+      name: 'Admin',
+      roles: ['admin'],
+      permissions: ['reports:view', 'billing:write'],
+    };
+  };
+
+  const clearSession = () => {
+    session = null;
+    user = null;
+  };
+
+  const auth = {
+    resolve: async () => ({ session, user }),
+    loginPath: '/login',
+    guestRedirectTo: '/private',
+    hasRole: (candidate: FixtureUser, role: string) =>
+      candidate.roles.includes(role),
+    hasPermission: (candidate: FixtureUser, permission: string) =>
+      candidate.permissions.includes(permission),
+  };
+
+  const knownPaths = new Set([
+    '/',
+    '/login',
+    '/private',
+    '/welcome',
+    '/reports',
+    '/reports/finance',
+    '/billing',
+    '/lazy-success',
+    '/lazy-flaky',
+  ]);
+
+  function currentNextTarget(): string {
+    return currentRoute().query.get('next') ?? '/private';
+  }
+
+  function GuardedShell({ children }: { children?: unknown }) {
+    const routeSnapshot = currentRoute();
+
+    return (
+      <section aria-label="Guarded router fixture">
+        <header>
+          <h1>Router Home</h1>
+          <p data-testid="auth-status">
+            {session && user ? `Signed in as ${user.name}` : 'Signed out'}
+          </p>
+          <p data-testid="current-path">{routeSnapshot.path}</p>
+          <nav aria-label="Guarded navigation">
+            <button data-testid="home-link" onClick={() => navigate('/')}>
+              Home
+            </button>
+            <button
+              data-testid="private-link"
+              onClick={() => navigate('/private')}
+            >
+              Private
+            </button>
+            <button
+              data-testid="guest-link"
+              onClick={() => navigate('/welcome')}
+            >
+              Welcome
+            </button>
+            <button
+              data-testid="finance-link"
+              onClick={() => navigate('/reports/finance')}
+            >
+              Finance
+            </button>
+            <button
+              data-testid="billing-link"
+              onClick={() => navigate('/billing')}
+            >
+              Billing
+            </button>
+            <button
+              data-testid="lazy-success-link"
+              onClick={() => navigate('/lazy-success')}
+            >
+              Lazy success
+            </button>
+            <button
+              data-testid="lazy-flaky-link"
+              onClick={() => navigate('/lazy-flaky')}
+            >
+              Lazy flaky
+            </button>
+            {session ? (
+              <button
+                data-testid="sign-out-link"
+                onClick={() => {
+                  clearSession();
+                  navigate('/');
+                }}
+              >
+                Sign out
+              </button>
+            ) : null}
+          </nav>
+        </header>
+        <main>{children}</main>
+      </section>
+    );
+  }
+
+  function HomePage() {
+    return (
+      <section aria-label="Guarded home page">
+        <h2>Public landing</h2>
+        <p>Choose a route to exercise auth and navigation behavior.</p>
+      </section>
+    );
+  }
+
+  function LoginPage() {
+    const nextTarget = currentNextTarget();
+
+    return (
+      <section aria-label="Login fixture">
+        <h2>Login</h2>
+        <p data-testid="login-next-target">{nextTarget}</p>
+        <button
+          data-testid="sign-in-viewer"
+          onClick={() => {
+            setViewerSession();
+            navigate(nextTarget);
+          }}
+        >
+          Sign in as viewer
+        </button>
+        <button
+          data-testid="sign-in-admin"
+          onClick={() => {
+            setAdminSession();
+            navigate(nextTarget);
+          }}
+        >
+          Sign in as admin
+        </button>
+      </section>
+    );
+  }
+
+  function PrivatePage() {
+    return (
+      <section aria-label="Private fixture">
+        <h2>Private overview</h2>
+        <p>Only authenticated users can view this page.</p>
+      </section>
+    );
+  }
+
+  function WelcomePage() {
+    return (
+      <section aria-label="Guest welcome page">
+        <h2>Guest welcome</h2>
+        <p>This route is only available before sign-in.</p>
+      </section>
+    );
+  }
+
+  function ReportsPage() {
+    return (
+      <section aria-label="Reports page">
+        <h2>Reports</h2>
+        <p>Shared reports available to authenticated users.</p>
+      </section>
+    );
+  }
+
+  function FinanceReportPage() {
+    return (
+      <section aria-label="Finance report page">
+        <h2>Finance report</h2>
+        <p>Quarterly finance breakdown.</p>
+      </section>
+    );
+  }
+
+  function BillingPage() {
+    return (
+      <section aria-label="Billing page">
+        <h2>Billing settings</h2>
+        <p>Manage billing permissions and invoices.</p>
+      </section>
+    );
+  }
+
+  function LazySuccessPage() {
+    return (
+      <section aria-label="Lazy success page">
+        <h2>Lazy success</h2>
+        <p>The lazy route loaded successfully.</p>
+      </section>
+    );
+  }
+
+  const lazyFlakyRoute = lazy(() => {
+    if (lazyShouldFail) {
+      return Promise.reject(new Error('Lazy route failed to load.'));
+    }
+
+    return Promise.resolve(() => (
+      <section aria-label="Lazy flaky page">
+        <h2>Lazy recovery</h2>
+        <p>The flaky lazy route recovered after reload.</p>
       </section>
     ));
   });
 
-  window.history.replaceState({}, '', withScenario('/example'));
-  await createSPA({ root, manifest: getManifest() });
+  registerRoutes(
+    () => {
+      group({ layout: GuardedShell }, () => {
+        route('/', HomePage);
+        route('/login', LoginPage);
+        route('/private', PrivatePage, { auth: true });
+        route('/welcome', WelcomePage, { auth: 'guest' });
+        route('/billing', BillingPage, { permission: 'billing:write' });
+        route(
+          '/lazy-success',
+          lazy(() => Promise.resolve(LazySuccessPage)),
+          {
+            auth: true,
+          }
+        );
+        route('/lazy-flaky', lazyFlakyRoute, { auth: true });
+
+        group({ auth: true }, () => {
+          route('/reports', ReportsPage);
+          group({ role: 'admin' }, () => {
+            route('/reports/finance', FinanceReportPage);
+          });
+        });
+      });
+    },
+    { auth }
+  );
+
+  if (!knownPaths.has(window.location.pathname)) {
+    window.history.replaceState({}, '', `/${window.location.search}`);
+  }
+
+  await createSPA({ root, manifest: getManifest(), auth });
+}
+
+async function mountRoutedShellScenario(): Promise<void> {
+  resetRoot();
+  await mountRealRoutedShellScenario(root);
+}
+
+async function mountCustomerSearchScenario(): Promise<void> {
+  resetRoot();
+
+  if (window.location.pathname !== '/customers/search') {
+    const query = new URL(window.location.href).searchParams.get('q');
+    const search = query ? `?q=${encodeURIComponent(query)}` : '';
+    window.history.replaceState({}, '', `/customers/search${search}`);
+  }
+
+  await mountRealRoutedShellScenario(root);
+}
+
+function mountAccountSettingsScenario(): void {
+  resetRoot();
+  mountFormsScenario(root);
+}
+
+function mountOrdersScenario(): void {
+  resetRoot();
+  mountOrderTableScenario(root);
+}
+
+async function mountSignupHydrationScenario(): Promise<void> {
+  resetRoot();
+  await mountHydrationFormScenario(root);
 }
 
 async function runBrowserPerf(): Promise<Record<string, number>> {
@@ -330,13 +548,25 @@ function profileBenchmarkOperations() {
   };
 }
 
-const scenario = new URL(window.location.href).searchParams.get('scenario');
+const currentUrl = new URL(window.location.href);
+const scenario = currentUrl.searchParams.get('scenario');
+const pathname = currentUrl.pathname;
 
 if (scenario === 'interaction') {
   mountInteractionScenario();
 } else if (scenario === 'guarded') {
   void mountGuardedRouterScenario();
+} else if (scenario === 'forms') {
+  mountAccountSettingsScenario();
+} else if (scenario === 'order-table') {
+  mountOrdersScenario();
+} else if (scenario === 'search-resource') {
+  void mountCustomerSearchScenario();
+} else if (scenario === 'hydration-form' || pathname === '/signup') {
+  void mountSignupHydrationScenario();
 } else if (scenario === 'routed-shell') {
+  void mountRoutedShellScenario();
+} else if (shouldMountRoutedShellFromPath(pathname)) {
   void mountRoutedShellScenario();
 } else {
   mountBenchmarkScenario();

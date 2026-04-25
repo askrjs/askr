@@ -30,7 +30,7 @@ export class ResourceCell<U> {
     refresh: () => void;
   };
 
-  private readonly fn: (opts: { signal: AbortSignal }) => Promise<U> | U;
+  private fn: (opts: { signal: AbortSignal }) => Promise<U> | U;
 
   constructor(
     fn: (opts: { signal: AbortSignal }) => Promise<U> | U,
@@ -46,6 +46,10 @@ export class ResourceCell<U> {
       error: null,
       refresh: () => this.refresh(),
     };
+  }
+
+  setLoader(fn: (opts: { signal: AbortSignal }) => Promise<U> | U): void {
+    this.fn = fn;
   }
 
   subscribe(cb: () => void): () => void {

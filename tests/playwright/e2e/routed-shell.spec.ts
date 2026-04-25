@@ -1,29 +1,117 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-test.describe('routed shell browser behavior', () => {
-  test('should preserve typed input state through routed shell updates @smoke', async ({
+async function mockShellCustomerSearch(page: Page): Promise<void> {
+  await page.route('**/api/customers/search**', async (route) => {
+    const requestUrl = new URL(route.request().url());
+    const query = requestUrl.searchParams.get('q') ?? '';
+    const name = query ? `Customer ${query}` : 'Featured Customer';
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        customers: [
+          {
+            id: query || 'featured',
+            name,
+            city: 'Seattle',
+            status: 'Active',
+          },
+        ],
+      }),
+    });
+  });
+}
+
+test.describe('real routed app shell workflow', () => {
+  test('should keep the shell and search focus during same-route query updates @smoke', async ({
     page,
   }) => {
-    await page.goto('/?scenario=routed-shell');
+    await mockShellCustomerSearch(page);
+    await page.goto('/customers/search');
 
-    await expect(page).toHaveURL(/\/example\?scenario=routed-shell$/);
+    const search = page.getByLabel('Search customers');
+    await search.click();
+    await search.pressSequentially('globex');
+
+    await expect(page).toHaveURL(/\/customers\/search\?q=globex$/);
+    await expect(search).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'Askr CRM' })).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Routed Shell' })
+      page.getByRole('button', { name: 'Customers' })
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByText('Customer globex')).toBeVisible();
+  });
+
+  test('should preserve a settings draft after navigating away and back', async ({
+    page,
+  }) => {
+    await page.goto('/settings');
+
+    await page.getByLabel('Full name').fill('Route User');
+    await expect(page.getByLabel('Settings preview')).toHaveText(
+      'Route User will be saved as viewer with email contact.'
+    );
+
+    await page.getByRole('button', { name: 'Dashboard' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Dashboard' })
     ).toBeVisible();
 
-    const input = page.getByTestId('routed-name');
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByLabel('Full name')).toHaveValue('Route User');
+    await expect(page.getByLabel('Settings preview')).toHaveText(
+      'Route User will be saved as viewer with email contact.'
+    );
+  });
 
-    await input.click();
-    await input.pressSequentially('Northwind');
+  test('should support browser back and forward across app pages', async ({
+    page,
+  }) => {
+    await mockShellCustomerSearch(page);
+    await page.goto('/dashboard');
 
-    await expect(input).toBeFocused();
-    await expect(input).toHaveValue('Northwind');
-    await expect(page.getByTestId('routed-preview')).toHaveText('Northwind');
+    await page.getByRole('button', { name: 'Customers' }).click();
+    await expect(page).toHaveURL(/\/customers\/search$/);
+    await expect(
+      page.getByRole('heading', { name: 'Customers' })
+    ).toBeVisible();
 
-    await page.getByTestId('about-link').click();
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(
+      page.getByRole('heading', { name: 'Account settings' })
+    ).toBeVisible();
 
-    await expect(page).toHaveURL(/\/about\?scenario=routed-shell$/);
-    await expect(page.getByRole('heading', { name: 'About' })).toBeVisible();
-    await expect(page.getByTestId('about-copy')).toHaveText('About page');
+    await page.goBack();
+    await expect(page).toHaveURL(/\/customers\/search$/);
+    await expect(
+      page.getByRole('heading', { name: 'Customers' })
+    ).toBeVisible();
+
+    await page.goForward();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(
+      page.getByRole('heading', { name: 'Account settings' })
+    ).toBeVisible();
+  });
+
+  test('should navigate from dashboard to an order detail route', async ({
+    page,
+  }) => {
+    await page.goto('/dashboard');
+
+    await page.getByRole('button', { name: 'View order 1002' }).click();
+
+    await expect(page).toHaveURL(/\/orders\/1002$/);
+    await expect(
+      page.getByRole('heading', { name: 'Order 1002' })
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: 'Back to dashboard' }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(
+      page.getByRole('heading', { name: 'Dashboard' })
+    ).toBeVisible();
   });
 });
