@@ -31,6 +31,11 @@ npm run test:browser:install
 - Use `tests/playwright/e2e` when the browser matters: SSR-to-hydration
   correctness, navigation, guarded routes, focus, keyboard navigation, overlays,
   layout-sensitive components, browser event loop behavior, and real CSS.
+- Keep Playwright fixture scenarios realistic. Write them as small applications
+  a developer would recognize: clean JSX, public Askr APIs, route/container
+  components, semantic forms, and async data through `resource()`. Tests should
+  drive these pages through roles, labels, URL changes, and network interception
+  rather than mutating app state through test-only bridges.
 - Use `tests/playwright/a11y` for axe-backed accessibility scans and semantic
   interaction checks.
 - Use `benches/*` for performance. Do not hide performance checks inside normal

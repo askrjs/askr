@@ -83,20 +83,22 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import type { VNode } from './types';
+import type { DOMElement, VNode } from './types';
 import {
   createDOMNode,
+  syncComponentElement,
   updateElementFromVnode,
   performBulkPositionalKeyedTextUpdate,
 } from './dom';
+import type { Props } from '../common/props';
 import {
   keyedElements,
   _reconcilerRecordedParents,
   isKeyedReorderFastPathEligible,
 } from './keyed';
 import { teardownNodeSubtree } from './cleanup';
-import { isBulkCommitActive } from '../runtime/fastlane';
 import { applyRendererFastPath } from './fastpath';
+import { getRuntimeEnv } from './env';
 import {
   extractKey,
   checkPropChanges,
@@ -108,6 +110,7 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
 // Helper type for narrowings
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
+type ComponentVNode = DOMElement & { type: (props: Props) => unknown };
 
 function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
   if (a === b) return true;
@@ -204,6 +207,15 @@ function tryFastPaths(
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> | null {
   try {
+    const forcedResult = tryForcedPositionalBulkUpdate(
+      parent,
+      newChildren,
+      keyedVnodes
+    );
+    if (forcedResult) {
+      return forcedResult;
+    }
+
     // Try renderer fast-path for large keyed reorder-only updates
     const rendererResult = tryRendererFastPath(
       parent,
@@ -241,12 +253,14 @@ function tryRendererFastPath(
     newChildren,
     oldKeyMap
   );
+  const isWholeKeyedList =
+    keyedVnodes.length === newChildren.length && unkeyedVnodes.length === 0;
+  const canUseFastPath =
+    decision.useFastPath && keyedVnodes.length >= 64 && isWholeKeyedList;
 
-  // Apply fast-path for medium-to-large keyed lists (64+) or during bulk commit
-  if (
-    (decision.useFastPath && keyedVnodes.length >= 64) ||
-    isBulkCommitActive()
-  ) {
+  // Apply fast-path only for a whole keyed list. Mixed root fragments may
+  // contain a keyed portal sibling, but they are not reorder-only lists.
+  if (canUseFastPath) {
     try {
       const map = applyRendererFastPath(
         parent,
@@ -264,6 +278,28 @@ function tryRendererFastPath(
   }
 
   return null;
+}
+
+/** Try the explicit test/bench forced positional keyed path. */
+function tryForcedPositionalBulkUpdate(
+  parent: Element,
+  newChildren: VNode[],
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+): Map<string | number, Element> | null {
+  if (getRuntimeEnv().ASKR_FORCE_BULK_POSREUSE !== '1') return null;
+  if (keyedVnodes.length === 0 || keyedVnodes.length !== newChildren.length) {
+    return null;
+  }
+
+  try {
+    const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+    recordFastPathStats(stats, 'bulkKeyedPositionalForced');
+
+    rebuildKeyedMap(parent);
+    return keyedElements.get(parent) as Map<string | number, Element>;
+  } catch {
+    return null;
+  }
 }
 
 /** Try positional bulk update for medium-sized lists */
@@ -413,6 +449,15 @@ function performFullReconciliation(
   const usedOldEls = new WeakSet<Node>();
 
   const resolveOldElOnce = createOldElResolver(parent, oldKeyMap, usedOldEls);
+  const unkeyedEls = collectUnkeyedElements(parent);
+  let unkeyedIndex = 0;
+  const resolveUnkeyedOnce = (): Element | undefined => {
+    while (unkeyedIndex < unkeyedEls.length) {
+      const candidate = unkeyedEls[unkeyedIndex++];
+      if (!usedOldEls.has(candidate)) return candidate;
+    }
+    return undefined;
+  };
 
   // Positional reconciliation
   for (let i = 0; i < newChildren.length; i++) {
@@ -422,6 +467,7 @@ function performFullReconciliation(
       i,
       parent,
       resolveOldElOnce,
+      resolveUnkeyedOnce,
       usedOldEls,
       newKeyMap
     );
@@ -511,6 +557,7 @@ function reconcileSingleChild(
   index: number,
   parent: Element,
   resolveOldElOnce: (k: string | number) => Element | undefined,
+  resolveUnkeyedOnce: () => Element | undefined,
   usedOldEls: WeakSet<Node>,
   newKeyMap: Map<string | number, Element>
 ): Node | null {
@@ -522,7 +569,13 @@ function reconcileSingleChild(
   }
 
   // Unkeyed or primitive child
-  return reconcileUnkeyedChild(child, index, parent, usedOldEls);
+  return reconcileUnkeyedChild(
+    child,
+    index,
+    parent,
+    resolveUnkeyedOnce,
+    usedOldEls
+  );
 }
 
 /** Reconcile a keyed child */
@@ -551,6 +604,18 @@ function reconcileKeyedChild(
           return el;
         }
       }
+      if (isComponentVNode(child)) {
+        const synced = syncComponentElement(
+          el,
+          child,
+          child.type,
+          ((child.props ?? {}) as Props) || {}
+        );
+        if (synced) {
+          if (synced instanceof Element) newKeyMap.set(key, synced);
+          return synced;
+        }
+      }
     } catch {
       // Fall through to replacement
     }
@@ -570,6 +635,7 @@ function reconcileUnkeyedChild(
   child: VNode,
   index: number,
   parent: Element,
+  resolveUnkeyedOnce: () => Element | undefined,
   usedOldEls: WeakSet<Node>
 ): Node | null {
   try {
@@ -584,8 +650,12 @@ function reconcileUnkeyedChild(
         usedOldEls.add(existing);
         return existing;
       }
-      // For primitives, we create a Text node (not reuse element slot)
-      // Fall through to create new Text node below
+      return createDOMNode(child);
+    }
+
+    if (existing instanceof Element) {
+      const synced = trySyncComponentChild(existing, child, usedOldEls);
+      if (synced) return synced;
     }
 
     // Element child matching existing unkeyed element
@@ -596,7 +666,7 @@ function reconcileUnkeyedChild(
     }
 
     // Try to find available unkeyed element elsewhere
-    const avail = findAvailableUnkeyedElement(parent, usedOldEls);
+    const avail = resolveUnkeyedOnce();
     if (avail) {
       const reuseResult = tryReuseElement(avail, child, usedOldEls);
       if (reuseResult) return reuseResult;
@@ -607,6 +677,35 @@ function reconcileUnkeyedChild(
 
   const dom = createDOMNode(child);
   return dom;
+}
+
+function isComponentVNode(child: VNode): child is ComponentVNode {
+  return (
+    typeof child === 'object' &&
+    child !== null &&
+    'type' in child &&
+    typeof (child as VnodeObj).type === 'function'
+  );
+}
+
+function trySyncComponentChild(
+  existing: Element,
+  child: VNode,
+  usedOldEls: WeakSet<Node>
+): Node | null {
+  if (!isComponentVNode(child)) return null;
+
+  const synced = syncComponentElement(
+    existing,
+    child,
+    child.type,
+    ((child.props ?? {}) as Props) || {}
+  );
+  if (!synced) return null;
+
+  usedOldEls.add(existing);
+  usedOldEls.add(synced);
+  return synced;
 }
 
 /** Check if existing element can be reused for child */
@@ -626,16 +725,13 @@ function canReuseElement(existing: Element | undefined, child: VNode): boolean {
   );
 }
 
-/** Find available unkeyed element in parent */
-function findAvailableUnkeyedElement(
-  parent: Element,
-  usedOldEls: WeakSet<Node>
-): Element | undefined {
+/** Collect unkeyed element children in DOM order. */
+function collectUnkeyedElements(parent: Element): Element[] {
+  const elements: Element[] = [];
   for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
-    if (usedOldEls.has(ch)) continue;
-    if (ch.getAttribute('data-key') === null) return ch;
+    if (ch.getAttribute('data-key') === null) elements.push(ch);
   }
-  return undefined;
+  return elements;
 }
 
 /** Try to reuse available element for child */
@@ -645,9 +741,12 @@ function tryReuseElement(
   usedOldEls: WeakSet<Node>
 ): Node | null {
   if (typeof child === 'string' || typeof child === 'number') {
-    avail.textContent = String(child);
-    usedOldEls.add(avail);
-    return avail;
+    return null;
+  }
+
+  const synced = trySyncComponentChild(avail, child, usedOldEls);
+  if (synced) {
+    return synced;
   }
 
   if (typeof child === 'object' && child !== null && 'type' in child) {

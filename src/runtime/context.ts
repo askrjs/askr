@@ -288,7 +288,10 @@ function markWithFrame(node: Renderable, frame: ContextFrame): Renderable {
         }
       }
     } else if (children) {
-      const nextChildren = markWithFrame(children as Renderable, frame) as Renderable;
+      const nextChildren = markWithFrame(
+        children as Renderable,
+        frame
+      ) as Renderable;
       if (props && 'children' in props) {
         props.children = nextChildren;
       } else {

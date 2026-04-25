@@ -66,7 +66,9 @@ import {
   recordFastPathStats,
   logFastPathDebug,
   writeElementClassName,
+  extractKey,
 } from './utils';
+import { reconcileKeyedChildren } from './reconcile';
 import type { ReadableSource } from '../runtime/readable';
 import { globalScheduler } from '../runtime/scheduler';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
@@ -516,6 +518,10 @@ function applyPropValue(
       if (descriptor) {
         descriptor.lastClassTokens = [];
       }
+    } else if (key === 'value') {
+      applyFormControlProp(el, key, '', tagName);
+    } else if (key === 'checked') {
+      applyFormControlProp(el, key, false, tagName);
     } else {
       el.removeAttribute(key);
     }
@@ -706,6 +712,48 @@ function applyRef<T>(el: T, ref: unknown): void {
   }
 }
 
+function getRenderedAttributeName(el: Element, propName: string): string {
+  let attributeName = propName;
+  if (propName === 'className') {
+    attributeName = 'class';
+  } else if (propName === 'htmlFor') {
+    attributeName = 'for';
+  }
+
+  return el.namespaceURI === SVG_NAMESPACE
+    ? attributeName
+    : attributeName.toLowerCase();
+}
+
+function removeStaleAttributes(
+  el: Element,
+  vnode: DOMElement,
+  props: Record<string, unknown>
+): void {
+  const desiredAttributes = new Set<string>();
+  const key = extractKey(vnode);
+
+  if (key !== undefined) {
+    desiredAttributes.add('data-key');
+  }
+
+  for (const propName in props) {
+    if (isSkippedProp(propName)) continue;
+    if (parseEventName(propName)) continue;
+
+    const value = props[propName];
+    if (value === undefined || value === null || value === false) continue;
+
+    desiredAttributes.add(getRenderedAttributeName(el, propName));
+  }
+
+  for (const attribute of Array.from(el.attributes)) {
+    if (!desiredAttributes.has(getRenderedAttributeName(el, attribute.name))) {
+      el.removeAttribute(attribute.name);
+    }
+  }
+}
+
 /**
  * Apply value/checked props to form controls
  */
@@ -728,10 +776,19 @@ function applyFormControlProp(
     }
   } else if (key === 'checked') {
     if (tagNamesEqualIgnoreCase(tagName, 'input')) {
-      (el as HTMLInputElement & Props).checked = Boolean(value);
-      el.setAttribute('checked', String(Boolean(value)));
+      const checked = Boolean(value);
+      (el as HTMLInputElement & Props).checked = checked;
+      if (checked) {
+        el.setAttribute('checked', '');
+      } else {
+        el.removeAttribute('checked');
+      }
     } else {
-      el.setAttribute('checked', String(Boolean(value)));
+      if (value) {
+        el.setAttribute('checked', '');
+      } else {
+        el.removeAttribute('checked');
+      }
     }
   }
 }
@@ -1160,6 +1217,7 @@ function resolveNestedComponentResult(
   snapshot: ContextFrame | null
 ): VNode {
   let currentResult = result as VNode;
+  let activeSnapshot = snapshot;
   let depth = 0;
 
   while (
@@ -1168,7 +1226,8 @@ function resolveNestedComponentResult(
     depth < 16
   ) {
     const nestedSnapshot =
-      (currentResult as ElementWithContext)[CONTEXT_FRAME_SYMBOL] ?? snapshot;
+      (currentResult as ElementWithContext)[CONTEXT_FRAME_SYMBOL] ??
+      activeSnapshot;
     const nestedInstance = createComponentInstance(
       nextComponentInstanceId(),
       currentResult.type as ComponentFunction,
@@ -1191,11 +1250,38 @@ function resolveNestedComponentResult(
       );
     }
 
+    activeSnapshot = nestedSnapshot ?? null;
     currentResult = nextResult as VNode;
     depth += 1;
   }
 
   return currentResult;
+}
+
+function isFragmentVNode(node: unknown): node is DOMElement {
+  return (
+    _isDOMElement(node) &&
+    typeof (node as DOMElement).type === 'symbol' &&
+    ((node as DOMElement).type === Fragment ||
+      String((node as DOMElement).type) === 'Symbol(askr.fragment)')
+  );
+}
+
+function normalizeComponentChildren(result: unknown): unknown[] {
+  if (result === null || result === undefined || result === false) {
+    return [];
+  }
+
+  if (Array.isArray(result)) {
+    return result;
+  }
+
+  if (isFragmentVNode(result)) {
+    const children = result.props?.children ?? result.children ?? [];
+    return Array.isArray(children) ? children : [children];
+  }
+
+  return [result];
 }
 
 export function syncComponentElement(
@@ -1235,18 +1321,7 @@ export function syncComponentElement(
   }
 
   if (existingHost.__ASKR_WRAPPER_HOST) {
-    for (let child = existingHost.firstChild; child; ) {
-      const next = child.nextSibling;
-      if (child instanceof Element) {
-        cleanupDetachedComponentHost(child as InstanceHostElement);
-      }
-      child = next;
-    }
-    existingHost.textContent = '';
-    const nextDom = createDOMNode(result, parentNamespace);
-    if (nextDom) {
-      existingHost.appendChild(nextDom);
-    }
+    updateUnkeyedChildren(existingHost, normalizeComponentChildren(result));
     warnUnusedStateReads(existingInstance);
     return existingHost;
   }
@@ -2321,6 +2396,7 @@ export function updateElementFromVnode(
   }
 
   const props = (vnode.props || {}) as Record<string, unknown>;
+  const domVNode = vnode as DOMElement;
 
   if (isHydrationSkipped(el)) {
     clearHydrationDeferredSubtree(el);
@@ -2408,6 +2484,10 @@ export function updateElementFromVnode(
     if (value === undefined || value === null || value === false) {
       if (key === 'class' || key === 'className') {
         writeElementClassName(el, '');
+      } else if (key === 'value') {
+        applyFormControlProp(el, key, '', vnode.type as string);
+      } else if (key === 'checked') {
+        applyFormControlProp(el, key, false, vnode.type as string);
       } else if (eventName && existingListeners?.has(eventName)) {
         const entry = existingListeners.get(eventName)!;
         if (entry.isDelegated) {
@@ -2592,6 +2672,8 @@ export function updateElementFromVnode(
     }
   }
 
+  removeStaleAttributes(el, domVNode, props);
+
   if (existingListeners && existingListeners.size > 0) {
     // If no event props were present, all existing listeners are undesired.
     if (desiredEventNames === null) {
@@ -2705,6 +2787,11 @@ export function updateElementChildren(
     return;
   }
 
+  if (!Array.isArray(children) && isFragmentVNode(children)) {
+    updateUnkeyedChildren(el, normalizeComponentChildren(children));
+    return;
+  }
+
   if (
     !Array.isArray(children) &&
     (typeof children === 'string' || typeof children === 'number')
@@ -2749,6 +2836,17 @@ export function updateElementChildren(
   }
 
   if (Array.isArray(children)) {
+    if (hasKeyedVNodeChildren(children)) {
+      const oldKeyMap = getOrBuildDomKeyMap(el);
+      const newKeyMap = reconcileKeyedChildren(el, children, oldKeyMap);
+      keyedElements.set(el, newKeyMap);
+      return;
+    }
+    if (isBulkTextFastPathEligible(el, children)) {
+      performBulkTextReplace(el, children);
+      keyedElements.delete(el);
+      return;
+    }
     updateUnkeyedChildren(el, children as unknown[]);
     return;
   }
@@ -2771,10 +2869,44 @@ export function updateElementChildren(
   if (dom) el.appendChild(dom);
 }
 
+function hasKeyedVNodeChildren(children: VNode[]): boolean {
+  for (let i = 0; i < children.length; i++) {
+    if (extractKey(children[i]) !== undefined) return true;
+  }
+  return false;
+}
+
+function getOrBuildDomKeyMap(
+  parent: Element
+): Map<string | number, Element> | undefined {
+  let keyMap = keyedElements.get(parent);
+  if (!keyMap) {
+    keyMap = new Map<string | number, Element>();
+    for (
+      let child = parent.firstElementChild;
+      child;
+      child = child.nextElementSibling
+    ) {
+      const key = child.getAttribute('data-key');
+      if (key !== null) {
+        keyMap.set(key, child);
+        const numericKey = Number(key);
+        if (!Number.isNaN(numericKey)) keyMap.set(numericKey, child);
+      }
+    }
+    if (keyMap.size > 0) keyedElements.set(parent, keyMap);
+  }
+  return keyMap.size > 0 ? keyMap : undefined;
+}
+
 export function updateUnkeyedChildren(
   parent: Element,
   newChildren: unknown[]
 ): void {
+  newChildren = newChildren.filter(
+    (child) => child !== null && child !== undefined && child !== false
+  );
+
   const parentNamespace =
     parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
 
@@ -2981,17 +3113,9 @@ export function updateUnkeyedChildren(
 
     // Update existing element based on next vnode/primitive
     if (typeof next === 'string' || typeof next === 'number') {
-      // Clean up any element children before replacing with text
-      if (current instanceof Element && current.childNodes.length > 0) {
-        for (let n = current.firstChild; n; ) {
-          const nextNode = n.nextSibling;
-          if (n instanceof Element) {
-            teardownNodeSubtree(n);
-          }
-          n = nextNode;
-        }
-      }
-      current.textContent = String(next);
+      const textNode = document.createTextNode(String(next));
+      teardownNodeSubtree(current);
+      parent.replaceChild(textNode, current);
     } else if (_isDOMElement(next)) {
       if (typeof next.type === 'string') {
         // If element type matches, update in place; otherwise replace

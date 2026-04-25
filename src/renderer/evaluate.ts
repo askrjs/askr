@@ -244,9 +244,10 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
   try {
     const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
     for (const child of children) {
-      if (_isDOMElement(child) && (child as DOMElement).key !== undefined) {
+      const key = extractKey(child);
+      if (_isDOMElement(child) && key !== undefined) {
         keyedVnodes.push({
-          key: (child as DOMElement).key as string | number,
+          key,
           vnode: child,
         });
       }
@@ -366,6 +367,11 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
     (vnodeChildren as DOMElement).type === __FOR_BOUNDARY__
   ) {
     updateForBoundaryChildren(element, vnodeChildren as DOMElement);
+    return;
+  }
+
+  if (!Array.isArray(vnodeChildren) && isFragment(vnodeChildren)) {
+    updateElementChildren(element, getFragmentChildren(vnodeChildren));
     return;
   }
 
@@ -762,8 +768,9 @@ export function evaluate(
         );
 
         if (syncedDom instanceof Element) {
-          (syncedDom as Element & { __ASKR_INSTANCE?: ComponentInstance }).__ASKR_INSTANCE =
-            targetInstance;
+          (
+            syncedDom as Element & { __ASKR_INSTANCE?: ComponentInstance }
+          ).__ASKR_INSTANCE = targetInstance;
           targetInstance.target = syncedDom;
           return;
         }

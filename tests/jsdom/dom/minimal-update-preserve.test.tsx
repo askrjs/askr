@@ -67,11 +67,9 @@ describe('minimal update preserves siblings', () => {
   it('should preserve component child identity and focus during sibling text updates', () => {
     const { container, cleanup } = createTestContainer();
 
-    const Field = ({
-      onInput,
-    }: {
-      onInput: (event: Event) => void;
-    }) => <input id={'name'} placeholder={'Type your name...'} onInput={onInput} />;
+    const Field = ({ onInput }: { onInput: (event: Event) => void }) => (
+      <input id={'name'} placeholder={'Type your name...'} onInput={onInput} />
+    );
 
     const Toggle = () => <button type={'button'}>{'Bold'}</button>;
 
@@ -88,7 +86,9 @@ describe('minimal update preserves siblings', () => {
               }
             />
           </div>
-          <p id={'preview'}>{name() ? `Hello, ${name()}!` : 'Type something above...'}</p>
+          <p id={'preview'}>
+            {name() ? `Hello, ${name()}!` : 'Type something above...'}
+          </p>
         </div>
       ) as unknown as JSXElement;
     };
@@ -107,7 +107,9 @@ describe('minimal update preserves siblings', () => {
     input!.dispatchEvent(new Event('input', { bubbles: true }));
     flushScheduler();
 
-    const inputAfter = container.querySelector('#name') as HTMLInputElement | null;
+    const inputAfter = container.querySelector(
+      '#name'
+    ) as HTMLInputElement | null;
     expect(inputAfter).toBe(input);
     expect(document.activeElement).toBe(input);
     expect(preview?.textContent).toBe('Hello, abc!');
@@ -119,13 +121,17 @@ describe('minimal update preserves siblings', () => {
     const { container, cleanup } = createTestContainer();
 
     const Counter = () => <div class={'counter'}>{'0'}</div>;
-    const IconLabel = ({ children }: { children?: unknown }) => <span>{children}</span>;
+    const IconLabel = ({ children }: { children?: unknown }) => (
+      <span>{children}</span>
+    );
     const Toggle = () => <button type={'button'}>{'Bold'}</button>;
-    const Field = ({
-      onInput,
-    }: {
-      onInput: (event: Event) => void;
-    }) => <input id={'fragment-name'} placeholder={'Type your name...'} onInput={onInput} />;
+    const Field = ({ onInput }: { onInput: (event: Event) => void }) => (
+      <input
+        id={'fragment-name'}
+        placeholder={'Type your name...'}
+        onInput={onInput}
+      />
+    );
 
     const Page = () => {
       const name = state('');
@@ -179,8 +185,12 @@ describe('minimal update preserves siblings', () => {
     flushScheduler();
 
     const sections = container.querySelectorAll('.showcase-section');
-    const lastSection = sections[sections.length - 1] as HTMLDivElement | undefined;
-    const input = container.querySelector('#fragment-name') as HTMLInputElement | null;
+    const lastSection = sections[sections.length - 1] as
+      | HTMLDivElement
+      | undefined;
+    const input = container.querySelector(
+      '#fragment-name'
+    ) as HTMLInputElement | null;
 
     expect(lastSection).toBeDefined();
     expect(input).not.toBeNull();
@@ -191,10 +201,12 @@ describe('minimal update preserves siblings', () => {
     flushScheduler();
 
     const sectionsAfter = container.querySelectorAll('.showcase-section');
-    const lastSectionAfter = sectionsAfter[
-      sectionsAfter.length - 1
-    ] as HTMLDivElement | undefined;
-    const inputAfter = container.querySelector('#fragment-name') as HTMLInputElement | null;
+    const lastSectionAfter = sectionsAfter[sectionsAfter.length - 1] as
+      | HTMLDivElement
+      | undefined;
+    const inputAfter = container.querySelector(
+      '#fragment-name'
+    ) as HTMLInputElement | null;
 
     expect(lastSectionAfter).toBe(lastSection);
     expect(inputAfter).toBe(input);
@@ -219,13 +231,13 @@ describe('minimal update preserves siblings', () => {
     );
 
     const Counter = () => <div class={'counter'}>{'0'}</div>;
-    const IconLabel = ({ children }: { children?: unknown }) => <span>{children}</span>;
+    const IconLabel = ({ children }: { children?: unknown }) => (
+      <span>{children}</span>
+    );
     const Toggle = () => <button type={'button'}>{'Bold'}</button>;
-    const Field = ({
-      onInput,
-    }: {
-      onInput: (event: Event) => void;
-    }) => <input id={'shared-host-name'} onInput={onInput} />;
+    const Field = ({ onInput }: { onInput: (event: Event) => void }) => (
+      <input id={'shared-host-name'} onInput={onInput} />
+    );
 
     const Page = () => {
       const name = state('');
@@ -284,7 +296,9 @@ describe('minimal update preserves siblings', () => {
         })
       | null;
     const main = container.querySelector('main') as HTMLElement | null;
-    const sections = Array.from(container.querySelectorAll('.showcase-section'));
+    const sections = Array.from(
+      container.querySelectorAll('.showcase-section')
+    );
     const input = container.querySelector(
       '#shared-host-name'
     ) as HTMLInputElement | null;
@@ -301,9 +315,13 @@ describe('minimal update preserves siblings', () => {
     input!.dispatchEvent(new Event('input', { bubbles: true }));
     flushScheduler();
 
-    const shellAfter = container.querySelector('.app-shell') as HTMLElement | null;
+    const shellAfter = container.querySelector(
+      '.app-shell'
+    ) as HTMLElement | null;
     const mainAfter = container.querySelector('main') as HTMLElement | null;
-    const sectionsAfter = Array.from(container.querySelectorAll('.showcase-section'));
+    const sectionsAfter = Array.from(
+      container.querySelectorAll('.showcase-section')
+    );
     const inputAfter = container.querySelector(
       '#shared-host-name'
     ) as HTMLInputElement | null;
@@ -368,8 +386,12 @@ describe('minimal update preserves siblings', () => {
     createIsland({ root: container, component: App });
     flushScheduler();
 
-    const input = container.querySelector('#scoped-name') as HTMLInputElement | null;
-    const shell = container.querySelector('.scoped-shell') as HTMLElement | null;
+    const input = container.querySelector(
+      '#scoped-name'
+    ) as HTMLInputElement | null;
+    const shell = container.querySelector(
+      '.scoped-shell'
+    ) as HTMLElement | null;
 
     expect(input).not.toBeNull();
     expect(shell).not.toBeNull();
@@ -382,7 +404,9 @@ describe('minimal update preserves siblings', () => {
     input!.dispatchEvent(new Event('input', { bubbles: true }));
     flushScheduler();
 
-    const shellAfter = container.querySelector('.scoped-shell') as HTMLElement | null;
+    const shellAfter = container.querySelector(
+      '.scoped-shell'
+    ) as HTMLElement | null;
     const inputAfter = container.querySelector(
       '#scoped-name'
     ) as HTMLInputElement | null;
@@ -393,7 +417,9 @@ describe('minimal update preserves siblings', () => {
     expect(container.querySelector('#context-preview')?.textContent).toBe(
       'outer:inner'
     );
-    expect(container.querySelector('#typed-preview')?.textContent).toBe('typed');
+    expect(container.querySelector('#typed-preview')?.textContent).toBe(
+      'typed'
+    );
 
     cleanup();
   });

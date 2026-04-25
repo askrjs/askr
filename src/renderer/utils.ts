@@ -258,7 +258,7 @@ export function extractKey(vnode: unknown): string | number | undefined {
   const obj = vnode as Record<string, unknown>;
   const rawKey =
     obj.key ?? (obj.props as Record<string, unknown> | undefined)?.key;
-  if (rawKey === undefined) return undefined;
+  if (rawKey === undefined || rawKey === null) return undefined;
   return typeof rawKey === 'symbol'
     ? String(rawKey)
     : (rawKey as string | number);

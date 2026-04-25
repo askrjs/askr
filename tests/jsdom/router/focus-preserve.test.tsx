@@ -4,7 +4,12 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import { clearRoutes, getManifest, group, route } from '../../../src/router/route';
+import {
+  clearRoutes,
+  getManifest,
+  group,
+  route,
+} from '../../../src/router/route';
 
 describe('routed shell focus preservation', () => {
   let container: HTMLElement;
@@ -37,13 +42,17 @@ describe('routed shell focus preservation', () => {
     );
 
     const Counter = () => <div class="counter">{'0'}</div>;
-    const IconLabel = ({ children }: { children?: unknown }) => <span>{children}</span>;
+    const IconLabel = ({ children }: { children?: unknown }) => (
+      <span>{children}</span>
+    );
     const Toggle = () => <button type="button">{'Bold'}</button>;
-    const Field = ({
-      onInput,
-    }: {
-      onInput: (event: Event) => void;
-    }) => <input id="routed-name" placeholder="Type your name..." onInput={onInput} />;
+    const Field = ({ onInput }: { onInput: (event: Event) => void }) => (
+      <input
+        id="routed-name"
+        placeholder="Type your name..."
+        onInput={onInput}
+      />
+    );
 
     const ExamplePage = () => {
       const name = state('');
@@ -97,8 +106,12 @@ describe('routed shell focus preservation', () => {
     const shell = container.querySelector('.app-shell') as HTMLElement | null;
     const header = container.querySelector('header') as HTMLElement | null;
     const main = container.querySelector('main') as HTMLElement | null;
-    const sections = Array.from(container.querySelectorAll('.showcase-section'));
-    const input = container.querySelector('#routed-name') as HTMLInputElement | null;
+    const sections = Array.from(
+      container.querySelectorAll('.showcase-section')
+    );
+    const input = container.querySelector(
+      '#routed-name'
+    ) as HTMLInputElement | null;
 
     expect(shell).not.toBeNull();
     expect(header).not.toBeNull();
@@ -110,12 +123,20 @@ describe('routed shell focus preservation', () => {
     input!.dispatchEvent(new Event('input', { bubbles: true }));
     flushScheduler();
 
-    const shellAfter = container.querySelector('.app-shell') as HTMLElement | null;
+    const shellAfter = container.querySelector(
+      '.app-shell'
+    ) as HTMLElement | null;
     const headerAfter = container.querySelector('header') as HTMLElement | null;
     const mainAfter = container.querySelector('main') as HTMLElement | null;
-    const sectionsAfter = Array.from(container.querySelectorAll('.showcase-section'));
-    const inputAfter = container.querySelector('#routed-name') as HTMLInputElement | null;
-    const previewAfter = container.querySelector('#routed-preview') as HTMLElement | null;
+    const sectionsAfter = Array.from(
+      container.querySelectorAll('.showcase-section')
+    );
+    const inputAfter = container.querySelector(
+      '#routed-name'
+    ) as HTMLInputElement | null;
+    const previewAfter = container.querySelector(
+      '#routed-preview'
+    ) as HTMLElement | null;
 
     expect(shellAfter).toBe(shell);
     expect(headerAfter).toBe(header);
