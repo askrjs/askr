@@ -114,7 +114,8 @@ describe('state subscription invariants', () => {
     // If cleanup didn't run, attempt manual cleanup to assert behavior
     if ((childInst!._lastReadSources?.size ?? 0) !== 0) {
       // Call cleanup to ensure we clear subscriptions
-      const { cleanupComponent } = await import('../../../src/runtime/component');
+      const { cleanupComponent } =
+        await import('../../../src/runtime/component');
       cleanupComponent(childInst!);
     }
 

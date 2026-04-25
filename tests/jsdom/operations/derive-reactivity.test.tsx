@@ -4,7 +4,10 @@ import { createIsland, derive, state } from '../../../src/index';
 import { For } from '../../../src/control';
 import { cleanupComponent } from '../../../src/runtime/component';
 import { renderToStringSync } from '../../../src/ssr';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { allowFrameworkWarnings } from '../../setup-env';
 
 const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');

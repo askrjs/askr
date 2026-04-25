@@ -1,8 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA } from '../../../src/index';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { navigate } from '../../../src/router/navigate';
-import { clearRoutes, group, route, getManifest } from '../../../src/router/route';
+import {
+  clearRoutes,
+  group,
+  route,
+  getManifest,
+} from '../../../src/router/route';
 
 describe('layout scoping (ROUTER)', () => {
   let container: HTMLElement;

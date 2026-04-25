@@ -1,7 +1,10 @@
 // tests/renderer/performance-optimizations.test.tsx
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../../src/index';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('performance optimizations (RENDERER)', () => {
   let { container, cleanup } = createTestContainer();

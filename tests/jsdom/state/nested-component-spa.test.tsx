@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vite-plus/test';
 import { createSPA } from '../../../src/boot';
 import { navigate } from '../../../src/router/navigate';
 import { state } from '../../../src';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('nested component in SPA', () => {
   it('should work in createSPA with route components', async () => {

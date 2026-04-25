@@ -8,7 +8,10 @@ import {
 } from 'vite-plus/test';
 import { controllableState } from '@askrjs/askr/foundations';
 import { createIsland } from '../../../test-utils/render/create-island';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('controllableState (FOUNDATIONS)', () => {
   let { container, cleanup } = createTestContainer();

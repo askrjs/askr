@@ -173,7 +173,7 @@ describe('Test suite guidelines', () => {
   it('should keep Playwright tests on public browser behavior', () => {
     const playwrightDir = path.join(testsDir, 'playwright');
     const files = readAllTestFiles(playwrightDir).filter((file) =>
-      /\.spec\.ts$/.test(file)
+      file.endsWith('.spec.ts')
     );
     const failures: string[] = [];
 

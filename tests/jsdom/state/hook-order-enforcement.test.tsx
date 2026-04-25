@@ -1,7 +1,10 @@
 // tests/state/hook_order_enforcement.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../../src/index';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('hook order enforcement (STATE)', () => {
   let { container, cleanup } = createTestContainer();

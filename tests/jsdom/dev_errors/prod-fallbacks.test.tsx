@@ -9,7 +9,10 @@ import {
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { clearRoutes } from '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';

@@ -1,7 +1,10 @@
 // tests/state/conditional_state_errors.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../../src/index';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { allowFrameworkWarnings } from '../../setup-env';
 
 describe('conditional state errors (STATE)', () => {

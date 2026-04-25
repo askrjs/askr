@@ -1,5 +1,8 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { createHydrationFixture, tier2BenchOptions } from '../../shared/_shared';
+import {
+  createHydrationFixture,
+  tier2BenchOptions,
+} from '../../shared/_shared';
 import { hydrateSPA } from '../../../src/boot';
 import { navigate } from '../../../src/router/navigate';
 import { flushScheduler } from '../../tests/helpers/test-renderer';

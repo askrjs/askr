@@ -7,7 +7,10 @@ import {
   renderToStream,
 } from '../../../src/ssr';
 import type { JSXElement } from '../../../src/jsx/types';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 // Consolidated SSR tests
 

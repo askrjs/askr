@@ -16,7 +16,10 @@ import {
 import { state, createSPA } from '../../../src/index';
 import { navigate } from '../../../src/router/navigate';
 import { clearRoutes, getRoutes, route } from '../../../src/router/route';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('route navigation (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();

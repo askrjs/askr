@@ -1,7 +1,10 @@
 import { expect } from 'chai';
 import { test } from 'vite-plus/test';
 import { createIsland, state } from '../../../src';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { For } from '../../../src/control';
 
 test('should update item when nested state changes', () => {

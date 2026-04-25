@@ -2,7 +2,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../../src/index';
 import type { JSXElement } from '../../../src/jsx/types';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { allowFrameworkWarnings } from '../../setup-env';
 
 describe('large tree updates (STRESS)', () => {

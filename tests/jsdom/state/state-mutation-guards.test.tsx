@@ -1,7 +1,10 @@
 // tests/state/state_mutation_guards.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, state } from '../../../src/index';
-import { createTestContainer, flushScheduler } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('state mutation guards (STATE)', () => {
   let { container, cleanup } = createTestContainer();
