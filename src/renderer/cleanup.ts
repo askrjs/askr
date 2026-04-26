@@ -6,7 +6,7 @@ import {
   removeDelegatedListener,
 } from '../runtime/events';
 
-type InstanceHost = Element & { __ASKR_INSTANCE?: unknown };
+type InstanceHost = Node & { __ASKR_INSTANCE?: unknown };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Instance Cleanup Helpers
@@ -119,7 +119,7 @@ export function cleanupInstanceIfPresent(
   node: Node | null,
   opts?: { strict?: boolean }
 ): void {
-  if (!node || !(node instanceof Element)) return;
+  if (!node) return;
 
   const strict = opts?.strict ?? false;
   const errors: unknown[] | null = strict ? [] : null;
@@ -132,27 +132,29 @@ export function cleanupInstanceIfPresent(
     else logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
   }
 
-  // Clean up any nested instances on descendants
-  try {
-    forEachDescendantElement(node, (d) => {
-      try {
-        cleanupSingleInstance(d as InstanceHost, errors, strict);
-      } catch (err) {
-        if (strict) errors!.push(err);
-        else
-          logger.warn(
-            '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
-            err
-          );
-      }
-    });
-  } catch (err) {
-    if (strict) errors!.push(err);
-    else
-      logger.warn(
-        '[Askr] cleanupInstanceIfPresent descendant query failed:',
-        err
-      );
+  if (node instanceof Element) {
+    // Clean up any nested instances on descendants
+    try {
+      forEachDescendantElement(node, (d) => {
+        try {
+          cleanupSingleInstance(d as InstanceHost, errors, strict);
+        } catch (err) {
+          if (strict) errors!.push(err);
+          else
+            logger.warn(
+              '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
+              err
+            );
+        }
+      });
+    } catch (err) {
+      if (strict) errors!.push(err);
+      else
+        logger.warn(
+          '[Askr] cleanupInstanceIfPresent descendant query failed:',
+          err
+        );
+    }
   }
 
   if (errors && errors.length > 0) {
@@ -174,10 +176,18 @@ export function teardownNodeSubtree(
   node: Node | null,
   opts?: { strict?: boolean }
 ): void {
-  if (!node || !(node instanceof Element)) return;
+  if (!node) return;
 
   const strict = opts?.strict ?? false;
   const errors: unknown[] | null = strict ? [] : null;
+
+  if (!(node instanceof Element)) {
+    cleanupSingleInstance(node as InstanceHost, errors, strict);
+    if (errors && errors.length > 0) {
+      throw new AggregateError(errors, 'teardownNodeSubtree failed');
+    }
+    return;
+  }
 
   try {
     forEachElementInSubtree(node, (element) => {

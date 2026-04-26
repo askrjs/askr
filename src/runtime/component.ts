@@ -835,6 +835,7 @@ export function cleanupComponent(instance: ComponentInstance): void {
 
   // Clear update callback to prevent dangling references and stale updates
   instance.notifyUpdate = null;
+  instance._placeholder = undefined;
 
   // Mark instance as unmounted so external tracking (e.g., portal host lists)
   // can deterministically prune stale instances. Not marking this leads to

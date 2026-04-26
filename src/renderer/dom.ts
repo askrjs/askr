@@ -1151,16 +1151,23 @@ function createIntrinsicElement(
 /**
  * Create element from a component function
  */
-function cleanupDetachedComponentHost(host: InstanceHostElement): void {
+function cleanupDetachedComponentHost(
+  host: InstanceHostElement,
+  retainedInstance?: ComponentInstance
+): void {
   removeElementListeners(host);
   removeElementReactiveProps(host);
 
   const hostInstances = host.__ASKR_INSTANCES;
   if (hostInstances && hostInstances.length > 0) {
     for (const instance of hostInstances) {
+      if (instance === retainedInstance) continue;
       cleanupComponent(instance);
     }
-  } else if (host.__ASKR_INSTANCE) {
+  } else if (
+    host.__ASKR_INSTANCE &&
+    host.__ASKR_INSTANCE !== retainedInstance
+  ) {
     cleanupComponent(host.__ASKR_INSTANCE);
   }
 
@@ -1172,6 +1179,7 @@ function cleanupDetachedComponentHost(host: InstanceHostElement): void {
 
     if (descendant.__ASKR_INSTANCES?.length) {
       for (const instance of descendant.__ASKR_INSTANCES) {
+        if (instance === retainedInstance) continue;
         cleanupComponent(instance);
       }
       try {
@@ -1179,7 +1187,10 @@ function cleanupDetachedComponentHost(host: InstanceHostElement): void {
       } catch {
         // Ignore host cleanup failures.
       }
-    } else if (descendant.__ASKR_INSTANCE) {
+    } else if (
+      descendant.__ASKR_INSTANCE &&
+      descendant.__ASKR_INSTANCE !== retainedInstance
+    ) {
       cleanupComponent(descendant.__ASKR_INSTANCE);
       try {
         delete descendant.__ASKR_INSTANCE;
@@ -1229,6 +1240,13 @@ function materializeComponentResultNode(
 
   if (!dom) {
     const placeholder = document.createComment('');
+    try {
+      (
+        placeholder as Comment & { __ASKR_INSTANCE?: ComponentInstance }
+      ).__ASKR_INSTANCE = childInstance;
+    } catch {
+      // Ignore placeholder metadata failures.
+    }
     childInstance._placeholder = placeholder;
     childInstance.mounted = true;
     childInstance.notifyUpdate = childInstance._enqueueRun!;
@@ -1283,6 +1301,58 @@ function resolveNestedComponentResult(
 
     activeSnapshot = nestedSnapshot ?? null;
     currentResult = nextResult as VNode;
+    depth += 1;
+  }
+
+  return currentResult;
+}
+
+function resolveWrapperHostResult(
+  host: InstanceHostElement,
+  result: unknown,
+  snapshot: ContextFrame | null
+): unknown {
+  let currentResult = result;
+  let activeSnapshot = snapshot;
+  let depth = 0;
+
+  while (
+    _isDOMElement(currentResult) &&
+    typeof currentResult.type === 'function' &&
+    depth < 16
+  ) {
+    const nestedSnapshot =
+      (currentResult as ElementWithContext)[CONTEXT_FRAME_SYMBOL] ??
+      activeSnapshot;
+    const nestedInstance = findHostInstanceByType(
+      host,
+      currentResult.type as ComponentFunction
+    );
+
+    if (!nestedInstance) {
+      break;
+    }
+
+    nestedInstance.props =
+      (((currentResult as DOMElement).props ?? {}) as Props) || {};
+
+    if (nestedSnapshot) {
+      nestedInstance.ownerFrame = nestedSnapshot;
+    }
+
+    const nextResult = withContext(nestedSnapshot ?? null, () =>
+      renderComponentInline(nestedInstance)
+    );
+
+    if (nextResult instanceof Promise) {
+      throw new Error(
+        'Async components are not supported. Components must return synchronously.'
+      );
+    }
+
+    warnUnusedStateReads(nestedInstance);
+    activeSnapshot = nestedSnapshot ?? null;
+    currentResult = nextResult;
     depth += 1;
   }
 
@@ -1352,7 +1422,15 @@ export function syncComponentElement(
   }
 
   if (existingHost.__ASKR_WRAPPER_HOST) {
-    updateUnkeyedChildren(existingHost, normalizeComponentChildren(result));
+    const wrapperResult = resolveWrapperHostResult(
+      existingHost,
+      result,
+      snapshot ?? null
+    );
+    updateElementChildren(
+      existingHost,
+      normalizeComponentChildren(wrapperResult) as VNode[]
+    );
     warnUnusedStateReads(existingInstance);
     return existingHost;
   }
@@ -1405,7 +1483,7 @@ export function syncComponentElement(
 
   if (nextDom !== existingHost && existingHost.parentNode) {
     existingHost.parentNode.replaceChild(nextDom, existingHost);
-    cleanupDetachedComponentHost(existingHost);
+    cleanupDetachedComponentHost(existingHost, existingInstance);
   }
 
   warnUnusedStateReads(existingInstance);
@@ -3004,6 +3082,11 @@ export function updateUnkeyedChildren(
   );
   const hasElements = newChildren.some((c) => _isDOMElement(c));
   const hasEmptyChildren = newChildren.some(isEmptyChild);
+  const hasComponentChildren = newChildren.some(
+    (c) => _isDOMElement(c) && typeof (c as DOMElement).type === 'function'
+  );
+  const hasNonElementDomChildren =
+    parent.childNodes.length !== parent.children.length;
 
   // Fast path: same-count, pure-element update (the common large-list re-render).
   // Iterate parent.children by index directly to avoid the Array.from snapshot
@@ -3012,6 +3095,7 @@ export function updateUnkeyedChildren(
   if (
     !hasEmptyChildren &&
     !hasText &&
+    !hasComponentChildren &&
     hasElements &&
     parent.children.length === newChildren.length
   ) {
@@ -3054,9 +3138,15 @@ export function updateUnkeyedChildren(
 
   const existing = Array.from(parent.children);
 
-  // If we have mixed content (text + elements), use childNodes instead of children
-  // to handle both text nodes and elements properly
-  if (hasText && hasElements) {
+  // Use childNodes whenever non-element DOM can participate in the sequence.
+  // Component children can render text, comments, fragments, or elements, so
+  // parent.children is not a safe positional view for those updates.
+  if (
+    hasText ||
+    hasComponentChildren ||
+    hasEmptyChildren ||
+    hasNonElementDomChildren
+  ) {
     const allNodes = Array.from(parent.childNodes);
     const max = Math.max(allNodes.length, newChildren.length);
 
