@@ -119,14 +119,34 @@ type ReactiveScalarChildSource = ReactiveScalarChildSourceSlot[];
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
 
-function isReactiveScalarSequenceValue(value: unknown): boolean {
-  return (
-    value === null ||
-    value === undefined ||
-    value === false ||
-    typeof value === 'string' ||
-    typeof value === 'number'
-  );
+function collectReactiveScalarSequenceValue(
+  value: unknown,
+  normalized: string[]
+): boolean {
+  if (isFragmentVNode(value)) {
+    const fragmentChildren = value.props?.children ?? value.children;
+    return collectReactiveScalarSequenceValue(fragmentChildren, normalized);
+  }
+
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      if (!collectReactiveScalarSequenceValue(child, normalized)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (value === null || value === undefined || value === false) {
+    return true;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    normalized.push(String(value));
+    return true;
+  }
+
+  return false;
 }
 
 function collectReactiveScalarChildSource(
@@ -244,15 +264,15 @@ function clearElementChildren(el: Element): void {
   el.textContent = '';
 }
 
-function normalizeReactiveScalarSequenceValues(values: unknown[]): string[] {
+function normalizeReactiveScalarSequenceValues(
+  values: unknown[]
+): string[] | null {
   const normalized: string[] = [];
 
   for (const value of values) {
-    if (value === null || value === undefined || value === false) {
-      continue;
+    if (!collectReactiveScalarSequenceValue(value, normalized)) {
+      return null;
     }
-
-    normalized.push(String(value));
   }
 
   return normalized;
@@ -317,18 +337,14 @@ function setupReactiveScalarChild(
           );
         }
 
-        for (const value of values) {
-          if (!isReactiveScalarSequenceValue(value)) {
-            throw new Error(
-              '[Askr] Reactive scalar child sequences must resolve to text-compatible values.'
-            );
-          }
+        const normalized = normalizeReactiveScalarSequenceValues(values);
+        if (!normalized) {
+          throw new Error(
+            '[Askr] Reactive scalar child sequences must resolve to text-compatible values.'
+          );
         }
 
-        syncReactiveScalarTextNodes(
-          el,
-          normalizeReactiveScalarSequenceValues(values)
-        );
+        syncReactiveScalarTextNodes(el, normalized);
       },
       equals: (previousValue, nextValue) => {
         if (!Array.isArray(previousValue) || !Array.isArray(nextValue)) {
@@ -338,6 +354,10 @@ function setupReactiveScalarChild(
         const previousNormalized =
           normalizeReactiveScalarSequenceValues(previousValue);
         const nextNormalized = normalizeReactiveScalarSequenceValues(nextValue);
+
+        if (!previousNormalized || !nextNormalized) {
+          return false;
+        }
 
         if (previousNormalized.length !== nextNormalized.length) {
           return false;
