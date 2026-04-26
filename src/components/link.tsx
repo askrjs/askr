@@ -8,7 +8,13 @@ import { mergeProps } from '../foundations/utilities/merge-props';
 
 export type LinkProps = Omit<
   JSX.IntrinsicElements['a'],
-  'children' | 'href' | 'class' | 'rel' | 'target' | 'aria-current' | 'aria-label'
+  | 'children'
+  | 'href'
+  | 'class'
+  | 'rel'
+  | 'target'
+  | 'aria-current'
+  | 'aria-label'
 > & {
   href: string;
   class?: string;

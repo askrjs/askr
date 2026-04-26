@@ -99,14 +99,14 @@ describe('optimization regressions (DOM)', () => {
     flushScheduler();
 
     expect(
-      container.querySelector('[data-option="small"]')?.getAttribute(
-        'aria-checked'
-      )
+      container
+        .querySelector('[data-option="small"]')
+        ?.getAttribute('aria-checked')
     ).toBe('false');
     expect(
-      container.querySelector('[data-option="medium"]')?.getAttribute(
-        'aria-checked'
-      )
+      container
+        .querySelector('[data-option="medium"]')
+        ?.getAttribute('aria-checked')
     ).toBe('true');
     expect(
       container.querySelector('#selected-value')?.getAttribute('value')
@@ -148,7 +148,9 @@ describe('optimization regressions (DOM)', () => {
 
     const Summary = () => {
       const query = readContext(FilterContext);
-      return <p id={'row-summary'}>{`count:${getFilteredRows(query).length}`}</p>;
+      return (
+        <p id={'row-summary'}>{`count:${getFilteredRows(query).length}`}</p>
+      );
     };
 
     const FilterShell = (props: { query: string; children?: unknown }) => (
@@ -186,7 +188,9 @@ describe('optimization regressions (DOM)', () => {
     expect(container.textContent).toContain('Charlie');
     expect(container.textContent).toContain('Alice');
     expect(container.textContent).toContain('Bob');
-    expect(container.querySelector('#row-summary')?.textContent).toBe('count:3');
+    expect(container.querySelector('#row-summary')?.textContent).toBe(
+      'count:3'
+    );
 
     (container.querySelector('#show-bob') as HTMLButtonElement | null)?.click();
     flushScheduler();
@@ -196,7 +200,9 @@ describe('optimization regressions (DOM)', () => {
     expect(bodyText).toContain('Bob');
     expect(bodyText).not.toContain('Charlie');
     expect(bodyText).not.toContain('Alice');
-    expect(container.querySelector('#row-summary')?.textContent).toBe('count:1');
+    expect(container.querySelector('#row-summary')?.textContent).toBe(
+      'count:1'
+    );
   });
 
   it('should clear portal content when scoped children are removed', () => {
@@ -230,7 +236,9 @@ describe('optimization regressions (DOM)', () => {
     toggleMenu?.click();
     flushScheduler();
 
-    expect(container.querySelector('#portal-context')?.textContent).toBe('file');
+    expect(container.querySelector('#portal-context')?.textContent).toBe(
+      'file'
+    );
 
     toggleMenu?.click();
     flushScheduler();
@@ -306,9 +314,13 @@ describe('optimization regressions (DOM)', () => {
     toggleMenu?.click();
     flushScheduler();
 
-    expect(container.querySelector('#menu-surface')?.textContent).toContain('Share');
+    expect(container.querySelector('#menu-surface')?.textContent).toContain(
+      'Share'
+    );
 
-    (container.querySelector('#open-submenu') as HTMLButtonElement | null)?.click();
+    (
+      container.querySelector('#open-submenu') as HTMLButtonElement | null
+    )?.click();
     flushScheduler();
 
     expect(container.querySelector('#portal-context')?.textContent).toBe(
@@ -322,7 +334,9 @@ describe('optimization regressions (DOM)', () => {
 
     toggleMenu?.click();
     flushScheduler();
-    (container.querySelector('#open-submenu') as HTMLButtonElement | null)?.click();
+    (
+      container.querySelector('#open-submenu') as HTMLButtonElement | null
+    )?.click();
     flushScheduler();
 
     expect(container.querySelector('#portal-context')?.textContent).toBe(
