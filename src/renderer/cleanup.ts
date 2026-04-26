@@ -209,6 +209,9 @@ export interface ReactivePropCleanupEntry {
   fnRef: () => unknown;
   updateFn?: (nextFn: () => unknown) => void;
 }
+
+export const REACTIVE_CHILDREN_KEY = '__askr_reactive_children__';
+
 export const elementReactivePropsCleanup = new WeakMap<
   Element,
   Map<string, ReactivePropCleanupEntry>

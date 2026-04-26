@@ -27,8 +27,10 @@ import {
   removeAllListeners,
   teardownNodeSubtree,
   elementReactivePropsCleanup,
+  REACTIVE_CHILDREN_KEY,
   removeElementListeners,
   removeElementReactiveProps,
+  type ReactivePropCleanupEntry,
 } from './cleanup';
 import {
   setDevValue,
@@ -72,8 +74,12 @@ import {
 } from './utils';
 import { reconcileKeyedChildren } from './reconcile';
 import type { ReadableSource } from '../runtime/readable';
-import { globalScheduler } from '../runtime/scheduler';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
+import {
+  createFineGrainedEffect,
+  markFineGrainedEffectsDirtySource,
+  type FineGrainedEffectHandle,
+} from '../runtime/effect';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
@@ -94,6 +100,144 @@ type InstanceHostElement = Element & {
   __ASKR_INSTANCES?: ComponentInstance[];
   __ASKR_WRAPPER_HOST?: boolean;
 };
+
+interface ReactivePropDescriptor {
+  el: Element;
+  propName: string;
+  propFn: () => unknown;
+  tagName: string;
+  lastClassTokens: string[] | null;
+}
+
+const reactivePropRegistry = new Set<ReactivePropDescriptor>();
+
+function isReactiveScalarChildValue(value: unknown): boolean {
+  return (
+    value === null ||
+    value === undefined ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  );
+}
+
+function normalizeReactiveScalarChildValue(value: unknown): string {
+  if (value === null || value === undefined || value === false) {
+    return '';
+  }
+
+  return String(value);
+}
+
+function tryGetSingleReactiveChild(children: unknown): (() => unknown) | null {
+  if (typeof children === 'function') {
+    return children as () => unknown;
+  }
+
+  if (
+    Array.isArray(children) &&
+    children.length === 1 &&
+    typeof children[0] === 'function'
+  ) {
+    return children[0] as () => unknown;
+  }
+
+  return null;
+}
+
+function getOrCreateElementReactiveCleanupMap(
+  el: Element
+): Map<string, ReactivePropCleanupEntry> {
+  let cleanupMap = elementReactivePropsCleanup.get(el);
+  if (!cleanupMap) {
+    cleanupMap = new Map();
+    elementReactivePropsCleanup.set(el, cleanupMap);
+  }
+
+  return cleanupMap;
+}
+
+function setupReactiveScalarChild(
+  el: Element,
+  childFn: () => unknown
+): { cleanup: () => void; updateFn: (nextFn: () => unknown) => void } {
+  let effectHandle: FineGrainedEffectHandle<unknown> | null =
+    createFineGrainedEffect({
+      lane: 'reactive',
+      compute: childFn,
+      commit: (value) => {
+        if (!isReactiveScalarChildValue(value)) {
+          throw new Error(
+            '[Askr] Reactive scalar children must resolve to text-compatible values.'
+          );
+        }
+
+        setTextNodeData(el, normalizeReactiveScalarChildValue(value));
+      },
+      equals: (previousValue, nextValue) =>
+        normalizeReactiveScalarChildValue(previousValue) ===
+        normalizeReactiveScalarChildValue(nextValue),
+      onError: (err) => {
+        if (getRuntimeEnv().NODE_ENV !== 'production') {
+          logger.warn('[Askr] Reactive child update failed:', err);
+        }
+      },
+    });
+
+  return {
+    cleanup: () => {
+      effectHandle?.cleanup();
+      effectHandle = null;
+    },
+    updateFn: (nextFn: () => unknown) => {
+      if (!effectHandle) {
+        return;
+      }
+
+      effectHandle.updateCompute(nextFn);
+    },
+  };
+}
+
+function syncReactiveScalarChild(el: Element, children: unknown): boolean {
+  const reactiveChildFn = tryGetSingleReactiveChild(children);
+  const existingReactiveEntry = elementReactivePropsCleanup
+    .get(el)
+    ?.get(REACTIVE_CHILDREN_KEY);
+
+  if (!reactiveChildFn) {
+    if (existingReactiveEntry) {
+      existingReactiveEntry.cleanup();
+      const cleanupMap = elementReactivePropsCleanup.get(el);
+      cleanupMap?.delete(REACTIVE_CHILDREN_KEY);
+      if (cleanupMap && cleanupMap.size === 0) {
+        elementReactivePropsCleanup.delete(el);
+      }
+    }
+
+    return false;
+  }
+
+  if (existingReactiveEntry?.fnRef === reactiveChildFn) {
+    return true;
+  }
+
+  if (existingReactiveEntry?.updateFn) {
+    existingReactiveEntry.updateFn(reactiveChildFn);
+    existingReactiveEntry.fnRef = reactiveChildFn;
+    return true;
+  }
+
+  existingReactiveEntry?.cleanup();
+
+  const reactive = setupReactiveScalarChild(el, reactiveChildFn);
+  getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
+    cleanup: reactive.cleanup,
+    updateFn: reactive.updateFn,
+    fnRef: reactiveChildFn,
+  });
+  return true;
+}
 
 const vnodeComponentInstances = new WeakMap<object, ComponentInstance>();
 
@@ -198,10 +342,6 @@ function nextComponentInstanceId(): string {
   return `comp-${fallbackComponentInstanceId}`;
 }
 
-// ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
-// Event Handler Management
-// ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
-
 /**
  * Add an event listener to an element with tracking
  * Uses event delegation when enabled (opt-out model)
@@ -226,12 +366,10 @@ function addTrackedListener(
   const mutableHandler = createMutableWrappedHandler(handler, true);
   const trackedHandler = mutableHandler.handler;
 
-  {
-    if (options !== undefined) {
-      el.addEventListener(eventName, trackedHandler, options);
-    } else {
-      el.addEventListener(eventName, trackedHandler);
-    }
+  if (options !== undefined) {
+    el.addEventListener(eventName, trackedHandler, options);
+  } else {
+    el.addEventListener(eventName, trackedHandler);
   }
 
   if (!elementListeners.has(el)) {
@@ -250,222 +388,10 @@ function addTrackedListener(
   }
 }
 
-// ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
-// Reactive Prop Management - Dirty Descriptor Invalidation
-// ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
-
-interface ReactivePropDescriptor {
-  el: Element;
-  propName: string;
-  propFn: () => unknown;
-  tagName: string;
-  readSources: Set<ReadableSource<unknown>>;
-  isActive: boolean;
-  lastValue: unknown;
-  lastClassTokens: string[] | null;
-}
-
-const reactivePropRegistry = new Set<ReactivePropDescriptor>();
-const dirtyReactiveProps = new Set<ReactivePropDescriptor>();
-const reactivePropsBySource = new WeakMap<
-  ReadableSource<unknown>,
-  Set<ReactivePropDescriptor>
->();
-let hasPendingReactivePropFlush = false;
-let reactivePropTrackingToken = 0;
-
-/**
- * Pre-allocated sentinel used to reset `_pendingReadSources` in the finally
- * block without allocating a new Set on every `evaluateAndSyncReactiveProp`
- * call. Safe to share because `_setCurrentInstance(prevInstance)` runs
- * immediately after in the same synchronous block, so no reactive reads will
- * ever be attributed to `reactivePropTrackingInstance` after the reset.
- */
-const _EMPTY_PENDING_SOURCES = new Set<ReadableSource<unknown>>();
-
-/**
- * Reusable buffer for tracking which sources are read during a single
- * reactive-prop evaluation.  Must *not* be relied on across call boundaries;
- * each call clears it before use.  This avoids one `new Set()` allocation
- * per hot-path reactive-prop re-evaluation.
- */
-const _evalSourceBuffer = new Set<ReadableSource<unknown>>();
-
-const reactivePropTrackingInstance = {
-  _pendingReadSources: new Set<ReadableSource<unknown>>(),
-  _currentRenderToken: 0,
-} as Partial<ComponentInstance> as ComponentInstance;
-
-function registerReactivePropSource(
-  source: ReadableSource<unknown>,
-  descriptor: ReactivePropDescriptor
-): void {
-  let descriptors = reactivePropsBySource.get(source);
-  if (!descriptors) {
-    descriptors = new Set();
-    reactivePropsBySource.set(source, descriptors);
-  }
-  descriptors.add(descriptor);
-}
-
-function unregisterReactivePropSource(
-  source: ReadableSource<unknown>,
-  descriptor: ReactivePropDescriptor
-): void {
-  reactivePropsBySource.get(source)?.delete(descriptor);
-}
-
-function clearReactivePropSubscriptions(
-  descriptor: ReactivePropDescriptor
-): void {
-  for (const source of descriptor.readSources) {
-    unregisterReactivePropSource(source, descriptor);
-  }
-  descriptor.readSources.clear();
-}
-
-/**
- * Evaluate a reactive prop's function while tracking its source dependencies,
- * then synchronise subscriptions in a single pass.
- *
- * Optimised hot path:
- * - Uses `_evalSourceBuffer` (a shared reusable Set) for read tracking, saving
- *   one `new Set()` allocation per call compared to the na├â┬»ve approach.
- * - After evaluation, checks whether the source set changed.  When sources are
- *   identical to the previous evaluation (the overwhelmingly common case for
- *   reactive class props that always read the same signal), no subscription
- *   bookkeeping is needed and no new Set is allocated.
- * - Uses `_EMPTY_PENDING_SOURCES` sentinel in the finally block instead of
- *   `new Set()`, saving another allocation per call.
- *
- * Returns the evaluated value so callers can avoid a separate intermediate
- * `{ value, readSources }` object.
- */
-function evaluateAndSyncReactiveProp(
-  descriptor: ReactivePropDescriptor
-): unknown {
-  const prevInstance = getCurrentInstance();
-
-  _evalSourceBuffer.clear();
-  reactivePropTrackingToken += 1;
-  reactivePropTrackingInstance._pendingReadSources = _evalSourceBuffer;
-  reactivePropTrackingInstance._currentRenderToken = reactivePropTrackingToken;
-
-  _setCurrentInstance(reactivePropTrackingInstance);
-
-  let value: unknown;
-  try {
-    value = descriptor.propFn();
-  } finally {
-    // Restore state without allocating a new Set.
-    reactivePropTrackingInstance._pendingReadSources =
-      _EMPTY_PENDING_SOURCES as Set<ReadableSource<unknown>>;
-    reactivePropTrackingInstance._currentRenderToken = 0;
-    _setCurrentInstance(prevInstance);
-  }
-
-  // ├óΓÇ¥Γé¼├óΓÇ¥Γé¼ Inline syncReactivePropSubscriptions ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
-  // Fast path: if the source set is unchanged, skip all bookkeeping and avoid
-  // allocating a new Set for descriptor.readSources.  This is the common case
-  // for reactive props like `() => isSelected(id) ? "danger" : ""` where the
-  // same signal is always read.
-  const prevSources = descriptor.readSources;
-  const bufSize = _evalSourceBuffer.size;
-
-  if (prevSources.size === bufSize) {
-    let same = true;
-    for (const s of prevSources) {
-      if (!_evalSourceBuffer.has(s)) {
-        same = false;
-        break;
-      }
-    }
-    if (same) {
-      // Sources unchanged ├óΓé¼ΓÇ¥ keep prevSources as descriptor.readSources (no
-      // allocation, no register/unregister calls).
-      return value;
-    }
-  }
-
-  // Sources changed ├óΓé¼ΓÇ¥ build a snapshot from the buffer and do the full diff.
-  const nextSources = new Set(_evalSourceBuffer);
-
-  for (const source of prevSources) {
-    if (!nextSources.has(source)) {
-      unregisterReactivePropSource(source, descriptor);
-    }
-  }
-  for (const source of nextSources) {
-    if (!prevSources.has(source)) {
-      registerReactivePropSource(source, descriptor);
-    }
-  }
-  descriptor.readSources = nextSources;
-
-  return value;
-}
-
-function flushDirtyReactiveProps(): void {
-  hasPendingReactivePropFlush = false;
-
-  if (dirtyReactiveProps.size === 0) {
-    return;
-  }
-
-  const pending = Array.from(dirtyReactiveProps);
-  dirtyReactiveProps.clear();
-
-  for (const descriptor of pending) {
-    if (!descriptor.isActive) continue;
-
-    incrementPerfMetric('reactivePropReevaluations');
-
-    try {
-      const value = evaluateAndSyncReactiveProp(descriptor);
-
-      if (Object.is(descriptor.lastValue, value)) {
-        incrementPerfMetric('skippedDomPropWrites');
-        continue;
-      }
-
-      applyPropValue(
-        descriptor.el,
-        descriptor.propName,
-        value,
-        descriptor.tagName,
-        descriptor.lastValue,
-        descriptor
-      );
-      descriptor.lastValue = value;
-    } catch (err) {
-      if (getRuntimeEnv().NODE_ENV !== 'production') {
-        logger.warn('[Askr] Reactive prop update failed:', err);
-      }
-    }
-  }
-}
-
 export function markReactivePropsDirtySource(
   source: ReadableSource<unknown>
 ): void {
-  const descriptors = reactivePropsBySource.get(source);
-  if (!descriptors || descriptors.size === 0) {
-    return;
-  }
-
-  let shouldScheduleFlush = false;
-  for (const descriptor of descriptors) {
-    if (!descriptor.isActive || dirtyReactiveProps.has(descriptor)) {
-      continue;
-    }
-    dirtyReactiveProps.add(descriptor);
-    shouldScheduleFlush = true;
-  }
-
-  if (shouldScheduleFlush && !hasPendingReactivePropFlush) {
-    hasPendingReactivePropFlush = true;
-    globalScheduler.enqueueInLane('reactive', flushDirtyReactiveProps);
-  }
+  markFineGrainedEffectsDirtySource(source);
 }
 
 /**
@@ -483,53 +409,52 @@ function setupReactiveProp(
     propName,
     propFn,
     tagName,
-    readSources: new Set(),
-    isActive: true,
-    lastValue: undefined,
     lastClassTokens: null,
   };
 
+  let effectHandle: FineGrainedEffectHandle<unknown> | null = null;
+
   reactivePropRegistry.add(descriptor);
-  const value = evaluateAndSyncReactiveProp(descriptor);
-  applyPropValue(el, propName, value, tagName, undefined, descriptor);
-  descriptor.lastValue = value;
+  effectHandle = createFineGrainedEffect({
+    lane: 'reactive',
+    compute: () => descriptor.propFn(),
+    commit: (value, previousValue) => {
+      incrementPerfMetric('reactivePropReevaluations');
+      applyPropValue(el, propName, value, tagName, previousValue, descriptor);
+    },
+    equals: (previousValue, nextValue) => {
+      if (Object.is(previousValue, nextValue)) {
+        incrementPerfMetric('skippedDomPropWrites');
+        return true;
+      }
+      return false;
+    },
+    onError: (err) => {
+      if (getRuntimeEnv().NODE_ENV !== 'production') {
+        logger.warn('[Askr] Reactive prop update failed:', err);
+      }
+    },
+  });
 
   if (isBenchMetricScopeActive('coldCreate')) {
     recordBenchCounter('reactivePropsMounted');
   }
 
   const cleanup = () => {
-    descriptor.isActive = false;
     reactivePropRegistry.delete(descriptor);
-    dirtyReactiveProps.delete(descriptor);
-    clearReactivePropSubscriptions(descriptor);
+    effectHandle?.cleanup();
+    effectHandle = null;
   };
 
   const updateFn = (nextFn: () => unknown): void => {
-    if (!descriptor.isActive) {
+    if (!effectHandle) {
       return;
     }
 
     descriptor.propFn = nextFn;
 
     try {
-      const previousValue = descriptor.lastValue;
-      const value = evaluateAndSyncReactiveProp(descriptor);
-
-      if (Object.is(previousValue, value)) {
-        incrementPerfMetric('skippedDomPropWrites');
-        return;
-      }
-
-      applyPropValue(
-        descriptor.el,
-        descriptor.propName,
-        value,
-        descriptor.tagName,
-        previousValue,
-        descriptor
-      );
-      descriptor.lastValue = value;
+      effectHandle.updateCompute(nextFn);
     } catch (err) {
       if (getRuntimeEnv().NODE_ENV !== 'production') {
         logger.warn('[Askr] Reactive prop update failed:', err);
@@ -1172,6 +1097,10 @@ function createIntrinsicElement(
   // CRITICAL: Use nullish coalescing (?) instead of || because children can be 0, false, or empty string
 
   if (children !== null && children !== undefined) {
+    if (syncReactiveScalarChild(el, children)) {
+      return el;
+    }
+
     if (Array.isArray(children)) {
       maybeWarnMissingKeys(children);
       if (children.length > 1) {
@@ -2674,6 +2603,12 @@ export function updateElementFromVnode(
   // This avoids allocating a Set for the common case (no listeners, or no event props).
   let desiredEventNames: Set<string> | null = null;
   let desiredReactivePropNames: Set<string> | null = null;
+  const nextChildren = props.children ?? domVNode.children;
+  const usesReactiveChildren = syncReactiveScalarChild(el, nextChildren);
+
+  if (usesReactiveChildren) {
+    (desiredReactivePropNames ??= new Set()).add(REACTIVE_CHILDREN_KEY);
+  }
 
   for (const key in props) {
     const value = props[key];
@@ -2947,6 +2882,9 @@ export function updateElementFromVnode(
   if (updateChildren) {
     const children =
       vnode.children || (props.children as VNode | VNode[] | undefined);
+    if (usesReactiveChildren) {
+      return;
+    }
     updateElementChildren(el, children);
   }
 }
