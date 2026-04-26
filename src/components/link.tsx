@@ -5,7 +5,6 @@
 import { navigate } from '../router/navigate';
 import { applyInteractionPolicy } from '../foundations/interactions/interaction-policy';
 import { mergeProps } from '../foundations/utilities/merge-props';
-import { jsx } from '../jsx/jsx-runtime';
 
 export interface LinkProps {
   href: string;
@@ -104,16 +103,14 @@ export function Link({
     },
   });
 
-  return jsx(
-    'a',
-    mergeProps(interaction, {
-      href,
-      class: className,
-      rel,
-      target,
-      'aria-current': ariaCurrent,
-      'aria-label': ariaLabel,
-      children,
-    })
-  );
+  const props = mergeProps(interaction, {
+    href,
+    class: className,
+    rel,
+    target,
+    'aria-current': ariaCurrent,
+    'aria-label': ariaLabel,
+  });
+
+  return <a {...props}>{children}</a>;
 }
