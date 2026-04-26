@@ -2096,6 +2096,31 @@ export function commitForBoundaryChildren(
   const forState = controlState;
   const domCommitStart = performance.now();
 
+  const hydrateExistingForDom = (): void => {
+    const domKeyMap = getOrBuildDomKeyMap(parent);
+    if (!domKeyMap) {
+      return;
+    }
+
+    for (let i = 0; i < forState.orderedKeys.length; i++) {
+      const itemKey = forState.orderedKeys[i];
+      const itemInstance = forState.items.get(itemKey);
+      if (!itemInstance || itemInstance.scope.dom) {
+        continue;
+      }
+
+      const existingDom = domKeyMap.get(itemKey);
+      if (
+        !existingDom ||
+        checkVNodeShapeChanged(existingDom, childrenVNodes[i])
+      ) {
+        continue;
+      }
+
+      itemInstance.scope.dom = existingDom;
+    }
+  };
+
   if (forState.orderedKeys.length === 0) {
     removeForBoundaryNodes(parent, forState.lastRemovedNodes);
 
@@ -2123,6 +2148,8 @@ export function commitForBoundaryChildren(
     clearForDomUpdateState(forState);
     return;
   }
+
+  hydrateExistingForDom();
 
   const commitDirtyNoReorder = (): void => {
     const dirtyIndices = forState.pendingDirtyIndices;

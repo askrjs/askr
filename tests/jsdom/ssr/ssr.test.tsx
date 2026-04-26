@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
+import { For } from '../../../src/control';
 import { route } from '../../../src/router/route';
 import {
   renderToStringSync,
@@ -58,6 +59,26 @@ describe('snapshot restore (SSR)', () => {
 });
 
 describe('SSR determinism (SSR)', () => {
+  it('should render For items during synchronous SSR', async () => {
+    const Component = () => (
+      <ul>
+        <For
+          each={[
+            { id: 'a', label: 'alpha' },
+            { id: 'b', label: 'beta' },
+          ]}
+          by={(item) => item.id}
+        >
+          {(item, index) => <li data-index={index()}>{item.label}</li>}
+        </For>
+      </ul>
+    );
+
+    expect(renderToStringSync(Component)).toBe(
+      '<ul><li data-index="0" data-key="a">alpha</li><li data-index="1" data-key="b">beta</li></ul>'
+    );
+  });
+
   it('should render same HTML every time when component is the same', async () => {
     const Component = () => <div class="x">hello</div>;
 
