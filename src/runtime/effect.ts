@@ -41,14 +41,14 @@ const effectTrackingInstance = {
 
 export interface FineGrainedEffect<T> {
   lane: SchedulerLane;
-  compute: () => T;
-  commit: (value: T, previousValue: T | undefined) => void;
-  equals: (previousValue: T, nextValue: T) => boolean;
+  compute(): T;
+  commit(value: T, previousValue: T | undefined): void;
+  equals(previousValue: T, nextValue: T): boolean;
   readSources: Set<ReadableSource<unknown>>;
   isActive: boolean;
   hasValue: boolean;
   lastValue: T | undefined;
-  onError?: (error: unknown) => void;
+  onError?(error: unknown): void;
 }
 
 export interface FineGrainedEffectHandle<T> {

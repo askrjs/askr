@@ -7,10 +7,12 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { For } from '../../../src/control';
 
-test('should update item when nested state changes', () => {
+test('should update item locally when nested state changes without rerendering the parent', () => {
   const { container, cleanup } = createTestContainer();
+  let parentRenderCount = 0;
 
   const Component = () => {
+    parentRenderCount += 1;
     const rows = [1];
     return (
       <div>
@@ -32,13 +34,63 @@ test('should update item when nested state changes', () => {
 
   const btn = container.querySelector('button') as HTMLButtonElement;
   expect(btn.textContent).to.equal('0');
+  expect(parentRenderCount).to.equal(1);
 
   btn.click();
   flushScheduler();
 
-  // Re-query the button since the parent re-render creates new DOM elements
   const btnAfter = container.querySelector('button') as HTMLButtonElement;
+  expect(btnAfter).to.equal(btn);
   expect(btnAfter.textContent).to.equal('1');
+  expect(parentRenderCount).to.equal(1);
+
+  cleanup();
+});
+
+test('should update fallback locally when nested state changes without rerendering the parent', () => {
+  const { container, cleanup } = createTestContainer();
+  let parentRenderCount = 0;
+
+  const FallbackCounter = () => {
+    const clicks = state(0);
+
+    return (
+      <button onClick={() => clicks.set((value) => value + 1)}>
+        {`fallback:${clicks()}`}
+      </button>
+    );
+  };
+
+  const Component = () => {
+    parentRenderCount += 1;
+    const rows: number[] = [];
+
+    return (
+      <div>
+        <For
+          each={() => rows}
+          by={(_, index) => index}
+          fallback={<FallbackCounter />}
+        >
+          {(row) => <div>{String(row)}</div>}
+        </For>
+      </div>
+    );
+  };
+
+  createIsland({ root: container, component: Component });
+
+  const button = container.querySelector('button') as HTMLButtonElement;
+  expect(button.textContent).to.equal('fallback:0');
+  expect(parentRenderCount).to.equal(1);
+
+  button.click();
+  flushScheduler();
+
+  const buttonAfter = container.querySelector('button') as HTMLButtonElement;
+  expect(buttonAfter).to.equal(button);
+  expect(buttonAfter.textContent).to.equal('fallback:1');
+  expect(parentRenderCount).to.equal(1);
 
   cleanup();
 });

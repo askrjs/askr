@@ -87,6 +87,8 @@ export interface ForState<T> {
   pendingDirtyIndices: number[] | null;
   pendingSwapIndices: [number, number] | null;
   pendingMoveOnly: boolean;
+  _enqueueBoundaryCommit?: (() => void) | null;
+  _hasPendingBoundaryCommit?: boolean;
   devKeyKinds?: Map<string, 'number' | 'string'>;
 }
 
@@ -114,6 +116,8 @@ export function createForState<T>(
     pendingDirtyIndices: null,
     pendingSwapIndices: null,
     pendingMoveOnly: false,
+    _enqueueBoundaryCommit: null,
+    _hasPendingBoundaryCommit: false,
   };
 }
 
@@ -261,6 +265,11 @@ export function createItemInstance<T>(
   // to avoid hook order violations (each For item creates its signal dynamically)
   const indexSignal = createForIndexSignal(index);
   const scope = createChildScope(forState.parentInstance, key, () => {
+    if (forState._enqueueBoundaryCommit) {
+      forState._enqueueBoundaryCommit();
+      return;
+    }
+
     const parent = forState.parentInstance;
     if (parent) {
       parent._enqueueRun?.();
@@ -336,6 +345,11 @@ function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
   const fallbackScope =
     forState.fallbackScope ??
     createChildScope(forState.parentInstance, FOR_FALLBACK_SCOPE_KEY, () => {
+      if (forState._enqueueBoundaryCommit) {
+        forState._enqueueBoundaryCommit();
+        return;
+      }
+
       forState.parentInstance?._enqueueRun?.();
     });
   forState.fallbackScope = fallbackScope;
