@@ -206,4 +206,70 @@ describe('reactive props issues validation', () => {
 
     cleanup();
   });
+
+  test('should retain the last committed reactive prop dependencies when recompute fails', () => {
+    allowFrameworkWarnings(
+      /Unused state variable detected in Component at index 1/
+    );
+    const { container, cleanup } = createTestContainer();
+
+    let primaryState: ReturnType<typeof state<string>>;
+    let secondaryState: ReturnType<typeof state<string>>;
+    let modeState: ReturnType<typeof state<'primary' | 'throw' | 'secondary'>>;
+    let evaluations = 0;
+
+    const Component = () => {
+      primaryState = state('primary-1');
+      secondaryState = state('secondary-1');
+      modeState = state<'primary' | 'throw' | 'secondary'>('primary');
+
+      return (
+        <div
+          id="subject"
+          data-value={() => {
+            evaluations += 1;
+
+            const mode = modeState();
+            if (mode === 'primary') {
+              return primaryState();
+            }
+
+            if (mode === 'secondary') {
+              return secondaryState();
+            }
+
+            secondaryState();
+            throw new Error('reactive prop failure');
+          }}
+        />
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const subject = container.querySelector('#subject');
+    expect(subject?.getAttribute('data-value')).toBe('primary-1');
+
+    evaluations = 0;
+    modeState!.set('throw');
+    flushScheduler();
+
+    expect(subject?.getAttribute('data-value')).toBe('primary-1');
+    expect(evaluations).toBe(1);
+
+    evaluations = 0;
+    secondaryState!.set('secondary-2');
+    flushScheduler();
+
+    expect(subject?.getAttribute('data-value')).toBe('primary-1');
+    expect(evaluations).toBe(0);
+
+    modeState!.set('secondary');
+    flushScheduler();
+
+    expect(subject?.getAttribute('data-value')).toBe('secondary-2');
+
+    cleanup();
+  });
 });
