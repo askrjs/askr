@@ -132,6 +132,11 @@ function normalizeReactiveScalarChildValue(value: unknown): string {
 }
 
 function tryGetSingleReactiveChild(children: unknown): (() => unknown) | null {
+  if (isFragmentVNode(children)) {
+    const fragmentChildren = children.props?.children ?? children.children;
+    return tryGetSingleReactiveChild(fragmentChildren);
+  }
+
   if (typeof children === 'function') {
     return children as () => unknown;
   }
