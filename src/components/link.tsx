@@ -6,7 +6,10 @@ import { navigate } from '../router/navigate';
 import { applyInteractionPolicy } from '../foundations/interactions/interaction-policy';
 import { mergeProps } from '../foundations/utilities/merge-props';
 
-export interface LinkProps {
+export type LinkProps = Omit<
+  JSX.IntrinsicElements['a'],
+  'children' | 'href' | 'class' | 'rel' | 'target' | 'aria-current' | 'aria-label'
+> & {
   href: string;
   class?: string;
   children?: unknown;
@@ -36,7 +39,7 @@ export interface LinkProps {
    * Optional aria-label for accessibility when link text isn't descriptive enough.
    */
   'aria-label'?: string;
-}
+};
 
 /**
  * Link component that prevents default navigation and uses navigate()
@@ -73,6 +76,7 @@ export function Link({
   target,
   'aria-current': ariaCurrent,
   'aria-label': ariaLabel,
+  ...rest
 }: LinkProps): JSX.Element {
   const interaction = applyInteractionPolicy({
     isNative: true,
@@ -103,7 +107,8 @@ export function Link({
     },
   });
 
-  const props = mergeProps(interaction, {
+  const props = mergeProps(rest, {
+    ...interaction,
     href,
     class: className,
     rel,

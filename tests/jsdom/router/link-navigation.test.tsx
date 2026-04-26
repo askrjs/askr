@@ -69,6 +69,30 @@ describe('Link component navigation', () => {
     expect(newTitle?.textContent).toBe('About');
   });
 
+  it('should preserve custom anchor attributes', async () => {
+    route('/', () => (
+      <div>
+        <Link
+          href="/about"
+          data-link-kind="primary"
+          aria-current="page"
+          title="Go to About"
+        >
+          Go to About
+        </Link>
+      </div>
+    ));
+
+    await createSPA({ root: container, routes: getRoutes() });
+    flushScheduler();
+
+    const link = container.querySelector('a') as HTMLAnchorElement | null;
+
+    expect(link?.getAttribute('data-link-kind')).toBe('primary');
+    expect(link?.getAttribute('aria-current')).toBe('page');
+    expect(link?.getAttribute('title')).toBe('Go to About');
+  });
+
   it('should navigate via navigate() in onClick handler', async () => {
     route('/', () => (
       <div>

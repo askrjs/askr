@@ -38,6 +38,7 @@ import {
   getCurrentComponentInstance,
 } from '../runtime/component';
 import type { ComponentFunction } from '../common/component';
+import type { DOMElement } from '../common/vnode';
 import { VOID_ELEMENTS, escapeText, styleObjToCss } from './escape';
 import { renderAttrs, renderAttrsDirect } from './attrs';
 import type { VNode, SSRComponent } from './types';
@@ -173,9 +174,11 @@ function renderChildrenSync(
 function getControlBoundaryState(
   node: VNode | JSXElement
 ): ControlBoundaryState | null {
+  const boundaryNode = node as DOMElement;
+
   return (
-    (node as VNode)._controlState ??
-    ((node as VNode)._forState as ControlBoundaryState | undefined) ??
+    boundaryNode._controlState ??
+    (boundaryNode._forState as ControlBoundaryState | undefined) ??
     null
   );
 }

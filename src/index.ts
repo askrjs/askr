@@ -96,7 +96,7 @@ export {
   DefaultPortal,
   Portal,
 } from './foundations/structures';
-export type { SlotProps, Portal, PortalProps } from './foundations/structures';
+export type { SlotProps, PortalProps } from './foundations/structures';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
 export { jsx, jsxs, Fragment } from './jsx-runtime';
