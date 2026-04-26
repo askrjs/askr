@@ -206,8 +206,8 @@ export function teardownNodeSubtree(
 // Track reactive props cleanup functions and their function references
 export interface ReactivePropCleanupEntry {
   cleanup: () => void;
-  fnRef: () => unknown;
-  updateFn?: (nextFn: () => unknown) => void;
+  fnRef: unknown;
+  updateFn?: (nextValue: unknown) => void;
 }
 
 export const REACTIVE_CHILDREN_KEY = '__askr_reactive_children__';

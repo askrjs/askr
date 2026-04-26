@@ -99,6 +99,91 @@ describe('text node updates (DOM)', () => {
     expect(parentRenderCount).toBe(1);
   });
 
+  it('should update mixed static and reactive text siblings in place without rerendering the parent', async () => {
+    let text: ReturnType<typeof state<string>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      text = state('mid');
+
+      return (
+        <div>
+          {'pre:'}
+          {() => text!()}
+          {':post'}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('pre:mid:post');
+    expect(firstNodes).toHaveLength(3);
+    expect(parentRenderCount).toBe(1);
+
+    text!.set('next');
+    flushScheduler();
+
+    const secondNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('pre:next:post');
+    expect(secondNodes).toHaveLength(3);
+    expect(secondNodes[0]).toBe(firstNodes[0]);
+    expect(secondNodes[1]).toBe(firstNodes[1]);
+    expect(secondNodes[2]).toBe(firstNodes[2]);
+    expect(parentRenderCount).toBe(1);
+  });
+
+  it('should update multiple reactive text siblings in place without rerendering the parent', async () => {
+    let left: ReturnType<typeof state<string>> | null = null;
+    let right: ReturnType<typeof state<string>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      left = state('L');
+      right = state('R');
+
+      return (
+        <div>
+          <>
+            {() => left!()}
+            {'|'}
+            {() => right!()}
+          </>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('L|R');
+    expect(firstNodes).toHaveLength(3);
+    expect(parentRenderCount).toBe(1);
+
+    left!.set('A');
+    right!.set('B');
+    flushScheduler();
+
+    const secondNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('A|B');
+    expect(secondNodes).toHaveLength(3);
+    expect(secondNodes[0]).toBe(firstNodes[0]);
+    expect(secondNodes[1]).toBe(firstNodes[1]);
+    expect(secondNodes[2]).toBe(firstNodes[2]);
+    expect(parentRenderCount).toBe(1);
+  });
+
   it('should update text content in place when state changes', async () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
