@@ -10,7 +10,7 @@ import type { JSXElement } from '../../../src/jsx/types';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { renderToStringSyncForUrl } from '../../../src/ssr';
-import { state } from '../../../src/index';
+import { For, state } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -155,6 +155,38 @@ describe('hydration (SSR)', () => {
           routes: [{ path: '/', handler: Component }],
         })
       ).rejects.toThrow();
+    });
+
+    it('should hydrate SSR output that contains For items', async () => {
+      const Component = () => (
+        <ul id="list">
+          <For
+            each={[
+              { id: 'a', label: 'alpha' },
+              { id: 'b', label: 'beta' },
+            ]}
+            by={(item) => item.id}
+          >
+            {(item, index) => <li data-index={index()}>{item.label}</li>}
+          </For>
+        </ul>
+      );
+
+      const html = renderToStringSync(() => Component());
+      container.innerHTML = html;
+
+      await expect(
+        hydrateSPA({
+          root: container,
+          routes: [{ path: '/', handler: Component }],
+        })
+      ).resolves.not.toThrow();
+
+      const strippedHtml = container.innerHTML.replace(/<!--.*?-->/g, '');
+      expect(strippedHtml).toBe(html);
+      expect(container.querySelectorAll('#list li')).toHaveLength(2);
+      expect(container.textContent).toContain('alpha');
+      expect(container.textContent).toContain('beta');
     });
   });
 

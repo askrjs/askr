@@ -11,6 +11,7 @@
  */
 
 import type { JSXElement } from '../common/jsx';
+import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type {
   RouteAuthOptions,
   RouteHandler,
@@ -42,6 +43,12 @@ import { renderAttrs, renderAttrsDirect } from './attrs';
 import type { VNode, SSRComponent } from './types';
 
 import { logger } from '../dev/logger';
+import {
+  type ControlBoundaryState,
+  evaluateCaseState,
+  evaluateShowState,
+} from '../runtime/control';
+import { evaluateForState } from '../runtime/for';
 
 const __SSR_DEBUG =
   process.env.NODE_ENV !== 'production' &&
@@ -163,6 +170,37 @@ function renderChildrenSync(
   return parts.join('');
 }
 
+function getControlBoundaryState(
+  node: VNode | JSXElement
+): ControlBoundaryState | null {
+  return (
+    (node as VNode)._controlState ??
+    ((node as VNode)._forState as ControlBoundaryState | undefined) ??
+    null
+  );
+}
+
+function evaluateControlBoundaryChildren(
+  node: VNode | JSXElement
+): unknown[] | undefined {
+  if (node.type !== __CONTROL_BOUNDARY__) {
+    return undefined;
+  }
+
+  const controlState = getControlBoundaryState(node);
+  if (!controlState) {
+    return [];
+  }
+
+  if (controlState.kind === 'for') {
+    return evaluateForState(controlState);
+  }
+  if (controlState.kind === 'show') {
+    return evaluateShowState(controlState);
+  }
+  return evaluateCaseState(controlState);
+}
+
 function renderChildrenSyncToSink(
   children: unknown[] | undefined,
   sink: { write(html: string): void },
@@ -269,6 +307,9 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
       }
       return renderChildrenSync(childrenArr, ctx);
     }
+    if (type === __CONTROL_BOUNDARY__) {
+      return renderChildrenSync(evaluateControlBoundaryChildren(node), ctx);
+    }
     // Unknown symbol type - throw a helpful error instead of letting
     // a built-in TypeError bubble up when attempting to coerce to string.
     throw new Error(
@@ -330,6 +371,14 @@ function renderNodeSyncToSink(
           ? (props?.children as unknown[])
           : undefined;
       renderChildrenSyncToSink(childrenArr, sink, ctx);
+      return;
+    }
+    if (type === __CONTROL_BOUNDARY__) {
+      renderChildrenSyncToSink(
+        evaluateControlBoundaryChildren(node),
+        sink,
+        ctx
+      );
       return;
     }
     throw new Error(
@@ -673,6 +722,18 @@ function verifyExpectedNode(
   }
 
   if (typeof type === 'symbol') {
+    if (type === __CONTROL_BOUNDARY__) {
+      const children = evaluateControlBoundaryChildren(vnode);
+      if (!children || children.length === 0) {
+        return true;
+      }
+      for (let index = 0; index < children.length; index += 1) {
+        if (!verifyExpectedNode(children[index], state, ctx)) {
+          return false;
+        }
+      }
+      return true;
+    }
     if (type !== Fragment) {
       throw new Error(
         `verifyHydrationSyncForUrl: unsupported VNode symbol type: ${String(type)}`
