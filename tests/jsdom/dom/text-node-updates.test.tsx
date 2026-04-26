@@ -268,6 +268,84 @@ describe('text node updates (DOM)', () => {
     expect(parentRenderCount).toBe(1);
   });
 
+  it('should update a single dynamic element child without rerendering the parent', async () => {
+    let mode: ReturnType<typeof state<'span' | 'button'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'span' | 'button'>('span');
+
+      return (
+        <div>
+          {() =>
+            mode!() === 'span' ? (
+              <span data-kind={'span'}>{'alpha'}</span>
+            ) : (
+              <button data-kind={'button'}>{'beta'}</button>
+            )
+          }
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const span = div.querySelector('span') as HTMLSpanElement;
+
+    expect(span.textContent).toBe('alpha');
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('button');
+    flushScheduler();
+
+    const button = div.querySelector('button') as HTMLButtonElement;
+
+    expect(div.querySelector('span')).toBeNull();
+    expect(button.textContent).toBe('beta');
+    expect(parentRenderCount).toBe(1);
+  });
+
+  it('should update a single dynamic child that returns a fragment with one root without rerendering the parent', async () => {
+    let text: ReturnType<typeof state<string>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      text = state('alpha');
+
+      return (
+        <div>
+          {() => (
+            <>
+              <span>{text!()}</span>
+            </>
+          )}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const span = div.querySelector('span') as HTMLSpanElement;
+
+    expect(span.textContent).toBe('alpha');
+    expect(parentRenderCount).toBe(1);
+
+    text!.set('beta');
+    flushScheduler();
+
+    const spanAfter = div.querySelector('span') as HTMLSpanElement;
+
+    expect(spanAfter).toBe(span);
+    expect(spanAfter.textContent).toBe('beta');
+    expect(parentRenderCount).toBe(1);
+  });
+
   it('should update text content in place when state changes', async () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
