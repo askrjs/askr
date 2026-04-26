@@ -23,6 +23,12 @@ import {
   type ComponentFunction,
 } from '../runtime/component';
 import {
+  createChildScope,
+  disposeChildScope,
+  rerenderChildScope,
+  type ChildScope,
+} from '../runtime/child-scope';
+import {
   elementListeners,
   removeAllListeners,
   teardownNodeSubtree,
@@ -118,6 +124,7 @@ type ReactiveScalarChildSource = ReactiveScalarChildSourceSlot[];
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
+let reactiveChildScopeId = 0;
 
 function collectReactiveScalarSequenceValue(
   value: unknown,
@@ -197,6 +204,28 @@ function getReactiveScalarChildSource(
   }
 
   return state.hasDynamic ? slots : null;
+}
+
+function getSingleReactiveChildBoundarySource(
+  children: unknown
+): (() => VNode) | null {
+  if (isFragmentVNode(children)) {
+    const fragmentChildren = children.props?.children ?? children.children;
+    return getSingleReactiveChildBoundarySource(fragmentChildren);
+  }
+
+  if (Array.isArray(children)) {
+    if (children.length !== 1) {
+      return null;
+    }
+    return getSingleReactiveChildBoundarySource(children[0]);
+  }
+
+  if (typeof children === 'function') {
+    return children as () => VNode;
+  }
+
+  return null;
 }
 
 function areReactiveScalarChildSourcesEqual(
@@ -315,6 +344,35 @@ function syncReactiveScalarTextNodes(el: Element, values: string[]): void {
   el.appendChild(fragment);
 }
 
+function normalizeReactiveChildBoundaryVNode(value: VNode): VNode {
+  if (!isFragmentVNode(value)) {
+    return value;
+  }
+
+  const children = normalizeComponentChildren(value);
+  if (children.length !== 1) {
+    return value;
+  }
+
+  return normalizeReactiveChildBoundaryVNode(children[0] as VNode);
+}
+
+function commitReactiveChildScope(el: Element, scope: ChildScope): void {
+  const nextDom = syncForItemDom(el, scope, scope.vnode ?? null);
+
+  if (!nextDom) {
+    scope.needsDomUpdate = false;
+    return;
+  }
+
+  if (nextDom.parentNode !== el) {
+    clearElementChildren(el);
+    el.appendChild(nextDom);
+  }
+
+  scope.needsDomUpdate = false;
+}
+
 function setupReactiveScalarChild(
   el: Element,
   source: ReactiveScalarChildSource
@@ -398,13 +456,51 @@ function setupReactiveScalarChild(
   };
 }
 
+function setupReactiveChildBoundary(
+  el: Element,
+  childFn: () => VNode
+): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
+  let currentChildFn = childFn;
+  const parentInstance = getCurrentInstance();
+  const scope = createChildScope(
+    parentInstance,
+    `__reactive-child__:${(reactiveChildScopeId += 1)}`,
+    () => {
+      commitReactiveChildScope(el, scope);
+    }
+  );
+
+  scope.render(() => normalizeReactiveChildBoundaryVNode(currentChildFn()));
+  commitReactiveChildScope(el, scope);
+
+  return {
+    cleanup: () => {
+      const dom = scope.dom;
+      disposeChildScope(scope);
+
+      if (dom?.parentNode === el) {
+        if (dom instanceof Element) {
+          teardownNodeSubtree(dom);
+        }
+        el.removeChild(dom);
+      }
+    },
+    updateFn: (nextValue: unknown) => {
+      currentChildFn = nextValue as () => VNode;
+      rerenderChildScope(scope);
+      commitReactiveChildScope(el, scope);
+    },
+  };
+}
+
 function syncReactiveScalarChild(el: Element, children: unknown): boolean {
   const reactiveChildSource = getReactiveScalarChildSource(children);
+  const reactiveChildBoundary = getSingleReactiveChildBoundarySource(children);
   const existingReactiveEntry = elementReactivePropsCleanup
     .get(el)
     ?.get(REACTIVE_CHILDREN_KEY);
 
-  if (!reactiveChildSource) {
+  if (!reactiveChildSource && !reactiveChildBoundary) {
     if (existingReactiveEntry) {
       existingReactiveEntry.cleanup();
       const cleanupMap = elementReactivePropsCleanup.get(el);
@@ -417,31 +513,70 @@ function syncReactiveScalarChild(el: Element, children: unknown): boolean {
     return false;
   }
 
-  if (
-    existingReactiveEntry &&
-    areReactiveScalarChildSourcesEqual(
-      existingReactiveEntry.fnRef,
-      reactiveChildSource
-    )
-  ) {
+  if (reactiveChildSource) {
+    if (
+      existingReactiveEntry &&
+      Array.isArray(existingReactiveEntry.fnRef) &&
+      areReactiveScalarChildSourcesEqual(
+        existingReactiveEntry.fnRef,
+        reactiveChildSource
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      existingReactiveEntry?.updateFn &&
+      Array.isArray(existingReactiveEntry.fnRef)
+    ) {
+      existingReactiveEntry.updateFn(reactiveChildSource);
+      existingReactiveEntry.fnRef = reactiveChildSource;
+      return true;
+    }
+
+    existingReactiveEntry?.cleanup();
+
+    try {
+      const reactive = setupReactiveScalarChild(el, reactiveChildSource);
+      getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
+        cleanup: reactive.cleanup,
+        updateFn: (nextValue) => {
+          reactive.updateFn(nextValue as ReactiveScalarChildSource);
+        },
+        fnRef: reactiveChildSource,
+      });
+      return true;
+    } catch (error) {
+      if (!reactiveChildBoundary) {
+        throw error;
+      }
+    }
+  }
+
+  if (existingReactiveEntry?.fnRef === reactiveChildBoundary) {
     return true;
   }
 
-  if (existingReactiveEntry?.updateFn) {
-    existingReactiveEntry.updateFn(reactiveChildSource);
-    existingReactiveEntry.fnRef = reactiveChildSource;
+  if (
+    existingReactiveEntry?.updateFn &&
+    !Array.isArray(existingReactiveEntry.fnRef)
+  ) {
+    existingReactiveEntry.updateFn(reactiveChildBoundary);
+    existingReactiveEntry.fnRef = reactiveChildBoundary;
     return true;
   }
 
   existingReactiveEntry?.cleanup();
 
-  const reactive = setupReactiveScalarChild(el, reactiveChildSource);
+  if (!reactiveChildBoundary) {
+    return false;
+  }
+
+  const reactive = setupReactiveChildBoundary(el, reactiveChildBoundary);
   getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
     cleanup: reactive.cleanup,
-    updateFn: (nextValue) => {
-      reactive.updateFn(nextValue as ReactiveScalarChildSource);
-    },
-    fnRef: reactiveChildSource,
+    updateFn: reactive.updateFn,
+    fnRef: reactiveChildBoundary,
   });
   return true;
 }
