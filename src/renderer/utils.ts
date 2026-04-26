@@ -219,6 +219,23 @@ export function writeElementClassName(el: Element, value: string): void {
   (el as HTMLElement).className = value;
 }
 
+export function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+
+  for (let index = 0; index < a.length; index += 1) {
+    const aCode = a.charCodeAt(index);
+    const bCode = b.charCodeAt(index);
+    if (aCode === bCode) continue;
+
+    const normalizedA = aCode >= 65 && aCode <= 90 ? aCode + 32 : aCode;
+    const normalizedB = bCode >= 65 && bCode <= 90 ? bCode + 32 : bCode;
+    if (normalizedA !== normalizedB) return false;
+  }
+
+  return true;
+}
+
 /**
  * Check if a vnode has non-trivial props (excluding events and data-*)
  */

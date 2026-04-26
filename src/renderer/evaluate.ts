@@ -34,6 +34,7 @@ import {
   extractKey,
   getPassiveOptions,
   parseEventName,
+  tagNamesEqualIgnoreCase as sharedTagNamesEqualIgnoreCase,
   writeElementClassName,
 } from './utils';
 
@@ -90,17 +91,7 @@ interface NotSimpleTextResult {
 type TextCheckResult = SimpleTextResult | NotSimpleTextResult;
 
 function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const ca = a.charCodeAt(i);
-    const cb = b.charCodeAt(i);
-    if (ca === cb) continue;
-    const fa = ca >= 65 && ca <= 90 ? ca + 32 : ca;
-    const fb = cb >= 65 && cb <= 90 ? cb + 32 : cb;
-    if (fa !== fb) return false;
-  }
-  return true;
+  return sharedTagNamesEqualIgnoreCase(a, b);
 }
 
 /**
