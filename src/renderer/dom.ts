@@ -75,6 +75,7 @@ import {
 import { reconcileKeyedChildren } from './reconcile';
 import type { ReadableSource } from '../runtime/readable';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
+import { globalScheduler } from '../runtime/scheduler';
 import {
   createFineGrainedEffect,
   markFineGrainedEffectsDirtySource,
@@ -110,6 +111,7 @@ interface ReactivePropDescriptor {
 }
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
+const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
 
 function isReactiveScalarChildValue(value: unknown): boolean {
   return (
@@ -1097,6 +1099,17 @@ function createIntrinsicElement(
   // CRITICAL: Use nullish coalescing (?) instead of || because children can be 0, false, or empty string
 
   if (children !== null && children !== undefined) {
+    const controlBoundaryVNode = getDirectControlBoundaryVNode(children);
+    if (controlBoundaryVNode) {
+      const controlState = getControlBoundaryState(controlBoundaryVNode);
+      if (!controlState) {
+        throw new Error(
+          '[createIntrinsicElement] Control boundary missing internal state'
+        );
+      }
+      registerControlBoundaryCommitOwner(el, controlState);
+    }
+
     if (syncReactiveScalarChild(el, children)) {
       return el;
     }
@@ -1626,6 +1639,92 @@ function getControlBoundaryState(
     (node._forState as ControlBoundaryState | undefined) ??
     null
   );
+}
+
+function getDirectControlBoundaryVNode(children: unknown): DOMElement | null {
+  if (
+    !Array.isArray(children) &&
+    _isDOMElement(children) &&
+    (children as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    return children as DOMElement;
+  }
+
+  if (
+    Array.isArray(children) &&
+    children.length === 1 &&
+    _isDOMElement(children[0]) &&
+    (children[0] as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    return children[0] as DOMElement;
+  }
+
+  return null;
+}
+
+function getControlBoundaryCommitChildren(
+  controlState: ControlBoundaryState
+): VNode[] {
+  if (controlState.kind !== 'for') {
+    const activeVNode = controlState.activeScope?.vnode;
+    return activeVNode == null || activeVNode === false ? [] : [activeVNode];
+  }
+
+  if (controlState.orderedKeys.length === 0) {
+    const fallbackVNode = controlState.fallbackScope?.vnode;
+    return fallbackVNode == null || fallbackVNode === false
+      ? []
+      : [fallbackVNode];
+  }
+
+  const childrenVNodes: VNode[] = [];
+  for (let index = 0; index < controlState.orderedKeys.length; index += 1) {
+    const itemKey = controlState.orderedKeys[index];
+    const itemInstance = controlState.items.get(itemKey);
+    childrenVNodes.push((itemInstance?.scope.vnode ?? null) as VNode);
+  }
+
+  return childrenVNodes;
+}
+
+function clearControlBoundaryCommitOwner(parent: Element): void {
+  const owner = controlBoundaryOwners.get(parent);
+  if (owner) {
+    owner._enqueueBoundaryCommit = null;
+    owner._hasPendingBoundaryCommit = false;
+  }
+
+  controlBoundaryOwners.delete(parent);
+}
+
+function registerControlBoundaryCommitOwner(
+  parent: Element,
+  controlState: ControlBoundaryState
+): void {
+  const previousOwner = controlBoundaryOwners.get(parent);
+  if (previousOwner && previousOwner !== controlState) {
+    previousOwner._enqueueBoundaryCommit = null;
+    previousOwner._hasPendingBoundaryCommit = false;
+  }
+
+  controlBoundaryOwners.set(parent, controlState);
+  controlState._enqueueBoundaryCommit = () => {
+    if (controlState._hasPendingBoundaryCommit) {
+      return;
+    }
+
+    controlState._hasPendingBoundaryCommit = true;
+    globalScheduler.enqueue(() => {
+      controlState._hasPendingBoundaryCommit = false;
+
+      if (controlBoundaryOwners.get(parent) !== controlState) {
+        return;
+      }
+
+      const childrenVNodes = getControlBoundaryCommitChildren(controlState);
+      commitForBoundaryChildren(parent, controlState, childrenVNodes);
+    });
+  };
 }
 
 /**
@@ -2210,9 +2309,26 @@ export function commitForBoundaryChildren(
 
   hydrateExistingForDom();
 
-  const commitDirtyNoReorder = (): void => {
-    const dirtyIndices = forState.pendingDirtyIndices;
-    if (!dirtyIndices || dirtyIndices.length === 0) {
+  const getDirtyForIndices = (): number[] => {
+    const pendingDirtyIndices = forState.pendingDirtyIndices;
+    if (pendingDirtyIndices && pendingDirtyIndices.length > 0) {
+      return pendingDirtyIndices;
+    }
+
+    const dirtyIndices: number[] = [];
+    for (let index = 0; index < forState.orderedKeys.length; index += 1) {
+      const itemKey = forState.orderedKeys[index];
+      const itemInstance = forState.items.get(itemKey);
+      if (itemInstance?.scope.needsDomUpdate) {
+        dirtyIndices.push(index);
+      }
+    }
+
+    return dirtyIndices;
+  };
+
+  const commitDirtyNoReorder = (dirtyIndices: number[]): void => {
+    if (dirtyIndices.length === 0) {
       return;
     }
 
@@ -2236,13 +2352,15 @@ export function commitForBoundaryChildren(
         continue;
       }
 
-      if (dom.parentNode !== parent) {
-        const anchor = parent.childNodes[i] ?? null;
+      const anchor = parent.childNodes[i] ?? null;
+      if (dom.parentNode !== parent || dom !== anchor) {
         recordBenchEvent('domInsert');
         parent.insertBefore(dom, anchor);
       }
     }
   };
+
+  const dirtyIndices = getDirtyForIndices();
 
   const commitPositional = (): void => {
     for (let i = 0; i < forState.orderedKeys.length; i++) {
@@ -2479,9 +2597,47 @@ export function commitForBoundaryChildren(
     }
   };
 
+  const isCurrentForDomOrder = (): boolean => {
+    for (let index = 0; index < forState.orderedKeys.length; index += 1) {
+      const itemKey = forState.orderedKeys[index];
+      const itemInstance = forState.items.get(itemKey);
+      if (!itemInstance?.scope.dom) {
+        return false;
+      }
+
+      if (parent.childNodes[index] !== itemInstance.scope.dom) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const isLocalOnlyDirtyCommit =
+    dirtyIndices.length > 0 &&
+    forState.pendingDirtyIndices === null &&
+    forState.pendingSwapIndices === null &&
+    !forState.pendingMoveOnly &&
+    forState.lastRemovedNodes.length === 0 &&
+    parent.childNodes.length === forState.orderedKeys.length;
+
+  if (isLocalOnlyDirtyCommit) {
+    if (isCurrentForDomOrder()) {
+      commitDirtyNoReorder(dirtyIndices);
+      syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
+    } else {
+      commitReorder();
+      syncKeyedMapFromForState(parent, forState, 'FULL_KEYED', []);
+    }
+
+    recordBenchTiming('domCommit', performance.now() - domCommitStart);
+    clearForDomUpdateState(forState);
+    return;
+  }
+
   switch (forState.lastCommitStrategy) {
     case 'NO_REORDER':
-      commitDirtyNoReorder();
+      commitDirtyNoReorder(dirtyIndices);
       break;
     case 'TRUNCATE':
       commitPositional();
@@ -2893,6 +3049,23 @@ export function updateElementChildren(
   el: Element,
   children: VNode | VNode[] | undefined
 ): void {
+  const directControlBoundary = getDirectControlBoundaryVNode(children);
+  if (directControlBoundary) {
+    const controlState = getControlBoundaryState(directControlBoundary);
+    if (!controlState) {
+      throw new Error(
+        '[updateElementChildren] Control boundary missing internal state'
+      );
+    }
+
+    registerControlBoundaryCommitOwner(el, controlState);
+    const childrenVNodes = evaluateControlBoundaryState(controlState);
+    commitForBoundaryChildren(el, controlState, childrenVNodes as VNode[]);
+    return;
+  }
+
+  clearControlBoundaryCommitOwner(el);
+
   // CRITICAL: Check for null/undefined explicitly, not falsy values
   // because 0, false, and '' are valid children
   if (children === null || children === undefined) {
@@ -2905,24 +3078,6 @@ export function updateElementChildren(
       n = next;
     }
     el.textContent = '';
-    return;
-  }
-
-  // Handle direct For boundary vnode (non-array) before generic scalar/non-array handling.
-  if (
-    !Array.isArray(children) &&
-    _isDOMElement(children) &&
-    (children as DOMElement).type === __FOR_BOUNDARY__
-  ) {
-    const controlVnode = children as DOMElement;
-    const controlState = getControlBoundaryState(controlVnode);
-    if (!controlState) {
-      throw new Error(
-        '[updateElementChildren] Control boundary missing internal state'
-      );
-    }
-    const childrenVNodes = evaluateControlBoundaryState(controlState);
-    commitForBoundaryChildren(el, controlState, childrenVNodes as VNode[]);
     return;
   }
 
@@ -2952,25 +3107,6 @@ export function updateElementChildren(
       }
       el.textContent = String(children);
     }
-    return;
-  }
-
-  // Handle For boundary wrapped in single-element array
-  if (
-    Array.isArray(children) &&
-    children.length === 1 &&
-    _isDOMElement(children[0]) &&
-    (children[0] as DOMElement).type === __FOR_BOUNDARY__
-  ) {
-    const controlVnode = children[0] as DOMElement;
-    const controlState = getControlBoundaryState(controlVnode);
-    if (!controlState) {
-      throw new Error(
-        '[updateElementChildren] Control boundary missing internal state'
-      );
-    }
-    const childrenVNodes = evaluateControlBoundaryState(controlState);
-    commitForBoundaryChildren(el, controlState, childrenVNodes as VNode[]);
     return;
   }
 

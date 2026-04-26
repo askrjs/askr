@@ -19,6 +19,8 @@ interface BranchControlStateBase {
   activeVNodes: VNode[];
   lastRemovedNodes: Node[];
   parentInstance: ComponentInstance | null;
+  _enqueueBoundaryCommit?: (() => void) | null;
+  _hasPendingBoundaryCommit?: boolean;
 }
 
 export interface ShowState extends BranchControlStateBase {
@@ -57,11 +59,16 @@ function disposeBranchScope(
 }
 
 function createBranchScope(
-  parentInstance: ComponentInstance | null,
+  state: BranchControlStateBase,
   key: string | number
 ): ChildScope {
-  return createChildScope(parentInstance, key, () => {
-    parentInstance?._enqueueRun?.();
+  return createChildScope(state.parentInstance, key, () => {
+    if (state._enqueueBoundaryCommit) {
+      state._enqueueBoundaryCommit();
+      return;
+    }
+
+    state.parentInstance?._enqueueRun?.();
   });
 }
 
@@ -78,6 +85,8 @@ export function createShowState(
     fallbackScope: null,
     lastRemovedNodes: [],
     parentInstance: getCurrentInstance(),
+    _enqueueBoundaryCommit: null,
+    _hasPendingBoundaryCommit: false,
     renderFallback,
     renderTruthy,
     selectedValue: value,
@@ -95,8 +104,7 @@ export function evaluateShowState(state: ShowState): VNode[] {
     }
 
     const truthyScope =
-      state.truthyScope ??
-      createBranchScope(state.parentInstance, SHOW_TRUTHY_KEY);
+      state.truthyScope ?? createBranchScope(state, SHOW_TRUTHY_KEY);
     state.truthyScope = truthyScope;
     state.activeScope = truthyScope;
     state.activeKey = SHOW_TRUTHY_KEY;
@@ -125,8 +133,7 @@ export function evaluateShowState(state: ShowState): VNode[] {
   }
 
   const fallbackScope =
-    state.fallbackScope ??
-    createBranchScope(state.parentInstance, SHOW_FALLBACK_KEY);
+    state.fallbackScope ?? createBranchScope(state, SHOW_FALLBACK_KEY);
   state.fallbackScope = fallbackScope;
   state.activeScope = fallbackScope;
   state.activeKey = SHOW_FALLBACK_KEY;
@@ -159,6 +166,8 @@ export function createCaseState(
     lastRemovedNodes: [],
     matches,
     parentInstance: getCurrentInstance(),
+    _enqueueBoundaryCommit: null,
+    _hasPendingBoundaryCommit: false,
   };
 }
 
@@ -185,8 +194,7 @@ export function evaluateCaseState(state: CaseState): VNode[] {
     state.activeScope = null;
   }
 
-  const activeScope =
-    state.activeScope ?? createBranchScope(state.parentInstance, nextKey);
+  const activeScope = state.activeScope ?? createBranchScope(state, nextKey);
   state.activeKey = nextKey;
   state.activeScope = activeScope;
 

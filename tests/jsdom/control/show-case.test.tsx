@@ -12,6 +12,50 @@ type ReaderTracked = {
 };
 
 describe('Show primitive', () => {
+  it('should not rerender the parent when active-branch local state changes', () => {
+    const { container, cleanup } = createTestContainer();
+    let appRenders = 0;
+
+    const Counter = ({ user }: { user: { name: string } }) => {
+      const clicks = state(0);
+      return (
+        <button
+          id="show-local-counter"
+          onClick={() => clicks.set((value) => value + 1)}
+        >
+          {`${user.name}:${clicks()}`}
+        </button>
+      );
+    };
+
+    const App = () => {
+      appRenders += 1;
+      const user = state<{ name: string } | null>({ name: 'Ada' });
+
+      return (
+        <Show when={user} fallback={<p id="show-local-fallback">login</p>}>
+          {(value: { name: string }) => <Counter user={value} />}
+        </Show>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const button = container.querySelector(
+      '#show-local-counter'
+    ) as HTMLButtonElement;
+    expect(appRenders).toBe(1);
+
+    button.click();
+    flushScheduler();
+
+    expect(button.textContent).toBe('Ada:1');
+    expect(appRenders).toBe(1);
+
+    cleanup();
+  });
+
   it('should render a function child and preserve state while the truthy branch stays active', () => {
     const { container, cleanup } = createTestContainer();
     let setUser: (next: { name: string } | null) => void = () => {};
@@ -108,6 +152,55 @@ describe('Show primitive', () => {
 });
 
 describe('Case primitive', () => {
+  it('should not rerender the parent when the active branch updates local state', () => {
+    const { container, cleanup } = createTestContainer();
+    let appRenders = 0;
+
+    const Loading = () => {
+      const clicks = state(0);
+      return (
+        <button
+          id="case-local-loading"
+          onClick={() => clicks.set((value) => value + 1)}
+        >
+          {`loading:${clicks()}`}
+        </button>
+      );
+    };
+
+    const App = () => {
+      appRenders += 1;
+      const mode = state<'loading' | 'ready'>('loading');
+
+      return (
+        <Case fallback={<div id="case-local-fallback">fallback</div>}>
+          <Match when={mode() === 'loading'}>
+            <Loading />
+          </Match>
+          <Match when={mode() === 'ready'}>
+            <div id="case-local-ready">ready</div>
+          </Match>
+        </Case>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const button = container.querySelector(
+      '#case-local-loading'
+    ) as HTMLButtonElement;
+    expect(appRenders).toBe(1);
+
+    button.click();
+    flushScheduler();
+
+    expect(button.textContent).toBe('loading:1');
+    expect(appRenders).toBe(1);
+
+    cleanup();
+  });
+
   it('should render the first truthy Match and ignore later matches', () => {
     const { container, cleanup } = createTestContainer();
     let setStatus: (next: 'loading' | 'ready') => void = () => {};
