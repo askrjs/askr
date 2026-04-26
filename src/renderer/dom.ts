@@ -110,46 +110,115 @@ interface ReactivePropDescriptor {
   lastClassTokens: string[] | null;
 }
 
+type ReactiveScalarChildSourceSlot =
+  | { kind: 'static'; value: string }
+  | { kind: 'dynamic'; compute: () => unknown };
+
+type ReactiveScalarChildSource = ReactiveScalarChildSourceSlot[];
+
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
 
-function isReactiveScalarChildValue(value: unknown): boolean {
+function isReactiveScalarSequenceValue(value: unknown): boolean {
   return (
     value === null ||
     value === undefined ||
+    value === false ||
     typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
+    typeof value === 'number'
   );
 }
 
-function normalizeReactiveScalarChildValue(value: unknown): string {
-  if (value === null || value === undefined || value === false) {
-    return '';
-  }
-
-  return String(value);
-}
-
-function tryGetSingleReactiveChild(children: unknown): (() => unknown) | null {
+function collectReactiveScalarChildSource(
+  children: unknown,
+  slots: ReactiveScalarChildSource,
+  state: { hasDynamic: boolean }
+): boolean {
   if (isFragmentVNode(children)) {
     const fragmentChildren = children.props?.children ?? children.children;
-    return tryGetSingleReactiveChild(fragmentChildren);
+    return collectReactiveScalarChildSource(fragmentChildren, slots, state);
+  }
+
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      if (!collectReactiveScalarChildSource(child, slots, state)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (children === null || children === undefined || children === false) {
+    return true;
   }
 
   if (typeof children === 'function') {
-    return children as () => unknown;
+    slots.push({ kind: 'dynamic', compute: children as () => unknown });
+    state.hasDynamic = true;
+    return true;
   }
 
+  if (typeof children === 'string' || typeof children === 'number') {
+    slots.push({ kind: 'static', value: String(children) });
+    return true;
+  }
+
+  return false;
+}
+
+function getReactiveScalarChildSource(
+  children: unknown
+): ReactiveScalarChildSource | null {
+  const slots: ReactiveScalarChildSource = [];
+  const state = { hasDynamic: false };
+
+  if (!collectReactiveScalarChildSource(children, slots, state)) {
+    return null;
+  }
+
+  return state.hasDynamic ? slots : null;
+}
+
+function areReactiveScalarChildSourcesEqual(
+  previousSource: unknown,
+  nextSource: ReactiveScalarChildSource
+): boolean {
   if (
-    Array.isArray(children) &&
-    children.length === 1 &&
-    typeof children[0] === 'function'
+    !Array.isArray(previousSource) ||
+    previousSource.length !== nextSource.length
   ) {
-    return children[0] as () => unknown;
+    return false;
   }
 
-  return null;
+  for (let index = 0; index < nextSource.length; index += 1) {
+    const previousSlot = previousSource[index] as
+      | ReactiveScalarChildSourceSlot
+      | undefined;
+    const nextSlot = nextSource[index];
+
+    if (!previousSlot || previousSlot.kind !== nextSlot.kind) {
+      return false;
+    }
+
+    if (nextSlot.kind === 'static') {
+      if (
+        previousSlot.kind !== 'static' ||
+        previousSlot.value !== nextSlot.value
+      ) {
+        return false;
+      }
+      continue;
+    }
+
+    if (
+      previousSlot.kind !== 'dynamic' ||
+      previousSlot.compute !== nextSlot.compute
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function getOrCreateElementReactiveCleanupMap(
@@ -164,26 +233,124 @@ function getOrCreateElementReactiveCleanupMap(
   return cleanupMap;
 }
 
+function clearElementChildren(el: Element): void {
+  for (let node = el.firstChild; node; ) {
+    const next = node.nextSibling;
+    if (node instanceof Element) {
+      teardownNodeSubtree(node);
+    }
+    node = next;
+  }
+  el.textContent = '';
+}
+
+function normalizeReactiveScalarSequenceValues(values: unknown[]): string[] {
+  const normalized: string[] = [];
+
+  for (const value of values) {
+    if (value === null || value === undefined || value === false) {
+      continue;
+    }
+
+    normalized.push(String(value));
+  }
+
+  return normalized;
+}
+
+function syncReactiveScalarTextNodes(el: Element, values: string[]): void {
+  const childNodes = el.childNodes;
+  const canPatchInPlace = childNodes.length === values.length;
+
+  if (canPatchInPlace) {
+    let allText = true;
+    for (let index = 0; index < childNodes.length; index += 1) {
+      if (childNodes[index]?.nodeType !== Node.TEXT_NODE) {
+        allText = false;
+        break;
+      }
+    }
+
+    if (allText) {
+      for (let index = 0; index < values.length; index += 1) {
+        const textNode = childNodes[index] as Text;
+        if (textNode.data !== values[index]) {
+          textNode.data = values[index];
+        }
+      }
+      return;
+    }
+  }
+
+  clearElementChildren(el);
+
+  if (values.length === 0) {
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const value of values) {
+    fragment.appendChild(document.createTextNode(value));
+  }
+  el.appendChild(fragment);
+}
+
 function setupReactiveScalarChild(
   el: Element,
-  childFn: () => unknown
-): { cleanup: () => void; updateFn: (nextFn: () => unknown) => void } {
+  source: ReactiveScalarChildSource
+): {
+  cleanup: () => void;
+  updateFn: (nextSource: ReactiveScalarChildSource) => void;
+} {
+  let currentSource = source;
   let effectHandle: FineGrainedEffectHandle<unknown> | null =
     createFineGrainedEffect({
       lane: 'reactive',
-      compute: childFn,
-      commit: (value) => {
-        if (!isReactiveScalarChildValue(value)) {
+      compute: () =>
+        currentSource.map((slot) =>
+          slot.kind === 'static' ? slot.value : slot.compute()
+        ),
+      commit: (values) => {
+        if (!Array.isArray(values)) {
           throw new Error(
-            '[Askr] Reactive scalar children must resolve to text-compatible values.'
+            '[Askr] Reactive scalar children must evaluate to a slot array.'
           );
         }
 
-        setTextNodeData(el, normalizeReactiveScalarChildValue(value));
+        for (const value of values) {
+          if (!isReactiveScalarSequenceValue(value)) {
+            throw new Error(
+              '[Askr] Reactive scalar child sequences must resolve to text-compatible values.'
+            );
+          }
+        }
+
+        syncReactiveScalarTextNodes(
+          el,
+          normalizeReactiveScalarSequenceValues(values)
+        );
       },
-      equals: (previousValue, nextValue) =>
-        normalizeReactiveScalarChildValue(previousValue) ===
-        normalizeReactiveScalarChildValue(nextValue),
+      equals: (previousValue, nextValue) => {
+        if (!Array.isArray(previousValue) || !Array.isArray(nextValue)) {
+          return false;
+        }
+
+        const previousNormalized =
+          normalizeReactiveScalarSequenceValues(previousValue);
+        const nextNormalized = normalizeReactiveScalarSequenceValues(nextValue);
+
+        if (previousNormalized.length !== nextNormalized.length) {
+          return false;
+        }
+
+        for (let index = 0; index < previousNormalized.length; index += 1) {
+          if (previousNormalized[index] !== nextNormalized[index]) {
+            return false;
+          }
+        }
+
+        return true;
+      },
       onError: (err) => {
         if (getRuntimeEnv().NODE_ENV !== 'production') {
           logger.warn('[Askr] Reactive child update failed:', err);
@@ -196,23 +363,28 @@ function setupReactiveScalarChild(
       effectHandle?.cleanup();
       effectHandle = null;
     },
-    updateFn: (nextFn: () => unknown) => {
+    updateFn: (nextSource: ReactiveScalarChildSource) => {
       if (!effectHandle) {
         return;
       }
 
-      effectHandle.updateCompute(nextFn);
+      currentSource = nextSource;
+      effectHandle.updateCompute(() =>
+        currentSource.map((slot) =>
+          slot.kind === 'static' ? slot.value : slot.compute()
+        )
+      );
     },
   };
 }
 
 function syncReactiveScalarChild(el: Element, children: unknown): boolean {
-  const reactiveChildFn = tryGetSingleReactiveChild(children);
+  const reactiveChildSource = getReactiveScalarChildSource(children);
   const existingReactiveEntry = elementReactivePropsCleanup
     .get(el)
     ?.get(REACTIVE_CHILDREN_KEY);
 
-  if (!reactiveChildFn) {
+  if (!reactiveChildSource) {
     if (existingReactiveEntry) {
       existingReactiveEntry.cleanup();
       const cleanupMap = elementReactivePropsCleanup.get(el);
@@ -225,23 +397,31 @@ function syncReactiveScalarChild(el: Element, children: unknown): boolean {
     return false;
   }
 
-  if (existingReactiveEntry?.fnRef === reactiveChildFn) {
+  if (
+    existingReactiveEntry &&
+    areReactiveScalarChildSourcesEqual(
+      existingReactiveEntry.fnRef,
+      reactiveChildSource
+    )
+  ) {
     return true;
   }
 
   if (existingReactiveEntry?.updateFn) {
-    existingReactiveEntry.updateFn(reactiveChildFn);
-    existingReactiveEntry.fnRef = reactiveChildFn;
+    existingReactiveEntry.updateFn(reactiveChildSource);
+    existingReactiveEntry.fnRef = reactiveChildSource;
     return true;
   }
 
   existingReactiveEntry?.cleanup();
 
-  const reactive = setupReactiveScalarChild(el, reactiveChildFn);
+  const reactive = setupReactiveScalarChild(el, reactiveChildSource);
   getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
     cleanup: reactive.cleanup,
-    updateFn: reactive.updateFn,
-    fnRef: reactiveChildFn,
+    updateFn: (nextValue) => {
+      reactive.updateFn(nextValue as ReactiveScalarChildSource);
+    },
+    fnRef: reactiveChildSource,
   });
   return true;
 }
@@ -657,7 +837,9 @@ function applyPropsToElement(
       }
       elementReactivePropsCleanup.get(el)!.set(key, {
         cleanup: reactive.cleanup,
-        updateFn: reactive.updateFn,
+        updateFn: (nextValue) => {
+          reactive.updateFn(nextValue as () => unknown);
+        },
         fnRef: value as () => unknown,
       });
       continue;
@@ -2845,7 +3027,9 @@ export function updateElementFromVnode(
       }
       elementReactivePropsCleanup.get(el)!.set(key, {
         cleanup: reactive.cleanup,
-        updateFn: reactive.updateFn,
+        updateFn: (nextValue) => {
+          reactive.updateFn(nextValue as () => unknown);
+        },
         fnRef: value as () => unknown,
       });
       continue;
