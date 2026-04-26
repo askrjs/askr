@@ -11,6 +11,13 @@
  */
 
 import { matchSegments, parseSegments, computeRank } from './match';
+import {
+  buildRouteContext,
+  buildRouteContextBase,
+  deepFreeze,
+  makeQuery,
+  parseLocation,
+} from './route-context';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { getExecutionModel } from '../runtime/execution-model';
 import { getRenderContext } from '../ssr/context';
@@ -19,7 +26,6 @@ import {
   requireGuest,
   requirePermission,
   requireRole,
-  withRouteAuthOptions,
 } from './policy';
 
 export type {
@@ -187,104 +193,6 @@ let serverLocation: string | null = null;
 
 export function setServerLocation(url: string | null): void {
   serverLocation = url;
-}
-
-// Helper: parse a URL string into components
-function parseLocation(url: string) {
-  try {
-    const u = new URL(url, 'http://localhost');
-    return { pathname: u.pathname, search: u.search, hash: u.hash };
-  } catch {
-    return { pathname: '/', search: '', hash: '' };
-  }
-}
-
-// Deep freeze utility for small objects
-function deepFreeze<T>(obj: T): T {
-  if (obj && typeof obj === 'object' && !Object.isFrozen(obj)) {
-    Object.freeze(obj as Record<string, unknown>);
-    for (const key of Object.keys(obj as Record<string, unknown>)) {
-      const value = (obj as Record<string, unknown>)[key];
-      if (value && typeof value === 'object') deepFreeze(value);
-    }
-  }
-  return obj;
-}
-
-// Build an immutable query helper from a search string
-function makeQuery(search: string): RouteQuery {
-  const usp = new URLSearchParams(search || '');
-  const mapping = new Map<string, string[]>();
-  for (const [k, v] of usp.entries()) {
-    const existing = mapping.get(k);
-    if (existing) existing.push(v);
-    else mapping.set(k, [v]);
-  }
-
-  const obj: RouteQuery = {
-    get(key: string) {
-      const arr = mapping.get(key);
-      return arr ? arr[0] : null;
-    },
-    getAll(key: string) {
-      const arr = mapping.get(key);
-      return arr ? [...arr] : [];
-    },
-    has(key: string) {
-      return mapping.has(key);
-    },
-    toJSON() {
-      const out: Record<string, string | string[]> = {};
-      for (const [k, arr] of mapping.entries()) {
-        out[k] = arr.length > 1 ? [...arr] : arr[0];
-      }
-      return out;
-    },
-  };
-
-  return deepFreeze(obj);
-}
-
-function buildRouteContextBase(
-  target: string,
-  params: Record<string, string>,
-  options: {
-    mode: RouteContext['mode'];
-    signal: AbortSignal;
-  }
-): Omit<RouteContext, 'session' | 'user'> {
-  const parsed = parseLocation(target);
-  const href = `${parsed.pathname}${parsed.search}${parsed.hash}`;
-
-  return {
-    mode: options.mode,
-    params,
-    pathname: parsed.pathname,
-    search: parsed.search,
-    hash: parsed.hash,
-    href,
-    signal: options.signal,
-  };
-}
-
-function buildRouteContext(
-  target: string,
-  params: Record<string, string>,
-  options: {
-    mode: RouteContext['mode'];
-    signal: AbortSignal;
-    auth?: RouteAuthOptions;
-    session?: unknown;
-    user?: unknown;
-  }
-): RouteContext {
-  const context: RouteContext = {
-    ...buildRouteContextBase(target, params, options),
-    session: options.session ?? null,
-    user: options.user ?? null,
-  };
-
-  return withRouteAuthOptions(context, options.auth);
 }
 
 function isPromise<T>(value: T | Promise<T>): value is Promise<T> {

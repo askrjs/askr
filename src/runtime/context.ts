@@ -61,6 +61,140 @@ export interface ContextFrame {
 // Symbol to mark vnodes that need frame restoration
 export const CONTEXT_FRAME_SYMBOL = Symbol('__tempoContextFrame__');
 
+type ContextFrameCarrier = {
+  [CONTEXT_FRAME_SYMBOL]?: ContextFrame;
+};
+
+const vnodeContextFrames = new WeakMap<object, ContextFrame>();
+
+export function getVNodeContextFrame(node: unknown): ContextFrame | undefined {
+  if (typeof node !== 'object' || node === null) {
+    return undefined;
+  }
+
+  const objectNode = node as ContextFrameCarrier;
+  return vnodeContextFrames.get(node) ?? objectNode[CONTEXT_FRAME_SYMBOL];
+}
+
+export function markVNodeWithContextFrame(
+  node: unknown,
+  frame: ContextFrame,
+  overwrite = false
+): void {
+  if (typeof node !== 'object' || node === null) {
+    return;
+  }
+
+  if (!overwrite && getVNodeContextFrame(node)) {
+    return;
+  }
+
+  const objectNode = node as ContextFrameCarrier;
+  if (Object.prototype.hasOwnProperty.call(node, CONTEXT_FRAME_SYMBOL)) {
+    try {
+      objectNode[CONTEXT_FRAME_SYMBOL] = frame;
+      return;
+    } catch {
+      // Fall through to WeakMap metadata when the symbol slot is readonly.
+    }
+  }
+
+  if (Object.isExtensible(node)) {
+    try {
+      Object.defineProperty(node, CONTEXT_FRAME_SYMBOL, {
+        value: frame,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+      return;
+    } catch {
+      // Fall through to WeakMap metadata for exotic objects/proxies.
+    }
+  }
+
+  vnodeContextFrames.set(node, frame);
+}
+
+function isVNodeLike(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const objectValue = value as Record<string | symbol, unknown>;
+  if (objectValue.$$typeof === ELEMENT_TYPE) {
+    return true;
+  }
+
+  return (
+    'type' in objectValue &&
+    ('props' in objectValue || 'children' in objectValue)
+  );
+}
+
+function markContextPropValue(
+  value: unknown,
+  frame: ContextFrame,
+  overwrite: boolean
+): void {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      markContextPropValue(item, frame, overwrite);
+    }
+    return;
+  }
+
+  if (isVNodeLike(value)) {
+    markVNodeTreeWithContextFrame(value, frame, overwrite);
+  }
+}
+
+export function markVNodeTreeWithContextFrame(
+  node: unknown,
+  frame: ContextFrame | null,
+  overwrite = false
+): unknown {
+  if (!frame) return node;
+
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      markVNodeTreeWithContextFrame(child, frame, overwrite);
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    return node;
+  }
+
+  markVNodeWithContextFrame(node, frame, overwrite);
+
+  const objectNode = node as Record<string | symbol, unknown>;
+  const props =
+    typeof objectNode.props === 'object' && objectNode.props !== null
+      ? (objectNode.props as Record<string, unknown>)
+      : null;
+  const children = (props?.children ?? objectNode.children) as unknown;
+
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      markVNodeTreeWithContextFrame(child, frame, overwrite);
+    }
+  } else if (children) {
+    markVNodeTreeWithContextFrame(children, frame, overwrite);
+  }
+
+  if (props) {
+    for (const key in props) {
+      if (key !== 'children') {
+        markContextPropValue(props[key], frame, overwrite);
+      }
+    }
+  }
+
+  return node;
+}
+
 // Global context frame stack (maintained during render)
 // INVARIANT: Must NEVER be non-null across an await boundary
 let currentContextFrame: ContextFrame | null = null;
@@ -266,40 +400,7 @@ function ContextScopeComponent(props: Props): Renderable {
  * The renderer will restore this frame before executing component functions
  */
 function markWithFrame(node: Renderable, frame: ContextFrame): Renderable {
-  // Recursively mark node and its subtree so nested provider/component
-  // executions will restore the correct frame when they are rendered.
-  if (typeof node === 'object' && node !== null) {
-    const obj = node as Record<string | symbol, unknown>;
-    obj[CONTEXT_FRAME_SYMBOL] = frame;
-
-    // If the node is a VNode with children, recursively mark its children.
-    // JSX vnodes carry children in props.children, while some internal nodes
-    // still use a top-level children field.
-    const props =
-      typeof obj.props === 'object' && obj.props !== null
-        ? (obj.props as Record<string, unknown>)
-        : null;
-    const children = (props?.children ?? obj.children) as unknown;
-    if (Array.isArray(children)) {
-      for (let i = 0; i < children.length; i++) {
-        const child = children[i] as Renderable;
-        if (child) {
-          children[i] = markWithFrame(child, frame) as Renderable;
-        }
-      }
-    } else if (children) {
-      const nextChildren = markWithFrame(
-        children as Renderable,
-        frame
-      ) as Renderable;
-      if (props && 'children' in props) {
-        props.children = nextChildren;
-      } else {
-        obj.children = nextChildren;
-      }
-    }
-  }
-  return node;
+  return markVNodeTreeWithContextFrame(node, frame, true) as Renderable;
 }
 
 /**

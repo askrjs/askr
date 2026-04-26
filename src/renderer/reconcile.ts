@@ -104,6 +104,7 @@ import {
   checkPropChanges,
   recordFastPathStats,
   recordDOMReplace,
+  tagNamesEqualIgnoreCase,
 } from './utils';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
@@ -111,21 +112,6 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 // Helper type for narrowings
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 type ComponentVNode = DOMElement & { type: (props: Props) => unknown };
-
-function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const ca = a.charCodeAt(i);
-    const cb = b.charCodeAt(i);
-    if (ca === cb) continue;
-    // Fast ASCII case-fold: A-Z (65-90) -> a-z (97-122)
-    const fa = ca >= 65 && ca <= 90 ? ca + 32 : ca;
-    const fb = cb >= 65 && cb <= 90 ? cb + 32 : cb;
-    if (fa !== fb) return false;
-  }
-  return true;
-}
 
 export function reconcileKeyedChildren(
   parent: Element,
