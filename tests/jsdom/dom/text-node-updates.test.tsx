@@ -68,6 +68,37 @@ describe('text node updates (DOM)', () => {
     expect(div.textContent).toBe('static');
   });
 
+  it('should update a fragment-wrapped function child in place without rerendering the parent', async () => {
+    let text: ReturnType<typeof state<string>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      text = state('a');
+      return (
+        <div>
+          <>{() => text!()}</>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstTextNode = div.firstChild;
+
+    expect(div.textContent).toBe('a');
+    expect(parentRenderCount).toBe(1);
+
+    text!.set('b');
+    flushScheduler();
+
+    expect(div.textContent).toBe('b');
+    expect(div.firstChild).toBe(firstTextNode);
+    expect(parentRenderCount).toBe(1);
+  });
+
   it('should update text content in place when state changes', async () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
