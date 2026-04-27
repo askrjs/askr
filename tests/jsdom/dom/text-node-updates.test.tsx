@@ -622,6 +622,116 @@ describe('text node updates (DOM)', () => {
     expect(parentRenderCount).toBe(1);
   });
 
+  it('should update a dynamic child from text to element and back without rerendering the parent', async () => {
+    let mode: ReturnType<typeof state<'text' | 'element'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'text' | 'element'>('text');
+
+      return (
+        <div>
+          {() =>
+            mode!() === 'text' ? (
+              'alpha'
+            ) : (
+              <span data-kind={'dynamic'}>{'beta'}</span>
+            )
+          }
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstTextNode = div.firstChild;
+
+    expect(div.textContent).toBe('alpha');
+    expect(firstTextNode?.nodeType).toBe(Node.TEXT_NODE);
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('element');
+    flushScheduler();
+
+    const span = div.querySelector('[data-kind="dynamic"]') as HTMLSpanElement;
+
+    expect(div.textContent).toBe('beta');
+    expect(div.firstChild).toBe(span);
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('text');
+    flushScheduler();
+
+    const secondTextNode = div.firstChild;
+
+    expect(div.textContent).toBe('alpha');
+    expect(secondTextNode?.nodeType).toBe(Node.TEXT_NODE);
+    expect(secondTextNode).not.toBe(firstTextNode);
+    expect(parentRenderCount).toBe(1);
+  });
+
+  it('should update a mixed static child from text to element and back without rerendering the parent', async () => {
+    let mode: ReturnType<typeof state<'text' | 'element'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'text' | 'element'>('text');
+
+      return (
+        <div>
+          {'pre:'}
+          {() =>
+            mode!() === 'text' ? (
+              'alpha'
+            ) : (
+              <span data-kind={'dynamic'}>{'beta'}</span>
+            )
+          }
+          {':post'}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('pre:alpha:post');
+    expect(firstNodes).toHaveLength(3);
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('element');
+    flushScheduler();
+
+    const secondNodes = Array.from(div.childNodes);
+    const span = div.querySelector('[data-kind="dynamic"]') as HTMLSpanElement;
+
+    expect(div.textContent).toBe('pre:beta:post');
+    expect(secondNodes).toHaveLength(3);
+    expect(secondNodes[0]).toBe(firstNodes[0]);
+    expect(secondNodes[1]).toBe(span);
+    expect(secondNodes[2]).toBe(firstNodes[2]);
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('text');
+    flushScheduler();
+
+    const thirdNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('pre:alpha:post');
+    expect(thirdNodes).toHaveLength(3);
+    expect(thirdNodes[0]).toBe(firstNodes[0]);
+    expect(thirdNodes[1]?.nodeType).toBe(Node.TEXT_NODE);
+    expect(thirdNodes[2]).toBe(firstNodes[2]);
+    expect(parentRenderCount).toBe(1);
+  });
+
   it('should update text content in place when state changes', async () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
