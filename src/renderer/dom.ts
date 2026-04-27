@@ -386,17 +386,6 @@ function getOrCreateElementReactiveCleanupMap(
   return cleanupMap;
 }
 
-function clearElementChildren(el: Element): void {
-  for (let node = el.firstChild; node; ) {
-    const next = node.nextSibling;
-    if (node instanceof Element) {
-      teardownNodeSubtree(node);
-    }
-    node = next;
-  }
-  el.textContent = '';
-}
-
 function normalizeReactiveScalarSequenceValues(
   values: unknown[]
 ): string[] | null {
@@ -409,6 +398,15 @@ function normalizeReactiveScalarSequenceValues(
   }
 
   return normalized;
+}
+
+function collectReactiveChildValuesAsVNodes(
+  values: unknown[],
+  children: VNode[]
+): void {
+  for (const value of values) {
+    collectReactiveChildBoundaryVNodes(value, children);
+  }
 }
 
 function syncReactiveScalarTextNodes(el: Element, values: string[]): void {
@@ -435,17 +433,15 @@ function syncReactiveScalarTextNodes(el: Element, values: string[]): void {
     }
   }
 
-  clearElementChildren(el);
-
-  if (values.length === 0) {
-    return;
+  const host = createReactiveChildBoundaryHost(el);
+  for (let node = el.firstChild; node; ) {
+    const next = node.nextSibling;
+    host.appendChild(node);
+    node = next;
   }
 
-  const fragment = document.createDocumentFragment();
-  for (const value of values) {
-    fragment.appendChild(document.createTextNode(value));
-  }
-  el.appendChild(fragment);
+  updateElementChildren(host, values as unknown as VNode[]);
+  syncReactiveChildExpectedNodes(el, Array.from(host.childNodes));
 }
 
 function normalizeReactiveChildBoundaryVNode(value: VNode): VNode {
@@ -641,13 +637,23 @@ function setupReactiveScalarChild(
         }
 
         const normalized = normalizeReactiveScalarSequenceValues(values);
-        if (!normalized) {
-          throw new Error(
-            '[Askr] Reactive scalar child sequences must resolve to text-compatible values.'
-          );
+        if (normalized) {
+          syncReactiveScalarTextNodes(el, normalized);
+          return;
         }
 
-        syncReactiveScalarTextNodes(el, normalized);
+        const nextChildren: VNode[] = [];
+        collectReactiveChildValuesAsVNodes(values, nextChildren);
+
+        const host = createReactiveChildBoundaryHost(el);
+        for (let node = el.firstChild; node; ) {
+          const next = node.nextSibling;
+          host.appendChild(node);
+          node = next;
+        }
+
+        updateElementChildren(host, nextChildren);
+        syncReactiveChildExpectedNodes(el, Array.from(host.childNodes));
       },
       equals: (previousValue, nextValue) => {
         if (!Array.isArray(previousValue) || !Array.isArray(nextValue)) {
