@@ -461,6 +461,32 @@ function normalizeReactiveChildBoundaryVNode(value: VNode): VNode {
   return normalizeReactiveChildBoundaryVNode(children[0] as VNode);
 }
 
+function isSingleRootReactiveChildBoundaryValue(value: unknown): boolean {
+  if (value === null || value === undefined || value === false) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      value.length === 1 && isSingleRootReactiveChildBoundaryValue(value[0])
+    );
+  }
+
+  if (isFragmentVNode(value)) {
+    const children = normalizeComponentChildren(value);
+    return (
+      children.length === 1 &&
+      isSingleRootReactiveChildBoundaryValue(children[0])
+    );
+  }
+
+  return true;
+}
+
+function commitReactiveChildBoundaryChildren(el: Element, value: VNode): void {
+  updateElementChildren(el, normalizeComponentChildren(value) as VNode[]);
+}
+
 function syncReactiveChildSequenceNodes(
   el: Element,
   entries: ReactiveChildBoundarySequenceEntry[]
@@ -609,33 +635,99 @@ function setupReactiveChildBoundary(
 ): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
   let currentChildFn = childFn;
   const parentInstance = getCurrentInstance();
-  const scope = createChildScope(
+  let scope: ChildScope | null = null;
+  let fallbackEffect: FineGrainedEffectHandle<unknown> | null = null;
+
+  const enterFallbackMode = () => {
+    if (fallbackEffect) {
+      return;
+    }
+
+    if (scope) {
+      disposeChildScope(scope);
+      scope = null;
+    }
+
+    fallbackEffect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => currentChildFn(),
+      commit: (value) => {
+        commitReactiveChildBoundaryChildren(el, value as VNode);
+      },
+      equals: () => false,
+      onError: (err) => {
+        if (getRuntimeEnv().NODE_ENV !== 'production') {
+          logger.warn('[Askr] Reactive child update failed:', err);
+        }
+      },
+    });
+  };
+
+  const commitScopeOrFallback = () => {
+    if (!scope) {
+      return;
+    }
+
+    if (!isSingleRootReactiveChildBoundaryValue(scope.vnode)) {
+      enterFallbackMode();
+      return;
+    }
+
+    commitReactiveChildScope(el, scope);
+  };
+
+  scope = createChildScope(
     parentInstance,
     `__reactive-child__:${(reactiveChildScopeId += 1)}`,
     () => {
-      commitReactiveChildScope(el, scope);
+      commitScopeOrFallback();
     }
   );
 
   scope.render(() => normalizeReactiveChildBoundaryVNode(currentChildFn()));
-  commitReactiveChildScope(el, scope);
+
+  if (isSingleRootReactiveChildBoundaryValue(scope.vnode)) {
+    commitReactiveChildScope(el, scope);
+  } else {
+    enterFallbackMode();
+  }
 
   return {
     cleanup: () => {
-      const dom = scope.dom;
-      disposeChildScope(scope);
+      fallbackEffect?.cleanup();
+      fallbackEffect = null;
 
-      if (dom?.parentNode === el) {
-        if (dom instanceof Element) {
-          teardownNodeSubtree(dom);
+      if (scope) {
+        const dom = scope.dom;
+        disposeChildScope(scope);
+        scope = null;
+
+        if (dom?.parentNode === el) {
+          if (dom instanceof Element) {
+            teardownNodeSubtree(dom);
+          }
+          el.removeChild(dom);
         }
-        el.removeChild(dom);
+        return;
       }
+
+      clearElementChildren(el);
     },
     updateFn: (nextValue: unknown) => {
       currentChildFn = nextValue as () => VNode;
+
+      if (fallbackEffect) {
+        fallbackEffect.updateCompute(() => currentChildFn());
+        return;
+      }
+
+      if (!scope) {
+        enterFallbackMode();
+        return;
+      }
+
       rerenderChildScope(scope);
-      commitReactiveChildScope(el, scope);
+      commitScopeOrFallback();
     },
   };
 }
