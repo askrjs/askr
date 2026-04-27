@@ -128,7 +128,7 @@ type ReactiveChildBoundarySequenceSource = Array<
 
 type ReactiveChildBoundarySequenceEntry =
   | { kind: 'static'; node: Text }
-  | { kind: 'dynamic'; scope: ChildScope };
+  | { kind: 'dynamic'; scope: ChildScope; nodes: Node[] };
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
@@ -483,28 +483,53 @@ function isSingleRootReactiveChildBoundaryValue(value: unknown): boolean {
   return true;
 }
 
-function commitReactiveChildBoundaryChildren(el: Element, value: VNode): void {
-  updateElementChildren(el, normalizeComponentChildren(value) as VNode[]);
-}
-
-function syncReactiveChildSequenceNodes(
-  el: Element,
-  entries: ReactiveChildBoundarySequenceEntry[]
+function collectReactiveChildBoundaryVNodes(
+  value: unknown,
+  children: VNode[]
 ): void {
-  const expectedNodes: Node[] = [];
-
-  for (const entry of entries) {
-    if (entry.kind === 'static') {
-      expectedNodes.push(entry.node);
-      continue;
-    }
-
-    const dynamicDom = commitReactiveChildScopeToDom(el, entry.scope);
-    if (dynamicDom) {
-      expectedNodes.push(dynamicDom);
-    }
+  if (value === null || value === undefined || value === false) {
+    return;
   }
 
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      collectReactiveChildBoundaryVNodes(child, children);
+    }
+    return;
+  }
+
+  if (isFragmentVNode(value)) {
+    const fragmentChildren = value.props?.children ?? value.children;
+    collectReactiveChildBoundaryVNodes(fragmentChildren, children);
+    return;
+  }
+
+  children.push(value as VNode);
+}
+
+function createReactiveChildBoundaryHost(el: Element): Element {
+  const ownerDocument = el.ownerDocument;
+  return el.namespaceURI === SVG_NAMESPACE
+    ? ownerDocument.createElementNS(SVG_NAMESPACE, 'g')
+    : ownerDocument.createElement('div');
+}
+
+function disposeReactiveChildBoundaryNodes(nodes: Node[]): void {
+  for (const node of nodes) {
+    if (node.parentNode) {
+      node.parentNode.removeChild(node);
+    }
+
+    if (node instanceof Element) {
+      teardownNodeSubtree(node);
+    }
+  }
+}
+
+function syncReactiveChildExpectedNodes(
+  el: Element,
+  expectedNodes: Node[]
+): void {
   const expectedNodeSet = new Set(expectedNodes);
 
   for (let node = el.firstChild; node; ) {
@@ -530,20 +555,67 @@ function syncReactiveChildSequenceNodes(
   }
 }
 
-function commitReactiveChildScope(el: Element, scope: ChildScope): void {
-  const nextDom = syncForItemDom(el, scope, scope.vnode ?? null);
+function commitReactiveChildBoundaryEntryNodes(
+  el: Element,
+  entry: { scope: ChildScope; nodes: Node[] }
+): Node[] {
+  if (!entry.scope.needsDomUpdate) {
+    return entry.nodes;
+  }
 
+  if (!isSingleRootReactiveChildBoundaryValue(entry.scope.vnode)) {
+    const nextChildren: VNode[] = [];
+    collectReactiveChildBoundaryVNodes(entry.scope.vnode, nextChildren);
+
+    const host = createReactiveChildBoundaryHost(el);
+    for (const node of entry.nodes) {
+      host.appendChild(node);
+    }
+
+    updateElementChildren(host, nextChildren);
+
+    const nextNodes = Array.from(host.childNodes);
+
+    entry.scope.dom = undefined;
+    entry.scope.needsDomUpdate = false;
+    entry.nodes = nextNodes;
+    return nextNodes;
+  }
+
+  if (entry.nodes.length > 1) {
+    disposeReactiveChildBoundaryNodes(entry.nodes);
+    entry.nodes = [];
+    entry.scope.dom = undefined;
+  }
+
+  const nextDom = syncForItemDom(el, entry.scope, entry.scope.vnode ?? null);
   if (!nextDom) {
-    scope.needsDomUpdate = false;
-    return;
+    entry.nodes = [];
+    entry.scope.needsDomUpdate = false;
+    return entry.nodes;
   }
 
-  if (nextDom.parentNode !== el) {
-    clearElementChildren(el);
-    el.appendChild(nextDom);
+  entry.nodes = [nextDom];
+  entry.scope.needsDomUpdate = false;
+  return entry.nodes;
+}
+
+function syncReactiveChildSequenceNodes(
+  el: Element,
+  entries: ReactiveChildBoundarySequenceEntry[]
+): void {
+  const expectedNodes: Node[] = [];
+
+  for (const entry of entries) {
+    if (entry.kind === 'static') {
+      expectedNodes.push(entry.node);
+      continue;
+    }
+
+    expectedNodes.push(...commitReactiveChildBoundaryEntryNodes(el, entry));
   }
 
-  scope.needsDomUpdate = false;
+  syncReactiveChildExpectedNodes(el, expectedNodes);
 }
 
 function setupReactiveScalarChild(
@@ -635,99 +707,50 @@ function setupReactiveChildBoundary(
 ): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
   let currentChildFn = childFn;
   const parentInstance = getCurrentInstance();
-  let scope: ChildScope | null = null;
-  let fallbackEffect: FineGrainedEffectHandle<unknown> | null = null;
-
-  const enterFallbackMode = () => {
-    if (fallbackEffect) {
-      return;
-    }
-
-    if (scope) {
-      disposeChildScope(scope);
-      scope = null;
-    }
-
-    fallbackEffect = createFineGrainedEffect({
-      lane: 'reactive',
-      compute: () => currentChildFn(),
-      commit: (value) => {
-        commitReactiveChildBoundaryChildren(el, value as VNode);
-      },
-      equals: () => false,
-      onError: (err) => {
-        if (getRuntimeEnv().NODE_ENV !== 'production') {
-          logger.warn('[Askr] Reactive child update failed:', err);
-        }
-      },
-    });
+  const entry: { scope: ChildScope; nodes: Node[] } = {
+    scope: createChildScope(
+      parentInstance,
+      `__reactive-child__:${(reactiveChildScopeId += 1)}`,
+      () => {
+        const expectedNodes = commitReactiveChildBoundaryEntryNodes(el, entry);
+        syncReactiveChildExpectedNodes(el, expectedNodes);
+      }
+    ),
+    nodes: [],
   };
 
-  const commitScopeOrFallback = () => {
-    if (!scope) {
-      return;
-    }
-
-    if (!isSingleRootReactiveChildBoundaryValue(scope.vnode)) {
-      enterFallbackMode();
-      return;
-    }
-
-    commitReactiveChildScope(el, scope);
-  };
-
-  scope = createChildScope(
-    parentInstance,
-    `__reactive-child__:${(reactiveChildScopeId += 1)}`,
-    () => {
-      commitScopeOrFallback();
-    }
+  entry.scope.render(() =>
+    normalizeReactiveChildBoundaryVNode(currentChildFn())
   );
-
-  scope.render(() => normalizeReactiveChildBoundaryVNode(currentChildFn()));
-
-  if (isSingleRootReactiveChildBoundaryValue(scope.vnode)) {
-    commitReactiveChildScope(el, scope);
-  } else {
-    enterFallbackMode();
-  }
+  syncReactiveChildExpectedNodes(
+    el,
+    commitReactiveChildBoundaryEntryNodes(el, entry)
+  );
 
   return {
     cleanup: () => {
-      fallbackEffect?.cleanup();
-      fallbackEffect = null;
+      const dom = entry.scope.dom;
+      const nodes = entry.nodes;
+      disposeChildScope(entry.scope);
+      entry.nodes = [];
 
-      if (scope) {
-        const dom = scope.dom;
-        disposeChildScope(scope);
-        scope = null;
-
-        if (dom?.parentNode === el) {
-          if (dom instanceof Element) {
-            teardownNodeSubtree(dom);
-          }
-          el.removeChild(dom);
-        }
+      if (nodes.length > 0) {
+        disposeReactiveChildBoundaryNodes(nodes);
         return;
       }
 
-      clearElementChildren(el);
+      if (dom?.parentNode === el) {
+        if (dom instanceof Element) {
+          teardownNodeSubtree(dom);
+        }
+        el.removeChild(dom);
+      }
     },
     updateFn: (nextValue: unknown) => {
       currentChildFn = nextValue as () => VNode;
-
-      if (fallbackEffect) {
-        fallbackEffect.updateCompute(() => currentChildFn());
-        return;
-      }
-
-      if (!scope) {
-        enterFallbackMode();
-        return;
-      }
-
-      rerenderChildScope(scope);
-      commitScopeOrFallback();
+      rerenderChildScope(entry.scope);
+      const expectedNodes = commitReactiveChildBoundaryEntryNodes(el, entry);
+      syncReactiveChildExpectedNodes(el, expectedNodes);
     },
   };
 }
@@ -739,7 +762,10 @@ function setupReactiveChildBoundarySequence(
   let currentSource = source;
   const parentInstance = getCurrentInstance();
   const entries: ReactiveChildBoundarySequenceEntry[] = [];
-  const dynamicEntries: Array<{ index: number; scope: ChildScope }> = [];
+  const dynamicEntries: Array<{
+    index: number;
+    entry: Extract<ReactiveChildBoundarySequenceEntry, { kind: 'dynamic' }>;
+  }> = [];
 
   if (!currentSource.some((slot) => slot.kind === 'dynamic')) {
     throw new Error(
@@ -771,12 +797,20 @@ function setupReactiveChildBoundarySequence(
       syncSequence
     );
 
-    entries.push({ kind: 'dynamic', scope });
-    dynamicEntries.push({ index, scope });
+    const dynamicEntry: Extract<
+      ReactiveChildBoundarySequenceEntry,
+      { kind: 'dynamic' }
+    > = {
+      kind: 'dynamic',
+      scope,
+      nodes: [],
+    };
+    entries.push(dynamicEntry);
+    dynamicEntries.push({ index, entry: dynamicEntry });
   }
 
   for (const dynamicEntry of dynamicEntries) {
-    dynamicEntry.scope.render(() =>
+    dynamicEntry.entry.scope.render(() =>
       normalizeReactiveChildBoundaryVNode(
         (
           currentSource[dynamicEntry.index] as {
@@ -793,8 +827,14 @@ function setupReactiveChildBoundarySequence(
   return {
     cleanup: () => {
       for (const dynamicEntry of dynamicEntries) {
-        const dom = dynamicEntry.scope.dom;
-        disposeChildScope(dynamicEntry.scope);
+        const dom = dynamicEntry.entry.scope.dom;
+        const nodes = dynamicEntry.entry.nodes;
+        disposeChildScope(dynamicEntry.entry.scope);
+
+        if (nodes.length > 0) {
+          disposeReactiveChildBoundaryNodes(nodes);
+          continue;
+        }
 
         if (dom?.parentNode === el) {
           if (dom instanceof Element) {
@@ -813,26 +853,11 @@ function setupReactiveChildBoundarySequence(
     updateFn: (nextValue: unknown) => {
       currentSource = nextValue as ReactiveChildBoundarySequenceSource;
       for (const dynamicEntry of dynamicEntries) {
-        rerenderChildScope(dynamicEntry.scope);
+        rerenderChildScope(dynamicEntry.entry.scope);
       }
       syncSequence();
     },
   };
-}
-
-function commitReactiveChildScopeToDom(
-  el: Element,
-  scope: ChildScope
-): Node | null {
-  const nextDom = syncForItemDom(el, scope, scope.vnode ?? null);
-
-  if (!nextDom) {
-    scope.needsDomUpdate = false;
-    return null;
-  }
-
-  scope.needsDomUpdate = false;
-  return nextDom;
 }
 
 function syncReactiveScalarChild(el: Element, children: unknown): boolean {
