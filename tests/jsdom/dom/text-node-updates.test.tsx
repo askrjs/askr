@@ -514,6 +514,58 @@ describe('text node updates (DOM)', () => {
     expect(parentRenderCount).toBe(1);
   });
 
+  it('should update a single dynamic child that returns multiple roots without rerendering the parent', async () => {
+    let rightText: ReturnType<typeof state<string>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      rightText = state('right-a');
+
+      return (
+        <div>
+          {() => (
+            <>
+              <span data-side={'left'}>{'left-a'}</span>
+              <span data-side={'right'}>{rightText!()}</span>
+            </>
+          )}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstNodes = Array.from(div.childNodes);
+    const leftSpan = div.querySelector('[data-side="left"]') as HTMLSpanElement;
+    const rightSpan = div.querySelector(
+      '[data-side="right"]'
+    ) as HTMLSpanElement;
+
+    expect(div.textContent).toBe('left-aright-a');
+    expect(firstNodes).toHaveLength(2);
+    expect(parentRenderCount).toBe(1);
+
+    rightText!.set('right-b');
+    flushScheduler();
+
+    const secondNodes = Array.from(div.childNodes);
+    const leftSpanAfter = div.querySelector(
+      '[data-side="left"]'
+    ) as HTMLSpanElement;
+    const rightSpanAfter = div.querySelector(
+      '[data-side="right"]'
+    ) as HTMLSpanElement;
+
+    expect(div.textContent).toBe('left-aright-b');
+    expect(secondNodes).toHaveLength(2);
+    expect(leftSpanAfter).toBe(leftSpan);
+    expect(rightSpanAfter).toBe(rightSpan);
+    expect(parentRenderCount).toBe(1);
+  });
+
   it('should update text content in place when state changes', async () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
