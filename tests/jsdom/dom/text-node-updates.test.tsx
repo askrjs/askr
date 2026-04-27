@@ -7,6 +7,10 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { allowFrameworkWarnings } from '../../setup-env';
+import {
+  disableEventDelegation,
+  enableEventDelegation,
+} from '../../../src/runtime/events';
 
 describe('text node updates (DOM)', () => {
   let { container, cleanup } = createTestContainer();
@@ -1012,6 +1016,146 @@ describe('text node updates (DOM)', () => {
     expect(startAgain).not.toBe(start);
     expect(endAgain).not.toBe(end);
     expect(parentRenderCount).toBe(1);
+  });
+
+  it('should tear down direct listeners when a retained multi-root child range collapses to empty', async () => {
+    disableEventDelegation();
+
+    let mode: ReturnType<typeof state<'multi' | 'empty'>> | null = null;
+    let clicks = 0;
+
+    try {
+      const Component = () => {
+        mode = state<'multi' | 'empty'>('multi');
+
+        return (
+          <div>
+            {'pre:'}
+            {() =>
+              mode!() === 'multi' ? (
+                <>
+                  <button
+                    data-kind={'action'}
+                    onClick={() => {
+                      clicks += 1;
+                    }}
+                  >
+                    {'go'}
+                  </button>
+                  <span data-kind={'tail'}>{'tail'}</span>
+                </>
+              ) : null
+            }
+            {':post'}
+          </div>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const button = container.querySelector(
+        '[data-kind="action"]'
+      ) as HTMLButtonElement;
+
+      button.click();
+      flushScheduler();
+      expect(clicks).toBe(1);
+
+      mode!.set('empty');
+      flushScheduler();
+
+      expect(container.querySelector('[data-kind="action"]')).toBeNull();
+      expect(container.querySelector('[data-kind="tail"]')).toBeNull();
+
+      button.click();
+      flushScheduler();
+      expect(clicks).toBe(1);
+
+      mode!.set('multi');
+      flushScheduler();
+
+      const nextButton = container.querySelector(
+        '[data-kind="action"]'
+      ) as HTMLButtonElement;
+
+      nextButton.click();
+      flushScheduler();
+      expect(clicks).toBe(2);
+      expect(nextButton).not.toBe(button);
+    } finally {
+      enableEventDelegation();
+    }
+  });
+
+  it('should keep a reactive child live after a parent rerender changes static sibling layout', async () => {
+    let layout: ReturnType<typeof state<'text' | 'elements'>> | null = null;
+    let mode: ReturnType<typeof state<'span' | 'button'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      layout = state<'text' | 'elements'>('text');
+      mode = state<'span' | 'button'>('span');
+
+      return (
+        <div>
+          {layout!() === 'text' ? 'pre:' : <b data-side={'left'}>{'left'}</b>}
+          {() =>
+            mode!() === 'span' ? (
+              <span data-kind={'dynamic'}>{'alpha'}</span>
+            ) : (
+              <button data-kind={'dynamic'}>{'beta'}</button>
+            )
+          }
+          {layout!() === 'text' ? (
+            ':post'
+          ) : (
+            <i data-side={'right'}>{'right'}</i>
+          )}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+
+    expect(div.textContent).toBe('pre:alpha:post');
+    expect(Array.from(div.childNodes)).toHaveLength(3);
+    expect(parentRenderCount).toBe(1);
+
+    layout!.set('elements');
+    flushScheduler();
+
+    const left = div.querySelector('[data-side="left"]') as HTMLElement;
+    const span = div.querySelector('[data-kind="dynamic"]') as HTMLSpanElement;
+    const right = div.querySelector('[data-side="right"]') as HTMLElement;
+    const afterLayoutNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('leftalpharight');
+    expect(afterLayoutNodes).toHaveLength(3);
+    expect(afterLayoutNodes[0]).toBe(left);
+    expect(afterLayoutNodes[1]).toBe(span);
+    expect(afterLayoutNodes[2]).toBe(right);
+    expect(parentRenderCount).toBe(2);
+
+    mode!.set('button');
+    flushScheduler();
+
+    const button = div.querySelector(
+      '[data-kind="dynamic"]'
+    ) as HTMLButtonElement;
+    const afterModeNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('leftbetaright');
+    expect(afterModeNodes).toHaveLength(3);
+    expect(afterModeNodes[0]).toBe(left);
+    expect(afterModeNodes[1]).toBe(button);
+    expect(afterModeNodes[2]).toBe(right);
+    expect(button).not.toBe(span);
+    expect(parentRenderCount).toBe(2);
   });
 
   it('should update text content in place when state changes', async () => {
