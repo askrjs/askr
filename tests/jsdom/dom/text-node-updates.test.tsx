@@ -441,6 +441,79 @@ describe('text node updates (DOM)', () => {
     expect(parentRenderCount).toBe(1);
   });
 
+  it('should update multiple dynamic element children without rerendering the parent', async () => {
+    let leftMode: ReturnType<typeof state<'span' | 'button'>> | null = null;
+    let rightText: ReturnType<typeof state<string>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      leftMode = state<'span' | 'button'>('span');
+      rightText = state('right-a');
+
+      return (
+        <div>
+          {() =>
+            leftMode!() === 'span' ? (
+              <span data-side={'left'}>{'left-a'}</span>
+            ) : (
+              <button data-side={'left'}>{'left-b'}</button>
+            )
+          }
+          {'|'}
+          {() => <span data-side={'right'}>{rightText!()}</span>}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstNodes = Array.from(div.childNodes);
+    const leftSpan = div.querySelector('[data-side="left"]') as HTMLSpanElement;
+    const rightSpan = div.querySelector(
+      '[data-side="right"]'
+    ) as HTMLSpanElement;
+
+    expect(div.textContent).toBe('left-a|right-a');
+    expect(firstNodes).toHaveLength(3);
+    expect(parentRenderCount).toBe(1);
+
+    leftMode!.set('button');
+    flushScheduler();
+
+    const secondNodes = Array.from(div.childNodes);
+    const leftButton = div.querySelector(
+      '[data-side="left"]'
+    ) as HTMLButtonElement;
+    const rightSpanAfterLeftUpdate = div.querySelector(
+      '[data-side="right"]'
+    ) as HTMLSpanElement;
+
+    expect(div.textContent).toBe('left-b|right-a');
+    expect(secondNodes).toHaveLength(3);
+    expect(leftButton).not.toBe(leftSpan);
+    expect(secondNodes[1]).toBe(firstNodes[1]);
+    expect(rightSpanAfterLeftUpdate).toBe(rightSpan);
+    expect(parentRenderCount).toBe(1);
+
+    rightText!.set('right-b');
+    flushScheduler();
+
+    const thirdNodes = Array.from(div.childNodes);
+    const rightSpanAfterRightUpdate = div.querySelector(
+      '[data-side="right"]'
+    ) as HTMLSpanElement;
+
+    expect(div.textContent).toBe('left-b|right-b');
+    expect(thirdNodes).toHaveLength(3);
+    expect(thirdNodes[0]).toBe(leftButton);
+    expect(thirdNodes[1]).toBe(firstNodes[1]);
+    expect(rightSpanAfterRightUpdate).toBe(rightSpan);
+    expect(parentRenderCount).toBe(1);
+  });
+
   it('should update text content in place when state changes', async () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
