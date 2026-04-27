@@ -346,6 +346,101 @@ describe('text node updates (DOM)', () => {
     expect(parentRenderCount).toBe(1);
   });
 
+  it('should update a mixed static and dynamic element sandwich without rerendering the parent', async () => {
+    let mode: ReturnType<typeof state<'span' | 'button'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'span' | 'button'>('span');
+
+      return (
+        <div>
+          {'pre:'}
+          {() =>
+            mode!() === 'span' ? (
+              <span data-kind={'span'}>{'alpha'}</span>
+            ) : (
+              <button data-kind={'button'}>{'beta'}</button>
+            )
+          }
+          {':post'}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstNodes = Array.from(div.childNodes);
+    const firstDynamic = div.querySelector('span') as HTMLSpanElement;
+
+    expect(div.textContent).toBe('pre:alpha:post');
+    expect(firstNodes).toHaveLength(3);
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('button');
+    flushScheduler();
+
+    const secondNodes = Array.from(div.childNodes);
+    const button = div.querySelector('button') as HTMLButtonElement;
+
+    expect(div.textContent).toBe('pre:beta:post');
+    expect(secondNodes).toHaveLength(3);
+    expect(secondNodes[0]).toBe(firstNodes[0]);
+    expect(secondNodes[2]).toBe(firstNodes[2]);
+    expect(button).not.toBe(firstDynamic);
+    expect(parentRenderCount).toBe(1);
+  });
+
+  it('should update a mixed static and single-root fragment child without rerendering the parent', async () => {
+    let text: ReturnType<typeof state<string>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      text = state('alpha');
+
+      return (
+        <div>
+          {'pre:'}
+          {() => (
+            <>
+              <span>{text!()}</span>
+            </>
+          )}
+          {':post'}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstNodes = Array.from(div.childNodes);
+    const span = div.querySelector('span') as HTMLSpanElement;
+
+    expect(div.textContent).toBe('pre:alpha:post');
+    expect(firstNodes).toHaveLength(3);
+    expect(parentRenderCount).toBe(1);
+
+    text!.set('beta');
+    flushScheduler();
+
+    const secondNodes = Array.from(div.childNodes);
+    const spanAfter = div.querySelector('span') as HTMLSpanElement;
+
+    expect(div.textContent).toBe('pre:beta:post');
+    expect(secondNodes).toHaveLength(3);
+    expect(secondNodes[0]).toBe(firstNodes[0]);
+    expect(secondNodes[1]).toBe(span);
+    expect(secondNodes[2]).toBe(firstNodes[2]);
+    expect(spanAfter).toBe(span);
+    expect(parentRenderCount).toBe(1);
+  });
+
   it('should update text content in place when state changes', async () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
