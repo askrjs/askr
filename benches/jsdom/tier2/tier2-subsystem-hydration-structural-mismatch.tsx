@@ -35,6 +35,7 @@ await (async () => {
       hydrateSPA({
         root: extraChildFixture.container,
         routes: extraChildFixture.routes,
+        hydrate: { verifyMarkup: true },
       })
     ).rejects.toThrow(/Hydration mismatch/i);
   } finally {
@@ -55,6 +56,7 @@ await (async () => {
       hydrateSPA({
         root: attributeFixture.container,
         routes: attributeFixture.routes,
+        hydrate: { verifyMarkup: true },
       })
     ).rejects.toThrow(/Hydration mismatch/i);
   } finally {
@@ -73,6 +75,7 @@ describe('tier2 subsystem hydration structural mismatch', () => {
       await hydrateSPA({
         root: extraChildFixture!.container,
         routes: extraChildFixture!.routes,
+        hydrate: { verifyMarkup: true },
       }).catch(() => undefined);
     },
     {
@@ -100,6 +103,7 @@ describe('tier2 subsystem hydration structural mismatch', () => {
       await hydrateSPA({
         root: attributeFixture!.container,
         routes: attributeFixture!.routes,
+        hydrate: { verifyMarkup: true },
       }).catch(() => undefined);
     },
     {

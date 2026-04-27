@@ -15,6 +15,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import type { State } from '../../../src/index';
 import {
+  getPerfMetrics,
+  resetPerfMetrics,
+} from '../../../src/runtime/perf-metrics';
+import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
@@ -45,6 +49,7 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     const ctx = createTestContainer();
     container = ctx.container;
     cleanup = ctx.cleanup;
+    resetPerfMetrics();
   });
 
   afterEach(() => {
@@ -326,5 +331,123 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     expect(rowsAfter[0]?.firstChild).toBe(firstTextNodes[0]);
     expect(rowsAfter[1]?.firstChild).toBe(firstTextNodes[1]);
     expect(rowsAfter[2]?.firstChild).toBe(firstTextNodes[2]);
+  });
+
+  it('should only rerun changed property effects for a keyed row item', () => {
+    let items: State<Array<{ id: number; label: string }>> | null = null;
+
+    const Component = () => {
+      items = state([
+        { id: 1, label: 'Alpha' },
+        { id: 2, label: 'Beta' },
+      ]);
+
+      return (
+        <ul>
+          <For each={() => items!()} by={(item) => item.id}>
+            {(item) => (
+              <li class={() => (item.id % 2 === 0 ? 'even' : 'odd')}>
+                {() => item.label}
+              </li>
+            )}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const rowsBefore = Array.from(container.querySelectorAll('li'));
+    expect(rowsBefore[0]?.className).toBe('odd');
+    expect(rowsBefore[1]?.className).toBe('even');
+
+    resetFineGrainedDiagnostics();
+
+    items!.set([
+      { id: 1, label: 'Alpha!' },
+      { id: 2, label: 'Beta' },
+    ]);
+    flushScheduler();
+
+    const ns = (
+      globalThis as typeof globalThis & {
+        __ASKR__?: Record<string, unknown>;
+      }
+    ).__ASKR__;
+
+    const rowsAfter = Array.from(container.querySelectorAll('li'));
+    expect(rowsAfter[0]?.textContent).toBe('Alpha!');
+    expect(rowsAfter[0]?.className).toBe('odd');
+    expect(rowsAfter[1]?.textContent).toBe('Beta');
+    expect(rowsAfter[1]?.className).toBe('even');
+    expect(ns?.['componentReruns']).toBe(0);
+    expect(ns?.['textNodeWrites']).toBe(1);
+    expect(ns?.['effectRuns']).toBe(2);
+  });
+
+  it('should not reevaluate id-only row props during a large keyed label-only update', () => {
+    let items: State<Array<{ id: number; label: string }>> | null = null;
+
+    const Component = () => {
+      items = state(
+        Array.from({ length: 100 }, (_, index) => ({
+          id: index + 1,
+          label: `Item ${index + 1}`,
+        }))
+      );
+
+      return (
+        <ul>
+          <For each={() => items!()} by={(item) => item.id}>
+            {(item) => (
+              <li
+                class={() => (item.id % 2 === 0 ? 'even' : 'odd')}
+                data-id={() => String(item.id)}
+              >
+                {() => item.label}
+              </li>
+            )}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const beforeRows = Array.from(container.querySelectorAll('li'));
+    const beforeClasses = beforeRows.map((row) => row.className);
+    const beforeIds = beforeRows.map((row) => row.getAttribute('data-id'));
+
+    resetFineGrainedDiagnostics();
+    resetPerfMetrics();
+
+    items!.set(
+      items!().map((item) =>
+        item.id === 1 ? { ...item, label: `${item.label}!` } : item
+      )
+    );
+    flushScheduler();
+
+    const ns = (
+      globalThis as typeof globalThis & {
+        __ASKR__?: Record<string, unknown>;
+      }
+    ).__ASKR__;
+
+    const perf = getPerfMetrics();
+    const afterRows = Array.from(container.querySelectorAll('li'));
+
+    expect(afterRows[0]?.textContent).toBe('Item 1!');
+    expect(afterRows[1]?.textContent).toBe('Item 2');
+    expect(afterRows.length).toBe(100);
+    expect(afterRows.map((row) => row.className)).toEqual(beforeClasses);
+    expect(afterRows.map((row) => row.getAttribute('data-id'))).toEqual(
+      beforeIds
+    );
+    expect(ns?.['componentReruns']).toBe(0);
+    expect(ns?.['textNodeWrites']).toBe(1);
+    expect(perf?.reactivePropReevaluations).toBe(0);
   });
 });

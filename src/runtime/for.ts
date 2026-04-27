@@ -55,6 +55,7 @@ export interface ForItemInstance<T> {
   item: T;
   reactiveItem: T;
   itemSignal: ForItemSignal<T> | null;
+  itemPropertySignals: Map<PropertyKey, ForItemPropertySignal> | null;
   indexSignal: ForIndexSignal;
   scope: ChildScope;
 }
@@ -63,6 +64,12 @@ type ForItemSignal<T> = ReadableSource<T> &
   (() => T) & {
     peek(): T;
     set(newValue: T, notifyReaders?: boolean): void;
+  };
+
+type ForItemPropertySignal = ReadableSource<unknown> &
+  (() => unknown) & {
+    peek(): unknown;
+    set(newValue: unknown, notifyReaders?: boolean): void;
   };
 
 type ForIndexSignal = ReadableSource<number> &
@@ -247,16 +254,81 @@ function createForItemSignal<T>(initialItem: T): ForItemSignal<T> {
   return itemSignal;
 }
 
+function createForItemPropertySignal(
+  initialValue: unknown
+): ForItemPropertySignal {
+  let propertyValue = initialValue;
+  const readers = new Map<ComponentInstance, number>();
+
+  const propertySignal = (() => {
+    propertySignal._hasBeenRead = true;
+    recordReadableRead(propertySignal);
+    return propertyValue;
+  }) as ForItemPropertySignal;
+
+  propertySignal._readers = readers;
+  propertySignal.peek = () => propertyValue;
+  propertySignal.set = (newValue: unknown, notifyReaders = true) => {
+    if (Object.is(propertyValue, newValue)) {
+      return;
+    }
+
+    propertyValue = newValue;
+    markReadableDerivedSubscribersDirty(propertySignal);
+    markReactivePropsDirtySource(propertySignal);
+
+    if (notifyReaders) {
+      notifyReadableReaders(propertySignal);
+    }
+  };
+  propertySignal._hasBeenRead = false;
+
+  return propertySignal;
+}
+
+function readForItemProperty(item: unknown, prop: PropertyKey): unknown {
+  return Reflect.get(Object(item), prop);
+}
+
+function getOrCreateForItemPropertySignal<T>(
+  item: T,
+  propertySignals: Map<PropertyKey, ForItemPropertySignal>,
+  prop: PropertyKey
+): ForItemPropertySignal {
+  const existingSignal = propertySignals.get(prop);
+  if (existingSignal) {
+    return existingSignal;
+  }
+
+  const propertySignal = createForItemPropertySignal(
+    readForItemProperty(item, prop)
+  );
+  propertySignals.set(prop, propertySignal);
+  return propertySignal;
+}
+
 function canProxyForItem(item: unknown): item is object {
   return (
     (typeof item === 'object' && item !== null) || typeof item === 'function'
   );
 }
 
-function createReactiveForItem<T>(itemSignal: ForItemSignal<T>): T {
+function createReactiveForItem<T>(
+  itemSignal: ForItemSignal<T>,
+  propertySignals: Map<PropertyKey, ForItemPropertySignal>
+): T {
   return new Proxy(Object.create(null) as object, {
     get(_target, prop, receiver) {
-      const currentItem = itemSignal();
+      const currentItem = itemSignal.peek();
+
+      if (typeof prop !== 'symbol') {
+        return getOrCreateForItemPropertySignal(
+          currentItem,
+          propertySignals,
+          prop
+        )();
+      }
+
       return Reflect.get(Object(currentItem), prop, receiver);
     },
     has(_target, prop) {
@@ -389,7 +461,13 @@ export function createItemInstance<T>(
   // to avoid hook order violations (each For item creates its signal dynamically)
   const indexSignal = createForIndexSignal(index);
   const itemSignal = canProxyForItem(item) ? createForItemSignal(item) : null;
-  const reactiveItem = itemSignal ? createReactiveForItem(itemSignal) : item;
+  const itemPropertySignals = itemSignal
+    ? new Map<PropertyKey, ForItemPropertySignal>()
+    : null;
+  const reactiveItem =
+    itemSignal && itemPropertySignals
+      ? createReactiveForItem(itemSignal, itemPropertySignals)
+      : item;
   const scope = createChildScope(forState.parentInstance, key, () => {
     if (forState._enqueueBoundaryCommit) {
       forState._enqueueBoundaryCommit();
@@ -409,6 +487,7 @@ export function createItemInstance<T>(
     item,
     reactiveItem,
     itemSignal,
+    itemPropertySignals,
     indexSignal,
     scope,
   };
@@ -439,6 +518,7 @@ function updateItemInstance<T>(
     return false;
   }
 
+  const previousItem = itemInstance.item;
   itemInstance.item = item;
 
   const itemSignal = itemInstance.itemSignal;
@@ -447,10 +527,29 @@ function updateItemInstance<T>(
     return true;
   }
 
-  const hasRenderReaders = (itemSignal._readers?.size ?? 0) > 0;
-  itemSignal.set(item, !hasRenderReaders);
+  let hasPropertyRenderReaders = false;
+  const propertySignals = itemInstance.itemPropertySignals;
+  if (propertySignals && propertySignals.size > 0) {
+    for (const [prop, propertySignal] of propertySignals) {
+      const previousValue = readForItemProperty(previousItem, prop);
+      const nextValue = readForItemProperty(item, prop);
+      if (Object.is(previousValue, nextValue)) {
+        continue;
+      }
 
-  if (!hasRenderReaders) {
+      const propertyHasRenderReaders = (propertySignal._readers?.size ?? 0) > 0;
+      if (propertyHasRenderReaders) {
+        hasPropertyRenderReaders = true;
+      }
+
+      propertySignal.set(nextValue, !propertyHasRenderReaders);
+    }
+  }
+
+  const hasRenderReaders = (itemSignal._readers?.size ?? 0) > 0;
+  itemSignal.set(item, hasRenderReaders);
+
+  if (!hasRenderReaders && !hasPropertyRenderReaders) {
     return false;
   }
 
@@ -809,12 +908,13 @@ export function reconcileForItems<T>(
 
         const itemChanged = existing.item !== item;
         const needsDomUpdate = existing.scope.needsDomUpdate;
+        let rerendered = false;
 
         if (itemChanged) {
-          updateItemInstance(forState, existing, item);
+          rerendered = updateItemInstance(forState, existing, item);
         }
 
-        if (itemChanged || needsDomUpdate || existing.scope.needsDomUpdate) {
+        if (rerendered || needsDomUpdate || existing.scope.needsDomUpdate) {
           dirtyIndices.push(i);
         }
 

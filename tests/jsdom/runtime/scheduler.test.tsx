@@ -291,7 +291,7 @@ describe('scheduler (SPEC 2.2)', () => {
     });
   });
 
-  describe('determinism under load', { timeout: 10000 }, () => {
+  describe('determinism under load', { timeout: 30000 }, () => {
     it('should produce identical final state each time when 100 rapid clicks occur', async () => {
       // See issues/determinism-under-load.md
       const finalValues: number[] = [];

@@ -304,6 +304,7 @@ export type HydrateSPAConfig = {
   auth?: RouteAuthOptions;
   cleanupStrict?: boolean;
   hydrate?: {
+    verifyMarkup?: boolean;
     deferUntilIdle?: boolean;
     deferBelowFold?: boolean;
     foldThreshold?: number;
@@ -582,6 +583,15 @@ function flushHydrationActivation(rootElement: Element): void {
   globalScheduler.flush();
 }
 
+function shouldVerifyHydrationMarkup(config: HydrateSPAConfig): boolean {
+  const explicit = config.hydrate?.verifyMarkup;
+  if (typeof explicit === 'boolean') {
+    return explicit;
+  }
+
+  return !isProductionEnvironment();
+}
+
 async function registerAppNavigation(rootElement: Element, path: string) {
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
@@ -735,17 +745,19 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       }))
     : config.routes!;
 
-  const { verifyHydrationSyncForUrl } = await import('../ssr');
-  if (
-    !verifyHydrationSyncForUrl({
-      root: rootElement,
-      url: currentUrl,
-      routes: legacyRouteTable,
-    })
-  ) {
-    throw new Error(
-      '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
-    );
+  if (shouldVerifyHydrationMarkup(config)) {
+    const { verifyHydrationSyncForUrl } = await import('../ssr');
+    if (
+      !verifyHydrationSyncForUrl({
+        root: rootElement,
+        url: currentUrl,
+        routes: legacyRouteTable,
+      })
+    ) {
+      throw new Error(
+        '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
+      );
+    }
   }
 
   const hydrateOptions = config.hydrate;
