@@ -38,11 +38,7 @@ import {
   removeElementReactiveProps,
   type ReactivePropCleanupEntry,
 } from './cleanup';
-import {
-  setDevValue,
-  incDevCounter,
-  getDevValue,
-} from '../runtime/dev-namespace';
+import { incDevCounter, getDevValue } from '../runtime/dev-namespace';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
 import {
@@ -69,16 +65,17 @@ import {
   getPassiveOptions,
   createMutableWrappedHandler,
   isSkippedProp,
-  hasNonTrivialProps,
   readElementClassName,
-  now,
-  recordDOMReplace,
-  recordFastPathStats,
-  logFastPathDebug,
   writeElementClassName,
+  tagNamesEqualIgnoreCase,
   extractKey,
 } from './utils';
 import { reconcileKeyedChildren } from './reconcile';
+import {
+  isBulkTextFastPathEligible,
+  performBulkPositionalKeyedTextUpdate,
+  performBulkTextReplace,
+} from './children';
 import type { ReadableSource } from '../runtime/readable';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
 import { globalScheduler } from '../runtime/scheduler';
@@ -96,6 +93,12 @@ import {
   removeDelegatedListener,
   isDelegatedEvent,
 } from '../runtime/events';
+
+export {
+  isBulkTextFastPathEligible,
+  performBulkPositionalKeyedTextUpdate,
+  performBulkTextReplace,
+};
 
 type ElementWithContext = DOMElement & {
   [CONTEXT_FRAME_SYMBOL]?: ContextFrame;
@@ -461,6 +464,14 @@ function normalizeReactiveScalarSequenceValues(
   return normalized;
 }
 
+function normalizeOwnedReactiveTextValue(value: unknown): string | null {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+
+  return null;
+}
+
 function collectReactiveChildValuesAsVNodes(
   values: unknown[],
   children: VNode[]
@@ -732,6 +743,96 @@ function setupReactiveScalarChild(
   updateFn: (nextSource: ReactiveScalarChildSource) => void;
 } {
   let currentSource = source;
+
+  if (source.length === 1 && source[0]?.kind === 'dynamic') {
+    let ownedTextNode =
+      el.childNodes.length === 1 && el.firstChild?.nodeType === Node.TEXT_NODE
+        ? (el.firstChild as Text)
+        : null;
+
+    let effectHandle: FineGrainedEffectHandle<string> | null =
+      createFineGrainedEffect({
+        lane: 'reactive',
+        compute: () => {
+          const currentSlot = currentSource[0];
+          if (!currentSlot || currentSlot.kind !== 'dynamic') {
+            throw new Error(
+              '[Askr] Direct reactive text bindings require a single dynamic slot.'
+            );
+          }
+
+          const rawValue = currentSlot.compute();
+          const normalized = normalizeOwnedReactiveTextValue(rawValue);
+          return normalized ?? (rawValue as string);
+        },
+        commit: (value) => {
+          const normalized = normalizeOwnedReactiveTextValue(value);
+
+          if (normalized === null) {
+            ownedTextNode = null;
+            updateElementChildren(
+              el,
+              value as unknown as VNode | VNode[] | undefined
+            );
+            return;
+          }
+
+          if (
+            !ownedTextNode ||
+            el.childNodes.length !== 1 ||
+            el.firstChild !== ownedTextNode
+          ) {
+            updateElementChildren(el, normalized);
+            ownedTextNode =
+              el.childNodes.length === 1 &&
+              el.firstChild?.nodeType === Node.TEXT_NODE
+                ? (el.firstChild as Text)
+                : null;
+          }
+
+          if (!ownedTextNode) {
+            return;
+          }
+
+          if (ownedTextNode.data !== normalized) {
+            ownedTextNode.data = normalized;
+            incDevCounter('textNodeWrites');
+          }
+        },
+        onError: (err) => {
+          if (getRuntimeEnv().NODE_ENV !== 'production') {
+            logger.warn('[Askr] Reactive child update failed:', err);
+          }
+        },
+      });
+
+    return {
+      cleanup: () => {
+        effectHandle?.cleanup();
+        effectHandle = null;
+      },
+      updateFn: (nextSource: ReactiveScalarChildSource) => {
+        if (!effectHandle) {
+          return;
+        }
+
+        currentSource = nextSource;
+        effectHandle.updateCompute(() => {
+          const currentSlot = currentSource[0];
+          if (!currentSlot || currentSlot.kind !== 'dynamic') {
+            throw new Error(
+              '[Askr] Direct reactive text bindings require a single dynamic slot.'
+            );
+          }
+
+          const rawValue = currentSlot.compute();
+          const normalized = normalizeOwnedReactiveTextValue(rawValue);
+          return normalized ?? (rawValue as string);
+        });
+      },
+    };
+  }
+
   let effectHandle: FineGrainedEffectHandle<unknown> | null =
     createFineGrainedEffect({
       lane: 'reactive',
@@ -4071,6 +4172,40 @@ function getOrBuildDomKeyMap(
   return keyMap.size > 0 ? keyMap : undefined;
 }
 
+function upperCommonTagName(tag: string): string | null {
+  switch (tag) {
+    case 'div':
+      return 'DIV';
+    case 'span':
+      return 'SPAN';
+    case 'p':
+      return 'P';
+    case 'a':
+      return 'A';
+    case 'button':
+      return 'BUTTON';
+    case 'input':
+      return 'INPUT';
+    case 'ul':
+      return 'UL';
+    case 'ol':
+      return 'OL';
+    case 'li':
+      return 'LI';
+    default:
+      return null;
+  }
+}
+
+function tagsEqualIgnoreCase(
+  elementTagName: string,
+  vnodeType: string
+): boolean {
+  const upperCommon = upperCommonTagName(vnodeType);
+  if (upperCommon !== null && elementTagName === upperCommon) return true;
+  return tagNamesEqualIgnoreCase(elementTagName, vnodeType);
+}
+
 export function updateUnkeyedChildren(
   parent: Element,
   newChildren: unknown[]
@@ -4331,543 +4466,6 @@ export function updateUnkeyedChildren(
         teardownNodeSubtree(current);
         parent.replaceChild(dom, current);
       }
-    }
-  }
-}
-
-/**
- * Positional update for keyed lists where keys changed en-masse but structure
- * (element tags and simple text children) remains identical. This updates
- * text content in-place and remaps the `data-key` attribute to the new key so
- * subsequent updates can find elements by their data-key.
- */
-export function performBulkPositionalKeyedTextUpdate(
-  parent: Element,
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
-) {
-  const total = keyedVnodes.length;
-  let reused = 0;
-  let updatedKeys = 0;
-  const t0 = now();
-  const env = getRuntimeEnv();
-  const debugFastPath =
-    env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true';
-
-  for (let i = 0; i < total; i++) {
-    const { key, vnode } = keyedVnodes[i];
-    const ch = parent.children[i] as Element | undefined;
-
-    if (
-      ch &&
-      _isDOMElement(vnode) &&
-      typeof (vnode as DOMElement).type === 'string'
-    ) {
-      const vnodeType = (vnode as DOMElement).type as string;
-
-      if (tagsEqualIgnoreCase(ch.tagName, vnodeType)) {
-        const children =
-          (vnode as DOMElement).children ||
-          (vnode as DOMElement).props?.children;
-
-        if (debugFastPath) {
-          logFastPathDebug('positional idx', i, {
-            chTag: ch.tagName,
-            vnodeType,
-            chChildNodes: ch.childNodes.length,
-            childrenType: Array.isArray(children) ? 'array' : typeof children,
-          });
-        }
-
-        updateTextContent(ch, children, vnode as DOMElement);
-        setDataKey(ch, key, () => updatedKeys++);
-        reused++;
-        continue;
-      } else {
-        if (debugFastPath) {
-          logFastPathDebug('positional tag mismatch', i, {
-            chTag: ch.tagName,
-            vnodeType,
-          });
-        }
-      }
-    } else {
-      if (debugFastPath) {
-        logFastPathDebug('positional missing or invalid', i, { ch: !!ch });
-      }
-    }
-
-    // Fallback: replace the node at position i
-    replaceNodeAtPosition(parent, i, vnode);
-  }
-
-  const t = now() - t0;
-  updateKeyedElementsMap(parent, keyedVnodes);
-
-  const stats = { n: total, reused, updatedKeys, t } as const;
-  recordFastPathStats(stats, 'bulkKeyedPositionalHits');
-
-  return stats;
-}
-
-/** Update text content of element from children prop */
-function updateTextContent(
-  el: Element,
-  children: unknown,
-  vnode: DOMElement
-): void {
-  if (typeof children === 'string' || typeof children === 'number') {
-    setTextNodeData(el, String(children));
-    if (vnode.props && hasNonTrivialProps(vnode.props)) {
-      updateElementFromVnode(el, vnode, false);
-    }
-  } else if (
-    Array.isArray(children) &&
-    children.length === 1 &&
-    (typeof children[0] === 'string' || typeof children[0] === 'number')
-  ) {
-    setTextNodeData(el, String(children[0]));
-    if (vnode.props && hasNonTrivialProps(vnode.props)) {
-      updateElementFromVnode(el, vnode, false);
-    }
-  } else {
-    // For more complex child shapes, try a small specialized text update before
-    // falling back to a real vnode-driven update.
-    if (!tryUpdateTwoChildTextPattern(el, vnode)) {
-      updateElementFromVnode(el, vnode);
-    }
-  }
-}
-
-// Common keyed-list pattern in benches:
-// <div> [ <span>text</span>, <p>text</p> ]
-// Update text nodes in place without running a full vnode diff.
-function tryUpdateTwoChildTextPattern(
-  parentEl: Element,
-  vnode: DOMElement
-): boolean {
-  const vnodeChildren = vnode.children || vnode.props?.children;
-  if (!Array.isArray(vnodeChildren) || vnodeChildren.length !== 2) return false;
-
-  const c0 = vnodeChildren[0];
-  const c1 = vnodeChildren[1];
-  if (!_isDOMElement(c0) || !_isDOMElement(c1)) return false;
-  if (typeof c0.type !== 'string' || typeof c1.type !== 'string') return false;
-
-  const el0 = parentEl.children[0] as Element | undefined;
-  const el1 = parentEl.children[1] as Element | undefined;
-  if (!el0 || !el1) return false;
-
-  if (!tagsEqualIgnoreCase(el0.tagName, c0.type)) return false;
-  if (!tagsEqualIgnoreCase(el1.tagName, c1.type)) return false;
-
-  const t0 = (c0.children || c0.props?.children) as unknown;
-  const t1 = (c1.children || c1.props?.children) as unknown;
-
-  if (typeof t0 === 'string' || typeof t0 === 'number') {
-    setTextNodeData(el0, String(t0));
-  } else if (
-    Array.isArray(t0) &&
-    t0.length === 1 &&
-    (typeof t0[0] === 'string' || typeof t0[0] === 'number')
-  ) {
-    setTextNodeData(el0, String(t0[0]));
-  } else {
-    return false;
-  }
-
-  if (typeof t1 === 'string' || typeof t1 === 'number') {
-    setTextNodeData(el1, String(t1));
-  } else if (
-    Array.isArray(t1) &&
-    t1.length === 1 &&
-    (typeof t1[0] === 'string' || typeof t1[0] === 'number')
-  ) {
-    setTextNodeData(el1, String(t1[0]));
-  } else {
-    return false;
-  }
-
-  return true;
-}
-
-/** Set text node data or textContent */
-function setTextNodeData(el: Element, text: string): void {
-  if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
-    const textNode = el.firstChild as Text;
-    // Guard: skip DOM write when content is already correct to avoid
-    // unnecessary layout invalidation on unchanged rows.
-    if (textNode.data !== text) textNode.data = text;
-  } else {
-    el.textContent = text;
-  }
-}
-
-/** Set data-key attribute with counter callback */
-function setDataKey(
-  el: Element,
-  key: string | number,
-  onSet: () => void
-): void {
-  try {
-    const next = String(key);
-    if (el.getAttribute('data-key') === next) return;
-    el.setAttribute('data-key', next);
-    onSet();
-  } catch {
-    // Ignore errors setting data-key
-  }
-}
-
-function upperCommonTagName(tag: string): string | null {
-  // Fast common tags (avoid per-iteration allocations).
-  switch (tag) {
-    case 'div':
-      return 'DIV';
-    case 'span':
-      return 'SPAN';
-    case 'p':
-      return 'P';
-    case 'a':
-      return 'A';
-    case 'button':
-      return 'BUTTON';
-    case 'input':
-      return 'INPUT';
-    case 'ul':
-      return 'UL';
-    case 'ol':
-      return 'OL';
-    case 'li':
-      return 'LI';
-    default:
-      return null;
-  }
-}
-
-function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
-  if (a === b) return true;
-  const len = a.length;
-  if (len !== b.length) return false;
-
-  for (let i = 0; i < len; i++) {
-    const ac = a.charCodeAt(i);
-    const bc = b.charCodeAt(i);
-
-    if (ac === bc) continue;
-
-    // ASCII-only case fold; tag names are ASCII.
-    const an = ac >= 65 && ac <= 90 ? ac + 32 : ac; // A-Z -> a-z
-    const bn = bc >= 65 && bc <= 90 ? bc + 32 : bc;
-    if (an !== bn) return false;
-  }
-
-  return true;
-}
-
-function tagsEqualIgnoreCase(
-  elementTagName: string,
-  vnodeType: string
-): boolean {
-  const upperCommon = upperCommonTagName(vnodeType);
-  if (upperCommon !== null && elementTagName === upperCommon) return true;
-  // Works for HTML and non-HTML elements without allocating.
-  return tagNamesEqualIgnoreCase(elementTagName, vnodeType);
-}
-
-/** Replace node at position with new vnode */
-function replaceNodeAtPosition(
-  parent: Element,
-  index: number,
-  vnode: VNode
-): void {
-  const dom = createDOMNode(vnode);
-  if (dom) {
-    const existing = parent.children[index];
-    if (existing) {
-      teardownNodeSubtree(existing);
-      parent.replaceChild(dom, existing);
-    } else {
-      parent.appendChild(dom);
-    }
-  }
-}
-
-/** Update keyed elements map after bulk operation */
-function updateKeyedElementsMap(
-  parent: Element,
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
-): void {
-  try {
-    // HOT PATH: reuse the existing map to avoid per-update allocations.
-    const existing = keyedElements.get(parent);
-    const newKeyMap = existing
-      ? (existing.clear(), existing)
-      : new Map<string | number, Element>();
-    for (let i = 0; i < keyedVnodes.length; i++) {
-      const k = keyedVnodes[i].key;
-      const ch = parent.children[i] as Element | undefined;
-      if (ch) newKeyMap.set(k, ch);
-    }
-    keyedElements.set(parent, newKeyMap);
-  } catch {
-    // Ignore errors updating key map
-  }
-}
-
-export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
-  const t0 = now();
-  const existing = Array.from(parent.childNodes);
-  const finalNodes: Node[] = [];
-  let reused = 0;
-  let created = 0;
-
-  for (let i = 0; i < newChildren.length; i++) {
-    const result = processChildNode(newChildren[i], existing[i], finalNodes);
-    if (result === 'reused') reused++;
-    else if (result === 'created') created++;
-  }
-
-  const tBuild = now() - t0;
-  const tCommit = commitBulkReplace(parent, finalNodes);
-
-  // Clear keyed map for unkeyed path
-  keyedElements.delete(parent);
-
-  const stats = {
-    n: newChildren.length,
-    reused,
-    created,
-    tBuild,
-    tCommit,
-  } as const;
-  recordBulkTextStats(stats);
-
-  return stats;
-}
-
-/** Process a single child vnode for bulk replace */
-function processChildNode(
-  vnode: VNode,
-  existingNode: ChildNode | undefined,
-  finalNodes: Node[]
-): 'reused' | 'created' | 'skipped' {
-  if (typeof vnode === 'string' || typeof vnode === 'number') {
-    return processTextVnode(String(vnode), existingNode, finalNodes);
-  }
-
-  if (typeof vnode === 'object' && vnode !== null && 'type' in vnode) {
-    return processElementVnode(vnode, existingNode, finalNodes);
-  }
-
-  return 'skipped';
-}
-
-/** Process text vnode */
-function processTextVnode(
-  text: string,
-  existingNode: ChildNode | undefined,
-  finalNodes: Node[]
-): 'reused' | 'created' {
-  if (existingNode && existingNode.nodeType === 3) {
-    (existingNode as Text).data = text;
-    finalNodes.push(existingNode);
-    return 'reused';
-  }
-  finalNodes.push(document.createTextNode(text));
-  return 'created';
-}
-
-/** Process element vnode */
-function processElementVnode(
-  vnode: VNode,
-  existingNode: ChildNode | undefined,
-  finalNodes: Node[]
-): 'reused' | 'created' | 'skipped' {
-  const vnodeObj = vnode as unknown as { type?: unknown };
-
-  if (typeof vnodeObj.type === 'string') {
-    const tag = vnodeObj.type;
-    if (
-      existingNode &&
-      existingNode.nodeType === 1 &&
-      tagsEqualIgnoreCase((existingNode as Element).tagName, tag)
-    ) {
-      updateElementFromVnode(existingNode as Element, vnode);
-      finalNodes.push(existingNode);
-      return 'reused';
-    }
-  }
-
-  const dom = createDOMNode(vnode);
-  if (dom) {
-    finalNodes.push(dom);
-    return 'created';
-  }
-  return 'skipped';
-}
-
-/** Clean up nodes that will be removed */
-/** Commit bulk replace with fragment */
-function commitBulkReplace(parent: Element, nodes: Node[]): number {
-  const fragStart = Date.now();
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < nodes.length; i++) {
-    fragment.appendChild(nodes[i]);
-  }
-
-  // Cleanup nodes that will be removed.
-  // At this point, any reused nodes have been moved into the fragment, so
-  // whatever remains under `parent` will be removed by replaceChildren.
-  try {
-    for (let n = parent.firstChild; n; ) {
-      const next = n.nextSibling;
-      teardownNodeSubtree(n);
-      n = next;
-    }
-  } catch {
-    // SLOW PATH: cleanup failure
-  }
-
-  recordDOMReplace('bulk-text-replace');
-  parent.replaceChildren(fragment);
-  return Date.now() - fragStart;
-}
-
-/** Record bulk text fast-path stats */
-function recordBulkTextStats(stats: {
-  n: number;
-  reused: number;
-  created: number;
-  tBuild: number;
-  tCommit: number;
-}): void {
-  try {
-    setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
-    setDevValue('__LAST_FASTPATH_STATS', stats);
-    setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
-    incDevCounter('bulkTextFastpathHits');
-  } catch {
-    // Ignore stats errors
-  }
-}
-
-/**
- * Heuristic to detect large bulk text-dominant updates eligible for fast-path.
- * Conditions:
- *  - total children >= threshold
- *  - majority of children are simple text (string/number) or intrinsic elements
- *    with a single primitive child
- *  - conservative: avoid when component children or complex shapes present
- */
-export function isBulkTextFastPathEligible(
-  parent: Element,
-  newChildren: VNode[]
-) {
-  const env = getRuntimeEnv();
-  const threshold = Number(env.ASKR_BULK_TEXT_THRESHOLD) || 1024;
-  const requiredFraction = 0.8;
-
-  const total = Array.isArray(newChildren) ? newChildren.length : 0;
-
-  if (total < threshold) {
-    recordBulkDiag({
-      phase: 'bulk-unkeyed-eligible',
-      reason: 'too-small',
-      total,
-      threshold,
-    });
-    return false;
-  }
-
-  const result = countSimpleChildren(newChildren);
-  if (result.componentFound !== undefined) {
-    recordBulkDiag({
-      phase: 'bulk-unkeyed-eligible',
-      reason: 'component-child',
-      index: result.componentFound,
-    });
-    return false;
-  }
-
-  const fraction = result.simple / total;
-  const eligible =
-    fraction >= requiredFraction && parent.childNodes.length >= total;
-
-  recordBulkDiag({
-    phase: 'bulk-unkeyed-eligible',
-    total,
-    simple: result.simple,
-    fraction,
-    requiredFraction,
-    eligible,
-  });
-
-  return eligible;
-}
-
-/** Count simple children (text/number or simple intrinsic elements) */
-function countSimpleChildren(children: VNode[]): {
-  simple: number;
-  componentFound?: number;
-} {
-  let simple = 0;
-
-  for (let i = 0; i < children.length; i++) {
-    const c = children[i];
-
-    if (typeof c === 'string' || typeof c === 'number') {
-      simple++;
-      continue;
-    }
-
-    if (typeof c === 'object' && c !== null && 'type' in c) {
-      const dv = c as DOMElement;
-
-      // Component child - decline fast path
-      if (typeof dv.type === 'function') {
-        return { simple, componentFound: i };
-      }
-
-      if (typeof dv.type === 'string' && isSimpleElement(dv)) {
-        simple++;
-      }
-    }
-  }
-
-  return { simple };
-}
-
-/** Check if element is simple (empty or single text child) */
-function isSimpleElement(dv: DOMElement): boolean {
-  const children = dv.children || dv.props?.children;
-
-  // CRITICAL: Check for null/undefined explicitly, not falsy values
-  // because 0, false, and '' are valid children that should return true (simple)
-  if (children === null || children === undefined) return true; // empty element
-
-  if (typeof children === 'string' || typeof children === 'number') {
-    return true;
-  }
-
-  if (
-    Array.isArray(children) &&
-    children.length === 1 &&
-    (typeof children[0] === 'string' || typeof children[0] === 'number')
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/** Record bulk diagnostics */
-function recordBulkDiag(data: Record<string, unknown>): void {
-  const env = getRuntimeEnv();
-  if (env.NODE_ENV !== 'production' || env.ASKR_FASTPATH_DEBUG === '1') {
-    try {
-      setDevValue('__BULK_DIAG', data);
-    } catch {
-      // Ignore
     }
   }
 }

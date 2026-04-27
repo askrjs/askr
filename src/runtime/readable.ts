@@ -29,8 +29,14 @@ type RendererBridge = {
 
 let currentDerivedSubscriber: DerivedSubscriber | null = null;
 let suppressComponentReadTrackingDepth = 0;
+let currentFineGrainedReadSources: Set<ReadableSource<unknown>> | null = null;
 
 export function recordReadableRead(source: ReadableSource<unknown>): void {
+  if (currentFineGrainedReadSources) {
+    currentFineGrainedReadSources.add(source);
+    return;
+  }
+
   if (currentDerivedSubscriber) {
     if (!currentDerivedSubscriber._pendingDependencySources) {
       currentDerivedSubscriber._pendingDependencySources = new Set();
@@ -51,6 +57,20 @@ export function recordReadableRead(source: ReadableSource<unknown>): void {
     inst._pendingReadSources = new Set();
   }
   inst._pendingReadSources.add(source);
+}
+
+export function withFineGrainedReadTracking<T>(
+  pendingSources: Set<ReadableSource<unknown>>,
+  fn: () => T
+): T {
+  const previousPendingSources = currentFineGrainedReadSources;
+  currentFineGrainedReadSources = pendingSources;
+
+  try {
+    return fn();
+  } finally {
+    currentFineGrainedReadSources = previousPendingSources;
+  }
 }
 
 export function finalizeReadableSubscriptions(

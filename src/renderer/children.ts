@@ -1,17 +1,10 @@
-import type { Props } from '../common/props';
-import type { ComponentInstance } from '../runtime/component';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { getRuntimeEnv } from './env';
 import { keyedElements } from './keyed';
 import { teardownNodeSubtree } from './cleanup';
-import {
-  createDOMNode,
-  syncComponentElement,
-  updateElementFromVnode,
-} from './dom';
+import { createDOMNode, updateElementFromVnode } from './dom';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import {
-  extractKey,
   hasNonTrivialProps,
   logFastPathDebug,
   now,
@@ -19,36 +12,6 @@ import {
   recordFastPathStats,
   tagNamesEqualIgnoreCase,
 } from './utils';
-
-type ElementWithContext = DOMElement & {
-  __instance?: ComponentInstance;
-};
-
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-
-export function hasKeyedVNodeChildren(children: VNode[]): boolean {
-  for (let index = 0; index < children.length; index += 1) {
-    if (extractKey(children[index]) !== undefined) return true;
-  }
-
-  return false;
-}
-
-export function isEmptyChild(child: unknown): boolean {
-  return child === null || child === undefined || child === false;
-}
-
-function tagsEqualIgnoreCase(
-  elementTagName: string,
-  vnodeType: string
-): boolean {
-  if (elementTagName === vnodeType) return true;
-
-  const upperCommon = upperCommonTagName(vnodeType);
-  if (upperCommon !== null && elementTagName === upperCommon) return true;
-
-  return tagNamesEqualIgnoreCase(elementTagName, vnodeType);
-}
 
 function upperCommonTagName(tag: string): string | null {
   switch (tag) {
@@ -75,252 +38,16 @@ function upperCommonTagName(tag: string): string | null {
   }
 }
 
-export function updateUnkeyedChildren(
-  parent: Element,
-  newChildren: unknown[]
-): void {
-  const parentNamespace =
-    parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
+function tagsEqualIgnoreCase(
+  elementTagName: string,
+  vnodeType: string
+): boolean {
+  if (elementTagName === vnodeType) return true;
 
-  const trySyncComponentChild = (
-    currentDom: Element,
-    next: DOMElement
-  ): Node | null => {
-    if (typeof next.type !== 'function') {
-      return null;
-    }
+  const upperCommon = upperCommonTagName(vnodeType);
+  if (upperCommon !== null && elementTagName === upperCommon) return true;
 
-    return syncComponentElement(
-      currentDom,
-      next as ElementWithContext,
-      next.type as (props: Props) => unknown,
-      (((next as DOMElement).props ?? {}) as Record<string, unknown>) || {},
-      parentNamespace
-    );
-  };
-
-  const hasText = newChildren.some(
-    (child) => typeof child === 'string' || typeof child === 'number'
-  );
-  const hasElements = newChildren.some((child) => _isDOMElement(child));
-  const hasEmptyChildren = newChildren.some(isEmptyChild);
-  const hasComponentChildren = newChildren.some(
-    (child) =>
-      _isDOMElement(child) && typeof (child as DOMElement).type === 'function'
-  );
-  const hasNonElementDomChildren =
-    parent.childNodes.length !== parent.children.length;
-
-  if (
-    !hasEmptyChildren &&
-    !hasText &&
-    !hasComponentChildren &&
-    hasElements &&
-    parent.children.length === newChildren.length
-  ) {
-    const children = parent.children;
-    for (let index = 0; index < newChildren.length; index += 1) {
-      const next = newChildren[index];
-      const current = children[index];
-      if (!current || next === undefined) continue;
-
-      if (_isDOMElement(next) && typeof next.type === 'string') {
-        if (tagsEqualIgnoreCase(current.tagName, next.type)) {
-          updateElementFromVnode(current, next);
-        } else {
-          const dom = createDOMNode(next);
-          if (dom) {
-            teardownNodeSubtree(current);
-            parent.replaceChild(dom, current);
-          }
-        }
-      } else if (_isDOMElement(next)) {
-        const synced = trySyncComponentChild(current, next);
-        if (synced && synced !== current) {
-          teardownNodeSubtree(current);
-        } else if (!synced) {
-          const dom = createDOMNode(next);
-          if (dom) {
-            teardownNodeSubtree(current);
-            parent.replaceChild(dom, current);
-          }
-        }
-      } else {
-        const dom = createDOMNode(next);
-        if (dom) {
-          teardownNodeSubtree(current);
-          parent.replaceChild(dom, current);
-        }
-      }
-    }
-
-    return;
-  }
-
-  const existing = Array.from(parent.children);
-
-  if (
-    hasText ||
-    hasComponentChildren ||
-    hasEmptyChildren ||
-    hasNonElementDomChildren
-  ) {
-    const allNodes = Array.from(parent.childNodes);
-    const max = Math.max(allNodes.length, newChildren.length);
-
-    for (let index = 0; index < max; index += 1) {
-      const currentNode = allNodes[index];
-      const next = newChildren[index];
-      const nextIsEmpty = isEmptyChild(next);
-
-      if (nextIsEmpty && currentNode) {
-        teardownNodeSubtree(currentNode);
-        currentNode.remove();
-        continue;
-      }
-
-      if (!currentNode && !nextIsEmpty) {
-        const dom = createDOMNode(next);
-        if (dom) parent.appendChild(dom);
-        continue;
-      }
-
-      if (!currentNode || nextIsEmpty) continue;
-
-      if (typeof next === 'string' || typeof next === 'number') {
-        if (currentNode.nodeType === 3) {
-          (currentNode as Text).data = String(next);
-        } else {
-          const textNode = document.createTextNode(String(next));
-          parent.replaceChild(textNode, currentNode);
-        }
-      } else if (_isDOMElement(next)) {
-        if (currentNode.nodeType === 1) {
-          const currentElement = currentNode as Element;
-          if (typeof next.type === 'string') {
-            if (tagsEqualIgnoreCase(currentElement.tagName, next.type)) {
-              updateElementFromVnode(currentElement, next);
-            } else {
-              const dom = createDOMNode(next);
-              if (dom) {
-                teardownNodeSubtree(currentElement);
-                parent.replaceChild(dom, currentNode);
-              }
-            }
-          } else {
-            const synced = trySyncComponentChild(currentElement, next);
-            if (synced && synced !== currentNode) {
-              teardownNodeSubtree(currentElement);
-            } else if (!synced) {
-              const dom = createDOMNode(next);
-              if (dom) {
-                teardownNodeSubtree(currentElement);
-                parent.replaceChild(dom, currentNode);
-              }
-            }
-          }
-        } else {
-          const dom = createDOMNode(next);
-          if (dom) parent.replaceChild(dom, currentNode);
-        }
-      } else {
-        const dom = createDOMNode(next);
-        if (dom) {
-          parent.replaceChild(dom, currentNode);
-        } else {
-          teardownNodeSubtree(currentNode);
-          currentNode.remove();
-        }
-      }
-    }
-
-    return;
-  }
-
-  if (
-    newChildren.length === 1 &&
-    existing.length === 0 &&
-    parent.childNodes.length === 1
-  ) {
-    const firstNewChild = newChildren[0];
-    const firstExisting = parent.firstChild;
-    if (
-      (typeof firstNewChild === 'string' ||
-        typeof firstNewChild === 'number') &&
-      firstExisting?.nodeType === 3
-    ) {
-      (firstExisting as Text).data = String(firstNewChild);
-      return;
-    }
-  }
-
-  if (existing.length === 0 && parent.childNodes.length > 0) {
-    for (let node = parent.firstChild; node; ) {
-      const next = node.nextSibling;
-      if (node instanceof Element) {
-        teardownNodeSubtree(node);
-      }
-      node = next;
-    }
-    parent.textContent = '';
-  }
-
-  const max = Math.max(existing.length, newChildren.length);
-
-  for (let index = 0; index < max; index += 1) {
-    const current = existing[index];
-    const next = newChildren[index];
-    const nextIsEmpty = isEmptyChild(next);
-
-    if (nextIsEmpty && current) {
-      teardownNodeSubtree(current);
-      current.remove();
-      continue;
-    }
-
-    if (!current && !nextIsEmpty) {
-      const dom = createDOMNode(next);
-      if (dom) parent.appendChild(dom);
-      continue;
-    }
-
-    if (!current || nextIsEmpty) continue;
-
-    if (typeof next === 'string' || typeof next === 'number') {
-      const textNode = document.createTextNode(String(next));
-      teardownNodeSubtree(current);
-      parent.replaceChild(textNode, current);
-    } else if (_isDOMElement(next)) {
-      if (typeof next.type === 'string') {
-        if (tagsEqualIgnoreCase(current.tagName, next.type)) {
-          updateElementFromVnode(current, next);
-        } else {
-          const dom = createDOMNode(next);
-          if (dom) {
-            teardownNodeSubtree(current);
-            parent.replaceChild(dom, current);
-          }
-        }
-      } else {
-        const synced = trySyncComponentChild(current, next);
-        if (synced && synced !== current) {
-          teardownNodeSubtree(current);
-        } else if (!synced) {
-          const dom = createDOMNode(next);
-          if (dom) {
-            teardownNodeSubtree(current);
-            parent.replaceChild(dom, current);
-          }
-        }
-      }
-    } else {
-      const dom = createDOMNode(next);
-      if (dom) {
-        teardownNodeSubtree(current);
-        parent.replaceChild(dom, current);
-      }
-    }
-  }
+  return tagNamesEqualIgnoreCase(elementTagName, vnodeType);
 }
 
 export function performBulkPositionalKeyedTextUpdate(

@@ -592,6 +592,7 @@ function executeComponentSync(
   instance: ComponentInstance
 ): unknown | Promise<unknown> {
   resetRenderState(instance);
+  incDevCounter('componentReruns');
 
   currentInstance = instance;
   stateIndex = 0;
