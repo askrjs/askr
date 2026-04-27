@@ -5,11 +5,12 @@ import {
   tier2BenchOptions,
 } from '../../shared/_shared';
 import { hydrateSPA } from '../../../src/boot';
-import { state } from '../../../src';
+import { selector, state } from '../../../src';
 import {
   fireEvent,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+import { For } from '../../../src';
 
 function createInteractiveTableHarness() {
   const initialRows = buildRows(1000);
@@ -20,6 +21,7 @@ function createInteractiveTableHarness() {
       handler: () => {
         const rows = state(initialRows);
         const selectedId = state<number | null>(null);
+        const isSelected = selector(selectedId);
 
         const updateSelected = () => {
           const currentSelected = selectedId();
@@ -43,22 +45,24 @@ function createInteractiveTableHarness() {
             </button>
             <table>
               <tbody>
-                {rows().map((row) => (
-                  <tr
-                    id={`table-row-${row.id}`}
-                    class={selectedId() === row.id ? 'selected' : ''}
-                  >
-                    <td>{row.id}</td>
-                    <td>
-                      <button
-                        id={`table-select-${row.id}`}
-                        onClick={() => selectedId.set(row.id)}
-                      >
-                        {row.label}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                <For each={() => rows()} by={(row) => row.id}>
+                  {(row) => (
+                    <tr
+                      id={`table-row-${row.id}`}
+                      class={() => (isSelected(row.id) ? 'selected' : '')}
+                    >
+                      <td>{() => row.id}</td>
+                      <td>
+                        <button
+                          id={`table-select-${row.id}`}
+                          onClick={() => selectedId.set(row.id)}
+                        >
+                          {() => row.label}
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </For>
               </tbody>
             </table>
           </div>

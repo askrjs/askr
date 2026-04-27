@@ -22,7 +22,11 @@ await (async () => {
 
   try {
     await expect(
-      hydrateSPA({ root: fixture.container, routes: fixture.routes })
+      hydrateSPA({
+        root: fixture.container,
+        routes: fixture.routes,
+        hydrate: { verifyMarkup: true },
+      })
     ).rejects.toThrow(/Hydration mismatch/i);
   } finally {
     fixture.cleanup();
@@ -38,6 +42,7 @@ describe('tier2 subsystem hydration mismatch', () => {
       await hydrateSPA({
         root: fixture!.container,
         routes: fixture!.routes,
+        hydrate: { verifyMarkup: true },
       }).catch(() => undefined);
     },
     {

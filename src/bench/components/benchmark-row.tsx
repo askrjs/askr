@@ -19,7 +19,7 @@ export function BenchmarkRow({
   return (
     <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
       <td key="id" class="col-md-1">
-        {item.id}
+        {() => item.id}
       </td>
       <td key="label" class="col-md-4">
         <a
@@ -28,7 +28,7 @@ export function BenchmarkRow({
             onSelect(item.id);
           }}
         >
-          {item.label}
+          {() => item.label}
         </a>
       </td>
       <td key="remove" class="col-md-1">

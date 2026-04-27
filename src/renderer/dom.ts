@@ -602,6 +602,29 @@ function syncReactiveScalarTextNodes(
   syncReactiveChildExpectedNodes(el, Array.from(host.childNodes));
 }
 
+function trySyncScalarChildSequenceInPlace(
+  el: Element,
+  children: unknown[]
+): boolean {
+  const normalized = normalizeReactiveScalarSequenceValues(children);
+  if (!normalized) {
+    return false;
+  }
+
+  if (el.childNodes.length !== normalized.length) {
+    return false;
+  }
+
+  for (let index = 0; index < el.childNodes.length; index += 1) {
+    if (el.childNodes[index]?.nodeType !== Node.TEXT_NODE) {
+      return false;
+    }
+  }
+
+  syncReactiveScalarTextNodes(el, children, normalized);
+  return true;
+}
+
 function normalizeReactiveChildBoundaryVNode(value: VNode): VNode {
   if (!isFragmentVNode(value)) {
     return value;
@@ -3838,53 +3861,13 @@ export function updateElementFromVnode(
     (!existingListeners || existingListeners.size === 0) &&
     (!existingReactiveProps || existingReactiveProps.size === 0)
   ) {
-    let staticPropCount = 0;
-    let canSkipPropDiff = true;
-
-    for (const key in props) {
-      if (isSkippedProp(key)) continue;
-      const value = props[key];
-      if (value === undefined || value === null || value === false) {
-        canSkipPropDiff = false;
-        break;
-      }
-
-      const eventName = parseEventName(key);
-      if (eventName || typeof value === 'function') {
-        canSkipPropDiff = false;
-        break;
-      }
-
-      if (key === 'class' || key === 'className') {
-        if (readElementClassName(el) !== String(value)) {
-          canSkipPropDiff = false;
-          break;
-        }
-        staticPropCount++;
-        continue;
-      }
-
-      if (key === 'value' || key === 'checked') {
-        if ((el as HTMLElement & Record<string, unknown>)[key] !== value) {
-          canSkipPropDiff = false;
-          break;
-        }
-        staticPropCount++;
-        continue;
-      }
-
-      if (el.getAttribute(key) !== String(value)) {
-        canSkipPropDiff = false;
-        break;
-      }
-      staticPropCount++;
-    }
-
-    // Avoid skipping when the element has extra attributes that would need removal.
-    if (canSkipPropDiff && el.attributes.length === staticPropCount) {
+    if (hasMatchingStaticProps(el, props, vnode.type as string)) {
       if (updateChildren) {
         const children =
           vnode.children || (props.children as VNode | VNode[] | undefined);
+        if (canReuseStaticSubtree(el, domVNode)) {
+          return;
+        }
         updateElementChildren(el, children);
       }
       return;
@@ -4251,6 +4234,11 @@ export function updateElementChildren(
   }
 
   if (Array.isArray(children)) {
+    if (trySyncScalarChildSequenceInPlace(el, children)) {
+      keyedElements.delete(el);
+      return;
+    }
+
     if (hasKeyedVNodeChildren(children)) {
       const oldKeyMap = getOrBuildDomKeyMap(el);
       const newKeyMap = reconcileKeyedChildren(el, children, oldKeyMap);
@@ -4350,6 +4338,168 @@ function tagsEqualIgnoreCase(
   const upperCommon = upperCommonTagName(vnodeType);
   if (upperCommon !== null && elementTagName === upperCommon) return true;
   return tagNamesEqualIgnoreCase(elementTagName, vnodeType);
+}
+
+type StaticChildSlot =
+  | { kind: 'text'; value: string }
+  | { kind: 'element'; value: DOMElement };
+
+function collectStaticChildSlots(
+  children: unknown,
+  slots: StaticChildSlot[]
+): boolean {
+  if (isFragmentVNode(children)) {
+    const fragmentChildren = children.props?.children ?? children.children;
+    return collectStaticChildSlots(fragmentChildren, slots);
+  }
+
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      if (!collectStaticChildSlots(child, slots)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (children === null || children === undefined || children === false) {
+    return true;
+  }
+
+  if (typeof children === 'string' || typeof children === 'number') {
+    slots.push({ kind: 'text', value: String(children) });
+    return true;
+  }
+
+  if (
+    _isDOMElement(children) &&
+    typeof (children as DOMElement).type === 'string'
+  ) {
+    slots.push({ kind: 'element', value: children as DOMElement });
+    return true;
+  }
+
+  return false;
+}
+
+function getStaticChildSlots(children: unknown): StaticChildSlot[] | null {
+  const slots: StaticChildSlot[] = [];
+  return collectStaticChildSlots(children, slots) ? slots : null;
+}
+
+function hasMatchingStaticProps(
+  el: Element,
+  props: Record<string, unknown>,
+  vnodeType: string
+): boolean {
+  let staticPropCount = 0;
+
+  for (const key in props) {
+    if (isSkippedProp(key)) continue;
+
+    const value = props[key];
+    if (value === undefined || value === null || value === false) {
+      return false;
+    }
+
+    const eventName = parseEventName(key);
+    if (eventName || typeof value === 'function') {
+      return false;
+    }
+
+    if (key === 'class' || key === 'className') {
+      if (readElementClassName(el) !== String(value)) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (key === 'style') {
+      const styleValue =
+        typeof value === 'string' ? value.trim().replace(/;$/, '') : null;
+      const domStyle = el.getAttribute('style')?.trim().replace(/;$/, '') ?? '';
+      if (styleValue === null || domStyle !== styleValue) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (key === 'value' || key === 'checked') {
+      if ((el as HTMLElement & Record<string, unknown>)[key] !== value) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (key === 'selected' && vnodeType === 'option') {
+      if ((el as HTMLOptionElement).selected !== Boolean(value)) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (el.getAttribute(key) !== String(value)) {
+      return false;
+    }
+
+    staticPropCount += 1;
+  }
+
+  return el.attributes.length === staticPropCount;
+}
+
+function canReuseStaticSubtree(el: Element, vnode: DOMElement): boolean {
+  if (
+    typeof vnode.type !== 'string' ||
+    !tagsEqualIgnoreCase(el.tagName, vnode.type)
+  ) {
+    return false;
+  }
+
+  const props = (vnode.props || {}) as Record<string, unknown>;
+  if (!hasMatchingStaticProps(el, props, vnode.type)) {
+    return false;
+  }
+
+  const children =
+    vnode.children || (props.children as VNode | VNode[] | undefined);
+  const slots = getStaticChildSlots(children);
+  if (!slots) {
+    return false;
+  }
+
+  if (el.childNodes.length !== slots.length) {
+    return false;
+  }
+
+  for (let index = 0; index < slots.length; index += 1) {
+    const slot = slots[index];
+    const current = el.childNodes[index];
+    if (!current) {
+      return false;
+    }
+
+    if (slot.kind === 'text') {
+      if (current.nodeType !== 3 || (current as Text).data !== slot.value) {
+        return false;
+      }
+      continue;
+    }
+
+    if (!(current instanceof Element)) {
+      return false;
+    }
+
+    if (!canReuseStaticSubtree(current, slot.value)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export function updateUnkeyedChildren(

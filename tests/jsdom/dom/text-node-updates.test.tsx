@@ -294,6 +294,35 @@ describe('text node updates (DOM)', () => {
     expect(parentRenderCount).toBe(1);
   });
 
+  it('should update parent-rerendered scalar siblings in place when text node shape is stable', async () => {
+    let value: ReturnType<typeof state<string>> | null = null;
+
+    const Component = () => {
+      value = state('L');
+      return <div>{[value(), '|', 'R']}</div>;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const firstNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('L|R');
+    expect(firstNodes).toHaveLength(3);
+
+    value!.set('A');
+    flushScheduler();
+
+    const secondNodes = Array.from(div.childNodes);
+
+    expect(div.textContent).toBe('A|R');
+    expect(secondNodes).toHaveLength(3);
+    expect(secondNodes[0]).toBe(firstNodes[0]);
+    expect(secondNodes[1]).toBe(firstNodes[1]);
+    expect(secondNodes[2]).toBe(firstNodes[2]);
+  });
+
   it('should update a reactive child function that returns a fragment of scalar siblings without rerendering the parent', async () => {
     let left: ReturnType<typeof state<string>> | null = null;
     let right: ReturnType<typeof state<string>> | null = null;

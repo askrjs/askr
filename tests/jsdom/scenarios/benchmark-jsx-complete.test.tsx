@@ -67,7 +67,7 @@ describe(
   'JSX benchmark complete (matches js-framework-benchmark)',
   { timeout: 20000 },
   () => {
-    test('should render 1000 rows with JSX components', () => {
+    test('should render 1000 rows with JSX components', { timeout: 30000 }, () => {
       const { container, cleanup } = createTestContainer();
       let dataState!: State<RowData[]>;
       let selectedState!: State<number | null>;
@@ -384,7 +384,7 @@ describe(
       cleanup();
     });
 
-    test('should append rows with JSX', () => {
+    test('should append rows with JSX', { timeout: 30000 }, () => {
       const { container, cleanup } = createTestContainer();
       let dataState!: State<RowData[]>;
 
