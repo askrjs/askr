@@ -123,11 +123,13 @@ type ReactiveScalarChildSourceSlot =
 type ReactiveScalarChildSource = ReactiveScalarChildSourceSlot[];
 
 type ReactiveChildBoundarySequenceSource = Array<
-  { kind: 'static'; value: string } | { kind: 'dynamic'; compute: () => VNode }
+  | { kind: 'static-text'; value: string }
+  | { kind: 'static-node'; value: VNode }
+  | { kind: 'dynamic'; compute: () => VNode }
 >;
 
 type ReactiveChildBoundarySequenceEntry =
-  | { kind: 'static'; node: Text }
+  | { kind: 'static'; nodes: Node[] }
   | { kind: 'dynamic'; scope: ChildScope; nodes: Node[] };
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
@@ -270,7 +272,12 @@ function collectReactiveChildBoundarySequenceSource(
   }
 
   if (typeof children === 'string' || typeof children === 'number') {
-    slots.push({ kind: 'static', value: String(children) });
+    slots.push({ kind: 'static-text', value: String(children) });
+    return true;
+  }
+
+  if (_isDOMElement(children)) {
+    slots.push({ kind: 'static-node', value: children });
     return true;
   }
 
@@ -311,9 +318,19 @@ function areReactiveChildBoundarySequenceSourcesEqual(
       return false;
     }
 
-    if (nextSlot.kind === 'static') {
+    if (nextSlot.kind === 'static-text') {
       if (
-        previousSlot.kind !== 'static' ||
+        previousSlot.kind !== 'static-text' ||
+        previousSlot.value !== nextSlot.value
+      ) {
+        return false;
+      }
+      continue;
+    }
+
+    if (nextSlot.kind === 'static-node') {
+      if (
+        previousSlot.kind !== 'static-node' ||
         previousSlot.value !== nextSlot.value
       ) {
         return false;
@@ -326,6 +343,50 @@ function areReactiveChildBoundarySequenceSourcesEqual(
       previousSlot.compute !== nextSlot.compute
     ) {
       return false;
+    }
+  }
+
+  return true;
+}
+
+function canUpdateReactiveChildBoundarySequenceSource(
+  previousSource: unknown,
+  nextSource: ReactiveChildBoundarySequenceSource
+): boolean {
+  if (
+    !Array.isArray(previousSource) ||
+    previousSource.length !== nextSource.length
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < nextSource.length; index += 1) {
+    const previousSlot = previousSource[index] as
+      | ReactiveChildBoundarySequenceSource[number]
+      | undefined;
+    const nextSlot = nextSource[index];
+
+    if (!previousSlot || previousSlot.kind !== nextSlot.kind) {
+      return false;
+    }
+
+    if (nextSlot.kind === 'static-text') {
+      if (
+        previousSlot.kind !== 'static-text' ||
+        previousSlot.value !== nextSlot.value
+      ) {
+        return false;
+      }
+      continue;
+    }
+
+    if (nextSlot.kind === 'static-node') {
+      if (
+        previousSlot.kind !== 'static-node' ||
+        previousSlot.value !== nextSlot.value
+      ) {
+        return false;
+      }
     }
   }
 
@@ -409,7 +470,33 @@ function collectReactiveChildValuesAsVNodes(
   }
 }
 
-function syncReactiveScalarTextNodes(el: Element, values: string[]): void {
+function materializeReactiveChildBoundaryNodes(
+  value: unknown,
+  parentNamespace?: string
+): Node[] {
+  const nodes: Node[] = [];
+  const dom = createDOMNode(value, parentNamespace);
+  if (!dom) {
+    return nodes;
+  }
+
+  if (dom instanceof DocumentFragment) {
+    for (let child = dom.firstChild; child; child = dom.firstChild) {
+      nodes.push(child);
+      dom.removeChild(child);
+    }
+    return nodes;
+  }
+
+  nodes.push(dom);
+  return nodes;
+}
+
+function syncReactiveScalarTextNodes(
+  el: Element,
+  slotValues: unknown[],
+  values: string[]
+): void {
   const childNodes = el.childNodes;
   const canPatchInPlace = childNodes.length === values.length;
 
@@ -440,7 +527,7 @@ function syncReactiveScalarTextNodes(el: Element, values: string[]): void {
     node = next;
   }
 
-  updateElementChildren(host, values as unknown as VNode[]);
+  updateElementChildren(host, slotValues as VNode[]);
   syncReactiveChildExpectedNodes(el, Array.from(host.childNodes));
 }
 
@@ -559,6 +646,29 @@ function commitReactiveChildBoundaryEntryNodes(
     return entry.nodes;
   }
 
+  if (
+    entry.scope.vnode === null ||
+    entry.scope.vnode === undefined ||
+    entry.scope.vnode === false
+  ) {
+    if (entry.nodes.length > 0) {
+      disposeReactiveChildBoundaryNodes(entry.nodes);
+      entry.nodes = [];
+    }
+
+    const dom = entry.scope.dom;
+    if (dom?.parentNode === el) {
+      if (dom instanceof Element) {
+        teardownNodeSubtree(dom);
+      }
+      el.removeChild(dom);
+    }
+
+    entry.scope.dom = undefined;
+    entry.scope.needsDomUpdate = false;
+    return entry.nodes;
+  }
+
   if (!isSingleRootReactiveChildBoundaryValue(entry.scope.vnode)) {
     const nextChildren: VNode[] = [];
     collectReactiveChildBoundaryVNodes(entry.scope.vnode, nextChildren);
@@ -604,7 +714,7 @@ function syncReactiveChildSequenceNodes(
 
   for (const entry of entries) {
     if (entry.kind === 'static') {
-      expectedNodes.push(entry.node);
+      expectedNodes.push(...entry.nodes);
       continue;
     }
 
@@ -638,7 +748,7 @@ function setupReactiveScalarChild(
 
         const normalized = normalizeReactiveScalarSequenceValues(values);
         if (normalized) {
-          syncReactiveScalarTextNodes(el, normalized);
+          syncReactiveScalarTextNodes(el, values, normalized);
           return;
         }
 
@@ -783,16 +893,30 @@ function setupReactiveChildBoundarySequence(
     syncReactiveChildSequenceNodes(el, entries);
   };
 
+  const parentNamespace =
+    el.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
+
   for (let index = 0; index < currentSource.length; index += 1) {
     const slot = currentSource[index];
     if (!slot) {
       continue;
     }
 
-    if (slot.kind === 'static') {
+    if (slot.kind === 'static-text') {
       entries.push({
         kind: 'static',
-        node: document.createTextNode(slot.value),
+        nodes: [document.createTextNode(slot.value)],
+      });
+      continue;
+    }
+
+    if (slot.kind === 'static-node') {
+      entries.push({
+        kind: 'static',
+        nodes: materializeReactiveChildBoundaryNodes(
+          slot.value,
+          parentNamespace
+        ),
       });
       continue;
     }
@@ -851,8 +975,8 @@ function setupReactiveChildBoundarySequence(
       }
 
       for (const entry of entries) {
-        if (entry.kind === 'static' && entry.node.parentNode === el) {
-          el.removeChild(entry.node);
+        if (entry.kind === 'static') {
+          disposeReactiveChildBoundaryNodes(entry.nodes);
         }
       }
     },
@@ -892,7 +1016,7 @@ function syncReactiveScalarChild(el: Element, children: unknown): boolean {
     return false;
   }
 
-  if (reactiveChildSource) {
+  if (reactiveChildSource && !reactiveChildBoundarySequence) {
     if (
       existingReactiveEntry &&
       Array.isArray(existingReactiveEntry.fnRef) &&
@@ -946,7 +1070,11 @@ function syncReactiveScalarChild(el: Element, children: unknown): boolean {
 
     if (
       existingReactiveEntry?.updateFn &&
-      Array.isArray(existingReactiveEntry.fnRef)
+      Array.isArray(existingReactiveEntry.fnRef) &&
+      canUpdateReactiveChildBoundarySequenceSource(
+        existingReactiveEntry.fnRef,
+        reactiveChildBoundarySequence
+      )
     ) {
       existingReactiveEntry.updateFn(reactiveChildBoundarySequence);
       existingReactiveEntry.fnRef = reactiveChildBoundarySequence;
