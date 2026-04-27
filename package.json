@@ -127,14 +127,13 @@
     "lint": "cross-env OXLINT_TSGOLINT_PATH=./node_modules/.bin/tsgolint.cmd vp lint src tests test-utils checks benches"
   },
   "devDependencies": {
-    "@askrjs/askr-vite": "file:../askr-vite",
     "@axe-core/playwright": "^4.11.2",
     "@playwright/test": "^1.59.1",
     "@types/node": "^25.6.0",
     "chai": "^6.2.2",
     "cross-env": "^10.1.0",
     "jiti": "^2.6.1",
-    "jsdom": "^29.0.2",
+    "jsdom": "^29.1.0",
     "playwright": "^1.59.1",
     "tsd": "^0.33.0",
     "typescript": "^6.0.3",
