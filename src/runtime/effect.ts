@@ -1,9 +1,5 @@
-import {
-  getCurrentInstance,
-  setCurrentComponentInstance,
-  type ComponentInstance,
-} from './component';
-import { type ReadableSource } from './readable';
+import { incDevCounter } from './dev-namespace';
+import { type ReadableSource, withFineGrainedReadTracking } from './readable';
 import { globalScheduler, type SchedulerLane } from './scheduler';
 
 type EffectRegistry = WeakMap<
@@ -29,15 +25,7 @@ const hasPendingLaneFlush: EffectPendingFlushState = {
   post: false,
 };
 
-let effectTrackingToken = 0;
-
-const _EMPTY_PENDING_SOURCES = new Set<ReadableSource<unknown>>();
 const _evalSourceBuffer = new Set<ReadableSource<unknown>>();
-
-const effectTrackingInstance = {
-  _pendingReadSources: _EMPTY_PENDING_SOURCES as Set<ReadableSource<unknown>>,
-  _currentRenderToken: 0,
-} as Partial<ComponentInstance> as ComponentInstance;
 
 export interface FineGrainedEffect<T> {
   lane: SchedulerLane;
@@ -116,28 +104,20 @@ function evaluateEffect<T>(effect: FineGrainedEffect<T>): {
   value: T;
   nextSources: Set<ReadableSource<unknown>>;
 } {
-  const previousInstance = getCurrentInstance();
-
   _evalSourceBuffer.clear();
-  effectTrackingToken += 1;
-  effectTrackingInstance._pendingReadSources = _evalSourceBuffer;
-  effectTrackingInstance._currentRenderToken = effectTrackingToken;
-
-  setCurrentComponentInstance(effectTrackingInstance);
 
   try {
-    const value = effect.compute();
+    incDevCounter('effectRuns');
+    const value = withFineGrainedReadTracking(_evalSourceBuffer, () =>
+      effect.compute()
+    );
     const nextSources = normalizeNextSources(
       effect.readSources,
       _evalSourceBuffer
     );
     return { value, nextSources };
   } finally {
-    effectTrackingInstance._pendingReadSources = _EMPTY_PENDING_SOURCES as Set<
-      ReadableSource<unknown>
-    >;
-    effectTrackingInstance._currentRenderToken = 0;
-    setCurrentComponentInstance(previousInstance);
+    _evalSourceBuffer.clear();
   }
 }
 

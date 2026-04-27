@@ -10,6 +10,22 @@ import {
 } from '../../../src/runtime/perf-metrics';
 import { allowFrameworkWarnings } from '../../setup-env';
 
+function resetFineGrainedDiagnostics(): void {
+  const ns = (
+    globalThis as typeof globalThis & {
+      __ASKR__?: Record<string, unknown>;
+    }
+  ).__ASKR__;
+
+  if (!ns) {
+    return;
+  }
+
+  ns['componentReruns'] = 0;
+  ns['effectRuns'] = 0;
+  ns['textNodeWrites'] = 0;
+}
+
 describe('reactive props issues validation', () => {
   beforeEach(() => {
     resetPerfMetrics();
@@ -203,6 +219,50 @@ describe('reactive props issues validation', () => {
     selectedState!.set(false);
     flushScheduler();
     expect(subject?.className).toBe('row');
+
+    cleanup();
+  });
+
+  test('should update a reactive class prop without rerunning the parent component', () => {
+    const { container, cleanup } = createTestContainer();
+
+    let activeState: ReturnType<typeof state<boolean>>;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      activeState = state(false);
+
+      return (
+        <div
+          id="subject"
+          class={() => (activeState() ? 'row on' : 'row off')}
+        />
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const subject = container.querySelector('#subject') as HTMLDivElement;
+    expect(subject.className).toBe('row off');
+    expect(parentRenderCount).toBe(1);
+
+    resetFineGrainedDiagnostics();
+
+    activeState!.set(true);
+    flushScheduler();
+
+    const ns = (
+      globalThis as typeof globalThis & {
+        __ASKR__?: Record<string, unknown>;
+      }
+    ).__ASKR__;
+
+    expect(subject.className).toBe('row on');
+    expect(parentRenderCount).toBe(1);
+    expect(ns?.['componentReruns']).toBe(0);
+    expect(ns?.['effectRuns']).toBe(1);
 
     cleanup();
   });
