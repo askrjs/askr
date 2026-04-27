@@ -1158,6 +1158,383 @@ describe('text node updates (DOM)', () => {
     expect(parentRenderCount).toBe(2);
   });
 
+  it('should update multiple dynamic regions that both change cardinality in the same flush', async () => {
+    let leftMode: ReturnType<typeof state<'single' | 'multi'>> | null = null;
+    let rightMode: ReturnType<typeof state<'multi' | 'empty'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      leftMode = state<'single' | 'multi'>('single');
+      rightMode = state<'multi' | 'empty'>('multi');
+
+      return (
+        <div>
+          {() =>
+            leftMode!() === 'single' ? (
+              <span data-kind={'left-single'}>{'left-a'}</span>
+            ) : (
+              <>
+                <span data-kind={'left-start'}>{'left-a'}</span>
+                <span data-kind={'left-end'}>{'left-b'}</span>
+              </>
+            )
+          }
+          <b data-kind={'separator'}>{'|'}</b>
+          {() =>
+            rightMode!() === 'multi' ? (
+              <>
+                <span data-kind={'right-start'}>{'right-a'}</span>
+                <span data-kind={'right-end'}>{'right-b'}</span>
+              </>
+            ) : null
+          }
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const div = container.querySelector('div') as HTMLDivElement;
+    const separator = div.querySelector(
+      '[data-kind="separator"]'
+    ) as HTMLElement;
+
+    expect(div.textContent).toBe('left-a|right-aright-b');
+    expect(Array.from(div.childNodes)).toHaveLength(4);
+    expect(parentRenderCount).toBe(1);
+
+    leftMode!.set('multi');
+    rightMode!.set('empty');
+    flushScheduler();
+
+    const afterNodes = Array.from(div.childNodes);
+    const leftStart = div.querySelector(
+      '[data-kind="left-start"]'
+    ) as HTMLSpanElement;
+    const leftEnd = div.querySelector(
+      '[data-kind="left-end"]'
+    ) as HTMLSpanElement;
+
+    expect(div.textContent).toBe('left-aleft-b|');
+    expect(div.querySelector('[data-kind="right-start"]')).toBeNull();
+    expect(div.querySelector('[data-kind="right-end"]')).toBeNull();
+    expect(afterNodes).toHaveLength(3);
+    expect(afterNodes[0]).toBe(leftStart);
+    expect(afterNodes[1]).toBe(leftEnd);
+    expect(afterNodes[2]).toBe(separator);
+    expect(parentRenderCount).toBe(1);
+  });
+
+  it('should reset nested component state when a retained multi-root child range remounts', async () => {
+    disableEventDelegation();
+
+    let mode: ReturnType<typeof state<'multi' | 'empty'>> | null = null;
+    let parentRenderCount = 0;
+
+    try {
+      const Counter = () => {
+        const count = state(0);
+
+        return (
+          <button
+            data-kind={'counter'}
+            onClick={() => {
+              count.set(count() + 1);
+            }}
+          >
+            {count()}
+          </button>
+        );
+      };
+
+      const Component = () => {
+        parentRenderCount += 1;
+        mode = state<'multi' | 'empty'>('multi');
+
+        return (
+          <div>
+            {'pre:'}
+            {() =>
+              mode!() === 'multi' ? (
+                <>
+                  <Counter />
+                  <span data-kind={'tail'}>{'tail'}</span>
+                </>
+              ) : null
+            }
+            {':post'}
+          </div>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const firstButton = container.querySelector(
+        '[data-kind="counter"]'
+      ) as HTMLButtonElement;
+
+      expect(container.textContent).toBe('pre:0tail:post');
+      firstButton.click();
+      flushScheduler();
+      expect(container.textContent).toBe('pre:1tail:post');
+
+      mode!.set('empty');
+      flushScheduler();
+
+      expect(container.textContent).toBe('pre::post');
+      expect(container.querySelector('[data-kind="counter"]')).toBeNull();
+
+      mode!.set('multi');
+      flushScheduler();
+
+      const secondButton = container.querySelector(
+        '[data-kind="counter"]'
+      ) as HTMLButtonElement;
+
+      expect(container.textContent).toBe('pre:0tail:post');
+      expect(secondButton).not.toBe(firstButton);
+      expect(parentRenderCount).toBe(1);
+    } finally {
+      enableEventDelegation();
+    }
+  });
+
+  it('should tear down nested component direct listeners when a retained multi-root child range is removed', async () => {
+    disableEventDelegation();
+
+    let mode: ReturnType<typeof state<'multi' | 'empty'>> | null = null;
+    let outerClicks = 0;
+
+    try {
+      const Counter = () => {
+        const count = state(0);
+
+        return (
+          <button
+            data-kind={'counter'}
+            onClick={() => {
+              outerClicks += 1;
+              count.set(count() + 1);
+            }}
+          >
+            {count()}
+          </button>
+        );
+      };
+
+      const Component = () => {
+        mode = state<'multi' | 'empty'>('multi');
+
+        return (
+          <div>
+            {() =>
+              mode!() === 'multi' ? (
+                <>
+                  <Counter />
+                  <span data-kind={'tail'}>{'tail'}</span>
+                </>
+              ) : null
+            }
+          </div>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const firstButton = container.querySelector(
+        '[data-kind="counter"]'
+      ) as HTMLButtonElement;
+
+      firstButton.click();
+      flushScheduler();
+      expect(outerClicks).toBe(1);
+
+      mode!.set('empty');
+      flushScheduler();
+
+      firstButton.click();
+      flushScheduler();
+      expect(outerClicks).toBe(1);
+    } finally {
+      enableEventDelegation();
+    }
+  });
+
+  it('should preserve SVG namespace for a single retained reactive child boundary', async () => {
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    let mode: ReturnType<typeof state<'circle' | 'rect'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'circle' | 'rect'>('circle');
+
+      return (
+        <svg>
+          {() =>
+            mode!() === 'circle' ? (
+              <circle data-kind={'shape'} />
+            ) : (
+              <rect data-kind={'shape'} />
+            )
+          }
+        </svg>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const svg = container.querySelector('svg') as SVGSVGElement;
+    const circle = svg.querySelector('[data-kind="shape"]') as SVGCircleElement;
+
+    expect(svg.namespaceURI).toBe(svgNamespace);
+    expect(circle.namespaceURI).toBe(svgNamespace);
+    expect(circle.tagName.toLowerCase()).toBe('circle');
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('rect');
+    flushScheduler();
+
+    const rect = svg.querySelector('[data-kind="shape"]') as SVGRectElement;
+
+    expect(rect.namespaceURI).toBe(svgNamespace);
+    expect(rect.tagName.toLowerCase()).toBe('rect');
+    expect(parentRenderCount).toBe(1);
+  });
+
+  it('should preserve SVG namespace for retained reactive child sequences with static SVG siblings', async () => {
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    let mode: ReturnType<typeof state<'circle' | 'rect'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'circle' | 'rect'>('circle');
+
+      return (
+        <svg>
+          <g data-side={'left'} />
+          {() =>
+            mode!() === 'circle' ? (
+              <circle data-kind={'shape'} />
+            ) : (
+              <rect data-kind={'shape'} />
+            )
+          }
+          <g data-side={'right'} />
+        </svg>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const svg = container.querySelector('svg') as SVGSVGElement;
+    const left = svg.querySelector('[data-side="left"]') as SVGGElement;
+    const circle = svg.querySelector('[data-kind="shape"]') as SVGCircleElement;
+    const right = svg.querySelector('[data-side="right"]') as SVGGElement;
+    const firstNodes = Array.from(svg.childNodes);
+
+    expect(firstNodes).toHaveLength(3);
+    expect(left.namespaceURI).toBe(svgNamespace);
+    expect(circle.namespaceURI).toBe(svgNamespace);
+    expect(right.namespaceURI).toBe(svgNamespace);
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('rect');
+    flushScheduler();
+
+    const rect = svg.querySelector('[data-kind="shape"]') as SVGRectElement;
+    const secondNodes = Array.from(svg.childNodes);
+
+    expect(secondNodes).toHaveLength(3);
+    expect(secondNodes[0]).toBe(left);
+    expect(secondNodes[1]).toBe(rect);
+    expect(secondNodes[2]).toBe(right);
+    expect(rect.namespaceURI).toBe(svgNamespace);
+    expect(rect.tagName.toLowerCase()).toBe('rect');
+    expect(parentRenderCount).toBe(1);
+  });
+
+  it('should preserve SVG namespace for a component returned by a retained reactive child boundary', async () => {
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    let mode: ReturnType<typeof state<'circle' | 'rect'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Shape = ({ kind }: { kind: 'circle' | 'rect' }) =>
+      kind === 'circle' ? (
+        <circle data-kind={'shape'} />
+      ) : (
+        <rect data-kind={'shape'} />
+      );
+
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'circle' | 'rect'>('circle');
+
+      return <svg>{() => <Shape kind={mode!()} />}</svg>;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const svg = container.querySelector('svg') as SVGSVGElement;
+    const circle = svg.querySelector('[data-kind="shape"]') as SVGCircleElement;
+
+    expect(circle.namespaceURI).toBe(svgNamespace);
+    expect(circle.tagName.toLowerCase()).toBe('circle');
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('rect');
+    flushScheduler();
+
+    const rect = svg.querySelector('[data-kind="shape"]') as SVGRectElement;
+
+    expect(rect.namespaceURI).toBe(svgNamespace);
+    expect(rect.tagName.toLowerCase()).toBe('rect');
+    expect(parentRenderCount).toBe(1);
+  });
+
+  it('should preserve SVG namespace when a retained reactive child boundary expands from empty', async () => {
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    let mode: ReturnType<typeof state<'empty' | 'circle'>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'empty' | 'circle'>('empty');
+
+      return (
+        <svg>
+          {() => (mode!() === 'empty' ? null : <circle data-kind={'shape'} />)}
+        </svg>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const svg = container.querySelector('svg') as SVGSVGElement;
+
+    expect(svg.childNodes).toHaveLength(0);
+    expect(parentRenderCount).toBe(1);
+
+    mode!.set('circle');
+    flushScheduler();
+
+    const circle = svg.querySelector('[data-kind="shape"]') as SVGCircleElement;
+
+    expect(svg.childNodes).toHaveLength(1);
+    expect(circle.namespaceURI).toBe(svgNamespace);
+    expect(circle.tagName.toLowerCase()).toBe('circle');
+    expect(parentRenderCount).toBe(1);
+  });
+
   it('should update text content in place when state changes', async () => {
     let text: ReturnType<typeof state<string>> | null = null;
     const Component = () => {
