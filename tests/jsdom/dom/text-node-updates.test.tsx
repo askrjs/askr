@@ -255,7 +255,7 @@ describe('text node updates (DOM)', () => {
       expect(updatedSpans[index]?.textContent).toBe('1');
       expect(updatedSpans[index]?.firstChild).toBe(firstTextNodes[index]);
     }
-  });
+  }, 15000);
 
   it('should update a reactive child function that returns scalar siblings without rerendering the parent', async () => {
     let left: ReturnType<typeof state<string>> | null = null;

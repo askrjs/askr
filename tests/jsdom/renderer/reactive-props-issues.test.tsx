@@ -223,6 +223,62 @@ describe('reactive props issues validation', () => {
     cleanup();
   });
 
+  test('should update a reactive style prop without rerunning the parent component', () => {
+    const { container, cleanup } = createTestContainer();
+
+    let activeState: ReturnType<typeof state<boolean>>;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      activeState = state(false);
+
+      return (
+        <div
+          id="subject"
+          style={() =>
+            activeState()
+              ? { padding: '2rem', textAlign: 'center' }
+              : { padding: '1rem' }
+          }
+        />
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const subject = container.querySelector('#subject') as HTMLDivElement;
+    expect(subject.style.padding).toBe('1rem');
+    expect(subject.style.textAlign).toBe('');
+    expect(parentRenderCount).toBe(1);
+
+    resetFineGrainedDiagnostics();
+
+    activeState!.set(true);
+    flushScheduler();
+
+    const ns = (
+      globalThis as typeof globalThis & {
+        __ASKR__?: Record<string, unknown>;
+      }
+    ).__ASKR__;
+
+    expect(subject.style.padding).toBe('2rem');
+    expect(subject.style.textAlign).toBe('center');
+    expect(parentRenderCount).toBe(1);
+    expect(ns?.['componentReruns']).toBe(0);
+    expect(ns?.['effectRuns']).toBe(1);
+
+    activeState!.set(false);
+    flushScheduler();
+
+    expect(subject.style.padding).toBe('1rem');
+    expect(subject.style.textAlign).toBe('');
+
+    cleanup();
+  });
+
   test('should update a reactive class prop without rerunning the parent component', () => {
     const { container, cleanup } = createTestContainer();
 

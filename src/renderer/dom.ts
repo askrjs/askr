@@ -119,6 +119,8 @@ interface ReactivePropDescriptor {
   lastClassTokens: string[] | null;
 }
 
+type StyleEntries = Map<string, string>;
+
 type ReactiveScalarChildSourceSlot =
   | { kind: 'static'; value: string }
   | { kind: 'dynamic'; compute: () => unknown };
@@ -269,8 +271,8 @@ function collectReactiveChildBoundarySequenceSource(
   }
 
   if (typeof children === 'function') {
-    state.dynamicCount += 1;
     slots.push({ kind: 'dynamic', compute: children as () => VNode });
+    state.dynamicCount += 1;
     return true;
   }
 
@@ -280,7 +282,7 @@ function collectReactiveChildBoundarySequenceSource(
   }
 
   if (_isDOMElement(children)) {
-    slots.push({ kind: 'static-node', value: children });
+    slots.push({ kind: 'static-node', value: children as VNode });
     return true;
   }
 
@@ -350,6 +352,64 @@ function areReactiveChildBoundarySequenceSourcesEqual(
   }
 
   return true;
+}
+
+function cleanupDetachedComponentHost(
+  host: InstanceHostElement,
+  retainedInstance: ComponentInstance
+): void {
+  removeElementListeners(host);
+  removeElementReactiveProps(host);
+
+  const hostInstances = host.__ASKR_INSTANCES;
+  if (hostInstances && hostInstances.length > 0) {
+    for (const instance of hostInstances) {
+      if (instance === retainedInstance) continue;
+      cleanupComponent(instance);
+    }
+  } else if (
+    host.__ASKR_INSTANCE &&
+    host.__ASKR_INSTANCE !== retainedInstance
+  ) {
+    cleanupComponent(host.__ASKR_INSTANCE);
+  }
+
+  const descendants = host.querySelectorAll('*');
+  for (let index = 0; index < descendants.length; index += 1) {
+    const descendant = descendants[index] as InstanceHostElement;
+    removeElementListeners(descendant);
+    removeElementReactiveProps(descendant);
+
+    if (descendant.__ASKR_INSTANCES?.length) {
+      for (const instance of descendant.__ASKR_INSTANCES) {
+        if (instance === retainedInstance) continue;
+        cleanupComponent(instance);
+      }
+      try {
+        delete descendant.__ASKR_INSTANCES;
+      } catch {
+        // Ignore host cleanup failures.
+      }
+    } else if (
+      descendant.__ASKR_INSTANCE &&
+      descendant.__ASKR_INSTANCE !== retainedInstance
+    ) {
+      cleanupComponent(descendant.__ASKR_INSTANCE);
+      try {
+        delete descendant.__ASKR_INSTANCE;
+      } catch {
+        // Ignore host cleanup failures.
+      }
+    }
+  }
+
+  try {
+    delete host.__ASKR_INSTANCE;
+    delete host.__ASKR_INSTANCES;
+    delete host.__ASKR_WRAPPER_HOST;
+  } catch {
+    // Ignore host cleanup failures.
+  }
 }
 
 function canUpdateReactiveChildBoundarySequenceSource(
@@ -1480,6 +1540,8 @@ function applyPropValue(
       applyFormControlProp(el, key, '', tagName);
     } else if (key === 'checked') {
       applyFormControlProp(el, key, false, tagName);
+    } else if (key === 'style') {
+      applyStylePropValue(el, null);
     } else {
       el.removeAttribute(key);
     }
@@ -1488,10 +1550,130 @@ function applyPropValue(
 
   if (key === 'class' || key === 'className') {
     applyClassPropValue(el, value, previousValue, descriptor);
+  } else if (key === 'style') {
+    applyStylePropValue(el, value);
   } else if (key === 'value' || key === 'checked') {
     applyFormControlProp(el, key, value, tagName);
   } else {
     el.setAttribute(key, String(value));
+  }
+}
+
+function normalizeStylePropertyName(propertyName: string): string {
+  if (propertyName.startsWith('--')) {
+    return propertyName;
+  }
+
+  return propertyName.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+}
+
+function collectCurrentStyleEntries(el: Element): StyleEntries {
+  const entries: StyleEntries = new Map();
+  const style = (el as HTMLElement | SVGElement).style;
+
+  if (!style) {
+    return entries;
+  }
+
+  for (let index = 0; index < style.length; index += 1) {
+    const propertyName = style.item(index);
+    entries.set(propertyName, style.getPropertyValue(propertyName));
+  }
+
+  return entries;
+}
+
+function normalizeStyleEntries(value: unknown): StyleEntries | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const entries: StyleEntries = new Map();
+  for (const [key, entryValue] of Object.entries(
+    value as Record<string, unknown>
+  )) {
+    if (
+      entryValue === undefined ||
+      entryValue === null ||
+      entryValue === false
+    ) {
+      continue;
+    }
+
+    entries.set(normalizeStylePropertyName(key), String(entryValue));
+  }
+
+  return entries;
+}
+
+function applyStylePropValue(el: Element, value: unknown): void {
+  const style = (el as HTMLElement | SVGElement).style;
+  if (!style) {
+    if (value === null || value === undefined || value === false) {
+      el.removeAttribute('style');
+      return;
+    }
+
+    el.setAttribute('style', String(value));
+    return;
+  }
+
+  if (value === null || value === undefined || value === false) {
+    if (!el.getAttribute('style')) {
+      incrementPerfMetric('skippedDomPropWrites');
+      return;
+    }
+
+    style.cssText = '';
+    el.removeAttribute('style');
+    return;
+  }
+
+  if (typeof value === 'string') {
+    if ((el.getAttribute('style') ?? '') === value) {
+      incrementPerfMetric('skippedDomPropWrites');
+      return;
+    }
+
+    style.cssText = value;
+    return;
+  }
+
+  const nextEntries = normalizeStyleEntries(value);
+  if (!nextEntries) {
+    const nextText = String(value);
+    if ((el.getAttribute('style') ?? '') === nextText) {
+      incrementPerfMetric('skippedDomPropWrites');
+      return;
+    }
+
+    style.cssText = nextText;
+    return;
+  }
+
+  const previousEntries = collectCurrentStyleEntries(el);
+  let didWrite = false;
+
+  for (const [propertyName] of previousEntries) {
+    if (nextEntries.has(propertyName)) {
+      continue;
+    }
+
+    style.removeProperty(propertyName);
+    didWrite = true;
+  }
+
+  for (const [propertyName, propertyValue] of nextEntries) {
+    if (previousEntries.get(propertyName) === propertyValue) {
+      continue;
+    }
+
+    style.setProperty(propertyName, propertyValue);
+    didWrite = true;
+  }
+
+  if (!didWrite) {
+    incrementPerfMetric('skippedDomPropWrites');
   }
 }
 
@@ -1645,6 +1827,8 @@ function applyPropsToElement(
 
     if (key === 'class' || key === 'className') {
       writeElementClassName(el, String(value));
+    } else if (key === 'style') {
+      applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
     } else {
@@ -2036,6 +2220,8 @@ function applyStaticScalarPropsToElement(
 
     if (key === 'class' || key === 'className') {
       writeElementClassName(el, String(value));
+    } else if (key === 'style') {
+      applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
     } else {
@@ -2119,69 +2305,7 @@ function createIntrinsicElement(
       if (dom) el.appendChild(dom);
     }
   }
-
   return el;
-}
-
-/**
- * Create element from a component function
- */
-function cleanupDetachedComponentHost(
-  host: InstanceHostElement,
-  retainedInstance?: ComponentInstance
-): void {
-  removeElementListeners(host);
-  removeElementReactiveProps(host);
-
-  const hostInstances = host.__ASKR_INSTANCES;
-  if (hostInstances && hostInstances.length > 0) {
-    for (const instance of hostInstances) {
-      if (instance === retainedInstance) continue;
-      cleanupComponent(instance);
-    }
-  } else if (
-    host.__ASKR_INSTANCE &&
-    host.__ASKR_INSTANCE !== retainedInstance
-  ) {
-    cleanupComponent(host.__ASKR_INSTANCE);
-  }
-
-  const descendants = host.querySelectorAll('*');
-  for (let index = 0; index < descendants.length; index += 1) {
-    const descendant = descendants[index] as InstanceHostElement;
-    removeElementListeners(descendant);
-    removeElementReactiveProps(descendant);
-
-    if (descendant.__ASKR_INSTANCES?.length) {
-      for (const instance of descendant.__ASKR_INSTANCES) {
-        if (instance === retainedInstance) continue;
-        cleanupComponent(instance);
-      }
-      try {
-        delete descendant.__ASKR_INSTANCES;
-      } catch {
-        // Ignore host cleanup failures.
-      }
-    } else if (
-      descendant.__ASKR_INSTANCE &&
-      descendant.__ASKR_INSTANCE !== retainedInstance
-    ) {
-      cleanupComponent(descendant.__ASKR_INSTANCE);
-      try {
-        delete descendant.__ASKR_INSTANCE;
-      } catch {
-        // Ignore host cleanup failures.
-      }
-    }
-  }
-
-  try {
-    delete host.__ASKR_INSTANCE;
-    delete host.__ASKR_INSTANCES;
-    delete host.__ASKR_WRAPPER_HOST;
-  } catch {
-    // Ignore host cleanup failures.
-  }
 }
 
 function findHostInstanceByType(
@@ -2653,6 +2777,10 @@ function getDirectControlBoundaryVNode(children: unknown): DOMElement | null {
 function getControlBoundaryCommitChildren(
   controlState: ControlBoundaryState
 ): VNode[] {
+  if (controlState.kind === 'for' && controlState._needsSourceReconcile) {
+    return evaluateForState(controlState);
+  }
+
   if (controlState.kind !== 'for') {
     const activeVNode = controlState.activeScope?.vnode;
     return activeVNode == null || activeVNode === false ? [] : [activeVNode];
@@ -3294,12 +3422,15 @@ export function commitForBoundaryChildren(
     }
 
     keyedElements.delete(parent);
+    forState._hasResolvedItemDom = false;
     recordBenchTiming('domCommit', performance.now() - domCommitStart);
     clearForDomUpdateState(forState);
     return;
   }
 
-  hydrateExistingForDom();
+  if (!forState._hasResolvedItemDom && parent.childNodes.length > 0) {
+    hydrateExistingForDom();
+  }
 
   const getDirtyForIndices = (): number[] => {
     const pendingDirtyIndices = forState.pendingDirtyIndices;
@@ -3319,6 +3450,16 @@ export function commitForBoundaryChildren(
     return dirtyIndices;
   };
 
+  let dirtyIndicesCache: number[] | null = null;
+  const ensureDirtyIndices = (): number[] => {
+    if (dirtyIndicesCache) {
+      return dirtyIndicesCache;
+    }
+
+    dirtyIndicesCache = getDirtyForIndices();
+    return dirtyIndicesCache;
+  };
+
   const commitDirtyNoReorder = (dirtyIndices: number[]): void => {
     if (dirtyIndices.length === 0) {
       return;
@@ -3334,7 +3475,10 @@ export function commitForBoundaryChildren(
 
       if (tryPatchStableForDirtyItem(itemInstance.scope)) {
         if (itemInstance.scope.dom instanceof Element) {
-          itemInstance.scope.dom.setAttribute('data-key', String(itemKey));
+          const itemKeyText = String(itemKey);
+          if (itemInstance.scope.dom.getAttribute('data-key') !== itemKeyText) {
+            itemInstance.scope.dom.setAttribute('data-key', itemKeyText);
+          }
         }
         continue;
       }
@@ -3351,8 +3495,6 @@ export function commitForBoundaryChildren(
       }
     }
   };
-
-  const dirtyIndices = getDirtyForIndices();
 
   const commitPositional = (): void => {
     for (let i = 0; i < forState.orderedKeys.length; i++) {
@@ -3606,7 +3748,8 @@ export function commitForBoundaryChildren(
   };
 
   const isLocalOnlyDirtyCommit =
-    dirtyIndices.length > 0 &&
+    forState.lastCommitStrategy === 'NO_REORDER' &&
+    ensureDirtyIndices().length > 0 &&
     forState.pendingDirtyIndices === null &&
     forState.pendingSwapIndices === null &&
     !forState.pendingMoveOnly &&
@@ -3615,7 +3758,7 @@ export function commitForBoundaryChildren(
 
   if (isLocalOnlyDirtyCommit) {
     if (isCurrentForDomOrder()) {
-      commitDirtyNoReorder(dirtyIndices);
+      commitDirtyNoReorder(ensureDirtyIndices());
       syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
     } else {
       commitReorder();
@@ -3629,7 +3772,7 @@ export function commitForBoundaryChildren(
 
   switch (forState.lastCommitStrategy) {
     case 'NO_REORDER':
-      commitDirtyNoReorder(dirtyIndices);
+      commitDirtyNoReorder(ensureDirtyIndices());
       break;
     case 'TRUNCATE':
       commitPositional();
@@ -3653,6 +3796,7 @@ export function commitForBoundaryChildren(
     forState.lastCommitStrategy,
     forState.lastRemovedNodes
   );
+  forState._hasResolvedItemDom = true;
   recordBenchTiming('domCommit', performance.now() - domCommitStart);
   clearForDomUpdateState(forState);
 }
@@ -3848,8 +3992,10 @@ export function updateElementFromVnode(
 
     if (key === 'class' || key === 'className') {
       writeElementClassName(el, String(value));
+    } else if (key === 'style') {
+      applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
-      (el as HTMLElement & Record<string, unknown>)[key] = value;
+      applyFormControlProp(el, key, value, vnode.type as string);
     } else if (eventName) {
       const useDelegation =
         isEventDelegationEnabled() && isDelegatedEvent(eventName);

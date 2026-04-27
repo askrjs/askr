@@ -195,3 +195,55 @@ test('should stop removed row scopes from enqueueing parent rerenders', () => {
 
   cleanup();
 });
+
+test('should update list source without rerendering the parent component', () => {
+  const { container, cleanup } = createTestContainer();
+
+  let rowsState!: ReturnType<
+    typeof state<Array<{ id: number; label: string }>>
+  >;
+  let parentRenderCount = 0;
+
+  const Component = () => {
+    parentRenderCount += 1;
+    rowsState = state([
+      { id: 1, label: 'alpha' },
+      { id: 2, label: 'beta' },
+    ]);
+
+    return (
+      <ul>
+        <For each={() => rowsState()} by={(row) => row.id}>
+          {(row) => <li data-row={String(row.id)}>{row.label}</li>}
+        </For>
+      </ul>
+    );
+  };
+
+  createIsland({ root: container, component: Component });
+  flushScheduler();
+
+  expect(parentRenderCount).to.equal(1);
+  expect(container.querySelector('[data-row="1"]')?.textContent).to.equal(
+    'alpha'
+  );
+  expect(container.querySelector('[data-row="2"]')?.textContent).to.equal(
+    'beta'
+  );
+
+  rowsState.set([
+    { id: 1, label: 'alpha!' },
+    { id: 2, label: 'beta' },
+  ]);
+  flushScheduler();
+
+  expect(parentRenderCount).to.equal(1);
+  expect(container.querySelector('[data-row="1"]')?.textContent).to.equal(
+    'alpha!'
+  );
+  expect(container.querySelector('[data-row="2"]')?.textContent).to.equal(
+    'beta'
+  );
+
+  cleanup();
+});

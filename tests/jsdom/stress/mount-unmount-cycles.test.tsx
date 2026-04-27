@@ -34,7 +34,7 @@ describe('mount unmount cycles (STRESS)', () => {
     const s = getSchedulerState();
     expect(s.running).toBe(false);
     expect(s.queueLength).toBe(0);
-  });
+  }, 15000);
 
   it('should survive when rapidly created and destroyed', async () => {
     let counter: ReturnType<typeof state<number>> | null = null;

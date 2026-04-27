@@ -6,19 +6,17 @@
  */
 
 import { type ComponentInstance, getCurrentInstance } from './component';
+import { claimHookIndex } from './component';
 import { type DOMElement, type VNode } from '../common/vnode';
 import { isDevelopmentEnvironment } from '../common/env';
-import {
-  teardownNodeSubtree,
-  removeElementReactiveProps,
-  removeElementListeners,
-} from '../renderer/cleanup';
+import { teardownNodeSubtree } from '../renderer/cleanup';
 import {
   createChildScope,
   disposeChildScope,
   type ChildScope,
 } from './child-scope';
 import type { ForProps } from '../control/for';
+import type { ForEachSource } from '../control/for';
 import {
   markReactivePropsDirtySource,
   markReadableDerivedSubscribersDirty,
@@ -26,6 +24,7 @@ import {
   recordReadableRead,
   type ReadableSource,
 } from './readable';
+import type { FineGrainedEffectHandle } from './effect';
 import {
   flushBenchMetrics,
   getBenchMetrics,
@@ -44,8 +43,8 @@ const BENCH_BUILD_ENABLED = isBenchBuildEnabled();
 export {
   getBenchMetrics,
   isBenchMetricScopeActive,
-  recordBenchCounter,
   recordBenchEvent,
+  recordBenchCounter,
   recordBenchTiming,
   resetBenchMetrics,
   withBenchMetricScope,
@@ -54,9 +53,17 @@ export {
 export interface ForItemInstance<T> {
   key: string | number;
   item: T;
+  reactiveItem: T;
+  itemSignal: ForItemSignal<T> | null;
   indexSignal: ForIndexSignal;
   scope: ChildScope;
 }
+
+type ForItemSignal<T> = ReadableSource<T> &
+  (() => T) & {
+    peek(): T;
+    set(newValue: T, notifyReaders?: boolean): void;
+  };
 
 type ForIndexSignal = ReadableSource<number> &
   (() => number) & {
@@ -74,6 +81,7 @@ export type ForCommitStrategy =
 export interface ForState<T> {
   kind: 'for';
   currentItems: T[];
+  eachSource: ForEachSource<T>;
   fallback: VNode | null;
   fallbackScope: ChildScope | null;
   items: Map<string | number, ForItemInstance<T>>;
@@ -87,13 +95,33 @@ export interface ForState<T> {
   pendingDirtyIndices: number[] | null;
   pendingSwapIndices: [number, number] | null;
   pendingMoveOnly: boolean;
+  _hasResolvedItemDom: boolean;
+  _needsSourceReconcile: boolean;
+  _sourceEffect: FineGrainedEffectHandle<T[]> | null;
+  _suspendSourceCommit: boolean;
   _enqueueBoundaryCommit?: (() => void) | null;
   _hasPendingBoundaryCommit?: boolean;
   devKeyKinds?: Map<string, 'number' | 'string'>;
 }
 
+const forStates = new WeakMap<
+  ComponentInstance,
+  Map<number, ForState<unknown>>
+>();
+
+function getForStore(
+  instance: ComponentInstance
+): Map<number, ForState<unknown>> {
+  let store = forStates.get(instance);
+  if (!store) {
+    store = new Map();
+    forStates.set(instance, store);
+  }
+  return store;
+}
+
 export function createForState<T>(
-  items: T[],
+  eachSource: ForEachSource<T>,
   byFn: ForState<T>['byFn'],
   renderFn: (item: T, index: () => number) => VNode,
   fallback: VNode | null
@@ -102,7 +130,8 @@ export function createForState<T>(
 
   return {
     kind: 'for',
-    currentItems: items,
+    currentItems: [],
+    eachSource,
     fallback,
     fallbackScope: null,
     items: new Map(),
@@ -116,9 +145,50 @@ export function createForState<T>(
     pendingDirtyIndices: null,
     pendingSwapIndices: null,
     pendingMoveOnly: false,
+    _hasResolvedItemDom: false,
+    _needsSourceReconcile: false,
+    _sourceEffect: null,
+    _suspendSourceCommit: false,
     _enqueueBoundaryCommit: null,
     _hasPendingBoundaryCommit: false,
   };
+}
+
+export function useForState<T>(
+  eachSource: ForEachSource<T>,
+  byFn: ForState<T>['byFn'],
+  renderFn: (item: T, index: () => number) => VNode,
+  fallback: VNode | null
+): ForState<T> {
+  const instance = getCurrentInstance();
+  if (!instance) {
+    throw new Error(
+      'For can only be created during component render execution.'
+    );
+  }
+
+  const hookIndex = claimHookIndex(instance, 'For');
+  const store = getForStore(instance);
+  const existing = store.get(hookIndex) as ForState<T> | undefined;
+
+  if (existing) {
+    existing.eachSource = eachSource;
+    existing.byFn = byFn;
+    existing.renderFn = renderFn;
+    existing.fallback = fallback;
+    return existing;
+  }
+
+  const created = createForState(eachSource, byFn, renderFn, fallback);
+  store.set(hookIndex, created as ForState<unknown>);
+
+  (instance.cleanupFns ??= []).push(() => {
+    created._sourceEffect?.cleanup();
+    created._sourceEffect = null;
+    store.delete(hookIndex);
+  });
+
+  return created;
 }
 
 function createForIndexSignal(initialIndex: number): ForIndexSignal {
@@ -145,6 +215,63 @@ function createForIndexSignal(initialIndex: number): ForIndexSignal {
   indexSignal._hasBeenRead = false;
 
   return indexSignal;
+}
+
+function createForItemSignal<T>(initialItem: T): ForItemSignal<T> {
+  let itemValue = initialItem;
+  const readers = new Map<ComponentInstance, number>();
+
+  const itemSignal = (() => {
+    itemSignal._hasBeenRead = true;
+    recordReadableRead(itemSignal);
+    return itemValue;
+  }) as ForItemSignal<T>;
+
+  itemSignal._readers = readers;
+  itemSignal.peek = () => itemValue;
+  itemSignal.set = (newValue: T, notifyReaders = true) => {
+    if (Object.is(itemValue, newValue)) {
+      return;
+    }
+
+    itemValue = newValue;
+    markReadableDerivedSubscribersDirty(itemSignal);
+    markReactivePropsDirtySource(itemSignal);
+
+    if (notifyReaders) {
+      notifyReadableReaders(itemSignal);
+    }
+  };
+  itemSignal._hasBeenRead = false;
+
+  return itemSignal;
+}
+
+function canProxyForItem(item: unknown): item is object {
+  return (
+    (typeof item === 'object' && item !== null) || typeof item === 'function'
+  );
+}
+
+function createReactiveForItem<T>(itemSignal: ForItemSignal<T>): T {
+  return new Proxy(Object.create(null) as object, {
+    get(_target, prop, receiver) {
+      const currentItem = itemSignal();
+      return Reflect.get(Object(currentItem), prop, receiver);
+    },
+    has(_target, prop) {
+      return prop in Object(itemSignal.peek());
+    },
+    ownKeys() {
+      return Reflect.ownKeys(Object(itemSignal.peek()));
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+      return Object.getOwnPropertyDescriptor(Object(itemSignal.peek()), prop);
+    },
+    getPrototypeOf() {
+      return Object.getPrototypeOf(Object(itemSignal.peek()));
+    },
+  }) as T;
 }
 
 function materializeItemVnode(
@@ -242,10 +369,7 @@ function disposeItemInstance<T>(
   }
 
   if (removedDom instanceof Element) {
-    if (domCleanup === 'full-clear') {
-      removeElementReactiveProps(removedDom);
-      removeElementListeners(removedDom);
-    } else if (domCleanup === 'teardown') {
+    if (domCleanup === 'teardown') {
       teardownNodeSubtree(removedDom);
     }
   }
@@ -264,6 +388,8 @@ export function createItemInstance<T>(
   // Create index signal manually without going through state() hook
   // to avoid hook order violations (each For item creates its signal dynamically)
   const indexSignal = createForIndexSignal(index);
+  const itemSignal = canProxyForItem(item) ? createForItemSignal(item) : null;
+  const reactiveItem = itemSignal ? createReactiveForItem(itemSignal) : item;
   const scope = createChildScope(forState.parentInstance, key, () => {
     if (forState._enqueueBoundaryCommit) {
       forState._enqueueBoundaryCommit();
@@ -276,11 +402,13 @@ export function createItemInstance<T>(
     }
   });
 
-  renderItemScope(forState, scope, item, indexSignal, key);
+  renderItemScope(forState, scope, reactiveItem, indexSignal, key);
 
   const itemInstance: ForItemInstance<T> = {
     key,
     item,
+    reactiveItem,
+    itemSignal,
     indexSignal,
     scope,
   };
@@ -300,6 +428,34 @@ function rerenderItemInstance<T>(
     itemInstance.indexSignal,
     itemInstance.key
   );
+}
+
+function updateItemInstance<T>(
+  forState: ForState<T>,
+  itemInstance: ForItemInstance<T>,
+  item: T
+): boolean {
+  if (itemInstance.item === item) {
+    return false;
+  }
+
+  itemInstance.item = item;
+
+  const itemSignal = itemInstance.itemSignal;
+  if (!itemSignal) {
+    rerenderItemInstance(forState, itemInstance, item);
+    return true;
+  }
+
+  const hasRenderReaders = (itemSignal._readers?.size ?? 0) > 0;
+  itemSignal.set(item, !hasRenderReaders);
+
+  if (!hasRenderReaders) {
+    return false;
+  }
+
+  rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+  return true;
 }
 
 const FOR_FALLBACK_SCOPE_KEY = '__for-fallback__';
@@ -322,10 +478,7 @@ function disposeFallbackScope<T>(
   }
 
   if (removedDom instanceof Element) {
-    if (domCleanup === 'full-clear') {
-      removeElementReactiveProps(removedDom);
-      removeElementListeners(removedDom);
-    } else if (domCleanup === 'teardown') {
+    if (domCleanup === 'teardown') {
       teardownNodeSubtree(removedDom);
     }
   }
@@ -444,11 +597,7 @@ export function reconcileForItems<T>(
         const existing = items.get(key)!;
         recordBenchEvent('itemReused');
 
-        const itemChanged = existing.item !== item;
-        if (itemChanged) {
-          existing.item = item;
-          rerenderItemInstance(forState, existing, item);
-        }
+        updateItemInstance(forState, existing, item);
 
         resultVNodes[i] = existing.scope.vnode as VNode;
       }
@@ -522,8 +671,7 @@ export function reconcileForItems<T>(
             const indexChanged = existing.indexSignal.peek() !== i;
 
             if (itemChanged) {
-              existing.item = item;
-              rerenderItemInstance(forState, existing, item);
+              updateItemInstance(forState, existing, item);
             }
 
             if (indexChanged && existing.indexSignal._hasBeenRead) {
@@ -595,11 +743,7 @@ export function reconcileForItems<T>(
         const existing = items.get(key)!;
         recordBenchEvent('itemReused');
 
-        const itemChanged = existing.item !== item;
-        if (itemChanged) {
-          existing.item = item;
-          rerenderItemInstance(forState, existing, item);
-        }
+        updateItemInstance(forState, existing, item);
 
         resultVNodes[i] = existing.scope.vnode as VNode;
       }
@@ -667,8 +811,7 @@ export function reconcileForItems<T>(
         const needsDomUpdate = existing.scope.needsDomUpdate;
 
         if (itemChanged) {
-          existing.item = item;
-          rerenderItemInstance(forState, existing, item);
+          updateItemInstance(forState, existing, item);
         }
 
         if (itemChanged || needsDomUpdate || existing.scope.needsDomUpdate) {
@@ -754,13 +897,11 @@ export function reconcileForItems<T>(
       recordBenchEvent('itemReused');
 
       if (firstExisting.item !== firstItem) {
-        firstExisting.item = firstItem;
-        rerenderItemInstance(forState, firstExisting, firstItem);
+        updateItemInstance(forState, firstExisting, firstItem);
       }
 
       if (secondExisting.item !== secondItem) {
-        secondExisting.item = secondItem;
-        rerenderItemInstance(forState, secondExisting, secondItem);
+        updateItemInstance(forState, secondExisting, secondItem);
       }
 
       if (
@@ -874,9 +1015,7 @@ export function reconcileForItems<T>(
 
       if (itemChanged) {
         moveOnly = false;
-        // Item data changed: update and re-execute
-        existing.item = item;
-        rerenderItemInstance(forState, existing, item);
+        updateItemInstance(forState, existing, item);
       }
 
       if (indexChanged) {
@@ -919,6 +1058,7 @@ export function evaluateForState<T>(forState: ForState<T>): VNode[] {
     throw new Error('For source must evaluate to an array');
   }
 
+  forState._needsSourceReconcile = false;
   return reconcileForItems(forState, forState.currentItems);
 }
 
@@ -937,4 +1077,5 @@ export function clearForDomUpdateState<T>(forState: ForState<T>): void {
   forState.pendingDirtyIndices = null;
   forState.pendingSwapIndices = null;
   forState.pendingMoveOnly = false;
+  forState._needsSourceReconcile = false;
 }

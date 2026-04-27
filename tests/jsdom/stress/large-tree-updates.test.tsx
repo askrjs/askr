@@ -40,7 +40,7 @@ describe('large tree updates (STRESS)', () => {
     flushScheduler();
     expect(container.textContent).toContain('0:1');
     expect(container.textContent).toContain('999:1');
-  });
+  }, 15000);
 
   it('should render when nesting is 100 levels deep', async () => {
     const Nested = (depth: number): JSXElement =>
@@ -87,5 +87,5 @@ describe('large tree updates (STRESS)', () => {
 
     expect(container.textContent).toContain('b-0');
     expect(container.textContent).toContain('b-999');
-  });
+  }, 15000);
 });

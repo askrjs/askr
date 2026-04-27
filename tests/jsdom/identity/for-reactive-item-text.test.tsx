@@ -21,6 +21,22 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 import { For } from '../../../src/control';
 
+function resetFineGrainedDiagnostics(): void {
+  const ns = (
+    globalThis as typeof globalThis & {
+      __ASKR__?: Record<string, unknown>;
+    }
+  ).__ASKR__;
+
+  if (!ns) {
+    return;
+  }
+
+  ns['componentReruns'] = 0;
+  ns['effectRuns'] = 0;
+  ns['textNodeWrites'] = 0;
+}
+
 describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)', () => {
   let container: HTMLElement;
   let cleanup: () => void;
@@ -251,5 +267,64 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     expect(firstEl2).toBe(secondEl2);
     // But text should be updated
     expect(secondEl2.textContent).toBe('B-updated');
+  });
+
+  it('should update a keyed row label through a row-local text effect', () => {
+    let items: State<Array<{ id: number; label: string }>> | null = null;
+    let parentRenderCount = 0;
+
+    const Component = () => {
+      parentRenderCount += 1;
+      items = state([
+        { id: 1, label: 'Alpha' },
+        { id: 2, label: 'Beta' },
+        { id: 3, label: 'Gamma' },
+      ]);
+
+      return (
+        <ul>
+          <For each={() => items!()} by={(item) => item.id}>
+            {(item) => <li>{() => item.label}</li>}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const rowsBefore = Array.from(container.querySelectorAll('li'));
+    const firstTextNodes = rowsBefore.map((row) => row.firstChild);
+
+    expect(parentRenderCount).toBe(1);
+    expect(rowsBefore[0]?.textContent).toBe('Alpha');
+    expect(rowsBefore[1]?.textContent).toBe('Beta');
+    expect(rowsBefore[2]?.textContent).toBe('Gamma');
+
+    resetFineGrainedDiagnostics();
+
+    items!.set([
+      { id: 1, label: 'Alpha!' },
+      { id: 2, label: 'Beta' },
+      { id: 3, label: 'Gamma' },
+    ]);
+    flushScheduler();
+
+    const ns = (
+      globalThis as typeof globalThis & {
+        __ASKR__?: Record<string, unknown>;
+      }
+    ).__ASKR__;
+
+    const rowsAfter = Array.from(container.querySelectorAll('li'));
+    expect(parentRenderCount).toBe(1);
+    expect(ns?.['componentReruns']).toBe(0);
+    expect(ns?.['textNodeWrites']).toBe(1);
+    expect(rowsAfter[0]?.textContent).toBe('Alpha!');
+    expect(rowsAfter[1]?.textContent).toBe('Beta');
+    expect(rowsAfter[2]?.textContent).toBe('Gamma');
+    expect(rowsAfter[0]?.firstChild).toBe(firstTextNodes[0]);
+    expect(rowsAfter[1]?.firstChild).toBe(firstTextNodes[1]);
+    expect(rowsAfter[2]?.firstChild).toBe(firstTextNodes[2]);
   });
 });

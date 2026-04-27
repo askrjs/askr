@@ -10,11 +10,11 @@ import {
 } from '../common/control';
 import type { JSXElement } from '../common/jsx';
 import type { DOMElement, VNode } from '../common/vnode';
-import { createForState, type ForState } from '../runtime/for';
-import { state } from '../runtime/state';
+import { createFineGrainedEffect } from '../runtime/effect';
+import { type ForState, useForState } from '../runtime/for';
 import { normalizeBoundaryChild } from './shared';
 
-type ForEachSource<T> = T[] | (() => T[]);
+export type ForEachSource<T> = T[] | (() => T[]);
 
 type ForBaseProps<T> = {
   each: ForEachSource<T>;
@@ -63,19 +63,39 @@ function createForBoundary<T>(props: ForProps<T>): DOMElement {
     throw new Error('[askr] <For> accepts either `by` or `byIndex`, not both.');
   }
 
-  const items = resolveEach(props.each);
   const byFn = resolveKeyFn(props);
   const fallback = normalizeBoundaryChild(props.fallback);
+  const forState = useForState(props.each, byFn, props.children, fallback);
 
-  const forStateContainer = state<ForState<T>>(
-    createForState(items, byFn, props.children, fallback)
-  );
-  const forState = forStateContainer();
+  const computeItems = () => resolveEach(forState.eachSource);
+  if (!forState._sourceEffect) {
+    forState._suspendSourceCommit = true;
+    forState._sourceEffect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: computeItems,
+      commit: (items) => {
+        forState.currentItems = items;
 
-  forState.currentItems = items;
-  forState.byFn = byFn;
-  forState.renderFn = props.children;
-  forState.fallback = fallback;
+        if (forState._suspendSourceCommit) {
+          return;
+        }
+
+        forState._needsSourceReconcile = true;
+
+        if (forState._enqueueBoundaryCommit) {
+          forState._enqueueBoundaryCommit();
+          return;
+        }
+
+        forState.parentInstance?._enqueueRun?.();
+      },
+    });
+    forState._suspendSourceCommit = false;
+  } else {
+    forState._suspendSourceCommit = true;
+    forState._sourceEffect.updateCompute(computeItems);
+    forState._suspendSourceCommit = false;
+  }
 
   return {
     type: __CONTROL_BOUNDARY__,
