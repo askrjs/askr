@@ -122,6 +122,10 @@ type ReactiveScalarChildSourceSlot =
 
 type ReactiveScalarChildSource = ReactiveScalarChildSourceSlot[];
 
+type ReactiveChildBoundarySequenceSource = Array<
+  { kind: 'static'; value: string } | { kind: 'dynamic'; compute: () => VNode }
+>;
+
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
 let reactiveChildScopeId = 0;
@@ -226,6 +230,102 @@ function getSingleReactiveChildBoundarySource(
   }
 
   return null;
+}
+
+function collectReactiveChildBoundarySequenceSource(
+  children: unknown,
+  slots: ReactiveChildBoundarySequenceSource,
+  state: { dynamicCount: number }
+): boolean {
+  if (isFragmentVNode(children)) {
+    const fragmentChildren = children.props?.children ?? children.children;
+    return collectReactiveChildBoundarySequenceSource(
+      fragmentChildren,
+      slots,
+      state
+    );
+  }
+
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      if (!collectReactiveChildBoundarySequenceSource(child, slots, state)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (children === null || children === undefined || children === false) {
+    return true;
+  }
+
+  if (typeof children === 'function') {
+    state.dynamicCount += 1;
+    slots.push({ kind: 'dynamic', compute: children as () => VNode });
+    return true;
+  }
+
+  if (typeof children === 'string' || typeof children === 'number') {
+    slots.push({ kind: 'static', value: String(children) });
+    return true;
+  }
+
+  return false;
+}
+
+function getReactiveChildBoundarySequenceSource(
+  children: unknown
+): ReactiveChildBoundarySequenceSource | null {
+  const slots: ReactiveChildBoundarySequenceSource = [];
+  const state = { dynamicCount: 0 };
+
+  if (!collectReactiveChildBoundarySequenceSource(children, slots, state)) {
+    return null;
+  }
+
+  return state.dynamicCount === 1 && slots.length > 1 ? slots : null;
+}
+
+function areReactiveChildBoundarySequenceSourcesEqual(
+  previousSource: unknown,
+  nextSource: ReactiveChildBoundarySequenceSource
+): boolean {
+  if (
+    !Array.isArray(previousSource) ||
+    previousSource.length !== nextSource.length
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < nextSource.length; index += 1) {
+    const previousSlot = previousSource[index] as
+      | ReactiveChildBoundarySequenceSource[number]
+      | undefined;
+    const nextSlot = nextSource[index];
+
+    if (!previousSlot || previousSlot.kind !== nextSlot.kind) {
+      return false;
+    }
+
+    if (nextSlot.kind === 'static') {
+      if (
+        previousSlot.kind !== 'static' ||
+        previousSlot.value !== nextSlot.value
+      ) {
+        return false;
+      }
+      continue;
+    }
+
+    if (
+      previousSlot.kind !== 'dynamic' ||
+      previousSlot.compute !== nextSlot.compute
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function areReactiveScalarChildSourcesEqual(
@@ -355,6 +455,35 @@ function normalizeReactiveChildBoundaryVNode(value: VNode): VNode {
   }
 
   return normalizeReactiveChildBoundaryVNode(children[0] as VNode);
+}
+
+function syncReactiveChildSequenceStaticNodes(
+  el: Element,
+  prefixNodes: Text[],
+  suffixNodes: Text[],
+  dynamicDom: Node | null
+): void {
+  const expectedNodes: Node[] = [...prefixNodes];
+  if (dynamicDom) {
+    expectedNodes.push(dynamicDom);
+  }
+  expectedNodes.push(...suffixNodes);
+
+  const currentNodes = Array.from(el.childNodes);
+  const matches =
+    currentNodes.length === expectedNodes.length &&
+    currentNodes.every((node, index) => node === expectedNodes[index]);
+
+  if (matches) {
+    return;
+  }
+
+  clearElementChildren(el);
+  const fragment = document.createDocumentFragment();
+  for (const node of expectedNodes) {
+    fragment.appendChild(node);
+  }
+  el.appendChild(fragment);
 }
 
 function commitReactiveChildScope(el: Element, scope: ChildScope): void {
@@ -493,14 +622,142 @@ function setupReactiveChildBoundary(
   };
 }
 
+function setupReactiveChildBoundarySequence(
+  el: Element,
+  source: ReactiveChildBoundarySequenceSource
+): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
+  let currentSource = source;
+  const parentInstance = getCurrentInstance();
+  const prefixNodes: Text[] = [];
+  const suffixNodes: Text[] = [];
+
+  let dynamicIndex = -1;
+  for (let index = 0; index < currentSource.length; index += 1) {
+    const slot = currentSource[index];
+    if (slot.kind === 'dynamic') {
+      dynamicIndex = index;
+      break;
+    }
+  }
+
+  if (dynamicIndex < 0) {
+    throw new Error(
+      '[Askr] Reactive child boundary sequence requires one dynamic slot.'
+    );
+  }
+
+  for (let index = 0; index < dynamicIndex; index += 1) {
+    const slot = currentSource[index];
+    if (slot?.kind !== 'static') {
+      throw new Error(
+        '[Askr] Reactive child boundary sequence expected static prefix slots.'
+      );
+    }
+    prefixNodes.push(document.createTextNode(slot.value));
+  }
+
+  for (let index = dynamicIndex + 1; index < currentSource.length; index += 1) {
+    const slot = currentSource[index];
+    if (slot?.kind !== 'static') {
+      throw new Error(
+        '[Askr] Reactive child boundary sequence expected static suffix slots.'
+      );
+    }
+    suffixNodes.push(document.createTextNode(slot.value));
+  }
+
+  const scope = createChildScope(
+    parentInstance,
+    `__reactive-child-seq__:${(reactiveChildScopeId += 1)}`,
+    () => {
+      const dynamicDom = commitReactiveChildScopeToDom(el, scope);
+      syncReactiveChildSequenceStaticNodes(
+        el,
+        prefixNodes,
+        suffixNodes,
+        dynamicDom
+      );
+    }
+  );
+
+  const renderCurrent = () =>
+    normalizeReactiveChildBoundaryVNode(
+      (
+        currentSource[dynamicIndex] as { kind: 'dynamic'; compute: () => VNode }
+      ).compute()
+    );
+
+  scope.render(renderCurrent);
+  const dynamicDom = commitReactiveChildScopeToDom(el, scope);
+  syncReactiveChildSequenceStaticNodes(
+    el,
+    prefixNodes,
+    suffixNodes,
+    dynamicDom
+  );
+
+  return {
+    cleanup: () => {
+      const dom = scope.dom;
+      disposeChildScope(scope);
+
+      if (dom?.parentNode === el) {
+        if (dom instanceof Element) {
+          teardownNodeSubtree(dom);
+        }
+        el.removeChild(dom);
+      }
+
+      for (const node of [...prefixNodes, ...suffixNodes]) {
+        if (node.parentNode === el) {
+          el.removeChild(node);
+        }
+      }
+    },
+    updateFn: (nextValue: unknown) => {
+      const nextSource = nextValue as ReactiveChildBoundarySequenceSource;
+      currentSource = nextSource;
+      rerenderChildScope(scope);
+      const nextDynamicDom = commitReactiveChildScopeToDom(el, scope);
+      syncReactiveChildSequenceStaticNodes(
+        el,
+        prefixNodes,
+        suffixNodes,
+        nextDynamicDom
+      );
+    },
+  };
+}
+
+function commitReactiveChildScopeToDom(
+  el: Element,
+  scope: ChildScope
+): Node | null {
+  const nextDom = syncForItemDom(el, scope, scope.vnode ?? null);
+
+  if (!nextDom) {
+    scope.needsDomUpdate = false;
+    return null;
+  }
+
+  scope.needsDomUpdate = false;
+  return nextDom;
+}
+
 function syncReactiveScalarChild(el: Element, children: unknown): boolean {
   const reactiveChildSource = getReactiveScalarChildSource(children);
   const reactiveChildBoundary = getSingleReactiveChildBoundarySource(children);
+  const reactiveChildBoundarySequence =
+    getReactiveChildBoundarySequenceSource(children);
   const existingReactiveEntry = elementReactivePropsCleanup
     .get(el)
     ?.get(REACTIVE_CHILDREN_KEY);
 
-  if (!reactiveChildSource && !reactiveChildBoundary) {
+  if (
+    !reactiveChildSource &&
+    !reactiveChildBoundary &&
+    !reactiveChildBoundarySequence
+  ) {
     if (existingReactiveEntry) {
       existingReactiveEntry.cleanup();
       const cleanupMap = elementReactivePropsCleanup.get(el);
@@ -547,10 +804,45 @@ function syncReactiveScalarChild(el: Element, children: unknown): boolean {
       });
       return true;
     } catch (error) {
-      if (!reactiveChildBoundary) {
+      if (!reactiveChildBoundary && !reactiveChildBoundarySequence) {
         throw error;
       }
     }
+  }
+
+  if (reactiveChildBoundarySequence) {
+    if (
+      existingReactiveEntry &&
+      Array.isArray(existingReactiveEntry.fnRef) &&
+      areReactiveChildBoundarySequenceSourcesEqual(
+        existingReactiveEntry.fnRef,
+        reactiveChildBoundarySequence
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      existingReactiveEntry?.updateFn &&
+      Array.isArray(existingReactiveEntry.fnRef)
+    ) {
+      existingReactiveEntry.updateFn(reactiveChildBoundarySequence);
+      existingReactiveEntry.fnRef = reactiveChildBoundarySequence;
+      return true;
+    }
+
+    existingReactiveEntry?.cleanup();
+
+    const reactive = setupReactiveChildBoundarySequence(
+      el,
+      reactiveChildBoundarySequence
+    );
+    getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
+      cleanup: reactive.cleanup,
+      updateFn: reactive.updateFn,
+      fnRef: reactiveChildBoundarySequence,
+    });
+    return true;
   }
 
   if (existingReactiveEntry?.fnRef === reactiveChildBoundary) {
