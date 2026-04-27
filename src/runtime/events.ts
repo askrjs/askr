@@ -12,6 +12,7 @@
 import { globalScheduler } from './scheduler';
 import { logger } from '../dev/logger';
 import { incrementPerfMetric } from './perf-metrics';
+import { incDevCounter } from './dev-namespace';
 
 export interface DelegatedEventMap {
   click: MouseEvent;
@@ -231,6 +232,8 @@ export function addDelegatedListener(
   const container = getDelegationContainer();
   if (!container) return;
 
+  incDevCounter('listenerAdds');
+
   attachDelegatedListener(
     container,
     element,
@@ -269,6 +272,9 @@ export function removeDelegatedListener(
   }
 
   if (existing instanceof Map) {
+    if (existing.has(eventName)) {
+      incDevCounter('listenerRemoves');
+    }
     existing.delete(eventName);
     if (existing.size === 0) {
       delegatedHandlers.delete(element);
@@ -282,6 +288,7 @@ export function removeDelegatedListener(
   }
 
   if (existing.eventName === eventName) {
+    incDevCounter('listenerRemoves');
     delegatedHandlers.delete(element);
   }
 }

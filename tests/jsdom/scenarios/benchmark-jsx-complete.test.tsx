@@ -67,61 +67,65 @@ describe(
   'JSX benchmark complete (matches js-framework-benchmark)',
   { timeout: 20000 },
   () => {
-    test('should render 1000 rows with JSX components', { timeout: 30000 }, () => {
-      const { container, cleanup } = createTestContainer();
-      let dataState!: State<RowData[]>;
-      let selectedState!: State<number | null>;
+    test(
+      'should render 1000 rows with JSX components',
+      { timeout: 30000 },
+      () => {
+        const { container, cleanup } = createTestContainer();
+        let dataState!: State<RowData[]>;
+        let selectedState!: State<number | null>;
 
-      const App = () => {
-        dataState = state<RowData[]>([]);
-        selectedState = state<number | null>(null);
-        const isSelected = selector(selectedState);
+        const App = () => {
+          dataState = state<RowData[]>([]);
+          selectedState = state<number | null>(null);
+          const isSelected = selector(selectedState);
 
-        const remove = (id: number) =>
-          dataState.set((d) => d.filter((it) => it.id !== id));
-        const select = (id: number) => selectedState.set(id);
+          const remove = (id: number) =>
+            dataState.set((d) => d.filter((it) => it.id !== id));
+          const select = (id: number) => selectedState.set(id);
 
-        return (
-          <div class="container">
-            <table class="table">
-              <tbody>
-                {
-                  <For each={() => dataState()} by={(item) => item.id}>
-                    {(item) => (
-                      <Row
-                        item={item}
-                        isSelected={isSelected}
-                        onSelect={select}
-                        onRemove={remove}
-                      />
-                    )}
-                  </For>
-                }
-              </tbody>
-            </table>
-          </div>
-        );
-      };
+          return (
+            <div class="container">
+              <table class="table">
+                <tbody>
+                  {
+                    <For each={() => dataState()} by={(item) => item.id}>
+                      {(item) => (
+                        <Row
+                          item={item}
+                          isSelected={isSelected}
+                          onSelect={select}
+                          onRemove={remove}
+                        />
+                      )}
+                    </For>
+                  }
+                </tbody>
+              </table>
+            </div>
+          );
+        };
 
-      createIsland({ root: container, component: App });
-      flushScheduler();
+        createIsland({ root: container, component: App });
+        flushScheduler();
 
-      // Create 1000 rows
-      dataState.set(buildData(1000));
-      flushScheduler();
+        // Create 1000 rows
+        dataState.set(buildData(1000));
+        flushScheduler();
 
-      const tbody = container.querySelector('tbody');
-      void expect(tbody).to.not.be.null;
-      const rows = tbody!.querySelectorAll('tr');
-      expect(rows.length).to.equal(1000);
+        const tbody = container.querySelector('tbody');
+        void expect(tbody).to.not.be.null;
+        const rows = tbody!.querySelectorAll('tr');
+        expect(rows.length).to.equal(1000);
 
-      // Verify first row
-      const firstCells = rows[0].querySelectorAll('td');
-      expect(firstCells[0].textContent).to.equal('1');
-      expect(firstCells[1].textContent).to.equal('Item 1');
+        // Verify first row
+        const firstCells = rows[0].querySelectorAll('td');
+        expect(firstCells[0].textContent).to.equal('1');
+        expect(firstCells[1].textContent).to.equal('Item 1');
 
-      cleanup();
-    });
+        cleanup();
+      }
+    );
 
     test('should handle selection with JSX', () => {
       const { container, cleanup } = createTestContainer();

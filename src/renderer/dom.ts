@@ -1439,6 +1439,7 @@ function addTrackedListener(
   } else {
     el.addEventListener(eventName, trackedHandler);
   }
+  incDevCounter('listenerAdds');
 
   if (!elementListeners.has(el)) {
     elementListeners.set(el, new Map());
@@ -1976,7 +1977,10 @@ function materializeKey(
         ? String(rawKey)
         : (rawKey as string | number);
   if (vnodeKey !== undefined) {
-    el.setAttribute('data-key', String(vnodeKey));
+    const nextKey = String(vnodeKey);
+    if (el.getAttribute('data-key') !== nextKey) {
+      el.setAttribute('data-key', nextKey);
+    }
   }
 }
 
@@ -3497,12 +3501,6 @@ export function commitForBoundaryChildren(
       }
 
       if (tryPatchStableForDirtyItem(itemInstance.scope)) {
-        if (itemInstance.scope.dom instanceof Element) {
-          const itemKeyText = String(itemKey);
-          if (itemInstance.scope.dom.getAttribute('data-key') !== itemKeyText) {
-            itemInstance.scope.dom.setAttribute('data-key', itemKeyText);
-          }
-        }
         continue;
       }
 
@@ -3901,6 +3899,7 @@ export function updateElementFromVnode(
         applyFormControlProp(el, key, false, vnode.type as string);
       } else if (eventName && existingListeners?.has(eventName)) {
         const entry = existingListeners.get(eventName)!;
+        incDevCounter('listenerRemoves');
         if (entry.isDelegated) {
           removeDelegatedListener(el, eventName);
         } else {
@@ -4070,6 +4069,7 @@ export function updateElementFromVnode(
       } else {
         el.addEventListener(eventName, trackedHandler);
       }
+      incDevCounter('listenerAdds');
 
       const listenerEntry = {
         handler: trackedHandler,
@@ -4093,6 +4093,7 @@ export function updateElementFromVnode(
     // If no event props were present, all existing listeners are undesired.
     if (desiredEventNames === null) {
       existingListeners.forEach((entry, eventName) => {
+        incDevCounter('listenerRemoves');
         if (entry.isDelegated) {
           removeDelegatedListener(el, eventName);
         } else {
@@ -4107,6 +4108,7 @@ export function updateElementFromVnode(
     } else {
       existingListeners.forEach((entry, eventName) => {
         if (!desiredEventNames.has(eventName)) {
+          incDevCounter('listenerRemoves');
           if (entry.isDelegated) {
             removeDelegatedListener(el, eventName);
           } else {

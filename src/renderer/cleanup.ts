@@ -1,6 +1,7 @@
 import { cleanupComponent } from '../runtime/component';
 import type { ComponentInstance } from '../runtime/component';
 import { logger } from '../dev/logger';
+import { incDevCounter } from '../runtime/dev-namespace';
 import {
   clearDelegatedHandlersForElement,
   removeDelegatedListener,
@@ -235,6 +236,7 @@ export function removeElementListeners(element: Element): void {
   const map = elementListeners.get(element);
   if (map) {
     for (const [eventName, entry] of map) {
+      incDevCounter('listenerRemoves');
       if (entry.isDelegated) {
         removeDelegatedListener(element, eventName);
       } else {
