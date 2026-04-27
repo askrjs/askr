@@ -1839,7 +1839,7 @@ export function createDOMNode(
 
     // For boundary - special handling
     if (type === __FOR_BOUNDARY__) {
-      return createForBoundary(node as DOMElement, props);
+      return createForBoundary(node as DOMElement, props, parentNamespace);
     }
 
     // Fragment support
@@ -2468,12 +2468,15 @@ function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
   return dom.tagName.toLowerCase() !== vnodeType.toLowerCase();
 }
 
-function materializeChildScopeDom(vnode: VNode): Node | null {
+function materializeChildScopeDom(
+  vnode: VNode,
+  parentNamespace?: string
+): Node | null {
   if (vnode === null || vnode === undefined || vnode === false) {
     return document.createComment('');
   }
 
-  const dom = createDOMNode(vnode);
+  const dom = createDOMNode(vnode, parentNamespace);
   if (!(dom instanceof DocumentFragment)) {
     return dom;
   }
@@ -2630,7 +2633,8 @@ function registerControlBoundaryCommitOwner(
  */
 export function createForBoundary(
   node: DOMElement,
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
+  parentNamespace?: string
 ): DocumentFragment {
   void props;
   const controlState = getControlBoundaryState(node);
@@ -2652,7 +2656,7 @@ export function createForBoundary(
     const activeScope = controlState.activeScope;
     const vnode = childrenVNodes[0];
     if (activeScope && vnode !== undefined) {
-      const dom = materializeChildScopeDom(vnode);
+      const dom = materializeChildScopeDom(vnode, parentNamespace);
       activeScope.dom = dom ?? undefined;
       if (dom) {
         fragment.appendChild(dom);
@@ -2667,7 +2671,7 @@ export function createForBoundary(
     const fallbackScope = forState.fallbackScope;
     const fallbackVNode = childrenVNodes[0];
     if (fallbackScope && fallbackVNode !== undefined) {
-      const dom = materializeChildScopeDom(fallbackVNode);
+      const dom = materializeChildScopeDom(fallbackVNode, parentNamespace);
       fallbackScope.dom = dom ?? undefined;
       if (dom) {
         fragment.appendChild(dom);
@@ -2698,7 +2702,7 @@ export function createForBoundary(
 
     // Create new DOM if no reusable node available
     if (!dom) {
-      dom = materializeChildScopeDom(childVNode);
+      dom = materializeChildScopeDom(childVNode, parentNamespace);
       // Cache the DOM in the item instance for future reuse
       if (itemInstance) {
         itemInstance.scope.dom = dom ?? undefined;
@@ -2728,6 +2732,8 @@ function syncForItemDom(
   vnode: VNode
 ): Node | null {
   let dom = scope.dom ?? null;
+  const parentNamespace =
+    parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
 
   if (dom && !scope.needsDomUpdate) {
     return dom;
@@ -2738,7 +2744,8 @@ function syncForItemDom(
       dom,
       vnode as ElementWithContext,
       vnode.type as (props: Props) => unknown,
-      ((vnode as DOMElement).props ?? {}) as Record<string, unknown>
+      ((vnode as DOMElement).props ?? {}) as Record<string, unknown>,
+      parentNamespace
     );
     if (syncedComponentDom) {
       scope.dom = syncedComponentDom ?? undefined;
@@ -2747,7 +2754,7 @@ function syncForItemDom(
   }
 
   if (!dom) {
-    dom = materializeChildScopeDom(vnode);
+    dom = materializeChildScopeDom(vnode, parentNamespace);
     scope.dom = dom ?? undefined;
     return dom;
   }
@@ -2777,7 +2784,7 @@ function syncForItemDom(
     return dom;
   }
 
-  const nextDom = materializeChildScopeDom(vnode);
+  const nextDom = materializeChildScopeDom(vnode, parentNamespace);
   if (!nextDom) {
     if (dom.parentNode === parent) {
       dom.parentNode.removeChild(dom);
@@ -4120,7 +4127,7 @@ export function updateUnkeyedChildren(
         if (tagsEqualIgnoreCase(current.tagName, next.type)) {
           updateElementFromVnode(current, next);
         } else {
-          const dom = createDOMNode(next);
+          const dom = createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(current);
             parent.replaceChild(dom, current);
@@ -4131,14 +4138,14 @@ export function updateUnkeyedChildren(
         if (synced && synced !== current) {
           teardownNodeSubtree(current);
         } else if (!synced) {
-          const dom = createDOMNode(next);
+          const dom = createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(current);
             parent.replaceChild(dom, current);
           }
         }
       } else {
-        const dom = createDOMNode(next);
+        const dom = createDOMNode(next, parentNamespace);
         if (dom) {
           teardownNodeSubtree(current);
           parent.replaceChild(dom, current);
@@ -4176,7 +4183,7 @@ export function updateUnkeyedChildren(
 
       // Append new children beyond existing length
       if (!currentNode && !nextIsEmpty) {
-        const dom = createDOMNode(next);
+        const dom = createDOMNode(next, parentNamespace);
         if (dom) parent.appendChild(dom);
         continue;
       }
@@ -4205,7 +4212,7 @@ export function updateUnkeyedChildren(
               updateElementFromVnode(currentEl, next);
             } else {
               // Different type - replace
-              const dom = createDOMNode(next);
+              const dom = createDOMNode(next, parentNamespace);
               if (dom) {
                 teardownNodeSubtree(currentEl);
                 parent.replaceChild(dom, currentNode);
@@ -4216,7 +4223,7 @@ export function updateUnkeyedChildren(
             if (synced && synced !== currentNode) {
               teardownNodeSubtree(currentEl);
             } else if (!synced) {
-              const dom = createDOMNode(next);
+              const dom = createDOMNode(next, parentNamespace);
               if (dom) {
                 teardownNodeSubtree(currentEl);
                 parent.replaceChild(dom, currentNode);
@@ -4225,7 +4232,7 @@ export function updateUnkeyedChildren(
           }
         } else {
           // Existing is text node - replace with element
-          const dom = createDOMNode(next);
+          const dom = createDOMNode(next, parentNamespace);
           if (dom) parent.replaceChild(dom, currentNode);
         }
       }
@@ -4281,7 +4288,7 @@ export function updateUnkeyedChildren(
 
     // Append new children beyond existing length
     if (!current && !nextIsEmpty) {
-      const dom = createDOMNode(next);
+      const dom = createDOMNode(next, parentNamespace);
       if (dom) parent.appendChild(dom);
       continue;
     }
@@ -4299,7 +4306,7 @@ export function updateUnkeyedChildren(
         if (tagsEqualIgnoreCase(current.tagName, next.type)) {
           updateElementFromVnode(current, next);
         } else {
-          const dom = createDOMNode(next);
+          const dom = createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(current);
             parent.replaceChild(dom, current);
@@ -4310,7 +4317,7 @@ export function updateUnkeyedChildren(
         if (synced && synced !== current) {
           teardownNodeSubtree(current);
         } else if (!synced) {
-          const dom = createDOMNode(next);
+          const dom = createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(current);
             parent.replaceChild(dom, current);
