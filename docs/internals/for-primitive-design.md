@@ -59,7 +59,7 @@ The control primitives own only:
 
 ## Control Boundary VNodes
 
-`For`, `Show`, and `Case` are eager JSX primitives. During parent render they allocate persistent state with `state()` and return a small internal control-boundary vnode.
+`For`, `Show`, and `Case` are eager JSX primitives. During parent render they allocate persistent boundary state and return a small internal control-boundary vnode.
 
 The renderer recognizes that boundary and delegates to runtime state:
 
@@ -84,6 +84,8 @@ Each live key owns:
 - one reactive index accessor
 - one cached vnode
 - one cached DOM root
+
+The `each` source is owned by the `For` boundary itself. List-source reads are tracked through a boundary-local fine-grained effect, so source changes dirty the `For` boundary instead of subscribing the parent component render. Same-order keyed updates can therefore stay row-local, while append, truncate, and reorder work still flow through keyed reconciliation.
 
 The runtime keeps the existing fast lanes:
 

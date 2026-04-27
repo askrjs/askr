@@ -17,12 +17,13 @@ export function SignupForm() {
   const [pending, setPending] = state(false);
   const [message, setMessage] = state('');
   const [error, setError] = state('');
-  let submitting = false;
+  const submitGuard = state({ active: false });
 
   const submitSignup = (event: Event) => {
     event.preventDefault();
 
-    if (submitting || pending()) {
+    const guard = submitGuard();
+    if (guard.active || pending()) {
       return;
     }
 
@@ -32,7 +33,7 @@ export function SignupForm() {
       return;
     }
 
-    submitting = true;
+    guard.active = true;
     setPending(true);
     setError('');
     setMessage('');
@@ -60,7 +61,7 @@ export function SignupForm() {
       } catch {
         setError('Signup failed. Try again.');
       } finally {
-        submitting = false;
+        guard.active = false;
         setPending(false);
       }
     })();
