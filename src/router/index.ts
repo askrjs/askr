@@ -62,7 +62,12 @@ export type {
 } from '../common/router';
 
 export { navigate } from './navigate';
-export type { NavigateOptions } from './navigate';
+export type {
+  NavigateOptions,
+  NavigationScrollBehavior,
+  HistoryScrollBehavior,
+  ScrollRestorationOptions,
+} from './navigate';
 
 export { Link } from '../components/link';
 export type { LinkProps } from '../components/link';

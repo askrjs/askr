@@ -83,7 +83,12 @@ export {
   type RouteRequestResult,
 } from './router';
 export { navigate } from './router/navigate';
-export type { NavigateOptions } from './router/navigate';
+export type {
+  NavigateOptions,
+  NavigationScrollBehavior,
+  HistoryScrollBehavior,
+  ScrollRestorationOptions,
+} from './router/navigate';
 
 // Components
 export { Link } from './components/link';

@@ -16,6 +16,10 @@ import {
 import { logger } from '../dev/logger';
 import { initializeNavigation, registerAppInstance } from '../router/navigate';
 import {
+  configureScrollRestoration,
+  type ScrollRestorationOptions,
+} from '../router/navigate';
+import {
   _applyManifest,
   _drainLazy,
   _setActiveRouteAuthOptions,
@@ -291,6 +295,7 @@ export type SPAConfig = {
   /** Legacy: flat route array — kept for backward compatibility and test fixtures. */
   routes?: Route[];
   auth?: RouteAuthOptions;
+  scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;
   component?: never;
 };
@@ -302,6 +307,7 @@ export type HydrateSPAConfig = {
   /** Legacy flat route array. */
   routes?: Route[];
   auth?: RouteAuthOptions;
+  scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;
   hydrate?: {
     verifyMarkup?: boolean;
@@ -412,6 +418,8 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
   const pendingLazyAtBoot = _snapshotLazy();
+
+  configureScrollRestoration(config.scrollRestoration);
 
   clearRoutes();
 
@@ -707,6 +715,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
   const pendingLazyAtHydrationBoot = _snapshotLazy();
+
+  configureScrollRestoration(config.scrollRestoration);
 
   clearRoutes();
 
