@@ -72,7 +72,7 @@ route('/posts/{slug}', PostPage, {
 Groups are pathless scopes. Child routes keep absolute paths.
 
 ```ts
-group({ layout: AppShell }, () => {
+group({ layout: RootLayout }, () => {
   route('/', HomePage);
 
   group({ auth: true }, () => {
