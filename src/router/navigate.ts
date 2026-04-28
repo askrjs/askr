@@ -7,24 +7,24 @@ import {
   resolveRouteRequest,
   lockRouteRegistration,
   type ResolvedRoute,
-} from './route';
-import { mountComponent, type ComponentInstance } from '../runtime/component';
+} from "./route";
+import { mountComponent, type ComponentInstance } from "../runtime/component";
 import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
-} from '../common/env';
-import { logger } from '../dev/logger';
-import type { RouteRenderResult, RouteRequestResult } from '../common/router';
-import { Fragment, ELEMENT_TYPE } from '../jsx';
-import { DefaultPortal } from '../foundations/structures/portal';
+} from "../common/env";
+import { logger } from "../dev/logger";
+import type { RouteRenderResult, RouteRequestResult } from "../common/router";
+import { Fragment, ELEMENT_TYPE } from "../jsx";
+import { DefaultPortal } from "../foundations/structures/portal";
 
 // Global app state for navigation
 let currentInstance: ComponentInstance | null = null;
-let currentPathname = '/';
-let currentHref = '/';
+let currentPathname = "/";
+let currentHref = "/";
 
-export type NavigationScrollBehavior = 'top' | 'preserve';
-export type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';
+export type NavigationScrollBehavior = "top" | "preserve";
+export type HistoryScrollBehavior = "restore" | "top" | "preserve";
 
 export type ScrollRestorationOptions = {
   navigation?: NavigationScrollBehavior;
@@ -39,8 +39,8 @@ type NormalizedScrollRestorationOptions = {
 
 const DEFAULT_SCROLL_RESTORATION: NormalizedScrollRestorationOptions = {
   enabled: true,
-  navigation: 'top',
-  history: 'restore',
+  navigation: "top",
+  history: "restore",
 };
 
 let scrollRestorationOptions: NormalizedScrollRestorationOptions = {
@@ -50,12 +50,12 @@ let scrollRestorationOptions: NormalizedScrollRestorationOptions = {
 const scrollPositions = new Map<string, { x: number; y: number }>();
 
 export type NavigateOptions = {
-  history?: 'push' | 'replace';
+  history?: "push" | "replace";
   scroll?: NavigationScrollBehavior;
 };
 
 function getWindowHref(): string {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return currentHref;
   }
 
@@ -63,7 +63,7 @@ function getWindowHref(): string {
 }
 
 function normalizeScrollRestorationOptions(
-  options?: boolean | ScrollRestorationOptions
+  options?: boolean | ScrollRestorationOptions,
 ): NormalizedScrollRestorationOptions {
   if (options === false) {
     return {
@@ -85,20 +85,20 @@ function normalizeScrollRestorationOptions(
 }
 
 function readScrollPosition(): { x: number; y: number } {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return { x: 0, y: 0 };
   }
 
   const x =
-    typeof window.scrollX === 'number'
+    typeof window.scrollX === "number"
       ? window.scrollX
-      : typeof window.pageXOffset === 'number'
+      : typeof window.pageXOffset === "number"
         ? window.pageXOffset
         : 0;
   const y =
-    typeof window.scrollY === 'number'
+    typeof window.scrollY === "number"
       ? window.scrollY
-      : typeof window.pageYOffset === 'number'
+      : typeof window.pageYOffset === "number"
         ? window.pageYOffset
         : 0;
 
@@ -107,18 +107,16 @@ function readScrollPosition(): { x: number; y: number } {
 
 function writeHistoryScrollPosition(
   href: string,
-  position: { x: number; y: number }
+  position: { x: number; y: number },
 ): void {
-  if (typeof window === 'undefined' || getWindowHref() !== href) {
+  if (typeof window === "undefined" || getWindowHref() !== href) {
     return;
   }
-
-  if (typeof window.history?.replaceState !== 'function') {
+  if (typeof window.history?.replaceState !== "function") {
     return;
   }
-
   const state =
-    window.history.state && typeof window.history.state === 'object'
+    window.history.state && typeof window.history.state === "object"
       ? window.history.state
       : {};
 
@@ -128,13 +126,13 @@ function writeHistoryScrollPosition(
       path: href,
       scroll: position,
     },
-    '',
-    href
+    "",
+    href,
   );
 }
 
 function saveScrollPosition(href: string): void {
-  if (!scrollRestorationOptions.enabled || typeof window === 'undefined') {
+  if (!scrollRestorationOptions.enabled || typeof window === "undefined") {
     return;
   }
 
@@ -144,7 +142,7 @@ function saveScrollPosition(href: string): void {
 }
 
 function scrollToPosition(position: { x: number; y: number }): void {
-  if (typeof window === 'undefined' || typeof window.scrollTo !== 'function') {
+  if (typeof window === "undefined" || typeof window.scrollTo !== "function") {
     return;
   }
 
@@ -152,35 +150,35 @@ function scrollToPosition(position: { x: number; y: number }): void {
 }
 
 function applyNavigationScroll(behavior: NavigationScrollBehavior): void {
-  if (!scrollRestorationOptions.enabled || behavior === 'preserve') {
+  if (!scrollRestorationOptions.enabled || behavior === "preserve") {
     return;
   }
 
   scrollToPosition({ x: 0, y: 0 });
 }
 
-function applyHistoryScroll(href: string, state: PopStateEvent['state']): void {
+function applyHistoryScroll(href: string, state: PopStateEvent["state"]): void {
   if (!scrollRestorationOptions.enabled) {
     return;
   }
 
-  if (scrollRestorationOptions.history === 'preserve') {
+  if (scrollRestorationOptions.history === "preserve") {
     return;
   }
 
-  if (scrollRestorationOptions.history === 'top') {
+  if (scrollRestorationOptions.history === "top") {
     scrollToPosition({ x: 0, y: 0 });
     return;
   }
 
   const fromState =
-    state && typeof state === 'object' && 'scroll' in state
+    state && typeof state === "object" && "scroll" in state
       ? (state.scroll as { x?: unknown; y?: unknown })
       : undefined;
   const saved =
     fromState &&
-    typeof fromState.x === 'number' &&
-    typeof fromState.y === 'number'
+    typeof fromState.x === "number" &&
+    typeof fromState.y === "number"
       ? { x: fromState.x, y: fromState.y }
       : scrollPositions.get(href);
 
@@ -188,19 +186,19 @@ function applyHistoryScroll(href: string, state: PopStateEvent['state']): void {
 }
 
 export function configureScrollRestoration(
-  options?: boolean | ScrollRestorationOptions
+  options?: boolean | ScrollRestorationOptions,
 ): void {
   scrollRestorationOptions = normalizeScrollRestorationOptions(options);
 
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return;
   }
 
-  if ('scrollRestoration' in window.history) {
+  if ("scrollRestoration" in window.history) {
     try {
       window.history.scrollRestoration = scrollRestorationOptions.enabled
-        ? 'manual'
-        : 'auto';
+        ? "manual"
+        : "auto";
     } catch {
       // Ignore environments that expose but do not allow setting scrollRestoration.
     }
@@ -208,16 +206,16 @@ export function configureScrollRestoration(
 }
 
 function parseTargetUrl(path: string): URL {
-  const pathname = window.location.pathname || '/';
-  const search = window.location.search || '';
-  const hash = window.location.hash || '';
+  const pathname = window.location.pathname || "/";
+  const search = window.location.search || "";
+  const hash = window.location.hash || "";
   const href =
-    typeof window.location.href === 'string' ? window.location.href : '';
+    typeof window.location.href === "string" ? window.location.href : "";
   const base =
     href &&
-    href !== 'about:blank' &&
-    !href.startsWith('about:') &&
-    !href.startsWith('data:')
+    href !== "about:blank" &&
+    !href.startsWith("about:") &&
+    !href.startsWith("data:")
       ? href
       : `http://localhost${pathname}${search}${hash}`;
 
@@ -225,9 +223,9 @@ function parseTargetUrl(path: string): URL {
 }
 
 function isRenderResult(
-  result: RouteRequestResult
+  result: RouteRequestResult,
 ): result is RouteRenderResult {
-  return result !== null && result.kind === 'render';
+  return result !== null && result.kind === "render";
 }
 
 function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
@@ -237,9 +235,9 @@ function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
 function createDeniedResolvedRoute(status: number): ResolvedRoute {
   return {
     handler: () => ({
-      type: 'div',
+      type: "div",
       props: {
-        'data-route-denied': String(status),
+        "data-route-denied": String(status),
       },
       children: [String(status)],
     }),
@@ -248,22 +246,22 @@ function createDeniedResolvedRoute(status: number): ResolvedRoute {
 }
 
 function bindResolvedRouteHandler(
-  resolved: ResolvedRoute
-): ComponentInstance['fn'] {
+  resolved: ResolvedRoute,
+): ComponentInstance["fn"] {
   return () =>
-    resolved.handler(resolved.params) as ReturnType<ComponentInstance['fn']>;
+    resolved.handler(resolved.params) as ReturnType<ComponentInstance["fn"]>;
 }
 
 function wrapRootRouteHandler(
-  componentFn: ComponentInstance['fn']
-): ComponentInstance['fn'] {
-  const wrappedFn: ComponentInstance['fn'] = (props, ctx) => {
+  componentFn: ComponentInstance["fn"],
+): ComponentInstance["fn"] {
+  const wrappedFn: ComponentInstance["fn"] = (props, ctx) => {
     const out = componentFn(props, ctx);
     const portalVNode = {
       $$typeof: ELEMENT_TYPE,
       type: DefaultPortal,
       props: {},
-      key: '__default_portal',
+      key: "__default_portal",
     } as unknown;
 
     return {
@@ -275,11 +273,11 @@ function wrapRootRouteHandler(
             ? [portalVNode]
             : [out, portalVNode],
       },
-    } as ReturnType<ComponentInstance['fn']>;
+    } as ReturnType<ComponentInstance["fn"]>;
   };
 
-  Object.defineProperty(wrappedFn, 'name', {
-    value: componentFn.name || 'Component',
+  Object.defineProperty(wrappedFn, "name", {
+    value: componentFn.name || "Component",
   });
 
   return wrappedFn;
@@ -288,7 +286,7 @@ function wrapRootRouteHandler(
 function remountResolvedRoute(
   resolved: ResolvedRoute,
   pathname: string,
-  href: string
+  href: string,
 ): boolean {
   if (!currentInstance) {
     return false;
@@ -367,7 +365,7 @@ function applyNavigationTarget(
     href: string;
     pathname: string;
     resolved: RouteRequestResult;
-  }
+  },
 ): void {
   const { href, pathname, resolved } = target;
   const previousPathname = currentPathname;
@@ -381,24 +379,24 @@ function applyNavigationTarget(
     return;
   }
 
-  if (resolved.kind === 'redirect') {
+  if (resolved.kind === "redirect") {
     const redirectTarget = parseTargetUrl(resolved.to);
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
     if (redirectHref === href) {
       if (isDevelopmentEnvironment()) {
         logger.warn(
-          `Navigation guard redirected to the same path: ${redirectHref}`
+          `Navigation guard redirected to the same path: ${redirectHref}`,
         );
       }
       return;
     }
 
-    navigate(redirectHref, { history: 'replace' });
+    navigate(redirectHref, { history: "replace" });
     return;
   }
 
   const nextResolved =
-    resolved.kind === 'deny'
+    resolved.kind === "deny"
       ? createDeniedResolvedRoute(resolved.status)
       : {
           handler: resolved.handler,
@@ -406,11 +404,8 @@ function applyNavigationTarget(
         };
 
   const historyMethod =
-    options.history === 'replace' ? 'replaceState' : 'pushState';
-  const writeHistory = window.history?.[historyMethod];
-  if (typeof writeHistory === 'function') {
-    writeHistory.call(window.history, { path: href }, '', href);
-  }
+    options.history === "replace" ? "replaceState" : "pushState";
+  window.history[historyMethod]({ path: href }, "", href);
 
   if (currentInstance) {
     if (pathname === currentPathname && isRenderResult(resolved)) {
@@ -421,7 +416,7 @@ function applyNavigationTarget(
     remountResolvedRoute(nextResolved, pathname, href);
     if (pathname !== previousPathname) {
       applyNavigationScroll(
-        options.scroll ?? scrollRestorationOptions.navigation
+        options.scroll ?? scrollRestorationOptions.navigation,
       );
     }
   }
@@ -430,7 +425,7 @@ function applyNavigationTarget(
 /** Register the current app instance (called by createSPA/hydrateSPA). */
 export function registerAppInstance(
   instance: ComponentInstance,
-  path: string
+  path: string,
 ): void {
   currentInstance = instance;
   currentPathname = path;
@@ -448,7 +443,7 @@ export function registerAppInstance(
  * Updates URL, resolves route, and re-mounts app with new handler
  */
 export function navigate(path: string, options: NavigateOptions = {}): void {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     // SSR context
     return;
   }
@@ -456,7 +451,7 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
   const target = resolveNavigationTarget(path);
   if (isPromise(target)) {
     void target.then((resolvedTarget) =>
-      applyNavigationTarget(path, options, resolvedTarget)
+      applyNavigationTarget(path, options, resolvedTarget),
     );
     return;
   }
@@ -488,8 +483,8 @@ function handlePopState(_event: PopStateEvent): void {
       return;
     }
 
-    if (resolved.kind === 'redirect') {
-      navigate(resolved.to, { history: 'replace' });
+    if (resolved.kind === "redirect") {
+      navigate(resolved.to, { history: "replace" });
       return;
     }
 
@@ -499,14 +494,14 @@ function handlePopState(_event: PopStateEvent): void {
     }
 
     remountResolvedRoute(
-      resolved.kind === 'deny'
+      resolved.kind === "deny"
         ? createDeniedResolvedRoute(resolved.status)
         : {
             handler: resolved.handler,
             params: resolved.params,
           },
       pathname,
-      href
+      href,
     );
 
     applyHistoryScroll(href, _event.state);
@@ -524,8 +519,8 @@ function handlePopState(_event: PopStateEvent): void {
  * Setup popstate listener for browser navigation
  */
 export function initializeNavigation(): void {
-  if (typeof window !== 'undefined') {
-    window.addEventListener('popstate', handlePopState);
+  if (typeof window !== "undefined") {
+    window.addEventListener("popstate", handlePopState);
   }
 }
 
@@ -533,7 +528,7 @@ export function initializeNavigation(): void {
  * Cleanup navigation listeners
  */
 export function cleanupNavigation(): void {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('popstate', handlePopState);
+  if (typeof window !== "undefined") {
+    window.removeEventListener("popstate", handlePopState);
   }
 }
