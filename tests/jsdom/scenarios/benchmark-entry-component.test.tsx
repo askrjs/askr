@@ -9,8 +9,8 @@ import { createTestContainer } from '../../../test-utils/render/test-renderer';
 describe('benchmark entry component harness', () => {
   it('should expose current local benchmark metadata', () => {
     expect(benchmarkMetadata.packageName).toBe('@askrjs/askr');
-    expect(benchmarkMetadata.packageVersion).toBe('0.0.1');
-    expect(benchmarkMetadata.buildLabel).toBe('0.0.1-local');
+    expect(benchmarkMetadata.packageVersion).toBe('0.1.0');
+    expect(benchmarkMetadata.buildLabel).toBe('0.1.0-local');
   });
 
   it('should preserve keyed row identity while updating selection and rows', () => {

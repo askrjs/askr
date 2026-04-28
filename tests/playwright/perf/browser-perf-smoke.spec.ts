@@ -11,8 +11,8 @@ test.describe('browser performance smoke checks', () => {
     );
 
     expect(metadata.packageName).toBe('@askrjs/askr');
-    expect(metadata.packageVersion).toBe('0.0.1');
-    expect(metadata.buildLabel).toBe('0.0.1-local');
+    expect(metadata.packageVersion).toBe('0.1.0');
+    expect(metadata.buildLabel).toBe('0.1.0-local');
   });
 
   test('should expose profiled benchmark operations with runtime metrics', async ({
@@ -24,7 +24,7 @@ test.describe('browser performance smoke checks', () => {
       window.__askrPlaywright.profileBenchmarkOperations()
     );
 
-    expect(profile.metadata.buildLabel).toBe('0.0.1-local');
+    expect(profile.metadata.buildLabel).toBe('0.1.0-local');
     expect(profile.operations.create1k.durationMs).toBeGreaterThanOrEqual(0);
     expect(profile.operations.create1k.benchMetrics.itemsCreated).toBe(1000);
     expect(profile.operations.update10th1k_x16.benchMetrics.fastLaneName).toBe(
