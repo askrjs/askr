@@ -76,7 +76,9 @@ describe('for-reactive-item-proxy', () => {
   });
 
   it('should surface current keys, descriptors, and property presence through the reactive item proxy', () => {
-    let items: State<Array<{ id: number; label: string; extra?: string }>> | null = null;
+    let items: State<
+      Array<{ id: number; label: string; extra?: string }>
+    > | null = null;
 
     const Component = () => {
       items = state([{ id: 1, label: 'Alpha' }]);
@@ -140,7 +142,9 @@ describe('for-reactive-item-proxy', () => {
   });
 
   it('should include current source props and proxy-owned props when spreading the reactive item proxy', () => {
-    let items: State<Array<{ id: number; label: string; extra?: string }>> | null = null;
+    let items: State<
+      Array<{ id: number; label: string; extra?: string }>
+    > | null = null;
 
     type RowProxy = {
       id: number;
@@ -184,7 +188,9 @@ describe('for-reactive-item-proxy', () => {
       '[data-id="1"]'
     ) as HTMLDivElement | null;
 
-    expect(rowBefore?.getAttribute('data-snapshot-keys')).toBe('badge,id,label');
+    expect(rowBefore?.getAttribute('data-snapshot-keys')).toBe(
+      'badge,id,label'
+    );
     expect(rowBefore?.getAttribute('data-snapshot-label')).toBe('Alpha');
     expect(rowBefore?.getAttribute('data-snapshot-extra')).toBe('');
     expect(rowBefore?.getAttribute('data-snapshot-badge')).toBe('badge:Alpha');

@@ -317,7 +317,7 @@ function createReactiveForItem<T>(
   itemSignal: ForItemSignal<T>,
   propertySignals: Map<PropertyKey, ForItemPropertySignal>
 ): T {
-  const target = Object.create(null) as Record<PropertyKey, unknown>;
+  const target = Object.create(null) as Record<string | symbol, unknown>;
 
   return new Proxy(target, {
     get(target, prop, receiver) {
@@ -342,7 +342,7 @@ function createReactiveForItem<T>(
       return prop in target || prop in Object(itemSignal.peek());
     },
     ownKeys(target) {
-      const keys = new Set<PropertyKey>(Reflect.ownKeys(target));
+      const keys = new Set<string | symbol>(Reflect.ownKeys(target));
       for (const key of Reflect.ownKeys(Object(itemSignal.peek()))) {
         keys.add(key);
       }

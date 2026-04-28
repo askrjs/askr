@@ -137,7 +137,9 @@ describe('For JSX primitive', () => {
       </div>
     );
 
-    expect(() => createIsland({ root: container, component: App })).not.toThrow();
+    expect(() =>
+      createIsland({ root: container, component: App })
+    ).not.toThrow();
 
     const keyedChildren = Array.from(container.querySelectorAll('span')).map(
       (node) => ({
