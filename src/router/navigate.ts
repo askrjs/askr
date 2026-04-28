@@ -21,10 +21,191 @@ import { DefaultPortal } from '../foundations/structures/portal';
 // Global app state for navigation
 let currentInstance: ComponentInstance | null = null;
 let currentPathname = '/';
+let currentHref = '/';
+
+export type NavigationScrollBehavior = 'top' | 'preserve';
+export type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';
+
+export type ScrollRestorationOptions = {
+  navigation?: NavigationScrollBehavior;
+  history?: HistoryScrollBehavior;
+};
+
+type NormalizedScrollRestorationOptions = {
+  enabled: boolean;
+  navigation: NavigationScrollBehavior;
+  history: HistoryScrollBehavior;
+};
+
+const DEFAULT_SCROLL_RESTORATION: NormalizedScrollRestorationOptions = {
+  enabled: true,
+  navigation: 'top',
+  history: 'restore',
+};
+
+let scrollRestorationOptions: NormalizedScrollRestorationOptions = {
+  ...DEFAULT_SCROLL_RESTORATION,
+};
+
+const scrollPositions = new Map<string, { x: number; y: number }>();
 
 export type NavigateOptions = {
   history?: 'push' | 'replace';
+  scroll?: NavigationScrollBehavior;
 };
+
+function getWindowHref(): string {
+  if (typeof window === 'undefined') {
+    return currentHref;
+  }
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function normalizeScrollRestorationOptions(
+  options?: boolean | ScrollRestorationOptions
+): NormalizedScrollRestorationOptions {
+  if (options === false) {
+    return {
+      enabled: false,
+      navigation: DEFAULT_SCROLL_RESTORATION.navigation,
+      history: DEFAULT_SCROLL_RESTORATION.history,
+    };
+  }
+
+  if (options === true || options === undefined) {
+    return { ...DEFAULT_SCROLL_RESTORATION };
+  }
+
+  return {
+    enabled: true,
+    navigation: options.navigation ?? DEFAULT_SCROLL_RESTORATION.navigation,
+    history: options.history ?? DEFAULT_SCROLL_RESTORATION.history,
+  };
+}
+
+function readScrollPosition(): { x: number; y: number } {
+  if (typeof window === 'undefined') {
+    return { x: 0, y: 0 };
+  }
+
+  const x =
+    typeof window.scrollX === 'number'
+      ? window.scrollX
+      : typeof window.pageXOffset === 'number'
+        ? window.pageXOffset
+        : 0;
+  const y =
+    typeof window.scrollY === 'number'
+      ? window.scrollY
+      : typeof window.pageYOffset === 'number'
+        ? window.pageYOffset
+        : 0;
+
+  return { x, y };
+}
+
+function writeHistoryScrollPosition(
+  href: string,
+  position: { x: number; y: number }
+): void {
+  if (typeof window === 'undefined' || getWindowHref() !== href) {
+    return;
+  }
+
+  if (typeof window.history?.replaceState !== 'function') {
+    return;
+  }
+
+  const state =
+    window.history.state && typeof window.history.state === 'object'
+      ? window.history.state
+      : {};
+
+  window.history.replaceState(
+    {
+      ...state,
+      path: href,
+      scroll: position,
+    },
+    '',
+    href
+  );
+}
+
+function saveScrollPosition(href: string): void {
+  if (!scrollRestorationOptions.enabled || typeof window === 'undefined') {
+    return;
+  }
+
+  const position = readScrollPosition();
+  scrollPositions.set(href, position);
+  writeHistoryScrollPosition(href, position);
+}
+
+function scrollToPosition(position: { x: number; y: number }): void {
+  if (typeof window === 'undefined' || typeof window.scrollTo !== 'function') {
+    return;
+  }
+
+  window.scrollTo(position.x, position.y);
+}
+
+function applyNavigationScroll(behavior: NavigationScrollBehavior): void {
+  if (!scrollRestorationOptions.enabled || behavior === 'preserve') {
+    return;
+  }
+
+  scrollToPosition({ x: 0, y: 0 });
+}
+
+function applyHistoryScroll(href: string, state: PopStateEvent['state']): void {
+  if (!scrollRestorationOptions.enabled) {
+    return;
+  }
+
+  if (scrollRestorationOptions.history === 'preserve') {
+    return;
+  }
+
+  if (scrollRestorationOptions.history === 'top') {
+    scrollToPosition({ x: 0, y: 0 });
+    return;
+  }
+
+  const fromState =
+    state && typeof state === 'object' && 'scroll' in state
+      ? (state.scroll as { x?: unknown; y?: unknown })
+      : undefined;
+  const saved =
+    fromState &&
+    typeof fromState.x === 'number' &&
+    typeof fromState.y === 'number'
+      ? { x: fromState.x, y: fromState.y }
+      : scrollPositions.get(href);
+
+  scrollToPosition(saved ?? { x: 0, y: 0 });
+}
+
+export function configureScrollRestoration(
+  options?: boolean | ScrollRestorationOptions
+): void {
+  scrollRestorationOptions = normalizeScrollRestorationOptions(options);
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if ('scrollRestoration' in window.history) {
+    try {
+      window.history.scrollRestoration = scrollRestorationOptions.enabled
+        ? 'manual'
+        : 'auto';
+    } catch {
+      // Ignore environments that expose but do not allow setting scrollRestoration.
+    }
+  }
+}
 
 function parseTargetUrl(path: string): URL {
   const pathname = window.location.pathname || '/';
@@ -106,7 +287,8 @@ function wrapRootRouteHandler(
 
 function remountResolvedRoute(
   resolved: ResolvedRoute,
-  pathname: string
+  pathname: string,
+  href: string
 ): boolean {
   if (!currentInstance) {
     return false;
@@ -137,10 +319,11 @@ function remountResolvedRoute(
   // preserve any shared layout DOM between sibling routes.
   mountComponent(currentInstance);
   currentPathname = pathname;
+  currentHref = href;
   return true;
 }
 
-function rerenderResolvedRoute(pathname: string): boolean {
+function rerenderResolvedRoute(pathname: string, href: string): boolean {
   if (!currentInstance) {
     return false;
   }
@@ -151,6 +334,7 @@ function rerenderResolvedRoute(pathname: string): boolean {
   }
 
   currentPathname = pathname;
+  currentHref = href;
   currentInstance._enqueueRun?.();
   return true;
 }
@@ -186,6 +370,9 @@ function applyNavigationTarget(
   }
 ): void {
   const { href, pathname, resolved } = target;
+  const previousPathname = currentPathname;
+
+  saveScrollPosition(currentHref);
 
   if (!resolved) {
     if (isDevelopmentEnvironment()) {
@@ -220,15 +407,23 @@ function applyNavigationTarget(
 
   const historyMethod =
     options.history === 'replace' ? 'replaceState' : 'pushState';
-  window.history[historyMethod]({ path: href }, '', href);
+  const writeHistory = window.history?.[historyMethod];
+  if (typeof writeHistory === 'function') {
+    writeHistory.call(window.history, { path: href }, '', href);
+  }
 
   if (currentInstance) {
     if (pathname === currentPathname && isRenderResult(resolved)) {
-      rerenderResolvedRoute(pathname);
+      rerenderResolvedRoute(pathname, href);
       return;
     }
 
-    remountResolvedRoute(nextResolved, pathname);
+    remountResolvedRoute(nextResolved, pathname, href);
+    if (pathname !== previousPathname) {
+      applyNavigationScroll(
+        options.scroll ?? scrollRestorationOptions.navigation
+      );
+    }
   }
 }
 
@@ -239,6 +434,8 @@ export function registerAppInstance(
 ): void {
   currentInstance = instance;
   currentPathname = path;
+  currentHref = getWindowHref();
+  saveScrollPosition(currentHref);
   // Lock further route registrations after the app has started — but allow tests to register routes.
   // Enforce only in production to avoid breaking test infra which registers routes dynamically.
   if (isProductionEnvironment()) {
@@ -271,8 +468,11 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
  * Handle browser back/forward buttons
  */
 function handlePopState(_event: PopStateEvent): void {
+  const previousHref = currentHref;
   const pathname = window.location.pathname;
   const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  saveScrollPosition(previousHref);
 
   if (!currentInstance) {
     return;
@@ -294,7 +494,7 @@ function handlePopState(_event: PopStateEvent): void {
     }
 
     if (pathname === currentPathname && isRenderResult(resolved)) {
-      rerenderResolvedRoute(pathname);
+      rerenderResolvedRoute(pathname, href);
       return;
     }
 
@@ -305,8 +505,11 @@ function handlePopState(_event: PopStateEvent): void {
             handler: resolved.handler,
             params: resolved.params,
           },
-      pathname
+      pathname,
+      href
     );
+
+    applyHistoryScroll(href, _event.state);
   };
 
   if (isPromise(resolved)) {

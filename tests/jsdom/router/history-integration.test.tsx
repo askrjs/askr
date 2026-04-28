@@ -24,6 +24,7 @@ import {
 
 describe('history integration (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
+  let scrollToSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     const result = createTestContainer();
@@ -32,6 +33,22 @@ describe('history integration (ROUTER)', () => {
     clearRoutes();
     // Clear history for test isolation
     vi.clearAllMocks();
+    scrollToSpy = vi.fn();
+    Object.defineProperty(window, 'scrollTo', {
+      value: scrollToSpy,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'scrollX', {
+      value: 0,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'scrollY', {
+      value: 0,
+      writable: true,
+      configurable: true,
+    });
   });
 
   afterEach(() => {
@@ -39,6 +56,19 @@ describe('history integration (ROUTER)', () => {
   });
 
   describe('history API integration', () => {
+    it('should scroll to top for new pathname navigations by default', async () => {
+      route('/page1', () => <div>Page 1</div>);
+
+      window.history.replaceState({}, '', '/');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      navigate('/page1');
+      flushScheduler();
+
+      expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+    });
+
     it('should push new entries to browser history', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
@@ -124,6 +154,34 @@ describe('history integration (ROUTER)', () => {
   });
 
   describe('back button behavior', () => {
+    it('should restore the saved scroll position on popstate by default', async () => {
+      route('/page1', () => <div>Page 1</div>);
+      route('/page2', () => <div>Page 2</div>);
+
+      window.history.replaceState({ path: '/page1' }, '', '/page1');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      window.scrollY = 240;
+      navigate('/page2');
+      flushScheduler();
+
+      scrollToSpy.mockClear();
+      window.history.pushState(
+        { path: '/page1', scroll: { x: 0, y: 240 } },
+        '',
+        '/page1'
+      );
+      window.dispatchEvent(
+        new PopStateEvent('popstate', {
+          state: { path: '/page1', scroll: { x: 0, y: 240 } },
+        })
+      );
+      flushScheduler();
+
+      expect(scrollToSpy).toHaveBeenCalledWith(0, 240);
+    });
+
     it('should create entries that can be traversed', async () => {
       route('/*', () => {
         return <div>Page</div>;
@@ -207,6 +265,23 @@ describe('history integration (ROUTER)', () => {
   });
 
   describe('state object', () => {
+    it('should allow apps to opt out of framework scroll restoration', async () => {
+      route('/page1', () => <div>Page 1</div>);
+
+      window.history.replaceState({}, '', '/');
+      await createSPA({
+        root: container,
+        routes: getRoutes(),
+        scrollRestoration: false,
+      });
+      flushScheduler();
+
+      navigate('/page1');
+      flushScheduler();
+
+      expect(scrollToSpy).not.toHaveBeenCalled();
+    });
+
     it('should store path in history state', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
