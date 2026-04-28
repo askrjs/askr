@@ -48,7 +48,7 @@ await createSPA({ root: '#app', manifest: getManifest() });
 paths and inherit layout and access metadata.
 
 ```ts
-group({ layout: AppShell }, () => {
+group({ layout: RootLayout }, () => {
   route('/', HomePage);
 
   group({ auth: true }, () => {
