@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Actor-backed deterministic UI framework",
   "keywords": [
     "askr",
@@ -80,6 +80,7 @@
   },
   "scripts": {
     "build": "cross-env NODE_ENV=production vp pack",
+    "pack": "npm run build",
     "build:dev": "cross-env NODE_ENV=development vp pack",
     "build:bench": "cross-env BUILD=bench NODE_ENV=production vp build",
     "dev": "vp dev",
@@ -123,6 +124,7 @@
     "perf:scenarios": "node scripts/run-perf-scenarios.js",
     "perf:loop": "node scripts/run-perf-loop.js --runs=2",
     "perf:phase0": "node scripts/run-perf-loop.js --runs=3",
+    "prepublishOnly": "npm run pack",
     "fmt": "vp fmt .",
     "lint": "cross-env OXLINT_TSGOLINT_PATH=./node_modules/.bin/tsgolint.cmd vp lint src tests test-utils checks benches"
   },
