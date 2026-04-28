@@ -317,8 +317,15 @@ function createReactiveForItem<T>(
   itemSignal: ForItemSignal<T>,
   propertySignals: Map<PropertyKey, ForItemPropertySignal>
 ): T {
-  return new Proxy(Object.create(null) as object, {
-    get(_target, prop, receiver) {
+  const target = Object.create(null) as Record<PropertyKey, unknown>;
+
+  return new Proxy(target, {
+    get(target, prop, receiver) {
+      const ownDescriptor = Reflect.getOwnPropertyDescriptor(target, prop);
+      if (ownDescriptor) {
+        return Reflect.get(target, prop, receiver);
+      }
+
       const currentItem = itemSignal.peek();
 
       if (typeof prop !== 'symbol') {
@@ -331,13 +338,23 @@ function createReactiveForItem<T>(
 
       return Reflect.get(Object(currentItem), prop, receiver);
     },
-    has(_target, prop) {
-      return prop in Object(itemSignal.peek());
+    has(target, prop) {
+      return prop in target || prop in Object(itemSignal.peek());
     },
-    ownKeys() {
-      return Reflect.ownKeys(Object(itemSignal.peek()));
+    ownKeys(target) {
+      const keys = new Set<PropertyKey>(Reflect.ownKeys(target));
+      for (const key of Reflect.ownKeys(Object(itemSignal.peek()))) {
+        keys.add(key);
+      }
+
+      return Array.from(keys);
     },
-    getOwnPropertyDescriptor(_target, prop) {
+    getOwnPropertyDescriptor(target, prop) {
+      const ownDescriptor = Reflect.getOwnPropertyDescriptor(target, prop);
+      if (ownDescriptor) {
+        return ownDescriptor;
+      }
+
       return Object.getOwnPropertyDescriptor(Object(itemSignal.peek()), prop);
     },
     getPrototypeOf() {
