@@ -124,6 +124,36 @@ describe('For JSX primitive', () => {
     cleanup();
   });
 
+  it('should materialize index keys when iterating JSX element values', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const children = [<span>A</span>, <span>B</span>];
+
+    const App = () => (
+      <div>
+        <For each={() => children} byIndex={true}>
+          {(child) => child as never}
+        </For>
+      </div>
+    );
+
+    expect(() => createIsland({ root: container, component: App })).not.toThrow();
+
+    const keyedChildren = Array.from(container.querySelectorAll('span')).map(
+      (node) => ({
+        key: node.getAttribute('data-key'),
+        text: node.textContent,
+      })
+    );
+
+    expect(keyedChildren).toEqual([
+      { key: '0', text: 'A' },
+      { key: '1', text: 'B' },
+    ]);
+
+    cleanup();
+  });
+
   it('should render fallback when the list is empty and restore rows afterward', () => {
     const { container, cleanup } = createTestContainer();
     type Item = { id: number; label: string };
