@@ -8,7 +8,7 @@ Askr uses each workspace package's `package.json` version as the source of truth
 2. Run the root checks that still apply:
 
 ```bash
-npm run verify:monorepo
+node scripts/validate-monorepo.js
 ```
 
 3. Run the normal quality gates before publishing:

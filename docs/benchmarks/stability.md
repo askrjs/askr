@@ -16,8 +16,8 @@ Run the stable non-browser lanes with:
 
 ```bash
 npm run bench
-npm run bench:json
-npm run bench:verify
+vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json
+vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
 ```
 
 `bench:verify` enforces stability thresholds for micro, jsdom, and SSR output:
@@ -36,7 +36,7 @@ node scripts/generate-bench-log.js --verify --max-rme=12 --min-samples=12
 Browser benchmarks are intentionally explicit:
 
 ```bash
-npm run bench:browser
+playwright test benches/browser --project=browser-perf
 ```
 
 They write trend data to `bench-results/browser.json`. Treat this as regression
@@ -47,9 +47,9 @@ signal, not precise lab timing.
 Before trusting optimization deltas, run three consecutive captures:
 
 ```bash
-npm run bench:json
-npm run bench:json
-npm run bench:json
+vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json
+vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json
+vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json
 ```
 
 If hotspot medians drift by more than 5%, retry under cleaner machine

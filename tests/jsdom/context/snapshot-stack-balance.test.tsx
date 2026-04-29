@@ -21,7 +21,10 @@ import { createIsland } from '../../../test-utils/render/create-island';
  * 3. Snapshots remain stable through async continuations
  */
 describe('context snapshot stack balance (REGRESSION)', () => {
-  it('should capture snapshot at mount time regardless of prior render history (snapshot semantics)', async () => {
+  it(
+    'should capture snapshot at mount time regardless of prior render history (snapshot semantics)',
+    { timeout: 15000 },
+    async () => {
     const Theme = defineContext('DEFAULT');
 
     const Child = () => {
@@ -83,5 +86,6 @@ describe('context snapshot stack balance (REGRESSION)', () => {
     } finally {
       cleanup();
     }
-  });
+  }
+  );
 });

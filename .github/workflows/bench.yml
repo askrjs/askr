@@ -15,10 +15,10 @@ jobs:
       matrix:
         include:
           - name: stable
-            command: npm run bench:verify
+            command: vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
             install_browsers: false
           - name: browser
-            command: npm run bench:browser
+            command: playwright test benches/browser --project=browser-perf
             install_browsers: true
 
     steps:
@@ -36,7 +36,7 @@ jobs:
 
       - name: Install Playwright browsers
         if: matrix.install_browsers
-        run: npm run test:browser:install
+        run: playwright install chromium firefox webkit
 
       - name: Run benchmark lane
         run: ${{ matrix.command }}

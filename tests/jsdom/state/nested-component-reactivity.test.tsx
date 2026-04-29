@@ -9,7 +9,7 @@
  * not a container holding the element.
  */
 
-import { expect } from 'chai';
+import { expect } from 'vite-plus/test';
 import { describe, it } from 'vite-plus/test';
 import { createIsland, state } from '../../../src';
 import {

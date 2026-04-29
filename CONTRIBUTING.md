@@ -30,10 +30,13 @@ npm install
 Run from repo root:
 
 ```bash
-npm run verify:monorepo
+node scripts/validate-monorepo.js
 npm run lint
 npm run build
 npm test
+npm run test:types
+npm run bench
+npm run verify:release
 npm run fmt
 ```
 

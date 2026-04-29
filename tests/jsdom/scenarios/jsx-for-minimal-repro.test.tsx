@@ -1,8 +1,7 @@
 /**
  * Minimal reproduction test for JSX + For rendering issues
  */
-import { expect } from 'chai';
-import { test, describe } from 'vite-plus/test';
+import { expect, test, describe } from 'vite-plus/test';
 import { createIsland, state } from '../../../src';
 import {
   createTestContainer,

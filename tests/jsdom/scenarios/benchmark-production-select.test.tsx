@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { expect } from 'vite-plus/test';
 import { test } from 'vite-plus/test';
 import { createIsland, selector, state } from '../../../src';
 import {

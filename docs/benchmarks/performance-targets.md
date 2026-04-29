@@ -10,13 +10,13 @@ Targets are based on the latest committed local benchmark artifacts from
 
 Use these as optimization goals, not as permanent public API guarantees. Refresh
 the baselines after every meaningful runtime performance change with
-`npm run bench:json`.
+`vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json`.
 
 ## Target Rules
 
 - Prefer median or mean wall time in milliseconds when comparing snapshots.
 - Treat a target as hit only when the benchmark is stable under
-  `npm run bench:verify`.
+  `vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify`.
 - A candidate should not regress any listed focus workload by more than 5%.
 - Re-run noisy workloads before making decisions if RME is above 15%.
 - Browser trends are required before claiming user-visible wins for hydration,

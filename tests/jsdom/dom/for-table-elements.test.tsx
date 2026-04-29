@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { expect } from 'vite-plus/test';
 import { test, describe } from 'vite-plus/test';
 import { createIsland } from '../../../src';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
