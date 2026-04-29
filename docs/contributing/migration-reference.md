@@ -6,18 +6,18 @@ or review older commits.
 
 ## Path Map
 
-| Previous Path                       | Current Path                                    | Notes                  |
-| ----------------------------------- | ----------------------------------------------- | ---------------------- |
-| `docs/quick-start.md`               | `docs/getting-started/quick-start.md`           | Renamed and expanded   |
-| `docs/state.md`                     | `docs/guides/state.md`                          | Guide location         |
-| `docs/enforcement.md`               | `docs/concepts/runtime-enforcement.md`          | Renamed for clarity    |
-| `docs/determinism.md`               | `docs/concepts/determinism.md`                  | Concept location       |
-| `docs/event-delegation.md`          | `docs/advanced/event-delegation.md`             | Advanced topic         |
-| `docs/selective-hydration.md`       | `docs/advanced/selective-hydration.md`          | Advanced topic         |
-| `docs/ssr-events.md`                | `docs/guides/ssr-events.md`                     | Guide location         |
-| `docs/for-primitive-design.md`      | `docs/internals/for-primitive-design.md`        | Internal design note   |
-| `docs/foundations-pit-of-success.md` | `docs/internals/foundations-pit-of-success.md` | Internal design note   |
-| `docs/foundations-audit-report.md`  | `docs/internals/foundations-audit-report.md`    | Internal audit note    |
+| Previous Path                        | Current Path                                   | Notes                |
+| ------------------------------------ | ---------------------------------------------- | -------------------- |
+| `docs/quick-start.md`                | `docs/getting-started/quick-start.md`          | Renamed and expanded |
+| `docs/state.md`                      | `docs/guides/state.md`                         | Guide location       |
+| `docs/enforcement.md`                | `docs/concepts/runtime-enforcement.md`         | Renamed for clarity  |
+| `docs/determinism.md`                | `docs/concepts/determinism.md`                 | Concept location     |
+| `docs/event-delegation.md`           | `docs/advanced/event-delegation.md`            | Advanced topic       |
+| `docs/selective-hydration.md`        | `docs/advanced/selective-hydration.md`         | Advanced topic       |
+| `docs/ssr-events.md`                 | `docs/guides/ssr-events.md`                    | Guide location       |
+| `docs/for-primitive-design.md`       | `docs/internals/for-primitive-design.md`       | Internal design note |
+| `docs/foundations-pit-of-success.md` | `docs/internals/foundations-pit-of-success.md` | Internal design note |
+| `docs/foundations-audit-report.md`   | `docs/internals/foundations-audit-report.md`   | Internal audit note  |
 
 ## Current Information Architecture
 

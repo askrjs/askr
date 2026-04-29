@@ -25,7 +25,7 @@ The intended dependency flow is simple:
 3. Themes provide presentation for the UI layer without adding runtime behavior.
 4. Icon wrappers stay thin and deterministic so they can be swapped or regenerated easily.
 5. CLI and Vite improve the developer experience without becoming runtime dependencies.
-That model keeps the package boundaries visible while still making the platform feel cohesive.
+   That model keeps the package boundaries visible while still making the platform feel cohesive.
 
 ## Operating rules
 
@@ -34,6 +34,7 @@ That model keeps the package boundaries visible while still making the platform 
 - Build and type-check behavior should be predictable from package metadata, not from ad hoc scripts.
 - Package roles should be obvious from the package name and docs.
 - Consolidation is only worth doing when two packages no longer have distinct contracts.
+
 ## What the platform should avoid
 
 - A single catch-all package that hides the difference between runtime, styling, tooling, and guardrails.
