@@ -1,4 +1,4 @@
-# Glossary
+﻿# Glossary
 
 Platform terms used consistently across Askr documentation and tooling.
 
@@ -70,7 +70,7 @@ for the top-level structure of a given URL.
 **Headless UI**
 
 UI primitives that provide interaction behavior and accessibility without imposing visual
-styling. `@askrjs/askr-ui` is headless. Pair it with `askr-themes` or your own CSS.
+styling. `@askrjs/ui` is headless. Pair it with `askr-themes` or your own CSS.
 
 ---
 
@@ -78,20 +78,20 @@ styling. `@askrjs/askr-ui` is headless. Pair it with `askr-themes` or your own C
 
 A low-level primitive used to build framework structure or headless UI behavior. Structural
 foundations live in `@askrjs/askr/foundations`; behavior foundations used by `askr-ui`
-live in `@askrjs/askr-ui/foundations`.
+live in `@askrjs/ui/foundations`.
 
 ---
 
 **Primitive**
 
 A composable building block. In the Askr context, a primitive is the smallest meaningful
-unit of behavior or rendering — a button, a dialog, a state getter.
+unit of behavior or rendering â€” a button, a dialog, a state getter.
 
 ---
 
 **Theme**
 
-The visual layer provided by `@askrjs/askr-themes`. Includes design tokens and base
+The visual layer provided by `@askrjs/themes`. Includes design tokens and base
 component styles. Themes are optional and replaceable.
 
 ---

@@ -17,10 +17,15 @@ export interface BenchmarkMetadata {
   buildLabel: string;
 }
 
+const packageName =
+  process.env.ASKR_PACKAGE_NAME || process.env.npm_package_name || '@askrjs/askr';
+const packageVersion =
+  process.env.ASKR_PACKAGE_VERSION || process.env.npm_package_version || '0.0.0';
+
 export const benchmarkMetadata: BenchmarkMetadata = {
-  packageName: process.env.ASKR_PACKAGE_NAME || '@askrjs/askr',
-  packageVersion: process.env.ASKR_PACKAGE_VERSION || '0.0.0',
-  buildLabel: process.env.ASKR_BENCHMARK_BUILD_LABEL || '0.0.0-local',
+  packageName,
+  packageVersion,
+  buildLabel: process.env.ASKR_BENCHMARK_BUILD_LABEL || `${packageVersion}-local`,
 };
 
 export function getBenchmarkMetadata(): BenchmarkMetadata {

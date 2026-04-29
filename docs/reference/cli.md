@@ -1,13 +1,13 @@
-# CLI Reference
+﻿# CLI Reference
 
 The Askr CLI is the command-line surface for scaffolding projects and running static-site generation.
 
 ## Install and Run
 
-The canonical entrypoint is `@askrjs/askr-cli`.
+The canonical entrypoint is `@askrjs/cli`.
 
 ```bash
-npx @askrjs/askr-cli --help
+npx @askrjs/cli --help
 ```
 
 The package also exposes direct bins:
@@ -107,8 +107,8 @@ export const concurrency = 10;
 Use the unified CLI first:
 
 ```bash
-npx @askrjs/askr-cli create startkit my-app
-npx @askrjs/askr-cli ssg --config ./ssg.config.ts --output ./dist/static
+npx @askrjs/cli create startkit my-app
+npx @askrjs/cli ssg --config ./ssg.config.ts --output ./dist/static
 ```
 
 Use the direct bins when you want shorter commands inside an already-installed toolchain.

@@ -1,4 +1,4 @@
-# Development: Repository Structure
+﻿# Development: Repository Structure
 
 The Askr platform lives in a single monorepo at `askrjs/askr`.
 
@@ -8,32 +8,32 @@ The Askr platform lives in a single monorepo at `askrjs/askr`.
 
 ```
 packages/
-  askr-core/        — core runtime
-  askr-ui/          — headless UI primitives
-  askr-themes/      — optional styling layer
-  askr-lucide/      — Lucide icon wrappers
-  askr-cli/         — CLI tooling and project templates
+  askr-core/        â€” core runtime
+  askr-ui/          â€” headless UI primitives
+  askr-themes/      â€” optional styling layer
+  askr-lucide/      â€” Lucide icon wrappers
+  askr-cli/         â€” CLI tooling and project templates
 
-docs/               — platform documentation (you are here)
-scripts/            — monorepo maintenance scripts
+docs/               â€” platform documentation (you are here)
+scripts/            â€” monorepo maintenance scripts
 
-package.json        — npm workspaces root
+package.json        â€” npm workspaces root
 ```
 
 ## Package relationships
 
 ```
 application
-    ↑ depends on
+    â†‘ depends on
   askr-ui, askr-themes, askr-lucide, askr-cli (as dev dep)
-    ↑ depends on
+    â†‘ depends on
   askr (peer)
 
 askr-ui consumes structural primitives from:
   @askrjs/askr/foundations
 
 askr-ui owns headless UI behavior helpers under:
-  @askrjs/askr-ui/foundations
+  @askrjs/ui/foundations
 ```
 
 All packages in `packages/` are npm workspaces. The root `package.json` manages them

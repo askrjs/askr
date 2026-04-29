@@ -1,4 +1,4 @@
-# Contributing to Askr
+﻿# Contributing to Askr
 
 Thanks for contributing to Askr.
 
@@ -45,8 +45,8 @@ You can target a single package with `--workspace`:
 
 ```bash
 npm run --workspace @askrjs/askr build
-npm run --workspace @askrjs/askr-ui test
-npm run --workspace @askrjs/askr-cli lint
+npm run --workspace @askrjs/ui test
+npm run --workspace @askrjs/cli lint
 ```
 
 ## Coding Guidelines

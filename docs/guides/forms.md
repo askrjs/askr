@@ -1,4 +1,4 @@
-# Forms Guide
+﻿# Forms Guide
 
 Patterns for building forms in Askr with `askr-ui` primitives.
 
@@ -16,9 +16,9 @@ Patterns for building forms in Askr with `askr-ui` primitives.
 
 ```tsx
 import { state } from '@askrjs/askr';
-import { Field, FieldLabel } from '@askrjs/askr-ui/field';
-import { Input } from '@askrjs/askr-ui/input';
-import { Button } from '@askrjs/askr-ui/button';
+import { Field, FieldLabel } from '@askrjs/ui/field';
+import { Input } from '@askrjs/ui/input';
+import { Button } from '@askrjs/ui/button';
 
 function SettingsForm() {
   const [name, setName] = state('');

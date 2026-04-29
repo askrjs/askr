@@ -1,4 +1,4 @@
-# Package Map
+﻿# Package Map
 
 Official packages in the Askr platform, their responsibilities, and their boundaries.
 
@@ -30,7 +30,7 @@ which is the machine-readable source of truth for package roles and workspace bo
 - Foundation primitives via `@askrjs/askr/foundations`:
   - structures (`Slot`, `Presence`, `Portal`, `DefaultPortal`, `createCollection`, `createLayer`, `layout`)
 
-- Headless UI helper foundations via `@askrjs/askr-ui/foundations`:
+- Headless UI helper foundations via `@askrjs/ui/foundations`:
   - interactions (`pressable`, `hoverable`, `focusable`, `rovingFocus`, `dismissable`)
   - utilities (`composeHandlers`, `mergeProps`, `composeRefs`, `formatId`, ARIA helpers)
   - controllable state helpers
@@ -52,14 +52,14 @@ import { registerRoutes, group, route } from '@askrjs/askr/router';
 import { resource, on } from '@askrjs/askr/resources';
 import { debounce } from '@askrjs/askr/fx';
 import { Slot, Portal, DefaultPortal } from '@askrjs/askr/foundations';
-import { pressable } from '@askrjs/askr-ui/foundations';
+import { pressable } from '@askrjs/ui/foundations';
 import { renderToString } from '@askrjs/askr/ssr';
 import { createStaticGen } from '@askrjs/askr/ssg';
 ```
 
 ---
 
-## `@askrjs/askr-ui`
+## `@askrjs/ui`
 
 **Headless UI primitives.**
 
@@ -79,14 +79,14 @@ import { createStaticGen } from '@askrjs/askr/ssg';
 ### Import style
 
 ```ts
-import { Button } from '@askrjs/askr-ui/button';
-import { Dialog, DialogContent, DialogTrigger } from '@askrjs/askr-ui/dialog';
-import { Select, SelectTrigger, SelectContent } from '@askrjs/askr-ui/select';
+import { Button } from '@askrjs/ui/button';
+import { Dialog, DialogContent, DialogTrigger } from '@askrjs/ui/dialog';
+import { Select, SelectTrigger, SelectContent } from '@askrjs/ui/select';
 ```
 
 ---
 
-## `@askrjs/askr-themes`
+## `@askrjs/themes`
 
 **Optional styling layer.**
 
@@ -106,12 +106,12 @@ import { Select, SelectTrigger, SelectContent } from '@askrjs/askr-ui/select';
 
 ```ts
 // Typically imported once at the app entry point or in CSS:
-import '@askrjs/askr-themes/default';
+import '@askrjs/themes/default';
 ```
 
 ---
 
-## `@askrjs/askr-lucide`
+## `@askrjs/lucide`
 
 **Lucide icon wrappers for Askr.**
 
@@ -130,15 +130,15 @@ import '@askrjs/askr-themes/default';
 ### Import style
 
 ```ts
-import { SearchIcon, XIcon, MenuIcon } from '@askrjs/askr-lucide';
+import { SearchIcon, XIcon, MenuIcon } from '@askrjs/lucide';
 
 // Per-icon (better tree-shaking):
-import { SearchIcon } from '@askrjs/askr-lucide/icons/search';
+import { SearchIcon } from '@askrjs/lucide/icons/search';
 ```
 
 ---
 
-## `@askrjs/askr-vite`
+## `@askrjs/vite`
 
 **Vite integration plugin for Askr projects.**
 
@@ -157,12 +157,12 @@ import { SearchIcon } from '@askrjs/askr-lucide/icons/search';
 ### Import style
 
 ```ts
-import { askr } from '@askrjs/askr-vite';
+import { askr } from '@askrjs/vite';
 ```
 
 ---
 
-## `@askrjs/askr-cli`
+## `@askrjs/cli`
 
 **Developer workflow tooling.**
 
@@ -183,9 +183,9 @@ Generated code has no runtime dependency on the CLI. The CLI is a dev-time tool 
 ### Usage
 
 ```bash
-npx @askrjs/askr-cli --help
-npx @askrjs/askr-cli create startkit my-app
-npx @askrjs/askr-cli ssg --config ./ssg.config.ts --output ./dist/static
+npx @askrjs/cli --help
+npx @askrjs/cli create startkit my-app
+npx @askrjs/cli ssg --config ./ssg.config.ts --output ./dist/static
 ```
 
 ---

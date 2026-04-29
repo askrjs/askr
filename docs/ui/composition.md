@@ -1,4 +1,4 @@
-# UI: Composition
+﻿# UI: Composition
 
 Patterns for composing `askr-ui` primitives into application components.
 
@@ -9,8 +9,8 @@ Askr UI is composed, not configured.
 Rather than `<Button icon="save" iconPosition="left">`, you compose:
 
 ```tsx
-import { Button } from '@askrjs/askr-ui/button';
-import { SaveIcon } from '@askrjs/askr-lucide';
+import { Button } from '@askrjs/ui/button';
+import { SaveIcon } from '@askrjs/lucide';
 
 <Button onPress={save}>
   <SaveIcon size={14} aria-hidden="true" /> Save changes
@@ -22,8 +22,8 @@ This keeps component APIs narrow. Behavior scales through composition, not prop 
 ## Field + Label composition
 
 ```tsx
-import { Field, FieldLabel } from '@askrjs/askr-ui/field';
-import { Input } from '@askrjs/askr-ui/input';
+import { Field, FieldLabel } from '@askrjs/ui/field';
+import { Input } from '@askrjs/ui/input';
 
 <Field id="email">
   <FieldLabel fieldId="email">Email address</FieldLabel>
@@ -46,8 +46,8 @@ import {
   DialogClose,
   DialogPortal,
   DialogOverlay,
-} from '@askrjs/askr-ui/dialog';
-import { Button } from '@askrjs/askr-ui/button';
+} from '@askrjs/ui/dialog';
+import { Button } from '@askrjs/ui/button';
 
 <Dialog>
   <DialogTrigger>
@@ -77,7 +77,7 @@ import {
   SelectPortal,
   SelectContent,
   SelectItem,
-} from '@askrjs/askr-ui/select';
+} from '@askrjs/ui/select';
 
 <Select value={timezone()} onValueChange={setTimezone}>
   <SelectTrigger aria-label="Timezone">

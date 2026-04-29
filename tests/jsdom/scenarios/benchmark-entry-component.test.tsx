@@ -6,11 +6,16 @@ import {
 } from '../../../src/bench/benchmark-entry';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
+const expectedPackageName = process.env.npm_package_name || '@askrjs/askr';
+const expectedPackageVersion =
+  process.env.npm_package_version || '0.0.29';
+const expectedBuildLabel = `${expectedPackageVersion}-local`;
+
 describe('benchmark entry component harness', () => {
   it('should expose current local benchmark metadata', () => {
-    expect(benchmarkMetadata.packageName).toBe('@askrjs/askr');
-    expect(benchmarkMetadata.packageVersion).toBe('0.1.0');
-    expect(benchmarkMetadata.buildLabel).toBe('0.1.0-local');
+    expect(benchmarkMetadata.packageName).toBe(expectedPackageName);
+    expect(benchmarkMetadata.packageVersion).toBe(expectedPackageVersion);
+    expect(benchmarkMetadata.buildLabel).toBe(expectedBuildLabel);
   });
 
   it('should preserve keyed row identity while updating selection and rows', () => {
