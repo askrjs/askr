@@ -62,7 +62,7 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
-        run: playwright install chromium firefox webkit
+        run: npx playwright install chromium firefox webkit
 
       - name: Browser integration tests
         run: npm run test:browser
