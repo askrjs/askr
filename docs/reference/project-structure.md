@@ -122,4 +122,4 @@ See [Conventions](./conventions.md) for naming rules applied to files, component
 
 - [Conventions](./conventions.md)
 - [Routing guide](../core/routing.md)
-- [CLI: create](../cli/create.md)
+- [CLI: create](https://github.com/askrjs/askr-cli/tree/main/docs/create.md)

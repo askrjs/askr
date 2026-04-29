@@ -74,5 +74,5 @@ Do not:
 ## Related
 
 - [Conventions](../reference/conventions.md)
-- [UI composition](../ui/composition.md)
+- [UI composition](https://github.com/askrjs/askr-ui/tree/main/docs/composition.md)
 - [Data primitives](../core/data.md)

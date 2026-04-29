@@ -94,5 +94,5 @@ Askr focuses on frontend application structure. The following are intentionally 
 
 - [Installation](./installation.md)
 - [Quick start](./quick-start.md)
-- [CLI overview](../cli/overview.md)
+- [CLI overview](https://github.com/askrjs/askr-cli/tree/main/docs/overview.md)
 - [Package map](../reference/package-map.md)

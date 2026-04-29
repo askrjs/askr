@@ -38,6 +38,7 @@ npm run test:browser:smoke
 
 `npm test` runs the full local test matrix: unit, jsdom, Chromium browser,
 a11y, and the cross-browser smoke lane.
+
 ## Layer Rules
 
 Unit tests cover router matching, route params, guards, reactivity, scheduler

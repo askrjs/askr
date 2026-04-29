@@ -51,5 +51,5 @@ function SettingsForm() {
 ## See also
 
 - [Core: data](../core/data.md)
-- [UI: composition](../ui/composition.md)
+- [UI: composition](https://github.com/askrjs/askr-ui/tree/main/docs/composition.md)
 - [Guide: CRUD](./crud.md)

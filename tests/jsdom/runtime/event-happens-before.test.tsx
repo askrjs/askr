@@ -307,36 +307,40 @@ describe('happens-before events (SPEC 2.3)', { timeout: 15000 }, () => {
       expect(span?.textContent).toContain(String(clickCount));
     });
 
-    it('should prevent read-modify-write race', { timeout: 30000 }, async () => {
-      const Component = () => {
-        const value = state(0);
+    it(
+      'should prevent read-modify-write race',
+      { timeout: 30000 },
+      async () => {
+        const Component = () => {
+          const value = state(0);
 
-        const doubleValue = () => {
-          // Atomically read and write
-          value.set(value() * 2);
+          const doubleValue = () => {
+            // Atomically read and write
+            value.set(value() * 2);
+          };
+
+          return (
+            <button onClick={doubleValue} data-final={value()}>
+              value: {String(value())}
+            </button>
+          );
         };
 
-        return (
-          <button onClick={doubleValue} data-final={value()}>
-            value: {String(value())}
-          </button>
-        );
-      };
+        createIsland({ root: container, component: Component });
 
-      createIsland({ root: container, component: Component });
+        const button = container.querySelector('button') as HTMLButtonElement;
 
-      const button = container.querySelector('button') as HTMLButtonElement;
+        // Rapid double operations
+        fireEvent.click(button);
+        fireEvent.click(button);
+        fireEvent.click(button);
 
-      // Rapid double operations
-      fireEvent.click(button);
-      fireEvent.click(button);
-      fireEvent.click(button);
+        flushScheduler();
 
-      flushScheduler();
-
-      // Values should be correct powers of 2 (0 * 2 = 0 still)
-      // But the pattern proves no interleaving
-      expect(button.textContent).toContain('value: 0');
-    });
+        // Values should be correct powers of 2 (0 * 2 = 0 still)
+        // But the pattern proves no interleaving
+        expect(button.textContent).toContain('value: 0');
+      }
+    );
   });
 });
