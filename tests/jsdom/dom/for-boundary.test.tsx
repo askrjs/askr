@@ -1,5 +1,4 @@
-import { expect } from 'chai';
-import { test } from 'vite-plus/test';
+import { expect, test } from 'vite-plus/test';
 import { createIsland } from '../../../src';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import { For } from '../../../src/control';

@@ -28,18 +28,16 @@ Shared test harness code lives outside the suite layers:
 ## Running Tests
 
 ```bash
+npm test
 npm run test:unit
 npm run test:jsdom
 npm run test:browser
 npm run test:a11y
 npm run test:browser:smoke
-npm test
 ```
 
-`npm test` runs unit, jsdom, Chromium browser, and a11y checks. Cross-browser
-smoke coverage is separate because Firefox and WebKit are intentionally small,
-high-signal confirmation lanes.
-
+`npm test` runs the full local test matrix: unit, jsdom, Chromium browser,
+a11y, and the cross-browser smoke lane.
 ## Layer Rules
 
 Unit tests cover router matching, route params, guards, reactivity, scheduler
@@ -75,13 +73,13 @@ Run stable non-browser lanes with:
 
 ```bash
 npm run bench
-npm run bench:verify
+vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
 ```
 
 Browser benchmarks are explicit:
 
 ```bash
-npm run bench:browser
+playwright test benches/browser --project=browser-perf
 ```
 
 ## Enforcement

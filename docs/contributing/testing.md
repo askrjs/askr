@@ -9,15 +9,13 @@ level.
 npm run test:unit
 npm run test:jsdom
 npm run test:browser
-npm run test:a11y
-npm run test:browser:smoke
 npm test
 ```
 
 Install browser binaries once per machine with:
 
 ```bash
-npm run test:browser:install
+playwright install chromium firefox webkit
 ```
 
 ## Choosing A Layer
@@ -47,11 +45,11 @@ behavior honestly.
 ## Benchmarks
 
 ```bash
-npm run bench:micro
-npm run bench:jsdom
-npm run bench:ssr
-npm run bench:browser
-npm run bench:verify
+vp test bench -c vitest.bench.micro.config.ts --run
+vp test bench -c vitest.bench.dom.config.ts --run
+vp test bench -c vitest.bench.ssr.config.ts --run
+playwright test benches/browser --project=browser-perf
+vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
 ```
 
 Microbenchmarks are Node-only. jsdom benchmarks measure DOM patching and

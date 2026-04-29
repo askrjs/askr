@@ -23,6 +23,7 @@ The release flow is split across dedicated workflows:
 - `.github/workflows/release.yml`: creates a GitHub release from an existing tag.
 - `.github/workflows/publish.yml`: publishes an existing release tag to npm.
 - `.github/workflows/bench.yml`: manual benchmark runner for stable and browser perf lanes.
+- `npm run verify:release` / `prepublishOnly`: release verification gate that runs lint, build, tests, type checks, docs/example checks, benchmark log verification, and perf scenario coverage.
 
 The intended happy path is:
 
@@ -39,6 +40,8 @@ manual recovery runs pinned to the intended release artifact.
 
 - All tests pass: `npm run test`
 - All lints pass: `npm run lint`
+- Type checks pass: `npm run test:types`
+- Release gate passes: `npm run verify:release`
 - CHANGELOG updated
 - Version bumped in `package.json`
 

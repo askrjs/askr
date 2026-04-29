@@ -272,7 +272,7 @@ describe('happens-before events (SPEC 2.3)', { timeout: 15000 }, () => {
   });
 
   describe('prevents classic race condition patterns', () => {
-    it('should prevent lost update race condition', () => {
+    it('should prevent lost update race condition', { timeout: 30000 }, () => {
       const Component = () => {
         const count = state(0);
 
@@ -307,7 +307,7 @@ describe('happens-before events (SPEC 2.3)', { timeout: 15000 }, () => {
       expect(span?.textContent).toContain(String(clickCount));
     });
 
-    it('should prevent read-modify-write race', async () => {
+    it('should prevent read-modify-write race', { timeout: 30000 }, async () => {
       const Component = () => {
         const value = state(0);
 

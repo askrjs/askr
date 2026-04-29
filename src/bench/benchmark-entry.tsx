@@ -18,14 +18,19 @@ export interface BenchmarkMetadata {
 }
 
 const packageName =
-  process.env.ASKR_PACKAGE_NAME || process.env.npm_package_name || '@askrjs/askr';
+  process.env.ASKR_PACKAGE_NAME ||
+  process.env.npm_package_name ||
+  '@askrjs/askr';
 const packageVersion =
-  process.env.ASKR_PACKAGE_VERSION || process.env.npm_package_version || '0.0.0';
+  process.env.ASKR_PACKAGE_VERSION ||
+  process.env.npm_package_version ||
+  '0.0.0';
 
 export const benchmarkMetadata: BenchmarkMetadata = {
   packageName,
   packageVersion,
-  buildLabel: process.env.ASKR_BENCHMARK_BUILD_LABEL || `${packageVersion}-local`,
+  buildLabel:
+    process.env.ASKR_BENCHMARK_BUILD_LABEL || `${packageVersion}-local`,
 };
 
 export function getBenchmarkMetadata(): BenchmarkMetadata {

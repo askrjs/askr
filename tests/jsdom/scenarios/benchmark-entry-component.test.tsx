@@ -7,8 +7,7 @@ import {
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 const expectedPackageName = process.env.npm_package_name || '@askrjs/askr';
-const expectedPackageVersion =
-  process.env.npm_package_version || '0.0.29';
+const expectedPackageVersion = process.env.npm_package_version || '0.0.29';
 const expectedBuildLabel = `${expectedPackageVersion}-local`;
 
 describe('benchmark entry component harness', () => {

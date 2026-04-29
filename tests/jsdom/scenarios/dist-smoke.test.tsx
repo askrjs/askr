@@ -1,4 +1,3 @@
-import { expect as expectChai } from 'chai';
 import { test, vi, expect } from 'vite-plus/test';
 import {
   createTestContainer,
@@ -13,7 +12,13 @@ const execP = promisify(exec);
 
 test('should build dist and run benchmark bundle without dev warnings', async () => {
   // Build the production bundle (includes `benchmark` entry)
-  await execP('npm run build:bench');
+  await execP('npm exec -- vp build', {
+    env: {
+      ...process.env,
+      BUILD: 'bench',
+      NODE_ENV: 'production',
+    },
+  });
 
   // Spy on console.warn to ensure production bundle emits no dev warnings
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -24,7 +29,7 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
   );
   const built = await import(/* @vite-ignore */ benchmarkBundleUrl.href);
   const mount = built.mountBenchmark ?? built.default?.mountBenchmark;
-  expectChai(typeof mount).to.equal('function');
+  expect(typeof mount).to.equal('function');
 
   const { container, cleanup } = createTestContainer();
 
@@ -33,13 +38,13 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
   flushScheduler();
 
   // Basic sanity checks to make failures actionable
-  expectChai(app, 'expected mount to return an app handle').to.not.equal(
+  expect(app, 'expected mount to return an app handle').to.not.equal(
     undefined
   );
 
   const appHandle = app as { setRows?: (data: unknown[]) => void };
 
-  expectChai(
+  expect(
     typeof appHandle.setRows,
     'expected app.setRows to exist and be a function'
   ).to.equal('function');
@@ -79,7 +84,7 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
   const tbody = container.querySelector('tbody')!;
   const rows = tbody.querySelectorAll('tr');
   // Sanity: assert rows were rendered by framework
-  expectChai(
+  expect(
     rows.length,
     `expected 3 rows after setRows; DOM was: ${container.innerHTML}`
   ).to.equal(3);
@@ -94,7 +99,7 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
   await new Promise((r) => setTimeout(r, 0));
 
   // Expect class applied
-  expectChai(rows[1].className).to.equal('danger');
+  expect(rows[1].className).to.equal('danger');
 
   // The framework's benchmark semantics expect selection to set a class.
   // We assert that no dev warnings were emitted during this flow in production.

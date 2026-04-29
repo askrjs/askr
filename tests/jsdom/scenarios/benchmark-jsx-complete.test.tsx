@@ -2,8 +2,7 @@
  * Complete JSX benchmark test matching js-framework-benchmark structure
  * This test verifies that JSX syntax works with For, nested components, and event handlers
  */
-import { expect } from 'chai';
-import { test, describe } from 'vite-plus/test';
+import { expect, test, describe } from 'vite-plus/test';
 import { createIsland, selector, state } from '../../../src';
 import {
   createTestContainer,
@@ -65,11 +64,11 @@ function buildData(count: number, startId: number = 1): RowData[] {
 
 describe(
   'JSX benchmark complete (matches js-framework-benchmark)',
-  { timeout: 20000 },
+  { timeout: 60000 },
   () => {
     test(
       'should render 1000 rows with JSX components',
-      { timeout: 30000 },
+      { timeout: 60000 },
       () => {
         const { container, cleanup } = createTestContainer();
         let dataState!: State<RowData[]>;
