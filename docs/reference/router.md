@@ -114,10 +114,10 @@ import { Link } from '@askrjs/askr/router';
 
 ## Types
 
-| Type | Description |
-| --- | --- |
-| `RouteComponent` | Page component signature |
-| `RouteOptions` | Options accepted by `route()` |
-| `RouteRecord` | Normalized route record |
-| `RouteManifest` | Full route graph |
-| `RouteSnapshot` | Read-only snapshot from `currentRoute()` |
+| Type             | Description                              |
+| ---------------- | ---------------------------------------- |
+| `RouteComponent` | Page component signature                 |
+| `RouteOptions`   | Options accepted by `route()`            |
+| `RouteRecord`    | Normalized route record                  |
+| `RouteManifest`  | Full route graph                         |
+| `RouteSnapshot`  | Read-only snapshot from `currentRoute()` |
