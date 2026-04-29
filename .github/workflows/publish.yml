@@ -1,68 +1,40 @@
 name: Publish Package
 
 on:
-  workflow_dispatch: {}
+  release:
+    types:
+      - published
 
 permissions:
-  contents: write
+  contents: read
+  id-token: write
   packages: read
 
 jobs:
-  ci:
-    name: Run CI Checks
-    uses: ./.github/workflows/ci.yml
-    permissions:
-      contents: read
-
   publish:
     name: Publish
-    needs: ci
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
-      id-token: write # required for npm Trusted Publishing
-      packages: read
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-tags: true
 
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 'lts/*'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "lts/*"
 
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Build Library
-        run: npm run build
-
-      - name: Get Version from Package.json
-        id: package-version
-        run: |
-          VERSION=$(npm pkg get version | tr -d '"')
-          # Remove any leading 'v' if present
-          VERSION=${VERSION#v}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-
-          # Determine npm tag based on version
-          case "$VERSION" in
-            *-alpha*) echo "tag=alpha" >> $GITHUB_OUTPUT ;;
-            *-beta*)  echo "tag=beta" >> $GITHUB_OUTPUT ;;
-            *)        echo "tag=latest" >> $GITHUB_OUTPUT ;;
-          esac
-
-      - name: Tag Commit
-        if: github.ref_type != 'tag'
-        uses: fgrzl/actions/tag-commit@v0.0.6
+      - name: Resolve npm dist-tag
+        id: package
+        uses: askrjs/actions/actions/resolve-npm-tag@ed124344f103ec17a3ff86013bcdedf2d87e92c4
         with:
-          tag: v${{ steps.package-version.outputs.version }}
+          semver: ${{ github.event.release.tag_name }}
 
-      - name: Publish to npm (Trusted Publishing)
-        if: github.ref_type == 'tag' || github.ref == 'refs/heads/main'
-        run: npm publish --provenance
+      - name: Publish to npm
+        uses: askrjs/actions/actions/publish-package@ed124344f103ec17a3ff86013bcdedf2d87e92c4
+        with:
+          package-json-path: package.json
+          registry: https://registry.npmjs.org/
+          access: public
+          tag: ${{ steps.package.outputs.tag }}
