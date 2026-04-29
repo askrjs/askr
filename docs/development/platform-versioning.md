@@ -1,6 +1,8 @@
 # Platform Versioning
 
-Askr uses each package repository's `package.json` version as the source of truth. Package releases are coordinated by policy, not by a repository-level platform version file.
+Askr uses each package repository's `package.json` version as the release source
+of truth. Package releases are coordinated by policy, not by a shared platform
+version file.
 
 ## Update workflow
 
@@ -15,4 +17,5 @@ npm run lint
 
 ## Why
 
-Keeping version state in package manifests avoids a second contract that can drift from npm publish metadata.
+Keeping version state in package manifests avoids a second contract that can drift
+from npm publish metadata.
