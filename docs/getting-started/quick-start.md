@@ -2,12 +2,12 @@
 
 This guide gets a small Askr app running with state and routing.
 
-If you want a generated starter instead of building the example by hand, use the [CLI Reference](../reference/cli.md) and scaffold a project with `askr-cli create`.
+If you want a generated starter instead of building the example by hand, use the [CLI docs](https://github.com/askrjs/askr-cli/tree/main/docs/README.md) and scaffold a project with `askr-cli create`.
 
 ## Prerequisites
 
 - [Installation](installation.md)
-- [CLI Reference](../reference/cli.md)
+- [CLI docs](https://github.com/askrjs/askr-cli/tree/main/docs/README.md)
 
 ## 1) Create a component
 

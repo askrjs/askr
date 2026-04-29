@@ -95,4 +95,4 @@ const ssg = createStaticGen({
 - [SSG guide](../guides/ssg.md)
 - [Runtime](./runtime.md)
 - [Routing](./routing.md)
-- [CLI: workflows](../cli/workflows.md)
+- [CLI workflows](https://github.com/askrjs/askr-cli/tree/main/docs/workflows.md)

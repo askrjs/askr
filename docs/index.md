@@ -34,34 +34,25 @@ The runtime, routing, rendering, and data primitives.
 
 ## UI
 
-| Page                                | Description                              |
-| ----------------------------------- | ---------------------------------------- |
-| [askr-ui overview](./ui/askr-ui.md) | What askr-ui is and component categories |
-| [Foundations](./ui/foundations.md)  | Behavior primitive layer                 |
-| [Components](./ui/components.md)    | All component import paths               |
-| [Composition](./ui/composition.md)  | Patterns for composing primitives        |
+| Page                                                                               | Description                                     |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [askr-ui package docs](https://github.com/askrjs/askr-ui/tree/main/docs/README.md) | Canonical askr-ui docs live in the package repo |
 
 ---
 
 ## Styling
 
-| Page                                    | Description                     |
-| --------------------------------------- | ------------------------------- |
-| [askr-themes](./styling/askr-themes.md) | Optional visual defaults        |
-| [Tokens](./styling/tokens.md)           | Design token reference          |
-| [Theming](./styling/theming.md)         | Override and dark mode patterns |
+| Page                                                                                       | Description                                         |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| [askr-themes package docs](https://github.com/askrjs/askr-themes/tree/main/docs/README.md) | Canonical askr-themes docs live in the package repo |
 
 ---
 
 ## CLI
 
-| Page                                     | Description                        |
-| ---------------------------------------- | ---------------------------------- |
-| [Overview](./cli/overview.md)            | Philosophy, install, core commands |
-| [create](./cli/create.md)                | Scaffold a new project             |
-| [add](./cli/add.md)                      | Feature generators (planned)       |
-| [Workflows](./cli/workflows.md)          | End-to-end CLI workflows           |
-| [Full CLI reference](./reference/cli.md) | All options                        |
+| Page                                                                                 | Description                                      |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| [askr-cli package docs](https://github.com/askrjs/askr-cli/tree/main/docs/README.md) | Canonical askr-cli docs live in the package repo |
 
 ---
 

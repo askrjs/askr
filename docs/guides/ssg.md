@@ -110,5 +110,5 @@ The generator writes `metadata.json` into the output directory with:
 
 - [SSR Guide](ssr.md)
 - [Router Guide](router.md)
-- [CLI Reference](../reference/cli.md)
+- [CLI docs](https://github.com/askrjs/askr-cli/tree/main/docs/README.md)
 - [API Overview](../reference/api.md)

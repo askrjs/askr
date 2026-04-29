@@ -55,16 +55,16 @@ Askr focuses on frontend application structure and developer workflow. It is not
 
 ## Documentation map
 
-| Section                               | What you will find                                    |
-| ------------------------------------- | ----------------------------------------------------- |
-| [Getting started](./getting-started/) | Installation, quickstart, platform overview           |
-| [Core](./core/)                       | Runtime, routing, rendering, data primitives          |
-| [UI](./ui/)                           | askr-ui headless primitives and composition patterns  |
-| [Styling](./styling/)                 | askr-themes, tokens, theming                          |
-| [CLI](./cli/)                         | Project creation, generators, workflows               |
-| [Guides](./guides/)                   | Real-app walkthroughs by use case                     |
-| [Reference](./reference/)             | Package map, project structure, conventions, glossary |
-| [Development](./development/)         | Platform charter, monorepo layout, release process    |
+| Section                                                                   | What you will find                                    |
+| ------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [Getting started](./getting-started/)                                     | Installation, quickstart, platform overview           |
+| [Core](./core/)                                                           | Runtime, routing, rendering, data primitives          |
+| [UI](https://github.com/askrjs/askr-ui/tree/main/docs/README.md)          | askr-ui docs owned by the package repo                |
+| [Styling](https://github.com/askrjs/askr-themes/tree/main/docs/README.md) | askr-themes docs owned by the package repo            |
+| [CLI](https://github.com/askrjs/askr-cli/tree/main/docs/README.md)        | askr-cli docs owned by the package repo               |
+| [Guides](./guides/)                                                       | Real-app walkthroughs by use case                     |
+| [Reference](./reference/)                                                 | Package map, project structure, conventions, glossary |
+| [Development](./development/)                                             | Platform charter, monorepo layout, release process    |
 
 Benchmark workflow and current optimization goals live under
 [Benchmarks](./benchmarks/), including the

@@ -30,4 +30,4 @@ src/routes/
 
 - [Guide: layouts](./layouts.md)
 - [Core: routing](../core/routing.md)
-- [CLI: startkit template](../cli/create.md)
+- [CLI: startkit template](https://github.com/askrjs/askr-cli/tree/main/docs/create.md)

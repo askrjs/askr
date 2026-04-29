@@ -38,9 +38,7 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
   flushScheduler();
 
   // Basic sanity checks to make failures actionable
-  expect(app, 'expected mount to return an app handle').to.not.equal(
-    undefined
-  );
+  expect(app, 'expected mount to return an app handle').to.not.equal(undefined);
 
   const appHandle = app as { setRows?: (data: unknown[]) => void };
 
