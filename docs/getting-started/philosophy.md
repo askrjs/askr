@@ -32,7 +32,7 @@ This keeps component APIs narrow and lets behavior scale through composition.
 UI behavior is separated from styling.
 
 `askr-ui` provides interaction behavior and accessibility patterns. `askr-themes` provides
-visual defaults. Your application CSS provides final overrides. These layers are independent —
+visual defaults. Your application CSS provides final overrides. These layers are independent -
 you can use `askr-ui` without `askr-themes`, or bring your own design system entirely.
 
 Headless-first means the behavior contract does not change when you change the visual design.
@@ -46,7 +46,7 @@ can reason about the codebase more accurately. The same convention that helps a 
 orient quickly also helps a language model generate correct code on the first try.
 
 Askr is designed with this property intentionally. One model, one structure, one set of
-conventions — everywhere.
+conventions - everywhere.
 
 ## Batteries included
 

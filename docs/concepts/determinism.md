@@ -19,8 +19,8 @@ function App() {
 }
 
 // Timeline:
-// Click 1 → handler runs → state updates → DOM commits
-// THEN Click 2 → handler runs → state updates → DOM commits
+// Click 1 -> handler runs -> state updates -> DOM commits
+// THEN Click 2 -> handler runs -> state updates -> DOM commits
 ```
 
 No race conditions. Guaranteed order.
@@ -70,4 +70,4 @@ These guarantees are proven with tests:
 - State batching: 12 tests
 - Transaction semantics: 30 tests
 
-[See test suite →](../tests/README.md)
+[See test suite ->](../tests/README.md)

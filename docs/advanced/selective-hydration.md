@@ -193,8 +193,8 @@ Only skip content that never needs interactivity:
 
 ```typescript
 skipSelectors: [
-  '.static-footer', // ✅ Good - no interactions
-  '.interactive-chart', // ❌ Bad - needs interactivity
+  '.static-footer', // OK Good - no interactions
+  '.interactive-chart', // NO Bad - needs interactivity
 ];
 ```
 
@@ -245,12 +245,12 @@ function Form() {
 Selective hydration can reveal hydration mismatches. Ensure server and client render identically:
 
 ```tsx
-// ❌ Bad - causes mismatch
+// NO Bad - causes mismatch
 function Component() {
   return <div>{Date.now()}</div>;
 }
 
-// ✅ Good - deterministic
+// OK Good - deterministic
 function Component() {
   const timestamp = state(Date.now());
   return <div>{timestamp()}</div>;
@@ -264,7 +264,7 @@ Adjust fold threshold dynamically:
 ```typescript
 const foldThreshold =
   window.innerWidth < 768
-    ? 600 // Mobile
+    " 600 // Mobile
     : 1200; // Desktop
 
 hydrateSPA({
@@ -280,7 +280,7 @@ hydrateSPA({
 For older browsers, include a polyfill:
 
 ```html
-<script src="https://polyfill.io/v3/polyfill.min.js?features=IntersectionObserver"></script>
+<script src="https://polyfill.io/v3/polyfill.min.js"features=IntersectionObserver"></script>
 ```
 
 ## Troubleshooting

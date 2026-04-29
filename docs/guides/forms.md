@@ -1,26 +1,17 @@
-﻿# Forms Guide
+# Forms Guide
 
-Patterns for building forms in Askr with `askr-ui` primitives.
+Patterns for building forms in Askr with `state()` and headless UI primitives.
 
-> This guide is a work in progress.
+Use local state for draft values, validate before submit, and keep API calls at
+the route or feature-container boundary.
 
-## What this covers
-
-- Controlled inputs with `state()`
-- Field and label composition
-- Validation patterns
-- Form submission and async feedback
-- Error display
-
-## Typical form structure
+## Typical Form Structure
 
 ```tsx
 import { state } from '@askrjs/askr';
-import { Field, FieldLabel } from '@askrjs/ui/field';
-import { Input } from '@askrjs/ui/input';
-import { Button } from '@askrjs/ui/button';
+import { Button, Field, FieldLabel, Input } from '@askrjs/ui';
 
-function SettingsForm() {
+export function SettingsForm() {
   const [name, setName] = state('');
   const [error, setError] = state('');
 
@@ -29,7 +20,9 @@ function SettingsForm() {
       setError('Name is required.');
       return;
     }
-    // submit logic
+
+    setError('');
+    // Submit at the route or feature boundary.
   };
 
   return (
@@ -38,17 +31,31 @@ function SettingsForm() {
         <FieldLabel fieldId="name">Full name</FieldLabel>
         <Input
           value={name()}
-          onInput={(e: Event) => setName((e.target as HTMLInputElement).value)}
+          onInput={(event: Event) =>
+            setName((event.target as HTMLInputElement).value)
+          }
         />
       </Field>
-      {error() && <p role="alert">{error()}</p>}
+      {error() " <p role="alert">{error()}</p> : null}
       <Button onPress={submit}>Save</Button>
     </form>
   );
 }
 ```
 
-## See also
+## Validation
+
+- Validate required fields before submit.
+- Store field-level errors close to the form that renders them.
+- Use `role="alert"` for submit-blocking errors that need announcement.
+
+## Common Pitfalls
+
+- Do not fetch directly from generic input or field components.
+- Do not mix controlled and uncontrolled values for the same field.
+- Keep business validation outside reusable visual primitives.
+
+## See Also
 
 - [Core: data](../core/data.md)
 - [UI: composition](https://github.com/askrjs/askr-ui/tree/main/docs/composition.md)

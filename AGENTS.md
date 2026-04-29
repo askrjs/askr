@@ -1,25 +1,22 @@
-﻿# AGENTS.md
+# AGENTS.md
 
-Operational guide for coding agents working in this monorepo.
+Operational guide for coding agents working in the `askr` runtime repository.
 
-This file defines repository-specific expectations for AI/code agents.
+This repository owns the core runtime and platform-level docs. Sibling package
+repositories own their package-specific implementation and documentation.
 
 ## Scope
 
-Applies to the repository root and all workspace packages.
+Applies to this repository only.
 
 ## Repository Map
 
 ```text
-packages/
-  askr-core/
-  askr-ui/
-  askr-themes/
-  askr-lucide/
-  askr-cli/
-
-docs/
-scripts/
+src/      - runtime, router, resources, SSR, SSG, JSX, and foundations
+docs/     - platform-level documentation
+tests/    - unit, jsdom, browser, accessibility, and smoke coverage
+benches/  - benchmark suites
+checks/   - repository validation helpers
 ```
 
 ## Ground Rules
@@ -32,35 +29,22 @@ scripts/
 
 ## Required Validation
 
-Before considering work complete, run from root:
+Run the checks that match the change:
 
 ```bash
-node scripts/validate-monorepo.js
 npm run lint
 npm run build
 npm test
 npm run test:types
-npm run bench
-npm run verify:release
-npm run fmt
 ```
 
-If a task only touches one package and full-run is expensive, run package-local checks first,
-then run the relevant root gate(s).
-
-## Package-Local Commands
-
-```bash
-npm run --workspace @askrjs/askr <script>
-npm run --workspace @askrjs/ui <script>
-npm run --workspace @askrjs/themes <script>
-npm run --workspace @askrjs/lucide <script>
-npm run --workspace @askrjs/cli <script>
-```
+For performance-sensitive runtime changes, also run the relevant benchmark
+script from `package.json`.
 
 ## Documentation Contract
 
-When behavior, APIs, or workflows change, update docs under `docs/` in the same change.
+When behavior, APIs, or workflows change, update docs under `docs/` in the same
+change. Package-specific docs belong in the owning package repository.
 
 Primary docs entry points:
 
@@ -72,7 +56,7 @@ Primary docs entry points:
 - Use `AbortController` for cancellation semantics.
 - Forward `signal` rather than creating custom cancel APIs.
 - Keep async behavior deterministic and testable.
-- Do not hardcode Askr theme tokens (for example `--ak-*`) in runtime TS/JS; keep token definitions and mappings in theme CSS.
+- Do not hardcode Askr theme tokens such as `--ak-*` in runtime TS/JS.
 
 ## Editing Rules
 
@@ -84,8 +68,8 @@ Primary docs entry points:
 
 A change is ready when:
 
-1. All required checks pass.
-2. New/changed behavior has tests.
+1. Required checks pass.
+2. New or changed behavior has tests.
 3. Docs reflect user-facing changes.
 4. Diff is scoped and reviewable.
 
@@ -96,4 +80,4 @@ Default to the canonical Askr approach:
 - convention over configuration
 - composition over prop bloat
 - headless-first UI behavior
-- platform cohesion over per-package divergence
+- platform cohesion over package-local divergence

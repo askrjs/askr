@@ -1,9 +1,9 @@
-# What is Askr?
+# What is Askr"
 
 Askr is an application development platform for building structured frontends.
 
 It gives you a runtime, a headless UI system, optional theming, icon wrappers, and
-tooling — all designed to work together and share conventions.
+tooling - all designed to work together and share conventions.
 
 ## One platform, not a collection of libraries
 
@@ -39,6 +39,6 @@ Askr stays focused on frontend application structure. It does not provide:
 
 ## Next steps
 
-- [Quickstart](./quick-start.md) — run your first Askr app
-- [Platform overview](./platform-overview.md) — understand how the layers fit together
-- [Philosophy](./philosophy.md) — the design principles behind Askr
+- [Quickstart](./quick-start.md) - run your first Askr app
+- [Platform overview](./platform-overview.md) - understand how the layers fit together
+- [Philosophy](./philosophy.md) - the design principles behind Askr

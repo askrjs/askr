@@ -11,7 +11,7 @@ State hooks must be called in the same order every render.
 ```typescript
 function Component() {
   if (condition) {
-    const [x, setX] = state(0); // ❌ Error
+    const [x, setX] = state(0); // NO Error
   }
 }
 ```
@@ -43,7 +43,7 @@ State cannot be mutated during render.
 ```typescript
 function Component() {
   const [x, setX] = state(0);
-  setX(1);  // ❌ Error: mutation during render
+  setX(1);  // NO Error: mutation during render
   return <div>{x()}</div>;
 }
 ```

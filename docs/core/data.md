@@ -41,7 +41,7 @@ const isAdult = derive(
 );
 ```
 
-## Async data — resource()
+## Async data - resource()
 
 `resource()` handles async data loading tied to component lifecycle.
 It manages loading state, cancellation, and errors automatically.

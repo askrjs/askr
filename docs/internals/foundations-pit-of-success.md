@@ -10,7 +10,7 @@ This document demonstrates correct usage patterns and shows how misuse is preven
 
 ## 1. applyInteractionPolicy - The Button Law
 
-### âœ… CORRECT: Single entry point for all button-like interactions
+### OK CORRECT: Single entry point for all button-like interactions
 
 ```typescript
 import { applyInteractionPolicy } from '@askrjs/ui/foundations';
@@ -26,17 +26,17 @@ function Button({ onPress, disabled }) {
 }
 ```
 
-### âŒ PREVENTED: Bypassing the policy
+### NO PREVENTED: Bypassing the policy
 
 ```typescript
-// âŒ NO! Don't check disabled yourself
+// NO NO! Don't check disabled yourself
 function Button({ disabled, onPress }) {
   if (disabled) return null; // Policy handles this!
 
   const interaction = applyInteractionPolicy({ ... });
 }
 
-// âŒ NO! Don't add custom keyboard handlers
+// NO NO! Don't add custom keyboard handlers
 function Button({ onPress }) {
   const interaction = applyInteractionPolicy({ ... });
   return (
@@ -49,7 +49,7 @@ function Button({ onPress }) {
   );
 }
 
-// âŒ NO! Don't use onClick directly
+// NO NO! Don't use onClick directly
 function Button({ onPress }) {
   return <button onClick={onPress}>Click</button>;
   // Policy owns interaction semantics!
@@ -60,7 +60,7 @@ function Button({ onPress }) {
 
 ## 2. dismissable - The ONLY Dismissal Primitive
 
-### âœ… CORRECT: Single dismissal foundation
+### OK CORRECT: Single dismissal foundation
 
 ```typescript
 import { dismissable } from '@askrjs/ui/foundations';
@@ -77,7 +77,7 @@ function Dialog({ onClose, open }) {
     },
   });
 
-  return open ? (
+  return open " (
     <div ref={dialogRef} {...dismiss}>
       Dialog content
     </div>
@@ -85,10 +85,10 @@ function Dialog({ onClose, open }) {
 }
 ```
 
-### âŒ PREVENTED: Creating custom dismissal logic
+### NO PREVENTED: Creating custom dismissal logic
 
 ```typescript
-// âŒ NO! Don't create your own escape handler
+// NO NO! Don't create your own escape handler
 function Dialog({ onClose }) {
   return (
     <div onKeyDown={(e) => {
@@ -99,11 +99,11 @@ function Dialog({ onClose }) {
   );
 }
 
-// âŒ NO! Don't check disabled yourself
+// NO NO! Don't check disabled yourself
 function Dialog({ onClose, disabled }) {
   const dismiss = dismissable({ onDismiss: onClose, disabled });
 
-  // âŒ Don't add additional disabled check
+  // NO Don't add additional disabled check
   if (disabled) return null; // dismissable handles this!
 
   return <div {...dismiss}>Content</div>;
@@ -114,7 +114,7 @@ function Dialog({ onClose, disabled }) {
 
 ## 3. rovingFocus - Single Tab Stop Navigation
 
-### âœ… CORRECT: Composable props
+### OK CORRECT: Composable props
 
 ```typescript
 import { rovingFocus } from '@askrjs/ui/foundations';
@@ -143,10 +143,10 @@ function Menu() {
 }
 ```
 
-### âŒ PREVENTED: Custom arrow key handling
+### NO PREVENTED: Custom arrow key handling
 
 ```typescript
-// âŒ NO! Don't implement your own arrow navigation
+// NO NO! Don't implement your own arrow navigation
 function Menu() {
   const roving = rovingFocus({ ... });
 
@@ -163,7 +163,7 @@ function Menu() {
   );
 }
 
-// âŒ NO! Don't manage tabIndex yourself
+// NO NO! Don't manage tabIndex yourself
 function Menu() {
   const roving = rovingFocus({ ... });
 
@@ -184,7 +184,7 @@ function Menu() {
 
 ## 4. Composition via mergeProps
 
-### âœ… CORRECT: Foundations compose automatically
+### OK CORRECT: Foundations compose automatically
 
 ```typescript
 import {
@@ -212,7 +212,7 @@ function DialogButton({ onPress, onClose, disabled }) {
 }
 ```
 
-### âœ… CORRECT: User handlers compose with foundation handlers
+### OK CORRECT: User handlers compose with foundation handlers
 
 ```typescript
 function Button({ onPress, disabled }) {
@@ -241,7 +241,7 @@ function Button({ onPress, disabled }) {
 
 ## 5. createCollection - Ordered Registry
 
-### âœ… CORRECT: Explicit lifecycle management
+### OK CORRECT: Explicit lifecycle management
 
 ```typescript
 import { createCollection } from '@askrjs/askr/foundations';
@@ -265,10 +265,10 @@ function TabList() {
 }
 ```
 
-### âŒ PREVENTED: Implicit global state (doesn't exist)
+### NO PREVENTED: Implicit global state (doesn't exist)
 
 ```typescript
-// âŒ NO! Don't create implicit registries
+// NO NO! Don't create implicit registries
 // There is no global registry - you MUST create one explicitly
 const tabs = createCollection(); // Explicit, scoped, controlled
 ```
@@ -277,7 +277,7 @@ const tabs = createCollection(); // Explicit, scoped, controlled
 
 ## 6. createLayer - Stacking Coordination
 
-### âœ… CORRECT: Explicit layer management
+### OK CORRECT: Explicit layer management
 
 ```typescript
 import { createLayer } from '@askrjs/askr/foundations';
@@ -310,12 +310,12 @@ function Modal({ onClose }) {
 
 For each foundation, verify:
 
-- âœ… **Can't bypass**: No way to implement behavior without the foundation
-- âœ… **Can't duplicate**: Checking disabled/handling keys elsewhere is prevented
-- âœ… **Composes via mergeProps**: All foundations return standard props
-- âœ… **Type safe**: Invalid usage caught by TypeScript
-- âœ… **Reads like English**: API is self-documenting
-- âœ… **Pit of success**: Right thing is easier than wrong thing
+- OK **Can't bypass**: No way to implement behavior without the foundation
+- OK **Can't duplicate**: Checking disabled/handling keys elsewhere is prevented
+- OK **Composes via mergeProps**: All foundations return standard props
+- OK **Type safe**: Invalid usage caught by TypeScript
+- OK **Reads like English**: API is self-documenting
+- OK **Pit of success**: Right thing is easier than wrong thing
 
 ---
 
@@ -421,11 +421,11 @@ export function Menu({ items, onSelect }) {
 
 **If you use foundations correctly, your components will:**
 
-1. âœ… Be accessible by default
-2. âœ… Handle keyboard correctly
-3. âœ… Respect disabled state consistently
-4. âœ… Compose without conflicts
-5. âœ… Never duplicate logic
-6. âœ… Be easy for AI to generate
+1. OK Be accessible by default
+2. OK Handle keyboard correctly
+3. OK Respect disabled state consistently
+4. OK Compose without conflicts
+5. OK Never duplicate logic
+6. OK Be easy for AI to generate
 
 **The pit of success works.**

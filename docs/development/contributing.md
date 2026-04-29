@@ -1,6 +1,6 @@
 # Development: Contributing
 
-How to contribute to the Askr platform.
+How to contribute to the `@askrjs/askr` runtime and platform docs.
 
 ## Prerequisites
 
@@ -18,30 +18,34 @@ npm install
 ## Build
 
 ```bash
-npm run build                        # all packages
-npm run --workspace @askrjs/askr build # single package
+npm run build
 ```
 
 ## Test
 
 ```bash
-npm test                             # all packages
-npm run --workspace @askrjs/askr test # single package
+npm test
+npm run test:types
 ```
 
-## Lint and format
+## Lint and Format
 
 ```bash
 npm run lint
 npm run fmt
 ```
 
-## Docs style guide
+Package-specific changes for `askr-ui`, `askr-themes`, `askr-cli`,
+`askr-vite`, `askr-lucide`, or `askr-charts` should be made and validated in
+the owning package repository.
 
-See [docs style guide](../contributing/docs-style-guide.md) for writing conventions,
-tone guidelines, and formatting rules used across all platform documentation.
+## Docs Style Guide
 
-## See also
+See [docs style guide](../contributing/docs-style-guide.md) for writing
+conventions, tone guidelines, and formatting rules used across platform
+documentation.
+
+## See Also
 
 - [Repo structure](./repo-structure.md)
 - [Docs style guide](../contributing/docs-style-guide.md)

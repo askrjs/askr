@@ -27,7 +27,7 @@ Use the URL-based helpers when the server should resolve routes explicitly:
 import { renderToString } from '@askrjs/askr/ssr';
 
 const html = renderToString({
-	url: '/users/42?q=active',
+	url: '/users/42"q=active',
 	routes: [
 		{
 			path: '/users/{id}',

@@ -1,9 +1,9 @@
 # Askr Platform Docs
 
 Askr is a modern application development platform. Documentation is organized around how people
-learn, build, and scale with the platform — not around package boundaries.
+learn, build, and scale with the platform - not around package boundaries.
 
-→ [Platform README](./README.md) — what Askr is, goals, and documentation map
+-> [Platform README](./README.md) - what Askr is, goals, and documentation map
 
 ---
 
@@ -11,7 +11,7 @@ learn, build, and scale with the platform — not around package boundaries.
 
 | Page                                                        | Description                             |
 | ----------------------------------------------------------- | --------------------------------------- |
-| [What is Askr?](./getting-started/what-is-askr.md)          | Short answer: platform, packages, scope |
+| [What is Askr"](./getting-started/what-is-askr.md)          | Short answer: platform, packages, scope |
 | [Installation](./getting-started/installation.md)           | Prerequisites, npm install, tsconfig    |
 | [Quick start](./getting-started/quick-start.md)             | First running app                       |
 | [Platform overview](./getting-started/platform-overview.md) | Layer diagram and responsibilities      |

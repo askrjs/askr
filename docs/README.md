@@ -27,11 +27,11 @@ Every package is optional except `askr`. You add the others as your application 
 
 Askr prioritizes:
 
-- **Predictable structure** — consistent project layout that scales
-- **AI-friendly conventions** — standard patterns improve reliability of AI-assisted development
-- **Minimal configuration** — strong defaults reduce decision fatigue
-- **Practical primitives** — common application needs work without external libraries
-- **Fast iteration** — generators and scaffolding keep the feedback loop tight
+- **Predictable structure** - consistent project layout that scales
+- **AI-friendly conventions** - standard patterns improve reliability of AI-assisted development
+- **Minimal configuration** - strong defaults reduce decision fatigue
+- **Practical primitives** - common application needs work without external libraries
+- **Fast iteration** - generators and scaffolding keep the feedback loop tight
 
 ## What Askr is optimized for
 
@@ -75,4 +75,4 @@ Benchmark workflow and current optimization goals live under
 
 Every doc reinforces one thing: **there is a canonical way to build an Askr app**.
 
-Not many possible approaches — one recommended approach.
+Not many possible approaches - one recommended approach.

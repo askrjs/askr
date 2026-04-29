@@ -1,29 +1,29 @@
 # Foundations: Pit of Success Audit Report
 
-## ✅ COMPLIANCE STATUS: PASSING
+## OK COMPLIANCE STATUS: PASSING
 
 All foundations now follow the pit of success principles. This document proves compliance with the core requirements.
 
 ---
 
-## 1. applyInteractionPolicy ✅
+## 1. applyInteractionPolicy OK
 
 **File:** `src/foundations/interactions/interaction-policy.ts`
 
 ### Compliance Checklist
 
-- ✅ Can a consumer accidentally bypass it? **NO** - Only way to get button behavior
-- ✅ Can behavior be duplicated elsewhere? **NO** - Policy owns all interaction semantics
-- ✅ Can two foundations be composed via mergeProps? **YES** - Returns standard props
-- ✅ Does the API read like English? **YES** - `applyInteractionPolicy({ ... })`
-- ✅ Is the wrong thing harder than the right thing? **YES** - No escape hatch
+- OK Can a consumer accidentally bypass it" **NO** - Only way to get button behavior
+- OK Can behavior be duplicated elsewhere" **NO** - Policy owns all interaction semantics
+- OK Can two foundations be composed via mergeProps" **YES** - Returns standard props
+- OK Does the API read like English" **YES** - `applyInteractionPolicy({ ... })`
+- OK Is the wrong thing harder than the right thing" **YES** - No escape hatch
 
 ### Invariants Enforced
 
-1. ✅ Disabled checked exactly once (in policy, never in components)
-2. ✅ Press is semantic (click/Enter/Space are implementation details)
-3. ✅ Keyboard handling automatic (components can't add custom handlers)
-4. ✅ Native elements opt out of polyfills, not semantics
+1. OK Disabled checked exactly once (in policy, never in components)
+2. OK Press is semantic (click/Enter/Space are implementation details)
+3. OK Keyboard handling automatic (components can't add custom handlers)
+4. OK Native elements opt out of polyfills, not semantics
 
 ### API Surface
 
@@ -31,42 +31,42 @@ All foundations now follow the pit of success principles. This document proves c
 applyInteractionPolicy({
   isNative: boolean,
   disabled: boolean,
-  onPress?: (e: Event) => void,
-  ref?: any
-}) → props
+  onPress": (e: Event) => void,
+  ref": any
+}) -> props
 ```
 
 **ONE public function. No escape hatches.**
 
 ---
 
-## 2. dismissable ✅
+## 2. dismissable OK
 
 **File:** `src/foundations/interactions/dismissable.ts`
 
 ### Compliance Checklist
 
-- ✅ Can a consumer accidentally bypass it? **NO** - Only dismissal primitive
-- ✅ Can behavior be duplicated elsewhere? **NO** - THE dismissal foundation
-- ✅ Can two foundations be composed via mergeProps? **YES** - Standard event handlers
-- ✅ Does the API read like English? **YES** - `dismissable({ node, onDismiss })`
-- ✅ Is the wrong thing harder than the right thing? **YES** - No factory functions to misuse
+- OK Can a consumer accidentally bypass it" **NO** - Only dismissal primitive
+- OK Can behavior be duplicated elsewhere" **NO** - THE dismissal foundation
+- OK Can two foundations be composed via mergeProps" **YES** - Standard event handlers
+- OK Does the API read like English" **YES** - `dismissable({ node, onDismiss })`
+- OK Is the wrong thing harder than the right thing" **YES** - No factory functions to misuse
 
 ### Invariants Enforced
 
-1. ✅ Returns props, not factories (mergeProps composable)
-2. ✅ Disabled respected exactly once
-3. ✅ No side effects (pure props generation)
-4. ✅ Escape + outside handled together
+1. OK Returns props, not factories (mergeProps composable)
+2. OK Disabled respected exactly once
+3. OK No side effects (pure props generation)
+4. OK Escape + outside handled together
 
 ### API Surface
 
 ```typescript
 dismissable({
-  node?: Node | null,
-  disabled?: boolean,
-  onDismiss?: (trigger: 'escape' | 'outside') => void
-}) → {
+  node": Node | null,
+  disabled": boolean,
+  onDismiss": (trigger: 'escape' | 'outside') => void
+}) -> {
   onKeyDown: handler,
   onPointerDownCapture: handler
 }
@@ -77,24 +77,24 @@ dismissable({
 
 ---
 
-## 3. rovingFocus ✅
+## 3. rovingFocus OK
 
 **File:** `src/foundations/interactions/roving-focus.ts`
 
 ### Compliance Checklist
 
-- ✅ Can a consumer accidentally bypass it? **NO** - Only way to get roving behavior
-- ✅ Can behavior be duplicated elsewhere? **NO** - Single navigation source
-- ✅ Can two foundations be composed via mergeProps? **YES** - Props objects only
-- ✅ Does the API read like English? **YES** - `nav.container`, `nav.item(0)`
-- ✅ Is the wrong thing harder than the right thing? **YES** - TabIndex managed automatically
+- OK Can a consumer accidentally bypass it" **NO** - Only way to get roving behavior
+- OK Can behavior be duplicated elsewhere" **NO** - Single navigation source
+- OK Can two foundations be composed via mergeProps" **YES** - Props objects only
+- OK Does the API read like English" **YES** - `nav.container`, `nav.item(0)`
+- OK Is the wrong thing harder than the right thing" **YES** - TabIndex managed automatically
 
 ### Invariants Enforced
 
-1. ✅ Single tab stop (only current item has tabIndex=0)
-2. ✅ Arrow navigation automatic
-3. ✅ Disabled items skipped automatically
-4. ✅ No factories (item returns props directly)
+1. OK Single tab stop (only current item has tabIndex=0)
+2. OK Arrow navigation automatic
+3. OK Disabled items skipped automatically
+4. OK No factories (item returns props directly)
 
 ### API Surface
 
@@ -102,150 +102,150 @@ dismissable({
 rovingFocus({
   currentIndex: number,
   itemCount: number,
-  orientation?: 'horizontal' | 'vertical' | 'both',
-  loop?: boolean,
-  onNavigate?: (index: number) => void
-}) → {
+  orientation": 'horizontal' | 'vertical' | 'both',
+  loop": boolean,
+  onNavigate": (index: number) => void
+}) -> {
   container: { onKeyDown },
   item: (index) => { tabIndex, 'data-roving-index' }
 }
 ```
 
-**Changed:** `itemProps` function → `item` method returning props  
+**Changed:** `itemProps` function -> `item` method returning props
 **Result:** Direct composition, no factory pattern
 
 ---
 
-## 4. pressable ✅
+## 4. pressable OK
 
 **File:** `src/foundations/interactions/pressable.ts`
 
 ### Compliance Checklist
 
-- ✅ Can a consumer accidentally bypass it? **NO** - Used by interactionPolicy
-- ✅ Can behavior be duplicated elsewhere? **NO** - Policy delegates here
-- ✅ Can two foundations be composed via mergeProps? **YES** - Standard props
-- ✅ Does the API read like English? **YES** - `pressable({ disabled, onPress })`
-- ✅ Is the wrong thing harder than the right thing? **YES** - Keyboard automatic
+- OK Can a consumer accidentally bypass it" **NO** - Used by interactionPolicy
+- OK Can behavior be duplicated elsewhere" **NO** - Policy delegates here
+- OK Can two foundations be composed via mergeProps" **YES** - Standard props
+- OK Does the API read like English" **YES** - `pressable({ disabled, onPress })`
+- OK Is the wrong thing harder than the right thing" **YES** - Keyboard automatic
 
 ### Invariants Enforced
 
-1. ✅ Enter fires on keydown (immediate)
-2. ✅ Space fires on keyup (native parity)
-3. ✅ Disabled checked once
-4. ✅ Native vs non-native handled correctly
+1. OK Enter fires on keydown (immediate)
+2. OK Space fires on keyup (native parity)
+3. OK Disabled checked once
+4. OK Native vs non-native handled correctly
 
 ---
 
-## 5. focusable ✅
+## 5. focusable OK
 
 **File:** `src/foundations/interactions/focusable.ts`
 
 ### Compliance Checklist
 
-- ✅ Simple tabIndex normalization
-- ✅ Composes via mergeProps
-- ✅ No behavior duplication possible
+- OK Simple tabIndex normalization
+- OK Composes via mergeProps
+- OK No behavior duplication possible
 
 ---
 
-## 6. hoverable ✅
+## 6. hoverable OK
 
 **File:** `src/foundations/interactions/hoverable.ts`
 
 ### Compliance Checklist
 
-- ✅ Pointer enter/leave only
-- ✅ Composes via mergeProps
-- ✅ Disabled handled once
+- OK Pointer enter/leave only
+- OK Composes via mergeProps
+- OK Disabled handled once
 
 ---
 
-## 7. controllableState ✅
+## 7. controllableState OK
 
 **File:** `src/foundations/state/controllable.ts`
 
 ### Compliance Checklist
 
-- ✅ Single source of truth for controlled/uncontrolled
-- ✅ No branching required in consumers
-- ✅ Object.is equality (no deep comparison surprise)
+- OK Single source of truth for controlled/uncontrolled
+- OK No branching required in consumers
+- OK Object.is equality (no deep comparison surprise)
 
 ---
 
-## 8. createCollection ✅
+## 8. createCollection OK
 
 **File:** `src/foundations/structures/collection.ts`
 
 ### Compliance Checklist
 
-- ✅ Explicit registry creation (no implicit globals)
-- ✅ Stable insertion order
-- ✅ No DOM queries
-- ✅ Type-safe metadata
+- OK Explicit registry creation (no implicit globals)
+- OK Stable insertion order
+- OK No DOM queries
+- OK Type-safe metadata
 
 ---
 
-## 9. createLayer ✅
+## 9. createLayer OK
 
 **File:** `src/foundations/structures/layer.ts`
 
 ### Compliance Checklist
 
-- ✅ Explicit layer management
-- ✅ Top layer coordination
-- ✅ No z-index magic
-- ✅ Explicit unregister
+- OK Explicit layer management
+- OK Top layer coordination
+- OK No z-index magic
+- OK Explicit unregister
 
 ---
 
-## 10. Presence ✅
+## 10. Presence OK
 
 **File:** `src/foundations/structures/presence.ts`
 
 ### Compliance Checklist
 
-- ✅ Immediate mount/unmount (no timers)
-- ✅ SSR-safe
-- ✅ Animation concerns separate
+- OK Immediate mount/unmount (no timers)
+- OK SSR-safe
+- OK Animation concerns separate
 
 ---
 
-## NAMING COMPLIANCE ✅
+## NAMING COMPLIANCE OK
 
-### ✅ No `use*` functions in foundations
+### OK No `use*` functions in foundations
 
 - All files checked
 - All functions follow correct naming
 
-### ✅ Kebab-case file names
+### OK Kebab-case file names
 
 - All files renamed:
-  - `createSSR.ts` → `create-ssr.ts`
-  - `useId.ts` → `use-id.ts`
-  - `mergeProps.ts` → `merge-props.ts`
-  - `composeRef.ts` → `compose-ref.ts`
-  - `composeHandlers.ts` → `compose-handlers.ts`
-  - `eventTypes.ts` → `event-types.ts`
-  - `rovingFocus.ts` → `roving-focus.ts`
-  - `Link.tsx` → `link.tsx`
+  - `createSSR.ts` -> `create-ssr.ts`
+  - `useId.ts` -> `use-id.ts`
+  - `mergeProps.ts` -> `merge-props.ts`
+  - `composeRef.ts` -> `compose-ref.ts`
+  - `composeHandlers.ts` -> `compose-handlers.ts`
+  - `eventTypes.ts` -> `event-types.ts`
+  - `rovingFocus.ts` -> `roving-focus.ts`
+  - `Link.tsx` -> `link.tsx`
 
-### ✅ Naming patterns followed
+### OK Naming patterns followed
 
-- State ownership → noun (`controllableState`)
-- Registries → `createX` (`createCollection`, `createLayer`)
-- Interaction mechanics → verb (`pressable`, `focusable`, `hoverable`)
-- Policies → explicit noun (`interactionPolicy`)
-- Intent detection → verb (`dismissable`)
+- State ownership -> noun (`controllableState`)
+- Registries -> `createX` (`createCollection`, `createLayer`)
+- Interaction mechanics -> verb (`pressable`, `focusable`, `hoverable`)
+- Policies -> explicit noun (`interactionPolicy`)
+- Intent detection -> verb (`dismissable`)
 
 ---
 
-## COMPOSITION COMPLIANCE ✅
+## COMPOSITION COMPLIANCE OK
 
 ### All foundations return mergeable props
 
 ```typescript
-// ✅ CORRECT: Everything composes
+// OK CORRECT: Everything composes
 const interaction = applyInteractionPolicy({ ... });
 const dismiss = dismissable({ ... });
 const roving = rovingFocus({ ... });
@@ -263,23 +263,23 @@ const props = mergeProps(
 
 ### No factory functions
 
-- ❌ REMOVED: `dismissable().outsideListener(predicate)` - broke composition
-- ✅ NOW: `dismissable({ node }).onPointerDownCapture` - composes perfectly
+- NO REMOVED: `dismissable().outsideListener(predicate)` - broke composition
+- OK NOW: `dismissable({ node }).onPointerDownCapture` - composes perfectly
 
 ---
 
-## PREVENTION OF MISUSE ✅
+## PREVENTION OF MISUSE OK
 
 ### Components CANNOT bypass policies
 
 ```typescript
-// ❌ IMPOSSIBLE: Can't check disabled yourself
+// NO IMPOSSIBLE: Can't check disabled yourself
 function Button({ disabled, onPress }) {
   if (disabled) return null; // Policy will handle this!
   // TypeScript/documentation makes this clear
 }
 
-// ❌ IMPOSSIBLE: Can't add custom keyboard handlers
+// NO IMPOSSIBLE: Can't add custom keyboard handlers
 function Button({ onPress }) {
   const interaction = applyInteractionPolicy({ ... });
   return (
@@ -290,7 +290,7 @@ function Button({ onPress }) {
   );
 }
 
-// ❌ IMPOSSIBLE: Can't create custom dismissal
+// NO IMPOSSIBLE: Can't create custom dismissal
 function Dialog() {
   // No way to implement escape handling without dismissable
   // Must use the foundation
@@ -299,11 +299,11 @@ function Dialog() {
 
 ---
 
-## SUCCESS CRITERIA: VERIFIED ✅
+## SUCCESS CRITERIA: VERIFIED OK
 
 Can build these components using ONLY foundations:
 
-### Button ✅
+### Button OK
 
 ```typescript
 function Button({ onPress, disabled }) {
@@ -316,7 +316,7 @@ function Button({ onPress, disabled }) {
 }
 ```
 
-### Dialog ✅
+### Dialog OK
 
 ```typescript
 function Dialog({ open, onClose }) {
@@ -334,7 +334,7 @@ function Dialog({ open, onClose }) {
 }
 ```
 
-### Menu ✅
+### Menu OK
 
 ```typescript
 function Menu({ items, onSelect }) {
@@ -361,7 +361,7 @@ function Menu({ items, onSelect }) {
 }
 ```
 
-### Tabs ✅
+### Tabs OK
 
 ```typescript
 function Tabs({ tabs }) {
@@ -389,27 +389,27 @@ function Tabs({ tabs }) {
 
 ---
 
-## TESTS: PASSING ✅
+## TESTS: PASSING OK
 
-- ✅ `dismissable.test.ts` - Updated to new API - **12/12 passing**
-- ✅ All other foundation tests passing
-- ✅ No regressions from file renames
+- OK `dismissable.test.ts` - Updated to new API - **12/12 passing**
+- OK All other foundation tests passing
+- OK No regressions from file renames
 
 ---
 
 ## FINAL VERDICT
 
-### ✅ PIT OF SUCCESS: ACHIEVED
+### OK PIT OF SUCCESS: ACHIEVED
 
-1. ✅ Correct usage is automatic and boring
-2. ✅ Incorrect usage is impossible or loudly wrong
-3. ✅ AI agents succeed without deep context
-4. ✅ Foundations define behavior, not appearance
-5. ✅ Framework-agnostic (no React semantics)
-6. ✅ No `use*` naming
-7. ✅ ONE public entry point per foundation
-8. ✅ Composes via mergeProps
-9. ✅ Components cannot re-implement behavior
-10. ✅ Invariants enforced by structure
+1. OK Correct usage is automatic and boring
+2. OK Incorrect usage is impossible or loudly wrong
+3. OK AI agents succeed without deep context
+4. OK Foundations define behavior, not appearance
+5. OK Framework-agnostic (no React semantics)
+6. OK No `use*` naming
+7. OK ONE public entry point per foundation
+8. OK Composes via mergeProps
+9. OK Components cannot re-implement behavior
+10. OK Invariants enforced by structure
 
 **The foundations library is now a true pit of success.**

@@ -9,9 +9,9 @@ projects easier to navigate.
 Use **kebab-case** for all files.
 
 ```
-user-table.tsx        ✓
-userTable.tsx         ✗
-UserTable.tsx         ✗
+user-table.tsx        yes
+userTable.tsx         no
+UserTable.tsx         no
 ```
 
 ### Routes
@@ -22,7 +22,7 @@ Named after the path segment they represent:
 src/routes/
   home.tsx
   users.tsx
-  users.detail.tsx      — nested: /users/:id detail view
+  users.detail.tsx      - nested: /users/:id detail view
   settings.tsx
 ```
 
@@ -54,11 +54,11 @@ src/features/
 
 ```
 src/lib/
-  user.ts               — domain type definitions
+  user.ts               - domain type definitions
   account.ts
-  api.ts                — data fetching
-  format.ts             — formatting helpers
-  validators.ts         — input validation
+  api.ts                - data fetching
+  format.ts             - formatting helpers
+  validators.ts         - input validation
 ```
 
 ## Component naming
@@ -77,14 +77,14 @@ Exported from the file as named exports, not default exports.
 Components should:
 
 - Compose behavior primitives from `askr-ui`
-- Avoid business logic — business logic belongs in `src/lib/`
-- Stay reusable — no hard-coded feature data inside general components
-- Have narrow props interfaces — prefer composition over large prop surfaces
+- Avoid business logic - business logic belongs in `src/lib/`
+- Stay reusable - no hard-coded feature data inside general components
+- Have narrow props interfaces - prefer composition over large prop surfaces
 
 Components should not:
 
 - Reach outside their scope for global mutable state
-- Embed API calls directly — use `resource()` and pass results via props or context
+- Embed API calls directly - use `resource()` and pass results via props or context
 - Mix business logic with rendering
 
 ## Route registration
@@ -126,7 +126,7 @@ const users = resource(
 );
 ```
 
-Never use `useEffect` patterns for data loading — `resource()` handles cancellation,
+Never use `useEffect` patterns for data loading - `resource()` handles cancellation,
 pending state, and error boundaries automatically.
 
 ## Theming in Runtime Code

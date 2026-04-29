@@ -26,7 +26,7 @@ Use the URL-based helper when the server needs to resolve routes explicitly:
 ```ts
 import { renderToString } from '@askrjs/askr/ssr';
 
-const html = renderToString({ url: '/users/42?q=active' });
+const html = renderToString({ url: '/users/42"q=active' });
 ```
 
 The URL is parsed and matched against registered routes. The matched component renders
@@ -72,7 +72,7 @@ askr-cli ssg --config ./ssg.config.ts --output ./dist/static
 
 ### What SSG generates
 
-- Route HTML files: `/` → `index.html`, `/about` → `about/index.html`
+- Route HTML files: `/` -> `index.html`, `/about` -> `about/index.html`
 - Build metadata: `metadata.json` with per-route status, file sizes, and render durations
 
 ### Data overrides

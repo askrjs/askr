@@ -2,7 +2,7 @@
 
 ## Motivation
 
-All routing modes — SPA navigation, SSR request resolution, and SSG page expansion — share the
+All routing modes - SPA navigation, SSR request resolution, and SSG page expansion - share the
 same fundamental needs: find the best-matching route for a path, extract params, apply layouts,
 and expose metadata. Rather than having separate representations for each mode, Askr routes are
 compiled into a single normalized `RouteManifest` at **module load time**. Every runtime
@@ -28,7 +28,7 @@ Internally:
 
 1. `layout(Component, fn)` pushes a `LayoutScopeRecord` onto the scope stack and pops it when
    `fn` returns.
-2. Each `route(path, Component, options?)` call:
+2. Each `route(path, Component, options")` call:
    - Validates the path (rejects `:name` syntax, requires `/` prefix)
    - Parses the path into a `ParsedSegment[]` list via `parseSegments()`
    - Computes a deterministic `rank` (specificity score) via `computeRank()`
@@ -45,7 +45,7 @@ interface RouteRecord {
   component: RouteComponent; // the page function
   segments: ParsedSegment[]; // [{kind:'static',...}, {kind:'param',...}]
   rank: number; // precomputed specificity score
-  layoutChain: LayoutScopeRecord[]; // outermost → innermost
+  layoutChain: LayoutScopeRecord[]; // outermost -> innermost
   options: RouteOptions; // load, entries, guard, title, namespace
   isFallback: boolean; // true only for '/*'
   handler: RouteHandler; // composed render function used by all modes
@@ -69,12 +69,12 @@ Sum of segment scores = route rank. Higher rank wins when multiple routes match 
 
 `createSPA({ manifest })` calls `_applyManifest()` which populates the two runtime stores:
 
-- `routes[]` — flat list used by `resolveRoute()` (the depth-indexed O(1) fast path)
-- `records[]` — parsed records used by `getManifest()` and future extensions
+- `routes[]` - flat list used by `resolveRoute()` (the depth-indexed O(1) fast path)
+- `records[]` - parsed records used by `getManifest()` and future extensions
 
 When `navigate(path)` fires, `resolveRoute()` finds the best `ResolvedRoute.handler`. Because
 the handler already has the layout chain baked in, `navigate.ts` does not need to know about
-layouts — it just calls the handler.
+layouts - it just calls the handler.
 
 ### SSR request resolution
 
@@ -93,7 +93,7 @@ routes: getManifest().records.map((r) => ({
 
 The SSG pipeline walks `RouteManifest.records`. Records with `options.entries` are expanded:
 `entries()` returns one param map per page. Each map is interpolated into the path template
-(`/posts/{slug}` + `{ slug: 'hello' }` → `/posts/hello`) to produce a concrete `RouteConfig`.
+(`/posts/{slug}` + `{ slug: 'hello' }` -> `/posts/hello`) to produce a concrete `RouteConfig`.
 
 ## Invariants
 

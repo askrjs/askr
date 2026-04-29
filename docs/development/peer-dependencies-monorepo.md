@@ -63,7 +63,7 @@ When Package A depends on Package B (both in the same monorepo):
 
 **How it works:**
 
-- `npm install` creates symlink: `root/node_modules/@scope/package-b → packages/package-b`
+- `npm install` creates symlink: `root/node_modules/@scope/package-b -> packages/package-b`
 - `package-a` resolves `@scope/package-b` via the symlink during dev
 - Published `package-a` declares `@scope/package-b@1.0.0` in `dependencies`; npm finds it published on the registry
 
@@ -115,7 +115,7 @@ When Package A provides an interface/plugin system and expects the consumer to p
 }
 ```
 
-**Why both `peerDependencies` and `devDependencies`?**
+**Why both `peerDependencies` and `devDependencies`"**
 
 - `peerDependencies` tells consumers: "You need `@scope/core`"
 - `devDependencies` in the package ensures local dev/test works (can resolve the peer)
@@ -224,8 +224,8 @@ root/
     app/               # dependency: core@1.0.0, dependency: plugin@1.0.0
   node_modules/
     @scope/
-      core → ../../packages/core (symlink)
-      plugin → ../../packages/plugin (symlink)
+      core -> ../../packages/core (symlink)
+      plugin -> ../../packages/plugin (symlink)
 ```
 
 **Resolution order (npm v10+):**
@@ -408,7 +408,7 @@ Marks peer as optional; npm won't warn if missing.
 }
 ```
 
-❌ Package A ships code that imports `@scope/package-b`, but it's only in `devDependencies`.
+NO Package A ships code that imports `@scope/package-b`, but it's only in `devDependencies`.
 Consumer's build fails: `@scope/package-b` not installed.
 
 **Fix:** Move to `dependencies`.
@@ -422,7 +422,7 @@ cd packages/package-b && npm link
 cd packages/package-a && npm link @scope/package-b
 ```
 
-❌ Manual symlinks conflict with npm workspace symlinks. Causes resolution chaos.
+NO Manual symlinks conflict with npm workspace symlinks. Causes resolution chaos.
 
 **Fix:** Use workspaces; run `npm install` once from root.
 
@@ -438,7 +438,7 @@ cd packages/package-a && npm link @scope/package-b
 }
 ```
 
-❌ Local tests fail: can't resolve `@scope/core`.
+NO Local tests fail: can't resolve `@scope/core`.
 
 **Fix:** Add `devDependencies: { "@scope/core": "1.0.0" }`.
 
@@ -454,7 +454,7 @@ cd packages/package-a && npm link @scope/package-b
 }
 ```
 
-❌ Workspace release discipline broken. If package-b publishes 1.1.0, package-a consumers might get mismatched.
+NO Workspace release discipline broken. If package-b publishes 1.1.0, package-a consumers might get mismatched.
 
 **Fix:** Use exact version: `"1.0.0"`.
 
@@ -468,7 +468,7 @@ import type { Config } from '@scope/host';
 export function setup(config: Config) { ... }
 ```
 
-❌ Consumers can't infer `Config` type without knowing about `@scope/host` peer.
+NO Consumers can't infer `Config` type without knowing about `@scope/host` peer.
 
 **Fix:** Re-export:
 
@@ -488,7 +488,7 @@ export type { Config } from '@scope/host';
 }
 ```
 
-❌ If your package directly uses `some-utility` in shipped code and you own the decision, it should be `dependencies`, not `peerDependencies`.
+NO If your package directly uses `some-utility` in shipped code and you own the decision, it should be `dependencies`, not `peerDependencies`.
 
 Peer dependencies are for **extension points** or **ecosystem conventions**, not internal utilities.
 
@@ -604,10 +604,10 @@ Consumers can import types even if they only install JavaScript.
 
 If you find yourself:
 
-- Adding lots of `npm link` workarounds → You need workspace configuration
-- Repeatedly specifying same dependency versions → Consider hoisting to root devDependencies
-- Confused about which deps to cut from published package → Re-evaluate if they should be `devDependencies`
-- Unsure if something is peer or regular dep → Ask: "Do consumers need to decide about this?"
+- Adding lots of `npm link` workarounds -> You need workspace configuration
+- Repeatedly specifying same dependency versions -> Consider hoisting to root devDependencies
+- Confused about which deps to cut from published package -> Re-evaluate if they should be `devDependencies`
+- Unsure if something is peer or regular dep -> Ask: "Do consumers need to decide about this""
 
 ---
 
