@@ -18,7 +18,7 @@ jobs:
             command: vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
             install_browsers: false
           - name: browser
-            command: playwright test benches/browser --project=browser-perf
+            command: npx playwright test benches/browser --project=browser-perf
             install_browsers: true
 
     steps:
