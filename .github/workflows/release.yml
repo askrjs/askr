@@ -1,0 +1,38 @@
+name: Release Package
+
+on:
+  push:
+    tags:
+      - v*
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+
+      - name: Validate Tag Matches Package Version
+        id: package
+        uses: askrjs/actions/actions/validate-package-version@ed124344f103ec17a3ff86013bcdedf2d87e92c4
+        with:
+          package-json-path: package.json
+          tag: ${{ github.ref_name }}
+
+      - name: Create GitHub Release
+        uses: askrjs/actions/actions/create-release@ed124344f103ec17a3ff86013bcdedf2d87e92c4
+        with:
+          tag: ${{ steps.package.outputs.tag }}
+          body: Automated release for ${{ steps.package.outputs.normalized_tag }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

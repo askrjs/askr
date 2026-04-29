@@ -1,0 +1,41 @@
+name: Tag Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Run CI Checks
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  tag:
+    name: Create Tag
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+
+      - name: Create Git Tag
+        id: tag
+        uses: askrjs/actions/actions/create-tag@ed124344f103ec17a3ff86013bcdedf2d87e92c4
+        with:
+          package-json-path: package.json
+          tag-prefix: v
+          git-user-name: github-actions[bot]
+          git-user-email: github-actions[bot]@users.noreply.github.com
+          tag-message: Release version from package.json
