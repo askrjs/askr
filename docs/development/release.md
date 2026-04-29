@@ -1,6 +1,6 @@
 # Development: Release
 
-Release process for Askr platform packages.
+Release process for Askr packages.
 
 ## Versioning
 
@@ -23,7 +23,7 @@ The release flow is split across dedicated workflows:
 - `.github/workflows/release.yml`: creates a GitHub release from an existing tag.
 - `.github/workflows/publish.yml`: publishes an existing release tag to npm.
 - `.github/workflows/bench.yml`: manual benchmark runner for stable and browser perf lanes.
-- `npm run verify:release` / `prepublishOnly`: release verification gate that runs lint, build, tests, type checks, docs/example checks, benchmark log verification, and perf scenario coverage.
+- `prepublishOnly`: release verification gate that runs `npm run build`.
 
 The intended happy path is:
 
@@ -33,16 +33,14 @@ The intended happy path is:
 4. Let the published GitHub release trigger `publish.yml`.
 
 `release.yml` and `publish.yml` also support `workflow_dispatch` with a required
-`release_tag` input. They check out that exact tag before running, which keeps
-manual recovery runs pinned to the intended release artifact.
+`release_tag` input. They check out that exact tag before running.
 
 ## Pre-release checklist
 
 - All tests pass: `npm run test`
 - All lints pass: `npm run lint`
 - Type checks pass: `npm run test:types`
-- Release gate passes: `npm run verify:release`
-- CHANGELOG updated
+- CHANGELOG updated when the release needs notes
 - Version bumped in `package.json`
 
 ## Failure recovery
@@ -66,8 +64,8 @@ Use the smallest recovery step that matches the failure point.
 - If npm did publish the version, do not retry the same version. npm versions are immutable. Bump `package.json` to a new version and start a new tag -> release -> publish cycle.
 
 The main footgun is partial success after npm accepts the version. GitHub can
-report a failed workflow even though npm already owns that version, so always
-check npm before retrying publish.
+report a failed workflow even though npm already owns that version, so check npm
+before retrying publish.
 
 ## See also
 

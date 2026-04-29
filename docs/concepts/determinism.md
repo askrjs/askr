@@ -1,12 +1,12 @@
 # Deterministic Execution
 
-Askr guarantees strict ordering of events and state updates.
+Askr processes events and state updates in a defined order.
 
-## Event Serialization
+## Event serialization
 
-Events are processed one at a time. An event fully completes before the next starts.
+Events are handled one at a time. One event completes before the next begins.
 
-```typescript
+```ts
 function App() {
   const [count, setCount] = state(0);
 
@@ -17,57 +17,39 @@ function App() {
     </>
   );
 }
-
-// Timeline:
-// Click 1 -> handler runs -> state updates -> DOM commits
-// THEN Click 2 -> handler runs -> state updates -> DOM commits
 ```
 
-No race conditions. Guaranteed order.
+## Atomic state updates
 
-## Atomic State Updates
+Multiple state updates in the same handler are applied together in the next render.
 
-State updates are batched and applied atomically.
-
-```typescript
+```ts
 function Component() {
   const [a, setA] = state(0);
   const [b, setB] = state(0);
 
-  <button onClick={() => {
-    setA(1);
-    setB(2);
-  }}>
-
-  // Both updates happen in one render
-  // DOM commits once
+  return (
+    <button
+      onClick={() => {
+        setA(1);
+        setB(2);
+      }}
+    >
+      Update
+    </button>
+  );
 }
 ```
 
-## Transactional Renders
+## Render behavior
 
-Renders either complete fully or roll back.
-
-```typescript
-function Component() {
-  const data = riskyOperation();  // Might throw
-  return <div>{data}</div>;
-}
-
-// If riskyOperation() throws:
-// - No partial DOM
-// - Previous state unchanged
-// - Error boundary catches it
-```
-
-All-or-nothing semantics.
+If render work throws, the runtime surfaces the error instead of completing the render
+path.
 
 ## Tests
 
-These guarantees are proven with tests:
+These behaviors are covered by tests:
 
-- Event ordering: 12 tests
-- State batching: 12 tests
-- Transaction semantics: 30 tests
-
-[See test suite ->](../tests/README.md)
+- Event ordering
+- State batching
+- Transaction semantics

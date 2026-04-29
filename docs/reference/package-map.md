@@ -1,197 +1,118 @@
-﻿# Package Map
+# Package Map
 
-Official packages in the Askr platform, their responsibilities, and their boundaries.
-
-For the platform-level operating model and how the packages fit together, see
-[Platform charter](../development/platform-charter.md).
-
-This reference describes the intended package boundaries. Package-specific
-details live in the owning package repository.
-
----
+This reference describes the published package boundaries for the Askr platform.
+Use the owning package repository for package-specific implementation details.
 
 ## `@askrjs/askr`
 
-**Core framework runtime.**
+Core runtime package.
 
-### Responsibilities
+Responsibilities:
 
-- Component rendering (DOM patches, string rendering)
-- Application lifecycle: `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`
-- Routing: `registerRoutes()`, `group()`, `route()`, `currentRoute()`, `navigate()`, `Link`, `getManifest()`
-- Reactivity: `state()`, `derive()`, `selector()`
-- Context: `defineContext()`, `readContext()`
-- Async data: `resource()`, `on()`, `timer()`, `task()`, `stream()`, `capture()`
-- Timing utilities: `debounce()`, `throttle()`, `retry()`, `defer()`
-- SSR output: `renderToString()` and URL-based helpers
-- SSG output: `createStaticGen()`
-- Event delegation
-- Foundation primitives via `@askrjs/askr/foundations`:
-  - structures (`Slot`, `Presence`, `Portal`, `DefaultPortal`, `createCollection`, `createLayer`, `layout`)
+- Component rendering and lifecycle
+- App startup via `@askrjs/askr/boot`
+- Routing via `@askrjs/askr/router`
+- Reactivity via `state()`, `derive()`, and `selector()`
+- Async resources via `@askrjs/askr/resources`
+- Timing helpers via `@askrjs/askr/fx`
+- JSX control flow via `@askrjs/askr/control`
+- SSR via `@askrjs/askr/ssr`
+- SSG via `@askrjs/askr/ssg`
 
-- Headless UI helper foundations via `@askrjs/ui/foundations`:
-  - interactions (`pressable`, `hoverable`, `focusable`, `rovingFocus`, `dismissable`)
-  - utilities (`composeHandlers`, `mergeProps`, `composeRefs`, `formatId`, ARIA helpers)
-  - controllable state helpers
+Does not include:
 
-### Does not include
-
-- Visual styling or tokens
-- Project generators or CLI tools
-
-### Import style
-
-```ts
-import { state, route, currentRoute, navigate, resource } from '@askrjs/askr';
-
-// Explicit subpaths for feature-focused imports:
-import { createSPA } from '@askrjs/askr/boot';
-import { Case, For, Match, Show } from '@askrjs/askr/control';
-import { registerRoutes, group, route } from '@askrjs/askr/router';
-import { resource, on } from '@askrjs/askr/resources';
-import { debounce } from '@askrjs/askr/fx';
-import { Slot, Portal, DefaultPortal } from '@askrjs/askr/foundations';
-import { pressable } from '@askrjs/ui/foundations';
-import { renderToString } from '@askrjs/askr/ssr';
-import { createStaticGen } from '@askrjs/askr/ssg';
-```
-
----
+- Visual themes or tokens
+- CLI scaffolding
+- Package-specific UI styling layers
 
 ## `@askrjs/ui`
 
-**Headless UI primitives.**
+Headless UI primitives.
 
-### Responsibilities
+Responsibilities:
 
-- Interaction behavior for common UI patterns (button, input, select, dialog, tabs, etc.)
-- Keyboard navigation
-- ARIA attribute management
-- Composable behavior composition via foundations
+- Behavior primitives for common controls
+- Keyboard navigation and ARIA behavior
+- Composition helpers from `@askrjs/ui/foundations`
 
-### Does not include
+Does not include:
 
-- Visual styling or themes
-- Layout opinions
+- Visual styling
+- Application runtime behavior
 - Business logic
-
-### Import style
-
-```ts
-import { Button } from '@askrjs/ui/button';
-import { Dialog, DialogContent, DialogTrigger } from '@askrjs/ui/dialog';
-import { Select, SelectTrigger, SelectContent } from '@askrjs/ui/select';
-```
-
----
 
 ## `@askrjs/themes`
 
-**Optional styling layer.**
+Styling layer for Askr applications.
 
-### Responsibilities
+Responsibilities:
 
-- Design tokens: color, spacing, type scale, border radius, shadows
-- Base component styles that pair with `askr-ui` primitives
-- Layout utility classes
+- Theme tokens
+- Base component styles
+- Layout utilities
 
-### Does not include
+Does not include:
 
 - Runtime behavior
 - Component logic
-- Business rules
-
-### Import style
-
-```ts
-// Typically imported once at the app entry point or in CSS:
-import '@askrjs/themes/default';
-```
-
----
+- CLI tooling
 
 ## `@askrjs/lucide`
 
-**Lucide icon wrappers for Askr.**
+Lucide icon wrappers.
 
-### Responsibilities
+Responsibilities:
 
-- Thin wrappers around the Lucide SVG icon set
-- Consistent icon API: `size`, `color`, `aria-hidden`, `title`
-- Tree-shakeable per-icon and barrel imports
-- Named size hooks aligned with `askr-ui` conventions
+- Thin icon wrappers
+- Tree-shakeable icon imports
 
-### Does not include
+Does not include:
 
 - Icon authoring tools
 - Non-Lucide icon sets
 
-### Import style
-
-```ts
-import { SearchIcon, XIcon, MenuIcon } from '@askrjs/lucide';
-
-// Per-icon (better tree-shaking):
-import { SearchIcon } from '@askrjs/lucide/icons/search';
-```
-
----
-
 ## `@askrjs/vite`
 
-**Vite integration plugin for Askr projects.**
+Vite integration for Askr.
 
-### Responsibilities
+Responsibilities:
 
-- JSX transform wiring for Askr runtime in Vite
-- Template optimization hooks used by Askr starter projects
-- Vite config defaults needed for Askr runtime imports
+- JSX transform wiring
+- Template optimization hooks
+- Vite config defaults
 
-### Does not include
+Does not include:
 
-- Runtime rendering or routing APIs
-- UI components or themes
-- CLI scaffolding
-
-### Import style
-
-```ts
-import { askr } from '@askrjs/vite';
-```
-
----
+- Runtime APIs
+- UI components
+- CLI tooling
 
 ## `@askrjs/cli`
 
-**Developer workflow tooling.**
+Developer workflow tooling.
 
-### Responsibilities
+Responsibilities:
 
-- Project creation: `askr-cli create [template] <name>`
-- Static site generation runner: `askr-cli ssg`
-- Feature generators (planned): `add page`, `add route`, `add crud`, `add table`, `add form`
+- Project creation
+- Static-site generation tooling
 
-### Does not include
+Does not include:
 
 - Runtime code
-- UI primitives or styles
-- Any dependency on the generated application at runtime
+- UI primitives
+- Application-specific business logic
 
-Generated code has no runtime dependency on the CLI. The CLI is a dev-time tool only.
+## Import guidance
 
-### Usage
+Prefer the package that owns the feature. Use subpaths for feature-focused imports.
 
-```bash
-npx @askrjs/cli --help
-npx @askrjs/cli create startkit my-app
-npx @askrjs/cli ssg --config ./ssg.config.ts --output ./dist/static
+```ts
+import { state } from '@askrjs/askr';
+import { createIsland } from '@askrjs/askr/boot';
+import { route } from '@askrjs/askr/router';
+import { resource } from '@askrjs/askr/resources';
+import { debounce } from '@askrjs/askr/fx';
+import { For, Show } from '@askrjs/askr/control';
+import { renderToString } from '@askrjs/askr/ssr';
+import { createStaticGen } from '@askrjs/askr/ssg';
 ```
-
----
-
-## See also
-
-- [Project structure](./project-structure.md)
-- [Platform overview](../getting-started/platform-overview.md)
-- [API reference](./api.md)
-- [CLI reference](./cli.md)

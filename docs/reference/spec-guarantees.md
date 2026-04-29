@@ -1,13 +1,13 @@
-# Guarantees Index
+# Behavioral Contracts
 
-This index maps framework guarantees to implementation and tests.
+This index maps documented runtime behaviors to implementation and tests.
 
-## Runtime guarantees
+## Runtime behaviors
 
 - Deterministic event ordering
-- Atomic render/commit behavior
-- Hook order/state index enforcement
-- Cleanup and cancellation correctness
+- Atomic render and commit behavior
+- Hook-order and state-index enforcement
+- Cleanup and cancellation behavior
 
 ## Reading order
 
@@ -18,4 +18,4 @@ This index maps framework guarantees to implementation and tests.
 
 ## Notes
 
-Tests are the executable source of truth for guarantee validation.
+Tests are the executable source of truth for these documented behaviors.
