@@ -1,55 +1,51 @@
-﻿# Development: Repository Structure
+# Development: Repository Structure
 
-The Askr platform lives in a single monorepo at `askrjs/askr`.
+The Askr platform is developed as a set of sibling package repositories under
+the `askrjs` GitHub organization. This `askr` repository owns the core runtime
+and the platform-level documentation.
 
-**For dependency configuration patterns in npm workspaces, see [Peer Dependencies in npm Workspaces](./peer-dependencies-monorepo.md).**
+For dependency configuration patterns across local package checkouts, see
+[Peer Dependencies in npm Workspaces](./peer-dependencies-monorepo.md).
 
-## Monorepo layout
+## Local Checkout Layout
 
+```text
+askrjs/
+  askr/          - core runtime and platform docs
+  askr-ui/       - headless UI primitives
+  askr-themes/   - optional styling layer
+  askr-lucide/   - Lucide icon wrappers
+  askr-cli/      - CLI tooling and project templates
+  askr-vite/     - Vite integration
+  askr-charts/   - chart presentation primitives
 ```
-packages/
-  askr-core/        â€” core runtime
-  askr-ui/          â€” headless UI primitives
-  askr-themes/      â€” optional styling layer
-  askr-lucide/      â€” Lucide icon wrappers
-  askr-cli/         â€” CLI tooling and project templates
 
-docs/               â€” platform documentation (you are here)
-scripts/            â€” monorepo maintenance scripts
+Each package has its own Git history, package metadata, tests, and release
+configuration.
 
-package.json        â€” npm workspaces root
-```
+## Package Relationships
 
-## Package relationships
-
-```
+```text
 application
-    â†‘ depends on
-  askr-ui, askr-themes, askr-lucide, askr-cli (as dev dep)
-    â†‘ depends on
-  askr (peer)
+  depends on askr
+  optionally depends on askr-ui, askr-themes, askr-lucide, and askr-charts
+  uses askr-cli and askr-vite as development tooling
 
-askr-ui consumes structural primitives from:
-  @askrjs/askr/foundations
-
-askr-ui owns headless UI behavior helpers under:
-  @askrjs/ui/foundations
+askr-ui, askr-themes, askr-lucide, askr-cli, askr-vite, and askr-charts
+  depend on or peer-depend on askr where runtime integration is required
 ```
 
-All packages in `packages/` are npm workspaces. The root `package.json` manages them
-via `"workspaces": ["packages/*"]`.
+Package-specific docs live in the package repo that owns the behavior. The
+`askr` docs may describe package boundaries and platform-level workflows, but
+they should not duplicate package-owned references.
 
-## CLI templates
+## CLI Templates
 
-Scaffold templates live inside the CLI package:
+Scaffold templates live in the CLI repo:
 
-```
-packages/askr-cli/
+```text
+askr-cli/
   src/
-    bin/
-      create.js
-      ssg.js
-      cli.js
   templates/
     spa/
     ssr/
@@ -57,18 +53,21 @@ packages/askr-cli/
     startkit/
 ```
 
-## Scripts
+## Common Scripts
 
-| Script                               | Purpose                          |
-| ------------------------------------ | -------------------------------- |
-| `npm run build`                      | Build all packages               |
-| `npm test`                           | Test all packages                |
-| `npm run lint`                       | Lint the root and all packages   |
-| `npm run fmt`                        | Format all docs and scripts      |
-| `node scripts/validate-monorepo.js`  | Validate workspace configuration |
-| `node scripts/generate-inventory.js` | Regenerate `inventory.md`        |
+Most package repos expose a small set of npm scripts:
 
-## See also
+| Script          | Purpose                         |
+| --------------- | ------------------------------- |
+| `npm run build` | Build package artifacts         |
+| `npm test`      | Run package tests where present |
+| `npm run lint`  | Run package formatting checks   |
+| `npm run fmt`   | Format package files            |
+
+Check the target repo's `package.json` for the exact script list before running
+automation.
+
+## See Also
 
 - [Contributing](./contributing.md)
 - [Release](./release.md)

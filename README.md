@@ -26,13 +26,13 @@ Askr validates component structure as it runs, catching mistakes with clear erro
 ```typescript
 // This error is caught immediately:
 if (condition) {
-  const [x, setX] = state(0); // ❌ Hook order violation
+  const [x, setX] = state(0); // NO Hook order violation
 }
 
 // Error shows the fix:
 const [x, setX] = state(0);
 if (condition) {
-  setX(newValue); // ✅ Correct
+  setX(newValue); // OK Correct
 }
 ```
 
@@ -74,7 +74,7 @@ function Data({ id }) {
 
 ### Explicit Reactivity
 
-Getters and setters are functions. Call the getter to read and the setter to update — this makes reactivity explicit in your code.
+Getters and setters are functions. Call the getter to read and the setter to update - this makes reactivity explicit in your code.
 
 ```typescript
 const [count, setCount] = state(0);
@@ -133,7 +133,7 @@ function Table({ rows }) {
     () => rows(),
     (row) => row.id,
     (row) => (
-      <tr class={() => (isSelected(row.id) ? 'danger' : '')}>
+      <tr class={() => (isSelected(row.id) " 'danger' : '')}>
         <td>
           <a onClick={() => setSelectedId(row.id)}>{row.id}</a>
         </td>
@@ -208,7 +208,7 @@ Askr provides provable guarantees, tested with 524 tests:
 - Keyed reconciliation (12 tests)
 - Memory safety (8 tests)
 
-[See test suite →](tests/README.md)
+[See test suite ->](tests/README.md)
 
 ---
 

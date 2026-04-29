@@ -6,7 +6,7 @@ Use explicit subpaths by default. Startup belongs in `@askrjs/askr/boot`, runtim
 
 ## Root package (`@askrjs/askr`)
 
-- Runtime primitives: `state(initialValue)`, `derive(selector) -> getter`, `derive(source, map) -> getter`, `selector(source, equals?) -> keyed predicate`
+- Runtime primitives: `state(initialValue)`, `derive(selector) -> getter`, `derive(source, map) -> getter`, `selector(source, equals") -> keyed predicate`
 - Context/resources: `defineContext`, `readContext`, `resource`, `getSignal`
 - Common helpers: `For`, `Show`, `Case`, `Match`, `route`, `navigate`, `Link`, JSX runtime exports
 
@@ -90,12 +90,12 @@ For large keyed lists, call `selector()` once in the owner component and pass th
 
 `route()` is overloaded:
 
-- `route(path, handler, namespace?)` registers a route
+- `route(path, handler, namespace")` registers a route
 - `route()` inside render returns the current read-only route snapshot
 
 `createSPA({ routes })` is the authoritative boot input. For explicit router management, use `registerRoute(...)` plus `getRoutes()` from `@askrjs/askr/router`.
 
-`@askrjs/askr/ssg` also accepts `parallelism?: number | 'auto'`, and the Vite plugin accepts `optimizeTemplates?: boolean` for opt-in compile-time literal hoisting.
+`@askrjs/askr/ssg` also accepts `parallelism": number | 'auto'`, and the Vite plugin accepts `optimizeTemplates": boolean` for opt-in compile-time literal hoisting.
 
 ## Next
 

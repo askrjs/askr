@@ -85,7 +85,7 @@ live in `@askrjs/ui/foundations`.
 **Primitive**
 
 A composable building block. In the Askr context, a primitive is the smallest meaningful
-unit of behavior or rendering â€” a button, a dialog, a state getter.
+unit of behavior or rendering - a button, a dialog, a state getter.
 
 ---
 

@@ -73,8 +73,8 @@ The renderer recognizes that boundary and delegates to runtime state:
 
 `For` is a thin keyed reconciliation layer over child scopes.
 
-- keyed mode: `each`, `by`, `fallback?`, `children`
-- positional mode: `each`, `byIndex={true}`, `fallback?`, `children`
+- keyed mode: `each`, `by`, `fallback"`, `children`
+- positional mode: `each`, `byIndex={true}`, `fallback"`, `children`
 - `by` and `byIndex` are mutually exclusive
 - missing both is a hard error
 

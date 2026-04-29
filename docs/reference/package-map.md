@@ -5,9 +5,8 @@ Official packages in the Askr platform, their responsibilities, and their bounda
 For the platform-level operating model and how the packages fit together, see
 [Platform charter](../development/platform-charter.md).
 
-This reference stays aligned with the platform contract in
-[tooling/platform-contract.ts](../../tooling/platform-contract.ts),
-which is the machine-readable source of truth for package roles and workspace boundaries.
+This reference describes the intended package boundaries. Package-specific
+details live in the owning package repository.
 
 ---
 

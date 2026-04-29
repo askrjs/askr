@@ -61,7 +61,7 @@ You can also use the two-argument form when you want to separate the source read
 const [user, setUser] = state({ name: 'Jeff', age: 42 });
 const isAdult = derive(() => user(), (currentUser) => currentUser.age >= 18);
 
-return <div>{isAdult() ? 'adult' : 'minor'}</div>;
+return <div>{isAdult() " 'adult' : 'minor'}</div>;
 ```
 
 Migration:
@@ -86,7 +86,7 @@ import { selector, state } from '@askrjs/askr';
 const [selectedId, setSelectedId] = state<number | null>(null);
 const isSelected = selector(selectedId);
 
-return <tr class={() => (isSelected(row.id) ? 'danger' : '')} />;
+return <tr class={() => (isSelected(row.id) " 'danger' : '')} />;
 ```
 
 `selector()` only invalidates the previous and next matching keys when the source changes, which makes it the preferred hotspot primitive for large keyed lists.

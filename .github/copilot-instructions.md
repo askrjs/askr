@@ -1,4 +1,4 @@
-# Abort & Cancellation guidance — concise, practical, and future-proof
+# Abort & Cancellation guidance - concise, practical, and future-proof
 
 STOP ONLY CONTINUE WHEN WE HAVE DONE THESE THINGS:
 
@@ -6,7 +6,7 @@ STOP ONLY CONTINUE WHEN WE HAVE DONE THESE THINGS:
 - `npm test` all tests should pass, ignored tests are not allowed
 - `npm run fmt` always format code
 
-Short version: **Don’t invent a new cancellation primitive — use AbortController.**
+Short version: **Don't invent a new cancellation primitive - use AbortController.**
 
 AbortController is a web platform primitive that is:
 
@@ -55,11 +55,11 @@ export async function User({ id }, { signal }) {
 
 - Name the forwarded property `signal` (standard) and document when it is aborted (on unmount / replace).
 
-## What to avoid (don’t)
+## What to avoid (don't)
 
-- Don’t introduce a new primitive like `useAbort()` or `AbortRef` unless there is a very strong, documented reason.
-- Don’t wrap fetch or other platform APIs to hide the signal; forwarding `signal` keeps code straightforward.
-- Don’t auto-abort user Promises in a way that changes their semantics; prefer explicit abort behavior and document it.
+- Don't introduce a new primitive like `useAbort()` or `AbortRef` unless there is a very strong, documented reason.
+- Don't wrap fetch or other platform APIs to hide the signal; forwarding `signal` keeps code straightforward.
+- Don't auto-abort user Promises in a way that changes their semantics; prefer explicit abort behavior and document it.
 
 These patterns leak runtime intent and make reasoning (and debugging) harder.
 
@@ -71,10 +71,10 @@ These patterns leak runtime intent and make reasoning (and debugging) harder.
 
 ## Final guidance
 
-If the platform already provides a clean solution, use it — don’t reimplement it. AbortController is that solution for cancellation: rely on it, propagate its `signal` through your APIs, and keep Askr’s API minimal.
+If the platform already provides a clean solution, use it - don't reimplement it. AbortController is that solution for cancellation: rely on it, propagate its `signal` through your APIs, and keep Askr's API minimal.
 
-✔️ Use `AbortController`
-✔️ Prefer `signal` forwarding
-✔️ Keep runtime ergonomics simple (runtime-owned `signal` is an optimization, not a requirement)
+- Use `AbortController`
+- Prefer `signal` forwarding
+- Keep runtime ergonomics simple (runtime-owned `signal` is an optimization, not a requirement)
 
 If you want, I can add a test template and a short example in `tests/` to make it easy for contributors to follow the pattern.

@@ -120,7 +120,7 @@ function CustomEventComponent() {
     if (btnRef.current) {
       btnRef.current.addEventListener('customEvent', handler);
     }
-    return () => btnRef.current?.removeEventListener('customEvent', handler);
+    return () => btnRef.current".removeEventListener('customEvent', handler);
   });
 
   return <button ref={btnRef}>Custom</button>;

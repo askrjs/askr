@@ -210,12 +210,12 @@ Users can now interact with buttons, forms, and other controls.
 
 ## Hydration Mismatches
 
-### What Are They?
+### What Are They"
 
 A hydration mismatch occurs when server HTML doesn't match client-rendered HTML:
 
 ```tsx
-// ❌ Bad - causes mismatch
+// NO Bad - causes mismatch
 function BadComponent() {
   return <div>{Date.now()}</div>;
 }
@@ -230,23 +230,23 @@ function BadComponent() {
 1. **Non-deterministic data**:
 
    ```tsx
-   // ❌ Changes on each render
+   // NO Changes on each render
    <div>{Math.random()}</div>
    <div>{Date.now()}</div>
-   <div>{Math.random() > 0.5 ? 'A' : 'B'}</div>
+   <div>{Math.random() > 0.5 " 'A' : 'B'}</div>
    ```
 
 2. **Browser-only APIs**:
 
    ```tsx
-   // ❌ window undefined on server
+   // NO window undefined on server
    <div>{window.innerWidth}</div>
-   <div>{typeof window !== 'undefined' ? 'Browser' : 'Server'}</div>
+   <div>{typeof window !== 'undefined' " 'Browser' : 'Server'}</div>
    ```
 
 3. **Conditional rendering based on environment**:
    ```tsx
-   // ❌ Different output on server vs client
+   // NO Different output on server vs client
    {
      typeof window !== 'undefined' && <div>Client only</div>;
    }
@@ -257,7 +257,7 @@ function BadComponent() {
 1. **Use state for dynamic data**:
 
    ```tsx
-   // ✅ Good - state initializes on mount
+   // OK Good - state initializes on mount
    function GoodComponent() {
      const timestamp = state(Date.now());
      onMount(() => timestamp.set(Date.now()));
@@ -268,18 +268,18 @@ function BadComponent() {
 2. **Defer client-only content**:
 
    ```tsx
-   // ✅ Good - waits for client
+   // OK Good - waits for client
    function ClientOnly({ children }) {
      const isMounted = state(false);
      onMount(() => isMounted.set(true));
-     return isMounted() ? children : null;
+     return isMounted() " children : null;
    }
    ```
 
 3. **Use refs for post-hydration updates**:
 
    ```tsx
-   // ✅ Good - updates after hydration
+   // OK Good - updates after hydration
    function ScreenWidth() {
      const width = state(0);
 
@@ -356,7 +356,7 @@ function AsyncHandler() {
 
   return (
     <button onClick={handleClick}>
-      {loading() ? 'Loading...' : 'Fetch Data'}
+      {loading() " 'Loading...' : 'Fetch Data'}
     </button>
   );
 }
@@ -401,10 +401,10 @@ With **event delegation** enabled (default), the cost is even lower:
 ### 1. Keep Handlers Simple
 
 ```tsx
-// ✅ Good - simple handler
+// OK Good - simple handler
 <button onClick={() => count.set(count() + 1)}>+</button>
 
-// ❌ Bad - complex logic in JSX
+// NO Bad - complex logic in JSX
 <button onClick={() => {
   if (count() < 10) {
     count.set(count() + 1);
@@ -413,7 +413,7 @@ With **event delegation** enabled (default), the cost is even lower:
   }
 }}>+</button>
 
-// ✅ Better - extract to function
+// OK Better - extract to function
 const handleClick = () => {
   if (count() < 10) {
     count.set(count() + 1);
@@ -429,7 +429,7 @@ const handleClick = () => {
 Leave delegation enabled (default) for better performance:
 
 ```tsx
-// ✅ Automatically delegated
+// OK Automatically delegated
 <button onClick={handleClick}>Click</button>
 ```
 
@@ -438,7 +438,7 @@ Leave delegation enabled (default) for better performance:
 Design for non-JS users:
 
 ```tsx
-// ✅ Works without JS, enhanced with JS
+// OK Works without JS, enhanced with JS
 <form action="/submit" method="POST" onSubmit={handleSubmit}>
   <button type="submit">Submit</button>
 </form>
@@ -447,7 +447,7 @@ Design for non-JS users:
 ### 4. Avoid Inline Functions for Stable Handlers
 
 ```tsx
-// ❌ New function on each render
+// NO New function on each render
 {
   items.map((item) => (
     <button key={item.id} onClick={() => handleClick(item.id)}>
@@ -456,7 +456,7 @@ Design for non-JS users:
   ));
 }
 
-// ✅ Stable handler reference
+// OK Stable handler reference
 const handleClick = (id: string) => console.log(id);
 {
   items.map((item) => (
@@ -504,9 +504,9 @@ expect(container.querySelector('button')).toBeDefined();
 
 ## Summary
 
-- ✅ Event handlers are NOT serialized to HTML (security, performance)
-- ✅ Listeners attach during hydration (page becomes interactive)
-- ✅ State values ARE rendered in HTML (preserved during hydration)
-- ✅ Event delegation enabled by default (better performance)
-- ✅ Progressive enhancement recommended (works without JS)
-- ✅ Test both SSR and hydration (catch mismatches early)
+- OK Event handlers are NOT serialized to HTML (security, performance)
+- OK Listeners attach during hydration (page becomes interactive)
+- OK State values ARE rendered in HTML (preserved during hydration)
+- OK Event delegation enabled by default (better performance)
+- OK Progressive enhancement recommended (works without JS)
+- OK Test both SSR and hydration (catch mismatches early)

@@ -1,28 +1,84 @@
 # First App
 
-A complete walkthrough building your first Askr application from scratch.
+A concise walkthrough for building a small Askr application from scratch.
 
-> This guide is a work in progress. For a running example now, use the [quickstart](../getting-started/quick-start.md)
-> or scaffold a project with `askr-cli create startkit my-app`.
+For a shorter setup path, use the [quick start](../getting-started/quick-start.md).
+For a generated starter, use `npx @askrjs/cli create startkit my-app`.
 
-## What you will build
+## What You Will Build
 
-A small task list application with:
+- A routed application shell
+- A task list backed by `state()`
+- A form for adding tasks
+- Navigation between two routes
 
-- State-driven list rendering
-- Route-based navigation
-- A form to add items
-- Basic layout
+## 1. Install and Configure
 
-## Steps
+Follow [Installation](../getting-started/installation.md), then configure the
+Askr Vite plugin and `jsxImportSource`.
 
-1. [Installation](../getting-started/installation.md)
-2. Mount an island
-3. Add state
-4. Add a router
-5. Add a form
+## 2. Create State-Driven UI
 
-## See also
+```tsx
+import { For, state } from '@askrjs/askr';
+
+export function TaskList() {
+  const [tasks, setTasks] = state(['Write docs']);
+  const [title, setTitle] = state('');
+
+  const addTask = () => {
+    const next = title().trim();
+    if (!next) return;
+    setTasks((current) => [...current, next]);
+    setTitle('');
+  };
+
+  return (
+    <section>
+      <input
+        value={title()}
+        onInput={(event: Event) =>
+          setTitle((event.target as HTMLInputElement).value)
+        }
+      />
+      <button onClick={addTask}>Add task</button>
+      <ul>
+        <For each={tasks()}>{(task) => <li>{task}</li>}</For>
+      </ul>
+    </section>
+  );
+}
+```
+
+## 3. Add Routes
+
+```tsx
+import { createSPA } from '@askrjs/askr/boot';
+import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
+import { TaskList } from './task-list';
+
+function About() {
+  return <p>Built with Askr.</p>;
+}
+
+registerRoutes(() => {
+  route('/', TaskList);
+  route('/about', About);
+});
+
+await createSPA({
+  root: '#app',
+  manifest: getManifest(),
+});
+```
+
+## Common Pitfalls
+
+- Register routes before calling `createSPA()`.
+- Keep route handlers synchronous; use `resource()` inside components for async data.
+- Use `cleanupApp(root)` in tests when a mounted app must be torn down.
+
+## See Also
 
 - [Core: runtime](../core/runtime.md)
 - [Core: routing](../core/routing.md)

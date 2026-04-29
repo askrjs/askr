@@ -1,22 +1,16 @@
 # Platform Versioning
 
-Askr uses each workspace package's `package.json` version as the source of truth. The old repository-level `platform-version.json` contract and its separate validation step have been retired.
+Askr uses each package repository's `package.json` version as the source of truth. Package releases are coordinated by policy, not by a repository-level platform version file.
 
 ## Update workflow
 
 1. Bump the `package.json` version for each package that is part of the release.
-2. Run the root checks that still apply:
+2. Run the relevant quality gates in each affected package repository:
 
 ```bash
-node scripts/validate-monorepo.js
-```
-
-3. Run the normal quality gates before publishing:
-
-```bash
-npm run lint
 npm run build
 npm test
+npm run lint
 ```
 
 ## Why

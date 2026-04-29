@@ -2,7 +2,7 @@
 
 Import router-specific APIs from `@askrjs/askr/router`.
 
-## `registerRoutes(definition, options?)`
+## `registerRoutes(definition, options")`
 
 Runs a callback-based route definition and optionally attaches app-level auth resolution.
 
@@ -47,7 +47,7 @@ Supported group options:
 - `permission`
 - `policies`
 
-## `route(path, Component, options?)`
+## `route(path, Component, options")`
 
 Registers a route declaration. Must be called during route registration.
 

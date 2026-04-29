@@ -14,7 +14,7 @@ src/
 
 public/
 
-askr.config.ts        (optional — for SSG or advanced config)
+askr.config.ts        (optional - for SSG or advanced config)
 tsconfig.json
 vite.config.ts
 ```
@@ -65,7 +65,7 @@ src/components/
 ## `src/ui/`
 
 Reusable UI pieces that compose `askr-ui` primitives into application-specific patterns.
-These are not domain-specific — they are used across features.
+These are not domain-specific - they are used across features.
 
 ```
 src/ui/
@@ -93,11 +93,11 @@ CSS files. Typically layered in this order:
 
 ```
 src/styles/
-  reset.css       — baseline resets
-  tokens.css      — design tokens (or imported from askr-themes)
-  theme.css       — global typography and theme values
-  layout.css      — page/shell structure
-  components.css  — component-level styles
+  reset.css       - baseline resets
+  tokens.css      - design tokens (or imported from askr-themes)
+  theme.css       - global typography and theme values
+  layout.css      - page/shell structure
+  components.css  - component-level styles
 ```
 
 ## `src/layouts/`
@@ -106,8 +106,8 @@ Layout components used to wrap route groups.
 
 ```
 src/layouts/
-  app-layout.tsx     — authenticated shell (sidebar + header)
-  auth-layout.tsx    — minimal centered shell for login/onboarding
+  app-layout.tsx     - authenticated shell (sidebar + header)
+  auth-layout.tsx    - minimal centered shell for login/onboarding
 ```
 
 ## `public/`
