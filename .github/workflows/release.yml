@@ -1,6 +1,12 @@
 name: Release Package
 
 on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing tag to release, for example v0.1.0
+        required: true
+        type: string
   push:
     tags:
       - v*
@@ -13,10 +19,14 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -28,7 +38,7 @@ jobs:
         uses: askrjs/actions/actions/validate-package-version@ed124344f103ec17a3ff86013bcdedf2d87e92c4
         with:
           package-json-path: package.json
-          tag: ${{ github.ref_name }}
+          tag: ${{ env.RELEASE_TAG }}
 
       - name: Create GitHub Release
         uses: askrjs/actions/actions/create-release@ed124344f103ec17a3ff86013bcdedf2d87e92c4

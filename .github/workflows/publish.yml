@@ -1,6 +1,12 @@
 name: Publish Package
 
 on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing released tag to publish, for example v0.1.0
+        required: true
+        type: string
   release:
     types:
       - published
@@ -15,21 +21,32 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: "lts/*"
 
+      - name: Validate Tag Matches Package Version
+        id: version
+        uses: askrjs/actions/actions/validate-package-version@ed124344f103ec17a3ff86013bcdedf2d87e92c4
+        with:
+          package-json-path: package.json
+          tag: ${{ env.RELEASE_TAG }}
+
       - name: Resolve npm dist-tag
         id: package
         uses: askrjs/actions/actions/resolve-npm-tag@ed124344f103ec17a3ff86013bcdedf2d87e92c4
         with:
-          semver: ${{ github.event.release.tag_name }}
+          semver: ${{ steps.version.outputs.tag }}
 
       - name: Publish to npm
         uses: askrjs/actions/actions/publish-package@ed124344f103ec17a3ff86013bcdedf2d87e92c4
