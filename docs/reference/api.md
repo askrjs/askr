@@ -1,4 +1,4 @@
-# API Overview
+﻿# API Overview
 
 Askr treats the published package entrypoints as the public API contract.
 
@@ -22,7 +22,7 @@ Supported DOM events are delegated automatically as part of the renderer; normal
 - `@askrjs/askr/ssr` -> server-side rendering helpers
 - `@askrjs/askr/ssg` -> static-site generation helpers (`createStaticGen`)
 - `@askrjs/askr/foundations` -> lower-level structural framework primitives
-- `@askrjs/askr-ui/foundations` -> lower-level headless UI behavior primitives
+- `@askrjs/ui/foundations` -> lower-level headless UI behavior primitives
 
 Control-flow primitives use JSX directly:
 

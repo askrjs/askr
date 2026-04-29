@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite-plus';
+﻿import { defineConfig } from 'vite-plus';
 import {
   askrEsbuild,
   createBuildInput,
@@ -47,7 +47,7 @@ export default defineConfig({
     treeshake: false,
     define: createNodeEnvDefine(isProd ? 'production' : 'development'),
     deps: {
-      neverBundle: ['vite', 'esbuild', '@askrjs/askr-vite', ...nodeBuiltins],
+      neverBundle: ['vite', 'esbuild', '@askrjs/vite', ...nodeBuiltins],
     },
   },
   build: {

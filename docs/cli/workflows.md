@@ -1,4 +1,4 @@
-# CLI Workflows
+﻿# CLI Workflows
 
 End-to-end CLI workflows for common Askr tasks.
 
@@ -6,7 +6,7 @@ End-to-end CLI workflows for common Askr tasks.
 
 ```bash
 # Create a full-featured application starter
-npx @askrjs/askr-cli create startkit my-app
+npx @askrjs/cli create startkit my-app
 cd my-app
 npm run dev
 ```
@@ -14,7 +14,7 @@ npm run dev
 ## Start a minimal SPA
 
 ```bash
-npx @askrjs/askr-cli create spa my-spa
+npx @askrjs/cli create spa my-spa
 cd my-spa
 npm run dev
 ```
@@ -23,14 +23,14 @@ npm run dev
 
 ```bash
 # Create an SSG project
-npx @askrjs/askr-cli create ssg my-site
+npx @askrjs/cli create ssg my-site
 cd my-site
 
 # Build static output
 npm run build
 
 # Or run SSG directly with a config
-npx @askrjs/askr-cli ssg --config ./ssg.config.ts --output ./dist/static
+npx @askrjs/cli ssg --config ./ssg.config.ts --output ./dist/static
 ```
 
 ## Build and preview

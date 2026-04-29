@@ -1,25 +1,25 @@
-# CLI Overview
+﻿# CLI Overview
 
-The `@askrjs/askr-cli` package is the command-line surface for the Askr platform.
+The `@askrjs/cli` package is the command-line surface for the Askr platform.
 
 ## CLI philosophy
 
 The CLI exists to:
 
-- Reduce boilerplate — you describe what you want, the CLI writes the files
-- Enforce conventions — generated code follows platform standards
-- Standardize structure — every generated project starts from the same foundation
-- Accelerate feature creation — generators produce the right files in the right places
+- Reduce boilerplate â€” you describe what you want, the CLI writes the files
+- Enforce conventions â€” generated code follows platform standards
+- Standardize structure â€” every generated project starts from the same foundation
+- Accelerate feature creation â€” generators produce the right files in the right places
 
 Generated code has no runtime dependency on the CLI. Once scaffolded, the CLI is a dev-time
 tool only. You can read and modify every generated file without affecting how the CLI works.
 
 ## Install and run
 
-The canonical entrypoint is `@askrjs/askr-cli`.
+The canonical entrypoint is `@askrjs/cli`.
 
 ```bash
-npx @askrjs/askr-cli --help
+npx @askrjs/cli --help
 ```
 
 The package also exposes direct bins:
@@ -67,7 +67,7 @@ Generated code follows the [conventions](../reference/conventions.md) and [proje
 
 ## See also
 
-- [create](./create.md) — full `create` command reference
-- [add](./add.md) — generator command reference
-- [workflows](./workflows.md) — common CLI workflows end to end
-- [CLI reference](../reference/cli.md) — full option reference
+- [create](./create.md) â€” full `create` command reference
+- [add](./add.md) â€” generator command reference
+- [workflows](./workflows.md) â€” common CLI workflows end to end
+- [CLI reference](../reference/cli.md) â€” full option reference

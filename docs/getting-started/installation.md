@@ -1,4 +1,4 @@
-# Installation
+﻿# Installation
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ If you use Vite, add the Askr plugin:
 
 ```ts
 import { defineConfig } from 'vite';
-import { askr } from '@askrjs/askr-vite';
+import { askr } from '@askrjs/vite';
 
 export default defineConfig({
   plugins: [askr()],

@@ -33,7 +33,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: "lts/*"
+          node-version: 'lts/*'
 
       - name: Validate Tag Matches Package Version
         id: version

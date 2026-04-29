@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 Operational guide for coding agents working in this monorepo.
 
@@ -49,10 +49,10 @@ then run the relevant root gate(s).
 
 ```bash
 npm run --workspace @askrjs/askr <script>
-npm run --workspace @askrjs/askr-ui <script>
-npm run --workspace @askrjs/askr-themes <script>
-npm run --workspace @askrjs/askr-lucide <script>
-npm run --workspace @askrjs/askr-cli <script>
+npm run --workspace @askrjs/ui <script>
+npm run --workspace @askrjs/themes <script>
+npm run --workspace @askrjs/lucide <script>
+npm run --workspace @askrjs/cli <script>
 ```
 
 ## Documentation Contract

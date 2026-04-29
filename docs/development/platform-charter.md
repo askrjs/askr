@@ -1,4 +1,4 @@
-# Platform Charter
+﻿# Platform Charter
 
 Askr is a contract-driven platform built from distinct packages that are designed to work together.
 The monorepo exists so those packages can share one build, one release discipline, and one design
@@ -10,18 +10,18 @@ The platform is split by responsibility, not by implementation convenience:
 
 - `@askrjs/askr` provides the runtime foundation: rendering, routing, lifecycle, SSR, SSG, and
   shared primitives.
-- `@askrjs/askr-ui` provides headless interaction semantics and accessibility behavior.
-- `@askrjs/askr-themes` provides optional presentation through CSS tokens and component styling.
-- `@askrjs/askr-lucide` provides generated icon wrappers for common app surfaces.
-- `@askrjs/askr-cli` provides project scaffolding and workflow tools.
-- `@askrjs/askr-vite` provides Vite integration for the runtime and starter workflows.
+- `@askrjs/ui` provides headless interaction semantics and accessibility behavior.
+- `@askrjs/themes` provides optional presentation through CSS tokens and component styling.
+- `@askrjs/lucide` provides generated icon wrappers for common app surfaces.
+- `@askrjs/cli` provides project scaffolding and workflow tools.
+- `@askrjs/vite` provides Vite integration for the runtime and starter workflows.
 
 ## How the parts work together
 
 The intended dependency flow is simple:
 
 1. Applications depend on `@askrjs/askr` as the runtime contract.
-2. UI packages build on runtime foundations, not on each other’s internals.
+2. UI packages build on runtime foundations, not on each otherâ€™s internals.
 3. Themes provide presentation for the UI layer without adding runtime behavior.
 4. Icon wrappers stay thin and deterministic so they can be swapped or regenerated easily.
 5. CLI and Vite improve the developer experience without becoming runtime dependencies.

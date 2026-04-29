@@ -1,4 +1,4 @@
-# SSG Guide
+﻿# SSG Guide
 
 SSG is an advanced build-time feature for teams that need pre-rendered HTML output.
 
@@ -58,7 +58,7 @@ const ssg = createStaticGen({
 The unified CLI expects a TypeScript config file for SSG generation.
 
 ```bash
-npx @askrjs/askr-cli ssg --config ./examples/ssg.config.ts --output ./dist/static
+npx @askrjs/cli ssg --config ./examples/ssg.config.ts --output ./dist/static
 ```
 
 If you already have the CLI installed, you can also run the direct bin:

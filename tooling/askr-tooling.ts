@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import { builtinModules } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,7 +52,7 @@ export const nodeBuiltins = Array.from(
 
 export function isBuildExternal(source: string): boolean {
   return (
-    source === '@askrjs/askr-vite' ||
+    source === '@askrjs/vite' ||
     source === 'vite' ||
     source === 'esbuild' ||
     source.startsWith('node:') ||

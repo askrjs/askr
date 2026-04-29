@@ -1,4 +1,4 @@
-# Foundations: Pit of Success Guide
+﻿# Foundations: Pit of Success Guide
 
 This document demonstrates correct usage patterns and shows how misuse is prevented by design.
 
@@ -10,10 +10,10 @@ This document demonstrates correct usage patterns and shows how misuse is preven
 
 ## 1. applyInteractionPolicy - The Button Law
 
-### ✅ CORRECT: Single entry point for all button-like interactions
+### âœ… CORRECT: Single entry point for all button-like interactions
 
 ```typescript
-import { applyInteractionPolicy } from '@askrjs/askr-ui/foundations';
+import { applyInteractionPolicy } from '@askrjs/ui/foundations';
 
 function Button({ onPress, disabled }) {
   const interaction = applyInteractionPolicy({
@@ -26,17 +26,17 @@ function Button({ onPress, disabled }) {
 }
 ```
 
-### ❌ PREVENTED: Bypassing the policy
+### âŒ PREVENTED: Bypassing the policy
 
 ```typescript
-// ❌ NO! Don't check disabled yourself
+// âŒ NO! Don't check disabled yourself
 function Button({ disabled, onPress }) {
   if (disabled) return null; // Policy handles this!
 
   const interaction = applyInteractionPolicy({ ... });
 }
 
-// ❌ NO! Don't add custom keyboard handlers
+// âŒ NO! Don't add custom keyboard handlers
 function Button({ onPress }) {
   const interaction = applyInteractionPolicy({ ... });
   return (
@@ -49,7 +49,7 @@ function Button({ onPress }) {
   );
 }
 
-// ❌ NO! Don't use onClick directly
+// âŒ NO! Don't use onClick directly
 function Button({ onPress }) {
   return <button onClick={onPress}>Click</button>;
   // Policy owns interaction semantics!
@@ -60,10 +60,10 @@ function Button({ onPress }) {
 
 ## 2. dismissable - The ONLY Dismissal Primitive
 
-### ✅ CORRECT: Single dismissal foundation
+### âœ… CORRECT: Single dismissal foundation
 
 ```typescript
-import { dismissable } from '@askrjs/askr-ui/foundations';
+import { dismissable } from '@askrjs/ui/foundations';
 
 function Dialog({ onClose, open }) {
   const dialogRef = ref<HTMLDivElement>();
@@ -85,10 +85,10 @@ function Dialog({ onClose, open }) {
 }
 ```
 
-### ❌ PREVENTED: Creating custom dismissal logic
+### âŒ PREVENTED: Creating custom dismissal logic
 
 ```typescript
-// ❌ NO! Don't create your own escape handler
+// âŒ NO! Don't create your own escape handler
 function Dialog({ onClose }) {
   return (
     <div onKeyDown={(e) => {
@@ -99,11 +99,11 @@ function Dialog({ onClose }) {
   );
 }
 
-// ❌ NO! Don't check disabled yourself
+// âŒ NO! Don't check disabled yourself
 function Dialog({ onClose, disabled }) {
   const dismiss = dismissable({ onDismiss: onClose, disabled });
 
-  // ❌ Don't add additional disabled check
+  // âŒ Don't add additional disabled check
   if (disabled) return null; // dismissable handles this!
 
   return <div {...dismiss}>Content</div>;
@@ -114,10 +114,10 @@ function Dialog({ onClose, disabled }) {
 
 ## 3. rovingFocus - Single Tab Stop Navigation
 
-### ✅ CORRECT: Composable props
+### âœ… CORRECT: Composable props
 
 ```typescript
-import { rovingFocus } from '@askrjs/askr-ui/foundations';
+import { rovingFocus } from '@askrjs/ui/foundations';
 
 function Menu() {
   const [currentIndex, setCurrentIndex] = state(0);
@@ -143,10 +143,10 @@ function Menu() {
 }
 ```
 
-### ❌ PREVENTED: Custom arrow key handling
+### âŒ PREVENTED: Custom arrow key handling
 
 ```typescript
-// ❌ NO! Don't implement your own arrow navigation
+// âŒ NO! Don't implement your own arrow navigation
 function Menu() {
   const roving = rovingFocus({ ... });
 
@@ -163,7 +163,7 @@ function Menu() {
   );
 }
 
-// ❌ NO! Don't manage tabIndex yourself
+// âŒ NO! Don't manage tabIndex yourself
 function Menu() {
   const roving = rovingFocus({ ... });
 
@@ -184,14 +184,14 @@ function Menu() {
 
 ## 4. Composition via mergeProps
 
-### ✅ CORRECT: Foundations compose automatically
+### âœ… CORRECT: Foundations compose automatically
 
 ```typescript
 import {
   applyInteractionPolicy,
   dismissable,
   mergeProps,
-} from '@askrjs/askr-ui/foundations';
+} from '@askrjs/ui/foundations';
 
 function DialogButton({ onPress, onClose, disabled }) {
   const interaction = applyInteractionPolicy({
@@ -212,7 +212,7 @@ function DialogButton({ onPress, onClose, disabled }) {
 }
 ```
 
-### ✅ CORRECT: User handlers compose with foundation handlers
+### âœ… CORRECT: User handlers compose with foundation handlers
 
 ```typescript
 function Button({ onPress, disabled }) {
@@ -241,7 +241,7 @@ function Button({ onPress, disabled }) {
 
 ## 5. createCollection - Ordered Registry
 
-### ✅ CORRECT: Explicit lifecycle management
+### âœ… CORRECT: Explicit lifecycle management
 
 ```typescript
 import { createCollection } from '@askrjs/askr/foundations';
@@ -265,10 +265,10 @@ function TabList() {
 }
 ```
 
-### ❌ PREVENTED: Implicit global state (doesn't exist)
+### âŒ PREVENTED: Implicit global state (doesn't exist)
 
 ```typescript
-// ❌ NO! Don't create implicit registries
+// âŒ NO! Don't create implicit registries
 // There is no global registry - you MUST create one explicitly
 const tabs = createCollection(); // Explicit, scoped, controlled
 ```
@@ -277,7 +277,7 @@ const tabs = createCollection(); // Explicit, scoped, controlled
 
 ## 6. createLayer - Stacking Coordination
 
-### ✅ CORRECT: Explicit layer management
+### âœ… CORRECT: Explicit layer management
 
 ```typescript
 import { createLayer } from '@askrjs/askr/foundations';
@@ -310,12 +310,12 @@ function Modal({ onClose }) {
 
 For each foundation, verify:
 
-- ✅ **Can't bypass**: No way to implement behavior without the foundation
-- ✅ **Can't duplicate**: Checking disabled/handling keys elsewhere is prevented
-- ✅ **Composes via mergeProps**: All foundations return standard props
-- ✅ **Type safe**: Invalid usage caught by TypeScript
-- ✅ **Reads like English**: API is self-documenting
-- ✅ **Pit of success**: Right thing is easier than wrong thing
+- âœ… **Can't bypass**: No way to implement behavior without the foundation
+- âœ… **Can't duplicate**: Checking disabled/handling keys elsewhere is prevented
+- âœ… **Composes via mergeProps**: All foundations return standard props
+- âœ… **Type safe**: Invalid usage caught by TypeScript
+- âœ… **Reads like English**: API is self-documenting
+- âœ… **Pit of success**: Right thing is easier than wrong thing
 
 ---
 
@@ -324,7 +324,7 @@ For each foundation, verify:
 ### Button (Complete Example)
 
 ```typescript
-import { applyInteractionPolicy } from '@askrjs/askr-ui/foundations';
+import { applyInteractionPolicy } from '@askrjs/ui/foundations';
 
 export function Button({
   onPress,
@@ -345,7 +345,7 @@ export function Button({
 ### Dialog (Complete Example)
 
 ```typescript
-import { dismissable } from '@askrjs/askr-ui/foundations';
+import { dismissable } from '@askrjs/ui/foundations';
 import { Presence } from '@askrjs/askr/foundations';
 
 export function Dialog({
@@ -378,7 +378,7 @@ export function Dialog({
 import {
   rovingFocus,
   applyInteractionPolicy
-} from '@askrjs/askr-ui/foundations';
+} from '@askrjs/ui/foundations';
 
 export function Menu({ items, onSelect }) {
   const [currentIndex, setCurrentIndex] = state(0);
@@ -421,11 +421,11 @@ export function Menu({ items, onSelect }) {
 
 **If you use foundations correctly, your components will:**
 
-1. ✅ Be accessible by default
-2. ✅ Handle keyboard correctly
-3. ✅ Respect disabled state consistently
-4. ✅ Compose without conflicts
-5. ✅ Never duplicate logic
-6. ✅ Be easy for AI to generate
+1. âœ… Be accessible by default
+2. âœ… Handle keyboard correctly
+3. âœ… Respect disabled state consistently
+4. âœ… Compose without conflicts
+5. âœ… Never duplicate logic
+6. âœ… Be easy for AI to generate
 
 **The pit of success works.**
