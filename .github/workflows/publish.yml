@@ -27,16 +27,12 @@ jobs:
       - name: Compute release tag
         id: version
         uses: askrjs/actions/actions/compute-release-tag@main
-        with:
-          package-json-path: package.json
-          tag-prefix: v
 
       - name: Check whether tag exists
         id: tag_status
         uses: askrjs/actions/actions/check-tag-exists@main
         with:
           tag: ${{ steps.version.outputs.tag }}
-          remote: origin
 
       - name: Checkout existing tag
         if: steps.tag_status.outputs.exists == 'true'
@@ -51,9 +47,6 @@ jobs:
         uses: askrjs/actions/actions/create-tag@main
         with:
           tag: ${{ steps.version.outputs.tag }}
-          git-user-name: github-actions[bot]
-          git-user-email: github-actions[bot]@users.noreply.github.com
-          tag-message: Release version from package.json
 
       - name: Checkout created tag
         if: steps.tag_status.outputs.exists != 'true'
@@ -70,8 +63,3 @@ jobs:
 
       - name: Publish to npm
         uses: askrjs/actions/actions/publish-package@main
-        with:
-          package-json-path: package.json
-          registry: https://registry.npmjs.org/
-          access: public
-          tag: latest
