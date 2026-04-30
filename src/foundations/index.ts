@@ -1,8 +1,11 @@
 /*
- * Public exports for foundation primitives
- * Keep this file minimal — it's a convenience barrel for internal imports.
+ * Public exports for foundation primitives.
+ *
+ * Shared runtime and UI-composition helpers live here so `askr-ui` can depend
+ * on a single canonical implementation.
  */
 
+export * from './core';
 export * from './structures';
 
 export {

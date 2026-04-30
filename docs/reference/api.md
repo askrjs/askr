@@ -25,8 +25,8 @@ Common runtime exports:
 - `@askrjs/askr/control` - JSX control-flow helpers
 - `@askrjs/askr/ssr` - server-side rendering helpers
 - `@askrjs/askr/ssg` - static-site generation helpers
-- `@askrjs/askr/foundations` - lower-level framework primitives
-- `@askrjs/ui/foundations` - headless UI foundations
+- `@askrjs/askr/foundations` - canonical lower-level framework and shared UI primitives
+- `@askrjs/ui/foundations` - compatibility entrypoint for the same shared foundations
 
 ## Examples
 

@@ -11,6 +11,14 @@ export type { Ref } from './utilities/compose-ref';
 export { formatId } from './utilities/use-id';
 export type { FormatIdOptions } from './utilities/use-id';
 
+export type {
+  DefaultPreventable,
+  FocusLikeEvent,
+  KeyboardLikeEvent,
+  PointerLikeEvent,
+  PropagationStoppable,
+} from './utilities/event-types';
+
 export { pressable } from './interactions/pressable';
 export type {
   PressableOptions,
