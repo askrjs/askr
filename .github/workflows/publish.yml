@@ -2,17 +2,9 @@ name: Publish Package
 
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Existing released tag to publish, for example v0.1.0
-        required: true
-        type: string
-  release:
-    types:
-      - published
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
   packages: read
 
@@ -21,37 +13,65 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          ref: refs/tags/${{ env.RELEASE_TAG }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
+          cache: 'npm'
 
-      - name: Validate Tag Matches Package Version
+      - name: Compute release tag
         id: version
-        uses: askrjs/actions/actions/validate-package-version@ed124344f103ec17a3ff86013bcdedf2d87e92c4
+        uses: askrjs/actions/actions/compute-release-tag@main
         with:
           package-json-path: package.json
-          tag: ${{ env.RELEASE_TAG }}
+          tag-prefix: v
 
-      - name: Resolve npm dist-tag
-        id: package
-        uses: askrjs/actions/actions/resolve-npm-tag@ed124344f103ec17a3ff86013bcdedf2d87e92c4
+      - name: Check whether tag exists
+        id: tag_status
+        uses: askrjs/actions/actions/check-tag-exists@main
         with:
-          semver: ${{ steps.version.outputs.tag }}
+          tag: ${{ steps.version.outputs.tag }}
+          remote: origin
+
+      - name: Checkout existing tag
+        if: steps.tag_status.outputs.exists == 'true'
+        shell: bash
+        run: |
+          tag='${{ steps.version.outputs.tag }}'
+          git fetch origin "refs/tags/$tag:refs/tags/$tag"
+          git checkout "$tag"
+
+      - name: Create release tag
+        if: steps.tag_status.outputs.exists != 'true'
+        uses: askrjs/actions/actions/create-tag@main
+        with:
+          tag: ${{ steps.version.outputs.tag }}
+          git-user-name: github-actions[bot]
+          git-user-email: github-actions[bot]@users.noreply.github.com
+          tag-message: Release version from package.json
+
+      - name: Checkout created tag
+        if: steps.tag_status.outputs.exists != 'true'
+        shell: bash
+        run: |
+          tag='${{ steps.version.outputs.tag }}'
+          git checkout "$tag"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build release
+        run: npm run build
 
       - name: Publish to npm
-        uses: askrjs/actions/actions/publish-package@ed124344f103ec17a3ff86013bcdedf2d87e92c4
+        uses: askrjs/actions/actions/publish-package@main
         with:
           package-json-path: package.json
           registry: https://registry.npmjs.org/
           access: public
-          tag: ${{ steps.package.outputs.tag }}
+          tag: latest
