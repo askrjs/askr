@@ -5,8 +5,42 @@ on:
   workflow_call:
   push:
     branches: [main]
+    paths:
+      - '.github/**'
+      - 'checks/**'
+      - 'test-d/**'
+      - 'test-utils/**'
+      - 'tooling/**'
+      - 'benches/**'
+      - 'src/**'
+      - 'tests/**'
+      - '*.json'
+      - '*.ts'
+      - '*.js'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.npmignore'
+      - '.npmrc'
+      - '.prettierignore'
   pull_request:
     branches: [main]
+    paths:
+      - '.github/**'
+      - 'checks/**'
+      - 'test-d/**'
+      - 'test-utils/**'
+      - 'tooling/**'
+      - 'benches/**'
+      - 'src/**'
+      - 'tests/**'
+      - '*.json'
+      - '*.ts'
+      - '*.js'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.npmignore'
+      - '.npmrc'
+      - '.prettierignore'
 
 permissions:
   contents: read
