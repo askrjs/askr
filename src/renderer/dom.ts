@@ -40,7 +40,7 @@ import {
 } from './cleanup';
 import { incDevCounter, getDevValue } from '../runtime/dev-namespace';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
-import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { __FOR_BOUNDARY__, __ERROR_BOUNDARY__ } from '../common/vnode';
 import {
   evaluateForState,
   clearForDomUpdateState,
@@ -84,6 +84,11 @@ import {
   markFineGrainedEffectsDirtySource,
   type FineGrainedEffectHandle,
 } from '../runtime/effect';
+import {
+  createBoundaryReset,
+  reportBoundaryError,
+  resolveErrorBoundaryFallback,
+} from '../components/error-boundary';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
@@ -2154,6 +2159,14 @@ export function createDOMNode(
       return createForBoundary(node as DOMElement, props, parentNamespace);
     }
 
+    if (type === __ERROR_BOUNDARY__) {
+      return createErrorBoundaryElement(
+        node as ErrorBoundaryVNode,
+        props,
+        parentNamespace
+      );
+    }
+
     // Fragment support
     if (
       typeof type === 'symbol' &&
@@ -2977,6 +2990,60 @@ export function createForBoundary(
 
   clearControlBoundaryDomUpdateState(controlState);
   return fragment;
+}
+
+type ErrorBoundaryVNode = DOMElement & {
+  __instance?: ComponentInstance;
+};
+
+function createErrorBoundaryElement(
+  node: ErrorBoundaryVNode,
+  props: Record<string, unknown>,
+  parentNamespace?: string
+): Node {
+  const boundaryState = node.__instance?.errorBoundaryState ?? null;
+  const reset = node.__instance
+    ? createBoundaryReset(node.__instance)
+    : () => {};
+  const fallback = props.fallback as
+    | unknown
+    | ((error: unknown, reset: () => void) => unknown);
+  const children = props.children;
+
+  if (boundaryState?.error != null) {
+    const fallbackValue = resolveErrorBoundaryFallback(
+      fallback,
+      boundaryState.error,
+      reset
+    );
+    if (fallbackValue instanceof Node) {
+      return fallbackValue;
+    }
+    const fallbackDom = createDOMNode(fallbackValue, parentNamespace);
+    return fallbackDom ?? document.createComment('');
+  }
+
+  try {
+    const dom = createDOMNode(children, parentNamespace);
+    return dom ?? document.createComment('');
+  } catch (error) {
+    if (node.__instance) {
+      reportBoundaryError(
+        node.__instance,
+        error,
+        props.onError as ((next: unknown) => void) | undefined
+      );
+    } else {
+      logger.error('[Askr] ErrorBoundary caught render error:', error);
+    }
+
+    const fallbackValue = resolveErrorBoundaryFallback(fallback, error, reset);
+    if (fallbackValue instanceof Node) {
+      return fallbackValue;
+    }
+    const fallbackDom = createDOMNode(fallbackValue, parentNamespace);
+    return fallbackDom ?? document.createComment('');
+  }
 }
 
 function syncForItemDom(

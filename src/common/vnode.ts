@@ -8,6 +8,8 @@ import type { ForState } from '../runtime/for';
 export { __CONTROL_BOUNDARY__ } from './control';
 import { __CONTROL_BOUNDARY__ } from './control';
 
+export const __ERROR_BOUNDARY__ = Symbol.for('askr.error-boundary');
+
 export interface DOMElement {
   // Element `type` can be an intrinsic tag name, a component function, or
   // a special symbol (e.g. `Fragment`). Include `symbol` in the type union
