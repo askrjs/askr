@@ -93,6 +93,11 @@ export type {
 // Components
 export { Link } from './components/link';
 export type { LinkProps } from './components/link';
+export { ErrorBoundary } from './components/error-boundary';
+export type {
+  ErrorBoundaryProps,
+  ErrorBoundaryFallbackRender,
+} from './components/error-boundary';
 export { Case, For, Match, Show } from './control';
 export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
 export {

@@ -1,6 +1,7 @@
 /** @jsxImportSource @askrjs/askr */
 
 import { state } from '@askrjs/askr';
+import { ErrorBoundary } from '@askrjs/askr';
 import {
   cleanupApp,
   createIsland,
@@ -120,6 +121,7 @@ let hydrationRowsSeed: RowData[] = [];
 let hydrationRowsState: ReturnType<typeof state<RowData[]>> | null = null;
 let hydrationSelectedState: ReturnType<typeof state<number | null>> | null =
   null;
+let setErrorBoundaryRecovery: ((next: boolean) => void) | null = null;
 
 const BROWSER_DEV_COUNTER_KEYS = [
   'componentRuns',
@@ -134,6 +136,7 @@ function resetRoot(): void {
   cleanupApp(root);
   root.innerHTML = '';
   benchmarkApp = null;
+  setErrorBoundaryRecovery = null;
 }
 
 function defaultRows(): RowData[] {
@@ -741,6 +744,51 @@ function mountInteractionScenario(): void {
   createIsland({ root, component: App });
 }
 
+function mountErrorBoundaryScenario(): void {
+  resetRoot();
+
+  const Crash = () => {
+    throw new Error('fixture crash');
+  };
+
+  const App = () => {
+    const recover = state(false);
+    setErrorBoundaryRecovery = recover.set;
+
+    return (
+      <section aria-label="Error boundary fixture">
+        <button data-testid="recover" onClick={() => recover.set(true)}>
+          Recover
+        </button>
+        <ErrorBoundary
+          resetKey={recover()}
+          fallback={(error, reset) => (
+            <div data-testid="boundary-fallback">
+              <p data-testid="boundary-message">
+                {error instanceof Error ? error.message : String(error)}
+              </p>
+              <button
+                data-testid="retry"
+                onClick={() => {
+                  setErrorBoundaryRecovery?.(true);
+                  reset();
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        >
+          {recover() ? <p data-testid="safe-content">Recovered</p> : <Crash />}
+        </ErrorBoundary>
+      </section>
+    );
+  };
+
+  createIsland({ root, component: App });
+  globalScheduler.flush();
+}
+
 async function mountGuardedRouterScenario(): Promise<void> {
   resetRoot();
   clearRoutes();
@@ -1147,6 +1195,8 @@ if (scenario === 'interaction') {
   mountInteractionScenario();
 } else if (scenario === 'guarded') {
   void mountGuardedRouterScenario();
+} else if (scenario === 'error-boundary') {
+  mountErrorBoundaryScenario();
 } else if (scenario === 'forms') {
   mountAccountSettingsScenario();
 } else if (scenario === 'order-table') {

@@ -23,8 +23,8 @@ createIsland({ root: document.body, component: Counter });
 ### Runtime
 
 `@askrjs/askr` exports the core runtime primitives: `state()`, `derive()`,
-`selector()`, `resource()`, routing helpers, JSX control-flow helpers, and SSR/SSG
-entrypoints.
+`selector()`, `resource()`, `ErrorBoundary`, routing helpers, JSX control-flow
+helpers, and SSR/SSG entrypoints.
 
 ### Explicit reactivity
 
@@ -69,7 +69,25 @@ function Data({ id }: { id: string }) {
 
   if (data.pending) return <div>Loading...</div>;
   if (data.error) return <div>Failed to load</div>;
-  return <div>{data.value.name}</div>;
+return <div>{data.value.name}</div>;
+}
+```
+
+### Developer error boundaries
+
+`ErrorBoundary` is the opt-in boundary primitive for render-time failures. It
+renders a visible fallback in development, still logs the underlying error, and
+can reset when your app state changes.
+
+```ts
+import { ErrorBoundary } from '@askrjs/askr';
+
+function App() {
+  return (
+    <ErrorBoundary fallback={<div>Something went wrong</div>}>
+      <FlakyView />
+    </ErrorBoundary>
+  );
 }
 ```
 

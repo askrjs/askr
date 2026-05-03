@@ -68,6 +68,11 @@ export interface ComponentInstance {
     key: string | number;
     dispose(): void;
   }>;
+  errorBoundaryState?: {
+    error: unknown | null;
+    resetKey: unknown;
+    notified: boolean;
+  };
 }
 
 export function createComponentInstance(
