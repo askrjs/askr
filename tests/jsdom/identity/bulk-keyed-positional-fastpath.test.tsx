@@ -225,6 +225,66 @@ describe('bulk keyed positional fast-path', () => {
     expect(row?.textContent).toBe('Item 111*');
   });
 
+  it('should use the two-child positional update when DOM shape is exact', async () => {
+    const ctx = createTestContainer();
+    let rows: State<Array<{ id: number; title: string; detail: string }>>;
+
+    try {
+      const Component = () => {
+        rows = state(
+          Array.from({ length: 12 }, (_, index) => ({
+            id: index,
+            title: `Title ${index}`,
+            detail: `Detail ${index}`,
+          }))
+        );
+
+        return (
+          <ul>
+            {rows().map((row) => (
+              <li key={row.id} data-key={String(row.id)}>
+                <span>{row.title}</span>
+                <em>{row.detail}</em>
+              </li>
+            ))}
+          </ul>
+        );
+      };
+
+      createIsland({ root: ctx.container, component: Component });
+      flushScheduler();
+      await waitForNextEvaluation();
+
+      const beforeRow = ctx.container.querySelector('li');
+      const beforeTitle = beforeRow?.children[0];
+      const beforeDetail = beforeRow?.children[1];
+
+      expect(beforeRow).not.toBeNull();
+      expect(beforeTitle).not.toBeUndefined();
+      expect(beforeDetail).not.toBeUndefined();
+
+      rows!.set(
+        rows!().map((row) => ({
+          ...row,
+          title: `Next title ${row.id}`,
+          detail: `Next detail ${row.id}`,
+        }))
+      );
+      flushScheduler();
+      await waitForNextEvaluation();
+
+      const afterRow = ctx.container.querySelector('li');
+
+      expect(afterRow).toBe(beforeRow);
+      expect(afterRow?.children).toHaveLength(2);
+      expect(afterRow?.children[0]).toBe(beforeTitle);
+      expect(afterRow?.children[1]).toBe(beforeDetail);
+      expect(afterRow?.textContent).toBe('Next title 0Next detail 0');
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
   it('should swap rows without losing selection', async () => {
     await waitForNextEvaluation();
 

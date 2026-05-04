@@ -4615,6 +4615,7 @@ export function updateUnkeyedChildren(
     !hasEmptyChildren &&
     !hasText &&
     !hasComponentChildren &&
+    !hasNonElementDomChildren &&
     hasElements &&
     parent.children.length === newChildren.length
   ) {

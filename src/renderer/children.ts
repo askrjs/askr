@@ -165,6 +165,9 @@ function tryUpdateTwoChildTextPattern(
   const firstElement = parentEl.children[0] as Element | undefined;
   const secondElement = parentEl.children[1] as Element | undefined;
   if (!firstElement || !secondElement) return false;
+  if (parentEl.children.length !== 2 || parentEl.childNodes.length !== 2) {
+    return false;
+  }
 
   if (!tagsEqualIgnoreCase(firstElement.tagName, firstChild.type)) return false;
   if (!tagsEqualIgnoreCase(secondElement.tagName, secondChild.type))

@@ -114,4 +114,37 @@ test.describe('real routed app shell workflow', () => {
       page.getByRole('heading', { name: 'Dashboard' })
     ).toBeVisible();
   });
+
+  test('should not retain keyed card artifacts after route-to-route navigation', async ({
+    page,
+  }) => {
+    await page.goto('/route-artifacts-a');
+
+    await expect(
+      page.getByRole('heading', { name: 'Route artifacts A' })
+    ).toBeVisible();
+    await expect(page.locator('[data-route-artifact="a"]')).toHaveCount(16);
+
+    await page.getByRole('button', { name: 'Artifacts B' }).click();
+
+    await expect(page).toHaveURL(/\/route-artifacts-b$/);
+    await expect(
+      page.getByRole('heading', { name: 'Route artifacts B' })
+    ).toBeVisible();
+    await expect(page.locator('[data-route-artifact="a"]')).toHaveCount(0);
+    await expect(page.getByText('A loose text artifact')).toHaveCount(0);
+    await expect(page.getByText('A large keyed row')).toHaveCount(0);
+    await expect(
+      page.locator('[data-testid="route-large-keyed-list"] > div').first()
+    ).toHaveText('B large keyed row 79');
+    await expect(page.locator('article.artifact-card')).toHaveCount(16);
+    await expect(
+      page.locator('article.artifact-card').first().locator('*')
+    ).toHaveCount(2);
+
+    await page.getByRole('button', { name: 'Artifacts A' }).click();
+    await page.getByRole('button', { name: 'Artifacts B' }).click();
+
+    await expect(page.locator('[data-route-artifact="a"]')).toHaveCount(0);
+  });
 });

@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { createSPA, state } from '../../../src';
 import { navigate } from '../../../src/router/navigate';
 import {
@@ -39,7 +46,9 @@ function ComponentsPage() {
 
   return (
     <>
-      <section data-route-section="components-header">Components header</section>
+      <section data-route-section="components-header">
+        Components header
+      </section>
       <section data-route-section="components-counter">
         <button onClick={() => count.set((value) => value + 1)}>
           {String(count())}
@@ -47,7 +56,11 @@ function ComponentsPage() {
       </section>
       <section data-route-section="components-controls">Tabs</section>
       <section data-route-section="components-shared-state">
-        <input onInput={(event) => name.set((event.target as HTMLInputElement).value)} />
+        <input
+          onInput={(event) =>
+            name.set((event.target as HTMLInputElement).value)
+          }
+        />
         <span>{name() || 'Shared state'}</span>
       </section>
     </>
@@ -83,7 +96,7 @@ describe('fragment route cleanup', () => {
     clearRoutes();
   });
 
-  it('does not retain previous route fragment siblings across repeated navigations', async () => {
+  it('should not retain previous route fragment siblings across repeated navigations', async () => {
     registerRoutes(() => {
       group({ layout: AppLayout }, () => {
         route('/charts', ChartsPage);
@@ -96,17 +109,25 @@ describe('fragment route cleanup', () => {
     flushScheduler();
 
     for (let index = 0; index < 8; index += 1) {
-      expect(result.container.querySelectorAll('[data-chart-contract]')).toHaveLength(3);
+      expect(
+        result.container.querySelectorAll('[data-chart-contract]')
+      ).toHaveLength(3);
 
       navigate('/components');
       flushScheduler();
 
-      expect(result.container.querySelectorAll('[data-chart-contract]')).toHaveLength(0);
       expect(
-        result.container.querySelector('[data-route-section="components-controls"]')
+        result.container.querySelectorAll('[data-chart-contract]')
+      ).toHaveLength(0);
+      expect(
+        result.container.querySelector(
+          '[data-route-section="components-controls"]'
+        )
       ).not.toBeNull();
       expect(
-        result.container.querySelector('[data-route-section="components-shared-state"]')
+        result.container.querySelector(
+          '[data-route-section="components-shared-state"]'
+        )
       ).not.toBeNull();
 
       navigate('/charts');
