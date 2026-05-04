@@ -17,6 +17,8 @@ function isRoutedShellPath(pathname: string): boolean {
     pathname === '/dashboard' ||
     pathname === '/customers/search' ||
     pathname === '/settings' ||
+    pathname === '/route-artifacts-a' ||
+    pathname === '/route-artifacts-b' ||
     pathname.startsWith('/orders/')
   );
 }
@@ -50,6 +52,20 @@ function AppShell({ children }: { children?: unknown }) {
             onClick={() => navigate('/settings')}
           >
             Settings
+          </button>
+          <button
+            type="button"
+            aria-current={path === '/route-artifacts-a' ? 'page' : undefined}
+            onClick={() => navigate('/route-artifacts-a')}
+          >
+            Artifacts A
+          </button>
+          <button
+            type="button"
+            aria-current={path === '/route-artifacts-b' ? 'page' : undefined}
+            onClick={() => navigate('/route-artifacts-b')}
+          >
+            Artifacts B
           </button>
         </nav>
       </header>
@@ -86,6 +102,59 @@ function OrderDetailPage(params: { id: string }) {
   );
 }
 
+function RouteArtifactsAPage() {
+  return (
+    <section aria-label="Route artifacts A">
+      <h2>Route artifacts A</h2>
+      <div data-testid="route-loose-text-container">
+        <span>A leading label</span>
+        {'A loose text artifact'}
+        <span>A trailing label</span>
+      </div>
+      <div data-testid="route-large-keyed-list">
+        {Array.from({ length: 80 }, (_, index) => (
+          <div key={index}>{`A large keyed row ${index}`}</div>
+        ))}
+      </div>
+      <div data-testid="route-artifact-card-list">
+        {Array.from({ length: 16 }, (_, index) => (
+          <article key={`a-${index}`} class="artifact-card">
+            <h3>{`A card ${index}`}</h3>
+            <p>{`A route detail ${index}`}</p>
+            <aside data-route-artifact="a">{`A-only artifact ${index}`}</aside>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RouteArtifactsBPage() {
+  return (
+    <section aria-label="Route artifacts B">
+      <h2>Route artifacts B</h2>
+      <div data-testid="route-loose-text-container">
+        <span>B leading label</span>
+        <span>B trailing label</span>
+      </div>
+      <div data-testid="route-large-keyed-list">
+        {Array.from({ length: 80 }, (_, index) => {
+          const id = 79 - index;
+          return <div key={id}>{`B large keyed row ${id}`}</div>;
+        })}
+      </div>
+      <div data-testid="route-artifact-card-list">
+        {Array.from({ length: 16 }, (_, index) => (
+          <article key={`b-${index}`} class="artifact-card">
+            <h3>{`B card ${index}`}</h3>
+            <p>{`B route detail ${index}`}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export async function mountRoutedShellScenario(
   root: HTMLElement
 ): Promise<void> {
@@ -96,6 +165,8 @@ export async function mountRoutedShellScenario(
     route('/customers/search', CustomerSearchPage);
     route('/settings', SettingsPage);
     route('/orders/{id}', OrderDetailPage);
+    route('/route-artifacts-a', RouteArtifactsAPage);
+    route('/route-artifacts-b', RouteArtifactsBPage);
   });
 
   if (!isRoutedShellPath(window.location.pathname)) {

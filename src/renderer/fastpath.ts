@@ -1,5 +1,5 @@
 import type { VNode } from './types';
-import { createDOMNode } from './dom';
+import { createDOMNode, updateElementFromVnode } from './dom';
 import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../dev/logger';
 import { getRuntimeEnv } from './env';
@@ -94,6 +94,7 @@ export function applyRendererFastPath(
     }
 
     if (el) {
+      updateElementFromVnode(el, vnode);
       finalNodes.push(el);
       reusedCount++;
     } else {
