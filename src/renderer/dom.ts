@@ -2701,7 +2701,7 @@ function createFragmentElement(
   parentNamespace?: string
 ): DocumentFragment {
   const fragment = document.createDocumentFragment();
-  const children = props.children || node.children;
+  const children = props.children ?? node.children;
   if (children) {
     if (Array.isArray(children)) {
       maybeWarnMissingKeys(children);
@@ -3140,7 +3140,7 @@ function normalizeStableIntrinsicChildren(
 
 function getStableIntrinsicChildren(vnode: DOMElement): VNode[] {
   return normalizeStableIntrinsicChildren(
-    vnode.children || (vnode.props?.children as VNode | VNode[] | undefined)
+    (vnode.props?.children as VNode | VNode[] | undefined) ?? vnode.children
   );
 }
 
@@ -3884,6 +3884,53 @@ export function commitForBoundaryChildren(
     forState.lastCommitStrategy,
     forState.lastRemovedNodes
   );
+
+  const syncExactForBoundaryChildren = (): void => {
+    const expectedNodes: Node[] = [];
+
+    for (let i = 0; i < forState.orderedKeys.length; i++) {
+      const itemKey = forState.orderedKeys[i];
+      const itemInstance = forState.items.get(itemKey);
+      if (!itemInstance) {
+        continue;
+      }
+
+      const dom =
+        itemInstance.scope.dom ??
+        syncForItemDom(parent, itemInstance.scope, childrenVNodes[i]);
+      if (dom) {
+        expectedNodes.push(dom);
+      }
+    }
+
+    const currentNodes = Array.from(parent.childNodes);
+    if (
+      currentNodes.length === expectedNodes.length &&
+      currentNodes.every((node, index) => node === expectedNodes[index])
+    ) {
+      return;
+    }
+
+    const expectedNodeSet = new Set(expectedNodes);
+    for (const currentNode of currentNodes) {
+      if (expectedNodeSet.has(currentNode)) {
+        continue;
+      }
+
+      if (currentNode instanceof Element) {
+        teardownNodeSubtree(currentNode);
+      }
+
+      if (currentNode.parentNode === parent) {
+        recordBenchEvent('domRemove');
+        currentNode.remove();
+      }
+    }
+
+    parent.replaceChildren(...expectedNodes);
+  };
+
+  syncExactForBoundaryChildren();
   forState._hasResolvedItemDom = true;
   recordBenchTiming('domCommit', performance.now() - domCommitStart);
   clearForDomUpdateState(forState);
@@ -3929,7 +3976,7 @@ export function updateElementFromVnode(
     if (hasMatchingStaticProps(el, props, vnode.type as string)) {
       if (updateChildren) {
         const children =
-          vnode.children || (props.children as VNode | VNode[] | undefined);
+          (props.children as VNode | VNode[] | undefined) ?? vnode.children;
         if (canReuseStaticSubtree(el, domVNode)) {
           return;
         }
@@ -4229,7 +4276,7 @@ export function updateElementFromVnode(
   // Update children
   if (updateChildren) {
     const children =
-      vnode.children || (props.children as VNode | VNode[] | undefined);
+      (props.children as VNode | VNode[] | undefined) ?? vnode.children;
     if (usesReactiveChildren) {
       return;
     }
@@ -4535,7 +4582,7 @@ function canReuseStaticSubtree(el: Element, vnode: DOMElement): boolean {
   }
 
   const children =
-    vnode.children || (props.children as VNode | VNode[] | undefined);
+    (props.children as VNode | VNode[] | undefined) ?? vnode.children;
   const slots = getStaticChildSlots(children);
   if (!slots) {
     return false;
