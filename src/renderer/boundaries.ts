@@ -522,6 +522,51 @@ export function commitForBoundaryChildren(
 
   hydrateExistingForDom();
 
+  const syncExactForBoundaryChildren = (): void => {
+    const expectedNodes: Node[] = [];
+
+    for (let i = 0; i < forState.orderedKeys.length; i++) {
+      const itemKey = forState.orderedKeys[i];
+      const itemInstance = forState.items.get(itemKey);
+      if (!itemInstance) {
+        continue;
+      }
+
+      const dom =
+        itemInstance.scope.dom ??
+        syncForItemDom(parent, itemInstance.scope, childrenVNodes[i]);
+      if (dom) {
+        expectedNodes.push(dom);
+      }
+    }
+
+    const currentNodes = Array.from(parent.childNodes);
+    if (
+      currentNodes.length === expectedNodes.length &&
+      currentNodes.every((node, index) => node === expectedNodes[index])
+    ) {
+      return;
+    }
+
+    const expectedNodeSet = new Set(expectedNodes);
+    for (const currentNode of currentNodes) {
+      if (expectedNodeSet.has(currentNode)) {
+        continue;
+      }
+
+      if (currentNode instanceof Element) {
+        teardownNodeSubtree(currentNode);
+      }
+
+      if (currentNode.parentNode === parent) {
+        recordBenchEvent('domRemove');
+        currentNode.remove();
+      }
+    }
+
+    parent.replaceChildren(...expectedNodes);
+  };
+
   const commitDirtyNoReorder = (): void => {
     const dirtyIndices = forState.pendingDirtyIndices;
     if (!dirtyIndices || dirtyIndices.length === 0) {
@@ -806,6 +851,7 @@ export function commitForBoundaryChildren(
     forState.lastCommitStrategy,
     forState.lastRemovedNodes
   );
+  syncExactForBoundaryChildren();
   recordBenchTiming('domCommit', performance.now() - domCommitStart);
   clearForDomUpdateState(forState);
 }

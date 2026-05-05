@@ -82,7 +82,7 @@ function unwrapFragmentForFastPath(vnode: unknown): unknown {
     typeof v.type === 'symbol' &&
     (v.type === Fragment || String(v.type) === 'Symbol(askr.fragment)')
   ) {
-    const children = v.children || v.props?.children;
+    const children = v.props?.children ?? v.children;
     if (Array.isArray(children) && children.length > 0) {
       // Return the first child that's an intrinsic element
       for (const child of children) {
@@ -130,7 +130,7 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
   if (firstChild.tagName.toLowerCase() !== String(vnode.type).toLowerCase())
     return { useFastPath: false, reason: 'root-tag-mismatch' };
 
-  const children = vnode.children || vnode.props?.children;
+  const children = vnode.props?.children ?? vnode.children;
   if (!Array.isArray(children))
     return { useFastPath: false, reason: 'no-children-array' };
 

@@ -417,7 +417,7 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
  * Tries text-in-place update first, then full child reconciliation
  */
 function smartUpdateElement(element: Element, vnode: DOMElement): void {
-  let vnodeChildren = vnode.children || vnode.props?.children;
+  let vnodeChildren = vnode.props?.children ?? vnode.children;
 
   // CRITICAL: For boundary vnodes must NOT be wrapped into an array
   // They need special handling in updateElementChildren to call updateForBoundaryChildren
@@ -645,7 +645,7 @@ function isFragment(vnode: unknown): vnode is DOMElement {
  * Unwrap Fragment to get children array
  */
 function getFragmentChildren(vnode: DOMElement): unknown[] {
-  const fragmentChildren = vnode.props?.children || vnode.children || [];
+  const fragmentChildren = vnode.props?.children ?? vnode.children ?? [];
   return Array.isArray(fragmentChildren)
     ? fragmentChildren
     : [fragmentChildren];

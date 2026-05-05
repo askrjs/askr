@@ -149,7 +149,7 @@ function tryUpdateTwoChildTextPattern(
   parentEl: Element,
   vnode: DOMElement
 ): boolean {
-  const vnodeChildren = vnode.children || vnode.props?.children;
+  const vnodeChildren = vnode.props?.children ?? vnode.children;
   if (!Array.isArray(vnodeChildren) || vnodeChildren.length !== 2) return false;
 
   const firstChild = vnodeChildren[0];
@@ -479,7 +479,7 @@ function countSimpleChildren(children: VNode[]): {
 }
 
 function isSimpleElement(dom: DOMElement): boolean {
-  const children = dom.children || dom.props?.children;
+  const children = dom.props?.children ?? dom.children;
 
   if (children === null || children === undefined) return true;
 
