@@ -8,4 +8,7 @@ export { resource } from '../runtime/operations';
 export { on, timer, task, stream, capture } from '../runtime/operations';
 export type { ResourceResult } from '../runtime/operations';
 
+export { createQuery, createMutation, invalidate } from '../data';
+export type { Query, Mutation, QueryConsistency } from '../data';
+
 export { getSignal } from '../runtime/component';

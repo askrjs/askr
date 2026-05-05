@@ -25,6 +25,10 @@ export type { Context } from './runtime/context';
 export { resource } from './runtime/operations';
 export type { ResourceResult } from './runtime/operations';
 
+// Data
+export { createQuery, createMutation, invalidate } from './data';
+export type { Query, Mutation, QueryConsistency } from './data';
+
 // App bootstrap
 export {
   createIsland,

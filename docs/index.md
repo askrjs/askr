@@ -20,7 +20,7 @@ package boundaries in the platform.
 | [Runtime](./core/runtime.md)     | `createIsland`, `createSPA`, lifecycle                     |
 | [Routing](./core/routing.md)     | `registerRoutes`, `group`, `route`, `currentRoute`, `Link` |
 | [Rendering](./core/rendering.md) | SSR and SSG output                                         |
-| [Data](./core/data.md)           | `state`, `derive`, `resource`, `context`                   |
+| [Data](./core/data.md)           | `state`, `derive`, `resource`, `query`, `mutation`         |
 
 ## Package Boundaries
 
