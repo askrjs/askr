@@ -79,6 +79,61 @@ The `signal` parameter is an `AbortSignal`. Pass it to `fetch()` and any other c
 APIs. When the component re-renders with new deps or unmounts, in-flight work is cancelled
 automatically.
 
+## Minimal data layer
+
+For app data, use the thin query and mutation primitives from `@askrjs/askr/data`.
+They are intentionally small: keyed caching, prefix invalidation, and explicit
+eventual-consistency signaling without a query-client abstraction.
+
+### Queries
+
+```ts
+import { createQuery, invalidate } from '@askrjs/askr/data';
+
+const user = createQuery({
+  key: 'user:123',
+  fetch: ({ signal }) => userService.getUser('123', { signal }),
+  isConsistent: (data) => data.version >= expectedVersion,
+  reconcile: () => true,
+});
+
+if (user.consistency === 'pending-write') {
+  // Saved, syncing...
+}
+
+invalidate('user:');
+```
+
+Query state is shared by key through a simple in-memory cache. `refresh()` returns a promise,
+preserves the last value while refreshing, and surfaces `fresh`, `stale`, `refreshing`, and
+`pending-write` explicitly through `consistency`.
+
+### Mutations
+
+```ts
+import { createMutation } from '@askrjs/askr/data';
+
+const saveUser = createMutation({
+  action: (input, { signal }) => userService.updateUser(input, { signal }),
+  affects: (input, result) => ['user:123'],
+  afterSuccess: 'invalidate',
+});
+
+await saveUser.execute({ id: '123', name: 'Ada' });
+```
+
+Mutations own their own `AbortController`, abort the previous request when a new execution
+starts, and can mark affected queries as `pending-write` before refreshing them.
+
+### Layering
+
+Keep the app structure explicit:
+
+component -> query / mutation -> service -> adapter
+
+Queries and mutations call services only. Services unwrap transport responses and map backend
+snake_case into application-level camelCase models. Adapters should remain raw transport clients.
+
 ## Reactive utilities
 
 ### on()
