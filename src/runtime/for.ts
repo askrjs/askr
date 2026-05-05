@@ -336,12 +336,15 @@ function createReactiveForItem<T>(
         )();
       }
 
+      recordReadableRead(itemSignal);
       return Reflect.get(Object(currentItem), prop, receiver);
     },
     has(target, prop) {
+      recordReadableRead(itemSignal);
       return prop in target || prop in Object(itemSignal.peek());
     },
     ownKeys(target) {
+      recordReadableRead(itemSignal);
       const keys = new Set<string | symbol>(Reflect.ownKeys(target));
       for (const key of Reflect.ownKeys(Object(itemSignal.peek()))) {
         keys.add(key);
@@ -350,6 +353,7 @@ function createReactiveForItem<T>(
       return Array.from(keys);
     },
     getOwnPropertyDescriptor(target, prop) {
+      recordReadableRead(itemSignal);
       const ownDescriptor = Reflect.getOwnPropertyDescriptor(target, prop);
       if (ownDescriptor) {
         return ownDescriptor;
@@ -358,6 +362,7 @@ function createReactiveForItem<T>(
       return Object.getOwnPropertyDescriptor(Object(itemSignal.peek()), prop);
     },
     getPrototypeOf() {
+      recordReadableRead(itemSignal);
       return Object.getPrototypeOf(Object(itemSignal.peek()));
     },
   }) as T;
@@ -538,13 +543,13 @@ function updateItemInstance<T>(
   const previousItem = itemInstance.item;
   itemInstance.item = item;
 
+  let needsRerender = false;
   const itemSignal = itemInstance.itemSignal;
   if (!itemSignal) {
     rerenderItemInstance(forState, itemInstance, item);
     return true;
   }
 
-  let hasPropertyRenderReaders = false;
   const propertySignals = itemInstance.itemPropertySignals;
   if (propertySignals && propertySignals.size > 0) {
     for (const [prop, propertySignal] of propertySignals) {
@@ -556,7 +561,7 @@ function updateItemInstance<T>(
 
       const propertyHasRenderReaders = (propertySignal._readers?.size ?? 0) > 0;
       if (propertyHasRenderReaders) {
-        hasPropertyRenderReaders = true;
+        needsRerender = true;
       }
 
       propertySignal.set(nextValue, !propertyHasRenderReaders);
@@ -564,13 +569,14 @@ function updateItemInstance<T>(
   }
 
   const hasRenderReaders = (itemSignal._readers?.size ?? 0) > 0;
+  if (hasRenderReaders) {
+    needsRerender = true;
+  }
   itemSignal.set(item, hasRenderReaders);
 
-  if (!hasRenderReaders && !hasPropertyRenderReaders) {
-    return false;
+  if (needsRerender) {
+    rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
   }
-
-  rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
   return true;
 }
 
