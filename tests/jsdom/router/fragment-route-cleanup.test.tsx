@@ -7,6 +7,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { createSPA, state } from '../../../src';
+import { For } from '../../../src/control';
 import { navigate } from '../../../src/router/navigate';
 import {
   clearRoutes,
@@ -77,6 +78,16 @@ function AppLayout({ children }: { children?: unknown }) {
   );
 }
 
+function RouteList({ items }: { items: unknown[] }) {
+  return (
+    <div data-slot="grid">
+      <For each={items} byIndex={true}>
+        {(item) => item as never}
+      </For>
+    </div>
+  );
+}
+
 describe('fragment route cleanup', () => {
   let result: ReturnType<typeof createTestContainer>;
 
@@ -133,5 +144,76 @@ describe('fragment route cleanup', () => {
       navigate('/charts');
       flushScheduler();
     }
+  });
+
+  it('should replace For-rendered child lists when a route changes', async () => {
+    function ChartsPageWithGrid() {
+      return (
+        <RouteList
+          items={[
+            <section data-chart-contract="AreaChart">Area chart</section>,
+            <section data-chart-contract="BarChart">Bar chart</section>,
+            <section data-chart-contract="LineChart">Line chart</section>,
+            <section data-chart-contract="DonutChart">Donut chart</section>,
+            <section data-chart-contract="StackedBarChart">
+              Stacked bar chart
+            </section>,
+            <section data-chart-contract="Sparkline">Sparkline</section>,
+            <section data-chart-contract="Heatmap">Heatmap</section>,
+            <section data-chart-contract="Timeline">Timeline</section>,
+            <section data-chart-contract="FlameGraph">Flame graph</section>,
+            <section data-chart-contract="ProgressMeter">
+              Progress meter
+            </section>,
+            <section data-chart-contract="RadialGauge">Radial gauge</section>,
+          ]}
+        />
+      );
+    }
+
+    function ComponentsPageWithGrid() {
+      return (
+        <RouteList
+          items={[
+            <section data-route-section="components-controls">Tabs</section>,
+            <section data-route-section="components-shared-state">
+              Shared state
+            </section>,
+          ]}
+        />
+      );
+    }
+
+    registerRoutes(() => {
+      group({ layout: AppLayout }, () => {
+        route('/charts', ChartsPageWithGrid);
+        route('/components', ComponentsPageWithGrid);
+      });
+    });
+
+    window.history.replaceState({}, '', '/charts');
+    await createSPA({ root: result.container, routes: getRoutes() });
+    flushScheduler();
+
+    expect(
+      result.container.querySelectorAll('[data-chart-contract]')
+    ).toHaveLength(11);
+
+    navigate('/components');
+    flushScheduler();
+
+    expect(
+      result.container.querySelectorAll('[data-chart-contract]')
+    ).toHaveLength(0);
+    expect(
+      result.container.querySelector(
+        '[data-route-section="components-controls"]'
+      )
+    ).not.toBeNull();
+    expect(
+      result.container.querySelector(
+        '[data-route-section="components-shared-state"]'
+      )
+    ).not.toBeNull();
   });
 });
