@@ -6,41 +6,41 @@ on:
   push:
     branches: [main]
     paths:
-      - ".github/**"
-      - "checks/**"
-      - "test-d/**"
-      - "test-utils/**"
-      - "tooling/**"
-      - "benches/**"
-      - "src/**"
-      - "tests/**"
-      - "*.json"
-      - "*.ts"
-      - "*.js"
-      - ".gitattributes"
-      - ".gitignore"
-      - ".npmignore"
-      - ".npmrc"
-      - ".prettierignore"
+      - '.github/**'
+      - 'checks/**'
+      - 'test-d/**'
+      - 'test-utils/**'
+      - 'tooling/**'
+      - 'benches/**'
+      - 'src/**'
+      - 'tests/**'
+      - '*.json'
+      - '*.ts'
+      - '*.js'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.npmignore'
+      - '.npmrc'
+      - '.prettierignore'
   pull_request:
     branches: [main]
     paths:
-      - ".github/**"
-      - "checks/**"
-      - "test-d/**"
-      - "test-utils/**"
-      - "tooling/**"
-      - "benches/**"
-      - "src/**"
-      - "tests/**"
-      - "*.json"
-      - "*.ts"
-      - "*.js"
-      - ".gitattributes"
-      - ".gitignore"
-      - ".npmignore"
-      - ".npmrc"
-      - ".prettierignore"
+      - '.github/**'
+      - 'checks/**'
+      - 'test-d/**'
+      - 'test-utils/**'
+      - 'tooling/**'
+      - 'benches/**'
+      - 'src/**'
+      - 'tests/**'
+      - '*.json'
+      - '*.ts'
+      - '*.js'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.npmignore'
+      - '.npmrc'
+      - '.prettierignore'
 
 permissions:
   contents: read
@@ -56,8 +56,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: "lts/*"
-          cache: "npm"
+          node-version: 'lts/*'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -92,8 +92,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: "lts/*"
-          cache: "npm"
+          node-version: 'lts/*'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
