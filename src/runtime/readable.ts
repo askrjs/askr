@@ -199,7 +199,8 @@ export function markReactivePropsDirtySource(
 }
 
 export function notifyReadableReaders(
-  source: ReadableSource<unknown>
+  source: ReadableSource<unknown>,
+  skipInstance?: ComponentInstance | null
 ): boolean {
   const readers = source._readers;
   let didScheduleUpdate = false;
@@ -209,6 +210,9 @@ export function notifyReadableReaders(
   }
 
   for (const [instance, token] of readers) {
+    if (skipInstance && instance === skipInstance) {
+      continue;
+    }
     if (instance.lastRenderToken !== token) {
       continue;
     }
