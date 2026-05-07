@@ -1,7 +1,6 @@
 /** @jsxImportSource @askrjs/askr */
 
-import { state } from '@askrjs/askr';
-import { ErrorBoundary } from '@askrjs/askr';
+import { ErrorBoundary, For, state } from '@askrjs/askr';
 import {
   cleanupApp,
   createIsland,
@@ -12,6 +11,7 @@ import {
   clearRoutes,
   currentRoute,
   getManifest,
+  Link,
   group,
   lazy,
   navigate,
@@ -744,6 +744,59 @@ function mountInteractionScenario(): void {
   createIsland({ root, component: App });
 }
 
+async function mountNavLinkForScenario(): Promise<void> {
+  resetRoot();
+  clearRoutes();
+
+  const navItems = [
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/customers/search', label: 'Customers' },
+    { href: '/settings', label: 'Settings' },
+  ];
+
+  const NavLinkLike = (props: { href: string; label: string }) => {
+    const route = currentRoute();
+    const isActive = route.path === props.href;
+
+    return (
+      <Link
+        href={props.href}
+        aria-current={isActive ? 'page' : undefined}
+        data-active={isActive ? 'true' : undefined}
+      >
+        {props.label}
+      </Link>
+    );
+  };
+
+  const App = () => {
+    const route = currentRoute();
+
+    return (
+      <section aria-label="NavLink For fixture">
+        <h1>Route: {route.path}</h1>
+        <nav aria-label="Primary navigation">
+          <For each={() => navItems} by={(item) => item.href}>
+            {(item) => <NavLinkLike href={item.href} label={item.label} />}
+          </For>
+        </nav>
+      </section>
+    );
+  };
+
+  group({ layout: App }, () => {
+    route('/dashboard', () => <></>);
+    route('/customers/search', () => <></>);
+    route('/settings', () => <></>);
+  });
+
+  if (window.location.pathname !== '/dashboard') {
+    window.history.replaceState({}, '', '/dashboard');
+  }
+
+  await createSPA({ root, manifest: getManifest() });
+}
+
 function mountErrorBoundaryScenario(): void {
   resetRoot();
 
@@ -1209,6 +1262,8 @@ if (scenario === 'interaction') {
   void mountSignupHydrationScenario();
 } else if (scenario === 'routed-shell') {
   void mountRoutedShellScenario();
+} else if (scenario === 'navlink-for') {
+  void mountNavLinkForScenario();
 } else if (shouldMountRoutedShellFromPath(pathname)) {
   void mountRoutedShellScenario();
 } else {
@@ -1226,6 +1281,7 @@ Object.assign(window, {
     mountInteractionScenario,
     mountGuardedRouterScenario,
     mountRoutedShellScenario,
+    mountNavLinkForScenario,
     profileBenchmarkOperations,
     runBrowserBench,
     runBrowserBenchSuite,

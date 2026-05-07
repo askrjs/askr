@@ -6,6 +6,7 @@ import {
   resolveRoute,
   resolveRouteRequest,
   lockRouteRegistration,
+  syncCurrentRouteSnapshot,
   type ResolvedRoute,
 } from './route';
 import { mountComponent, type ComponentInstance } from '../runtime/component';
@@ -406,6 +407,11 @@ function applyNavigationTarget(
   const historyMethod =
     options.history === 'replace' ? 'replaceState' : 'pushState';
   window.history[historyMethod]({ path: href }, '', href);
+  syncCurrentRouteSnapshot(
+    window.location.pathname,
+    window.location.search,
+    window.location.hash
+  );
 
   if (currentInstance) {
     if (pathname === currentPathname && isRenderResult(resolved)) {
@@ -430,6 +436,11 @@ export function registerAppInstance(
   currentInstance = instance;
   currentPathname = path;
   currentHref = getWindowHref();
+  syncCurrentRouteSnapshot(
+    window.location.pathname,
+    window.location.search,
+    window.location.hash
+  );
   saveScrollPosition(currentHref);
   // Lock further route registrations after the app has started — but allow tests to register routes.
   // Enforce only in production to avoid breaking test infra which registers routes dynamically.
@@ -487,6 +498,12 @@ function handlePopState(_event: PopStateEvent): void {
       navigate(resolved.to, { history: 'replace' });
       return;
     }
+
+    syncCurrentRouteSnapshot(
+      window.location.pathname,
+      window.location.search,
+      window.location.hash
+    );
 
     if (pathname === currentPathname && isRenderResult(resolved)) {
       rerenderResolvedRoute(pathname, href);

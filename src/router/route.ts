@@ -20,6 +20,13 @@ import {
 } from './route-context';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { getExecutionModel } from '../runtime/execution-model';
+import {
+  markReadableDerivedSubscribersDirty,
+  markReactivePropsDirtySource,
+  notifyReadableReaders,
+  recordReadableRead,
+  type ReadableSource,
+} from '../runtime/readable';
 import { getRenderContext } from '../ssr/context';
 import {
   requireAuth,
@@ -114,6 +121,12 @@ type AccessScopeState = {
 
 let defaultRouteAuthOptions: RouteAuthOptions | undefined;
 let activeClientRouteAuthOptions: RouteAuthOptions | undefined;
+let currentRouteSnapshot = buildRouteSnapshot('/', '', '');
+
+const currentRouteSource = (() => currentRouteSnapshot) as ReadableSource<RouteSnapshot> &
+  (() => RouteSnapshot);
+
+currentRouteSource._readers = new Map();
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
@@ -197,6 +210,36 @@ export function setServerLocation(url: string | null): void {
 
 function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
   return value instanceof Promise;
+}
+
+function buildRouteSnapshot(
+  pathname: string,
+  search: string,
+  hash: string
+): RouteSnapshot {
+  const query = makeQuery(search);
+  const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
+
+  return Object.freeze({
+    path: pathname,
+    params: deepFreeze({ ...(matches[0]?.params ?? {}) }),
+    query,
+    hash: hash || null,
+    matches: Object.freeze(matches),
+  });
+}
+
+function setCurrentRouteSnapshot(
+  pathname: string,
+  search: string,
+  hash: string
+): void {
+  currentRouteSnapshot = buildRouteSnapshot(pathname, search, hash);
+
+  const instance = getCurrentComponentInstance();
+  markReadableDerivedSubscribersDirty(currentRouteSource);
+  markReactivePropsDirtySource(currentRouteSource);
+  notifyReadableReaders(currentRouteSource, instance);
 }
 
 // Compute matches for a specific route list.
@@ -728,7 +771,33 @@ function readCurrentRouteSnapshot(): RouteSnapshot {
 }
 
 export function currentRoute(): RouteSnapshot {
-  return readCurrentRouteSnapshot();
+  const instance = getCurrentComponentInstance();
+  if (!instance) {
+    throw new Error(
+      'currentRoute() can only be called during component render execution. ' +
+        'Call currentRoute() from inside your component function.'
+    );
+  }
+
+  if (typeof window === 'undefined' || instance.ssr) {
+    return readCurrentRouteSnapshot();
+  }
+
+  if (currentRouteSnapshot.path !== (window.location.pathname || '/')) {
+    recordReadableRead(currentRouteSource);
+    return readCurrentRouteSnapshot();
+  }
+
+  recordReadableRead(currentRouteSource);
+  return currentRouteSnapshot;
+}
+
+export function syncCurrentRouteSnapshot(
+  pathname: string,
+  search: string,
+  hash: string
+): void {
+  setCurrentRouteSnapshot(pathname, search, hash);
 }
 
 /**
