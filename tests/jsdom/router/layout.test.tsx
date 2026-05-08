@@ -7,7 +7,11 @@ import {
 import { navigate } from '../../../src/router/navigate';
 import {
   clearRoutes,
+  fallback,
   group,
+  index,
+  Outlet,
+  page,
   route,
   getManifest,
 } from '../../../src/router/route';
@@ -190,5 +194,78 @@ describe('layout scoping (ROUTER)', () => {
     expect(nextInput).toBe(input);
     expect(document.activeElement).toBe(input);
     expect(preview?.textContent).toBe('Hello, abc!');
+  });
+
+  it('should render page hosts through Outlet with relative child routes', async () => {
+    const ComponentsPage = () => (
+      <section class="components-page">
+        <header class="components-header">Components</header>
+        <div class="components-content">
+          <Outlet />
+        </div>
+      </section>
+    );
+    const Overview = () => <p class="components-view">overview</p>;
+    const Tabs = () => <p class="components-view">tabs</p>;
+
+    page('/docs/components', ComponentsPage, () => {
+      index(Overview);
+      route('tabs', Tabs);
+    });
+
+    await createSPA({ root: container, manifest: getManifest() });
+
+    navigate('/docs/components');
+    await flushScheduler();
+
+    expect(container.querySelector('.components-page')).not.toBeNull();
+    expect(container.querySelector('.components-header')?.textContent).toBe(
+      'Components'
+    );
+    expect(container.querySelector('.components-view')?.textContent).toBe(
+      'overview'
+    );
+
+    navigate('/docs/components/tabs');
+    await flushScheduler();
+
+    expect(container.querySelector('.components-page')).not.toBeNull();
+    expect(container.querySelector('.components-view')?.textContent).toBe(
+      'tabs'
+    );
+  });
+
+  it('should render page-local fallback content inside the page shell', async () => {
+    const ComponentsPage = () => (
+      <section class="components-page">
+        <header class="components-header">Components</header>
+        <div class="components-content">
+          <Outlet />
+        </div>
+      </section>
+    );
+    const Overview = () => <p class="components-view">overview</p>;
+    const Missing = () => <p class="components-view">missing</p>;
+
+    page('/docs/components', ComponentsPage, () => {
+      index(Overview);
+      fallback(Missing);
+    });
+
+    fallback(() => <p class="root-missing">root missing</p>);
+
+    await createSPA({ root: container, manifest: getManifest() });
+
+    navigate('/docs/components/unknown/deeper');
+    await flushScheduler();
+
+    expect(container.querySelector('.components-page')).not.toBeNull();
+    expect(container.querySelector('.components-header')?.textContent).toBe(
+      'Components'
+    );
+    expect(container.querySelector('.components-view')?.textContent).toBe(
+      'missing'
+    );
+    expect(container.querySelector('.root-missing')).toBeNull();
   });
 });

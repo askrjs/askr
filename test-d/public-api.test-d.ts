@@ -2,8 +2,13 @@ import { expectAssignable, expectType } from 'tsd';
 import {
   currentRoute,
   derive,
+  index,
   Link,
   navigate,
+  Outlet,
+  type PageHelperOptions,
+  type PageScopeRecord,
+  page,
   route,
   resource,
   selector,
@@ -11,15 +16,20 @@ import {
   type Derived,
   type LinkProps,
   type RouteMatch,
+  type RouteRecord,
   type RouteSnapshot,
 } from '@askrjs/askr';
 import {
   Link as RouterLink,
   currentRoute as routerCurrentRoute,
+  getManifest,
   getRoutes,
   navigate as routerNavigate,
   type LinkProps as RouterLinkProps,
+  type PageHelperOptions as RouterPageHelperOptions,
+  type PageScopeRecord as RouterPageScopeRecord,
   type RouteQuery,
+  type RouteRecord as RouterRouteRecord,
   type RouteSnapshot as RouterRouteSnapshot,
 } from '@askrjs/askr/router';
 import { getSignal, on, type ResourceResult } from '@askrjs/askr/resources';
@@ -60,6 +70,32 @@ navigate('/home');
 routerNavigate('/about');
 getRoutes();
 route('/users/{id}', (params: Record<string, string>) => params.id);
+page(
+  '/settings',
+  () => null,
+  () => {
+    index(() => null);
+    route('billing', () => null);
+  }
+);
+
+const pageHelperOptions: PageHelperOptions = { auth: true };
+expectAssignable<RouterPageHelperOptions>(pageHelperOptions);
+
+const pageScopeRecord: PageScopeRecord = {
+  component: () => null,
+};
+expectAssignable<RouterPageScopeRecord>(pageScopeRecord);
+
+const manifest = getManifest();
+expectType<PageScopeRecord[]>(manifest.records[0]!.pageChain);
+expectType<RouterPageScopeRecord[]>(manifest.records[0]!.pageChain);
+
+const routeRecord = manifest.records[0] as RouteRecord;
+expectType<PageScopeRecord[]>(routeRecord.pageChain);
+expectType<RouterRouteRecord['pageChain']>(routeRecord.pageChain);
+
+expectType<unknown>(Outlet({} as never));
 getSignal();
 on(window, 'click', () => {});
 expectType<(() => void) & { cancel(): void }>(debounce(() => {}, 10));

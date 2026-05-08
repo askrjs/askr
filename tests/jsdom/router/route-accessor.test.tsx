@@ -7,7 +7,14 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { navigate } from '../../../src/router/navigate';
 import {
+  clearRoutes,
   currentRoute,
+  fallback,
+  getManifest,
+  index,
+  Outlet,
+  page,
+  resolveRouteRequest,
   route,
   setServerLocation,
   type RouteSnapshot,
@@ -49,6 +56,7 @@ describe('route accessor (public)', () => {
 
   afterEach(() => {
     cleanup();
+    clearRoutes();
     setServerLocation(null);
   });
 
@@ -185,6 +193,192 @@ describe('route accessor (public)', () => {
 
     // Expect the client hydration render to match server snapshot values
     expect(container.textContent).toBe('99|abc|#frag');
+  });
+
+  it('should keep currentRoute() fallback snapshots aligned with request resolution', async () => {
+    let snapDuringRender: RouteSnapshot | null = null;
+
+    const ComponentsPage = () => (
+      <section>
+        <h1>Components</h1>
+        <Outlet />
+      </section>
+    );
+    const ComponentsOverview = () => <div>{'overview'}</div>;
+    const ComponentsMissing = () => {
+      snapDuringRender = currentRoute();
+      return <div>{`missing:${currentRoute().params['*']}`}</div>;
+    };
+
+    page('/docs/components', ComponentsPage, () => {
+      index(ComponentsOverview);
+      fallback(ComponentsMissing);
+    });
+
+    fallback(() => <div>{'root-missing'}</div>);
+
+    const manifest = getManifest();
+    const resolved = await resolveRouteRequest(
+      '/docs/components/unknown/deeper',
+      {
+        manifest,
+      }
+    );
+
+    setGlobalWindow({
+      location: { pathname: '/', search: '', hash: '' },
+      history: { pushState() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    });
+
+    await createSPA({ root: container, manifest });
+
+    updateGlobalPath('/docs/components/unknown/deeper');
+    navigate('/docs/components/unknown/deeper');
+    await flushScheduler();
+
+    expect(resolved?.kind).toBe('render');
+    expect(container.textContent).toContain('Components');
+    expect(container.textContent).toContain('missing:/unknown/deeper');
+    expect(snapDuringRender).not.toBeNull();
+    expect(snapDuringRender!.path).toBe('/docs/components/unknown/deeper');
+    expect(snapDuringRender!.params).toEqual(resolved!.params);
+    expect(snapDuringRender!.matches.map((match) => match.path)).toEqual([
+      '/docs/components/*',
+    ]);
+  });
+
+  it('should prefer exact child routes over page-local and root fallbacks in snapshots', async () => {
+    let snapDuringRender: RouteSnapshot | null = null;
+
+    const ComponentsPage = () => (
+      <section>
+        <h1>Components</h1>
+        <Outlet />
+      </section>
+    );
+    const ComponentsOverview = () => <div>{'overview'}</div>;
+    const ComponentsTabs = () => {
+      snapDuringRender = currentRoute();
+      return <div>{`tabs:${currentRoute().path}`}</div>;
+    };
+
+    page('/docs/components', ComponentsPage, () => {
+      index(ComponentsOverview);
+      route('tabs', ComponentsTabs);
+      fallback(() => <div>{'page-missing'}</div>);
+    });
+
+    fallback(() => <div>{'root-missing'}</div>);
+
+    const manifest = getManifest();
+    const resolved = await resolveRouteRequest('/docs/components/tabs', {
+      manifest,
+    });
+
+    setGlobalWindow({
+      location: { pathname: '/', search: '', hash: '' },
+      history: { pushState() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    });
+
+    await createSPA({ root: container, manifest });
+
+    updateGlobalPath('/docs/components/tabs');
+    navigate('/docs/components/tabs');
+    await flushScheduler();
+
+    expect(resolved?.kind).toBe('render');
+    expect(container.textContent).toContain('tabs:/docs/components/tabs');
+    expect(container.textContent).not.toContain('page-missing');
+    expect(container.textContent).not.toContain('root-missing');
+    expect(snapDuringRender).not.toBeNull();
+    expect(snapDuringRender!.matches.map((match) => match.path)).toEqual([
+      '/docs/components/tabs',
+    ]);
+    expect(snapDuringRender!.params).toEqual(resolved!.params);
+  });
+
+  it('should expose the index leaf as the active match on the page pathname', async () => {
+    let snapDuringRender: RouteSnapshot | null = null;
+
+    const ComponentsPage = () => (
+      <section>
+        <h1>Components</h1>
+        <Outlet />
+      </section>
+    );
+    const ComponentsOverview = () => {
+      snapDuringRender = currentRoute();
+      return <div>{'overview'}</div>;
+    };
+
+    page('/docs/components', ComponentsPage, () => {
+      index(ComponentsOverview);
+      route('tabs', () => <div>{'tabs'}</div>);
+      fallback(() => <div>{'page-missing'}</div>);
+    });
+
+    fallback(() => <div>{'root-missing'}</div>);
+
+    setGlobalWindow({
+      location: { pathname: '/', search: '', hash: '' },
+      history: { pushState() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    });
+
+    await createSPA({ root: container, manifest: getManifest() });
+
+    updateGlobalPath('/docs/components');
+    navigate('/docs/components');
+    await flushScheduler();
+
+    expect(container.textContent).toContain('Components');
+    expect(container.textContent).toContain('overview');
+    expect(snapDuringRender).not.toBeNull();
+    expect(snapDuringRender!.path).toBe('/docs/components');
+    expect(snapDuringRender!.params).toEqual({});
+    expect(snapDuringRender!.matches.map((match) => match.path)).toEqual([
+      '/docs/components',
+    ]);
+  });
+
+  it('should expose the root fallback as the active match on app misses', async () => {
+    let snapDuringRender: RouteSnapshot | null = null;
+
+    route('/home', () => <div>{'home'}</div>);
+    fallback(() => {
+      snapDuringRender = currentRoute();
+      return <div>{`root-missing:${currentRoute().params['*']}`}</div>;
+    });
+
+    const manifest = getManifest();
+    const resolved = await resolveRouteRequest('/outside/deeper', { manifest });
+
+    setGlobalWindow({
+      location: { pathname: '/', search: '', hash: '' },
+      history: { pushState() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    });
+
+    await createSPA({ root: container, manifest });
+
+    updateGlobalPath('/outside/deeper');
+    navigate('/outside/deeper');
+    await flushScheduler();
+
+    expect(resolved?.kind).toBe('render');
+    expect(container.textContent).toContain('root-missing:/outside/deeper');
+    expect(snapDuringRender).not.toBeNull();
+    expect(snapDuringRender!.path).toBe('/outside/deeper');
+    expect(snapDuringRender!.params).toEqual(resolved!.params);
+    expect(snapDuringRender!.matches.map((match) => match.path)).toEqual([
+      '/*',
+    ]);
   });
 
   it('should reject route() as a render-time accessor', () => {

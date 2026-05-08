@@ -105,6 +105,8 @@ export interface RouteOptions extends CommonAccessOptions {
   namespace?: string;
 }
 
+export interface PageHelperOptions extends CommonAccessOptions {}
+
 /**
  * A single parsed segment from a route path.
  *
@@ -122,6 +124,11 @@ export interface ParsedSegment {
 /** Resolved layout component as stored in a route record's layout chain. */
 export interface LayoutScopeRecord {
   component: (props: { children?: unknown }) => unknown;
+}
+
+/** Resolved page host component as stored in a route record's page chain. */
+export interface PageScopeRecord {
+  component: RouteComponent;
 }
 
 export interface RegisterRoutesOptions {
@@ -172,6 +179,8 @@ export interface RouteRecord {
   rank: number;
   /** Layout chain from outermost to innermost, applied automatically on render */
   layoutChain: LayoutScopeRecord[];
+  /** Page chain from outermost to innermost, composed through Outlet before layouts apply */
+  pageChain: PageScopeRecord[];
   /** Route metadata: loader, entries, policies, title, namespace */
   options: RouteOptions;
   /** True when this is the `/*` catch-all fallback route */

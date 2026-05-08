@@ -8,6 +8,9 @@ import {
   getManifest,
   getRoutes,
   group,
+  index,
+  Outlet,
+  page,
   registerRoutes,
   resolveRouteRequest,
   route,
@@ -270,6 +273,43 @@ describe('callback route registration', () => {
       kind: 'redirect',
       to: '/dashboard',
       replace: true,
+    });
+  });
+
+  it('should prefer exact leaf, then page-local fallback, then root fallback in request resolution', async () => {
+    registerRoutes(() => {
+      page(
+        '/docs/components',
+        () => <Outlet />,
+        () => {
+          index(() => <div>{'overview'}</div>);
+          route('tabs', () => <div>{'tabs'}</div>);
+          fallback(() => <div>{'page-missing'}</div>);
+        }
+      );
+
+      fallback(() => <div>{'root-missing'}</div>);
+    });
+
+    const exact = await resolveRouteRequest('/docs/components/tabs');
+    const pageMiss = await resolveRouteRequest(
+      '/docs/components/unknown/deeper'
+    );
+    const rootMiss = await resolveRouteRequest('/outside');
+
+    expect(exact?.kind).toBe('render');
+    expect(pageMiss?.kind).toBe('render');
+    expect(rootMiss?.kind).toBe('render');
+    expect(exact && exact.kind === 'render' ? exact.params : null).toEqual({});
+    expect(
+      pageMiss && pageMiss.kind === 'render' ? pageMiss.params : null
+    ).toEqual({
+      '*': '/unknown/deeper',
+    });
+    expect(
+      rootMiss && rootMiss.kind === 'render' ? rootMiss.params : null
+    ).toEqual({
+      '*': 'outside',
     });
   });
 });
