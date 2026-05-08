@@ -4,8 +4,11 @@
  * Primary public authoring:
  *   - `registerRoutes(() => { ... }, options?)`
  *   - `group(options, () => { ... })`
+ *   - `page(path, Component, () => { ... })`
+ *   - `index(Component, options?)`
  *   - `route(path, Component, options?)`
  *   - `fallback(Component)`
+ *   - `Outlet()` for page child rendering
  *   - `currentRoute()` for render-time access
  *
  */
@@ -18,6 +21,7 @@ import {
   makeQuery,
   parseLocation,
 } from './route-context';
+import { defineContext, readContext } from '../runtime/context';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { getExecutionModel } from '../runtime/execution-model';
 import {
@@ -40,6 +44,7 @@ export type {
   AccessDenyDecision,
   AccessRedirectDecision,
   GroupHelperOptions,
+  PageHelperOptions,
   RegisterRoutesOptions,
   RouteDefinition,
   RouteAuthOptions,
@@ -58,6 +63,7 @@ export type {
   RouteOptions,
   ParsedSegment,
   LayoutScopeRecord,
+  PageScopeRecord,
   RouteRecord,
   RouteManifest,
 } from '../common/router';
@@ -67,6 +73,7 @@ import type {
   AccessDenyDecision,
   AccessRedirectDecision,
   GroupHelperOptions,
+  PageHelperOptions,
   RegisterRoutesOptions,
   RouteDefinition,
   RouteAuthOptions,
@@ -84,6 +91,7 @@ import type {
   RouteComponent,
   RouteOptions,
   LayoutScopeRecord,
+  PageScopeRecord,
   RouteRecord,
   RouteManifest,
 } from '../common/router';
@@ -93,13 +101,24 @@ import type {
 // ---------------------------------------------------------------------------
 
 /** Legacy flat route array — kept for resolver and route() accessor backward compat. */
-const routes: Route[] = [];
+type InternalRoute = Route & {
+  fallbackPrefix?: string;
+};
+
+type InternalRouteRecord = RouteRecord & {
+  fallbackPrefix?: string;
+};
+
+const routes: InternalRoute[] = [];
 
 /** Normalized route records built by the declarative registration API. */
-const records: RouteRecord[] = [];
+const records: InternalRouteRecord[] = [];
 
 type RegistrationScope = {
+  kind: 'group' | 'page';
+  pathPrefix: string;
   layout?: LayoutScopeRecord['component'];
+  page?: PageScopeRecord['component'];
   policies: readonly RoutePolicy[];
   state: AccessScopeState;
 };
@@ -113,6 +132,7 @@ const registrationScopeStack: RegistrationScope[] = [];
 const registrationSessionStack: RegistrationSession[] = [];
 
 const namespaces = new Set<string>();
+let registrationLocked = false;
 
 type AccessScopeState = {
   guestOnly: boolean;
@@ -121,12 +141,6 @@ type AccessScopeState = {
 
 let defaultRouteAuthOptions: RouteAuthOptions | undefined;
 let activeClientRouteAuthOptions: RouteAuthOptions | undefined;
-let currentRouteSnapshot = buildRouteSnapshot('/', '', '');
-
-const currentRouteSource = (() => currentRouteSnapshot) as ReadableSource<RouteSnapshot> &
-  (() => RouteSnapshot);
-
-currentRouteSource._readers = new Map();
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
@@ -199,6 +213,14 @@ function cachedSortedList(
   return sorted;
 }
 
+let currentRouteSnapshot = buildRouteSnapshot('/', '', '');
+
+const currentRouteSource = (() =>
+  currentRouteSnapshot) as ReadableSource<RouteSnapshot> &
+  (() => RouteSnapshot);
+
+currentRouteSource._readers = new Map();
+
 // SSR helper: when rendering on the server, callers may set a location so that
 // render-time route() returns deterministic server values that match client
 // hydration. This is deliberately an opt-in escape for SSR and tests.
@@ -222,7 +244,7 @@ function buildRouteSnapshot(
 
   return Object.freeze({
     path: pathname,
-    params: deepFreeze({ ...(matches[0]?.params ?? {}) }),
+    params: deepFreeze({ ...matches[0]?.params }),
     query,
     hash: hash || null,
     matches: Object.freeze(matches),
@@ -243,18 +265,89 @@ function setCurrentRouteSnapshot(
 }
 
 // Compute matches for a specific route list.
+function matchFallbackPrefix(
+  pathname: string,
+  fallbackPrefix: string
+): Record<string, string> | null {
+  const normalizedPath =
+    pathname.endsWith('/') && pathname !== '/'
+      ? pathname.slice(0, -1)
+      : pathname;
+  const normalizedPrefix =
+    fallbackPrefix.endsWith('/') && fallbackPrefix !== '/'
+      ? fallbackPrefix.slice(0, -1)
+      : fallbackPrefix;
+
+  if (normalizedPrefix === '/') {
+    const urlParts =
+      normalizedPath === '/' ? [] : normalizedPath.split('/').filter(Boolean);
+    return {
+      '*':
+        urlParts.length === 0
+          ? '/'
+          : urlParts.length === 1
+            ? urlParts[0]
+            : '/' + urlParts.join('/'),
+    };
+  }
+
+  if (
+    normalizedPath !== normalizedPrefix &&
+    !normalizedPath.startsWith(`${normalizedPrefix}/`)
+  ) {
+    return null;
+  }
+
+  const remainder =
+    normalizedPath === normalizedPrefix
+      ? '/'
+      : normalizedPath.slice(normalizedPrefix.length + 1);
+  const remainderParts =
+    remainder === '/' ? [] : remainder.split('/').filter(Boolean);
+
+  return {
+    '*':
+      remainderParts.length === 0
+        ? '/'
+        : remainderParts.length === 1
+          ? remainderParts[0]
+          : '/' + remainderParts.join('/'),
+  };
+}
+
 function computeMatchesFromRoutes(
   pathname: string,
   routesList: readonly Route[]
 ): RouteMatch[] {
-  const matches: Array<{
-    pattern: string;
-    params: Record<string, string>;
-    name?: string;
-    namespace?: string;
-    rank: number;
-  }> = [];
+  const bestMatch =
+    routesList === routes
+      ? getMatchingRecord(pathname, records)
+      : findBestResolvedRouteFromRoutes(pathname, routesList);
 
+  if (!bestMatch) {
+    return [];
+  }
+
+  return [
+    {
+      path: 'route' in bestMatch ? bestMatch.route.path : bestMatch.record.path,
+      params: deepFreeze({ ...bestMatch.params }),
+      name:
+        'route' in bestMatch
+          ? (bestMatch.route as { name?: string }).name
+          : undefined,
+      namespace:
+        'route' in bestMatch
+          ? bestMatch.route.namespace
+          : bestMatch.record.options.namespace,
+    },
+  ];
+}
+
+function findBestResolvedRouteFromRoutes(
+  pathname: string,
+  routeList: readonly Route[]
+): { route: Route; params: Record<string, string> } | null {
   const normalized =
     pathname.endsWith('/') && pathname !== '/'
       ? pathname.slice(0, -1)
@@ -262,27 +355,61 @@ function computeMatchesFromRoutes(
   const urlParts =
     normalized === '/' ? [] : normalized.split('/').filter(Boolean);
 
-  for (const r of routesList) {
-    const params = matchSegments(urlParts, cachedSegs(r));
+  const sorted = cachedSortedList(routeList);
+  let bestRoute: Route | null = null;
+  let bestParams: Record<string, string> = {};
+  let bestRank = -Infinity;
+
+  for (const route of sorted) {
+    const internalRoute = route as InternalRoute;
+    if (internalRoute.fallbackPrefix) {
+      continue;
+    }
+
+    const rank = cachedRank(route);
+    if (rank < bestRank) break;
+    if (bestRoute !== null && rank === bestRank) continue;
+
+    const params = matchSegments(urlParts, cachedSegs(route));
     if (params !== null) {
-      matches.push({
-        pattern: r.path,
-        params,
-        name: (r as { name?: string }).name,
-        namespace: r.namespace,
-        rank: cachedRank(r),
-      });
+      bestRoute = route;
+      bestParams = params;
+      bestRank = rank;
     }
   }
 
-  matches.sort((a, b) => b.rank - a.rank);
+  if (bestRoute !== null) {
+    return { route: bestRoute, params: bestParams };
+  }
 
-  return matches.map((m) => ({
-    path: m.pattern,
-    params: deepFreeze({ ...m.params }),
-    name: m.name,
-    namespace: m.namespace,
-  }));
+  let bestFallback: InternalRoute | null = null;
+  let bestFallbackParams: Record<string, string> | null = null;
+  let bestPrefixLength = -1;
+
+  for (const route of routeList) {
+    const internalRoute = route as InternalRoute;
+    if (!internalRoute.fallbackPrefix) {
+      continue;
+    }
+
+    const params = matchFallbackPrefix(
+      normalized,
+      internalRoute.fallbackPrefix
+    );
+    if (params === null) {
+      continue;
+    }
+
+    if (internalRoute.fallbackPrefix.length > bestPrefixLength) {
+      bestFallback = internalRoute;
+      bestFallbackParams = params;
+      bestPrefixLength = internalRoute.fallbackPrefix.length;
+    }
+  }
+
+  return bestFallback && bestFallbackParams
+    ? { route: bestFallback, params: bestFallbackParams }
+    : null;
 }
 
 function getActiveRoutes(): readonly Route[] {
@@ -340,6 +467,34 @@ function getCurrentLayoutChain(): LayoutScopeRecord[] {
   return layoutChain;
 }
 
+function getCurrentPageChain(): PageScopeRecord[] {
+  const pageChain: PageScopeRecord[] = [];
+
+  for (const scope of registrationScopeStack) {
+    if (scope.page) {
+      pageChain.push({ component: scope.page });
+    }
+  }
+
+  return pageChain;
+}
+
+function hasActivePageScope(): boolean {
+  return registrationScopeStack.some((scope) => !!scope.page);
+}
+
+function getCurrentScopeKind(): RegistrationScope['kind'] | null {
+  return (
+    registrationScopeStack[registrationScopeStack.length - 1]?.kind ?? null
+  );
+}
+
+function getCurrentPathPrefix(): string {
+  return (
+    registrationScopeStack[registrationScopeStack.length - 1]?.pathPrefix ?? ''
+  );
+}
+
 function getCurrentInheritedPolicies(): RoutePolicy[] {
   const policies: RoutePolicy[] = [];
 
@@ -360,7 +515,6 @@ function getCurrentInheritedPolicies(): RoutePolicy[] {
  * Prevent route registrations after the app has started.
  * Enforced in production; tests may unlock explicitly.
  */
-let registrationLocked = false;
 
 export function lockRouteRegistration(): void {
   registrationLocked = true;
@@ -390,6 +544,67 @@ function validateRoutePath(path: string): void {
         `Use "${suggested}" instead of "${path}".`
     );
   }
+}
+
+function normalizeAbsoluteRoutePath(path: string): string {
+  if (!path || path === '/') {
+    return '/';
+  }
+
+  const normalized = path.endsWith('/') ? path.slice(0, -1) : path;
+  return normalized || '/';
+}
+
+function joinRoutePaths(prefix: string, path: string): string {
+  const normalizedPrefix = normalizeAbsoluteRoutePath(prefix || '/');
+  const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+
+  if (!normalizedPath) {
+    return normalizedPrefix;
+  }
+
+  return normalizedPrefix === '/'
+    ? `/${normalizedPath}`
+    : `${normalizedPrefix}/${normalizedPath}`;
+}
+
+function resolvePageScopePath(path: string): string {
+  if (!path) {
+    throw new Error('page(path, Component, fn) requires a non-empty path.');
+  }
+
+  if (path.startsWith('/')) {
+    validateRoutePath(path);
+    return normalizeAbsoluteRoutePath(path);
+  }
+
+  return joinRoutePaths(getCurrentPathPrefix(), path);
+}
+
+function resolveIndexPath(): string {
+  return normalizeAbsoluteRoutePath(getCurrentPathPrefix() || '/');
+}
+
+function resolveRouteRegistrationPath(path: string): string {
+  if (path.startsWith('/')) {
+    if (hasActivePageScope()) {
+      throw new Error(
+        'Child route paths inside page() must be relative. ' +
+          `Use "${path.slice(1)}" instead of "${path}".`
+      );
+    }
+
+    validateRoutePath(path);
+    return normalizeAbsoluteRoutePath(path);
+  }
+
+  const prefix = getCurrentPathPrefix();
+
+  if (!prefix) {
+    throw new Error(`Route path must begin with "/". Got: "${path}"`);
+  }
+
+  return joinRoutePaths(prefix, path);
 }
 
 // ---------------------------------------------------------------------------
@@ -437,6 +652,12 @@ function addRouteToStores(routeObj: Route): void {
 
 /** Promises from in-flight lazy() imports, drained by createSPA / hydrateSPA. */
 const pendingLazy = new Set<Promise<unknown>>();
+
+const outletContext = defineContext<unknown>(null);
+
+export function Outlet(): unknown {
+  return readContext(outletContext);
+}
 
 /**
  * Snapshot the current in-flight lazy() imports.
@@ -521,7 +742,63 @@ export function group(options: GroupHelperOptions, fn: RouteDefinition): void {
   pushGroupScope(options, fn);
 }
 
+export function page(
+  path: string,
+  Component: RouteComponent,
+  fn: RouteDefinition
+): void;
+export function page(
+  path: string,
+  Component: RouteComponent,
+  options: PageHelperOptions,
+  fn: RouteDefinition
+): void;
+export function page(
+  path: string,
+  Component: RouteComponent,
+  optionsOrFn: PageHelperOptions | RouteDefinition,
+  maybeFn?: RouteDefinition
+): void {
+  const options =
+    typeof optionsOrFn === 'function' ? ({} as PageHelperOptions) : optionsOrFn;
+  const fn = typeof optionsOrFn === 'function' ? optionsOrFn : maybeFn;
+
+  if (typeof Component !== 'function') {
+    throw new Error(
+      'page(path, Component, fn) requires a component function as the second argument.'
+    );
+  }
+
+  if (typeof fn !== 'function') {
+    throw new Error(
+      'page(path, Component, fn) requires a route definition callback as the final argument.'
+    );
+  }
+
+  pushPageScope(path, Component, options, fn);
+}
+
+export function index(Component: RouteComponent, options?: RouteOptions): void {
+  registerRouteAtResolvedPath(resolveIndexPath(), Component, options);
+}
+
 export function fallback(Component: RouteComponent): void {
+  if (hasActivePageScope()) {
+    if (getCurrentScopeKind() !== 'page') {
+      throw new Error(
+        'fallback() inside page() must be declared directly in the page scope, not inside nested group().'
+      );
+    }
+
+    registerRouteAtResolvedPath(
+      `${getCurrentPathPrefix()}/*`,
+      Component,
+      undefined,
+      { isFallback: true, fallbackPrefix: getCurrentPathPrefix() }
+    );
+    return;
+  }
+
   const allowsRootFallback = registrationScopeStack.every(
     (scope) =>
       scope.policies.length === 0 &&
@@ -536,7 +813,10 @@ export function fallback(Component: RouteComponent): void {
     );
   }
 
-  route('/*', Component);
+  registerRouteAtResolvedPath('/*', Component, undefined, {
+    isFallback: true,
+    fallbackPrefix: '/',
+  });
 }
 
 function pushRegistrationScope(
@@ -564,7 +844,42 @@ function pushGroupScope(
 
   pushRegistrationScope(
     {
+      kind: 'group',
+      pathPrefix: getCurrentPathPrefix(),
       layout: options.layout,
+      policies,
+      state: nextAccessScopeState(options, getCurrentAccessScopeState()),
+    },
+    fn
+  );
+}
+
+function pushPageScope(
+  path: string,
+  Component: RouteComponent,
+  options: PageHelperOptions,
+  fn: RouteDefinition
+): void {
+  if (hasActivePageScope()) {
+    throw new Error(
+      'page() cannot be nested inside another page(). ' +
+        'Use route() for child leaves or group() for inherited behavior inside the existing page scope.'
+    );
+  }
+
+  const session = getCurrentRegistrationSession();
+  validateAccessMetadata(options, {
+    authConfigured: session.authConfigured,
+    state: getCurrentAccessScopeState(),
+  });
+
+  const policies = compileNodePolicies(options);
+
+  pushRegistrationScope(
+    {
+      kind: 'page',
+      pathPrefix: resolvePageScopePath(path),
+      page: Component,
       policies,
       state: nextAccessScopeState(options, getCurrentAccessScopeState()),
     },
@@ -700,6 +1015,95 @@ function normalizeRouteOptions(
     ...(options.namespace ? { namespace: options.namespace } : {}),
   };
 }
+
+function applyPageChain(
+  pageChain: readonly PageScopeRecord[],
+  params: Record<string, string>,
+  content: unknown
+): unknown {
+  let nextContent = content;
+
+  for (let i = pageChain.length - 1; i >= 0; i--) {
+    nextContent = outletContext.Scope({
+      value: nextContent,
+      children: pageChain[i].component(params),
+    });
+  }
+
+  return nextContent;
+}
+
+function registerRouteAtResolvedPath(
+  path: string,
+  Component: RouteComponent,
+  options?: RouteOptions,
+  metadata?: {
+    isFallback?: boolean;
+    fallbackPrefix?: string;
+  }
+): void {
+  validateAccessMetadata(options ?? {}, {
+    authConfigured: getCurrentRegistrationSession().authConfigured,
+    state: getCurrentAccessScopeState(),
+  });
+
+  const chain = getCurrentLayoutChain();
+  const pageChain = getCurrentPageChain();
+  const segments = parseSegments(path);
+  const rank = computeRank(segments);
+  const isFallback = metadata?.isFallback ?? path === '/*';
+  const comp = Component;
+  const normalizedOptions = normalizeRouteOptions(options);
+  const policies = [
+    ...getCurrentInheritedPolicies(),
+    ...(normalizedOptions?.policies ?? []),
+  ];
+
+  const handler: RouteHandler = (params) => {
+    let content = comp(params);
+
+    content = applyPageChain(pageChain, params, content);
+
+    for (let i = chain.length - 1; i >= 0; i--) {
+      content = chain[i].component({ children: content });
+    }
+
+    return content;
+  };
+
+  const record: InternalRouteRecord = {
+    path,
+    component: comp,
+    segments,
+    rank,
+    layoutChain: chain,
+    pageChain,
+    options: normalizedOptions
+      ? {
+          ...normalizedOptions,
+          ...(policies.length > 0 ? { policies } : {}),
+        }
+      : policies.length > 0
+        ? { policies }
+        : {},
+    isFallback,
+    handler,
+    ...(metadata?.fallbackPrefix
+      ? { fallbackPrefix: metadata.fallbackPrefix }
+      : {}),
+  };
+
+  insertRecordSorted(record);
+  addRouteToStores({
+    path,
+    handler,
+    namespace: normalizedOptions?.namespace ?? options?.namespace,
+    ...(metadata?.fallbackPrefix
+      ? { fallbackPrefix: metadata.fallbackPrefix }
+      : {}),
+  });
+}
+
 export function registerRoutes(
   definition: RouteDefinition,
   options: RegisterRoutesOptions = {}
@@ -789,7 +1193,7 @@ export function currentRoute(): RouteSnapshot {
   }
 
   recordReadableRead(currentRouteSource);
-  return currentRouteSnapshot;
+  return readCurrentRouteSnapshot();
 }
 
 export function syncCurrentRouteSnapshot(
@@ -859,57 +1263,11 @@ export function route(
     );
   }
 
-  validateRoutePath(path);
-  validateAccessMetadata(options ?? {}, {
-    authConfigured: getCurrentRegistrationSession().authConfigured,
-    state: getCurrentAccessScopeState(),
-  });
-
-  const chain = getCurrentLayoutChain();
-  const segments = parseSegments(path);
-  const rank = computeRank(segments);
-  const isFallback = path === '/*';
-  const comp = Component;
-  const normalizedOptions = normalizeRouteOptions(options);
-  const policies = [
-    ...getCurrentInheritedPolicies(),
-    ...(normalizedOptions?.policies ?? []),
-  ];
-
-  const handler: RouteHandler = (params) => {
-    let content = comp(params);
-
-    for (let i = chain.length - 1; i >= 0; i--) {
-      content = chain[i].component({ children: content });
-    }
-
-    return content;
-  };
-
-  const record: RouteRecord = {
-    path,
-    component: comp,
-    segments,
-    rank,
-    layoutChain: chain,
-    options: normalizedOptions
-      ? {
-          ...normalizedOptions,
-          ...(policies.length > 0 ? { policies } : {}),
-        }
-      : policies.length > 0
-        ? { policies }
-        : {},
-    isFallback,
-    handler,
-  };
-
-  insertRecordSorted(record);
-  addRouteToStores({
-    path,
-    handler,
-    namespace: normalizedOptions?.namespace ?? options?.namespace,
-  });
+  registerRouteAtResolvedPath(
+    resolveRouteRegistrationPath(path),
+    Component,
+    options
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -941,15 +1299,19 @@ export function getManifest(): RouteManifest {
 export function _applyManifest(manifest: RouteManifest): void {
   defaultRouteAuthOptions = manifest.auth;
   for (const record of manifest.records) {
-    records.push(record);
+    insertRecordSorted(record as InternalRouteRecord);
     addRouteToStores({
       path: record.path,
       handler: record.handler,
       namespace: record.options.namespace,
+      ...('fallbackPrefix' in record &&
+      typeof (record as InternalRouteRecord).fallbackPrefix === 'string'
+        ? {
+            fallbackPrefix: (record as InternalRouteRecord).fallbackPrefix,
+          }
+        : {}),
     });
   }
-  // Sort once after bulk insert so resolveRoute can use first-match-wins
-  records.sort((a, b) => b.rank - a.rank);
 }
 
 // ---------------------------------------------------------------------------
@@ -1020,6 +1382,37 @@ export function getLoadedNamespaces(): string[] {
   return Array.from(namespaces);
 }
 
+function findBestScopedFallbackRecord(
+  pathname: string,
+  routeRecords: readonly RouteRecord[]
+): { record: InternalRouteRecord; params: Record<string, string> } | null {
+  let bestRecord: InternalRouteRecord | null = null;
+  let bestParams: Record<string, string> | null = null;
+  let bestPrefixLength = -1;
+
+  for (const routeRecord of routeRecords) {
+    const record = routeRecord as InternalRouteRecord;
+    if (!record.fallbackPrefix) {
+      continue;
+    }
+
+    const params = matchFallbackPrefix(pathname, record.fallbackPrefix);
+    if (params === null) {
+      continue;
+    }
+
+    if (record.fallbackPrefix.length > bestPrefixLength) {
+      bestRecord = record;
+      bestParams = params;
+      bestPrefixLength = record.fallbackPrefix.length;
+    }
+  }
+
+  return bestRecord && bestParams
+    ? { record: bestRecord, params: bestParams }
+    : null;
+}
+
 /**
  * Resolve a path to a route handler.
  *
@@ -1037,12 +1430,20 @@ export function resolveRoute(pathname: string): ResolvedRoute | null {
     normalized === '/' ? [] : normalized.split('/').filter(Boolean);
 
   for (const record of records) {
+    if (record.fallbackPrefix) {
+      continue;
+    }
+
     const params = matchSegments(urlParts, record.segments);
     if (params !== null) {
       return { handler: record.handler, params };
     }
   }
-  return null;
+
+  const fallbackMatch = findBestScopedFallbackRecord(normalized, records);
+  return fallbackMatch
+    ? { handler: fallbackMatch.record.handler, params: fallbackMatch.params }
+    : null;
 }
 
 function getMatchingRecord(
@@ -1058,13 +1459,18 @@ function getMatchingRecord(
     normalized === '/' ? [] : normalized.split('/').filter(Boolean);
 
   for (const record of routeRecords) {
+    const internalRecord = record as InternalRouteRecord;
+    if (internalRecord.fallbackPrefix) {
+      continue;
+    }
+
     const params = matchSegments(urlParts, record.segments);
     if (params !== null) {
       return { record, params };
     }
   }
 
-  return null;
+  return findBestScopedFallbackRecord(normalized, routeRecords);
 }
 
 function getRoutePolicies(
@@ -1211,35 +1617,6 @@ export function resolveRouteFromRoutes(
 ): ResolvedRoute | null {
   if (routeList === routes) return resolveRoute(pathname);
 
-  const normalized =
-    pathname.endsWith('/') && pathname !== '/'
-      ? pathname.slice(0, -1)
-      : pathname;
-  const urlParts =
-    normalized === '/' ? [] : normalized.split('/').filter(Boolean);
-
-  // Use the rank-sorted cached copy so we can exit as soon as the rank
-  // drops below the current best — typically saving 30-50% of iterations.
-  const sorted = cachedSortedList(routeList);
-  let bestHandler: RouteHandler | null = null;
-  let bestParams: Record<string, string> = {};
-  let bestRank = -Infinity;
-
-  for (const r of sorted) {
-    const rank = cachedRank(r);
-    // sorted descending: once rank < bestRank every remaining route loses
-    if (rank < bestRank) break;
-    // already have the best match at this rank (first-declared wins)
-    if (bestHandler !== null && rank === bestRank) continue;
-    const params = matchSegments(urlParts, cachedSegs(r));
-    if (params !== null) {
-      bestHandler = r.handler;
-      bestParams = params;
-      bestRank = rank;
-    }
-  }
-
-  return bestHandler !== null
-    ? { handler: bestHandler, params: bestParams }
-    : null;
+  const match = findBestResolvedRouteFromRoutes(pathname, routeList);
+  return match ? { handler: match.route.handler, params: match.params } : null;
 }

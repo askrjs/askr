@@ -44,11 +44,88 @@ Supported group options:
 - `permission`
 - `policies`
 
+## `page(path, Component, fn)`
+
+Registers a renderable route shell for a set of routed child leaves.
+
+- `path`: absolute base path for the page scope
+- `Component`: page host component; receives URL params as props
+- `fn`: child route definition callback
+
+Use `Outlet()` inside the page host to render the active child route.
+
+`page()` is pathful and renderable. Use `group()` when you only need inherited
+behavior such as `layout`, `auth`, or `policies` without creating a route
+segment.
+
+```tsx
+import { index, Outlet, page, route } from '@askrjs/askr/router';
+
+function ComponentsPage() {
+  return (
+    <section>
+      <h1>Components</h1>
+      <Outlet />
+    </section>
+  );
+}
+
+page('/docs/components', ComponentsPage, () => {
+  index(ComponentsOverview);
+  route('tabs', ComponentsTabs);
+  route('pills', ComponentsPills);
+});
+```
+
+`index()` creates the concrete default child route at the page pathname. The
+page host provides shell structure; it is not itself the default leaf.
+
+Supported page options:
+
+- `auth`
+- `role`
+- `permission`
+- `policies`
+
+Child `route()` declarations inside `page()` must use relative paths.
+Nested `page()` declarations are rejected in this release; use `group()` for
+inherited behavior inside a page subtree and `route()` for child leaves.
+
+```ts
+page('/docs/components', ComponentsPage, () => {
+  index(ComponentsOverview);
+
+  group({ auth: true }, () => {
+    route('tokens', ComponentsTokensPage);
+    route('patterns', ComponentsPatternsPage);
+  });
+});
+```
+
+In this example, the child leaves still live under `/docs/components/...`; the
+group only adds inherited behavior.
+
+```ts
+page('/docs/components', ComponentsPage, () => {
+  index(ComponentsOverview);
+  route('tabs', ComponentsTabs); // /docs/components/tabs
+  route('/tabs', ComponentsTabs); // rejected
+});
+```
+
+## `index(Component, options)`
+
+Registers the default child route for the current `page()` scope.
+
+## `Outlet()`
+
+Renders the active child route inside the current `page()` host.
+
 ## `route(path, Component, options)`
 
 Registers a route declaration. Call it during route registration.
 
-- `path`: route template using `{name}` for params and `/*` for catch-all
+- `path`: route template using `{name}` for params and `/*` for catch-all. Inside `page()`, child routes must use relative paths like `tabs`.
 - `Component`: page component function; receives URL params as props
 - `options`
   - `auth`: `true` for authenticated routes, `"guest"` for signed-out-only routes
@@ -80,7 +157,13 @@ Specificity order: static > param > wildcard > catch-all.
 
 ## `fallback(Component)`
 
-Registers the root catch-all page for the current top-level route scope.
+Registers a pathful miss route.
+
+- At the root, `fallback()` registers the app-wide catch-all route.
+- Inside `page()`, `fallback()` registers a miss route for that page subtree.
+- `fallback()` does not scope to `group()` because `group()` is pathless.
+- Inside a page subtree, `fallback()` must be declared directly in the `page()` scope.
+- Nearest pathful fallback wins.
 
 ## `currentRoute()`
 

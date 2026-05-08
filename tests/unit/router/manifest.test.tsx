@@ -8,9 +8,13 @@
 import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import {
   route,
+  fallback,
+  getRoutes,
   group,
+  index,
   getManifest,
   clearRoutes,
+  page,
   resolveRoute,
   resolveRouteFromRoutes,
   _applyManifest,
@@ -135,6 +139,84 @@ describe('path validation', () => {
   it('should accept catch-all /*', () => {
     expect(() => route('/*', () => null)).not.toThrow();
   });
+
+  it('should reject absolute child route paths inside a page scope', () => {
+    expect(() =>
+      page(
+        '/docs/components',
+        () => null,
+        () => {
+          route('/tabs', () => null);
+        }
+      )
+    ).toThrow(/child route paths inside page\(\) must be relative/i);
+  });
+
+  it('should reject fallback registrations inside a page scope', () => {
+    expect(() =>
+      page(
+        '/docs/components',
+        () => null,
+        () => {
+          group({}, () => {
+            fallback(() => null);
+          });
+        }
+      )
+    ).toThrow(
+      /fallback\(\) inside page\(\) must be declared directly in the page scope/i
+    );
+  });
+
+  it('should reject nested page registrations inside another page scope', () => {
+    expect(() =>
+      page(
+        '/docs',
+        () => null,
+        () => {
+          page(
+            'components',
+            () => null,
+            () => {
+              index(() => null);
+            }
+          );
+        }
+      )
+    ).toThrow(/page\(\) cannot be nested inside another page\(\)/i);
+  });
+
+  it('should reject page registrations inside grouped scopes under a page', () => {
+    expect(() =>
+      page(
+        '/docs',
+        () => null,
+        () => {
+          group({}, () => {
+            page(
+              'components',
+              () => null,
+              () => {
+                index(() => null);
+              }
+            );
+          });
+        }
+      )
+    ).toThrow(/page\(\) cannot be nested inside another page\(\)/i);
+  });
+
+  it('should allow page-local fallback registrations', () => {
+    expect(() =>
+      page(
+        '/docs/components',
+        () => null,
+        () => {
+          fallback(() => null);
+        }
+      )
+    ).not.toThrow();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -254,6 +336,30 @@ describe('manifest shape', () => {
     expect(record.layoutChain[1].component).toBe(Inner);
   });
 
+  it('should record page chains for index and child routes inside a page scope', () => {
+    const ComponentsPage = () => null;
+    const Overview = () => null;
+    const Tabs = () => null;
+
+    page('/docs/components', ComponentsPage, () => {
+      index(Overview);
+      route('tabs', Tabs);
+    });
+
+    const manifest = getManifest();
+    const overviewRecord = manifest.records.find(
+      (r) => r.path === '/docs/components'
+    )!;
+    const tabsRecord = manifest.records.find(
+      (r) => r.path === '/docs/components/tabs'
+    )!;
+
+    expect(overviewRecord.pageChain).toHaveLength(1);
+    expect(overviewRecord.pageChain[0].component).toBe(ComponentsPage);
+    expect(tabsRecord.pageChain).toHaveLength(1);
+    expect(tabsRecord.pageChain[0].component).toBe(ComponentsPage);
+  });
+
   it('should not include sibling layout scope in another route chain', () => {
     const L1 = ({ children }: { children?: unknown }) => children;
     const L2 = ({ children }: { children?: unknown }) => children;
@@ -354,6 +460,78 @@ describe('_applyManifest cross-mode parity', () => {
     expect(fb!.handler({})).toBe('fallback');
   });
 
+  it('should preserve page-local fallback behavior after manifest replay', () => {
+    const ComponentsPage = ({ children }: { children?: unknown }) => ({
+      type: 'page',
+      children,
+    });
+    const Overview = () => 'overview';
+    const Missing = () => 'missing';
+    const RootMissing = () => 'root-missing';
+
+    page('/docs/components', ComponentsPage as never, () => {
+      index(Overview);
+      fallback(Missing);
+    });
+
+    fallback(RootMissing);
+
+    const manifest = getManifest();
+    const freshScopedMiss = resolveRoute('/docs/components/unknown/deeper');
+    const freshScopedOutput = freshScopedMiss!.handler(freshScopedMiss!.params);
+
+    clearRoutes();
+    _applyManifest(manifest);
+
+    const scopedMiss = resolveRoute('/docs/components/unknown/deeper');
+    expect(scopedMiss).not.toBeNull();
+    expect(scopedMiss!.handler(scopedMiss!.params)).toEqual(freshScopedOutput);
+
+    const rootMiss = resolveRoute('/outside');
+    expect(rootMiss).not.toBeNull();
+    expect(rootMiss!.handler(rootMiss!.params)).toBe('root-missing');
+  });
+
+  it('should preserve scoped fallback behavior in flat route-list resolution after manifest replay', () => {
+    page(
+      '/docs/components',
+      () => null,
+      () => {
+        index(() => 'overview');
+        fallback(() => 'missing');
+      }
+    );
+
+    fallback(() => 'root-missing');
+
+    const manifest = getManifest();
+    const freshRoutes = getRoutes();
+    const freshScopedMiss = resolveRouteFromRoutes(
+      '/docs/components/unknown/deeper',
+      freshRoutes
+    );
+    const freshRootMiss = resolveRouteFromRoutes('/outside', freshRoutes);
+
+    clearRoutes();
+    _applyManifest(manifest);
+
+    const replayedRoutes = getRoutes();
+    const scopedMiss = resolveRouteFromRoutes(
+      '/docs/components/unknown/deeper',
+      replayedRoutes
+    );
+    expect(scopedMiss).not.toBeNull();
+    expect(scopedMiss!.handler(scopedMiss!.params)).toEqual(
+      freshScopedMiss!.handler(freshScopedMiss!.params)
+    );
+
+    const rootMiss = resolveRouteFromRoutes('/outside', replayedRoutes);
+    expect(rootMiss).not.toBeNull();
+    expect(rootMiss!.handler(rootMiss!.params)).toEqual(
+      freshRootMiss!.handler(freshRootMiss!.params)
+    );
+  });
+
   it('should return identical params from SSR resolveRouteFromRoutes and SPA resolveRoute', () => {
     route('/users/{id}/posts/{pid}', (p) => `${p.id}:${p.pid}`);
 
@@ -369,6 +547,20 @@ describe('_applyManifest cross-mode parity', () => {
 
     expect(spaResult!.params).toEqual({ id: '7', pid: '99' });
     expect(ssrResult!.params).toEqual(spaResult!.params);
+  });
+
+  it('should preserve declaration order tie-breaks after manifest replay', () => {
+    route('/a/{x}', () => 'first');
+    route('/a/{y}', () => 'second');
+
+    const manifest = getManifest();
+
+    clearRoutes();
+    _applyManifest(manifest);
+
+    const replayed = resolveRoute('/a/value');
+    expect(replayed).not.toBeNull();
+    expect(replayed!.handler(replayed!.params)).toBe('first');
   });
 });
 

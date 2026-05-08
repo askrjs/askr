@@ -5,6 +5,9 @@
 export {
   registerRoutes,
   route,
+  page,
+  index,
+  Outlet,
   currentRoute,
   group,
   fallback,
@@ -36,6 +39,7 @@ export type {
   AccessDenyDecision,
   AccessRedirectDecision,
   GroupHelperOptions,
+  PageHelperOptions,
   RegisterRoutesOptions,
   RouteDefinition,
   Route,
@@ -59,6 +63,7 @@ export type {
   LayoutScopeRecord,
   RouteRecord,
   RouteManifest,
+  PageScopeRecord,
 } from '../common/router';
 
 export { navigate } from './navigate';

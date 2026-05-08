@@ -4,8 +4,10 @@ The Askr router uses one route model across SPA, SSR, and SSG:
 
 - `registerRoutes()` starts registration
 - `group()` defines inherited layout and access behavior
+- `page()` defines a renderable route shell with nested child routes
+- `index()` defines the default child route inside a page host
 - `route()` defines pages
-- `fallback()` defines the root catch-all
+- `fallback()` defines the nearest pathful miss route
 
 ## Register routes
 
@@ -14,6 +16,9 @@ import {
   fallback,
   getManifest,
   group,
+  index,
+  Outlet,
+  page,
   registerRoutes,
   route,
 } from '@askrjs/askr/router';
@@ -29,6 +34,12 @@ registerRoutes(() => {
   group({ layout: AppLayout }, () => {
     route('/', Home);
 
+    page('/docs/components', DocsComponentsPage, () => {
+      index(DocsComponentsOverview);
+      route('tabs', DocsComponentsTabs);
+      route('pills', DocsComponentsPills);
+    });
+
     group({ layout: AuthLayout, auth: 'guest' }, () => {
       route('/login', Login);
     });
@@ -40,6 +51,34 @@ registerRoutes(() => {
     fallback(NotFound);
   });
 });
+```
+
+Use `group()` and `page()` for different jobs:
+
+- `group()` is behavioral and pathless.
+- `page()` is pathful and renderable.
+- `group({ layout })` wraps matched routes from the outside.
+- `page()` renders only when its pathname subtree is active and places child content with `Outlet()`.
+- Child `route()` calls inside `page()` must be relative.
+- `index()` creates the concrete default child route at the page pathname.
+
+Fallback handling is pathful: `fallback()` registers either the root miss route
+or a page-local miss route. `group()` can wrap fallback rendering, but it does
+not define fallback scope because it is pathless.
+
+Inside a page host, render the active child with `Outlet()`:
+
+```tsx
+import { Outlet } from '@askrjs/askr/router';
+
+function DocsComponentsPage() {
+  return (
+    <section>
+      <h1>Components</h1>
+      <Outlet />
+    </section>
+  );
+}
 ```
 
 ## Read the route
