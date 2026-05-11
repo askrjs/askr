@@ -19,6 +19,7 @@ import {
   type RouteRecord,
   type RouteSnapshot,
 } from '@askrjs/askr';
+import * as routerSurface from '@askrjs/askr/router';
 import {
   Link as RouterLink,
   currentRoute as routerCurrentRoute,
@@ -112,3 +113,18 @@ const routerLinkProps: RouterLinkProps = { href: '/about' };
 RouterLink(routerLinkProps);
 
 expectAssignable<RouteSnapshot>(snapshot);
+
+// @ts-expect-error internal router helpers are not part of the public barrel
+routerSurface._applyManifest;
+// @ts-expect-error internal router helpers are not part of the public barrel
+routerSurface._drainLazy;
+// @ts-expect-error internal router helpers are not part of the public barrel
+routerSurface.getNamespaceRoutes;
+// @ts-expect-error internal router helpers are not part of the public barrel
+routerSurface.unloadNamespace;
+// @ts-expect-error internal router helpers are not part of the public barrel
+routerSurface.getLoadedNamespaces;
+// @ts-expect-error internal router helpers are not part of the public barrel
+routerSurface.resolveRouteRequest;
+// @ts-expect-error internal router helpers are not part of the public barrel
+routerSurface.setServerLocation;

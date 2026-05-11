@@ -7,6 +7,7 @@
  */
 
 import { SSRDataMissingError } from './errors';
+import { clearEscapeCache } from './escape';
 
 export type { SSRData } from '../common/ssr';
 import type { SSRData } from '../common/ssr';
@@ -21,6 +22,7 @@ export interface RenderContext {
   routes?: readonly Route[];
   routeAuth?: RouteAuthOptions;
   signal?: AbortSignal;
+  queryCache?: Map<string, unknown>;
   // Per-render key state (moved from render-keys.ts globals)
   keyCounter: number;
   renderData: Record<string, unknown> | null;
@@ -64,6 +66,8 @@ export function createRenderContext(
     signal?: AbortSignal;
   } = {}
 ): RenderContext {
+  clearEscapeCache();
+
   return {
     url: opts.url ?? '',
     seed,
@@ -72,6 +76,7 @@ export function createRenderContext(
     routes: opts.routes,
     routeAuth: opts.routeAuth,
     signal: opts.signal,
+    queryCache: new Map<string, unknown>(),
     keyCounter: 0,
     renderData: null,
   };

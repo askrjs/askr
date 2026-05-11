@@ -11,6 +11,7 @@ import {
   renderToStringSync,
   renderToStringSyncForUrl,
 } from '../../../src/ssr';
+import { createQuery } from '../../../src/data';
 import { getNextKey, getCurrentRenderData } from '../../../src/ssr/render-keys';
 import { getRenderContext } from '../../../src/ssr/context';
 import { currentRoute } from '../../../src/router/route';
@@ -82,6 +83,39 @@ describe('SSR concurrency isolation', () => {
     // Each component should see its own data
     expect(dataSeenA[0]).toEqual({ source: 'A' });
     expect(dataSeenB[0]).toEqual({ source: 'B' });
+  });
+
+  it('should isolate query caches between concurrent renders', async () => {
+    const caches: Array<Map<string, unknown> | null> = [];
+
+    const ComponentA = () => {
+      createQuery({
+        key: 'users:ssr',
+        fetch: async () => 'A',
+      });
+      caches.push(getRenderContext()?.queryCache ?? null);
+      return <div>A</div>;
+    };
+
+    const ComponentB = () => {
+      createQuery({
+        key: 'users:ssr',
+        fetch: async () => 'B',
+      });
+      caches.push(getRenderContext()?.queryCache ?? null);
+      return <div>B</div>;
+    };
+
+    await Promise.all([
+      Promise.resolve().then(() => renderToStringSync(ComponentA)),
+      Promise.resolve().then(() => renderToStringSync(ComponentB)),
+    ]);
+
+    expect(caches[0]).not.toBeNull();
+    expect(caches[1]).not.toBeNull();
+    expect(caches[0]).not.toBe(caches[1]);
+    expect(caches[0]?.size).toBe(1);
+    expect(caches[1]?.size).toBe(1);
   });
 
   it('should produce deterministic output across multiple renders', () => {
@@ -256,6 +290,45 @@ describe('SSR escaping correctness', () => {
     const html = renderToStringSync(Component);
     expect(html).toContain('&lt;script&gt;');
     expect(html).not.toContain('<script>');
+  });
+
+  it('should preserve allowlisted css functions in style objects', () => {
+    const Component = () => (
+      <div
+        style={{
+          color: 'var(--ak-foreground, rgb(255, 0, 0))',
+          transform: 'translateX(10px)',
+        }}
+      />
+    );
+
+    const html = renderToStringSync(Component);
+
+    expect(html).toContain('style="');
+    expect(html).toContain('color:var(--ak-foreground, rgb(255, 0, 0));');
+    expect(html).toContain('transform:translateX(10px);');
+  });
+
+  it('should drop unsafe css functions and uri schemes from style objects', () => {
+    const Component = () => (
+      <div
+        style={{
+          color: 'var(--ak-foreground, #fff)',
+          transform: 'scale(1.1)',
+          backgroundImage: 'url(javascript:alert(1))',
+          maskImage: 'javascript:alert(1)',
+        }}
+      />
+    );
+
+    const html = renderToStringSync(Component);
+
+    expect(html).toContain('style="');
+    expect(html).toContain('color:var(--ak-foreground, #fff);');
+    expect(html).toContain('transform:scale(1.1);');
+    expect(html).not.toContain('background-image');
+    expect(html).not.toContain('mask-image');
+    expect(html).not.toContain('javascript:alert');
   });
 
   it('should escape attribute values correctly', () => {

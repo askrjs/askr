@@ -13,15 +13,8 @@ export {
   fallback,
   lazy,
   getManifest,
-  _applyManifest,
-  _drainLazy,
   getRoutes,
   clearRoutes,
-  getNamespaceRoutes,
-  unloadNamespace,
-  getLoadedNamespaces,
-  resolveRouteRequest,
-  setServerLocation,
 } from './route';
 export {
   allow,

@@ -38,7 +38,7 @@ export function createTestContainer(): {
       // Cleanup any Askr instance associated with this container
       const cleanupFn = (
         container as unknown as Record<string | symbol, unknown>
-      )[Symbol.for('__tempoCleanup__')] as (() => void) | undefined;
+      )[Symbol.for('__askrCleanup__')] as (() => void) | undefined;
       if (cleanupFn) {
         cleanupFn();
       }

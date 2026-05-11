@@ -15,6 +15,7 @@ import {
   type ReadableSource,
   withDerivedReadTracking,
 } from './readable';
+import { isSnapshotSource, type SnapshotSourceBrand } from './snapshot-source';
 
 export interface Derived<T> extends ReadableSource<T> {
   (): T;
@@ -38,7 +39,7 @@ type SnapshotSource<T> = {
   value: T | null;
   pending?: boolean;
   error?: Error | null;
-};
+} & SnapshotSourceBrand;
 
 const deriveCells = new WeakMap<
   ComponentInstance,
@@ -80,15 +81,19 @@ function flushDirtyDerivedCells(): void {
     return;
   }
 
-  const pending = Array.from(dirtyDerivedCells);
-  dirtyDerivedCells.clear();
+  const pending = dirtyDerivedCells.values();
+  let next = pending.next();
 
-  for (const cell of pending) {
+  while (!next.done) {
+    const cell = next.value as DerivedCell<unknown>;
+    dirtyDerivedCells.delete(cell);
     cell._scheduled = false;
     if (!cell._dirty) {
+      next = pending.next();
       continue;
     }
     recomputeDerivedCell(cell, true);
+    next = pending.next();
   }
 }
 
@@ -200,20 +205,18 @@ function getOrCreateDerivedCell<T>(
   return created;
 }
 
-function createSelector<TOut>(selector: () => TOut): () => TOut {
-  return selector;
-}
-
 function createMappedSelector<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
   map: (value: TIn) => TOut
 ): () => TOut | null {
   return () => {
     let value: TIn;
-    if (typeof source === 'function' && !('value' in source)) {
+    if (typeof source === 'function') {
       value = (source as () => TIn)();
+    } else if (isSnapshotSource(source)) {
+      value = (source as SnapshotSource<TIn>).value ?? (source as TIn);
     } else {
-      value = (source as SnapshotSource<TIn>)?.value ?? (source as TIn);
+      value = source as TIn;
     }
 
     if (value == null) {
@@ -246,7 +249,7 @@ export function derive<TIn, TOut>(
   const hookIndex = claimHookIndex(instance, 'derive');
   const compute =
     map === undefined
-      ? createSelector(source as () => TIn)
+      ? (() => (source as () => TIn)())
       : createMappedSelector(source, map);
 
   const cell = getOrCreateDerivedCell(
