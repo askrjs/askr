@@ -1,11 +1,17 @@
 import { globalScheduler } from '../runtime/scheduler';
 import {
+  claimHookIndex,
+  getCurrentComponentInstance,
+  type ComponentInstance,
+} from '../runtime/component';
+import {
   markReadableDerivedSubscribersDirty,
   markReactivePropsDirtySource,
   notifyReadableReaders,
   recordReadableRead,
   type ReadableSource,
 } from '../runtime/readable';
+import { getRenderContext } from '../ssr/context';
 
 export type QueryConsistency =
   | 'fresh'
@@ -63,8 +69,97 @@ type MutationState<TResult> = {
   result: TResult | null;
 };
 
+type QuerySlot = {
+  key: string;
+  cell: QueryCell<unknown>;
+};
+
+const RECONCILE_MAX_ATTEMPTS = 3;
+const RECONCILE_RETRY_DELAY_MS = 25;
+const globalQueryCache = new Map<string, QueryCell<unknown>>();
+const querySlotsByInstance = new WeakMap<ComponentInstance, Map<number, QuerySlot>>();
+const mutationSlotsByInstance = new WeakMap<
+  ComponentInstance,
+  Map<number, MutationCell<unknown, unknown>>
+>();
+const queryCleanupRegistered = new WeakSet<ComponentInstance>();
+const mutationCleanupRegistered = new WeakSet<ComponentInstance>();
+
 function createReadableSource(): ReadableSource<unknown> {
   return (() => undefined) as ReadableSource<unknown>;
+}
+
+function getQueryCache(): Map<string, QueryCell<unknown>> {
+  return (getRenderContext()?.queryCache as Map<
+    string,
+    QueryCell<unknown>
+  > | null) ?? globalQueryCache;
+}
+
+function getQuerySlotStore(instance: ComponentInstance): Map<number, QuerySlot> {
+  let store = querySlotsByInstance.get(instance);
+  if (!store) {
+    store = new Map();
+    querySlotsByInstance.set(instance, store);
+  }
+  return store;
+}
+
+function getMutationSlotStore(
+  instance: ComponentInstance
+): Map<number, MutationCell<unknown, unknown>> {
+  let store = mutationSlotsByInstance.get(instance);
+  if (!store) {
+    store = new Map();
+    mutationSlotsByInstance.set(instance, store);
+  }
+  return store;
+}
+
+function ensureQueryCleanup(instance: ComponentInstance): void {
+  if (queryCleanupRegistered.has(instance)) {
+    return;
+  }
+
+  queryCleanupRegistered.add(instance);
+  instance.cleanupFns.push(() => {
+    const slots = querySlotsByInstance.get(instance);
+    if (!slots) {
+      queryCleanupRegistered.delete(instance);
+      return;
+    }
+
+    for (const [hookIndex, slot] of slots) {
+      slot.cell.detach(instance, hookIndex);
+    }
+
+    slots.clear();
+    querySlotsByInstance.delete(instance);
+    queryCleanupRegistered.delete(instance);
+  });
+}
+
+function ensureMutationCleanup(instance: ComponentInstance): void {
+  if (mutationCleanupRegistered.has(instance)) {
+    return;
+  }
+
+  mutationCleanupRegistered.add(instance);
+  instance.cleanupFns.push(() => {
+    const slots = mutationSlotsByInstance.get(instance);
+    if (!slots) {
+      mutationCleanupRegistered.delete(instance);
+      return;
+    }
+
+    for (const cell of slots.values()) {
+      cell.abort();
+    }
+
+    slots.clear();
+    mutationSlotsByInstance.delete(instance);
+    mutationCleanupRegistered.delete(instance);
+  });
 }
 
 function notifySource(source: ReadableSource<unknown>): void {
@@ -83,10 +178,10 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
   );
 }
 
-const queryCache = new Map<string, QueryCell<unknown>>();
-
 function invalidateQueries(prefix: string, markPendingWrite: boolean): void {
-  for (const [key, query] of queryCache) {
+  const cache = getQueryCache();
+
+  for (const [key, query] of cache) {
     if (!key.startsWith(prefix)) {
       continue;
     }
@@ -101,12 +196,18 @@ function invalidateQueries(prefix: string, markPendingWrite: boolean): void {
 
 class QueryCell<T> implements Query<T> {
   private readonly source = createReadableSource();
+  private readonly key: string;
+  private readonly cache: Map<string, QueryCell<unknown>>;
   private options: QueryOptions<T>;
   private controller: AbortController | null = null;
   private generation = 0;
   private startQueued = false;
   private pendingRefresh: Promise<void> | null = null;
+  private pendingRefreshResolve: (() => void) | null = null;
   private reconcileAttemptCount = 0;
+  private destroyed = false;
+  private ownerCount = 0;
+  private readonly owners = new Map<ComponentInstance, Set<number>>();
 
   private state: QueryState<T> = {
     data: null,
@@ -117,12 +218,61 @@ class QueryCell<T> implements Query<T> {
     consistency: 'fresh',
   };
 
-  constructor(options: QueryOptions<T>) {
+  constructor(
+    options: QueryOptions<T>,
+    key: string,
+    cache: Map<string, QueryCell<unknown>>
+  ) {
     this.options = options;
+    this.key = key;
+    this.cache = cache;
   }
 
-  setOptions(options: QueryOptions<T>): void {
-    this.options = options;
+  attach(instance: ComponentInstance, hookIndex: number): void {
+    let hooks = this.owners.get(instance);
+    if (!hooks) {
+      hooks = new Set();
+      this.owners.set(instance, hooks);
+    }
+
+    if (hooks.has(hookIndex)) {
+      return;
+    }
+
+    hooks.add(hookIndex);
+    this.ownerCount += 1;
+  }
+
+  detach(instance: ComponentInstance, hookIndex: number): void {
+    const hooks = this.owners.get(instance);
+    if (!hooks || !hooks.delete(hookIndex)) {
+      return;
+    }
+
+    this.ownerCount -= 1;
+    if (hooks.size === 0) {
+      this.owners.delete(instance);
+    }
+
+    if (this.ownerCount <= 0) {
+      this.destroy();
+    }
+  }
+
+  private destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+
+    this.destroyed = true;
+    this.controller?.abort();
+    this.controller = null;
+    this.startQueued = false;
+    this.reconcileAttemptCount = 0;
+    this.ownerCount = 0;
+    this.owners.clear();
+    this.cache.delete(this.key);
+    this.finishPendingRefresh();
   }
 
   get data(): T | null {
@@ -156,7 +306,12 @@ class QueryCell<T> implements Query<T> {
   }
 
   ensureStarted(): void {
-    if (this.state.data !== null || this.pendingRefresh || this.startQueued) {
+    if (
+      this.destroyed ||
+      this.state.data !== null ||
+      this.pendingRefresh ||
+      this.startQueued
+    ) {
       return;
     }
 
@@ -164,6 +319,10 @@ class QueryCell<T> implements Query<T> {
   }
 
   refresh(): Promise<void> {
+    if (this.destroyed) {
+      return Promise.resolve();
+    }
+
     if (this.pendingRefresh) {
       return this.pendingRefresh;
     }
@@ -173,6 +332,10 @@ class QueryCell<T> implements Query<T> {
   }
 
   markPendingWrite(): void {
+    if (this.destroyed) {
+      return;
+    }
+
     this.setState({
       refreshing: true,
       stale: true,
@@ -183,19 +346,38 @@ class QueryCell<T> implements Query<T> {
   private queueStart(
     reason: 'initial' | 'manual' | 'invalidate' | 'pending-write'
   ): void {
+    if (this.destroyed) {
+      return;
+    }
+
     this.startQueued = true;
     this.pendingRefresh = new Promise<void>((resolve) => {
+      this.pendingRefreshResolve = resolve;
       globalScheduler.enqueue(() => {
         this.startQueued = false;
+        if (this.destroyed) {
+          this.finishPendingRefresh();
+          return;
+        }
         void this.start(reason).finally(() => {
-          this.pendingRefresh = null;
-          resolve();
+          this.finishPendingRefresh();
         });
       });
     });
   }
 
+  private finishPendingRefresh(): void {
+    const resolve = this.pendingRefreshResolve;
+    this.pendingRefresh = null;
+    this.pendingRefreshResolve = null;
+    resolve?.();
+  }
+
   private setState(next: Partial<QueryState<T>>): void {
+    if (this.destroyed) {
+      return;
+    }
+
     this.state = {
       ...this.state,
       ...next,
@@ -206,6 +388,10 @@ class QueryCell<T> implements Query<T> {
   private async start(
     reason: 'initial' | 'manual' | 'invalidate' | 'pending-write'
   ): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+
     this.generation += 1;
     const generation = this.generation;
 
@@ -231,7 +417,7 @@ class QueryCell<T> implements Query<T> {
     try {
       nextData = await this.options.fetch({ signal: controller.signal });
     } catch (error) {
-      if (this.generation !== generation || this.controller !== controller) {
+      if (this.destroyed || this.generation !== generation || this.controller !== controller) {
         return;
       }
 
@@ -250,7 +436,7 @@ class QueryCell<T> implements Query<T> {
       return;
     }
 
-    if (this.generation !== generation || this.controller !== controller) {
+    if (this.destroyed || this.generation !== generation || this.controller !== controller) {
       return;
     }
 
@@ -282,18 +468,18 @@ class QueryCell<T> implements Query<T> {
     const shouldRetry =
       this.options.reconcile?.(data, { key: this.options.key }) ?? false;
 
-    if (!shouldRetry) {
+    if (!shouldRetry || this.destroyed) {
       return;
     }
 
     this.reconcileAttemptCount += 1;
-    if (this.reconcileAttemptCount > 3) {
+    if (this.reconcileAttemptCount > RECONCILE_MAX_ATTEMPTS) {
       this.setState({ consistency: 'stale', refreshing: false });
       return;
     }
 
-    await new Promise<void>((resolve) => setTimeout(resolve, 25));
-    if (this.state.consistency === 'fresh') {
+    await new Promise<void>((resolve) => setTimeout(resolve, RECONCILE_RETRY_DELAY_MS));
+    if (this.destroyed || this.state.consistency === 'fresh') {
       return;
     }
 
@@ -303,12 +489,9 @@ class QueryCell<T> implements Query<T> {
 
 class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
   private readonly source = createReadableSource();
-  private readonly action: MutationOptions<TInput, TResult>['action'];
-  private readonly affects?: MutationOptions<TInput, TResult>['affects'];
-  private readonly afterSuccess?: MutationOptions<
-    TInput,
-    TResult
-  >['afterSuccess'];
+  private action: MutationOptions<TInput, TResult>['action'];
+  private affects?: MutationOptions<TInput, TResult>['affects'];
+  private afterSuccess?: MutationOptions<TInput, TResult>['afterSuccess'];
   private controller: AbortController | null = null;
   private generation = 0;
 
@@ -319,6 +502,12 @@ class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
   };
 
   constructor(options: MutationOptions<TInput, TResult>) {
+    this.action = options.action;
+    this.affects = options.affects;
+    this.afterSuccess = options.afterSuccess;
+  }
+
+  setOptions(options: MutationOptions<TInput, TResult>): void {
     this.action = options.action;
     this.affects = options.affects;
     this.afterSuccess = options.afterSuccess;
@@ -411,16 +600,44 @@ class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
 }
 
 export function createQuery<T>(options: QueryOptions<T>): Query<T> {
-  const existing = queryCache.get(options.key) as QueryCell<T> | undefined;
-  if (existing) {
-    existing.setOptions(options);
-    return existing;
+  const instance = getCurrentComponentInstance();
+  const cache = getQueryCache();
+  if (!instance) {
+    let cell = cache.get(options.key) as QueryCell<T> | undefined;
+    if (!cell) {
+      cell = new QueryCell(options, options.key, cache);
+      cache.set(options.key, cell as QueryCell<unknown>);
+      cell.ensureStarted();
+    }
+    return cell;
   }
 
-  const created = new QueryCell(options);
-  queryCache.set(options.key, created as QueryCell<unknown>);
-  created.ensureStarted();
-  return created;
+  const hookIndex = claimHookIndex(instance, 'query');
+  ensureQueryCleanup(instance);
+
+  const slotStore = getQuerySlotStore(instance);
+  const existingSlot = slotStore.get(hookIndex);
+  if (existingSlot && existingSlot.key === options.key) {
+    return existingSlot.cell as QueryCell<T>;
+  }
+
+  if (existingSlot) {
+    existingSlot.cell.detach(instance, hookIndex);
+  }
+
+  let cell = cache.get(options.key) as QueryCell<T> | undefined;
+  if (!cell) {
+    cell = new QueryCell(options, options.key, cache);
+    cache.set(options.key, cell as QueryCell<unknown>);
+    cell.ensureStarted();
+  }
+
+  slotStore.set(hookIndex, {
+    key: options.key,
+    cell: cell as QueryCell<unknown>,
+  });
+  cell.attach(instance, hookIndex);
+  return cell;
 }
 
 export function invalidate(prefix: string): void {
@@ -430,5 +647,25 @@ export function invalidate(prefix: string): void {
 export function createMutation<TInput, TResult>(
   options: MutationOptions<TInput, TResult>
 ): Mutation<TInput, TResult> {
-  return new MutationCell(options);
+  const instance = getCurrentComponentInstance();
+
+  if (!instance) {
+    return new MutationCell(options);
+  }
+
+  const hookIndex = claimHookIndex(instance, 'mutation');
+  ensureMutationCleanup(instance);
+
+  const slotStore = getMutationSlotStore(instance);
+  const existing = slotStore.get(hookIndex) as
+    | MutationCell<TInput, TResult>
+    | undefined;
+  if (existing) {
+    existing.setOptions(options);
+    return existing;
+  }
+
+  const created = new MutationCell(options);
+  slotStore.set(hookIndex, created as MutationCell<unknown, unknown>);
+  return created;
 }

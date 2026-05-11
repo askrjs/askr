@@ -123,6 +123,7 @@ export class Scheduler {
       this.running ||
       this.kickScheduled ||
       this.inHandler ||
+      this.allowSyncProgress ||
       isBulkCommitActive() ||
       !this.hasPendingTasks()
     ) {
@@ -218,8 +219,8 @@ export class Scheduler {
               executedInLane++;
               didRunTask = true;
             } catch (err) {
-              // ensure executionDepth stays balanced
-              if (this.executionDepth > 0) this.executionDepth = 0;
+                // ensure executionDepth stays balanced for the task that threw
+                if (this.executionDepth > 0) this.executionDepth--;
               fatal = err;
               break;
             }
@@ -256,33 +257,9 @@ export class Scheduler {
     if (fatal) throw fatal;
   }
 
-  private finalizeFlush(): void {
-    // Not used - finalize happens in finally block above
-  }
-
   runWithSyncProgress<T>(fn: () => T): T {
     const prev = this.allowSyncProgress;
     this.allowSyncProgress = true;
-
-    const g = globalThis as {
-      queueMicrotask?: (...args: unknown[]) => void;
-      setTimeout?: (...args: unknown[]) => unknown;
-    };
-    const origQueueMicrotask = g.queueMicrotask;
-    const origSetTimeout = g.setTimeout;
-
-    if (isDevelopmentEnvironment()) {
-      g.queueMicrotask = () => {
-        throw new Error(
-          '[Scheduler] queueMicrotask not allowed during runWithSyncProgress'
-        );
-      };
-      g.setTimeout = () => {
-        throw new Error(
-          '[Scheduler] setTimeout not allowed during runWithSyncProgress'
-        );
-      };
-    }
 
     // Snapshot flushVersion so we can ensure we always complete an epoch
     const startVersion = this.flushVersion;
@@ -305,12 +282,6 @@ export class Scheduler {
 
       return res;
     } finally {
-      // Restore guarded globals
-      if (isDevelopmentEnvironment()) {
-        g.queueMicrotask = origQueueMicrotask;
-        g.setTimeout = origSetTimeout;
-      }
-
       // If no flush happened during the protected window, complete an epoch so
       // observers (tests) see progress even when fast-lane did synchronous work
       // without enqueuing tasks.

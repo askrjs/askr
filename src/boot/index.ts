@@ -42,7 +42,7 @@ let componentIdCounter = 0;
 const instancesByRoot = new WeakMap<Element, ComponentInstance>();
 
 // Symbol for storing cleanup on elements
-const CLEANUP_SYMBOL = Symbol.for('__tempoCleanup__');
+const CLEANUP_SYMBOL = Symbol.for('__askrCleanup__');
 
 // Type for elements that have cleanup functions attached
 interface ElementWithCleanup extends Element {
@@ -60,35 +60,6 @@ function attachCleanupForRoot(
     const errors: unknown[] = [];
     try {
       removeAllListeners(rootElement);
-    } catch (e) {
-      errors.push(e);
-    }
-
-    // Manually traverse descendants and attempt to cleanup their instances.
-    // Avoids import cycles by using local traversal and existing cleanupComponent.
-    try {
-      const descendants = rootElement.querySelectorAll('*');
-      for (const d of Array.from(descendants)) {
-        try {
-          const inst = (d as Element & { __ASKR_INSTANCE?: ComponentInstance })
-            .__ASKR_INSTANCE;
-          if (inst) {
-            try {
-              cleanupComponent(inst);
-            } catch (err) {
-              errors.push(err);
-            }
-            try {
-              delete (d as Element & { __ASKR_INSTANCE?: ComponentInstance })
-                .__ASKR_INSTANCE;
-            } catch (err) {
-              errors.push(err);
-            }
-          }
-        } catch (err) {
-          errors.push(err);
-        }
-      }
     } catch (e) {
       errors.push(e);
     }

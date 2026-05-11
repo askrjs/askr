@@ -65,7 +65,6 @@ export {
   requireAuth,
   requireRole,
   requirePermission,
-  resolveRouteRequest,
   type RouteSnapshot,
   type RouteMatch,
   type RouteComponent,

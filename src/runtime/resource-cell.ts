@@ -1,6 +1,7 @@
 import { withAsyncResourceContext, type ContextFrame } from './context';
 import { logger } from '../dev/logger';
 import { getSSRBridge } from './ssr-bridge';
+import { brandSnapshotSource, type SnapshotSourceBrand } from './snapshot-source';
 
 /**
  * Pure, component-agnostic ResourceCell state machine.
@@ -28,7 +29,7 @@ export class ResourceCell<U> {
     pending: boolean;
     error: Error | null;
     refresh: () => void;
-  };
+  } & SnapshotSourceBrand;
 
   private fn: (opts: { signal: AbortSignal }) => Promise<U> | U;
 
@@ -40,12 +41,12 @@ export class ResourceCell<U> {
     this.fn = fn;
     this.deps = deps ? deps.slice() : null;
     this.resourceFrame = resourceFrame;
-    this.snapshot = {
+    this.snapshot = brandSnapshotSource({
       value: null,
       pending: true,
       error: null,
       refresh: () => this.refresh(),
-    };
+    });
   }
 
   setLoader(fn: (opts: { signal: AbortSignal }) => Promise<U> | U): void {

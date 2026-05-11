@@ -114,7 +114,6 @@ function createStateCell<T>(
   instance: ComponentInstance
 ): State<T> {
   let value = initialValue;
-  let pendingNotifyFlushVersion = -1;
 
   // Per-state reader map: component -> last-committed render token
   const readers = new Map<ComponentInstance, number>();
@@ -183,20 +182,8 @@ function createStateCell<T>(
     // We intentionally avoid logging here to keep the state mutation path
     // side-effect free. The scheduler will process updates when the system
     // is stable.
-    const flushVersion = globalScheduler.getFlushVersion();
-    const canSkipNotifyPass =
-      pendingNotifyFlushVersion === flushVersion &&
-      !globalScheduler.isExecuting();
-
-    if (canSkipNotifyPass) {
-      return;
-    }
-
     // After value change, notify only components that *read* this state in their last committed render.
-    const didScheduleUpdate = notifyReadableReaders(read as State<T>);
-
-    pendingNotifyFlushVersion =
-      didScheduleUpdate && !globalScheduler.isExecuting() ? flushVersion : -1;
+    void notifyReadableReaders(read as State<T>);
   };
 
   // Allow destructuring assignment: const [get, set] = state(0);

@@ -61,6 +61,132 @@ describe('data layer', () => {
     }
   });
 
+  it('should keep the first fetch function for a shared query key', async () => {
+    let resolveFirst!: (value: string) => void;
+    const firstFetch = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveFirst = resolve;
+        })
+    );
+    const secondFetch = vi.fn(() => Promise.resolve('second'));
+
+    const Primary = () => {
+      const query = createQuery({
+        key: 'users:shared',
+        fetch: firstFetch,
+      });
+
+      return <span data-slot="primary">{query.data ?? 'loading'}</span>;
+    };
+
+    const Secondary = () => {
+      const query = createQuery({
+        key: 'users:shared',
+        fetch: secondFetch,
+      });
+
+      return <span data-slot="secondary">{query.data ?? 'loading'}</span>;
+    };
+
+    const App = (): JSXElement => (
+      <section>
+        <Primary />
+        <Secondary />
+      </section>
+    );
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(firstFetch).toHaveBeenCalledTimes(1);
+      expect(secondFetch).toHaveBeenCalledTimes(0);
+
+      resolveFirst('from-first');
+      await settle();
+
+      expect(container.textContent).toBe('from-firstfrom-first');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should evict query cache entries after the last owner unmounts', async () => {
+    let resolveFirst!: (value: string) => void;
+    let resolveSecond!: (value: string) => void;
+
+    const firstFetch = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveFirst = resolve;
+        })
+    );
+    const secondFetch = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveSecond = resolve;
+        })
+    );
+
+    const makeApp = ({
+      label,
+      fetch,
+    }: {
+      label: string;
+      fetch: () => Promise<string>;
+    }): (() => JSXElement) => {
+      return () => {
+        const query = createQuery({
+          key: 'users:evict',
+          fetch,
+        });
+
+        return (
+          <div data-label={label} data-state={query.consistency}>
+            {query.data ?? (query.loading ? 'loading' : 'empty')}
+          </div>
+        );
+      };
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: makeApp({ label: 'first', fetch: firstFetch }),
+      });
+      flushScheduler();
+      await settle();
+
+      expect(firstFetch).toHaveBeenCalledTimes(1);
+
+      resolveFirst('alpha');
+      await settle();
+      expect(container.textContent).toContain('alpha');
+
+      cleanup();
+
+      createIsland({
+        root: container,
+        component: makeApp({ label: 'second', fetch: secondFetch }),
+      });
+      flushScheduler();
+      await settle();
+
+      expect(secondFetch).toHaveBeenCalledTimes(1);
+
+      resolveSecond('beta');
+      await settle();
+
+      expect(container.textContent).toContain('beta');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should keep the last value visible while prefix invalidation refreshes', async () => {
     let resolveFirst!: (value: string) => void;
     let resolveSecond!: (value: string) => void;

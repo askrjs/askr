@@ -8,6 +8,7 @@ import { ResourceCell } from './resource-cell';
 import { state } from './state';
 import { globalScheduler } from './scheduler';
 import { getSSRBridge } from './ssr-bridge';
+import { brandSnapshotSource } from './snapshot-source';
 import { SSRDataMissingError } from '../common/ssr-errors';
 
 export interface ResourceResult<T> {
@@ -46,12 +47,12 @@ export function resource<T>(
         ssr.throwSSRDataMissing();
       }
       const val = renderData[key] as T;
-      return {
+      return brandSnapshotSource({
         value: val,
         pending: false,
         error: null,
         refresh: () => {},
-      } as ResourceResult<T>;
+      }) as ResourceResult<T>;
     }
 
     // If we are in an SSR render pass without supplied data, throw for clarity.
@@ -91,12 +92,12 @@ export function resource<T>(
       snapshot: ResourceResult<T>;
     }>({
       cell: undefined,
-      snapshot: {
+      snapshot: brandSnapshotSource({
         value: val,
         pending: false,
         error: null,
         refresh: () => {},
-      },
+      }) as ResourceResult<T>,
     });
 
     const h = holder();
@@ -111,12 +112,12 @@ export function resource<T>(
   const holder = state<{ cell?: ResourceCell<T>; snapshot: ResourceResult<T> }>(
     {
       cell: undefined,
-      snapshot: {
+      snapshot: brandSnapshotSource({
         value: null,
         pending: true,
         error: null,
         refresh: () => {},
-      },
+      }) as ResourceResult<T>,
     }
   );
 

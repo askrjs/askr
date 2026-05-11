@@ -1187,11 +1187,6 @@ export function currentRoute(): RouteSnapshot {
     return readCurrentRouteSnapshot();
   }
 
-  if (currentRouteSnapshot.path !== (window.location.pathname || '/')) {
-    recordReadableRead(currentRouteSource);
-    return readCurrentRouteSnapshot();
-  }
-
   recordReadableRead(currentRouteSource);
   return readCurrentRouteSnapshot();
 }
@@ -1226,16 +1221,15 @@ export function route(
   Component: RouteComponent,
   options?: RouteOptions
 ): void {
-  if (getExecutionModel() === 'islands') {
-    throw new Error(
-      'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
-    );
-  }
-
-  // ── Render-time accessor (no arguments) ─────────────────────────────────
   if (typeof path === 'undefined') {
     throw new Error(
       'route() is only for route registration. Use currentRoute() inside components.'
+    );
+  }
+
+  if (getExecutionModel() === 'islands') {
+    throw new Error(
+      'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
     );
   }
 
