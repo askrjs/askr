@@ -219,8 +219,8 @@ export class Scheduler {
               executedInLane++;
               didRunTask = true;
             } catch (err) {
-                // ensure executionDepth stays balanced for the task that threw
-                if (this.executionDepth > 0) this.executionDepth--;
+              // ensure executionDepth stays balanced for the task that threw
+              if (this.executionDepth > 0) this.executionDepth--;
               fatal = err;
               break;
             }
