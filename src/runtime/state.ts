@@ -11,7 +11,6 @@
  * - state.set() callback (notifyUpdate) always available
  */
 
-import { globalScheduler } from './scheduler';
 import {
   claimHookIndex,
   getCurrentInstance,
