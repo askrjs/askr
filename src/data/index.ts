@@ -77,7 +77,10 @@ type QuerySlot = {
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
 const globalQueryCache = new Map<string, QueryCell<unknown>>();
-const querySlotsByInstance = new WeakMap<ComponentInstance, Map<number, QuerySlot>>();
+const querySlotsByInstance = new WeakMap<
+  ComponentInstance,
+  Map<number, QuerySlot>
+>();
 const mutationSlotsByInstance = new WeakMap<
   ComponentInstance,
   Map<number, MutationCell<unknown, unknown>>
@@ -90,13 +93,17 @@ function createReadableSource(): ReadableSource<unknown> {
 }
 
 function getQueryCache(): Map<string, QueryCell<unknown>> {
-  return (getRenderContext()?.queryCache as Map<
-    string,
-    QueryCell<unknown>
-  > | null) ?? globalQueryCache;
+  return (
+    (getRenderContext()?.queryCache as Map<
+      string,
+      QueryCell<unknown>
+    > | null) ?? globalQueryCache
+  );
 }
 
-function getQuerySlotStore(instance: ComponentInstance): Map<number, QuerySlot> {
+function getQuerySlotStore(
+  instance: ComponentInstance
+): Map<number, QuerySlot> {
   let store = querySlotsByInstance.get(instance);
   if (!store) {
     store = new Map();
@@ -417,7 +424,11 @@ class QueryCell<T> implements Query<T> {
     try {
       nextData = await this.options.fetch({ signal: controller.signal });
     } catch (error) {
-      if (this.destroyed || this.generation !== generation || this.controller !== controller) {
+      if (
+        this.destroyed ||
+        this.generation !== generation ||
+        this.controller !== controller
+      ) {
         return;
       }
 
@@ -436,7 +447,11 @@ class QueryCell<T> implements Query<T> {
       return;
     }
 
-    if (this.destroyed || this.generation !== generation || this.controller !== controller) {
+    if (
+      this.destroyed ||
+      this.generation !== generation ||
+      this.controller !== controller
+    ) {
       return;
     }
 
@@ -478,7 +493,9 @@ class QueryCell<T> implements Query<T> {
       return;
     }
 
-    await new Promise<void>((resolve) => setTimeout(resolve, RECONCILE_RETRY_DELAY_MS));
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, RECONCILE_RETRY_DELAY_MS)
+    );
     if (this.destroyed || this.state.consistency === 'fresh') {
       return;
     }

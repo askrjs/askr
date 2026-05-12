@@ -4,7 +4,9 @@ export type SnapshotSourceBrand = {
   readonly [SNAPSHOT_SOURCE_BRAND]: true;
 };
 
-export function brandSnapshotSource<T extends object>(value: T): T & SnapshotSourceBrand {
+export function brandSnapshotSource<T extends object>(
+  value: T
+): T & SnapshotSourceBrand {
   Object.defineProperty(value, SNAPSHOT_SOURCE_BRAND, {
     value: true,
     enumerable: false,

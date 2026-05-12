@@ -249,7 +249,7 @@ export function derive<TIn, TOut>(
   const hookIndex = claimHookIndex(instance, 'derive');
   const compute =
     map === undefined
-      ? (() => (source as () => TIn)())
+      ? () => (source as () => TIn)()
       : createMappedSelector(source, map);
 
   const cell = getOrCreateDerivedCell(

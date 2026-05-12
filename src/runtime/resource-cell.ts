@@ -1,7 +1,10 @@
 import { withAsyncResourceContext, type ContextFrame } from './context';
 import { logger } from '../dev/logger';
 import { getSSRBridge } from './ssr-bridge';
-import { brandSnapshotSource, type SnapshotSourceBrand } from './snapshot-source';
+import {
+  brandSnapshotSource,
+  type SnapshotSourceBrand,
+} from './snapshot-source';
 
 /**
  * Pure, component-agnostic ResourceCell state machine.
