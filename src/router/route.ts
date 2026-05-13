@@ -69,9 +69,6 @@ export type {
 } from '../common/router';
 
 import type {
-  AccessDecision,
-  AccessDenyDecision,
-  AccessRedirectDecision,
   GroupHelperOptions,
   PageHelperOptions,
   RegisterRoutesOptions,
@@ -86,7 +83,6 @@ import type {
   RouteRequestResult,
   ResolvedRoute,
   RouteMatch,
-  RouteQuery,
   RouteSnapshot,
   RouteComponent,
   RouteOptions,

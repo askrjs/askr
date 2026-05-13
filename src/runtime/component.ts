@@ -756,7 +756,7 @@ export function claimHookIndex(
   instance.stateIndexCheck = index;
 
   if (instance.firstRenderComplete) {
-    if (!instance.expectedStateIndices.includes(index)) {
+    if (instance.expectedStateIndices[index] !== index) {
       throw new Error(
         `Hook order violation: ${hookName}() called at index ${index}, ` +
           `but this index was not in the first render's sequence [${instance.expectedStateIndices.join(', ')}]. ` +

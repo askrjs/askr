@@ -30,6 +30,7 @@ type AskrPerfGlobal = typeof globalThis & {
 };
 
 const BENCH_BUILD_ENABLED = isRuntimeEnvFlagEnabled('ASKR_BENCH');
+let cachedPerfStore: PerfMetrics | undefined;
 
 function createInitialPerfMetrics(): PerfMetrics {
   return {
@@ -67,6 +68,10 @@ function shouldCollectPerfMetrics(): boolean {
 }
 
 function getPerfStore(): PerfMetrics | null {
+  if (cachedPerfStore) {
+    return cachedPerfStore;
+  }
+
   if (!shouldCollectPerfMetrics()) {
     return null;
   }
@@ -76,10 +81,15 @@ function getPerfStore(): PerfMetrics | null {
     if (!g.__ASKR_PERF__) {
       g.__ASKR_PERF__ = createInitialPerfMetrics();
     }
-    return g.__ASKR_PERF__;
+    cachedPerfStore = g.__ASKR_PERF__;
+    return cachedPerfStore;
   } catch {
     return null;
   }
+}
+
+export function getPerfMetricsStore(): PerfMetrics | null {
+  return getPerfStore();
 }
 
 export function incrementPerfMetric(

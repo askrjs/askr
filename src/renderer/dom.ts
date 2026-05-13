@@ -3055,12 +3055,12 @@ function syncForItemDom(
   vnode: VNode
 ): Node | null {
   let dom = scope.dom ?? null;
-  const parentNamespace =
-    parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
-
   if (dom && !scope.needsDomUpdate) {
     return dom;
   }
+
+  const parentNamespace =
+    parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
 
   if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
     const syncedComponentDom = syncComponentElement(
@@ -3534,8 +3534,7 @@ export function commitForBoundaryChildren(
 
     const dirtyIndices: number[] = [];
     for (let index = 0; index < forState.orderedKeys.length; index += 1) {
-      const itemKey = forState.orderedKeys[index];
-      const itemInstance = forState.items.get(itemKey);
+      const itemInstance = forState.orderedItems[index];
       if (itemInstance?.scope.needsDomUpdate) {
         dirtyIndices.push(index);
       }
@@ -3554,15 +3553,17 @@ export function commitForBoundaryChildren(
     return dirtyIndicesCache;
   };
 
+  let boundaryChildrenExact = false;
+
   const commitDirtyNoReorder = (dirtyIndices: number[]): void => {
     if (dirtyIndices.length === 0) {
+      boundaryChildrenExact = true;
       return;
     }
 
     for (let dirtyIndex = 0; dirtyIndex < dirtyIndices.length; dirtyIndex++) {
       const i = dirtyIndices[dirtyIndex];
-      const itemKey = forState.orderedKeys[i];
-      const itemInstance = forState.items.get(itemKey);
+      const itemInstance = forState.orderedItems[i];
       if (!itemInstance) {
         continue;
       }
@@ -3582,12 +3583,13 @@ export function commitForBoundaryChildren(
         parent.insertBefore(dom, anchor);
       }
     }
+
+    boundaryChildrenExact = true;
   };
 
   const commitPositional = (): void => {
     for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const itemKey = forState.orderedKeys[i];
-      const itemInstance = forState.items.get(itemKey);
+      const itemInstance = forState.orderedItems[i];
       if (!itemInstance) {
         continue;
       }
@@ -3603,6 +3605,8 @@ export function commitForBoundaryChildren(
         parent.insertBefore(dom, anchor);
       }
     }
+
+    boundaryChildrenExact = true;
   };
 
   const commitAppend = (): void => {
@@ -3611,8 +3615,7 @@ export function commitForBoundaryChildren(
       let hasPendingAppend = false;
 
       for (let i = 0; i < forState.orderedKeys.length; i++) {
-        const itemKey = forState.orderedKeys[i];
-        const itemInstance = forState.items.get(itemKey);
+        const itemInstance = forState.orderedItems[i];
         if (!itemInstance) {
           continue;
         }
@@ -3647,6 +3650,8 @@ export function commitForBoundaryChildren(
         parent.appendChild(fragment);
       }
     });
+
+    boundaryChildrenExact = true;
   };
 
   const commitSwap = (): void => {
@@ -3703,6 +3708,7 @@ export function commitForBoundaryChildren(
         Node.DOCUMENT_POSITION_FOLLOWING) !==
       0;
     if (firstBeforeSecond) {
+      boundaryChildrenExact = true;
       return;
     }
 
@@ -3713,18 +3719,20 @@ export function commitForBoundaryChildren(
     parent.insertBefore(firstDom, secondDom);
     recordBenchEvent('domMove');
     parent.insertBefore(secondDom, firstNextSibling);
+
+    boundaryChildrenExact = true;
   };
 
   const commitReorder = (): void => {
     const keys = forState.orderedKeys;
+    const items = forState.orderedItems;
     const count = keys.length;
 
     if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
       const frag = parent.ownerDocument.createDocumentFragment();
 
       for (let i = 0; i < count; i++) {
-        const itemKey = keys[i];
-        const itemInstance = forState.items.get(itemKey);
+        const itemInstance = items[i];
         const dom = itemInstance?.scope.dom;
         if (!dom) {
           return;
@@ -3734,6 +3742,7 @@ export function commitForBoundaryChildren(
       }
 
       parent.replaceChildren(frag);
+      boundaryChildrenExact = true;
       return;
     }
 
@@ -3753,8 +3762,7 @@ export function commitForBoundaryChildren(
       withBenchMetricScope('coldCreate', () => {
         const frag = parent.ownerDocument.createDocumentFragment();
         for (let i = 0; i < count; i++) {
-          const itemKey = keys[i];
-          const itemInstance = forState.items.get(itemKey);
+          const itemInstance = items[i];
           if (!itemInstance) continue;
           const dom = syncForItemDom(
             parent,
@@ -3769,6 +3777,8 @@ export function commitForBoundaryChildren(
         recordBenchCounter('replaceChildrenCommits');
         parent.replaceChildren(frag);
       });
+
+      boundaryChildrenExact = true;
       return;
     }
 
@@ -3776,8 +3786,7 @@ export function commitForBoundaryChildren(
       const frag = parent.ownerDocument.createDocumentFragment();
 
       for (let i = 0; i < count; i++) {
-        const itemKey = keys[i];
-        const itemInstance = forState.items.get(itemKey);
+        const itemInstance = items[i];
         if (!itemInstance) {
           continue;
         }
@@ -3796,12 +3805,12 @@ export function commitForBoundaryChildren(
       }
 
       parent.replaceChildren(frag);
+      boundaryChildrenExact = true;
       return;
     }
 
     for (let i = 0; i < count; i++) {
-      const itemKey = keys[i];
-      const itemInstance = forState.items.get(itemKey);
+      const itemInstance = items[i];
       if (!itemInstance) {
         continue;
       }
@@ -3817,12 +3826,13 @@ export function commitForBoundaryChildren(
         parent.insertBefore(dom, anchor);
       }
     }
+
+    boundaryChildrenExact = true;
   };
 
   const isCurrentForDomOrder = (): boolean => {
     for (let index = 0; index < forState.orderedKeys.length; index += 1) {
-      const itemKey = forState.orderedKeys[index];
-      const itemInstance = forState.items.get(itemKey);
+      const itemInstance = forState.orderedItems[index];
       if (!itemInstance?.scope.dom) {
         return false;
       }
@@ -3832,6 +3842,7 @@ export function commitForBoundaryChildren(
       }
     }
 
+    boundaryChildrenExact = true;
     return true;
   };
 
@@ -3889,8 +3900,7 @@ export function commitForBoundaryChildren(
     const expectedNodes: Node[] = [];
 
     for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const itemKey = forState.orderedKeys[i];
-      const itemInstance = forState.items.get(itemKey);
+      const itemInstance = forState.orderedItems[i];
       if (!itemInstance) {
         continue;
       }
@@ -3930,7 +3940,9 @@ export function commitForBoundaryChildren(
     parent.replaceChildren(...expectedNodes);
   };
 
-  syncExactForBoundaryChildren();
+  if (!boundaryChildrenExact) {
+    syncExactForBoundaryChildren();
+  }
   forState._hasResolvedItemDom = true;
   recordBenchTiming('domCommit', performance.now() - domCommitStart);
   clearForDomUpdateState(forState);

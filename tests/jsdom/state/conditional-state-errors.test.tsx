@@ -41,9 +41,10 @@ describe('conditional state errors (STATE)', () => {
 
   it('should not throw when unreachable state() calls exist after return (static heuristics removed)', () => {
     const Component = () => {
+      if (typeof window === 'undefined') {
+        state('nope');
+      }
       return <div>early</div>;
-      // Unreachable state call - unreachable and not executed at runtime.
-      state('nope');
     };
 
     expect(() =>

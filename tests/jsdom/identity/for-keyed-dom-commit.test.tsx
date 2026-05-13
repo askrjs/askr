@@ -89,6 +89,54 @@ describe('for keyed DOM commit', () => {
     expect(getDomReplaceCount() - replaceBefore).toBe(0);
   });
 
+  it('should replace all keyed rows with new DOM nodes when every key changes', () => {
+    type RowData = { id: number; label: string };
+
+    let rowsState: ReturnType<typeof state<RowData[]>> | null = null;
+
+    const Component = () => {
+      rowsState = state<RowData[]>([
+        { id: 1, label: 'One' },
+        { id: 2, label: 'Two' },
+        { id: 3, label: 'Three' },
+      ]);
+
+      return (
+        <table>
+          <tbody>
+            {
+              <For each={() => rowsState()} by={(item) => item.id}>
+                {(item) => (
+                  <tr>
+                    <td>{item.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
+          </tbody>
+        </table>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const firstRowBefore = container.querySelector('tr[data-key="1"]');
+    expect(firstRowBefore?.textContent).toContain('One');
+
+    rowsState!.set([
+      { id: 11, label: 'Eleven' },
+      { id: 12, label: 'Twelve' },
+      { id: 13, label: 'Thirteen' },
+    ]);
+    flushScheduler();
+
+    const firstRowAfter = container.querySelector('tr[data-key="11"]');
+    expect(firstRowAfter?.textContent).toContain('Eleven');
+    expect(firstRowAfter).not.toBe(firstRowBefore);
+    expect(container.querySelector('tr[data-key="1"]')).toBeNull();
+  });
+
   it('should keep keyed row identity for same-order updates', () => {
     let rowsState: ReturnType<
       typeof state<Array<{ id: number; label: string }>>

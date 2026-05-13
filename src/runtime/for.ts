@@ -93,6 +93,7 @@ export interface ForState<T> {
   fallbackScope: ChildScope | null;
   items: Map<string | number, ForItemInstance<T>>;
   orderedKeys: Array<string | number>;
+  orderedItems: ForItemInstance<T>[];
   orderedVNodes: VNode[];
   byFn: NonNullable<ForProps<T>['by']> | ((item: T, index: number) => number);
   renderFn: (item: T, index: () => number) => VNode;
@@ -143,6 +144,7 @@ export function createForState<T>(
     fallbackScope: null,
     items: new Map(),
     orderedKeys: [],
+    orderedItems: [],
     orderedVNodes: [],
     byFn,
     renderFn,
@@ -614,6 +616,7 @@ function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
       disposeFallbackScope(forState, 'none');
     }
     forState.orderedVNodes = [];
+    forState.orderedItems = [];
     return [];
   }
 
@@ -631,6 +634,7 @@ function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
 
   const vnode = fallbackScope.render(() => forState.fallback as VNode);
   forState.orderedVNodes = vnode == null || vnode === false ? [] : [vnode];
+  forState.orderedItems = [];
   return forState.orderedVNodes;
 }
 
@@ -710,17 +714,20 @@ export function reconcileForItems<T>(
       recordBenchFastLane('APPEND');
       forState.lastCommitStrategy = 'APPEND';
       const resultVNodes = forState.orderedVNodes;
+      const resultItems = forState.orderedItems;
       resultVNodes.length = newLen;
+      resultItems.length = newLen;
 
       // Update existing rows in-place
       for (let i = 0; i < oldLen; i++) {
         const item = newArray[i];
         const key = orderedKeys[i];
-        const existing = items.get(key)!;
+        const existing = resultItems[i] ?? items.get(key)!;
         recordBenchEvent('itemReused');
 
         updateItemInstance(forState, existing, item);
 
+        resultItems[i] = existing;
         resultVNodes[i] = existing.scope.vnode as VNode;
       }
 
@@ -730,6 +737,7 @@ export function reconcileForItems<T>(
         const key = byFn(item, i);
         const itemInstance = createItemInstance(key, item, i, forState);
         items.set(key, itemInstance);
+        resultItems[i] = itemInstance;
         resultVNodes[i] = itemInstance.scope.vnode as VNode;
         orderedKeys[i] = key;
       }
@@ -778,8 +786,11 @@ export function reconcileForItems<T>(
           recordBenchFastLane('REMOVE_ONE');
           forState.lastCommitStrategy = 'NO_REORDER';
 
+          const previousOrderedItems = forState.orderedItems.slice();
           const resultVNodes = forState.orderedVNodes;
+          const resultItems = forState.orderedItems;
           resultVNodes.length = newLen;
+          resultItems.length = newLen;
           const dirtyIndices: number[] = [];
 
           for (let i = 0; i < newLen; i++) {
@@ -809,6 +820,7 @@ export function reconcileForItems<T>(
               dirtyIndices.push(i);
             }
 
+            resultItems[i] = existing;
             resultVNodes[i] = existing.scope.vnode as VNode;
           }
 
@@ -820,10 +832,13 @@ export function reconcileForItems<T>(
           }
 
           const nextOrderedKeys = orderedKeys.slice(0, newLen);
+          const nextOrderedItems = previousOrderedItems.slice(0, newLen);
           for (let i = removedIndex; i < newLen; i++) {
             nextOrderedKeys[i] = orderedKeys[i + 1];
+            nextOrderedItems[i] = previousOrderedItems[i + 1];
           }
           forState.orderedKeys = nextOrderedKeys;
+          forState.orderedItems = nextOrderedItems;
 
           if (BENCH_BUILD_ENABLED) {
             recordBenchTiming(
@@ -855,7 +870,9 @@ export function reconcileForItems<T>(
       recordBenchFastLane('TRUNCATE');
       forState.lastCommitStrategy = 'TRUNCATE';
       const resultVNodes = forState.orderedVNodes;
+      const resultItems = forState.orderedItems;
       resultVNodes.length = newLen;
+      resultItems.length = newLen;
       const isFullClear = newLen === 0;
 
       // Update existing rows in-place
@@ -867,6 +884,7 @@ export function reconcileForItems<T>(
 
         updateItemInstance(forState, existing, item);
 
+        resultItems[i] = existing;
         resultVNodes[i] = existing.scope.vnode as VNode;
       }
 
@@ -886,6 +904,7 @@ export function reconcileForItems<T>(
 
       orderedKeys.length = newLen;
       forState.orderedKeys = orderedKeys;
+      forState.orderedItems.length = newLen;
 
       if (BENCH_BUILD_ENABLED) {
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
@@ -919,7 +938,9 @@ export function reconcileForItems<T>(
       recordBenchFastLane('NO_REORDER');
       forState.lastCommitStrategy = 'NO_REORDER';
       const resultVNodes = forState.orderedVNodes;
+      const resultItems = forState.orderedItems;
       resultVNodes.length = oldLen;
+      resultItems.length = oldLen;
       const dirtyIndices: number[] = [];
 
       // Update in-place only, no DOM moves needed
@@ -941,6 +962,7 @@ export function reconcileForItems<T>(
           dirtyIndices.push(i);
         }
 
+        resultItems[i] = existing;
         resultVNodes[i] = existing.scope.vnode as VNode;
       }
 
@@ -1015,6 +1037,9 @@ export function reconcileForItems<T>(
       const secondExisting = items.get(secondMismatchKey)!;
       const firstItem = newArray[firstMismatch];
       const secondItem = newArray[secondMismatch];
+      const nextOrderedItems = forState.orderedItems.slice();
+      nextOrderedItems[firstMismatch] = secondExisting;
+      nextOrderedItems[secondMismatch] = firstExisting;
 
       recordBenchEvent('itemReused');
       recordBenchEvent('itemReused');
@@ -1045,6 +1070,7 @@ export function reconcileForItems<T>(
       resultVNodes[secondMismatch] = secondExisting.scope.vnode as VNode;
 
       forState.orderedKeys = nextOrderedKeys;
+      forState.orderedItems = nextOrderedItems;
 
       if (BENCH_BUILD_ENABLED) {
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
@@ -1060,6 +1086,7 @@ export function reconcileForItems<T>(
 
     let canUseMoveOnlyPath = true;
     const moveOnlyKeys: Array<string | number> = [];
+    const moveOnlyItems: ForItemInstance<T>[] = [];
     const moveOnlyVNodes: VNode[] = [];
 
     for (let i = 0; i < oldLen; i++) {
@@ -1077,6 +1104,7 @@ export function reconcileForItems<T>(
       }
 
       moveOnlyKeys[i] = key;
+      moveOnlyItems[i] = existing;
       moveOnlyVNodes[i] = existing.scope.vnode as VNode;
       recordBenchEvent('itemReused');
     }
@@ -1085,6 +1113,7 @@ export function reconcileForItems<T>(
       recordBenchFastLane('FULL_KEYED');
       forState.lastCommitStrategy = 'FULL_KEYED';
       forState.orderedKeys = moveOnlyKeys;
+      forState.orderedItems = moveOnlyItems;
       forState.orderedVNodes = moveOnlyVNodes;
 
       if (BENCH_BUILD_ENABLED) {
@@ -1109,6 +1138,7 @@ export function reconcileForItems<T>(
 
   const toRemove = new Set(orderedKeys);
   const newOrderedKeys: Array<string | number> = [];
+  const newOrderedItems: ForItemInstance<T>[] = [];
   const resultVNodes: VNode[] = [];
   let moveOnly = toRemove.size === newArray.length;
 
@@ -1128,6 +1158,7 @@ export function reconcileForItems<T>(
       // Added: create new item instance
       const itemInstance = createItemInstance(key, item, i, forState);
       items.set(key, itemInstance);
+      newOrderedItems.push(itemInstance);
       resultVNodes.push(itemInstance.scope.vnode as VNode);
     } else {
       // Exists: check if item changed (by identity)
@@ -1146,6 +1177,7 @@ export function reconcileForItems<T>(
         existing.indexSignal.set(i);
       }
 
+      newOrderedItems.push(existing);
       resultVNodes.push(existing.scope.vnode as VNode);
     }
   }
@@ -1161,6 +1193,7 @@ export function reconcileForItems<T>(
   }
 
   forState.orderedKeys = newOrderedKeys;
+  forState.orderedItems = newOrderedItems;
 
   // Record reconcile timing
   if (BENCH_BUILD_ENABLED) {

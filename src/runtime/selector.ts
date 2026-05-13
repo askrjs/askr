@@ -16,7 +16,7 @@ import {
   type DerivedSubscriber,
   type ReadableSource,
 } from './readable';
-import { incrementPerfMetric } from './perf-metrics';
+import { getPerfMetricsStore, incrementPerfMetric } from './perf-metrics';
 
 type PrimitiveKey =
   | string
@@ -243,15 +243,19 @@ function createSelectorCell<T>(
   source: () => T,
   equals: SelectorEquals<T>
 ): SelectorCell<T> {
+  const perfMetricsStore = getPerfMetricsStore();
   const cell = function selectorPredicate(candidate: T): boolean {
     const sourceRef = getCandidateSource(cell as SelectorCell<T>, candidate);
     recordReadableRead(sourceRef);
-    incrementPerfMetric('selectorCandidateReads');
-    const current = recomputeSelectorCell(
-      cell as SelectorCell<T>,
-      (cell as SelectorCell<T>)._scheduled
-    );
-    return (cell as SelectorCell<T>)._equals(current, candidate);
+    if (perfMetricsStore) {
+      perfMetricsStore.selectorCandidateReads += 1;
+    }
+    const selectorCell = cell as SelectorCell<T>;
+    const current =
+      selectorCell._dirty || !selectorCell._hasValue
+        ? recomputeSelectorCell(selectorCell, selectorCell._scheduled)
+        : selectorCell._value;
+    return selectorCell._equals(current, candidate);
   } as SelectorCell<T>;
 
   cell._owner = instance;
