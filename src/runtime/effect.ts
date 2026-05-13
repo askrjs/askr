@@ -10,6 +10,7 @@ type EffectRegistry = WeakMap<
 type EffectFlushSets = Record<SchedulerLane, Set<FineGrainedEffect<unknown>>>;
 
 type EffectPendingFlushState = Record<SchedulerLane, boolean>;
+type EffectLaneDirtyState = Record<SchedulerLane, boolean>;
 
 const effectSources: EffectRegistry = new WeakMap();
 const dirtyEffectsByLane: EffectFlushSets = {
@@ -25,7 +26,20 @@ const hasPendingLaneFlush: EffectPendingFlushState = {
   post: false,
 };
 
+const dirtyLaneState: EffectLaneDirtyState = {
+  derived: false,
+  component: false,
+  reactive: false,
+  post: false,
+};
+
 const _evalSourceBuffer = new Set<ReadableSource<unknown>>();
+const LANE_FLUSH_TASKS: Record<SchedulerLane, () => void> = {
+  derived: () => flushLaneEffects('derived'),
+  component: () => flushLaneEffects('component'),
+  reactive: () => flushLaneEffects('reactive'),
+  post: () => flushLaneEffects('post'),
+};
 
 export interface FineGrainedEffect<T> {
   lane: SchedulerLane;
@@ -172,11 +186,14 @@ function flushLaneEffects(lane: SchedulerLane): void {
     return;
   }
 
-  const pending = Array.from(effects);
-  effects.clear();
+  const pending = effects.values();
+  let next = pending.next();
 
-  for (const effect of pending) {
+  while (!next.done) {
+    const effect = next.value as FineGrainedEffect<unknown>;
+    effects.delete(effect);
     if (!effect.isActive) {
+      next = pending.next();
       continue;
     }
 
@@ -186,6 +203,8 @@ function flushLaneEffects(lane: SchedulerLane): void {
     } catch (error) {
       effect.onError?.(error);
     }
+
+    next = pending.next();
   }
 }
 
@@ -195,9 +214,7 @@ function scheduleLaneFlush(lane: SchedulerLane): void {
   }
 
   hasPendingLaneFlush[lane] = true;
-  globalScheduler.enqueueInLane(lane, () => {
-    flushLaneEffects(lane);
-  });
+  globalScheduler.enqueueInLane(lane, LANE_FLUSH_TASKS[lane]);
 }
 
 function unscheduleEffect(effect: FineGrainedEffect<unknown>): void {
@@ -217,17 +234,31 @@ export function markFineGrainedEffectsDirtySource(
     return;
   }
 
+  dirtyLaneState.derived = false;
+  dirtyLaneState.component = false;
+  dirtyLaneState.reactive = false;
+  dirtyLaneState.post = false;
+
   for (const effect of effects) {
     if (!effect.isActive) {
       continue;
     }
-    dirtyEffectsByLane[effect.lane].add(effect);
+    const lane = effect.lane;
+    dirtyEffectsByLane[lane].add(effect);
+    dirtyLaneState[lane] = true;
   }
 
-  for (const lane of Object.keys(hasPendingLaneFlush) as SchedulerLane[]) {
-    if (dirtyEffectsByLane[lane].size > 0) {
-      scheduleLaneFlush(lane);
-    }
+  if (dirtyLaneState.derived) {
+    scheduleLaneFlush('derived');
+  }
+  if (dirtyLaneState.component) {
+    scheduleLaneFlush('component');
+  }
+  if (dirtyLaneState.reactive) {
+    scheduleLaneFlush('reactive');
+  }
+  if (dirtyLaneState.post) {
+    scheduleLaneFlush('post');
   }
 }
 
