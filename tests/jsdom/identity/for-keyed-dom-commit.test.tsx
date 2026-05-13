@@ -49,7 +49,7 @@ describe('for keyed DOM commit', () => {
         <table>
           <tbody>
             {
-              <For each={() => rowsState()} by={(item) => item.id}>
+              <For each={() => rowsState!()} by={(item) => item.id}>
                 {(item) => (
                   <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
                     <td>{item.label}</td>
@@ -105,7 +105,7 @@ describe('for keyed DOM commit', () => {
         <table>
           <tbody>
             {
-              <For each={() => rowsState()} by={(item) => item.id}>
+              <For each={() => rowsState!()} by={(item) => item.id}>
                 {(item) => (
                   <tr>
                     <td>{item.label}</td>
@@ -154,7 +154,7 @@ describe('for keyed DOM commit', () => {
         <table>
           <tbody>
             {
-              <For each={() => rowsState()} by={(item) => item.id}>
+              <For each={() => rowsState!()} by={(item) => item.id}>
                 {(item) => (
                   <tr>
                     <td>{item.label}</td>
@@ -218,7 +218,7 @@ describe('for keyed DOM commit', () => {
         <table>
           <tbody>
             {
-              <For each={() => rowsState()} by={(item) => item.id}>
+              <For each={() => rowsState!()} by={(item) => item.id}>
                 {(item) => (
                   <tr>
                     <td>{item.label}</td>
