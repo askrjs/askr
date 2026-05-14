@@ -309,6 +309,80 @@ describe('hydration (SSR)', () => {
         container.querySelector('tr[data-row="2"] .label')?.textContent
       ).toBe('beta updated');
     });
+
+    it('should hydrate keyed component rows in place before any updates', async () => {
+      type Item = { id: number; label: string };
+      const initialRows: Item[] = [
+        { id: 1, label: 'alpha' },
+        { id: 2, label: 'beta' },
+      ];
+      let rowClicks = 0;
+
+      const Row = ({ item }: { item: Item }) => {
+        const handleRowClick = () => {
+          rowClicks += 1;
+        };
+
+        return (
+          <tr data-row={item.id}>
+            <td class="label">{item.label}</td>
+            <td>
+              <button id={`select-${item.id}`} onClick={handleRowClick}>
+                select {item.id}
+              </button>
+            </td>
+          </tr>
+        );
+      };
+
+      const Component = () => {
+        const rows = state<Item[]>(initialRows);
+
+        return (
+          <table>
+            <tbody>
+              <For each={rows} by={(row) => row.id}>
+                {(item) => <Row item={item} />}
+              </For>
+            </tbody>
+          </table>
+        );
+      };
+
+      const routes = [{ path: '/', handler: Component }];
+      const html = renderToStringSyncForUrl({ url: '/', routes });
+      container.innerHTML = html;
+
+      const firstRowBefore = container.querySelector(
+        'tr[data-row="1"]'
+      ) as HTMLTableRowElement;
+      const secondRowBefore = container.querySelector(
+        'tr[data-row="2"]'
+      ) as HTMLTableRowElement;
+
+      await expect(
+        hydrateSPA({
+          root: container,
+          routes,
+        })
+      ).resolves.not.toThrow();
+      flushScheduler();
+      flushScheduler();
+
+      expect(container.innerHTML.replace(/<!--.*?-->/g, '')).toBe(html);
+      expect(container.querySelector('tr[data-row="1"]')).toBe(firstRowBefore);
+      expect(container.querySelector('tr[data-row="2"]')).toBe(secondRowBefore);
+
+      const selectButton = container.querySelector(
+        '#select-2'
+      ) as HTMLButtonElement;
+      selectButton.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true })
+      );
+      flushScheduler();
+
+      expect(rowClicks).toBe(1);
+    });
   });
 
   describe('hydration success', () => {

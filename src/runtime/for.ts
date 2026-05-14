@@ -292,6 +292,13 @@ function readForItemProperty(item: unknown, prop: PropertyKey): unknown {
   return Reflect.get(Object(item), prop);
 }
 
+function scopeReadsSource(
+  scope: ChildScope,
+  source: ReadableSource<unknown>
+): boolean {
+  return source._readers?.has(scope.componentInstance) ?? false;
+}
+
 function getOrCreateForItemPropertySignal<T>(
   item: T,
   propertySignals: Map<PropertyKey, ForItemPropertySignal>,
@@ -545,7 +552,8 @@ function updateItemInstance<T>(
   const previousItem = itemInstance.item;
   itemInstance.item = item;
 
-  let needsRerender = false;
+  const scope = itemInstance.scope;
+  let scopeReadsChangedSignal = false;
   const itemSignal = itemInstance.itemSignal;
   if (!itemSignal) {
     rerenderItemInstance(forState, itemInstance, item);
@@ -553,6 +561,7 @@ function updateItemInstance<T>(
   }
 
   const propertySignals = itemInstance.itemPropertySignals;
+  const changedPropertySignals: Array<[ForItemPropertySignal, unknown]> = [];
   if (propertySignals && propertySignals.size > 0) {
     for (const [prop, propertySignal] of propertySignals) {
       const previousValue = readForItemProperty(previousItem, prop);
@@ -561,25 +570,30 @@ function updateItemInstance<T>(
         continue;
       }
 
-      const propertyHasRenderReaders = (propertySignal._readers?.size ?? 0) > 0;
-      if (propertyHasRenderReaders) {
-        needsRerender = true;
+      if (scopeReadsSource(scope, propertySignal)) {
+        scopeReadsChangedSignal = true;
       }
 
-      propertySignal.set(nextValue, !propertyHasRenderReaders);
+      changedPropertySignals.push([propertySignal, nextValue]);
     }
   }
 
-  const hasRenderReaders = (itemSignal._readers?.size ?? 0) > 0;
-  if (hasRenderReaders) {
-    needsRerender = true;
+  if (scopeReadsSource(scope, itemSignal)) {
+    scopeReadsChangedSignal = true;
   }
-  itemSignal.set(item, hasRenderReaders);
 
-  if (needsRerender) {
-    rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+  const notifyReaders = !scopeReadsChangedSignal;
+  for (const [propertySignal, nextValue] of changedPropertySignals) {
+    propertySignal.set(nextValue, notifyReaders);
   }
-  return true;
+  itemSignal.set(item, notifyReaders);
+
+  if (scopeReadsChangedSignal) {
+    rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+    return true;
+  }
+
+  return false;
 }
 
 const FOR_FALLBACK_SCOPE_KEY = '__for-fallback__';
@@ -1223,13 +1237,24 @@ export function evaluateForState<T>(forState: ForState<T>): VNode[] {
 }
 
 export function clearForDomUpdateState<T>(forState: ForState<T>): void {
-  for (let i = 0; i < forState.orderedKeys.length; i++) {
-    const key = forState.orderedKeys[i];
-    const itemInstance = forState.items.get(key);
-    if (itemInstance) {
-      itemInstance.scope.needsDomUpdate = false;
+  const dirtyIndices = forState.pendingDirtyIndices;
+  if (dirtyIndices && dirtyIndices.length > 0) {
+    for (let i = 0; i < dirtyIndices.length; i++) {
+      const itemInstance = forState.orderedItems[dirtyIndices[i]];
+      if (itemInstance) {
+        itemInstance.scope.needsDomUpdate = false;
+      }
+    }
+  } else {
+    for (let i = 0; i < forState.orderedKeys.length; i++) {
+      const key = forState.orderedKeys[i];
+      const itemInstance = forState.items.get(key);
+      if (itemInstance) {
+        itemInstance.scope.needsDomUpdate = false;
+      }
     }
   }
+
   if (forState.fallbackScope) {
     forState.fallbackScope.needsDomUpdate = false;
   }

@@ -109,6 +109,67 @@ describe('For JSX primitive', () => {
     }
   });
 
+  it('should keep keyed wrapper rows from rerendering when nested components handle updates', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    const initialRows: Item[] = Array.from({ length: 5 }, (_, index) => ({
+      id: index + 1,
+      label: `row-${index + 1}`,
+    }));
+    let setItems: (next: Item[]) => void = () => {};
+    let wrapperRenders = 0;
+
+    const Row = ({ item }: { item: Item }) => (
+      <li data-id={String(item.id)}>{item.label}</li>
+    );
+
+    const App = () => {
+      const items = state<Item[]>(initialRows);
+      setItems = (next) => items.set(next);
+
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item) => ((wrapperRenders += 1), (<Row item={item} />))}
+          </For>
+        </ul>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      expect(wrapperRenders).toBe(initialRows.length);
+
+      const beforeNodes = Array.from(container.querySelectorAll('li'));
+      const targetBefore = beforeNodes[2];
+      const siblingBefore = beforeNodes[1];
+
+      setItems(
+        initialRows.map((row) =>
+          row.id === 3 ? { ...row, label: 'row-3 updated' } : row
+        )
+      );
+      flushScheduler();
+
+      const afterNodes = Array.from(container.querySelectorAll('li'));
+      expect(afterNodes[2]).toBe(targetBefore);
+      expect(afterNodes[1]).toBe(siblingBefore);
+      expect(afterNodes.map((node) => node.getAttribute('data-id'))).toEqual([
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+      ]);
+      expect(afterNodes[2].textContent).toBe('row-3 updated');
+      expect(wrapperRenders).toBe(initialRows.length);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should update shifted index accessors after removing one keyed row from the middle', () => {
     const { container, cleanup } = createTestContainer();
 

@@ -2624,6 +2624,10 @@ export function syncComponentElement(
       parentNamespace
     );
 
+    if (nextDom instanceof Element) {
+      materializeKey(nextDom, node, props);
+    }
+
     if (nextDom !== existingHost && existingHost.parentNode) {
       existingHost.parentNode.replaceChild(nextDom, existingHost);
       cleanupDetachedComponentHost(existingHost, hydrationInstance);
@@ -2718,6 +2722,10 @@ export function syncComponentElement(
     scopedResult,
     parentNamespace
   );
+
+  if (nextDom instanceof Element) {
+    materializeKey(nextDom, node, props);
+  }
 
   if (nextDom !== existingHost && existingHost.parentNode) {
     existingHost.parentNode.replaceChild(nextDom, existingHost);
@@ -3719,6 +3727,45 @@ export function commitForBoundaryChildren(
   };
 
   const commitAppend = (): void => {
+    const canHydrateInPlace =
+      !forState._hasResolvedItemDom &&
+      forState.lastRemovedNodes.length === 0 &&
+      parent.childNodes.length === forState.orderedKeys.length;
+
+    if (canHydrateInPlace) {
+      let exactOrder = true;
+      let currentNode = parent.firstChild;
+
+      for (let i = 0; i < forState.orderedKeys.length; i++) {
+        const itemInstance = forState.orderedItems[i];
+        if (!itemInstance) {
+          exactOrder = false;
+          currentNode = currentNode?.nextSibling ?? null;
+          continue;
+        }
+
+        if (currentNode !== itemInstance.scope.dom) {
+          exactOrder = false;
+        }
+
+        const dom = syncForItemDom(
+          parent,
+          itemInstance.scope,
+          childrenVNodes[i]
+        );
+        if (!dom || dom.parentNode !== parent || dom !== currentNode) {
+          exactOrder = false;
+        }
+
+        currentNode = currentNode?.nextSibling ?? null;
+      }
+
+      if (exactOrder) {
+        boundaryChildrenExact = true;
+        return;
+      }
+    }
+
     withBenchMetricScope('coldCreate', () => {
       const fragment = parent.ownerDocument.createDocumentFragment();
       let hasPendingAppend = false;
@@ -3837,7 +3884,7 @@ export function commitForBoundaryChildren(
     const count = items.length;
 
     if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
-      const frag = parent.ownerDocument.createDocumentFragment();
+      const nodes: Node[] = [];
 
       for (let i = 0; i < count; i++) {
         const itemInstance = items[i];
@@ -3846,10 +3893,10 @@ export function commitForBoundaryChildren(
           return;
         }
         recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
-        frag.appendChild(dom);
+        nodes.push(dom);
       }
 
-      parent.replaceChildren(frag);
+      parent.replaceChildren(...nodes);
       boundaryChildrenExact = true;
       return;
     }
@@ -3964,7 +4011,10 @@ export function commitForBoundaryChildren(
     parent.childNodes.length === forState.orderedKeys.length;
 
   if (isLocalOnlyDirtyCommit) {
-    if (isCurrentForDomOrder()) {
+    if (getRuntimeEnv().NODE_ENV === 'production') {
+      commitDirtyNoReorder(ensureDirtyIndices());
+      syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
+    } else if (isCurrentForDomOrder()) {
       commitDirtyNoReorder(ensureDirtyIndices());
       syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
     } else {

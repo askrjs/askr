@@ -417,6 +417,14 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
  * Tries text-in-place update first, then full child reconciliation
  */
 function smartUpdateElement(element: Element, vnode: DOMElement): void {
+  if (vnode.key == null && element.hasAttribute('data-key')) {
+    const existingKey = element.getAttribute('data-key');
+    if (existingKey !== null) {
+      const numericKey = Number(existingKey);
+      vnode.key = Number.isNaN(numericKey) ? existingKey : numericKey;
+    }
+  }
+
   let vnodeChildren = vnode.props?.children ?? vnode.children;
 
   // CRITICAL: For boundary vnodes must NOT be wrapped into an array
