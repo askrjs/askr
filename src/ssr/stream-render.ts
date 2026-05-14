@@ -1,6 +1,7 @@
 import type { Props } from '../common/props';
 import type { RenderSink } from './sink';
 import type { VNode, SSRComponent } from './types';
+import type { DOMElement } from '../common/vnode';
 import { Fragment } from '../jsx';
 import { type RenderContext, throwSSRDataMissing } from './context';
 import { VOID_ELEMENTS, escapeText } from './escape';
@@ -27,6 +28,34 @@ function executeComponent(
     throwSSRDataMissing();
   }
   return res;
+}
+
+function inheritRenderableKey(source: VNode, result: unknown): unknown {
+  const inheritedKey = source.key;
+  if (inheritedKey === undefined || inheritedKey === null) {
+    return result;
+  }
+
+  if (!result || typeof result !== 'object' || !('type' in result)) {
+    return result;
+  }
+
+  const resultVNode = result as DOMElement;
+  if (resultVNode.key === undefined || resultVNode.key === null) {
+    resultVNode.key = inheritedKey;
+  }
+
+  if (typeof resultVNode.type === 'string') {
+    if (!resultVNode.props) {
+      resultVNode.props = {};
+    }
+
+    if (resultVNode.props['data-key'] === undefined) {
+      resultVNode.props['data-key'] = String(inheritedKey);
+    }
+  }
+
+  return result;
 }
 
 // Render children directly without allocating wrapper array when possible
@@ -106,7 +135,7 @@ export function renderNodeToSink(
   // Function component
   if (typeof type === 'function') {
     const out = executeComponent(type as Component, vnode.props, ctx);
-    renderNodeToSink(out, sink, ctx);
+    renderNodeToSink(inheritRenderableKey(vnode, out), sink, ctx);
     return;
   }
 

@@ -66,6 +66,37 @@ function isSSRAttrEventHandler(key: string): boolean {
   );
 }
 
+function inheritRenderableKey(
+  source: VNode | JSXElement,
+  result: VNode | JSXElement
+): VNode | JSXElement {
+  const inheritedKey = (source as DOMElement).key;
+  if (inheritedKey === undefined || inheritedKey === null) {
+    return result;
+  }
+
+  if (!result || typeof result !== 'object' || !('type' in result)) {
+    return result;
+  }
+
+  const resultVNode = result as DOMElement;
+  if (resultVNode.key === undefined || resultVNode.key === null) {
+    resultVNode.key = inheritedKey;
+  }
+
+  if (typeof resultVNode.type === 'string') {
+    if (!resultVNode.props) {
+      resultVNode.props = {};
+    }
+
+    if (resultVNode.props['data-key'] === undefined) {
+      resultVNode.props['data-key'] = String(inheritedKey);
+    }
+  }
+
+  return result;
+}
+
 // Install SSR bridge once so runtime primitives (resource/derive/etc) can
 // detect SSR mode and access deterministic render-phase data without a
 // runtime->ssr import.
@@ -532,7 +563,7 @@ function renderNodeSyncToSink(
   if (typeof type === 'function') {
     const result = executeComponentSync(type as Component, props, ctx);
     // executeComponentSync guarantees synchronous result.
-    renderNodeSyncToSink(result, sink, ctx);
+    renderNodeSyncToSink(inheritRenderableKey(node, result), sink, ctx);
     return;
   }
 
@@ -936,7 +967,10 @@ function verifyExpectedNode(
 
   if (typeof type === 'function') {
     return verifyExpectedNode(
-      executeComponentSync(type as Component, props, ctx),
+      inheritRenderableKey(
+        vnode,
+        executeComponentSync(type as Component, props, ctx)
+      ),
       state,
       ctx
     );

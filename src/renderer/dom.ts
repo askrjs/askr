@@ -2527,15 +2527,110 @@ export function syncComponentElement(
   node: ElementWithContext,
   type: (props: Props) => unknown,
   props: Record<string, unknown>,
-  parentNamespace?: string
+  parentNamespace?: string,
+  forceChildrenUpdate = false
 ): Node | null {
   const existingHost =
     currentDom instanceof Element ? (currentDom as InstanceHostElement) : null;
   const existingInstance = existingHost
     ? findHostInstanceByType(existingHost, type)
     : null;
-  if (!existingHost || !existingInstance || existingInstance.fn !== type) {
+  if (!existingHost) {
     return null;
+  }
+
+  if (!existingInstance || existingInstance.fn !== type) {
+    const snapshot =
+      getVNodeContextFrame(node) || getCurrentContextFrame() || null;
+    const hydrationInstance = createComponentInstance(
+      nextComponentInstanceId(),
+      type,
+      props || {},
+      existingHost
+    );
+
+    setVNodeComponentInstance(node, hydrationInstance);
+
+    if (snapshot) {
+      hydrationInstance.ownerFrame = snapshot;
+    }
+
+    const result = withContext(snapshot, () =>
+      renderComponentInline(hydrationInstance)
+    );
+    if (result instanceof Promise) {
+      throw new Error(
+        'Async components are not supported. Components must return synchronously.'
+      );
+    }
+
+    const scopedResult = markVNodeTreeWithContextFrame(
+      result,
+      snapshot ?? null
+    );
+
+    if (
+      scopedResult &&
+      typeof scopedResult === 'object' &&
+      'type' in (scopedResult as DOMElement) &&
+      typeof (scopedResult as DOMElement).type === 'string' &&
+      tagNamesEqualIgnoreCase(
+        existingHost.tagName,
+        (scopedResult as DOMElement).type as string
+      )
+    ) {
+      withContext(snapshot, () => {
+        updateElementFromVnode(
+          existingHost,
+          inheritComponentKey(scopedResult as DOMElement, node),
+          true,
+          forceChildrenUpdate || hydrationInstance.mounted === false
+        );
+        materializeKey(existingHost, node, props);
+      });
+      mountInstanceInline(hydrationInstance, existingHost);
+      itemInstanceHydrationComplete(existingHost);
+      warnUnusedStateReads(hydrationInstance);
+      return existingHost;
+    }
+
+    const resolvedResult = resolveNestedComponentResult(
+      scopedResult,
+      snapshot ?? null
+    );
+    if (
+      _isDOMElement(resolvedResult) &&
+      typeof resolvedResult.type === 'string' &&
+      tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.type)
+    ) {
+      withContext(snapshot, () => {
+        updateElementFromVnode(
+          existingHost,
+          inheritComponentKey(resolvedResult, node),
+          true,
+          forceChildrenUpdate || hydrationInstance.mounted === false
+        );
+        materializeKey(existingHost, node, props);
+      });
+      mountInstanceInline(hydrationInstance, existingHost);
+      itemInstanceHydrationComplete(existingHost);
+      warnUnusedStateReads(hydrationInstance);
+      return existingHost;
+    }
+
+    const nextDom = materializeComponentResultNode(
+      hydrationInstance,
+      scopedResult,
+      parentNamespace
+    );
+
+    if (nextDom !== existingHost && existingHost.parentNode) {
+      existingHost.parentNode.replaceChild(nextDom, existingHost);
+      cleanupDetachedComponentHost(existingHost, hydrationInstance);
+    }
+
+    warnUnusedStateReads(hydrationInstance);
+    return nextDom;
   }
 
   const snapshot =
@@ -2587,7 +2682,8 @@ export function syncComponentElement(
       updateElementFromVnode(
         existingHost,
         inheritComponentKey(scopedResult as DOMElement, node),
-        true
+        true,
+        forceChildrenUpdate || existingInstance.mounted === false
       );
       materializeKey(existingHost, node, props);
     });
@@ -2608,7 +2704,8 @@ export function syncComponentElement(
       updateElementFromVnode(
         existingHost,
         inheritComponentKey(resolvedResult, node),
-        true
+        true,
+        forceChildrenUpdate || existingInstance.mounted === false
       );
       materializeKey(existingHost, node, props);
     });
@@ -2629,6 +2726,18 @@ export function syncComponentElement(
 
   warnUnusedStateReads(existingInstance);
   return nextDom;
+}
+
+function itemInstanceHydrationComplete(host: InstanceHostElement): void {
+  const instance = host.__ASKR_INSTANCE;
+  if (instance) {
+    const scope = (
+      instance as unknown as { scope?: { hydrationPending?: boolean } }
+    ).scope;
+    if (scope) {
+      scope.hydrationPending = false;
+    }
+  }
 }
 
 function createComponentElement(
@@ -3055,9 +3164,6 @@ function syncForItemDom(
   vnode: VNode
 ): Node | null {
   let dom = scope.dom ?? null;
-  if (dom && !scope.needsDomUpdate) {
-    return dom;
-  }
 
   const parentNamespace =
     parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
@@ -3274,6 +3380,7 @@ export function tryPatchStableForDirtyItem(scope: {
   dom?: Node;
   vnode?: VNode;
 }): boolean {
+  incDevCounter('stableForPatchAttempt');
   if (!(scope.dom instanceof Element) || scope.vnode === undefined) {
     return false;
   }
@@ -3291,6 +3398,10 @@ export function tryPatchStableForDirtyItem(scope: {
   const existingInstance = (scope.dom as InstanceHostElement).__ASKR_INSTANCE;
   if (didPatch && existingInstance) {
     warnUnusedStateReads(existingInstance);
+  }
+
+  if (didPatch) {
+    incDevCounter('stableForPatchHit');
   }
 
   return didPatch;
@@ -3482,14 +3593,12 @@ export function commitForBoundaryChildren(
       }
 
       const existingDom = domKeyMap.get(itemKey);
-      if (
-        !existingDom ||
-        checkVNodeShapeChanged(existingDom, childrenVNodes[i])
-      ) {
+      if (!existingDom) {
         continue;
       }
 
       itemInstance.scope.dom = existingDom;
+      itemInstance.scope.needsDomUpdate = true;
     }
   };
 
@@ -3905,8 +4014,9 @@ export function commitForBoundaryChildren(
       }
 
       const dom =
-        itemInstance.scope.dom ??
-        syncForItemDom(parent, itemInstance.scope, childrenVNodes[i]);
+        itemInstance.scope.dom && !itemInstance.scope.needsDomUpdate
+          ? itemInstance.scope.dom
+          : syncForItemDom(parent, itemInstance.scope, childrenVNodes[i]);
       if (dom) {
         expectedNodes.push(dom);
       }
@@ -3957,7 +4067,8 @@ export function commitForBoundaryChildren(
 export function updateElementFromVnode(
   el: Element,
   vnode: VNode,
-  updateChildren = true
+  updateChildren = true,
+  forceChildrenUpdate = false
 ): void {
   if (!_isDOMElement(vnode)) {
     return;
@@ -3984,14 +4095,17 @@ export function updateElementFromVnode(
     (!existingListeners || existingListeners.size === 0) &&
     (!existingReactiveProps || existingReactiveProps.size === 0)
   ) {
-    if (hasMatchingStaticProps(el, props, vnode.type as string)) {
+    if (
+      !forceChildrenUpdate &&
+      hasMatchingStaticProps(el, props, vnode.type as string)
+    ) {
       if (updateChildren) {
         const children =
           (props.children as VNode | VNode[] | undefined) ?? vnode.children;
-        if (canReuseStaticSubtree(el, domVNode)) {
+        if (!forceChildrenUpdate && canReuseStaticSubtree(el, domVNode)) {
           return;
         }
-        updateElementChildren(el, children);
+        updateElementChildren(el, children, forceChildrenUpdate);
       }
       return;
     }
@@ -4291,13 +4405,14 @@ export function updateElementFromVnode(
     if (usesReactiveChildren) {
       return;
     }
-    updateElementChildren(el, children);
+    updateElementChildren(el, children, forceChildrenUpdate);
   }
 }
 
 export function updateElementChildren(
   el: Element,
-  children: VNode | VNode[] | undefined
+  children: VNode | VNode[] | undefined,
+  forceUpdate = false
 ): void {
   const directControlBoundary = getDirectControlBoundaryVNode(children);
   if (directControlBoundary) {
@@ -4332,7 +4447,11 @@ export function updateElementChildren(
   }
 
   if (!Array.isArray(children) && isFragmentVNode(children)) {
-    updateUnkeyedChildren(el, normalizeComponentChildren(children));
+    updateUnkeyedChildren(
+      el,
+      normalizeComponentChildren(children),
+      forceUpdate
+    );
     return;
   }
 
@@ -4377,12 +4496,12 @@ export function updateElementChildren(
       keyedElements.delete(el);
       return;
     }
-    updateUnkeyedChildren(el, children as unknown[]);
+    updateUnkeyedChildren(el, children as unknown[], forceUpdate);
     return;
   }
 
   if (_isDOMElement(children)) {
-    updateUnkeyedChildren(el, [children]);
+    updateUnkeyedChildren(el, [children], forceUpdate);
     return;
   }
 
@@ -4631,7 +4750,8 @@ function canReuseStaticSubtree(el: Element, vnode: DOMElement): boolean {
 
 export function updateUnkeyedChildren(
   parent: Element,
-  newChildren: unknown[]
+  newChildren: unknown[],
+  forceUpdate = false
 ): void {
   const parentNamespace =
     parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
@@ -4649,7 +4769,8 @@ export function updateUnkeyedChildren(
       next as ElementWithContext,
       next.type as (props: Props) => unknown,
       (((next as DOMElement).props ?? {}) as Record<string, unknown>) || {},
-      parentNamespace
+      parentNamespace,
+      forceUpdate
     );
   };
 
@@ -4684,7 +4805,7 @@ export function updateUnkeyedChildren(
       if (!current || next === undefined) continue;
       if (_isDOMElement(next) && typeof next.type === 'string') {
         if (tagsEqualIgnoreCase(current.tagName, next.type)) {
-          updateElementFromVnode(current, next);
+          updateElementFromVnode(current, next, true, forceUpdate);
         } else {
           const dom = createDOMNode(next, parentNamespace);
           if (dom) {
@@ -4768,7 +4889,7 @@ export function updateUnkeyedChildren(
           if (typeof next.type === 'string') {
             if (tagsEqualIgnoreCase(currentEl.tagName, next.type)) {
               // Same type - update in place
-              updateElementFromVnode(currentEl, next);
+              updateElementFromVnode(currentEl, next, true, forceUpdate);
             } else {
               // Different type - replace
               const dom = createDOMNode(next, parentNamespace);
@@ -4863,7 +4984,7 @@ export function updateUnkeyedChildren(
       if (typeof next.type === 'string') {
         // If element type matches, update in place; otherwise replace
         if (tagsEqualIgnoreCase(current.tagName, next.type)) {
-          updateElementFromVnode(current, next);
+          updateElementFromVnode(current, next, true, forceUpdate);
         } else {
           const dom = createDOMNode(next, parentNamespace);
           if (dom) {
