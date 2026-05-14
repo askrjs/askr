@@ -729,7 +729,7 @@ export function commitForBoundaryChildren(
     const count = keys.length;
 
     if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
-      const frag = parent.ownerDocument.createDocumentFragment();
+      const nodes: Node[] = [];
 
       for (let i = 0; i < count; i++) {
         const itemKey = keys[i];
@@ -739,10 +739,10 @@ export function commitForBoundaryChildren(
           return;
         }
         recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
-        frag.appendChild(dom);
+        nodes.push(dom);
       }
 
-      parent.replaceChildren(frag);
+      parent.replaceChildren(...nodes);
       return;
     }
 

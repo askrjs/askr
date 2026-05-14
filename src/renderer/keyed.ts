@@ -162,7 +162,7 @@ export function isKeyedReorderFastPathEligible(
   // Compute LIS trigger for large lists
   let lisTrigger = false;
   let lisLen = 0;
-  if (totalKeyed >= LIS_THRESHOLD_MIN) {
+  if (totalKeyed >= LIS_THRESHOLD_MIN && !cheapMoveTrigger) {
     const parentChildren = Array.from(parent.children);
     const positions = keyedVnodes.map(({ key }) => {
       const el = oldKeyMap?.get(key);
