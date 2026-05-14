@@ -400,6 +400,55 @@ describe('hydration (SSR)', () => {
       ).toBe(true);
     });
 
+    it('should keep multiple skipped selectors static during hydration', async () => {
+      const clicks: string[] = [];
+
+      const Component = () => (
+        <div>
+          <button id="live" onClick={() => clicks.push('live')}>
+            live
+          </button>
+          <div class="static-footer">
+            <button id="static" onClick={() => clicks.push('static')}>
+              static
+            </button>
+          </div>
+          <div class="marketing-slot">
+            <button id="marketing" onClick={() => clicks.push('marketing')}>
+              marketing
+            </button>
+          </div>
+        </div>
+      );
+
+      const routes = [{ path: '/', handler: Component }];
+      container.innerHTML = renderToStringSyncForUrl({ url: '/', routes });
+
+      await hydrateSPA({
+        root: container,
+        routes,
+        hydrate: { skipSelectors: ['.static-footer', '.marketing-slot'] },
+      });
+      flushScheduler();
+
+      fireEvent.click(container.querySelector('#live') as HTMLElement);
+      fireEvent.click(container.querySelector('#static') as HTMLElement);
+      fireEvent.click(container.querySelector('#marketing') as HTMLElement);
+      flushScheduler();
+
+      expect(clicks).toEqual(['live']);
+      expect(
+        (container.querySelector('.static-footer') as Element).hasAttribute(
+          'data-skip-hydrate'
+        )
+      ).toBe(true);
+      expect(
+        (container.querySelector('.marketing-slot') as Element).hasAttribute(
+          'data-skip-hydrate'
+        )
+      ).toBe(true);
+    });
+
     it('should activate below-fold content after scroll makes it visible', async () => {
       const clicks: string[] = [];
       const originalRect = Element.prototype.getBoundingClientRect;

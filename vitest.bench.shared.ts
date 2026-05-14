@@ -35,11 +35,13 @@ export function createBenchTestConfig(options: {
   environment: 'jsdom' | 'node';
   include: readonly string[];
   exclude?: readonly string[];
+  setupFiles?: readonly string[];
 }) {
   return {
     environment: options.environment,
     globals: true,
     include: [...options.include],
+    ...(options.setupFiles ? { setupFiles: [...options.setupFiles] } : {}),
     ...(options.exclude ? { exclude: [...options.exclude] } : {}),
     fileParallelism: false,
     maxWorkers: 1,
