@@ -137,50 +137,54 @@ function resetBenchMetricsLive(metrics: BenchMetrics): void {
 
 const benchMetrics = BENCH_BUILD_ENABLED ? createInitialBenchMetrics() : null;
 
-const recordBenchEventLive = (event: BenchEvent): void => {
+const recordBenchEventLive = (event: BenchEvent, delta = 1): void => {
   if (!isBenchRuntimeEnabled() || !benchMetrics) {
+    return;
+  }
+
+  if (delta === 0) {
     return;
   }
 
   switch (event) {
     case 'itemCreated':
-      benchMetrics.itemsCreated++;
+      benchMetrics.itemsCreated += delta;
       break;
     case 'itemReused':
-      benchMetrics.itemsReused++;
+      benchMetrics.itemsReused += delta;
       break;
     case 'itemRemoved':
-      benchMetrics.itemsRemoved++;
+      benchMetrics.itemsRemoved += delta;
       break;
     case 'itemMoved':
-      benchMetrics.itemsMoved++;
+      benchMetrics.itemsMoved += delta;
       break;
     case 'rowFactory':
-      benchMetrics.rowFactoryInvocations++;
+      benchMetrics.rowFactoryInvocations += delta;
       break;
     case 'keyLookup':
-      benchMetrics.keyLookups++;
+      benchMetrics.keyLookups += delta;
       break;
     case 'keyHit':
-      benchMetrics.keyHits++;
+      benchMetrics.keyHits += delta;
       break;
     case 'keyMiss':
-      benchMetrics.keyMisses++;
+      benchMetrics.keyMisses += delta;
       break;
     case 'domInsert':
-      benchMetrics.domInserts++;
+      benchMetrics.domInserts += delta;
       break;
     case 'domRemove':
-      benchMetrics.domRemoves++;
+      benchMetrics.domRemoves += delta;
       break;
     case 'domMove':
-      benchMetrics.domMoves++;
+      benchMetrics.domMoves += delta;
       break;
     case 'domAttrSet':
-      benchMetrics.domAttrSets++;
+      benchMetrics.domAttrSets += delta;
       break;
     case 'domTextSet':
-      benchMetrics.domTextSets++;
+      benchMetrics.domTextSets += delta;
       break;
   }
 };

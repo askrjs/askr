@@ -23,6 +23,7 @@ import { DefaultPortal } from '../foundations/structures/portal';
 let currentInstance: ComponentInstance | null = null;
 let currentPathname = '/';
 let currentHref = '/';
+let navigationInitialized = false;
 
 export type NavigationScrollBehavior = 'top' | 'preserve';
 export type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';
@@ -441,7 +442,6 @@ export function registerAppInstance(
     window.location.search,
     window.location.hash
   );
-  saveScrollPosition(currentHref);
   // Lock further route registrations after the app has started — but allow tests to register routes.
   // Enforce only in production to avoid breaking test infra which registers routes dynamically.
   if (isProductionEnvironment()) {
@@ -536,16 +536,22 @@ function handlePopState(_event: PopStateEvent): void {
  * Setup popstate listener for browser navigation
  */
 export function initializeNavigation(): void {
-  if (typeof window !== 'undefined') {
-    window.addEventListener('popstate', handlePopState);
+  if (typeof window === 'undefined' || navigationInitialized) {
+    return;
   }
+
+  navigationInitialized = true;
+  window.addEventListener('popstate', handlePopState);
 }
 
 /**
  * Cleanup navigation listeners
  */
 export function cleanupNavigation(): void {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('popstate', handlePopState);
+  if (typeof window === 'undefined' || !navigationInitialized) {
+    return;
   }
+
+  navigationInitialized = false;
+  window.removeEventListener('popstate', handlePopState);
 }
