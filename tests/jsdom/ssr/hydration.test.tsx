@@ -188,6 +188,127 @@ describe('hydration (SSR)', () => {
       expect(container.textContent).toContain('alpha');
       expect(container.textContent).toContain('beta');
     });
+
+    it('should hydrate keyed component rows without replacing server DOM', async () => {
+      type Item = { id: number; label: string };
+      const initialRows: Item[] = [
+        { id: 1, label: 'alpha' },
+        { id: 2, label: 'beta' },
+      ];
+      let rowRenders = 0;
+      let rowClicks = 0;
+
+      const Row = ({
+        item,
+        onSelect,
+      }: {
+        item: Item;
+        onSelect: (id: number) => void;
+      }) => (
+        (rowRenders += 1),
+        (() => {
+          const handleRowClick = () => {
+            rowClicks += 1;
+            onSelect(item.id);
+          };
+
+          return (
+            <tr data-row={item.id}>
+              <td class="label">{item.label}</td>
+              <td>
+                <button id={`select-${item.id}`} onClick={handleRowClick}>
+                  select {item.id}
+                </button>
+              </td>
+            </tr>
+          );
+        })()
+      );
+
+      const Component = () => {
+        const rows = state<Item[]>(initialRows);
+        const selectedId = state<number | null>(null);
+
+        const selectRow = (id: number) => selectedId.set(id);
+        const updateSelected = () => {
+          const current = selectedId();
+          if (current === null) {
+            return;
+          }
+
+          rows.set(
+            rows().map((row) =>
+              row.id === current
+                ? { ...row, label: `${row.label} updated` }
+                : row
+            )
+          );
+        };
+
+        return (
+          <div>
+            <p id="selected">{selectedId() ?? 'none'}</p>
+            <button id="update-selected" onClick={updateSelected}>
+              Update selected
+            </button>
+            <table>
+              <tbody>
+                <For each={rows} by={(row) => row.id}>
+                  {(item) => <Row item={item} onSelect={selectRow} />}
+                </For>
+              </tbody>
+            </table>
+          </div>
+        );
+      };
+
+      const routes = [{ path: '/', handler: Component }];
+      const html = renderToStringSyncForUrl({ url: '/', routes });
+      container.innerHTML = html;
+      rowRenders = 0;
+
+      const firstRowBefore = container.querySelector(
+        'tr[data-row="1"]'
+      ) as HTMLTableRowElement;
+      const secondRowBefore = container.querySelector(
+        'tr[data-row="2"]'
+      ) as HTMLTableRowElement;
+
+      await expect(
+        hydrateSPA({
+          root: container,
+          routes,
+        })
+      ).resolves.not.toThrow();
+      flushScheduler();
+      flushScheduler();
+
+      expect(rowRenders).toBeGreaterThan(0);
+      expect(container.querySelector('tr[data-row="1"]')).toBe(firstRowBefore);
+      expect(container.querySelector('tr[data-row="2"]')).toBe(secondRowBefore);
+
+      const selectButton = container.querySelector(
+        '#select-2'
+      ) as HTMLButtonElement;
+
+      selectButton.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true })
+      );
+      flushScheduler();
+
+      expect(rowClicks).toBe(1);
+      expect(container.querySelector('#selected')?.textContent).toBe('2');
+
+      fireEvent.click(
+        container.querySelector('#update-selected') as HTMLElement
+      );
+      flushScheduler();
+
+      expect(container.querySelector('tr[data-row="2"]')).toBe(secondRowBefore);
+      expect(
+        container.querySelector('tr[data-row="2"] .label')?.textContent
+      ).toBe('beta updated');
+    });
   });
 
   describe('hydration success', () => {

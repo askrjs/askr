@@ -19,6 +19,7 @@ export interface ChildScope {
   vnode: VNode | undefined;
   dom?: Node;
   needsDomUpdate: boolean;
+  hydrationPending: boolean;
   render(renderFn: () => VNode): VNode;
   markDirty(): void;
   dispose(): void;
@@ -118,6 +119,7 @@ export function createChildScope(
   scope.vnode = undefined;
   scope.dom = undefined;
   scope.needsDomUpdate = true;
+  scope.hydrationPending = true;
   scope._startStateIndex = getCurrentStateIndex();
   scope._renderFn = undefined;
   scope._onDirty = onDirty;
@@ -144,6 +146,7 @@ export function createChildScope(
     scope.vnode = undefined;
     scope.dom = undefined;
     scope.needsDomUpdate = false;
+    scope.hydrationPending = false;
     componentInstance.hasPendingUpdate = false;
   };
 
