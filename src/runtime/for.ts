@@ -723,13 +723,14 @@ export function reconcileForItems<T>(
         const item = newArray[i];
         const key = orderedKeys[i];
         const existing = resultItems[i] ?? items.get(key)!;
-        recordBenchEvent('itemReused');
 
         updateItemInstance(forState, existing, item);
 
         resultItems[i] = existing;
         resultVNodes[i] = existing.scope.vnode as VNode;
       }
+
+      recordBenchEvent('itemReused', oldLen);
 
       // Create and append new rows
       for (let i = oldLen; i < newLen; i++) {
@@ -797,7 +798,6 @@ export function reconcileForItems<T>(
             const item = newArray[i];
             const key = i < removedIndex ? orderedKeys[i] : orderedKeys[i + 1];
             const existing = items.get(key)!;
-            recordBenchEvent('itemReused');
 
             const itemChanged = existing.item !== item;
             const needsDomUpdate = existing.scope.needsDomUpdate;
@@ -823,6 +823,8 @@ export function reconcileForItems<T>(
             resultItems[i] = existing;
             resultVNodes[i] = existing.scope.vnode as VNode;
           }
+
+          recordBenchEvent('itemReused', newLen);
 
           const removedKey = orderedKeys[removedIndex];
           const removedItem = items.get(removedKey);
@@ -880,13 +882,14 @@ export function reconcileForItems<T>(
         const item = newArray[i];
         const key = orderedKeys[i];
         const existing = items.get(key)!;
-        recordBenchEvent('itemReused');
 
         updateItemInstance(forState, existing, item);
 
         resultItems[i] = existing;
         resultVNodes[i] = existing.scope.vnode as VNode;
       }
+
+      recordBenchEvent('itemReused', newLen);
 
       // Remove tail rows
       for (let i = newLen; i < oldLen; i++) {
@@ -948,7 +951,6 @@ export function reconcileForItems<T>(
         const item = newArray[i];
         const key = orderedKeys[i];
         const existing = items.get(key)!;
-        recordBenchEvent('itemReused');
 
         const itemChanged = existing.item !== item;
         const needsDomUpdate = existing.scope.needsDomUpdate;
@@ -965,6 +967,8 @@ export function reconcileForItems<T>(
         resultItems[i] = existing;
         resultVNodes[i] = existing.scope.vnode as VNode;
       }
+
+      recordBenchEvent('itemReused', oldLen);
 
       if (BENCH_BUILD_ENABLED) {
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
