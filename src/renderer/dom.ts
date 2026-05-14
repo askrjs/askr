@@ -3724,9 +3724,8 @@ export function commitForBoundaryChildren(
   };
 
   const commitReorder = (): void => {
-    const keys = forState.orderedKeys;
     const items = forState.orderedItems;
-    const count = keys.length;
+    const count = items.length;
 
     if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
       const frag = parent.ownerDocument.createDocumentFragment();
@@ -3751,8 +3750,8 @@ export function commitForBoundaryChildren(
     // atomically with a single replaceChildren instead of N insertBefore calls.
     let hasExistingChild = false;
     for (let i = 0; i < count; i++) {
-      const inst = forState.items.get(keys[i]);
-      if (inst?.scope.dom?.parentNode === parent) {
+      const itemInstance = items[i];
+      if (itemInstance?.scope.dom?.parentNode === parent) {
         hasExistingChild = true;
         break;
       }

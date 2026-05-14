@@ -15,6 +15,7 @@ const FRAMEWORK_WARNING_PATTERNS = [
 ];
 const DIAGNOSTIC_WARNING_PATTERNS = [/\[askr\] Slow render detected/];
 const originalWarn = logger.warn;
+const originalScrollTo = globalThis.window?.scrollTo;
 
 let capturedFrameworkWarnings: string[] = [];
 let allowedFrameworkWarnings: WarningMatcher[] = [];
@@ -67,6 +68,23 @@ beforeEach(() => {
   process.env.NODE_ENV = BASE;
   capturedFrameworkWarnings = [];
   allowedFrameworkWarnings = [];
+
+  if (typeof window !== 'undefined') {
+    try {
+      Object.defineProperty(window, 'scrollTo', {
+        configurable: true,
+        writable: true,
+        value: () => {},
+      });
+    } catch {
+      try {
+        window.scrollTo = () => {};
+      } catch {
+        // Ignore environments where the property cannot be replaced.
+      }
+    }
+  }
+
   logger.warn = (...args: unknown[]) => {
     const message = formatWarningArgs(args);
     if (isFrameworkWarning(message)) {
@@ -86,6 +104,22 @@ beforeEach(() => {
 afterEach(() => {
   process.env.NODE_ENV = BASE;
   logger.warn = originalWarn;
+
+  if (typeof window !== 'undefined' && originalScrollTo) {
+    try {
+      Object.defineProperty(window, 'scrollTo', {
+        configurable: true,
+        writable: true,
+        value: originalScrollTo,
+      });
+    } catch {
+      try {
+        window.scrollTo = originalScrollTo;
+      } catch {
+        // Ignore environments where the property cannot be restored.
+      }
+    }
+  }
 
   const unexpectedWarnings = capturedFrameworkWarnings.filter(
     (message) => !matchesAllowedWarning(message)

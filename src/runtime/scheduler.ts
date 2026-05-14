@@ -245,7 +245,10 @@ export class Scheduler {
       this.executionDepth = 0;
 
       for (const lane of SCHEDULER_LANES) {
-        this.compactLane(this.lanes[lane]);
+        const queue = this.lanes[lane];
+        if (queue.head > 0) {
+          this.compactLane(queue);
+        }
       }
 
       // Advance flush epoch and resolve waiters

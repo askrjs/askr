@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
-import { scheduleEventHandler } from '../../../src/runtime/scheduler';
+import {
+  globalScheduler,
+  scheduleEventHandler,
+} from '../../../src/runtime/scheduler';
 import {
   createTestContainer,
   flushScheduler,
@@ -376,6 +379,40 @@ describe('scheduler (SPEC 2.2)', () => {
       } finally {
         cu();
       }
+    });
+  });
+
+  describe('mixed-lane flush semantics', () => {
+    it('should drain all lanes in priority order and leave the queue empty', () => {
+      const order: string[] = [];
+
+      globalScheduler.clearPendingSyncTasks();
+
+      globalScheduler.enqueueInLane('post', () => {
+        order.push('post');
+      });
+      globalScheduler.enqueueInLane('reactive', () => {
+        order.push('reactive');
+      });
+      globalScheduler.enqueueInLane('component', () => {
+        order.push('component');
+      });
+      globalScheduler.enqueueInLane('derived', () => {
+        order.push('derived');
+      });
+
+      globalScheduler.flush();
+
+      expect(order).toEqual(['derived', 'component', 'reactive', 'post']);
+
+      const state = globalScheduler.getState();
+      expect(state.queueLength).toBe(0);
+      expect(state.laneQueues).toEqual({
+        derived: 0,
+        component: 0,
+        reactive: 0,
+        post: 0,
+      });
     });
   });
 });

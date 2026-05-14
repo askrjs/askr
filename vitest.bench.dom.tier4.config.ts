@@ -15,6 +15,7 @@ export default defineConfig({
     environment: 'jsdom',
     include: domTier4BenchIncludes,
     exclude: domBenchExcludes,
+    setupFiles: ['tests/setup-bench-env.ts'],
   }),
   resolve: benchResolve,
 });

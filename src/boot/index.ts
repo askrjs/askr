@@ -472,10 +472,14 @@ export async function createSPA(config: SPAConfig): Promise<void> {
  * Mark elements that should be skipped during hydration
  */
 function markSkippedElements(root: Element, skipSelectors: string[]): void {
-  for (const selector of skipSelectors) {
-    const elements = root.querySelectorAll(selector);
-    elements.forEach((el) => el.setAttribute('data-skip-hydrate', 'true'));
+  if (skipSelectors.length === 0) {
+    return;
   }
+
+  const uniqueSelectors = Array.from(new Set(skipSelectors));
+  const selectorList = uniqueSelectors.join(', ');
+  const elements = root.querySelectorAll(selectorList);
+  elements.forEach((el) => el.setAttribute('data-skip-hydrate', 'true'));
 }
 
 function collectDeferredBelowFoldBoundaries(
@@ -717,16 +721,15 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     throw new Error(`hydrateSPA: no route found for current path (${path}).`);
   }
 
-  // Build a legacy-compatible routes array for the hydration verify call
-  const legacyRouteTable = hasManifest
-    ? config.manifest!.records.map((r) => ({
-        path: r.path,
-        handler: r.handler,
-        namespace: r.options.namespace,
-      }))
-    : config.routes!;
-
   if (shouldVerifyHydrationMarkup(config)) {
+    const legacyRouteTable = hasManifest
+      ? config.manifest!.records.map((r) => ({
+          path: r.path,
+          handler: r.handler,
+          namespace: r.options.namespace,
+        }))
+      : config.routes!;
+
     const { verifyHydrationSyncForUrl } = await import('../ssr');
     if (
       !verifyHydrationSyncForUrl({
