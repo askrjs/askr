@@ -2,7 +2,14 @@
 
 Import from `@askrjs/askr/resources`.
 
-## `resource(loader, deps)`
+Query and mutation helpers live in `@askrjs/askr/data`.
+
+## Resource helpers
+
+The resources subpath owns `resource()`, `on()`, `timer()`, `task()`, `stream()`,
+`capture()`, and `getSignal()`.
+
+### `resource(loader, deps)`
 
 Runs async work with lifecycle awareness and dependency tracking.
 
@@ -29,11 +36,13 @@ if (user.error) return 'failed';
 return user.value.name;
 ```
 
-## `getSignal()`
+### `getSignal()`
 
 Returns the current `AbortSignal` for cancellable async operations.
 
-This is most useful during component render or when you need access to the component-owned signal outside a `resource()` loader. For resource loaders, prefer the `{ signal }` argument passed into the loader itself.
+This is most useful during component render or when you need access to the
+component-owned signal outside a `resource()` loader. For resource loaders,
+prefer the `{ signal }` argument passed into the loader itself.
 
 Use it with platform APIs:
 
@@ -41,9 +50,7 @@ Use it with platform APIs:
 const res = await fetch('/api/data', { signal: getSignal() });
 ```
 
-## Other resource-oriented operations
-
-The resources entrypoint also owns the specialized operation helpers:
+### Other helpers
 
 - `on`
 - `timer`
@@ -51,9 +58,11 @@ The resources entrypoint also owns the specialized operation helpers:
 - `stream`
 - `capture`
 
-Use this entrypoint when your module is primarily about async work, side effects, or lifecycle-aware operations.
+Use this entrypoint when your module is primarily about async work, side
+effects, or lifecycle-aware operations.
 
 ## Related
 
 - [Resources Guide](../guides/resources.md)
+- [Data API Reference](./data.md)
 - [Troubleshooting](../troubleshooting/common-issues.md)

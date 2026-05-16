@@ -20,6 +20,78 @@ const forbiddenPatterns = [
     pattern: /@askrjs\/askr\/ssr-template/,
   },
   {
+    label: 'deprecated root boot import',
+    pattern: /import\s*{[^}]*createIsland[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root spa import',
+    pattern: /import\s*{[^}]*createSPA[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root hydration import',
+    pattern: /import\s*{[^}]*hydrateSPA[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root cleanup import',
+    pattern: /import\s*{[^}]*cleanupApp[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root has-app import',
+    pattern: /import\s*{[^}]*hasApp[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root boundary import',
+    pattern:
+      /import\s*{[^}]*ErrorBoundary[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root resource import',
+    pattern: /import\s*{[^}]*resource[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root query import',
+    pattern: /import\s*{[^}]*createQuery[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root mutation import',
+    pattern:
+      /import\s*{[^}]*createMutation[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root invalidate import',
+    pattern: /import\s*{[^}]*invalidate[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root route import',
+    pattern: /import\s*{[^}]*route[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root navigate import',
+    pattern: /import\s*{[^}]*navigate[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root link import',
+    pattern: /import\s*{[^}]*Link[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root outlet import',
+    pattern: /import\s*{[^}]*Outlet[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated root current-route import',
+    pattern: /import\s*{[^}]*currentRoute[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'deprecated foundations registry import',
+    pattern:
+      /import\s*{[^}]*createCollection[^}]*}\s*from\s*['"]@askrjs\/askr\/foundations['"]/,
+  },
+  {
+    label: 'deprecated foundations layering import',
+    pattern:
+      /import\s*{[^}]*createLayer[^}]*}\s*from\s*['"]@askrjs\/askr\/foundations['"]/,
+  },
+  {
     label: 'source-relative import',
     pattern: /\.\.\/src\//,
   },
@@ -75,6 +147,21 @@ function probeDistExports(): unknown {
       const dataModuleHref = pathToFileURL(
         path.join(snapshotDir, 'data', 'index.js')
       ).href;
+      const utilitiesModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'foundations', 'utilities', 'index.js')
+      ).href;
+      const interactionsModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'foundations', 'interactions', 'index.js')
+      ).href;
+      const stateModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'foundations', 'state', 'index.js')
+      ).href;
+      const structuresModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'foundations', 'structures', 'index.js')
+      ).href;
+      const iconModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'foundations', 'icon', 'index.js')
+      ).href;
       const fxModuleHref = pathToFileURL(
         path.join(snapshotDir, 'fx', 'index.js')
       ).href;
@@ -111,6 +198,17 @@ function probeDistExports(): unknown {
               controlModuleHref
             )});
             const dataModule = await import(${JSON.stringify(dataModuleHref)});
+            const utilitiesModule = await import(${JSON.stringify(
+              utilitiesModuleHref
+            )});
+            const interactionsModule = await import(${JSON.stringify(
+              interactionsModuleHref
+            )});
+            const stateModule = await import(${JSON.stringify(stateModuleHref)});
+            const structuresModule = await import(${JSON.stringify(
+              structuresModuleHref
+            )});
+            const iconModule = await import(${JSON.stringify(iconModuleHref)});
             const fxModule = await import(${JSON.stringify(fxModuleHref)});
             const ssgModule = await import(${JSON.stringify(ssgModuleHref)});
             const ssrModule = await import(${JSON.stringify(ssrModuleHref)});
@@ -132,6 +230,10 @@ function probeDistExports(): unknown {
                 hasCreateIsland: Object.prototype.hasOwnProperty.call(
                   rootModule,
                   'createIsland'
+                ),
+                hasCreateIslands: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'createIslands'
                 ),
                 hasCreateSPA: Object.prototype.hasOwnProperty.call(
                   rootModule,
@@ -191,9 +293,53 @@ function probeDistExports(): unknown {
                   rootModule,
                   'Match'
                 ),
+                hasLayout: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'layout'
+                ),
+                hasSlot: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'Slot'
+                ),
+                hasPresence: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'Presence'
+                ),
+                hasDefinePortal: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'definePortal'
+                ),
+                hasDefaultPortal: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'DefaultPortal'
+                ),
                 hasPortal: Object.prototype.hasOwnProperty.call(
                   rootModule,
                   'Portal'
+                ),
+                hasCreateCollection: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'createCollection'
+                ),
+                hasCreateLayer: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'createLayer'
+                ),
+                hasComposeHandlers: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'composeHandlers'
+                ),
+                hasPressable: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'pressable'
+                ),
+                hasIsControlled: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'isControlled'
+                ),
+                hasIconBase: Object.prototype.hasOwnProperty.call(
+                  rootModule,
+                  'IconBase'
                 ),
               },
               router: {
@@ -203,12 +349,32 @@ function probeDistExports(): unknown {
                 Link: typeof routerModule.Link,
                 group: typeof routerModule.group,
                 fallback: typeof routerModule.fallback,
-                registerRoute: typeof routerModule.registerRoute,
+                registerRoutes: typeof routerModule.registerRoutes,
+                hasRegisterRoute: Object.prototype.hasOwnProperty.call(
+                  routerModule,
+                  'registerRoute'
+                ),
               },
               resources: {
                 resource: typeof resourcesModule.resource,
                 getSignal: typeof resourcesModule.getSignal,
                 on: typeof resourcesModule.on,
+                timer: typeof resourcesModule.timer,
+                task: typeof resourcesModule.task,
+                stream: typeof resourcesModule.stream,
+                capture: typeof resourcesModule.capture,
+                hasCreateQuery: Object.prototype.hasOwnProperty.call(
+                  resourcesModule,
+                  'createQuery'
+                ),
+                hasCreateMutation: Object.prototype.hasOwnProperty.call(
+                  resourcesModule,
+                  'createMutation'
+                ),
+                hasInvalidate: Object.prototype.hasOwnProperty.call(
+                  resourcesModule,
+                  'invalidate'
+                ),
                 hasDataResultAlias: Object.prototype.hasOwnProperty.call(
                   resourcesModule,
                   'DataResult'
@@ -227,6 +393,57 @@ function probeDistExports(): unknown {
                 createQuery: typeof dataModule.createQuery,
                 createMutation: typeof dataModule.createMutation,
                 invalidate: typeof dataModule.invalidate,
+              },
+              utilities: {
+                composeHandlers: typeof utilitiesModule.composeHandlers,
+                mergeProps: typeof utilitiesModule.mergeProps,
+                ariaDisabled: typeof utilitiesModule.ariaDisabled,
+                ariaExpanded: typeof utilitiesModule.ariaExpanded,
+                ariaSelected: typeof utilitiesModule.ariaSelected,
+                composeRefs: typeof utilitiesModule.composeRefs,
+                setRef: typeof utilitiesModule.setRef,
+                formatId: typeof utilitiesModule.formatId,
+              },
+              interactions: {
+                pressable: typeof interactionsModule.pressable,
+                dismissable: typeof interactionsModule.dismissable,
+                focusable: typeof interactionsModule.focusable,
+                hoverable: typeof interactionsModule.hoverable,
+                rovingFocus: typeof interactionsModule.rovingFocus,
+                applyInteractionPolicy:
+                  typeof interactionsModule.applyInteractionPolicy,
+                mergeInteractionProps:
+                  typeof interactionsModule.mergeInteractionProps,
+              },
+              state: {
+                isControlled: typeof stateModule.isControlled,
+                resolveControllable:
+                  typeof stateModule.resolveControllable,
+                makeControllable: typeof stateModule.makeControllable,
+                controllableState: typeof stateModule.controllableState,
+              },
+              structures: {
+                layout: typeof structuresModule.layout,
+                Slot: typeof structuresModule.Slot,
+                definePortal: typeof structuresModule.definePortal,
+                DefaultPortal: typeof structuresModule.DefaultPortal,
+                Portal: typeof structuresModule.Portal,
+                Presence: typeof structuresModule.Presence,
+                createCollection: typeof structuresModule.createCollection,
+                createLayer: typeof structuresModule.createLayer,
+              },
+              icon: {
+                IconBase: typeof iconModule.IconBase,
+                getIconContractProps: typeof iconModule.getIconContractProps,
+                isIconSizeToken: typeof iconModule.isIconSizeToken,
+                normalizeIconSizeValue:
+                  typeof iconModule.normalizeIconSizeValue,
+                resolveIconSizeVariable:
+                  typeof iconModule.resolveIconSizeVariable,
+                resolveIconStrokeWidthVariable:
+                  typeof iconModule.resolveIconStrokeWidthVariable,
+                serializeIconStyle: typeof iconModule.serializeIconStyle,
+                joinIconStyle: typeof iconModule.joinIconStyle,
               },
               fx: {
                 debounce: typeof fxModule.debounce,
@@ -275,13 +492,11 @@ function probeDistExports(): unknown {
               },
               boot: {
                 createIsland: typeof bootModule.createIsland,
+                createIslands: typeof bootModule.createIslands,
                 createSPA: typeof bootModule.createSPA,
                 hydrateSPA: typeof bootModule.hydrateSPA,
                 cleanupApp: typeof bootModule.cleanupApp,
-                hasHasApp: Object.prototype.hasOwnProperty.call(
-                  bootModule,
-                  'hasApp'
-                ),
+                hasApp: typeof bootModule.hasApp,
                 hasTeardownApp: Object.prototype.hasOwnProperty.call(
                   bootModule,
                   'teardownApp'
@@ -292,7 +507,32 @@ function probeDistExports(): unknown {
                 Slot: typeof foundationsModule.Slot,
                 definePortal: typeof foundationsModule.definePortal,
                 DefaultPortal: typeof foundationsModule.DefaultPortal,
+                Portal: typeof foundationsModule.Portal,
                 Presence: typeof foundationsModule.Presence,
+                hasCreateCollection: Object.prototype.hasOwnProperty.call(
+                  foundationsModule,
+                  'createCollection'
+                ),
+                hasCreateLayer: Object.prototype.hasOwnProperty.call(
+                  foundationsModule,
+                  'createLayer'
+                ),
+                hasComposeHandlers: Object.prototype.hasOwnProperty.call(
+                  foundationsModule,
+                  'composeHandlers'
+                ),
+                hasPressable: Object.prototype.hasOwnProperty.call(
+                  foundationsModule,
+                  'pressable'
+                ),
+                hasIsControlled: Object.prototype.hasOwnProperty.call(
+                  foundationsModule,
+                  'isControlled'
+                ),
+                hasIconBase: Object.prototype.hasOwnProperty.call(
+                  foundationsModule,
+                  'IconBase'
+                ),
               },
             }));
           `,
@@ -356,6 +596,7 @@ describe('public docs and examples', () => {
         jsxs: 'function',
         Fragment: 'symbol',
         hasCreateIsland: false,
+        hasCreateIslands: false,
         hasCreateSPA: false,
         hasHydrateSPA: false,
         hasCleanupApp: false,
@@ -372,7 +613,18 @@ describe('public docs and examples', () => {
         hasShow: false,
         hasCase: false,
         hasMatch: false,
+        hasLayout: false,
+        hasSlot: false,
+        hasPresence: false,
+        hasDefinePortal: false,
+        hasDefaultPortal: false,
         hasPortal: false,
+        hasCreateCollection: false,
+        hasCreateLayer: false,
+        hasComposeHandlers: false,
+        hasPressable: false,
+        hasIsControlled: false,
+        hasIconBase: false,
       },
       router: {
         route: 'function',
@@ -381,12 +633,20 @@ describe('public docs and examples', () => {
         Link: 'function',
         group: 'function',
         fallback: 'function',
-        registerRoute: 'undefined',
+        registerRoutes: 'function',
+        hasRegisterRoute: false,
       },
       resources: {
         resource: 'function',
         getSignal: 'function',
         on: 'function',
+        timer: 'function',
+        task: 'function',
+        stream: 'function',
+        capture: 'function',
+        hasCreateQuery: false,
+        hasCreateMutation: false,
+        hasInvalidate: false,
         hasDataResultAlias: false,
       },
       components: {
@@ -402,6 +662,51 @@ describe('public docs and examples', () => {
         createQuery: 'function',
         createMutation: 'function',
         invalidate: 'function',
+      },
+      utilities: {
+        composeHandlers: 'function',
+        mergeProps: 'function',
+        ariaDisabled: 'function',
+        ariaExpanded: 'function',
+        ariaSelected: 'function',
+        composeRefs: 'function',
+        setRef: 'function',
+        formatId: 'function',
+      },
+      interactions: {
+        pressable: 'function',
+        dismissable: 'function',
+        focusable: 'function',
+        hoverable: 'function',
+        rovingFocus: 'function',
+        applyInteractionPolicy: 'function',
+        mergeInteractionProps: 'function',
+      },
+      state: {
+        isControlled: 'function',
+        resolveControllable: 'function',
+        makeControllable: 'function',
+        controllableState: 'function',
+      },
+      structures: {
+        layout: 'function',
+        Slot: 'function',
+        definePortal: 'function',
+        DefaultPortal: 'function',
+        Portal: 'function',
+        Presence: 'function',
+        createCollection: 'function',
+        createLayer: 'function',
+      },
+      icon: {
+        IconBase: 'function',
+        getIconContractProps: 'function',
+        isIconSizeToken: 'function',
+        normalizeIconSizeValue: 'function',
+        resolveIconSizeVariable: 'function',
+        resolveIconStrokeWidthVariable: 'function',
+        serializeIconStyle: 'function',
+        joinIconStyle: 'function',
       },
       fx: {
         debounce: 'function',
@@ -426,10 +731,11 @@ describe('public docs and examples', () => {
       },
       boot: {
         createIsland: 'function',
+        createIslands: 'function',
         createSPA: 'function',
         hydrateSPA: 'function',
         cleanupApp: 'function',
-        hasHasApp: true,
+        hasApp: 'function',
         hasTeardownApp: false,
       },
       foundations: {
@@ -437,7 +743,14 @@ describe('public docs and examples', () => {
         Slot: 'function',
         definePortal: 'function',
         DefaultPortal: 'function',
+        Portal: 'function',
         Presence: 'function',
+        hasCreateCollection: false,
+        hasCreateLayer: false,
+        hasComposeHandlers: false,
+        hasPressable: false,
+        hasIsControlled: false,
+        hasIconBase: false,
       },
     });
   }, 30000);

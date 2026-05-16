@@ -52,6 +52,26 @@
       "import": "./dist/foundations/index.js",
       "types": "./dist/foundations/index.d.ts"
     },
+    "./foundations/utilities": {
+      "import": "./dist/foundations/utilities/index.js",
+      "types": "./dist/foundations/utilities/index.d.ts"
+    },
+    "./foundations/interactions": {
+      "import": "./dist/foundations/interactions/index.js",
+      "types": "./dist/foundations/interactions/index.d.ts"
+    },
+    "./foundations/state": {
+      "import": "./dist/foundations/state/index.js",
+      "types": "./dist/foundations/state/index.d.ts"
+    },
+    "./foundations/structures": {
+      "import": "./dist/foundations/structures/index.js",
+      "types": "./dist/foundations/structures/index.d.ts"
+    },
+    "./foundations/icon": {
+      "import": "./dist/foundations/icon/index.js",
+      "types": "./dist/foundations/icon/index.d.ts"
+    },
     "./resources": {
       "import": "./dist/resources/index.js",
       "types": "./dist/resources/index.d.ts"

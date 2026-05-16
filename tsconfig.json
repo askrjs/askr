@@ -8,17 +8,10 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "paths": {
-      "@askrjs/askr": ["./src/index.ts"],
-      "@askrjs/askr/boot": ["./src/boot/index.ts"],
-      "@askrjs/askr/for": ["./src/for/index.ts"],
-      "@askrjs/askr/foundations": ["./src/foundations/index.ts"],
-      "@askrjs/askr/resources": ["./src/resources/index.ts"],
-      "@askrjs/askr/fx": ["./src/fx/index.ts"],
-      "@askrjs/askr/router": ["./src/router/index.ts"],
-      "@askrjs/askr/ssr": ["./src/ssr/index.ts"],
-      "@askrjs/askr/ssg": ["./src/ssg/index.ts"],
-      "@askrjs/askr/jsx-runtime": ["./src/jsx-runtime.ts"],
-      "@askrjs/askr/jsx-dev-runtime": ["./src/jsx-dev-runtime.ts"]
+      "@askrjs/askr": ["./dist/index.d.ts"],
+      "@askrjs/askr/jsx-runtime": ["./dist/jsx-runtime.d.ts"],
+      "@askrjs/askr/jsx-dev-runtime": ["./dist/jsx-dev-runtime.d.ts"],
+      "@askrjs/askr/*": ["./dist/*/index.d.ts"]
     }
   },
   "include": ["src/**/*"],

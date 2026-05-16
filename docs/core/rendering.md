@@ -5,7 +5,8 @@ HTML files (SSG). The same component code works in all three modes.
 
 ## DOM rendering (SPA)
 
-The default mode. Components are rendered into the DOM via `createSPA()` or `createIsland()`.
+The default mode. Components are rendered into the DOM via `createSPA({ root, manifest })`
+or `createIsland({ root, component })`.
 
 See [Runtime](./runtime.md) for boot APIs.
 
@@ -36,10 +37,13 @@ to an HTML string.
 
 ```ts
 import { hydrateSPA } from '@askrjs/askr/boot';
-import { getManifest } from '@askrjs/askr/router';
-import './router'; // register routes
+import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
 
-hydrateSPA(document.getElementById('app'), { manifest: getManifest() });
+registerRoutes(() => {
+  route('/', () => <Home />);
+});
+
+await hydrateSPA({ root: 'app', manifest: getManifest() });
 ```
 
 ## Static Site Generation (SSG)

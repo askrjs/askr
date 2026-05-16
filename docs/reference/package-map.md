@@ -14,8 +14,12 @@ Responsibilities:
 - Routing via `@askrjs/askr/router`
 - Reactivity via `state()`, `derive()`, and `selector()`
 - Async resources via `@askrjs/askr/resources`
+- Query and mutation state via `@askrjs/askr/data`
+- UI error boundaries via `@askrjs/askr/components`
 - Timing helpers via `@askrjs/askr/fx`
 - JSX control flow via `@askrjs/askr/control`
+- Structural foundations via `@askrjs/askr/foundations`
+- Lower-level foundations via `@askrjs/askr/foundations/*`
 - SSR via `@askrjs/askr/ssr`
 - SSG via `@askrjs/askr/ssg`
 
@@ -109,10 +113,17 @@ Prefer the package that owns the feature. Use subpaths for feature-focused impor
 ```ts
 import { state } from '@askrjs/askr';
 import { createIsland } from '@askrjs/askr/boot';
+import { ErrorBoundary } from '@askrjs/askr/components';
+import { createQuery } from '@askrjs/askr/data';
 import { route } from '@askrjs/askr/router';
 import { resource } from '@askrjs/askr/resources';
 import { debounce } from '@askrjs/askr/fx';
 import { For, Show } from '@askrjs/askr/control';
+import { layout, Slot } from '@askrjs/askr/foundations';
+import {
+  createCollection,
+  createLayer,
+} from '@askrjs/askr/foundations/structures';
 import { renderToString } from '@askrjs/askr/ssr';
 import { createStaticGen } from '@askrjs/askr/ssg';
 ```
