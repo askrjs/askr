@@ -5,9 +5,17 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  extendBenchOptions,
   mountTableBenchmark,
-  noisyTier3BenchOptions,
+  tier3BenchOptions,
 } from '../shared/_shared';
+
+const tableHeavyBenchOptions = extendBenchOptions(tier3BenchOptions, {
+  time: 2500,
+  iterations: 4,
+  warmupTime: 350,
+  warmupIterations: 1,
+});
 
 const initialRows = buildRows(1000);
 const emptyRows: RowData[] = [];
@@ -45,7 +53,7 @@ describe('tier3 system table clear rows', () => {
       mounted!.benchmark.setRows(emptyRows);
     },
     {
-      ...noisyTier3BenchOptions,
+      ...tableHeavyBenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
       },

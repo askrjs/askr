@@ -1,5 +1,5 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { renderToStringSyncForUrl } from '../../src/ssr';
+import { renderResolvedToStringSync } from '../../src/ssr';
 import {
   buildConcurrentSsrRequests,
   tier2BenchOptions,
@@ -11,9 +11,11 @@ await (async () => {
   const htmlOutputs = await Promise.all(
     requests.map((request) =>
       Promise.resolve().then(() =>
-        renderToStringSyncForUrl({
+        renderResolvedToStringSync({
           url: request.url,
           routes: request.routes,
+          handler: request.routes[0].handler,
+          params: { id: request.url.split('/')[2].split('?')[0] },
           options: request.options,
         })
       )
@@ -32,9 +34,11 @@ describe('tier2 ssr concurrent isolation', () => {
       await Promise.all(
         requests.map((request) =>
           Promise.resolve().then(() =>
-            renderToStringSyncForUrl({
+            renderResolvedToStringSync({
               url: request.url,
               routes: request.routes,
+              handler: request.routes[0].handler,
+              params: { id: request.url.split('/')[2].split('?')[0] },
               options: request.options,
             })
           )

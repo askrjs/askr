@@ -1,5 +1,5 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { createIsland } from '../../src';
+import { createIsland } from '../../src/boot';
 import {
   disableEventDelegation,
   enableEventDelegation,

@@ -1,13 +1,21 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { hydrateSPA } from '../../src/boot';
 import {
+  extendBenchOptions,
   createHydrationFixture,
-  noisyTier2BenchOptions,
+  tier2BenchOptions,
 } from '../shared/_shared';
 import {
   fireEvent,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
+
+const hydrationListenerBenchOptions = extendBenchOptions(tier2BenchOptions, {
+  time: 1800,
+  iterations: 5,
+  warmupTime: 250,
+  warmupIterations: 1,
+});
 
 function createListenerHarness() {
   const state = {
@@ -116,7 +124,7 @@ describe('tier2 subsystem hydration listeners', () => {
       flushScheduler();
     },
     {
-      ...noisyTier2BenchOptions,
+      ...hydrationListenerBenchOptions,
       setup() {
         harness = createListenerHarness();
         fixture = createHydrationFixture({ routes: harness.routes });

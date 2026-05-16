@@ -17,12 +17,13 @@ cross-env NODE_ENV=production vp test bench --run --reporter=default --config vi
 cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts --outputJson bench-results/tier4.json && node scripts/generate-bench-log.js --verify
 ```
 
+npm run bench:tier1 -- --outputJson bench-results/tier1.json && npm run bench:tier2 -- --outputJson bench-results/tier2.json && npm run bench:tier3 -- --outputJson bench-results/tier3.json && npm run bench:tier4 -- --outputJson bench-results/tier4.json
 `bench:verify` enforces stability thresholds for tier 1 through tier 4 output:
 
 - max RME: 15%
 - min sample count: 10
-
-Override thresholds ad hoc:
+  max RME: 15%
+  min sample count: 10
 
 ```bash
 node scripts/generate-bench-log.js --verify --max-rme=12 --min-samples=12

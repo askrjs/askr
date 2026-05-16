@@ -145,14 +145,18 @@ test.describe('guarded browser routing', () => {
 
     await page.getByTestId('private-link').click();
     await page.getByTestId('sign-in-viewer').click();
-    await expect(page.getByRole('heading', { name: 'Private overview' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Private overview' })
+    ).toBeVisible();
 
     await page.getByTestId('sign-out-link').click();
 
     await expect
       .poll(() => window.location.pathname + window.location.search)
       .toBe('/');
-    await expect(page.getByRole('heading', { name: 'Public landing' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Public landing' })
+    ).toBeVisible();
 
     await page.getByTestId('private-link').click();
 

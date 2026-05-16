@@ -1,5 +1,6 @@
 import { bench, describe } from 'vite-plus/test';
-import { Case, Match, Show, createIsland, state } from '../../src';
+import { Case, Match, Show, state } from '../../src';
+import { createIsland } from '../../src/boot';
 import {
   createTestContainer,
   flushScheduler,
