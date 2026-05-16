@@ -4,6 +4,7 @@ import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../dev/logger';
 import { getRuntimeEnv } from './env';
 import { cleanupInstanceIfPresent, removeAllListeners } from './cleanup';
+import { recordBenchCounter, recordBenchEvent } from '../runtime/for-bench';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { isSchedulerExecuting } from '../runtime/scheduler';
 import { isBulkCommitActive, markFastPathApplied } from '../runtime/fastlane';
@@ -149,6 +150,9 @@ export function applyRendererFastPath(
     }
 
     parent.replaceChildren(fragment);
+    recordBenchEvent('domMove', reusedCount);
+    recordBenchEvent('domInsert', createdNodes);
+    recordBenchCounter('replaceChildrenCommits');
 
     // Record that we performed exactly one DOM commit.
     try {
