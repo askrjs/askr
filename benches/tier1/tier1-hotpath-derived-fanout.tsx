@@ -24,7 +24,10 @@ verifyTier1Invariant('tier1 hotpath derived fanout', () => {
     return (
       <div>
         {Array.from({ length: 1_000 }, (_, index) => {
-          const derivedLabel = derive(countState, (value) => `${value}-${index}`);
+          const derivedLabel = derive(
+            countState,
+            (value) => `${value}-${index}`
+          );
 
           return <span data-i={index}>{derivedLabel()}</span>;
         })}
@@ -88,7 +91,10 @@ describe('tier1 hotpath derived fanout', () => {
           return (
             <div>
               {Array.from({ length: 1_000 }, (_, index) => {
-                const derivedLabel = derive(countState!, (value) => `${value}-${index}`);
+                const derivedLabel = derive(
+                  countState!,
+                  (value) => `${value}-${index}`
+                );
 
                 return <span data-i={index}>{derivedLabel()}</span>;
               })}

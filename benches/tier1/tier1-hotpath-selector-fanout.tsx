@@ -16,13 +16,7 @@ import {
 type RowId = number;
 type IsSelected = (candidate: RowId) => boolean;
 
-function Row({
-  id,
-  isSelected,
-}: {
-  id: RowId;
-  isSelected: IsSelected;
-}) {
+function Row({ id, isSelected }: { id: RowId; isSelected: IsSelected }) {
   return (
     <tr data-id={id} class={() => (isSelected(id) ? 'danger' : '')}>
       <td>{id}</td>

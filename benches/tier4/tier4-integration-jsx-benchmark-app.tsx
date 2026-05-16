@@ -245,8 +245,6 @@ describe('tier4 integration jsx benchmark app', () => {
   let updateToggle: BenchToggle<readonly RowData[]> | null = null;
   let swapToggle: BenchToggle<readonly RowData[]> | null = null;
   let removeToggle: BenchToggle<readonly RowData[]> | null = null;
-  let appendToggle: BenchToggle<readonly RowData[]> | null = null;
-  let clearToggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
     'create 1,000 rows in the JSX app',
