@@ -2,10 +2,17 @@ import type { Props } from '../common/props';
 import type { RenderSink } from './sink';
 import type { VNode, SSRComponent } from './types';
 import type { DOMElement } from '../common/vnode';
+import { __CONTROL_BOUNDARY__ } from '../common/control';
 import { Fragment } from '../jsx';
 import { type RenderContext, throwSSRDataMissing } from './context';
 import { VOID_ELEMENTS, escapeText } from './escape';
 import { renderAttrsDirect } from './attrs';
+import {
+  evaluateCaseState,
+  evaluateShowState,
+  type ControlBoundaryState,
+} from '../runtime/control';
+import { evaluateForState } from '../runtime/for';
 
 // Re-export for backwards compatibility
 export type Component = SSRComponent;
@@ -83,6 +90,49 @@ function renderChildrenDirect(
   renderNodeToSink(raw, sink, ctx);
 }
 
+function getControlBoundaryState(
+  node: Record<string, unknown>
+): ControlBoundaryState | null {
+  return (
+    (
+      node as DOMElement & {
+        _controlState?: ControlBoundaryState;
+        _forState?: ControlBoundaryState;
+      }
+    )._controlState ??
+    (
+      node as DOMElement & {
+        _controlState?: ControlBoundaryState;
+        _forState?: ControlBoundaryState;
+      }
+    )._forState ??
+    null
+  );
+}
+
+function renderControlBoundaryChildren(
+  node: VNode,
+  sink: RenderSink,
+  ctx: RenderContext
+): void {
+  const controlState = getControlBoundaryState(node as Record<string, unknown>);
+  if (!controlState) {
+    return;
+  }
+
+  if (controlState.kind === 'for') {
+    renderChildrenDirect(evaluateForState(controlState), sink, ctx);
+    return;
+  }
+
+  if (controlState.kind === 'show') {
+    renderChildrenDirect(evaluateShowState(controlState), sink, ctx);
+    return;
+  }
+
+  renderChildrenDirect(evaluateCaseState(controlState), sink, ctx);
+}
+
 export function renderNodeToSink(
   node: unknown,
   sink: RenderSink,
@@ -124,6 +174,10 @@ export function renderNodeToSink(
   // Symbol type that isn't our Fragment
   if (typeof type === 'symbol') {
     // Unknown symbol - render children as fragment fallback
+    if (type === __CONTROL_BOUNDARY__) {
+      renderControlBoundaryChildren(vnode, sink, ctx);
+      return;
+    }
     renderChildrenDirect(
       vnode as unknown as Record<string, unknown>,
       sink,

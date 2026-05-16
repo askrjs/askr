@@ -26,7 +26,7 @@ playwright install chromium firefox webkit
 - Use `tests/jsdom` for DOM-like behavior: component rendering, event handler
   wiring, simple DOM updates, forms, conditionals, lists, lifecycle, and basic
   hydration smoke coverage.
-- Use `tests/playwright/e2e` when the browser matters: SSR-to-hydration
+- Use `tests/browser/*.test.ts` when the browser matters: SSR-to-hydration
   correctness, navigation, guarded routes, focus, keyboard navigation, overlays,
   layout-sensitive components, browser event loop behavior, and real CSS.
 - Keep Playwright fixture scenarios realistic. Write them as small applications
@@ -34,8 +34,8 @@ playwright install chromium firefox webkit
   components, semantic forms, and async data through `resource()`. Tests should
   drive these pages through roles, labels, URL changes, and network interception
   rather than mutating app state through test-only bridges.
-- Use `tests/playwright/a11y` for axe-backed accessibility scans and semantic
-  interaction checks.
+- Use `tests/browser/browser-perf-smoke.test.ts` for coarse browser performance
+  smoke assertions.
 - Use `benches/*` for performance. Do not hide performance checks inside normal
   tests unless they are coarse smoke assertions.
 
@@ -45,17 +45,16 @@ behavior honestly.
 ## Benchmarks
 
 ```bash
-vp test bench -c vitest.bench.micro.config.ts --run
-vp test bench -c vitest.bench.dom.config.ts --run
-vp test bench -c vitest.bench.ssr.config.ts --run
-playwright test benches/browser --project=browser-perf
-vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts --outputJson bench-results/tier4.json && node scripts/generate-bench-log.js --verify
 ```
 
 Microbenchmarks are Node-only. jsdom benchmarks measure DOM patching and
 component loops without layout dependency. SSR benchmarks measure server output
-and payload work. Browser benchmarks are few, trend-oriented, and run through
-Playwright.
+and payload work.
 
 ## Related
 

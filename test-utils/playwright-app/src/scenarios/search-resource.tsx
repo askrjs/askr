@@ -1,6 +1,6 @@
 /** @jsxImportSource @askrjs/askr */
 
-import { For } from '@askrjs/askr';
+import { For } from '@askrjs/askr/control';
 import { resource } from '@askrjs/askr/resources';
 import { currentRoute, navigate } from '@askrjs/askr/router';
 

@@ -1,4 +1,5 @@
 export const packageAliasEntries = [
+  ['@askrjs/askr/components', 'src/components/index.ts'],
   ['@askrjs/askr/jsx-runtime', 'src/jsx/jsx-runtime.ts'],
   ['@askrjs/askr/jsx-dev-runtime', 'src/jsx/jsx-dev-runtime.ts'],
   ['@askrjs/askr/boot', 'src/boot/index.ts'],
@@ -14,6 +15,7 @@ export const packageAliasEntries = [
 
 export const buildInputEntries = [
   ['index', 'src/index.ts'],
+  ['components/index', 'src/components/index.ts'],
   ['boot/index', 'src/boot/index.ts'],
   ['control/index', 'src/control/index.ts'],
   ['foundations/index', 'src/foundations/index.ts'],

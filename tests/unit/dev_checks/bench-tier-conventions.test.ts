@@ -5,6 +5,9 @@ import fs from 'fs';
 import path from 'path';
 
 const benchesDir = path.join(process.cwd(), 'benches');
+const packageJson = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')
+);
 
 function readBenchFiles(dir: string): string[] {
   const results: string[] = [];
@@ -37,25 +40,9 @@ describe('Bench tier conventions', () => {
       const content = fs.readFileSync(file, 'utf8');
       const category = relativePath.split('/')[1];
 
-      if (!['shared', 'micro', 'jsdom', 'ssr', 'browser'].includes(category)) {
+      if (!['shared', 'tier1', 'tier2', 'tier3', 'tier4'].includes(category)) {
         failures.push(
-          `${relativePath}: Benchmarks must live under benches/micro, benches/jsdom, benches/ssr, benches/browser, or benches/shared`
-        );
-      }
-
-      if (relativePath.startsWith('benches/micro/') && file.endsWith('.tsx')) {
-        failures.push(
-          `${relativePath}: Microbenchmarks must not require JSX, DOM, or jsdom setup`
-        );
-      }
-
-      if (
-        relativePath.startsWith('benches/browser/') &&
-        (!relativePath.endsWith('.spec.ts') ||
-          content.includes('vite-plus/test'))
-      ) {
-        failures.push(
-          `${relativePath}: Browser benchmarks must be Playwright spec files`
+          `${relativePath}: Benchmarks must live under benches/tier1, benches/tier2, benches/tier3, benches/tier4, or benches/shared`
         );
       }
 
@@ -102,5 +89,19 @@ describe('Bench tier conventions', () => {
     }
 
     expect(failures).toEqual([]);
+  });
+
+  it('should keep the aggregate bench script wired to tiered lanes', () => {
+    const scripts = packageJson.scripts ?? {};
+
+    expect(typeof scripts.bench).toBe('string');
+    expect(typeof scripts['bench:tier1']).toBe('string');
+    expect(typeof scripts['bench:tier2']).toBe('string');
+    expect(typeof scripts['bench:tier3']).toBe('string');
+    expect(typeof scripts['bench:tier4']).toBe('string');
+    expect(scripts['bench:tier1']).toContain('vitest.tier1.bench.config.ts');
+    expect(scripts['bench:tier2']).toContain('vitest.tier2.bench.config.ts');
+    expect(scripts['bench:tier3']).toContain('vitest.tier3.bench.config.ts');
+    expect(scripts['bench:tier4']).toContain('vitest.tier4.bench.config.ts');
   });
 });

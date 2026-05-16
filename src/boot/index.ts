@@ -127,17 +127,6 @@ function attachCleanupForRoot(
   }
 }
 
-/**
- * Explicitly teardown an app mounted on `root` if present. This is the
- * recommended API for deterministic cleanup rather than relying on overriding
- * `innerHTML` setter behavior.
- */
-export function teardownApp(_root: Element | string) {
-  throw new Error(
-    'The `teardownApp` alias has been removed. Use `cleanupApp(root)` instead.'
-  );
-}
-
 import { Fragment, ELEMENT_TYPE } from '../jsx';
 
 import { DefaultPortal } from '../foundations/structures/portal';
@@ -730,7 +719,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         }))
       : config.routes!;
 
-    const { verifyHydrationSyncForUrl } = await import('../ssr');
+    const { verifyHydrationSyncForUrl } =
+      await import('../ssr/verify-hydration');
     if (
       !verifyHydrationSyncForUrl({
         root: rootElement,

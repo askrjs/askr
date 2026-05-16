@@ -40,6 +40,10 @@
       "import": "./dist/boot/index.js",
       "types": "./dist/boot/index.d.ts"
     },
+    "./components": {
+      "import": "./dist/components/index.js",
+      "types": "./dist/components/index.d.ts"
+    },
     "./control": {
       "import": "./dist/control/index.js",
       "types": "./dist/control/index.d.ts"
@@ -89,23 +93,20 @@
     "dev": "vp dev",
     "fmt": "vp fmt .",
     "lint": "vp lint src tests test-utils checks benches",
-    "test": "npm run test:unit && npm run test:jsdom && npm run test:browser && npm run test:a11y && npm run test:browser:smoke",
-    "test:a11y": "playwright test tests/playwright/a11y --project=chromium-a11y",
-    "test:browser": "playwright test tests/playwright/e2e --project=chromium",
-    "test:browser:smoke": "playwright install chromium firefox webkit && playwright test tests/playwright/e2e --project=chromium --project=firefox --project=webkit --grep @smoke",
+    "test": "npm run test:unit && npm run test:jsdom && npm run test:browser",
+    "test:browser": "vp test run -c vitest.browser.config.ts tests/browser",
     "test:jsdom": "vp test run -c vitest.jsdom.config.ts",
     "test:types": "vp pack && tsd",
     "test:unit": "vp test run -c vitest.unit.config.ts",
-    "bench": "vp test bench -c vitest.bench.micro.config.ts --run && vp test bench -c vitest.bench.dom.config.ts --run && vp test bench -c vitest.bench.ssr.config.ts --run",
-    "bench:tier1": "vp test bench -c vitest.bench.micro.config.ts benches/micro/tier1/ --run && vp test bench -c vitest.bench.dom.config.ts benches/jsdom/tier1/ --run && vp test bench -c vitest.bench.ssr.config.ts benches/ssr/tier1/ --run",
-    "bench:tier2": "vp test bench -c vitest.bench.dom.config.ts benches/jsdom/tier2/ --run && vp test bench -c vitest.bench.ssr.config.ts benches/ssr/tier2/ --run",
-    "bench:tier3": "vp test bench -c vitest.bench.dom.tier3.config.ts --run",
-    "bench:tier4": "vp test bench -c vitest.bench.dom.tier4.config.ts --run"
+    "bench": "npm run bench:tier1 && npm run bench:tier2 && npm run bench:tier3 && npm run bench:tier4",
+    "bench:tier1": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts",
+    "bench:tier2": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts",
+    "bench:tier3": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts",
+    "bench:tier4": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.11.3",
-    "@playwright/test": "^1.60.0",
-    "@types/node": "^25.7.0",
+    "@types/node": "^25.8.0",
+    "cross-env": "^10.1.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
     "tsd": "^0.33.0",

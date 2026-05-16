@@ -36,7 +36,7 @@ export function registerAppRoutes() {
 
 ```ts
 // main.ts
-import { createSPA } from '@askrjs/askr';
+import { createSPA } from '@askrjs/askr/boot';
 import { getManifest, registerRoutes } from '@askrjs/askr/router';
 import { registerAppRoutes } from './routes';
 

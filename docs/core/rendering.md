@@ -35,7 +35,7 @@ to an HTML string.
 ### Client hydration
 
 ```ts
-import { hydrateSPA } from '@askrjs/askr';
+import { hydrateSPA } from '@askrjs/askr/boot';
 import { getManifest } from '@askrjs/askr/router';
 import './router'; // register routes
 

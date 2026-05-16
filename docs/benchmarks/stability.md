@@ -2,13 +2,10 @@
 
 Askr benchmarks are split into four lanes:
 
-- `micro`: Node-only hot paths such as router matching and scheduler queues.
-- `jsdom`: DOM patching and component render/update loops without layout
-  dependency.
-- `ssr`: render-to-string, streaming SSR, route-level SSR, and hydration payload
-  generation.
-- `browser`: Playwright trend capture for hydration, first interaction,
-  navigation, large-list rendering, and layout-sensitive costs.
+- `tier1`: hot path benchmarks.
+- `tier2`: subsystem benchmarks.
+- `tier3`: system benchmarks.
+- `tier4`: integration benchmarks.
 
 ## Stable Lanes
 
@@ -16,11 +13,11 @@ Run the stable non-browser lanes with:
 
 ```bash
 npm run bench
-vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json
-vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts --outputJson bench-results/tier4.json
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts --outputJson bench-results/tier4.json && node scripts/generate-bench-log.js --verify
 ```
 
-`bench:verify` enforces stability thresholds for micro, jsdom, and SSR output:
+`bench:verify` enforces stability thresholds for tier 1 through tier 4 output:
 
 - max RME: 15%
 - min sample count: 10
@@ -31,25 +28,15 @@ Override thresholds ad hoc:
 node scripts/generate-bench-log.js --verify --max-rme=12 --min-samples=12
 ```
 
-## Browser Trends
-
-Browser benchmarks are intentionally explicit:
-
-```bash
-playwright test benches/browser --project=browser-perf
-```
-
-They write trend data to `bench-results/browser.json`. Treat this as regression
-signal, not precise lab timing.
-
 ## Repeatability Check
 
 Before trusting optimization deltas, run three consecutive captures:
 
 ```bash
-vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json
-vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json
-vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts --outputJson bench-results/tier1.json
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts --outputJson bench-results/tier2.json
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts --outputJson bench-results/tier3.json
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts --outputJson bench-results/tier4.json
 ```
 
 If hotspot medians drift by more than 5%, retry under cleaner machine

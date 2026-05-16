@@ -1,6 +1,8 @@
 /** @jsxImportSource @askrjs/askr */
 
-import { ErrorBoundary, For, state } from '@askrjs/askr';
+import { state } from '@askrjs/askr';
+import { ErrorBoundary } from '@askrjs/askr/components';
+import { For } from '@askrjs/askr/control';
 import {
   cleanupApp,
   createIsland,
@@ -18,6 +20,7 @@ import {
   registerRoutes,
   route,
 } from '@askrjs/askr/router';
+import { renderToString } from '@askrjs/askr/ssr';
 import { selector } from '../../../src/runtime/selector';
 import { globalScheduler } from '../../../src/runtime/scheduler';
 import { getBenchMetrics, resetBenchMetrics } from '../../../src/runtime/for';
@@ -332,8 +335,7 @@ async function mountHydratedBenchmarkTableScenario(
     window.history.replaceState({}, '', '/benchmark-hydrate');
   }
 
-  const { renderToStringSyncForUrl } = await import('@askrjs/askr/ssr');
-  root.innerHTML = renderToStringSyncForUrl({
+  root.innerHTML = renderToString({
     url: `${window.location.pathname}${window.location.search}`,
     routes,
   });
@@ -350,6 +352,10 @@ function setHydratedRows(rows: RowData[]): void {
 function setHydratedSelected(id: number | null): void {
   hydrationSelectedState?.set(id);
   globalScheduler.flush();
+}
+
+function setRows(rows: RowData[]): void {
+  benchmarkApp?.setRows(rows);
 }
 
 async function captureBrowserBench(
@@ -824,7 +830,6 @@ function mountErrorBoundaryScenario(): void {
                 data-testid="retry"
                 onClick={() => {
                   setErrorBoundaryRecovery?.(true);
-                  reset();
                 }}
               >
                 Retry
@@ -1243,31 +1248,39 @@ function profileBenchmarkOperations() {
 const currentUrl = new URL(window.location.href);
 const scenario = currentUrl.searchParams.get('scenario');
 const pathname = currentUrl.pathname;
+const autoStartEnabled =
+  (
+    globalThis as typeof globalThis & {
+      __ASKR_BROWSER_AUTOSTART__?: boolean;
+    }
+  ).__ASKR_BROWSER_AUTOSTART__ !== false;
 
-if (scenario === 'interaction') {
-  mountInteractionScenario();
-} else if (scenario === 'guarded') {
-  void mountGuardedRouterScenario();
-} else if (scenario === 'error-boundary') {
-  mountErrorBoundaryScenario();
-} else if (scenario === 'forms') {
-  mountAccountSettingsScenario();
-} else if (scenario === 'order-table') {
-  mountOrdersScenario();
-} else if (scenario === 'search-resource') {
-  void mountCustomerSearchScenario();
-} else if (scenario === 'hydration-benchmark') {
-  resetRoot();
-} else if (scenario === 'hydration-form' || pathname === '/signup') {
-  void mountSignupHydrationScenario();
-} else if (scenario === 'routed-shell') {
-  void mountRoutedShellScenario();
-} else if (scenario === 'navlink-for') {
-  void mountNavLinkForScenario();
-} else if (shouldMountRoutedShellFromPath(pathname)) {
-  void mountRoutedShellScenario();
-} else {
-  mountBenchmarkScenario();
+if (autoStartEnabled) {
+  if (scenario === 'interaction') {
+    mountInteractionScenario();
+  } else if (scenario === 'guarded') {
+    void mountGuardedRouterScenario();
+  } else if (scenario === 'error-boundary') {
+    mountErrorBoundaryScenario();
+  } else if (scenario === 'forms') {
+    mountAccountSettingsScenario();
+  } else if (scenario === 'order-table') {
+    mountOrdersScenario();
+  } else if (scenario === 'search-resource') {
+    void mountCustomerSearchScenario();
+  } else if (scenario === 'hydration-benchmark') {
+    resetRoot();
+  } else if (scenario === 'hydration-form' || pathname === '/signup') {
+    void mountSignupHydrationScenario();
+  } else if (scenario === 'routed-shell') {
+    void mountRoutedShellScenario();
+  } else if (scenario === 'navlink-for') {
+    void mountNavLinkForScenario();
+  } else if (shouldMountRoutedShellFromPath(pathname)) {
+    void mountRoutedShellScenario();
+  } else {
+    mountBenchmarkScenario();
+  }
 }
 
 Object.assign(window, {
@@ -1287,11 +1300,34 @@ Object.assign(window, {
     runBrowserBenchSuite,
     setHydratedRows,
     setHydratedSelected,
-    setRows(rows: RowData[]) {
-      benchmarkApp?.setRows(rows);
-    },
+    setRows,
     async runBrowserPerf() {
       return runBrowserPerf();
     },
   },
 });
+
+export {
+  getBenchmarkMetadata,
+  getBenchMetrics,
+  getPerfMetrics,
+  getBrowserDevCounters,
+  mountBenchmarkScenario,
+  mountAccountSettingsScenario,
+  mountCustomerSearchScenario,
+  mountErrorBoundaryScenario,
+  mountGuardedRouterScenario,
+  mountHydratedBenchmarkTableScenario,
+  mountInteractionScenario,
+  mountNavLinkForScenario,
+  mountOrdersScenario,
+  mountRoutedShellScenario,
+  mountSignupHydrationScenario,
+  profileBenchmarkOperations,
+  runBrowserBench,
+  runBrowserBenchSuite,
+  runBrowserPerf,
+  setHydratedRows,
+  setHydratedSelected,
+  setRows,
+};

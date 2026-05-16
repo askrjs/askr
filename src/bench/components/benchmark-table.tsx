@@ -1,4 +1,5 @@
-import { For, type State } from '../../index';
+import { For } from '../../control';
+import type { State } from '../../runtime/state';
 import { BenchmarkRow, type BenchmarkRowData } from './benchmark-row';
 
 interface BenchmarkTableProps {

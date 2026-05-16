@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
-import { createIsland, derive, state } from '../../../src/index';
+import { derive, state } from '../../../src/index';
+import { createIsland } from '@askrjs/askr/boot';
 import { For } from '../../../src/control';
 import { cleanupComponent } from '../../../src/runtime/component';
 import { renderToStringSync } from '../../../src/ssr';

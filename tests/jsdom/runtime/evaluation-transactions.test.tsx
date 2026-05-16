@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createIsland } from '../../../src/index';
+import { createIsland } from '@askrjs/askr/boot';
 import { resource } from '../../../src/resources';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
 import type { JSXElement } from '../../../src/jsx/types';

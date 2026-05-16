@@ -17,7 +17,7 @@ Askr supports three rendering modes. You choose the mode when you boot the appli
 Use islands to add interactivity to a specific part of a page.
 
 ```ts
-import { createIsland } from '@askrjs/askr';
+import { createIsland } from '@askrjs/askr/boot';
 import Counter from './counter';
 
 createIsland(Counter, document.getElementById('counter-root'), {
@@ -33,7 +33,7 @@ is removed from the DOM.
 Use `createSPA()` for a full client-rendered application with the Askr router.
 
 ```ts
-import { createSPA } from '@askrjs/askr';
+import { createSPA } from '@askrjs/askr/boot';
 import './router'; // registers routes via registerRoutes(), group(), and route()
 
 createSPA(document.getElementById('app'));
@@ -51,14 +51,14 @@ import { renderToString } from '@askrjs/askr/ssr';
 const html = renderToString({ url: req.url });
 
 // client
-import { hydrateSPA } from '@askrjs/askr';
+import { hydrateSPA } from '@askrjs/askr/boot';
 hydrateSPA(document.getElementById('app'));
 ```
 
 ## Cleanup
 
 ```ts
-import { cleanupApp, hasApp } from '@askrjs/askr';
+import { cleanupApp, hasApp } from '@askrjs/askr/boot';
 
 if (hasApp()) {
   cleanupApp();

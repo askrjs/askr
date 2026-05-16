@@ -1,6 +1,7 @@
 // tests/state/state_mutation_guards.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createIsland, state } from '../../../src/index';
+import { state } from '../../../src/index';
+import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
   flushScheduler,

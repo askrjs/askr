@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createSPA } from '../../../src/index';
+import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
 import { getRoutes, route } from '../../../src/router/route';
 import { getSignal } from '../../../src/runtime/component';

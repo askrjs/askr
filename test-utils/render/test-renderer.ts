@@ -10,7 +10,7 @@
 
 import { globalScheduler } from '../../src/runtime/scheduler';
 import { renderToStringSync } from '../../src/ssr';
-import type { Component as SSRComponent } from '../../src/ssr';
+import type { SSRComponent } from '../../src/ssr';
 
 /**
  * TEST OBSERVATION LAYER
@@ -125,11 +125,13 @@ export function trackDOMMutations(
   removedNodes: number;
   changedAttributes: number;
   changedText: number;
+  snapshotChanged: boolean;
 } {
   let addedNodes = 0;
   let removedNodes = 0;
   let changedAttributes = 0;
   let changedText = 0;
+  const beforeSnapshot = node.outerHTML;
 
   const processRecords = (mutations: MutationRecord[]) => {
     mutations.forEach((mutation) => {
@@ -173,6 +175,7 @@ export function trackDOMMutations(
     removedNodes,
     changedAttributes,
     changedText,
+    snapshotChanged: beforeSnapshot !== node.outerHTML,
   };
 }
 

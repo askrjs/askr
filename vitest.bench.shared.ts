@@ -1,21 +1,19 @@
 import {
   createNodeEnvDefine,
   createPackageAliases,
-  domBenchExcludes,
-  domBenchIncludes,
-  domTier3BenchIncludes,
-  domTier4BenchIncludes,
-  microBenchIncludes,
-  ssrBenchIncludes,
+  benchExcludes,
+  tier1BenchIncludes,
+  tier2BenchIncludes,
+  tier3BenchIncludes,
+  tier4BenchIncludes,
 } from './tooling/askr-tooling';
 
 export {
-  domBenchExcludes,
-  domBenchIncludes,
-  domTier3BenchIncludes,
-  domTier4BenchIncludes,
-  microBenchIncludes,
-  ssrBenchIncludes,
+  benchExcludes,
+  tier1BenchIncludes,
+  tier2BenchIncludes,
+  tier3BenchIncludes,
+  tier4BenchIncludes,
 };
 
 export const benchDefine = createNodeEnvDefine('production', { bench: true });
@@ -32,17 +30,20 @@ export const benchResolve = {
 };
 
 export function createBenchTestConfig(options: {
+  name: string;
   environment: 'jsdom' | 'node';
+  tier: 'tier1' | 'tier2' | 'tier3' | 'tier4';
   include: readonly string[];
   exclude?: readonly string[];
   setupFiles?: readonly string[];
 }) {
   return {
+    name: options.name,
     environment: options.environment,
     globals: true,
     include: [...options.include],
-    ...(options.setupFiles ? { setupFiles: [...options.setupFiles] } : {}),
     ...(options.exclude ? { exclude: [...options.exclude] } : {}),
+    ...(options.setupFiles ? { setupFiles: [...options.setupFiles] } : {}),
     fileParallelism: false,
     maxWorkers: 1,
     pool: 'forks' as const,

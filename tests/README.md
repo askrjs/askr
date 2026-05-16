@@ -10,13 +10,10 @@ layer that can prove the behavior.
   Playwright.
 - `tests/jsdom`: DOM-like component behavior that does not need layout, paint,
   real focus, browser timing, or CSS engine behavior.
-- `tests/playwright/e2e`: user-centric real-browser behavior such as routing,
+- `tests/browser`: user-centric real-browser behavior such as routing,
   hydration, focus, keyboard flow, overlays, browser event loop behavior, and
-  CSS-sensitive UI.
-- `tests/playwright/a11y`: axe-backed accessibility scans plus semantic locator
-  and keyboard assertions.
-- `tests/playwright/perf`: coarse browser performance smoke checks. Detailed
-  browser benchmark trend capture lives in `benches/browser`.
+  CSS-sensitive UI. Browser performance smoke checks live here as
+  `browser-perf-smoke.test.ts`.
 
 Shared test harness code lives outside the suite layers:
 
@@ -32,12 +29,9 @@ npm test
 npm run test:unit
 npm run test:jsdom
 npm run test:browser
-npm run test:a11y
-npm run test:browser:smoke
 ```
 
-`npm test` runs the full local test matrix: unit, jsdom, Chromium browser,
-a11y, and the cross-browser smoke lane.
+`npm test` runs the full local test matrix: unit, jsdom, and the browser suite.
 
 ## Layer Rules
 
@@ -63,24 +57,16 @@ being covered.
 
 Benchmarks live outside `tests`:
 
-- `benches/micro`: Node-only hot paths.
-- `benches/jsdom`: DOM patching and component render/update loops without
-  layout dependency.
-- `benches/ssr`: render-to-string, streaming SSR, route-level SSR, and payload
-  generation.
-- `benches/browser`: a small Playwright trend suite for browser-only costs.
+- `benches/tier1`: hot path benchmarks.
+- `benches/tier2`: subsystem benchmarks.
+- `benches/tier3`: system benchmarks.
+- `benches/tier4`: integration benchmarks.
 
 Run stable non-browser lanes with:
 
 ```bash
 npm run bench
-vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
-```
-
-Browser benchmarks are explicit:
-
-```bash
-playwright test benches/browser --project=browser-perf
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts --outputJson bench-results/tier4.json && node scripts/generate-bench-log.js --verify
 ```
 
 ## Enforcement

@@ -1,6 +1,7 @@
 // tests/stress/mount_unmount_cycles.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createIsland, state } from '../../../src/index';
+import { state } from '../../../src/index';
+import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
   flushScheduler,

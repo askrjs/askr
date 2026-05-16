@@ -4,9 +4,10 @@ import process from 'node:process';
 
 const rootDir = process.cwd();
 const resultsDir = path.join(rootDir, 'bench-results');
-const microPath = path.join(resultsDir, 'micro.json');
-const jsdomPath = path.join(resultsDir, 'jsdom.json');
-const ssrPath = path.join(resultsDir, 'ssr.json');
+const tier1Path = path.join(resultsDir, 'tier1.json');
+const tier2Path = path.join(resultsDir, 'tier2.json');
+const tier3Path = path.join(resultsDir, 'tier3.json');
+const tier4Path = path.join(resultsDir, 'tier4.json');
 const browserPath = path.join(resultsDir, 'browser.json');
 const logPath = path.join(rootDir, 'bench-results.log');
 
@@ -239,25 +240,28 @@ function renderSection(title, benchmarks) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const [microReport, jsdomReport, ssrReport, browserReport] =
+  const [tier1Report, tier2Report, tier3Report, tier4Report, browserReport] =
     await Promise.all([
-      fs.readFile(microPath, 'utf8').then(JSON.parse),
-      fs.readFile(jsdomPath, 'utf8').then(JSON.parse),
-      fs.readFile(ssrPath, 'utf8').then(JSON.parse),
+      fs.readFile(tier1Path, 'utf8').then(JSON.parse),
+      fs.readFile(tier2Path, 'utf8').then(JSON.parse),
+      fs.readFile(tier3Path, 'utf8').then(JSON.parse),
+      fs.readFile(tier4Path, 'utf8').then(JSON.parse),
       fs
         .readFile(browserPath, 'utf8')
         .then(JSON.parse)
         .catch(() => null),
     ]);
 
-  const microBenchmarks = collectBenchmarks(microReport, 'Micro');
-  const jsdomBenchmarks = collectBenchmarks(jsdomReport, 'jsdom');
-  const ssrBenchmarks = collectBenchmarks(ssrReport, 'SSR');
+  const tier1Benchmarks = collectBenchmarks(tier1Report, 'Tier 1');
+  const tier2Benchmarks = collectBenchmarks(tier2Report, 'Tier 2');
+  const tier3Benchmarks = collectBenchmarks(tier3Report, 'Tier 3');
+  const tier4Benchmarks = collectBenchmarks(tier4Report, 'Tier 4');
   const browserTimings = browserReport?.timings ?? null;
   const allBenchmarks = [
-    ...microBenchmarks,
-    ...jsdomBenchmarks,
-    ...ssrBenchmarks,
+    ...tier1Benchmarks,
+    ...tier2Benchmarks,
+    ...tier3Benchmarks,
+    ...tier4Benchmarks,
   ];
   const slowest = allBenchmarks
     .filter((benchmark) => isFiniteNumber(benchmark.hz))
@@ -268,11 +272,12 @@ async function main() {
   const lines = [
     '# Bench Results',
     '',
-    'Generated from `bench-results/micro.json`, `bench-results/jsdom.json`, and `bench-results/ssr.json`.',
+    'Generated from `bench-results/tier1.json`, `bench-results/tier2.json`, `bench-results/tier3.json`, and `bench-results/tier4.json`.',
     '',
-    ...renderSection('Micro', microBenchmarks),
-    ...renderSection('jsdom', jsdomBenchmarks),
-    ...renderSection('SSR', ssrBenchmarks),
+    ...renderSection('Tier 1', tier1Benchmarks),
+    ...renderSection('Tier 2', tier2Benchmarks),
+    ...renderSection('Tier 3', tier3Benchmarks),
+    ...renderSection('Tier 4', tier4Benchmarks),
     '## Browser Trends',
     '',
     ...(browserTimings

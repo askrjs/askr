@@ -6,7 +6,7 @@ import {
   afterEach,
   vi,
 } from 'vite-plus/test';
-import { createSPA } from '../../../src/index';
+import { createSPA } from '@askrjs/askr/boot';
 import {
   createTestContainer,
   flushScheduler,

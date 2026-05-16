@@ -2,6 +2,7 @@
 
 import { state } from '@askrjs/askr';
 import { hydrateSPA } from '@askrjs/askr/boot';
+import { renderToString } from '@askrjs/askr/ssr';
 
 type SignupResponse = {
   email: string;
@@ -17,13 +18,11 @@ export function SignupForm() {
   const [pending, setPending] = state(false);
   const [message, setMessage] = state('');
   const [error, setError] = state('');
-  const submitGuard = state({ active: false });
 
   const submitSignup = (event: Event) => {
     event.preventDefault();
 
-    const guard = submitGuard();
-    if (guard.active || pending()) {
+    if (pending()) {
       return;
     }
 
@@ -33,7 +32,6 @@ export function SignupForm() {
       return;
     }
 
-    guard.active = true;
     setPending(true);
     setError('');
     setMessage('');
@@ -61,7 +59,6 @@ export function SignupForm() {
       } catch {
         setError('Signup failed. Try again.');
       } finally {
-        guard.active = false;
         setPending(false);
       }
     })();
@@ -118,8 +115,7 @@ export async function mountHydrationFormScenario(
     window.history.replaceState({}, '', '/signup');
   }
 
-  const { renderToStringSyncForUrl } = await import('@askrjs/askr/ssr');
-  root.innerHTML = renderToStringSyncForUrl({
+  root.innerHTML = renderToString({
     url: `${window.location.pathname}${window.location.search}`,
     routes,
   });

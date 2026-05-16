@@ -15,7 +15,7 @@ Hydration makes server-rendered HTML interactive by attaching event listeners an
 ### Configuration
 
 ```typescript
-import { hydrateSPA } from '@askrjs/askr';
+import { hydrateSPA } from '@askrjs/askr/boot';
 
 await hydrateSPA({
   root: document.getElementById('app'),

@@ -1,6 +1,7 @@
 import { expect } from 'vite-plus/test';
 import { test } from 'vite-plus/test';
-import { createIsland, state } from '../../../src';
+import { state } from '../../../src';
+import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
   flushScheduler,

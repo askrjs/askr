@@ -189,7 +189,7 @@ Browser downloads and displays the HTML. The page is visible but **not interacti
 ### 4. Hydration Runs
 
 ```typescript
-import { hydrateSPA } from '@askrjs/askr';
+import { hydrateSPA } from '@askrjs/askr/boot';
 
 await hydrateSPA({
   root: document.getElementById('app'),

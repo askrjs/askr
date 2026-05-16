@@ -6,11 +6,7 @@
  */
 
 import { describe, it, expect } from 'vite-plus/test';
-import {
-  renderToString,
-  renderToStringSync,
-  renderToStringSyncForUrl,
-} from '../../../src/ssr';
+import { renderToString, renderToStringSync } from '../../../src/ssr';
 import { createQuery } from '../../../src/data';
 import { getNextKey, getCurrentRenderData } from '../../../src/ssr/render-keys';
 import { getRenderContext } from '../../../src/ssr/context';
@@ -242,7 +238,7 @@ describe('SSR concurrency isolation', () => {
   it('should isolate route tables between concurrent URL renders', async () => {
     const [htmlA, htmlB] = await Promise.all([
       Promise.resolve().then(() =>
-        renderToStringSyncForUrl({
+        renderToString({
           url: '/account/7',
           routes: [
             {
@@ -260,7 +256,7 @@ describe('SSR concurrency isolation', () => {
         })
       ),
       Promise.resolve().then(() =>
-        renderToStringSyncForUrl({
+        renderToString({
           url: '/settings/profile',
           routes: [
             {

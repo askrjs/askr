@@ -7,10 +7,15 @@
     "rootDir": null,
     "paths": {
       "@askrjs/askr": ["../src/index.ts"],
+      "@askrjs/askr/boot": ["../src/boot/index.ts"],
+      "@askrjs/askr/components": ["../src/components/index.ts"],
+      "@askrjs/askr/control": ["../src/control/index.ts"],
+      "@askrjs/askr/data": ["../src/data/index.ts"],
       "@askrjs/askr/foundations": ["../src/foundations/index.ts"],
       "@askrjs/askr/resources": ["../src/resources/index.ts"],
       "@askrjs/askr/fx": ["../src/fx/index.ts"],
       "@askrjs/askr/router": ["../src/router/index.ts"],
+      "@askrjs/askr/ssg": ["../src/ssg/index.ts"],
       "@askrjs/askr/ssr": ["../src/ssr/index.ts"],
       "@askrjs/askr/jsx-runtime": ["../src/jsx-runtime.ts"],
       "@askrjs/askr/jsx-dev-runtime": ["../src/jsx-dev-runtime.ts"]

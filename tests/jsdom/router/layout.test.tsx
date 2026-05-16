@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createSPA, state } from '../../../src/index';
+import { state } from '../../../src/index';
+import { createSPA } from '@askrjs/askr/boot';
 import {
   createTestContainer,
   flushScheduler,

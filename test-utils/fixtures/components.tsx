@@ -3,7 +3,7 @@
  * Import these to avoid repeating component definitions
  */
 
-import { state } from '../../src/index';
+import { state } from '../../src/boot';
 
 /**
  * Simplest possible component - just renders static content
