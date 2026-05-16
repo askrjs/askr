@@ -207,47 +207,6 @@ const removedRows = removeRowById(rows1000, 500);
     assertToggleMutationGuard(
       app.container,
       () => {
-        {
-          const app = mountJsxBenchmarkApp(rows1000);
-          try {
-            const selectedSwapToggle = createRowToggle(
-              rows1000,
-              swappedRows,
-              'initial'
-            );
-            app.clickRow(1);
-            assertSelectionTransition(app.container, 1);
-
-            assertToggleMutationGuard(
-              app.container,
-              () => {
-                app.setRows(selectedSwapToggle.next() as RowData[]);
-              },
-              () => {
-                app.setRows(selectedSwapToggle.next() as RowData[]);
-              },
-              {
-                label: 'tier4 jsx keyed movement with selection',
-                afterForward: () => {
-                  assertOrderTransition(
-                    app.container,
-                    swappedRows.map((row) => row.id)
-                  );
-                  assertSelectionTransition(app.container, 998);
-                },
-                afterBackward: () => {
-                  assertOrderTransition(
-                    app.container,
-                    rows1000.map((row) => row.id)
-                  );
-                  assertSelectionTransition(app.container, 1);
-                },
-              }
-            );
-          } finally {
-            app.cleanup();
-          }
-        }
         app.setRows(appendToggle.next() as RowData[]);
       },
       () => {
@@ -257,6 +216,30 @@ const removedRows = removeRowById(rows1000, 500);
         label: 'tier4 jsx append',
         afterForward: () => assertRowCountTransition(app.container, 2000),
         afterBackward: () => assertRowCountTransition(app.container, 1000),
+      }
+    );
+
+    const selectedRemoveToggle = createRowToggle(
+      rows1000,
+      removedRows,
+      'initial'
+    );
+    assertToggleMutationGuard(
+      app.container,
+      () => {
+        app.setRows(selectedRemoveToggle.next() as RowData[]);
+      },
+      () => {
+        app.setRows(selectedRemoveToggle.next() as RowData[]);
+      },
+      {
+        label: 'tier4 jsx remove selected row',
+        afterForward: () => {
+          assertRowCountTransition(app.container, 999);
+        },
+        afterBackward: () => {
+          assertRowCountTransition(app.container, 1000);
+        },
       }
     );
 
@@ -287,6 +270,7 @@ describe('tier4 integration jsx benchmark app', () => {
   let swapToggle: BenchToggle<readonly RowData[]> | null = null;
   let selectedSwapToggle: BenchToggle<readonly RowData[]> | null = null;
   let removeToggle: BenchToggle<readonly RowData[]> | null = null;
+  let selectedRemoveToggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
     'create 1,000 rows in the JSX app',
@@ -401,6 +385,35 @@ describe('tier4 integration jsx benchmark app', () => {
         app?.cleanup();
         app = null;
         removeToggle = null;
+      },
+    }
+  );
+
+  bench(
+    'remove a selected row in the JSX app',
+    () => {
+      app!.setRows(selectedRemoveToggle!.next() as RowData[]);
+    },
+    {
+      ...tier4BenchOptions,
+      setup() {
+        app = mountJsxBenchmarkApp(rows1000);
+        selectedRemoveToggle = createRowToggle(
+          rows1000,
+          removedRows,
+          'initial'
+        );
+        app.clickRow(499);
+      },
+      beforeEach() {
+        app!.setRows(rows1000);
+        app!.clickRow(499);
+        selectedRemoveToggle!.reset('initial');
+      },
+      teardown() {
+        app?.cleanup();
+        app = null;
+        selectedRemoveToggle = null;
       },
     }
   );
