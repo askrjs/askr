@@ -68,12 +68,12 @@ await (async () => {
   }
 })();
 
-describe('tier4 browser app behaviors', () => {
+describe('tier4 integration app behaviors', () => {
   let app: BrowserHarness | null = null;
   let rowToggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
-    'render and update 1,000 rows in the browser app',
+    'render and update 1,000 rows in the integration app',
     () => {
       app!.setRows(rowToggle!.next() as RowData[]);
     },
@@ -93,7 +93,7 @@ describe('tier4 browser app behaviors', () => {
   );
 
   bench(
-    'toggle order-table sorting in the browser app',
+    'toggle order-table sorting in the integration app',
     () => {
       const sortButton = document.querySelector<HTMLButtonElement>(
         'button[aria-label="Sort by total"]'

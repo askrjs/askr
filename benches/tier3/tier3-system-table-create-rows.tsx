@@ -1,5 +1,5 @@
 import { bench, describe } from 'vite-plus/test';
-import type { BenchToggle, RowData } from '../shared/_shared';
+import type { RowData } from '../shared/_shared';
 import {
   assertRowCountTransition,
   assertToggleMutationGuard,
@@ -46,23 +46,23 @@ const emptyRows: RowData[] = [];
 
 describe('tier3 system table create rows', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
-  let toggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
     'create 1,000 table rows',
     () => {
-      mounted!.benchmark.setRows(toggle!.next() as RowData[]);
+      mounted!.benchmark.setRows(rows);
     },
     {
       ...tableHeavyBenchOptions,
       setup() {
         mounted = mountTableBenchmark();
-        toggle = createRowToggle(emptyRows, rows, 'initial');
+      },
+      beforeEach() {
+        mounted!.benchmark.setRows(emptyRows);
       },
       teardown() {
         mounted?.cleanup();
         mounted = null;
-        toggle = null;
       },
     }
   );

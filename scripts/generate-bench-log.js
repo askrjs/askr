@@ -58,6 +58,18 @@ function isFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function readNumericValue(record, keys) {
+  for (const key of keys) {
+    const value = record?.[key];
+
+    if (isFiniteNumber(value)) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
 function getNumericBenchmarks(benchmarks) {
   return benchmarks.filter(
     (benchmark) =>
@@ -70,6 +82,10 @@ function getNumericBenchmarks(benchmarks) {
 
 function createStabilityReport(benchmarks, thresholds) {
   const numeric = getNumericBenchmarks(benchmarks);
+  const tailHotspots = [...numeric]
+    .filter((benchmark) => isFiniteNumber(benchmark.tailRatio))
+    .sort((left, right) => right.tailRatio - left.tailRatio)
+    .slice(0, HOTSPOT_LIMIT);
   const highRme = numeric
     .filter((benchmark) => benchmark.rme > thresholds.maxRme)
     .sort((left, right) => right.rme - left.rme);
@@ -88,6 +104,7 @@ function createStabilityReport(benchmarks, thresholds) {
 
   return {
     numeric,
+    tailHotspots,
     highRme,
     lowSamples,
     mostVariable,
@@ -123,6 +140,25 @@ function renderStabilitySection(report, thresholds) {
         `- [${benchmark.lane}] ${benchmark.name}: rme +/-${formatNumber(
           benchmark.rme
         )}%, samples ${formatNumber(benchmark.sampleCount, 0)}, mean ${formatNumber(
+          benchmark.meanMs,
+          4
+        )} ms`
+      );
+    }
+  }
+  lines.push('');
+
+  lines.push('### Widest Tail');
+  lines.push('');
+  if (report.tailHotspots.length === 0) {
+    lines.push('- none');
+  } else {
+    for (const benchmark of report.tailHotspots) {
+      lines.push(
+        `- [${benchmark.lane}] ${benchmark.name}: tail x${formatNumber(
+          benchmark.tailRatio,
+          1
+        )}, p999 ${formatNumber(benchmark.p999Ms, 4)} ms, mean ${formatNumber(
           benchmark.meanMs,
           4
         )} ms`
@@ -187,19 +223,38 @@ function collectBenchmarks(report, laneLabel) {
   for (const file of report.files ?? []) {
     for (const group of file.groups ?? []) {
       for (const benchmark of group.benchmarks ?? []) {
+        const meanMs = benchmark.mean;
+        const minMs = readNumericValue(benchmark, ['min', 'minMs']);
+        const maxMs = readNumericValue(benchmark, ['max', 'maxMs']);
+        const p75Ms = readNumericValue(benchmark, ['p75', 'p75Ms']);
+        const p99Ms = readNumericValue(benchmark, ['p99', 'p99Ms']);
+        const p995Ms = readNumericValue(benchmark, ['p995', 'p995Ms']);
+        const p999Ms = readNumericValue(benchmark, ['p999', 'p999Ms']);
+        const tailRatio =
+          isFiniteNumber(meanMs) && isFiniteNumber(p999Ms) && meanMs > 0
+            ? p999Ms / meanMs
+            : undefined;
+
         benchmarks.push({
           lane: laneLabel,
           file: file.filepath,
           group: group.fullName,
           name: benchmark.name,
           hz: benchmark.hz,
-          meanMs: benchmark.mean,
+          meanMs,
+          minMs,
+          maxMs,
+          p75Ms,
+          p99Ms,
+          p995Ms,
+          p999Ms,
           rme: benchmark.rme,
           sampleCount:
             benchmark.sampleCount ??
             (Array.isArray(benchmark.samples)
               ? benchmark.samples.length
               : undefined),
+          tailRatio,
         });
       }
     }
@@ -208,30 +263,66 @@ function collectBenchmarks(report, laneLabel) {
   return benchmarks;
 }
 
+function formatBenchmarkSummary(benchmark) {
+  const parts = [];
+
+  if (isFiniteNumber(benchmark.hz)) {
+    parts.push(`${formatNumber(benchmark.hz)} hz`);
+  }
+
+  if (isFiniteNumber(benchmark.meanMs)) {
+    parts.push(`mean ${formatNumber(benchmark.meanMs, 4)} ms`);
+  }
+
+  if (isFiniteNumber(benchmark.p75Ms)) {
+    parts.push(`p75 ${formatNumber(benchmark.p75Ms, 4)} ms`);
+  }
+
+  if (isFiniteNumber(benchmark.p99Ms)) {
+    parts.push(`p99 ${formatNumber(benchmark.p99Ms, 4)} ms`);
+  }
+
+  if (isFiniteNumber(benchmark.p995Ms)) {
+    parts.push(`p995 ${formatNumber(benchmark.p995Ms, 4)} ms`);
+  }
+
+  if (isFiniteNumber(benchmark.p999Ms)) {
+    parts.push(`p999 ${formatNumber(benchmark.p999Ms, 4)} ms`);
+  }
+
+  const tailRatio =
+    isFiniteNumber(benchmark.tailRatio) && benchmark.tailRatio > 0
+      ? benchmark.tailRatio
+      : undefined;
+
+  if (isFiniteNumber(tailRatio)) {
+    parts.push(`tail x${formatNumber(tailRatio, 1)}`);
+  }
+
+  if (isFiniteNumber(benchmark.rme)) {
+    parts.push(`rme +/-${formatNumber(benchmark.rme)}%`);
+  }
+
+  if (isFiniteNumber(benchmark.sampleCount)) {
+    parts.push(`samples ${formatNumber(benchmark.sampleCount, 0)}`);
+  }
+
+  return parts;
+}
+
 function renderSection(title, benchmarks) {
   const lines = [`## ${title}`, ''];
 
   for (const benchmark of benchmarks) {
-    if (
-      isFiniteNumber(benchmark.hz) &&
-      isFiniteNumber(benchmark.meanMs) &&
-      isFiniteNumber(benchmark.sampleCount)
-    ) {
-      lines.push(
-        `- ${benchmark.name}: ${formatNumber(benchmark.hz)} hz, mean ${formatNumber(
-          benchmark.meanMs,
-          4
-        )} ms, rme +/-${formatNumber(benchmark.rme)}%, samples ${formatNumber(
-          benchmark.sampleCount,
-          0
-        )}`
-      );
-      continue;
-    }
+    const parts = formatBenchmarkSummary(benchmark);
 
-    lines.push(
-      `- ${benchmark.name}: summary only (Vitest JSON omitted numeric stats for this benchmark)`
-    );
+    if (parts.length > 0) {
+      lines.push(`- ${benchmark.name}: ${parts.join(', ')}`);
+    } else {
+      lines.push(
+        `- ${benchmark.name}: summary only (Vitest JSON omitted numeric stats for this benchmark)`
+      );
+    }
   }
 
   lines.push('');
@@ -273,6 +364,7 @@ async function main() {
     '# Bench Results',
     '',
     'Generated from `bench-results/tier1.json`, `bench-results/tier2.json`, `bench-results/tier3.json`, and `bench-results/tier4.json`.',
+    'Each numeric benchmark line includes hz, mean, p75, p99, p995, p999, tail ratio, RME, and sample count when available.',
     '',
     ...renderSection('Tier 1', tier1Benchmarks),
     ...renderSection('Tier 2', tier2Benchmarks),
