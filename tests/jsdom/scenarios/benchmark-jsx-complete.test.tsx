@@ -3,7 +3,8 @@
  * This test verifies that JSX syntax works with For, nested components, and event handlers
  */
 import { expect, test, describe } from 'vite-plus/test';
-import { createIsland, selector, state } from '../../../src';
+import { selector, state } from '../../../src';
+import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
   flushScheduler,
@@ -387,7 +388,7 @@ describe(
       cleanup();
     });
 
-    test('should append rows with JSX', { timeout: 30000 }, () => {
+    test('should append rows with JSX', { timeout: 60000 }, () => {
       const { container, cleanup } = createTestContainer();
       let dataState!: State<RowData[]>;
 

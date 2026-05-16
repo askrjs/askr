@@ -119,3 +119,5 @@ bench-results/
 demo/
 playwright-report/
 test-results/
+.vitest-attachments/
+__screenshots__/

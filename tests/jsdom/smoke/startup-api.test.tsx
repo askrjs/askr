@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { createSPA } from '../../../src/index';
+import { createSPA } from '@askrjs/askr/boot';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 

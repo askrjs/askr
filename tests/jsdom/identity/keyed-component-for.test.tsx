@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { state, For } from '../../../src/index';
+import { state } from '../../../src/index';
+import { For } from '@askrjs/askr/control';
 import {
   createTestContainer,
   flushScheduler,

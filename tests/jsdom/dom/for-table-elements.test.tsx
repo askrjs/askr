@@ -1,6 +1,6 @@
 import { expect } from 'vite-plus/test';
 import { test, describe } from 'vite-plus/test';
-import { createIsland } from '../../../src';
+import { createIsland } from '@askrjs/askr/boot';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import { For } from '../../../src/control';
 

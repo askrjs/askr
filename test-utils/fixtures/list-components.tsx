@@ -2,7 +2,7 @@
  * List components for reconciliation testing
  */
 
-import { state } from '../../src/index';
+import { state } from '../../src/boot';
 
 /**
  * Basic list without keys - identity follows position

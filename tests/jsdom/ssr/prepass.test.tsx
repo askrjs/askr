@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { collectResources, type SSRRoute } from '../../../src/ssr';
+import { collectResources, type SSRRoute } from '../../../src/ssr/render-keys';
 
 describe('SSR prepass collection (deprecated)', () => {
   it('should disable collectResources() under the synchronous SSR model', () => {

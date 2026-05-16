@@ -5,7 +5,7 @@ This note documents the current control-flow model for `@askrjs/askr`.
 ## Public API
 
 ```tsx
-import { Case, For, Match, Show } from '@askrjs/askr';
+import { Case, For, Match, Show } from '@askrjs/askr/control';
 
 <For each={rows} by={(row) => row.id} fallback={<EmptyState />}>
   {(row, index) => <Row row={row} index={index()} />}

@@ -8,7 +8,8 @@ source data and local table state instead of mutating the source array in place.
 ## Basic Table Pattern
 
 ```tsx
-import { For, derive, state } from '@askrjs/askr';
+import { derive, state } from '@askrjs/askr';
+import { For } from '@askrjs/askr/control';
 
 type User = {
   id: string;

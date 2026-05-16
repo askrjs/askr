@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { Case, Match, Show, state } from '../../../src/index';
+import { state } from '../../../src/index';
+import { Case, Match, Show } from '@askrjs/askr/control';
 import {
   createTestContainer,
   flushScheduler,

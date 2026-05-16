@@ -1,6 +1,7 @@
 /** @jsxImportSource @askrjs/askr */
 
-import { derive, For, state } from '@askrjs/askr';
+import { derive, state } from '@askrjs/askr';
+import { For } from '@askrjs/askr/control';
 import { createIsland } from '@askrjs/askr/boot';
 
 type OrderStatus = 'Open' | 'Paid' | 'Canceled';

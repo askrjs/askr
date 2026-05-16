@@ -4,7 +4,8 @@ import {
   markVNodeTreeWithContextFrame,
   readContext,
 } from '../../../src/runtime/context';
-import { Portal, Slot, state } from '../../../src/index';
+import { state } from '../../../src/index';
+import { Portal, Slot } from '@askrjs/askr/foundations';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
 import {
   createTestContainer,

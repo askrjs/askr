@@ -9,8 +9,8 @@ import {
 import type { JSXElement } from '../../../src/jsx/types';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync, renderToString } from '../../../src/ssr';
-import { renderToStringSyncForUrl } from '../../../src/ssr';
-import { For, state } from '../../../src/index';
+import { state } from '../../../src/index';
+import { For } from '@askrjs/askr/control';
 import {
   createTestContainer,
   flushScheduler,
@@ -263,7 +263,7 @@ describe('hydration (SSR)', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
       rowRenders = 0;
 
@@ -350,7 +350,7 @@ describe('hydration (SSR)', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       const firstRowBefore = container.querySelector(
@@ -399,7 +399,7 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -428,7 +428,7 @@ describe('hydration (SSR)', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -447,7 +447,7 @@ describe('hydration (SSR)', () => {
     it('should preserve server state after hydration', async () => {
       const Component = () => <div>server</div>;
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -460,7 +460,7 @@ describe('hydration (SSR)', () => {
       const Component = () => <div>async hydrated</div>;
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -482,7 +482,7 @@ describe('hydration (SSR)', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -506,7 +506,7 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -538,7 +538,7 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      container.innerHTML = renderToStringSyncForUrl({ url: '/', routes });
+      container.innerHTML = renderToString({ url: '/', routes });
 
       const hydration = hydrateSPA({
         root: container,
@@ -574,7 +574,7 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      container.innerHTML = renderToStringSyncForUrl({ url: '/', routes });
+      container.innerHTML = renderToString({ url: '/', routes });
 
       await hydrateSPA({
         root: container,
@@ -617,7 +617,7 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      container.innerHTML = renderToStringSyncForUrl({ url: '/', routes });
+      container.innerHTML = renderToString({ url: '/', routes });
 
       await hydrateSPA({
         root: container,
@@ -694,7 +694,7 @@ describe('hydration (SSR)', () => {
         );
 
         const routes = [{ path: '/', handler: Component }];
-        container.innerHTML = renderToStringSyncForUrl({ url: '/', routes });
+        container.innerHTML = renderToString({ url: '/', routes });
 
         await hydrateSPA({
           root: container,

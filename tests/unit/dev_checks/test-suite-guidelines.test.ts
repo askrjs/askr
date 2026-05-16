@@ -170,10 +170,10 @@ describe('Test suite guidelines', () => {
     expect(failures).toEqual([]);
   });
 
-  it('should keep Playwright tests on public browser behavior', () => {
-    const playwrightDir = path.join(testsDir, 'playwright');
-    const files = readAllTestFiles(playwrightDir).filter((file) =>
-      file.endsWith('.spec.ts')
+  it('should keep browser tests on public browser behavior', () => {
+    const browserDir = path.join(testsDir, 'browser');
+    const files = readAllTestFiles(browserDir).filter((file) =>
+      file.endsWith('.test.ts') || file.endsWith('.test.tsx')
     );
     const failures: string[] = [];
 

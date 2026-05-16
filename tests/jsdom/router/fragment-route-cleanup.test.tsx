@@ -6,7 +6,8 @@ import {
   it,
   vi,
 } from 'vite-plus/test';
-import { createSPA, state } from '../../../src';
+import { state } from '../../../src';
+import { createSPA } from '@askrjs/askr/boot';
 import { For } from '../../../src/control';
 import { navigate } from '../../../src/router/navigate';
 import {

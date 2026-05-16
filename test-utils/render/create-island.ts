@@ -1,7 +1,4 @@
-import {
-  createIsland as mountIsland,
-  type IslandConfig,
-} from '../../src/index';
+import { createIsland as mountIsland, type IslandConfig } from '../../src/boot';
 
 export type Island = IslandConfig;
 

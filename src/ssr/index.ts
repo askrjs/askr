@@ -42,7 +42,7 @@ import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { VOID_ELEMENTS, escapeText, styleObjToCss } from './escape';
 import { renderAttrs, renderAttrsDirect } from './attrs';
-import type { VNode, SSRComponent } from './types';
+import type { VNode } from './types';
 
 import { logger } from '../dev/logger';
 import {
@@ -110,16 +110,13 @@ installSSRBridge({
 export { SSRDataMissingError } from './context';
 export type { VNode, SSRComponent } from './types';
 
-// Re-export for backwards compatibility
-export type Component = SSRComponent;
-
 // Dev-only SSR strictness guard helpers. We mutate globals in dev to make
 // accidental usage of Math.random/Date.now during sync SSR fail fast.
 // We implement a re-entrant stack so nested or concurrent calls don't clobber
 // global values unexpectedly.
 const __ssrGuardStack: Array<{ random: () => number; now: () => number }> = [];
 
-export function pushSSRStrictPurityGuard() {
+function pushSSRStrictPurityGuard() {
   /* istanbul ignore if - dev-only guard */
   if (process.env.NODE_ENV === 'production') return;
   __ssrGuardStack.push({
@@ -138,7 +135,7 @@ export function pushSSRStrictPurityGuard() {
   });
 }
 
-export function popSSRStrictPurityGuard() {
+function popSSRStrictPurityGuard() {
   /* istanbul ignore if - dev-only guard */
   if (process.env.NODE_ENV === 'production') return;
   const prev = __ssrGuardStack.pop();
@@ -1116,21 +1113,6 @@ function verifyExpectedNode(
   return true;
 }
 
-function verifyHydrationRoot(
-  root: Element,
-  node: VNode | JSXElement,
-  ctx: RenderContext
-): boolean {
-  const state: VerifyState = {
-    current: root.firstChild,
-    pendingText: '',
-  };
-  if (!verifyExpectedNode(node, state, ctx)) {
-    return false;
-  }
-  return flushPendingText(state) && state.current === null;
-}
-
 function verifyExpectedChildren(
   children: unknown[] | undefined,
   state: VerifyState,
@@ -1269,85 +1251,9 @@ export async function resolveRequest(opts: {
   };
 }
 
-// Synchronous server render for strict checks. Routes are resolved against the
-// provided route table and kept in the per-render SSR context.
-export function renderToStringSyncForUrl(opts: {
-  url: string;
-  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
-  options?: { seed?: number; data?: SSRData };
-}): string {
-  const { url, routes, options } = opts;
-  const routeTable = routes.map((route) => ({ ...route }));
-  const requestUrl = new URL(url, 'http://localhost');
-  const resolved = RouteModule.resolveRouteFromRoutes(
-    requestUrl.pathname,
-    routeTable
-  );
-  if (!resolved)
-    throw new Error(`renderToStringSyncForUrl: no route found for url: ${url}`);
-
-  return renderResolvedToStringSync({
-    url,
-    routes: routeTable,
-    handler: resolved.handler,
-    params: resolved.params,
-    options,
-  });
-}
-
-export function verifyHydrationSyncForUrl(opts: {
-  root: Element;
-  url: string;
-  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
-  options?: { seed?: number; data?: SSRData };
-}): boolean {
-  const { root, url, routes, options } = opts;
-  const routeTable = routes.map((route) => ({ ...route }));
-  const requestUrl = new URL(url, 'http://localhost');
-  const resolved = RouteModule.resolveRouteFromRoutes(
-    requestUrl.pathname,
-    routeTable
-  );
-  if (!resolved) {
-    throw new Error(
-      `verifyHydrationSyncForUrl: no route found for url: ${url}`
-    );
-  }
-
-  const seed = options?.seed ?? 12345;
-  const ctx = createRenderContext(seed, {
-    url,
-    data: options?.data,
-    params: resolved.params,
-    routes: routeTable,
-  });
-
-  return withRenderContext(ctx, () => {
-    startRenderPhase(options?.data ?? null);
-    try {
-      const node = renderSyncComponentRoot(
-        resolved.handler as unknown as Component,
-        resolved.params || {},
-        ctx
-      );
-      return verifyHydrationRoot(root, node, ctx);
-    } finally {
-      stopRenderPhase();
-    }
-  });
-}
-
 // --- Streaming sink-based renderer (v2) --------------------------------------------------
 import { StringSink, StreamSink } from './sink';
-import { renderNodeToSink } from './stream-render';
-import {
-  startRenderPhase,
-  stopRenderPhase,
-  collectResources,
-  resolvePlan,
-  resolveResources,
-  type ResourcePlan,
-} from './render-keys';
+import { startRenderPhase, stopRenderPhase } from './render-keys';
 
 export type SSRRoute = {
   path: string;
@@ -1433,11 +1339,9 @@ function renderToSinkInternal(opts: {
         resolved.params,
         ctx
       );
-      renderNodeToSink(node, sink, ctx);
+      renderNodeSyncToSink(node, sink, ctx);
     } finally {
       stopRenderPhase();
     }
   });
 }
-
-export { collectResources, resolvePlan, resolveResources, ResourcePlan };

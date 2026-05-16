@@ -12,7 +12,7 @@ import {
   fireEvent,
 } from '../../../test-utils/render/test-renderer';
 import { hydrateSPA } from '../../../src/boot';
-import { renderToStringSyncForUrl } from '../../../src/ssr';
+import { renderToString } from '../../../src/ssr';
 import { state } from '../../../src/runtime/state';
 
 describe('SSR event handling', () => {
@@ -39,7 +39,7 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
 
       // Event handlers should NOT be in the HTML
       expect(html).not.toContain('onclick');
@@ -54,7 +54,7 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
 
       expect(html).not.toContain('oninput');
       expect(html).not.toContain('onInput');
@@ -69,7 +69,7 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
 
       expect(html).not.toContain('onchange');
       expect(html).not.toContain('onChange');
@@ -89,7 +89,7 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
 
       // Non-event attributes should be preserved
       expect(html).toContain('id="btn"');
@@ -111,7 +111,7 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       // Verify no inline handler in HTML
@@ -138,7 +138,7 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -166,7 +166,7 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -196,7 +196,7 @@ describe('SSR event handling', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       // Verify server-rendered HTML contains initial state
@@ -227,7 +227,7 @@ describe('SSR event handling', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });
@@ -262,7 +262,7 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Parent }];
-      const html = renderToStringSyncForUrl({ url: '/', routes });
+      const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
       await hydrateSPA({ root: container, routes });

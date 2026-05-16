@@ -6,7 +6,8 @@ import {
   afterEach,
   vi,
 } from 'vite-plus/test';
-import { ErrorBoundary, state } from '../../../src/index';
+import { state } from '../../../src/index';
+import { ErrorBoundary } from '@askrjs/askr/components';
 import {
   createTestContainer,
   flushScheduler,

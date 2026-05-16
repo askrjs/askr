@@ -15,11 +15,7 @@ jobs:
       matrix:
         include:
           - name: stable
-            command: vp test bench -c vitest.bench.micro.config.ts --run --outputJson bench-results/micro.json && vp test bench -c vitest.bench.dom.config.ts --run --outputJson bench-results/jsdom.json && vp test bench -c vitest.bench.ssr.config.ts --run --outputJson bench-results/ssr.json && node scripts/generate-bench-log.js --verify
-            install_browsers: false
-          - name: browser
-            command: npx playwright test benches/browser --project=browser-perf
-            install_browsers: true
+            command: cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts --outputJson bench-results/tier4.json && node scripts/generate-bench-log.js --verify
 
     steps:
       - name: Checkout repository
@@ -33,10 +29,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browsers
-        if: matrix.install_browsers
-        run: npx playwright install chromium firefox webkit
 
       - name: Run benchmark lane
         run: ${{ matrix.command }}

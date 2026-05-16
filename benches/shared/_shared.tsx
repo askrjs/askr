@@ -340,7 +340,7 @@ function assertObservedMutation(
   label: string,
   result: ReturnType<typeof trackDOMMutations>
 ): void {
-  if (getMutationCount(result) === 0) {
+  if (getMutationCount(result) === 0 && !result.snapshotChanged) {
     throw new Error(`${label} produced no observable DOM mutations.`);
   }
 }

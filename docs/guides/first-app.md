@@ -20,7 +20,8 @@ Askr Vite plugin and `jsxImportSource`.
 ## 2. Create State-Driven UI
 
 ```tsx
-import { For, state } from '@askrjs/askr';
+import { state } from '@askrjs/askr';
+import { For } from '@askrjs/askr/control';
 
 export function TaskList() {
   const [tasks, setTasks] = state(['Write docs']);

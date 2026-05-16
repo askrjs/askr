@@ -23,7 +23,8 @@ Non-delegated events (e.g., `scroll`, `load`) attach listeners directly to eleme
 ### Basic Example
 
 ```tsx
-import { createIsland, state } from '@askrjs/askr';
+import { state } from '@askrjs/askr';
+import { createIsland } from '@askrjs/askr/boot';
 
 function Counter() {
   const count = state(0);

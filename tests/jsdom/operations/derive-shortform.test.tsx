@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createIsland, state, derive } from '../../../src/index';
+import { state, derive } from '../../../src/index';
+import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
   flushScheduler,

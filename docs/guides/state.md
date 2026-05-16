@@ -41,7 +41,8 @@ return <tr class={() => (isSelected(row.id) ? 'danger' : '')} />;
 For keyed lists, create the selector once in the owner component and pass it down.
 
 ```ts
-import { For, selector, state } from '@askrjs/askr';
+import { selector, state } from '@askrjs/askr';
+import { For } from '@askrjs/askr/control';
 
 function Table() {
   const [selectedId, setSelectedId] = state<number | null>(null);
@@ -66,7 +67,7 @@ function Table() {
 Use `Show`, `Case`, and `Match` for conditional control flow.
 
 ```tsx
-import { Case, Match, Show } from '@askrjs/askr';
+import { Case, Match, Show } from '@askrjs/askr/control';
 
 <Show when={user} fallback={<Login />}>
   {(value) => <Dashboard user={value} />}
