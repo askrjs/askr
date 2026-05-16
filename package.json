@@ -89,20 +89,22 @@
     "access": "public"
   },
   "scripts": {
+    "clean": "npx rimraf node_modules dist",
     "build": "vp pack",
     "dev": "vp dev",
     "fmt": "vp fmt .",
-    "lint": "vp lint src tests test-utils checks benches",
-    "test": "npm run test:unit && npm run test:jsdom && npm run test:browser",
-    "test:browser": "vp test run -c vitest.browser.config.ts tests/browser",
-    "test:jsdom": "vp test run -c vitest.jsdom.config.ts",
+    "lint": "vp lint src tests test-utils benches",
+    "test": "npm run test:unit && npm run test:checks && npm run test:jsdom && npm run test:browser && npm run test:types",
+    "test:browser": "vp test run -c vitest.test.browser.config.ts tests/browser",
+    "test:checks": "vp test run -c vitest.test.checks.config.ts",
+    "test:jsdom": "vp test run -c vitest.test.jsdom.config.ts",
     "test:types": "vp pack && tsd",
-    "test:unit": "vp test run -c vitest.unit.config.ts",
+    "test:unit": "vp test run -c vitest.test.unit.config.ts",
     "bench": "npm run bench:tier1 && npm run bench:tier2 && npm run bench:tier3 && npm run bench:tier4",
-    "bench:tier1": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier1.bench.config.ts",
-    "bench:tier2": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier2.bench.config.ts",
-    "bench:tier3": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier3.bench.config.ts",
-    "bench:tier4": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.tier4.bench.config.ts"
+    "bench:tier1": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts",
+    "bench:tier2": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts",
+    "bench:tier3": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts",
+    "bench:tier4": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",

@@ -15,7 +15,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['tests/unit/**/*.test.{ts,tsx}', 'checks/**/*.test.{ts,tsx}'],
+    include: ['tests/checks/**/*.test.{ts,tsx}'],
   },
   resolve: {
     alias: createPackageAliases(),
