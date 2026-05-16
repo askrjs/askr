@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vite-plus/test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, '..', '..');
+const rootDir = path.resolve(__dirname, '..', '..', '..');
 const monorepoRootDir = path.resolve(rootDir, '..', '..');
 const scanDirs = ['docs', 'examples'];
 const scanFiles = ['README.md'];
@@ -316,7 +316,7 @@ function probeDistExports(): unknown {
 }
 
 describe('public docs and examples', () => {
-  it('do not reference private or non-exported package paths', () => {
+  it('should not reference private or non-exported package paths', () => {
     const rootsToScan = [rootDir, monorepoRootDir].filter((dirPath) =>
       fs.existsSync(dirPath)
     );
@@ -343,7 +343,7 @@ describe('public docs and examples', () => {
     }
   });
 
-  it('publish representative root and router exports from dist', () => {
+  it('should publish representative root and router exports from dist', () => {
     expect(probeDistExports()).toEqual({
       root: {
         state: 'function',

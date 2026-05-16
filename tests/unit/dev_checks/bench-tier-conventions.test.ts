@@ -99,9 +99,9 @@ describe('Bench tier conventions', () => {
     expect(typeof scripts['bench:tier2']).toBe('string');
     expect(typeof scripts['bench:tier3']).toBe('string');
     expect(typeof scripts['bench:tier4']).toBe('string');
-    expect(scripts['bench:tier1']).toContain('vitest.tier1.bench.config.ts');
-    expect(scripts['bench:tier2']).toContain('vitest.tier2.bench.config.ts');
-    expect(scripts['bench:tier3']).toContain('vitest.tier3.bench.config.ts');
-    expect(scripts['bench:tier4']).toContain('vitest.tier4.bench.config.ts');
+    expect(scripts['bench:tier1']).toContain('vitest.bench.tier1.config.ts');
+    expect(scripts['bench:tier2']).toContain('vitest.bench.tier2.config.ts');
+    expect(scripts['bench:tier3']).toContain('vitest.bench.tier3.config.ts');
+    expect(scripts['bench:tier4']).toContain('vitest.bench.tier4.config.ts');
   });
 });

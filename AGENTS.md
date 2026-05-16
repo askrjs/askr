@@ -14,9 +14,9 @@ Applies to this repository only.
 ```text
 src/      - runtime, router, resources, SSR, SSG, JSX, and foundations
 docs/     - platform-level documentation
-tests/    - unit, jsdom, browser, accessibility, and smoke coverage
+tests/    - unit, jsdom, browser, accessibility, smoke coverage, and checks
 benches/  - benchmark suites
-checks/   - repository validation helpers
+tests/checks/ - repository validation helpers
 ```
 
 ## Ground Rules

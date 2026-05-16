@@ -18,7 +18,6 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.{ts,tsx}'],
   },
   resolve: {
-    // Tests should bind package imports to source entries rather than dist.
     alias: createPackageAliases(),
   },
 });

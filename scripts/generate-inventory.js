@@ -480,7 +480,7 @@ function generateMarkdownInventory(
     lines.push('');
   }
 
-  lines.push('## Test Files (`tests/`, `checks/`)');
+  lines.push('## Test Files (`tests/`)');
   lines.push('');
   for (const filePath of Object.keys(testInventory).sort()) {
     const entry = testInventory[filePath];
@@ -513,7 +513,6 @@ function main() {
   const rootSrcDir = path.join(repoRoot, 'src');
   const rootBenchDir = path.join(repoRoot, 'benches');
   const rootTestsDir = path.join(repoRoot, 'tests');
-  const rootChecksDir = path.join(repoRoot, 'checks');
 
   if (fs.existsSync(rootSrcDir)) {
     sourceParts.push(generateSourceInventoryForDir(rootSrcDir));
@@ -523,9 +522,6 @@ function main() {
   }
   if (fs.existsSync(rootTestsDir)) {
     testParts.push(generateTestInventoryForDir(rootTestsDir));
-  }
-  if (fs.existsSync(rootChecksDir)) {
-    testParts.push(generateTestInventoryForDir(rootChecksDir));
   }
 
   const packagesDir = path.join(repoRoot, 'packages');
@@ -542,7 +538,6 @@ function main() {
     const packageSrcDir = path.join(packageRoot, 'src');
     const packageBenchDir = path.join(packageRoot, 'benches');
     const packageTestsDir = path.join(packageRoot, 'tests');
-    const packageChecksDir = path.join(packageRoot, 'checks');
 
     if (fs.existsSync(packageSrcDir)) {
       sourceParts.push(generateSourceInventoryForDir(packageSrcDir));
@@ -552,9 +547,6 @@ function main() {
     }
     if (fs.existsSync(packageTestsDir)) {
       testParts.push(generateTestInventoryForDir(packageTestsDir));
-    }
-    if (fs.existsSync(packageChecksDir)) {
-      testParts.push(generateTestInventoryForDir(packageChecksDir));
     }
     if (fs.existsSync(packageJsonPath)) {
       publicApiParts.push(generatePublicApiInventory(packageJsonPath));
