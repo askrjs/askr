@@ -3883,7 +3883,7 @@ export function commitForBoundaryChildren(
     const count = items.length;
 
     if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
-      const fragment = parent.ownerDocument.createDocumentFragment();
+      const nodes = Array<Node>(count);
       let movedCount = 0;
       let insertedCount = 0;
 
@@ -3908,7 +3908,7 @@ export function commitForBoundaryChildren(
         } else {
           insertedCount++;
         }
-        fragment.appendChild(dom);
+        nodes[i] = dom;
       }
 
       if (movedCount > 0) {
@@ -3918,7 +3918,9 @@ export function commitForBoundaryChildren(
         recordBenchEvent('domInsert', insertedCount);
       }
 
-      parent.replaceChildren(fragment);
+      // Move-only reorders already have the exact final node set, so we can
+      // commit it directly without a fragment round-trip.
+      parent.replaceChildren(...nodes);
       boundaryChildrenExact = true;
       return;
     }

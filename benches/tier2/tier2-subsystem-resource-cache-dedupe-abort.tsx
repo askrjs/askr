@@ -1,7 +1,7 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { state } from '../../src';
 import { cleanupApp, createIsland } from '../../src/boot';
-import { createQuery } from '../../src/resources';
+import { createQuery } from '../../src/data';
 import {
   createSelectionToggle,
   tier2BenchOptions,
