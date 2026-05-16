@@ -5,11 +5,11 @@ Askr benchmarks are split into four lanes:
 - `tier1`: hot path benchmarks.
 - `tier2`: subsystem benchmarks.
 - `tier3`: system benchmarks.
-- `tier4`: integration benchmarks.
+- `tier4`: integration benchmarks, browser-backed in Chromium.
 
 ## Stable Lanes
 
-Run the stable non-browser lanes with:
+Run the stable lanes with:
 
 ```bash
 npm run bench
