@@ -19,6 +19,7 @@ import {
   createSelectionToggle,
   extendBenchOptions,
   removeRowById,
+  replaceAllRows,
   swapRows,
   tier4BenchOptions,
   updateEveryNthRow,
@@ -27,6 +28,13 @@ import {
 const jsxAppBenchOptions = extendBenchOptions(tier4BenchOptions, {
   time: 2500,
   iterations: 2,
+  warmupTime: 250,
+  warmupIterations: 1,
+});
+
+const jsxAppSlowBenchOptions = extendBenchOptions(tier4BenchOptions, {
+  time: 3000,
+  iterations: 3,
   warmupTime: 250,
   warmupIterations: 1,
 });
@@ -89,6 +97,7 @@ const rows2000 = buildRows(2000);
 const updatedRows = updateEveryNthRow(rows1000);
 const swappedRows = swapRows(rows1000, 1, 998);
 const removedRows = removeRowById(rows1000, 500);
+const replacedRows = replaceAllRows(rows1000);
 
 {
   const app = mountJsxBenchmarkApp(emptyRows);
@@ -187,6 +196,34 @@ const removedRows = removeRowById(rows1000, 500);
       }
     );
 
+    const replaceToggle = createRowToggle(rows1000, replacedRows, 'initial');
+    assertToggleMutationGuard(
+      app.container,
+      () => {
+        app.setRows(replaceToggle.next() as RowData[]);
+      },
+      () => {
+        app.setRows(replaceToggle.next() as RowData[]);
+      },
+      {
+        label: 'tier4 jsx replace all',
+        afterForward: () => {
+          assertRowCountTransition(app.container, 1000);
+          assertOrderTransition(
+            app.container,
+            replacedRows.map((row) => row.id)
+          );
+        },
+        afterBackward: () => {
+          assertRowCountTransition(app.container, 1000);
+          assertOrderTransition(
+            app.container,
+            rows1000.map((row) => row.id)
+          );
+        },
+      }
+    );
+
     const removeToggle = createRowToggle(rows1000, removedRows, 'initial');
     assertToggleMutationGuard(
       app.container,
@@ -219,6 +256,31 @@ const removedRows = removeRowById(rows1000, 500);
       }
     );
 
+    app.clickRow(498);
+    assertSelectionTransition(app.container, 498);
+
+    const selectedAppendToggle = createRowToggle(rows1000, rows2000, 'initial');
+    assertToggleMutationGuard(
+      app.container,
+      () => {
+        app.setRows(selectedAppendToggle.next() as RowData[]);
+      },
+      () => {
+        app.setRows(selectedAppendToggle.next() as RowData[]);
+      },
+      {
+        label: 'tier4 jsx append with selection',
+        afterForward: () => {
+          assertRowCountTransition(app.container, 2000);
+          assertSelectionTransition(app.container, 498);
+        },
+        afterBackward: () => {
+          assertRowCountTransition(app.container, 1000);
+          assertSelectionTransition(app.container, 498);
+        },
+      }
+    );
+
     const selectedRemoveToggle = createRowToggle(
       rows1000,
       removedRows,
@@ -233,12 +295,14 @@ const removedRows = removeRowById(rows1000, 500);
         app.setRows(selectedRemoveToggle.next() as RowData[]);
       },
       {
-        label: 'tier4 jsx remove selected row',
+        label: 'tier4 jsx remove with selection',
         afterForward: () => {
           assertRowCountTransition(app.container, 999);
+          assertSelectionTransition(app.container, 498);
         },
         afterBackward: () => {
           assertRowCountTransition(app.container, 1000);
+          assertSelectionTransition(app.container, 498);
         },
       }
     );
@@ -268,9 +332,9 @@ describe('tier4 integration jsx benchmark app', () => {
   let selectToggle: BenchToggle<number> | null = null;
   let updateToggle: BenchToggle<readonly RowData[]> | null = null;
   let swapToggle: BenchToggle<readonly RowData[]> | null = null;
+  let replaceToggle: BenchToggle<readonly RowData[]> | null = null;
   let selectedSwapToggle: BenchToggle<readonly RowData[]> | null = null;
   let removeToggle: BenchToggle<readonly RowData[]> | null = null;
-  let selectedRemoveToggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
     'create 1,000 rows in the JSX app',
@@ -351,6 +415,25 @@ describe('tier4 integration jsx benchmark app', () => {
   );
 
   bench(
+    'replace all rows in the JSX app',
+    () => {
+      app!.setRows(replaceToggle!.next() as RowData[]);
+    },
+    {
+      ...jsxAppSlowBenchOptions,
+      setup() {
+        app = mountJsxBenchmarkApp(rows1000);
+        replaceToggle = createRowToggle(rows1000, replacedRows, 'initial');
+      },
+      teardown() {
+        app?.cleanup();
+        app = null;
+        replaceToggle = null;
+      },
+    }
+  );
+
+  bench(
     'swap distant rows with selection in the JSX app',
     () => {
       app!.setRows(selectedSwapToggle!.next() as RowData[]);
@@ -376,7 +459,7 @@ describe('tier4 integration jsx benchmark app', () => {
       app!.setRows(removeToggle!.next() as RowData[]);
     },
     {
-      ...tier4BenchOptions,
+      ...jsxAppSlowBenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
         removeToggle = createRowToggle(rows1000, removedRows, 'initial');
@@ -390,35 +473,6 @@ describe('tier4 integration jsx benchmark app', () => {
   );
 
   bench(
-    'remove a selected row in the JSX app',
-    () => {
-      app!.setRows(selectedRemoveToggle!.next() as RowData[]);
-    },
-    {
-      ...tier4BenchOptions,
-      setup() {
-        app = mountJsxBenchmarkApp(rows1000);
-        selectedRemoveToggle = createRowToggle(
-          rows1000,
-          removedRows,
-          'initial'
-        );
-        app.clickRow(499);
-      },
-      beforeEach() {
-        app!.setRows(rows1000);
-        app!.clickRow(499);
-        selectedRemoveToggle!.reset('initial');
-      },
-      teardown() {
-        app?.cleanup();
-        app = null;
-        selectedRemoveToggle = null;
-      },
-    }
-  );
-
-  bench(
     'append 1,000 rows in the JSX app',
     () => {
       app!.setRows(rows2000);
@@ -426,6 +480,26 @@ describe('tier4 integration jsx benchmark app', () => {
     {
       ...tier4BenchOptions,
       setup() {
+        bench(
+          'append 1,000 rows with selection in the JSX app',
+          () => {
+            app!.setRows(rows2000);
+          },
+          {
+            ...tier4BenchOptions,
+            setup() {
+              app = mountJsxBenchmarkApp(rows1000);
+            },
+            beforeEach() {
+              app!.setRows(rows1000);
+              app!.clickRow(498);
+            },
+            teardown() {
+              app?.cleanup();
+              app = null;
+            },
+          }
+        );
         app = mountJsxBenchmarkApp(rows1000);
       },
       beforeEach() {
