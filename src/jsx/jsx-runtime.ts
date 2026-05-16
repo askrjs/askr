@@ -122,3 +122,4 @@ export function jsxs(
 
 // Re-export Fragment for JSX.
 export { Fragment };
+export type { JSXElement };

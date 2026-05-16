@@ -77,8 +77,9 @@ styling. `@askrjs/ui` is headless. Pair it with `askr-themes` or your own CSS.
 **Foundation**
 
 A low-level primitive used to build framework structure or headless UI behavior. Structural
-foundations and shared UI behavior live in `@askrjs/askr/foundations`; `@askrjs/ui/foundations`
-re-exports the same canonical implementations for compatibility.
+foundations live in `@askrjs/askr/foundations`; lower-level helpers live in
+`@askrjs/askr/foundations/*`. `@askrjs/ui/foundations` re-exports the same
+canonical implementations for compatibility.
 
 ---
 
@@ -105,8 +106,9 @@ Planned generators include `askr-cli add page` and `askr-cli add crud`.
 
 **Resource**
 
-An async data primitive created with `resource()`. Handles loading state, cancellation via
-`AbortSignal`, and error state automatically.
+An async lifecycle primitive created with `resource()`. Handles loading state,
+cancellation via `AbortSignal`, and error state automatically. Query and
+mutation primitives live in `@askrjs/askr/data`.
 
 ---
 

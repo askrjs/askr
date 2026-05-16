@@ -12,6 +12,17 @@
       "@askrjs/askr/control": ["../src/control/index.ts"],
       "@askrjs/askr/data": ["../src/data/index.ts"],
       "@askrjs/askr/foundations": ["../src/foundations/index.ts"],
+      "@askrjs/askr/foundations/utilities": [
+        "../src/foundations/utilities/index.ts"
+      ],
+      "@askrjs/askr/foundations/interactions": [
+        "../src/foundations/interactions/index.ts"
+      ],
+      "@askrjs/askr/foundations/state": ["../src/foundations/state/index.ts"],
+      "@askrjs/askr/foundations/structures": [
+        "../src/foundations/structures/index.ts"
+      ],
+      "@askrjs/askr/foundations/icon": ["../src/foundations/icon/index.ts"],
       "@askrjs/askr/resources": ["../src/resources/index.ts"],
       "@askrjs/askr/router": ["../src/router/index.ts"],
       "@askrjs/askr/ssg": ["../src/ssg/index.ts"],

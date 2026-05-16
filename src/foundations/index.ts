@@ -1,26 +1,22 @@
 /*
- * Public exports for foundation primitives.
+ * Public exports for the slim structural foundations entrypoint.
  *
- * Shared runtime and UI-composition helpers live here so `askr-ui` can depend
- * on a single canonical implementation.
+ * Lower-level helpers are published from explicit subpaths so consumers can
+ * import only the surface they need.
  */
 
-export * from './core';
-export * from './structures';
-
 export {
-  IconBase,
-  getIconContractProps,
-  isIconSizeToken,
-  joinIconStyle,
-  normalizeIconSizeValue,
-  resolveIconSizeVariable,
-  resolveIconStrokeWidthVariable,
-  serializeIconStyle,
-} from './icon/icon';
+  DefaultPortal,
+  Presence,
+  Portal,
+  Slot,
+  definePortal,
+  layout,
+} from './structures/index';
 export type {
-  IconOwnProps,
-  IconProps,
-  IconSizeToken,
-  IconStyleObject,
-} from './icon/icon.types';
+  JSXElement,
+  LayoutComponent,
+  PresenceProps,
+  PortalProps,
+  SlotProps,
+} from './structures/index';

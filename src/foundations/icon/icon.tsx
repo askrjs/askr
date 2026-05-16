@@ -1,5 +1,6 @@
 /* eslint-disable askr/no-hardcoded-theme-tokens -- Icon exposes a stable CSS variable contract consumed by themes. */
 import { jsx, jsxs } from '../../jsx/jsx-runtime';
+import type { JSXElement } from '../../common/jsx';
 import type { IconProps, IconSizeToken, IconStyleObject } from './icon.types';
 
 const ICON_SIZE_TOKENS: readonly IconSizeToken[] = ['sm', 'md', 'lg', 'xl'];
@@ -118,7 +119,7 @@ export function IconBase({
   children,
   ref,
   ...rest
-}: IconProps) {
+}: IconProps): JSXElement {
   const { attrs } = getIconContractProps({
     size,
     strokeWidth,

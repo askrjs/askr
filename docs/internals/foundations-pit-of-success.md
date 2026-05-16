@@ -244,7 +244,7 @@ function Button({ onPress, disabled }) {
 ### OK CORRECT: Explicit lifecycle management
 
 ```typescript
-import { createCollection } from '@askrjs/askr/foundations';
+import { createCollection } from '@askrjs/askr/foundations/structures';
 
 function TabList() {
   const tabs = createCollection<HTMLElement, { disabled: boolean }>();
@@ -280,7 +280,7 @@ const tabs = createCollection(); // Explicit, scoped, controlled
 ### OK CORRECT: Explicit layer management
 
 ```typescript
-import { createLayer } from '@askrjs/askr/foundations';
+import { createLayer } from '@askrjs/askr/foundations/structures';
 
 const layerManager = createLayer();
 

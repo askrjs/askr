@@ -45,6 +45,8 @@ const isAdult = derive(
 
 `resource()` handles async data loading tied to component lifecycle.
 It manages loading state, cancellation, and errors automatically.
+Use `@askrjs/askr/data` for query and mutation state, and keep `resource()`
+for lifecycle-aware async work.
 
 ```ts
 import { resource } from '@askrjs/askr/resources';

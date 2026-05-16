@@ -2,6 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "@askrjs/askr"
+    "jsxImportSource": "@askrjs/askr",
+    "paths": {
+      "@askrjs/askr/jsx-runtime": ["./src/jsx-runtime.ts"],
+      "@askrjs/askr/jsx-dev-runtime": ["./src/jsx-dev-runtime.ts"]
+    }
   }
 }

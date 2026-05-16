@@ -7,7 +7,8 @@ and static-site generation entrypoints.
 ## Quick Start
 
 ```ts
-import { createIsland, state } from '@askrjs/askr';
+import { state } from '@askrjs/askr';
+import { createIsland } from '@askrjs/askr/boot';
 
 function Counter() {
   const [count, setCount] = state(0);
@@ -23,8 +24,11 @@ createIsland({ root: document.body, component: Counter });
 ### Runtime
 
 `@askrjs/askr` exports the core runtime primitives: `state()`, `derive()`,
-`selector()`, `resource()`, `ErrorBoundary`, routing helpers, JSX control-flow
-helpers, and SSR/SSG entrypoints.
+`selector()`, `defineContext()`, `readContext()`, `getSignal()`, and the JSX
+runtime exports.
+
+App startup, routing, async resources, data helpers, and error boundaries live
+on their own subpaths.
 
 ### Explicit reactivity
 
@@ -42,15 +46,17 @@ Startup belongs in `@askrjs/askr/boot`. Routing helpers live in
 `@askrjs/askr/router`.
 
 ```ts
-import { createIsland, createSPA } from '@askrjs/askr/boot';
-import { getRoutes, route } from '@askrjs/askr/router';
+import { createSPA } from '@askrjs/askr/boot';
+import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
 
-route('/', () => <Home />);
-route('/about', () => <About />);
+registerRoutes(() => {
+  route('/', () => <Home />);
+  route('/about', () => <About />);
+});
 
 createSPA({
   root: document.body,
-  routes: getRoutes(),
+  manifest: getManifest(),
 });
 ```
 
@@ -73,6 +79,8 @@ return <div>{data.value.name}</div>;
 }
 ```
 
+Query and mutation helpers live in `@askrjs/askr/data`.
+
 ### Developer error boundaries
 
 `ErrorBoundary` is the opt-in boundary primitive for render-time failures. It
@@ -80,7 +88,7 @@ renders a visible fallback in development, still logs the underlying error, and
 can reset when your app state changes.
 
 ```ts
-import { ErrorBoundary } from '@askrjs/askr';
+import { ErrorBoundary } from '@askrjs/askr/components';
 
 function App() {
   return (

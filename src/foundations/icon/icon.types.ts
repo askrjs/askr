@@ -1,3 +1,5 @@
+import '../../jsx/types';
+import type { Props } from '../../common/props';
 import type { Ref } from '../utilities/compose-ref';
 
 export type IconSizeToken = 'sm' | 'md' | 'lg' | 'xl';
@@ -15,7 +17,7 @@ export type IconOwnProps = {
 };
 
 export type IconProps = Omit<
-  JSX.IntrinsicElements['svg'],
+  Props,
   | 'children'
   | 'class'
   | 'color'

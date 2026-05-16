@@ -2,12 +2,15 @@
  * Link component for client-side navigation
  */
 
+import '../jsx/types';
+import type { JSXElement } from '../common/jsx';
+import type { Props } from '../common/props';
 import { navigate } from '../router/navigate';
 import { applyInteractionPolicy } from '../foundations/interactions/interaction-policy';
 import { mergeProps } from '../foundations/utilities/merge-props';
 
 export type LinkProps = Omit<
-  JSX.IntrinsicElements['a'],
+  Props,
   | 'children'
   | 'href'
   | 'class'
@@ -83,7 +86,7 @@ export function Link({
   'aria-current': ariaCurrent,
   'aria-label': ariaLabel,
   ...rest
-}: LinkProps): JSX.Element {
+}: LinkProps): JSXElement {
   const interaction = applyInteractionPolicy({
     isNative: true,
     disabled: false,
