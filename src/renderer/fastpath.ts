@@ -120,20 +120,20 @@ export function applyRendererFastPath(
 
   // Atomic commit
   try {
-    const tFragmentStart = Date.now();
-    const fragment = document.createDocumentFragment();
-    let fragmentAppendCount = 0;
-    for (let i = 0; i < finalNodes.length; i++) {
-      fragment.appendChild(finalNodes[i]);
-      fragmentAppendCount++;
-    }
+    const tCommitStart = Date.now();
+    const fragmentAppendCount = finalNodes.length;
+    const finalNodeSet = new Set<Node>(finalNodes);
 
     // Pre-cleanup: remove component instances that will be removed by replaceChildren
     try {
-      // At this point, any reused nodes have been moved into the fragment,
-      // so whatever remains under parent will be removed by replaceChildren.
+      // Keep reused nodes alive, but clean up anything still attached to the
+      // parent that will be removed by replaceChildren.
       for (let n = parent.firstChild; n; ) {
         const next = n.nextSibling;
+        if (finalNodeSet.has(n)) {
+          n = next;
+          continue;
+        }
         if (n instanceof Element) removeAllListeners(n);
         cleanupInstanceIfPresent(n);
         n = next;
@@ -149,7 +149,9 @@ export function applyRendererFastPath(
       void e;
     }
 
-    parent.replaceChildren(fragment);
+    // Move-only reorder commits already have the final node set, so we can
+    // write it directly without a fragment round-trip.
+    parent.replaceChildren(...finalNodes);
     recordBenchEvent('domMove', reusedCount);
     recordBenchEvent('domInsert', createdNodes);
     recordBenchCounter('replaceChildrenCommits');
@@ -183,7 +185,7 @@ export function applyRendererFastPath(
         moves: 0,
         lisLen: 0,
         t_lookup: 0,
-        t_fragment: Date.now() - tFragmentStart,
+        t_fragment: Date.now() - tCommitStart,
         t_commit: 0,
         t_bookkeeping: 0,
         fragmentAppendCount,

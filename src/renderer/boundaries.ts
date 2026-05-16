@@ -684,7 +684,7 @@ export function commitForBoundaryChildren(
     const count = keys.length;
 
     if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
-      const nodes: Node[] = [];
+      const nodes = Array<Node>(count);
 
       for (let i = 0; i < count; i++) {
         const itemKey = keys[i];
@@ -694,9 +694,11 @@ export function commitForBoundaryChildren(
           return;
         }
         recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
-        nodes.push(dom);
+        nodes[i] = dom;
       }
 
+      // Move-only reorders already have the exact final node set, so we can
+      // commit it directly without a fragment round-trip.
       parent.replaceChildren(...nodes);
       return;
     }
