@@ -103,6 +103,57 @@ function computeLISLength(positions: number[]): number {
   return tails.length;
 }
 
+interface CurrentKeyOrderSnapshot {
+  keyCount: number;
+  currentKeys: string[];
+}
+
+function collectCurrentKeyOrder(
+  parent: Element,
+  oldKeyMap: Map<string | number, Element> | undefined
+): CurrentKeyOrderSnapshot {
+  const currentKeys: string[] = [];
+
+  if (oldKeyMap && oldKeyMap.size > 0) {
+    let lastElement: Element | null = null;
+    let keyCount = 0;
+
+    for (const [key, el] of oldKeyMap) {
+      if (el === lastElement) {
+        continue;
+      }
+
+      lastElement = el;
+      const normalizedKey = String(key);
+      currentKeys.push(normalizedKey);
+
+      keyCount++;
+    }
+
+    if (keyCount > 0) {
+      return { keyCount, currentKeys };
+    }
+  }
+
+  let keyCount = 0;
+
+  try {
+    for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+      const keyAttr = el.getAttribute('data-key');
+      if (keyAttr === null) {
+        continue;
+      }
+
+      currentKeys.push(keyAttr);
+      keyCount++;
+    }
+  } catch {
+    // ignore
+  }
+
+  return { keyCount, currentKeys };
+}
+
 /**
  * Check for prop changes between vnodes and existing elements
  */
@@ -135,14 +186,16 @@ export function isKeyedReorderFastPathEligible(
 ) {
   const keyedVnodes = extractKeyedVnodes(newChildren);
   const totalKeyed = keyedVnodes.length;
-  const newKeyOrder = keyedVnodes.map((kv) => kv.key);
-  const oldKeyOrder = oldKeyMap ? Array.from(oldKeyMap.keys()) : [];
+  const newKeyStrings = keyedVnodes.map(({ key }) => String(key));
+  const { keyCount: currentKeyCount, currentKeys } = collectCurrentKeyOrder(
+    parent,
+    oldKeyMap
+  );
 
   // Count moves needed
   let moveCount = 0;
-  for (let i = 0; i < newKeyOrder.length; i++) {
-    const k = newKeyOrder[i];
-    if (i >= oldKeyOrder.length || oldKeyOrder[i] !== k || !oldKeyMap?.has(k)) {
+  for (let i = 0; i < newKeyStrings.length; i++) {
+    if (currentKeys[i] !== newKeyStrings[i]) {
       moveCount++;
     }
   }
@@ -152,7 +205,7 @@ export function isKeyedReorderFastPathEligible(
   const FAST_MOVE_THRESHOLD_REL = 0.1;
   const cheapMoveTrigger =
     totalKeyed >= LIS_THRESHOLD_MIN &&
-    oldKeyOrder.length > 0 &&
+    currentKeyCount > 0 &&
     moveCount >
       Math.max(
         FAST_MOVE_THRESHOLD_ABS,
@@ -163,11 +216,15 @@ export function isKeyedReorderFastPathEligible(
   let lisTrigger = false;
   let lisLen = 0;
   if (totalKeyed >= LIS_THRESHOLD_MIN && !cheapMoveTrigger) {
-    const parentChildren = Array.from(parent.children);
-    const positions = keyedVnodes.map(({ key }) => {
-      const el = oldKeyMap?.get(key);
-      return el?.parentElement === parent ? parentChildren.indexOf(el) : -1;
-    });
+    const indexByKey = new Map<string, number>();
+    for (let i = 0; i < currentKeys.length; i++) {
+      indexByKey.set(currentKeys[i], i);
+    }
+
+    const positions: number[] = [];
+    for (let i = 0; i < newKeyStrings.length; i++) {
+      positions.push(indexByKey.get(newKeyStrings[i]) ?? -1);
+    }
     lisLen = computeLISLength(positions);
     lisTrigger = lisLen < Math.floor(totalKeyed * 0.5);
   }

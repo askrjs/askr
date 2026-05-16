@@ -3477,6 +3477,10 @@ function syncKeyedMapFromForState(
     }
   }
 
+  if (strategy === 'FULL_KEYED' && existing && removedNodes.length === 0) {
+    return;
+  }
+
   if (strategy === 'NO_REORDER') {
     if (existing && removedNodes.length === 0) {
       return;
@@ -3731,7 +3735,6 @@ export function commitForBoundaryChildren(
       !forState._hasResolvedItemDom &&
       forState.lastRemovedNodes.length === 0 &&
       parent.childNodes.length === forState.orderedKeys.length;
-
     if (canHydrateInPlace) {
       let exactOrder = true;
       let currentNode = parent.firstChild;
@@ -3742,10 +3745,6 @@ export function commitForBoundaryChildren(
           exactOrder = false;
           currentNode = currentNode?.nextSibling ?? null;
           continue;
-        }
-
-        if (currentNode !== itemInstance.scope.dom) {
-          exactOrder = false;
         }
 
         const dom = syncForItemDom(
@@ -3884,19 +3883,42 @@ export function commitForBoundaryChildren(
     const count = items.length;
 
     if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
-      const nodes: Node[] = [];
+      const fragment = parent.ownerDocument.createDocumentFragment();
+      let movedCount = 0;
+      let insertedCount = 0;
 
       for (let i = 0; i < count; i++) {
         const itemInstance = items[i];
-        const dom = itemInstance?.scope.dom;
+        if (!itemInstance) {
+          return;
+        }
+
+        const scope = itemInstance.scope;
+        const dom =
+          scope.dom && !scope.needsDomUpdate
+            ? scope.dom
+            : syncForItemDom(parent, scope, childrenVNodes[i]);
+
         if (!dom) {
           return;
         }
-        recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
-        nodes.push(dom);
+
+        if (dom.parentNode === parent) {
+          movedCount++;
+        } else {
+          insertedCount++;
+        }
+        fragment.appendChild(dom);
       }
 
-      parent.replaceChildren(...nodes);
+      if (movedCount > 0) {
+        recordBenchEvent('domMove', movedCount);
+      }
+      if (insertedCount > 0) {
+        recordBenchEvent('domInsert', insertedCount);
+      }
+
+      parent.replaceChildren(fragment);
       boundaryChildrenExact = true;
       return;
     }

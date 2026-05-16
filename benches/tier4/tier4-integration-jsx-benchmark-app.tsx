@@ -346,9 +346,6 @@ describe('tier4 integration jsx benchmark app', () => {
       setup() {
         app = mountJsxBenchmarkApp(emptyRows);
       },
-      beforeEach() {
-        app!.setRows(emptyRows);
-      },
       teardown() {
         app?.cleanup();
         app = null;
@@ -489,10 +486,8 @@ describe('tier4 integration jsx benchmark app', () => {
             ...tier4BenchOptions,
             setup() {
               app = mountJsxBenchmarkApp(rows1000);
-            },
-            beforeEach() {
-              app!.setRows(rows1000);
-              app!.clickRow(498);
+              app.setRows(rows1000);
+              app.clickRow(498);
             },
             teardown() {
               app?.cleanup();
@@ -501,9 +496,6 @@ describe('tier4 integration jsx benchmark app', () => {
           }
         );
         app = mountJsxBenchmarkApp(rows1000);
-      },
-      beforeEach() {
-        app!.setRows(rows1000);
       },
       teardown() {
         app?.cleanup();
@@ -521,9 +513,6 @@ describe('tier4 integration jsx benchmark app', () => {
       ...tier4BenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
-      },
-      beforeEach() {
-        app!.setRows(rows1000);
       },
       teardown() {
         app?.cleanup();

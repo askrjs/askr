@@ -1,9 +1,9 @@
 /**
  * SSR Context Management
  *
- * Provides concurrency-safe context for server-side rendering.
- * In Node.js, uses AsyncLocalStorage for isolation between concurrent requests.
- * Falls back to stack-based approach in non-Node environments.
+ * Provides render-context storage for server-side rendering.
+ * Node SSR lazily installs AsyncLocalStorage on first use; browser builds use
+ * the fallback stack.
  */
 
 import { SSRDataMissingError } from './errors';
@@ -31,29 +31,55 @@ export interface RenderContext {
 // Legacy alias for compatibility
 export type SSRContext = RenderContext;
 
-// AsyncLocalStorage for Node.js concurrency safety
-type AsyncLocalStorageType<T> = {
-  getStore(): T | undefined;
-  run<R>(store: T, fn: () => R): R;
+type RenderContextAccessor = {
+  getStore(): RenderContext | undefined;
+  run<R>(store: RenderContext, fn: () => R): R;
 };
 
-let asyncLocalStorage: AsyncLocalStorageType<RenderContext> | null = null;
+type AsyncHooksModule = {
+  AsyncLocalStorage?: new () => RenderContextAccessor;
+};
 
-// Try to load AsyncLocalStorage at module init (Node.js only)
-try {
-  // Dynamic require to avoid bundler issues in browser builds
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const asyncHooks = require('async_hooks');
-  if (asyncHooks?.AsyncLocalStorage) {
-    asyncLocalStorage =
-      new asyncHooks.AsyncLocalStorage() as AsyncLocalStorageType<RenderContext>;
-  }
-} catch {
-  // Not in Node.js or async_hooks unavailable - use fallback
-}
+let renderContextAccessor: RenderContextAccessor | null = null;
+let renderContextAccessorInitialized = false;
 
 // Fallback stack for non-Node environments
 let fallbackStack: RenderContext | null = null;
+
+function ensureRenderContextAccessor(): void {
+  if (renderContextAccessorInitialized) {
+    return;
+  }
+
+  renderContextAccessorInitialized = true;
+
+  if (typeof process === 'undefined' || !process.versions?.node) {
+    return;
+  }
+
+  try {
+    // Hide the Node builtin from browser dependency scanners.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const loadAsyncHooks = new Function(
+      'return require(' + JSON.stringify('async_hooks') + ');'
+    ) as () => AsyncHooksModule;
+    const asyncHooks = loadAsyncHooks();
+
+    if (asyncHooks.AsyncLocalStorage) {
+      const asyncLocalStorage = new asyncHooks.AsyncLocalStorage();
+      renderContextAccessor = {
+        getStore() {
+          return asyncLocalStorage.getStore();
+        },
+        run<R>(store: RenderContext, fn: () => R): R {
+          return asyncLocalStorage.run(store, fn);
+        },
+      };
+    }
+  } catch {
+    // Keep the fallback stack when async_hooks is unavailable.
+  }
+}
 
 export function createRenderContext(
   seed = 12345,
@@ -87,8 +113,9 @@ export function createRenderContext(
  * Concurrency-safe in Node.js via AsyncLocalStorage.
  */
 export function withRenderContext<T>(ctx: RenderContext, fn: () => T): T {
-  if (asyncLocalStorage) {
-    return asyncLocalStorage.run(ctx, fn);
+  ensureRenderContextAccessor();
+  if (renderContextAccessor) {
+    return renderContextAccessor.run(ctx, fn);
   }
   // Fallback: stack-based (not concurrency-safe)
   const prev = fallbackStack;
@@ -105,8 +132,9 @@ export function withRenderContext<T>(ctx: RenderContext, fn: () => T): T {
  * Returns null if not inside a render.
  */
 export function getRenderContext(): RenderContext | null {
-  if (asyncLocalStorage) {
-    return asyncLocalStorage.getStore() ?? null;
+  ensureRenderContextAccessor();
+  if (renderContextAccessor) {
+    return renderContextAccessor.getStore() ?? null;
   }
   return fallbackStack;
 }
