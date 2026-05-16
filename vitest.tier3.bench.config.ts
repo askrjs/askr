@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite-plus';
+import { playwright } from 'vite-plus/test/browser-playwright';
 import {
   benchDefine,
+  benchExcludes,
   benchOxc,
   benchResolve,
-  createBenchTestConfig,
   tier3BenchIncludes,
 } from './vitest.bench.shared';
 
@@ -11,18 +12,21 @@ export default defineConfig({
   define: benchDefine,
   oxc: benchOxc,
   test: {
-    projects: [
-      {
-        extends: true,
-        test: createBenchTestConfig({
-          name: 'tier3-jsdom',
-          environment: 'jsdom',
-          tier: 'tier3',
-          include: tier3BenchIncludes,
-          setupFiles: ['tests/setup-bench-env.ts'],
-        }),
-      },
-    ],
+    browser: {
+      enabled: true,
+      headless: true,
+      provider: playwright(),
+      instances: [{ browser: 'chromium' }],
+    },
+    globals: true,
+    include: [...tier3BenchIncludes],
+    exclude: [...benchExcludes],
+    setupFiles: ['tests/setup-bench-env.ts'],
+    benchmark: {
+      include: [...tier3BenchIncludes],
+      exclude: [...benchExcludes],
+      includeSamples: false,
+    },
   },
   resolve: benchResolve,
 });

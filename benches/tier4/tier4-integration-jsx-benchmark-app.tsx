@@ -241,7 +241,6 @@ const removedRows = removeRowById(rows1000, 500);
 
 describe('tier4 integration jsx benchmark app', () => {
   let app: ReturnType<typeof mountJsxBenchmarkApp> | null = null;
-  let createToggle: BenchToggle<readonly RowData[]> | null = null;
   let selectToggle: BenchToggle<number> | null = null;
   let updateToggle: BenchToggle<readonly RowData[]> | null = null;
   let swapToggle: BenchToggle<readonly RowData[]> | null = null;
@@ -252,18 +251,19 @@ describe('tier4 integration jsx benchmark app', () => {
   bench(
     'create 1,000 rows in the JSX app',
     () => {
-      app!.setRows(createToggle!.next() as RowData[]);
+      app!.setRows(rows1000);
     },
     {
       ...jsxAppBenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(emptyRows);
-        createToggle = createRowToggle(emptyRows, rows1000, 'initial');
+      },
+      beforeEach() {
+        app!.setRows(emptyRows);
       },
       teardown() {
         app?.cleanup();
         app = null;
-        createToggle = null;
       },
     }
   );
@@ -348,18 +348,19 @@ describe('tier4 integration jsx benchmark app', () => {
   bench(
     'append 1,000 rows in the JSX app',
     () => {
-      app!.setRows(appendToggle!.next() as RowData[]);
+      app!.setRows(rows2000);
     },
     {
       ...tier4BenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
-        appendToggle = createRowToggle(rows1000, rows2000, 'initial');
+      },
+      beforeEach() {
+        app!.setRows(rows1000);
       },
       teardown() {
         app?.cleanup();
         app = null;
-        appendToggle = null;
       },
     }
   );
@@ -367,18 +368,19 @@ describe('tier4 integration jsx benchmark app', () => {
   bench(
     'clear all rows in the JSX app',
     () => {
-      app!.setRows(clearToggle!.next() as RowData[]);
+      app!.setRows(emptyRows);
     },
     {
       ...tier4BenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
-        clearToggle = createRowToggle(rows1000, emptyRows, 'initial');
+      },
+      beforeEach() {
+        app!.setRows(rows1000);
       },
       teardown() {
         app?.cleanup();
         app = null;
-        clearToggle = null;
       },
     }
   );

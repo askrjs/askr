@@ -68,7 +68,8 @@ Askr focuses on frontend application structure and developer workflow. It is not
 
 Benchmark workflow and current optimization goals live under
 [Benchmarks](./benchmarks/), including the
-[stability workflow](./benchmarks/stability.md) and
+[benchmark index](./benchmarks/README.md), the
+[stability workflow](./benchmarks/stability.md), and
 [performance targets](./benchmarks/performance-targets.md).
 
 ## The most important rule

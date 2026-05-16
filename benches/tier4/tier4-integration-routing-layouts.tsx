@@ -188,12 +188,12 @@ await (async () => {
   }
 })();
 
-describe('tier4 browser routing layouts', () => {
+describe('tier4 integration routing layouts', () => {
   let cleanup: (() => void) | null = null;
   let routeToArtifactsA = true;
 
   bench(
-    'navigate routed shell layouts in the browser',
+    'navigate routed shell layouts in the integration app',
     () => {
       navigate(routeToArtifactsA ? '/route-artifacts-a' : '/route-artifacts-b');
       flushScheduler();
