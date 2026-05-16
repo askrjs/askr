@@ -1,12 +1,12 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { renderToStringSyncForUrl } from '../../src/ssr';
+import { renderToString } from '../../src/ssr';
 import {
   buildSsrLayoutRouteFixture,
   tier2BenchOptions,
 } from '../shared/_shared';
 
 const fixture = buildSsrLayoutRouteFixture();
-const html = renderToStringSyncForUrl({
+const html = renderToString({
   url: fixture.url,
   routes: fixture.routes,
 });
@@ -18,7 +18,7 @@ describe('tier2 ssr layout route', () => {
   bench(
     'render a nested layout route with params query and hash',
     () => {
-      renderToStringSyncForUrl({
+      renderToString({
         url: fixture.url,
         routes: fixture.routes,
       });

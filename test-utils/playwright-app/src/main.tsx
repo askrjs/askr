@@ -821,7 +821,7 @@ function mountErrorBoundaryScenario(): void {
         </button>
         <ErrorBoundary
           resetKey={recover()}
-          fallback={(error, reset) => (
+          fallback={(error, _reset) => (
             <div data-testid="boundary-fallback">
               <p data-testid="boundary-message">
                 {error instanceof Error ? error.message : String(error)}

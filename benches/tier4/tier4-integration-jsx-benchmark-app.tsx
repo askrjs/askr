@@ -1,6 +1,7 @@
 import { bench, describe } from 'vite-plus/test';
-import { createIsland, selector, state, type State } from '../../src';
+import { createIsland } from '../../src/boot';
 import { BenchmarkTable } from '../../src/bench/components/benchmark-table';
+import { selector, state, type State } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
@@ -16,12 +17,19 @@ import {
   createCachedElementQuery,
   createRowToggle,
   createSelectionToggle,
+  extendBenchOptions,
   removeRowById,
   swapRows,
-  noisyTier4BenchOptions,
   tier4BenchOptions,
   updateEveryNthRow,
 } from '../shared/_shared';
+
+const jsxAppBenchOptions = extendBenchOptions(tier4BenchOptions, {
+  time: 2500,
+  iterations: 2,
+  warmupTime: 250,
+  warmupIterations: 1,
+});
 
 function mountJsxBenchmarkApp(initialRows: RowData[]) {
   const { container, cleanup } = createTestContainer();
@@ -247,7 +255,7 @@ describe('tier4 integration jsx benchmark app', () => {
       app!.setRows(createToggle!.next() as RowData[]);
     },
     {
-      ...noisyTier4BenchOptions,
+      ...jsxAppBenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(emptyRows);
         createToggle = createRowToggle(emptyRows, rows1000, 'initial');
@@ -266,7 +274,7 @@ describe('tier4 integration jsx benchmark app', () => {
       app!.clickRow(selectToggle!.next());
     },
     {
-      ...noisyTier4BenchOptions,
+      ...jsxAppBenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
         selectToggle = createSelectionToggle(498, 499, 'first');
@@ -286,7 +294,7 @@ describe('tier4 integration jsx benchmark app', () => {
       app!.setRows(updateToggle!.next() as RowData[]);
     },
     {
-      ...noisyTier4BenchOptions,
+      ...jsxAppBenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
         updateToggle = createRowToggle(rows1000, updatedRows, 'initial');

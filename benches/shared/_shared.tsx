@@ -6,7 +6,7 @@ import type { Route, RouteHandler } from '../../src/router/route';
 import { clearRoutes, currentRoute, route } from '../../src/router/route';
 import { cleanupNavigation } from '../../src/router/navigate';
 import { getBenchMetrics } from '../../src/runtime/for';
-import { renderToStringSyncForUrl } from '../../src/ssr';
+import { renderToString } from '../../src/ssr';
 import { getCurrentRenderData, getNextKey } from '../../src/ssr/render-keys';
 import type { RouteConfig } from '../../src/ssg/types';
 import {
@@ -115,9 +115,9 @@ export const tier3BenchOptions = {
 
 export const tier4BenchOptions = {
   time: 1500,
-  iterations: 1,
-  warmupTime: 0,
-  warmupIterations: 0,
+  iterations: 2,
+  warmupTime: 150,
+  warmupIterations: 1,
 } satisfies Options;
 
 export function extendBenchOptions(
@@ -129,34 +129,6 @@ export function extendBenchOptions(
     ...overrides,
   };
 }
-
-export const noisyTier2BenchOptions = extendBenchOptions(tier2BenchOptions, {
-  time: 1800,
-  iterations: 5,
-  warmupTime: 250,
-  warmupIterations: 1,
-});
-
-export const noisyTier3BenchOptions = extendBenchOptions(tier3BenchOptions, {
-  time: 2500,
-  iterations: 4,
-  warmupTime: 350,
-  warmupIterations: 1,
-});
-
-export const heavyTier3BenchOptions = extendBenchOptions(tier3BenchOptions, {
-  time: 4000,
-  iterations: 4,
-  warmupTime: 500,
-  warmupIterations: 1,
-});
-
-export const noisyTier4BenchOptions = extendBenchOptions(tier4BenchOptions, {
-  time: 2500,
-  iterations: 1,
-  warmupTime: 0,
-  warmupIterations: 0,
-});
 
 /**
  * Tier 1 benches must verify the internal path they claim to measure before
@@ -564,7 +536,7 @@ export function createHydrationFixture({
 
   const renderServerHtml = () => {
     setLocationPath(url);
-    container.innerHTML = renderToStringSyncForUrl({ url, routes });
+    container.innerHTML = renderToString({ url, routes });
     mutateServerHtml?.(container);
     return container.innerHTML;
   };

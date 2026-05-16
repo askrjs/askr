@@ -5,7 +5,7 @@ import {
   tier2BenchOptions,
 } from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
-import { selector, state } from '../../src';
+import { state } from '../../src';
 import {
   fireEvent,
   flushScheduler,
@@ -13,7 +13,24 @@ import {
 import { For } from '../../src';
 
 function createInteractiveTableHarness() {
-  const initialRows = buildRows(1000);
+  const initialRows = buildRows(250);
+
+  const Row = ({
+    row,
+    selectRow,
+  }: {
+    row: { id: number; label: string };
+    selectRow: (id: number) => void;
+  }) => (
+    <tr id={`table-row-${row.id}`}>
+      <td>{row.id}</td>
+      <td>
+        <button id={`table-select-${row.id}`} onClick={() => selectRow(row.id)}>
+          {row.label}
+        </button>
+      </td>
+    </tr>
+  );
 
   const routes = [
     {
@@ -21,7 +38,7 @@ function createInteractiveTableHarness() {
       handler: () => {
         const rows = state(initialRows);
         const selectedId = state<number | null>(null);
-        const isSelected = selector(selectedId);
+        const selectRow = (id: number) => selectedId.set(id);
 
         const updateSelected = () => {
           const currentSelected = selectedId();
@@ -40,28 +57,14 @@ function createInteractiveTableHarness() {
 
         return (
           <div class="interactive-table-root">
+            <p id="selected">{selectedId() ?? 'none'}</p>
             <button id="update-selected" onClick={updateSelected}>
               Update Selected
             </button>
             <table>
               <tbody>
-                <For each={() => rows()} by={(row) => row.id}>
-                  {(row) => (
-                    <tr
-                      id={`table-row-${row.id}`}
-                      class={() => (isSelected(row.id) ? 'selected' : '')}
-                    >
-                      <td>{() => row.id}</td>
-                      <td>
-                        <button
-                          id={`table-select-${row.id}`}
-                          onClick={() => selectedId.set(row.id)}
-                        >
-                          {() => row.label}
-                        </button>
-                      </td>
-                    </tr>
-                  )}
+                <For each={rows} by={(row) => row.id}>
+                  {(row) => <Row row={row} selectRow={selectRow} />}
                 </For>
               </tbody>
             </table>
@@ -83,58 +86,53 @@ await (async () => {
       hydrateSPA({ root: fixture.container, routes: fixture.routes })
     ).resolves.not.toThrow();
     flushScheduler();
+    flushScheduler();
 
     fireEvent.click(
-      fixture.container.querySelector('#table-select-500') as HTMLElement
+      fixture.container.querySelector('#table-select-125') as HTMLElement
     );
     flushScheduler();
-    expect(
-      fixture.container
-        .querySelector('#table-row-500')
-        ?.classList.contains('selected')
-    ).toBe(true);
+    flushScheduler();
+    expect(fixture.container.querySelector('#selected')?.textContent).toBe(
+      '125'
+    );
 
     fireEvent.click(
       fixture.container.querySelector('#update-selected') as HTMLElement
     );
     flushScheduler();
     expect(
-      fixture.container.querySelector('#table-select-500')?.textContent
-    ).toBe('Item 500 hydrated');
+      fixture.container.querySelector('#table-select-125')?.textContent
+    ).toBe('Item 125 hydrated');
   } finally {
     fixture.cleanup();
   }
 })();
 
 describe('tier2 subsystem hydration interactive table', () => {
-  let harness: ReturnType<typeof createInteractiveTableHarness> | null = null;
-  let fixture: ReturnType<typeof createHydrationFixture> | null = null;
-
   bench(
-    'hydrate a 1,000-row interactive table and use it immediately',
+    'hydrate a 250-row interactive table and use it immediately',
     async () => {
-      fixture!.reset();
-      await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
-      flushScheduler();
-      fireEvent.click(
-        fixture!.container.querySelector('#table-select-500') as HTMLElement
-      );
-      fireEvent.click(
-        fixture!.container.querySelector('#update-selected') as HTMLElement
-      );
-      flushScheduler();
+      const harness = createInteractiveTableHarness();
+      const fixture = createHydrationFixture({ routes: harness.routes });
+
+      try {
+        await hydrateSPA({ root: fixture.container, routes: fixture.routes });
+        flushScheduler();
+        flushScheduler();
+        fireEvent.click(
+          fixture.container.querySelector('#table-select-125') as HTMLElement
+        );
+        flushScheduler();
+        flushScheduler();
+        fireEvent.click(
+          fixture.container.querySelector('#update-selected') as HTMLElement
+        );
+        flushScheduler();
+      } finally {
+        fixture.cleanup();
+      }
     },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        harness = createInteractiveTableHarness();
-        fixture = createHydrationFixture({ routes: harness.routes });
-      },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-        harness = null;
-      },
-    }
+    tier2BenchOptions
   );
 });

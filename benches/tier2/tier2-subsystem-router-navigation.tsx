@@ -1,5 +1,5 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { createSPA } from '../../src';
+import { createSPA } from '../../src/boot';
 import { navigate } from '../../src/router/navigate';
 import {
   createTestContainer,
