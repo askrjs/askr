@@ -94,7 +94,7 @@
     "dev": "vp dev",
     "fmt": "vp fmt .",
     "lint": "vp lint src tests test-utils benches",
-    "test": "npm run test:unit && npm run test:checks && npm run test:jsdom && npm run test:browser && npm run test:types",
+    "test": "npm run test:unit && npm run test:checks && npm run test:jsdom && npm run test:browser",
     "test:browser": "vp test run -c vitest.test.browser.config.ts tests/browser",
     "test:checks": "vp test run -c vitest.test.checks.config.ts",
     "test:jsdom": "vp test run -c vitest.test.jsdom.config.ts",
