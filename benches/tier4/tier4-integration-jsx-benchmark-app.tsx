@@ -207,6 +207,47 @@ const removedRows = removeRowById(rows1000, 500);
     assertToggleMutationGuard(
       app.container,
       () => {
+        {
+          const app = mountJsxBenchmarkApp(rows1000);
+          try {
+            const selectedSwapToggle = createRowToggle(
+              rows1000,
+              swappedRows,
+              'initial'
+            );
+            app.clickRow(1);
+            assertSelectionTransition(app.container, 1);
+
+            assertToggleMutationGuard(
+              app.container,
+              () => {
+                app.setRows(selectedSwapToggle.next() as RowData[]);
+              },
+              () => {
+                app.setRows(selectedSwapToggle.next() as RowData[]);
+              },
+              {
+                label: 'tier4 jsx keyed movement with selection',
+                afterForward: () => {
+                  assertOrderTransition(
+                    app.container,
+                    swappedRows.map((row) => row.id)
+                  );
+                  assertSelectionTransition(app.container, 998);
+                },
+                afterBackward: () => {
+                  assertOrderTransition(
+                    app.container,
+                    rows1000.map((row) => row.id)
+                  );
+                  assertSelectionTransition(app.container, 1);
+                },
+              }
+            );
+          } finally {
+            app.cleanup();
+          }
+        }
         app.setRows(appendToggle.next() as RowData[]);
       },
       () => {
@@ -244,6 +285,7 @@ describe('tier4 integration jsx benchmark app', () => {
   let selectToggle: BenchToggle<number> | null = null;
   let updateToggle: BenchToggle<readonly RowData[]> | null = null;
   let swapToggle: BenchToggle<readonly RowData[]> | null = null;
+  let selectedSwapToggle: BenchToggle<readonly RowData[]> | null = null;
   let removeToggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
@@ -320,6 +362,26 @@ describe('tier4 integration jsx benchmark app', () => {
         app?.cleanup();
         app = null;
         swapToggle = null;
+      },
+    }
+  );
+
+  bench(
+    'swap distant rows with selection in the JSX app',
+    () => {
+      app!.setRows(selectedSwapToggle!.next() as RowData[]);
+    },
+    {
+      ...tier4BenchOptions,
+      setup() {
+        app = mountJsxBenchmarkApp(rows1000);
+        selectedSwapToggle = createRowToggle(rows1000, swappedRows, 'initial');
+        app.clickRow(1);
+      },
+      teardown() {
+        app?.cleanup();
+        app = null;
+        selectedSwapToggle = null;
       },
     }
   );
