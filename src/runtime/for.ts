@@ -514,6 +514,7 @@ export function createItemInstance<T>(
     itemSignal && itemPropertySignals
       ? createReactiveForItem(itemSignal, itemPropertySignals)
       : item;
+  let itemInstance: ForItemInstance<T> | null = null;
   const scope = createChildScope(forState.parentInstance, key, () => {
     if (forState._enqueueBoundaryCommit) {
       forState._enqueueBoundaryCommit();
@@ -528,7 +529,7 @@ export function createItemInstance<T>(
 
   renderItemScope(forState, scope, reactiveItem, indexSignal, key);
 
-  const itemInstance: ForItemInstance<T> = {
+  itemInstance = {
     key,
     item,
     reactiveItem,
@@ -978,21 +979,18 @@ export function reconcileForItems<T>(
       resultVNodes.length = oldLen;
       resultItems.length = oldLen;
       const dirtyIndices: number[] = [];
-
       // Update in-place only, no DOM moves needed
       for (let i = 0; i < oldLen; i++) {
         const item = newArray[i];
         const key = orderedKeys[i];
         const existing = items.get(key)!;
-        const scopeNeedsDomUpdate = existing.scope.needsDomUpdate;
-
         const itemChanged = existing.item !== item;
 
         if (itemChanged) {
           updateItemInstance(forState, existing, item);
         }
 
-        if (!itemChanged && scopeNeedsDomUpdate) {
+        if (!itemChanged && existing.scope.needsDomUpdate) {
           dirtyIndices.push(i);
         }
 

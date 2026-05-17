@@ -52,9 +52,9 @@ function createDeferredHydrationHarness() {
 }
 
 const hydrationDeferredBenchOptions = extendBenchOptions(tier2BenchOptions, {
-  time: 8_000,
-  warmupTime: 1_500,
-  warmupIterations: 4,
+  time: 18_000,
+  warmupTime: 3_500,
+  warmupIterations: 6,
 });
 
 await (async () => {

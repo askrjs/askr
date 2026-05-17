@@ -3993,6 +3993,17 @@ type StaticChildSlot =
   | { kind: 'text'; value: string }
   | { kind: 'element'; value: DOMElement };
 
+const STATIC_CHILD_SLOTS_CACHE = Symbol.for('__askrStaticChildSlots');
+let staticChildSlotsCacheEnabled = true;
+
+interface StaticChildSlotsCacheNode {
+  [STATIC_CHILD_SLOTS_CACHE]?: StaticChildSlot[] | null;
+}
+
+export function setStaticChildSlotsCacheEnabled(enabled: boolean): void {
+  staticChildSlotsCacheEnabled = enabled;
+}
+
 function collectStaticChildSlots(
   children: unknown,
   slots: StaticChildSlot[]
@@ -4031,9 +4042,29 @@ function collectStaticChildSlots(
   return false;
 }
 
-function getStaticChildSlots(children: unknown): StaticChildSlot[] | null {
+function getStaticChildSlots(vnode: DOMElement): StaticChildSlot[] | null {
+  if (staticChildSlotsCacheEnabled) {
+    const cacheNode = vnode as DOMElement & StaticChildSlotsCacheNode;
+    const cached = cacheNode[STATIC_CHILD_SLOTS_CACHE];
+    if (cached !== undefined) {
+      return cached;
+    }
+  }
+
   const slots: StaticChildSlot[] = [];
-  return collectStaticChildSlots(children, slots) ? slots : null;
+  const staticSlots = collectStaticChildSlots(
+    (vnode.props?.children ?? vnode.children) as unknown,
+    slots
+  )
+    ? slots
+    : null;
+  if (staticChildSlotsCacheEnabled) {
+    const cacheNode = vnode as DOMElement & StaticChildSlotsCacheNode;
+    if (Object.isExtensible(vnode)) {
+      cacheNode[STATIC_CHILD_SLOTS_CACHE] = staticSlots;
+    }
+  }
+  return staticSlots;
 }
 
 function hasMatchingStaticProps(
@@ -4114,9 +4145,7 @@ function canReuseStaticSubtree(el: Element, vnode: DOMElement): boolean {
     return false;
   }
 
-  const children =
-    (props.children as VNode | VNode[] | undefined) ?? vnode.children;
-  const slots = getStaticChildSlots(children);
+  const slots = getStaticChildSlots(vnode);
   if (!slots) {
     return false;
   }

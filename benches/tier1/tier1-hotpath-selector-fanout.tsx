@@ -15,9 +15,11 @@ import {
 } from '../shared/_shared';
 
 type RowId = number;
-type IsSelected = (candidate: RowId) => boolean;
 
-function Row({ id, isSelected }: { id: RowId; isSelected: IsSelected }) {
+let selectedState!: ReturnType<typeof state<number | null>>;
+
+function Row({ id }: { id: RowId }) {
+  const isSelected = selector(selectedState);
   return (
     <tr data-id={id} class={() => (isSelected(id) ? 'danger' : '')}>
       <td>{id}</td>
@@ -27,17 +29,15 @@ function Row({ id, isSelected }: { id: RowId; isSelected: IsSelected }) {
 
 verifyTier1Invariant('tier1 hotpath selector fanout', () => {
   const { container, cleanup } = createTestContainer();
-  let selectedState!: ReturnType<typeof state<number | null>>;
 
   const Component = () => {
     selectedState = state<number | null>(0);
-    const isSelected = selector(selectedState);
 
     return (
       <table>
         <tbody>
           {Array.from({ length: 1_000 }, (_, id) => (
-            <Row key={id} id={id} isSelected={isSelected} />
+            <Row key={id} id={id} />
           ))}
         </tbody>
       </table>
@@ -83,7 +83,6 @@ verifyTier1Invariant('tier1 hotpath selector fanout', () => {
 
 describe('tier1 hotpath selector fanout', () => {
   let cleanup: (() => void) | null = null;
-  let selectedState: ReturnType<typeof state<number | null>> | null = null;
   let toggle: BenchToggle<number> | null = null;
   const selectorFanoutBenchOptions = extendBenchOptions(tier1BenchOptions, {
     time: 2_400,
@@ -105,13 +104,12 @@ describe('tier1 hotpath selector fanout', () => {
 
         const Component = () => {
           selectedState = state<number | null>(0);
-          const isSelected = selector(selectedState);
 
           return (
             <table>
               <tbody>
                 {Array.from({ length: 1_000 }, (_, id) => (
-                  <Row key={id} id={id} isSelected={isSelected} />
+                  <Row key={id} id={id} />
                 ))}
               </tbody>
             </table>
@@ -125,7 +123,6 @@ describe('tier1 hotpath selector fanout', () => {
       teardown() {
         cleanup?.();
         cleanup = null;
-        selectedState = null;
         toggle = null;
       },
     }
