@@ -64,7 +64,7 @@ export const _reconcilerRecordedParents = new WeakSet<Element>();
 // Configuration: LIS fast-path thresholds
 const LIS_THRESHOLD_MIN = 64; // Minimum list size for LIS optimization
 
-interface KeyedVnode {
+export interface KeyedVnode {
   key: string | number;
   vnode: VNode;
 }
@@ -176,35 +176,47 @@ function checkVnodePropChanges(
   return false;
 }
 
+export interface KeyedReorderDecision {
+  useFastPath: boolean;
+  totalKeyed: number;
+  totalChildren: number;
+  currentKeyCount: number;
+  moveCount: number;
+  lisLen: number;
+  hasPropChanges: boolean;
+  isWholeKeyedList: boolean;
+}
+
 /**
- * Determine if keyed reorder fast-path should be used
+ * Plan keyed reorder eligibility from one snapshot of keyed order and props.
  */
-export function isKeyedReorderFastPathEligible(
+export function planKeyedReorderFastPath(
   parent: Element,
-  newChildren: VNode[],
+  keyedVnodes: KeyedVnode[],
+  totalChildren: number,
   oldKeyMap: Map<string | number, Element> | undefined
-) {
-  const keyedVnodes = extractKeyedVnodes(newChildren);
+): KeyedReorderDecision {
   const totalKeyed = keyedVnodes.length;
-  const newKeyStrings = keyedVnodes.map(({ key }) => String(key));
+  const isWholeKeyedList = totalKeyed === totalChildren;
   const { keyCount: currentKeyCount, currentKeys } = collectCurrentKeyOrder(
     parent,
     oldKeyMap
   );
 
-  // Count moves needed
+  const shouldEvaluateShape =
+    isWholeKeyedList && totalKeyed >= LIS_THRESHOLD_MIN;
+
   let moveCount = 0;
-  for (let i = 0; i < newKeyStrings.length; i++) {
-    if (currentKeys[i] !== newKeyStrings[i]) {
+  for (let i = 0; i < totalKeyed; i++) {
+    if (currentKeys[i] !== String(keyedVnodes[i].key)) {
       moveCount++;
     }
   }
 
-  // Check move threshold triggers
   const FAST_MOVE_THRESHOLD_ABS = 64;
   const FAST_MOVE_THRESHOLD_REL = 0.1;
   const cheapMoveTrigger =
-    totalKeyed >= LIS_THRESHOLD_MIN &&
+    shouldEvaluateShape &&
     currentKeyCount > 0 &&
     moveCount >
       Math.max(
@@ -212,36 +224,59 @@ export function isKeyedReorderFastPathEligible(
         Math.floor(totalKeyed * FAST_MOVE_THRESHOLD_REL)
       );
 
-  // Compute LIS trigger for large lists
   let lisTrigger = false;
   let lisLen = 0;
-  if (totalKeyed >= LIS_THRESHOLD_MIN && !cheapMoveTrigger) {
+  if (shouldEvaluateShape && !cheapMoveTrigger) {
     const indexByKey = new Map<string, number>();
     for (let i = 0; i < currentKeys.length; i++) {
       indexByKey.set(currentKeys[i], i);
     }
 
-    const positions: number[] = [];
-    for (let i = 0; i < newKeyStrings.length; i++) {
-      positions.push(indexByKey.get(newKeyStrings[i]) ?? -1);
+    const positions: number[] = Array(totalKeyed).fill(-1);
+    for (let i = 0; i < totalKeyed; i++) {
+      positions[i] = indexByKey.get(String(keyedVnodes[i].key)) ?? -1;
     }
     lisLen = computeLISLength(positions);
     lisTrigger = lisLen < Math.floor(totalKeyed * 0.5);
   }
 
-  // Check for props that would prevent fast-path
-  // Only block if props have CHANGED, not just if props exist
-  const hasPropChanges = checkVnodePropChanges(keyedVnodes, oldKeyMap);
+  if (!shouldEvaluateShape || !(cheapMoveTrigger || lisTrigger)) {
+    return {
+      useFastPath: false,
+      totalKeyed,
+      totalChildren,
+      currentKeyCount,
+      moveCount,
+      lisLen,
+      hasPropChanges: false,
+      isWholeKeyedList,
+    };
+  }
 
-  // Allow fastpath even with props present, as long as props haven't changed
-  // This enables fast-path for common patterns like <Row item={item} onClick={...} />
-  const useFastPath = (cheapMoveTrigger || lisTrigger) && !hasPropChanges;
+  const hasPropChanges = checkVnodePropChanges(keyedVnodes, oldKeyMap);
+  const useFastPath = !hasPropChanges;
 
   return {
     useFastPath,
     totalKeyed,
+    totalChildren,
+    currentKeyCount,
     moveCount,
     lisLen,
     hasPropChanges,
+    isWholeKeyedList,
   } as const;
+}
+
+export function isKeyedReorderFastPathEligible(
+  parent: Element,
+  newChildren: VNode[],
+  oldKeyMap: Map<string | number, Element> | undefined
+): KeyedReorderDecision {
+  return planKeyedReorderFastPath(
+    parent,
+    extractKeyedVnodes(newChildren),
+    newChildren.length,
+    oldKeyMap
+  );
 }

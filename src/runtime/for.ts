@@ -812,25 +812,22 @@ export function reconcileForItems<T>(
             const item = newArray[i];
             const key = i < removedIndex ? orderedKeys[i] : orderedKeys[i + 1];
             const existing = items.get(key)!;
+            const scopeNeedsDomUpdate = existing.scope.needsDomUpdate;
 
             const itemChanged = existing.item !== item;
-            const needsDomUpdate = existing.scope.needsDomUpdate;
-            const indexChanged = existing.indexSignal.peek() !== i;
+            const indexSignal = existing.indexSignal;
+            const indexChanged =
+              indexSignal._hasBeenRead && indexSignal.peek() !== i;
 
             if (itemChanged) {
               updateItemInstance(forState, existing, item);
             }
 
-            if (indexChanged && existing.indexSignal._hasBeenRead) {
-              existing.indexSignal.set(i);
+            if (indexChanged) {
+              indexSignal.set(i);
             }
 
-            if (
-              itemChanged ||
-              indexChanged ||
-              needsDomUpdate ||
-              existing.scope.needsDomUpdate
-            ) {
+            if (itemChanged || indexChanged || scopeNeedsDomUpdate) {
               dirtyIndices.push(i);
             }
 
@@ -965,16 +962,16 @@ export function reconcileForItems<T>(
         const item = newArray[i];
         const key = orderedKeys[i];
         const existing = items.get(key)!;
+        const scopeNeedsDomUpdate = existing.scope.needsDomUpdate;
 
         const itemChanged = existing.item !== item;
-        const needsDomUpdate = existing.scope.needsDomUpdate;
         let rerendered = false;
 
         if (itemChanged) {
           rerendered = updateItemInstance(forState, existing, item);
         }
 
-        if (rerendered || needsDomUpdate || existing.scope.needsDomUpdate) {
+        if (rerendered || scopeNeedsDomUpdate) {
           dirtyIndices.push(i);
         }
 

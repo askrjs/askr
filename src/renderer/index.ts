@@ -4,7 +4,13 @@
 
 export * from './types';
 export * from './cleanup';
-export * from './keyed';
+export {
+  keyedElements,
+  getKeyMapForElement,
+  populateKeyMapForElement,
+  _reconcilerRecordedParents,
+  isKeyedReorderFastPathEligible,
+} from './keyed';
 export * from './dom';
 export { evaluate, clearDOMRange } from './evaluate';
 
