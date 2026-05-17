@@ -16,9 +16,9 @@ const initialRows = buildRows(1000);
 const updatedRows = updateEveryNthRow(initialRows);
 const initialRowIds = initialRows.map((row) => row.id);
 const stableUpdateBenchOptions = extendBenchOptions(tier2BenchOptions, {
-  time: 3_000,
-  warmupTime: 600,
-  warmupIterations: 3,
+  time: 6_000,
+  warmupTime: 1_200,
+  warmupIterations: 4,
 });
 
 {

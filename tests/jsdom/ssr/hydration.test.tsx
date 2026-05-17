@@ -11,6 +11,7 @@ import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
 import { For } from '@askrjs/askr/control';
+import * as rendererDom from '../../../src/renderer/dom';
 import {
   createTestContainer,
   flushScheduler,
@@ -310,6 +311,49 @@ describe('hydration (SSR)', () => {
       ).toBe('beta updated');
     });
 
+    it('should hydrate static keyed rows in place', async () => {
+      const rows = [
+        { id: 1, label: 'alpha' },
+        { id: 2, label: 'beta' },
+      ];
+
+      const Component = () => (
+        <table>
+          <tbody>
+            {rows.map((row) => (
+              <tr data-key={String(row.id)} data-row={row.id}>
+                <td class="label">{row.label}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+
+      const routes = [{ path: '/', handler: Component }];
+      const html = renderToString({ url: '/', routes });
+      container.innerHTML = html;
+
+      const firstRowBefore = container.querySelector(
+        'tr[data-row="1"]'
+      ) as HTMLTableRowElement;
+      const secondRowBefore = container.querySelector(
+        'tr[data-row="2"]'
+      ) as HTMLTableRowElement;
+
+      await expect(
+        hydrateSPA({
+          root: container,
+          routes,
+        })
+      ).resolves.not.toThrow();
+      flushScheduler();
+      flushScheduler();
+
+      expect(container.innerHTML.replace(/<!--.*?-->/g, '')).toBe(html);
+      expect(container.querySelector('tr[data-row="1"]')).toBe(firstRowBefore);
+      expect(container.querySelector('tr[data-row="2"]')).toBe(secondRowBefore);
+    });
+
     it('should hydrate keyed component rows in place before any updates', async () => {
       type Item = { id: number; label: string };
       const initialRows: Item[] = [
@@ -555,6 +599,88 @@ describe('hydration (SSR)', () => {
       fireEvent.click(container.querySelector('#idle-btn') as HTMLElement);
       flushScheduler();
       expect(clicks).toBe(1);
+    });
+
+    it('should restore the static child slot cache after deferred idle hydration', async () => {
+      const setStaticChildSlotsCacheEnabledSpy = vi.spyOn(
+        rendererDom,
+        'setStaticChildSlotsCacheEnabled'
+      );
+      const originalRect = Element.prototype.getBoundingClientRect;
+
+      Element.prototype.getBoundingClientRect = function () {
+        const className = (this as Element).className;
+        if (typeof className === 'string' && className.includes('below-fold')) {
+          return {
+            top: 1000,
+            left: 0,
+            bottom: 1100,
+            right: 100,
+            width: 100,
+            height: 100,
+            x: 0,
+            y: 1000,
+            toJSON: () => undefined,
+          } as DOMRect;
+        }
+
+        return {
+          top: 0,
+          left: 0,
+          bottom: 100,
+          right: 100,
+          width: 100,
+          height: 100,
+          x: 0,
+          y: 0,
+          toJSON: () => undefined,
+        } as DOMRect;
+      };
+
+      try {
+        const Component = () => (
+          <div>
+            <div class="hero">
+              <button id="hero-btn" onClick={() => undefined}>
+                hero
+              </button>
+            </div>
+            <div class="below-fold">
+              <button id="below-btn" onClick={() => undefined}>
+                below
+              </button>
+            </div>
+          </div>
+        );
+
+        const routes = [{ path: '/', handler: Component }];
+        container.innerHTML = renderToString({ url: '/', routes });
+
+        await hydrateSPA({
+          root: container,
+          routes,
+          hydrate: {
+            deferBelowFold: true,
+            deferUntilIdle: true,
+            foldThreshold: 100,
+          },
+        });
+        flushScheduler();
+
+        expect(setStaticChildSlotsCacheEnabledSpy).toHaveBeenCalledWith(false);
+        expect(setStaticChildSlotsCacheEnabledSpy).toHaveBeenCalledWith(true);
+        expect(setStaticChildSlotsCacheEnabledSpy.mock.calls[0]?.[0]).toBe(
+          false
+        );
+        const lastCall =
+          setStaticChildSlotsCacheEnabledSpy.mock.calls[
+            setStaticChildSlotsCacheEnabledSpy.mock.calls.length - 1
+          ];
+        expect(lastCall?.[0]).toBe(true);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        setStaticChildSlotsCacheEnabledSpy.mockRestore();
+      }
     });
 
     it('should keep skipped selectors static during hydration', async () => {

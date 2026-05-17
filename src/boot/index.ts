@@ -33,6 +33,7 @@ import {
 } from '../router/route';
 import { globalScheduler } from '../runtime/scheduler';
 import { assertExecutionModel } from '../runtime/execution-model';
+import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
@@ -584,6 +585,16 @@ async function applySelectiveHydration(
   const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
   const hasSelectiveBoundaries = hasPermanentSkips || hasBelowFoldDeferral;
+  let staticChildSlotsCacheSuspended = false;
+
+  const restoreStaticChildSlotsCache = () => {
+    if (!staticChildSlotsCacheSuspended) {
+      return;
+    }
+
+    setStaticChildSlotsCacheEnabled(true);
+    staticChildSlotsCacheSuspended = false;
+  };
 
   if (hydrateOptions.skipSelectors?.length) {
     markSkippedElements(rootElement, hydrateOptions.skipSelectors);
@@ -591,6 +602,8 @@ async function applySelectiveHydration(
 
   let deferredBoundaries: Element[] = [];
   if (hydrateOptions.deferBelowFold) {
+    setStaticChildSlotsCacheEnabled(false);
+    staticChildSlotsCacheSuspended = true;
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
     deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
 
@@ -607,6 +620,7 @@ async function applySelectiveHydration(
       flushHydrationActivation(rootElement);
 
       if (remaining === 0) {
+        restoreStaticChildSlotsCache();
         window.removeEventListener('scroll', handleScroll);
       }
     };
@@ -639,14 +653,22 @@ async function applySelectiveHydration(
 
   if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
     await queueIdleWork(() => {
-      const { activated } = activateVisibleDeferredBoundaries(
-        deferredBoundaries,
-        Number.POSITIVE_INFINITY
-      );
-      if (activated) {
-        flushHydrationActivation(rootElement);
+      try {
+        const { activated } = activateVisibleDeferredBoundaries(
+          deferredBoundaries,
+          Number.POSITIVE_INFINITY
+        );
+        if (activated) {
+          flushHydrationActivation(rootElement);
+        }
+      } finally {
+        restoreStaticChildSlotsCache();
       }
     });
+  }
+
+  if (deferredBoundaries.length === 0) {
+    restoreStaticChildSlotsCache();
   }
 }
 

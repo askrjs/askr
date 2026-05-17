@@ -39,11 +39,18 @@ type SelectorEquals<T> = {
   bivarianceHack(a: T, b: T): boolean;
 }['bivarianceHack'];
 
-interface SelectorCell<T> extends Selector<T>, DerivedSubscriber {
-  _owner: ComponentInstance;
-  _hookIndex: number;
-  _source: () => T;
+interface SelectorLane<T> {
+  _record: SelectorSourceRecord<T>;
   _equals: SelectorEquals<T>;
+  _bindingCount: number;
+  _primitiveCandidates: Map<PrimitiveKey, SelectorCandidateSource<T>>;
+  _objectCandidates: WeakMap<object, SelectorCandidateSource<T>>;
+  _objectCandidateSources: Set<SelectorCandidateSource<T>>;
+  _cleanup(): void;
+}
+
+interface SelectorSourceRecord<T> extends DerivedSubscriber {
+  _source: () => T;
   _value: T;
   _hasValue: boolean;
   _dirty: boolean;
@@ -51,22 +58,34 @@ interface SelectorCell<T> extends Selector<T>, DerivedSubscriber {
   _evaluating: boolean;
   _sources: Set<ReadableSource<unknown>>;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
-  _primitiveCandidates: Map<PrimitiveKey, SelectorCandidateSource<T>>;
-  _objectCandidates: WeakMap<object, SelectorCandidateSource<T>>;
-  _objectCandidateSources: Set<SelectorCandidateSource<T>>;
+  _lanes: Map<SelectorEquals<T>, SelectorLane<T>>;
+  _cleanup(): void;
+}
+
+interface SelectorHook<T> extends Selector<T> {
+  _owner: ComponentInstance;
+  _hookIndex: number;
+  _source: () => T;
+  _equals: SelectorEquals<T>;
+  _record: SelectorSourceRecord<T> | null;
+  _lane: SelectorLane<T> | null;
   _cleanup(): void;
 }
 
 const selectorCells = new WeakMap<
   ComponentInstance,
-  Map<number, SelectorCell<unknown>>
+  Map<number, SelectorHook<unknown>>
 >();
-const dirtySelectorCells = new Set<SelectorCell<unknown>>();
+const selectorRecords = new WeakMap<
+  ReadableSource<unknown>,
+  SelectorSourceRecord<unknown>
+>();
+const dirtySelectorRecords = new Set<SelectorSourceRecord<unknown>>();
 let hasPendingSelectorFlush = false;
 
 function getSelectorStore(
   instance: ComponentInstance
-): Map<number, SelectorCell<unknown>> {
+): Map<number, SelectorHook<unknown>> {
   let store = selectorCells.get(instance);
   if (!store) {
     store = new Map();
@@ -79,37 +98,38 @@ function scheduleSelectorFlush(): void {
   if (hasPendingSelectorFlush) {
     return;
   }
+
   hasPendingSelectorFlush = true;
-  globalScheduler.enqueueInLane('derived', flushDirtySelectorCells);
+  globalScheduler.enqueueInLane('derived', flushDirtySelectorRecords);
 }
 
-function markSelectorCellDirty(cell: SelectorCell<unknown>): void {
-  cell._dirty = true;
-  if (cell._scheduled) {
+function markSelectorRecordDirty(record: SelectorSourceRecord<unknown>): void {
+  record._dirty = true;
+  if (record._scheduled) {
     return;
   }
 
-  cell._scheduled = true;
-  dirtySelectorCells.add(cell);
+  record._scheduled = true;
+  dirtySelectorRecords.add(record);
   scheduleSelectorFlush();
 }
 
-function flushDirtySelectorCells(): void {
+function flushDirtySelectorRecords(): void {
   hasPendingSelectorFlush = false;
 
-  if (dirtySelectorCells.size === 0) {
+  if (dirtySelectorRecords.size === 0) {
     return;
   }
 
-  const pending = Array.from(dirtySelectorCells);
-  dirtySelectorCells.clear();
+  const pending = Array.from(dirtySelectorRecords);
+  dirtySelectorRecords.clear();
 
-  for (const cell of pending) {
-    cell._scheduled = false;
-    if (!cell._dirty) {
+  for (const record of pending) {
+    record._scheduled = false;
+    if (!record._dirty) {
       continue;
     }
-    recomputeSelectorCell(cell, true);
+    recomputeSelectorSourceRecord(record, true);
   }
 }
 
@@ -130,32 +150,116 @@ function createCandidateSource<T>(candidate: T): SelectorCandidateSource<T> {
 }
 
 function getCandidateSource<T>(
-  cell: SelectorCell<T>,
+  lane: SelectorLane<T>,
   candidate: T
 ): SelectorCandidateSource<T> {
   if (isObjectCandidate(candidate)) {
-    const cached = cell._objectCandidates.get(candidate);
+    const cached = lane._objectCandidates.get(candidate);
     if (cached) {
       return cached;
     }
 
     const created = createCandidateSource(candidate);
-    created._candidate = candidate;
-    cell._objectCandidates.set(candidate, created);
-    cell._objectCandidateSources.add(created);
+    lane._objectCandidates.set(candidate, created);
+    lane._objectCandidateSources.add(created);
     return created;
   }
 
   const key = candidate as PrimitiveKey;
-  const cached = cell._primitiveCandidates.get(key);
+  const cached = lane._primitiveCandidates.get(key);
   if (cached) {
     return cached;
   }
 
   const created = createCandidateSource(candidate);
-  created._candidate = candidate;
-  cell._primitiveCandidates.set(key, created);
+  lane._primitiveCandidates.set(key, created);
   return created;
+}
+
+function getSelectorSourceRecord<T>(source: () => T): SelectorSourceRecord<T> {
+  const cached = selectorRecords.get(source);
+  if (cached) {
+    return cached as SelectorSourceRecord<T>;
+  }
+
+  const record = createSelectorSourceRecord(source);
+  selectorRecords.set(source, record as SelectorSourceRecord<unknown>);
+  return record;
+}
+
+function createSelectorSourceRecord<T>(
+  source: () => T
+): SelectorSourceRecord<T> {
+  let record!: SelectorSourceRecord<T>;
+
+  record = {
+    _source: source,
+    _value: undefined as T,
+    _hasValue: false,
+    _dirty: true,
+    _scheduled: false,
+    _evaluating: false,
+    _sources: new Set(),
+    _lanes: new Map(),
+    _markDirty: () => {
+      markSelectorRecordDirty(record as SelectorSourceRecord<unknown>);
+    },
+    _cleanup: () => {
+      record._scheduled = false;
+      record._dirty = false;
+      record._hasValue = false;
+      record._evaluating = false;
+      record._pendingDependencySources = undefined;
+      clearDerivedDependencySubscriptions(record, record._sources);
+      record._lanes.clear();
+      selectorRecords.delete(source as ReadableSource<unknown>);
+    },
+  };
+
+  return record;
+}
+
+function getSelectorLane<T>(
+  record: SelectorSourceRecord<T>,
+  equals: SelectorEquals<T>
+): SelectorLane<T> {
+  const cached = record._lanes.get(equals);
+  if (cached) {
+    return cached;
+  }
+
+  const lane = createSelectorLane(record, equals);
+  record._lanes.set(equals, lane);
+  return lane;
+}
+
+function createSelectorLane<T>(
+  record: SelectorSourceRecord<T>,
+  equals: SelectorEquals<T>
+): SelectorLane<T> {
+  const lane: SelectorLane<T> = {
+    _record: record,
+    _equals: equals,
+    _bindingCount: 0,
+    _primitiveCandidates: new Map(),
+    _objectCandidates: new WeakMap(),
+    _objectCandidateSources: new Set(),
+    _cleanup: () => {
+      for (const sourceRef of lane._primitiveCandidates.values()) {
+        sourceRef._readers?.clear();
+        sourceRef._derivedSubscribers?.clear();
+      }
+      for (const sourceRef of lane._objectCandidateSources) {
+        sourceRef._readers?.clear();
+        sourceRef._derivedSubscribers?.clear();
+      }
+      lane._primitiveCandidates.clear();
+      lane._objectCandidates = new WeakMap();
+      lane._objectCandidateSources.clear();
+    },
+  };
+
+  return lane;
 }
 
 function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
@@ -165,158 +269,223 @@ function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
   notifyReadableReaders(source);
 }
 
-function notifyAllSelectorSources<T>(cell: SelectorCell<T>): void {
-  for (const source of cell._primitiveCandidates.values()) {
+function notifyAllSelectorSources<T>(lane: SelectorLane<T>): void {
+  for (const source of lane._primitiveCandidates.values()) {
     notifySelectorSource(source);
   }
-  for (const source of cell._objectCandidateSources) {
+  for (const source of lane._objectCandidateSources) {
     notifySelectorSource(source);
   }
 }
 
-function notifySelectorValueChange<T>(
-  cell: SelectorCell<T>,
+function notifySelectorLaneValueChange<T>(
+  lane: SelectorLane<T>,
   prevValue: T,
   nextValue: T
 ): void {
-  if (!isDefaultSelectorEquals(cell._equals)) {
-    notifyAllSelectorSources(cell);
+  if (!lane._bindingCount) {
+    return;
+  }
+
+  if (!isDefaultSelectorEquals(lane._equals)) {
+    if (lane._equals(prevValue, nextValue)) {
+      return;
+    }
+    notifyAllSelectorSources(lane);
     return;
   }
 
   if (!Object.is(prevValue, nextValue)) {
-    notifySelectorSource(getCandidateSource(cell, prevValue));
-    notifySelectorSource(getCandidateSource(cell, nextValue));
+    notifySelectorSource(getCandidateSource(lane, prevValue));
+    notifySelectorSource(getCandidateSource(lane, nextValue));
   }
 }
 
-function recomputeSelectorCell<T>(
-  cell: SelectorCell<T>,
+function recomputeSelectorSourceRecord<T>(
+  record: SelectorSourceRecord<T>,
   notifyDownstream: boolean
 ): T {
-  if (!cell._dirty && cell._hasValue) {
-    return cell._value;
+  if (!record._dirty && record._hasValue) {
+    return record._value;
   }
 
-  if (cell._evaluating) {
+  if (record._evaluating) {
     throw new Error('selector() cannot read itself recursively');
   }
 
-  cell._evaluating = true;
-  cell._dirty = false;
-  cell._pendingDependencySources = new Set();
+  record._evaluating = true;
+  record._dirty = false;
+  record._pendingDependencySources = new Set();
 
-  const prevSources = cell._sources;
-  const hadValue = cell._hasValue;
-  const prevValue = cell._value;
+  const prevSources = record._sources;
+  const hadValue = record._hasValue;
+  const prevValue = record._value;
   let nextValue: T;
 
   try {
-    nextValue = withDerivedReadTracking(cell, cell._source);
+    nextValue = withDerivedReadTracking(record, record._source);
   } catch (error) {
-    cell._dirty = true;
-    cell._pendingDependencySources = undefined;
+    record._dirty = true;
+    record._pendingDependencySources = undefined;
     throw error;
   } finally {
-    cell._evaluating = false;
+    record._evaluating = false;
   }
 
-  const nextSources = cell._pendingDependencySources ?? new Set();
-  cell._pendingDependencySources = undefined;
-  syncDerivedDependencySubscriptions(cell, prevSources, nextSources);
-  cell._sources = nextSources;
+  const nextSources = record._pendingDependencySources ?? new Set();
+  record._pendingDependencySources = undefined;
+  syncDerivedDependencySubscriptions(record, prevSources, nextSources);
+  record._sources = nextSources;
 
-  const valueChanged = !cell._hasValue || !cell._equals(prevValue, nextValue);
-  cell._hasValue = true;
-  cell._value = nextValue;
+  const valueChanged = !record._hasValue || !Object.is(prevValue, nextValue);
+  record._hasValue = true;
+  record._value = nextValue;
 
   if (valueChanged && notifyDownstream && hadValue) {
-    notifySelectorValueChange(cell, prevValue, nextValue);
+    for (const lane of Array.from(record._lanes.values())) {
+      notifySelectorLaneValueChange(lane, prevValue, nextValue);
+    }
   }
 
-  return cell._value;
+  return record._value;
 }
 
-function createSelectorCell<T>(
+function attachSelectorHookBinding<T>(
+  hook: SelectorHook<T>,
+  source: () => T,
+  equals: SelectorEquals<T>
+): void {
+  const record = getSelectorSourceRecord(source);
+  const lane = getSelectorLane(record, equals);
+
+  hook._source = source;
+  hook._equals = equals;
+  hook._record = record;
+  hook._lane = lane;
+  lane._bindingCount += 1;
+}
+
+function detachSelectorHookBinding<T>(hook: SelectorHook<T>): void {
+  const record = hook._record;
+  const lane = hook._lane;
+
+  hook._record = null;
+  hook._lane = null;
+
+  if (!record || !lane) {
+    return;
+  }
+
+  if (lane._bindingCount > 0) {
+    lane._bindingCount -= 1;
+  }
+
+  if (lane._bindingCount > 0) {
+    return;
+  }
+
+  lane._cleanup();
+  record._lanes.delete(lane._equals);
+
+  if (record._lanes.size === 0) {
+    record._cleanup();
+  }
+}
+
+function ensureSelectorHookBinding<T>(
+  hook: SelectorHook<T>
+): SelectorSourceRecord<T> {
+  const record = hook._record;
+  const lane = hook._lane;
+
+  if (
+    record &&
+    lane &&
+    lane._bindingCount > 0 &&
+    record._lanes.get(hook._equals) === lane &&
+    record._source === hook._source
+  ) {
+    return record;
+  }
+
+  if (hook._record || hook._lane) {
+    detachSelectorHookBinding(hook);
+  }
+
+  attachSelectorHookBinding(hook, hook._source, hook._equals);
+  return hook._record!;
+}
+
+function createSelectorHook<T>(
   instance: ComponentInstance,
   hookIndex: number,
   source: () => T,
   equals: SelectorEquals<T>
-): SelectorCell<T> {
-  const perfMetricsStore = getPerfMetricsStore();
-  const cell = function selectorPredicate(candidate: T): boolean {
-    const sourceRef = getCandidateSource(cell as SelectorCell<T>, candidate);
+): SelectorHook<T> {
+  const hook = function selectorPredicate(candidate: T): boolean {
+    const selectorHook = hook as SelectorHook<T>;
+    const record = ensureSelectorHookBinding(selectorHook);
+    const lane = selectorHook._lane;
+    if (!lane) {
+      throw new Error('selector() binding could not be established.');
+    }
+
+    const sourceRef = getCandidateSource(lane, candidate);
     recordReadableRead(sourceRef);
+
+    const perfMetricsStore = getPerfMetricsStore();
     if (perfMetricsStore) {
       perfMetricsStore.selectorCandidateReads += 1;
     }
-    const selectorCell = cell as SelectorCell<T>;
-    const current =
-      selectorCell._dirty || !selectorCell._hasValue
-        ? recomputeSelectorCell(selectorCell, selectorCell._scheduled)
-        : selectorCell._value;
-    return selectorCell._equals(current, candidate);
-  } as SelectorCell<T>;
 
-  cell._owner = instance;
-  cell._hookIndex = hookIndex;
-  cell._source = source;
-  cell._equals = equals;
-  cell._value = undefined as T;
-  cell._hasValue = false;
-  cell._dirty = true;
-  cell._scheduled = false;
-  cell._evaluating = false;
-  cell._sources = new Set();
-  cell._primitiveCandidates = new Map();
-  cell._objectCandidates = new WeakMap();
-  cell._objectCandidateSources = new Set();
-  cell._markDirty = () => {
-    markSelectorCellDirty(cell as unknown as SelectorCell<unknown>);
+    const current =
+      record._dirty || !record._hasValue
+        ? recomputeSelectorSourceRecord(record, record._scheduled)
+        : record._value;
+
+    return lane._equals(current, candidate);
+  } as SelectorHook<T>;
+
+  hook._owner = instance;
+  hook._hookIndex = hookIndex;
+  hook._source = source;
+  hook._equals = equals;
+  hook._record = null;
+  hook._lane = null;
+  hook._cleanup = () => {
+    detachSelectorHookBinding(hook);
   };
-  cell._cleanup = () => {
-    cell._scheduled = false;
-    cell._dirty = false;
-    cell._hasValue = false;
-    dirtySelectorCells.delete(cell as unknown as SelectorCell<unknown>);
-    clearDerivedDependencySubscriptions(cell, cell._sources);
-    for (const sourceRef of cell._primitiveCandidates.values()) {
-      sourceRef._readers?.clear();
-      sourceRef._derivedSubscribers?.clear();
-    }
-    for (const sourceRef of cell._objectCandidateSources) {
-      sourceRef._readers?.clear();
-      sourceRef._derivedSubscribers?.clear();
-    }
-    cell._primitiveCandidates.clear();
-    cell._objectCandidateSources.clear();
-  };
+
+  attachSelectorHookBinding(hook, source, equals);
 
   (instance.cleanupFns ??= []).push(() => {
-    cell._cleanup();
+    hook._cleanup();
     selectorCells.get(instance)?.delete(hookIndex);
   });
 
-  return cell;
+  return hook;
 }
 
-function getOrCreateSelectorCell<T>(
+function getOrCreateSelectorHook<T>(
   instance: ComponentInstance,
   hookIndex: number,
   source: () => T,
   equals: SelectorEquals<T>
-): SelectorCell<T> {
+): SelectorHook<T> {
   const store = getSelectorStore(instance);
-  const existing = store.get(hookIndex) as SelectorCell<T> | undefined;
+  const existing = store.get(hookIndex) as SelectorHook<T> | undefined;
   if (existing) {
-    existing._source = source;
-    existing._equals = equals;
-    existing._dirty = true;
+    if (existing._source !== source || existing._equals !== equals) {
+      detachSelectorHookBinding(existing);
+      attachSelectorHookBinding(existing, source, equals);
+    } else {
+      ensureSelectorHookBinding(existing);
+    }
     return existing;
   }
 
-  const created = createSelectorCell(instance, hookIndex, source, equals);
-  store.set(hookIndex, created as unknown as SelectorCell<unknown>);
+  const created = createSelectorHook(instance, hookIndex, source, equals);
+  store.set(hookIndex, created as unknown as SelectorHook<unknown>);
   return created;
 }
 
@@ -335,7 +504,15 @@ export function selector<T>(
   }
 
   const hookIndex = claimHookIndex(instance, 'selector');
-  const cell = getOrCreateSelectorCell(instance, hookIndex, source, equals);
-  recomputeSelectorCell(cell, false);
-  return cell;
+  const hook = getOrCreateSelectorHook(instance, hookIndex, source, equals);
+  if (!hook._record) {
+    throw new Error('selector() record binding was not established.');
+  }
+
+  if (!hook._record._hasValue) {
+    // Initialize the shared source once so downstream selectors can subscribe,
+    // but do not consume a pending dirty state on later renders.
+    recomputeSelectorSourceRecord(hook._record, false);
+  }
+  return hook;
 }

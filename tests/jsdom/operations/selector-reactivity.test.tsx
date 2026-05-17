@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { selector, state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
+import { renderComponentInline } from '../../../src/runtime/component';
 import { For } from '../../../src/control';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
@@ -120,12 +121,113 @@ describe('selector reactivity', () => {
     expect(evaluations.get(3) ?? 0).toBe(1);
   });
 
-  it('should clean up selector subscriptions when rows are removed', () => {
+  it('should recompute a shared selector source once across many row-local selectors', () => {
     let selected!: ReturnType<typeof state<number | null>>;
     let rows!: ReturnType<typeof state<number[]>>;
+    let sourceReads = 0;
+    const classEvaluations = new Map<number, number>();
+
+    const readSelected = () => {
+      sourceReads += 1;
+      return selected();
+    };
 
     const Row = ({ id }: { id: number }) => {
-      const isSelected = selector(selected);
+      const isSelected = selector(readSelected);
+      return (
+        <div
+          data-id={id}
+          class={() => {
+            classEvaluations.set(id, (classEvaluations.get(id) ?? 0) + 1);
+            return isSelected(id) ? 'danger' : '';
+          }}
+        >
+          {id}
+        </div>
+      );
+    };
+
+    const App = () => {
+      selected = state<number | null>(null);
+      rows = state([1, 2, 3, 4, 5]);
+
+      return (
+        <section>
+          {
+            <For each={rows} by={(item) => item}>
+              {(item) => <Row id={item} />}
+            </For>
+          }
+        </section>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(sourceReads).toBe(1);
+    expect(selected._derivedSubscribers?.size ?? 0).toBe(1);
+
+    classEvaluations.clear();
+    sourceReads = 0;
+    selected.set(3);
+    flushScheduler();
+
+    expect(sourceReads).toBe(1);
+    expect(classEvaluations.get(3) ?? 0).toBe(1);
+    expect(classEvaluations.get(1) ?? 0).toBe(0);
+    expect(classEvaluations.get(2) ?? 0).toBe(0);
+    expect(classEvaluations.get(4) ?? 0).toBe(0);
+    expect(classEvaluations.get(5) ?? 0).toBe(0);
+  });
+
+  it('should keep selector() from consuming a pending dirty source during rerender', () => {
+    let selected!: ReturnType<typeof state<number | null>>;
+    let sourceReads = 0;
+
+    const readSelected = () => {
+      sourceReads += 1;
+      return selected();
+    };
+
+    const Row = () => {
+      selector(readSelected);
+      return <div>ready</div>;
+    };
+
+    const App = () => {
+      selected = state<number | null>(null);
+      return <Row />;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(sourceReads).toBe(1);
+
+    selected.set(1);
+    type InstanceHost = Element & {
+      __ASKR_INSTANCE?: import('../../../src/runtime/component').ComponentInstance;
+    };
+    const host = Array.from(container.querySelectorAll('*')).find(
+      (el) => (el as InstanceHost).__ASKR_INSTANCE !== undefined
+    ) as InstanceHost | undefined;
+    expect(host?.__ASKR_INSTANCE).toBeDefined();
+
+    renderComponentInline(host!.__ASKR_INSTANCE!);
+
+    expect(sourceReads).toBe(1);
+
+    flushScheduler();
+  });
+
+  it('should clean up shared selector subscriptions when rows are removed', () => {
+    let selected!: ReturnType<typeof state<number | null>>;
+    let rows!: ReturnType<typeof state<number[]>>;
+    const readSelected = () => selected();
+
+    const Row = ({ id }: { id: number }) => {
+      const isSelected = selector(readSelected);
       return <div class={() => (isSelected(id) ? 'danger' : '')}>{id}</div>;
     };
 
@@ -147,12 +249,17 @@ describe('selector reactivity', () => {
     createIsland({ root: container, component: App });
     flushScheduler();
 
-    expect(selected._derivedSubscribers?.size ?? 0).toBe(3);
+    expect(selected._derivedSubscribers?.size ?? 0).toBe(1);
 
     rows.set([1, 2]);
     flushScheduler();
 
-    expect(selected._derivedSubscribers?.size ?? 0).toBe(2);
+    expect(selected._derivedSubscribers?.size ?? 0).toBe(1);
+
+    rows.set([]);
+    flushScheduler();
+
+    expect(selected._derivedSubscribers?.size ?? 0).toBe(0);
   });
 
   it('should update class when selector is created in parent and passed as prop', () => {
