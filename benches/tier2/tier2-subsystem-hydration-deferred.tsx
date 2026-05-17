@@ -1,6 +1,7 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import {
   createHydrationFixture,
+  extendBenchOptions,
   stubBelowFoldGeometry,
   tier2BenchOptions,
 } from '../shared/_shared';
@@ -49,6 +50,12 @@ function createDeferredHydrationHarness() {
 
   return { routes, state };
 }
+
+const hydrationDeferredBenchOptions = extendBenchOptions(tier2BenchOptions, {
+  time: 8_000,
+  warmupTime: 1_500,
+  warmupIterations: 4,
+});
 
 await (async () => {
   const controller = stubBelowFoldGeometry();
@@ -109,7 +116,7 @@ describe('tier2 subsystem hydration deferred', () => {
       flushScheduler();
     },
     {
-      ...tier2BenchOptions,
+      ...hydrationDeferredBenchOptions,
       setup() {
         controller = stubBelowFoldGeometry();
         harness = createDeferredHydrationHarness();

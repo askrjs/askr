@@ -99,6 +99,7 @@ import {
 import { teardownNodeSubtree } from './cleanup';
 import { applyRendererFastPath } from './fastpath';
 import { getRuntimeEnv } from './env';
+import type { ComponentFunction } from '../runtime/component';
 import {
   extractKey,
   checkPropChanges,
@@ -111,7 +112,7 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
 // Helper type for narrowings
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
-type ComponentVNode = DOMElement & { type: (props: Props) => unknown };
+type ComponentVNode = DOMElement & { type: ComponentFunction };
 
 export function reconcileKeyedChildren(
   parent: Element,

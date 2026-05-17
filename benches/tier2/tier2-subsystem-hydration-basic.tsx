@@ -5,10 +5,16 @@ import {
   buildRows,
   buildTableHydrationRoutes,
   createHydrationFixture,
+  extendBenchOptions,
   tier2BenchOptions,
 } from '../shared/_shared';
 
 const routes = buildTableHydrationRoutes(buildRows(1000));
+const hydrationBasicBenchOptions = extendBenchOptions(tier2BenchOptions, {
+  time: 6_000,
+  warmupTime: 1_200,
+  warmupIterations: 4,
+});
 
 await (async () => {
   const fixture = createHydrationFixture({ routes });
@@ -35,7 +41,7 @@ describe('tier2 subsystem hydration basic', () => {
       flushScheduler();
     },
     {
-      ...tier2BenchOptions,
+      ...hydrationBasicBenchOptions,
       setup() {
         fixture = createHydrationFixture({ routes });
       },

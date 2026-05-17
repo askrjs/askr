@@ -2522,7 +2522,7 @@ function normalizeComponentChildren(result: unknown): unknown[] {
 export function syncComponentElement(
   currentDom: Node | null,
   node: ElementWithContext,
-  type: (props: Props) => unknown,
+  type: ComponentFunction,
   props: Record<string, unknown>,
   parentNamespace?: string,
   forceChildrenUpdate = false
@@ -3177,7 +3177,7 @@ function syncForItemDom(
     const syncedComponentDom = syncComponentElement(
       dom,
       vnode as ElementWithContext,
-      vnode.type as (props: Props) => unknown,
+      vnode.type as ComponentFunction,
       ((vnode as DOMElement).props ?? {}) as Record<string, unknown>,
       parentNamespace
     );
@@ -3337,7 +3337,7 @@ function resolveStableIntrinsicPatchVNode(
   const host = dom as InstanceHostElement;
   const existingInstance = findHostInstanceByType(
     host,
-    vnode.type as (props: Props) => unknown
+    vnode.type as ComponentFunction
   );
   if (
     !existingInstance ||
@@ -4170,7 +4170,7 @@ export function updateUnkeyedChildren(
     return syncComponentElement(
       currentDom,
       next as ElementWithContext,
-      next.type as (props: Props) => unknown,
+      next.type as ComponentFunction,
       (((next as DOMElement).props ?? {}) as Record<string, unknown>) || {},
       parentNamespace,
       forceUpdate

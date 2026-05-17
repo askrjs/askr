@@ -244,10 +244,9 @@ function createForItemSignal<T>(initialItem: T): ForItemSignal<T> {
     }
 
     itemValue = newValue;
-    markReadableDerivedSubscribersDirty(itemSignal);
-    markReactivePropsDirtySource(itemSignal);
-
     if (notifyReaders) {
+      markReadableDerivedSubscribersDirty(itemSignal);
+      markReactivePropsDirtySource(itemSignal);
       notifyReadableReaders(itemSignal);
     }
   };
@@ -276,10 +275,9 @@ function createForItemPropertySignal(
     }
 
     propertyValue = newValue;
-    markReadableDerivedSubscribersDirty(propertySignal);
-    markReactivePropsDirtySource(propertySignal);
-
     if (notifyReaders) {
+      markReadableDerivedSubscribersDirty(propertySignal);
+      markReactivePropsDirtySource(propertySignal);
       notifyReadableReaders(propertySignal);
     }
   };
@@ -290,6 +288,23 @@ function createForItemPropertySignal(
 
 function readForItemProperty(item: unknown, prop: PropertyKey): unknown {
   return Reflect.get(Object(item), prop);
+}
+
+function haveSameOwnKeys(previousItem: unknown, nextItem: unknown): boolean {
+  const previousKeys = Reflect.ownKeys(Object(previousItem));
+  const nextKeys = Reflect.ownKeys(Object(nextItem));
+
+  if (previousKeys.length !== nextKeys.length) {
+    return false;
+  }
+
+  for (let i = 0; i < previousKeys.length; i += 1) {
+    if (previousKeys[i] !== nextKeys[i]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function scopeReadsSource(
@@ -582,7 +597,15 @@ function updateItemInstance<T>(
     scopeReadsChangedSignal = true;
   }
 
-  const notifyReaders = !scopeReadsChangedSignal;
+  const itemShapeChanged =
+    changedPropertySignals.length === 0 && !haveSameOwnKeys(previousItem, item);
+  const notifyReaders =
+    !scopeReadsChangedSignal &&
+    (changedPropertySignals.length > 0 || itemShapeChanged);
+  const visibleChange =
+    scopeReadsChangedSignal ||
+    changedPropertySignals.length > 0 ||
+    itemShapeChanged;
   for (const [propertySignal, nextValue] of changedPropertySignals) {
     propertySignal.set(nextValue, notifyReaders);
   }
@@ -590,10 +613,9 @@ function updateItemInstance<T>(
 
   if (scopeReadsChangedSignal) {
     rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
-    return true;
   }
 
-  return false;
+  return visibleChange;
 }
 
 const FOR_FALLBACK_SCOPE_KEY = '__for-fallback__';
@@ -965,13 +987,12 @@ export function reconcileForItems<T>(
         const scopeNeedsDomUpdate = existing.scope.needsDomUpdate;
 
         const itemChanged = existing.item !== item;
-        let rerendered = false;
 
         if (itemChanged) {
-          rerendered = updateItemInstance(forState, existing, item);
+          updateItemInstance(forState, existing, item);
         }
 
-        if (rerendered || scopeNeedsDomUpdate) {
+        if (!itemChanged && scopeNeedsDomUpdate) {
           dirtyIndices.push(i);
         }
 
@@ -1260,4 +1281,5 @@ export function clearForDomUpdateState<T>(forState: ForState<T>): void {
   forState.pendingSwapIndices = null;
   forState.pendingMoveOnly = false;
   forState._needsSourceReconcile = false;
+  forState._hasResolvedItemDom = forState.orderedKeys.length > 0;
 }

@@ -46,6 +46,33 @@ function getOrBuildDomKeyMap(
   return keyMap.size > 0 ? keyMap : undefined;
 }
 
+function hydrateExistingForDomInOrder(
+  parent: Element,
+  forState: ForState<unknown>
+): boolean {
+  if (parent.children.length !== forState.orderedKeys.length) {
+    return false;
+  }
+
+  for (let i = 0; i < forState.orderedKeys.length; i += 1) {
+    const itemKey = forState.orderedKeys[i];
+    const itemInstance = forState.items.get(itemKey);
+    const currentDom = parent.children[i];
+
+    if (
+      !itemInstance ||
+      currentDom.getAttribute('data-key') !== String(itemKey)
+    ) {
+      return false;
+    }
+
+    itemInstance.scope.dom = currentDom;
+    itemInstance.scope.needsDomUpdate = true;
+  }
+
+  return true;
+}
+
 function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
   if (
     removedNodes.length > 0 &&
@@ -196,6 +223,101 @@ function replaceChildrenInOrder(
   parent.replaceChildren(fragment);
 }
 
+function getLISIndices(sequence: number[]): number[] {
+  if (sequence.length === 0) {
+    return [];
+  }
+
+  const predecessors = sequence.slice();
+  const lisIndices: number[] = [0];
+
+  for (let i = 1; i < sequence.length; i += 1) {
+    const current = sequence[i];
+    const lastLisIndex = lisIndices[lisIndices.length - 1];
+
+    if (sequence[lastLisIndex] < current) {
+      predecessors[i] = lastLisIndex;
+      lisIndices.push(i);
+      continue;
+    }
+
+    let lo = 0;
+    let hi = lisIndices.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (sequence[lisIndices[mid]] < current) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+
+    if (current < sequence[lisIndices[lo]]) {
+      if (lo > 0) {
+        predecessors[i] = lisIndices[lo - 1];
+      }
+      lisIndices[lo] = i;
+    }
+  }
+
+  let cursor = lisIndices.length - 1;
+  let index = lisIndices[cursor];
+  while (cursor >= 0) {
+    lisIndices[cursor] = index;
+    index = predecessors[index];
+    cursor -= 1;
+  }
+
+  return lisIndices;
+}
+
+function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
+  const currentNodes = Array.from(parent.childNodes);
+  if (currentNodes.length !== nodes.length) {
+    return false;
+  }
+
+  const currentIndexByNode = new Map<Node, number>();
+  for (let i = 0; i < currentNodes.length; i += 1) {
+    currentIndexByNode.set(currentNodes[i], i);
+  }
+
+  const positions = Array.from({ length: nodes.length }, () => 0);
+  for (let i = 0; i < nodes.length; i += 1) {
+    const position = currentIndexByNode.get(nodes[i]);
+    if (position === undefined) {
+      return false;
+    }
+    positions[i] = position;
+  }
+
+  const lisIndices = getLISIndices(positions);
+  if (lisIndices.length === nodes.length) {
+    return true;
+  }
+
+  let lisCursor = lisIndices.length - 1;
+  let anchor: Node | null = null;
+
+  for (let i = nodes.length - 1; i >= 0; i -= 1) {
+    const node = nodes[i];
+    if (lisCursor >= 0 && i === lisIndices[lisCursor]) {
+      anchor = node;
+      lisCursor -= 1;
+      continue;
+    }
+
+    if (node.nextSibling !== anchor) {
+      recordBenchEvent('domMove');
+      parent.insertBefore(node, anchor);
+    }
+
+    anchor = node;
+  }
+
+  return true;
+}
+
 export function commitForStateBoundaryChildren(
   parent: Element,
   forState: ForState<unknown>,
@@ -205,6 +327,10 @@ export function commitForStateBoundaryChildren(
   const domCommitStart = performance.now();
 
   const hydrateExistingForDom = (): void => {
+    if (hydrateExistingForDomInOrder(parent, forState)) {
+      return;
+    }
+
     const domKeyMap = getOrBuildDomKeyMap(parent);
     if (!domKeyMap) {
       return;
@@ -529,6 +655,33 @@ export function commitForStateBoundaryChildren(
         nodes[i] = dom;
       }
 
+      if (!canUseDirectReplaceChildrenSpread(count)) {
+        if (movedCount > 0) {
+          recordBenchEvent('domMove', movedCount);
+        }
+        if (insertedCount > 0) {
+          recordBenchEvent('domInsert', insertedCount);
+        }
+        replaceChildrenInOrder(parent, nodes, false);
+        boundaryChildrenExact = true;
+        return;
+      }
+
+      if (insertedCount > 0) {
+        if (movedCount > 0) {
+          recordBenchEvent('domMove', movedCount);
+        }
+        recordBenchEvent('domInsert', insertedCount);
+        replaceChildrenInOrder(parent, nodes, true);
+        boundaryChildrenExact = true;
+        return;
+      }
+
+      if (count > 1 && commitMoveOnlyReorder(parent, nodes)) {
+        boundaryChildrenExact = true;
+        return;
+      }
+
       if (movedCount > 0) {
         recordBenchEvent('domMove', movedCount);
       }
@@ -626,22 +779,6 @@ export function commitForStateBoundaryChildren(
     boundaryChildrenExact = true;
   };
 
-  const isCurrentForDomOrder = (): boolean => {
-    for (let index = 0; index < forState.orderedKeys.length; index += 1) {
-      const itemInstance = forState.orderedItems[index];
-      if (!itemInstance?.scope.dom) {
-        return false;
-      }
-
-      if (parent.childNodes[index] !== itemInstance.scope.dom) {
-        return false;
-      }
-    }
-
-    boundaryChildrenExact = true;
-    return true;
-  };
-
   const isLocalOnlyDirtyCommit =
     forState.lastCommitStrategy === 'NO_REORDER' &&
     dirtyIndices.length > 0 &&
@@ -652,16 +789,8 @@ export function commitForStateBoundaryChildren(
     parent.childNodes.length === forState.orderedKeys.length;
 
   if (isLocalOnlyDirtyCommit) {
-    if (runtime.isProduction()) {
-      commitDirtyNoReorder(dirtyIndices);
-      syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
-    } else if (isCurrentForDomOrder()) {
-      commitDirtyNoReorder(dirtyIndices);
-      syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
-    } else {
-      commitReorder();
-      syncKeyedMapFromForState(parent, forState, 'FULL_KEYED', []);
-    }
+    commitDirtyNoReorder(dirtyIndices);
+    syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
 
     recordBenchTiming('domCommit', performance.now() - domCommitStart);
     clearForDomUpdateState(forState);

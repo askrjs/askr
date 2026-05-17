@@ -20,6 +20,22 @@ function getDomReplaceCount(): number {
     : 0;
 }
 
+function interleaveRows<T>(rows: readonly T[]): T[] {
+  const evenRows: T[] = [];
+  const oddRows: T[] = [];
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (index % 2 === 0) {
+      evenRows.push(row);
+    } else {
+      oddRows.push(row);
+    }
+  }
+
+  return [...evenRows, ...oddRows];
+}
+
 describe('for keyed DOM commit', () => {
   let { container, cleanup } = createTestContainer();
 
@@ -353,5 +369,97 @@ describe('for keyed DOM commit', () => {
     expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
     expect(container.querySelector('[data-key="3"]')).toBe(row3Before);
     expect(getDomReplaceCount() - replaceBefore).toBe(0);
+  });
+
+  it('should preserve keyed row identity through long interleaved move-only reorders', () => {
+    const { container, cleanup } = createTestContainer();
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
+    const frameworkClicks: number[] = [];
+    const rowRenderCounts = new Map<number, number>();
+
+    const Row = ({ item }: { item: { id: number; label: string } }) => {
+      rowRenderCounts.set(item.id, (rowRenderCounts.get(item.id) ?? 0) + 1);
+      const local = state(0);
+
+      return (
+        <button
+          data-row={String(item.id)}
+          onClick={() => {
+            frameworkClicks.push(item.id);
+            local.set((value) => value + 1);
+          }}
+        >
+          {() => `${item.label}:${local()}`}
+        </button>
+      );
+    };
+
+    const initialRows = Array.from({ length: 200 }, (_, index) => ({
+      id: index + 1,
+      label: `Row ${index + 1}`,
+    }));
+    const interleavedRows = interleaveRows(initialRows);
+
+    const Component = () => {
+      rowsState = state(initialRows);
+
+      return (
+        <div>
+          <For each={rowsState} by={(row) => row.id}>
+            {(row) => <Row item={row} />}
+          </For>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const replaceBefore = getDomReplaceCount();
+    const idToCheck = 10;
+    const beforeElem = container.querySelector(
+      `[data-row="${idToCheck}"]`
+    ) as HTMLButtonElement;
+    let nativeClicks = 0;
+    beforeElem.addEventListener('click', () => {
+      nativeClicks++;
+    });
+
+    beforeElem.click();
+    flushScheduler();
+
+    expect(beforeElem.textContent).to.equal('Row 10:1');
+    expect(nativeClicks).to.equal(1);
+    expect(frameworkClicks).to.deep.equal([10]);
+    expect(rowRenderCounts.get(idToCheck)).to.equal(1);
+
+    rowsState!.set(interleavedRows);
+    flushScheduler();
+
+    const afterElem = container.querySelector(
+      `[data-row="${idToCheck}"]`
+    ) as HTMLButtonElement;
+    expect(afterElem).to.equal(beforeElem);
+    expect(afterElem.textContent).to.equal('Row 10:1');
+    expect(rowRenderCounts.get(idToCheck)).to.equal(1);
+    expect(getDomReplaceCount() - replaceBefore).toBe(0);
+
+    afterElem.click();
+    flushScheduler();
+
+    expect(afterElem.textContent).to.equal('Row 10:2');
+    expect(nativeClicks).to.equal(2);
+    expect(frameworkClicks).to.deep.equal([10, 10]);
+
+    const orderedKeys = Array.from(
+      container.querySelectorAll('[data-row]')
+    ).map((row) => row.getAttribute('data-row'));
+    expect(orderedKeys).to.deep.equal(
+      interleavedRows.map((row) => String(row.id))
+    );
+
+    cleanup();
   });
 });

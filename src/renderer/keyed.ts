@@ -1,9 +1,9 @@
 import type { VNode } from './types';
 import {
   extractKey,
-  buildKeyMapFromChildren,
   isIgnoredForPropChanges,
   hasPropChanged,
+  buildKeyMapFromChildren,
 } from './utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,6 +157,17 @@ function collectCurrentKeyOrder(
 /**
  * Check for prop changes between vnodes and existing elements
  */
+export interface KeyedReorderDecision {
+  useFastPath: boolean;
+  totalKeyed: number;
+  totalChildren: number;
+  currentKeyCount: number;
+  moveCount: number;
+  lisLen: number;
+  hasPropChanges: boolean;
+  isWholeKeyedList: boolean;
+}
+
 function checkVnodePropChanges(
   keyedVnodes: KeyedVnode[],
   oldKeyMap: Map<string | number, Element> | undefined
@@ -176,17 +187,6 @@ function checkVnodePropChanges(
   return false;
 }
 
-export interface KeyedReorderDecision {
-  useFastPath: boolean;
-  totalKeyed: number;
-  totalChildren: number;
-  currentKeyCount: number;
-  moveCount: number;
-  lisLen: number;
-  hasPropChanges: boolean;
-  isWholeKeyedList: boolean;
-}
-
 /**
  * Plan keyed reorder eligibility from one snapshot of keyed order and props.
  */
@@ -198,13 +198,40 @@ export function planKeyedReorderFastPath(
 ): KeyedReorderDecision {
   const totalKeyed = keyedVnodes.length;
   const isWholeKeyedList = totalKeyed === totalChildren;
+  const shouldEvaluateShape =
+    isWholeKeyedList && totalKeyed >= LIS_THRESHOLD_MIN;
+
+  if (!shouldEvaluateShape) {
+    return {
+      useFastPath: false,
+      totalKeyed,
+      totalChildren,
+      currentKeyCount: 0,
+      moveCount: 0,
+      lisLen: 0,
+      hasPropChanges: false,
+      isWholeKeyedList,
+    };
+  }
+
+  const hasPropChanges = checkVnodePropChanges(keyedVnodes, oldKeyMap);
+  if (hasPropChanges) {
+    return {
+      useFastPath: false,
+      totalKeyed,
+      totalChildren,
+      currentKeyCount: 0,
+      moveCount: 0,
+      lisLen: 0,
+      hasPropChanges,
+      isWholeKeyedList,
+    };
+  }
+
   const { keyCount: currentKeyCount, currentKeys } = collectCurrentKeyOrder(
     parent,
     oldKeyMap
   );
-
-  const shouldEvaluateShape =
-    isWholeKeyedList && totalKeyed >= LIS_THRESHOLD_MIN;
 
   let moveCount = 0;
   for (let i = 0; i < totalKeyed; i++) {
@@ -253,17 +280,14 @@ export function planKeyedReorderFastPath(
     };
   }
 
-  const hasPropChanges = checkVnodePropChanges(keyedVnodes, oldKeyMap);
-  const useFastPath = !hasPropChanges;
-
   return {
-    useFastPath,
+    useFastPath: true,
     totalKeyed,
     totalChildren,
     currentKeyCount,
     moveCount,
     lisLen,
-    hasPropChanges,
+    hasPropChanges: false,
     isWholeKeyedList,
   } as const;
 }

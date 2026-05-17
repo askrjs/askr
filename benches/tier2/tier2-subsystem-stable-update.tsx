@@ -6,6 +6,7 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  extendBenchOptions,
   mountTableBenchmark,
   tier2BenchOptions,
   updateEveryNthRow,
@@ -14,6 +15,11 @@ import {
 const initialRows = buildRows(1000);
 const updatedRows = updateEveryNthRow(initialRows);
 const initialRowIds = initialRows.map((row) => row.id);
+const stableUpdateBenchOptions = extendBenchOptions(tier2BenchOptions, {
+  time: 3_000,
+  warmupTime: 600,
+  warmupIterations: 3,
+});
 
 {
   const mounted = mountTableBenchmark(initialRows);
@@ -73,7 +79,7 @@ describe('tier2 subsystem stable update', () => {
       mounted!.benchmark.setRows(toggle!.next() as RowData[]);
     },
     {
-      ...tier2BenchOptions,
+      ...stableUpdateBenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
         toggle = createRowToggle(initialRows, updatedRows, 'initial');
