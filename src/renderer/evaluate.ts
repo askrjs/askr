@@ -2,6 +2,7 @@ import { logger } from '../dev/logger';
 import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
 import type { ComponentInstance } from '../runtime/component';
+import type { ComponentFunction } from '../runtime/component';
 import {
   elementListeners,
   removeAllListeners,
@@ -762,7 +763,7 @@ export function evaluate(
         const syncedDom = syncComponentElement(
           target,
           vnode as DOMElement,
-          vnode.type as (props: Props) => unknown,
+          vnode.type as ComponentFunction,
           (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {}
         );
 

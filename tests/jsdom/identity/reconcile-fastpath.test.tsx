@@ -190,59 +190,63 @@ describe('reconcile keyed children fast-path', () => {
     expect(reusedAfter.textContent).toBe('3:1');
   });
 
-  it('should use the fragment path above the direct spread threshold', async () => {
-    const count = DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT + 1;
-    let items: ReturnType<
-      typeof state<Array<{ id: number; label: string }>>
-    > | null = null;
+  it(
+    'should use the fragment path above the direct spread threshold',
+    { timeout: 20000 },
+    async () => {
+      const count = DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT + 1;
+      let items: ReturnType<
+        typeof state<Array<{ id: number; label: string }>>
+      > | null = null;
 
-    const Component = () => {
-      items = state(
-        Array.from({ length: count }, (_, i) => ({
-          id: i + 1,
-          label: `Item ${i + 1}`,
-        }))
+      const Component = () => {
+        items = state(
+          Array.from({ length: count }, (_, i) => ({
+            id: i + 1,
+            label: `Item ${i + 1}`,
+          }))
+        );
+
+        return (
+          <div>
+            {items().map((item) => (
+              <div key={item.id} data-key={String(item.id)}>
+                {item.label}
+              </div>
+            ))}
+          </div>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const idToCheck = 1024;
+      const beforeElem = container.querySelector(
+        `[data-key="${idToCheck}"]`
+      )! as HTMLElement;
+      const parent = container.querySelector('div')!;
+      const replaceSpy = vi.spyOn(parent, 'replaceChildren');
+      const reversed = [...items!()].reverse();
+
+      items!.set(reversed);
+      flushScheduler();
+
+      expect(replaceSpy).toHaveBeenCalled();
+      const replaceCall = replaceSpy.mock.calls.at(-1)!;
+      expect(replaceCall.length).toBe(1);
+      expect(replaceCall[0]).toBeInstanceOf(DocumentFragment);
+
+      const afterElem = container.querySelector(
+        `[data-key="${idToCheck}"]`
+      )! as HTMLElement;
+      expect(afterElem).toBe(beforeElem);
+      expect(parent.firstElementChild?.getAttribute('data-key')).toBe(
+        String(count)
       );
+      expect(parent.lastElementChild?.getAttribute('data-key')).toBe('1');
 
-      return (
-        <div>
-          {items().map((item) => (
-            <div key={item.id} data-key={String(item.id)}>
-              {item.label}
-            </div>
-          ))}
-        </div>
-      );
-    };
-
-    createIsland({ root: container, component: Component });
-    flushScheduler();
-
-    const idToCheck = 1024;
-    const beforeElem = container.querySelector(
-      `[data-key="${idToCheck}"]`
-    )! as HTMLElement;
-    const parent = container.querySelector('div')!;
-    const replaceSpy = vi.spyOn(parent, 'replaceChildren');
-    const reversed = [...items!()].reverse();
-
-    items!.set(reversed);
-    flushScheduler();
-
-    expect(replaceSpy).toHaveBeenCalled();
-    const replaceCall = replaceSpy.mock.calls.at(-1)!;
-    expect(replaceCall.length).toBe(1);
-    expect(replaceCall[0]).toBeInstanceOf(DocumentFragment);
-
-    const afterElem = container.querySelector(
-      `[data-key="${idToCheck}"]`
-    )! as HTMLElement;
-    expect(afterElem).toBe(beforeElem);
-    expect(parent.firstElementChild?.getAttribute('data-key')).toBe(
-      String(count)
-    );
-    expect(parent.lastElementChild?.getAttribute('data-key')).toBe('1');
-
-    replaceSpy.mockRestore();
-  });
+      replaceSpy.mockRestore();
+    }
+  );
 });

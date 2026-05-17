@@ -9,6 +9,7 @@ import type { BenchToggle } from '../shared/_shared';
 import {
   assertToggleMutationGuard,
   createSelectionToggle,
+  extendBenchOptions,
   tier1BenchOptions,
   verifyTier1Invariant,
 } from '../shared/_shared';
@@ -84,6 +85,11 @@ describe('tier1 hotpath selector fanout', () => {
   let cleanup: (() => void) | null = null;
   let selectedState: ReturnType<typeof state<number | null>> | null = null;
   let toggle: BenchToggle<number> | null = null;
+  const selectorFanoutBenchOptions = extendBenchOptions(tier1BenchOptions, {
+    time: 2_400,
+    warmupTime: 600,
+    warmupIterations: 3,
+  });
 
   bench(
     'move selection across 1,000 selector-backed rows',
@@ -92,7 +98,7 @@ describe('tier1 hotpath selector fanout', () => {
       flushScheduler();
     },
     {
-      ...tier1BenchOptions,
+      ...selectorFanoutBenchOptions,
       setup() {
         const result = createTestContainer();
         cleanup = result.cleanup;

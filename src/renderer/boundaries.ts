@@ -1,5 +1,5 @@
 import { logger } from '../dev/logger';
-import type { Props } from '../common/props';
+import type { ComponentFunction } from '../runtime/component';
 import {
   clearCaseDomUpdateState,
   clearShowDomUpdateState,
@@ -207,7 +207,7 @@ function syncForItemDom(
     const syncedComponentDom = syncComponentElement(
       dom,
       vnode as ElementWithContext,
-      vnode.type as (props: Props) => unknown,
+      vnode.type as ComponentFunction,
       ((vnode as DOMElement).props ?? {}) as Record<string, unknown>
     );
     if (syncedComponentDom) {

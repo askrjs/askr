@@ -42,10 +42,10 @@ const initialRowIds = initialRows.map((row) => row.id);
 const interleavedRowIds = interleavedRows.map((row) => row.id);
 
 const keyedLisBenchOptions = extendBenchOptions(tier2BenchOptions, {
-  time: 1_200,
+  time: 4_000,
   iterations: 5,
-  warmupTime: 250,
-  warmupIterations: 1,
+  warmupTime: 800,
+  warmupIterations: 3,
 });
 
 const noop = () => undefined;
