@@ -1,6 +1,10 @@
 import { expect, test } from 'vite-plus/test';
 import { loadBrowserHarness } from './_helpers';
 
+const expectedPackageVersion = process.env.ASKR_PACKAGE_VERSION ?? '0.0.0';
+const expectedBuildLabel =
+  process.env.ASKR_BENCHMARK_BUILD_LABEL ?? `${expectedPackageVersion}-local`;
+
 test.describe('browser performance smoke checks', () => {
   test('should expose current benchmark metadata in the browser bridge', async () => {
     const app = await loadBrowserHarness();
@@ -9,8 +13,8 @@ test.describe('browser performance smoke checks', () => {
     const metadata = app.getBenchmarkMetadata();
 
     expect(metadata.packageName).toBe('@askrjs/askr');
-    expect(metadata.packageVersion).toBe('0.0.36');
-    expect(metadata.buildLabel).toBe('0.0.36-local');
+    expect(metadata.packageVersion).toBe(expectedPackageVersion);
+    expect(metadata.buildLabel).toBe(expectedBuildLabel);
   });
 
   test('should expose profiled benchmark operations with runtime metrics', async () => {
@@ -19,7 +23,7 @@ test.describe('browser performance smoke checks', () => {
 
     const profile = app.profileBenchmarkOperations();
 
-    expect(profile.metadata.buildLabel).toBe('0.0.36-local');
+    expect(profile.metadata.buildLabel).toBe(expectedBuildLabel);
     expect(profile.operations.create1k.durationMs).toBeGreaterThanOrEqual(0);
     expect(profile.operations.create1k.benchMetrics.itemsCreated).toBe(1000);
     expect(profile.operations.update10th1k_x16.benchMetrics.fastLaneName).toBe(
