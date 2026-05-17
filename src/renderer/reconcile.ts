@@ -94,7 +94,7 @@ import type { Props } from '../common/props';
 import {
   keyedElements,
   _reconcilerRecordedParents,
-  isKeyedReorderFastPathEligible,
+  planKeyedReorderFastPath,
 } from './keyed';
 import { teardownNodeSubtree } from './cleanup';
 import { applyRendererFastPath } from './fastpath';
@@ -118,7 +118,7 @@ export function reconcileKeyedChildren(
   newChildren: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> {
-  const { keyedVnodes, unkeyedVnodes } = partitionChildren(newChildren);
+  const keyedVnodes = extractKeyedChildren(newChildren);
 
   // Ensure we have a key map before reconciliation to avoid O(n) DOM scans
   // during O(n) reconciliation loop (which would be O(n²))
@@ -129,7 +129,6 @@ export function reconcileKeyedChildren(
     parent,
     newChildren,
     keyedVnodes,
-    unkeyedVnodes,
     ensuredOldKeyMap
   );
   if (fastPathResult) {
@@ -163,25 +162,21 @@ function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
   return keyMap;
 }
 
-/** Partition children into keyed and unkeyed */
-function partitionChildren(newChildren: VNode[]): {
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>;
-  unkeyedVnodes: VNode[];
-} {
+/** Extract keyed children in a single pass. */
+function extractKeyedChildren(
+  newChildren: VNode[]
+): Array<{ key: string | number; vnode: VNode }> {
   const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
-  const unkeyedVnodes: VNode[] = [];
 
   for (let i = 0; i < newChildren.length; i++) {
     const child = newChildren[i];
     const key = extractKey(child);
     if (key !== undefined) {
       keyedVnodes.push({ key, vnode: child });
-    } else {
-      unkeyedVnodes.push(child);
     }
   }
 
-  return { keyedVnodes, unkeyedVnodes };
+  return keyedVnodes;
 }
 
 /** Try fast paths before full reconciliation */
@@ -189,7 +184,6 @@ function tryFastPaths(
   parent: Element,
   newChildren: VNode[],
   keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
-  unkeyedVnodes: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> | null {
   try {
@@ -205,9 +199,8 @@ function tryFastPaths(
     // Try renderer fast-path for large keyed reorder-only updates
     const rendererResult = tryRendererFastPath(
       parent,
-      newChildren,
       keyedVnodes,
-      unkeyedVnodes,
+      newChildren.length,
       oldKeyMap
     );
     if (rendererResult) {
@@ -229,31 +222,20 @@ function tryFastPaths(
 /** Try renderer fast-path */
 function tryRendererFastPath(
   parent: Element,
-  newChildren: VNode[],
   keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
-  unkeyedVnodes: VNode[],
+  totalChildren: number,
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> | null {
-  const decision = isKeyedReorderFastPathEligible(
+  const decision = planKeyedReorderFastPath(
     parent,
-    newChildren,
+    keyedVnodes,
+    totalChildren,
     oldKeyMap
   );
-  const isWholeKeyedList =
-    keyedVnodes.length === newChildren.length && unkeyedVnodes.length === 0;
-  const canUseFastPath =
-    decision.useFastPath && keyedVnodes.length >= 64 && isWholeKeyedList;
 
-  // Apply fast-path only for a whole keyed list. Mixed root fragments may
-  // contain a keyed portal sibling, but they are not reorder-only lists.
-  if (canUseFastPath) {
+  if (decision.useFastPath) {
     try {
-      const map = applyRendererFastPath(
-        parent,
-        keyedVnodes,
-        oldKeyMap,
-        unkeyedVnodes
-      );
+      const map = applyRendererFastPath(parent, keyedVnodes, oldKeyMap);
       if (map) {
         keyedElements.set(parent, map);
         return map;

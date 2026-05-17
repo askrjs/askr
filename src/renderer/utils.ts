@@ -8,6 +8,14 @@ import { logger } from '../dev/logger';
 import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 
+// Keep direct replaceChildren(...nodes) commits below a conservative argument
+// count until browser benchmarks prove larger spreads are safe.
+export const DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT = 4096;
+
+export function canUseDirectReplaceChildrenSpread(count: number): boolean {
+  return count <= DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────

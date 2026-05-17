@@ -1,4 +1,3 @@
-import type { VNode } from './types';
 import { createDOMNode, updateElementFromVnode } from './dom';
 import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../dev/logger';
@@ -8,6 +7,7 @@ import { recordBenchCounter, recordBenchEvent } from '../runtime/for-bench';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { isSchedulerExecuting } from '../runtime/scheduler';
 import { isBulkCommitActive, markFastPathApplied } from '../runtime/fastlane';
+import { canUseDirectReplaceChildrenSpread } from './utils';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
@@ -18,15 +18,13 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 export function applyRendererFastPath(
   parent: Element,
   keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
-  oldKeyMap?: Map<string | number, Element>,
-  unkeyedVnodes?: VNode[]
+  oldKeyMap?: Map<string | number, Element>
 ): Map<string | number, Element> | null {
   // SSR guard: fast-path is DOM-specific
   if (typeof document === 'undefined') return null;
 
   const totalKeyed = keyedVnodes.length;
-  if (totalKeyed === 0 && (!unkeyedVnodes || unkeyedVnodes.length === 0))
-    return null;
+  if (totalKeyed === 0) return null;
 
   // Dev invariant: ensure we are executing inside the scheduler/commit flush
   if (!isSchedulerExecuting()) {
@@ -107,22 +105,23 @@ export function applyRendererFastPath(
     }
   }
 
-  // Add unkeyed nodes (detached as well)
-  if (unkeyedVnodes && unkeyedVnodes.length) {
-    for (const vnode of unkeyedVnodes) {
-      const newEl = createDOMNode(vnode);
-      if (newEl) {
-        finalNodes.push(newEl);
-        createdNodes++;
-      }
-    }
-  }
-
   // Atomic commit
   try {
     const tCommitStart = Date.now();
     const fragmentAppendCount = finalNodes.length;
-    const finalNodeSet = new Set<Node>(finalNodes);
+    const useDirectReplace = canUseDirectReplaceChildrenSpread(
+      finalNodes.length
+    );
+    const finalNodeSet = useDirectReplace ? new Set<Node>(finalNodes) : null;
+    const fragment = useDirectReplace
+      ? null
+      : parent.ownerDocument.createDocumentFragment();
+
+    if (fragment) {
+      for (let i = 0; i < finalNodes.length; i++) {
+        fragment.appendChild(finalNodes[i]);
+      }
+    }
 
     // Pre-cleanup: remove component instances that will be removed by replaceChildren
     try {
@@ -130,7 +129,7 @@ export function applyRendererFastPath(
       // parent that will be removed by replaceChildren.
       for (let n = parent.firstChild; n; ) {
         const next = n.nextSibling;
-        if (finalNodeSet.has(n)) {
+        if (finalNodeSet?.has(n)) {
           n = next;
           continue;
         }
@@ -149,9 +148,13 @@ export function applyRendererFastPath(
       void e;
     }
 
-    // Move-only reorder commits already have the final node set, so we can
-    // write it directly without a fragment round-trip.
-    parent.replaceChildren(...finalNodes);
+    if (useDirectReplace) {
+      // Move-only reorder commits already have the final node set, so small
+      // lists can write it directly without a fragment round-trip.
+      parent.replaceChildren(...finalNodes);
+    } else {
+      parent.replaceChildren(fragment!);
+    }
     recordBenchEvent('domMove', reusedCount);
     recordBenchEvent('domInsert', createdNodes);
     recordBenchCounter('replaceChildrenCommits');

@@ -7,6 +7,19 @@ import {
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 
+function getDomReplaceCount(): number {
+  const devNamespace =
+    (
+      globalThis as Record<string, unknown> & {
+        __ASKR__?: Record<string, unknown>;
+      }
+    ).__ASKR__ ?? {};
+
+  return typeof devNamespace.__DOM_REPLACE_COUNT === 'number'
+    ? (devNamespace.__DOM_REPLACE_COUNT as number)
+    : 0;
+}
+
 describe('strict keyed list guarantees', () => {
   it('should preserve DOM node identity for keyed items in mixed keyed/unkeyed lists', () => {
     const { container, cleanup } = createTestContainer();
@@ -103,6 +116,64 @@ describe('strict keyed list guarantees', () => {
 
     const b = container.querySelector('[data-key="b"]') as HTMLElement;
     expect(b.getAttribute('data-prop')).toBe('y');
+
+    cleanup();
+  });
+
+  it('should preserve keyed row identity across component-boundary reorders', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type RowData = { id: number; label: string };
+    let rowsState: ReturnType<typeof state<RowData[]>> | null = null;
+
+    function Row({ item }: { item: RowData }) {
+      return (
+        <tr data-key={String(item.id)}>
+          <td>{item.label}</td>
+        </tr>
+      );
+    }
+
+    const Component = () => {
+      rowsState = state([
+        { id: 1, label: 'One' },
+        { id: 2, label: 'Two' },
+        { id: 3, label: 'Three' },
+      ]);
+
+      return (
+        <table>
+          <tbody>
+            {rowsState().map((item) => (
+              <Row key={item.id} item={item} />
+            ))}
+          </tbody>
+        </table>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const rowsBefore = new Map<string, Element>();
+    container.querySelectorAll('tr[data-key]').forEach((row) => {
+      rowsBefore.set(row.getAttribute('data-key') || '', row);
+    });
+    const replaceBefore = getDomReplaceCount();
+
+    rowsState!.set((rows) => [rows[0], rows[2], rows[1]]);
+    flushScheduler();
+
+    const orderedKeys = Array.from(
+      container.querySelectorAll('tr[data-key]')
+    ).map((row) => row.getAttribute('data-key'));
+
+    expect(orderedKeys).toEqual(['1', '3', '2']);
+    container.querySelectorAll('tr[data-key]').forEach((row) => {
+      const key = row.getAttribute('data-key') || '';
+      expect(row).toBe(rowsBefore.get(key));
+    });
+    expect(getDomReplaceCount() - replaceBefore).toBe(0);
 
     cleanup();
   });
