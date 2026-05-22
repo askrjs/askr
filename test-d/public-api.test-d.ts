@@ -7,6 +7,9 @@ import {
   selector,
   state,
   type Derived,
+  type State,
+  type StateSetter,
+  type StateTuple,
 } from '@askrjs/askr';
 import * as rootSurface from '@askrjs/askr';
 import {
@@ -116,6 +119,14 @@ const count = state(0);
 const doubled = derive(() => count() * 2);
 expectType<Derived<number>>(doubled);
 expectType<number>(doubled());
+
+const [countValue, setCountValue] = state(0);
+expectType<State<number>>(countValue);
+expectType<StateSetter<number>>(setCountValue);
+expectType<StateTuple<number>>(count);
+
+setCountValue((value) => value + 1);
+expectType<number>(countValue());
 
 const selectedId = state<number | null>(null);
 const isSelected = selector(selectedId);
