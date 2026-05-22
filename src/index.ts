@@ -17,6 +17,10 @@ export { getSignal } from './runtime/component';
 export { selector } from './runtime/selector';
 export type { Selector } from './runtime/selector';
 
+// Control flow
+export { Case, For, Match, Show } from './control';
+export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
+
 // Context
 export { defineContext, readContext } from './runtime/context';
 export type { Context } from './runtime/context';
