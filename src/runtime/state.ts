@@ -36,8 +36,18 @@ export interface State<T> extends ReadableSource<T> {
   (): T;
   set(value: T): void;
   set(updater: (prev: T) => T): void;
-  [Symbol.iterator](): Iterator<State<T> | State<T>['set']>; // Allows destructuring: const [get, set] = state(0)
+  [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>; // Allows destructuring: const [get, set] = state(0)
 }
+
+/**
+ * Public setter type for state cells.
+ */
+export type StateSetter<T> = State<T>['set'];
+
+/**
+ * Tuple-first state handle returned by `state()`.
+ */
+export type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
 
 /**
  * Creates a local state value for a component
@@ -54,7 +64,7 @@ export interface State<T> extends ReadableSource<T> {
  * ```ts
  * // ✅ Correct: called during render
  * export function Counter() {
- *   const count = state(0);
+ *   const [count, setCount] = state(0);
  *   return { type: 'button', children: [count()] };
  * }
  *
@@ -65,7 +75,7 @@ export interface State<T> extends ReadableSource<T> {
  * }
  * ```
  */
-export function state<T>(initialValue: T): State<T> {
+export function state<T>(initialValue: T): StateTuple<T> {
   // INVARIANT: state() must be called during component render
   const instance = getCurrentInstance();
   if (!instance) {
@@ -92,7 +102,7 @@ export function state<T>(initialValue: T): State<T> {
           `State ownership is positional and immutable.`
       );
     }
-    return existing as State<T>;
+    return existing as StateTuple<T>;
   }
 
   // Create new state (slow path, only on first render) — delegated to helper
@@ -101,7 +111,7 @@ export function state<T>(initialValue: T): State<T> {
   // INVARIANT: Store state in instance for persistence across renders
   stateValues[index] = cell;
 
-  return cell;
+  return cell as StateTuple<T>;
 }
 
 /**

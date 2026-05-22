@@ -378,7 +378,7 @@ function Tabs({ tabs }) {
         const interaction = applyInteractionPolicy({
           isNative: false,
           disabled: false,
-          onPress: () => setActive.set(i)
+          onPress: () => setActive(i)
         });
         return <div {...roving.item(i)} {...interaction}>{tab.title}</div>;
       })}

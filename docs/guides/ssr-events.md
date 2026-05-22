@@ -45,7 +45,7 @@ State values ARE rendered in SSR:
 
 ```tsx
 function Counter() {
-  const count = state(0);
+  const [count] = state(0);
   return <div>{count()}</div>;
 }
 
@@ -64,12 +64,12 @@ During hydration, the state value is re-initialized and the DOM is preserved.
 import { state } from '@askrjs/askr';
 
 function ClickCounter() {
-  const count = state(0);
+  const [count, setCount] = state(0);
 
   return (
     <div>
       <p>Count: {count()}</p>
-      <button onClick={() => count.set(count() + 1)}>Increment</button>
+      <button onClick={() => setCount(count() + 1)}>Increment</button>
     </div>
   );
 }
@@ -90,8 +90,8 @@ function ClickCounter() {
 
 ```tsx
 function LoginForm() {
-  const username = state('');
-  const password = state('');
+  const [username, setUsername] = state('');
+  const [password, setPassword] = state('');
 
   const handleSubmit = () => {
     console.log('Submit:', { username: username(), password: password() });
@@ -107,12 +107,12 @@ function LoginForm() {
       <input
         type="text"
         value={username()}
-        onInput={(e) => username.set((e.target as HTMLInputElement).value)}
+        onInput={(e) => setUsername((e.target as HTMLInputElement).value)}
       />
       <input
         type="password"
         value={password()}
-        onInput={(e) => password.set((e.target as HTMLInputElement).value)}
+        onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
       />
       <button type="submit">Login</button>
     </form>
@@ -259,8 +259,8 @@ function BadComponent() {
    ```tsx
    // OK Good - state initializes on mount
    function GoodComponent() {
-     const timestamp = state(Date.now());
-     onMount(() => timestamp.set(Date.now()));
+     const [timestamp, setTimestamp] = state(Date.now());
+     onMount(() => setTimestamp(Date.now()));
      return <div>{timestamp()}</div>;
    }
    ```
@@ -270,9 +270,9 @@ function BadComponent() {
    ```tsx
    // OK Good - waits for client
    function ClientOnly({ children }) {
-     const isMounted = state(false);
-     onMount(() => isMounted.set(true));
-     return isMounted() " children : null;
+     const [isMounted, setIsMounted] = state(false);
+     onMount(() => setIsMounted(true));
+     return isMounted() ? children : null;
    }
    ```
 
@@ -281,10 +281,10 @@ function BadComponent() {
    ```tsx
    // OK Good - updates after hydration
    function ScreenWidth() {
-     const width = state(0);
+     const [width, setWidth] = state(0);
 
      onMount(() => {
-       width.set(window.innerWidth);
+       setWidth(window.innerWidth);
      });
 
      return <div>Width: {width() || 'Calculating...'}</div>;
@@ -299,7 +299,7 @@ Askr correctly handles falsy children (`0`, `false`, `''`):
 
 ```tsx
 function FalsyChildren() {
-  const count = state(0);
+  const [count] = state(0);
 
   return (
     <div>
@@ -327,12 +327,12 @@ Event handlers can update state immediately:
 
 ```tsx
 function ImmediateUpdate() {
-  const value = state('');
+  const [value, setValue] = state('');
 
   return (
     <input
       value={value()}
-      onInput={(e) => value.set((e.target as HTMLInputElement).value)}
+      onInput={(e) => setValue((e.target as HTMLInputElement).value)}
     />
   );
 }
@@ -346,12 +346,12 @@ Async handlers work correctly:
 
 ```tsx
 function AsyncHandler() {
-  const loading = state(false);
+  const [loading, setLoading] = state(false);
 
   const handleClick = async () => {
-    loading.set(true);
+    setLoading(true);
     await fetch('/api/data');
-    loading.set(false);
+    setLoading(false);
   };
 
   return (
@@ -402,12 +402,13 @@ With **event delegation** enabled (default), the cost is even lower:
 
 ```tsx
 // OK Good - simple handler
-<button onClick={() => count.set(count() + 1)}>+</button>
+const [count, setCount] = state(0);
+<button onClick={() => setCount(count() + 1)}>+</button>
 
 // NO Bad - complex logic in JSX
 <button onClick={() => {
   if (count() < 10) {
-    count.set(count() + 1);
+    setCount(count() + 1);
   } else {
     alert('Max reached');
   }
@@ -416,7 +417,7 @@ With **event delegation** enabled (default), the cost is even lower:
 // OK Better - extract to function
 const handleClick = () => {
   if (count() < 10) {
-    count.set(count() + 1);
+    setCount(count() + 1);
   } else {
     alert('Max reached');
   }
