@@ -27,11 +27,11 @@ import { state } from '@askrjs/askr';
 import { createIsland } from '@askrjs/askr/boot';
 
 function Counter() {
-  const count = state(0);
+  const [count, setCount] = state(0);
 
   return (
     <div>
-      <button onClick={() => count.set(count() + 1)}>Count: {count()}</button>
+      <button onClick={() => setCount(count() + 1)}>Count: {count()}</button>
     </div>
   );
 }
@@ -69,14 +69,14 @@ Delegated event handlers integrate with Askr's scheduler. State updates are batc
 
 ```tsx
 function BatchedUpdates() {
-  const count1 = state(0);
-  const count2 = state(0);
+  const [count1, setCount1] = state(0);
+  const [count2, setCount2] = state(0);
 
   return (
     <button
       onClick={() => {
-        count1.set(count1() + 1);
-        count2.set(count2() + 1);
+        setCount1(count1() + 1);
+        setCount2(count2() + 1);
         // Both updates batched - single re-render
       }}
     >

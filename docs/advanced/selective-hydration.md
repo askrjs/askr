@@ -252,7 +252,7 @@ function Component() {
 
 // OK Good - deterministic
 function Component() {
-  const timestamp = state(Date.now());
+  const [timestamp] = state(Date.now());
   return <div>{timestamp()}</div>;
 }
 ```
