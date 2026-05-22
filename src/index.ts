@@ -10,12 +10,16 @@ installRendererBridge();
 
 // Runtime primitives
 export { state } from './runtime/state';
-export type { State } from './runtime/state';
+export type { State, StateSetter, StateTuple } from './runtime/state';
 export { derive } from './runtime/derive';
 export type { Derived } from './runtime/derive';
 export { getSignal } from './runtime/component';
 export { selector } from './runtime/selector';
 export type { Selector } from './runtime/selector';
+
+// Control flow
+export { Case, For, Match, Show } from './control';
+export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
 
 // Context
 export { defineContext, readContext } from './runtime/context';

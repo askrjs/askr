@@ -16,6 +16,16 @@ Common runtime exports:
 - `getSignal()`
 - JSX runtime exports: `jsx`, `jsxs`, and `Fragment`
 
+Public types:
+
+- `State`
+- `StateSetter`
+- `StateTuple`
+- `Derived`
+- `Selector`
+- `Context`
+- `Props`
+
 ## Feature subpaths
 
 - `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, and `hasApp`
