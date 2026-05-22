@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.38",
+  "version": "0.0.39",
   "description": "Actor-backed deterministic UI framework",
   "keywords": [
     "askr",
@@ -127,13 +127,13 @@
     "bench:tier4": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts"
   },
   "devDependencies": {
-    "@types/node": "^25.8.0",
+    "@types/node": "^25.9.1",
     "cross-env": "^10.1.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
     "tsd": "^0.33.0",
     "typescript": "^6.0.3",
-    "vite-plus": "^0.1.21"
+    "vite-plus": "^0.1.22"
   },
   "engines": {
     "node": ">=18"
