@@ -4206,6 +4206,18 @@ export function updateUnkeyedChildren(
     );
   };
 
+  const trySyncControlBoundaryChild = (
+    parent: Element,
+    next: DOMElement
+  ): boolean => {
+    if (next.type !== __FOR_BOUNDARY__) {
+      return false;
+    }
+
+    updateElementChildren(parent, next);
+    return true;
+  };
+
   // Check if newChildren has mixed content (both text/primitives and elements)
   const hasText = newChildren.some(
     (c) => typeof c === 'string' || typeof c === 'number'
@@ -4246,6 +4258,10 @@ export function updateUnkeyedChildren(
           }
         }
       } else if (_isDOMElement(next)) {
+        if (trySyncControlBoundaryChild(parent, next)) {
+          continue;
+        }
+
         const synced = trySyncComponentChild(current, next);
         if (synced && synced !== current) {
           teardownNodeSubtree(current);
@@ -4331,6 +4347,10 @@ export function updateUnkeyedChildren(
               }
             }
           } else {
+            if (trySyncControlBoundaryChild(parent, next)) {
+              continue;
+            }
+
             const synced = trySyncComponentChild(currentEl, next);
             if (synced && synced !== currentNode) {
               teardownNodeSubtree(currentEl);
