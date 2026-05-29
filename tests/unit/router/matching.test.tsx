@@ -70,6 +70,12 @@ describe('route matching (ROUTER)', () => {
   });
 
   describe('wildcard matching', () => {
+    it('should match root catch-all as slash', () => {
+      const result = match('/', '/*');
+      expect(result.matched).toBe(true);
+      expect(result.params).toEqual({ '*': '/' });
+    });
+
     it('should match single-segment wildcard', () => {
       const result = match('/any', '/*');
       expect(result.matched).toBe(true);
