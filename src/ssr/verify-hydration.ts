@@ -5,7 +5,7 @@ import * as RouteModule from '../router/route';
 function normalizeHydrationHtml(html: string): string {
   const template = document.createElement('template');
   template.innerHTML = html;
-  return template.innerHTML.replace(/<!--.*?-->/g, '');
+  return template.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
 }
 
 export function verifyHydrationSyncForUrl(opts: {

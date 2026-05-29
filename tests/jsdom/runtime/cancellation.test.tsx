@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
 import {
   createTestContainer,
@@ -132,6 +133,32 @@ describe('cancellation (SPEC 2.6)', () => {
       container.innerHTML = '';
 
       expect(completed).toBe(false);
+    });
+
+    it('should remount with fresh state after innerHTML teardown', async () => {
+      const Component = () => {
+        const count = state(0);
+        return (
+          <button onClick={() => count.set(count() + 1)}>
+            {String(count())}
+          </button>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const button = container.querySelector('button') as HTMLButtonElement;
+      button.click();
+      flushScheduler();
+      expect(container.textContent).toBe('1');
+
+      container.innerHTML = '';
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      expect(container.textContent).toBe('0');
     });
   });
 
