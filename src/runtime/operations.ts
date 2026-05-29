@@ -200,13 +200,23 @@ export function resource<T>(
   const depsChanged =
     !cell.deps ||
     cell.deps.length !== deps.length ||
-    cell.deps.some((d, i) => d !== deps[i]);
+    cell.deps.some((d, i) => !Object.is(d, deps[i]));
 
   if (depsChanged) {
     cell.deps = deps.slice();
     cell.generation++;
     cell.pending = true;
     cell.error = null;
+
+    // Synchronously reflect the pending state into the stable snapshot so the
+    // render that triggered the deps change can surface a loading indicator.
+    // The async start() runs with notify=false and the deps-change branch never
+    // re-published the snapshot, so without this a deps-driven refetch jumped
+    // straight from the old value to the new value, never exposing pending.
+    // Stale-while-revalidate: the previous value is retained until the new
+    // fetch resolves.
+    h.snapshot.pending = true;
+    h.snapshot.error = null;
     try {
       if (inst.ssr) {
         cell.start(true, false);
