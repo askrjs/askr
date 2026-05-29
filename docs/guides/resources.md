@@ -41,6 +41,42 @@ function UserCard({ id }: { id: string }) {
 - Prefer `resource(async ({ signal }) => ...)` so the cancellation signal stays valid for the whole async operation.
 - Use dependencies intentionally to re-run resource work.
 
+## SSR with preloaded data
+
+During synchronous SSR, pass resolved resource values through `renderToStringSync`
+options so loaders do not run asynchronously:
+
+```ts
+import { renderToStringSync } from '@askrjs/askr/ssr';
+import { resource } from '@askrjs/askr/resources';
+
+function Page() {
+  const user = resource(() => 'unused', []);
+  return <div>{user.value}</div>;
+}
+
+const html = renderToStringSync(Page, undefined, {
+  data: { 'r:0': { name: 'Ada' } },
+});
+```
+
+Resource keys are assigned in render order (`r:0`, `r:1`, ...).
+
+## Combining resources with `derive()`
+
+A resource snapshot is not a `ReadableSource`. Reading `user.value` inside
+`derive(() => ...)` does not create a fine-grained dependency on the resource;
+updates still arrive when `resource()` schedules a component re-render.
+
+Prefer the snapshot form when mapping resolved data:
+
+```ts
+const user = resource(loadUser, [id]);
+const displayName = derive(user, (value) => value?.name ?? 'Guest');
+```
+
+Or read `user.value` directly in JSX.
+
 ## Next
 
 - [Resources API](../reference/resources.md)

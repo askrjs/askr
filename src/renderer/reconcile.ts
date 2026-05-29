@@ -101,6 +101,13 @@ import { applyRendererFastPath } from './fastpath';
 import { getRuntimeEnv } from './env';
 import type { ComponentFunction } from '../runtime/component';
 import {
+  evaluateCaseState,
+  evaluateShowState,
+  type ControlBoundaryState,
+} from '../runtime/control';
+import { evaluateForState } from '../runtime/for';
+import { __FOR_BOUNDARY__ } from '../common/vnode';
+import {
   extractKey,
   checkPropChanges,
   recordFastPathStats,
@@ -530,6 +537,23 @@ function reconcileSingleChild(
   usedOldEls: WeakSet<Node>,
   newKeyMap: Map<string | number, Element>
 ): Node | null {
+  const resolvedControlBoundary = prepareControlBoundaryResolution(child);
+  if (resolvedControlBoundary !== null) {
+    if (resolvedControlBoundary.remount) {
+      return createDOMNode(resolvedControlBoundary.vnode);
+    }
+
+    return reconcileSingleChild(
+      resolvedControlBoundary.vnode,
+      index,
+      parent,
+      resolveOldElOnce,
+      resolveUnkeyedOnce,
+      usedOldEls,
+      newKeyMap
+    );
+  }
+
   // Keyed child
   const key = extractKey(child);
 
@@ -537,7 +561,6 @@ function reconcileSingleChild(
     return reconcileKeyedChild(child, key, parent, resolveOldElOnce, newKeyMap);
   }
 
-  // Unkeyed or primitive child
   return reconcileUnkeyedChild(
     child,
     index,
@@ -655,6 +678,58 @@ function isComponentVNode(child: VNode): child is ComponentVNode {
     'type' in child &&
     typeof (child as VnodeObj).type === 'function'
   );
+}
+
+function isControlBoundaryVNode(child: VNode): child is DOMElement {
+  return (
+    typeof child === 'object' &&
+    child !== null &&
+    'type' in child &&
+    (child as VnodeObj).type === __FOR_BOUNDARY__
+  );
+}
+
+function prepareControlBoundaryResolution(child: VNode): {
+  remount: boolean;
+  vnode: VNode | null;
+} | null {
+  if (!isControlBoundaryVNode(child)) {
+    return null;
+  }
+
+  const controlState = child._controlState ?? child._forState;
+  if (!controlState) {
+    return null;
+  }
+
+  const previousActiveKey = controlState.activeKey;
+  const childrenVNodes = evaluateControlBoundaryChildren(controlState);
+  if (controlState.kind === 'for') {
+    return childrenVNodes.length === 1
+      ? { remount: false, vnode: childrenVNodes[0] ?? null }
+      : null;
+  }
+
+  return {
+    remount:
+      previousActiveKey !== null &&
+      controlState.activeKey !== previousActiveKey,
+    vnode: childrenVNodes[0] ?? null,
+  };
+}
+
+function evaluateControlBoundaryChildren(
+  controlState: ControlBoundaryState
+): VNode[] {
+  if (controlState.kind === 'for') {
+    return evaluateForState(controlState);
+  }
+
+  if (controlState.kind === 'show') {
+    return evaluateShowState(controlState);
+  }
+
+  return evaluateCaseState(controlState);
 }
 
 function trySyncComponentChild(

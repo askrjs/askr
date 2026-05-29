@@ -6,9 +6,21 @@ import {
 } from '../../../src/bench/benchmark-entry';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
-const expectedPackageName = process.env.npm_package_name || '@askrjs/askr';
-const expectedPackageVersion = process.env.npm_package_version || '0.0.29';
-const expectedBuildLabel = `${expectedPackageVersion}-local`;
+// Mirror the exact env precedence used by src/bench/benchmark-entry.tsx. The
+// jsdom vitest config (createNodeEnvDefine) injects ASKR_PACKAGE_* from
+// package.json into both source and test modules, so deriving the expected
+// values the same way keeps this test version-agnostic instead of hardcoding a
+// literal that goes stale on every version bump.
+const expectedPackageName =
+  process.env.ASKR_PACKAGE_NAME ||
+  process.env.npm_package_name ||
+  '@askrjs/askr';
+const expectedPackageVersion =
+  process.env.ASKR_PACKAGE_VERSION ||
+  process.env.npm_package_version ||
+  '0.0.0';
+const expectedBuildLabel =
+  process.env.ASKR_BENCHMARK_BUILD_LABEL || `${expectedPackageVersion}-local`;
 
 describe('benchmark entry component harness', () => {
   it('should expose current local benchmark metadata', () => {

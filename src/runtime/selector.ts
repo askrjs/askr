@@ -176,6 +176,16 @@ function getCandidateSource<T>(
   return created;
 }
 
+function peekCandidateSource<T>(
+  lane: SelectorLane<T>,
+  candidate: T
+): SelectorCandidateSource<T> | undefined {
+  if (isObjectCandidate(candidate)) {
+    return lane._objectCandidates.get(candidate);
+  }
+  return lane._primitiveCandidates.get(candidate as PrimitiveKey);
+}
+
 function getSelectorSourceRecord<T>(source: () => T): SelectorSourceRecord<T> {
   const cached = selectorRecords.get(source);
   if (cached) {
@@ -296,8 +306,19 @@ function notifySelectorLaneValueChange<T>(
   }
 
   if (!Object.is(prevValue, nextValue)) {
-    notifySelectorSource(getCandidateSource(lane, prevValue));
-    notifySelectorSource(getCandidateSource(lane, nextValue));
+    // Only notify candidate sources that were actually materialized by a read.
+    // Using getCandidateSource here would create-on-miss and leak a candidate
+    // source for every distinct value the source ever passed through, even
+    // those no component reads. Peek instead so the candidate cache stays
+    // bounded to values that components actually compare against.
+    const prevSource = peekCandidateSource(lane, prevValue);
+    if (prevSource) {
+      notifySelectorSource(prevSource);
+    }
+    const nextSource = peekCandidateSource(lane, nextValue);
+    if (nextSource) {
+      notifySelectorSource(nextSource);
+    }
   }
 }
 

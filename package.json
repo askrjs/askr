@@ -133,9 +133,10 @@
     "playwright": "^1.60.0",
     "tsd": "^0.33.0",
     "typescript": "^6.0.3",
-    "vite-plus": "^0.1.22"
+    "vite-plus": "^0.1.23"
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "packageManager": "npm@11.16.0"
 }
