@@ -44,40 +44,116 @@ const instancesByRoot = new WeakMap<Element, ComponentInstance>();
 
 // Symbol for storing cleanup on elements
 const CLEANUP_SYMBOL = Symbol.for('__askrCleanup__');
+const ROOT_CLEANUP_CALLBACKS_SYMBOL = Symbol.for(
+  '__askrRootCleanupCallbacks__'
+);
+
+type RootCleanupOptions = {
+  preserveInstance?: boolean;
+};
 
 // Type for elements that have cleanup functions attached
 interface ElementWithCleanup extends Element {
-  [CLEANUP_SYMBOL]?: () => void;
+  [CLEANUP_SYMBOL]?: (options?: RootCleanupOptions) => void;
+  [ROOT_CLEANUP_CALLBACKS_SYMBOL]?: Set<() => void>;
+}
+
+function clearRootCleanupCallbacks(rootElement: Element): void {
+  try {
+    delete (rootElement as ElementWithCleanup)[ROOT_CLEANUP_CALLBACKS_SYMBOL];
+  } catch {
+    (rootElement as ElementWithCleanup)[ROOT_CLEANUP_CALLBACKS_SYMBOL]?.clear();
+  }
+}
+
+function registerRootCleanupCallback(
+  rootElement: Element,
+  callback: () => void
+): () => void {
+  const elementWithCleanup = rootElement as ElementWithCleanup;
+  const callbacks =
+    elementWithCleanup[ROOT_CLEANUP_CALLBACKS_SYMBOL] ?? new Set();
+  callbacks.add(callback);
+  elementWithCleanup[ROOT_CLEANUP_CALLBACKS_SYMBOL] = callbacks;
+
+  return () => {
+    callbacks.delete(callback);
+    if (callbacks.size === 0) {
+      clearRootCleanupCallbacks(rootElement);
+    }
+  };
+}
+
+function runRootCleanupCallbacks(
+  rootElement: Element,
+  errors: unknown[]
+): void {
+  const callbacks = (rootElement as ElementWithCleanup)[
+    ROOT_CLEANUP_CALLBACKS_SYMBOL
+  ];
+  if (!callbacks || callbacks.size === 0) {
+    clearRootCleanupCallbacks(rootElement);
+    return;
+  }
+
+  clearRootCleanupCallbacks(rootElement);
+  for (const callback of callbacks) {
+    try {
+      callback();
+    } catch (e) {
+      errors.push(e);
+    }
+  }
+}
+
+function cleanupRootInstance(
+  rootElement: Element,
+  instance: ComponentInstance,
+  options?: RootCleanupOptions
+) {
+  // Attempt to remove listeners and cleanup instances under the root.
+  // In non-strict mode we preserve previous behavior by swallowing errors
+  // (but logging in dev); in strict mode we aggregate and re-throw.
+  const errors: unknown[] = [];
+  try {
+    removeAllListeners(rootElement);
+  } catch (e) {
+    errors.push(e);
+  }
+
+  try {
+    cleanupComponent(instance);
+  } catch (e) {
+    errors.push(e);
+  }
+
+  runRootCleanupCallbacks(rootElement, errors);
+
+  if (!options?.preserveInstance) {
+    instancesByRoot.delete(rootElement);
+    clearRootCleanupCallbacks(rootElement);
+    try {
+      delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
+    } catch {
+      // Ignore cleanup marker removal failures.
+    }
+  }
+
+  if (errors.length > 0) {
+    if (instance.cleanupStrict) {
+      throw new AggregateError(errors, `cleanup failed for app root`);
+    } else if (isDevelopmentEnvironment()) {
+      for (const err of errors) logger.warn('[Askr] cleanup error:', err);
+    }
+  }
 }
 
 function attachCleanupForRoot(
   rootElement: Element,
   instance: ComponentInstance
 ) {
-  (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL] = () => {
-    // Attempt to remove listeners and cleanup instances under the root.
-    // In non-strict mode we preserve previous behavior by swallowing errors
-    // (but logging in dev); in strict mode we aggregate and re-throw.
-    const errors: unknown[] = [];
-    try {
-      removeAllListeners(rootElement);
-    } catch (e) {
-      errors.push(e);
-    }
-
-    try {
-      cleanupComponent(instance as ComponentInstance);
-    } catch (e) {
-      errors.push(e);
-    }
-
-    if (errors.length > 0) {
-      if (instance.cleanupStrict) {
-        throw new AggregateError(errors, `cleanup failed for app root`);
-      } else if (isDevelopmentEnvironment()) {
-        for (const err of errors) logger.warn('[Askr] cleanup error:', err);
-      }
-    }
+  (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL] = (options) => {
+    cleanupRootInstance(rootElement, instance, options);
   };
 
   try {
@@ -98,23 +174,7 @@ function attachCleanupForRoot(
           : undefined,
         set: function (this: Element, value: string) {
           if (value === '' && instancesByRoot.get(this) === instance) {
-            try {
-              removeAllListeners(rootElement);
-            } catch (e) {
-              if (instance.cleanupStrict) throw e;
-              if (isDevelopmentEnvironment()) {
-                logger.warn('[Askr] cleanup error:', e);
-              }
-            }
-
-            try {
-              cleanupComponent(instance as ComponentInstance);
-            } catch (e) {
-              if (instance.cleanupStrict) throw e;
-              if (isDevelopmentEnvironment()) {
-                logger.warn('[Askr] cleanup error:', e);
-              }
-            }
+            cleanupRootInstance(rootElement, instance);
           }
           if (descriptor.set) {
             return descriptor.set.call(this, value);
@@ -164,18 +224,23 @@ function mountOrUpdate(
 
   // Clean up existing cleanup function before mounting new one
   const existingCleanup = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-  if (existingCleanup) existingCleanup();
+  const reusedExistingInstance = typeof existingCleanup === 'function';
+  if (reusedExistingInstance) {
+    existingCleanup({ preserveInstance: true });
+  }
 
   let instance = instancesByRoot.get(rootElement);
 
   if (instance) {
-    removeAllListeners(rootElement);
-    try {
-      cleanupComponent(instance);
-    } catch (e) {
-      // If previous cleanup threw in strict mode, log but continue mounting new instance
-      if (isDevelopmentEnvironment()) {
-        logger.warn('[Askr] prior cleanup threw:', e);
+    if (!reusedExistingInstance) {
+      removeAllListeners(rootElement);
+      try {
+        cleanupComponent(instance);
+      } catch (e) {
+        // If previous cleanup threw in strict mode, log but continue mounting new instance
+        if (isDevelopmentEnvironment()) {
+          logger.warn('[Askr] prior cleanup threw:', e);
+        }
       }
     }
 
@@ -586,6 +651,7 @@ async function applySelectiveHydration(
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
   const hasSelectiveBoundaries = hasPermanentSkips || hasBelowFoldDeferral;
   let staticChildSlotsCacheSuspended = false;
+  let releaseSelectiveHydrationResources = () => {};
 
   const restoreStaticChildSlotsCache = () => {
     if (!staticChildSlotsCacheSuspended) {
@@ -607,7 +673,10 @@ async function applySelectiveHydration(
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
     deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
 
-    const handleScroll = () => {
+    let selectiveHydrationResourcesReleased = false;
+    let unregisterRootCleanupCallback = () => {};
+
+    function handleScroll() {
       const { activated, remaining } = activateVisibleDeferredBoundaries(
         deferredBoundaries,
         foldY
@@ -620,10 +689,25 @@ async function applySelectiveHydration(
       flushHydrationActivation(rootElement);
 
       if (remaining === 0) {
-        restoreStaticChildSlotsCache();
-        window.removeEventListener('scroll', handleScroll);
+        releaseSelectiveHydrationResources();
       }
+    }
+
+    releaseSelectiveHydrationResources = () => {
+      if (selectiveHydrationResourcesReleased) {
+        return;
+      }
+
+      selectiveHydrationResourcesReleased = true;
+      unregisterRootCleanupCallback();
+      window.removeEventListener('scroll', handleScroll);
+      restoreStaticChildSlotsCache();
     };
+
+    unregisterRootCleanupCallback = registerRootCleanupCallback(
+      rootElement,
+      releaseSelectiveHydrationResources
+    );
 
     window.addEventListener('scroll', handleScroll, { passive: true });
   }
@@ -642,14 +726,19 @@ async function applySelectiveHydration(
     return;
   }
 
-  mountOrUpdate(
-    rootElement,
-    (() => resolved.handler(resolved.params)) as ComponentFunction,
-    {
-      cleanupStrict,
-    }
-  );
-  await registerAppNavigation(rootElement, path);
+  try {
+    mountOrUpdate(
+      rootElement,
+      (() => resolved.handler(resolved.params)) as ComponentFunction,
+      {
+        cleanupStrict,
+      }
+    );
+    await registerAppNavigation(rootElement, path);
+  } catch (error) {
+    releaseSelectiveHydrationResources();
+    throw error;
+  }
 
   if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
     await queueIdleWork(() => {
@@ -662,13 +751,13 @@ async function applySelectiveHydration(
           flushHydrationActivation(rootElement);
         }
       } finally {
-        restoreStaticChildSlotsCache();
+        releaseSelectiveHydrationResources();
       }
     });
   }
 
   if (deferredBoundaries.length === 0) {
-    restoreStaticChildSlotsCache();
+    releaseSelectiveHydrationResources();
   }
 }
 
@@ -794,11 +883,19 @@ export function cleanupApp(root: Element | string): void {
   if (!rootElement) return;
 
   const cleanupFn = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-  if (typeof cleanupFn === 'function') {
-    cleanupFn();
+  try {
+    if (typeof cleanupFn === 'function') {
+      cleanupFn();
+    }
+  } finally {
+    instancesByRoot.delete(rootElement);
+    clearRootCleanupCallbacks(rootElement);
+    try {
+      delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
+    } catch {
+      // Ignore cleanup marker removal failures.
+    }
   }
-
-  instancesByRoot.delete(rootElement);
 }
 
 /**
