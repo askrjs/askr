@@ -92,6 +92,27 @@ const forbiddenPatterns = [
       /import\s*{[^}]*createLayer[^}]*}\s*from\s*['"]@askrjs\/askr\/foundations['"]/,
   },
   {
+    label: 'deprecated root JSXElement import',
+    pattern:
+      /import\s*{[^}]*\bJSXElement\b[^}]*}\s*from\s*['"]@askrjs\/askr['"]/,
+  },
+  {
+    label: 'stale on() transformer example',
+    pattern: /const\s+\w+\s*=\s*on\(\s*eventSource\s*,\s*transformer\s*\);/,
+  },
+  {
+    label: 'stale timer() return-value example',
+    pattern: /const\s+\w+\s*=\s*timer\(\s*\d+\s*\);/,
+  },
+  {
+    label: 'broken data reference link',
+    pattern: /\[Data API Reference\]\(\.\/data\.md\)/,
+  },
+  {
+    label: 'premature stream() usage example',
+    pattern: /const\s+\w+\s*=\s*stream\(/,
+  },
+  {
     label: 'source-relative import',
     pattern: /\.\.\/src\//,
   },
@@ -581,6 +602,20 @@ describe('public docs and examples', () => {
         ).not.toMatch(pattern);
       }
     }
+  });
+
+  it('should describe stream as a placeholder public surface', () => {
+    const resourcesReference = fs.readFileSync(
+      path.join(rootDir, 'docs', 'reference', 'resources.md'),
+      'utf8'
+    );
+    const apiOverview = fs.readFileSync(
+      path.join(rootDir, 'docs', 'reference', 'api.md'),
+      'utf8'
+    );
+
+    expect(resourcesReference).toMatch(/placeholder public surface/i);
+    expect(apiOverview).toMatch(/placeholder `stream` surface/i);
   });
 
   it('should publish representative root and router exports from dist', () => {

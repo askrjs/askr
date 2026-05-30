@@ -14,12 +14,12 @@ Generate components that are:
 ## Canonical Component Shape
 
 ```tsx
-import { type JSXElement } from '@askrjs/askr';
+import { type JSXElement } from '@askrjs/askr/foundations';
 
 export type ExampleCardProps = {
   title: string;
-  subtitle": string;
-  actions": JSXElement;
+  subtitle?: string;
+  actions?: JSXElement;
 };
 
 export function ExampleCard({
@@ -31,9 +31,9 @@ export function ExampleCard({
     <section data-slot="example-card">
       <header data-slot="example-card-header">
         <h2 data-slot="example-card-title">{title}</h2>
-        {subtitle " <p data-slot="example-card-subtitle">{subtitle}</p> : null}
+        {subtitle ? <p data-slot="example-card-subtitle">{subtitle}</p> : null}
       </header>
-      {actions " <div data-slot="example-card-actions">{actions}</div> : null}
+      {actions ? <div data-slot="example-card-actions">{actions}</div> : null}
     </section>
   );
 }
@@ -45,7 +45,7 @@ export function ExampleCard({
 2. Symbol naming: PascalCase component names and `*Props` types.
 3. Export style: named exports only.
 4. Slots: every rendered structural node should use `data-slot`.
-5. API shape: prefer narrow props and composition (`actions": JSXElement`) over prop bloat.
+5. API shape: prefer narrow props and composition (`actions?: JSXElement`) over prop bloat.
 6. Async: do not fetch directly in display components; use `resource()` in route/container level.
 7. State: keep local UI state in `state()`, cross-cutting state via context.
 

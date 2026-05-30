@@ -1,0 +1,194 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
+import {
+  defer,
+  idle,
+  once,
+  raf,
+  retry,
+  throttle,
+  timeout,
+} from '@askrjs/askr/fx';
+
+type FXGlobal = typeof globalThis & {
+  requestAnimationFrame?: typeof requestAnimationFrame;
+  requestIdleCallback?: typeof requestIdleCallback;
+};
+
+const fxGlobal = globalThis as FXGlobal;
+const originalRequestAnimationFrame = fxGlobal.requestAnimationFrame;
+const originalRequestIdleCallback = fxGlobal.requestIdleCallback;
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  if (originalRequestAnimationFrame === undefined) {
+    Reflect.deleteProperty(fxGlobal, 'requestAnimationFrame');
+  } else {
+    fxGlobal.requestAnimationFrame = originalRequestAnimationFrame;
+  }
+
+  if (originalRequestIdleCallback === undefined) {
+    Reflect.deleteProperty(fxGlobal, 'requestIdleCallback');
+  } else {
+    fxGlobal.requestIdleCallback = originalRequestIdleCallback;
+  }
+});
+
+describe('fx public timing helpers', () => {
+  it('should invoke the first throttled call immediately even when the clock starts at zero', () => {
+    vi.setSystemTime(0);
+
+    const handler = vi.fn();
+    const throttled = throttle(handler, 50);
+
+    throttled('first');
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith('first');
+  });
+
+  it('should not schedule a duplicate trailing call after a single leading throttle invocation', () => {
+    const handler = vi.fn();
+    const throttled = throttle(handler, 50);
+
+    throttled('first');
+    vi.advanceTimersByTime(60);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith('first');
+  });
+
+  it('should keep the latest arguments for the trailing throttle call inside the throttle interval', () => {
+    vi.setSystemTime(100);
+
+    const handler = vi.fn();
+    const throttled = throttle(handler, 50);
+
+    throttled('first');
+    vi.advanceTimersByTime(10);
+    throttled('second');
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenNthCalledWith(1, 'first');
+
+    vi.advanceTimersByTime(40);
+
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(handler).toHaveBeenNthCalledWith(2, 'second');
+  });
+
+  it('should only execute once() callbacks a single time and reuse the first result', () => {
+    const initialize = once((value: string) => value.toUpperCase());
+
+    expect(initialize('first')).toBe('FIRST');
+    expect(initialize('second')).toBe('FIRST');
+  });
+
+  it('should defer work onto the microtask queue', async () => {
+    const handler = vi.fn();
+
+    defer(handler);
+
+    expect(handler).not.toHaveBeenCalled();
+
+    await Promise.resolve();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('should coalesce raf() calls onto a single animation frame with the latest arguments', () => {
+    const callbacks: FrameRequestCallback[] = [];
+    fxGlobal.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+
+    const handler = vi.fn((value: string) => value);
+    const scheduled = raf(handler);
+
+    scheduled('first');
+    scheduled('second');
+
+    expect(callbacks).toHaveLength(1);
+    expect(handler).not.toHaveBeenCalled();
+
+    callbacks[0]!(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith('second');
+  });
+
+  it('should use requestIdleCallback when available and fall back to timeout when not', async () => {
+    const requestIdle = vi.fn((callback: IdleRequestCallback) => {
+      callback({ didTimeout: false, timeRemaining: () => 8 } as IdleDeadline);
+      return 1;
+    });
+    fxGlobal.requestIdleCallback = requestIdle;
+
+    const preferredHandler = vi.fn();
+    idle(preferredHandler, { timeout: 25 });
+
+    expect(requestIdle).toHaveBeenCalledTimes(1);
+    expect(preferredHandler).toHaveBeenCalledTimes(1);
+
+    Reflect.deleteProperty(fxGlobal, 'requestIdleCallback');
+
+    const fallbackHandler = vi.fn();
+    idle(fallbackHandler);
+
+    expect(fallbackHandler).not.toHaveBeenCalled();
+
+    await Promise.resolve();
+    vi.advanceTimersByTime(0);
+
+    expect(fallbackHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('should resolve timeout() after the requested delay', async () => {
+    const resolved = vi.fn();
+    const pending = timeout(25).then(resolved);
+
+    vi.advanceTimersByTime(24);
+    await Promise.resolve();
+    expect(resolved).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    await pending;
+
+    expect(resolved).toHaveBeenCalledTimes(1);
+  });
+
+  it('should retry until success using the configured backoff', async () => {
+    let attempts = 0;
+    const operation = vi.fn(async () => {
+      attempts += 1;
+      if (attempts < 3) {
+        throw new Error(`fail-${attempts}`);
+      }
+      return 'ok';
+    });
+
+    const pending = retry(operation, {
+      maxAttempts: 3,
+      delayMs: 10,
+      backoff: () => 10,
+    });
+
+    expect(operation).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(20);
+
+    await expect(pending).resolves.toBe('ok');
+    expect(operation).toHaveBeenCalledTimes(3);
+  });
+});

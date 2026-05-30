@@ -145,18 +145,28 @@ React to an event source:
 ```ts
 import { on } from '@askrjs/askr/resources';
 
-const data = on(eventSource, transformer);
+const handleFocus = () => {
+  // respond to the focus event
+};
+
+on(window, 'focus', handleFocus);
 ```
+
+`on()` registers the listener during mount and removes it during cleanup.
 
 ### timer()
 
-Trigger a resource on an interval:
+Run work on an interval:
 
 ```ts
 import { timer } from '@askrjs/askr/resources';
 
-const tick = timer(1000); // fires every 1000ms
+timer(1000, () => {
+  // poll or refresh here
+});
 ```
+
+`timer()` starts on mount and clears the interval during cleanup.
 
 ## Context
 

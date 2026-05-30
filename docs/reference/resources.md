@@ -50,12 +50,22 @@ Use it with platform APIs:
 const res = await fetch('/api/data', { signal: getSignal() });
 ```
 
+### `stream(source, options?)`
+
+`stream()` is currently a placeholder public surface. It preserves a stable
+import and return-shape contract while the streaming source API is still being
+designed.
+
+Today it returns an object shaped like `{ value: null, pending: true, error: null }`.
+
+Do not rely on it for real streaming behavior yet. Use `resource()`, `task()`,
+`on()`, or `timer()` for implemented lifecycle-aware work.
+
 ### Other helpers
 
 - `on`
 - `timer`
 - `task`
-- `stream`
 - `capture`
 
 Async helpers accept promise-like values, including native promises and
@@ -67,5 +77,5 @@ effects, or lifecycle-aware operations.
 ## Related
 
 - [Resources Guide](../guides/resources.md)
-- [Data API Reference](./data.md)
+- [Data guide](../core/data.md)
 - [Troubleshooting](../troubleshooting/common-issues.md)

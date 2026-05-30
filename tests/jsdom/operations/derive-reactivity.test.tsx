@@ -118,6 +118,55 @@ describe('derive reactivity', () => {
     expect(renders).toBe(2);
   });
 
+  it('should retire the previous branch subscription when a derive switches sources in the same flush', () => {
+    allowFrameworkWarnings(
+      /Unused state variable detected in App at index [12]/
+    );
+    let useLeft!: ReturnType<typeof state<boolean>>;
+    let left!: ReturnType<typeof state<number>>;
+    let right!: ReturnType<typeof state<number>>;
+    let renders = 0;
+
+    const App = () => {
+      renders += 1;
+      useLeft = state(true);
+      left = state(1);
+      right = state(10);
+
+      const current = derive(() => (useLeft() ? left() : right()));
+      return <div id="subject">{String(current())}</div>;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.textContent).toBe('1');
+    expect(left._derivedSubscribers?.size ?? 0).toBe(1);
+    expect(right._derivedSubscribers?.size ?? 0).toBe(0);
+
+    useLeft.set(false);
+    left.set(2);
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.textContent).toBe('10');
+    expect(renders).toBe(2);
+    expect(left._derivedSubscribers?.size ?? 0).toBe(0);
+    expect(right._derivedSubscribers?.size ?? 0).toBe(1);
+
+    const rendersAfterSwitch = renders;
+    left.set(3);
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.textContent).toBe('10');
+    expect(renders).toBe(rendersAfterSwitch);
+
+    right.set(11);
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.textContent).toBe('11');
+    expect(renders).toBe(rendersAfterSwitch + 1);
+  });
+
   it('should clean up derived subscriptions on unmount and For item removal', () => {
     allowFrameworkWarnings(/Unused state variable detected in App at index 1/);
     let showChild!: ReturnType<typeof state<boolean>>;
