@@ -24,6 +24,10 @@ return <div>{count()} doubled is {doubled()}</div>;
 
 `derive()` returns a callable getter derived from other reactive inputs.
 
+Resource snapshots from `resource()` are not readable sources. Use
+`derive(snapshot, map)` or read `resource.value` in JSX; resource updates still
+trigger a component re-render when async work completes.
+
 ## Keyed Selectors
 
 Use `selector()` when one source fans out to many keyed readers, such as row selection

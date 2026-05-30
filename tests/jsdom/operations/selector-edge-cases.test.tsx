@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
-import { selector, state } from '../../../src/index';
-import { For } from '../../../src/control';
-import { createIsland } from '../../../test-utils/render/create-island';
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { selector, state } from "../../../src/index";
+import { For } from "../../../src/control";
+import { createIsland } from "../../../test-utils/render/create-island";
 import {
   createTestContainer,
   flushScheduler,
-} from '../../../test-utils/render/test-renderer';
+} from "../../../test-utils/render/test-renderer";
 
 type LaneProbe = {
   _lane?: {
@@ -14,7 +14,7 @@ type LaneProbe = {
   } | null;
 };
 
-describe('selector edge cases', () => {
+describe("selector edge cases", () => {
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {
@@ -29,14 +29,14 @@ describe('selector edge cases', () => {
   // getCandidateSource(lane, prev/next), which creates and caches a candidate
   // source even for values no component ever read. Setting the source to a
   // series of never-read values should not grow the candidate cache.
-  it('should not materialize candidate sources for values that were never read', () => {
+  it("should not materialize candidate sources for values that were never read", () => {
     let selected!: ReturnType<typeof state<number | null>>;
     let probe!: LaneProbe;
 
     const Row = ({ id }: { id: number }) => {
       const isSelected = selector(selected);
       probe = isSelected as unknown as LaneProbe;
-      return <div class={() => (isSelected(id) ? 'danger' : '')}>{id}</div>;
+      return <div class={() => (isSelected(id) ? "danger" : "")}>{id}</div>;
     };
 
     const App = () => {
@@ -71,13 +71,13 @@ describe('selector edge cases', () => {
   });
 
   // Finding 9 (PROBE): NaN candidate with default Object.is equality.
-  it('should match a NaN candidate when the source becomes NaN', () => {
+  it("should match a NaN candidate when the source becomes NaN", () => {
     let selected!: ReturnType<typeof state<number | null>>;
 
     const Row = () => {
       const isSelected = selector(selected);
       return (
-        <div class={() => (isSelected(Number.NaN) ? 'danger' : '')}>row</div>
+        <div class={() => (isSelected(Number.NaN) ? "danger" : "")}>row</div>
       );
     };
 
@@ -88,26 +88,26 @@ describe('selector edge cases', () => {
 
     createIsland({ root: container, component: App });
     flushScheduler();
-    expect((container.querySelector('div') as HTMLElement).className).toBe('');
+    expect((container.querySelector("div") as HTMLElement).className).toBe("");
 
     selected.set(Number.NaN);
     flushScheduler();
 
-    expect((container.querySelector('div') as HTMLElement).className).toBe(
-      'danger'
+    expect((container.querySelector("div") as HTMLElement).className).toBe(
+      "danger",
     );
   });
 
   // Finding 10 (PROBE): a selector source that throws. Document that the error
   // surfaces rather than being silently swallowed, and that the record is not
   // left holding a phantom value.
-  it('should surface an error thrown by the selector source during render', () => {
+  it("should surface an error thrown by the selector source during render", () => {
     const App = () => {
       const source = (): number => {
-        throw new Error('selector-source-boom');
+        throw new Error("selector-source-boom");
       };
       const isSelected = selector(source);
-      return <div class={() => (isSelected(1) ? 'danger' : '')}>row</div>;
+      return <div class={() => (isSelected(1) ? "danger" : "")}>row</div>;
     };
 
     expect(() => {

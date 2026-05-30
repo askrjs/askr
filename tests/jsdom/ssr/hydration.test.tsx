@@ -860,5 +860,89 @@ describe('hydration (SSR)', () => {
         Element.prototype.getBoundingClientRect = originalRect;
       }
     });
+
+    it('should remove below-fold hydration listeners and restore cache on cleanup before activation', async () => {
+      const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
+      const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+      const setStaticChildSlotsCacheEnabledSpy = vi.spyOn(
+        rendererDom,
+        'setStaticChildSlotsCacheEnabled'
+      );
+      const originalRect = Element.prototype.getBoundingClientRect;
+
+      Element.prototype.getBoundingClientRect = function () {
+        const className = (this as Element).className;
+        if (typeof className === 'string' && className.includes('below-fold')) {
+          return {
+            top: 1000,
+            left: 0,
+            bottom: 1100,
+            right: 100,
+            width: 100,
+            height: 100,
+            x: 0,
+            y: 1000,
+            toJSON: () => undefined,
+          } as DOMRect;
+        }
+
+        return {
+          top: 0,
+          left: 0,
+          bottom: 100,
+          right: 100,
+          width: 100,
+          height: 100,
+          x: 0,
+          y: 0,
+          toJSON: () => undefined,
+        } as DOMRect;
+      };
+
+      try {
+        const Component = () => (
+          <div>
+            <div class="hero">hero</div>
+            <div class="below-fold">below</div>
+          </div>
+        );
+
+        const routes = [{ path: '/', handler: Component }];
+        container.innerHTML = renderToString({ url: '/', routes });
+
+        await hydrateSPA({
+          root: container,
+          routes,
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+
+        const scrollListener = addEventListenerSpy.mock.calls.find(
+          ([type]) => type === 'scroll'
+        )?.[1];
+
+        cleanup();
+
+        expect(scrollListener).toBeDefined();
+        expect(
+          removeEventListenerSpy.mock.calls.some(
+            ([type, listener]) =>
+              type === 'scroll' && listener === scrollListener
+          )
+        ).toBe(true);
+        expect(setStaticChildSlotsCacheEnabledSpy).toHaveBeenCalledWith(false);
+        expect(setStaticChildSlotsCacheEnabledSpy).toHaveBeenCalledWith(true);
+        const lastCall =
+          setStaticChildSlotsCacheEnabledSpy.mock.calls[
+            setStaticChildSlotsCacheEnabledSpy.mock.calls.length - 1
+          ];
+        expect(lastCall?.[0]).toBe(true);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        addEventListenerSpy.mockRestore();
+        removeEventListenerSpy.mockRestore();
+        setStaticChildSlotsCacheEnabledSpy.mockRestore();
+      }
+    });
   });
 });

@@ -104,7 +104,6 @@ export function resource<T>(
     h.snapshot.value = val;
     h.snapshot.pending = false;
     h.snapshot.error = null;
-    holder.set(h);
     return h.snapshot;
   }
 
@@ -140,7 +139,7 @@ export function resource<T>(
       cur.snapshot.error = cell.snapshot.error;
       holder.set(cur);
       try {
-        inst._enqueueRun?.();
+        inst.notifyUpdate?.();
       } catch {
         // ignore
       }
@@ -149,7 +148,7 @@ export function resource<T>(
     // Cleanup on unmount
     (inst.cleanupFns ??= []).push(() => {
       unsubscribe();
-      cell.abort();
+      cell.dispose();
     });
 
     // Render invariant: do NOT start async work during render on the client.
@@ -165,7 +164,11 @@ export function resource<T>(
       }
     } else {
       // Client: start after render via scheduler (never inline)
-      globalScheduler.enqueue(() => {
+      globalScheduler.enqueueInLane('post', () => {
+        if (!inst.notifyUpdate) {
+          return;
+        }
+
         try {
           cell.start(false, false);
         } catch (err) {
@@ -175,7 +178,7 @@ export function resource<T>(
           cur.snapshot.pending = cell.pending;
           cur.snapshot.error = (err as Error) ?? null;
           holder.set(cur);
-          inst._enqueueRun?.();
+          inst.notifyUpdate?.();
           return;
         }
 
@@ -187,7 +190,7 @@ export function resource<T>(
           cur.snapshot.pending = cell.pending;
           cur.snapshot.error = cell.error;
           holder.set(cur);
-          inst._enqueueRun?.();
+          inst.notifyUpdate?.();
         }
       });
     }
@@ -227,7 +230,11 @@ export function resource<T>(
           cur.snapshot.error = cell.error;
         }
       } else {
-        globalScheduler.enqueue(() => {
+        globalScheduler.enqueueInLane('post', () => {
+          if (!inst.notifyUpdate) {
+            return;
+          }
+
           cell.start(false, false);
           if (!cell.pending) {
             const cur = holder();
@@ -235,7 +242,7 @@ export function resource<T>(
             cur.snapshot.pending = cell.pending;
             cur.snapshot.error = cell.error;
             holder.set(cur);
-            inst._enqueueRun?.();
+            inst.notifyUpdate?.();
           }
         });
       }

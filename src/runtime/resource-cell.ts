@@ -26,6 +26,7 @@ export class ResourceCell<U> {
   ownerName?: string;
 
   private subscribers = new Set<() => void>();
+  private disposed = false;
 
   readonly snapshot: {
     value: U | null;
@@ -69,6 +70,10 @@ export class ResourceCell<U> {
   }
 
   start(ssr = false, notify = true) {
+    if (this.disposed) {
+      return;
+    }
+
     const generation = this.generation;
 
     this.controller?.abort();
@@ -108,6 +113,11 @@ export class ResourceCell<U> {
       .then((val) => {
         if (this.generation !== generation) return;
         if (this.controller !== controller) return;
+        // A loader that does not reject on abort (e.g. a plain Promise) would
+        // otherwise commit its value after the fetch was cancelled by a deps
+        // change, refresh(), or unmount. Mirror the AbortError guard used in
+        // the rejection path so an aborted fetch's resolution stays inert.
+        if (controller.signal.aborted) return;
         this.value = val;
         this.pending = false;
         this.error = null;
@@ -147,6 +157,10 @@ export class ResourceCell<U> {
   }
 
   refresh() {
+    if (this.disposed) {
+      return;
+    }
+
     this.generation++;
     this.controller?.abort();
     this.start();
@@ -154,5 +168,15 @@ export class ResourceCell<U> {
 
   abort() {
     this.controller?.abort();
+  }
+
+  dispose() {
+    if (this.disposed) {
+      return;
+    }
+
+    this.disposed = true;
+    this.controller?.abort();
+    this.subscribers.clear();
   }
 }

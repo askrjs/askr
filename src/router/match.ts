@@ -153,7 +153,12 @@ export function match(path: string, pattern: string): MatchResult {
     return {
       matched: true,
       params: {
-        '*': pathSegments.length > 1 ? normalizedPath : pathSegments[0],
+        '*':
+          pathSegments.length === 0
+            ? '/'
+            : pathSegments.length > 1
+              ? normalizedPath
+              : pathSegments[0],
       },
     };
   }
