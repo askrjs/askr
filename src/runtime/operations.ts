@@ -29,7 +29,7 @@ export interface ResourceResult<T> {
  * - during SSR, async results are disallowed and will throw synchronously
  */
 export function resource<T>(
-  fn: (opts: { signal: AbortSignal }) => Promise<T> | T,
+  fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
   deps: unknown[] = []
 ): ResourceResult<T> {
   const instance = getCurrentComponentInstance();
@@ -164,8 +164,9 @@ export function resource<T>(
       }
     } else {
       // Client: start after render via scheduler (never inline)
+      const scheduledGeneration = cell.generation;
       globalScheduler.enqueueInLane('post', () => {
-        if (!inst.notifyUpdate) {
+        if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
           return;
         }
 
@@ -230,8 +231,9 @@ export function resource<T>(
           cur.snapshot.error = cell.error;
         }
       } else {
+        const scheduledGeneration = cell.generation;
         globalScheduler.enqueueInLane('post', () => {
-          if (!inst.notifyUpdate) {
+          if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
             return;
           }
 
@@ -307,7 +309,7 @@ export function stream<T>(
 }
 
 export function task(
-  fn: () => void | (() => void) | Promise<void | (() => void)>
+  fn: () => void | (() => void) | PromiseLike<void | (() => void)>
 ): void {
   const ownerIsRoot = getCurrentComponentInstance()?.isRoot ?? false;
   // Register the task to run on mount. Fail loudly when used outside the root

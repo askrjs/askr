@@ -43,6 +43,7 @@ import {
   requirePermission,
   requireRole,
 } from './policy';
+import { isPromiseLike } from '../common/promise';
 
 export type {
   AccessDecision,
@@ -230,10 +231,6 @@ let serverLocation: string | null = null;
 
 export function setServerLocation(url: string | null): void {
   serverLocation = url;
-}
-
-function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
-  return value instanceof Promise;
 }
 
 function buildRouteSnapshot(
@@ -1579,8 +1576,8 @@ function buildRenderResult(
       params,
     });
 
-    if (isPromise(loaded)) {
-      return loaded.then((data) => finalize(data));
+    if (isPromiseLike(loaded)) {
+      return Promise.resolve(loaded).then((data) => finalize(data));
     }
 
     return finalize(loaded);
@@ -1603,8 +1600,8 @@ function continueRoutePolicies(
   for (let index = startIndex; index < policies.length; index += 1) {
     const policyResult = policies[index](context);
 
-    if (isPromise(policyResult)) {
-      return policyResult.then((next) => {
+    if (isPromiseLike(policyResult)) {
+      return Promise.resolve(policyResult).then((next) => {
         if (next.kind !== 'allow') {
           return next;
         }
@@ -1677,8 +1674,8 @@ export function resolveRouteRequest(
   }
 
   const authState = auth.resolve(baseContext);
-  if (isPromise(authState)) {
-    return authState.then((next) => finalize(next));
+  if (isPromiseLike(authState)) {
+    return Promise.resolve(authState).then((next) => finalize(next));
   }
 
   return finalize(authState);

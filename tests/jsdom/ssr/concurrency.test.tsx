@@ -83,6 +83,7 @@ describe('SSR concurrency isolation', () => {
 
   it('should isolate query caches between concurrent renders', async () => {
     const caches: Array<Map<string, unknown> | null> = [];
+    const cacheSizesDuringRender: number[] = [];
 
     const ComponentA = () => {
       createQuery({
@@ -90,6 +91,7 @@ describe('SSR concurrency isolation', () => {
         fetch: async () => 'A',
       });
       caches.push(getRenderContext()?.queryCache ?? null);
+      cacheSizesDuringRender.push(getRenderContext()?.queryCache?.size ?? 0);
       return <div>A</div>;
     };
 
@@ -99,6 +101,7 @@ describe('SSR concurrency isolation', () => {
         fetch: async () => 'B',
       });
       caches.push(getRenderContext()?.queryCache ?? null);
+      cacheSizesDuringRender.push(getRenderContext()?.queryCache?.size ?? 0);
       return <div>B</div>;
     };
 
@@ -110,8 +113,9 @@ describe('SSR concurrency isolation', () => {
     expect(caches[0]).not.toBeNull();
     expect(caches[1]).not.toBeNull();
     expect(caches[0]).not.toBe(caches[1]);
-    expect(caches[0]?.size).toBe(1);
-    expect(caches[1]?.size).toBe(1);
+    expect(cacheSizesDuringRender).toEqual([1, 1]);
+    expect(caches[0]?.size).toBe(0);
+    expect(caches[1]?.size).toBe(0);
   });
 
   it('should produce deterministic output across multiple renders', () => {

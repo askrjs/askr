@@ -23,6 +23,7 @@ import {
 } from '../common/env';
 import { logger } from '../dev/logger';
 import { incDevCounter, setDevValue } from './dev-namespace';
+import { isPromiseLike } from '../common/promise';
 
 export type { ComponentFunction } from '../common/component';
 
@@ -47,9 +48,10 @@ export interface ComponentInstance {
   expectedStateIndices: number[]; // Expected sequence of render-scoped hook indices (frozen after first render)
   firstRenderComplete: boolean; // Flag to detect transition from first to subsequent renders
   mountOperations: Array<
-    () => void | (() => void) | Promise<void | (() => void)>
+    () => void | (() => void) | PromiseLike<void | (() => void)>
   >; // Operations to run when component mounts
   cleanupFns: Array<() => void>; // Cleanup functions to run on unmount
+  lifecycleGeneration: number; // Invalidates async mount-operation settlement after disposal
   hasPendingUpdate: boolean; // Flag to batch state updates (coalescing)
   ownerFrame: ContextFrame | null; // Provider chain for this component (set by Scope, never overwritten)
   isRoot?: boolean;
@@ -100,6 +102,7 @@ export function createComponentInstance(
     firstRenderComplete: false,
     mountOperations: [],
     cleanupFns: [],
+    lifecycleGeneration: 0,
     hasPendingUpdate: false,
     ownerFrame: null, // Will be set by renderer when vnode is marked
     ssr: false,
@@ -177,7 +180,7 @@ import { isBulkCommitActive } from './fastlane';
 import { evaluate, cleanupInstancesUnder } from '../renderer';
 
 export function registerMountOperation(
-  operation: () => void | (() => void) | Promise<void | (() => void)>
+  operation: () => void | (() => void) | PromiseLike<void | (() => void)>
 ): void {
   const instance = getCurrentComponentInstance();
   if (instance) {
@@ -211,14 +214,33 @@ function executeMountOperations(instance: ComponentInstance): void {
     return;
   }
 
+  const lifecycleGeneration = instance.lifecycleGeneration;
+
   for (const operation of mountOperations) {
     const result = operation();
-    if (result instanceof Promise) {
-      result.then((cleanup) => {
-        if (typeof cleanup === 'function') {
-          instance.cleanupFns.push(cleanup);
+    if (isPromiseLike(result)) {
+      Promise.resolve(result).then(
+        (cleanup) => {
+          if (typeof cleanup === 'function') {
+            if (
+              instance.lifecycleGeneration === lifecycleGeneration &&
+              instance.mounted
+            ) {
+              instance.cleanupFns.push(cleanup);
+              return;
+            }
+
+            try {
+              cleanup();
+            } catch (err) {
+              logger.error('[Askr] async mount cleanup failed:', err);
+            }
+          }
+        },
+        (err) => {
+          logger.error('[Askr] async mount operation failed:', err);
         }
-      });
+      );
     } else if (typeof result === 'function') {
       instance.cleanupFns.push(result);
     }
@@ -334,7 +356,7 @@ function runComponent(instance: ComponentInstance): void {
   const domSnapshot = instance.target ? instance.target.innerHTML : '';
 
   const result = executeComponentSync(instance);
-  if (result instanceof Promise) {
+  if (isPromiseLike(result)) {
     // Async components are not supported. Components must be synchronous and
     // must not return a Promise from their render function.
     throw new Error(
@@ -800,50 +822,59 @@ export function mountComponent(instance: ComponentInstance): void {
  * Called on unmount or route change
  */
 export function cleanupComponent(instance: ComponentInstance): void {
+  const cleanupErrors: unknown[] = [];
+  const recordCleanupError = (message: string, err: unknown): void => {
+    if (instance.cleanupStrict) {
+      cleanupErrors.push(err);
+    } else if (isDevelopmentEnvironment()) {
+      logger.warn(message, err);
+    }
+  };
+
   const ownedChildScopes = instance._ownedChildScopes;
   if (ownedChildScopes && ownedChildScopes.size > 0) {
     instance._ownedChildScopes = new Set();
     for (const scope of ownedChildScopes) {
-      scope.dispose();
+      try {
+        scope.dispose();
+      } catch (err) {
+        recordCleanupError('[Askr] child scope cleanup threw:', err);
+      }
     }
   }
 
   // Execute cleanup functions (from mount effects)
-  const cleanupErrors: unknown[] = [];
   const cleanupFns = instance.cleanupFns;
+  instance.cleanupFns = [];
   for (const cleanup of cleanupFns) {
     try {
       cleanup();
     } catch (err) {
-      if (instance.cleanupStrict) {
-        cleanupErrors.push(err);
-      } else {
-        // Preserve previous behavior: log warnings in dev and continue
-        if (isDevelopmentEnvironment()) {
-          logger.warn('[Askr] cleanup function threw:', err);
-        }
-      }
+      recordCleanupError('[Askr] cleanup function threw:', err);
     }
-  }
-  instance.cleanupFns = [];
-  if (cleanupErrors.length > 0) {
-    // If strict mode, surface all cleanup errors as an AggregateError after attempting all cleanups
-    throw new AggregateError(
-      cleanupErrors,
-      `Cleanup failed for component ${instance.id}`
-    );
   }
 
   // Remove deterministic state subscriptions for this instance
-  cleanupReadableSubscriptions(instance);
+  try {
+    cleanupReadableSubscriptions(instance);
+  } catch (err) {
+    recordCleanupError('[Askr] readable subscription cleanup threw:', err);
+  }
 
   // Abort all pending operations
-  if (instance.abortController && !instance.abortController.signal.aborted) {
-    instance.abortController.abort();
+  try {
+    if (instance.abortController && !instance.abortController.signal.aborted) {
+      instance.abortController.abort();
+    }
+  } catch (err) {
+    recordCleanupError('[Askr] abort controller cleanup threw:', err);
   }
   instance.abortController = null;
 
   // Clear update callback to prevent dangling references and stale updates
+  instance.lifecycleGeneration++;
+  instance.evaluationGeneration++;
+  instance.mountOperations = [];
   instance.hasPendingUpdate = false;
   instance.notifyUpdate = null;
   instance._placeholder = undefined;
@@ -853,6 +884,13 @@ export function cleanupComponent(instance: ComponentInstance): void {
   // retained "mounted" flags across cleanup boundaries which breaks
   // owner selection in the portal fallback.
   instance.mounted = false;
+
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(
+      cleanupErrors,
+      `Cleanup failed for component ${instance.id}`
+    );
+  }
 }
 
 export function registerOwnedChildScope(

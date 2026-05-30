@@ -91,4 +91,41 @@ describe('no partial DOM (DOM)', () => {
     expect(container.innerHTML).not.toBe('');
     expect(container.innerHTML).not.toBe(before);
   });
+
+  it('should roll back retained text when a later prop read throws', () => {
+    let fail: ReturnType<typeof state<boolean>> | null = null;
+
+    const Component = () => {
+      fail = state(false);
+      const props: Record<string, unknown> = {
+        children: fail() ? 'after' : 'before',
+      };
+
+      if (fail()) {
+        Object.defineProperty(props, 'title', {
+          enumerable: true,
+          get() {
+            throw new Error('prop read failed');
+          },
+        });
+      } else {
+        props.title = 'stable';
+      }
+
+      return <div {...props} />;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    const retained = container.querySelector('div');
+
+    expect(() => {
+      fail!.set(true);
+      flushScheduler();
+    }).toThrow('prop read failed');
+
+    expect(container.querySelector('div')).toBe(retained);
+    expect(retained?.textContent).toBe('before');
+    expect(retained?.getAttribute('title')).toBe('stable');
+  });
 });

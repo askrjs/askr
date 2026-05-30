@@ -50,7 +50,7 @@ export interface RouteContext<Session = unknown, User = unknown> {
 
 export type RoutePolicy = (
   context: RouteContext
-) => AccessDecision | Promise<AccessDecision>;
+) => AccessDecision | PromiseLike<AccessDecision>;
 
 export interface RouteAuthState<Session = unknown, User = unknown> {
   session: Session | null;
@@ -59,26 +59,26 @@ export interface RouteAuthState<Session = unknown, User = unknown> {
 
 export type RouteAuthResolver<Session = unknown, User = unknown> = (
   context: Omit<RouteContext<Session, User>, 'session' | 'user'>
-) => RouteAuthState<Session, User> | Promise<RouteAuthState<Session, User>>;
+) => RouteAuthState<Session, User> | PromiseLike<RouteAuthState<Session, User>>;
 
 export interface RouteAuthOptions<Session = unknown, User = unknown> {
   resolve: RouteAuthResolver<Session, User>;
   loginPath?:
     | string
-    | ((context: RouteContext<Session, User>) => string | Promise<string>);
+    | ((context: RouteContext<Session, User>) => string | PromiseLike<string>);
   guestRedirectTo?:
     | string
-    | ((context: RouteContext<Session, User>) => string | Promise<string>);
+    | ((context: RouteContext<Session, User>) => string | PromiseLike<string>);
   hasRole?: (
     user: User,
     role: string,
     context: RouteContext<Session, User>
-  ) => boolean | Promise<boolean>;
+  ) => boolean | PromiseLike<boolean>;
   hasPermission?: (
     user: User,
     permission: string,
     context: RouteContext<Session, User>
-  ) => boolean | Promise<boolean>;
+  ) => boolean | PromiseLike<boolean>;
 }
 
 export interface CommonAccessOptions {

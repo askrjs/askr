@@ -13,7 +13,7 @@ The resources subpath owns `resource()`, `on()`, `timer()`, `task()`, `stream()`
 
 Runs async work with lifecycle awareness and dependency tracking.
 
-- `loader`: function receiving `{ signal }` and returning either a value or a promise
+- `loader`: function receiving `{ signal }` and returning either a value or a promise-like value
 - `deps`: dependency list that controls re-execution
 
 Returns an object with:
@@ -57,6 +57,9 @@ const res = await fetch('/api/data', { signal: getSignal() });
 - `task`
 - `stream`
 - `capture`
+
+Async helpers accept promise-like values, including native promises and
+compatible thenables. Component render functions remain synchronous.
 
 Use this entrypoint when your module is primarily about async work, side
 effects, or lifecycle-aware operations.

@@ -15,6 +15,7 @@ import {
 } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { state } from '../../../src/index';
+import { task } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
 import {
   clearRoutes,
@@ -284,6 +285,51 @@ describe('history integration (ROUTER)', () => {
       expect(container.textContent).toBe('fast');
       expect(window.location.pathname).toBe('/fast');
       expect(guardAborted).toBe(true);
+    });
+
+    it('should log async popstate remount failures instead of leaking unhandled rejections', async () => {
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      try {
+        route('/home', () => {
+          task(() => () => {
+            throw new Error('cleanup failed');
+          });
+
+          return <div>{'home'}</div>;
+        });
+        route('/slow', () => <div>{'slow'}</div>, {
+          policies: [() => Promise.resolve({ kind: 'allow' as const })],
+        });
+
+        window.history.replaceState({ path: '/home' }, '', '/home');
+        await createSPA({
+          root: container,
+          manifest: getManifest(),
+          cleanupStrict: true,
+        });
+        flushScheduler();
+
+        window.history.pushState({ path: '/slow' }, '', '/slow');
+        window.dispatchEvent(
+          new PopStateEvent('popstate', {
+            state: { path: '/slow' },
+          })
+        );
+
+        await settleNavigation();
+
+        expect(consoleError).toHaveBeenCalledWith(
+          '[Askr] popstate navigation failed:',
+          expect.objectContaining({
+            message: expect.stringMatching(/Cleanup failed|cleanup failed/i),
+          })
+        );
+      } finally {
+        consoleError.mockRestore();
+      }
     });
 
     it('should preserve state when popstate changes query on the same pathname', async () => {

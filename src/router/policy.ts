@@ -6,6 +6,7 @@ import type {
   RouteContext,
   RoutePolicy,
 } from '../common/router';
+import { isPromiseLike } from '../common/promise';
 
 const ROUTE_AUTH_OPTIONS = Symbol.for('__ASKR_ROUTE_AUTH_OPTIONS__');
 
@@ -15,11 +16,7 @@ type InternalRouteContext = RouteContext & {
 
 type RoutePathResolver =
   | string
-  | ((context: RouteContext) => string | Promise<string>);
-
-function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
-  return value instanceof Promise;
-}
+  | ((context: RouteContext) => string | PromiseLike<string>);
 
 export function allow(): AccessDecision {
   return { kind: 'allow' };
@@ -99,7 +96,7 @@ function resolvePathSetting(
   value: RoutePathResolver | undefined,
   fallback: string,
   context: RouteContext
-): string | Promise<string> {
+): string | PromiseLike<string> {
   if (!value) {
     return fallback;
   }
@@ -160,8 +157,8 @@ function resolveUnauthenticatedRedirect(
 ): AccessDecision | Promise<AccessDecision> {
   const auth = assertRouteAuthOptions(context);
   const loginPath = resolvePathSetting(auth.loginPath, '/login', context);
-  if (isPromise(loginPath)) {
-    return loginPath.then((nextPath) =>
+  if (isPromiseLike<string>(loginPath)) {
+    return Promise.resolve(loginPath).then((nextPath) =>
       redirect(appendNextTarget(nextPath, context.href), {
         replace: context.mode === 'spa',
       })
@@ -178,8 +175,8 @@ function resolveAuthenticatedRedirect(
 ): AccessDecision | Promise<AccessDecision> {
   const auth = assertRouteAuthOptions(context);
   const target = resolvePathSetting(auth.guestRedirectTo, '/', context);
-  if (isPromise(target)) {
-    return target.then((nextTarget) =>
+  if (isPromiseLike<string>(target)) {
+    return Promise.resolve(target).then((nextTarget) =>
       redirect(nextTarget, {
         replace: true,
       })
@@ -222,8 +219,10 @@ export function requireRole(role: string): RoutePolicy {
       ? auth.hasRole(context.user, role, context)
       : defaultHasRole(context.user, role);
 
-    if (isPromise(hasRole)) {
-      return hasRole.then((next) => (next ? allow() : forbidden()));
+    if (isPromiseLike<boolean>(hasRole)) {
+      return Promise.resolve(hasRole).then((next) =>
+        next ? allow() : forbidden()
+      );
     }
 
     return hasRole ? allow() : forbidden();
@@ -241,8 +240,10 @@ export function requirePermission(permission: string): RoutePolicy {
       ? auth.hasPermission(context.user, permission, context)
       : defaultHasPermission(context.user, permission);
 
-    if (isPromise(hasPermission)) {
-      return hasPermission.then((next) => (next ? allow() : forbidden()));
+    if (isPromiseLike<boolean>(hasPermission)) {
+      return Promise.resolve(hasPermission).then((next) =>
+        next ? allow() : forbidden()
+      );
     }
 
     return hasPermission ? allow() : forbidden();

@@ -26,6 +26,10 @@ describe('verifyHydrationSyncForUrl', () => {
           root: container,
           url: '/',
           routes,
+          resolved: {
+            handler: Component,
+            params: {},
+          },
         })
       ).toBe(true);
     } finally {

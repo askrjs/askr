@@ -243,7 +243,7 @@ function syncForIndexSignal(
   }
 
   indexSignal.set(nextIndex, indexSignal._hasBeenRead);
-  return indexSignal._hasBeenRead;
+  return indexSignal._hasBeenRead === true;
 }
 
 function syncForItemIndex<T>(

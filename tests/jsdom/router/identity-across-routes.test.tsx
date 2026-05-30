@@ -143,7 +143,7 @@ describe('identity across routes (ROUTER)', () => {
       return <div>App</div>;
     };
 
-    createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/page');

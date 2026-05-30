@@ -5,6 +5,7 @@ import {
   brandSnapshotSource,
   type SnapshotSourceBrand,
 } from './snapshot-source';
+import { isPromiseLike } from '../common/promise';
 
 /**
  * Pure, component-agnostic ResourceCell state machine.
@@ -35,10 +36,10 @@ export class ResourceCell<U> {
     refresh: () => void;
   } & SnapshotSourceBrand;
 
-  private fn: (opts: { signal: AbortSignal }) => Promise<U> | U;
+  private fn: (opts: { signal: AbortSignal }) => PromiseLike<U> | U;
 
   constructor(
-    fn: (opts: { signal: AbortSignal }) => Promise<U> | U,
+    fn: (opts: { signal: AbortSignal }) => PromiseLike<U> | U,
     deps: unknown[] | null,
     resourceFrame: ContextFrame | null
   ) {
@@ -53,7 +54,7 @@ export class ResourceCell<U> {
     });
   }
 
-  setLoader(fn: (opts: { signal: AbortSignal }) => Promise<U> | U): void {
+  setLoader(fn: (opts: { signal: AbortSignal }) => PromiseLike<U> | U): void {
     this.fn = fn;
   }
 
@@ -83,7 +84,7 @@ export class ResourceCell<U> {
     this.error = null;
     if (notify) this.notifySubscribers();
 
-    let result: Promise<U> | U;
+    let result: PromiseLike<U> | U;
     try {
       // Execute only the synchronous step inside the frozen resource frame.
       result = withAsyncResourceContext(this.resourceFrame, () =>
@@ -96,7 +97,7 @@ export class ResourceCell<U> {
       return;
     }
 
-    if (!(result instanceof Promise)) {
+    if (!isPromiseLike<U>(result)) {
       this.value = result as U;
       this.pending = false;
       this.error = null;
@@ -109,7 +110,7 @@ export class ResourceCell<U> {
       getSSRBridge().throwSSRDataMissing();
     }
 
-    (result as Promise<U>)
+    Promise.resolve(result)
       .then((val) => {
         if (this.generation !== generation) return;
         if (this.controller !== controller) return;

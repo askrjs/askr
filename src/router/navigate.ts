@@ -9,7 +9,11 @@ import {
   syncCurrentRouteSnapshot,
   type ResolvedRoute,
 } from './route';
-import { mountComponent, type ComponentInstance } from '../runtime/component';
+import {
+  cleanupComponent,
+  mountComponent,
+  type ComponentInstance,
+} from '../runtime/component';
 import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
@@ -18,6 +22,7 @@ import { logger } from '../dev/logger';
 import type { RouteRenderResult, RouteRequestResult } from '../common/router';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
 import { DefaultPortal } from '../foundations/structures/portal';
+import { isPromiseLike } from '../common/promise';
 
 // Global app state for navigation
 let currentInstance: ComponentInstance | null = null;
@@ -26,6 +31,7 @@ let currentHref = '/';
 let navigationInitialized = false;
 let activeRouteRequestId = 0;
 let activeRouteRequestController: AbortController | null = null;
+const MAX_NAVIGATION_REDIRECTS = 20;
 
 export type NavigationScrollBehavior = 'top' | 'preserve';
 export type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';
@@ -233,10 +239,6 @@ function isRenderResult(
   return result !== null && result.kind === 'render';
 }
 
-function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
-  return value instanceof Promise;
-}
-
 function getRedirectHistoryMode(
   replace: boolean | undefined
 ): 'push' | 'replace' {
@@ -293,6 +295,11 @@ function wrapRootRouteHandler(
 ): ComponentInstance['fn'] {
   const wrappedFn: ComponentInstance['fn'] = (props, ctx) => {
     const out = componentFn(props, ctx);
+    if (isPromiseLike(out)) {
+      throw new Error(
+        'Async components are not supported. Components must return synchronously.'
+      );
+    }
     const portalVNode = {
       $$typeof: ELEMENT_TYPE,
       type: DefaultPortal,
@@ -330,6 +337,8 @@ function remountResolvedRoute(
 
   // The route handler IS the component function
   // It takes params as props and renders the route
+  cleanupComponent(currentInstance);
+
   currentInstance.fn = wrapRootRouteHandler(bindResolvedRouteHandler(resolved));
   currentInstance.props = {};
 
@@ -343,8 +352,13 @@ function remountResolvedRoute(
   currentInstance.evaluationGeneration++;
   currentInstance.notifyUpdate = null;
   currentInstance.mountOperations = [];
+  currentInstance.cleanupFns = [];
   currentInstance._placeholder = undefined;
   currentInstance.hasPendingUpdate = false;
+  currentInstance._currentRenderToken = undefined;
+  currentInstance.lastRenderToken = 0;
+  currentInstance._pendingReadSources = undefined;
+  currentInstance._lastReadSources = undefined;
 
   // Route-local async work should create a fresh abort controller lazily.
   currentInstance.abortController = null;
@@ -379,8 +393,8 @@ function resolveNavigationTarget(path: string, signal?: AbortSignal) {
   const href = `${target.pathname}${target.search}${target.hash}`;
   const resolved = resolveRouteRequest(href, signal ? { signal } : {});
 
-  if (isPromise(resolved)) {
-    return resolved.then((next) => ({
+  if (isPromiseLike<RouteRequestResult>(resolved)) {
+    return Promise.resolve(resolved).then((next) => ({
       href,
       pathname,
       resolved: next,
@@ -397,6 +411,7 @@ function resolveNavigationTarget(path: string, signal?: AbortSignal) {
 function applyNavigationTarget(
   path: string,
   options: NavigateOptions,
+  redirectState: NavigationRedirectState,
   target: {
     href: string;
     pathname: string;
@@ -425,9 +440,26 @@ function applyNavigationTarget(
       return;
     }
 
-    navigate(redirectHref, {
-      history: getRedirectHistoryMode(resolved.replace),
-    });
+    if (redirectState.visited.has(redirectHref)) {
+      throw new Error(
+        `[Askr] Navigation redirect cycle detected at ${redirectHref}.`
+      );
+    }
+    if (redirectState.redirects >= MAX_NAVIGATION_REDIRECTS) {
+      throw new Error(
+        `[Askr] Navigation redirect limit exceeded (${MAX_NAVIGATION_REDIRECTS}).`
+      );
+    }
+
+    redirectState.visited.add(redirectHref);
+    redirectState.redirects++;
+    navigateWithRedirectState(
+      redirectHref,
+      {
+        history: getRedirectHistoryMode(resolved.replace),
+      },
+      redirectState
+    );
     return;
   }
 
@@ -487,11 +519,47 @@ export function registerAppInstance(
   }
 }
 
+export function unregisterAppInstance(instance: ComponentInstance): void {
+  if (currentInstance !== instance) {
+    return;
+  }
+
+  activeRouteRequestId += 1;
+  activeRouteRequestController?.abort();
+  activeRouteRequestController = null;
+  currentInstance = null;
+  currentPathname = '/';
+  currentHref = '/';
+}
+
 /**
  * Navigate to a new path
  * Updates URL, resolves route, and re-mounts app with new handler
  */
 export function navigate(path: string, options: NavigateOptions = {}): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const initialTarget = parseTargetUrl(path);
+  navigateWithRedirectState(path, options, {
+    redirects: 0,
+    visited: new Set([
+      `${initialTarget.pathname}${initialTarget.search}${initialTarget.hash}`,
+    ]),
+  });
+}
+
+type NavigationRedirectState = {
+  redirects: number;
+  visited: Set<string>;
+};
+
+function navigateWithRedirectState(
+  path: string,
+  options: NavigateOptions,
+  redirectState: NavigationRedirectState
+): void {
   if (typeof window === 'undefined') {
     // SSR context
     return;
@@ -500,18 +568,27 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
   const request = beginRouteRequest();
 
   const target = resolveNavigationTarget(path, request.signal);
-  if (isPromise(target)) {
-    void target.then((resolvedTarget) => {
-      if (isStaleRouteRequest(request.id)) {
-        return;
-      }
+  if (isPromiseLike(target)) {
+    void Promise.resolve(target).then(
+      (resolvedTarget) => {
+        if (isStaleRouteRequest(request.id)) {
+          return;
+        }
 
-      applyNavigationTarget(path, options, resolvedTarget);
-    });
+        try {
+          applyNavigationTarget(path, options, redirectState, resolvedTarget);
+        } catch (error) {
+          logger.error('[Askr] navigation failed:', error);
+        }
+      },
+      (error) => {
+        logger.error('[Askr] navigation failed:', error);
+      }
+    );
     return;
   }
 
-  applyNavigationTarget(path, options, target);
+  applyNavigationTarget(path, options, redirectState, target);
 }
 
 /**
@@ -575,8 +652,19 @@ function handlePopState(_event: PopStateEvent): void {
     applyHistoryScroll(href, _event.state);
   };
 
-  if (isPromise(resolved)) {
-    void resolved.then((next) => applyResolved(next));
+  if (isPromiseLike<RouteRequestResult>(resolved)) {
+    void Promise.resolve(resolved).then(
+      (next) => {
+        try {
+          applyResolved(next);
+        } catch (error) {
+          logger.error('[Askr] popstate navigation failed:', error);
+        }
+      },
+      (error) => {
+        logger.error('[Askr] popstate navigation failed:', error);
+      }
+    );
     return;
   }
 
@@ -599,6 +687,10 @@ export function initializeNavigation(): void {
  * Cleanup navigation listeners
  */
 export function cleanupNavigation(): void {
+  activeRouteRequestId += 1;
+  activeRouteRequestController?.abort();
+  activeRouteRequestController = null;
+
   if (typeof window === 'undefined' || !navigationInitialized) {
     return;
   }

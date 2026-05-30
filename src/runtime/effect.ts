@@ -33,7 +33,7 @@ const dirtyLaneState: EffectLaneDirtyState = {
   post: false,
 };
 
-const _evalSourceBuffer = new Set<ReadableSource<unknown>>();
+const MAX_EFFECT_RUNS_PER_FLUSH = 50;
 const LANE_FLUSH_TASKS: Record<SchedulerLane, () => void> = {
   derived: () => flushLaneEffects('derived'),
   component: () => flushLaneEffects('component'),
@@ -118,21 +118,14 @@ function evaluateEffect<T>(effect: FineGrainedEffect<T>): {
   value: T;
   nextSources: Set<ReadableSource<unknown>>;
 } {
-  _evalSourceBuffer.clear();
+  const pendingSources = new Set<ReadableSource<unknown>>();
 
-  try {
-    incDevCounter('effectRuns');
-    const value = withFineGrainedReadTracking(_evalSourceBuffer, () =>
-      effect.compute()
-    );
-    const nextSources = normalizeNextSources(
-      effect.readSources,
-      _evalSourceBuffer
-    );
-    return { value, nextSources };
-  } finally {
-    _evalSourceBuffer.clear();
-  }
+  incDevCounter('effectRuns');
+  const value = withFineGrainedReadTracking(pendingSources, () =>
+    effect.compute()
+  );
+  const nextSources = normalizeNextSources(effect.readSources, pendingSources);
+  return { value, nextSources };
 }
 
 function commitEffectSubscriptions(
@@ -187,12 +180,28 @@ function flushLaneEffects(lane: SchedulerLane): void {
   }
 
   const pending = effects.values();
+  const effectRuns = new Map<FineGrainedEffect<unknown>, number>();
   let next = pending.next();
 
   while (!next.done) {
     const effect = next.value as FineGrainedEffect<unknown>;
     effects.delete(effect);
     if (!effect.isActive) {
+      next = pending.next();
+      continue;
+    }
+
+    const runCount = (effectRuns.get(effect) ?? 0) + 1;
+    effectRuns.set(effect, runCount);
+    if (runCount > MAX_EFFECT_RUNS_PER_FLUSH) {
+      const error = new Error(
+        `[Askr] fine-grained effect exceeded ${MAX_EFFECT_RUNS_PER_FLUSH} runs in one flush. Likely reactive cycle.`
+      );
+      if (effect.onError) {
+        effect.onError(error);
+      } else {
+        throw error;
+      }
       next = pending.next();
       continue;
     }

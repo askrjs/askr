@@ -193,6 +193,7 @@ export class Scheduler {
     let fatal: unknown = null;
     let executedTaskCount = 0;
     const checkFlushDepth = isDevelopmentEnvironment();
+    const executionsByTask = checkFlushDepth ? new Map<Task, number>() : null;
 
     try {
       while (fatal === null) {
@@ -203,14 +204,18 @@ export class Scheduler {
           let executedInLane = 0;
 
           while (laneQueue.head < laneQueue.tasks.length) {
-            this.depth++;
-            if (checkFlushDepth && this.depth > MAX_FLUSH_DEPTH) {
-              throw new Error(
-                `[Scheduler] exceeded MAX_FLUSH_DEPTH (${MAX_FLUSH_DEPTH}). Likely infinite update loop.`
-              );
+            const task = laneQueue.tasks[laneQueue.head++];
+            if (executionsByTask) {
+              const taskExecutions = (executionsByTask.get(task) ?? 0) + 1;
+              executionsByTask.set(task, taskExecutions);
+              this.depth = Math.max(this.depth, taskExecutions);
+              if (taskExecutions > MAX_FLUSH_DEPTH) {
+                throw new Error(
+                  `[Scheduler] exceeded MAX_FLUSH_DEPTH (${MAX_FLUSH_DEPTH}). Likely infinite update loop.`
+                );
+              }
             }
 
-            const task = laneQueue.tasks[laneQueue.head++];
             try {
               this.executionDepth++;
               task();
@@ -276,7 +281,7 @@ export class Scheduler {
       }
 
       if (isDevelopmentEnvironment()) {
-        if (this.hasPendingTasks()) {
+        if (!this.running && this.hasPendingTasks()) {
           throw new Error(
             '[Scheduler] tasks remain after runWithSyncProgress flush'
           );

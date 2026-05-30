@@ -23,6 +23,7 @@ export interface RenderContext {
   routeAuth?: RouteAuthOptions;
   signal?: AbortSignal;
   queryCache?: Map<string, unknown>;
+  ssrCleanupFns: Array<() => void>;
   // Per-render key state (moved from render-keys.ts globals)
   keyCounter: number;
   renderData: Record<string, unknown> | null;
@@ -103,6 +104,7 @@ export function createRenderContext(
     routeAuth: opts.routeAuth,
     signal: opts.signal,
     queryCache: new Map<string, unknown>(),
+    ssrCleanupFns: [],
     keyCounter: 0,
     renderData: null,
   };

@@ -9,13 +9,20 @@
  * - Scheduler integration works
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import {
   createTestContainer,
   flushScheduler,
   fireEvent,
 } from '../../../test-utils/render/test-renderer';
-import { createIsland } from '../../../src/boot';
+import { cleanupApp, createIsland } from '../../../src/boot';
 import {
   isEventDelegationEnabled,
   disableEventDelegation,
@@ -380,6 +387,37 @@ describe('event delegation', () => {
         document.body.removeChild(customContainer);
         // Reset to default
         setGlobalDelegationContainer(document.body);
+      }
+    });
+
+    it('should remove custom container listeners after the last handler is cleaned up', () => {
+      const customContainer = document.createElement('div');
+      const testContainer = document.createElement('div');
+      customContainer.appendChild(testContainer);
+      document.body.appendChild(customContainer);
+      const removeEventListener = vi.spyOn(
+        customContainer,
+        'removeEventListener'
+      );
+
+      try {
+        setGlobalDelegationContainer(customContainer);
+        createIsland({
+          root: testContainer,
+          component: () => <button onClick={() => {}}>{'click'}</button>,
+        });
+        flushScheduler();
+
+        cleanupApp(testContainer);
+
+        expect(removeEventListener).toHaveBeenCalledWith(
+          'click',
+          expect.any(Function)
+        );
+      } finally {
+        removeEventListener.mockRestore();
+        setGlobalDelegationContainer(document.body);
+        customContainer.remove();
       }
     });
   });

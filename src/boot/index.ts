@@ -14,7 +14,11 @@ import {
   isProductionEnvironment,
 } from '../common/env';
 import { logger } from '../dev/logger';
-import { initializeNavigation, registerAppInstance } from '../router/navigate';
+import {
+  initializeNavigation,
+  registerAppInstance,
+  unregisterAppInstance,
+} from '../router/navigate';
 import {
   configureScrollRestoration,
   type ScrollRestorationOptions,
@@ -26,7 +30,6 @@ import {
   _snapshotLazy,
   clearRoutes,
   lockRouteRegistration,
-  resolveRoute,
   resolveRouteRequest,
   route as registerRoute,
   setServerLocation,
@@ -34,6 +37,7 @@ import {
 import { globalScheduler } from '../runtime/scheduler';
 import { assertExecutionModel } from '../runtime/execution-model';
 import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
+import { isPromiseLike } from '../common/promise';
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
@@ -130,6 +134,7 @@ function cleanupRootInstance(
   runRootCleanupCallbacks(rootElement, errors);
 
   if (!options?.preserveInstance) {
+    unregisterAppInstance(instance);
     instancesByRoot.delete(rootElement);
     clearRootCleanupCallbacks(rootElement);
     try {
@@ -200,6 +205,11 @@ function mountOrUpdate(
   // Ensure root component always includes a DefaultPortal host by wrapping it.
   const wrappedFn: ComponentFunction = (props, ctx) => {
     const out = componentFn(props, ctx);
+    if (isPromiseLike(out)) {
+      throw new Error(
+        'Async components are not supported. Components must return synchronously.'
+      );
+    }
     const portalVNode = {
       $$typeof: ELEMENT_TYPE,
       type: DefaultPortal,
@@ -310,6 +320,7 @@ import type {
   RouteManifest,
   ResolvedRoute,
   RouteAuthOptions,
+  RouteRequestResult,
 } from '../common/router';
 import {
   installRendererBridge,
@@ -366,6 +377,49 @@ export type HydrateSPAConfig = {
     skipSelectors?: string[];
   };
 };
+
+const MAX_INITIAL_ROUTE_REDIRECTS = 20;
+
+async function resolveInitialRoute(
+  auth?: RouteAuthOptions
+): Promise<{ path: string; href: string; resolved: RouteRequestResult }> {
+  let path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  let href =
+    typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : path;
+  const visited = new Set<string>();
+
+  for (
+    let redirects = 0;
+    redirects <= MAX_INITIAL_ROUTE_REDIRECTS;
+    redirects++
+  ) {
+    if (visited.has(href)) {
+      throw new Error(`[Askr] Route redirect cycle detected at ${href}.`);
+    }
+    visited.add(href);
+
+    const resolved = await resolveRouteRequest(href, { auth });
+    if (
+      typeof window === 'undefined' ||
+      !resolved ||
+      resolved.kind !== 'redirect'
+    ) {
+      return { path, href, resolved };
+    }
+
+    const redirectTarget = new URL(resolved.to, window.location.href);
+    const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
+    window.history.replaceState({ path: redirectHref }, '', redirectHref);
+    path = redirectTarget.pathname;
+    href = redirectHref;
+  }
+
+  throw new Error(
+    `[Askr] Route redirect limit exceeded (${MAX_INITIAL_ROUTE_REDIRECTS}).`
+  );
+}
 
 /**
  * createIsland: Enhances existing DOM (no router, mounts once)
@@ -492,25 +546,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (isProductionEnvironment()) lockRouteRegistration();
 
   // Mount the currently-resolved route handler (if any)
-  let path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  let href =
-    typeof window !== 'undefined'
-      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
-      : path;
-  let resolved = await resolveRouteRequest(href, { auth: routeAuth });
-
-  while (
-    typeof window !== 'undefined' &&
-    resolved &&
-    resolved.kind === 'redirect'
-  ) {
-    const redirectTarget = new URL(resolved.to, window.location.href);
-    const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
-    window.history.replaceState({ path: redirectHref }, '', redirectHref);
-    path = redirectTarget.pathname;
-    href = redirectHref;
-    resolved = await resolveRouteRequest(href, { auth: routeAuth });
-  }
+  const { path, resolved } = await resolveInitialRoute(routeAuth);
 
   if (!resolved) {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
@@ -831,18 +867,28 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   // Drain any lazy() imports so all split chunks are ready before mounting
   await _drainLazy(pendingLazyAtHydrationBoot);
 
-  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  const currentUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
-      : path;
+  const {
+    path,
+    href: currentUrl,
+    resolved,
+  } = await resolveInitialRoute(config.auth ?? config.manifest?.auth);
   setServerLocation(currentUrl);
   if (isProductionEnvironment()) lockRouteRegistration();
 
-  const resolved = resolveRoute(path);
   if (!resolved) {
     throw new Error(`hydrateSPA: no route found for current path (${path}).`);
   }
+
+  if (resolved.kind === 'redirect') {
+    throw new Error(
+      `hydrateSPA: unresolved redirect for current path (${path}).`
+    );
+  }
+
+  const hydrationResolved: ResolvedRoute =
+    resolved.kind === 'deny'
+      ? { handler: bindDeniedStatus(resolved.status), params: {} }
+      : { handler: resolved.handler, params: resolved.params };
 
   if (shouldVerifyHydrationMarkup(config)) {
     const legacyRouteTable = hasManifest
@@ -860,6 +906,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         root: rootElement,
         url: currentUrl,
         routes: legacyRouteTable,
+        resolved: hydrationResolved,
       })
     ) {
       throw new Error(
@@ -873,10 +920,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
       await applySelectiveHydration(
         rootElement,
-        {
-          handler: resolved.handler as ComponentFunction,
-          params: resolved.params as Record<string, unknown>,
-        },
+        hydrationResolved,
         path,
         config.cleanupStrict,
         hydrateOptions
@@ -889,9 +933,15 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
 
-  mountOrUpdate(rootElement, bindResolvedRouteHandler(resolved), {
-    cleanupStrict: config.cleanupStrict,
-  });
+  mountOrUpdate(
+    rootElement,
+    resolved.kind === 'deny'
+      ? bindDeniedStatus(resolved.status)
+      : bindResolvedRouteHandler(hydrationResolved),
+    {
+      cleanupStrict: config.cleanupStrict,
+    }
+  );
   await registerAppNavigation(rootElement, path);
 }
 
