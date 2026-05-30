@@ -2,10 +2,17 @@ import { describe, expect, it } from 'vite-plus/test';
 import { resource } from '../../../src/resources';
 import type { JSXElement } from '../../../src/jsx/types';
 import { state } from '../../../src';
+import {
+  cleanupComponent,
+  createComponentInstance,
+  mountInstanceInline,
+  renderComponentInline,
+} from '../../../src/runtime/component';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
   flushScheduler,
+  getSchedulerState,
 } from '../../../test-utils/render/test-renderer';
 
 async function settleResourceWork(): Promise<void> {
@@ -15,6 +22,49 @@ async function settleResourceWork(): Promise<void> {
 }
 
 describe('resource edge cases', () => {
+  it('should ignore the initial queued post-lane start after refresh advances generation', () => {
+    const { container, cleanup } = createTestContainer();
+    let starts = 0;
+    let snapshot: { refresh(): void; value: string | null } | null = null;
+
+    const App = (): JSXElement => {
+      snapshot = resource<string>(() => {
+        starts += 1;
+        return `run:${starts}`;
+      }, []);
+
+      return <div>{snapshot.value ?? 'loading'}</div>;
+    };
+
+    const instance = createComponentInstance(
+      'resource-refresh-generation',
+      App,
+      {},
+      container
+    );
+
+    try {
+      mountInstanceInline(instance, container);
+      renderComponentInline(instance);
+
+      expect(starts).toBe(0);
+      expect(getSchedulerState().laneQueues.post).toBeGreaterThan(0);
+
+      snapshot!.refresh();
+
+      expect(starts).toBe(1);
+      expect(snapshot!.value).toBe('run:1');
+
+      flushScheduler();
+
+      expect(starts).toBe(1);
+      expect(getSchedulerState().queueLength).toBe(0);
+    } finally {
+      cleanupComponent(instance);
+      cleanup();
+    }
+  });
+
   // Finding 1: deps compared with !== instead of Object.is.
   // A NaN dependency satisfies NaN !== NaN on every render, so depsChanged is
   // always true and the loader refetches on every render. A stable NaN dep

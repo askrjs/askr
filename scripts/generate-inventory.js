@@ -84,7 +84,8 @@ function extractTypeScriptSymbols(content) {
 
   let match;
 
-  const funcPattern = /(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(/g;
+  const funcPattern =
+    /(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*(?:<[^>]+>)?\s*\(/g;
   while ((match = funcPattern.exec(content))) symbols.functions.push(match[1]);
 
   const classPattern = /(?:export\s+)?class\s+(\w+)/g;
@@ -200,7 +201,7 @@ function extractPublicApi(content) {
   }
 
   const directValueDecls =
-    /export\s+(?:async\s+)?function\s+(\w+)\s*\(|export\s+class\s+(\w+)|export\s+const\s+(\w+)\s*[:=]/g;
+    /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]+>)?\s*\(|export\s+class\s+(\w+)|export\s+const\s+(\w+)\s*[:=]/g;
   while ((match = directValueDecls.exec(content))) {
     api.values.push(match[1] || match[2] || match[3]);
   }

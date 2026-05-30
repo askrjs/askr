@@ -32,7 +32,7 @@ Public types:
 - `@askrjs/askr/components` - `ErrorBoundary`
 - `@askrjs/askr/control` - JSX control-flow helpers
 - `@askrjs/askr/data` - `createQuery`, `createMutation`, and `invalidate`
-- `@askrjs/askr/resources` - async resource helpers such as `resource`, `on`, `timer`, `task`, `stream`, `capture`, and `getSignal`
+- `@askrjs/askr/resources` - async resource helpers such as `resource`, `on`, `timer`, `task`, `capture`, and `getSignal`, plus the current placeholder `stream` surface
 - `@askrjs/askr/router` - route registration, routing state, and navigation helpers
 - `@askrjs/askr/fx` - timing and scheduling helpers
 - `@askrjs/askr/ssr` - server-side rendering helpers

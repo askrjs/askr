@@ -5,6 +5,7 @@ import { renderComponentInline } from '../../../src/runtime/component';
 import { For } from '../../../src/control';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
+import { allowFrameworkWarnings } from '../../setup-env';
 
 describe('selector reactivity', () => {
   let { container, cleanup } = createTestContainer();
@@ -219,6 +220,66 @@ describe('selector reactivity', () => {
     expect(sourceReads).toBe(1);
 
     flushScheduler();
+  });
+
+  it('should detach the previous selector source when the hook rebinds to a new source', () => {
+    allowFrameworkWarnings(
+      /Unused state variable detected in App at index [12]/
+    );
+    let useLeft!: ReturnType<typeof state<boolean>>;
+    let leftSelected!: ReturnType<typeof state<number | null>>;
+    let rightSelected!: ReturnType<typeof state<number | null>>;
+    let evaluations = 0;
+
+    const App = () => {
+      useLeft = state(true);
+      leftSelected = state<number | null>(1);
+      rightSelected = state<number | null>(2);
+
+      const isSelected = selector(useLeft() ? leftSelected : rightSelected);
+
+      return (
+        <div
+          id="subject"
+          class={() => {
+            evaluations += 1;
+            return isSelected(1) ? 'danger' : '';
+          }}
+        >
+          {'row'}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.className).toBe('danger');
+    expect(leftSelected._derivedSubscribers?.size ?? 0).toBe(1);
+    expect(rightSelected._derivedSubscribers?.size ?? 0).toBe(0);
+
+    evaluations = 0;
+    useLeft.set(false);
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.className).toBe('');
+    expect(evaluations).toBe(1);
+    expect(leftSelected._derivedSubscribers?.size ?? 0).toBe(0);
+    expect(rightSelected._derivedSubscribers?.size ?? 0).toBe(1);
+
+    evaluations = 0;
+    leftSelected.set(3);
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.className).toBe('');
+    expect(evaluations).toBe(0);
+
+    evaluations = 0;
+    rightSelected.set(1);
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.className).toBe('danger');
+    expect(evaluations).toBe(1);
   });
 
   it('should clean up shared selector subscriptions when rows are removed', () => {

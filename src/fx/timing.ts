@@ -19,6 +19,8 @@ export interface RetryOptions {
   backoff?: (attemptIndex: number) => number;
 }
 
+type AnyFn = (...args: never[]) => unknown;
+
 /**
  * Debounce — delay execution, coalesce rapid calls
  *
@@ -36,7 +38,7 @@ export interface RetryOptions {
  * save.cancel(); // stop any pending execution
  * ```
  */
-export function debounce<T extends (...args: unknown[]) => unknown>(
+export function debounce<T extends AnyFn>(
   fn: T,
   ms: number,
   options?: DebounceOptions
@@ -98,12 +100,12 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
  * handleScroll.cancel();
  * ```
  */
-export function throttle<T extends (...args: unknown[]) => unknown>(
+export function throttle<T extends AnyFn>(
   fn: T,
   ms: number,
   options?: ThrottleOptions
 ): T & { cancel(): void } {
-  let lastCallTime = 0;
+  let lastCallTime: number | null = null;
   let timeoutId: NodeJS.Timeout | null = null;
   const { leading = true, trailing = true } = options || {};
   let lastArgs: unknown[] | null = null;
@@ -111,18 +113,25 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
 
   const throttled = function (this: unknown, ...args: unknown[]) {
     const callTime = Date.now();
+    const timeSinceLastCall =
+      lastCallTime === null
+        ? Number.POSITIVE_INFINITY
+        : callTime - lastCallTime;
     lastArgs = args;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     lastThis = this;
 
-    if (leading && callTime - lastCallTime >= ms) {
+    if (leading && timeSinceLastCall >= ms) {
       fn.apply(this, args);
       lastCallTime = callTime;
       if (timeoutId !== null) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
-    } else if (!leading && lastCallTime === 0) {
+      return;
+    }
+
+    if (!leading && lastCallTime === null) {
       lastCallTime = callTime;
     }
 
@@ -133,7 +142,7 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
           lastCallTime = Date.now();
           timeoutId = null;
         },
-        ms - (callTime - lastCallTime)
+        lastCallTime === null ? ms : Math.max(0, ms - (callTime - lastCallTime))
       );
     }
   };
@@ -164,7 +173,7 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
  * init(); // does nothing
  * ```
  */
-export function once<T extends (...args: unknown[]) => unknown>(fn: T): T {
+export function once<T extends AnyFn>(fn: T): T {
   let called = false;
   let result: unknown;
 
@@ -209,7 +218,7 @@ export function defer(fn: () => void): void {
  * update(); // same frame, no duplicate
  * ```
  */
-export function raf<T extends (...args: unknown[]) => unknown>(fn: T): T {
+export function raf<T extends AnyFn>(fn: T): T {
   let frameId: number | null = null;
   let lastArgs: unknown[] | null = null;
   let lastThis: unknown = null;
