@@ -13,7 +13,12 @@
  *
  */
 
-import { matchSegments, parseSegments, computeRank } from './match';
+import {
+  matchSegments,
+  parseSegments,
+  computeRank,
+  splitPathSegments,
+} from './match';
 import {
   buildRouteContext,
   buildRouteContextBase,
@@ -115,6 +120,7 @@ type RegistrationScope = {
   pathPrefix: string;
   layout?: LayoutScopeRecord['component'];
   page?: PageScopeRecord['component'];
+  hasIndex?: boolean;
   policies: readonly RoutePolicy[];
   state: AccessScopeState;
 };
@@ -275,8 +281,7 @@ function matchFallbackPrefix(
       : fallbackPrefix;
 
   if (normalizedPrefix === '/') {
-    const urlParts =
-      normalizedPath === '/' ? [] : normalizedPath.split('/').filter(Boolean);
+    const urlParts = splitPathSegments(normalizedPath);
     return {
       '*':
         urlParts.length === 0
@@ -297,9 +302,8 @@ function matchFallbackPrefix(
   const remainder =
     normalizedPath === normalizedPrefix
       ? '/'
-      : normalizedPath.slice(normalizedPrefix.length + 1);
-  const remainderParts =
-    remainder === '/' ? [] : remainder.split('/').filter(Boolean);
+      : normalizedPath.slice(normalizedPrefix.length);
+  const remainderParts = splitPathSegments(remainder);
 
   return {
     '*':
@@ -348,8 +352,7 @@ function findBestResolvedRouteFromRoutes(
     pathname.endsWith('/') && pathname !== '/'
       ? pathname.slice(0, -1)
       : pathname;
-  const urlParts =
-    normalized === '/' ? [] : normalized.split('/').filter(Boolean);
+  const urlParts = splitPathSegments(normalized);
 
   const sorted = cachedSortedList(routeList);
   let bestRoute: Route | null = null;
@@ -479,6 +482,17 @@ function hasActivePageScope(): boolean {
   return registrationScopeStack.some((scope) => !!scope.page);
 }
 
+function getCurrentPageScope(): RegistrationScope | null {
+  for (let index = registrationScopeStack.length - 1; index >= 0; index -= 1) {
+    const scope = registrationScopeStack[index];
+    if (scope.kind === 'page') {
+      return scope;
+    }
+  }
+
+  return null;
+}
+
 function getCurrentScopeKind(): RegistrationScope['kind'] | null {
   return (
     registrationScopeStack[registrationScopeStack.length - 1]?.kind ?? null
@@ -532,6 +546,9 @@ function validateRoutePath(path: string): void {
   if (!path.startsWith('/')) {
     throw new Error(`Route path must begin with "/". Got: "${path}"`);
   }
+  if (/\/{2,}/.test(path)) {
+    throw new Error('Route path cannot contain consecutive slashes.');
+  }
   // Reject Express-style :param syntax — Askr uses {param} interpolation
   if (/:([^/{}]+)/.test(path)) {
     const suggested = path.replace(/:([^/{}]+)/g, '{$1}');
@@ -539,6 +556,42 @@ function validateRoutePath(path: string): void {
       `Route parameter syntax uses {name} interpolation, not :name. ` +
         `Use "${suggested}" instead of "${path}".`
     );
+  }
+
+  const segments = path.split('/').filter(Boolean);
+  const seenParamNames = new Set<string>();
+
+  for (const segment of segments) {
+    if (segment === '*') {
+      continue;
+    }
+
+    const hasOpenBrace = segment.includes('{');
+    const hasCloseBrace = segment.includes('}');
+
+    if (!hasOpenBrace && !hasCloseBrace) {
+      continue;
+    }
+
+    if (!(segment.startsWith('{') && segment.endsWith('}'))) {
+      throw new Error(
+        'Route parameter segments must use complete {name} interpolation.'
+      );
+    }
+
+    const paramName = segment.slice(1, -1).trim();
+
+    if (!paramName) {
+      throw new Error('Route parameter name cannot be empty.');
+    }
+
+    if (seenParamNames.has(paramName)) {
+      throw new Error(
+        `Route path cannot reuse duplicate parameter name "${paramName}".`
+      );
+    }
+
+    seenParamNames.add(paramName);
   }
 }
 
@@ -775,6 +828,15 @@ export function page(
 }
 
 export function index(Component: RouteComponent, options?: RouteOptions): void {
+  const pageScope = getCurrentPageScope();
+  if (pageScope?.hasIndex) {
+    throw new Error('page() cannot declare multiple index routes.');
+  }
+
+  if (pageScope) {
+    pageScope.hasIndex = true;
+  }
+
   registerRouteAtResolvedPath(resolveIndexPath(), Component, options);
 }
 
@@ -876,6 +938,7 @@ function pushPageScope(
       kind: 'page',
       pathPrefix: resolvePageScopePath(path),
       page: Component,
+      hasIndex: false,
       policies,
       state: nextAccessScopeState(options, getCurrentAccessScopeState()),
     },
@@ -1038,6 +1101,8 @@ function registerRouteAtResolvedPath(
     fallbackPrefix?: string;
   }
 ): void {
+  validateRoutePath(path);
+
   validateAccessMetadata(options ?? {}, {
     authConfigured: getCurrentRegistrationSession().authConfigured,
     state: getCurrentAccessScopeState(),
@@ -1416,8 +1481,7 @@ export function resolveRoute(pathname: string): ResolvedRoute | null {
     pathname.endsWith('/') && pathname !== '/'
       ? pathname.slice(0, -1)
       : pathname;
-  const urlParts =
-    normalized === '/' ? [] : normalized.split('/').filter(Boolean);
+  const urlParts = splitPathSegments(normalized);
 
   for (const record of records) {
     if (record.fallbackPrefix) {
@@ -1445,8 +1509,7 @@ function getMatchingRecord(
     location.pathname.endsWith('/') && location.pathname !== '/'
       ? location.pathname.slice(0, -1)
       : location.pathname;
-  const urlParts =
-    normalized === '/' ? [] : normalized.split('/').filter(Boolean);
+  const urlParts = splitPathSegments(normalized);
 
   for (const record of routeRecords) {
     const internalRecord = record as InternalRouteRecord;
@@ -1485,10 +1548,44 @@ function getDefaultRouteMode(): RouteContext['mode'] {
   return 'ssr';
 }
 
+function createRenderDataAwareHandler(
+  handler: RouteHandler,
+  data: unknown
+): RouteHandler {
+  return (params, context) => {
+    const renderContext = getRenderContext();
+    if (renderContext) {
+      renderContext.renderData = (data ?? null) as Record<
+        string,
+        unknown
+      > | null;
+    }
+
+    return handler(params, context);
+  };
+}
+
 function buildRenderResult(
   record: RouteRecord,
-  params: Record<string, string>
-): RouteRenderResult {
+  params: Record<string, string>,
+  mode: RouteContext['mode']
+): RouteRequestResult | Promise<RouteRequestResult> {
+  const loader = mode === 'ssr' ? record.options?.loader : undefined;
+  if (loader) {
+    const loaded = loader({ params });
+    const finalize = (data: unknown): RouteRenderResult => ({
+      kind: 'render',
+      handler: createRenderDataAwareHandler(record.handler, data),
+      params,
+    });
+
+    if (isPromise(loaded)) {
+      return loaded.then((data) => finalize(data));
+    }
+
+    return finalize(loaded);
+  }
+
   return {
     kind: 'render',
     handler: record.handler,
@@ -1527,7 +1624,7 @@ function continueRoutePolicies(
     }
   }
 
-  return buildRenderResult(record, params);
+  return buildRenderResult(record, params, context.mode);
 }
 
 export function resolveRouteRequest(
@@ -1543,16 +1640,16 @@ export function resolveRouteRequest(
 
   const { record, params } = match;
   const policies = getRoutePolicies(record.options);
+  const mode = options.mode ?? getDefaultRouteMode();
 
   if (policies.length === 0) {
-    return buildRenderResult(record, params);
+    return buildRenderResult(record, params, mode);
   }
 
   const signal =
     options.signal ??
     getRenderContext()?.signal ??
     new AbortController().signal;
-  const mode = options.mode ?? getDefaultRouteMode();
   const auth = getActiveRouteAuthOptions(
     options.auth ?? options.manifest?.auth
   );

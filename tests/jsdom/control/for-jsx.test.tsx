@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
+import { resource } from '../../../src/resources';
 import { For } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
   createTestContainer,
   flushScheduler,
+  waitForNextEvaluation,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
@@ -210,6 +212,109 @@ describe('For JSX primitive', () => {
     }
   });
 
+  it('should report the current keyed index even when index() is first read after a reorder', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    let setItems: (next: Item[]) => void = () => {};
+    let setShowIndices: (next: boolean) => void = () => {};
+
+    const App = () => {
+      const items = state<Item[]>([
+        { id: 1, label: 'a' },
+        { id: 2, label: 'b' },
+        { id: 3, label: 'c' },
+      ]);
+      const showIndices = state(false);
+      setItems = (next) => items.set(next);
+      setShowIndices = (next) => showIndices.set(next);
+
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item, index) => (
+              <li data-id={String(item.id)}>
+                {() =>
+                  showIndices() ? `${item.label}:${index()}` : item.label
+                }
+              </li>
+            )}
+          </For>
+        </ul>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      setItems([
+        { id: 3, label: 'c' },
+        { id: 1, label: 'a' },
+        { id: 2, label: 'b' },
+      ]);
+      flushScheduler();
+
+      setShowIndices(true);
+      flushScheduler();
+
+      const labels = Array.from(container.querySelectorAll('li')).map(
+        (node) => node.textContent
+      );
+      expect(labels).toEqual(['c:0', 'a:1', 'b:2']);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should keep delayed index() reads correct for move-only keyed reorders', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    const rowA = { id: 1, label: 'a' };
+    const rowB = { id: 2, label: 'b' };
+    const rowC = { id: 3, label: 'c' };
+    let setItems: (next: Item[]) => void = () => {};
+    let setShowIndices: (next: boolean) => void = () => {};
+
+    const App = () => {
+      const items = state<Item[]>([rowA, rowB, rowC]);
+      const showIndices = state(false);
+      setItems = (next) => items.set(next);
+      setShowIndices = (next) => showIndices.set(next);
+
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item, index) => (
+              <li data-id={String(item.id)}>
+                {() =>
+                  showIndices() ? `${item.label}:${index()}` : item.label
+                }
+              </li>
+            )}
+          </For>
+        </ul>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      setItems([rowC, rowA, rowB]);
+      flushScheduler();
+
+      setShowIndices(true);
+      flushScheduler();
+
+      const labels = Array.from(container.querySelectorAll('li')).map(
+        (node) => node.textContent
+      );
+      expect(labels).toEqual(['c:0', 'a:1', 'b:2']);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should support byIndex as an explicit positional escape hatch', () => {
     const { container, cleanup } = createTestContainer();
     let setItems: (next: string[]) => void = () => {};
@@ -309,6 +414,148 @@ describe('For JSX primitive', () => {
     expect(container.querySelector('#empty')?.textContent).toBe('empty');
 
     cleanup();
+  });
+
+  it('should render keyed rows from a resource-fed array after the resource resolves', async () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    let resolveItems: ((items: Item[]) => void) | null = null;
+
+    const App = () => {
+      const items = resource<Item[]>(
+        () =>
+          new Promise<Item[]>((resolve) => {
+            resolveItems = resolve;
+          }),
+        []
+      );
+
+      return (
+        <ul>
+          <For
+            each={() => items.value ?? []}
+            by={(item) => item.id}
+            fallback={<li id="resource-empty">empty</li>}
+          >
+            {(item) => <li data-id={String(item.id)}>{item.label}</li>}
+          </For>
+        </ul>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      expect(container.querySelector('#resource-empty')?.textContent).toBe(
+        'empty'
+      );
+
+      resolveItems?.([
+        { id: 1, label: 'row-1' },
+        { id: 2, label: 'row-2' },
+      ]);
+      await waitForNextEvaluation();
+      flushScheduler();
+
+      const rows = Array.from(container.querySelectorAll('li[data-id]')).map(
+        (node) => node.textContent
+      );
+      expect(container.querySelector('#resource-empty')).toBeNull();
+      expect(rows).toEqual(['row-1', 'row-2']);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should update nested keyed For lists across outer reorders and inner list changes', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Row = { id: number; label: string };
+    type Group = { id: number; label: string; items: Row[] };
+    let setGroups: (next: Group[]) => void = () => {};
+
+    const App = () => {
+      const groups = state<Group[]>([
+        {
+          id: 1,
+          label: 'A',
+          items: [
+            { id: 11, label: 'a' },
+            { id: 12, label: 'b' },
+          ],
+        },
+        {
+          id: 2,
+          label: 'B',
+          items: [{ id: 21, label: 'c' }],
+        },
+      ]);
+      setGroups = (next) => groups.set(next);
+
+      return (
+        <section>
+          <For each={groups} by={(group) => group.id}>
+            {(group, groupIndex) => (
+              <article data-group={String(group.id)}>
+                <h2>{`${group.label}:${groupIndex()}`}</h2>
+                <ul>
+                  <For each={() => group.items} by={(item) => item.id}>
+                    {(item, itemIndex) => (
+                      <li data-item={`${group.id}-${item.id}`}>
+                        {`${group.label}:${groupIndex()}/${item.label}:${itemIndex()}`}
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </article>
+            )}
+          </For>
+        </section>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      const initialGroups = Array.from(container.querySelectorAll('h2')).map(
+        (node) => node.textContent
+      );
+      const initialRows = Array.from(container.querySelectorAll('li')).map(
+        (node) => node.textContent
+      );
+      expect(initialGroups).toEqual(['A:0', 'B:1']);
+      expect(initialRows).toEqual(['A:0/a:0', 'A:0/b:1', 'B:1/c:0']);
+
+      setGroups([
+        {
+          id: 2,
+          label: 'B',
+          items: [
+            { id: 21, label: 'c' },
+            { id: 22, label: 'd' },
+          ],
+        },
+        {
+          id: 1,
+          label: 'A',
+          items: [{ id: 12, label: 'b!' }],
+        },
+      ]);
+      flushScheduler();
+
+      const nextGroups = Array.from(container.querySelectorAll('h2')).map(
+        (node) => node.textContent
+      );
+      const nextRows = Array.from(container.querySelectorAll('li')).map(
+        (node) => node.textContent
+      );
+      expect(nextGroups).toEqual(['B:0', 'A:1']);
+      expect(nextRows).toEqual(['B:0/c:0', 'B:0/d:1', 'A:1/b!:0']);
+    } finally {
+      cleanup();
+    }
   });
 
   it('should throw when neither by nor byIndex is provided', () => {

@@ -75,7 +75,10 @@ type ForItemPropertySignal = ReadableSource<unknown> &
 type ForIndexSignal = ReadableSource<number> &
   (() => number) & {
     peek(): number;
-    set(newValue: number | ((prev: number) => number)): void;
+    set(
+      newValue: number | ((prev: number) => number),
+      notifyReaders?: boolean
+    ): void;
   };
 
 export type ForCommitStrategy =
@@ -211,19 +214,62 @@ function createForIndexSignal(initialIndex: number): ForIndexSignal {
   }) as ForIndexSignal;
   indexSignal._readers = readers;
   indexSignal.peek = () => indexValue;
-  indexSignal.set = (newValue: number | ((prev: number) => number)) => {
+  indexSignal.set = (
+    newValue: number | ((prev: number) => number),
+    notifyReaders = true
+  ) => {
     const nextValue =
       typeof newValue === 'function' ? newValue(indexValue) : newValue;
     if (nextValue !== indexValue) {
       indexValue = nextValue;
-      markReadableDerivedSubscribersDirty(indexSignal);
-      markReactivePropsDirtySource(indexSignal);
-      notifyReadableReaders(indexSignal);
+      if (notifyReaders) {
+        markReadableDerivedSubscribersDirty(indexSignal);
+        markReactivePropsDirtySource(indexSignal);
+        notifyReadableReaders(indexSignal);
+      }
     }
   };
   indexSignal._hasBeenRead = false;
 
   return indexSignal;
+}
+
+function syncForIndexSignal(
+  indexSignal: ForIndexSignal,
+  nextIndex: number
+): boolean {
+  if (indexSignal.peek() === nextIndex) {
+    return false;
+  }
+
+  indexSignal.set(nextIndex, indexSignal._hasBeenRead);
+  return indexSignal._hasBeenRead;
+}
+
+function syncForItemIndex<T>(
+  forState: ForState<T>,
+  itemInstance: ForItemInstance<T>,
+  nextIndex: number
+): boolean {
+  const indexSignal = itemInstance.indexSignal;
+  if (indexSignal.peek() === nextIndex) {
+    return false;
+  }
+
+  const scopeReadsIndex = scopeReadsSource(itemInstance.scope, indexSignal);
+  if (!scopeReadsIndex) {
+    syncForIndexSignal(indexSignal, nextIndex);
+    return false;
+  }
+
+  indexSignal.set(nextIndex, false);
+  markReadableDerivedSubscribersDirty(indexSignal);
+  markReactivePropsDirtySource(indexSignal);
+  notifyReadableReaders(indexSignal, itemInstance.scope.componentInstance);
+
+  rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+
+  return true;
 }
 
 function createForItemSignal<T>(initialItem: T): ForItemSignal<T> {
@@ -839,18 +885,17 @@ export function reconcileForItems<T>(
 
             const itemChanged = existing.item !== item;
             const indexSignal = existing.indexSignal;
-            const indexChanged =
-              indexSignal._hasBeenRead && indexSignal.peek() !== i;
+            const indexChanged = indexSignal.peek() !== i;
 
             if (itemChanged) {
               updateItemInstance(forState, existing, item);
             }
 
-            if (indexChanged) {
-              indexSignal.set(i);
-            }
+            const indexVisibleChange = indexChanged
+              ? syncForItemIndex(forState, existing, i)
+              : false;
 
-            if (itemChanged || indexChanged || scopeNeedsDomUpdate) {
+            if (itemChanged || indexVisibleChange || scopeNeedsDomUpdate) {
               dirtyIndices.push(i);
             }
 
@@ -1086,19 +1131,9 @@ export function reconcileForItems<T>(
         updateItemInstance(forState, secondExisting, secondItem);
       }
 
-      if (
-        firstExisting.indexSignal._hasBeenRead &&
-        firstExisting.indexSignal.peek() !== firstMismatch
-      ) {
-        firstExisting.indexSignal.set(firstMismatch);
-      }
+      syncForItemIndex(forState, firstExisting, firstMismatch);
 
-      if (
-        secondExisting.indexSignal._hasBeenRead &&
-        secondExisting.indexSignal.peek() !== secondMismatch
-      ) {
-        secondExisting.indexSignal.set(secondMismatch);
-      }
+      syncForItemIndex(forState, secondExisting, secondMismatch);
 
       resultVNodes[firstMismatch] = firstExisting.scope.vnode as VNode;
       resultVNodes[secondMismatch] = secondExisting.scope.vnode as VNode;
@@ -1146,6 +1181,12 @@ export function reconcileForItems<T>(
     if (canUseMoveOnlyPath) {
       recordBenchFastLane('FULL_KEYED');
       forState.lastCommitStrategy = 'FULL_KEYED';
+
+      for (let i = 0; i < moveOnlyItems.length; i++) {
+        syncForItemIndex(forState, moveOnlyItems[i], i);
+        moveOnlyVNodes[i] = moveOnlyItems[i].scope.vnode as VNode;
+      }
+
       forState.orderedKeys = moveOnlyKeys;
       forState.orderedItems = moveOnlyItems;
       forState.orderedVNodes = moveOnlyVNodes;
@@ -1198,8 +1239,7 @@ export function reconcileForItems<T>(
       // Exists: check if item changed (by identity)
       recordBenchEvent('itemReused');
       const itemChanged = existing.item !== item;
-      const indexChanged =
-        existing.indexSignal._hasBeenRead && existing.indexSignal.peek() !== i;
+      const indexChanged = existing.indexSignal.peek() !== i;
 
       if (itemChanged) {
         moveOnly = false;
@@ -1208,7 +1248,7 @@ export function reconcileForItems<T>(
 
       if (indexChanged) {
         // Index changed: update index signal (triggers re-render if index is used)
-        existing.indexSignal.set(i);
+        syncForItemIndex(forState, existing, i);
       }
 
       newOrderedItems.push(existing);

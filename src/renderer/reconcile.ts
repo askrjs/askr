@@ -701,14 +701,15 @@ function prepareControlBoundaryResolution(child: VNode): {
   if (!controlState) {
     return null;
   }
-
-  const previousActiveKey = controlState.activeKey;
-  const childrenVNodes = evaluateControlBoundaryChildren(controlState);
   if (controlState.kind === 'for') {
+    const childrenVNodes = evaluateControlBoundaryChildren(controlState);
     return childrenVNodes.length === 1
       ? { remount: false, vnode: childrenVNodes[0] ?? null }
       : null;
   }
+
+  const previousActiveKey = controlState.activeKey;
+  const childrenVNodes = evaluateControlBoundaryChildren(controlState);
 
   return {
     remount:

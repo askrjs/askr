@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
+import { resource } from '../../../src/resources';
 import { Case, Match, Show } from '@askrjs/askr/control';
 import {
   createTestContainer,
   flushScheduler,
+  waitForNextEvaluation,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { allowFrameworkWarnings } from '../../setup-env';
@@ -13,6 +15,90 @@ type ReaderTracked = {
 };
 
 describe('Show primitive', () => {
+  it('should render static children when the condition is truthy', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const App = () => (
+      <Show when={true} fallback={<p id="show-static-fallback">fallback</p>}>
+        <p id="show-static-child">ready</p>
+      </Show>
+    );
+
+    createIsland({ root: container, component: App });
+
+    expect(container.querySelector('#show-static-child')?.textContent).toBe(
+      'ready'
+    );
+    expect(container.querySelector('#show-static-fallback')).toBeNull();
+
+    cleanup();
+  });
+
+  it('should render fallback when the condition is falsy', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const App = () => (
+      <Show when={false} fallback={<p id="show-static-fallback">fallback</p>}>
+        <p id="show-static-child">ready</p>
+      </Show>
+    );
+
+    createIsland({ root: container, component: App });
+
+    expect(container.querySelector('#show-static-fallback')?.textContent).toBe(
+      'fallback'
+    );
+    expect(container.querySelector('#show-static-child')).toBeNull();
+
+    cleanup();
+  });
+
+  it('should switch from fallback to truthy content when a resource-backed condition resolves', async () => {
+    const { container, cleanup } = createTestContainer();
+    let resolveUser: ((value: { name: string }) => void) | null = null;
+
+    const App = () => {
+      const user = resource<{ name: string }>(
+        () =>
+          new Promise<{ name: string }>((resolve) => {
+            resolveUser = resolve;
+          }),
+        []
+      );
+
+      return (
+        <Show
+          when={() => user.value}
+          fallback={<p id="show-resource-fallback">loading</p>}
+        >
+          {(value: { name: string }) => (
+            <p id="show-resource-value">{value.name}</p>
+          )}
+        </Show>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      expect(
+        container.querySelector('#show-resource-fallback')?.textContent
+      ).toBe('loading');
+
+      resolveUser?.({ name: 'Ada' });
+      await waitForNextEvaluation();
+      flushScheduler();
+
+      expect(container.querySelector('#show-resource-fallback')).toBeNull();
+      expect(container.querySelector('#show-resource-value')?.textContent).toBe(
+        'Ada'
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should not rerender the parent when active-branch local state changes', () => {
     const { container, cleanup } = createTestContainer();
     let appRenders = 0;

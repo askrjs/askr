@@ -152,6 +152,9 @@ export function createChildScope(
 
   componentInstance._pendingFlushTask = () => {
     componentInstance.hasPendingUpdate = false;
+    if (componentInstance.notifyUpdate === null || scope._disposed) {
+      return;
+    }
     renderScope(scope);
     scope._onDirty?.();
   };

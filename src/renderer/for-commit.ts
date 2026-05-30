@@ -817,6 +817,9 @@ export function commitForStateBoundaryChildren(
   }
 
   removeForBoundaryNodes(parent, forState.lastRemovedNodes);
+  if (forState.lastRemovedNodes.length > 0) {
+    boundaryChildrenExact = false;
+  }
   syncKeyedMapFromForState(
     parent,
     forState,

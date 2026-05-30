@@ -50,6 +50,22 @@ export type LinkProps = Omit<
   'aria-label'?: string;
 };
 
+function isSameOriginNavigableHref(href: string): boolean {
+  if (typeof window === 'undefined') {
+    return true;
+  }
+
+  try {
+    const target = new URL(href, window.location.href);
+    return (
+      target.origin === window.location.origin &&
+      (target.protocol === 'http:' || target.protocol === 'https:')
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Link component that prevents default navigation and uses navigate()
  * Provides declarative way to navigate between routes
@@ -106,8 +122,8 @@ export function Link({
         return; // Let browser handle it (new tab, etc.)
       }
 
-      // Don't intercept external links or explicit target
-      if (target) {
+      // Don't intercept external links or explicit target.
+      if (target || !isSameOriginNavigableHref(href)) {
         return; // Let browser handle it
       }
 

@@ -131,6 +131,12 @@ describe('route matching (ROUTER)', () => {
       expect(result.matched).toBe(true);
     });
 
+    it('should not collapse duplicate slashes in request paths', () => {
+      const result = match('/docs//tabs', '/docs/tabs');
+      expect(result.matched).toBe(false);
+      expect(result.params).toEqual({});
+    });
+
     it('should preserve parameter order when extracting params', () => {
       const result = match('/a/b/c', '/{x}/{y}/{z}');
       expect(result.params).toEqual({ x: 'a', y: 'b', z: 'c' });
@@ -140,6 +146,14 @@ describe('route matching (ROUTER)', () => {
       const result = match('/search/hello%3Dworld', '/search/{query}');
       expect(result.matched).toBe(true);
       expect(result.params.query).toContain('=');
+    });
+
+    it('should preserve malformed percent-encoded params instead of throwing', () => {
+      expect(() => match('/posts/%E0%A4%A', '/posts/{slug}')).not.toThrow();
+
+      const result = match('/posts/%E0%A4%A', '/posts/{slug}');
+      expect(result.matched).toBe(true);
+      expect(result.params).toEqual({ slug: '%E0%A4%A' });
     });
   });
 });

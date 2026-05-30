@@ -24,6 +24,8 @@ let currentInstance: ComponentInstance | null = null;
 let currentPathname = '/';
 let currentHref = '/';
 let navigationInitialized = false;
+let activeRouteRequestId = 0;
+let activeRouteRequestController: AbortController | null = null;
 
 export type NavigationScrollBehavior = 'top' | 'preserve';
 export type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';
@@ -53,6 +55,7 @@ const scrollPositions = new Map<string, { x: number; y: number }>();
 
 export type NavigateOptions = {
   history?: 'push' | 'replace';
+  replace?: boolean;
   scroll?: NavigationScrollBehavior;
 };
 
@@ -234,6 +237,37 @@ function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
   return value instanceof Promise;
 }
 
+function getRedirectHistoryMode(
+  replace: boolean | undefined
+): 'push' | 'replace' {
+  return replace === false ? 'push' : 'replace';
+}
+
+function getNavigationHistoryMode(
+  options: NavigateOptions
+): 'push' | 'replace' {
+  if (options.history) {
+    return options.history;
+  }
+
+  return options.replace ? 'replace' : 'push';
+}
+
+function beginRouteRequest(): { id: number; signal: AbortSignal } {
+  activeRouteRequestId += 1;
+  activeRouteRequestController?.abort();
+  activeRouteRequestController = new AbortController();
+
+  return {
+    id: activeRouteRequestId,
+    signal: activeRouteRequestController.signal,
+  };
+}
+
+function isStaleRouteRequest(requestId: number): boolean {
+  return requestId !== activeRouteRequestId;
+}
+
 function createDeniedResolvedRoute(status: number): ResolvedRoute {
   return {
     handler: () => ({
@@ -339,11 +373,11 @@ function rerenderResolvedRoute(pathname: string, href: string): boolean {
   return true;
 }
 
-function resolveNavigationTarget(path: string) {
+function resolveNavigationTarget(path: string, signal?: AbortSignal) {
   const target = parseTargetUrl(path);
   const pathname = target.pathname;
   const href = `${target.pathname}${target.search}${target.hash}`;
-  const resolved = resolveRouteRequest(href);
+  const resolved = resolveRouteRequest(href, signal ? { signal } : {});
 
   if (isPromise(resolved)) {
     return resolved.then((next) => ({
@@ -372,8 +406,6 @@ function applyNavigationTarget(
   const { href, pathname, resolved } = target;
   const previousPathname = currentPathname;
 
-  saveScrollPosition(currentHref);
-
   if (!resolved) {
     if (isDevelopmentEnvironment()) {
       logger.warn(`No route found for path: ${path}`);
@@ -393,7 +425,9 @@ function applyNavigationTarget(
       return;
     }
 
-    navigate(redirectHref, { history: 'replace' });
+    navigate(redirectHref, {
+      history: getRedirectHistoryMode(resolved.replace),
+    });
     return;
   }
 
@@ -405,8 +439,12 @@ function applyNavigationTarget(
           params: resolved.params,
         };
 
+  saveScrollPosition(currentHref);
+
   const historyMethod =
-    options.history === 'replace' ? 'replaceState' : 'pushState';
+    getNavigationHistoryMode(options) === 'replace'
+      ? 'replaceState'
+      : 'pushState';
   window.history[historyMethod]({ path: href }, '', href);
   syncCurrentRouteSnapshot(
     window.location.pathname,
@@ -459,11 +497,17 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
     return;
   }
 
-  const target = resolveNavigationTarget(path);
+  const request = beginRouteRequest();
+
+  const target = resolveNavigationTarget(path, request.signal);
   if (isPromise(target)) {
-    void target.then((resolvedTarget) =>
-      applyNavigationTarget(path, options, resolvedTarget)
-    );
+    void target.then((resolvedTarget) => {
+      if (isStaleRouteRequest(request.id)) {
+        return;
+      }
+
+      applyNavigationTarget(path, options, resolvedTarget);
+    });
     return;
   }
 
@@ -474,6 +518,7 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
  * Handle browser back/forward buttons
  */
 function handlePopState(_event: PopStateEvent): void {
+  const request = beginRouteRequest();
   const previousHref = currentHref;
   const pathname = window.location.pathname;
   const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -484,9 +529,13 @@ function handlePopState(_event: PopStateEvent): void {
     return;
   }
 
-  const resolved = resolveRouteRequest(href);
+  const resolved = resolveRouteRequest(href, { signal: request.signal });
 
   const applyResolved = (resolved: RouteRequestResult) => {
+    if (isStaleRouteRequest(request.id)) {
+      return;
+    }
+
     if (!resolved) {
       if (isDevelopmentEnvironment()) {
         logger.warn(`No route found for path: ${pathname}`);
@@ -495,7 +544,9 @@ function handlePopState(_event: PopStateEvent): void {
     }
 
     if (resolved.kind === 'redirect') {
-      navigate(resolved.to, { history: 'replace' });
+      navigate(resolved.to, {
+        history: getRedirectHistoryMode(resolved.replace),
+      });
       return;
     }
 

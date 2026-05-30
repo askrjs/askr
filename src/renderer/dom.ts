@@ -141,6 +141,10 @@ type ReactiveChildBoundarySequenceEntry =
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
+
+type ControlBoundaryCommitOwnerState = ControlBoundaryState & {
+  _commitOwner?: Element | null;
+};
 let reactiveChildScopeId = 0;
 
 function collectReactiveScalarSequenceValue(
@@ -2958,10 +2962,15 @@ function getControlBoundaryCommitChildren(
 }
 
 function clearControlBoundaryCommitOwner(parent: Element): void {
-  const owner = controlBoundaryOwners.get(parent);
+  const owner = controlBoundaryOwners.get(parent) as
+    | ControlBoundaryCommitOwnerState
+    | undefined;
   if (owner) {
     owner._enqueueBoundaryCommit = null;
     owner._hasPendingBoundaryCommit = false;
+    if (owner._commitOwner === parent) {
+      owner._commitOwner = null;
+    }
   }
 
   controlBoundaryOwners.delete(parent);
@@ -2971,13 +2980,29 @@ function registerControlBoundaryCommitOwner(
   parent: Element,
   controlState: ControlBoundaryState
 ): void {
-  const previousOwner = controlBoundaryOwners.get(parent);
+  const ownerState = controlState as ControlBoundaryCommitOwnerState;
+  const previousParent = ownerState._commitOwner;
+  if (
+    previousParent &&
+    previousParent !== parent &&
+    controlBoundaryOwners.get(previousParent) === controlState
+  ) {
+    controlBoundaryOwners.delete(previousParent);
+  }
+
+  const previousOwner = controlBoundaryOwners.get(parent) as
+    | ControlBoundaryCommitOwnerState
+    | undefined;
   if (previousOwner && previousOwner !== controlState) {
     previousOwner._enqueueBoundaryCommit = null;
     previousOwner._hasPendingBoundaryCommit = false;
+    if (previousOwner._commitOwner === parent) {
+      previousOwner._commitOwner = null;
+    }
   }
 
   controlBoundaryOwners.set(parent, controlState);
+  ownerState._commitOwner = parent;
   controlState._enqueueBoundaryCommit = () => {
     if (controlState._hasPendingBoundaryCommit) {
       return;

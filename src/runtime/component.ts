@@ -118,6 +118,9 @@ export function createComponentInstance(
   instance._pendingRunTask = () => {
     // Clear pending flag when the run task executes
     instance.hasPendingUpdate = false;
+    if (instance.notifyUpdate === null) {
+      return;
+    }
     // Execute component run (will set up notifyUpdate before render)
     runComponent(instance);
   };
@@ -841,6 +844,7 @@ export function cleanupComponent(instance: ComponentInstance): void {
   instance.abortController = null;
 
   // Clear update callback to prevent dangling references and stale updates
+  instance.hasPendingUpdate = false;
   instance.notifyUpdate = null;
   instance._placeholder = undefined;
 

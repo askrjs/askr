@@ -16,11 +16,23 @@ import {
 import { createSPA } from '@askrjs/askr/boot';
 import { state } from '../../../src/index';
 import { navigate } from '../../../src/router/navigate';
-import { clearRoutes, getRoutes, route } from '../../../src/router/route';
+import {
+  clearRoutes,
+  getManifest,
+  getRoutes,
+  route,
+} from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+
+async function settleNavigation(): Promise<void> {
+  for (let index = 0; index < 3; index += 1) {
+    await Promise.resolve();
+    flushScheduler();
+  }
+}
 
 describe('history integration (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
@@ -31,6 +43,7 @@ describe('history integration (ROUTER)', () => {
     container = result.container;
     cleanup = result.cleanup;
     clearRoutes();
+    window.history.replaceState({}, '', '/');
     // Clear history for test isolation
     vi.clearAllMocks();
     scrollToSpy = vi.fn();
@@ -227,6 +240,52 @@ describe('history integration (ROUTER)', () => {
       expect(true).toBe(true);
     });
 
+    it('should ignore stale async popstate navigations after a newer entry wins', async () => {
+      let guardAborted = false;
+
+      route('/home', () => <div>{'home'}</div>);
+      route('/slow', () => <div>{'slow'}</div>, {
+        policies: [
+          ({ signal }) =>
+            new Promise((resolve) => {
+              signal.addEventListener(
+                'abort',
+                () => {
+                  guardAborted = true;
+                  resolve({ kind: 'allow' as const });
+                },
+                { once: true }
+              );
+            }),
+        ],
+      });
+      route('/fast', () => <div>{'fast'}</div>);
+
+      window.history.replaceState({ path: '/home' }, '', '/home');
+      await createSPA({ root: container, manifest: getManifest() });
+      flushScheduler();
+
+      window.history.pushState({ path: '/slow' }, '', '/slow');
+      window.dispatchEvent(
+        new PopStateEvent('popstate', {
+          state: { path: '/slow' },
+        })
+      );
+
+      window.history.pushState({ path: '/fast' }, '', '/fast');
+      window.dispatchEvent(
+        new PopStateEvent('popstate', {
+          state: { path: '/fast' },
+        })
+      );
+
+      await settleNavigation();
+
+      expect(container.textContent).toBe('fast');
+      expect(window.location.pathname).toBe('/fast');
+      expect(guardAborted).toBe(true);
+    });
+
     it('should preserve state when popstate changes query on the same pathname', async () => {
       route('/accounts', () => {
         const count = state(0);
@@ -389,22 +448,30 @@ describe('history integration (ROUTER)', () => {
       pushStateSpy.mockRestore();
     });
 
-    it('should handle empty path', async () => {
+    it('should handle navigation to the root path', async () => {
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
 
-      const routes = [{ path: '/', handler: () => <div>Home</div> }];
+      const routes = [
+        { path: '/', handler: () => <div>Home</div> },
+        { path: '/page1', handler: () => <div>Page 1</div> },
+      ];
 
       const App = () => {
         return <div>App</div>;
       };
 
+      window.history.replaceState({ path: '/page1' }, '', '/page1');
       await createSPA({ root: container, routes });
       flushScheduler();
 
       navigate('/');
       flushScheduler();
 
-      expect(pushStateSpy).toHaveBeenCalled();
+      expect(pushStateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/' }),
+        '',
+        '/'
+      );
 
       pushStateSpy.mockRestore();
     });

@@ -116,7 +116,7 @@ function cleanupRootInstance(
   // (but logging in dev); in strict mode we aggregate and re-throw.
   const errors: unknown[] = [];
   try {
-    removeAllListeners(rootElement);
+    teardownNodeSubtree(rootElement);
   } catch (e) {
     errors.push(e);
   }
@@ -232,6 +232,8 @@ function mountOrUpdate(
   let instance = instancesByRoot.get(rootElement);
 
   if (instance) {
+    const shouldResetHookState = instance.fn.name !== wrappedFn.name;
+
     if (!reusedExistingInstance) {
       removeAllListeners(rootElement);
       try {
@@ -250,6 +252,23 @@ function mountOrUpdate(
     instance.expectedStateIndices = [];
     instance.firstRenderComplete = false;
     instance.isRoot = true;
+
+    if (shouldResetHookState) {
+      instance.stateValues = [];
+      instance.hasPendingUpdate = false;
+      instance.notifyUpdate = null;
+      instance.stateIndexCheck = -1;
+      instance.mountOperations = [];
+      instance.cleanupFns = [];
+      instance._currentRenderToken = undefined;
+      instance.lastRenderToken = 0;
+      instance._pendingReadSources = undefined;
+      instance._lastReadSources = undefined;
+      instance._placeholder = undefined;
+      instance.errorBoundaryState = undefined;
+      instance.devWarningsEmitted = undefined;
+    }
+
     // Update strict flag if provided
     if (options && typeof options.cleanupStrict === 'boolean') {
       instance.cleanupStrict = options.cleanupStrict;
@@ -292,7 +311,11 @@ import type {
   ResolvedRoute,
   RouteAuthOptions,
 } from '../common/router';
-import { installRendererBridge, removeAllListeners } from '../renderer';
+import {
+  installRendererBridge,
+  removeAllListeners,
+  teardownNodeSubtree,
+} from '../renderer';
 installRendererBridge();
 
 export type IslandConfig = {

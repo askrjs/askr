@@ -4,6 +4,21 @@
 
 import type { ParsedSegment } from '../common/router';
 
+export function splitPathSegments(path: string): string[] {
+  const normalized =
+    path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;
+
+  if (!normalized || normalized === '/') {
+    return [];
+  }
+
+  const withoutLeadingSlash = normalized.startsWith('/')
+    ? normalized.slice(1)
+    : normalized;
+
+  return withoutLeadingSlash.length === 0 ? [] : withoutLeadingSlash.split('/');
+}
+
 /**
  * Parse a route template path into typed segments.
  *
@@ -63,6 +78,18 @@ const noMatch: MatchResult = Object.freeze({
   params: emptyParams,
 });
 
+function decodeRouteParam(part: string): string {
+  if (!part.includes('%')) {
+    return part;
+  }
+
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return part;
+  }
+}
+
 /**
  * Match pre-split URL parts against pre-parsed route segments.
  *
@@ -104,10 +131,7 @@ export function matchSegments(
     } else {
       if (params === null) params = {};
       if (seg.kind === 'param') {
-        // Avoid decodeURIComponent when no percent-encoding is present
-        params[seg.value] = part.includes('%')
-          ? decodeURIComponent(part)
-          : part;
+        params[seg.value] = decodeRouteParam(part);
       } else {
         // wildcard
         params['*'] = part;
@@ -143,8 +167,8 @@ export function match(path: string, pattern: string): MatchResult {
     pattern.endsWith('/') && pattern !== '/' ? pattern.slice(0, -1) : pattern;
 
   // Split into segments
-  const pathSegments = normalizedPath.split('/').filter(Boolean);
-  const patternSegments = normalizedPattern.split('/').filter(Boolean);
+  const pathSegments = splitPathSegments(normalizedPath);
+  const patternSegments = splitPathSegments(normalizedPattern);
 
   // Support catch-all route: /* matches any path at any depth
   if (patternSegments.length === 1 && patternSegments[0] === '*') {
@@ -178,9 +202,7 @@ export function match(path: string, pattern: string): MatchResult {
     // Parameter: {paramName}
     if (patternSegment.startsWith('{') && patternSegment.endsWith('}')) {
       const paramName = patternSegment.slice(1, -1);
-      params[paramName] = pathSegment.includes('%')
-        ? decodeURIComponent(pathSegment)
-        : pathSegment;
+      params[paramName] = decodeRouteParam(pathSegment);
     } else if (patternSegment === '*') {
       // Wildcard: match single segment
       params['*'] = pathSegment;

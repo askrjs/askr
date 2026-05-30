@@ -8,6 +8,7 @@ import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
 import { isSchedulerExecuting } from '../runtime/scheduler';
 import { isBulkCommitActive, markFastPathApplied } from '../runtime/fastlane';
 import { canUseDirectReplaceChildrenSpread } from './utils';
+import type { VNode } from './types';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 

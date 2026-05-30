@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import {
   route,
@@ -131,5 +138,34 @@ describe('Link component navigation', () => {
     expect(container.querySelector('[data-testid="title"]')?.textContent).toBe(
       'About'
     );
+  });
+
+  it('should not intercept external links without an explicit target', async () => {
+    const pushStateSpy = vi.spyOn(window.history, 'pushState');
+
+    route('/', () => (
+      <div>
+        <Link href="https://example.com/docs">External Docs</Link>
+      </div>
+    ));
+
+    await createSPA({ root: container, routes: getRoutes() });
+    flushScheduler();
+
+    const link = container.querySelector('a');
+    expect(link).not.toBeNull();
+
+    const clickEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+    });
+    const dispatchResult = link!.dispatchEvent(clickEvent);
+
+    expect(dispatchResult).toBe(true);
+    expect(clickEvent.defaultPrevented).toBe(false);
+    expect(pushStateSpy).not.toHaveBeenCalled();
+
+    pushStateSpy.mockRestore();
   });
 });
