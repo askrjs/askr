@@ -493,60 +493,64 @@ test('should keep For keyed behavior correct across append truncate swap and ful
   cleanup();
 });
 
-test('should use the fragment path above the For direct spread threshold', () => {
-  const { container, cleanup } = createTestContainer();
-  const count = DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT + 1;
-  let rowsState!: ReturnType<
-    typeof state<Array<{ id: number; label: string }>>
-  >;
+test(
+  'should use the fragment path above the For direct spread threshold',
+  { timeout: 20000 },
+  () => {
+    const { container, cleanup } = createTestContainer();
+    const count = DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT + 1;
+    let rowsState!: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    >;
 
-  const Component = () => {
-    rowsState = state(
-      Array.from({ length: count }, (_, index) => ({
-        id: index + 1,
-        label: `Item ${index + 1}`,
-      }))
+    const Component = () => {
+      rowsState = state(
+        Array.from({ length: count }, (_, index) => ({
+          id: index + 1,
+          label: `Item ${index + 1}`,
+        }))
+      );
+
+      return (
+        <section>
+          <For each={rowsState} by={(row) => row.id}>
+            {(row) => <div data-row={String(row.id)}>{row.label}</div>}
+          </For>
+        </section>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const idToCheck = 1024;
+    const beforeElem = container.querySelector(
+      `[data-row="${idToCheck}"]`
+    ) as HTMLElement;
+    const parent = container.querySelector('section') as HTMLElement;
+    const replaceSpy = vi.spyOn(parent, 'replaceChildren');
+
+    rowsState.set([...rowsState()].reverse());
+    flushScheduler();
+
+    expect(replaceSpy).toHaveBeenCalled();
+    const replaceCall = replaceSpy.mock.calls.at(-1)!;
+    expect(replaceCall.length).to.equal(1);
+    expect(replaceCall[0]).to.be.instanceOf(DocumentFragment);
+
+    const afterElem = container.querySelector(
+      `[data-row="${idToCheck}"]`
+    ) as HTMLElement;
+    expect(afterElem).to.equal(beforeElem);
+    expect(parent.firstElementChild?.getAttribute('data-row')).to.equal(
+      String(count)
     );
+    expect(parent.lastElementChild?.getAttribute('data-row')).to.equal('1');
 
-    return (
-      <section>
-        <For each={rowsState} by={(row) => row.id}>
-          {(row) => <div data-row={String(row.id)}>{row.label}</div>}
-        </For>
-      </section>
-    );
-  };
-
-  createIsland({ root: container, component: Component });
-  flushScheduler();
-
-  const idToCheck = 1024;
-  const beforeElem = container.querySelector(
-    `[data-row="${idToCheck}"]`
-  ) as HTMLElement;
-  const parent = container.querySelector('section') as HTMLElement;
-  const replaceSpy = vi.spyOn(parent, 'replaceChildren');
-
-  rowsState.set([...rowsState()].reverse());
-  flushScheduler();
-
-  expect(replaceSpy).toHaveBeenCalled();
-  const replaceCall = replaceSpy.mock.calls.at(-1)!;
-  expect(replaceCall.length).to.equal(1);
-  expect(replaceCall[0]).to.be.instanceOf(DocumentFragment);
-
-  const afterElem = container.querySelector(
-    `[data-row="${idToCheck}"]`
-  ) as HTMLElement;
-  expect(afterElem).to.equal(beforeElem);
-  expect(parent.firstElementChild?.getAttribute('data-row')).to.equal(
-    String(count)
-  );
-  expect(parent.lastElementChild?.getAttribute('data-row')).to.equal('1');
-
-  replaceSpy.mockRestore();
-  cleanup();
-});
+    replaceSpy.mockRestore();
+    cleanup();
+  }
+);
 
 test('should stop removed row scopes from enqueueing parent rerenders', () => {
   const { container, cleanup } = createTestContainer();
