@@ -1,11 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vite-plus/test';
+import { describe, it, expect, beforeEach, vi } from 'vite-plus/test';
 import {
   getManifest,
   clearRoutes,
   registerRoutes,
+  getRoutes,
   route,
 } from '../../../src/router/route';
-import { resolveRequest } from '../../../src/ssr';
+import { renderResolvedToStringSync, resolveRequest } from '../../../src/ssr';
+import { getCurrentRenderData } from '../../../src/ssr/render-keys';
 
 describe('SSR request resolution', () => {
   beforeEach(() => {
@@ -77,5 +79,82 @@ describe('SSR request resolution', () => {
       handler,
       params: {},
     });
+  });
+
+  it('should not match duplicate-slash request URLs against normalized routes', async () => {
+    registerRoutes(() => {
+      route('/docs/tabs', () => <div>{'tabs'}</div>);
+    });
+
+    const result = await resolveRequest({
+      url: '/docs//tabs',
+      manifest: getManifest(),
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it('should preserve malformed percent-encoded params during SSR request resolution', async () => {
+    registerRoutes(() => {
+      route('/posts/{slug}', () => <div>{'post'}</div>);
+    });
+
+    const result = await resolveRequest({
+      url: '/posts/%E0%A4%A',
+      manifest: getManifest(),
+    });
+
+    expect(result).toEqual({
+      kind: 'render',
+      handler: expect.any(Function),
+      params: { slug: '%E0%A4%A' },
+    });
+  });
+
+  it('should run route loaders for SSR manifest requests and expose their data during render', async () => {
+    const loader = vi.fn(({ params }: { params: Record<string, string> }) => ({
+      slug: params.slug,
+    }));
+
+    registerRoutes(() => {
+      route(
+        '/posts/{slug}',
+        () => {
+          const data = getCurrentRenderData();
+          return <div>{String(data?.slug ?? 'missing')}</div>;
+        },
+        {
+          loader,
+        }
+      );
+    });
+
+    const result = await resolveRequest({
+      url: '/posts/intro',
+      manifest: getManifest(),
+    });
+
+    expect(result).toEqual({
+      kind: 'render',
+      handler: expect.any(Function),
+      params: { slug: 'intro' },
+    });
+
+    if (!result || result.kind !== 'render') {
+      throw new Error(
+        'expected SSR route resolution to return a render result'
+      );
+    }
+
+    const html = renderResolvedToStringSync({
+      url: '/posts/intro',
+      routes: getRoutes(),
+      handler: result.handler,
+      params: result.params,
+    });
+
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(loader).toHaveBeenCalledWith({ params: { slug: 'intro' } });
+    expect(html).toContain('intro');
   });
 });

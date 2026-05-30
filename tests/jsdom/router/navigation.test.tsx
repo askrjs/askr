@@ -209,6 +209,35 @@ describe('route navigation (ROUTER)', () => {
       historyReplaceSpy.mockRestore();
     });
 
+    it('should support replace=true as a history replace alias', async () => {
+      const historyPushSpy = vi.spyOn(window.history, 'pushState');
+      const historyReplaceSpy = vi.spyOn(window.history, 'replaceState');
+
+      route('/page', () => {
+        return <div>Page</div>;
+      });
+
+      await createSPA({ root: container, routes: getRoutes() });
+      navigate('/page?tab=details', { replace: true } as Parameters<
+        typeof navigate
+      >[1]);
+      flushScheduler();
+
+      expect(historyReplaceSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/page?tab=details' }),
+        '',
+        '/page?tab=details'
+      );
+      expect(historyPushSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/page?tab=details' }),
+        '',
+        '/page?tab=details'
+      );
+
+      historyPushSpy.mockRestore();
+      historyReplaceSpy.mockRestore();
+    });
+
     it('should preserve state and focus for same-path query updates', async () => {
       route('/accounts', () => {
         const query = state('');

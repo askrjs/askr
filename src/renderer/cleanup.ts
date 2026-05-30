@@ -7,7 +7,10 @@ import {
   removeDelegatedListener,
 } from '../runtime/events';
 
-type InstanceHost = Node & { __ASKR_INSTANCE?: unknown };
+type InstanceHost = Node & {
+  __ASKR_INSTANCE?: unknown;
+  __ASKR_INSTANCES?: unknown[];
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Instance Cleanup Helpers
@@ -18,18 +21,32 @@ function cleanupSingleInstance(
   errors: unknown[] | null,
   strict: boolean
 ): void {
-  const inst = node.__ASKR_INSTANCE;
-  if (!inst) return;
+  const instances = new Set<ComponentInstance>();
 
-  try {
-    cleanupComponent(inst as ComponentInstance);
-  } catch (err) {
-    if (strict) errors!.push(err);
-    else logger.warn('[Askr] cleanupComponent failed:', err);
+  if (Array.isArray(node.__ASKR_INSTANCES)) {
+    for (const instance of node.__ASKR_INSTANCES) {
+      if (instance) {
+        instances.add(instance as ComponentInstance);
+      }
+    }
+  }
+
+  if (node.__ASKR_INSTANCE) {
+    instances.add(node.__ASKR_INSTANCE as ComponentInstance);
+  }
+
+  for (const instance of instances) {
+    try {
+      cleanupComponent(instance);
+    } catch (err) {
+      if (strict) errors!.push(err);
+      else logger.warn('[Askr] cleanupComponent failed:', err);
+    }
   }
 
   try {
     delete node.__ASKR_INSTANCE;
+    delete node.__ASKR_INSTANCES;
   } catch (e) {
     if (strict) errors!.push(e);
   }

@@ -140,6 +140,27 @@ describe('path validation', () => {
     expect(() => route('/*', () => null)).not.toThrow();
   });
 
+  it('should reject empty parameter names', () => {
+    expect(() => route('/posts/{}', () => null)).toThrow(/parameter name/i);
+  });
+
+  it('should reject malformed brace syntax in route params', () => {
+    expect(() => route('/posts/{slug', () => null)).toThrow(/parameter/i);
+    expect(() => route('/posts/slug}', () => null)).toThrow(/parameter/i);
+  });
+
+  it('should reject consecutive slashes in route paths', () => {
+    expect(() => route('/docs//tabs', () => null)).toThrow(
+      /consecutive slashes/i
+    );
+  });
+
+  it('should reject duplicate parameter names in the same route', () => {
+    expect(() => route('/users/{id}/posts/{id}', () => null)).toThrow(
+      /duplicate parameter/i
+    );
+  });
+
   it('should reject absolute child route paths inside a page scope', () => {
     expect(() =>
       page(
@@ -216,6 +237,19 @@ describe('path validation', () => {
         }
       )
     ).not.toThrow();
+  });
+
+  it('should reject multiple index routes in the same page scope', () => {
+    expect(() =>
+      page(
+        '/docs/components',
+        () => null,
+        () => {
+          index(() => null);
+          index(() => null);
+        }
+      )
+    ).toThrow(/multiple index routes/i);
   });
 });
 
@@ -602,5 +636,22 @@ describe('route precedence', () => {
 
     const unknown = resolveRoute('/anything/else');
     expect(unknown!.handler({})).toBe('catchall');
+  });
+
+  it('should not match duplicate-slash request paths against normalized routes', () => {
+    route('/docs/tabs', () => 'tabs');
+
+    const resolved = resolveRoute('/docs//tabs');
+    expect(resolved).toBeNull();
+  });
+
+  it('should preserve malformed percent-encoded params during route resolution', () => {
+    route('/posts/{slug}', () => 'post');
+
+    expect(() => resolveRoute('/posts/%E0%A4%A')).not.toThrow();
+
+    const resolved = resolveRoute('/posts/%E0%A4%A');
+    expect(resolved).not.toBeNull();
+    expect(resolved!.params).toEqual({ slug: '%E0%A4%A' });
   });
 });

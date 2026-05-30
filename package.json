@@ -135,6 +135,11 @@
     "typescript": "^6.0.3",
     "vite-plus": "^0.1.23"
   },
+  "tsd": {
+    "compilerOptions": {
+      "composite": false
+    }
+  },
   "engines": {
     "node": ">=18"
   },
