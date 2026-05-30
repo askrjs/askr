@@ -7,6 +7,7 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+import { globalScheduler } from '../../../src/runtime/scheduler';
 
 async function settleResourceWork(): Promise<void> {
   await Promise.resolve();
@@ -127,6 +128,36 @@ describe('resource coverage edges', () => {
       expect(container.textContent).toBe('recovered');
     } finally {
       errorSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should start only the newest loader once when deps change before post drain', async () => {
+    const calls: string[] = [];
+    let id!: ReturnType<typeof state<string>>;
+
+    const App = (): JSXElement => {
+      id = state('a');
+      const result = resource(() => {
+        calls.push(id());
+        return `user:${id()}`;
+      }, [id()]);
+
+      return <div>{result.value ?? 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(calls).toEqual(['a']);
+
+      id.set('b');
+      globalScheduler.enqueue(() => id.set('c'));
+      flushScheduler();
+
+      expect(calls).toEqual(['a', 'c']);
+    } finally {
       cleanup();
     }
   });

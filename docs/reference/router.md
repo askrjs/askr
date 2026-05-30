@@ -155,6 +155,10 @@ Path syntax rules:
 
 Specificity order: static > param > wildcard > catch-all.
 
+Auth resolvers, access policies, redirect path resolvers, and role or permission
+checks may return native promises or compatible promise-like values. Policy
+decisions are awaited in declaration order.
+
 ## `fallback(Component)`
 
 Registers a pathful miss route.

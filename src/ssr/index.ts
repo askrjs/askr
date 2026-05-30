@@ -12,6 +12,7 @@
 
 import type { JSXElement } from '../common/jsx';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
+import { isPromiseLike } from '../common/promise';
 import type {
   RouteAuthOptions,
   RouteHandler,
@@ -34,6 +35,7 @@ import { installSSRBridge } from '../runtime/ssr-bridge';
 import { getCurrentRenderData, getNextKey } from './render-keys';
 import {
   createComponentInstance,
+  cleanupComponent,
   setCurrentComponentInstance,
   getCurrentComponentInstance,
 } from '../runtime/component';
@@ -443,7 +445,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
 
   if (typeof type === 'function') {
     const result = executeComponentSync(type as Component, props, ctx);
-    if (result instanceof Promise) {
+    if (isPromiseLike(result)) {
       // Use centralized SSR error to maintain a single failure mode
       throwSSRDataMissing();
     }
@@ -753,11 +755,12 @@ function executeComponentSync(
       null
     );
     temp.ssr = true;
+    ctx.ssrCleanupFns.push(() => cleanupComponent(temp));
     setCurrentComponentInstance(temp);
     try {
       // Context already set via withRenderContext at render entry point
       const result = component((props || {}) as Props, { ssr: ctx });
-      if (result instanceof Promise) {
+      if (isPromiseLike(result)) {
         // Use the centralized SSR error for async data/components during SSR
         throwSSRDataMissing();
       }
@@ -789,7 +792,20 @@ function executeComponentSync(
   }
 }
 
+function disposeSSRTemporaryOwners(ctx: RenderContext): void {
+  const cleanupFns = ctx.ssrCleanupFns;
+  ctx.ssrCleanupFns = [];
+
+  for (let index = cleanupFns.length - 1; index >= 0; index -= 1) {
+    cleanupFns[index]();
+  }
+}
+
 function wrapWithDefaultPortal(out: unknown): VNode | JSXElement {
+  if (isPromiseLike(out)) {
+    throwSSRDataMissing();
+  }
+
   const portalVNode = {
     $$typeof: ELEMENT_TYPE,
     type: DefaultPortal,
@@ -1173,7 +1189,11 @@ export function renderToStringSync(
       sink.end();
       return sink.toString();
     } finally {
-      stopRenderPhase();
+      try {
+        stopRenderPhase();
+      } finally {
+        disposeSSRTemporaryOwners(ctx);
+      }
     }
   });
 }
@@ -1207,7 +1227,11 @@ export function renderResolvedToStringSync(opts: {
       sink.end();
       return sink.toString();
     } finally {
-      stopRenderPhase();
+      try {
+        stopRenderPhase();
+      } finally {
+        disposeSSRTemporaryOwners(ctx);
+      }
     }
   });
 }
@@ -1341,7 +1365,11 @@ function renderToSinkInternal(opts: {
       );
       renderNodeSyncToSink(node, sink, ctx);
     } finally {
-      stopRenderPhase();
+      try {
+        stopRenderPhase();
+      } finally {
+        disposeSSRTemporaryOwners(ctx);
+      }
     }
   });
 }

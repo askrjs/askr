@@ -66,6 +66,7 @@ interface DelegatedHandler {
   handler: EventListener;
   original: EventListener;
   element: Element;
+  container: Element;
   eventName: string;
   options?: AddEventListenerOptions;
 }
@@ -81,6 +82,7 @@ const containerDelegatedListeners = new Map<
   Element,
   Map<string, EventListener>
 >();
+const containerDelegatedListenerUsage = new Map<Element, Map<string, number>>();
 
 export function isEventDelegationEnabled(): boolean {
   return eventDelegationEnabled;
@@ -109,6 +111,47 @@ function cleanupAllDelegatedListeners(): void {
     }
   }
   containerDelegatedListeners.clear();
+  containerDelegatedListenerUsage.clear();
+}
+
+function incrementContainerListenerUsage(
+  container: Element,
+  eventName: string
+): void {
+  let usage = containerDelegatedListenerUsage.get(container);
+  if (!usage) {
+    usage = new Map();
+    containerDelegatedListenerUsage.set(container, usage);
+  }
+  usage.set(eventName, (usage.get(eventName) ?? 0) + 1);
+}
+
+function decrementContainerListenerUsage(entry: DelegatedHandler): void {
+  const usage = containerDelegatedListenerUsage.get(entry.container);
+  if (!usage) {
+    return;
+  }
+
+  const nextCount = (usage.get(entry.eventName) ?? 0) - 1;
+  if (nextCount > 0) {
+    usage.set(entry.eventName, nextCount);
+    return;
+  }
+
+  usage.delete(entry.eventName);
+  const listeners = containerDelegatedListeners.get(entry.container);
+  const listener = listeners?.get(entry.eventName);
+  if (listener) {
+    entry.container.removeEventListener(entry.eventName, listener);
+    listeners?.delete(entry.eventName);
+  }
+
+  if (listeners?.size === 0) {
+    containerDelegatedListeners.delete(entry.container);
+  }
+  if (usage.size === 0) {
+    containerDelegatedListenerUsage.delete(entry.container);
+  }
 }
 
 function getDelegationContainer(): Element | null {
@@ -126,6 +169,8 @@ function attachDelegatedListener(
   originalHandler: EventListener,
   options?: AddEventListenerOptions
 ): void {
+  const hadHandler = !!getDelegatedHandlerForElement(element, eventName);
+
   if (!containerDelegatedListeners.has(container)) {
     containerDelegatedListeners.set(container, new Map());
   }
@@ -176,9 +221,13 @@ function attachDelegatedListener(
     handler,
     original: originalHandler,
     element,
+    container,
     eventName,
     options,
   });
+  if (!hadHandler) {
+    incrementContainerListenerUsage(container, eventName);
+  }
 }
 
 function setDelegatedHandlerForElement(
@@ -256,6 +305,16 @@ export function updateDelegatedListener(
     return false;
   }
 
+  const container = getDelegationContainer();
+  if (
+    !container ||
+    existing.container !== container ||
+    !containerDelegatedListeners.get(existing.container)?.has(eventName)
+  ) {
+    removeDelegatedListener(element, eventName);
+    return false;
+  }
+
   existing.handler = handler;
   existing.original = originalHandler;
   existing.options = options;
@@ -274,6 +333,7 @@ export function removeDelegatedListener(
   if (existing instanceof Map) {
     if (existing.has(eventName)) {
       incDevCounter('listenerRemoves');
+      decrementContainerListenerUsage(existing.get(eventName)!);
     }
     existing.delete(eventName);
     if (existing.size === 0) {
@@ -289,6 +349,7 @@ export function removeDelegatedListener(
 
   if (existing.eventName === eventName) {
     incDevCounter('listenerRemoves');
+    decrementContainerListenerUsage(existing);
     delegatedHandlers.delete(element);
   }
 }
@@ -320,6 +381,14 @@ export function hasDelegatedHandler(
 }
 
 export function clearDelegatedHandlersForElement(element: Element): void {
+  const existing = delegatedHandlers.get(element);
+  if (existing instanceof Map) {
+    for (const entry of existing.values()) {
+      decrementContainerListenerUsage(entry);
+    }
+  } else if (existing) {
+    decrementContainerListenerUsage(existing);
+  }
   delegatedHandlers.delete(element);
 }
 

@@ -18,15 +18,7 @@ export function enterBulkCommit(): void {
   _bulkCommitActive = true;
   // Initialize registry of parents that had fast-path applied during this bulk commit
   _appliedParents = new WeakSet<Element>();
-
-  // Clear any previously scheduled synchronous scheduler tasks so they don't
-  // retrigger evaluations during the committed fast-path.
-  try {
-    const cleared = globalScheduler.clearPendingSyncTasks?.() ?? 0;
-    setDevValue('__ASKR_FASTLANE_CLEARED_TASKS', cleared);
-  } catch (err) {
-    if (isDevelopmentEnvironment()) throw err;
-  }
+  setDevValue('__ASKR_FASTLANE_CLEARED_TASKS', 0);
 }
 
 export function exitBulkCommit(): void {
@@ -208,9 +200,7 @@ export function commitReorderOnly(
       }
     });
 
-    // Clear any synchronous tasks scheduled during the commit
-    const clearedAfter = globalScheduler.clearPendingSyncTasks?.() ?? 0;
-    setDevValue('__FASTLANE_CLEARED_AFTER', clearedAfter);
+    setDevValue('__FASTLANE_CLEARED_AFTER', 0);
 
     // Dev-only invariant checks
     if (isDevelopmentEnvironment()) {
@@ -282,43 +272,6 @@ function validateFastLaneInvariants(
     throw new Error(
       'Fast-lane invariant violated: scheduler enqueued leftover work during bulk commit'
     );
-  }
-
-  // Final quiescence assertion
-  let finalState = globalScheduler.getState();
-  const executing = globalScheduler.isExecuting();
-  let outstandingAfter = Math.max(
-    0,
-    finalState.taskCount - (executing ? 1 : 0)
-  );
-
-  if (outstandingAfter !== 0) {
-    // Attempt to clear newly enqueued synchronous tasks
-    let attempts = 0;
-    while (attempts < 5) {
-      const cleared = globalScheduler.clearPendingSyncTasks?.() ?? 0;
-      if (cleared === 0) break;
-      attempts++;
-    }
-    finalState = globalScheduler.getState();
-    outstandingAfter = Math.max(
-      0,
-      finalState.taskCount - (globalScheduler.isExecuting() ? 1 : 0)
-    );
-    if (outstandingAfter !== 0) {
-      console.error(
-        '[FASTLANE] Post-commit enqueue logs:',
-        getDevValue('__ENQUEUE_LOGS')
-      );
-      console.error(
-        '[FASTLANE] Cleared counts:',
-        getDevValue('__FASTLANE_CLEARED_TASKS'),
-        getDevValue('__FASTLANE_CLEARED_AFTER')
-      );
-      throw new Error(
-        `Fast-lane invariant violated: scheduler has ${finalState.taskCount} pending task(s) after commit`
-      );
-    }
   }
 }
 

@@ -1,5 +1,6 @@
 import { logger } from '../dev/logger';
 import { STATIC_CHILDREN } from '../common/jsx';
+import { isPromiseLike } from '../common/promise';
 import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
 import { Fragment } from '../jsx/jsx-runtime';
@@ -2432,7 +2433,7 @@ function resolveNestedComponentResult(
     );
     cleanupComponent(nestedInstance);
 
-    if (nextResult instanceof Promise) {
+    if (isPromiseLike(nextResult)) {
       throw new Error(
         'Async components are not supported. Components must return synchronously.'
       );
@@ -2482,7 +2483,7 @@ function resolveWrapperHostResult(
       renderComponentInline(nestedInstance)
     );
 
-    if (nextResult instanceof Promise) {
+    if (isPromiseLike(nextResult)) {
       throw new Error(
         'Async components are not supported. Components must return synchronously.'
       );
@@ -2559,7 +2560,7 @@ export function syncComponentElement(
     const result = withContext(snapshot, () =>
       renderComponentInline(hydrationInstance)
     );
-    if (result instanceof Promise) {
+    if (isPromiseLike(result)) {
       throw new Error(
         'Async components are not supported. Components must return synchronously.'
       );
@@ -2652,7 +2653,7 @@ export function syncComponentElement(
   const result = withContext(snapshot, () =>
     renderComponentInline(existingInstance)
   );
-  if (result instanceof Promise) {
+  if (isPromiseLike(result)) {
     throw new Error(
       'Async components are not supported. Components must return synchronously.'
     );
@@ -2790,7 +2791,7 @@ function createComponentElement(
     renderComponentInline(childInstance)
   );
 
-  if (result instanceof Promise) {
+  if (isPromiseLike(result)) {
     throw new Error(
       'Async components are not supported. Components must return synchronously.'
     );
@@ -3388,7 +3389,7 @@ function resolveStableIntrinsicPatchVNode(
   const result = withContext(snapshot, () =>
     renderComponentInline(existingInstance)
   );
-  if (result instanceof Promise) {
+  if (isPromiseLike(result)) {
     throw new Error(
       'Async components are not supported. Components must return synchronously.'
     );
