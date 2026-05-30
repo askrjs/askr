@@ -109,24 +109,23 @@ export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
   } = options;
 
   function findNextIndex(from: number, direction: 1 | -1): number | undefined {
-    let next = from + direction;
+    let next = from;
 
-    // Handle looping
-    if (loop) {
-      if (next < 0) next = itemCount - 1;
-      if (next >= itemCount) next = 0;
-    } else {
-      if (next < 0 || next >= itemCount) return undefined;
+    for (let steps = 0; steps < itemCount; steps += 1) {
+      next += direction;
+
+      if (loop) {
+        if (next < 0) next = itemCount - 1;
+        if (next >= itemCount) next = 0;
+      } else if (next < 0 || next >= itemCount) {
+        return undefined;
+      }
+
+      if (next === from) return undefined;
+      if (!isDisabled?.(next)) return next;
     }
 
-    // Skip disabled items
-    if (isDisabled?.(next)) {
-      // Recursively find the next non-disabled item
-      if (next === from) return undefined; // Prevent infinite loop
-      return findNextIndex(next, direction);
-    }
-
-    return next;
+    return undefined;
   }
 
   function handleKeyDown(e: KeyboardLikeEvent) {

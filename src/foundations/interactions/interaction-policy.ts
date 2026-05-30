@@ -55,6 +55,7 @@
  */
 
 import { pressable } from './pressable';
+import { ariaDisabled } from '../utilities/aria';
 import { composeHandlers } from '../utilities/compose-handlers';
 import { composeRefs, Ref } from '../utilities/compose-ref';
 import { mergeProps as mergePropsBase } from '../utilities/merge-props';
@@ -107,7 +108,7 @@ export function applyInteractionPolicy({
 
   return {
     ...interaction,
-    'aria-disabled': disabled || undefined,
+    ...ariaDisabled(disabled),
     tabIndex: disabled ? -1 : (interaction.tabIndex ?? 0),
     ref,
   };
@@ -128,8 +129,10 @@ export function mergeInteractionProps(
   policyProps: Record<string, unknown>,
   userProps?: Record<string, unknown>
 ) {
-  let out = mergePropsBase(childProps, policyProps);
-  if (userProps) out = mergePropsBase(out, userProps);
+  const mergedUserChild = userProps
+    ? mergePropsBase(userProps, childProps)
+    : childProps;
+  const out = mergePropsBase(policyProps, mergedUserChild);
 
   // Ensure policy handlers always run first
   for (const k in out) {
