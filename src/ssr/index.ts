@@ -1255,52 +1255,31 @@ export function renderToStringSync(
   });
 }
 
-export function renderResolvedToStringSync(opts: {
-  url: string;
-  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
-  handler: RouteHandler;
-  params?: Record<string, string>;
-  options?: { seed?: number; data?: SSRData };
-}): string {
-  const { url, routes, handler, params, options } = opts;
-  const seed = options?.seed ?? 12345;
-  const ctx = createRenderContext(seed, {
-    url,
-    data: options?.data,
-    params,
-    routes,
-  });
-
-  return withRenderContext(ctx, () => {
-    startRenderPhase(options?.data ?? null);
-    try {
-      const node = renderSyncComponentRoot(
-        handler as unknown as Component,
-        params || {},
-        ctx
-      );
-      const sink = new StringSink();
-      renderNodeSyncToSink(node, sink, ctx);
-      sink.write(serializeHydrationRenderData(options?.data));
-      sink.end();
-      return sink.toString();
-    } finally {
-      try {
-        stopRenderPhase();
-      } finally {
-        disposeSSRTemporaryOwners(ctx);
+export async function resolveRequest(
+  opts:
+    | {
+        url: string;
+        manifest: RouteManifest;
+        routes?: Array<{
+          path: string;
+          handler: RouteHandler;
+          namespace?: string;
+        }>;
+        auth?: RouteAuthOptions;
+        signal?: AbortSignal;
       }
-    }
-  });
-}
-
-export async function resolveRequest(opts: {
-  url: string;
-  manifest?: RouteManifest;
-  routes?: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
-  auth?: RouteAuthOptions;
-  signal?: AbortSignal;
-}): Promise<RouteRequestResult> {
+    | {
+        url: string;
+        manifest?: RouteManifest;
+        routes: Array<{
+          path: string;
+          handler: RouteHandler;
+          namespace?: string;
+        }>;
+        auth?: RouteAuthOptions;
+        signal?: AbortSignal;
+      }
+): Promise<RouteRequestResult> {
   const { url, manifest, routes, auth, signal } = opts;
 
   if (manifest) {

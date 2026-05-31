@@ -18,6 +18,11 @@ export interface ResourceResult<T> {
   refresh(): void;
 }
 
+export function resource<T, const TDeps extends readonly unknown[]>(
+  fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
+  deps: TDeps
+): ResourceResult<T>;
+
 /**
  * Resource primitive — simple, deterministic async primitive
  * Usage: resource(fn, deps)
@@ -30,7 +35,7 @@ export interface ResourceResult<T> {
  */
 export function resource<T>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
-  deps: unknown[] = []
+  deps: readonly unknown[] = []
 ): ResourceResult<T> {
   const instance = getCurrentComponentInstance();
   // Create a non-null alias early so it can be used in nested closures

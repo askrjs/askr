@@ -2,13 +2,54 @@
  * Common call contracts: Router types
  */
 
+export type RouteParams = Record<string, string>;
+
+type StripRoutePathSuffix<Path extends string> =
+  Path extends `${infer Base}?${string}`
+    ? StripRoutePathSuffix<Base>
+    : Path extends `${infer Base}#${string}`
+      ? StripRoutePathSuffix<Base>
+      : Path;
+
+type TrimRoutePathSlashes<Path extends string> = Path extends `/${infer Rest}`
+  ? TrimRoutePathSlashes<Rest>
+  : Path extends `${infer Rest}/`
+    ? TrimRoutePathSlashes<Rest>
+    : Path;
+
+type ExtractRouteSegmentParam<Segment extends string> =
+  Segment extends `{${infer Param}}`
+    ? Param
+    : Segment extends '*'
+      ? '*'
+      : never;
+
+type ExtractRoutePathParamNames<Path extends string> =
+  TrimRoutePathSlashes<
+    StripRoutePathSuffix<Path>
+  > extends `${infer Segment}/${infer Rest}`
+    ? ExtractRouteSegmentParam<Segment> | ExtractRoutePathParamNames<Rest>
+    : ExtractRouteSegmentParam<
+        TrimRoutePathSlashes<StripRoutePathSuffix<Path>>
+      >;
+
+export type RoutePathParams<Path extends string> = [
+  ExtractRoutePathParamNames<Path>,
+] extends [never]
+  ? Record<never, string>
+  : {
+      [Key in ExtractRoutePathParamNames<Path>]: string;
+    };
+
 /**
  * A route page component: a regular component that receives route params as
- * props (always `Record<string, string>` derived from the URL pattern).
+ * props derived from the URL pattern.
  *
  * Components may accept no params at all — `() => unknown` is assignable.
  */
-export type RouteComponent = (props: Record<string, string>) => unknown;
+export type RouteComponent<TParams extends RouteParams = RouteParams> = (
+  props: TParams
+) => unknown;
 
 export type RouteMode = 'spa' | 'ssr' | 'ssg';
 export type RouteAuthMode = true | 'guest';
@@ -36,9 +77,13 @@ export type AccessDecision =
   | AccessRedirectDecision
   | AccessDenyDecision;
 
-export interface RouteContext<Session = unknown, User = unknown> {
+export interface RouteContext<
+  Session = unknown,
+  User = unknown,
+  TParams extends RouteParams = RouteParams,
+> {
   mode: RouteMode;
-  params: Record<string, string>;
+  params: TParams;
   pathname: string;
   search: string;
   hash: string;
@@ -96,11 +141,11 @@ export interface CommonAccessOptions {
  * - `title`: page title hint used by SSG and document-meta integrations
  * - `namespace`: MFE namespace key for grouped route management
  */
-export interface RouteOptions extends CommonAccessOptions {
-  loader?: (context: { params: Record<string, string> }) => unknown;
-  entries?: () =>
-    | Array<Record<string, string>>
-    | Promise<Array<Record<string, string>>>;
+export interface RouteOptions<
+  TParams extends RouteParams = RouteParams,
+> extends CommonAccessOptions {
+  loader?: (context: { params: TParams }) => unknown;
+  entries?: () => Array<TParams> | Promise<Array<TParams>>;
   title?: string;
   namespace?: string;
 }
@@ -144,14 +189,14 @@ export interface RouteRequestOptions {
   signal?: AbortSignal;
 }
 
-export interface RouteRenderResult {
+export interface RouteRenderResult<TParams extends RouteParams = RouteParams> {
   kind: 'render';
-  handler: RouteHandler;
-  params: Record<string, string>;
+  handler: RouteHandler<TParams>;
+  params: TParams;
 }
 
-export type RouteRequestResult =
-  | RouteRenderResult
+export type RouteRequestResult<TParams extends RouteParams = RouteParams> =
+  | RouteRenderResult<TParams>
   | AccessRedirectDecision
   | AccessDenyDecision
   | null;
@@ -208,24 +253,24 @@ export interface RouteManifest {
   auth?: RouteAuthOptions;
 }
 
-export interface RouteHandler {
-  (params: Record<string, string>, context?: { signal: AbortSignal }): unknown;
+export interface RouteHandler<TParams extends RouteParams = RouteParams> {
+  (params: TParams, context?: { signal: AbortSignal }): unknown;
 }
 
-export interface Route {
+export interface Route<TParams extends RouteParams = RouteParams> {
   path: string;
-  handler: RouteHandler;
+  handler: RouteHandler<TParams>;
   namespace?: string;
 }
 
-export interface ResolvedRoute {
-  handler: RouteHandler;
-  params: Record<string, string>;
+export interface ResolvedRoute<TParams extends RouteParams = RouteParams> {
+  handler: RouteHandler<TParams>;
+  params: TParams;
 }
 
-export interface RouteMatch {
+export interface RouteMatch<TParams extends RouteParams = RouteParams> {
   path: string;
-  params: Readonly<Record<string, string>>;
+  params: Readonly<TParams>;
   name?: string;
   namespace?: string;
 }
@@ -237,13 +282,13 @@ export interface RouteQuery {
   toJSON(): Record<string, string | string[]>;
 }
 
-export interface RouteSnapshot {
+export interface RouteSnapshot<TParams extends RouteParams = RouteParams> {
   path: string;
-  params: Readonly<Record<string, string>>;
+  params: Readonly<TParams>;
   query: Readonly<RouteQuery>;
   hash: string | null;
 
   name?: string;
   namespace?: string;
-  matches: readonly RouteMatch[];
+  matches: readonly RouteMatch<TParams>[];
 }

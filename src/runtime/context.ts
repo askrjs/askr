@@ -49,7 +49,7 @@ export interface Context<T> {
   readonly key: ContextKey;
   readonly defaultValue: T;
   // A Scope is a JSX-style element factory returning a JSXElement (component invocation)
-  readonly Scope: (props: { value: unknown; children?: unknown }) => JSXElement;
+  readonly Scope: (props: { value: T; children?: unknown }) => JSXElement;
 }
 
 export interface ContextFrame {
@@ -255,10 +255,8 @@ export function defineContext<T>(defaultValue: T): Context<T> {
   return {
     key,
     defaultValue,
-    Scope: (props: { value: unknown; children?: unknown }): JSXElement => {
-      // Scope component: accepts an unknown value (tests often pass loosely typed values)
-      // Cast to the expected T at the call site to preserve runtime behavior.
-      const value = props.value as T;
+    Scope: (props: { value: T; children?: unknown }): JSXElement => {
+      const value = props.value;
       // Scope component: creates a new frame and renders children within it
       return {
         $$typeof: ELEMENT_TYPE,

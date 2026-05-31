@@ -379,7 +379,17 @@ export type IslandsConfig = {
   islands: IslandConfig[];
 };
 
-export type SPAConfig = {
+type BootRouteSource =
+  | {
+      manifest: RouteManifest;
+      routes?: Route[];
+    }
+  | {
+      manifest?: RouteManifest;
+      routes: Route[];
+    };
+
+export type SPAConfig = BootRouteSource & {
   root: Element | string;
   /**
    * Preferred: pass the route manifest built via `registerRoutes(() => { ... })`.
@@ -388,21 +398,15 @@ export type SPAConfig = {
    * await createSPA({ root: '#app', manifest: getManifest() });
    * ```
    */
-  manifest?: RouteManifest;
-  /** Legacy: flat route array — kept for backward compatibility and test fixtures. */
-  routes?: Route[];
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;
   component?: never;
 };
 
-export type HydrateSPAConfig = {
+export type HydrateSPAConfig = BootRouteSource & {
   root: Element | string;
   /** Preferred manifest input — see `SPAConfig.manifest`. */
-  manifest?: RouteManifest;
-  /** Legacy flat route array. */
-  routes?: Route[];
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;

@@ -10,6 +10,18 @@ const rootDir = path.resolve(__dirname, '..', '..', '..');
 const monorepoRootDir = path.resolve(rootDir, '..', '..');
 const scanDirs = ['docs', 'examples'];
 const scanFiles = ['README.md'];
+const packageJson = JSON.parse(
+  fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')
+) as {
+  exports: Record<string, unknown>;
+};
+const validPublicSpecifiers = new Set(
+  ['@askrjs/askr'].concat(
+    Object.keys(packageJson.exports)
+      .filter((key) => key !== '.')
+      .map((key) => `@askrjs/askr/${key.replace(/^\.\//, '')}`)
+  )
+);
 const forbiddenPatterns = [
   {
     label: 'internal runtime import',
@@ -141,7 +153,42 @@ function sleep(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
+function collectPublicSpecifiers(contents: string): string[] {
+  const specifiers = new Set<string>();
+  const specifierPattern = /['"](@askrjs\/askr(?:\/[A-Za-z0-9/_-]+)?)['"]/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = specifierPattern.exec(contents)) !== null) {
+    specifiers.add(match[1]);
+  }
+
+  return [...specifiers];
+}
+
+let ensuredDist = false;
+
+function ensureDistAvailable(): void {
+  if (ensuredDist && fs.existsSync(path.join(rootDir, 'dist'))) {
+    return;
+  }
+
+  if (!fs.existsSync(path.join(rootDir, 'dist'))) {
+    execFileSync(
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
+      ['run', 'build'],
+      {
+        cwd: rootDir,
+        encoding: 'utf8',
+      }
+    );
+  }
+
+  ensuredDist = true;
+}
+
 function probeDistExports(): unknown {
+  ensureDistAvailable();
+
   const distDir = path.join(rootDir, 'dist');
   let lastError: unknown;
 
@@ -600,6 +647,17 @@ describe('public docs and examples', () => {
           contents,
           `${label} in ${path.relative(rootDir, file)}`
         ).not.toMatch(pattern);
+      }
+
+      const specifiers = collectPublicSpecifiers(contents);
+      for (const specifier of specifiers) {
+        expect(
+          validPublicSpecifiers.has(specifier),
+          `unknown public import specifier "${specifier}" in ${path.relative(
+            rootDir,
+            file
+          )}`
+        ).toBe(true);
       }
     }
   });
