@@ -72,10 +72,11 @@ test.describe('real routed app shell workflow', () => {
       .toBe(1);
   });
 
-  test('should preserve a settings draft after navigating away and back', async () => {
+  test('should reset a route-local settings draft after navigating away and back', async () => {
     setBrowserLocation('/settings');
     const app = await loadBrowserHarness();
     await app.mountRoutedShellScenario();
+    const shell = document.querySelector('[aria-label="Askr CRM"]');
 
     await page.getByLabelText('Full name').fill('Route User');
     await expect
@@ -90,12 +91,11 @@ test.describe('real routed app shell workflow', () => {
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'Settings' }).click();
-    await expect(page.getByLabelText('Full name')).toHaveValue('Route User');
+    expect(document.querySelector('[aria-label="Askr CRM"]')).toBe(shell);
+    await expect(page.getByLabelText('Full name')).toHaveValue('');
     await expect
       .element(page.getByLabelText('Settings preview'))
-      .toHaveTextContent(
-        'Route User will be saved as viewer with email contact.'
-      );
+      .toHaveTextContent('Enter account details to preview changes.');
   });
 
   test('should support browser back and forward across app pages', async () => {

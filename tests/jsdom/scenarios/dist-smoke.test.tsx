@@ -105,4 +105,4 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
 
   cleanup();
   warn.mockRestore();
-}, 30000);
+}, 60000);

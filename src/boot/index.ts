@@ -196,6 +196,7 @@ function attachCleanupForRoot(
 import { Fragment, ELEMENT_TYPE } from '../jsx';
 
 import { DefaultPortal } from '../foundations/structures/portal';
+import { disposeDefaultPortalScope } from '../foundations/structures/portal';
 
 function mountOrUpdate(
   rootElement: Element,
@@ -262,6 +263,7 @@ function mountOrUpdate(
     instance.expectedStateIndices = [];
     instance.firstRenderComplete = false;
     instance.isRoot = true;
+    instance.portalScope = instance;
 
     if (shouldResetHookState) {
       instance.stateValues = [];
@@ -288,6 +290,7 @@ function mountOrUpdate(
     instance = createComponentInstance(componentId, wrappedFn, {}, rootElement);
     instancesByRoot.set(rootElement, instance);
     instance.isRoot = true;
+    instance.portalScope = instance;
     // Initialize strict flag from options
     if (options && typeof options.cleanupStrict === 'boolean') {
       instance.cleanupStrict = options.cleanupStrict;
@@ -295,6 +298,9 @@ function mountOrUpdate(
   }
 
   attachCleanupForRoot(rootElement, instance);
+  registerRootCleanupCallback(rootElement, () => {
+    disposeDefaultPortalScope(instance.portalScope ?? instance);
+  });
   mountComponent(instance);
   globalScheduler.flush();
 }
@@ -553,7 +559,11 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       cleanupStrict: config.cleanupStrict,
     });
 
-    await registerAppNavigation(rootElement, path);
+    await registerAppNavigation(rootElement, path, {
+      manifest: config.manifest,
+      routes: config.routes,
+      auth: routeAuth,
+    });
     return;
   }
 
@@ -562,7 +572,11 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       cleanupStrict: config.cleanupStrict,
     });
 
-    await registerAppNavigation(rootElement, path);
+    await registerAppNavigation(rootElement, path, {
+      manifest: config.manifest,
+      routes: config.routes,
+      auth: routeAuth,
+    });
     return;
   }
 
@@ -579,7 +593,11 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     }
   );
 
-  await registerAppNavigation(rootElement, path);
+  await registerAppNavigation(rootElement, path, {
+    manifest: config.manifest,
+    routes: config.routes,
+    auth: routeAuth,
+  });
 }
 
 /**
@@ -689,10 +707,18 @@ function shouldVerifyHydrationMarkup(config: HydrateSPAConfig): boolean {
   return !isProductionEnvironment();
 }
 
-async function registerAppNavigation(rootElement: Element, path: string) {
+async function registerAppNavigation(
+  rootElement: Element,
+  path: string,
+  source?: {
+    manifest?: RouteManifest;
+    routes?: Route[];
+    auth?: RouteAuthOptions;
+  }
+) {
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
-  registerAppInstance(instance as ComponentInstance, path);
+  registerAppInstance(instance as ComponentInstance, path, source);
   initializeNavigation();
 }
 
@@ -942,7 +968,11 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       cleanupStrict: config.cleanupStrict,
     }
   );
-  await registerAppNavigation(rootElement, path);
+  await registerAppNavigation(rootElement, path, {
+    manifest: config.manifest,
+    routes: config.routes,
+    auth: config.auth ?? config.manifest?.auth,
+  });
 }
 
 /**

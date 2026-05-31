@@ -44,6 +44,7 @@ import {
   requireRole,
 } from './policy';
 import { isPromiseLike } from '../common/promise';
+import { ELEMENT_TYPE } from '../common/jsx';
 
 export type {
   AccessDecision,
@@ -97,6 +98,7 @@ import type {
   RouteRecord,
   RouteManifest,
 } from '../common/router';
+import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 
 // ---------------------------------------------------------------------------
 // Module-level stores
@@ -109,6 +111,7 @@ type InternalRoute = Route & {
 
 type InternalRouteRecord = RouteRecord & {
   fallbackPrefix?: string;
+  renderHandler?: RouteHandler;
 };
 
 const routes: InternalRoute[] = [];
@@ -1075,18 +1078,69 @@ function normalizeRouteOptions(
 function applyPageChain(
   pageChain: readonly PageScopeRecord[],
   params: Record<string, string>,
-  content: unknown
+  content: unknown,
+  deferComponents = false
 ): unknown {
   let nextContent = content;
 
   for (let i = pageChain.length - 1; i >= 0; i--) {
     nextContent = outletContext.Scope({
       value: nextContent,
-      children: pageChain[i].component(params),
+      children: deferComponents
+        ? createRouteComponentVNode(pageChain[i].component, params)
+        : pageChain[i].component(params),
     });
   }
 
   return nextContent;
+}
+
+function createRouteComponentVNode(
+  component: RouteComponent,
+  params: Record<string, string>,
+  routeRoot = false
+): unknown {
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: component,
+    props: params,
+    key: null,
+    ...(routeRoot ? { [ROUTE_ROOT_COMPONENT]: true } : {}),
+  };
+}
+
+function createRouteHandler(
+  component: RouteComponent,
+  pageChain: readonly PageScopeRecord[],
+  layoutChain: readonly LayoutScopeRecord[],
+  deferComponents = false
+): RouteHandler {
+  return (params) => {
+    let content = deferComponents
+      ? createRouteComponentVNode(component, params, true)
+      : component(params);
+
+    content = applyPageChain(pageChain, params, content, deferComponents);
+
+    for (let i = layoutChain.length - 1; i >= 0; i--) {
+      content = layoutChain[i].component({ children: content });
+    }
+
+    return content;
+  };
+}
+
+function getRenderHandler(record: RouteRecord): RouteHandler {
+  const internalRecord = record as InternalRouteRecord;
+  return (
+    internalRecord.renderHandler ??
+    createRouteHandler(
+      record.component,
+      record.pageChain,
+      record.layoutChain,
+      true
+    )
+  );
 }
 
 function registerRouteAtResolvedPath(
@@ -1117,17 +1171,8 @@ function registerRouteAtResolvedPath(
     ...(normalizedOptions?.policies ?? []),
   ];
 
-  const handler: RouteHandler = (params) => {
-    let content = comp(params);
-
-    content = applyPageChain(pageChain, params, content);
-
-    for (let i = chain.length - 1; i >= 0; i--) {
-      content = chain[i].component({ children: content });
-    }
-
-    return content;
-  };
+  const handler = createRouteHandler(comp, pageChain, chain);
+  const renderHandler = createRouteHandler(comp, pageChain, chain, true);
 
   const record: InternalRouteRecord = {
     path,
@@ -1146,6 +1191,7 @@ function registerRouteAtResolvedPath(
         : {},
     isFallback,
     handler,
+    renderHandler,
     ...(metadata?.fallbackPrefix
       ? { fallbackPrefix: metadata.fallbackPrefix }
       : {}),
@@ -1567,12 +1613,13 @@ function buildRenderResult(
   params: Record<string, string>,
   mode: RouteContext['mode']
 ): RouteRequestResult | Promise<RouteRequestResult> {
+  const renderHandler = getRenderHandler(record);
   const loader = mode === 'ssr' ? record.options?.loader : undefined;
   if (loader) {
     const loaded = loader({ params });
     const finalize = (data: unknown): RouteRenderResult => ({
       kind: 'render',
-      handler: createRenderDataAwareHandler(record.handler, data),
+      handler: createRenderDataAwareHandler(renderHandler, data),
       params,
     });
 
@@ -1585,7 +1632,7 @@ function buildRenderResult(
 
   return {
     kind: 'render',
-    handler: record.handler,
+    handler: renderHandler,
     params,
   };
 }

@@ -107,6 +107,34 @@ function forEachDescendantElement(root: Element, visit: (el: Element) => void) {
   }
 }
 
+function forEachDescendantNode(root: Node, visit: (node: Node) => void) {
+  try {
+    const doc = root.ownerDocument;
+    const createTreeWalker = doc?.createTreeWalker;
+    if (typeof createTreeWalker === 'function') {
+      // NodeFilter.SHOW_ALL === 0xffffffff
+      const walker = createTreeWalker.call(doc, root, 0xffffffff);
+      let node = walker.nextNode();
+      while (node) {
+        visit(node);
+        node = walker.nextNode();
+      }
+      return;
+    }
+  } catch {
+    // SLOW PATH: TreeWalker unavailable
+  }
+
+  const stack = Array.from(root.childNodes).reverse();
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    visit(node);
+    for (let child = node.lastChild; child; child = child.previousSibling) {
+      stack.push(child);
+    }
+  }
+}
+
 function forEachElementInSubtree(root: Element, visit: (el: Element) => void) {
   visit(root);
   forEachDescendantElement(root, visit);
@@ -150,29 +178,27 @@ export function cleanupInstanceIfPresent(
     else logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
   }
 
-  if (node instanceof Element) {
-    // Clean up any nested instances on descendants
-    try {
-      forEachDescendantElement(node, (d) => {
-        try {
-          cleanupSingleInstance(d as InstanceHost, errors, strict);
-        } catch (err) {
-          if (strict) errors!.push(err);
-          else
-            logger.warn(
-              '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
-              err
-            );
-        }
-      });
-    } catch (err) {
-      if (strict) errors!.push(err);
-      else
-        logger.warn(
-          '[Askr] cleanupInstanceIfPresent descendant query failed:',
-          err
-        );
-    }
+  // Clean up any nested instances, including null-component comment hosts.
+  try {
+    forEachDescendantNode(node, (descendant) => {
+      try {
+        cleanupSingleInstance(descendant as InstanceHost, errors, strict);
+      } catch (err) {
+        if (strict) errors!.push(err);
+        else
+          logger.warn(
+            '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
+            err
+          );
+      }
+    });
+  } catch (err) {
+    if (strict) errors!.push(err);
+    else
+      logger.warn(
+        '[Askr] cleanupInstanceIfPresent descendant query failed:',
+        err
+      );
   }
 
   if (errors && errors.length > 0) {
@@ -208,8 +234,13 @@ export function teardownNodeSubtree(
   }
 
   try {
-    forEachElementInSubtree(node, (element) => {
-      teardownSingleElement(element, errors, strict);
+    teardownSingleElement(node, errors, strict);
+    forEachDescendantNode(node, (descendant) => {
+      if (descendant instanceof Element) {
+        teardownSingleElement(descendant, errors, strict);
+      } else {
+        cleanupSingleInstance(descendant as InstanceHost, errors, strict);
+      }
     });
   } catch (err) {
     if (strict) errors!.push(err);

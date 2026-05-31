@@ -3,8 +3,8 @@
  */
 
 import {
-  resolveRoute,
   resolveRouteRequest,
+  resolveRouteFromRoutes,
   lockRouteRegistration,
   syncCurrentRouteSnapshot,
   type ResolvedRoute,
@@ -19,10 +19,20 @@ import {
   isProductionEnvironment,
 } from '../common/env';
 import { logger } from '../dev/logger';
-import type { RouteRenderResult, RouteRequestResult } from '../common/router';
+import type {
+  Route,
+  RouteAuthOptions,
+  RouteManifest,
+  RouteRenderResult,
+  RouteRequestResult,
+} from '../common/router';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
-import { DefaultPortal } from '../foundations/structures/portal';
+import {
+  DefaultPortal,
+  clearDefaultPortalForInstance,
+} from '../foundations/structures/portal';
 import { isPromiseLike } from '../common/promise';
+import { cleanupInstancesUnder } from '../renderer/cleanup';
 
 // Global app state for navigation
 let currentInstance: ComponentInstance | null = null;
@@ -32,6 +42,29 @@ let navigationInitialized = false;
 let activeRouteRequestId = 0;
 let activeRouteRequestController: AbortController | null = null;
 const MAX_NAVIGATION_REDIRECTS = 20;
+
+type AppNavigationSource = {
+  manifest?: RouteManifest;
+  routes?: readonly Route[];
+  auth?: RouteAuthOptions;
+};
+
+type AppRegistration = AppNavigationSource & {
+  instance: ComponentInstance;
+  pathname: string;
+  href: string;
+};
+
+const registeredApps: AppRegistration[] = [];
+
+function syncAppRegistrationLocation(
+  app: AppRegistration,
+  pathname: string,
+  href: string
+): void {
+  app.pathname = pathname;
+  app.href = href;
+}
 
 export type NavigationScrollBehavior = 'top' | 'preserve';
 export type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';
@@ -326,109 +359,184 @@ function wrapRootRouteHandler(
   return wrappedFn;
 }
 
+function cleanupRouteOwnership(instance: ComponentInstance): void {
+  const cleanupErrors: unknown[] = [];
+  const children = instance.target
+    ? Array.from(instance.target.childNodes)
+    : [];
+
+  for (const child of children) {
+    try {
+      cleanupInstancesUnder(child, { strict: instance.cleanupStrict });
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+
+  try {
+    cleanupComponent(instance);
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
+
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(cleanupErrors, 'Route cleanup failed');
+  }
+}
+
 function remountResolvedRoute(
+  instance: ComponentInstance,
   resolved: ResolvedRoute,
   pathname: string,
   href: string
 ): boolean {
-  if (!currentInstance) {
-    return false;
-  }
-
   // The route handler IS the component function
   // It takes params as props and renders the route
-  cleanupComponent(currentInstance);
+  clearDefaultPortalForInstance(instance);
+  cleanupRouteOwnership(instance);
 
-  currentInstance.fn = wrapRootRouteHandler(bindResolvedRouteHandler(resolved));
-  currentInstance.props = {};
+  instance.fn = wrapRootRouteHandler(bindResolvedRouteHandler(resolved));
+  instance.props = {};
 
   // Reset state to prevent leakage from previous route
   // Each route navigation starts completely fresh
-  currentInstance.stateValues = [];
-  currentInstance.expectedStateIndices = [];
-  currentInstance.firstRenderComplete = false;
-  currentInstance.stateIndexCheck = -1;
+  instance.stateValues = [];
+  instance.expectedStateIndices = [];
+  instance.firstRenderComplete = false;
+  instance.stateIndexCheck = -1;
   // Increment generation to invalidate pending async evaluations from previous route
-  currentInstance.evaluationGeneration++;
-  currentInstance.notifyUpdate = null;
-  currentInstance.mountOperations = [];
-  currentInstance.cleanupFns = [];
-  currentInstance._placeholder = undefined;
-  currentInstance.hasPendingUpdate = false;
-  currentInstance._currentRenderToken = undefined;
-  currentInstance.lastRenderToken = 0;
-  currentInstance._pendingReadSources = undefined;
-  currentInstance._lastReadSources = undefined;
+  instance.evaluationGeneration++;
+  instance.notifyUpdate = null;
+  instance.mountOperations = [];
+  instance.cleanupFns = [];
+  instance._placeholder = undefined;
+  instance.hasPendingUpdate = false;
+  instance._currentRenderToken = undefined;
+  instance.lastRenderToken = 0;
+  instance._pendingReadSources = undefined;
+  instance._lastReadSources = undefined;
 
   // Route-local async work should create a fresh abort controller lazily.
-  currentInstance.abortController = null;
+  instance.abortController = null;
 
   // Re-execute component against the existing host so reconciliation can
   // preserve any shared layout DOM between sibling routes.
-  mountComponent(currentInstance);
+  mountComponent(instance);
   currentPathname = pathname;
   currentHref = href;
   return true;
 }
 
-function rerenderResolvedRoute(pathname: string, href: string): boolean {
-  if (!currentInstance) {
-    return false;
-  }
-
-  const resolved = resolveRoute(pathname);
-  if (!resolved) {
-    return false;
-  }
-
+function rerenderResolvedRoute(
+  instance: ComponentInstance,
+  pathname: string,
+  href: string
+): boolean {
   currentPathname = pathname;
   currentHref = href;
-  currentInstance._enqueueRun?.();
+  instance._enqueueRun?.();
   return true;
 }
 
-function resolveNavigationTarget(path: string, signal?: AbortSignal) {
-  const target = parseTargetUrl(path);
-  const pathname = target.pathname;
-  const href = `${target.pathname}${target.search}${target.hash}`;
-  const resolved = resolveRouteRequest(href, signal ? { signal } : {});
+function resolveAppRouteRequest(
+  app: AppRegistration,
+  pathname: string,
+  href: string,
+  signal: AbortSignal
+): RouteRequestResult | Promise<RouteRequestResult> {
+  if (app.routes) {
+    const resolved = resolveRouteFromRoutes(pathname, app.routes);
+    if (!resolved) {
+      return null;
+    }
 
-  if (isPromiseLike<RouteRequestResult>(resolved)) {
-    return Promise.resolve(resolved).then((next) => ({
-      href,
-      pathname,
-      resolved: next,
-    }));
+    return {
+      kind: 'render',
+      handler: resolved.handler,
+      params: resolved.params,
+    };
   }
 
-  return {
-    href,
-    pathname,
-    resolved,
-  };
+  return resolveRouteRequest(href, {
+    manifest: app.manifest,
+    auth: app.auth,
+    signal,
+  });
 }
 
-function applyNavigationTarget(
+type AppNavigationTarget = {
+  app: AppRegistration;
+  resolved: RouteRequestResult;
+};
+
+function resolveNavigationTargetsForApps(
+  pathname: string,
+  href: string,
+  signal: AbortSignal
+): AppNavigationTarget[] | Promise<AppNavigationTarget[]> {
+  const apps = [...registeredApps];
+
+  if (apps.length === 1) {
+    const app = apps[0]!;
+    const resolved = resolveAppRouteRequest(app, pathname, href, signal);
+    if (isPromiseLike<RouteRequestResult>(resolved)) {
+      return Promise.resolve(resolved).then((next) => [
+        {
+          app,
+          resolved: next,
+        },
+      ]);
+    }
+
+    return [
+      {
+        app,
+        resolved,
+      },
+    ];
+  }
+
+  const syncTargets: AppNavigationTarget[] = [];
+  const pendingTargets: Array<Promise<AppNavigationTarget>> = [];
+
+  for (const app of apps) {
+    const resolved = resolveAppRouteRequest(app, pathname, href, signal);
+    if (isPromiseLike<RouteRequestResult>(resolved)) {
+      pendingTargets.push(
+        Promise.resolve(resolved).then((next) => ({ app, resolved: next }))
+      );
+      continue;
+    }
+
+    syncTargets.push({ app, resolved });
+  }
+
+  if (pendingTargets.length === 0) {
+    return syncTargets;
+  }
+
+  return Promise.all([
+    ...syncTargets.map((target) => Promise.resolve(target)),
+    ...pendingTargets,
+  ]);
+}
+
+function applyNavigationTargets(
   path: string,
   options: NavigateOptions,
   redirectState: NavigationRedirectState,
-  target: {
-    href: string;
-    pathname: string;
-    resolved: RouteRequestResult;
-  }
+  pathname: string,
+  href: string,
+  targets: AppNavigationTarget[]
 ): void {
-  const { href, pathname, resolved } = target;
   const previousPathname = currentPathname;
 
-  if (!resolved) {
-    if (isDevelopmentEnvironment()) {
-      logger.warn(`No route found for path: ${path}`);
+  for (const target of targets) {
+    const resolved = target.resolved;
+    if (!resolved || resolved.kind !== 'redirect') {
+      continue;
     }
-    return;
-  }
 
-  if (resolved.kind === 'redirect') {
     const redirectTarget = parseTargetUrl(resolved.to);
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
     if (redirectHref === href) {
@@ -463,13 +571,13 @@ function applyNavigationTarget(
     return;
   }
 
-  const nextResolved =
-    resolved.kind === 'deny'
-      ? createDeniedResolvedRoute(resolved.status)
-      : {
-          handler: resolved.handler,
-          params: resolved.params,
-        };
+  const matchedTargets = targets.filter((target) => target.resolved !== null);
+  if (matchedTargets.length === 0) {
+    if (isDevelopmentEnvironment()) {
+      logger.warn(`No route found for path: ${path}`);
+    }
+    return;
+  }
 
   saveScrollPosition(currentHref);
 
@@ -484,26 +592,60 @@ function applyNavigationTarget(
     window.location.hash
   );
 
-  if (currentInstance) {
-    if (pathname === currentPathname && isRenderResult(resolved)) {
-      rerenderResolvedRoute(pathname, href);
-      return;
+  for (const target of matchedTargets) {
+    const resolved = target.resolved!;
+    if (resolved.kind === 'redirect') {
+      continue;
     }
 
-    remountResolvedRoute(nextResolved, pathname, href);
-    if (pathname !== previousPathname) {
-      applyNavigationScroll(
-        options.scroll ?? scrollRestorationOptions.navigation
-      );
+    if (pathname === target.app.pathname && isRenderResult(resolved)) {
+      rerenderResolvedRoute(target.app.instance, pathname, href);
+      syncAppRegistrationLocation(target.app, pathname, href);
+      continue;
     }
+
+    remountResolvedRoute(
+      target.app.instance,
+      resolved.kind === 'deny'
+        ? createDeniedResolvedRoute(resolved.status)
+        : {
+            handler: resolved.handler,
+            params: resolved.params,
+          },
+      pathname,
+      href
+    );
+    syncAppRegistrationLocation(target.app, pathname, href);
+  }
+
+  if (pathname !== previousPathname) {
+    applyNavigationScroll(
+      options.scroll ?? scrollRestorationOptions.navigation
+    );
   }
 }
 
 /** Register the current app instance (called by createSPA/hydrateSPA). */
 export function registerAppInstance(
   instance: ComponentInstance,
-  path: string
+  path: string,
+  source: AppNavigationSource = {}
 ): void {
+  const existingIndex = registeredApps.findIndex(
+    (app) => app.instance === instance
+  );
+  const registration: AppRegistration = {
+    instance,
+    pathname: path,
+    href: getWindowHref(),
+    ...source,
+  };
+  if (existingIndex >= 0) {
+    registeredApps[existingIndex] = registration;
+  } else {
+    registeredApps.push(registration);
+  }
+
   currentInstance = instance;
   currentPathname = path;
   currentHref = getWindowHref();
@@ -520,14 +662,31 @@ export function registerAppInstance(
 }
 
 export function unregisterAppInstance(instance: ComponentInstance): void {
+  const existingIndex = registeredApps.findIndex(
+    (app) => app.instance === instance
+  );
+  if (existingIndex >= 0) {
+    registeredApps.splice(existingIndex, 1);
+  }
+
   if (currentInstance !== instance) {
+    return;
+  }
+
+  const nextApp =
+    registeredApps.length > 0
+      ? registeredApps[registeredApps.length - 1]!
+      : null;
+  currentInstance = nextApp?.instance ?? null;
+  if (nextApp) {
+    currentPathname = nextApp.pathname;
+    currentHref = nextApp.href;
     return;
   }
 
   activeRouteRequestId += 1;
   activeRouteRequestController?.abort();
   activeRouteRequestController = null;
-  currentInstance = null;
   currentPathname = '/';
   currentHref = '/';
 }
@@ -567,16 +726,31 @@ function navigateWithRedirectState(
 
   const request = beginRouteRequest();
 
-  const target = resolveNavigationTarget(path, request.signal);
-  if (isPromiseLike(target)) {
-    void Promise.resolve(target).then(
-      (resolvedTarget) => {
+  const target = parseTargetUrl(path);
+  const pathname = target.pathname;
+  const href = `${target.pathname}${target.search}${target.hash}`;
+  const resolvedTargets = resolveNavigationTargetsForApps(
+    pathname,
+    href,
+    request.signal
+  );
+
+  if (isPromiseLike(resolvedTargets)) {
+    void Promise.resolve(resolvedTargets).then(
+      (targets) => {
         if (isStaleRouteRequest(request.id)) {
           return;
         }
 
         try {
-          applyNavigationTarget(path, options, redirectState, resolvedTarget);
+          applyNavigationTargets(
+            path,
+            options,
+            redirectState,
+            pathname,
+            href,
+            targets
+          );
         } catch (error) {
           logger.error('[Askr] navigation failed:', error);
         }
@@ -588,7 +762,14 @@ function navigateWithRedirectState(
     return;
   }
 
-  applyNavigationTarget(path, options, redirectState, target);
+  applyNavigationTargets(
+    path,
+    options,
+    redirectState,
+    pathname,
+    href,
+    resolvedTargets
+  );
 }
 
 /**
@@ -602,25 +783,29 @@ function handlePopState(_event: PopStateEvent): void {
 
   saveScrollPosition(previousHref);
 
-  if (!currentInstance) {
+  if (registeredApps.length === 0) {
     return;
   }
 
-  const resolved = resolveRouteRequest(href, { signal: request.signal });
-
-  const applyResolved = (resolved: RouteRequestResult) => {
+  const applyResolved = (targets: AppNavigationTarget[]) => {
     if (isStaleRouteRequest(request.id)) {
       return;
     }
 
-    if (!resolved) {
+    const matchedTargets = targets.filter((target) => target.resolved !== null);
+    if (matchedTargets.length === 0) {
       if (isDevelopmentEnvironment()) {
         logger.warn(`No route found for path: ${pathname}`);
       }
       return;
     }
 
-    if (resolved.kind === 'redirect') {
+    for (const target of matchedTargets) {
+      const resolved = target.resolved!;
+      if (resolved.kind !== 'redirect') {
+        continue;
+      }
+
       navigate(resolved.to, {
         history: getRedirectHistoryMode(resolved.replace),
       });
@@ -633,27 +818,43 @@ function handlePopState(_event: PopStateEvent): void {
       window.location.hash
     );
 
-    if (pathname === currentPathname && isRenderResult(resolved)) {
-      rerenderResolvedRoute(pathname, href);
-      return;
-    }
+    for (const target of matchedTargets) {
+      const resolved = target.resolved!;
+      if (pathname === target.app.pathname && isRenderResult(resolved)) {
+        rerenderResolvedRoute(target.app.instance, pathname, href);
+        syncAppRegistrationLocation(target.app, pathname, href);
+        continue;
+      }
 
-    remountResolvedRoute(
-      resolved.kind === 'deny'
-        ? createDeniedResolvedRoute(resolved.status)
-        : {
-            handler: resolved.handler,
-            params: resolved.params,
-          },
-      pathname,
-      href
-    );
+      if (resolved.kind === 'redirect') {
+        continue;
+      }
+
+      remountResolvedRoute(
+        target.app.instance,
+        resolved.kind === 'deny'
+          ? createDeniedResolvedRoute(resolved.status)
+          : {
+              handler: resolved.handler,
+              params: resolved.params,
+            },
+        pathname,
+        href
+      );
+      syncAppRegistrationLocation(target.app, pathname, href);
+    }
 
     applyHistoryScroll(href, _event.state);
   };
 
-  if (isPromiseLike<RouteRequestResult>(resolved)) {
-    void Promise.resolve(resolved).then(
+  const resolvedTargets = resolveNavigationTargetsForApps(
+    pathname,
+    href,
+    request.signal
+  );
+
+  if (isPromiseLike<AppNavigationTarget[]>(resolvedTargets)) {
+    void Promise.resolve(resolvedTargets).then(
       (next) => {
         try {
           applyResolved(next);
@@ -668,7 +869,7 @@ function handlePopState(_event: PopStateEvent): void {
     return;
   }
 
-  applyResolved(resolved);
+  applyResolved(resolvedTargets);
 }
 
 /**

@@ -72,9 +72,15 @@ Sum of segment scores = route rank. Higher rank wins when multiple routes match 
 - `routes[]` - flat list used by `resolveRoute()` (the depth-indexed O(1) fast path)
 - `records[]` - parsed records used by `getManifest()` and future extensions
 
-When `navigate(path)` fires, `resolveRoute()` finds the best `ResolvedRoute.handler`. Because
-the handler already has the layout chain baked in, `navigate.ts` does not need to know about
-layouts - it just calls the handler.
+When `navigate(path)` fires, `resolveRouteRequest()` finds the best record and
+returns its renderer handler. The renderer handler has the layout chain baked
+in, but defers matched page-shell and leaf component execution until their
+layout context is active. `navigate.ts` does not need to know about layouts.
+
+`RouteRecord.handler` remains the eager low-level handler used by
+`resolveRoute()`, manifest inspection, and flat route tables. Keeping that
+contract separate from renderer composition preserves direct handler behavior
+without executing routed leaves before layout providers render.
 
 ### SSR request resolution
 

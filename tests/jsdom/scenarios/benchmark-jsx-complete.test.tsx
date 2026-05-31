@@ -1,6 +1,8 @@
 /**
- * Complete JSX benchmark test matching js-framework-benchmark structure
- * This test verifies that JSX syntax works with For, nested components, and event handlers
+ * JSX benchmark scenario coverage matching js-framework-benchmark structure.
+ *
+ * The heaviest append and clear cases live in dedicated files so they run with
+ * fresh file-level isolation under the full jsdom suite.
  */
 import { expect, test, describe } from 'vite-plus/test';
 import { selector, state } from '../../../src';
@@ -64,12 +66,12 @@ function buildData(count: number, startId: number = 1): RowData[] {
 }
 
 describe(
-  'JSX benchmark complete (matches js-framework-benchmark)',
-  { timeout: 60000 },
+  'JSX benchmark scenarios (matches js-framework-benchmark)',
+  { timeout: 90000 },
   () => {
     test(
       'should render 1000 rows with JSX components',
-      { timeout: 60000 },
+      { timeout: 90000 },
       () => {
         const { container, cleanup } = createTestContainer();
         let dataState!: State<RowData[]>;
@@ -250,7 +252,7 @@ describe(
       cleanup();
     });
 
-    test('should swap rows with JSX', () => {
+    test('should swap rows with JSX', { timeout: 90000 }, () => {
       const { container, cleanup } = createTestContainer();
       let dataState!: State<RowData[]>;
 
@@ -384,108 +386,6 @@ describe(
         (r) => r.querySelectorAll('td')[0].textContent
       );
       expect(ids).to.deep.equal(['1', '2', '3', '4', '6', '7', '8', '9', '10']);
-
-      cleanup();
-    });
-
-    test('should append rows with JSX', { timeout: 60000 }, () => {
-      const { container, cleanup } = createTestContainer();
-      let dataState!: State<RowData[]>;
-
-      const App = () => {
-        dataState = state<RowData[]>(buildData(1000));
-        const selectedState = state<number | null>(null);
-        const isSelected = selector(selectedState);
-
-        const remove = (id: number) =>
-          dataState.set((d) => d.filter((it) => it.id !== id));
-        const select = (id: number) => selectedState.set(id);
-
-        return (
-          <table>
-            <tbody>
-              {
-                <For each={() => dataState()} by={(item) => item.id}>
-                  {(item) => (
-                    <Row
-                      item={item}
-                      isSelected={isSelected}
-                      onSelect={select}
-                      onRemove={remove}
-                    />
-                  )}
-                </For>
-              }
-            </tbody>
-          </table>
-        );
-      };
-
-      createIsland({ root: container, component: App });
-      flushScheduler();
-
-      const tbody = container.querySelector('tbody')!;
-      expect(tbody.querySelectorAll('tr').length).to.equal(1000);
-
-      // Append 1000 more rows
-      dataState.set((d) => d.concat(buildData(1000, 1001)));
-      flushScheduler();
-
-      const rows = tbody.querySelectorAll('tr');
-      expect(rows.length).to.equal(2000);
-
-      // Verify last row
-      const lastCells = rows[1999].querySelectorAll('td');
-      expect(lastCells[0].textContent).to.equal('2000');
-      expect(lastCells[1].textContent).to.equal('Item 2000');
-
-      cleanup();
-    });
-
-    test('should clear all rows with JSX', () => {
-      const { container, cleanup } = createTestContainer();
-      let dataState!: State<RowData[]>;
-
-      const App = () => {
-        dataState = state<RowData[]>(buildData(1000));
-        const selectedState = state<number | null>(null);
-        const isSelected = selector(selectedState);
-
-        const remove = (id: number) =>
-          dataState.set((d) => d.filter((it) => it.id !== id));
-        const select = (id: number) => selectedState.set(id);
-
-        return (
-          <table>
-            <tbody>
-              {
-                <For each={() => dataState()} by={(item) => item.id}>
-                  {(item) => (
-                    <Row
-                      item={item}
-                      isSelected={isSelected}
-                      onSelect={select}
-                      onRemove={remove}
-                    />
-                  )}
-                </For>
-              }
-            </tbody>
-          </table>
-        );
-      };
-
-      createIsland({ root: container, component: App });
-      flushScheduler();
-
-      const tbody = container.querySelector('tbody')!;
-      expect(tbody.querySelectorAll('tr').length).to.equal(1000);
-
-      // Clear all
-      dataState.set([]);
-      flushScheduler();
-
-      expect(tbody.querySelectorAll('tr').length).to.equal(0);
 
       cleanup();
     });

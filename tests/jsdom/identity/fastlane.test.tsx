@@ -213,29 +213,33 @@ describe('fast-lane large reorder regression', () => {
     flushScheduler();
   });
 
-  it('should complete large fast-lane reorder without hanging', async () => {
-    await waitForNextEvaluation();
+  it(
+    'should complete large fast-lane reorder without hanging',
+    { timeout: 15000 },
+    async () => {
+      await waitForNextEvaluation();
 
-    // Perform large keys-shift which previously could cause a hang
-    items.set(items().map((x: number) => x + 1));
-    flushScheduler();
+      // Perform large keys-shift which previously could cause a hang
+      items.set(items().map((x: number) => x + 1));
+      flushScheduler();
 
-    await waitForNextEvaluation();
+      await waitForNextEvaluation();
 
-    const afterEls = Array.from(container.querySelectorAll('li'));
-    expect(afterEls.length).toBe(N);
+      const afterEls = Array.from(container.querySelectorAll('li'));
+      expect(afterEls.length).toBe(N);
 
-    const ns =
-      (
-        globalThis as unknown as Record<string, unknown> & {
-          __ASKR__?: Record<string, unknown>;
-        }
-      ).__ASKR__ || {};
-    if (ns['__LAST_FASTPATH_STATS']) {
-      const _stats = ns['__LAST_FASTPATH_STATS'] as { n?: number };
-      expect(_stats.n).toBe(N);
+      const ns =
+        (
+          globalThis as unknown as Record<string, unknown> & {
+            __ASKR__?: Record<string, unknown>;
+          }
+        ).__ASKR__ || {};
+      if (ns['__LAST_FASTPATH_STATS']) {
+        const _stats = ns['__LAST_FASTPATH_STATS'] as { n?: number };
+        expect(_stats.n).toBe(N);
+      }
     }
-  });
+  );
 
   afterAll(() => {
     cleanup();

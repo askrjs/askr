@@ -32,6 +32,7 @@ export interface ComponentInstance {
   fn: ComponentFunction;
   props: Props;
   target: Element | null;
+  portalScope: object | null;
   mounted: boolean;
   abortController: AbortController | null; // Lazily created per-component abort lifecycle
   ssr?: boolean; // Set to true for SSR temporary instances
@@ -88,6 +89,7 @@ export function createComponentInstance(
     fn,
     props,
     target,
+    portalScope: currentInstance?.portalScope ?? currentPortalScope ?? null,
     mounted: false,
     abortController: null,
     stateValues: [],
@@ -144,6 +146,7 @@ export function createComponentInstance(
 }
 
 let currentInstance: ComponentInstance | null = null;
+let currentPortalScope: object | null = null;
 let stateIndex = 0;
 
 type OwnedChildScope = {
@@ -170,6 +173,11 @@ export function setCurrentComponentInstance(
   instance: ComponentInstance | null
 ): void {
   currentInstance = instance;
+  currentPortalScope = instance?.portalScope ?? null;
+}
+
+export function getCurrentPortalScope(): object | null {
+  return currentInstance?.portalScope ?? currentPortalScope;
 }
 
 /**
@@ -315,6 +323,7 @@ export function renderScopedComponent<T>(
   render: () => T
 ): T {
   const savedInstance = currentInstance;
+  const savedPortalScope = currentPortalScope;
   const savedStateIndex = stateIndex;
 
   instance.notifyUpdate = instance._enqueueRun!;
@@ -322,6 +331,7 @@ export function renderScopedComponent<T>(
   instance._currentRenderToken = nextRenderToken();
 
   currentInstance = instance;
+  currentPortalScope = instance.portalScope ?? savedPortalScope;
   stateIndex = startStateIndex;
 
   let didComplete = false;
@@ -340,6 +350,7 @@ export function renderScopedComponent<T>(
       instance._currentRenderToken = undefined;
     }
     currentInstance = savedInstance;
+    currentPortalScope = savedPortalScope;
     stateIndex = savedStateIndex;
   }
 }
@@ -570,6 +581,8 @@ export function renderComponentInline(
   const hadToken = instance._currentRenderToken !== undefined;
   const prevToken = instance._currentRenderToken;
   const prevPendingReads = instance._pendingReadSources;
+  const savedInstance = currentInstance;
+  const savedPortalScope = currentPortalScope;
   if (!hadToken) {
     instance._currentRenderToken = nextRenderToken();
     instance._pendingReadSources = undefined;
@@ -588,6 +601,8 @@ export function renderComponentInline(
     // Restore previous token/read states for nested inline render scenarios
     instance._currentRenderToken = prevToken;
     instance._pendingReadSources = prevPendingReads;
+    currentInstance = savedInstance;
+    currentPortalScope = savedPortalScope;
   }
 }
 
@@ -599,7 +614,12 @@ export function warnUnusedStateReads(instance: ComponentInstance): void {
       ((state as { _derivedSubscribers?: Set<unknown> } | undefined)
         ?._derivedSubscribers?.size ?? 0) > 0;
 
-    if (state && !state._hasBeenRead && !hasCommittedUsage) {
+    if (
+      state &&
+      !state._hasBeenRead &&
+      !state._hasEverBeenRead &&
+      !hasCommittedUsage
+    ) {
       try {
         const name = instance.fn?.name || '<anonymous>';
         warnInstanceOnce(
@@ -625,7 +645,9 @@ function executeComponentSync(
   incDevCounter('componentRuns');
   incDevCounter('componentReruns');
 
+  const savedPortalScope = currentPortalScope;
   currentInstance = instance;
+  currentPortalScope = instance.portalScope ?? savedPortalScope;
   stateIndex = 0;
 
   try {
@@ -672,6 +694,7 @@ function executeComponentSync(
   } finally {
     // Synchronous path: we did not push a fresh frame, so nothing to pop here.
     currentInstance = null;
+    currentPortalScope = savedPortalScope;
   }
 }
 

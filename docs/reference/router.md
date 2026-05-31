@@ -187,7 +187,11 @@ Clears all route registrations. Used in tests.
 
 ## `navigate(path)`
 
-Triggers client-side navigation.
+Triggers client-side navigation. When navigation replaces the active route,
+Askr disposes route-local component state, resources, tasks, and abort signals
+before mounting the replacement. Reconciliation can preserve shared layout DOM
+nodes, but state that must survive navigation belongs in a shared layout,
+context, or external store.
 
 ## `Link`
 
