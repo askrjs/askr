@@ -50,6 +50,8 @@ export type {
   RouteSnapshot,
   RouteMatch,
   RouteQuery,
+  RouteParams,
+  RoutePathParams,
   RouteComponent,
   RouteOptions,
   ParsedSegment,

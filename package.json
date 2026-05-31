@@ -118,7 +118,7 @@
     "test:browser": "vp test run -c vitest.test.browser.config.ts tests/browser",
     "test:checks": "vp test run -c vitest.test.checks.config.ts",
     "test:jsdom": "vp test run -c vitest.test.jsdom.config.ts",
-    "test:types": "vp pack && tsd",
+    "test:types": "vp pack && tsd --files \"tests/types/**/*.test-d.ts\" --files \"tests/types/**/*.test-d.tsx\"",
     "test:unit": "vp test run -c vitest.test.unit.config.ts",
     "bench": "npm run bench:tier1 && npm run bench:tier2 && npm run bench:tier3 && npm run bench:tier4",
     "bench:tier1": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts",
@@ -137,7 +137,9 @@
   },
   "tsd": {
     "compilerOptions": {
-      "composite": false
+      "composite": false,
+      "jsx": "react-jsx",
+      "jsxImportSource": "@askrjs/askr"
     }
   },
   "engines": {

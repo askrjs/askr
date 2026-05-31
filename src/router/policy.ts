@@ -1,6 +1,9 @@
 import type {
   AccessDecision,
+  AccessAllowDecision,
+  AccessDenyDecision,
   AccessDenyStatus,
+  AccessRedirectDecision,
   AccessRedirectStatus,
   RouteAuthOptions,
   RouteContext,
@@ -18,7 +21,7 @@ type RoutePathResolver =
   | string
   | ((context: RouteContext) => string | PromiseLike<string>);
 
-export function allow(): AccessDecision {
+export function allow(): AccessAllowDecision {
   return { kind: 'allow' };
 }
 
@@ -28,7 +31,7 @@ export function redirect(
     status?: AccessRedirectStatus;
     replace?: boolean;
   } = {}
-): AccessDecision {
+): AccessRedirectDecision {
   return {
     kind: 'redirect',
     to,
@@ -37,19 +40,19 @@ export function redirect(
   };
 }
 
-export function deny(status: AccessDenyStatus): AccessDecision {
+export function deny(status: AccessDenyStatus): AccessDenyDecision {
   return { kind: 'deny', status };
 }
 
-export function unauthorized(): AccessDecision {
+export function unauthorized(): AccessDenyDecision {
   return deny(401);
 }
 
-export function forbidden(): AccessDecision {
+export function forbidden(): AccessDenyDecision {
   return deny(403);
 }
 
-export function notFound(): AccessDecision {
+export function notFound(): AccessDenyDecision {
   return deny(404);
 }
 

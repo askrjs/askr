@@ -6,7 +6,8 @@ import {
   getRoutes,
   route,
 } from '../../../src/router/route';
-import { renderResolvedToStringSync, resolveRequest } from '../../../src/ssr';
+import { resolveRequest } from '../../../src/ssr';
+import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
 import { getCurrentRenderData } from '../../../src/ssr/render-keys';
 
 describe('SSR request resolution', () => {

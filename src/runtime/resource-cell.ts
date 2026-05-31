@@ -20,7 +20,7 @@ export class ResourceCell<U> {
   error: Error | null = null;
   generation = 0;
   controller: AbortController | null = null;
-  deps: unknown[] | null = null;
+  deps: readonly unknown[] | null = null;
   resourceFrame: ContextFrame | null = null;
 
   // Optional debug label set by caller (component name) to improve logs
@@ -40,7 +40,7 @@ export class ResourceCell<U> {
 
   constructor(
     fn: (opts: { signal: AbortSignal }) => PromiseLike<U> | U,
-    deps: unknown[] | null,
+    deps: readonly unknown[] | null,
     resourceFrame: ContextFrame | null
   ) {
     this.fn = fn;

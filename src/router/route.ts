@@ -66,6 +66,8 @@ export type {
   RouteMatch,
   RouteQuery,
   RouteSnapshot,
+  RouteParams,
+  RoutePathParams,
   RouteComponent,
   RouteOptions,
   ParsedSegment,
@@ -91,6 +93,8 @@ import type {
   ResolvedRoute,
   RouteMatch,
   RouteSnapshot,
+  RouteParams,
+  RoutePathParams,
   RouteComponent,
   RouteOptions,
   LayoutScopeRecord,
@@ -99,6 +103,51 @@ import type {
   RouteManifest,
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
+
+type AnyRouteComponent = (...args: any[]) => unknown;
+
+type RouteComponentParam<TComponent extends AnyRouteComponent> =
+  Parameters<TComponent> extends [] ? unknown : Parameters<TComponent>[0];
+
+type CompatibleAbsoluteRouteComponent<
+  Path extends string,
+  TComponent extends AnyRouteComponent,
+> =
+  Parameters<TComponent> extends []
+    ? TComponent
+    : RoutePathParams<Path> extends RouteComponentParam<TComponent>
+      ? TComponent
+      : never;
+
+type CompatibleRelativeRouteComponent<
+  Path extends string,
+  TComponent extends AnyRouteComponent,
+> =
+  Parameters<TComponent> extends []
+    ? TComponent
+    : RouteComponentParam<TComponent> extends Record<
+          keyof RoutePathParams<Path>,
+          string
+        >
+      ? TComponent
+      : never;
+
+type CompatibleRouteComponent<
+  Path extends string,
+  TComponent extends AnyRouteComponent,
+> = Path extends `/${string}`
+  ? CompatibleAbsoluteRouteComponent<Path, TComponent>
+  : CompatibleRelativeRouteComponent<Path, TComponent>;
+
+type RouteOptionsForComponent<
+  Path extends string,
+  TComponent extends AnyRouteComponent,
+> =
+  Parameters<TComponent> extends []
+    ? RouteOptions<RoutePathParams<Path>>
+    : RouteComponentParam<TComponent> extends RouteParams
+      ? RouteOptions<RouteComponentParam<TComponent>>
+      : RouteOptions<RoutePathParams<Path>>;
 
 // ---------------------------------------------------------------------------
 // Module-level stores
@@ -738,10 +787,10 @@ export function _snapshotLazy(): Promise<unknown>[] {
  * export default function DashboardPage() { … }
  * ```
  */
-export function lazy(
-  factory: () => Promise<{ default: RouteComponent } | RouteComponent>
-): RouteComponent {
-  let resolved: RouteComponent | null = null;
+export function lazy<TComponent extends AnyRouteComponent>(
+  factory: () => Promise<{ default: TComponent } | TComponent>
+): TComponent {
+  let resolved: TComponent | null = null;
   let loadError: unknown = null;
 
   const promise = factory().then(
@@ -749,7 +798,7 @@ export function lazy(
       resolved =
         typeof mod === 'function'
           ? mod
-          : (mod as { default: RouteComponent }).default;
+          : (mod as { default: TComponent }).default;
       pendingLazy.delete(promise);
     },
     (err: unknown) => {
@@ -759,7 +808,7 @@ export function lazy(
   );
   pendingLazy.add(promise);
 
-  return (params) => {
+  return ((params: RouteParams) => {
     if (loadError) throw loadError as Error;
     if (!resolved) {
       throw new Error(
@@ -767,8 +816,8 @@ export function lazy(
           'Await createSPA() / hydrateSPA() to ensure all chunks load first.'
       );
     }
-    return resolved(params);
-  };
+    return (resolved as RouteComponent<RouteParams>)(params);
+  }) as TComponent;
 }
 
 /**
@@ -791,14 +840,31 @@ export function group(options: GroupHelperOptions, fn: RouteDefinition): void {
   pushGroupScope(options, fn);
 }
 
-export function page(
-  path: string,
-  Component: RouteComponent,
+export function page<const TPath extends string>(
+  path: TPath,
+  Component: RouteComponent<RoutePathParams<TPath>>,
   fn: RouteDefinition
 ): void;
-export function page(
-  path: string,
-  Component: RouteComponent,
+export function page<
+  const TPath extends string,
+  TComponent extends AnyRouteComponent,
+>(
+  path: TPath,
+  Component: CompatibleRouteComponent<TPath, TComponent>,
+  fn: RouteDefinition
+): void;
+export function page<const TPath extends string>(
+  path: TPath,
+  Component: RouteComponent<RoutePathParams<TPath>>,
+  options: PageHelperOptions,
+  fn: RouteDefinition
+): void;
+export function page<
+  const TPath extends string,
+  TComponent extends AnyRouteComponent,
+>(
+  path: TPath,
+  Component: CompatibleRouteComponent<TPath, TComponent>,
   options: PageHelperOptions,
   fn: RouteDefinition
 ): void;
@@ -1228,7 +1294,9 @@ export function registerRoutes(
 // route() — dual-purpose: registration (module load) + accessor (render time)
 // ---------------------------------------------------------------------------
 
-function readCurrentRouteSnapshot(): RouteSnapshot {
+function readCurrentRouteSnapshot<
+  TParams extends RouteParams = RouteParams,
+>(): RouteSnapshot<TParams> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -1275,10 +1343,12 @@ function readCurrentRouteSnapshot(): RouteSnapshot {
     query,
     hash: hash || null,
     matches: Object.freeze(matches),
-  });
+  }) as RouteSnapshot<TParams>;
 }
 
-export function currentRoute(): RouteSnapshot {
+export function currentRoute<
+  TParams extends RouteParams = RouteParams,
+>(): RouteSnapshot<TParams> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -1288,11 +1358,11 @@ export function currentRoute(): RouteSnapshot {
   }
 
   if (typeof window === 'undefined' || instance.ssr) {
-    return readCurrentRouteSnapshot();
+    return readCurrentRouteSnapshot<TParams>();
   }
 
   recordReadableRead(currentRouteSource);
-  return readCurrentRouteSnapshot();
+  return readCurrentRouteSnapshot<TParams>();
 }
 
 export function syncCurrentRouteSnapshot(
@@ -1315,10 +1385,18 @@ export function syncCurrentRouteSnapshot(
  * });
  * ```
  */
-export function route(
-  path: string,
-  Component: RouteComponent,
-  options?: RouteOptions
+export function route<const TPath extends string>(
+  path: TPath,
+  Component: RouteComponent<RoutePathParams<TPath>>,
+  options?: RouteOptions<RoutePathParams<TPath>>
+): void;
+export function route<
+  const TPath extends string,
+  TComponent extends AnyRouteComponent,
+>(
+  path: TPath,
+  Component: CompatibleRouteComponent<TPath, TComponent>,
+  options?: RouteOptionsForComponent<TPath, TComponent>
 ): void;
 export function route(
   path: string,
