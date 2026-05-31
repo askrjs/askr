@@ -4,6 +4,8 @@
 
 export type SSRData = Record<string, unknown>;
 
+export const SSR_RENDER_DATA_ATTR = 'data-askr-render-data';
+
 /** Full context for sink-based streaming SSR */
 export type SSRContext = {
   url: string;

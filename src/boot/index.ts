@@ -38,6 +38,11 @@ import { globalScheduler } from '../runtime/scheduler';
 import { assertExecutionModel } from '../runtime/execution-model';
 import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
 import { isPromiseLike } from '../common/promise';
+import { SSR_RENDER_DATA_ATTR, type SSRData } from '../common/ssr';
+import {
+  startHydrationRenderPhase,
+  stopHydrationRenderPhase,
+} from '../ssr/render-keys';
 
 const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
@@ -60,6 +65,32 @@ type RootCleanupOptions = {
 interface ElementWithCleanup extends Element {
   [CLEANUP_SYMBOL]?: (options?: RootCleanupOptions) => void;
   [ROOT_CLEANUP_CALLBACKS_SYMBOL]?: Set<() => void>;
+}
+
+function takeHydrationRenderData(rootElement: Element): SSRData | null {
+  for (const child of Array.from(rootElement.children)) {
+    if (
+      child instanceof HTMLScriptElement &&
+      child.getAttribute(SSR_RENDER_DATA_ATTR) === 'true'
+    ) {
+      const raw = child.textContent ?? '';
+      child.remove();
+      if (!raw) {
+        return {};
+      }
+
+      try {
+        return JSON.parse(raw) as SSRData;
+      } catch (err) {
+        throw new Error(
+          '[Askr] Failed to parse embedded SSR render data during hydration.',
+          { cause: err }
+        );
+      }
+    }
+  }
+
+  return null;
 }
 
 function clearRootCleanupCallbacks(rootElement: Element): void {
@@ -873,6 +904,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       ? document.getElementById(config.root)
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
+  const hydrationRenderData = takeHydrationRenderData(rootElement);
 
   const pendingLazyAtHydrationBoot = _snapshotLazy();
 
@@ -933,6 +965,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         url: currentUrl,
         routes: legacyRouteTable,
         resolved: hydrationResolved,
+        options: {
+          data: hydrationRenderData ?? undefined,
+        },
       })
     ) {
       throw new Error(
@@ -944,13 +979,22 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   const hydrateOptions = config.hydrate;
   if (hydrateOptions) {
     if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
-      await applySelectiveHydration(
-        rootElement,
-        hydrationResolved,
-        path,
-        config.cleanupStrict,
-        hydrateOptions
-      );
+      if (hydrationRenderData) {
+        startHydrationRenderPhase(hydrationRenderData);
+      }
+      try {
+        await applySelectiveHydration(
+          rootElement,
+          hydrationResolved,
+          path,
+          config.cleanupStrict,
+          hydrateOptions
+        );
+      } finally {
+        if (hydrationRenderData) {
+          stopHydrationRenderPhase();
+        }
+      }
       return;
     }
 
@@ -959,15 +1003,24 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
 
-  mountOrUpdate(
-    rootElement,
-    resolved.kind === 'deny'
-      ? bindDeniedStatus(resolved.status)
-      : bindResolvedRouteHandler(hydrationResolved),
-    {
-      cleanupStrict: config.cleanupStrict,
+  if (hydrationRenderData) {
+    startHydrationRenderPhase(hydrationRenderData);
+  }
+  try {
+    mountOrUpdate(
+      rootElement,
+      resolved.kind === 'deny'
+        ? bindDeniedStatus(resolved.status)
+        : bindResolvedRouteHandler(hydrationResolved),
+      {
+        cleanupStrict: config.cleanupStrict,
+      }
+    );
+  } finally {
+    if (hydrationRenderData) {
+      stopHydrationRenderPhase();
     }
-  );
+  }
   await registerAppNavigation(rootElement, path, {
     manifest: config.manifest,
     routes: config.routes,

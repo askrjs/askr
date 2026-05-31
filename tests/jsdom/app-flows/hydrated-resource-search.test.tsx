@@ -1,6 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { cleanupApp, hydrateSPA } from '../../../src/boot';
-import { For } from '../../../src/control';
+import { For, Show } from '../../../src/control';
 import { resource } from '../../../src/runtime/operations';
 import { state } from '../../../src/runtime/state';
 import { renderToString } from '../../../src/ssr';
@@ -116,6 +123,204 @@ describe('hydrated resource search app flow', () => {
     await settleAsyncWork();
 
     expect(container.querySelectorAll('li')).toHaveLength(1);
+    expect(container.textContent).toContain('Grace Hopper');
+    expect(container.textContent).not.toContain('Ada Lovelace');
+  });
+
+  it('should recover from a failed hydrated search without duplicating retry work', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const requests = new Map<
+      string,
+      Array<ReturnType<typeof createControlledDeferred<SearchResult[]>>>
+    >();
+    const starts: string[] = [];
+
+    function SearchPage() {
+      const query = state('');
+      const results = resource<SearchResult[]>(() => {
+        const currentQuery = query();
+        if (!currentQuery) {
+          return [];
+        }
+
+        starts.push(currentQuery);
+        const request = createControlledDeferred<SearchResult[]>();
+        const requestsForQuery = requests.get(currentQuery) ?? [];
+        requestsForQuery.push(request);
+        requests.set(currentQuery, requestsForQuery);
+        return request.promise;
+      }, [query()]);
+
+      return (
+        <main aria-label="Customer search">
+          <label>
+            Search customers
+            <input
+              aria-label="Search customers"
+              value={query()}
+              onInput={(event: Event) =>
+                query.set((event.target as HTMLInputElement).value)
+              }
+            />
+          </label>
+          <Show
+            when={() => !!results.error}
+            fallback={
+              <Show
+                when={() => results.pending}
+                fallback={
+                  <ul>
+                    <For each={results.value ?? []} by={(result) => result.id}>
+                      {(result) => <li>{result.name}</li>}
+                    </For>
+                  </ul>
+                }
+              >
+                <p role="status">Searching...</p>
+              </Show>
+            }
+          >
+            <div role="alert">
+              <span>{results.error?.message}</span>
+              <button type="button" onClick={() => results.refresh()}>
+                Retry
+              </button>
+            </div>
+          </Show>
+        </main>
+      );
+    }
+
+    try {
+      const routes = [{ path: '/', handler: SearchPage }];
+      container.innerHTML = renderToString({
+        url: '/',
+        routes,
+        data: { 'r:0': [] },
+      });
+
+      const serverInput = container.querySelector(
+        '[aria-label="Search customers"]'
+      ) as HTMLInputElement;
+
+      await hydrateSPA({ root: container, routes });
+
+      serverInput.value = 'ada';
+      serverInput.dispatchEvent(new Event('input', { bubbles: true }));
+      flushScheduler();
+
+      expect(starts).toEqual(['ada']);
+
+      requests.get('ada')![0]!.reject(new Error('Customer lookup failed'));
+      await settleAsyncWork();
+
+      const staleRetry = container.querySelector(
+        '[role="alert"] button'
+      ) as HTMLButtonElement;
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+        'Customer lookup failed'
+      );
+
+      staleRetry.click();
+      flushScheduler();
+
+      expect(starts).toEqual(['ada', 'ada']);
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+
+      staleRetry.click();
+      flushScheduler();
+
+      expect(starts).toEqual(['ada', 'ada']);
+
+      requests
+        .get('ada')![1]!
+        .resolve([{ id: 'customer-2', name: 'Grace Hopper' }]);
+      await settleAsyncWork();
+
+      expect(container.querySelectorAll('li')).toHaveLength(1);
+      expect(container.textContent).toContain('Grace Hopper');
+      expect(container.textContent).not.toContain('Customer lookup failed');
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('should reuse preloaded SSR resource data during hydration before starting new searches', async () => {
+    const requests = new Map<
+      string,
+      ReturnType<typeof createControlledDeferred<SearchResult[]>>
+    >();
+    const starts: string[] = [];
+
+    function SearchPage() {
+      const query = state('ada');
+      const results = resource<SearchResult[]>(() => {
+        const currentQuery = query();
+        starts.push(currentQuery);
+        const request = createControlledDeferred<SearchResult[]>();
+        requests.set(currentQuery, request);
+        return request.promise;
+      }, [query()]);
+
+      return (
+        <main aria-label="Customer search">
+          <label>
+            Search customers
+            <input
+              aria-label="Search customers"
+              value={query()}
+              onInput={(event: Event) =>
+                query.set((event.target as HTMLInputElement).value)
+              }
+            />
+          </label>
+          <p role="status">{results.pending ? 'Searching...' : 'Ready'}</p>
+          <ul>
+            <For each={results.value ?? []} by={(result) => result.id}>
+              {(result) => <li>{result.name}</li>}
+            </For>
+          </ul>
+        </main>
+      );
+    }
+
+    const routes = [{ path: '/', handler: SearchPage }];
+    container.innerHTML = renderToString({
+      url: '/',
+      routes,
+      data: {
+        'r:0': [{ id: 'customer-1', name: 'Ada Lovelace' }],
+      },
+    });
+
+    expect(container.textContent).toContain('Ada Lovelace');
+
+    const serverInput = container.querySelector(
+      '[aria-label="Search customers"]'
+    ) as HTMLInputElement;
+
+    await hydrateSPA({ root: container, routes });
+
+    expect(container.querySelector('[aria-label="Search customers"]')).toBe(
+      serverInput
+    );
+    expect(starts).toEqual([]);
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Ready'
+    );
+    expect(container.textContent).toContain('Ada Lovelace');
+
+    serverInput.value = 'grace';
+    serverInput.dispatchEvent(new Event('input', { bubbles: true }));
+    flushScheduler();
+
+    expect(starts).toEqual(['grace']);
+
+    requests
+      .get('grace')!
+      .resolve([{ id: 'customer-2', name: 'Grace Hopper' }]);
+    await settleAsyncWork();
+
     expect(container.textContent).toContain('Grace Hopper');
     expect(container.textContent).not.toContain('Ada Lovelace');
   });

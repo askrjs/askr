@@ -12,6 +12,7 @@
 
 import type { JSXElement } from '../common/jsx';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
+import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
 import { isPromiseLike } from '../common/promise';
 import type {
   RouteAuthOptions,
@@ -179,6 +180,19 @@ function renderChildSyncToSink(
   if (child && typeof child === 'object' && 'type' in child) {
     renderNodeSyncToSink(child as VNode, sink, ctx);
   }
+}
+
+function serializeHydrationRenderData(data: SSRData | undefined): string {
+  if (!data || Object.keys(data).length === 0) {
+    return '';
+  }
+
+  return `<script type="application/json" ${SSR_RENDER_DATA_ATTR}="true">${JSON.stringify(
+    data
+  )
+    .replace(/</g, '\\u003C')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')}</script>`;
 }
 
 function renderChildrenSync(
@@ -1228,6 +1242,7 @@ export function renderToStringSync(
       }
       const sink = new StringSink();
       renderNodeSyncToSink(node, sink, ctx);
+      sink.write(serializeHydrationRenderData(options?.data));
       sink.end();
       return sink.toString();
     } finally {
@@ -1266,6 +1281,7 @@ export function renderResolvedToStringSync(opts: {
       );
       const sink = new StringSink();
       renderNodeSyncToSink(node, sink, ctx);
+      sink.write(serializeHydrationRenderData(options?.data));
       sink.end();
       return sink.toString();
     } finally {
@@ -1406,6 +1422,7 @@ function renderToSinkInternal(opts: {
         ctx
       );
       renderNodeSyncToSink(node, sink, ctx);
+      sink.write(serializeHydrationRenderData(data));
     } finally {
       try {
         stopRenderPhase();

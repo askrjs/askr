@@ -1,5 +1,7 @@
-import { expectAssignable, expectType } from 'tsd';
+import { expectAssignable, expectError, expectType } from 'tsd';
 import {
+  For,
+  Show,
   derive,
   defineContext,
   getSignal,
@@ -7,6 +9,8 @@ import {
   selector,
   state,
   type Derived,
+  type ForProps,
+  type ShowProps,
   type State,
   type StateSetter,
   type StateTuple,
@@ -150,6 +154,51 @@ expectType<number>(countValue());
 const selectedId = state<number | null>(null);
 const isSelected = selector(selectedId);
 expectType<boolean>(isSelected(42));
+
+const keyedForProps: ForProps<number> = {
+  each: [1, 2, 3],
+  by: (item) => item,
+  children: (item: number, index: () => number) => {
+    expectType<number>(item);
+    expectType<number>(index());
+    return null as never;
+  },
+};
+expectAssignable<ForProps<number>>(keyedForProps);
+For(keyedForProps);
+
+expectError(
+  For<number>({
+    each: [1, 2, 3],
+    by: (item: number) => item,
+    byIndex: true,
+    children: () => null as never,
+  })
+);
+
+expectError(
+  For<number>({
+    each: [1, 2, 3],
+    children: () => null as never,
+  })
+);
+
+const showProps: ShowProps<string | null> = {
+  when: 'ready' as string | null,
+  children: (value: string) => {
+    expectType<string>(value);
+    return null as never;
+  },
+};
+expectAssignable<ShowProps<string | null>>(showProps);
+Show(showProps);
+
+expectError(
+  Show<string | null>({
+    when: 'ready' as string | null,
+    children: (value: number) => value as never,
+  })
+);
 
 const ThemeContext = defineContext('light');
 expectType<string>(readContext(ThemeContext));
