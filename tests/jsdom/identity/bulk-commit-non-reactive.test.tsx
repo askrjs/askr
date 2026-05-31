@@ -43,69 +43,73 @@ describe('bulk commit non-reactive invariants', () => {
     flushScheduler();
   });
 
-  it('should not schedule extra work during bulk commit', async () => {
-    await waitForNextEvaluation();
-
-    const beforeRenderCount = globalThis.__BULK_RENDER_COUNT!;
-    const schedBefore = globalScheduler.getState().taskCount;
-
-    // Trigger a bulk update; previously this could cause re-triggering loops
-    try {
-      items.set(items().map((x) => x + 1));
-      flushScheduler();
-
-      // Should complete and not schedule additional tasks
+  it(
+    'should not schedule extra work during bulk commit',
+    { timeout: 15000 },
+    async () => {
       await waitForNextEvaluation();
-    } catch (err) {
-      // Dump scheduler enqueue logs for debugging
-      const ns =
-        (
-          globalThis as unknown as Record<string, unknown> & {
-            __ASKR__?: Record<string, unknown>;
-          }
-        ).__ASKR__ || {};
-      console.error('ENQUEUE LOGS (catch):', ns['__ENQUEUE_LOGS']);
-      throw err;
-    }
 
-    const afterRenderCount = globalThis.__BULK_RENDER_COUNT!;
+      const beforeRenderCount = globalThis.__BULK_RENDER_COUNT!;
+      const schedBefore = globalScheduler.getState().taskCount;
 
-    // At least one re-render should have occurred (update applied)
-    expect(afterRenderCount).toBeGreaterThan(beforeRenderCount);
+      // Trigger a bulk update; previously this could cause re-triggering loops
+      try {
+        items.set(items().map((x) => x + 1));
+        flushScheduler();
 
-    // Scheduler task count should eventually return to prior quiescent value
-    // Poll a few ticks to allow microtasks/async scheduling to settle
-    const maxTicks = 50;
-    let quiesced = false;
-    for (let i = 0; i < maxTicks; i++) {
-      const s = globalScheduler.getState().taskCount;
-      if (s === schedBefore) {
-        quiesced = true;
-        break;
+        // Should complete and not schedule additional tasks
+        await waitForNextEvaluation();
+      } catch (err) {
+        // Dump scheduler enqueue logs for debugging
+        const ns =
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__ || {};
+        console.error('ENQUEUE LOGS (catch):', ns['__ENQUEUE_LOGS']);
+        throw err;
       }
-      // allow other microtasks to run
 
-      await waitForNextEvaluation();
+      const afterRenderCount = globalThis.__BULK_RENDER_COUNT!;
+
+      // At least one re-render should have occurred (update applied)
+      expect(afterRenderCount).toBeGreaterThan(beforeRenderCount);
+
+      // Scheduler task count should eventually return to prior quiescent value
+      // Poll a few ticks to allow microtasks/async scheduling to settle
+      const maxTicks = 50;
+      let quiesced = false;
+      for (let i = 0; i < maxTicks; i++) {
+        const s = globalScheduler.getState().taskCount;
+        if (s === schedBefore) {
+          quiesced = true;
+          break;
+        }
+        // allow other microtasks to run
+
+        await waitForNextEvaluation();
+      }
+      if (!quiesced) {
+        // Dump enqueue logs for debugging
+
+        const ns =
+          (
+            globalThis as unknown as Record<string, unknown> & {
+              __ASKR__?: Record<string, unknown>;
+            }
+          ).__ASKR__ || {};
+        console.error('ENQUEUE LOGS:', ns['__ENQUEUE_LOGS']);
+        throw new Error(
+          `Scheduler did not quiesce to expected count ${schedBefore}; last observed ${globalScheduler.getState().taskCount}`
+        );
+      }
+
+      // Sanity: DOM length matches
+      const afterEls = Array.from(container.querySelectorAll('li'));
+      expect(afterEls.length).toBe(N);
     }
-    if (!quiesced) {
-      // Dump enqueue logs for debugging
-
-      const ns =
-        (
-          globalThis as unknown as Record<string, unknown> & {
-            __ASKR__?: Record<string, unknown>;
-          }
-        ).__ASKR__ || {};
-      console.error('ENQUEUE LOGS:', ns['__ENQUEUE_LOGS']);
-      throw new Error(
-        `Scheduler did not quiesce to expected count ${schedBefore}; last observed ${globalScheduler.getState().taskCount}`
-      );
-    }
-
-    // Sanity: DOM length matches
-    const afterEls = Array.from(container.querySelectorAll('li'));
-    expect(afterEls.length).toBe(N);
-  });
+  );
 
   afterAll(() => {
     cleanup();

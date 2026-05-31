@@ -27,6 +27,11 @@ import {
   recordReadableRead,
   type ReadableSource,
 } from '../../runtime/readable';
+import {
+  getCurrentComponentInstance,
+  getCurrentPortalScope,
+  type ComponentInstance,
+} from '../../runtime/component';
 
 export interface Portal<T = unknown> {
   /** Mount point — rendered exactly once */
@@ -115,40 +120,199 @@ export function definePortal<T = unknown>(): Portal<T> {
   return PortalHostFallback as Portal<T>;
 }
 
-/**
- * Default Portal Singleton
- *
- * POLICY (LOCKED):
- * There is exactly one default portal per runtime.
- * Tests must reset it explicitly using _resetDefaultPortal().
- * This ensures consistent portal behavior across the application
- * while maintaining test isolation.
- */
-let _defaultPortal: Portal<unknown> | undefined;
+type DefaultPortalState = {
+  portal: Portal<unknown>;
+  owner: ComponentInstance | null;
+  cleanupOwners: WeakSet<ComponentInstance>;
+};
+
+let _defaultPortalStates = new Map<object, DefaultPortalState>();
+let _hasPendingDefaultPortalValue = false;
+let _pendingDefaultPortalValue: unknown = undefined;
 
 export function _resetDefaultPortal(): void {
-  _defaultPortal = undefined;
+  _defaultPortalStates = new Map<object, DefaultPortalState>();
+  _hasPendingDefaultPortalValue = false;
+  _pendingDefaultPortalValue = undefined;
 }
 
-function ensureDefaultPortal(): Portal<unknown> {
-  if (!_defaultPortal) _defaultPortal = definePortal<unknown>();
-  return _defaultPortal;
+export function disposeDefaultPortalScope(scope: object | null): void {
+  if (!scope) {
+    return;
+  }
+
+  const state = _defaultPortalStates.get(scope);
+  if (state) {
+    state.portal.render({ children: undefined });
+  }
+
+  _defaultPortalStates.delete(scope);
+}
+
+function isComponentPortalScope(scope: object): scope is ComponentInstance {
+  return Array.isArray((scope as ComponentInstance).cleanupFns);
+}
+
+function isStaleDefaultPortalScope(scope: object): boolean {
+  if (!isComponentPortalScope(scope)) {
+    return false;
+  }
+
+  if (scope.target && scope.target.isConnected === false) {
+    return true;
+  }
+
+  return scope.mounted === false;
+}
+
+function pruneStaleDefaultPortalScopes(): void {
+  if (_defaultPortalStates.size === 0) {
+    return;
+  }
+
+  for (const scope of Array.from(_defaultPortalStates.keys())) {
+    if (isStaleDefaultPortalScope(scope)) {
+      disposeDefaultPortalScope(scope);
+    }
+  }
+}
+
+function getSingleDefaultPortalScope(): object | null {
+  pruneStaleDefaultPortalScopes();
+
+  if (_defaultPortalStates.size !== 1) {
+    return null;
+  }
+
+  return _defaultPortalStates.keys().next().value ?? null;
+}
+
+function getDefaultPortalState(scope: object): DefaultPortalState {
+  let state = _defaultPortalStates.get(scope);
+  if (!state) {
+    state = {
+      portal: definePortal<unknown>(),
+      owner: null,
+      cleanupOwners: new WeakSet<ComponentInstance>(),
+    };
+    _defaultPortalStates.set(scope, state);
+  }
+  return state;
+}
+
+function resolveDefaultPortalScope(
+  owner: ComponentInstance | null
+): object | null {
+  return (
+    owner?.portalScope ??
+    getCurrentPortalScope() ??
+    getSingleDefaultPortalScope()
+  );
+}
+
+function writeDefaultPortal(
+  props: PortalProps,
+  owner: ComponentInstance | null
+): void {
+  const scope = resolveDefaultPortalScope(owner);
+  if (!scope) {
+    if (_defaultPortalStates.size !== 0) {
+      return;
+    }
+
+    _hasPendingDefaultPortalValue = true;
+    _pendingDefaultPortalValue = props.children;
+    return;
+  }
+
+  const state = getDefaultPortalState(scope);
+  _hasPendingDefaultPortalValue = false;
+  _pendingDefaultPortalValue = undefined;
+  state.portal.render(props);
+  state.owner = owner;
+}
+
+function applyPendingDefaultPortalValue(scope: object): void {
+  if (!_hasPendingDefaultPortalValue) {
+    return;
+  }
+
+  const state = getDefaultPortalState(scope);
+  state.portal.render({ children: _pendingDefaultPortalValue });
+  state.owner = null;
+  _hasPendingDefaultPortalValue = false;
+  _pendingDefaultPortalValue = undefined;
+}
+
+function registerDefaultPortalOwner(owner: ComponentInstance): void {
+  const scope = resolveDefaultPortalScope(owner);
+  if (!scope) {
+    return;
+  }
+
+  const state = getDefaultPortalState(scope);
+  if (state.cleanupOwners.has(owner)) {
+    return;
+  }
+
+  state.cleanupOwners.add(owner);
+  owner.cleanupFns.push(() => {
+    const currentState = _defaultPortalStates.get(scope);
+    if (!currentState) {
+      return;
+    }
+
+    if (currentState.owner === owner) {
+      currentState.portal.render({ children: undefined });
+      currentState.owner = null;
+    }
+    currentState.cleanupOwners.delete(owner);
+  });
+}
+
+export function clearDefaultPortalForInstance(
+  instance: ComponentInstance
+): void {
+  const scope = instance.portalScope;
+  if (!scope) {
+    return;
+  }
+
+  const state = _defaultPortalStates.get(scope);
+  if (!state) {
+    return;
+  }
+
+  _hasPendingDefaultPortalValue = false;
+  _pendingDefaultPortalValue = undefined;
+  state.portal.render({ children: undefined });
+  state.owner = null;
 }
 
 export const DefaultPortal: Portal<unknown> = (() => {
   function Host() {
-    const v = ensureDefaultPortal()();
+    const scope = resolveDefaultPortalScope(getCurrentComponentInstance());
+    if (!scope) {
+      return null;
+    }
+
+    applyPendingDefaultPortalValue(scope);
+    const v = getDefaultPortalState(scope).portal();
     return v === undefined ? null : v;
   }
   Host.render = function Render(props: { children?: unknown }) {
-    ensureDefaultPortal().render(props);
+    writeDefaultPortal(props, getCurrentComponentInstance());
     return null;
   };
   return Host as Portal<unknown>;
 })();
 
 export function Portal(props: PortalProps): null {
-  DefaultPortal.render(props);
+  const owner = getCurrentComponentInstance();
+  if (owner) {
+    registerDefaultPortalOwner(owner);
+  }
+  writeDefaultPortal(props, owner);
   return null;
 }
 

@@ -1,6 +1,7 @@
 import { logger } from '../dev/logger';
 import { STATIC_CHILDREN } from '../common/jsx';
 import { isPromiseLike } from '../common/promise';
+import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
 import { Fragment } from '../jsx/jsx-runtime';
@@ -105,6 +106,7 @@ export {
 
 type ElementWithContext = DOMElement & {
   [CONTEXT_FRAME_SYMBOL]?: ContextFrame;
+  [ROUTE_ROOT_COMPONENT]?: boolean;
   __instance?: ComponentInstance;
 };
 
@@ -142,6 +144,22 @@ type ReactiveChildBoundarySequenceEntry =
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
+
+function isRouteRootComponentVNode(node: unknown): boolean {
+  return (
+    typeof node === 'object' &&
+    node !== null &&
+    (node as { [ROUTE_ROOT_COMPONENT]?: boolean })[ROUTE_ROOT_COMPONENT] ===
+      true
+  );
+}
+
+function inheritComponentCleanupStrict(instance: ComponentInstance): void {
+  const owner = getCurrentInstance();
+  if (owner) {
+    instance.cleanupStrict = owner.cleanupStrict;
+  }
+}
 
 type ControlBoundaryCommitOwnerState = ControlBoundaryState & {
   _commitOwner?: Element | null;
@@ -2404,7 +2422,8 @@ function materializeComponentResultNode(
 
 function resolveNestedComponentResult(
   result: unknown,
-  snapshot: ContextFrame | null
+  snapshot: ContextFrame | null,
+  parentInstance: ComponentInstance | null
 ): VNode {
   let currentResult = result as VNode;
   let activeSnapshot = snapshot;
@@ -2423,6 +2442,10 @@ function resolveNestedComponentResult(
       ((currentResult as DOMElement).props ?? {}) as Props,
       null
     );
+    nestedInstance.isRoot = isRouteRootComponentVNode(currentResult);
+    nestedInstance.portalScope =
+      parentInstance?.portalScope ?? nestedInstance.portalScope;
+    inheritComponentCleanupStrict(nestedInstance);
 
     if (nestedSnapshot) {
       nestedInstance.ownerFrame = nestedSnapshot;
@@ -2442,6 +2465,91 @@ function resolveNestedComponentResult(
     activeSnapshot = nestedSnapshot ?? null;
     currentResult = nextResult as VNode;
     depth += 1;
+  }
+
+  return currentResult;
+}
+
+function resolveHostNestedComponentResult(
+  host: InstanceHostElement,
+  retainedInstance: ComponentInstance,
+  result: unknown,
+  snapshot: ContextFrame | null
+): VNode {
+  let currentResult = result as VNode;
+  let activeSnapshot = snapshot;
+  let depth = 0;
+  const retainedInstances = new Set<ComponentInstance>([retainedInstance]);
+  const createdInstances: ComponentInstance[] = [];
+
+  while (
+    _isDOMElement(currentResult) &&
+    typeof currentResult.type === 'function' &&
+    depth < 16
+  ) {
+    const nestedSnapshot =
+      getVNodeContextFrame(currentResult) ?? activeSnapshot;
+    let nestedInstance = findHostInstanceByType(
+      host,
+      currentResult.type as ComponentFunction
+    );
+
+    if (!nestedInstance) {
+      nestedInstance = createComponentInstance(
+        nextComponentInstanceId(),
+        currentResult.type as ComponentFunction,
+        ((currentResult as DOMElement).props ?? {}) as Props,
+        null
+      );
+      createdInstances.push(nestedInstance);
+    }
+
+    setVNodeComponentInstance(currentResult, nestedInstance);
+    nestedInstance.isRoot = isRouteRootComponentVNode(currentResult);
+    nestedInstance.portalScope =
+      retainedInstance.portalScope ?? nestedInstance.portalScope;
+    inheritComponentCleanupStrict(nestedInstance);
+    nestedInstance.props =
+      (((currentResult as DOMElement).props ?? {}) as Props) || {};
+
+    if (nestedSnapshot) {
+      nestedInstance.ownerFrame = nestedSnapshot;
+    }
+
+    const nextResult = withContext(nestedSnapshot ?? null, () =>
+      renderComponentInline(nestedInstance)
+    );
+
+    if (isPromiseLike(nextResult)) {
+      throw new Error(
+        'Async components are not supported. Components must return synchronously.'
+      );
+    }
+
+    retainedInstances.add(nestedInstance);
+    warnUnusedStateReads(nestedInstance);
+    activeSnapshot = nestedSnapshot ?? null;
+    currentResult = markVNodeTreeWithContextFrame(
+      nextResult,
+      activeSnapshot
+    ) as VNode;
+    depth += 1;
+  }
+
+  const previousInstances = host.__ASKR_INSTANCES ?? [];
+  for (const instance of previousInstances) {
+    if (!retainedInstances.has(instance)) {
+      cleanupComponent(instance);
+    }
+  }
+
+  host.__ASKR_INSTANCES = previousInstances.filter((instance) =>
+    retainedInstances.has(instance)
+  );
+  host.__ASKR_INSTANCE = host.__ASKR_INSTANCES[0] ?? retainedInstance;
+
+  for (const instance of createdInstances) {
+    mountInstanceInline(instance, host);
   }
 
   return currentResult;
@@ -2474,6 +2582,10 @@ function resolveWrapperHostResult(
 
     nestedInstance.props =
       (((currentResult as DOMElement).props ?? {}) as Props) || {};
+    nestedInstance.isRoot = isRouteRootComponentVNode(currentResult);
+    nestedInstance.portalScope =
+      getCurrentInstance()?.portalScope ?? nestedInstance.portalScope;
+    inheritComponentCleanupStrict(nestedInstance);
 
     if (nestedSnapshot) {
       nestedInstance.ownerFrame = nestedSnapshot;
@@ -2550,6 +2662,10 @@ export function syncComponentElement(
       props || {},
       existingHost
     );
+    hydrationInstance.isRoot = isRouteRootComponentVNode(node);
+    hydrationInstance.portalScope =
+      getCurrentInstance()?.portalScope ?? hydrationInstance.portalScope;
+    inheritComponentCleanupStrict(hydrationInstance);
 
     setVNodeComponentInstance(node, hydrationInstance);
 
@@ -2596,7 +2712,9 @@ export function syncComponentElement(
       return existingHost;
     }
 
-    const resolvedResult = resolveNestedComponentResult(
+    const resolvedResult = resolveHostNestedComponentResult(
+      existingHost,
+      hydrationInstance,
       scopedResult,
       snapshot ?? null
     );
@@ -2645,6 +2763,10 @@ export function syncComponentElement(
     existingInstance.ownerFrame ||
     null;
   existingInstance.props = props || {};
+  existingInstance.isRoot = isRouteRootComponentVNode(node);
+  existingInstance.portalScope =
+    getCurrentInstance()?.portalScope ?? existingInstance.portalScope;
+  inheritComponentCleanupStrict(existingInstance);
 
   if (snapshot) {
     existingInstance.ownerFrame = snapshot;
@@ -2697,7 +2819,9 @@ export function syncComponentElement(
     return existingHost;
   }
 
-  const resolvedResult = resolveNestedComponentResult(
+  const resolvedResult = resolveHostNestedComponentResult(
+    existingHost,
+    existingInstance,
     scopedResult,
     snapshot ?? null
   );
@@ -2781,7 +2905,11 @@ function createComponentElement(
     setVNodeComponentInstance(node, childInstance);
   }
 
+  childInstance.portalScope =
+    getCurrentInstance()?.portalScope ?? childInstance.portalScope;
   childInstance.props = props || {};
+  childInstance.isRoot = isRouteRootComponentVNode(node);
+  inheritComponentCleanupStrict(childInstance);
 
   if (snapshot) {
     childInstance.ownerFrame = snapshot;
@@ -3381,6 +3509,10 @@ function resolveStableIntrinsicPatchVNode(
 
   existingInstance.props =
     (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {};
+  existingInstance.isRoot = isRouteRootComponentVNode(vnode);
+  existingInstance.portalScope =
+    getCurrentInstance()?.portalScope ?? existingInstance.portalScope;
+  inheritComponentCleanupStrict(existingInstance);
 
   if (snapshot) {
     existingInstance.ownerFrame = snapshot;
@@ -3395,7 +3527,11 @@ function resolveStableIntrinsicPatchVNode(
     );
   }
 
-  const resolvedResult = resolveNestedComponentResult(result, snapshot ?? null);
+  const resolvedResult = resolveNestedComponentResult(
+    result,
+    snapshot ?? null,
+    existingInstance
+  );
   if (
     _isDOMElement(resolvedResult) &&
     typeof resolvedResult.type === 'string' &&
@@ -4234,13 +4370,53 @@ export function updateUnkeyedChildren(
 
   const trySyncControlBoundaryChild = (
     parent: Element,
+    currentNode: Node | null,
     next: DOMElement
   ): boolean => {
     if (next.type !== __FOR_BOUNDARY__) {
       return false;
     }
 
-    updateElementChildren(parent, next);
+    const controlState = getControlBoundaryState(next);
+    if (!controlState || controlState.kind === 'for') {
+      return false;
+    }
+
+    const childrenVNodes = evaluateControlBoundaryState(controlState);
+    const activeScope = controlState.activeScope;
+    const activeVNode = childrenVNodes[0];
+    const nextDom =
+      activeScope && activeVNode !== undefined
+        ? syncForItemDom(parent, activeScope, activeVNode)
+        : null;
+
+    for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
+      const removedNode = controlState.lastRemovedNodes[i];
+      if (removedNode.parentNode !== parent) {
+        continue;
+      }
+
+      teardownNodeSubtree(removedNode);
+      if (nextDom && nextDom !== removedNode && !nextDom.parentNode) {
+        parent.replaceChild(nextDom, removedNode);
+      } else {
+        parent.removeChild(removedNode);
+      }
+    }
+
+    if (nextDom && !nextDom.parentNode) {
+      if (currentNode?.parentNode === parent) {
+        teardownNodeSubtree(currentNode);
+        parent.replaceChild(nextDom, currentNode);
+      } else {
+        parent.appendChild(nextDom);
+      }
+    } else if (!nextDom && currentNode?.parentNode === parent) {
+      teardownNodeSubtree(currentNode);
+      parent.removeChild(currentNode);
+    }
+
+    clearControlBoundaryDomUpdateState(controlState);
     return true;
   };
 
@@ -4284,7 +4460,7 @@ export function updateUnkeyedChildren(
           }
         }
       } else if (_isDOMElement(next)) {
-        if (trySyncControlBoundaryChild(parent, next)) {
+        if (trySyncControlBoundaryChild(parent, current, next)) {
           continue;
         }
 
@@ -4373,7 +4549,7 @@ export function updateUnkeyedChildren(
               }
             }
           } else {
-            if (trySyncControlBoundaryChild(parent, next)) {
+            if (trySyncControlBoundaryChild(parent, currentNode, next)) {
               continue;
             }
 

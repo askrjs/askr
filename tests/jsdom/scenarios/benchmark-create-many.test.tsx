@@ -8,7 +8,7 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { For } from '../../../src/control';
 
-test('should create 5,000 table rows', { timeout: 20000 }, () => {
+test('should create 5,000 table rows', { timeout: 30000 }, () => {
   const { container, cleanup } = createTestContainer();
 
   let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;

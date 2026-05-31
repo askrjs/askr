@@ -111,6 +111,7 @@ export function createChildScope(
 
   if (parent) {
     componentInstance.ownerFrame = parent.ownerFrame;
+    componentInstance.portalScope = parent.portalScope;
   }
 
   scope.key = key;

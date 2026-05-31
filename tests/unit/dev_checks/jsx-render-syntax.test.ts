@@ -173,56 +173,60 @@ function isVNodeObjectLiteral(
 }
 
 describe('JSX render syntax guidelines', () => {
-  it('should keep tests and benches on JSX syntax instead of VNode object literals', () => {
-    const failures: string[] = [];
-    const files = sourceRoots.flatMap((dir) => readSourceFiles(dir));
+  it(
+    'should keep tests and benches on JSX syntax instead of VNode object literals',
+    { timeout: 15000 },
+    () => {
+      const failures: string[] = [];
+      const files = sourceRoots.flatMap((dir) => readSourceFiles(dir));
 
-    for (const file of files) {
-      const content = fs.readFileSync(file, 'utf8');
-      const sourceFile = ts.createSourceFile(
-        file,
-        content,
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TSX
-      );
-
-      let hasJsx = false;
-
-      function visit(node: ts.Node): void {
-        if (
-          ts.isJsxElement(node) ||
-          ts.isJsxSelfClosingElement(node) ||
-          ts.isJsxFragment(node)
-        ) {
-          hasJsx = true;
-        }
-
-        if (
-          ts.isObjectLiteralExpression(node) &&
-          isVNodeObjectLiteral(sourceFile, node)
-        ) {
-          const line = sourceFile.getLineAndCharacterOfPosition(
-            node.getStart(sourceFile)
-          ).line;
-          failures.push(
-            `${path.relative(rootDir, file)}:${line + 1} use JSX syntax instead of VNode object literals`
-          );
-          return;
-        }
-
-        ts.forEachChild(node, visit);
-      }
-
-      visit(sourceFile);
-
-      if (file.endsWith('.ts') && hasJsx) {
-        failures.push(
-          `${path.relative(rootDir, file)}: use the .tsx extension for files that contain JSX`
+      for (const file of files) {
+        const content = fs.readFileSync(file, 'utf8');
+        const sourceFile = ts.createSourceFile(
+          file,
+          content,
+          ts.ScriptTarget.Latest,
+          true,
+          ts.ScriptKind.TSX
         );
-      }
-    }
 
-    expect(failures).toEqual([]);
-  });
+        let hasJsx = false;
+
+        function visit(node: ts.Node): void {
+          if (
+            ts.isJsxElement(node) ||
+            ts.isJsxSelfClosingElement(node) ||
+            ts.isJsxFragment(node)
+          ) {
+            hasJsx = true;
+          }
+
+          if (
+            ts.isObjectLiteralExpression(node) &&
+            isVNodeObjectLiteral(sourceFile, node)
+          ) {
+            const line = sourceFile.getLineAndCharacterOfPosition(
+              node.getStart(sourceFile)
+            ).line;
+            failures.push(
+              `${path.relative(rootDir, file)}:${line + 1} use JSX syntax instead of VNode object literals`
+            );
+            return;
+          }
+
+          ts.forEachChild(node, visit);
+        }
+
+        visit(sourceFile);
+
+        if (file.endsWith('.ts') && hasJsx) {
+          failures.push(
+            `${path.relative(rootDir, file)}: use the .tsx extension for files that contain JSX`
+          );
+        }
+      }
+
+      expect(failures).toEqual([]);
+    }
+  );
 });

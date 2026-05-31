@@ -23,6 +23,7 @@ import * as RouteModule from '../router/route';
 import type { Props } from '../common/props';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
 import { DefaultPortal } from '../foundations/structures/portal';
+import { disposeDefaultPortalScope } from '../foundations/structures/portal';
 import {
   createRenderContext,
   getRenderContext,
@@ -755,7 +756,32 @@ function executeComponentSync(
       null
     );
     temp.ssr = true;
-    ctx.ssrCleanupFns.push(() => cleanupComponent(temp));
+    temp.portalScope = temp;
+    ctx.ssrCleanupFns.push(() => {
+      let cleanupError: unknown = null;
+
+      try {
+        cleanupComponent(temp);
+      } catch (error) {
+        cleanupError = error;
+      }
+
+      try {
+        disposeDefaultPortalScope(temp);
+      } catch (error) {
+        if (cleanupError) {
+          throw new AggregateError(
+            [cleanupError, error],
+            'SSR temporary owner cleanup failed'
+          );
+        }
+        throw error;
+      }
+
+      if (cleanupError) {
+        throw cleanupError;
+      }
+    });
     setCurrentComponentInstance(temp);
     try {
       // Context already set via withRenderContext at render entry point
@@ -795,9 +821,25 @@ function executeComponentSync(
 function disposeSSRTemporaryOwners(ctx: RenderContext): void {
   const cleanupFns = ctx.ssrCleanupFns;
   ctx.ssrCleanupFns = [];
+  const cleanupErrors: unknown[] = [];
 
   for (let index = cleanupFns.length - 1; index >= 0; index -= 1) {
-    cleanupFns[index]();
+    try {
+      cleanupFns[index]();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+
+  if (cleanupErrors.length === 1) {
+    throw cleanupErrors[0];
+  }
+
+  if (cleanupErrors.length > 1) {
+    throw new AggregateError(
+      cleanupErrors,
+      'SSR temporary owner cleanup failed'
+    );
   }
 }
 

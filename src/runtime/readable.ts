@@ -9,6 +9,7 @@ export interface DerivedSubscriber {
 export interface ReadableSource<T = unknown> {
   (): T;
   _hasBeenRead?: boolean;
+  _hasEverBeenRead?: boolean;
   _readers?: Map<ComponentInstance, number>;
   _derivedSubscribers?: Set<DerivedSubscriber>;
 }
@@ -19,7 +20,9 @@ export function markReadableUsage(source: unknown): void {
     typeof source === 'function' &&
     ('_hasBeenRead' in source || '_readers' in source)
   ) {
-    (source as ReadableSource<unknown>)._hasBeenRead = true;
+    const readable = source as ReadableSource<unknown>;
+    readable._hasBeenRead = true;
+    readable._hasEverBeenRead = true;
   }
 }
 
@@ -32,6 +35,8 @@ let suppressComponentReadTrackingDepth = 0;
 let currentFineGrainedReadSources: Set<ReadableSource<unknown>> | null = null;
 
 export function recordReadableRead(source: ReadableSource<unknown>): void {
+  source._hasEverBeenRead = true;
+
   if (currentFineGrainedReadSources) {
     currentFineGrainedReadSources.add(source);
     return;
