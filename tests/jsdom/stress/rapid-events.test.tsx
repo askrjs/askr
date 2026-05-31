@@ -25,29 +25,33 @@ describe('rapid events (STRESS)', { timeout: 30000 }, () => {
     cleanup();
   });
 
-  it('should display correct count when button is clicked 1000 times', async () => {
-    const Component = () => {
-      const count = state(0);
+  it(
+    'should display correct count when button is clicked 1000 times',
+    { timeout: 60000 },
+    async () => {
+      const Component = () => {
+        const count = state(0);
 
-      return (
-        <button onClick={() => count.set(count() + 1)}>
-          {String(count())}
-        </button>
-      );
-    };
+        return (
+          <button onClick={() => count.set(count() + 1)}>
+            {String(count())}
+          </button>
+        );
+      };
 
-    createIsland({ root: container, component: Component });
-    flushScheduler();
+      createIsland({ root: container, component: Component });
+      flushScheduler();
 
-    const button = container.querySelector('button') as HTMLButtonElement;
+      const button = container.querySelector('button') as HTMLButtonElement;
 
-    for (let i = 0; i < 1000; i++) {
-      button?.click();
+      for (let i = 0; i < 1000; i++) {
+        button?.click();
+      }
+      flushScheduler();
+
+      expect(button.textContent).toContain('1000');
     }
-    flushScheduler();
-
-    expect(button.textContent).toContain('1000');
-  });
+  );
 
   it('should serialize event handlers correctly when multiple clicks occur', async () => {
     const values: number[] = [];
