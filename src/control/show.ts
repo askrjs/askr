@@ -9,11 +9,12 @@ import { state } from '../runtime/state';
 import { normalizeBoundaryChild, resolveMaybeAccessor } from './shared';
 
 type ShowSource<T> = T | (() => T);
+type ShowBoundaryChild = VNode | readonly VNode[];
 
 export type ShowProps<T> = {
   when: ShowSource<T>;
   fallback?: unknown;
-  children: unknown | ((value: NonNullable<T>) => VNode);
+  children: ShowBoundaryChild | ((value: NonNullable<T>) => ShowBoundaryChild);
 };
 
 function createTruthyRenderer<T>(

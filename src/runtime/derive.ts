@@ -30,6 +30,7 @@ interface DerivedCell<T> extends Derived<T>, DerivedSubscriber {
   _dirty: boolean;
   _scheduled: boolean;
   _evaluating: boolean;
+  _lastRecomputeFlushVersion: number;
   _sources: Set<ReadableSource<unknown>>;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
   _cleanup(): void;
@@ -134,6 +135,7 @@ function recomputeDerivedCell<T>(
   const valueChanged = !cell._hasValue || !Object.is(cell._value, nextValue);
   cell._hasValue = true;
   cell._value = nextValue;
+  cell._lastRecomputeFlushVersion = globalScheduler.getFlushVersion();
 
   if (valueChanged && notifyDownstream) {
     markReadableDerivedSubscribersDirty(cell);
@@ -165,6 +167,7 @@ function createDerivedCell<T>(
   cell._dirty = true;
   cell._scheduled = false;
   cell._evaluating = false;
+  cell._lastRecomputeFlushVersion = -1;
   cell._sources = new Set();
   cell._markDirty = () => {
     markDerivedCellDirty(cell);
@@ -196,7 +199,11 @@ function getOrCreateDerivedCell<T>(
   const existing = store.get(hookIndex) as DerivedCell<T> | undefined;
   if (existing) {
     existing._compute = compute;
-    existing._dirty = true;
+    if (
+      existing._lastRecomputeFlushVersion !== globalScheduler.getFlushVersion()
+    ) {
+      existing._dirty = true;
+    }
     return existing;
   }
 

@@ -91,6 +91,51 @@ describe('derive reactivity', () => {
     expect(propEvaluations).toBe(1);
   });
 
+  it('should update a diamond dependency exactly once with coherent values', () => {
+    let source!: ReturnType<typeof state<number>>;
+    let downstreamRuns = 0;
+    let snapshots: string[] = [];
+
+    const App = () => {
+      source = state(0);
+      const left = derive(() => source() + 1);
+      const right = derive(() => source() * 2);
+      const combined = derive(() => {
+        downstreamRuns += 1;
+        const leftValue = left();
+        const rightValue = right();
+        snapshots.push(`${String(leftValue)}:${String(rightValue)}`);
+        return leftValue + rightValue;
+      });
+
+      return <div id="subject">{String(combined())}</div>;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.textContent).toBe('1');
+
+    downstreamRuns = 0;
+    snapshots = [];
+    source.set(2);
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.textContent).toBe('7');
+    expect(downstreamRuns).toBe(1);
+    expect(snapshots).toEqual(['3:4']);
+
+    downstreamRuns = 0;
+    snapshots = [];
+    source.set(3);
+    source.set(4);
+    flushScheduler();
+
+    expect(container.querySelector('#subject')?.textContent).toBe('13');
+    expect(downstreamRuns).toBe(1);
+    expect(snapshots).toEqual(['5:8']);
+  });
+
   it('should propagate nested derive changes without rerendering when the outer projection is unchanged', () => {
     let countState!: ReturnType<typeof state<number>>;
     let renders = 0;

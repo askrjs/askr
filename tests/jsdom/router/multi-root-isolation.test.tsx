@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createSPA, cleanupApp } from '@askrjs/askr/boot';
+import { createIsland, createSPA, cleanupApp, hasApp } from '@askrjs/askr/boot';
+import { state } from '../../../src';
 import { navigate } from '../../../src/router/navigate';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+
+const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
 
 async function settleNavigation(): Promise<void> {
   for (let index = 0; index < 3; index += 1) {
@@ -70,6 +73,9 @@ describe('multi-root SPA isolation', () => {
     cleanupB();
     cleanupA();
     window.history.replaceState({}, '', '/');
+    delete (globalThis as unknown as Record<string | symbol, unknown>)[
+      EXECUTION_MODEL_KEY
+    ];
   });
 
   it('should keep two SPAs independently routable across the same browser navigation', async () => {
@@ -105,5 +111,44 @@ describe('multi-root SPA isolation', () => {
 
     expect(rootA.textContent).toBe('A start');
     expect(rootB.textContent).toBe('B start');
+  });
+
+  it('should keep a sibling island interactive after cleanupApp(rootA)', () => {
+    const IslandA = () => {
+      const count = state(0);
+      return (
+        <button id={'island-a'} onClick={() => count.set(count() + 1)}>
+          {`A ${String(count())}`}
+        </button>
+      );
+    };
+
+    const IslandB = () => {
+      const count = state(0);
+      return (
+        <button id={'island-b'} onClick={() => count.set(count() + 1)}>
+          {`B ${String(count())}`}
+        </button>
+      );
+    };
+
+    createIsland({ root: rootA, component: IslandA });
+    createIsland({ root: rootB, component: IslandB });
+    flushScheduler();
+
+    expect(hasApp(rootA)).toBe(true);
+    expect(hasApp(rootB)).toBe(true);
+
+    cleanupApp(rootA);
+
+    expect(hasApp(rootA)).toBe(false);
+    expect(hasApp(rootB)).toBe(true);
+    expect(rootB.textContent).toBe('B 0');
+
+    const buttonB = rootB.querySelector('#island-b') as HTMLButtonElement;
+    buttonB.click();
+    flushScheduler();
+
+    expect(rootB.textContent).toBe('B 1');
   });
 });

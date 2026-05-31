@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { state, type State } from '../../../src/runtime/state';
+import { getCurrentComponentInstance } from '../../../src/runtime/component';
 import { createFineGrainedEffect } from '../../../src/runtime/effect';
 import { enterBulkCommit, exitBulkCommit } from '../../../src/runtime/fastlane';
 import { globalScheduler, Scheduler } from '../../../src/runtime/scheduler';
 import {
   createTestContainer,
   flushScheduler,
+  getSchedulerState,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
@@ -82,5 +84,56 @@ describe('scheduler invariants', () => {
     await Promise.resolve();
 
     expect(events).toEqual(['user-before', 'framework', 'user-after']);
+  });
+
+  it('should keep cleanup-triggered writes coherent during an active flush', () => {
+    const { container, cleanup } = createTestContainer();
+    let showChild!: State<boolean>;
+    let cleanupWrites!: State<number>;
+    let cleanupRuns = 0;
+
+    const Child = () => {
+      const instance = getCurrentComponentInstance();
+      if (!instance) {
+        throw new Error('expected child component instance');
+      }
+
+      instance.cleanupFns.push(() => {
+        cleanupRuns += 1;
+        cleanupWrites.set((value) => value + 1);
+      });
+
+      return <span id={'child'}>{'child'}</span>;
+    };
+
+    const App = () => {
+      showChild = state(true);
+      cleanupWrites = state(0);
+
+      return (
+        <section>
+          {showChild() ? <Child /> : null}
+          <output id={'writes'}>{String(cleanupWrites())}</output>
+        </section>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    showChild.set(false);
+    flushScheduler();
+
+    expect(cleanupRuns).toBe(1);
+    expect(container.querySelector('#child')).toBeNull();
+    expect(container.querySelector('#writes')?.textContent).toBe('1');
+    expect(getSchedulerState()).toMatchObject({
+      queueLength: 0,
+      running: false,
+      executionDepth: 0,
+      taskCount: 0,
+    });
+
+    cleanup();
   });
 });

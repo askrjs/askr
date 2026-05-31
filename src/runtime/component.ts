@@ -845,74 +845,87 @@ export function mountComponent(instance: ComponentInstance): void {
  * Called on unmount or route change
  */
 export function cleanupComponent(instance: ComponentInstance): void {
-  const cleanupErrors: unknown[] = [];
-  const recordCleanupError = (message: string, err: unknown): void => {
-    if (instance.cleanupStrict) {
-      cleanupErrors.push(err);
-    } else if (isDevelopmentEnvironment()) {
-      logger.warn(message, err);
-    }
-  };
+  const savedInstance = currentInstance;
+  const savedPortalScope = currentPortalScope;
+  currentInstance = null;
+  currentPortalScope = null;
 
-  const ownedChildScopes = instance._ownedChildScopes;
-  if (ownedChildScopes && ownedChildScopes.size > 0) {
-    instance._ownedChildScopes = new Set();
-    for (const scope of ownedChildScopes) {
-      try {
-        scope.dispose();
-      } catch (err) {
-        recordCleanupError('[Askr] child scope cleanup threw:', err);
+  try {
+    const cleanupErrors: unknown[] = [];
+    const recordCleanupError = (message: string, err: unknown): void => {
+      if (instance.cleanupStrict) {
+        cleanupErrors.push(err);
+      } else if (isDevelopmentEnvironment()) {
+        logger.warn(message, err);
+      }
+    };
+
+    const ownedChildScopes = instance._ownedChildScopes;
+    if (ownedChildScopes && ownedChildScopes.size > 0) {
+      instance._ownedChildScopes = new Set();
+      for (const scope of ownedChildScopes) {
+        try {
+          scope.dispose();
+        } catch (err) {
+          recordCleanupError('[Askr] child scope cleanup threw:', err);
+        }
       }
     }
-  }
 
-  // Execute cleanup functions (from mount effects)
-  const cleanupFns = instance.cleanupFns;
-  instance.cleanupFns = [];
-  for (const cleanup of cleanupFns) {
+    // Execute cleanup functions (from mount effects)
+    const cleanupFns = instance.cleanupFns;
+    instance.cleanupFns = [];
+    for (const cleanup of cleanupFns) {
+      try {
+        cleanup();
+      } catch (err) {
+        recordCleanupError('[Askr] cleanup function threw:', err);
+      }
+    }
+
+    // Remove deterministic state subscriptions for this instance
     try {
-      cleanup();
+      cleanupReadableSubscriptions(instance);
     } catch (err) {
-      recordCleanupError('[Askr] cleanup function threw:', err);
+      recordCleanupError('[Askr] readable subscription cleanup threw:', err);
     }
-  }
 
-  // Remove deterministic state subscriptions for this instance
-  try {
-    cleanupReadableSubscriptions(instance);
-  } catch (err) {
-    recordCleanupError('[Askr] readable subscription cleanup threw:', err);
-  }
-
-  // Abort all pending operations
-  try {
-    if (instance.abortController && !instance.abortController.signal.aborted) {
-      instance.abortController.abort();
+    // Abort all pending operations
+    try {
+      if (
+        instance.abortController &&
+        !instance.abortController.signal.aborted
+      ) {
+        instance.abortController.abort();
+      }
+    } catch (err) {
+      recordCleanupError('[Askr] abort controller cleanup threw:', err);
     }
-  } catch (err) {
-    recordCleanupError('[Askr] abort controller cleanup threw:', err);
-  }
-  instance.abortController = null;
+    instance.abortController = null;
 
-  // Clear update callback to prevent dangling references and stale updates
-  instance.lifecycleGeneration++;
-  instance.evaluationGeneration++;
-  instance.mountOperations = [];
-  instance.hasPendingUpdate = false;
-  instance.notifyUpdate = null;
-  instance._placeholder = undefined;
+    // Clear update callback to prevent dangling references and stale updates
+    instance.lifecycleGeneration++;
+    instance.evaluationGeneration++;
+    instance.mountOperations = [];
+    instance.hasPendingUpdate = false;
+    instance.notifyUpdate = null;
+    instance._placeholder = undefined;
 
-  // Mark instance as unmounted so external tracking (e.g., portal host lists)
-  // can deterministically prune stale instances. Not marking this leads to
-  // retained "mounted" flags across cleanup boundaries which breaks
-  // owner selection in the portal fallback.
-  instance.mounted = false;
+    // Mark instance as unmounted so external tracking (e.g., portal host lists)
+    // can deterministically prune stale instances. Not marking this leads to
+    // retained "mounted" flags across cleanup boundaries which breaks
+    // owner selection in the portal fallback.
+    instance.mounted = false;
 
-  if (cleanupErrors.length > 0) {
-    throw new AggregateError(
-      cleanupErrors,
-      `Cleanup failed for component ${instance.id}`
-    );
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(
+        cleanupErrors,
+        `Cleanup failed for component ${instance.id}`
+      );
+    }
+  } finally {
+    currentInstance = savedInstance;
+    currentPortalScope = savedPortalScope;
   }
 }
 

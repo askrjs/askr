@@ -19,9 +19,12 @@ export type ResourcePlan = {
   resources: ResourceDescriptor[]; // declarative manifest in stable order
 };
 
+let hydrationRenderData: Record<string, unknown> | null = null;
+let hydrationKeyCounter = 0;
+
 export function getCurrentRenderData(): Record<string, unknown> | null {
   const ctx = getRenderContext();
-  return ctx?.renderData ?? null;
+  return ctx?.renderData ?? hydrationRenderData;
 }
 
 export function resetKeyCounter() {
@@ -31,8 +34,23 @@ export function resetKeyCounter() {
 
 export function getNextKey(): string {
   const ctx = getRenderContext();
-  if (!ctx) return `r:0`; // Fallback for edge cases
-  return `r:${ctx.keyCounter++}`;
+  if (ctx) {
+    return `r:${ctx.keyCounter++}`;
+  }
+  if (hydrationRenderData) {
+    return `r:${hydrationKeyCounter++}`;
+  }
+  return `r:0`; // Fallback for edge cases
+}
+
+export function startHydrationRenderPhase(data: Record<string, unknown>) {
+  hydrationRenderData = data;
+  hydrationKeyCounter = 0;
+}
+
+export function stopHydrationRenderPhase() {
+  hydrationRenderData = null;
+  hydrationKeyCounter = 0;
 }
 
 export function startRenderPhase(data: Record<string, unknown> | null) {
