@@ -2,8 +2,11 @@ import type { Props } from '../common/props';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
 import {
   extractKey,
+  getRenderedAttributeName,
   isSkippedProp,
   parseEventName,
+  removeRenderedAttribute,
+  setRenderedAttribute,
   tagNamesEqualIgnoreCase,
   writeElementClassName,
 } from './utils';
@@ -17,8 +20,6 @@ type Ref<T> =
   | { current: T | null }
   | null
   | undefined;
-
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 export function applyRef<T>(el: T, ref: unknown): void {
   const resolvedRef = ref as Ref<T>;
@@ -90,7 +91,7 @@ export function applyStaticScalarPropsToElement(
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
     } else {
-      el.setAttribute(key, String(value));
+      setRenderedAttribute(el, key, String(value));
     }
   }
 }
@@ -191,19 +192,6 @@ export function applyClassPropValue(
   }
 }
 
-function getRenderedAttributeName(el: Element, propName: string): string {
-  let attributeName = propName;
-  if (propName === 'className') {
-    attributeName = 'class';
-  } else if (propName === 'htmlFor') {
-    attributeName = 'for';
-  }
-
-  return el.namespaceURI === SVG_NAMESPACE
-    ? attributeName
-    : attributeName.toLowerCase();
-}
-
 export function removeStaleAttributes(
   el: Element,
   vnode: unknown,
@@ -228,7 +216,7 @@ export function removeStaleAttributes(
 
   for (const attribute of Array.from(el.attributes)) {
     if (!desiredAttributes.has(getRenderedAttributeName(el, attribute.name))) {
-      el.removeAttribute(attribute.name);
+      removeRenderedAttribute(el, attribute.name);
     }
   }
 }

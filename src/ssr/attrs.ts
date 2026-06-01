@@ -3,6 +3,7 @@
  */
 
 import type { Props } from '../common/props';
+import { getPublicAttributeName } from '../common/attr-names';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
 
@@ -76,8 +77,8 @@ export function renderAttrsDirect(
     // Skip internal props
     if (key.charCodeAt(0) === 95) continue; // '_'
 
-    // Normalize class attribute
-    const attrName = key === 'className' ? 'class' : key;
+    // Normalize public JSX prop names to their rendered HTML attribute names.
+    const attrName = getPublicAttributeName(key);
 
     // Handle style objects
     if (attrName === 'style') {
@@ -161,8 +162,8 @@ export function renderAttrs(
     // Skip internal props
     if (key.charCodeAt(0) === 95) continue; // '_'
 
-    // Normalize class attribute (`class` preferred, accept `className` for compatibility)
-    const attrName = key === 'class' || key === 'className' ? 'class' : key;
+    // Normalize public JSX prop names to their rendered HTML attribute names.
+    const attrName = key === 'class' ? 'class' : getPublicAttributeName(key);
 
     // Handle style objects
     if (attrName === 'style') {

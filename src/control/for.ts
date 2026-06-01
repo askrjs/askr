@@ -12,13 +12,13 @@ import type { JSXElement } from '../common/jsx';
 import type { DOMElement, VNode } from '../common/vnode';
 import { createFineGrainedEffect } from '../runtime/effect';
 import { type ForState, useForState } from '../runtime/for';
-import { normalizeBoundaryChild } from './shared';
+import { type BoundaryChild, normalizeBoundaryChild } from './shared';
 
 export type ForEachSource<T> = T[] | (() => T[]);
 
 type ForBaseProps<T> = {
   each: ForEachSource<T>;
-  fallback?: unknown;
+  fallback?: BoundaryChild;
   children: (item: T, index: () => number) => VNode;
 };
 

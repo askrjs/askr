@@ -5,6 +5,7 @@
  */
 
 import type {
+  RouteConfig,
   RouteRenderReason,
   RouteRenderResult,
   SSGGenerateOptions,
@@ -12,7 +13,11 @@ import type {
   SSGOptions,
   SSGResult,
 } from './types';
-import { resolveSsgData, validateRoutes } from './resolve-ssg-data';
+import {
+  expandRoutes,
+  resolveSsgData,
+  validateRoutes,
+} from './resolve-ssg-data';
 import { batchRenderRoutes } from './batch-render';
 import { writeStaticFiles } from './write-static-files';
 import {
@@ -35,6 +40,22 @@ import {
   type ResolvedRouteDescriptor,
 } from './route-utils';
 import { addPerfDuration, incrementPerfMetric } from '../runtime/perf-metrics';
+
+type AnyRouteConfig = RouteConfig<string>;
+
+type StrictRouteConfig<TRoute extends AnyRouteConfig> = Omit<
+  TRoute,
+  'params' | 'entries'
+> & {
+  params?: RouteConfig<TRoute['path']>['params'];
+  entries?: RouteConfig<TRoute['path']>['entries'];
+};
+
+type StrictRouteConfigs<TRoutes extends readonly AnyRouteConfig[]> = {
+  [TIndex in keyof TRoutes]: TRoutes[TIndex] extends AnyRouteConfig
+    ? StrictRouteConfig<TRoutes[TIndex]>
+    : never;
+};
 
 interface SelectedRoute {
   descriptor: ResolvedRouteDescriptor;
@@ -112,7 +133,13 @@ function resolveParallelism(requested: number | 'auto' | undefined): number {
  * console.log(`Generated ${result.successful}/${result.totalRoutes} routes`);
  * ```
  */
-export function createStaticGen(options: SSGOptions) {
+export function createStaticGen<
+  const TRoutes extends readonly AnyRouteConfig[],
+>(
+  options: Omit<SSGOptions<TRoutes>, 'routes'> & {
+    routes: TRoutes & StrictRouteConfigs<TRoutes>;
+  }
+) {
   let result: SSGResult | null = null;
   const seed = options.seed ?? 12345;
   const resolvedParallelism = resolveParallelism(options.parallelism);
@@ -138,8 +165,8 @@ export function createStaticGen(options: SSGOptions) {
     async generate(
       generateOptions: SSGGenerateOptions = {}
     ): Promise<SSGResult> {
-      // Validate input
-      validateRoutes(options.routes);
+      const routes = await expandRoutes(options.routes as RouteConfig[]);
+      validateRoutes(routes);
 
       const changedKeys = dedupeStrings(generateOptions.changedKeys);
       const changedRoutes = dedupeStrings(generateOptions.changedRoutes);
@@ -156,11 +183,11 @@ export function createStaticGen(options: SSGOptions) {
           : 'incremental';
 
       // Resolve data
-      const dataMap = resolveSsgData(options.routes, {
+      const dataMap = resolveSsgData(routes, {
         dataOverrides: options.dataOverrides,
       });
 
-      const descriptors = options.routes.map(resolveRouteDescriptor);
+      const descriptors = routes.map(resolveRouteDescriptor);
       const routeResultsById = new Map<string, RouteRenderResult>();
       const eligibleDescriptors: ResolvedRouteDescriptor[] = [];
 
@@ -390,8 +417,8 @@ function dedupeStrings(values?: string[]): string[] {
   return values ? Array.from(new Set(values)) : [];
 }
 
-function getRoutesToRender(selected: SelectedRoute[]): SSGOptions['routes'] {
-  const routes: SSGOptions['routes'] = [];
+function getRoutesToRender(selected: SelectedRoute[]): RouteConfig[] {
+  const routes: RouteConfig[] = [];
   for (let index = 0; index < selected.length; index += 1) {
     routes.push(selected[index].descriptor.route);
   }

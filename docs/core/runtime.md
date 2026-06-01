@@ -47,10 +47,12 @@ Routes must be registered before `createSPA()` is called.
 
 Server renders to HTML string. Client hydrates with matching route state.
 
-```ts
+```tsx
 // server
-import { renderToString } from '@askrjs/askr/ssr';
-const html = renderToString({ url: req.url });
+import { renderToString, type SSRRoute } from '@askrjs/askr/ssr';
+
+const routes: SSRRoute[] = [{ path: '/', handler: () => <Home /> }];
+const html = renderToString({ url: req.url, routes });
 
 // client
 import { hydrateSPA } from '@askrjs/askr/boot';

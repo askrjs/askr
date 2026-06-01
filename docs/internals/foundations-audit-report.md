@@ -264,7 +264,7 @@ const props = mergeProps(
 ### No factory functions
 
 - NO REMOVED: `dismissable().outsideListener(predicate)` - broke composition
-- OK NOW: `dismissable({ node }).onPointerDownCapture` - composes perfectly
+- OK NOW: `dismissable({ node })` returns composable capture props for a wrapper or overlay surface
 
 ---
 
@@ -328,7 +328,9 @@ function Dialog({ open, onClose }) {
   });
   return (
     <Presence present={open}>
-      <div ref={ref} {...dismiss}>Content</div>
+      <div {...dismiss}>
+        <div ref={ref}>Content</div>
+      </div>
     </Presence>
   );
 }

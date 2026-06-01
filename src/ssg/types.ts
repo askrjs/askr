@@ -6,6 +6,7 @@ import type { ComponentFunction } from '../common/component';
 import type {
   RouteAuthMode,
   RouteHandler,
+  RoutePathParams,
   RoutePolicy,
 } from '../common/router';
 
@@ -23,15 +24,19 @@ export type RouteRenderReason =
   | 'deleted'
   | 'runtime-only';
 
+type RouteConfigParams<Path extends string> = string extends Path
+  ? Record<string, string>
+  : RoutePathParams<Path>;
+
 /**
  * Route config accepted by SSG.
  *
  * `handler` is preferred and matches router/SSR naming.
  * `component` is kept for compatibility and is normalized to `handler`.
  */
-export interface RouteConfig {
+export interface RouteConfig<Path extends string = string> {
   /** URL path to generate (e.g., "/blog/post-1", "/") */
-  path: string;
+  path: Path;
   /** Route handler compatible with router/SSR */
   handler?: RouteHandler;
   /** Backward-compatible alias for handler */
@@ -49,7 +54,7 @@ export interface RouteConfig {
   /** Advanced runtime access checks disable prerendering by default */
   policies?: readonly RoutePolicy[];
   /** Optional path parameter map for template paths like "/blog/{slug}" */
-  params?: Record<string, string>;
+  params?: RouteConfigParams<Path>;
   /** Optional explicit invalidation keys for incremental generation */
   invalidationKeys?: string[];
   /**
@@ -65,14 +70,16 @@ export interface RouteConfig {
    * ```
    */
   entries?: () =>
-    | Array<Record<string, string>>
-    | Promise<Array<Record<string, string>>>;
+    | Array<RouteConfigParams<Path>>
+    | Promise<Array<RouteConfigParams<Path>>>;
 }
 
 /** Options for createStaticGen */
-export interface SSGOptions {
+export interface SSGOptions<
+  TRoutes extends readonly RouteConfig[] = RouteConfig[],
+> {
   /** Routes to generate */
-  routes: RouteConfig[];
+  routes: TRoutes;
   /** Output directory for generated HTML files */
   outputDir: string;
   /** Optional seed for deterministic rendering */

@@ -40,7 +40,7 @@ export function UserTable({ users }: { users: User[] }) {
           </tr>
         </thead>
         <tbody>
-          <For each={filtered()}>
+          <For each={filtered()} by={(user) => user.id}>
             {(user) => (
               <tr>
                 <td>{user.name}</td>

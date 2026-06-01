@@ -6,6 +6,7 @@ import {
   type Mutation,
   type Query,
   type QueryConsistency,
+  type QueryStaleReason,
 } from '@askrjs/askr/data';
 
 const query = createQuery({
@@ -27,13 +28,115 @@ const query = createQuery({
 
 expectType<Query<{ id: string; name: string }>>(query);
 expectType<{ id: string; name: string } | null>(query.data);
-expectType<unknown | null>(query.error);
+expectType<{} | null>(query.error);
 expectType<boolean>(query.loading);
 expectType<boolean>(query.refreshing);
 expectType<boolean>(query.stale);
 expectType<QueryConsistency>(query.consistency);
+expectType<QueryStaleReason | null>(query.staleReason);
 expectType<Promise<void>>(query.refresh());
 expectType<void>(invalidate('user:'));
+
+if (query.loading) {
+  expectType<true>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<false>(query.stale);
+  expectType<'fresh'>(query.consistency);
+  expectType<null>(query.data);
+  expectType<null>(query.error);
+  expectType<null>(query.staleReason);
+}
+
+if (query.consistency === 'refreshing') {
+  expectType<false>(query.loading);
+  expectType<true>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<{ id: string; name: string }>(query.data);
+  expectType<null>(query.error);
+  expectType<null>(query.staleReason);
+}
+
+if (query.consistency === 'pending-write') {
+  expectType<false>(query.loading);
+  expectType<true>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<{ id: string; name: string }>(query.data);
+  expectType<null>(query.error);
+  expectType<null>(query.staleReason);
+}
+
+if (query.consistency === 'stale') {
+  expectType<false>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<{ id: string; name: string } | null>(query.data);
+  expectType<{} | null>(query.error);
+  expectType<'aborted' | 'error' | 'inconsistent'>(query.staleReason);
+}
+
+if (query.consistency === 'stale' && query.staleReason === 'inconsistent') {
+  expectType<false>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<{ id: string; name: string }>(query.data);
+  expectType<null>(query.error);
+  expectType<'inconsistent'>(query.staleReason);
+}
+
+if (query.consistency === 'stale' && query.staleReason === 'aborted') {
+  expectType<false>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<{ id: string; name: string }>(query.data);
+  expectType<null>(query.error);
+  expectType<'aborted'>(query.staleReason);
+}
+
+if (query.consistency === 'stale' && query.error === null) {
+  expectType<false>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<{ id: string; name: string }>(query.data);
+  expectType<null>(query.error);
+  expectType<'aborted' | 'inconsistent'>(query.staleReason);
+}
+
+if (query.consistency === 'stale' && query.data === null) {
+  expectType<false>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<null>(query.data);
+  expectType<{}>(query.error);
+  expectType<'error'>(query.staleReason);
+}
+
+if (query.error !== null) {
+  expectType<'stale'>(query.consistency);
+  expectType<false>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<{ id: string; name: string } | null>(query.data);
+  expectType<{}>(query.error);
+  expectType<'error'>(query.staleReason);
+}
+
+if (query.staleReason === 'error') {
+  expectType<'stale'>(query.consistency);
+  expectType<false>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<true>(query.stale);
+  expectType<{ id: string; name: string } | null>(query.data);
+  expectType<{}>(query.error);
+}
+
+if (query.consistency === 'fresh' && !query.loading) {
+  expectType<false>(query.loading);
+  expectType<false>(query.refreshing);
+  expectType<false>(query.stale);
+  expectType<{ id: string; name: string }>(query.data);
+  expectType<null>(query.error);
+  expectType<null>(query.staleReason);
+}
 
 const mutation = createMutation({
   action: async (input: { id: string }, { signal }) => {
@@ -51,11 +154,39 @@ const mutation = createMutation({
 expectType<Mutation<{ id: string }, { length: number }>>(mutation);
 expectType<'idle' | 'pending' | 'success' | 'error'>(mutation.status);
 expectType<boolean>(mutation.pending);
-expectType<unknown | null>(mutation.error);
+expectType<{} | null>(mutation.error);
 expectType<{ length: number } | null>(mutation.result);
 expectType<Promise<{ length: number }>>(mutation.execute({ id: '42' }));
 expectType<void>(mutation.abort());
 expectType<void>(mutation.reset());
+
+if (mutation.pending) {
+  expectType<'pending'>(mutation.status);
+  expectType<true>(mutation.pending);
+  expectType<null>(mutation.error);
+  expectType<null>(mutation.result);
+} else {
+  expectType<'idle' | 'success' | 'error'>(mutation.status);
+  expectType<false>(mutation.pending);
+}
+
+if (mutation.status === 'idle') {
+  expectType<false>(mutation.pending);
+  expectType<null>(mutation.error);
+  expectType<null>(mutation.result);
+}
+
+if (mutation.status === 'success') {
+  expectType<false>(mutation.pending);
+  expectType<null>(mutation.error);
+  expectType<{ length: number }>(mutation.result);
+}
+
+if (mutation.status === 'error') {
+  expectType<false>(mutation.pending);
+  expectType<{}>(mutation.error);
+  expectType<null>(mutation.result);
+}
 
 expectError(invalidate(123));
 expectError(
@@ -65,6 +196,18 @@ expectError(
       expectType<AbortSignal>(signal);
       return 'not-a-promise';
     },
+  })
+);
+expectError(
+  createQuery({
+    key: 'null-result',
+    fetch: async () => null,
+  })
+);
+expectError(
+  createQuery({
+    key: 'undefined-result',
+    fetch: async () => undefined,
   })
 );
 expectError(

@@ -13,7 +13,10 @@
  * DESIGN:
  * - Returns standard event handler props (onKeyDown, onPointerDownCapture)
  * - Composable via mergeProps with other foundations
- * - Caller provides node reference for outside detection
+ * - Caller provides the protected node reference for outside detection
+ * - Returned capture props must be attached to a surface that can observe both
+ *   the protected subtree and the outside interaction path (for example, an
+ *   overlay or wrapper around the protected node)
  * - Single onDismiss callback for all dismiss triggers
  *
  * PIT OF SUCCESS:
@@ -29,7 +32,9 @@
  *     onDismiss: () => close()
  *   });
  *
- *   <div ref={elementRef} {...props}>Content</div>
+ *   <div {...props}>
+ *     <div ref={elementRef}>Content</div>
+ *   </div>
  *
  * MISUSE EXAMPLE (PREVENTED):
  *   ❌ Can't forget to check disabled - checked inside dismissable
@@ -39,7 +44,8 @@
 
 export interface DismissableOptions {
   /**
-   * Reference to the element for outside click detection
+   * Reference to the protected element for outside click detection. Attach the
+   * returned capture props to a surface that encloses this node.
    */
   node?: Node | null;
 
@@ -78,7 +84,7 @@ export function dismissable({ node, disabled, onDismiss }: DismissableOptions) {
     // If no node provided, can't detect outside clicks
     if (!node) return;
 
-    // Check if click is outside
+    // Check if click is outside the protected node
     if (!node.contains(target)) {
       onDismiss?.('outside');
     }

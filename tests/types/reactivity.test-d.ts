@@ -33,6 +33,29 @@ expectError(
   })
 );
 
+type Formatter = (value: number) => string;
+
+const formatterState = state<Formatter>((value) => value.toString());
+const [formatter, setFormatter] = formatterState;
+
+expectType<State<Formatter>>(formatter);
+expectType<StateSetter<Formatter>>(setFormatter);
+expectType<Formatter>(formatter());
+
+setFormatter(() => (value) => value.toFixed(0));
+
+const hexFormatter: Formatter = (value) => value.toString(16);
+expectError(setFormatter(hexFormatter));
+expectError(setFormatter(() => 'not-a-formatter'));
+
+const nullableFormatterState = state<Formatter | null>(null);
+const [, setNullableFormatter] = nullableFormatterState;
+
+expectType<StateSetter<Formatter | null>>(setNullableFormatter);
+setNullableFormatter(() => hexFormatter);
+setNullableFormatter(() => null);
+expectError(setNullableFormatter(hexFormatter));
+
 const doubled = derive(() => countValue() * 2);
 expectType<Derived<number>>(doubled);
 expectType<number>(doubled());

@@ -24,6 +24,12 @@ const keyedForProps: ForProps<number> = {
 
 expectAssignable<ForProps<number>>(keyedForProps);
 expectType<JSXElement>(For(keyedForProps));
+expectAssignable<ForProps<number>>({
+  each: [],
+  by: (item) => item,
+  fallback: [<span key="first">empty</span>, <span key="second">list</span>],
+  children: (item) => <span>{item}</span>,
+});
 expectAssignable<JSXElement>(
   <For
     each={[1, 2, 3]}
@@ -61,6 +67,14 @@ expectError(
     children: () => <span />,
   })
 );
+expectError(
+  For<number>({
+    each: [1, 2, 3],
+    by: (item: number) => item,
+    fallback: { invalid: true },
+    children: () => <span />,
+  })
+);
 
 const showProps: ShowProps<string | null> = {
   when: 'ready' as string | null,
@@ -73,10 +87,43 @@ const showProps: ShowProps<string | null> = {
 
 expectAssignable<ShowProps<string | null>>(showProps);
 expectType<JSXElement>(Show(showProps));
+expectAssignable<ShowProps<string | null>>({
+  when: 'ready' as string | null,
+  fallback: [<span key="first">loading</span>, <span key="second">user</span>],
+  children: <span>ready</span>,
+});
 expectAssignable<JSXElement>(
   <Show when={'ready' as string | null} fallback={<span>loading</span>}>
     {(value) => {
       expectType<string>(value);
+      return <span>{value}</span>;
+    }}
+  </Show>
+);
+
+expectType<JSXElement>(
+  Show<boolean>({
+    when: true as boolean,
+    children: (value) => {
+      expectType<true>(value);
+      return <span>{value ? 'yes' : 'no'}</span>;
+    },
+  })
+);
+
+expectAssignable<JSXElement>(
+  <Show when={'' as '' | 'ready' | null} fallback={<span>loading</span>}>
+    {(value) => {
+      expectType<'ready'>(value);
+      return <span>{value}</span>;
+    }}
+  </Show>
+);
+
+expectAssignable<JSXElement>(
+  <Show when={0 as 0 | 1 | null} fallback={<span>loading</span>}>
+    {(value) => {
+      expectType<1>(value);
       return <span>{value}</span>;
     }}
   </Show>
@@ -89,6 +136,20 @@ expectError(
   })
 );
 
+expectError(
+  Show<boolean>({
+    when: true as boolean,
+    children: (value: false) => <span>{String(value)}</span>,
+  })
+);
+expectError(
+  Show<boolean>({
+    when: true as boolean,
+    fallback: { invalid: true },
+    children: <span>ready</span>,
+  })
+);
+
 const matchProps: MatchProps = {
   key: 'ready',
   when: true,
@@ -97,6 +158,25 @@ const matchProps: MatchProps = {
 
 expectAssignable<MatchProps>(matchProps);
 expectType<null>(Match(matchProps));
+expectAssignable<MatchProps>({
+  when: true,
+  children: [<span key="first">ready</span>, <span key="second">now</span>],
+});
+expectType<null>(
+  Match({
+    when: true,
+    children: () => <span>ready</span>,
+  })
+);
+expectType<null>(
+  Match({
+    when: true,
+    children: () => [
+      <span key="first">ready</span>,
+      <span key="second">now</span>,
+    ],
+  })
+);
 
 const caseProps: CaseProps = {
   fallback: <span>fallback</span>,
@@ -109,6 +189,12 @@ const caseProps: CaseProps = {
 };
 
 expectAssignable<CaseProps>(caseProps);
+expectAssignable<CaseProps>({
+  fallback: [
+    <span key="first">fallback</span>,
+    <span key="second">state</span>,
+  ],
+});
 expectType<JSXElement>(Case(caseProps));
 
 expectAssignable<JSXElement>(
@@ -119,11 +205,34 @@ expectAssignable<JSXElement>(
     </Match>
   </Case>
 );
+expectAssignable<JSXElement>(
+  <Case fallback={<span>fallback</span>}>
+    <Match when={true}>{() => <span>ready</span>}</Match>
+  </Case>
+);
 
 expectError(
   Match({
     key: true,
     when: true,
     children: <span>bad</span>,
+  })
+);
+expectError(
+  Match({
+    when: true,
+    children: (value: string) => <span>{value}</span>,
+  })
+);
+expectError(
+  Match({
+    when: true,
+    children: () => ({ invalid: true }),
+  })
+);
+expectError(
+  Case({
+    fallback: { invalid: true },
+    children: <Match when={true}>ready</Match>,
   })
 );

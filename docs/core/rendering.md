@@ -24,10 +24,17 @@ Use deterministic inputs for stable hydration output.
 
 Use the URL-based helper when the server needs to resolve routes explicitly:
 
-```ts
-import { renderToString } from '@askrjs/askr/ssr';
+```tsx
+import { renderToString, type SSRRoute } from '@askrjs/askr/ssr';
 
-const html = renderToString({ url: '/users/42"q=active' });
+const routes: SSRRoute[] = [
+  {
+    path: '/users/{id}',
+    handler: ({ id }) => <div>User {id}</div>,
+  },
+];
+
+const html = renderToString({ url: '/users/42?q=active', routes });
 ```
 
 The URL is parsed and matched against registered routes. The matched component renders

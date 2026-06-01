@@ -77,9 +77,11 @@ function Dialog({ onClose, open }) {
     },
   });
 
-  return open " (
-    <div ref={dialogRef} {...dismiss}>
-      Dialog content
+  return open ? (
+    <div {...dismiss}>
+      <div ref={dialogRef}>
+        Dialog content
+      </div>
     </div>
   ) : null;
 }
@@ -364,8 +366,10 @@ export function Dialog({
 
   return (
     <Presence present={open}>
-      <div ref={dialogRef} role="dialog" {...dismiss}>
-        {children}
+      <div {...dismiss}>
+        <div ref={dialogRef} role="dialog">
+          {children}
+        </div>
       </div>
     </Presence>
   );

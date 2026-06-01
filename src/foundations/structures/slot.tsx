@@ -1,5 +1,6 @@
 import { Fragment, cloneElement, isElement, ELEMENT_TYPE } from '../../jsx';
 import type { JSXElement } from '../../jsx';
+import type { RenderableChild } from '../../common/vnode';
 
 export type SlotProps =
   | {
@@ -9,7 +10,7 @@ export type SlotProps =
     }
   | {
       asChild?: false;
-      children?: unknown;
+      children?: RenderableChild;
     };
 
 /**

@@ -7,6 +7,7 @@
 
 import type { SSRData } from '../common/ssr';
 import type { RouteConfig } from './types';
+import { interpolateRoutePath } from './route-utils';
 
 interface DataResolutionOptions {
   /** User-supplied data overrides per route path */
@@ -28,21 +29,132 @@ export function resolveSsgData(
   const dataMap: Record<string, SSRData> = {};
 
   for (const route of routes) {
+    const concretePath = interpolateRoutePath(route.path, route.params);
+    const overridePath =
+      concretePath in dataOverrides
+        ? concretePath
+        : route.path in dataOverrides
+          ? route.path
+          : null;
+
     // Check if user provided data for this route
-    if (route.path in dataOverrides) {
-      const data = dataOverrides[route.path];
+    if (overridePath) {
+      const data = dataOverrides[overridePath];
       if (typeof data !== 'object' || data === null || Array.isArray(data)) {
         throw new Error(
-          `data for route "${route.path}" must be an object, got ${typeof data}`
+          `data for route "${overridePath}" must be an object, got ${typeof data}`
         );
       }
-      dataMap[route.path] = data as SSRData;
+      dataMap[overridePath] = data as SSRData;
     }
     // In phase 1, routes without data are rendered with no SSR data
     // Phase 2 can add auto-discovery here
   }
 
   return dataMap;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  for (const recordValue of Object.values(value)) {
+    if (typeof recordValue !== 'string') {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function validateRouteShape(route: RouteConfig): void {
+  if (typeof route.path !== 'string' || !route.path.startsWith('/')) {
+    throw new Error(
+      `route path must be a string starting with "/", got "${route.path}"`
+    );
+  }
+
+  const handler = route.handler ?? route.component;
+  if (typeof handler !== 'function') {
+    throw new Error(
+      `route handler must be a function for path "${route.path}"`
+    );
+  }
+
+  if (route.params !== undefined && !isStringRecord(route.params)) {
+    throw new Error(
+      `route "${route.path}" params must be an object containing only string values`
+    );
+  }
+
+  if (route.invalidationKeys !== undefined) {
+    if (!Array.isArray(route.invalidationKeys)) {
+      throw new Error(
+        `route "${route.path}" invalidationKeys must be an array of strings`
+      );
+    }
+    for (const key of route.invalidationKeys) {
+      if (typeof key !== 'string' || key.length === 0) {
+        throw new Error(
+          `route "${route.path}" invalidationKeys must contain only non-empty strings`
+        );
+      }
+    }
+  }
+}
+
+function validateEntriesResult(
+  route: RouteConfig,
+  entries: unknown
+): Array<Record<string, string>> {
+  if (!Array.isArray(entries)) {
+    throw new Error(
+      `route "${route.path}" entries must return an array of param maps`
+    );
+  }
+
+  return entries.map((entry, index) => {
+    if (!isStringRecord(entry)) {
+      throw new Error(
+        `route "${route.path}" entries[${index}] must be an object containing only string values`
+      );
+    }
+
+    return entry;
+  });
+}
+
+export async function expandRoutes(
+  routes: RouteConfig[]
+): Promise<RouteConfig[]> {
+  if (!Array.isArray(routes)) {
+    throw new Error('routes must be an array');
+  }
+
+  const expanded: RouteConfig[] = [];
+
+  for (const route of routes) {
+    validateRouteShape(route);
+
+    if (route.params) {
+      expanded.push({ ...route, entries: undefined });
+    }
+
+    if (!route.entries) {
+      if (!route.params) {
+        expanded.push(route);
+      }
+      continue;
+    }
+
+    const entries = validateEntriesResult(route, await route.entries());
+    for (const params of entries) {
+      expanded.push({ ...route, params, entries: undefined });
+    }
+  }
+
+  return expanded;
 }
 
 /**
@@ -53,25 +165,10 @@ export function validateRoutes(routes: RouteConfig[]): void {
     throw new Error('routes must be an array');
   }
 
-  if (routes.length === 0) {
-    throw new Error('routes array cannot be empty');
-  }
-
   const seen = new Set<string>();
 
   for (const route of routes) {
-    if (typeof route.path !== 'string' || !route.path.startsWith('/')) {
-      throw new Error(
-        `route path must be a string starting with "/", got "${route.path}"`
-      );
-    }
-
-    const handler = route.handler ?? route.component;
-    if (typeof handler !== 'function') {
-      throw new Error(
-        `route handler must be a function for path "${route.path}"`
-      );
-    }
+    validateRouteShape(route);
 
     const key = `${route.path}::${JSON.stringify(route.params || {})}`;
     if (seen.has(key)) {
@@ -94,21 +191,6 @@ export function validateRoutes(routes: RouteConfig[]): void {
         if (!(name in route.params)) {
           throw new Error(
             `route "${route.path}" missing required param "${name}"`
-          );
-        }
-      }
-    }
-
-    if (route.invalidationKeys !== undefined) {
-      if (!Array.isArray(route.invalidationKeys)) {
-        throw new Error(
-          `route "${route.path}" invalidationKeys must be an array of strings`
-        );
-      }
-      for (const key of route.invalidationKeys) {
-        if (typeof key !== 'string' || key.length === 0) {
-          throw new Error(
-            `route "${route.path}" invalidationKeys must contain only non-empty strings`
           );
         }
       }

@@ -36,7 +36,28 @@ Each route entry supports:
 - `path`: route path (supports params like `/blog/{slug}`)
 - `component` or `handler`: render function
 - `params`: values for path placeholders
+- `entries`: async param expansion for generating many concrete pages from one template
 - `props`: optional base props merged into rendered params
+
+## Parameterized routes
+
+Use `entries()` when one route template should expand into many concrete pages:
+
+```ts
+import { createStaticGen } from '@askrjs/askr/ssg';
+
+const ssg = createStaticGen({
+  routes: [
+    {
+      path: '/blog/{slug}',
+      component: BlogPostPage,
+      entries: async () =>
+        getPosts().map((post: { slug: string }) => ({ slug: post.slug })),
+    },
+  ],
+  outputDir: './dist/static',
+});
+```
 
 ## Data overrides
 
@@ -52,6 +73,8 @@ const ssg = createStaticGen({
   },
 });
 ```
+
+For parameterized routes, prefer concrete paths such as `/blog/first-post`.
 
 ## CLI usage
 

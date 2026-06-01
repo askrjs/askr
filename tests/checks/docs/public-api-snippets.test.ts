@@ -1,12 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 import ts from 'typescript';
 import { describe, expect, it } from 'vite-plus/test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..', '..', '..');
 const docsRoots = [path.join(rootDir, 'docs'), path.join(rootDir, 'README.md')];
+const exampleRoots = [path.join(rootDir, 'examples')];
 const testsTsconfigPath = path.join(rootDir, 'tests', 'tsconfig.json');
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')
@@ -20,6 +22,56 @@ type Snippet = {
   lang: 'ts' | 'tsx' | 'js' | 'jsx';
   code: string;
 };
+
+type HtmlSnippet = {
+  filePath: string;
+  index: number;
+  code: string;
+};
+
+function normalizeSnippetLang(lang: string): Snippet['lang'] | 'html' | null {
+  const normalized = lang.toLowerCase();
+
+  if (normalized === 'typescript') {
+    return 'ts';
+  }
+
+  if (normalized === 'javascript') {
+    return 'js';
+  }
+
+  if (
+    normalized === 'ts' ||
+    normalized === 'tsx' ||
+    normalized === 'js' ||
+    normalized === 'jsx' ||
+    normalized === 'html'
+  ) {
+    return normalized;
+  }
+
+  return null;
+}
+
+function normalizeVirtualPath(filePath: string): string {
+  return path.resolve(filePath).replace(/\\/g, '/');
+}
+
+function snippetUsesJsx(code: string): boolean {
+  return /<\/?[A-Za-z][\w:-]*(?:\s[^>]*)?>/.test(code);
+}
+
+function getSnippetVirtualExtension(snippet: Snippet): Snippet['lang'] {
+  if (snippet.lang === 'tsx' || snippet.lang === 'jsx') {
+    return snippet.lang;
+  }
+
+  if (snippetUsesJsx(snippet.code)) {
+    return snippet.lang === 'js' ? 'jsx' : 'tsx';
+  }
+
+  return snippet.lang;
+}
 
 function collectFiles(dirPath: string): string[] {
   if (!fs.existsSync(dirPath)) {
@@ -45,6 +97,16 @@ function collectFiles(dirPath: string): string[] {
   }
 
   return files;
+}
+
+function isPublishedDocsFile(filePath: string): boolean {
+  const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
+  return (
+    relativePath === 'README.md' ||
+    (relativePath.startsWith('docs/') &&
+      !relativePath.startsWith('docs/internals/') &&
+      !relativePath.startsWith('docs/development/'))
+  );
 }
 
 function collectPublicExportNames(): Set<string> {
@@ -125,7 +187,7 @@ function collectPublicExportNames(): Set<string> {
   return names;
 }
 
-function extractSnippets(filePath: string): Snippet[] {
+function extractCodeSnippets(filePath: string): Snippet[] {
   const content = fs.readFileSync(filePath, 'utf8');
   const snippets: Snippet[] = [];
   const fencePattern = /```([A-Za-z0-9_-]+)[^\n]*\n([\s\S]*?)```/g;
@@ -133,8 +195,11 @@ function extractSnippets(filePath: string): Snippet[] {
   let match: RegExpExecArray | null;
 
   while ((match = fencePattern.exec(content)) !== null) {
-    const lang = match[1].toLowerCase();
-    if (lang !== 'ts' && lang !== 'tsx' && lang !== 'js' && lang !== 'jsx') {
+    const lang = normalizeSnippetLang(match[1]);
+    if (
+      !lang ||
+      (lang !== 'ts' && lang !== 'tsx' && lang !== 'js' && lang !== 'jsx')
+    ) {
       continue;
     }
 
@@ -152,6 +217,88 @@ function extractSnippets(filePath: string): Snippet[] {
   }
 
   return snippets;
+}
+
+function extractPublicTypecheckedSnippets(filePath: string): Snippet[] {
+  return extractCodeSnippets(filePath);
+}
+
+function extractSyntaxCheckedSnippets(filePath: string): Snippet[] {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const snippets: Snippet[] = [];
+  const fencePattern = /```([A-Za-z0-9_-]+)[^\n]*\n([\s\S]*?)```/g;
+  let index = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = fencePattern.exec(content)) !== null) {
+    const lang = normalizeSnippetLang(match[1]);
+    if (
+      !lang ||
+      (lang !== 'ts' && lang !== 'tsx' && lang !== 'js' && lang !== 'jsx')
+    ) {
+      continue;
+    }
+
+    const code = match[2].trim();
+    if (/\[\s*\.\.\.\s*\]/.test(code) || /\{\s*\.\.\.\s*\}/.test(code)) {
+      continue;
+    }
+
+    index += 1;
+    snippets.push({
+      filePath,
+      index,
+      lang,
+      code,
+    });
+  }
+
+  return snippets;
+}
+
+function extractHtmlSnippets(filePath: string): HtmlSnippet[] {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const snippets: HtmlSnippet[] = [];
+  const fencePattern = /```([A-Za-z0-9_-]+)[^\n]*\n([\s\S]*?)```/g;
+  let index = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = fencePattern.exec(content)) !== null) {
+    const lang = normalizeSnippetLang(match[1]);
+    if (lang !== 'html') {
+      continue;
+    }
+
+    index += 1;
+    snippets.push({
+      filePath,
+      index,
+      code: match[2].trim(),
+    });
+  }
+
+  return snippets;
+}
+
+function extractSourceExamples(filePath: string): Snippet[] {
+  const lang = path.extname(filePath).slice(1).toLowerCase();
+  if (lang !== 'ts' && lang !== 'tsx' && lang !== 'js' && lang !== 'jsx') {
+    return [];
+  }
+
+  const code = fs.readFileSync(filePath, 'utf8');
+  if (!/@askrjs\/askr(?:\/[A-Za-z0-9/_-]+)?/.test(code)) {
+    return [];
+  }
+
+  return [
+    {
+      filePath,
+      index: 1,
+      lang,
+      code: code.trim(),
+    },
+  ];
 }
 
 function loadCompilerOptions(): ts.CompilerOptions {
@@ -182,7 +329,17 @@ function loadCompilerOptions(): ts.CompilerOptions {
     );
   }
 
-  return parsed.options;
+  return {
+    ...parsed.options,
+    allowJs: true,
+    checkJs: true,
+    composite: false,
+    declaration: false,
+    declarationMap: false,
+    incremental: false,
+    noEmit: true,
+    tsBuildInfoFile: undefined,
+  };
 }
 
 function formatDiagnostic(diagnostic: ts.Diagnostic): string {
@@ -207,15 +364,27 @@ function getMissingName(diagnostic: ts.Diagnostic): string | null {
   return match?.[1] ?? null;
 }
 
+function isMissingRelativeModuleDiagnostic(diagnostic: ts.Diagnostic): boolean {
+  if (diagnostic.code !== 2307) {
+    return false;
+  }
+
+  const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+  return /Cannot find module '(\.\/|\.\.\/)/.test(message);
+}
+
 function compileSnippet(
   snippet: Snippet,
   options: ts.CompilerOptions,
   publicExportNames: Set<string>
 ): string[] {
-  const snippetPath = path.join(
-    rootDir,
-    '__snippet_checks__',
-    `${path.basename(snippet.filePath).replace(/[^\w.-]/g, '_')}.${snippet.index}.${snippet.lang}`
+  const virtualExtension = getSnippetVirtualExtension(snippet);
+  const snippetPath = normalizeVirtualPath(
+    path.join(
+      rootDir,
+      '__snippet_checks__',
+      `${path.basename(snippet.filePath).replace(/[^\w.-]/g, '_')}.${snippet.index}.${virtualExtension}`
+    )
   );
   const ambientPath = `${snippetPath}.globals.d.ts`;
   const sourceFiles = new Map<string, string>();
@@ -223,17 +392,13 @@ function compileSnippet(
 
   const buildAmbientFile = () =>
     [
-      'type __AskrSnippetStub = {',
-      "  (...args: readonly unknown[]): import('@askrjs/askr/foundations').JSXElement;",
-      '  new (...args: readonly unknown[]): __AskrSnippetStub;',
-      '  readonly [key: string]: unknown;',
-      '};',
+      'type __AskrSnippetStub = any;',
       '',
       ...[...stubbedNames]
         .sort()
         .map(
           (name) =>
-            `type ${name} = unknown;\ndeclare const ${name}: __AskrSnippetStub;\n`
+            `type ${name} = __AskrSnippetStub;\ndeclare const ${name}: __AskrSnippetStub;\n`
         ),
     ].join('\n');
 
@@ -247,18 +412,19 @@ function compileSnippet(
     const originalFileExists = host.fileExists.bind(host);
 
     host.getSourceFile = (fileName, languageVersion, onError, shouldCreate) => {
-      const virtualSource = sourceFiles.get(fileName);
+      const virtualPath = normalizeVirtualPath(fileName);
+      const virtualSource = sourceFiles.get(virtualPath);
       if (virtualSource !== undefined) {
         return ts.createSourceFile(
-          fileName,
+          virtualPath,
           virtualSource,
           languageVersion,
           true,
-          fileName.endsWith('.tsx')
+          virtualPath.endsWith('.tsx')
             ? ts.ScriptKind.TSX
-            : fileName.endsWith('.jsx')
+            : virtualPath.endsWith('.jsx')
               ? ts.ScriptKind.JSX
-              : fileName.endsWith('.js')
+              : virtualPath.endsWith('.js')
                 ? ts.ScriptKind.JS
                 : ts.ScriptKind.TS
         );
@@ -273,7 +439,7 @@ function compileSnippet(
     };
 
     host.readFile = (fileName) => {
-      const virtualSource = sourceFiles.get(fileName);
+      const virtualSource = sourceFiles.get(normalizeVirtualPath(fileName));
       if (virtualSource !== undefined) {
         return virtualSource;
       }
@@ -282,7 +448,7 @@ function compileSnippet(
     };
 
     host.fileExists = (fileName) => {
-      if (sourceFiles.has(fileName)) {
+      if (sourceFiles.has(normalizeVirtualPath(fileName))) {
         return true;
       }
 
@@ -296,7 +462,12 @@ function compileSnippet(
     });
     const diagnostics = ts
       .getPreEmitDiagnostics(program)
-      .filter((diagnostic) => diagnostic.file?.fileName === snippetPath);
+      .filter((diagnostic) => !isMissingRelativeModuleDiagnostic(diagnostic))
+      .filter(
+        (diagnostic) =>
+          diagnostic.file &&
+          normalizeVirtualPath(diagnostic.file.fileName) === snippetPath
+      );
 
     const newlyStubbed: string[] = [];
     for (const diagnostic of diagnostics) {
@@ -323,13 +494,66 @@ function compileSnippet(
   ];
 }
 
+function syntaxCheckSnippet(snippet: Snippet): string[] {
+  const virtualExtension = getSnippetVirtualExtension(snippet);
+  const virtualPath = `${normalizeVirtualPath(
+    path.join(
+      rootDir,
+      '__snippet_checks__',
+      `${path.basename(snippet.filePath).replace(/[^\w.-]/g, '_')}.${snippet.index}.syntax.${virtualExtension}`
+    )
+  )}`;
+  const wrappedCode = /(^|\n)\s*(import|export)\b/.test(snippet.code)
+    ? `${snippet.code}\n`
+    : `async function __askrDocSnippet() {\n${snippet.code}\n}\n`;
+  const source = ts.createSourceFile(
+    virtualPath,
+    wrappedCode,
+    ts.ScriptTarget.Latest,
+    true,
+    virtualExtension === 'tsx'
+      ? ts.ScriptKind.TSX
+      : virtualExtension === 'jsx'
+        ? ts.ScriptKind.JSX
+        : virtualExtension === 'js'
+          ? ts.ScriptKind.JS
+          : ts.ScriptKind.TS
+  );
+
+  return source.parseDiagnostics.map((diagnostic) =>
+    ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
+  );
+}
+
+function syntaxCheckHtmlSnippet(snippet: HtmlSnippet): string[] {
+  try {
+    new JSDOM(`<root>${snippet.code}</root>`, {
+      contentType: 'application/xhtml+xml',
+    });
+    return [];
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown HTML parse error.';
+    return [message.split('\n')[0]];
+  }
+}
+
 describe('public docs snippets', () => {
   it('should compile published docs snippets that import public Askr entrypoints', () => {
-    const snippets = docsRoots.flatMap((entry) =>
-      collectFiles(entry)
-        .filter((filePath) => /\.(md|mdx)$/.test(filePath))
-        .flatMap((filePath) => extractSnippets(filePath))
-    );
+    const snippets = docsRoots
+      .flatMap((entry) =>
+        collectFiles(entry)
+          .filter((filePath) => /\.(md|mdx)$/.test(filePath))
+          .filter((filePath) => isPublishedDocsFile(filePath))
+          .flatMap((filePath) => extractPublicTypecheckedSnippets(filePath))
+      )
+      .concat(
+        exampleRoots.flatMap((entry) =>
+          collectFiles(entry).flatMap((filePath) =>
+            extractSourceExamples(filePath)
+          )
+        )
+      );
 
     expect(snippets.length).toBeGreaterThan(0);
 
@@ -355,4 +579,56 @@ describe('public docs snippets', () => {
 
     expect(failures).toEqual([]);
   }, 180000);
+
+  it('should keep published user-facing TS and TSX docs snippets syntactically valid', () => {
+    const snippets = docsRoots.flatMap((entry) =>
+      collectFiles(entry)
+        .filter((filePath) => /\.(md|mdx)$/.test(filePath))
+        .filter((filePath) => isPublishedDocsFile(filePath))
+        .flatMap((filePath) => extractSyntaxCheckedSnippets(filePath))
+    );
+
+    expect(snippets.length).toBeGreaterThan(0);
+
+    const failures: string[] = [];
+
+    for (const snippet of snippets) {
+      const diagnostics = syntaxCheckSnippet(snippet);
+      if (diagnostics.length === 0) {
+        continue;
+      }
+
+      failures.push(
+        `${path.relative(rootDir, snippet.filePath)}#${snippet.index}\n${diagnostics.join('\n')}`
+      );
+    }
+
+    expect(failures).toEqual([]);
+  });
+
+  it('should keep published user-facing HTML docs snippets well-formed', () => {
+    const snippets = docsRoots.flatMap((entry) =>
+      collectFiles(entry)
+        .filter((filePath) => /\.(md|mdx)$/.test(filePath))
+        .filter((filePath) => isPublishedDocsFile(filePath))
+        .flatMap((filePath) => extractHtmlSnippets(filePath))
+    );
+
+    expect(snippets.length).toBeGreaterThan(0);
+
+    const failures: string[] = [];
+
+    for (const snippet of snippets) {
+      const diagnostics = syntaxCheckHtmlSnippet(snippet);
+      if (diagnostics.length === 0) {
+        continue;
+      }
+
+      failures.push(
+        `${path.relative(rootDir, snippet.filePath)}#${snippet.index}\n${diagnostics.join('\n')}`
+      );
+    }
+
+    expect(failures).toEqual([]);
+  });
 });

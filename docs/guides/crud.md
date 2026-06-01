@@ -42,7 +42,7 @@ export function UsersRoute() {
   if (users.pending) return <p>Loading users...</p>;
   if (users.error) return <p role="alert">Unable to load users.</p>;
 
-  return <UserTable users={users.value "" []} />;
+  return <UserTable users={users.value ?? []} />;
 }
 ```
 

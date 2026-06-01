@@ -23,33 +23,23 @@
 import type { JSXElement } from '../common/jsx';
 import { ELEMENT_TYPE, STATIC_CHILDREN } from '../common/jsx';
 import type { Props } from '../common/props';
+import type { RenderableChild } from '../common/vnode';
 import { getCurrentComponentInstance } from './component';
 import type { ComponentInstance } from './component';
 
 export type ContextKey = symbol;
 
-// Lightweight VNode definition used for JSX typing in this module
-type VNode = {
-  type: string;
-  props?: Record<string, unknown>;
-  children?: (string | VNode | null | undefined | false)[];
-};
-
-// Union of allowed render return values (text, vnode, JSX element, etc.)
-type Renderable =
-  | JSXElement
-  | VNode
-  | string
-  | number
-  | null
-  | undefined
-  | false;
+type Renderable = RenderableChild;
+type ContextScopeChildren = Renderable | (() => Renderable);
 
 export interface Context<T> {
   readonly key: ContextKey;
   readonly defaultValue: T;
   // A Scope is a JSX-style element factory returning a JSXElement (component invocation)
-  readonly Scope: (props: { value: T; children?: unknown }) => JSXElement;
+  readonly Scope: (props: {
+    value: T;
+    children?: ContextScopeChildren;
+  }) => JSXElement;
 }
 
 export interface ContextFrame {
@@ -255,7 +245,10 @@ export function defineContext<T>(defaultValue: T): Context<T> {
   return {
     key,
     defaultValue,
-    Scope: (props: { value: T; children?: unknown }): JSXElement => {
+    Scope: (props: {
+      value: T;
+      children?: ContextScopeChildren;
+    }): JSXElement => {
       const value = props.value;
       // Scope component: creates a new frame and renders children within it
       return {
@@ -289,6 +282,12 @@ function preserveStaticChildrenMarker(
   return target;
 }
 
+function isPresentRenderable(
+  value: Renderable | null | undefined
+): value is Renderable {
+  return value !== null && value !== undefined && value !== false;
+}
+
 export function readContext<T>(context: Context<T>): T {
   // Check render frame first (components), then async resource frame (resources)
   const frame = currentContextFrame || currentAsyncResourceFrame;
@@ -320,7 +319,7 @@ function ContextScopeComponent(props: Props): Renderable {
   // Extract expected properties (we accept a loose shape so this can be used as a component type)
   const key = props['key'] as ContextKey;
   const value = props['value'];
-  const children = props['children'] as Renderable;
+  const children = props['children'] as ContextScopeChildren;
 
   // Create a new frame with this value
   const instance = getCurrentComponentInstance();
@@ -386,7 +385,7 @@ function ContextScopeComponent(props: Props): Renderable {
       newFrame,
       getCurrentComponentInstance()
     );
-  } else if (children) {
+  } else if (isPresentRenderable(children)) {
     return markWithFrame(children, newFrame);
   }
 
@@ -424,7 +423,7 @@ function ContextFunctionChildInvoker(props: {
   const res = withContext(__frame, () => fn());
 
   // Mark the result so the renderer knows to set ownerFrame on child instances
-  if (res) return markWithFrame(res, __frame);
+  if (isPresentRenderable(res)) return markWithFrame(res, __frame);
   return null;
 }
 

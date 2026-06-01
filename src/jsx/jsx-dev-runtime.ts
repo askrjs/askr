@@ -2,7 +2,11 @@
  * JSX dev runtime factory
  * Same element shape as production runtime, with room for dev warnings.
  */
-import type { Props } from '../common/props';
+import type {
+  IntrinsicFallbackProps,
+  KnownIntrinsicElementProps,
+  Props,
+} from '../common/props';
 import {
   isEagerControlPrimitive,
   type EagerControlPrimitive,
@@ -38,13 +42,31 @@ function markStaticChildren(props: Props): Props {
 
 export function jsxDEV(
   type: EagerControlPrimitive,
-  props: Record<string, unknown> | null,
+  props: Props | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): unknown;
+export function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
+  type: TTag,
+  props: KnownIntrinsicElementProps[TTag] | null,
+  key?: string | number,
+  isStaticChildren?: boolean
+): JSXElement;
+export function jsxDEV<TTag extends string>(
+  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
+  props: IntrinsicFallbackProps | null,
+  key?: string | number,
+  isStaticChildren?: boolean
+): JSXElement;
+export function jsxDEV<TProps extends object>(
+  type: (props: TProps) => unknown,
+  props: TProps | null,
+  key?: string | number,
+  isStaticChildren?: boolean
+): JSXElement;
 export function jsxDEV(
-  type: unknown,
-  props: Record<string, unknown> | null,
+  type: symbol,
+  props: Props | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;

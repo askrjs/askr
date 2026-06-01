@@ -21,6 +21,9 @@ registerRoutes(registerAppRoutes, {
 Establishes a pathless scope for nested routes. Child routes keep absolute paths,
 while `group()` provides inherited layout and access metadata.
 
+Router layouts return normal renderable content. Imperative DOM `Node` values are
+not a supported public contract there.
+
 ```ts
 import { fallback, group, route } from '@askrjs/askr/router';
 
@@ -126,7 +129,7 @@ Renders the active child route inside the current `page()` host.
 Registers a route declaration. Call it during route registration.
 
 - `path`: route template using `{name}` for params and `/*` for catch-all. Inside `page()`, child routes must use relative paths like `tabs`.
-- `Component`: page component function; receives URL params as props
+- `Component`: page component function; receives URL params as props and returns normal renderable content
 - `options`
   - `auth`: `true` for authenticated routes, `"guest"` for signed-out-only routes
   - `role`: role-gated route; implies `auth: true`
@@ -202,6 +205,8 @@ import { Link } from '@askrjs/askr/router';
 
 <Link href="/about">About</Link>;
 ```
+
+`Link` accepts normal renderable child content. Imperative DOM `Node` children are not a supported public contract.
 
 ## Types
 

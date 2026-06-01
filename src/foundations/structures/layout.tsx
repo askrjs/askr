@@ -1,3 +1,5 @@
+import type { RenderableChild } from '../../common/vnode';
+
 /**
  * Layout helper.
  *
@@ -23,12 +25,14 @@
  */
 
 export type LayoutComponent<P = object> = (
-  props: P & { children?: unknown }
+  props: P & { children?: RenderableChild }
 ) => unknown;
 
 export function layout<P = object>(Layout: LayoutComponent<P>) {
-  return (children?: unknown, props?: P) => {
-    const mergedProps = { ...props, children } as P & { children?: unknown };
+  return (children?: RenderableChild, props?: P) => {
+    const mergedProps = { ...props, children } as P & {
+      children?: RenderableChild;
+    };
     return Layout(mergedProps);
   };
 }

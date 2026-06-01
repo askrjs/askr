@@ -11,15 +11,25 @@ const [value, setValue] = state(initialValue);
 - `getter()` reads the current value
 - `setter(valueOrUpdater)` updates the value
 
+When the state value itself is a function, always use updater form to replace
+it. `setFormatter(() => nextFormatter)` is safe; a direct function argument is
+interpreted as an updater.
+
 ## Derived State
 
-```ts
+```tsx
 import { derive, state } from '@askrjs/askr';
 
-const [count, setCount] = state(0);
-const doubled = derive(() => count() * 2);
+function CounterSummary() {
+  const [count] = state(0);
+  const doubled = derive(() => count() * 2);
 
-return <div>{count()} doubled is {doubled()}</div>;
+  return (
+    <div>
+      {count()} doubled is {doubled()}
+    </div>
+  );
+}
 ```
 
 `derive()` returns a callable getter derived from other reactive inputs.
@@ -33,22 +43,26 @@ trigger a component re-render when async work completes.
 Use `selector()` when one source fans out to many keyed readers, such as row selection
 or active-route checks.
 
-```ts
+```tsx
 import { selector, state } from '@askrjs/askr';
 
-const [selectedId, setSelectedId] = state<number | null>(null);
-const isSelected = selector(selectedId);
+function TableRow({ row }: { row: { id: number } }) {
+  const [selectedId] = state<number | null>(null);
+  const isSelected = selector(selectedId);
 
-return <tr class={() => (isSelected(row.id) ? 'danger' : '')} />;
+  return <tr class={isSelected(row.id) ? 'danger' : ''} />;
+}
 ```
 
 For keyed lists, create the selector once in the owner component and pass it down.
 
-```ts
+```tsx
 import { selector, state } from '@askrjs/askr';
 import { For } from '@askrjs/askr/control';
 
-function Table() {
+type RowData = { id: number };
+
+function Table({ rows }: { rows: RowData[] }) {
   const [selectedId, setSelectedId] = state<number | null>(null);
   const isSelected = selector(selectedId);
 
@@ -73,19 +87,41 @@ Use `Show`, `Case`, and `Match` for conditional control flow.
 ```tsx
 import { Case, Match, Show } from '@askrjs/askr/control';
 
-<Show when={user} fallback={<Login />}>
-  {(value) => <Dashboard user={value} />}
-</Show>;
+function Example({
+  user,
+  status,
+}: {
+  user: { id: string } | null;
+  status: () => 'loading' | 'ready';
+}) {
+  return (
+    <>
+      <Show when={user} fallback={<Login />}>
+        {(value) => <Dashboard user={value} />}
+      </Show>
 
-<Case fallback={<NotFound />}>
-  <Match when={status() === 'loading'}>
-    <Spinner />
-  </Match>
-  <Match when={status() === 'ready'}>
-    <Dashboard />
-  </Match>
-</Case>;
+      <Case fallback={<NotFound />}>
+        <Match when={status() === 'loading'}>
+          <Spinner />
+        </Match>
+        <Match when={status() === 'ready'}>
+          <Dashboard />
+        </Match>
+      </Case>
+    </>
+  );
+}
 ```
+
+`Case` only accepts direct `Match` children. Each `Match` renders either a
+plain JSX node or a zero-argument thunk.
+
+`Show` render functions receive the resolved truthy value. Literal falsey
+branches such as `null`, `undefined`, `false`, `''`, and `0` are excluded from
+the callback type when TypeScript can see them.
+
+Control-flow fallbacks and `Match` thunk children accept normal JSX boundary
+content, including fragments and sibling arrays.
 
 ## Rules
 

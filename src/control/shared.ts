@@ -1,5 +1,7 @@
 import { Fragment } from '../common/jsx';
-import type { DOMElement, VNode } from '../common/vnode';
+import type { DOMElement, RenderableChild, VNode } from '../common/vnode';
+
+export type BoundaryChild = RenderableChild;
 
 export function normalizeBoundaryChild(value: unknown): VNode | null {
   if (Array.isArray(value)) {

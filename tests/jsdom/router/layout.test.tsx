@@ -119,6 +119,27 @@ describe('layout scoping (ROUTER)', () => {
     expect(record!.component).toBe(Page);
   });
 
+  it('should ignore imperative DOM node layout output', async () => {
+    const imperativeNode = document.createElement('div');
+    imperativeNode.id = 'imperative-layout-output';
+    imperativeNode.textContent = 'Imperative layout';
+
+    const AppLayout = () => imperativeNode as unknown as null;
+    const Page = () => <span class="page">page</span>;
+
+    group({ layout: AppLayout }, () => {
+      route('/layout-imperative', Page);
+    });
+
+    await createSPA({ root: container, manifest: getManifest() });
+    navigate('/layout-imperative');
+    await flushScheduler();
+
+    expect(container.querySelector('#imperative-layout-output')).toBeNull();
+    expect(container.querySelector('.page')).toBeNull();
+    expect(container.textContent).toBe('');
+  });
+
   it('should preserve shared layout DOM across navigations', async () => {
     const AppLayout = ({ children }: { children?: unknown }) => (
       <div class="layout">{children as never}</div>

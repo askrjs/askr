@@ -32,8 +32,9 @@ import {
   getCurrentPortalScope,
   type ComponentInstance,
 } from '../../runtime/component';
+import type { RenderableChild } from '../../common/vnode';
 
-export interface Portal<T = unknown> {
+export interface Portal<T extends RenderableChild = RenderableChild> {
   /** Mount point — rendered exactly once */
   (): unknown;
 
@@ -42,7 +43,7 @@ export interface Portal<T = unknown> {
 }
 
 export interface PortalProps {
-  children?: unknown;
+  children?: RenderableChild;
 }
 
 function createPortalSlot<T>(): {
@@ -73,7 +74,9 @@ function createPortalSlot<T>(): {
   };
 }
 
-export function definePortal<T = unknown>(): Portal<T> {
+export function definePortal<
+  T extends RenderableChild = RenderableChild,
+>(): Portal<T> {
   // Using `typeof createPortalSlot` is safe even if the identifier is not
   // defined at runtime (it returns 'undefined' rather than throwing).
   if (typeof createPortalSlot === 'function') {
@@ -121,14 +124,14 @@ export function definePortal<T = unknown>(): Portal<T> {
 }
 
 type DefaultPortalState = {
-  portal: Portal<unknown>;
+  portal: Portal<RenderableChild>;
   owner: ComponentInstance | null;
   cleanupOwners: WeakSet<ComponentInstance>;
 };
 
 let _defaultPortalStates = new Map<object, DefaultPortalState>();
 let _hasPendingDefaultPortalValue = false;
-let _pendingDefaultPortalValue: unknown = undefined;
+let _pendingDefaultPortalValue: RenderableChild | undefined = undefined;
 
 export function _resetDefaultPortal(): void {
   _defaultPortalStates = new Map<object, DefaultPortalState>();
@@ -191,7 +194,7 @@ function getDefaultPortalState(scope: object): DefaultPortalState {
   let state = _defaultPortalStates.get(scope);
   if (!state) {
     state = {
-      portal: definePortal<unknown>(),
+      portal: definePortal<RenderableChild>(),
       owner: null,
       cleanupOwners: new WeakSet<ComponentInstance>(),
     };
@@ -289,7 +292,7 @@ export function clearDefaultPortalForInstance(
   state.owner = null;
 }
 
-export const DefaultPortal: Portal<unknown> = (() => {
+export const DefaultPortal: Portal<RenderableChild> = (() => {
   function Host() {
     const scope = resolveDefaultPortalScope(getCurrentComponentInstance());
     if (!scope) {
@@ -300,11 +303,11 @@ export const DefaultPortal: Portal<unknown> = (() => {
     const v = getDefaultPortalState(scope).portal();
     return v === undefined ? null : v;
   }
-  Host.render = function Render(props: { children?: unknown }) {
+  Host.render = function Render(props: { children?: RenderableChild }) {
     writeDefaultPortal(props, getCurrentComponentInstance());
     return null;
   };
-  return Host as Portal<unknown>;
+  return Host as Portal<RenderableChild>;
 })();
 
 export function Portal(props: PortalProps): null {

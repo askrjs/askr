@@ -1,9 +1,10 @@
 import { ELEMENT_TYPE, Fragment } from '../../jsx';
 import type { JSXElement } from '../../jsx';
+import type { RenderableChild } from '../../common/vnode';
 
 export interface PresenceProps {
   present: boolean | (() => boolean);
-  children?: unknown;
+  children?: RenderableChild;
 }
 
 /**
@@ -21,8 +22,8 @@ export interface PresenceProps {
  *    Function is called once per render. Use boolean form for static values.
  *
  * 2. Children Type
- *    `children` is intentionally `unknown` to remain runtime-agnostic.
- *    The runtime owns child normalization and validation.
+ *    Presence forwards normal renderable child content only.
+ *    Imperative DOM nodes are not part of the public contract.
  *
  * 3. Immediate Mount/Unmount
  *    No exit animations or transitions. When `present` becomes false,

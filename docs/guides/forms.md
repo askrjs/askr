@@ -9,7 +9,6 @@ the route or feature-container boundary.
 
 ```tsx
 import { state } from '@askrjs/askr';
-import { Button, Field, FieldLabel, Input } from '@askrjs/ui';
 
 export function SettingsForm() {
   const [name, setName] = state('');
@@ -27,17 +26,18 @@ export function SettingsForm() {
 
   return (
     <form>
-      <Field id="name">
-        <FieldLabel fieldId="name">Full name</FieldLabel>
-        <Input
-          value={name()}
-          onInput={(event: Event) =>
-            setName((event.target as HTMLInputElement).value)
-          }
-        />
-      </Field>
-      {error() " <p role="alert">{error()}</p> : null}
-      <Button onPress={submit}>Save</Button>
+      <label htmlFor="name">Full name</label>
+      <input
+        id="name"
+        value={name()}
+        onInput={(event: Event) =>
+          setName((event.target as HTMLInputElement).value)
+        }
+      />
+      {error() ? <p role="alert">{error()}</p> : null}
+      <button type="button" onClick={submit}>
+        Save
+      </button>
     </form>
   );
 }

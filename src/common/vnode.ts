@@ -26,6 +26,7 @@ export interface DOMElement {
 
 // Type for virtual DOM nodes
 export type VNode = DOMElement | string | number | boolean | null | undefined;
+export type RenderableChild = VNode | readonly VNode[];
 
 // Backward-compatible internal alias while renderer/runtime migrates away from
 // the old For-only boundary naming.

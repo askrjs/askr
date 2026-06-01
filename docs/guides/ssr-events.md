@@ -192,7 +192,7 @@ Browser downloads and displays the HTML. The page is visible but **not interacti
 import { hydrateSPA } from '@askrjs/askr/boot';
 
 await hydrateSPA({
-  root: document.getElementById('app'),
+  root: document.getElementById('app')!,
   routes: routes,
 });
 ```
@@ -210,7 +210,7 @@ Users can now interact with buttons, forms, and other controls.
 
 ## Hydration Mismatches
 
-### What Are They"
+### What Are Hydration Mismatches?
 
 A hydration mismatch occurs when server HTML doesn't match client-rendered HTML:
 
@@ -231,17 +231,21 @@ function BadComponent() {
 
    ```tsx
    // NO Changes on each render
-   <div>{Math.random()}</div>
-   <div>{Date.now()}</div>
-   <div>{Math.random() > 0.5 " 'A' : 'B'}</div>
+   <>
+     <div>{Math.random()}</div>
+     <div>{Date.now()}</div>
+     <div>{Math.random() > 0.5 ? 'A' : 'B'}</div>
+   </>
    ```
 
 2. **Browser-only APIs**:
 
    ```tsx
    // NO window undefined on server
-   <div>{window.innerWidth}</div>
-   <div>{typeof window !== 'undefined' " 'Browser' : 'Server'}</div>
+   <>
+     <div>{window.innerWidth}</div>
+     <div>{typeof window !== 'undefined' ? 'Browser' : 'Server'}</div>
+   </>
    ```
 
 3. **Conditional rendering based on environment**:
@@ -356,7 +360,7 @@ function AsyncHandler() {
 
   return (
     <button onClick={handleClick}>
-      {loading() " 'Loading...' : 'Fetch Data'}
+      {loading() ? 'Loading...' : 'Fetch Data'}
     </button>
   );
 }
@@ -403,16 +407,22 @@ With **event delegation** enabled (default), the cost is even lower:
 ```tsx
 // OK Good - simple handler
 const [count, setCount] = state(0);
-<button onClick={() => setCount(count() + 1)}>+</button>
+const simple = <button onClick={() => setCount(count() + 1)}>+</button>;
 
 // NO Bad - complex logic in JSX
-<button onClick={() => {
-  if (count() < 10) {
-    setCount(count() + 1);
-  } else {
-    alert('Max reached');
-  }
-}}>+</button>
+const inlineComplex = (
+  <button
+    onClick={() => {
+      if (count() < 10) {
+        setCount(count() + 1);
+      } else {
+        alert('Max reached');
+      }
+    }}
+  >
+    +
+  </button>
+);
 
 // OK Better - extract to function
 const handleClick = () => {
@@ -422,7 +432,7 @@ const handleClick = () => {
     alert('Max reached');
   }
 };
-<button onClick={handleClick}>+</button>
+const extracted = <button onClick={handleClick}>+</button>;
 ```
 
 ### 2. Use Event Delegation

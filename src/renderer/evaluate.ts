@@ -33,8 +33,10 @@ import { Fragment } from '../common/jsx';
 import {
   createWrappedHandler,
   extractKey,
-  getPassiveOptions,
-  parseEventName,
+  getEventListenerKey,
+  getEventListenerOptions,
+  parseEventProp,
+  setRenderedAttribute,
   tagNamesEqualIgnoreCase as sharedTagNamesEqualIgnoreCase,
   writeElementClassName,
 } from './utils';
@@ -560,19 +562,22 @@ function applyPropsToElement(el: Element, props: Props): void {
       continue;
     }
 
-    const eventName = parseEventName(key);
-    if (eventName) {
+    const eventProp = parseEventProp(key);
+    if (eventProp) {
+      const { eventName, capture } = eventProp;
       const wrappedHandler = createWrappedHandler(value as EventListener, true);
-      const options = getPassiveOptions(eventName);
+      const options = getEventListenerOptions(eventName, capture);
+      const listenerKey = getEventListenerKey(eventName, capture);
 
       if (options !== undefined)
         el.addEventListener(eventName, wrappedHandler, options);
       else el.addEventListener(eventName, wrappedHandler);
 
       if (!elementListeners.has(el)) elementListeners.set(el, new Map());
-      elementListeners.get(el)!.set(eventName, {
+      elementListeners.get(el)!.set(listenerKey, {
         handler: wrappedHandler,
         original: value as EventListener,
+        eventName,
         options,
       });
       continue;
@@ -583,7 +588,7 @@ function applyPropsToElement(el: Element, props: Props): void {
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Props)[key] = value;
     } else {
-      el.setAttribute(key, String(value));
+      setRenderedAttribute(el, key, String(value));
     }
   }
 }
