@@ -3,7 +3,11 @@
  * Same element shape as production runtime.
  */
 
-import type { Props } from '../common/props';
+import type {
+  IntrinsicFallbackProps,
+  KnownIntrinsicElementProps,
+  Props,
+} from '../common/props';
 import {
   isEagerControlPrimitive,
   type EagerControlPrimitive,
@@ -39,13 +43,31 @@ function markStaticChildren(props: Props): Props {
 
 export function jsxDEV(
   type: EagerControlPrimitive,
-  props: Record<string, unknown> | null,
+  props: Props | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): unknown;
+export function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
+  type: TTag,
+  props: KnownIntrinsicElementProps[TTag] | null,
+  key?: string | number,
+  isStaticChildren?: boolean
+): JSXElement;
+export function jsxDEV<TTag extends string>(
+  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
+  props: IntrinsicFallbackProps | null,
+  key?: string | number,
+  isStaticChildren?: boolean
+): JSXElement;
+export function jsxDEV<TProps extends object>(
+  type: (props: TProps) => unknown,
+  props: TProps | null,
+  key?: string | number,
+  isStaticChildren?: boolean
+): JSXElement;
 export function jsxDEV(
-  type: unknown,
-  props: Record<string, unknown> | null,
+  type: symbol,
+  props: Props | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;
@@ -75,12 +97,27 @@ export function jsxDEV(
 // Production-style helpers: alias to the DEV factory for now
 export function jsx(
   type: EagerControlPrimitive,
-  props: Record<string, unknown> | null,
+  props: Props | null,
   key?: string | number
 ): unknown;
+export function jsx<TTag extends keyof KnownIntrinsicElementProps>(
+  type: TTag,
+  props: KnownIntrinsicElementProps[TTag] | null,
+  key?: string | number
+): JSXElement;
+export function jsx<TTag extends string>(
+  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
+  props: IntrinsicFallbackProps | null,
+  key?: string | number
+): JSXElement;
+export function jsx<TProps extends object>(
+  type: (props: TProps) => unknown,
+  props: TProps | null,
+  key?: string | number
+): JSXElement;
 export function jsx(
-  type: unknown,
-  props: Record<string, unknown> | null,
+  type: symbol,
+  props: Props | null,
   key?: string | number
 ): JSXElement;
 export function jsx(
@@ -88,17 +125,32 @@ export function jsx(
   props: Record<string, unknown> | null,
   key?: string | number
 ) {
-  return jsxDEV(type, props, key);
+  return jsxDEV(type as never, props, key);
 }
 
 export function jsxs(
   type: EagerControlPrimitive,
-  props: Record<string, unknown> | null,
+  props: Props | null,
   key?: string | number
 ): unknown;
+export function jsxs<TTag extends keyof KnownIntrinsicElementProps>(
+  type: TTag,
+  props: KnownIntrinsicElementProps[TTag] | null,
+  key?: string | number
+): JSXElement;
+export function jsxs<TTag extends string>(
+  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
+  props: IntrinsicFallbackProps | null,
+  key?: string | number
+): JSXElement;
+export function jsxs<TProps extends object>(
+  type: (props: TProps) => unknown,
+  props: TProps | null,
+  key?: string | number
+): JSXElement;
 export function jsxs(
-  type: unknown,
-  props: Record<string, unknown> | null,
+  type: symbol,
+  props: Props | null,
   key?: string | number
 ): JSXElement;
 export function jsxs(

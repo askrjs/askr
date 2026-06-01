@@ -16,11 +16,33 @@ expectAssignable<JSXElement>(
   </ColorContext.Scope>
 );
 
+expectAssignable<JSXElement>(
+  <ColorContext.Scope value="dark">
+    {() => <span>dark</span>}
+  </ColorContext.Scope>
+);
+
+expectAssignable<JSXElement>(
+  <ColorContext.Scope value="dark">{() => 0}</ColorContext.Scope>
+);
+
 expectAssignable<JSXElement>(<ThemeContext.Scope value="dark" />);
 
 expectError(
   <ColorContext.Scope value="blue">
     <span>bad</span>
+  </ColorContext.Scope>
+);
+
+expectError(
+  <ColorContext.Scope value="dark">
+    {document.createElement('div')}
+  </ColorContext.Scope>
+);
+
+expectError(
+  <ColorContext.Scope value="dark">
+    {() => document.createElement('div')}
   </ColorContext.Scope>
 );
 

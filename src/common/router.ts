@@ -1,3 +1,5 @@
+import type { RenderableChild } from './vnode';
+
 /**
  * Common call contracts: Router types
  */
@@ -45,11 +47,12 @@ export type RoutePathParams<Path extends string> = [
  * A route page component: a regular component that receives route params as
  * props derived from the URL pattern.
  *
- * Components may accept no params at all — `() => unknown` is assignable.
+ * Components may accept no params at all — zero-argument components are still
+ * assignable.
  */
 export type RouteComponent<TParams extends RouteParams = RouteParams> = (
   props: TParams
-) => unknown;
+) => RenderableChild;
 
 export type RouteMode = 'spa' | 'ssr' | 'ssg';
 export type RouteAuthMode = true | 'guest';
@@ -168,7 +171,7 @@ export interface ParsedSegment {
 
 /** Resolved layout component as stored in a route record's layout chain. */
 export interface LayoutScopeRecord {
-  component: (props: { children?: unknown }) => unknown;
+  component: (props: { children?: RenderableChild }) => RenderableChild;
 }
 
 /** Resolved page host component as stored in a route record's page chain. */
@@ -202,7 +205,7 @@ export type RouteRequestResult<TParams extends RouteParams = RouteParams> =
   | null;
 
 export interface GroupHelperOptions extends CommonAccessOptions {
-  layout?: (props: { children?: unknown }) => unknown;
+  layout?: (props: { children?: RenderableChild }) => RenderableChild;
 }
 
 /**
@@ -254,7 +257,7 @@ export interface RouteManifest {
 }
 
 export interface RouteHandler<TParams extends RouteParams = RouteParams> {
-  (params: TParams, context?: { signal: AbortSignal }): unknown;
+  (params: TParams, context?: { signal: AbortSignal }): RenderableChild;
 }
 
 export interface Route<TParams extends RouteParams = RouteParams> {

@@ -144,6 +144,7 @@ function forEachElementInSubtree(root: Element, visit: (el: Element) => void) {
 export interface ListenerMapEntry {
   handler: EventListener;
   original: EventListener;
+  eventName: string;
   options?: boolean | AddEventListenerOptions;
   isDelegated?: boolean;
   updateHandler?: (nextHandler: EventListener) => void;
@@ -283,14 +284,18 @@ export function removeElementReactiveProps(element: Element): void {
 export function removeElementListeners(element: Element): void {
   const map = elementListeners.get(element);
   if (map) {
-    for (const [eventName, entry] of map) {
+    for (const entry of map.values()) {
       incDevCounter('listenerRemoves');
       if (entry.isDelegated) {
-        removeDelegatedListener(element, eventName);
+        removeDelegatedListener(element, entry.eventName);
       } else {
         if (entry.options !== undefined)
-          element.removeEventListener(eventName, entry.handler, entry.options);
-        else element.removeEventListener(eventName, entry.handler);
+          element.removeEventListener(
+            entry.eventName,
+            entry.handler,
+            entry.options
+          );
+        else element.removeEventListener(entry.eventName, entry.handler);
       }
     }
     elementListeners.delete(element);

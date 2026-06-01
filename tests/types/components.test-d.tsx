@@ -24,6 +24,14 @@ const boundaryProps: ErrorBoundaryProps = {
 };
 
 expectAssignable<ErrorBoundaryProps>(boundaryProps);
+expectAssignable<ErrorBoundaryProps>({
+  fallback: [<div key="first">fallback</div>, <div key="second">state</div>],
+  children: [<span key="first">content</span>, <span key="second">body</span>],
+});
+expectAssignable<ErrorBoundaryProps>({
+  fallback: document.createElement('div'),
+  children: <span>content</span>,
+});
 expectAssignable<JSXElement>(ErrorBoundary(boundaryProps));
 expectAssignable<JSXElement>(
   <ErrorBoundary fallback={<div>fallback</div>}>
@@ -37,4 +45,14 @@ expectError(
       return error.length;
     }}
   />
+);
+expectError(
+  <ErrorBoundary fallback={() => ({ invalid: true })}>
+    <span>content</span>
+  </ErrorBoundary>
+);
+expectError(
+  <ErrorBoundary fallback={<div>fallback</div>}>
+    {document.createElement('div')}
+  </ErrorBoundary>
 );

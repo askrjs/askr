@@ -7,6 +7,10 @@ This note documents the current control-flow model for `@askrjs/askr`.
 ```tsx
 import { Case, For, Match, Show } from '@askrjs/askr/control';
 
+const rows = [{ id: 1 }];
+const user: { id: string } | null = { id: '1' };
+const status: () => 'loading' | 'ready' = () => 'loading';
+
 <For each={rows} by={(row) => row.id} fallback={<EmptyState />}>
   {(row, index) => <Row row={row} index={index()} />}
 </For>;
@@ -73,8 +77,8 @@ The renderer recognizes that boundary and delegates to runtime state:
 
 `For` is a thin keyed reconciliation layer over child scopes.
 
-- keyed mode: `each`, `by`, `fallback"`, `children`
-- positional mode: `each`, `byIndex={true}`, `fallback"`, `children`
+- keyed mode: `each`, `by`, `fallback`, `children`
+- positional mode: `each`, `byIndex={true}`, `fallback`, `children`
 - `by` and `byIndex` are mutually exclusive
 - missing both is a hard error
 

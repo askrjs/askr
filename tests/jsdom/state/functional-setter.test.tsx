@@ -52,4 +52,23 @@ describe('state functional updater (STATE)', () => {
     // first: 10*2=20, then +5 => 25
     expect(container.textContent).toBe('25');
   });
+
+  it('should replace function-valued state through updater form', () => {
+    type Formatter = (value: number) => string;
+
+    let formatter: ReturnType<typeof state<Formatter>> | null = null;
+    const Component = () => {
+      formatter = state<Formatter>((value) => `v${value}`);
+      return <div>{formatter()(2)}</div>;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    expect(container.textContent).toBe('v2');
+
+    formatter!.set(() => (value) => `#${value}`);
+
+    flushScheduler();
+    expect(container.textContent).toBe('#2');
+  });
 });

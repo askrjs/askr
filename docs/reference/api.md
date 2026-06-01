@@ -25,6 +25,20 @@ Public types:
 - `Selector`
 - `Context`
 - `Props`
+  The shared runtime props bag stays intentionally generic. Intrinsic JSX elements layer
+  common DOM-style contracts such as `class`, `style`, `ref`, and high-use event handlers on top
+  of it, and the JSX runtime gives high-use tags like `a`, `button`, `form`, `input`, `label`,
+  `select`, `option`, and `textarea` plus common layout/content tags such as `div`, `span`,
+  `section`, `main`, `article`, `header`, `footer`, `nav`, `p`, and headings, along with common
+  semantic inline/content tags such as `blockquote`, `code`, `em`, `figure`, `figcaption`, `pre`,
+  `small`, and `strong`, plus list, table, output, and common SVG tags such as `ul`, `li`, `ol`,
+  `table`, `caption`, `thead`, `tbody`, `tfoot`, `tr`, `td`, `th`, `output`, `svg`, `g`,
+  `circle`, `rect`, `path`, and `title`, their own attribute contracts, including table-cell
+  props such as `colSpan`, `rowSpan`, `headers`, `scope`, and `abbr`, output props such as
+  `htmlFor`, `name`, and `form`, and SVG props such as `viewBox`, `strokeWidth`,
+  `strokeLinecap`, `strokeLinejoin`, `fillRule`, and `clipRule`. Compatibility props such as
+  `className`, `htmlFor`, and those common camelCase SVG props are normalized to their rendered
+  attribute names.
 
 ## Feature subpaths
 
@@ -79,5 +93,11 @@ await createSPA({ root: document.body, manifest: getManifest() });
 ## Notes
 
 - `For`, `Show`, `Case`, and `Match` are available from `@askrjs/askr/control`.
+- `Show` render-function children receive the resolved truthy value, and literal falsey branches are excluded from that callback type when TypeScript can see them.
+- `Context.Scope` accepts normal renderable children or a zero-argument render callback. Imperative DOM `Node` children are not part of that public contract.
+- `ErrorBoundary` fallbacks accept normal JSX boundary content, and the client runtime also allows an imperative DOM `Node` fallback when you need one.
+- `Link`, `layout`, `Slot`, `Presence`, and the default portal surfaces accept normal renderable child content. Imperative DOM `Node` children are not part of that public contract.
+- Router page components, `lazy()` route components, and router layout functions also return normal renderable content rather than imperative DOM `Node` values.
+- `createQuery()` exposes `consistency` plus `staleReason` so settled stale states can be narrowed into `inconsistent`, `aborted`, or `error` without guessing from broad booleans alone.
 - `resource()` is available from `@askrjs/askr/resources`.
 - `createStaticGen()` is available from `@askrjs/askr/ssg`.

@@ -25,6 +25,24 @@ const routeConfig: RouteConfig = {
 };
 expectAssignable<RouteConfig>(routeConfig);
 
+const generatedRouteConfig: RouteConfig<'/posts/{slug}'> = {
+  path: '/posts/{slug}',
+  handler,
+  entries: async () => [{ slug: 'generated-post' }],
+};
+expectAssignable<RouteConfig<'/posts/{slug}'>>(generatedRouteConfig);
+
+createStaticGen({
+  routes: [
+    {
+      path: '/posts/{slug}',
+      handler,
+      entries: async () => [{ slug: 'generated-post' }],
+    },
+  ],
+  outputDir: './dist',
+});
+
 const options: SSGOptions = {
   routes: [{ path: '/', handler: () => 'home' }, routeConfig],
   outputDir: './dist',
@@ -96,3 +114,29 @@ const discoveredResources: DiscoveredResources = {
   },
 };
 expectAssignable<DiscoveredResources>(discoveredResources);
+
+void ({
+  path: '/posts/{slug}',
+  handler,
+  // @ts-expect-error params key must match route path placeholders
+  params: { id: 'wrong-key' },
+} satisfies RouteConfig<'/posts/{slug}'>);
+
+void ({
+  path: '/posts/{slug}',
+  handler,
+  // @ts-expect-error entries key must match route path placeholders
+  entries: async () => [{ id: 'wrong-key' }],
+} satisfies RouteConfig<'/posts/{slug}'>);
+
+createStaticGen({
+  routes: [
+    {
+      path: '/posts/{slug}',
+      handler,
+      // @ts-expect-error entries key must match route path placeholders
+      entries: async () => [{ id: 'wrong-key' }],
+    },
+  ],
+  outputDir: './dist',
+});

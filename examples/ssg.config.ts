@@ -1,10 +1,12 @@
+import type { RouteConfig } from '@askrjs/askr/ssg';
+
 const HomePage = () => 'Home';
 const AboutPage = () => 'About';
 
 export const routes = [
   { path: '/', component: HomePage },
   { path: '/about', component: AboutPage },
-];
+] satisfies RouteConfig[];
 
 export const dataOverrides = {
   '/': { appName: 'askr' },

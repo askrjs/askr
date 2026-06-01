@@ -53,6 +53,38 @@ describe('Show primitive', () => {
     cleanup();
   });
 
+  it('should render array fallback content when the condition is falsy', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const App = () => (
+      <Show
+        when={false}
+        fallback={[
+          <p id="show-array-fallback-first" key="first">
+            fallback
+          </p>,
+          <p id="show-array-fallback-second" key="second">
+            content
+          </p>,
+        ]}
+      >
+        <p id="show-array-child">ready</p>
+      </Show>
+    );
+
+    createIsland({ root: container, component: App });
+
+    expect(
+      container.querySelector('#show-array-fallback-first')?.textContent
+    ).toBe('fallback');
+    expect(
+      container.querySelector('#show-array-fallback-second')?.textContent
+    ).toBe('content');
+    expect(container.querySelector('#show-array-child')).toBeNull();
+
+    cleanup();
+  });
+
   it('should switch from fallback to truthy content when a resource-backed condition resolves', async () => {
     const { container, cleanup } = createTestContainer();
     let resolveUser: ((value: { name: string }) => void) | null = null;
@@ -188,6 +220,52 @@ describe('Show primitive', () => {
       '#show-counter'
     ) as HTMLButtonElement;
     expect(nextButton.textContent).toBe('Grace:1');
+
+    cleanup();
+  });
+
+  it('should only invoke a function child with truthy values', () => {
+    const { container, cleanup } = createTestContainer();
+    const seen: string[] = [];
+    let setStatus: (next: '' | 'ready' | null) => void = () => {};
+
+    const App = () => {
+      const status = state<'' | 'ready' | null>('');
+      setStatus = (next) => status.set(next);
+
+      return (
+        <Show when={status} fallback={<p id="show-truthy-fallback">idle</p>}>
+          {(value) => {
+            seen.push(value);
+            return <p id="show-truthy-value">{value}</p>;
+          }}
+        </Show>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelector('#show-truthy-fallback')?.textContent).toBe(
+      'idle'
+    );
+    expect(seen).toEqual([]);
+
+    setStatus('ready');
+    flushScheduler();
+
+    expect(container.querySelector('#show-truthy-value')?.textContent).toBe(
+      'ready'
+    );
+    expect(seen).toEqual(['ready']);
+
+    setStatus('');
+    flushScheduler();
+
+    expect(container.querySelector('#show-truthy-fallback')?.textContent).toBe(
+      'idle'
+    );
+    expect(seen).toEqual(['ready']);
 
     cleanup();
   });
@@ -546,6 +624,51 @@ describe('Case primitive', () => {
       'fallback'
     );
     expect(container.querySelector('#never')).toBeNull();
+
+    cleanup();
+  });
+
+  it('should render a zero-argument Match thunk child', () => {
+    const { container, cleanup } = createTestContainer();
+    let setMode: (next: 'loading' | 'ready') => void = () => {};
+
+    const App = () => {
+      const mode = state<'loading' | 'ready'>('loading');
+      setMode = (next) => mode.set(next);
+
+      return (
+        <Case fallback={<div id="case-fallback">fallback</div>}>
+          <Match when={mode() === 'loading'}>
+            {() => [
+              <div id="case-loading" key="loading">
+                loading
+              </div>,
+              <div id="case-loading-detail" key="detail">
+                detail
+              </div>,
+            ]}
+          </Match>
+          <Match when={mode() === 'ready'}>
+            <div id="case-ready">ready</div>
+          </Match>
+        </Case>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    expect(container.querySelector('#case-loading')?.textContent).toBe(
+      'loading'
+    );
+    expect(container.querySelector('#case-loading-detail')?.textContent).toBe(
+      'detail'
+    );
+
+    setMode('ready');
+    flushScheduler();
+
+    expect(container.querySelector('#case-loading')).toBeNull();
+    expect(container.querySelector('#case-loading-detail')).toBeNull();
+    expect(container.querySelector('#case-ready')?.textContent).toBe('ready');
 
     cleanup();
   });

@@ -5,6 +5,7 @@
 import '../jsx/types';
 import type { JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
+import type { RenderableChild } from '../common/vnode';
 import { navigate } from '../router/navigate';
 import { applyInteractionPolicy } from '../foundations/interactions/interaction-policy';
 import { mergeProps } from '../foundations/utilities/merge-props';
@@ -21,7 +22,7 @@ export type LinkProps = Omit<
 > & {
   href: string;
   class?: string;
-  children?: unknown;
+  children?: RenderableChild;
   /**
    * Optional rel attribute for link relationships.
    * Common values: "noopener", "noreferrer", "nofollow"

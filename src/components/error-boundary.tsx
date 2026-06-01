@@ -1,5 +1,6 @@
 import type { Props } from '../common/props';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
+import type { VNode } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import {
   getCurrentComponentInstance,
@@ -8,14 +9,17 @@ import {
 import { logger } from '../dev/logger';
 import { isDevelopmentEnvironment } from '../common/env';
 
+type ErrorBoundaryContent = VNode | readonly VNode[];
+type ErrorBoundaryFallbackValue = ErrorBoundaryContent | Node;
+
 export type ErrorBoundaryFallbackRender = (
   error: unknown,
   reset: () => void
-) => unknown;
+) => ErrorBoundaryFallbackValue;
 
 export interface ErrorBoundaryProps extends Props {
-  children?: unknown;
-  fallback?: unknown | ErrorBoundaryFallbackRender;
+  children?: ErrorBoundaryContent;
+  fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;
   onError?: (error: unknown) => void;
   resetKey?: unknown;
 }
@@ -118,7 +122,7 @@ export function resolveErrorBoundaryFallback(
   fallback: ErrorBoundaryProps['fallback'],
   error: unknown,
   reset: () => void
-): unknown {
+): ErrorBoundaryFallbackValue {
   if (typeof fallback === 'function') {
     return fallback(error, reset);
   }

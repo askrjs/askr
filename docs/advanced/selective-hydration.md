@@ -18,8 +18,8 @@ Hydration makes server-rendered HTML interactive by attaching event listeners an
 import { hydrateSPA } from '@askrjs/askr/boot';
 
 await hydrateSPA({
-  root: document.getElementById('app'),
-  routes: [...],
+  root: document.getElementById('app')!,
+  routes: [],
   hydrate: {
     // Defer below-fold content
     deferBelowFold: true,
@@ -29,12 +29,8 @@ await hydrateSPA({
     deferUntilIdle: true,
 
     // Skip hydration for static selectors
-    skipSelectors: [
-      '.static-footer',
-      '[data-static]',
-      '#privacy-policy'
-    ]
-  }
+    skipSelectors: ['.static-footer', '[data-static]', '#privacy-policy'],
+  },
 });
 ```
 
@@ -181,10 +177,10 @@ Clicks before activation are ignored. After activation, the button becomes inter
 Always hydrate above-the-fold content immediately:
 
 ```typescript
-hydrate: {
+const hydrate = {
   deferBelowFold: true,
-  foldThreshold: window.innerHeight // Ensure critical content hydrates
-}
+  foldThreshold: window.innerHeight, // Ensure critical content hydrates
+};
 ```
 
 ### 2. Skip Truly Static Content
@@ -214,7 +210,13 @@ Use performance monitoring to track TTI improvements:
 // Performance mark
 performance.mark('hydration-start');
 
-await hydrateSPA({...});
+await hydrateSPA({
+  root: document.getElementById('app')!,
+  routes,
+  hydrate: {
+    deferUntilIdle: true,
+  },
+});
 
 performance.mark('hydration-end');
 performance.measure('hydration', 'hydration-start', 'hydration-end');
@@ -264,7 +266,7 @@ Adjust fold threshold dynamically:
 ```typescript
 const foldThreshold =
   window.innerWidth < 768
-    " 600 // Mobile
+    ? 600 // Mobile
     : 1200; // Desktop
 
 hydrateSPA({
@@ -280,7 +282,7 @@ hydrateSPA({
 For older browsers, include a polyfill:
 
 ```html
-<script src="https://polyfill.io/v3/polyfill.min.js"features=IntersectionObserver"></script>
+<script src="https://polyfill.io/v3/polyfill.min.js?features=IntersectionObserver"></script>
 ```
 
 ## Troubleshooting
@@ -348,8 +350,8 @@ hydrateSPA({
   routes: routes,
   hydrate: {
     deferBelowFold: true,
-    fold Threshold: 800,
-    skipSelectors: ['.footer']
-  }
+    foldThreshold: 800,
+    skipSelectors: ['.footer'],
+  },
 });
 ```

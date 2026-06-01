@@ -12,6 +12,7 @@ import {
   type ReadableSource,
 } from '../runtime/readable';
 import { getRenderContext } from '../ssr/context';
+import { logger } from '../dev/logger';
 
 export type QueryConsistency =
   | 'fresh'
@@ -19,26 +20,134 @@ export type QueryConsistency =
   | 'refreshing'
   | 'pending-write';
 
-export type Query<T> = {
-  data: T | null;
-  error: unknown | null;
-  loading: boolean;
-  refreshing: boolean;
-  stale: boolean;
-  consistency: QueryConsistency;
+export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
 
+type QueryControls = {
   refresh(): Promise<void>;
 };
 
-export type Mutation<TInput, TResult> = {
-  status: 'idle' | 'pending' | 'success' | 'error';
-  pending: boolean;
-  error: unknown | null;
-  result: TResult | null;
+type QueryLoading = {
+  data: null;
+  error: null;
+  loading: true;
+  refreshing: false;
+  stale: false;
+  consistency: 'fresh';
+  staleReason: null;
+};
 
+type QueryFresh<T> = {
+  data: T;
+  error: null;
+  loading: false;
+  refreshing: false;
+  stale: false;
+  consistency: 'fresh';
+  staleReason: null;
+};
+
+type QueryRefreshing<T> = {
+  data: T;
+  error: null;
+  loading: false;
+  refreshing: true;
+  stale: true;
+  consistency: 'refreshing';
+  staleReason: null;
+};
+
+type QueryPendingWrite<T> = {
+  data: T;
+  error: null;
+  loading: false;
+  refreshing: true;
+  stale: true;
+  consistency: 'pending-write';
+  staleReason: null;
+};
+
+type QueryStaleValue<T> = {
+  data: T;
+  error: null;
+  loading: false;
+  refreshing: false;
+  stale: true;
+  consistency: 'stale';
+  staleReason: 'aborted' | 'inconsistent';
+};
+
+type QueryStaleErrorWithValue<T> = {
+  data: T;
+  error: {};
+  loading: false;
+  refreshing: false;
+  stale: true;
+  consistency: 'stale';
+  staleReason: 'error';
+};
+
+type QueryStaleError = {
+  data: null;
+  error: {};
+  loading: false;
+  refreshing: false;
+  stale: true;
+  consistency: 'stale';
+  staleReason: 'error';
+};
+
+export type Query<T extends {}> = QueryControls &
+  (
+    | QueryLoading
+    | QueryFresh<T>
+    | QueryRefreshing<T>
+    | QueryPendingWrite<T>
+    | QueryStaleValue<T>
+    | QueryStaleErrorWithValue<T>
+    | QueryStaleError
+  );
+
+type MutationControls<TInput, TResult> = {
   execute(input: TInput): Promise<TResult>;
   abort(): void;
   reset(): void;
+};
+
+type MutationIdle = {
+  status: 'idle';
+  pending: false;
+  error: null;
+  result: null;
+};
+
+type MutationPending = {
+  status: 'pending';
+  pending: true;
+  error: null;
+  result: null;
+};
+
+type MutationSuccess<TResult> = {
+  status: 'success';
+  pending: false;
+  error: null;
+  result: TResult;
+};
+
+type MutationError = {
+  status: 'error';
+  pending: false;
+  error: {};
+  result: null;
+};
+
+export type Mutation<TInput, TResult> = MutationControls<TInput, TResult> &
+  (MutationIdle | MutationPending | MutationSuccess<TResult> | MutationError);
+
+type MutationRecord<TResult> = {
+  status: 'idle' | 'pending' | 'success' | 'error';
+  error: {} | null;
+  result: TResult | null;
 };
 
 type QueryOptions<T> = {
@@ -56,23 +165,20 @@ type MutationOptions<TInput, TResult> = {
 
 type QueryState<T> = {
   data: T | null;
-  error: unknown | null;
+  error: {} | null;
   loading: boolean;
   refreshing: boolean;
   stale: boolean;
   consistency: QueryConsistency;
-};
-
-type MutationState<TResult> = {
-  status: 'idle' | 'pending' | 'success' | 'error';
-  error: unknown | null;
-  result: TResult | null;
+  staleReason: QueryStaleReason | null;
 };
 
 type QuerySlot = {
   key: string;
   cell: QueryCell<unknown>;
 };
+
+type QueryDefinitionField = 'fetch' | 'isConsistent' | 'reconcile';
 
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
@@ -185,6 +291,10 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
   );
 }
 
+function normalizeAsyncDataError(error: unknown, fallbackMessage: string): {} {
+  return error ?? new Error(fallbackMessage);
+}
+
 function invalidateQueries(prefix: string, markPendingWrite: boolean): void {
   const cache = getQueryCache();
 
@@ -201,7 +311,7 @@ function invalidateQueries(prefix: string, markPendingWrite: boolean): void {
   }
 }
 
-class QueryCell<T> implements Query<T> {
+class QueryCell<T> {
   private readonly source = createReadableSource();
   private readonly key: string;
   private readonly cache: Map<string, QueryCell<unknown>>;
@@ -215,6 +325,7 @@ class QueryCell<T> implements Query<T> {
   private destroyed = false;
   private ownerCount = 0;
   private readonly owners = new Map<ComponentInstance, Set<number>>();
+  private readonly warnedDefinitionConflictKeys = new Set<string>();
 
   private state: QueryState<T> = {
     data: null,
@@ -223,6 +334,7 @@ class QueryCell<T> implements Query<T> {
     refreshing: false,
     stale: false,
     consistency: 'fresh',
+    staleReason: null,
   };
 
   constructor(
@@ -266,6 +378,31 @@ class QueryCell<T> implements Query<T> {
     }
   }
 
+  warnOnConflictingDefinition(options: QueryOptions<T>): void {
+    const conflicts = this.getDefinitionConflicts(options);
+    if (conflicts.length === 0) {
+      return;
+    }
+
+    const conflictKey = conflicts.join(',');
+    if (this.warnedDefinitionConflictKeys.has(conflictKey)) {
+      return;
+    }
+
+    this.warnedDefinitionConflictKeys.add(conflictKey);
+
+    const callbackLabel =
+      conflicts.length === 1
+        ? `callback \`${conflicts[0]}\``
+        : `callbacks ${conflicts.map((field) => `\`${field}\``).join(', ')}`;
+
+    logger.warn(
+      `[askr] Conflicting shared query definition for key "${this.key}". ` +
+        `Shared queries are canonical by key, so reuse the same ${callbackLabel} ` +
+        'for every reader of that key.'
+    );
+  }
+
   private destroy(): void {
     if (this.destroyed) {
       return;
@@ -282,12 +419,32 @@ class QueryCell<T> implements Query<T> {
     this.finishPendingRefresh();
   }
 
+  private getDefinitionConflicts(
+    options: QueryOptions<T>
+  ): QueryDefinitionField[] {
+    const conflicts: QueryDefinitionField[] = [];
+
+    if (this.options.fetch !== options.fetch) {
+      conflicts.push('fetch');
+    }
+
+    if (this.options.isConsistent !== options.isConsistent) {
+      conflicts.push('isConsistent');
+    }
+
+    if (this.options.reconcile !== options.reconcile) {
+      conflicts.push('reconcile');
+    }
+
+    return conflicts;
+  }
+
   get data(): T | null {
     recordReadableRead(this.source);
     return this.state.data;
   }
 
-  get error(): unknown | null {
+  get error(): {} | null {
     recordReadableRead(this.source);
     return this.state.error;
   }
@@ -310,6 +467,11 @@ class QueryCell<T> implements Query<T> {
   get consistency(): QueryConsistency {
     recordReadableRead(this.source);
     return this.state.consistency;
+  }
+
+  get staleReason(): QueryStaleReason | null {
+    recordReadableRead(this.source);
+    return this.state.staleReason;
   }
 
   ensureStarted(): void {
@@ -343,10 +505,17 @@ class QueryCell<T> implements Query<T> {
       return;
     }
 
+    if (this.state.data === null) {
+      return;
+    }
+
     this.setState({
+      loading: false,
+      error: null,
       refreshing: true,
       stale: true,
       consistency: 'pending-write',
+      staleReason: null,
     });
   }
 
@@ -418,6 +587,7 @@ class QueryCell<T> implements Query<T> {
             ? 'refreshing'
             : 'fresh',
       error: null,
+      staleReason: null,
     });
 
     let nextData: T;
@@ -433,7 +603,25 @@ class QueryCell<T> implements Query<T> {
       }
 
       if (isAbortError(error, controller.signal)) {
-        this.setState({ loading: false, refreshing: false });
+        this.setState(
+          hasData
+            ? {
+                loading: false,
+                refreshing: false,
+                stale: true,
+                consistency: 'stale',
+                error: null,
+                staleReason: 'aborted',
+              }
+            : {
+                loading: true,
+                refreshing: false,
+                stale: false,
+                consistency: 'fresh',
+                error: null,
+                staleReason: null,
+              }
+        );
         return;
       }
 
@@ -442,7 +630,8 @@ class QueryCell<T> implements Query<T> {
         refreshing: false,
         stale: true,
         consistency: 'stale',
-        error,
+        error: normalizeAsyncDataError(error, 'Unknown query error'),
+        staleReason: 'error',
       });
       return;
     }
@@ -463,6 +652,7 @@ class QueryCell<T> implements Query<T> {
         refreshing: false,
         stale: true,
         consistency: 'stale',
+        staleReason: 'inconsistent',
       });
       await this.reconcile(nextData);
       return;
@@ -476,6 +666,7 @@ class QueryCell<T> implements Query<T> {
       stale: false,
       consistency: 'fresh',
       error: null,
+      staleReason: null,
     });
   }
 
@@ -489,7 +680,11 @@ class QueryCell<T> implements Query<T> {
 
     this.reconcileAttemptCount += 1;
     if (this.reconcileAttemptCount > RECONCILE_MAX_ATTEMPTS) {
-      this.setState({ consistency: 'stale', refreshing: false });
+      this.setState({
+        consistency: 'stale',
+        refreshing: false,
+        staleReason: 'inconsistent',
+      });
       return;
     }
 
@@ -504,7 +699,7 @@ class QueryCell<T> implements Query<T> {
   }
 }
 
-class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
+class MutationCell<TInput, TResult> {
   private readonly source = createReadableSource();
   private action: MutationOptions<TInput, TResult>['action'];
   private affects?: MutationOptions<TInput, TResult>['affects'];
@@ -512,7 +707,7 @@ class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
   private controller: AbortController | null = null;
   private generation = 0;
 
-  private state: MutationState<TResult> = {
+  private state: MutationRecord<TResult> = {
     status: 'idle',
     error: null,
     result: null,
@@ -540,7 +735,7 @@ class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
     return this.state.status === 'pending';
   }
 
-  get error(): unknown | null {
+  get error(): {} | null {
     recordReadableRead(this.source);
     return this.state.error;
   }
@@ -550,7 +745,7 @@ class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
     return this.state.result;
   }
 
-  private setState(next: Partial<MutationState<TResult>>): void {
+  private setState(next: Partial<MutationRecord<TResult>>): void {
     this.state = {
       ...this.state,
       ...next,
@@ -581,7 +776,10 @@ class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
         throw error;
       }
 
-      this.setState({ status: 'error', error });
+      this.setState({
+        status: 'error',
+        error: normalizeAsyncDataError(error, 'Unknown mutation error'),
+      });
       throw error;
     }
 
@@ -602,10 +800,14 @@ class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
   }
 
   abort(): void {
+    if (this.state.status !== 'pending') {
+      return;
+    }
+
     this.generation += 1;
     this.controller?.abort();
     this.controller = null;
-    this.setState({ status: 'idle', error: null });
+    this.setState({ status: 'idle', error: null, result: null });
   }
 
   reset(): void {
@@ -616,7 +818,7 @@ class MutationCell<TInput, TResult> implements Mutation<TInput, TResult> {
   }
 }
 
-export function createQuery<T>(options: QueryOptions<T>): Query<T> {
+export function createQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
   const instance = getCurrentComponentInstance();
   const cache = getQueryCache();
   if (!instance) {
@@ -625,8 +827,10 @@ export function createQuery<T>(options: QueryOptions<T>): Query<T> {
       cell = new QueryCell(options, options.key, cache);
       cache.set(options.key, cell as QueryCell<unknown>);
       cell.ensureStarted();
+    } else {
+      cell.warnOnConflictingDefinition(options);
     }
-    return cell;
+    return cell as unknown as Query<T>;
   }
 
   const hookIndex = claimHookIndex(instance, 'query');
@@ -635,7 +839,8 @@ export function createQuery<T>(options: QueryOptions<T>): Query<T> {
   const slotStore = getQuerySlotStore(instance);
   const existingSlot = slotStore.get(hookIndex);
   if (existingSlot && existingSlot.key === options.key) {
-    return existingSlot.cell as QueryCell<T>;
+    (existingSlot.cell as QueryCell<T>).warnOnConflictingDefinition(options);
+    return existingSlot.cell as unknown as Query<T>;
   }
 
   if (existingSlot) {
@@ -647,6 +852,8 @@ export function createQuery<T>(options: QueryOptions<T>): Query<T> {
     cell = new QueryCell(options, options.key, cache);
     cache.set(options.key, cell as QueryCell<unknown>);
     cell.ensureStarted();
+  } else {
+    cell.warnOnConflictingDefinition(options);
   }
 
   slotStore.set(hookIndex, {
@@ -654,7 +861,7 @@ export function createQuery<T>(options: QueryOptions<T>): Query<T> {
     cell: cell as QueryCell<unknown>,
   });
   cell.attach(instance, hookIndex);
-  return cell;
+  return cell as unknown as Query<T>;
 }
 
 export function invalidate(prefix: string): void {
@@ -667,7 +874,7 @@ export function createMutation<TInput, TResult>(
   const instance = getCurrentComponentInstance();
 
   if (!instance) {
-    return new MutationCell(options);
+    return new MutationCell(options) as unknown as Mutation<TInput, TResult>;
   }
 
   const hookIndex = claimHookIndex(instance, 'mutation');
@@ -679,10 +886,10 @@ export function createMutation<TInput, TResult>(
     | undefined;
   if (existing) {
     existing.setOptions(options);
-    return existing;
+    return existing as unknown as Mutation<TInput, TResult>;
   }
 
   const created = new MutationCell(options);
   slotStore.set(hookIndex, created as MutationCell<unknown, unknown>);
-  return created;
+  return created as unknown as Mutation<TInput, TResult>;
 }

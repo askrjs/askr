@@ -44,7 +44,9 @@ export function TaskList() {
       />
       <button onClick={addTask}>Add task</button>
       <ul>
-        <For each={tasks()}>{(task) => <li>{task}</li>}</For>
+        <For each={tasks()} byIndex={true}>
+          {(task) => <li>{task}</li>}
+        </For>
       </ul>
     </section>
   );

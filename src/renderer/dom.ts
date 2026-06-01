@@ -60,11 +60,16 @@ import {
 import { keyedElements } from './keyed';
 import { commitForStateBoundaryChildren } from './for-commit';
 import {
+  getEventListenerKey,
+  getEventListenerOptions,
   parseEventName,
-  getPassiveOptions,
+  parseEventProp,
   createMutableWrappedHandler,
+  getRenderedAttributeName,
   isSkippedProp,
+  removeRenderedAttribute,
   readElementClassName,
+  setRenderedAttribute,
   writeElementClassName,
   tagNamesEqualIgnoreCase,
   extractKey,
@@ -87,6 +92,7 @@ import {
   createBoundaryReset,
   reportBoundaryError,
   resolveErrorBoundaryFallback,
+  type ErrorBoundaryProps,
 } from '../components/error-boundary';
 import {
   isEventDelegationEnabled,
@@ -1442,10 +1448,12 @@ function nextComponentInstanceId(): string {
 function addTrackedListener(
   el: Element,
   eventName: string,
-  handler: EventListener
+  handler: EventListener,
+  capture = false
 ): void {
   const useDelegation =
-    isEventDelegationEnabled() && isDelegatedEvent(eventName);
+    !capture && isEventDelegationEnabled() && isDelegatedEvent(eventName);
+  const listenerKey = getEventListenerKey(eventName, capture);
 
   if (useDelegation) {
     addDelegatedListener(el, eventName, handler, handler, undefined);
@@ -1455,7 +1463,7 @@ function addTrackedListener(
     return;
   }
 
-  const options = getPassiveOptions(eventName);
+  const options = getEventListenerOptions(eventName, capture);
   const mutableHandler = createMutableWrappedHandler(handler, true);
   const trackedHandler = mutableHandler.handler;
 
@@ -1469,9 +1477,10 @@ function addTrackedListener(
   if (!elementListeners.has(el)) {
     elementListeners.set(el, new Map());
   }
-  elementListeners.get(el)!.set(eventName, {
+  elementListeners.get(el)!.set(listenerKey, {
     handler: trackedHandler,
     original: handler,
+    eventName,
     options,
     isDelegated: false,
     updateHandler: mutableHandler?.updateHandler,
@@ -1592,7 +1601,7 @@ function applyPropValue(
     } else if (key === 'style') {
       applyStylePropValue(el, null);
     } else {
-      el.removeAttribute(key);
+      removeRenderedAttribute(el, key);
     }
     return;
   }
@@ -1604,7 +1613,7 @@ function applyPropValue(
   } else if (key === 'value' || key === 'checked') {
     applyFormControlProp(el, key, value, tagName);
   } else {
-    el.setAttribute(key, String(value));
+    setRenderedAttribute(el, key, String(value));
   }
 }
 
@@ -1844,14 +1853,19 @@ function applyPropsToElement(
     if (isSkippedProp(key)) continue;
     if (value === undefined || value === null || value === false) continue;
 
-    const eventName = parseEventName(key);
-    if (eventName) {
-      addTrackedListener(el, eventName, value as EventListener);
+    const eventProp = parseEventProp(key);
+    if (eventProp) {
+      addTrackedListener(
+        el,
+        eventProp.eventName,
+        value as EventListener,
+        eventProp.capture
+      );
       continue;
     }
 
     // Check if value is a function (reactive prop)
-    if (typeof value === 'function' && !eventName && key !== 'ref') {
+    if (typeof value === 'function' && key !== 'ref') {
       // Set up reactive prop tracking
       const reactive = setupReactiveProp(
         el,
@@ -1881,7 +1895,7 @@ function applyPropsToElement(
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
     } else {
-      el.setAttribute(key, String(value));
+      setRenderedAttribute(el, key, String(value));
     }
   }
 }
@@ -1903,19 +1917,6 @@ function applyRef<T>(el: T, ref: unknown): void {
   if (Object.isExtensible(r)) {
     (r as { current: T | null }).current = el;
   }
-}
-
-function getRenderedAttributeName(el: Element, propName: string): string {
-  let attributeName = propName;
-  if (propName === 'className') {
-    attributeName = 'class';
-  } else if (propName === 'htmlFor') {
-    attributeName = 'for';
-  }
-
-  return el.namespaceURI === SVG_NAMESPACE
-    ? attributeName
-    : attributeName.toLowerCase();
 }
 
 function removeStaleAttributes(
@@ -2285,7 +2286,7 @@ function applyStaticScalarPropsToElement(
     } else if (key === 'value' || key === 'checked') {
       (el as HTMLElement & Record<string, unknown>)[key] = value;
     } else {
-      el.setAttribute(key, String(value));
+      setRenderedAttribute(el, key, String(value));
     }
   }
 }
@@ -3273,10 +3274,8 @@ function createErrorBoundaryElement(
   const reset = node.__instance
     ? createBoundaryReset(node.__instance)
     : () => {};
-  const fallback = props.fallback as
-    | unknown
-    | ((error: unknown, reset: () => void) => unknown);
-  const children = props.children;
+  const fallback = props.fallback as ErrorBoundaryProps['fallback'];
+  const children = props.children as ErrorBoundaryProps['children'];
 
   if (boundaryState?.error != null) {
     const fallbackValue = resolveErrorBoundaryFallback(
@@ -3676,9 +3675,11 @@ export function updateElementFromVnode(
     }
   }
 
-  // Lazily materialize desired event names only if we need to diff against existing listeners.
-  // This avoids allocating a Set for the common case (no listeners, or no event props).
-  let desiredEventNames: Set<string> | null = null;
+  // Lazily materialize desired listener keys only if we need to diff against
+  // existing listeners. Capture and bubble handlers on the same DOM event need
+  // distinct keys even though they share the rendered event name.
+  let desiredListenerKeys: Set<string> | null = null;
+  let desiredDelegatedEventNames: Set<string> | null = null;
   let desiredReactivePropNames: Set<string> | null = null;
   const nextChildren = props.children ?? domVNode.children;
   const usesReactiveChildren = syncReactiveScalarChild(el, nextChildren);
@@ -3691,7 +3692,13 @@ export function updateElementFromVnode(
     const value = props[key];
     if (isSkippedProp(key)) continue;
 
-    const eventName = parseEventName(key);
+    const eventProp = parseEventProp(key);
+    const eventName = eventProp?.eventName;
+    const eventCapture = eventProp?.capture ?? false;
+    const listenerKey =
+      eventName === undefined
+        ? null
+        : getEventListenerKey(eventName, eventCapture);
 
     // Handle removal cases
     if (value === undefined || value === null || value === false) {
@@ -3701,33 +3708,37 @@ export function updateElementFromVnode(
         applyFormControlProp(el, key, '', vnode.type as string);
       } else if (key === 'checked') {
         applyFormControlProp(el, key, false, vnode.type as string);
-      } else if (eventName && existingListeners?.has(eventName)) {
-        const entry = existingListeners.get(eventName)!;
+      } else if (listenerKey && existingListeners?.has(listenerKey)) {
+        const entry = existingListeners.get(listenerKey)!;
         incDevCounter('listenerRemoves');
         if (entry.isDelegated) {
-          removeDelegatedListener(el, eventName);
+          removeDelegatedListener(el, entry.eventName);
         } else {
           if (entry.options !== undefined) {
-            el.removeEventListener(eventName, entry.handler, entry.options);
+            el.removeEventListener(
+              entry.eventName,
+              entry.handler,
+              entry.options
+            );
           } else {
-            el.removeEventListener(eventName, entry.handler);
+            el.removeEventListener(entry.eventName, entry.handler);
           }
         }
-        existingListeners.delete(eventName);
+        existingListeners.delete(listenerKey);
       } else {
         const entry = existingReactiveProps?.get(key);
         if (entry) {
           entry.cleanup();
           existingReactiveProps?.delete(key);
         } else {
-          el.removeAttribute(key);
+          removeRenderedAttribute(el, key);
         }
       }
       continue;
     }
 
     // Handle reactive props (functions)
-    if (typeof value === 'function' && !eventName && key !== 'ref') {
+    if (typeof value === 'function' && !eventProp && key !== 'ref') {
       const existingEntry = existingReactiveProps?.get(key);
       if (existingReactiveProps && existingReactiveProps.size > 0) {
         (desiredReactivePropNames ??= new Set()).add(key);
@@ -3782,10 +3793,16 @@ export function updateElementFromVnode(
       applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, vnode.type as string);
-    } else if (eventName) {
+    } else if (eventProp && listenerKey) {
+      const eventName = eventProp.eventName;
+      const eventCapture = eventProp.capture;
       const useDelegation =
-        isEventDelegationEnabled() && isDelegatedEvent(eventName);
-      (desiredEventNames ??= new Set()).add(eventName);
+        !eventCapture &&
+        isEventDelegationEnabled() &&
+        isDelegatedEvent(eventName);
+      if (useDelegation) {
+        (desiredDelegatedEventNames ??= new Set()).add(eventName);
+      }
 
       if (useDelegation) {
         const existingDelegated = getDelegatedHandlerForElement(el, eventName);
@@ -3816,7 +3833,9 @@ export function updateElementFromVnode(
         continue;
       }
 
-      const existing = existingListeners?.get(eventName);
+      (desiredListenerKeys ??= new Set()).add(listenerKey);
+
+      const existing = existingListeners?.get(listenerKey);
 
       if (existing && existing.original === value) {
         continue;
@@ -3847,21 +3866,21 @@ export function updateElementFromVnode(
         }
 
         if (existing.isDelegated) {
-          removeDelegatedListener(el, eventName);
+          removeDelegatedListener(el, existing.eventName);
         } else {
           if (existing.options !== undefined) {
             el.removeEventListener(
-              eventName,
+              existing.eventName,
               existing.handler,
               existing.options
             );
           } else {
-            el.removeEventListener(eventName, existing.handler);
+            el.removeEventListener(existing.eventName, existing.handler);
           }
         }
       }
 
-      const options = getPassiveOptions(eventName);
+      const options = getEventListenerOptions(eventName, eventCapture);
       const mutableHandler = createMutableWrappedHandler(
         value as EventListener,
         true
@@ -3878,6 +3897,7 @@ export function updateElementFromVnode(
       const listenerEntry = {
         handler: trackedHandler,
         original: value as EventListener,
+        eventName,
         options,
         isDelegated: false,
         updateHandler: mutableHandler?.updateHandler,
@@ -3885,9 +3905,9 @@ export function updateElementFromVnode(
       if (!elementListeners.has(el)) {
         elementListeners.set(el, new Map());
       }
-      elementListeners.get(el)!.set(eventName, listenerEntry);
+      elementListeners.get(el)!.set(listenerKey, listenerEntry);
     } else {
-      el.setAttribute(key, String(value));
+      setRenderedAttribute(el, key, String(value));
     }
   }
 
@@ -3895,34 +3915,42 @@ export function updateElementFromVnode(
 
   if (existingListeners && existingListeners.size > 0) {
     // If no event props were present, all existing listeners are undesired.
-    if (desiredEventNames === null) {
-      existingListeners.forEach((entry, eventName) => {
+    if (desiredListenerKeys === null) {
+      existingListeners.forEach((entry) => {
         incDevCounter('listenerRemoves');
         if (entry.isDelegated) {
-          removeDelegatedListener(el, eventName);
+          removeDelegatedListener(el, entry.eventName);
         } else {
           if (entry.options !== undefined) {
-            el.removeEventListener(eventName, entry.handler, entry.options);
+            el.removeEventListener(
+              entry.eventName,
+              entry.handler,
+              entry.options
+            );
           } else {
-            el.removeEventListener(eventName, entry.handler);
+            el.removeEventListener(entry.eventName, entry.handler);
           }
         }
       });
       elementListeners.delete(el);
     } else {
-      existingListeners.forEach((entry, eventName) => {
-        if (!desiredEventNames.has(eventName)) {
+      existingListeners.forEach((entry, listenerKey) => {
+        if (!desiredListenerKeys.has(listenerKey)) {
           incDevCounter('listenerRemoves');
           if (entry.isDelegated) {
-            removeDelegatedListener(el, eventName);
+            removeDelegatedListener(el, entry.eventName);
           } else {
             if (entry.options !== undefined) {
-              el.removeEventListener(eventName, entry.handler, entry.options);
+              el.removeEventListener(
+                entry.eventName,
+                entry.handler,
+                entry.options
+              );
             } else {
-              el.removeEventListener(eventName, entry.handler);
+              el.removeEventListener(entry.eventName, entry.handler);
             }
           }
-          existingListeners.delete(eventName);
+          existingListeners.delete(listenerKey);
         }
       });
       if (existingListeners.size === 0) elementListeners.delete(el);
@@ -3931,13 +3959,13 @@ export function updateElementFromVnode(
 
   const delegatedHandlers = getDelegatedHandlersForElement(el);
   if (delegatedHandlers && delegatedHandlers.size > 0) {
-    if (desiredEventNames === null) {
+    if (desiredDelegatedEventNames === null) {
       for (const eventName of delegatedHandlers.keys()) {
         removeDelegatedListener(el, eventName);
       }
     } else {
       for (const eventName of delegatedHandlers.keys()) {
-        if (!desiredEventNames.has(eventName)) {
+        if (!desiredDelegatedEventNames.has(eventName)) {
           removeDelegatedListener(el, eventName);
         }
       }
@@ -4284,7 +4312,7 @@ function hasMatchingStaticProps(
       continue;
     }
 
-    if (el.getAttribute(key) !== String(value)) {
+    if (el.getAttribute(getRenderedAttributeName(el, key)) !== String(value)) {
       return false;
     }
 

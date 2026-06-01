@@ -46,6 +46,66 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
     errorSpy.mockRestore();
   });
 
+  it('should render array fallback content when a child throws', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const Broken = () => {
+      throw new Error('fixture crash');
+    };
+
+    const App = () => (
+      <ErrorBoundary
+        fallback={[
+          <p id="array-fallback-first" key="first">
+            fallback
+          </p>,
+          <p id="array-fallback-second" key="second">
+            content
+          </p>,
+        ]}
+      >
+        <Broken />
+      </ErrorBoundary>
+    );
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelector('#array-fallback-first')?.textContent).toBe(
+      'fallback'
+    );
+    expect(container.querySelector('#array-fallback-second')?.textContent).toBe(
+      'content'
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it('should render an imperative DOM-node fallback when a child throws', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fallbackNode = document.createElement('div');
+    fallbackNode.id = 'imperative-fallback';
+    fallbackNode.textContent = 'recovered';
+
+    const Broken = () => {
+      throw new Error('fixture crash');
+    };
+
+    const App = () => (
+      <ErrorBoundary fallback={fallbackNode}>
+        <Broken />
+      </ErrorBoundary>
+    );
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelector('#imperative-fallback')).toBe(fallbackNode);
+    expect(container.textContent).toContain('recovered');
+
+    errorSpy.mockRestore();
+  });
+
   it('should invoke onError and recover when resetKey changes', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const onError = vi.fn();

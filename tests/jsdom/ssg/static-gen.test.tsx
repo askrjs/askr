@@ -196,6 +196,34 @@ describe('Static Site Generation', () => {
       expect(content).toContain('hello-world');
     });
 
+    it('should expand parameterized routes from entries', async () => {
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/blog/{slug}',
+            component: BlogPost,
+            entries: async () => [
+              { slug: 'first-post' },
+              { slug: 'second-post' },
+            ],
+          },
+        ],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.totalRoutes).toBe(2);
+      expect(
+        fs.existsSync(path.join(tempDir, 'blog', 'first-post', 'index.html'))
+      ).toBe(true);
+      expect(
+        fs.existsSync(path.join(tempDir, 'blog', 'second-post', 'index.html'))
+      ).toBe(true);
+      expect(result.routes[0].html).toContain('first-post');
+      expect(result.routes[1].html).toContain('second-post');
+    });
+
     it('should render multiple routes', async () => {
       const ssg = createStaticGen({
         routes: [
@@ -287,6 +315,34 @@ describe('Static Site Generation', () => {
       expect(result.routes[0].html).toContain('test-value');
     });
 
+    it('should resolve data overrides by concrete path for entry-generated routes', async () => {
+      const DataComponent = (
+        _props: unknown,
+        ctx?: { ssr?: { data?: Record<string, unknown> } }
+      ) => <div>{String(ctx?.ssr?.data?.['title'] ?? 'no data')}</div>;
+
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/blog/{slug}',
+            component: DataComponent,
+            entries: async () => [{ slug: 'first-post' }],
+          },
+        ],
+        outputDir: tempDir,
+        dataOverrides: {
+          '/blog/first-post': {
+            title: 'entry-data',
+          },
+        },
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.routes[0].html).toContain('entry-data');
+      expect(result.routes[0].resourceCount).toBe(1);
+    });
+
     it('should skip authenticated routes as runtime-only during SSG', async () => {
       const ssg = createStaticGen({
         routes: [
@@ -334,6 +390,24 @@ describe('Static Site Generation', () => {
       expect(result.skipped).toBe(0);
       expect(fs.existsSync(path.join(tempDir, 'login', 'index.html'))).toBe(
         true
+      );
+    });
+
+    it('should reject entry routes with missing required path params', async () => {
+      const invalidEntryRoute = {
+        path: '/blog/{slug}',
+        component: BlogPost,
+        entries: async () =>
+          [{ id: 'wrong-key' }] as unknown as Array<Record<string, string>>,
+      } as RouteConfig;
+
+      const ssg = createStaticGen({
+        routes: [invalidEntryRoute],
+        outputDir: tempDir,
+      });
+
+      await expect(ssg.generate()).rejects.toThrow(
+        'route "/blog/{slug}" missing required param "slug"'
       );
     });
   });

@@ -14,21 +14,22 @@ Route declarations run as side effects when the routes module is imported:
 
 ```ts
 // routes.ts
-import { layout, route } from '@askrjs/askr/router';
+import { fallback, group, route } from '@askrjs/askr/router';
 
-layout(AppLayout, () => {
+group({ layout: AppLayout }, () => {
   route('/posts/{slug}', PostPage, {
-    entries: async () => getPosts().map((p) => ({ slug: p.slug })),
+    entries: async () =>
+      getPosts().map((p: { slug: string }) => ({ slug: p.slug })),
   });
-  route('/*', NotFound);
+  fallback(NotFound);
 });
 ```
 
 Internally:
 
-1. `layout(Component, fn)` pushes a `LayoutScopeRecord` onto the scope stack and pops it when
+1. `group({ layout: Component }, fn)` pushes a `LayoutScopeRecord` onto the scope stack and pops it when
    `fn` returns.
-2. Each `route(path, Component, options")` call:
+2. Each `route(path, Component, options?)` call:
    - Validates the path (rejects `:name` syntax, requires `/` prefix)
    - Parses the path into a `ParsedSegment[]` list via `parseSegments()`
    - Computes a deterministic `rank` (specificity score) via `computeRank()`

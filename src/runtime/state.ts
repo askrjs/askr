@@ -34,15 +34,22 @@ import {
  */
 export interface State<T> extends ReadableSource<T> {
   (): T;
-  set(value: T): void;
-  set(updater: (prev: T) => T): void;
+  set(...args: StateSetterArgs<T>): void;
   [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>; // Allows destructuring: const [get, set] = state(0)
 }
+
+type StateUpdater<T> = (prev: T) => T;
+
+type StateSetterArgs<T> = [Extract<T, (...args: any[]) => unknown>] extends [
+  never,
+]
+  ? [value: T] | [updater: StateUpdater<T>]
+  : [updater: StateUpdater<T>];
 
 /**
  * Public setter type for state cells.
  */
-export type StateSetter<T> = State<T>['set'];
+export type StateSetter<T> = (...args: StateSetterArgs<T>) => void;
 
 /**
  * Tuple-first state handle returned by `state()`.
@@ -109,7 +116,7 @@ export function state<T>(initialValue: T): StateTuple<T> {
   const cell = createStateCell(initialValue, instance);
 
   // INVARIANT: Store state in instance for persistence across renders
-  stateValues[index] = cell;
+  stateValues[index] = cell as unknown as State<unknown>;
 
   return cell as StateTuple<T>;
 }

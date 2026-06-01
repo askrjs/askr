@@ -44,7 +44,8 @@ import {
   requireRole,
 } from './policy';
 import { isPromiseLike } from '../common/promise';
-import { ELEMENT_TYPE } from '../common/jsx';
+import { ELEMENT_TYPE, Fragment, type JSXElement } from '../common/jsx';
+import type { RenderableChild } from '../common/vnode';
 
 export type {
   AccessDecision,
@@ -104,7 +105,7 @@ import type {
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 
-type AnyRouteComponent = (...args: any[]) => unknown;
+type AnyRouteComponent = (...args: any[]) => RenderableChild;
 
 type RouteComponentParam<TComponent extends AnyRouteComponent> =
   Parameters<TComponent> extends [] ? unknown : Parameters<TComponent>[0];
@@ -751,10 +752,15 @@ function addRouteToStores(routeObj: Route): void {
 /** Promises from in-flight lazy() imports, drained by createSPA / hydrateSPA. */
 const pendingLazy = new Set<Promise<unknown>>();
 
-const outletContext = defineContext<unknown>(null);
+const outletContext = defineContext<RenderableChild>(null);
 
-export function Outlet(): unknown {
-  return readContext(outletContext);
+export function Outlet(): JSXElement {
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: Fragment,
+    props: { children: readContext(outletContext) },
+    key: null,
+  };
 }
 
 /**
@@ -1144,9 +1150,9 @@ function normalizeRouteOptions(
 function applyPageChain(
   pageChain: readonly PageScopeRecord[],
   params: Record<string, string>,
-  content: unknown,
+  content: RenderableChild,
   deferComponents = false
-): unknown {
+): RenderableChild {
   let nextContent = content;
 
   for (let i = pageChain.length - 1; i >= 0; i--) {
@@ -1165,7 +1171,7 @@ function createRouteComponentVNode(
   component: RouteComponent,
   params: Record<string, string>,
   routeRoot = false
-): unknown {
+): RenderableChild {
   return {
     $$typeof: ELEMENT_TYPE,
     type: component,

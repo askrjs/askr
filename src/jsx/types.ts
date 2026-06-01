@@ -8,7 +8,11 @@
  * - the reconciler
  */
 
-import type { Props } from '../common/props';
+import type {
+  IntrinsicFallbackProps,
+  KnownIntrinsicElementProps,
+  Props,
+} from '../common/props';
 import type { JSXElement } from '../common/jsx';
 
 export { ELEMENT_TYPE, Fragment, STATIC_CHILDREN } from '../common/jsx';
@@ -22,8 +26,10 @@ declare global {
       readonly __askrJsxElementBrand?: never;
     }
 
-    interface IntrinsicElements {
-      [elem: string]: Props;
+    interface IntrinsicElements extends KnownIntrinsicElementProps {
+      [elem: string]:
+        | IntrinsicFallbackProps
+        | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];
     }
 
     interface ElementAttributesProperty {

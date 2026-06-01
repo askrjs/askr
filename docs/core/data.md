@@ -17,6 +17,8 @@ setCount((n) => n + 1); // update with a function
 ```
 
 `state()` returns a `[getter, setter]` tuple. Always call the getter as a function.
+If the state value itself is a function, replace it with updater form such as
+`setHandler(() => nextHandler)`.
 
 ## Derived state
 
@@ -92,7 +94,15 @@ eventual-consistency signaling without a query-client abstraction.
 ```ts
 import { createQuery, invalidate } from '@askrjs/askr/data';
 
-const user = createQuery({
+type User = {
+  id: string;
+  name: string;
+  version: number;
+};
+
+const expectedVersion = 3;
+
+const user = createQuery<User>({
   key: 'user:123',
   fetch: ({ signal }) => userService.getUser('123', { signal }),
   isConsistent: (data) => data.version >= expectedVersion,
@@ -101,6 +111,37 @@ const user = createQuery({
 
 if (user.consistency === 'pending-write') {
   // Saved, syncing...
+  user.data.id;
+}
+
+if (user.consistency === 'refreshing') {
+  // Previous data is still available while a refresh is in flight.
+  user.data.id;
+}
+
+if (user.loading) {
+  // First load has not produced any data yet.
+  user.data; // null
+}
+
+if (user.consistency === 'stale' && user.error === null) {
+  // The value is available, but it is known to be stale or inconsistent.
+  user.data.id;
+}
+
+if (user.staleReason === 'inconsistent') {
+  // The fetch resolved, but the value did not satisfy isConsistent().
+  user.data.id;
+}
+
+if (user.staleReason === 'aborted') {
+  // A refresh was canceled with an abort-like error, so the last value stays visible.
+  user.data.id;
+}
+
+if (user.staleReason === 'error') {
+  // Query errors always surface through a stale, non-refreshing state.
+  console.error(user.error);
 }
 
 invalidate('user:');
@@ -108,24 +149,55 @@ invalidate('user:');
 
 Query state is shared by key through a simple in-memory cache. `refresh()` returns a promise,
 preserves the last value while refreshing, and surfaces `fresh`, `stale`, `refreshing`, and
-`pending-write` explicitly through `consistency`.
+`pending-write` explicitly through `consistency`. `loading` represents the first unresolved
+load only, while `refreshing` and `pending-write` always keep the previous value available.
+`staleReason` narrows settled stale states into `inconsistent`, `aborted`, or `error`.
+The key also defines the query contract itself. If multiple readers use the same key, or one
+reader rerenders that key with a different definition, keep `fetch`, `isConsistent`, and
+`reconcile` aligned; development builds warn when a later render tries to redefine a shared
+key differently.
+`stale` covers either a value that still exists but is known to be inconsistent, or an error
+state after a failed fetch or refresh. Failed refreshes can still keep the last good value in
+`data`, while a failed first load leaves `data` as `null`. Abort-like refresh cancellations also
+surface as stale-with-value so apps can keep rendering the last committed data. Queries reserve `null` as the
+"no successful value yet" sentinel, so model empty results explicitly instead of returning
+`null` or `undefined` from `fetch()`. Nullish thrown values are normalized before they reach
+`error`, so any surfaced query error is always non-null.
 
 ### Mutations
 
 ```ts
 import { createMutation } from '@askrjs/askr/data';
 
-const saveUser = createMutation({
+type User = {
+  id: string;
+  name: string;
+  version: number;
+};
+
+const saveUser = createMutation<{ id: string; name: string }, User>({
   action: (input, { signal }) => userService.updateUser(input, { signal }),
   affects: (input, result) => ['user:123'],
   afterSuccess: 'invalidate',
 });
 
 await saveUser.execute({ id: '123', name: 'Ada' });
+
+if (saveUser.status === 'success') {
+  saveUser.result.id;
+}
+
+if (saveUser.status === 'error') {
+  console.error(saveUser.error);
+}
 ```
 
 Mutations own their own `AbortController`, abort the previous request when a new execution
 starts, and can mark affected queries as `pending-write` before refreshing them.
+`status` narrows `pending`, `result`, and `error`. `abort()` only cancels an in-flight
+execution, while `reset()` clears settled mutation state back to idle. Nullish thrown values
+are normalized before they reach `error`, so `status === 'error'` always carries a non-null
+error value.
 
 ### Layering
 
@@ -172,16 +244,23 @@ timer(1000, () => {
 
 Share values across a component tree without prop-drilling.
 
-```ts
+```tsx
 import { defineContext, readContext } from '@askrjs/askr';
 
 const ThemeContext = defineContext<'light' | 'dark'>('light');
 
-// Provider:
-ThemeContext.provide('dark');
+function Panel() {
+  const theme = readContext(ThemeContext);
+  return <div>{theme}</div>;
+}
 
-// Consumer anywhere in the tree:
-const theme = readContext(ThemeContext);
+function App() {
+  return (
+    <ThemeContext.Scope value="dark">
+      <Panel />
+    </ThemeContext.Scope>
+  );
+}
 ```
 
 ## See also

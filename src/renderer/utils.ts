@@ -5,8 +5,11 @@
 
 import { globalScheduler } from '../runtime/scheduler';
 import { logger } from '../dev/logger';
+import { getPublicAttributeName } from '../common/attr-names';
 import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
+
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 // Keep direct replaceChildren(...nodes) commits below a conservative argument
 // count until browser benchmarks prove larger spreads are safe.
@@ -23,8 +26,14 @@ export function canUseDirectReplaceChildrenSpread(count: number): boolean {
 export interface ListenerEntry {
   handler: EventListener;
   original: EventListener;
+  eventName: string;
   options?: boolean | AddEventListenerOptions;
   updateHandler?: (nextHandler: EventListener) => void;
+}
+
+export interface ParsedEventProp {
+  eventName: string;
+  capture: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,10 +50,46 @@ const MAX_CACHE_SIZE = 1000;
  * Parse an event prop name (e.g., 'onClick') to its DOM event name (e.g., 'click')
  */
 export function parseEventName(propName: string): string | null {
+  return parseEventProp(propName)?.eventName ?? null;
+}
+
+export function parseEventProp(propName: string): ParsedEventProp | null {
   if (!propName.startsWith('on') || propName.length <= 2) return null;
-  return (
-    propName.slice(2).charAt(0).toLowerCase() + propName.slice(3).toLowerCase()
-  );
+  const capture =
+    propName.endsWith('Capture') && propName.length > 'onCapture'.length;
+  const normalizedPropName = capture
+    ? propName.slice(0, -'Capture'.length)
+    : propName;
+
+  return normalizedPropName.length <= 2
+    ? null
+    : {
+        eventName:
+          normalizedPropName.slice(2).charAt(0).toLowerCase() +
+          normalizedPropName.slice(3).toLowerCase(),
+        capture,
+      };
+}
+
+export function getEventListenerKey(
+  eventName: string,
+  capture = false
+): string {
+  return capture ? `${eventName}:capture` : eventName;
+}
+
+export function getEventListenerOptions(
+  eventName: string,
+  capture = false
+): AddEventListenerOptions | undefined {
+  const passiveOptions = getPassiveOptions(eventName);
+  if (!capture) {
+    return passiveOptions;
+  }
+
+  return passiveOptions
+    ? { ...passiveOptions, capture: true }
+    : { capture: true };
 }
 
 /**
@@ -192,7 +237,7 @@ export function hasPropChanged(
     if (key === 'value' || key === 'checked') {
       return (el as HTMLElement & Record<string, unknown>)[key] !== value;
     }
-    const attr = el.getAttribute(key);
+    const attr = el.getAttribute(getRenderedAttributeName(el, key));
     if (value === undefined || value === null || value === false) {
       return attr !== null;
     }
@@ -204,6 +249,29 @@ export function hasPropChanged(
 
 export function isSVGDomElement(el: Element): el is SVGElement {
   return typeof SVGElement !== 'undefined' && el instanceof SVGElement;
+}
+
+export function getRenderedAttributeName(
+  el: Element,
+  propName: string
+): string {
+  const attributeName = getPublicAttributeName(propName);
+
+  return el.namespaceURI === SVG_NAMESPACE
+    ? attributeName
+    : attributeName.toLowerCase();
+}
+
+export function setRenderedAttribute(
+  el: Element,
+  propName: string,
+  value: string
+): void {
+  el.setAttribute(getRenderedAttributeName(el, propName), value);
+}
+
+export function removeRenderedAttribute(el: Element, propName: string): void {
+  el.removeAttribute(getRenderedAttributeName(el, propName));
 }
 
 export function readElementClassName(el: Element): string {

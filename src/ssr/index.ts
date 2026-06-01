@@ -11,6 +11,7 @@
  */
 
 import type { JSXElement } from '../common/jsx';
+import { getPublicAttributeName } from '../common/attr-names';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
 import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
 import { isPromiseLike } from '../common/promise';
@@ -975,7 +976,7 @@ function verifyRenderedAttrs(
       continue;
     }
 
-    const attrName = key === 'class' || key === 'className' ? 'class' : key;
+    const attrName = key === 'class' ? 'class' : getPublicAttributeName(key);
 
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);

@@ -1,4 +1,4 @@
-import { expectAssignable, expectType } from 'tsd';
+import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   DefaultPortal,
   Portal,
@@ -86,17 +86,50 @@ const layoutComponent: LayoutComponent<{ title: string }> = ({ children }) =>
 expectAssignable<LayoutComponent<{ title: string }>>(layoutComponent);
 
 expectAssignable<SlotProps>({ children: 'slot' });
+expectAssignable<SlotProps>({
+  children: [<span key="first">slot</span>, <span key="second">content</span>],
+});
 expectAssignable<PresenceProps>({ present: true });
+expectAssignable<PresenceProps>({
+  present: true,
+  children: [<span key="first">toast</span>, <span key="second">body</span>],
+});
 expectAssignable<PortalProps>({ children: 'portal' });
+expectAssignable<PortalProps>({
+  children: [<span key="first">portal</span>, <span key="second">host</span>],
+});
 
 const portal = definePortal<string>();
+const defaultPortal = definePortal();
 expectType<unknown>(portal());
 expectType<unknown>(DefaultPortal());
 expectType<unknown>(DefaultPortal.render({ children: 'toast' }));
 expectType<typeof Portal>(Portal);
 layout(layoutComponent)('body', { title: 'page' });
+layout(layoutComponent)(
+  [<span key="first">body</span>, <span key="second">copy</span>],
+  { title: 'page' }
+);
 expectAssignable<JSXElement | null>(Slot({ children: 'x' }));
 expectAssignable<JSXElement | null>(Presence({ present: true, children: 'x' }));
+expectAssignable<JSXElement | null>(
+  Presence({
+    present: true,
+    children: [<span key="first">x</span>, <span key="second">y</span>],
+  })
+);
+
+expectError(Slot({ children: document.createElement('div') }));
+expectError(
+  Presence({ present: true, children: document.createElement('div') })
+);
+expectError(Portal({ children: document.createElement('div') }));
+expectError(DefaultPortal.render({ children: document.createElement('div') }));
+expectError(defaultPortal.render({ children: document.createElement('div') }));
+expectError(
+  layout(layoutComponent)(document.createElement('div'), { title: 'page' })
+);
+expectError(definePortal<Node>());
 
 const collection = createCollection<HTMLElement, { disabled: boolean }>();
 expectType<Collection<HTMLElement, { disabled: boolean }>>(collection);

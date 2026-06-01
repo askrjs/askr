@@ -38,6 +38,7 @@ import {
   type RouteComponent,
   type RouteContext,
   type RouteDefinition,
+  type RouteHandler,
   type RouteManifest,
   type RouteMatch,
   type RouteMode,
@@ -110,6 +111,15 @@ page(
   }
 );
 
+const routeComponent: RouteComponent<{ id: string }> = (params) => [
+  <span key="first">{params.id}</span>,
+  <span key="second">detail</span>,
+];
+expectAssignable<RouteComponent<{ id: string }>>(routeComponent);
+
+const routeHandler: RouteHandler<{ id: string }> = (params) => params.id;
+expectAssignable<RouteHandler<{ id: string }>>(routeHandler);
+
 const lazyRoute = lazy(async () => ({
   default: (params: { id: string }) => params.id,
 }));
@@ -147,17 +157,17 @@ expectType<ReturnType<typeof getRoutes>>(getRoutes());
 const pageHelperOptions: PageHelperOptions = { auth: true };
 expectAssignable<PageHelperOptions>(pageHelperOptions);
 const groupHelperOptions: GroupHelperOptions = {
-  layout: ({ children }) => children,
+  layout: ({ children }) => <div>{children}</div>,
   auth: 'guest',
 };
 expectAssignable<GroupHelperOptions>(groupHelperOptions);
 
 const pageScopeRecord: PageScopeRecord = {
-  component: () => null,
+  component: () => [<span key="page">page</span>],
 };
 expectAssignable<PageScopeRecord>(pageScopeRecord);
 const layoutScopeRecord: LayoutScopeRecord = {
-  component: ({ children }) => children,
+  component: ({ children }) => <div>{children}</div>,
 };
 expectAssignable<LayoutScopeRecord>(layoutScopeRecord);
 
@@ -242,10 +252,15 @@ const scrollRestorationOptions: ScrollRestorationOptions = {
 };
 expectAssignable<ScrollRestorationOptions>(scrollRestorationOptions);
 
-const linkProps: LinkProps = { href: '/about' };
+const linkProps: LinkProps = {
+  href: '/about',
+  children: [<span key="first">About</span>, <span key="second">now</span>],
+};
 expectAssignable<LinkProps>(linkProps);
 Link(linkProps);
-expectType<unknown>(Outlet());
+expectAssignable<JSX.Element>(<Outlet />);
+expectAssignable<JSX.Element>(Outlet());
+expectError(Link({ href: '/about', children: document.createElement('span') }));
 
 const allowDecision = allow();
 expectAssignable<AccessDecision>(allowDecision);
@@ -274,6 +289,15 @@ expectType<void>(clearRoutes());
 
 expectError(navigate('/home', { history: 'invalid' }));
 expectError(route('/bad', 'not-a-component'));
+expectError(route('/bad-dom', () => document.createElement('div')));
+expectError(
+  page(
+    '/bad-page',
+    () => document.createElement('div'),
+    () => {}
+  )
+);
+expectError(group({ layout: () => document.createElement('div') }, () => {}));
 expectError(route('/users/{id}', (params: { slug: string }) => params.slug));
 expectError(
   route('/users/{id}', () => null, {
@@ -300,3 +324,6 @@ expectError(
   })
 );
 expectError(lazy(async () => ({ nope: () => null })));
+expectError(
+  lazy(async () => ({ default: () => document.createElement('div') }))
+);

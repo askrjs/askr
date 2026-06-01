@@ -88,6 +88,21 @@ describe('route navigation (ROUTER)', () => {
       expect(sawMissingRouteWarn).toBe(true);
       warnSpy.mockRestore();
     });
+
+    it('should ignore imperative DOM node route output', async () => {
+      const imperativeNode = document.createElement('div');
+      imperativeNode.id = 'imperative-route-output';
+      imperativeNode.textContent = 'Imperative route';
+
+      route('/imperative', () => imperativeNode as unknown as string);
+
+      await createSPA({ root: container, routes: getRoutes() });
+      navigate('/imperative');
+      flushScheduler();
+
+      expect(container.querySelector('#imperative-route-output')).toBeNull();
+      expect(container.textContent).toBe('');
+    });
   });
 
   describe('route parameters', () => {

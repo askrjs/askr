@@ -100,6 +100,26 @@ describe('Link component navigation', () => {
     expect(link?.getAttribute('title')).toBe('Go to About');
   });
 
+  it('should ignore imperative DOM node children', async () => {
+    const imperativeChild = document.createElement('span');
+    imperativeChild.id = 'imperative-link-child';
+    imperativeChild.textContent = 'Imperative child';
+
+    route('/', () => (
+      <div>
+        <Link href="/about">{imperativeChild as unknown as string}</Link>
+      </div>
+    ));
+
+    await createSPA({ root: container, routes: getRoutes() });
+    flushScheduler();
+
+    const link = container.querySelector('a');
+    expect(link).not.toBeNull();
+    expect(link?.textContent).toBe('');
+    expect(container.querySelector('#imperative-link-child')).toBeNull();
+  });
+
   it('should navigate via navigate() in onClick handler', async () => {
     route('/', () => (
       <div>

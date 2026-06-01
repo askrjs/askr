@@ -6,15 +6,19 @@ import type { JSXElement } from '../common/jsx';
 import type { VNode } from '../common/vnode';
 import { createShowState, type ShowState } from '../runtime/control';
 import { state } from '../runtime/state';
-import { normalizeBoundaryChild, resolveMaybeAccessor } from './shared';
+import {
+  type BoundaryChild,
+  normalizeBoundaryChild,
+  resolveMaybeAccessor,
+} from './shared';
 
 type ShowSource<T> = T | (() => T);
-type ShowBoundaryChild = VNode | readonly VNode[];
+type Truthy<T> = T extends false | '' | 0 | 0n | null | undefined ? never : T;
 
 export type ShowProps<T> = {
   when: ShowSource<T>;
-  fallback?: unknown;
-  children: ShowBoundaryChild | ((value: NonNullable<T>) => ShowBoundaryChild);
+  fallback?: BoundaryChild;
+  children: BoundaryChild | ((value: Truthy<T>) => BoundaryChild);
 };
 
 function createTruthyRenderer<T>(
@@ -23,9 +27,7 @@ function createTruthyRenderer<T>(
   if (typeof props.children === 'function') {
     return (value: unknown) =>
       normalizeBoundaryChild(
-        (props.children as (resolved: NonNullable<T>) => VNode)(
-          value as NonNullable<T>
-        )
+        (props.children as (resolved: Truthy<T>) => VNode)(value as Truthy<T>)
       ) as VNode;
   }
 
@@ -33,7 +35,9 @@ function createTruthyRenderer<T>(
   return () => staticChild as VNode;
 }
 
-function createFallbackRenderer(fallback: unknown): (() => VNode) | null {
+function createFallbackRenderer(
+  fallback: BoundaryChild | undefined
+): (() => VNode) | null {
   const normalizedFallback = normalizeBoundaryChild(fallback);
   if (normalizedFallback == null || normalizedFallback === false) {
     return null;

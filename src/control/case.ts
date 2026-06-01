@@ -11,16 +11,18 @@ import {
   type MatchBranch,
 } from '../runtime/control';
 import { state } from '../runtime/state';
-import { normalizeBoundaryChild } from './shared';
+import { type BoundaryChild, normalizeBoundaryChild } from './shared';
+
+type MatchChild = BoundaryChild | (() => BoundaryChild);
 
 export type MatchProps = {
   key?: string | number | null;
   when: unknown;
-  children: unknown;
+  children: MatchChild;
 };
 
 export type CaseProps = {
-  fallback?: unknown;
+  fallback?: BoundaryChild;
   children?: unknown;
 };
 
@@ -49,7 +51,9 @@ export function Match(_props: MatchProps): null {
   return null;
 }
 
-function createCaseFallbackRenderer(fallback: unknown): (() => VNode) | null {
+function createCaseFallbackRenderer(
+  fallback: BoundaryChild | undefined
+): (() => VNode) | null {
   const normalizedFallback = normalizeBoundaryChild(fallback);
   if (normalizedFallback == null || normalizedFallback === false) {
     return null;
@@ -89,7 +93,9 @@ function readMatchBranches(children: unknown): MatchBranch[] {
       const render =
         typeof props.children === 'function'
           ? () =>
-              normalizeBoundaryChild((props.children as () => VNode)()) as VNode
+              normalizeBoundaryChild(
+                (props.children as () => BoundaryChild)()
+              ) as VNode
           : () => normalizeBoundaryChild(props.children) as VNode;
       branches.push({
         key,

@@ -26,7 +26,8 @@ export function registerAppRoutes() {
     route('/', Home);
     route('/about', About);
     route('/posts/{slug}', PostPage, {
-      entries: async () => getPosts().map((post) => ({ slug: post.slug })),
+      entries: async () =>
+        getPosts().map((post: { slug: string }) => ({ slug: post.slug })),
       title: 'Post',
     });
     fallback(NotFound);
@@ -199,7 +200,8 @@ function PostPage() {
 route('/posts/{slug}', PostPage, {
   auth: true,
   loader: ({ params }) => fetchPost(params.slug),
-  entries: async () => getPosts().map((post) => ({ slug: post.slug })),
+  entries: async () =>
+    getPosts().map((post: { slug: string }) => ({ slug: post.slug })),
   title: 'Post',
 });
 ```

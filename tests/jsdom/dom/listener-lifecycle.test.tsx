@@ -167,4 +167,32 @@ describe('listener lifecycle (DOM)', () => {
     addSpy.mockRestore();
     removeSpy.mockRestore();
   });
+
+  it('should replace a direct listener with a delegated listener when delegation is re-enabled', async () => {
+    disableEventDelegation();
+
+    let mode: ReturnType<typeof state<'a' | 'b'>> | null = null;
+    const calls: string[] = [];
+
+    const Component = () => {
+      mode = state<'a' | 'b'>('a');
+      return (
+        <button id={'btn'} onClick={() => calls.push(mode!())}>
+          {mode!()}
+        </button>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    enableEventDelegation();
+    mode!.set('b');
+    flushScheduler();
+
+    (container.querySelector('#btn') as HTMLButtonElement).click();
+    flushScheduler();
+
+    expect(calls).toEqual(['b']);
+  });
 });

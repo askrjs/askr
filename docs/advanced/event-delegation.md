@@ -115,13 +115,19 @@ Use `onEventName` for standard events. For custom events, use refs:
 
 ```tsx
 function CustomEventComponent() {
-  const btnRef = { current: null };
+  const btnRef = { current: null as HTMLButtonElement | null };
+  const handler = () => {
+    console.log('Custom event fired');
+  };
 
   onMount(() => {
-    if (btnRef.current) {
-      btnRef.current.addEventListener('customEvent', handler);
+    const button = btnRef.current;
+    if (!button) {
+      return;
     }
-    return () => btnRef.current".removeEventListener('customEvent', handler);
+
+    button.addEventListener('customEvent', handler);
+    return () => button.removeEventListener('customEvent', handler);
   });
 
   return <button ref={btnRef}>Custom</button>;
@@ -130,7 +136,17 @@ function CustomEventComponent() {
 
 ### Capture Phase
 
-Delegated events use the bubble phase. For capture phase listeners, attach directly:
+Delegated events use the bubble phase. Capture-suffixed JSX props such as
+`onPointerDownCapture` attach direct capture listeners instead of delegated
+ones. Those listeners only observe events that pass through the element's own
+capture path, so outside-click helpers need to mount them on a wrapper or
+overlay surface rather than the dismissed node itself:
+
+```tsx
+<div onPointerDownCapture={handler}>...</div>
+```
+
+For custom events or imperative listeners outside JSX, attach directly:
 
 ```tsx
 onMount(() => {
