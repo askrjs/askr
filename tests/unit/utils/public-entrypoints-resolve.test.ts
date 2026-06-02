@@ -67,9 +67,10 @@ describe('public entrypoint resolution', () => {
     expect(typeof ssr.renderToStringSync).toBe('function');
     expect(typeof ssr.renderToStream).toBe('function');
     expect(typeof ssr.resolveRequest).toBe('function');
+    expect(typeof ssr.renderResolvedToStringSync).toBe('function');
     expect(
       Object.prototype.hasOwnProperty.call(ssr, 'renderResolvedToStringSync')
-    ).toBe(false);
+    ).toBe(true);
 
     expect(typeof ssg.createStaticGen).toBe('function');
 

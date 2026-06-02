@@ -14,6 +14,7 @@ import * as routerSurface from '@askrjs/askr/router';
 import * as foundationsSurface from '@askrjs/askr/foundations';
 import { createStaticGen } from '@askrjs/askr/ssg';
 import {
+  renderResolvedToStringSync,
   renderToStream,
   renderToString,
   renderToStringSync,
@@ -37,6 +38,7 @@ expectType<typeof renderToString>(renderToString);
 expectType<typeof renderToStringSync>(renderToStringSync);
 expectType<typeof renderToStream>(renderToStream);
 expectType<typeof resolveRequest>(resolveRequest);
+expectType<typeof renderResolvedToStringSync>(renderResolvedToStringSync);
 expectType<typeof jsx>(jsx);
 expectType<typeof jsxs>(jsxs);
 expectType<typeof Fragment>(Fragment);
@@ -44,9 +46,6 @@ expectType<typeof jsxDEV>(jsxDEV);
 expectType<typeof rootSurface.jsx>(rootSurface.jsx);
 expectType<typeof rootSurface.jsxs>(rootSurface.jsxs);
 expectType<typeof rootSurface.Fragment>(rootSurface.Fragment);
-
-// @ts-expect-error ssr entrypoint no longer exposes internal resolved renderer
-void ({} as typeof import('@askrjs/askr/ssr')).renderResolvedToStringSync;
 // @ts-expect-error jsx runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-runtime')).ELEMENT_TYPE;
 // @ts-expect-error jsx dev runtime entrypoint no longer exposes element brand

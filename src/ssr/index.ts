@@ -41,6 +41,7 @@ import {
   cleanupComponent,
   setCurrentComponentInstance,
   getCurrentComponentInstance,
+  ComponentInstance,
 } from '../runtime/component';
 import type { ComponentFunction } from '../common/component';
 import type { DOMElement } from '../common/vnode';
@@ -114,6 +115,7 @@ installSSRBridge({
 
 export { SSRDataMissingError } from './context';
 export type { VNode, SSRComponent } from './types';
+export { renderResolvedToStringSync } from './render-resolved';
 
 // Dev-only SSR strictness guard helpers. We mutate globals in dev to make
 // accidental usage of Math.random/Date.now during sync SSR fail fast.
@@ -1316,6 +1318,7 @@ export async function resolveRequest(
 // --- Streaming sink-based renderer (v2) --------------------------------------------------
 import { StringSink, StreamSink } from './sink';
 import { startRenderPhase, stopRenderPhase } from './render-keys';
+import { Component } from './stream-render';
 
 export type SSRRoute = {
   path: string;
