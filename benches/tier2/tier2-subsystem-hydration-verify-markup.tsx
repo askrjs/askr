@@ -1,5 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { verifyHydrationSyncForUrl } from '../../src/ssr/verify-hydration';
+import { resolveRouteFromRoutes } from '../../src/router/route';
 import {
   buildRows,
   buildTableHydrationRoutes,
@@ -18,6 +19,12 @@ const verifyMarkupBenchOptions = extendBenchOptions(tier2BenchOptions, {
 
 await (async () => {
   const fixture = createHydrationFixture({ routes });
+  const resolved = resolveRouteFromRoutes('/', fixture.routes);
+  if (!resolved) {
+    throw new Error(
+      'verifyHydrationSyncForUrl preflight: no route resolved for /'
+    );
+  }
 
   try {
     expect(
@@ -25,6 +32,7 @@ await (async () => {
         root: fixture.container,
         url: '/',
         routes: fixture.routes,
+        resolved,
       })
     ).toBe(true);
   } finally {
@@ -38,10 +46,17 @@ describe('tier2 subsystem hydration verify markup', () => {
   bench(
     'verify markup for a 1,000-row server-rendered table',
     () => {
+      const resolved = resolveRouteFromRoutes('/', fixture!.routes);
+      if (!resolved) {
+        throw new Error(
+          'verifyHydrationSyncForUrl benchmark: no route resolved for /'
+        );
+      }
       verifyHydrationSyncForUrl({
         root: fixture!.container,
         url: '/',
         routes: fixture!.routes,
+        resolved,
       });
     },
     {
