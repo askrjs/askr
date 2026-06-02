@@ -133,7 +133,7 @@
     "playwright": "^1.60.0",
     "tsd": "^0.33.0",
     "typescript": "^6.0.3",
-    "vite-plus": "^0.1.23"
+    "vite-plus": "^0.1.24"
   },
   "tsd": {
     "compilerOptions": {
