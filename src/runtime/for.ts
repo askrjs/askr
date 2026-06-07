@@ -360,6 +360,38 @@ function scopeReadsSource(
   return source._readers?.has(scope.componentInstance) ?? false;
 }
 
+function isForParentReader<T>(
+  forState: ForState<T>,
+  reader: ComponentInstance
+): boolean {
+  let current = forState.parentInstance;
+
+  while (current) {
+    if (current === reader) {
+      return true;
+    }
+    current = current.parentInstance;
+  }
+
+  return false;
+}
+
+function removeForParentReaders<T>(
+  forState: ForState<T>,
+  source: ReadableSource<unknown>
+): void {
+  const readers = source._readers;
+  if (!readers || readers.size === 0) {
+    return;
+  }
+
+  for (const reader of readers.keys()) {
+    if (isForParentReader(forState, reader)) {
+      readers.delete(reader);
+    }
+  }
+}
+
 function getOrCreateForItemPropertySignal<T>(
   item: T,
   propertySignals: Map<PropertyKey, ForItemPropertySignal>,
@@ -654,8 +686,10 @@ function updateItemInstance<T>(
     changedPropertySignals.length > 0 ||
     itemShapeChanged;
   for (const [propertySignal, nextValue] of changedPropertySignals) {
+    removeForParentReaders(forState, propertySignal);
     propertySignal.set(nextValue, notifyReaders);
   }
+  removeForParentReaders(forState, itemSignal);
   itemSignal.set(item, notifyReaders);
 
   if (scopeReadsChangedSignal) {

@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
 import { getRoutes, route } from '../../../src/router/route';
+import { resource } from '../../../src/runtime/operations';
 import { getSignal } from '../../../src/runtime/component';
 import {
   createTestContainer,
@@ -26,6 +27,7 @@ describe('cancellation on navigate (ROUTER)', () => {
 
   afterEach(() => {
     cleanup();
+    window.history.replaceState({}, '', '/');
   });
 
   it('should abort pending async operations on navigation', async () => {
@@ -84,17 +86,16 @@ describe('cancellation on navigate (ROUTER)', () => {
     expect(renderCount).toBeGreaterThanOrEqual(0);
   });
 
-  it('should abort signal when component unmounts via navigate', async () => {
-    let signalAborted = false;
+  it('should abort route-owned resource signal when route unmounts via navigate', async () => {
+    let routeSignal: AbortSignal | null = null;
 
     route('/async', () => {
-      return async () => {
-        const signal = getSignal();
-        signal.addEventListener('abort', () => {
-          signalAborted = true;
-        });
-        return <div>Async Page</div>;
-      };
+      const result = resource<string>(({ signal }) => {
+        routeSignal = signal;
+        return new Promise(() => {});
+      });
+
+      return <div>{result.value ?? 'Async Page'}</div>;
     });
 
     route('/other', () => {
@@ -105,6 +106,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       return <div>{'App'}</div>;
     };
 
+    window.history.replaceState({}, '', '/async');
     await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
@@ -113,7 +115,7 @@ describe('cancellation on navigate (ROUTER)', () => {
     flushScheduler();
 
     // Signal should be aborted after navigation
-    expect(signalAborted || true).toBe(true); // At least component transitioned
+    expect(routeSignal?.aborted).toBe(true);
   });
 
   it('should perform cleanup before next route mounts', async () => {

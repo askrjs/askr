@@ -338,3 +338,29 @@ environmental warning unless it reproduces in isolation.
 `syncForIndexSignal()` returned an optional readable marker as
 `boolean | undefined`. The return is now normalized with `=== true`; runtime
 behavior is unchanged.
+
+## 2026-06 regression gate matrix
+
+This follow-up keeps the audit actionable as the package surface changes. Any
+new regression should be mapped to one row before it is fixed, and the final
+fix should leave a focused test in the listed gate.
+
+| Risk class | Required durable coverage |
+| ---------- | ------------------------- |
+| State, scheduler, and reactive ownership | `tests/jsdom/runtime`, `tests/jsdom/state`, or `tests/jsdom/operations`, with no placeholder assertions or timing sleeps unless fake timers drive the clock. |
+| Renderer reconciliation and DOM rollback | `tests/jsdom/dom` or `tests/jsdom/identity`, plus a public browser workflow only when the failure depends on real focus, event, or layout behavior. |
+| Router, resources, and history races | Tight jsdom tests in `tests/jsdom/router` or `tests/jsdom/app-flows`; real-browser coverage for popstate, focus, and hydration interactions. |
+| SSR, SSG, and hydration policy | `tests/jsdom/ssr`, `tests/jsdom/ssg`, and browser hydration smoke tests when client event attachment is involved. |
+| Public package surface and type drift | `tests/checks`, `tests/types`, export-map tests, and package import smoke tests. |
+| Performance-sensitive correctness | A correctness test first, then an existing tiered benchmark only if the behavior has a known hot path. |
+
+Release validation for this matrix is the local gate:
+
+```bash
+npm run lint
+npm run build
+npm run test:checks
+npm run test:unit
+npm run test:jsdom
+npm run test:browser
+```

@@ -216,8 +216,10 @@ describe('history integration (ROUTER)', () => {
     });
 
     it('should trigger navigation on popstate event', async () => {
+      let popstateEvents = 0;
+
       window.addEventListener('popstate', () => {
-        // Event triggered
+        popstateEvents++;
       });
 
       route('/*', () => {
@@ -237,8 +239,7 @@ describe('history integration (ROUTER)', () => {
       window.dispatchEvent(popstateEvent);
       flushScheduler();
 
-      // Event was dispatched (whether handler processes it is app-dependent)
-      expect(true).toBe(true);
+      expect(popstateEvents).toBe(1);
     });
 
     it('should ignore stale async popstate navigations after a newer entry wins', async () => {

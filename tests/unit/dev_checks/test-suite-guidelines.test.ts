@@ -53,6 +53,11 @@ const forbiddenPatterns: Array<{
     regex: /:\s*any\b/,
     message: 'Avoid `any` in tests; prefer specific types or `unknown`',
   },
+  {
+    name: 'placeholder true assertion',
+    regex: /expect\(\s*true\s*\)\.toBe\(\s*true\s*\)/,
+    message: 'Replace placeholder assertions with observable behavior checks',
+  },
 ];
 
 describe('Test suite guidelines', () => {
@@ -82,6 +87,37 @@ describe('Test suite guidelines', () => {
               snippet: line.trim(),
               rule: pat.name,
               message: pat.message,
+            });
+          }
+        }
+
+        if (/\bexpect\s*\([^)]*\|\|\s*true\b/.test(line)) {
+          failures.push({
+            file,
+            line: i + 1,
+            snippet: line.trim(),
+            rule: 'truthy assertion fallback',
+            message:
+              'Assertions must not use `|| true`; assert the specific behavior instead',
+          });
+        }
+
+        if (
+          /behavior\.test\.(ts|tsx|js)$/.test(file) &&
+          /\b(setTimeout|sleep)\s*\(/.test(line)
+        ) {
+          const usesFakeTimers =
+            /\bvi\.(useFakeTimers|advanceTimers|runAllTimers|runOnlyPendingTimers)/.test(
+              content
+            );
+          if (!usesFakeTimers) {
+            failures.push({
+              file,
+              line: i + 1,
+              snippet: line.trim(),
+              rule: 'fixed sleeps in behavior tests',
+              message:
+                'Behavior tests should use deterministic flushing or fake timers instead of fixed sleeps',
             });
           }
         }

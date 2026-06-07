@@ -173,6 +173,56 @@ describe('For JSX primitive', () => {
     }
   });
 
+  it('should not subscribe a parent to cloned vnode item property updates', () => {
+    const { container, cleanup } = createTestContainer();
+    let closePanel: () => void = () => {};
+    let appRenders = 0;
+
+    const App = () => {
+      appRenders += 1;
+      const open = state(true);
+      closePanel = () => open.set(false);
+      const label = open() ? 'Panel open' : 'Panel closed';
+      const children = [
+        <span key="panel-link" data-slot="panel-link">
+          {label}
+        </span>,
+      ];
+
+      return (
+        <section data-open={open() ? 'true' : 'false'}>
+          <For each={() => children} by={() => 'panel-link'}>
+            {(child) => child as JSXElement}
+          </For>
+        </section>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      expect(container.querySelector('section')?.getAttribute('data-open')).toBe(
+        'true'
+      );
+      expect(container.querySelector('[data-slot="panel-link"]')?.textContent).toBe(
+        'Panel open'
+      );
+
+      closePanel();
+      flushScheduler();
+
+      expect(container.querySelector('section')?.getAttribute('data-open')).toBe(
+        'false'
+      );
+      expect(container.querySelector('[data-slot="panel-link"]')?.textContent).toBe(
+        'Panel open'
+      );
+      expect(appRenders).toBeLessThan(5);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should update shifted index accessors after removing one keyed row from the middle', () => {
     const { container, cleanup } = createTestContainer();
 

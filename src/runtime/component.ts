@@ -32,6 +32,7 @@ export interface ComponentInstance {
   fn: ComponentFunction;
   props: Props;
   target: Element | null;
+  parentInstance: ComponentInstance | null;
   portalScope: object | null;
   mounted: boolean;
   abortController: AbortController | null; // Lazily created per-component abort lifecycle
@@ -89,6 +90,7 @@ export function createComponentInstance(
     fn,
     props,
     target,
+    parentInstance: currentInstance,
     portalScope: currentInstance?.portalScope ?? currentPortalScope ?? null,
     mounted: false,
     abortController: null,
@@ -477,7 +479,7 @@ function runComponent(instance: ComponentInstance): void {
 
           try {
             withContext(executionFrame, () => {
-              evaluate(result, instance.target);
+              evaluate(result, instance.target, undefined, instance);
             });
           } catch (e) {
             // If evaluation failed, attempt to cleanup any partially-added nodes
@@ -573,6 +575,10 @@ function runComponent(instance: ComponentInstance): void {
 export function renderComponentInline(
   instance: ComponentInstance
 ): unknown | Promise<unknown> {
+  // Reused inline instances can cross renderer cleanup boundaries while their
+  // host node is retained. Make sure state writes still enqueue this instance.
+  instance.notifyUpdate = instance._enqueueRun!;
+
   // Ensure inline executions (rendered during parent's evaluate) still
   // receive a render token and have their state reads finalized so
   // subscriptions are correctly recorded. If this function is called
