@@ -110,6 +110,7 @@ export function createChildScope(
   );
 
   if (parent) {
+    componentInstance.parentInstance = parent;
     componentInstance.ownerFrame = parent.ownerFrame;
     componentInstance.portalScope = parent.portalScope;
   }

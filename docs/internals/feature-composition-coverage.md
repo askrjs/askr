@@ -191,3 +191,18 @@ the aggregate `npm test` run with 104 unit, 4 checks, 832 jsdom, and 38 browser
 tests. Tier 1, Tier 3, and Tier 4 benchmarks passed. Tier 2 reproduced only its
 existing verifier-fixture failure: `tier2-subsystem-hydration-verify-markup.tsx`
 still omits the required `resolved` input.
+
+## Cross-package regression follow-up
+
+`askr-ui` and `askr-themes` should feed failures back into this matrix whenever
+the root cause is runtime timing, ownership, event freshness, portal cleanup, or
+hydration behavior. Package-local tests should still own their public contracts,
+but runtime-sensitive fixes should leave an `askr` regression if the framework
+itself can reproduce the bug without the higher-level package.
+
+| Cross-package symptom | First package-local test | Add an `askr` regression when |
+| --------------------- | ------------------------ | ----------------------------- |
+| Stale component handler reads old context or state | `askr-ui` browser behavior test | A minimal component using `state()`, context, or event handlers reproduces stale reads. |
+| Ref callback causes render-time state mutation | `askr-ui` browser behavior or jsdom test | The failure comes from renderer ref timing rather than component-specific logic. |
+| Theme shell leaks overlay, focus, scroll lock, or route state | `askr-themes` browser smoke | The leak is caused by portal ownership, route cleanup, or delegated event cleanup. |
+| Themed or headless package import breaks after dependency bump | Package export/type test | The dependency exposes an incompatible public entrypoint or type contract. |

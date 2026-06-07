@@ -2444,6 +2444,7 @@ function resolveNestedComponentResult(
       null
     );
     nestedInstance.isRoot = isRouteRootComponentVNode(currentResult);
+    nestedInstance.parentInstance = parentInstance;
     nestedInstance.portalScope =
       parentInstance?.portalScope ?? nestedInstance.portalScope;
     inheritComponentCleanupStrict(nestedInstance);
@@ -2475,12 +2476,18 @@ function resolveHostNestedComponentResult(
   host: InstanceHostElement,
   retainedInstance: ComponentInstance,
   result: unknown,
-  snapshot: ContextFrame | null
+  snapshot: ContextFrame | null,
+  retainedHostInstances?: Iterable<ComponentInstance>
 ): VNode {
   let currentResult = result as VNode;
   let activeSnapshot = snapshot;
   let depth = 0;
   const retainedInstances = new Set<ComponentInstance>([retainedInstance]);
+  if (retainedHostInstances) {
+    for (const instance of retainedHostInstances) {
+      retainedInstances.add(instance);
+    }
+  }
   const createdInstances: ComponentInstance[] = [];
 
   while (
@@ -2507,6 +2514,7 @@ function resolveHostNestedComponentResult(
 
     setVNodeComponentInstance(currentResult, nestedInstance);
     nestedInstance.isRoot = isRouteRootComponentVNode(currentResult);
+    nestedInstance.parentInstance = retainedInstance;
     nestedInstance.portalScope =
       retainedInstance.portalScope ?? nestedInstance.portalScope;
     inheritComponentCleanupStrict(nestedInstance);
@@ -2544,9 +2552,19 @@ function resolveHostNestedComponentResult(
     }
   }
 
-  host.__ASKR_INSTANCES = previousInstances.filter((instance) =>
+  const nextHostInstances = previousInstances.filter((instance) =>
     retainedInstances.has(instance)
   );
+  for (const instance of retainedInstances) {
+    if (
+      instance.target === host &&
+      !nextHostInstances.includes(instance)
+    ) {
+      nextHostInstances.push(instance);
+    }
+  }
+
+  host.__ASKR_INSTANCES = nextHostInstances;
   host.__ASKR_INSTANCE = host.__ASKR_INSTANCES[0] ?? retainedInstance;
 
   for (const instance of createdInstances) {
@@ -2583,6 +2601,7 @@ function resolveWrapperHostResult(
 
     nestedInstance.props =
       (((currentResult as DOMElement).props ?? {}) as Props) || {};
+    nestedInstance.parentInstance = getCurrentInstance();
     nestedInstance.isRoot = isRouteRootComponentVNode(currentResult);
     nestedInstance.portalScope =
       getCurrentInstance()?.portalScope ?? nestedInstance.portalScope;
@@ -2643,7 +2662,8 @@ export function syncComponentElement(
   type: ComponentFunction,
   props: Record<string, unknown>,
   parentNamespace?: string,
-  forceChildrenUpdate = false
+  forceChildrenUpdate = false,
+  retainedHostInstances?: Iterable<ComponentInstance>
 ): Node | null {
   const existingHost =
     currentDom instanceof Element ? (currentDom as InstanceHostElement) : null;
@@ -2717,7 +2737,8 @@ export function syncComponentElement(
       existingHost,
       hydrationInstance,
       scopedResult,
-      snapshot ?? null
+      snapshot ?? null,
+      retainedHostInstances
     );
     if (
       _isDOMElement(resolvedResult) &&
@@ -2824,7 +2845,8 @@ export function syncComponentElement(
     existingHost,
     existingInstance,
     scopedResult,
-    snapshot ?? null
+    snapshot ?? null,
+    retainedHostInstances
   );
   if (
     _isDOMElement(resolvedResult) &&
@@ -2908,6 +2930,7 @@ function createComponentElement(
 
   childInstance.portalScope =
     getCurrentInstance()?.portalScope ?? childInstance.portalScope;
+  childInstance.parentInstance = getCurrentInstance();
   childInstance.props = props || {};
   childInstance.isRoot = isRouteRootComponentVNode(node);
   inheritComponentCleanupStrict(childInstance);

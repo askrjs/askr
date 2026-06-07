@@ -14,15 +14,14 @@ it('should import renderer modules safely in SSR when document/window are missin
     // Dynamically import the modules under test; these should not throw just
     // because `document` or `window` are undefined (module-eval must be safe).
     // Use import() so the module is evaluated under the altered globals.
-    await Promise.all([
+    const modules = await Promise.all([
       import('../../../src/renderer/dom'),
       import('../../../src/renderer/evaluate'),
       import('../../../src/renderer/fastpath'),
       import('../../../src/renderer/reconcile'),
     ]);
 
-    // If we reached here, imports did not throw.
-    expect(true).toBe(true);
+    expect(modules).toHaveLength(4);
   } finally {
     if (savedDoc !== undefined)
       (g as Record<string, unknown>).document = savedDoc;

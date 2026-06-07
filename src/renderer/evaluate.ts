@@ -77,6 +77,40 @@ function createElementForNamespace(
 
 const domRanges = new WeakMap<object, DOMRange>();
 
+type ComponentHostElement = Element & {
+  __ASKR_INSTANCE?: ComponentInstance;
+  __ASKR_INSTANCES?: ComponentInstance[];
+};
+
+function getRetainedHostOwnerChain(
+  host: ComponentHostElement,
+  owner: ComponentInstance
+): ComponentInstance[] {
+  const instances = host.__ASKR_INSTANCES ?? [];
+  const ownerIndex = instances.indexOf(owner);
+
+  return ownerIndex >= 0 ? instances.slice(ownerIndex) : [owner];
+}
+
+function retainHostOwnerChain(
+  host: Element,
+  owner: ComponentInstance,
+  retainedInstances: ComponentInstance[]
+): void {
+  const componentHost = host as ComponentHostElement;
+  const existing = componentHost.__ASKR_INSTANCES ?? [];
+  const nextInstances = [...existing];
+
+  for (const instance of retainedInstances) {
+    if (!nextInstances.includes(instance)) {
+      nextInstances.push(instance);
+    }
+  }
+
+  componentHost.__ASKR_INSTANCES = nextInstances;
+  componentHost.__ASKR_INSTANCE = owner;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper Types & Utilities
 // ─────────────────────────────────────────────────────────────────────────────
@@ -668,7 +702,8 @@ function getFragmentChildren(vnode: DOMElement): unknown[] {
 export function evaluate(
   node: unknown,
   target: Element | null,
-  context?: object
+  context?: object,
+  retainedOwner?: ComponentInstance
 ): void {
   if (!target) return;
   // SSR guard: avoid DOM ops when not in a browser-like environment
@@ -761,21 +796,31 @@ export function evaluate(
     const targetWithInstance = target as Element & {
       __ASKR_INSTANCE?: ComponentInstance;
     };
-    const targetInstance = targetWithInstance.__ASKR_INSTANCE;
+    const targetInstance =
+      retainedOwner?.target === target
+        ? retainedOwner
+        : targetWithInstance.__ASKR_INSTANCE;
     if (targetInstance && targetInstance.target === target) {
+      const retainedHostInstances = getRetainedHostOwnerChain(
+        targetWithInstance,
+        targetInstance
+      );
+
       // This is a nested component's own element.
       if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
         const syncedDom = syncComponentElement(
           target,
           vnode as DOMElement,
           vnode.type as ComponentFunction,
-          (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {}
+          (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) ||
+            {},
+          undefined,
+          false,
+          retainedHostInstances
         );
 
         if (syncedDom instanceof Element) {
-          (
-            syncedDom as Element & { __ASKR_INSTANCE?: ComponentInstance }
-          ).__ASKR_INSTANCE = targetInstance;
+          retainHostOwnerChain(syncedDom, targetInstance, retainedHostInstances);
           targetInstance.target = syncedDom;
           return;
         }
