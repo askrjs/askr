@@ -2556,10 +2556,7 @@ function resolveHostNestedComponentResult(
     retainedInstances.has(instance)
   );
   for (const instance of retainedInstances) {
-    if (
-      instance.target === host &&
-      !nextHostInstances.includes(instance)
-    ) {
+    if (instance.target === host && !nextHostInstances.includes(instance)) {
       nextHostInstances.push(instance);
     }
   }

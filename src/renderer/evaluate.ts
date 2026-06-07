@@ -820,7 +820,11 @@ export function evaluate(
         );
 
         if (syncedDom instanceof Element) {
-          retainHostOwnerChain(syncedDom, targetInstance, retainedHostInstances);
+          retainHostOwnerChain(
+            syncedDom,
+            targetInstance,
+            retainedHostInstances
+          );
           targetInstance.target = syncedDom;
           return;
         }
