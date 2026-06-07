@@ -9,6 +9,7 @@ import {
 describe('controlled input remount regression', () => {
   it('should preserve the form and input DOM nodes while a controlled text input updates', () => {
     const { container, cleanup } = createTestContainer();
+    let submitCount = 0;
 
     const App = () => {
       const name = state('');
@@ -17,6 +18,7 @@ describe('controlled input remount regression', () => {
         <form
           onSubmit={(event: Event) => {
             event.preventDefault();
+            submitCount += 1;
           }}
         >
           <input
@@ -58,6 +60,9 @@ describe('controlled input remount regression', () => {
     expect(inputBefore.isConnected).toBe(true);
     expect(document.activeElement).toBe(inputBefore);
     expect(inputAfter.value).toBe('alpha');
+
+    formBefore.dispatchEvent(new Event('submit', { bubbles: true }));
+    expect(submitCount).toBe(1);
 
     cleanup();
   });
