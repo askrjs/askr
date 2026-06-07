@@ -201,22 +201,22 @@ describe('For JSX primitive', () => {
     try {
       createIsland({ root: container, component: App });
 
-      expect(container.querySelector('section')?.getAttribute('data-open')).toBe(
-        'true'
-      );
-      expect(container.querySelector('[data-slot="panel-link"]')?.textContent).toBe(
-        'Panel open'
-      );
+      expect(
+        container.querySelector('section')?.getAttribute('data-open')
+      ).toBe('true');
+      expect(
+        container.querySelector('[data-slot="panel-link"]')?.textContent
+      ).toBe('Panel open');
 
       closePanel();
       flushScheduler();
 
-      expect(container.querySelector('section')?.getAttribute('data-open')).toBe(
-        'false'
-      );
-      expect(container.querySelector('[data-slot="panel-link"]')?.textContent).toBe(
-        'Panel open'
-      );
+      expect(
+        container.querySelector('section')?.getAttribute('data-open')
+      ).toBe('false');
+      expect(
+        container.querySelector('[data-slot="panel-link"]')?.textContent
+      ).toBe('Panel open');
       expect(appRenders).toBeLessThan(5);
     } finally {
       cleanup();

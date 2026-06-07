@@ -49,7 +49,9 @@ describe('resource and event state subscriptions', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    const button = container.querySelector('button') as HTMLButtonElement | null;
+    const button = container.querySelector(
+      'button'
+    ) as HTMLButtonElement | null;
     expect(button?.getAttribute('data-collapsed')).toBe('true');
     expect(button?.getAttribute('data-open')).toBe('false');
 
@@ -84,7 +86,9 @@ describe('resource and event state subscriptions', () => {
     flushScheduler();
 
     const section = container.querySelector('section') as HTMLElement | null;
-    const button = container.querySelector('button') as HTMLButtonElement | null;
+    const button = container.querySelector(
+      'button'
+    ) as HTMLButtonElement | null;
 
     expect(section?.getAttribute('data-open')).toBe('false');
 
@@ -127,7 +131,9 @@ describe('resource and event state subscriptions', () => {
     flushScheduler();
 
     const section = container.querySelector('section') as HTMLElement | null;
-    const button = container.querySelector('button') as HTMLButtonElement | null;
+    const button = container.querySelector(
+      'button'
+    ) as HTMLButtonElement | null;
 
     expect(section?.getAttribute('data-collapsed')).toBe('true');
     expect(section?.getAttribute('data-open')).toBe('false');
@@ -175,7 +181,9 @@ describe('resource and event state subscriptions', () => {
     flushScheduler();
 
     const section = container.querySelector('section') as HTMLElement | null;
-    const button = container.querySelector('button') as HTMLButtonElement | null;
+    const button = container.querySelector(
+      'button'
+    ) as HTMLButtonElement | null;
 
     expect(section?.getAttribute('data-compact')).toBe('true');
     expect(section?.getAttribute('data-open')).toBe('false');
