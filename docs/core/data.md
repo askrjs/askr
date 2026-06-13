@@ -250,6 +250,16 @@ const saveUser = createMutation<UserInput, User>({
 invalidate('user:', { markPendingWrite: true });
 ```
 
+For feature-local query prefixes, use `queryScope(namespace)` to build canonical keys.
+The namespace must be non-empty after trimming:
+
+```ts
+import { queryScope } from '@askrjs/askr/data';
+
+const admin = queryScope('admin');
+admin.invalidate(['buckets', 'main']);
+```
+
 For route-owned dashboards, use the small route-aware invalidation helper:
 
 ```tsx

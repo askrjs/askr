@@ -1,14 +1,19 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   createInvalidationRecorder,
+  getRouteWarnings,
+  matchRoute,
   mockQuery,
   queryState,
   type InvalidationRecord,
   type InvalidationRecorder,
+  type RoutePatternWarning,
   type MockQueryOptions,
   type MockRefresh,
 } from '@askrjs/askr/testing';
 import type { Query } from '@askrjs/askr/data';
+import { getManifest } from '@askrjs/askr/router';
+import type { RouteMatch } from '@askrjs/askr/router';
 
 const refresh: MockRefresh = async () => {};
 const options: MockQueryOptions = { refresh };
@@ -66,6 +71,24 @@ expectType<readonly InvalidationRecord[]>(recorder.calls);
 expectType<readonly string[]>(recorder.prefixes);
 expectType<void>(recorder.clear());
 expectType<void>(recorder.stop());
+
+const routeMatch = matchRoute('/admin/buckets/main/files/a/b', {
+  manifest: getManifest(),
+});
+expectType<RouteMatch | null>(routeMatch);
+
+const routeWarnings = getRouteWarnings({ manifest: getManifest() });
+expectType<RoutePatternWarning[]>(routeWarnings);
+const routeWarning: RoutePatternWarning = {
+  kind: 'route-collision',
+  path: '/files/{*path}',
+  conflictingPath: '/files/blob/{id}',
+  segment: 'blob',
+  namespace: undefined,
+  message:
+    'Route "/files/blob/{id}" reserves segment "blob" under named splat route "/files/{*path}".',
+};
+expectAssignable<RoutePatternWarning>(routeWarning);
 
 expectError(mockQuery(null));
 expectError(mockQuery.loading(123));

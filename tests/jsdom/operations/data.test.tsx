@@ -6,6 +6,7 @@ import {
   createMutation,
   invalidate,
   invalidateOnInterval,
+  queryScope,
   type Query,
 } from '../../../src/data';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
@@ -73,6 +74,78 @@ function setDocumentHasFocus(value: boolean): () => void {
 }
 
 describe('data layer', () => {
+  it('should build canonical scoped query keys and prefixes', () => {
+    const admin = queryScope('admin');
+
+    expect(admin.key('buckets', 'main', 'files')).toBe(
+      's=admin:s=buckets:s=main:s=files:'
+    );
+    expect(admin.prefix('buckets', 'main')).toBe('s=admin:s=buckets:s=main:');
+    expect(admin.key('buckets', 'main/folder', 'a:b', 'space value')).toBe(
+      's=admin:s=buckets:s=main%2Ffolder:s=a%3Ab:s=space%20value:'
+    );
+    expect(admin.key('files', { q: 'x', page: 2 })).toBe(
+      's=admin:s=files:o{page=n=2,q=s=x}:'
+    );
+  });
+
+  it('should keep scoped query keys boundary safe', () => {
+    const admin = queryScope('admin');
+
+    expect(admin.prefix('bucket')).toBe('s=admin:s=bucket:');
+    expect(admin.key('bucket-list')).toBe('s=admin:s=bucket-list:');
+    expect(admin.key('bucket', 'list')).toBe('s=admin:s=bucket:s=list:');
+    expect(admin.key('bucket:list')).toBe('s=admin:s=bucket%3Alist:');
+  });
+
+  it('should keep distinct primitive and structured query parts from colliding', () => {
+    const admin = queryScope('admin');
+
+    expect(admin.key('1')).not.toBe(admin.key(1));
+    expect(admin.key('true')).not.toBe(admin.key(true));
+    expect(admin.key('null')).not.toBe(admin.key(null));
+    expect(admin.key('undefined')).not.toBe(admin.key(undefined));
+    expect(admin.key({ value: 1 })).not.toBe(admin.key({ value: '1' }));
+    expect(admin.key({ value: undefined })).not.toBe(admin.key({}));
+    expect(admin.key(['a', 1, true, null, undefined])).not.toBe(
+      admin.key(['a', '1', 'true', 'null', 'undefined'])
+    );
+    expect(admin.key({ q: 'x', page: 2 })).toBe(
+      admin.key({ page: 2, q: 'x' })
+    );
+  });
+
+  it('should reject empty or whitespace-only query scope namespaces', () => {
+    const callQueryScope = queryScope as unknown as (
+      namespace?: unknown
+    ) => unknown;
+
+    expect(() => callQueryScope('')).toThrow(/non-empty namespace/i);
+    expect(() => callQueryScope('   ')).toThrow(/non-empty namespace/i);
+  });
+
+  it('should invalidate canonical scoped query prefixes', () => {
+    const recorder = createInvalidationRecorder();
+    const admin = queryScope('admin');
+
+    try {
+      admin.invalidate(['buckets', 'main']);
+      admin.invalidate(['buckets', 'main', 'files'], {
+        markPendingWrite: true,
+      });
+
+      expect(recorder.calls).toEqual([
+        { prefix: 's=admin:s=buckets:s=main:', markPendingWrite: false },
+        {
+          prefix: 's=admin:s=buckets:s=main:s=files:',
+          markPendingWrite: true,
+        },
+      ]);
+    } finally {
+      recorder.stop();
+    }
+  });
+
   it('should invalidate on an interval owned by a component', () => {
     vi.useFakeTimers();
     const recorder = createInvalidationRecorder();
