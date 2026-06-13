@@ -2,11 +2,75 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { invalidate } from '@askrjs/askr/data';
 import {
   createInvalidationRecorder,
+  getRouteWarnings,
+  matchRoute,
   mockQuery,
   queryState,
 } from '@askrjs/askr/testing';
+import { clearRoutes, getManifest, route } from '@askrjs/askr/router';
 
 describe('testing public API', () => {
+  it('should expose public route matching helpers', () => {
+    clearRoutes();
+    try {
+      route('/admin/buckets/{bucket}/files/{*path}', () => 'folder');
+      const manifest = getManifest();
+
+      expect(
+        matchRoute('/admin/buckets/main/files/a/b', { manifest })
+      ).toEqual({
+        path: '/admin/buckets/{bucket}/files/{*path}',
+        params: { bucket: 'main', path: 'a/b' },
+        namespace: undefined,
+      });
+      expect(matchRoute('/missing', { manifest })).toBeNull();
+    } finally {
+      clearRoutes();
+    }
+  });
+
+  it('should expose deterministic route pattern warnings', () => {
+    clearRoutes();
+    try {
+      route('/admin/buckets/{bucket}/files/{*path}', () => 'folder', {
+        namespace: 'admin-files',
+      });
+      route('/admin/buckets/{bucket}/files/blob/{id}', () => 'blob', {
+        namespace: 'admin-files',
+      });
+
+      expect(getRouteWarnings({ manifest: getManifest() })).toEqual([
+        {
+          kind: 'route-collision',
+          path: '/admin/buckets/{bucket}/files/{*path}',
+          conflictingPath: '/admin/buckets/{bucket}/files/blob/{id}',
+          segment: 'blob',
+          namespace: 'admin-files',
+          message:
+            'Route "/admin/buckets/{bucket}/files/blob/{id}" reserves segment "blob" under named splat route "/admin/buckets/{bucket}/files/{*path}".',
+        },
+      ]);
+    } finally {
+      clearRoutes();
+    }
+  });
+
+  it('should keep route pattern warnings scoped by namespace', () => {
+    clearRoutes();
+    try {
+      route('/admin/buckets/{bucket}/files/{*path}', () => 'folder', {
+        namespace: 'folders',
+      });
+      route('/admin/buckets/{bucket}/files/blob/{id}', () => 'blob', {
+        namespace: 'blobs',
+      });
+
+      expect(getRouteWarnings({ manifest: getManifest() })).toEqual([]);
+    } finally {
+      clearRoutes();
+    }
+  });
+
   it('should create a fresh query mock with stable defaults', async () => {
     const query = mockQuery({ id: '123', name: 'Ada' });
 

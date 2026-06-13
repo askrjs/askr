@@ -9,6 +9,7 @@ import {
   hasApp,
 } from '@askrjs/askr/boot';
 import { ErrorBoundary } from '@askrjs/askr/components';
+import * as dataSurface from '@askrjs/askr/data';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
 import * as testingSurface from '@askrjs/askr/testing';
@@ -52,6 +53,11 @@ expectType<typeof testingSurface.queryState>(testingSurface.queryState);
 expectType<typeof testingSurface.createInvalidationRecorder>(
   testingSurface.createInvalidationRecorder
 );
+expectType<typeof dataSurface.queryScope>(dataSurface.queryScope);
+expectType<typeof testingSurface.matchRoute>(testingSurface.matchRoute);
+expectType<typeof testingSurface.getRouteWarnings>(
+  testingSurface.getRouteWarnings
+);
 // @ts-expect-error jsx runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-runtime')).ELEMENT_TYPE;
 // @ts-expect-error jsx dev runtime entrypoint no longer exposes element brand
@@ -67,10 +73,14 @@ expectType<never>(rootSurface.resource);
 expectType<never>(rootSurface.ErrorBoundary);
 // @ts-expect-error root package does not expose data helpers
 expectType<never>(rootSurface.createQuery);
+// @ts-expect-error root package does not expose data helpers
+expectType<never>(rootSurface.queryScope);
 // @ts-expect-error root package does not expose foundations helpers
 expectType<never>(rootSurface.Portal);
 // @ts-expect-error root package does not expose testing helpers
 expectType<never>(rootSurface.mockQuery);
+// @ts-expect-error root package does not expose testing helpers
+expectType<never>(rootSurface.matchRoute);
 
 // @ts-expect-error resources subpath no longer re-exports data helpers
 expectType<never>(resourcesSurface.createQuery);
@@ -108,3 +118,5 @@ expectType<never>(routerSurface.getLoadedNamespaces);
 expectType<never>(routerSurface.resolveRouteRequest);
 // @ts-expect-error internal router helpers are not part of the public barrel
 expectType<never>(routerSurface.setServerLocation);
+// @ts-expect-error route test helpers live in @askrjs/askr/testing
+expectType<never>(routerSurface.matchRoute);

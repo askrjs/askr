@@ -146,6 +146,18 @@ const typedSnapshot = currentRoute<{ id: string }>();
 expectType<string>(typedSnapshot.params.id);
 
 expectType<RoutePathParams<'/files/*'>>({ '*': 'docs/readme.md' });
+expectType<RoutePathParams<'/files/{*path}'>>({ path: 'docs/readme.md' });
+expectType<RoutePathParams<'/files/{* path }'>>({ path: 'docs/readme.md' });
+
+route('/files/{*path}', (params) => {
+  expectType<{ path: string }>(params);
+  return params.path;
+});
+
+route('/files/{* path }', (params) => {
+  expectType<{ path: string }>(params);
+  return params.path;
+});
 
 const manifest = getManifest();
 expectType<RouteManifest>(manifest);

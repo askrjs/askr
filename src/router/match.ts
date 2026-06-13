@@ -19,6 +19,10 @@ export function splitPathSegments(path: string): string[] {
   return withoutLeadingSlash.length === 0 ? [] : withoutLeadingSlash.split('/');
 }
 
+export function normalizeRouteSegmentName(value: string): string {
+  return value.trim();
+}
+
 /**
  * Parse a route template path into typed segments.
  *
@@ -26,6 +30,7 @@ export function splitPathSegments(path: string): string[] {
  * parseSegments('/users/{id}')  // [{kind:'static',value:'users'},{kind:'param',value:'id'}]
  * parseSegments('/*')           // [{kind:'catchall',value:'*'}]
  * parseSegments('/posts/*')     // [{kind:'static',value:'posts'},{kind:'wildcard',value:'*'}]
+ * parseSegments('/files/{*path}') // [{kind:'static',value:'files'},{kind:'splat',value:'path'}]
  */
 export function parseSegments(path: string): ParsedSegment[] {
   const normalized =
@@ -40,7 +45,14 @@ export function parseSegments(path: string): ParsedSegment[] {
 
   return parts.map((segment): ParsedSegment => {
     if (segment.startsWith('{') && segment.endsWith('}')) {
-      return { kind: 'param', value: segment.slice(1, -1) };
+      const value = normalizeRouteSegmentName(segment.slice(1, -1));
+      if (value.startsWith('*')) {
+        return {
+          kind: 'splat',
+          value: normalizeRouteSegmentName(value.slice(1)),
+        };
+      }
+      return { kind: 'param', value };
     }
     if (segment === '*') {
       return { kind: 'wildcard', value: '*' };
@@ -62,6 +74,7 @@ export function computeRank(segments: ParsedSegment[]): number {
     if (seg.kind === 'static') score += 3;
     else if (seg.kind === 'param') score += 2;
     else if (seg.kind === 'wildcard') score += 1;
+    else if (seg.kind === 'splat') score -= 0.5;
     // catchall contributes 0 per segment but is handled above
   }
   return score;
@@ -118,16 +131,43 @@ export function matchSegments(
     };
   }
 
+  const splatIndex = segments.findIndex((segment) => segment.kind === 'splat');
+  if (splatIndex !== -1) {
+    if (splatIndex !== segments.length - 1) {
+      return null;
+    }
+    if (urlParts.length < splatIndex) {
+      return null;
+    }
+  } else if (urlParts.length !== segments.length) {
+    return null;
+  }
+
   // non-catchall: part count must equal segment count
-  if (urlParts.length !== segments.length) return null;
 
   // Walk segments; allocate the params object lazily on first capture
   let params: Record<string, string> | null = null;
+
+  const normalizeCapturedSplatParts = (parts: string[]): string[] => {
+    let start = 0;
+    while (start < parts.length && parts[start] === '') {
+      start += 1;
+    }
+
+    return start === 0 ? parts : parts.slice(start);
+  };
+
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     const part = urlParts[i];
     if (seg.kind === 'static') {
       if (seg.value !== part) return null;
+    } else if (seg.kind === 'splat') {
+      if (params === null) params = {};
+      params[seg.value] = normalizeCapturedSplatParts(urlParts
+        .slice(i)
+        .map(decodeRouteParam)).join('/');
+      return params;
     } else {
       if (params === null) params = {};
       if (seg.kind === 'param') {
@@ -166,51 +206,9 @@ export function match(path: string, pattern: string): MatchResult {
   const normalizedPattern =
     pattern.endsWith('/') && pattern !== '/' ? pattern.slice(0, -1) : pattern;
 
-  // Split into segments
   const pathSegments = splitPathSegments(normalizedPath);
-  const patternSegments = splitPathSegments(normalizedPattern);
+  const patternSegments = parseSegments(normalizedPattern);
+  const params = matchSegments(pathSegments, patternSegments);
 
-  // Support catch-all route: /* matches any path at any depth
-  if (patternSegments.length === 1 && patternSegments[0] === '*') {
-    // For multi-segment paths, preserve the leading slash
-    // For single-segment paths, return just the segment
-    return {
-      matched: true,
-      params: {
-        '*':
-          pathSegments.length === 0
-            ? '/'
-            : pathSegments.length > 1
-              ? normalizedPath
-              : pathSegments[0],
-      },
-    };
-  }
-
-  // Check if lengths match (wildcard segments still need to match one segment)
-  if (pathSegments.length !== patternSegments.length) {
-    return { matched: false, params: {} };
-  }
-
-  const params: Record<string, string> = {};
-
-  // Match each segment
-  for (let i = 0; i < patternSegments.length; i++) {
-    const patternSegment = patternSegments[i];
-    const pathSegment = pathSegments[i];
-
-    // Parameter: {paramName}
-    if (patternSegment.startsWith('{') && patternSegment.endsWith('}')) {
-      const paramName = patternSegment.slice(1, -1);
-      params[paramName] = decodeRouteParam(pathSegment);
-    } else if (patternSegment === '*') {
-      // Wildcard: match single segment
-      params['*'] = pathSegment;
-    } else if (patternSegment !== pathSegment) {
-      // Literal segment mismatch
-      return noMatch;
-    }
-  }
-
-  return { matched: true, params };
+  return params === null ? noMatch : { matched: true, params };
 }

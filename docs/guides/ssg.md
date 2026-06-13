@@ -33,7 +33,7 @@ console.log(result.successful, result.totalRoutes);
 
 Each route entry supports:
 
-- `path`: route path (supports params like `/blog/{slug}`)
+- `path`: route path (supports params like `/blog/{slug}` and final named splats like `/admin/files/{*path}`; splat names are trimmed, must be non-empty, and `*` is reserved)
 - `component` or `handler`: render function
 - `params`: values for path placeholders
 - `entries`: async param expansion for generating many concrete pages from one template
