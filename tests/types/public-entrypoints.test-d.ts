@@ -11,6 +11,7 @@ import {
 import { ErrorBoundary } from '@askrjs/askr/components';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
+import * as testingSurface from '@askrjs/askr/testing';
 import * as foundationsSurface from '@askrjs/askr/foundations';
 import { createStaticGen } from '@askrjs/askr/ssg';
 import {
@@ -46,6 +47,11 @@ expectType<typeof jsxDEV>(jsxDEV);
 expectType<typeof rootSurface.jsx>(rootSurface.jsx);
 expectType<typeof rootSurface.jsxs>(rootSurface.jsxs);
 expectType<typeof rootSurface.Fragment>(rootSurface.Fragment);
+expectType<typeof testingSurface.mockQuery>(testingSurface.mockQuery);
+expectType<typeof testingSurface.queryState>(testingSurface.queryState);
+expectType<typeof testingSurface.createInvalidationRecorder>(
+  testingSurface.createInvalidationRecorder
+);
 // @ts-expect-error jsx runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-runtime')).ELEMENT_TYPE;
 // @ts-expect-error jsx dev runtime entrypoint no longer exposes element brand
@@ -63,6 +69,8 @@ expectType<never>(rootSurface.ErrorBoundary);
 expectType<never>(rootSurface.createQuery);
 // @ts-expect-error root package does not expose foundations helpers
 expectType<never>(rootSurface.Portal);
+// @ts-expect-error root package does not expose testing helpers
+expectType<never>(rootSurface.mockQuery);
 
 // @ts-expect-error resources subpath no longer re-exports data helpers
 expectType<never>(resourcesSurface.createQuery);

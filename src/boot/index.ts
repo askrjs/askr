@@ -302,6 +302,8 @@ function mountOrUpdate(
       instance.notifyUpdate = null;
       instance.stateIndexCheck = -1;
       instance.mountOperations = [];
+      instance.commitOperations = [];
+      instance.lifecycleSlots = [];
       instance.cleanupFns = [];
       instance._currentRenderToken = undefined;
       instance.lastRenderToken = 0;

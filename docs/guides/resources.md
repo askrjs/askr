@@ -38,8 +38,46 @@ function UserCard({ id }: { id: string }) {
 
 - Keep route handlers synchronous.
 - Do fetches inside components with `resource()`.
+- Put polling timers in the route, layout, or feature component that owns the work.
 - Prefer `resource(async ({ signal }) => ...)` so the cancellation signal stays valid for the whole async operation.
 - Use dependencies intentionally to re-run resource work.
+
+## Route-aware polling
+
+For query invalidation, use the data-owned convenience helper:
+
+```ts
+import { invalidateOnInterval } from '@askrjs/askr/data';
+
+function DashboardPage() {
+  invalidateOnInterval('dashboard:', {
+    intervalMs: 30000,
+    activeOn: ['/', '/admin'],
+    visibleOnly: true,
+  });
+
+  return <main>Dashboard</main>;
+}
+```
+
+For lower-level interval work, compose `timer()` with route and visibility checks:
+
+```ts
+import { invalidate } from '@askrjs/askr/data';
+import { documentVisible, routeActive, timer } from '@askrjs/askr/resources';
+
+function DashboardPage() {
+  timer(30000, () => invalidate('dashboard:'), {
+    when: [routeActive(['/', '/admin']), documentVisible()],
+  });
+
+  return <main>Dashboard</main>;
+}
+```
+
+The timer is cleaned up when `DashboardPage` is removed. The `when` checks skip interval ticks
+while the page is inactive or the document is hidden. Rerenders keep the latest callback and
+checks without creating duplicate intervals.
 
 ## SSR with preloaded data
 

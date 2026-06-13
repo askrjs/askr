@@ -1,19 +1,27 @@
 import { expectError, expectType } from 'tsd';
 import {
   capture,
+  documentVisible,
   getSignal,
   on,
   resource,
+  routeActive,
   stream,
   task,
   timer,
+  windowFocused,
+  type ActivityPredicate,
   type ResourceResult,
+  type TimerOptions,
 } from '@askrjs/askr/resources';
 
 declare const eventSource: EventTarget;
 declare const transformer: () => void;
 
 const readonlyDeps = ['user', 1] as const;
+const timerOptions: TimerOptions = { when: [documentVisible()] };
+expectType<TimerOptions>(timerOptions);
+
 const asyncResource = resource(async ({ signal }) => {
   expectType<AbortSignal>(signal);
   return { id: 'user-1' };
@@ -35,7 +43,13 @@ expectType<number | null>(syncResource.value);
 
 expectType<AbortSignal>(getSignal());
 expectType<void>(on(eventSource, 'focus', () => {}));
+expectType<void>(on(eventSource, 'focus', () => {}, { passive: true }));
 expectType<void>(timer(1000, () => {}));
+expectType<void>(timer(1000, () => {}, { when: [routeActive('/dashboard')] }));
+expectType<ActivityPredicate>(routeActive('/'));
+expectType<ActivityPredicate>(routeActive(['/', '/admin'] as const));
+expectType<ActivityPredicate>(documentVisible());
+expectType<ActivityPredicate>(windowFocused());
 expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
 
@@ -49,3 +63,4 @@ expectType<Error | null>(pendingStream.error);
 
 expectError(on(eventSource, transformer));
 expectError(timer(1000));
+expectError(timer(1000, () => {}, { when: [123] }));

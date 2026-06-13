@@ -3,6 +3,9 @@ import {
   createMutation,
   createQuery,
   invalidate,
+  invalidateOnInterval,
+  type InvalidateOnIntervalOptions,
+  type InvalidateOptions,
   type Mutation,
   type Query,
   type QueryConsistency,
@@ -36,6 +39,21 @@ expectType<QueryConsistency>(query.consistency);
 expectType<QueryStaleReason | null>(query.staleReason);
 expectType<Promise<void>>(query.refresh());
 expectType<void>(invalidate('user:'));
+expectType<void>(invalidate('user:', { markPendingWrite: true }));
+
+const invalidateOptions: InvalidateOptions = { markPendingWrite: false };
+expectType<InvalidateOptions>(invalidateOptions);
+
+const intervalOptions: InvalidateOnIntervalOptions = {
+  intervalMs: 1000,
+  activeOn: ['/', '/admin'] as const,
+  visibleOnly: true,
+  focusedOnly: false,
+  markPendingWrite: true,
+};
+expectType<InvalidateOnIntervalOptions>(intervalOptions);
+expectType<void>(invalidateOnInterval('user:', intervalOptions));
+expectType<void>(invalidateOnInterval('user:', { intervalMs: 1000 }));
 
 if (query.loading) {
   expectType<true>(query.loading);
@@ -189,6 +207,9 @@ if (mutation.status === 'error') {
 }
 
 expectError(invalidate(123));
+expectError(invalidateOnInterval('user:'));
+expectError(invalidateOnInterval('user:', { activeOn: '/' }));
+expectError(invalidateOnInterval('user:', { intervalMs: '1000' }));
 expectError(
   createQuery({
     key: 'bad',

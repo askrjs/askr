@@ -82,12 +82,23 @@ export function finalizeReadableSubscriptions(
   instance: ComponentInstance
 ): void {
   const newSet = instance._pendingReadSources;
-  const oldSet = instance._lastReadSources;
   const token = instance._currentRenderToken;
 
+  finalizeReadableSubscriptionsFromSnapshot(instance, token, newSet);
+  instance._pendingReadSources = undefined;
+  instance._currentRenderToken = undefined;
+}
+
+export function finalizeReadableSubscriptionsFromSnapshot(
+  instance: ComponentInstance,
+  token: number | undefined,
+  newSet: Set<ReadableSource<unknown>> | undefined
+): void {
   if (token === undefined) {
     return;
   }
+
+  const oldSet = instance._lastReadSources;
 
   if (oldSet) {
     for (const source of oldSet) {
@@ -111,8 +122,6 @@ export function finalizeReadableSubscriptions(
   }
 
   instance._lastReadSources = newSet ?? new Set();
-  instance._pendingReadSources = undefined;
-  instance._currentRenderToken = undefined;
 }
 
 export function cleanupReadableSubscriptions(

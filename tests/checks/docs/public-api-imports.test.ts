@@ -215,6 +215,9 @@ function probeDistExports(): unknown {
       const dataModuleHref = pathToFileURL(
         path.join(snapshotDir, 'data', 'index.js')
       ).href;
+      const testingModuleHref = pathToFileURL(
+        path.join(snapshotDir, 'testing', 'index.js')
+      ).href;
       const utilitiesModuleHref = pathToFileURL(
         path.join(snapshotDir, 'foundations', 'utilities', 'index.js')
       ).href;
@@ -266,6 +269,9 @@ function probeDistExports(): unknown {
               controlModuleHref
             )});
             const dataModule = await import(${JSON.stringify(dataModuleHref)});
+            const testingModule = await import(${JSON.stringify(
+              testingModuleHref
+            )});
             const utilitiesModule = await import(${JSON.stringify(
               utilitiesModuleHref
             )});
@@ -461,6 +467,13 @@ function probeDistExports(): unknown {
                 createQuery: typeof dataModule.createQuery,
                 createMutation: typeof dataModule.createMutation,
                 invalidate: typeof dataModule.invalidate,
+                invalidateOnInterval: typeof dataModule.invalidateOnInterval,
+              },
+              testing: {
+                mockQuery: typeof testingModule.mockQuery,
+                queryState: typeof testingModule.queryState,
+                createInvalidationRecorder:
+                  typeof testingModule.createInvalidationRecorder,
               },
               utilities: {
                 composeHandlers: typeof utilitiesModule.composeHandlers,
@@ -755,6 +768,12 @@ describe('public docs and examples', () => {
         createQuery: 'function',
         createMutation: 'function',
         invalidate: 'function',
+        invalidateOnInterval: 'function',
+      },
+      testing: {
+        mockQuery: 'function',
+        queryState: 'object',
+        createInvalidationRecorder: 'function',
       },
       utilities: {
         composeHandlers: 'function',

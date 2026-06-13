@@ -140,6 +140,8 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
 
   if ((instance.mountOperations?.length ?? 0) > 0)
     return { useFastPath: false, reason: 'pending-mounts' };
+  if ((instance.commitOperations?.length ?? 0) > 0)
+    return { useFastPath: false, reason: 'pending-lifecycle-commits' };
 
   // Ask renderer for keyed reorder eligibility (prop differences & heuristics)
   // Ensure a keyed map is available for the first child by populating it proactively.
@@ -229,6 +231,7 @@ function validateFastLaneInvariants(
   const invariants = {
     commitCount,
     mountOps: instance.mountOperations?.length ?? 0,
+    commitOps: instance.commitOperations?.length ?? 0,
     cleanupFns: instance.cleanupFns?.length ?? 0,
   };
   setDevValue('__LAST_FASTLANE_INVARIANTS', invariants);
@@ -248,6 +251,12 @@ function validateFastLaneInvariants(
   if (invariants.mountOps > 0) {
     throw new Error(
       'Fast-lane invariant violated: mount operations were registered during bulk commit'
+    );
+  }
+
+  if (invariants.commitOps > 0) {
+    throw new Error(
+      'Fast-lane invariant violated: lifecycle commit operations were registered during bulk commit'
     );
   }
 

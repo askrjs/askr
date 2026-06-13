@@ -139,4 +139,65 @@ describe('state subscription invariants', () => {
 
     cleanup();
   });
+
+  it('should roll back inline child read subscriptions and props after a failed parent commit', async () => {
+    allowFrameworkWarnings(/Unused state variable detected in App at index 3/);
+    const { container, cleanup } = createTestContainer();
+
+    let first!: ReturnType<typeof state<string>>;
+    let second!: ReturnType<typeof state<string>>;
+    let setUseSecond!: (value: boolean) => void;
+    let setShouldThrow!: (value: boolean) => void;
+    let childRenders = 0;
+
+    function Child({ useSecond }: { useSecond: boolean }) {
+      childRenders += 1;
+      return <span>{useSecond ? `second:${second()}` : `first:${first()}`}</span>;
+    }
+
+    function Bomb({ shouldThrow }: { shouldThrow: boolean }) {
+      if (shouldThrow) {
+        throw new Error('commit failed');
+      }
+      return <i>{'ok'}</i>;
+    }
+
+    function App() {
+      const useSecond = state(false);
+      const shouldThrow = state(false);
+      first = state('a');
+      second = state('b');
+      setUseSecond = useSecond.set;
+      setShouldThrow = shouldThrow.set;
+
+      return (
+        <main>
+          <Child useSecond={useSecond()} />
+          <Bomb shouldThrow={shouldThrow()} />
+        </main>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.textContent).toContain('first:a');
+
+    setUseSecond(true);
+    setShouldThrow(true);
+    expect(() => flushScheduler()).toThrow('commit failed');
+    const rendersAfterFailedCommit = childRenders;
+
+    second.set('b2');
+    flushScheduler();
+    expect(childRenders).toBe(rendersAfterFailedCommit);
+    expect(container.textContent).not.toContain('second:b2');
+
+    first.set('a2');
+    flushScheduler();
+    expect(childRenders).toBe(rendersAfterFailedCommit + 1);
+    expect(container.textContent).toContain('first:a2');
+
+    cleanup();
+  });
 });

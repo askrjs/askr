@@ -5,7 +5,17 @@
  */
 
 export { resource } from '../runtime/operations';
-export { on, timer, task, stream, capture } from '../runtime/operations';
+export {
+  documentVisible,
+  on,
+  routeActive,
+  timer,
+  task,
+  stream,
+  capture,
+  windowFocused,
+} from '../runtime/operations';
 export type { ResourceResult } from '../runtime/operations';
+export type { ActivityPredicate, TimerOptions } from '../runtime/operations';
 
 export { getSignal } from '../runtime/component';

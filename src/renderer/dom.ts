@@ -18,6 +18,7 @@ import {
   cleanupComponent,
   renderComponentInline,
   mountInstanceInline,
+  captureInlineRenderSnapshot,
   getCurrentInstance,
   setCurrentComponentInstance as _setCurrentInstance,
   warnUnusedStateReads,
@@ -728,9 +729,7 @@ function disposeReactiveChildBoundaryNodes(nodes: Node[]): void {
       node.parentNode.removeChild(node);
     }
 
-    if (node instanceof Element) {
-      teardownNodeSubtree(node);
-    }
+    teardownNodeSubtree(node);
   }
 }
 
@@ -743,9 +742,7 @@ function syncReactiveChildExpectedNodes(
   for (let node = el.firstChild; node; ) {
     const next = node.nextSibling;
     if (!expectedNodeSet.has(node)) {
-      if (node instanceof Element) {
-        teardownNodeSubtree(node);
-      }
+      teardownNodeSubtree(node);
       el.removeChild(node);
     }
     node = next;
@@ -783,9 +780,7 @@ function commitReactiveChildBoundaryEntryNodes(
 
     const dom = entry.scope.dom;
     if (dom?.parentNode === el) {
-      if (dom instanceof Element) {
-        teardownNodeSubtree(dom);
-      }
+      teardownNodeSubtree(dom);
       el.removeChild(dom);
     }
 
@@ -1071,9 +1066,7 @@ function setupReactiveChildBoundary(
       }
 
       if (dom?.parentNode === el) {
-        if (dom instanceof Element) {
-          teardownNodeSubtree(dom);
-        }
+        teardownNodeSubtree(dom);
         el.removeChild(dom);
       }
     },
@@ -1182,9 +1175,7 @@ function setupReactiveChildBoundarySequence(
         }
 
         if (dom?.parentNode === el) {
-          if (dom instanceof Element) {
-            teardownNodeSubtree(dom);
-          }
+          teardownNodeSubtree(dom);
           el.removeChild(dom);
         }
       }
@@ -2408,9 +2399,7 @@ function materializeComponentResultNode(
       // Ignore placeholder metadata failures.
     }
     childInstance._placeholder = placeholder;
-    childInstance.mounted = true;
-    childInstance.notifyUpdate = childInstance._enqueueRun!;
-    childInstance.target = null;
+    mountInstanceInline(childInstance, null);
     return placeholder;
   }
 
@@ -2501,6 +2490,7 @@ function resolveHostNestedComponentResult(
       host,
       currentResult.type as ComponentFunction
     );
+    const hadNestedInstance = !!nestedInstance;
 
     if (!nestedInstance) {
       nestedInstance = createComponentInstance(
@@ -2510,6 +2500,10 @@ function resolveHostNestedComponentResult(
         null
       );
       createdInstances.push(nestedInstance);
+    }
+
+    if (hadNestedInstance) {
+      captureInlineRenderSnapshot(nestedInstance);
     }
 
     setVNodeComponentInstance(currentResult, nestedInstance);
@@ -2595,6 +2589,8 @@ function resolveWrapperHostResult(
     if (!nestedInstance) {
       break;
     }
+
+    captureInlineRenderSnapshot(nestedInstance);
 
     nestedInstance.props =
       (((currentResult as DOMElement).props ?? {}) as Props) || {};
@@ -2781,6 +2777,7 @@ export function syncComponentElement(
     getCurrentContextFrame() ||
     existingInstance.ownerFrame ||
     null;
+  captureInlineRenderSnapshot(existingInstance);
   existingInstance.props = props || {};
   existingInstance.isRoot = isRouteRootComponentVNode(node);
   existingInstance.portalScope =
@@ -2915,6 +2912,7 @@ function createComponentElement(
 
   // Ensure there is a persistent instance object attached to this vnode
   let childInstance = getVNodeComponentInstance(node);
+  const hadChildInstance = !!childInstance;
   if (!childInstance) {
     childInstance = createComponentInstance(
       nextComponentInstanceId(),
@@ -2923,6 +2921,10 @@ function createComponentElement(
       null
     );
     setVNodeComponentInstance(node, childInstance);
+  }
+
+  if (hadChildInstance) {
+    captureInlineRenderSnapshot(childInstance);
   }
 
   childInstance.portalScope =
@@ -3394,6 +3396,7 @@ function syncForItemDom(
   const nextDom = materializeChildScopeDom(vnode, parentNamespace);
   if (!nextDom) {
     if (dom.parentNode === parent) {
+      teardownNodeSubtree(dom);
       dom.parentNode.removeChild(dom);
     }
     scope.dom = undefined;
@@ -3404,9 +3407,7 @@ function syncForItemDom(
     parent.replaceChild(nextDom, dom);
   }
 
-  if (dom instanceof Element) {
-    teardownNodeSubtree(dom);
-  }
+  teardownNodeSubtree(dom);
 
   scope.dom = nextDom;
   return nextDom;
@@ -3525,6 +3526,8 @@ function resolveStableIntrinsicPatchVNode(
     getCurrentContextFrame() ||
     existingInstance.ownerFrame ||
     null;
+
+  captureInlineRenderSnapshot(existingInstance);
 
   existingInstance.props =
     (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {};
@@ -4050,9 +4053,7 @@ export function updateElementChildren(
     // Clean up all children before clearing
     for (let n = el.firstChild; n; ) {
       const next = n.nextSibling;
-      if (n instanceof Element) {
-        teardownNodeSubtree(n);
-      }
+      teardownNodeSubtree(n);
       n = next;
     }
     el.textContent = '';
@@ -4082,9 +4083,7 @@ export function updateElementChildren(
       // Clean up all children before replacing with text
       for (let n = el.firstChild; n; ) {
         const next = n.nextSibling;
-        if (n instanceof Element) {
-          teardownNodeSubtree(n);
-        }
+        teardownNodeSubtree(n);
         n = next;
       }
       el.textContent = String(children);
@@ -4121,9 +4120,7 @@ export function updateElementChildren(
   // Clean up all children before clearing
   for (let n = el.firstChild; n; ) {
     const next = n.nextSibling;
-    if (n instanceof Element) {
-      teardownNodeSubtree(n);
-    }
+    teardownNodeSubtree(n);
     n = next;
   }
   el.textContent = '';
@@ -4646,9 +4643,7 @@ export function updateUnkeyedChildren(
     // Clean up all children before clearing
     for (let n = parent.firstChild; n; ) {
       const next = n.nextSibling;
-      if (n instanceof Element) {
-        teardownNodeSubtree(n);
-      }
+      teardownNodeSubtree(n);
       n = next;
     }
     parent.textContent = '';

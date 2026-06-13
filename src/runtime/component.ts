@@ -15,6 +15,7 @@ import {
 import {
   type ReadableSource,
   finalizeReadableSubscriptions,
+  finalizeReadableSubscriptionsFromSnapshot,
   cleanupReadableSubscriptions,
 } from './readable';
 import {
@@ -52,7 +53,11 @@ export interface ComponentInstance {
   mountOperations: Array<
     () => void | (() => void) | PromiseLike<void | (() => void)>
   >; // Operations to run when component mounts
+  commitOperations: Array<
+    () => void | (() => void) | PromiseLike<void | (() => void)>
+  >; // Operations to run after a successful committed render
   cleanupFns: Array<() => void>; // Cleanup functions to run on unmount
+  lifecycleSlots: unknown[]; // Render-scoped lifecycle primitive storage
   lifecycleGeneration: number; // Invalidates async mount-operation settlement after disposal
   hasPendingUpdate: boolean; // Flag to batch state updates (coalescing)
   ownerFrame: ContextFrame | null; // Provider chain for this component (set by Scope, never overwritten)
@@ -105,7 +110,9 @@ export function createComponentInstance(
     expectedStateIndices: [],
     firstRenderComplete: false,
     mountOperations: [],
+    commitOperations: [],
     cleanupFns: [],
+    lifecycleSlots: [],
     lifecycleGeneration: 0,
     hasPendingUpdate: false,
     ownerFrame: null, // Will be set by renderer when vnode is marked
@@ -189,9 +196,213 @@ export function getCurrentPortalScope(): object | null {
 import { isBulkCommitActive } from './fastlane';
 import { evaluate, cleanupInstancesUnder } from '../renderer';
 
-export function registerMountOperation(
-  operation: () => void | (() => void) | PromiseLike<void | (() => void)>
+type LifecycleOperation = () =>
+  | void
+  | (() => void)
+  | PromiseLike<void | (() => void)>;
+
+type LifecycleCommitBatchEntry = {
+  instance: ComponentInstance;
+  wasFirstMount: boolean;
+};
+
+type ReadSubscriptionCommit = {
+  instance: ComponentInstance;
+  token: number;
+  pendingReadSources: Set<ReadableSource<unknown>> | undefined;
+};
+
+type InlineRenderSnapshot = {
+  instance: ComponentInstance;
+  props: Props;
+  ownerFrame: ContextFrame | null;
+  portalScope: object | null;
+  parentInstance: ComponentInstance | null;
+  isRoot: boolean | undefined;
+};
+
+type LifecycleCommitBatch = {
+  parent: LifecycleCommitBatch | null;
+  entries: LifecycleCommitBatchEntry[];
+  entriesByInstance: Map<ComponentInstance, LifecycleCommitBatchEntry>;
+  readCommits: ReadSubscriptionCommit[];
+  readCommitsByInstance: Map<ComponentInstance, ReadSubscriptionCommit>;
+  renderSnapshots: InlineRenderSnapshot[];
+  renderSnapshotsByInstance: Map<ComponentInstance, InlineRenderSnapshot>;
+  active: boolean;
+};
+
+let currentLifecycleCommitBatch: LifecycleCommitBatch | null = null;
+
+function beginLifecycleCommitBatch(): LifecycleCommitBatch {
+  const batch: LifecycleCommitBatch = {
+    parent: currentLifecycleCommitBatch,
+    entries: [],
+    entriesByInstance: new Map(),
+    readCommits: [],
+    readCommitsByInstance: new Map(),
+    renderSnapshots: [],
+    renderSnapshotsByInstance: new Map(),
+    active: true,
+  };
+  currentLifecycleCommitBatch = batch;
+  return batch;
+}
+
+function closeLifecycleCommitBatch(batch: LifecycleCommitBatch): boolean {
+  if (!batch.active) {
+    return false;
+  }
+
+  batch.active = false;
+  currentLifecycleCommitBatch = batch.parent;
+  return true;
+}
+
+function enqueueLifecycleCommit(
+  batch: LifecycleCommitBatch,
+  instance: ComponentInstance,
+  wasFirstMount: boolean
 ): void {
+  const existing = batch.entriesByInstance.get(instance);
+  if (existing) {
+    existing.wasFirstMount = existing.wasFirstMount || wasFirstMount;
+    return;
+  }
+
+  const entry = { instance, wasFirstMount };
+  batch.entriesByInstance.set(instance, entry);
+  batch.entries.push(entry);
+}
+
+function enqueueReadSubscriptionCommit(
+  batch: LifecycleCommitBatch,
+  instance: ComponentInstance,
+  token: number,
+  pendingReadSources: Set<ReadableSource<unknown>> | undefined
+): void {
+  const existing = batch.readCommitsByInstance.get(instance);
+  const commit = existing ?? {
+    instance,
+    token,
+    pendingReadSources,
+  };
+
+  commit.token = token;
+  commit.pendingReadSources = pendingReadSources
+    ? new Set(pendingReadSources)
+    : undefined;
+
+  if (!existing) {
+    batch.readCommitsByInstance.set(instance, commit);
+    batch.readCommits.push(commit);
+  }
+}
+
+function enqueueInlineRenderSnapshot(
+  batch: LifecycleCommitBatch,
+  snapshot: InlineRenderSnapshot
+): void {
+  if (batch.renderSnapshotsByInstance.has(snapshot.instance)) {
+    return;
+  }
+
+  batch.renderSnapshotsByInstance.set(snapshot.instance, snapshot);
+  batch.renderSnapshots.push(snapshot);
+}
+
+export function captureInlineRenderSnapshot(instance: ComponentInstance): void {
+  if (!currentLifecycleCommitBatch?.active) {
+    return;
+  }
+
+  enqueueInlineRenderSnapshot(currentLifecycleCommitBatch, {
+    instance,
+    props: instance.props,
+    ownerFrame: instance.ownerFrame,
+    portalScope: instance.portalScope,
+    parentInstance: instance.parentInstance,
+    isRoot: instance.isRoot,
+  });
+}
+
+function finalizeInlineReadSubscriptions(
+  instance: ComponentInstance,
+  token: number,
+  pendingReadSources: Set<ReadableSource<unknown>> | undefined
+): void {
+  if (currentLifecycleCommitBatch?.active) {
+    enqueueReadSubscriptionCommit(
+      currentLifecycleCommitBatch,
+      instance,
+      token,
+      pendingReadSources
+    );
+    return;
+  }
+
+  finalizeReadableSubscriptionsFromSnapshot(instance, token, pendingReadSources);
+}
+
+function flushLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
+  if (!closeLifecycleCommitBatch(batch)) {
+    return;
+  }
+
+  if (batch.parent?.active) {
+    for (const snapshot of batch.renderSnapshots) {
+      enqueueInlineRenderSnapshot(batch.parent, snapshot);
+    }
+    for (const commit of batch.readCommits) {
+      enqueueReadSubscriptionCommit(
+        batch.parent,
+        commit.instance,
+        commit.token,
+        commit.pendingReadSources
+      );
+    }
+    for (const entry of batch.entries) {
+      enqueueLifecycleCommit(batch.parent, entry.instance, entry.wasFirstMount);
+    }
+    return;
+  }
+
+  for (const commit of batch.readCommits) {
+    finalizeReadableSubscriptionsFromSnapshot(
+      commit.instance,
+      commit.token,
+      commit.pendingReadSources
+    );
+  }
+
+  for (const entry of batch.entries) {
+    executeCommittedLifecycleOperations(entry.instance, entry.wasFirstMount);
+  }
+}
+
+function discardLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
+  if (!closeLifecycleCommitBatch(batch)) {
+    return;
+  }
+
+  for (let index = batch.renderSnapshots.length - 1; index >= 0; index -= 1) {
+    const snapshot = batch.renderSnapshots[index]!;
+    snapshot.instance.props = snapshot.props;
+    snapshot.instance.ownerFrame = snapshot.ownerFrame;
+    snapshot.instance.portalScope = snapshot.portalScope;
+    snapshot.instance.parentInstance = snapshot.parentInstance;
+    snapshot.instance.isRoot = snapshot.isRoot;
+  }
+
+  for (const entry of batch.entries) {
+    if (entry.wasFirstMount) {
+      entry.instance.mountOperations = [];
+    }
+    discardCommitOperations(entry.instance);
+  }
+}
+
+export function registerMountOperation(operation: LifecycleOperation): void {
   const instance = getCurrentComponentInstance();
   if (instance) {
     // If we're in bulk-commit fast lane, registering mount operations is a
@@ -209,16 +420,59 @@ export function registerMountOperation(
   }
 }
 
+export function registerCommitOperation(operation: LifecycleOperation): void {
+  const instance = getCurrentComponentInstance();
+  if (instance) {
+    if (isBulkCommitActive()) {
+      if (isDevelopmentEnvironment()) {
+        throw new Error(
+          'registerCommitOperation called during bulk commit fast-lane'
+        );
+      }
+      return;
+    }
+    instance.commitOperations.push(operation);
+  }
+}
+
+function settleLifecycleOperationResult(
+  instance: ComponentInstance,
+  lifecycleGeneration: number,
+  result: void | (() => void) | PromiseLike<void | (() => void)>
+): void {
+  if (isPromiseLike(result)) {
+    Promise.resolve(result).then(
+      (cleanup) => {
+        if (typeof cleanup === 'function') {
+          if (
+            instance.lifecycleGeneration === lifecycleGeneration &&
+            instance.mounted
+          ) {
+            instance.cleanupFns.push(cleanup);
+            return;
+          }
+
+          try {
+            cleanup();
+          } catch (err) {
+            logger.error('[Askr] async mount cleanup failed:', err);
+          }
+        }
+      },
+      (err) => {
+        logger.error('[Askr] async mount operation failed:', err);
+      }
+    );
+  } else if (typeof result === 'function') {
+    instance.cleanupFns.push(result);
+  }
+}
+
 /**
  * Execute all mount operations for a component
  * These run after the component is rendered and mounted to the DOM
  */
 function executeMountOperations(instance: ComponentInstance): void {
-  // Only execute mount operations for root app instance. Child component
-  // operations are currently registered but should not be executed (per
-  // contract tests). They remain registered for cleanup purposes.
-  if (!instance.isRoot) return;
-
   const mountOperations = instance.mountOperations;
   if (mountOperations.length === 0) {
     return;
@@ -227,36 +481,62 @@ function executeMountOperations(instance: ComponentInstance): void {
   const lifecycleGeneration = instance.lifecycleGeneration;
 
   for (const operation of mountOperations) {
-    const result = operation();
-    if (isPromiseLike(result)) {
-      Promise.resolve(result).then(
-        (cleanup) => {
-          if (typeof cleanup === 'function') {
-            if (
-              instance.lifecycleGeneration === lifecycleGeneration &&
-              instance.mounted
-            ) {
-              instance.cleanupFns.push(cleanup);
-              return;
-            }
-
-            try {
-              cleanup();
-            } catch (err) {
-              logger.error('[Askr] async mount cleanup failed:', err);
-            }
-          }
-        },
-        (err) => {
-          logger.error('[Askr] async mount operation failed:', err);
-        }
-      );
-    } else if (typeof result === 'function') {
-      instance.cleanupFns.push(result);
-    }
+    settleLifecycleOperationResult(instance, lifecycleGeneration, operation());
   }
   // Clear the operations array so they don't run again on subsequent renders
   instance.mountOperations = [];
+}
+
+function executeCommitOperations(instance: ComponentInstance): void {
+  const commitOperations = instance.commitOperations;
+  if (commitOperations.length === 0) {
+    return;
+  }
+
+  instance.commitOperations = [];
+  const lifecycleGeneration = instance.lifecycleGeneration;
+
+  for (const operation of commitOperations) {
+    settleLifecycleOperationResult(instance, lifecycleGeneration, operation());
+  }
+}
+
+function discardCommitOperations(instance: ComponentInstance): void {
+  instance.commitOperations = [];
+}
+
+function executeCommittedLifecycleOperations(
+  instance: ComponentInstance,
+  wasFirstMount: boolean
+): void {
+  if (wasFirstMount && instance.mountOperations.length > 0) {
+    executeMountOperations(instance);
+  }
+  if (instance.commitOperations.length > 0) {
+    executeCommitOperations(instance);
+  }
+}
+
+function commitLifecycleForInstance(
+  instance: ComponentInstance,
+  wasFirstMount: boolean
+): void {
+  if (currentLifecycleCommitBatch) {
+    enqueueLifecycleCommit(
+      currentLifecycleCommitBatch,
+      instance,
+      wasFirstMount
+    );
+    return;
+  }
+
+  executeCommittedLifecycleOperations(instance, wasFirstMount);
+}
+
+export function commitRenderedComponent(instance: ComponentInstance): void {
+  if (instance.mounted && instance.commitOperations.length > 0) {
+    commitLifecycleForInstance(instance, false);
+  }
 }
 
 export function mountInstanceInline(
@@ -289,9 +569,7 @@ export function mountInstanceInline(
 
   const wasFirstMount = !instance.mounted;
   instance.mounted = true;
-  if (wasFirstMount && instance.mountOperations.length > 0) {
-    executeMountOperations(instance);
-  }
+  commitLifecycleForInstance(instance, wasFirstMount);
 }
 
 /**
@@ -368,7 +646,13 @@ function runComponent(instance: ComponentInstance): void {
   instance._pendingReadSources = undefined;
   const domSnapshot = instance.target ? instance.target.innerHTML : '';
 
-  const result = executeComponentSync(instance);
+  let result: unknown | Promise<unknown>;
+  try {
+    result = executeComponentSync(instance);
+  } catch (err) {
+    discardCommitOperations(instance);
+    throw err;
+  }
   if (isPromiseLike(result)) {
     // Async components are not supported. Components must be synchronous and
     // must not return a Promise from their render function.
@@ -411,6 +695,7 @@ function runComponent(instance: ComponentInstance): void {
           // Still null - nothing to do, keep placeholder
           finalizeReadSubscriptions(instance);
           warnUnusedStateReads(instance);
+          commitRenderedComponent(instance);
           return;
         }
 
@@ -435,13 +720,19 @@ function runComponent(instance: ComponentInstance): void {
         // Set up instance for normal updates
         const oldInstance = currentInstance;
         currentInstance = instance;
+        const lifecycleBatch = beginLifecycleCommitBatch();
         try {
-          withContext(executionFrame, () => {
-            evaluate(result, host);
-          });
+          try {
+            withContext(executionFrame, () => {
+              evaluate(result, host);
+            });
 
-          // Replace placeholder with host
-          parent.replaceChild(host, placeholder);
+            // Replace placeholder with host
+            parent.replaceChild(host, placeholder);
+          } catch (err) {
+            discardLifecycleCommitBatch(lifecycleBatch);
+            throw err;
+          }
 
           // Set up instance for future updates
           instance.target = host;
@@ -450,8 +741,10 @@ function runComponent(instance: ComponentInstance): void {
             host as Element & { __ASKR_INSTANCE?: ComponentInstance }
           ).__ASKR_INSTANCE = instance;
 
+          flushLifecycleCommitBatch(lifecycleBatch);
           finalizeReadSubscriptions(instance);
           warnUnusedStateReads(instance);
+          commitRenderedComponent(instance);
         } finally {
           currentInstance = oldInstance;
         }
@@ -460,6 +753,7 @@ function runComponent(instance: ComponentInstance): void {
 
       if (instance.target) {
         let oldChildren: Node[] = [];
+        let restoredOldChildren = false;
         try {
           const wasFirstMount = !instance.mounted;
           // Ensure nested component executions during evaluation have access to
@@ -477,16 +771,26 @@ function runComponent(instance: ComponentInstance): void {
           // instance attachments.
           oldChildren = Array.from(instance.target.childNodes);
 
+          const lifecycleBatch = beginLifecycleCommitBatch();
           try {
-            withContext(executionFrame, () => {
-              evaluate(result, instance.target, undefined, instance);
-            });
+            try {
+              withContext(executionFrame, () => {
+                evaluate(result, instance.target, undefined, instance);
+              });
+            } catch (e) {
+              discardLifecycleCommitBatch(lifecycleBatch);
+              throw e;
+            }
           } catch (e) {
             // If evaluation failed, attempt to cleanup any partially-added nodes
             // and restore the old children to preserve listeners and instances.
             try {
               const newChildren = Array.from(instance.target.childNodes);
+              const preservedChildren = new Set(oldChildren);
               for (const n of newChildren) {
+                if (preservedChildren.has(n)) {
+                  continue;
+                }
                 try {
                   cleanupInstancesUnder(n);
                 } catch (err) {
@@ -512,10 +816,13 @@ function runComponent(instance: ComponentInstance): void {
               void e;
             }
             instance.target.replaceChildren(...oldChildren);
+            restoredOldChildren = true;
             throw e;
           } finally {
             currentInstance = oldInstance;
           }
+
+          flushLifecycleCommitBatch(lifecycleBatch);
 
           // Commit succeeded — finalize recorded state reads so subscriptions reflect
           // the last *committed* render. This updates per-state reader maps
@@ -526,15 +833,20 @@ function runComponent(instance: ComponentInstance): void {
           instance.mounted = true;
           // Execute mount operations after first mount (do NOT run these with
           // currentInstance set - they may perform state mutations/registrations)
-          if (wasFirstMount && instance.mountOperations.length > 0) {
-            executeMountOperations(instance);
-          }
+          executeCommittedLifecycleOperations(instance, wasFirstMount);
         } catch (renderError) {
+          discardCommitOperations(instance);
           // Atomic rendering: rollback on render error. Attempt non-lossy restore of
           // original child node references to preserve listeners/instances.
           try {
             const currentChildren = Array.from(instance.target.childNodes);
+            const preservedChildren = restoredOldChildren
+              ? new Set(oldChildren)
+              : null;
             for (const n of currentChildren) {
+              if (preservedChildren?.has(n)) {
+                continue;
+              }
               try {
                 cleanupInstancesUnder(n);
               } catch (err) {
@@ -597,11 +909,16 @@ export function renderComponentInline(
   try {
     const result = executeComponentSync(instance);
     // If we set the token for inline execution, finalize subscriptions now
-    // because the component is effectively committed as part of the parent's
-    // synchronous evaluation.
+    // unless the parent DOM commit is still provisional. Renderer commit
+    // batches flush these reads only after DOM evaluation succeeds.
     if (!hadToken) {
-      finalizeReadSubscriptions(instance);
+      finalizeInlineReadSubscriptions(
+        instance,
+        instance._currentRenderToken!,
+        instance._pendingReadSources
+      );
     }
+    commitRenderedComponent(instance);
     return result;
   } finally {
     // Restore previous token/read states for nested inline render scenarios
@@ -656,6 +973,8 @@ function executeComponentSync(
   currentPortalScope = instance.portalScope ?? savedPortalScope;
   stateIndex = 0;
 
+  let didComplete = false;
+
   try {
     // Track render time in dev mode
     const renderStartTime = isDevelopmentEnvironment() ? Date.now() : 0;
@@ -696,8 +1015,12 @@ function executeComponentSync(
       instance.firstRenderComplete = true;
     }
 
+    didComplete = true;
     return result;
   } finally {
+    if (!didComplete) {
+      discardCommitOperations(instance);
+    }
     // Synchronous path: we did not push a fresh frame, so nothing to pop here.
     currentInstance = null;
     currentPortalScope = savedPortalScope;
@@ -913,6 +1236,8 @@ export function cleanupComponent(instance: ComponentInstance): void {
     instance.lifecycleGeneration++;
     instance.evaluationGeneration++;
     instance.mountOperations = [];
+    instance.commitOperations = [];
+    instance.lifecycleSlots = [];
     instance.hasPendingUpdate = false;
     instance.notifyUpdate = null;
     instance._placeholder = undefined;

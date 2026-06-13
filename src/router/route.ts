@@ -104,6 +104,7 @@ import type {
   RouteManifest,
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
+import { syncRouteActivitySnapshot } from '../common/route-activity';
 
 type AnyRouteComponent = (...args: any[]) => RenderableChild;
 
@@ -284,6 +285,19 @@ let serverLocation: string | null = null;
 
 export function setServerLocation(url: string | null): void {
   serverLocation = url;
+  if (url) {
+    const parsed = parseLocation(url);
+    syncRouteActivitySnapshot(
+      parsed.pathname,
+      computeMatchesFromRoutes(parsed.pathname, getActiveRoutes())
+    );
+    return;
+  }
+
+  syncRouteActivitySnapshot(
+    currentRouteSnapshot.path,
+    currentRouteSnapshot.matches
+  );
 }
 
 function buildRouteSnapshot(
@@ -306,14 +320,55 @@ function buildRouteSnapshot(
 function setCurrentRouteSnapshot(
   pathname: string,
   search: string,
-  hash: string
+  hash: string,
+  activityMatches?: readonly RouteMatch[]
 ): void {
   currentRouteSnapshot = buildRouteSnapshot(pathname, search, hash);
+  syncRouteActivitySnapshot(
+    pathname,
+    activityMatches ?? currentRouteSnapshot.matches
+  );
 
   const instance = getCurrentComponentInstance();
   markReadableDerivedSubscribersDirty(currentRouteSource);
   markReactivePropsDirtySource(currentRouteSource);
   notifyReadableReaders(currentRouteSource, instance);
+}
+
+function normalizeRouteActivityPath(path: string): string {
+  const parsed = parseLocation(path);
+  const pathname = parsed.pathname || '/';
+  const absolutePathname = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  return absolutePathname.endsWith('/') && absolutePathname !== '/'
+    ? absolutePathname.slice(0, -1)
+    : absolutePathname;
+}
+
+export function isRoutePathActive(
+  pathOrPaths: string | readonly string[]
+): boolean {
+  const candidates = new Set(
+    (Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths]).map(
+      normalizeRouteActivityPath
+    )
+  );
+
+  let pathname = currentRouteSnapshot.path;
+  if (typeof window !== 'undefined' && window.location) {
+    pathname = window.location.pathname || '/';
+  } else if (serverLocation) {
+    pathname = parseLocation(serverLocation).pathname;
+  }
+
+  const activePath = normalizeRouteActivityPath(pathname);
+  if (candidates.has(activePath)) {
+    return true;
+  }
+
+  const matches = computeMatchesFromRoutes(activePath, getActiveRoutes());
+  return matches.some((match) =>
+    candidates.has(normalizeRouteActivityPath(match.path))
+  );
 }
 
 // Compute matches for a specific route list.
@@ -392,6 +447,43 @@ function computeMatchesFromRoutes(
           : bestMatch.record.options.namespace,
     },
   ];
+}
+
+function computeMatchesFromRouteRecords(
+  pathname: string,
+  routeRecords: readonly RouteRecord[]
+): RouteMatch[] {
+  const bestMatch = getMatchingRecord(pathname, routeRecords);
+
+  if (!bestMatch) {
+    return [];
+  }
+
+  return [
+    {
+      path: bestMatch.record.path,
+      params: deepFreeze({ ...bestMatch.params }),
+      namespace: bestMatch.record.options.namespace,
+    },
+  ];
+}
+
+export function computeRouteActivityMatches(
+  pathname: string,
+  options: {
+    manifest?: RouteManifest;
+    routes?: readonly Route[];
+  } = {}
+): RouteMatch[] {
+  if (options.routes) {
+    return computeMatchesFromRoutes(pathname, options.routes);
+  }
+
+  if (options.manifest) {
+    return computeMatchesFromRouteRecords(pathname, options.manifest.records);
+  }
+
+  return computeMatchesFromRoutes(pathname, getActiveRoutes());
 }
 
 function findBestResolvedRouteFromRoutes(
@@ -1374,9 +1466,10 @@ export function currentRoute<
 export function syncCurrentRouteSnapshot(
   pathname: string,
   search: string,
-  hash: string
+  hash: string,
+  activityMatches?: readonly RouteMatch[]
 ): void {
-  setCurrentRouteSnapshot(pathname, search, hash);
+  setCurrentRouteSnapshot(pathname, search, hash, activityMatches);
 }
 
 /**

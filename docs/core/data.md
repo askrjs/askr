@@ -150,7 +150,8 @@ invalidate('user:');
 Query state is shared by key through a simple in-memory cache. `refresh()` returns a promise,
 preserves the last value while refreshing, and surfaces `fresh`, `stale`, `refreshing`, and
 `pending-write` explicitly through `consistency`. `loading` represents the first unresolved
-load only, while `refreshing` and `pending-write` always keep the previous value available.
+load only, while `refreshing` and `pending-write` always imply `stale: true` and keep the
+previous value available.
 `staleReason` narrows settled stale states into `inconsistent`, `aborted`, or `error`.
 The key also defines the query contract itself. If multiple readers use the same key, or one
 reader rerenders that key with a different definition, keep `fetch`, `isConsistent`, and
@@ -163,6 +164,125 @@ surface as stale-with-value so apps can keep rendering the last committed data. 
 "no successful value yet" sentinel, so model empty results explicitly instead of returning
 `null` or `undefined` from `fetch()`. Nullish thrown values are normalized before they reach
 `error`, so any surfaced query error is always non-null.
+
+### Query UI cookbook
+
+Use the explicit query fields directly in app UI:
+
+```tsx
+import type { Query } from '@askrjs/askr/data';
+
+type User = {
+  id: string;
+  name: string;
+};
+
+function UserPanel({ user }: { user: Query<User> }) {
+  if (user.loading) {
+    return <section>Loading user...</section>;
+  }
+
+  if (user.staleReason === 'error' && user.data === null) {
+    return (
+      <section>
+        <p>Could not load user.</p>
+        <button onClick={() => void user.refresh()}>Retry</button>
+      </section>
+    );
+  }
+
+  const status =
+    user.consistency === 'pending-write'
+      ? 'Saved, syncing...'
+      : user.refreshing
+        ? 'Refreshing...'
+        : user.stale
+          ? 'Showing stale data'
+          : 'Up to date';
+
+  return (
+    <section>
+      <h2>{user.data.name}</h2>
+      <p>{status}</p>
+      {user.staleReason === 'error' ? <p>Refresh failed.</p> : null}
+      <button onClick={() => void user.refresh()} disabled={user.refreshing}>
+        Refresh
+      </button>
+    </section>
+  );
+}
+```
+
+- First load: show loading UI when `loading` is true and `data` is `null`.
+- Error before data: show a first-load error state and wire retry to `refresh()`.
+- Error after data: keep previous data visible, show the error context, and allow retry.
+- Background refresh: keep rendering `data`; use `refreshing` for subtle progress.
+- Stale data warning: when `stale` is true, keep visible data and explain the stale reason.
+- Mutation pending-write: treat `pending-write` as saved locally but still syncing.
+
+After a mutation, invalidate affected query prefixes:
+
+```ts
+import { createMutation, invalidate } from '@askrjs/askr/data';
+
+type UserInput = {
+  id: string;
+  name: string;
+};
+
+type User = UserInput & {
+  version: number;
+};
+
+const saveUser = createMutation<UserInput, User>({
+  action: async (input, { signal }) => {
+    const res = await fetch(`/api/users/${input.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+      signal,
+    });
+    return res.json();
+  },
+  affects: (input) => [`user:${input.id}`],
+  afterSuccess: 'invalidate',
+});
+
+invalidate('user:', { markPendingWrite: true });
+```
+
+For route-owned dashboards, use the small route-aware invalidation helper:
+
+```tsx
+import { invalidateOnInterval } from '@askrjs/askr/data';
+
+function DashboardPage() {
+  invalidateOnInterval('dashboard:', {
+    intervalMs: 30000,
+    activeOn: ['/', '/admin'],
+    visibleOnly: true,
+  });
+
+  return <main>Dashboard</main>;
+}
+```
+
+### Query test fixtures
+
+Use `@askrjs/askr/testing` for query-shaped test fixtures in page and component tests:
+
+```ts
+import { queryState } from '@askrjs/askr/testing';
+
+const freshUser = queryState.fresh({ id: '123', name: 'Ada' });
+const loadingUser = queryState.loading();
+const refreshingUser = queryState.refreshing({ id: '123', name: 'Ada' });
+const failedUser = queryState.error(new Error('boom'), {
+  id: '123',
+  name: 'Ada',
+});
+```
+
+`mockQuery(data)` remains available as the original fresh-query shortcut.
 
 ### Mutations
 
@@ -212,7 +332,7 @@ snake_case into application-level camelCase models. Adapters should remain raw t
 
 ### on()
 
-React to an event source:
+Listen to an event source:
 
 ```ts
 import { on } from '@askrjs/askr/resources';
@@ -224,21 +344,31 @@ const handleFocus = () => {
 on(window, 'focus', handleFocus);
 ```
 
-`on()` registers the listener during mount and removes it during cleanup.
+`on()` registers the listener during mount and removes it during cleanup. Rerenders keep
+one listener attached and update it to call the latest handler; changing the target or
+event moves the listener after the committed render.
 
 ### timer()
 
 Run work on an interval:
 
 ```ts
-import { timer } from '@askrjs/askr/resources';
+import { invalidate } from '@askrjs/askr/data';
+import { documentVisible, routeActive, timer } from '@askrjs/askr/resources';
 
-timer(1000, () => {
-  // poll or refresh here
-});
+function DashboardPage() {
+  timer(30000, () => invalidate('dashboard:'), {
+    when: [routeActive(['/', '/admin']), documentVisible()],
+  });
+
+  return <main>Dashboard</main>;
+}
 ```
 
-`timer()` starts on mount and clears the interval during cleanup.
+`timer()` starts on mount and clears the interval during cleanup. Put it in the route or layout
+that owns the work; optional `when` checks let you skip ticks when the route is inactive,
+the document is hidden, or another app condition is false. Rerenders keep the latest callback
+and checks; the interval is recreated only when `intervalMs` changes.
 
 ## Context
 
