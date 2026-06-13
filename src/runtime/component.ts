@@ -341,7 +341,11 @@ function finalizeInlineReadSubscriptions(
     return;
   }
 
-  finalizeReadableSubscriptionsFromSnapshot(instance, token, pendingReadSources);
+  finalizeReadableSubscriptionsFromSnapshot(
+    instance,
+    token,
+    pendingReadSources
+  );
 }
 
 function flushLifecycleCommitBatch(batch: LifecycleCommitBatch): void {

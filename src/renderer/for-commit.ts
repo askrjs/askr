@@ -13,6 +13,9 @@ import { keyedElements } from './keyed';
 import type { VNode } from './types';
 import { canUseDirectReplaceChildrenSpread } from './utils';
 
+const DENSE_MOVE_MINIMUM = 64;
+const DENSE_MOVE_RATIO = 0.75;
+
 export interface ForCommitRuntime {
   isProduction(): boolean;
   syncForItemDom(parent: Element, scope: ChildScope, vnode: VNode): Node | null;
@@ -293,6 +296,19 @@ function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
 
   const lisIndices = getLISIndices(positions);
   if (lisIndices.length === nodes.length) {
+    return true;
+  }
+
+  const moveCount = nodes.length - lisIndices.length;
+  const denseMoveThreshold = Math.max(
+    DENSE_MOVE_MINIMUM,
+    Math.floor(nodes.length * DENSE_MOVE_RATIO)
+  );
+
+  if (moveCount >= denseMoveThreshold) {
+    recordBenchEvent('domMove', moveCount);
+    recordBenchCounter('replaceChildrenCommits');
+    replaceChildrenInOrder(parent, nodes, false);
     return true;
   }
 

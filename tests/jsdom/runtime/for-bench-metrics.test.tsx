@@ -265,4 +265,59 @@ describe('for bench metrics', () => {
     expect(metrics.domMoves).toBe(2);
     expect(metrics.replaceChildrenCommits).toBe(0);
   });
+
+  it('should bulk commit dense move-only reorders without row recreation', () => {
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
+
+    const Component = () => {
+      rowsState = state(
+        Array.from({ length: 100 }, (_, index) => ({
+          id: index + 1,
+          label: `Row ${index + 1}`,
+        }))
+      );
+
+      return (
+        <table>
+          <tbody>
+            {
+              <For each={() => rowsState!()} by={(row) => row.id}>
+                {(row) => (
+                  <tr>
+                    <td>{row.label}</td>
+                  </tr>
+                )}
+              </For>
+            }
+          </tbody>
+        </table>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const firstRow = container.querySelector('tr[data-key="1"]');
+    const lastRow = container.querySelector('tr[data-key="100"]');
+
+    rowsState!.set((rows) => rows.slice().reverse());
+    flushScheduler();
+
+    const orderedKeys = Array.from(container.querySelectorAll('tr')).map(
+      (row) => row.getAttribute('data-key')
+    );
+    const metrics = getBenchMetrics();
+
+    expect(orderedKeys[0]).toBe('100');
+    expect(orderedKeys[99]).toBe('1');
+    expect(container.querySelectorAll('tr')[0]).toBe(lastRow);
+    expect(container.querySelectorAll('tr')[99]).toBe(firstRow);
+    expect(metrics.fastLaneName).toBe('FULL_KEYED');
+    expect(metrics.itemsCreated).toBe(0);
+    expect(metrics.itemsRemoved).toBe(0);
+    expect(metrics.rowFactoryInvocations).toBe(0);
+    expect(metrics.replaceChildrenCommits).toBe(1);
+  });
 });

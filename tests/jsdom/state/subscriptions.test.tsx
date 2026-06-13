@@ -152,7 +152,9 @@ describe('state subscription invariants', () => {
 
     function Child({ useSecond }: { useSecond: boolean }) {
       childRenders += 1;
-      return <span>{useSecond ? `second:${second()}` : `first:${first()}`}</span>;
+      return (
+        <span>{useSecond ? `second:${second()}` : `first:${first()}`}</span>
+      );
     }
 
     function Bomb({ shouldThrow }: { shouldThrow: boolean }) {
