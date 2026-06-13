@@ -98,6 +98,24 @@ describe('route matching (ROUTER)', () => {
       const result = match('/posts', '/posts/{id}/*');
       expect(result.matched).toBe(false);
     });
+
+    it('should match named splat routes across deep paths', () => {
+      const result = match('/files/a/b/c', '/files/{*path}');
+      expect(result.matched).toBe(true);
+      expect(result.params).toEqual({ path: 'a/b/c' });
+    });
+
+    it('should match named splat routes with an empty trailing path', () => {
+      const result = match('/files', '/files/{*path}');
+      expect(result.matched).toBe(true);
+      expect(result.params).toEqual({ path: '' });
+    });
+
+    it('should decode named splat params segment by segment', () => {
+      const result = match('/files/a%20b/%E0%A4%A/c%2Fd', '/files/{*path}');
+      expect(result.matched).toBe(true);
+      expect(result.params).toEqual({ path: 'a b/%E0%A4%A/c/d' });
+    });
   });
 
   describe('complex patterns', () => {

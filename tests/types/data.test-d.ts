@@ -4,11 +4,14 @@ import {
   createQuery,
   invalidate,
   invalidateOnInterval,
+  queryScope,
   type InvalidateOnIntervalOptions,
   type InvalidateOptions,
   type Mutation,
   type Query,
   type QueryConsistency,
+  type QueryKeyPart,
+  type QueryScope,
   type QueryStaleReason,
 } from '@askrjs/askr/data';
 
@@ -40,6 +43,17 @@ expectType<QueryStaleReason | null>(query.staleReason);
 expectType<Promise<void>>(query.refresh());
 expectType<void>(invalidate('user:'));
 expectType<void>(invalidate('user:', { markPendingWrite: true }));
+
+const scoped = queryScope('admin');
+expectType<QueryScope>(scoped);
+expectType<string>(scoped.key('buckets', 'main', 'files'));
+expectType<string>(scoped.prefix('buckets', 'main'));
+expectType<void>(scoped.invalidate(['buckets', 'main']));
+expectType<void>(
+  scoped.invalidate(['buckets', 'main'], { markPendingWrite: true })
+);
+const keyPart: QueryKeyPart = { page: 2, q: 'search' };
+expectType<QueryKeyPart>(keyPart);
 
 const invalidateOptions: InvalidateOptions = { markPendingWrite: false };
 expectType<InvalidateOptions>(invalidateOptions);
@@ -207,6 +221,9 @@ if (mutation.status === 'error') {
 }
 
 expectError(invalidate(123));
+expectError(queryScope(123));
+expectError(scoped.key(Symbol('bad')));
+expectError(scoped.invalidate('buckets'));
 expectError(invalidateOnInterval('user:'));
 expectError(invalidateOnInterval('user:', { activeOn: '/' }));
 expectError(invalidateOnInterval('user:', { intervalMs: '1000' }));

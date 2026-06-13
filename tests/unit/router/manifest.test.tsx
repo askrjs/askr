@@ -64,6 +64,13 @@ describe('parseSegments()', () => {
     ]);
   });
 
+  it('should parse a named splat segment', () => {
+    expect(parseSegments('/files/{*path}')).toEqual([
+      { kind: 'static', value: 'files' },
+      { kind: 'splat', value: 'path' },
+    ]);
+  });
+
   it('should parse a catch-all /*', () => {
     expect(parseSegments('/*')).toEqual([{ kind: 'catchall', value: '*' }]);
   });
@@ -157,6 +164,24 @@ describe('path validation', () => {
 
   it('should reject duplicate parameter names in the same route', () => {
     expect(() => route('/users/{id}/posts/{id}', () => null)).toThrow(
+      /duplicate parameter/i
+    );
+  });
+
+  it('should reject named splats unless they are the final segment', () => {
+    expect(() => route('/files/{*path}/edit', () => null)).toThrow(
+      /splat.*final/i
+    );
+  });
+
+  it('should reject empty named splats', () => {
+    expect(() => route('/files/{*}', () => null)).toThrow(
+      /splat.*name/i
+    );
+  });
+
+  it('should reject named splats that duplicate another parameter name', () => {
+    expect(() => route('/files/{path}/{*path}', () => null)).toThrow(
       /duplicate parameter/i
     );
   });
@@ -603,6 +628,85 @@ describe('_applyManifest cross-mode parity', () => {
 // ---------------------------------------------------------------------------
 
 describe('route precedence', () => {
+  it('should resolve named splat routes for deep admin paths', () => {
+    route('/admin/buckets/{bucket}/files/{*path}', (params) => {
+      return `${params.bucket}:${params.path}`;
+    });
+
+    const resolved = resolveRoute('/admin/buckets/main/files/a/b/c');
+
+    expect(resolved).not.toBeNull();
+    expect(resolved!.params).toEqual({ bucket: 'main', path: 'a/b/c' });
+    expect(resolved!.handler(resolved!.params)).toBe('main:a/b/c');
+  });
+
+  it('should resolve named splat routes with an empty trailing path', () => {
+    route('/admin/buckets/{bucket}/files/{*path}', (params) => {
+      return `${params.bucket}:${params.path}`;
+    });
+
+    const resolved = resolveRoute('/admin/buckets/main/files');
+
+    expect(resolved).not.toBeNull();
+    expect(resolved!.params).toEqual({ bucket: 'main', path: '' });
+    expect(resolved!.handler(resolved!.params)).toBe('main:');
+  });
+
+  it('should prefer a more specific static route over a named splat', () => {
+    route('/admin/buckets/{bucket}/files/{*path}', () => 'folder');
+    route('/admin/buckets/{bucket}/files/blob/{id}', () => 'blob');
+
+    const resolved = resolveRoute('/admin/buckets/main/files/blob/123');
+
+    expect(resolved).not.toBeNull();
+    expect(resolved!.params).toEqual({ bucket: 'main', id: '123' });
+    expect(resolved!.handler(resolved!.params)).toBe('blob');
+  });
+
+  it('should resolve named splats in page-relative routes', () => {
+    page(
+      '/admin',
+      () => null,
+      () => {
+        route('buckets/{bucket}/files/{*path}', (params) => {
+          return `${params.bucket}:${params.path}`;
+        });
+      }
+    );
+
+    const resolved = resolveRoute('/admin/buckets/main/files/a/b');
+
+    expect(resolved).not.toBeNull();
+    expect(resolved!.params).toEqual({ bucket: 'main', path: 'a/b' });
+  });
+
+  it('should preserve named splats after manifest replay and flat route resolution', () => {
+    route('/admin/buckets/{bucket}/files/{*path}', (params) => {
+      return `${params.bucket}:${params.path}`;
+    });
+
+    const manifest = getManifest();
+    const freshRoutes = getRoutes();
+    const freshResolved = resolveRouteFromRoutes(
+      '/admin/buckets/main/files/a/b',
+      freshRoutes
+    );
+
+    clearRoutes();
+    _applyManifest(manifest);
+
+    const replayed = resolveRoute('/admin/buckets/main/files/a/b');
+    const replayedRoutes = getRoutes();
+    const flatResolved = resolveRouteFromRoutes(
+      '/admin/buckets/main/files/a/b',
+      replayedRoutes
+    );
+
+    expect(replayed!.params).toEqual({ bucket: 'main', path: 'a/b' });
+    expect(flatResolved!.params).toEqual(freshResolved!.params);
+    expect(flatResolved!.handler(flatResolved!.params)).toBe('main:a/b');
+  });
+
   it('should prefer more specific literal over param at same depth', () => {
     route('/posts/featured', () => 'literal');
     route('/posts/{slug}', () => 'param');

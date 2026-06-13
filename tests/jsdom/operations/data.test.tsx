@@ -6,6 +6,7 @@ import {
   createMutation,
   invalidate,
   invalidateOnInterval,
+  queryScope,
   type Query,
 } from '../../../src/data';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
@@ -73,6 +74,52 @@ function setDocumentHasFocus(value: boolean): () => void {
 }
 
 describe('data layer', () => {
+  it('should build canonical scoped query keys and prefixes', () => {
+    const admin = queryScope('admin');
+
+    expect(admin.key('buckets', 'main', 'files')).toBe(
+      'admin:buckets:main:files:'
+    );
+    expect(admin.prefix('buckets', 'main')).toBe('admin:buckets:main:');
+    expect(admin.key('buckets', 'main/folder', 'a:b', 'space value')).toBe(
+      'admin:buckets:main%2Ffolder:a%3Ab:space%20value:'
+    );
+    expect(admin.key('files', { q: 'x', page: 2 })).toBe(
+      'admin:files:%7B%22page%22%3A2%2C%22q%22%3A%22x%22%7D:'
+    );
+  });
+
+  it('should keep scoped query keys boundary safe', () => {
+    const admin = queryScope('admin');
+
+    expect(admin.prefix('bucket')).toBe('admin:bucket:');
+    expect(admin.key('bucket-list')).toBe('admin:bucket-list:');
+    expect(admin.key('bucket', 'list')).toBe('admin:bucket:list:');
+    expect(admin.key('bucket:list')).toBe('admin:bucket%3Alist:');
+  });
+
+  it('should invalidate canonical scoped query prefixes', () => {
+    const recorder = createInvalidationRecorder();
+    const admin = queryScope('admin');
+
+    try {
+      admin.invalidate(['buckets', 'main']);
+      admin.invalidate(['buckets', 'main', 'files'], {
+        markPendingWrite: true,
+      });
+
+      expect(recorder.calls).toEqual([
+        { prefix: 'admin:buckets:main:', markPendingWrite: false },
+        {
+          prefix: 'admin:buckets:main:files:',
+          markPendingWrite: true,
+        },
+      ]);
+    } finally {
+      recorder.stop();
+    }
+  });
+
   it('should invalidate on an interval owned by a component', () => {
     vi.useFakeTimers();
     const recorder = createInvalidationRecorder();
