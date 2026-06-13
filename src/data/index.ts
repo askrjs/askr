@@ -904,20 +904,24 @@ export function invalidate(prefix: string, options?: InvalidateOptions): void {
   invalidateQueries(prefix, options?.markPendingWrite ?? false);
 }
 
-function normalizeQueryKeyPart(part: QueryKeyPart): unknown {
-  if (Array.isArray(part)) {
-    return part.map((item) => normalizeQueryKeyPart(item));
+function serializeQueryKeyNumber(part: number): string {
+  if (Number.isNaN(part)) {
+    return 'NaN';
   }
 
-  if (part && typeof part === 'object') {
-    const normalized: Record<string, unknown> = {};
-    for (const key of Object.keys(part).sort()) {
-      normalized[key] = normalizeQueryKeyPart(part[key]);
-    }
-    return normalized;
+  if (Object.is(part, -0)) {
+    return '-0';
   }
 
-  return part;
+  if (part === Infinity) {
+    return 'Infinity';
+  }
+
+  if (part === -Infinity) {
+    return '-Infinity';
+  }
+
+  return String(part);
 }
 
 function serializeQueryKeyPart(part: QueryKeyPart): string {
@@ -925,24 +929,45 @@ function serializeQueryKeyPart(part: QueryKeyPart): string {
     throw new Error('[Askr] queryScope() key parts cannot be symbols.');
   }
 
-  if (part && typeof part === 'object') {
-    return JSON.stringify(normalizeQueryKeyPart(part));
+  if (part === null) {
+    return 'null';
   }
 
-  return String(part);
-}
+  if (part === undefined) {
+    return 'undefined';
+  }
 
-function encodeQueryKeyPart(part: QueryKeyPart): string {
-  return encodeURIComponent(serializeQueryKeyPart(part));
+  switch (typeof part) {
+    case 'string':
+      return `s=${encodeURIComponent(part)}`;
+    case 'number':
+      return `n=${serializeQueryKeyNumber(part)}`;
+    case 'boolean':
+      return `b=${part ? '1' : '0'}`;
+    case 'object':
+      if (Array.isArray(part)) {
+        return `a[${part.map((item) => serializeQueryKeyPart(item)).join(',')}]`;
+      }
+
+      return `o{${Object.keys(part)
+        .sort()
+        .map(
+          (key) =>
+            `${encodeURIComponent(key)}=${serializeQueryKeyPart(part[key])}`
+        )
+        .join(',')}}`;
+    default:
+      return String(part);
+  }
 }
 
 export function queryScope(namespace: string): QueryScope {
-  if (typeof namespace !== 'string') {
-    throw new Error('[Askr] queryScope() requires a string namespace.');
+  if (typeof namespace !== 'string' || namespace.trim().length === 0) {
+    throw new Error('[Askr] queryScope() requires a non-empty namespace string.');
   }
 
   const build = (parts: readonly QueryKeyPart[]): string =>
-    [namespace, ...parts].map(encodeQueryKeyPart).join(':') + ':';
+    [namespace, ...parts].map(serializeQueryKeyPart).join(':') + ':';
 
   return {
     key(...parts) {

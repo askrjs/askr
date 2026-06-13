@@ -19,11 +19,24 @@ type TrimRoutePathSlashes<Path extends string> = Path extends `/${infer Rest}`
     ? TrimRoutePathSlashes<Rest>
     : Path;
 
+type TrimRoutePathWhitespace<Path extends string> =
+  Path extends `${' ' | '\n' | '\t' | '\r'}${infer Rest}`
+    ? TrimRoutePathWhitespace<Rest>
+    : Path extends `${infer Rest}${' ' | '\n' | '\t' | '\r'}`
+      ? TrimRoutePathWhitespace<Rest>
+      : Path;
+
 type ExtractRouteSegmentParam<Segment extends string> =
-  Segment extends `{*${infer Param}}`
-    ? Param
-    : Segment extends `{${infer Param}}`
-    ? Param
+  Segment extends `{${infer Param}}`
+    ? TrimRoutePathWhitespace<Param> extends `*${infer SplatParam}`
+      ? TrimRoutePathWhitespace<SplatParam> extends ''
+        ? never
+        : TrimRoutePathWhitespace<SplatParam> extends '*'
+          ? never
+          : TrimRoutePathWhitespace<SplatParam>
+      : TrimRoutePathWhitespace<Param> extends ''
+        ? never
+        : TrimRoutePathWhitespace<Param>
     : Segment extends '*'
       ? '*'
       : never;

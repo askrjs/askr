@@ -71,6 +71,17 @@ describe('parseSegments()', () => {
     ]);
   });
 
+  it('should trim whitespace inside named splat and param segments', () => {
+    expect(parseSegments('/files/{* path }')).toEqual([
+      { kind: 'static', value: 'files' },
+      { kind: 'splat', value: 'path' },
+    ]);
+    expect(parseSegments('/files/{ path }')).toEqual([
+      { kind: 'static', value: 'files' },
+      { kind: 'param', value: 'path' },
+    ]);
+  });
+
   it('should parse a catch-all /*', () => {
     expect(parseSegments('/*')).toEqual([{ kind: 'catchall', value: '*' }]);
   });
@@ -180,10 +191,18 @@ describe('path validation', () => {
     );
   });
 
+  it('should reject reserved named splat parameters', () => {
+    expect(() => route('/files/{**}', () => null)).toThrow(/splat.*\*/i);
+  });
+
   it('should reject named splats that duplicate another parameter name', () => {
     expect(() => route('/files/{path}/{*path}', () => null)).toThrow(
       /duplicate parameter/i
     );
+  });
+
+  it('should accept whitespace-trimmed named splats', () => {
+    expect(() => route('/files/{* path }', () => null)).not.toThrow();
   });
 
   it('should reject absolute child route paths inside a page scope', () => {

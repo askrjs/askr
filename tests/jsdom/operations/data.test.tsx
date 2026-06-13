@@ -78,24 +78,50 @@ describe('data layer', () => {
     const admin = queryScope('admin');
 
     expect(admin.key('buckets', 'main', 'files')).toBe(
-      'admin:buckets:main:files:'
+      's=admin:s=buckets:s=main:s=files:'
     );
-    expect(admin.prefix('buckets', 'main')).toBe('admin:buckets:main:');
+    expect(admin.prefix('buckets', 'main')).toBe('s=admin:s=buckets:s=main:');
     expect(admin.key('buckets', 'main/folder', 'a:b', 'space value')).toBe(
-      'admin:buckets:main%2Ffolder:a%3Ab:space%20value:'
+      's=admin:s=buckets:s=main%2Ffolder:s=a%3Ab:s=space%20value:'
     );
     expect(admin.key('files', { q: 'x', page: 2 })).toBe(
-      'admin:files:%7B%22page%22%3A2%2C%22q%22%3A%22x%22%7D:'
+      's=admin:s=files:o{page=n=2,q=s=x}:'
     );
   });
 
   it('should keep scoped query keys boundary safe', () => {
     const admin = queryScope('admin');
 
-    expect(admin.prefix('bucket')).toBe('admin:bucket:');
-    expect(admin.key('bucket-list')).toBe('admin:bucket-list:');
-    expect(admin.key('bucket', 'list')).toBe('admin:bucket:list:');
-    expect(admin.key('bucket:list')).toBe('admin:bucket%3Alist:');
+    expect(admin.prefix('bucket')).toBe('s=admin:s=bucket:');
+    expect(admin.key('bucket-list')).toBe('s=admin:s=bucket-list:');
+    expect(admin.key('bucket', 'list')).toBe('s=admin:s=bucket:s=list:');
+    expect(admin.key('bucket:list')).toBe('s=admin:s=bucket%3Alist:');
+  });
+
+  it('should keep distinct primitive and structured query parts from colliding', () => {
+    const admin = queryScope('admin');
+
+    expect(admin.key('1')).not.toBe(admin.key(1));
+    expect(admin.key('true')).not.toBe(admin.key(true));
+    expect(admin.key('null')).not.toBe(admin.key(null));
+    expect(admin.key('undefined')).not.toBe(admin.key(undefined));
+    expect(admin.key({ value: 1 })).not.toBe(admin.key({ value: '1' }));
+    expect(admin.key({ value: undefined })).not.toBe(admin.key({}));
+    expect(admin.key(['a', 1, true, null, undefined])).not.toBe(
+      admin.key(['a', '1', 'true', 'null', 'undefined'])
+    );
+    expect(admin.key({ q: 'x', page: 2 })).toBe(
+      admin.key({ page: 2, q: 'x' })
+    );
+  });
+
+  it('should reject empty or whitespace-only query scope namespaces', () => {
+    const callQueryScope = queryScope as unknown as (
+      namespace?: unknown
+    ) => unknown;
+
+    expect(() => callQueryScope('')).toThrow(/non-empty namespace/i);
+    expect(() => callQueryScope('   ')).toThrow(/non-empty namespace/i);
   });
 
   it('should invalidate canonical scoped query prefixes', () => {
@@ -109,9 +135,9 @@ describe('data layer', () => {
       });
 
       expect(recorder.calls).toEqual([
-        { prefix: 'admin:buckets:main:', markPendingWrite: false },
+        { prefix: 's=admin:s=buckets:s=main:', markPendingWrite: false },
         {
-          prefix: 'admin:buckets:main:files:',
+          prefix: 's=admin:s=buckets:s=main:s=files:',
           markPendingWrite: true,
         },
       ]);

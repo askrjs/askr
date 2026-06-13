@@ -15,6 +15,7 @@
 
 import {
   matchSegments,
+  normalizeRouteSegmentName,
   parseSegments,
   computeRank,
   splitPathSegments,
@@ -722,15 +723,23 @@ function validateRoutePath(path: string): void {
       );
     }
 
-    const rawParamName = segment.slice(1, -1).trim();
+    const rawParamName = normalizeRouteSegmentName(segment.slice(1, -1));
     const isSplat = rawParamName.startsWith('*');
-    const paramName = isSplat ? rawParamName.slice(1).trim() : rawParamName;
+    const paramName = isSplat
+      ? normalizeRouteSegmentName(rawParamName.slice(1))
+      : rawParamName;
 
     if (!paramName) {
       throw new Error(
         isSplat
           ? 'Route splat parameter name cannot be empty.'
           : 'Route parameter name cannot be empty.'
+      );
+    }
+
+    if (isSplat && paramName === '*') {
+      throw new Error(
+        'Route named splat parameter name cannot be "*".'
       );
     }
 

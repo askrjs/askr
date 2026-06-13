@@ -19,6 +19,10 @@ export function splitPathSegments(path: string): string[] {
   return withoutLeadingSlash.length === 0 ? [] : withoutLeadingSlash.split('/');
 }
 
+export function normalizeRouteSegmentName(value: string): string {
+  return value.trim();
+}
+
 /**
  * Parse a route template path into typed segments.
  *
@@ -41,9 +45,12 @@ export function parseSegments(path: string): ParsedSegment[] {
 
   return parts.map((segment): ParsedSegment => {
     if (segment.startsWith('{') && segment.endsWith('}')) {
-      const value = segment.slice(1, -1);
+      const value = normalizeRouteSegmentName(segment.slice(1, -1));
       if (value.startsWith('*')) {
-        return { kind: 'splat', value: value.slice(1) };
+        return {
+          kind: 'splat',
+          value: normalizeRouteSegmentName(value.slice(1)),
+        };
       }
       return { kind: 'param', value };
     }
@@ -140,6 +147,16 @@ export function matchSegments(
 
   // Walk segments; allocate the params object lazily on first capture
   let params: Record<string, string> | null = null;
+
+  const normalizeCapturedSplatParts = (parts: string[]): string[] => {
+    let start = 0;
+    while (start < parts.length && parts[start] === '') {
+      start += 1;
+    }
+
+    return start === 0 ? parts : parts.slice(start);
+  };
+
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     const part = urlParts[i];
@@ -147,7 +164,9 @@ export function matchSegments(
       if (seg.value !== part) return null;
     } else if (seg.kind === 'splat') {
       if (params === null) params = {};
-      params[seg.value] = urlParts.slice(i).map(decodeRouteParam).join('/');
+      params[seg.value] = normalizeCapturedSplatParts(urlParts
+        .slice(i)
+        .map(decodeRouteParam)).join('/');
       return params;
     } else {
       if (params === null) params = {};

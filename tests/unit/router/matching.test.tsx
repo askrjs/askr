@@ -105,10 +105,22 @@ describe('route matching (ROUTER)', () => {
       expect(result.params).toEqual({ path: 'a/b/c' });
     });
 
+    it('should trim named splat parameter names', () => {
+      const result = match('/files/a/b/c', '/files/{* path }');
+      expect(result.matched).toBe(true);
+      expect(result.params).toEqual({ path: 'a/b/c' });
+    });
+
     it('should match named splat routes with an empty trailing path', () => {
       const result = match('/files', '/files/{*path}');
       expect(result.matched).toBe(true);
       expect(result.params).toEqual({ path: '' });
+    });
+
+    it('should normalize leading empty segments in named splat captures', () => {
+      const result = match('/files//a/b', '/files/{*path}');
+      expect(result.matched).toBe(true);
+      expect(result.params).toEqual({ path: 'a/b' });
     });
 
     it('should decode named splat params segment by segment', () => {
