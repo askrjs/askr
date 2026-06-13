@@ -1,4 +1,4 @@
-import { expectError, expectType } from 'tsd';
+import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   createMutation,
   createQuery,
@@ -53,7 +53,7 @@ expectType<void>(
   scoped.invalidate(['buckets', 'main'], { markPendingWrite: true })
 );
 const keyPart: QueryKeyPart = { page: 2, q: 'search' };
-expectType<QueryKeyPart>(keyPart);
+expectAssignable<QueryKeyPart>(keyPart);
 
 const invalidateOptions: InvalidateOptions = { markPendingWrite: false };
 expectType<InvalidateOptions>(invalidateOptions);

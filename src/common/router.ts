@@ -20,7 +20,9 @@ type TrimRoutePathSlashes<Path extends string> = Path extends `/${infer Rest}`
     : Path;
 
 type ExtractRouteSegmentParam<Segment extends string> =
-  Segment extends `{${infer Param}}`
+  Segment extends `{*${infer Param}}`
+    ? Param
+    : Segment extends `{${infer Param}}`
     ? Param
     : Segment extends '*'
       ? '*'
@@ -161,10 +163,11 @@ export interface PageHelperOptions extends CommonAccessOptions {}
  * - `static`:   a literal path segment, e.g. `"users"` in `/users/{id}`
  * - `param`:    a `{name}` capture group — `value` holds the param name
  * - `wildcard`: a bare `*` segment that captures exactly one segment
+ * - `splat`:    a `{*name}` capture group that captures the remaining path
  * - `catchall`: the `/*` catch-all that matches any depth
  */
 export interface ParsedSegment {
-  kind: 'static' | 'param' | 'wildcard' | 'catchall';
+  kind: 'static' | 'param' | 'wildcard' | 'splat' | 'catchall';
   /** For static/wildcard/catchall: the literal text; for param: the param name. */
   value: string;
 }

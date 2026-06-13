@@ -41,6 +41,21 @@ export interface InvalidateOnIntervalOptions extends InvalidateOptions {
   focusedOnly?: boolean;
 }
 
+export type QueryKeyPart =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly QueryKeyPart[]
+  | { readonly [key: string]: QueryKeyPart };
+
+export interface QueryScope {
+  key(...parts: QueryKeyPart[]): string;
+  prefix(...parts: QueryKeyPart[]): string;
+  invalidate(parts: readonly QueryKeyPart[], options?: InvalidateOptions): void;
+}
+
 type QueryControls = {
   refresh(): Promise<void>;
 };
@@ -887,6 +902,61 @@ export function createQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
 
 export function invalidate(prefix: string, options?: InvalidateOptions): void {
   invalidateQueries(prefix, options?.markPendingWrite ?? false);
+}
+
+function normalizeQueryKeyPart(part: QueryKeyPart): unknown {
+  if (Array.isArray(part)) {
+    return part.map((item) => normalizeQueryKeyPart(item));
+  }
+
+  if (part && typeof part === 'object') {
+    const normalized: Record<string, unknown> = {};
+    for (const key of Object.keys(part).sort()) {
+      normalized[key] = normalizeQueryKeyPart(part[key]);
+    }
+    return normalized;
+  }
+
+  return part;
+}
+
+function serializeQueryKeyPart(part: QueryKeyPart): string {
+  if (typeof (part as unknown) === 'symbol') {
+    throw new Error('[Askr] queryScope() key parts cannot be symbols.');
+  }
+
+  if (part && typeof part === 'object') {
+    return JSON.stringify(normalizeQueryKeyPart(part));
+  }
+
+  return String(part);
+}
+
+function encodeQueryKeyPart(part: QueryKeyPart): string {
+  return encodeURIComponent(serializeQueryKeyPart(part));
+}
+
+export function queryScope(namespace: string): QueryScope {
+  if (typeof namespace !== 'string') {
+    throw new Error('[Askr] queryScope() requires a string namespace.');
+  }
+
+  const build = (parts: readonly QueryKeyPart[]): string =>
+    [namespace, ...parts].map(encodeQueryKeyPart).join(':') + ':';
+
+  return {
+    key(...parts) {
+      return build(parts);
+    },
+
+    prefix(...parts) {
+      return build(parts);
+    },
+
+    invalidate(parts, options) {
+      invalidate(build(parts), options);
+    },
+  };
 }
 
 const INVALIDATE_ON_INTERVAL_OPTIONS_ERROR =
