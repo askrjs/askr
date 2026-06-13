@@ -45,8 +45,9 @@ Public types:
 - `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, and `hasApp`
 - `@askrjs/askr/components` - `ErrorBoundary`
 - `@askrjs/askr/control` - JSX control-flow helpers
-- `@askrjs/askr/data` - `createQuery`, `createMutation`, and `invalidate`
-- `@askrjs/askr/resources` - async resource helpers such as `resource`, `on`, `timer`, `task`, `capture`, and `getSignal`, plus the current placeholder `stream` surface
+- `@askrjs/askr/data` - `createQuery`, `createMutation`, `invalidate`, and `invalidateOnInterval`
+- `@askrjs/askr/testing` - test helpers such as `mockQuery`, `queryState`, and `createInvalidationRecorder`
+- `@askrjs/askr/resources` - async resource helpers such as `resource`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`, plus the current placeholder `stream` surface
 - `@askrjs/askr/router` - route registration, routing state, and navigation helpers
 - `@askrjs/askr/fx` - timing and scheduling helpers
 - `@askrjs/askr/ssr` - server-side rendering helpers

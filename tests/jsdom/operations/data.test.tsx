@@ -5,8 +5,13 @@ import {
   createQuery,
   createMutation,
   invalidate,
+  invalidateOnInterval,
   type Query,
 } from '../../../src/data';
+import { cleanupApp, createSPA } from '@askrjs/askr/boot';
+import { createInvalidationRecorder } from '../../../src/testing';
+import { navigate } from '../../../src/router/navigate';
+import { clearRoutes, getManifest, route } from '../../../src/router/route';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -19,7 +24,312 @@ async function settle(): Promise<void> {
   flushScheduler();
 }
 
+const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
+
+function resetExecutionModel(): void {
+  delete (globalThis as unknown as Record<string | symbol, unknown>)[
+    EXECUTION_MODEL_KEY
+  ];
+}
+
+function setDocumentVisibility(value: DocumentVisibilityState): () => void {
+  const ownDescriptor = Object.getOwnPropertyDescriptor(
+    document,
+    'visibilityState'
+  );
+
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => value,
+  });
+
+  return () => {
+    if (ownDescriptor) {
+      Object.defineProperty(document, 'visibilityState', ownDescriptor);
+      return;
+    }
+
+    delete (document as Document & { visibilityState?: unknown })
+      .visibilityState;
+  };
+}
+
+function setDocumentHasFocus(value: boolean): () => void {
+  const ownDescriptor = Object.getOwnPropertyDescriptor(document, 'hasFocus');
+
+  Object.defineProperty(document, 'hasFocus', {
+    configurable: true,
+    value: () => value,
+  });
+
+  return () => {
+    if (ownDescriptor) {
+      Object.defineProperty(document, 'hasFocus', ownDescriptor);
+      return;
+    }
+
+    delete (document as Document & { hasFocus?: unknown }).hasFocus;
+  };
+}
+
 describe('data layer', () => {
+  it('should invalidate on an interval owned by a component', () => {
+    vi.useFakeTimers();
+    const recorder = createInvalidationRecorder();
+
+    const App = (): JSXElement => {
+      invalidateOnInterval('dashboard:', { intervalMs: 50 });
+      return <div>{'dashboard'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      vi.advanceTimersByTime(110);
+
+      expect(recorder.calls).toEqual([
+        { prefix: 'dashboard:', markPendingWrite: false },
+        { prefix: 'dashboard:', markPendingWrite: false },
+      ]);
+    } finally {
+      recorder.stop();
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
+  it('should throw a clear error for invalid interval invalidation options', () => {
+    const callInvalidateOnInterval = invalidateOnInterval as unknown as (
+      prefix: string,
+      options?: unknown
+    ) => void;
+    const errorMessage =
+      '[Askr] invalidateOnInterval() requires an options object with a finite numeric intervalMs.';
+
+    expect(() => callInvalidateOnInterval('dashboard:')).toThrow(errorMessage);
+    expect(() => callInvalidateOnInterval('dashboard:', {})).toThrow(
+      errorMessage
+    );
+    expect(() =>
+      callInvalidateOnInterval('dashboard:', { intervalMs: Number.NaN })
+    ).toThrow(errorMessage);
+  });
+
+  it('should gate interval invalidation by active route and resume later', async () => {
+    vi.useFakeTimers();
+    const recorder = createInvalidationRecorder();
+    const { container, cleanup } = createTestContainer();
+
+    function Poller() {
+      invalidateOnInterval('dashboard:', {
+        intervalMs: 50,
+        activeOn: '/poller',
+      });
+      return <div>{'poller'}</div>;
+    }
+
+    try {
+      resetExecutionModel();
+      clearRoutes();
+      window.history.replaceState({}, '', '/poller');
+      route('/poller', Poller);
+      route('/other', Poller);
+
+      await createSPA({ root: container, manifest: getManifest() });
+      flushScheduler();
+
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual(['dashboard:', 'dashboard:']);
+
+      navigate('/other');
+      flushScheduler();
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual(['dashboard:', 'dashboard:']);
+
+      navigate('/poller');
+      flushScheduler();
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual([
+        'dashboard:',
+        'dashboard:',
+        'dashboard:',
+        'dashboard:',
+      ]);
+    } finally {
+      recorder.stop();
+      cleanupApp(container);
+      cleanup();
+      clearRoutes();
+      window.history.replaceState({}, '', '/');
+      resetExecutionModel();
+      vi.useRealTimers();
+    }
+  });
+
+  it('should pause interval invalidation while the document is hidden', () => {
+    vi.useFakeTimers();
+    let restoreVisibility = setDocumentVisibility('visible');
+    const recorder = createInvalidationRecorder();
+
+    const App = (): JSXElement => {
+      invalidateOnInterval('dashboard:', {
+        intervalMs: 50,
+        visibleOnly: true,
+      });
+      return <div>{'dashboard'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual(['dashboard:', 'dashboard:']);
+
+      restoreVisibility();
+      restoreVisibility = setDocumentVisibility('hidden');
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual(['dashboard:', 'dashboard:']);
+
+      restoreVisibility();
+      restoreVisibility = setDocumentVisibility('visible');
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual([
+        'dashboard:',
+        'dashboard:',
+        'dashboard:',
+        'dashboard:',
+      ]);
+    } finally {
+      restoreVisibility();
+      recorder.stop();
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
+  it('should pause interval invalidation while the document is unfocused', () => {
+    vi.useFakeTimers();
+    let restoreFocus = setDocumentHasFocus(true);
+    const recorder = createInvalidationRecorder();
+
+    const App = (): JSXElement => {
+      invalidateOnInterval('dashboard:', {
+        intervalMs: 50,
+        focusedOnly: true,
+      });
+      return <div>{'dashboard'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual(['dashboard:', 'dashboard:']);
+
+      restoreFocus();
+      restoreFocus = setDocumentHasFocus(false);
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual(['dashboard:', 'dashboard:']);
+
+      restoreFocus();
+      restoreFocus = setDocumentHasFocus(true);
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual([
+        'dashboard:',
+        'dashboard:',
+        'dashboard:',
+        'dashboard:',
+      ]);
+    } finally {
+      restoreFocus();
+      recorder.stop();
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
+  it('should clean up interval invalidation after route unmount', async () => {
+    vi.useFakeTimers();
+    const recorder = createInvalidationRecorder();
+    const { container, cleanup } = createTestContainer();
+
+    function Poller() {
+      invalidateOnInterval('dashboard:', { intervalMs: 50 });
+      return <div>{'poller'}</div>;
+    }
+
+    try {
+      resetExecutionModel();
+      clearRoutes();
+      window.history.replaceState({}, '', '/poller');
+      route('/poller', Poller);
+      route('/other', () => <div>{'other'}</div>);
+
+      await createSPA({ root: container, manifest: getManifest() });
+      flushScheduler();
+
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual(['dashboard:', 'dashboard:']);
+
+      navigate('/other');
+      flushScheduler();
+      vi.advanceTimersByTime(110);
+      expect(recorder.prefixes).toEqual(['dashboard:', 'dashboard:']);
+    } finally {
+      recorder.stop();
+      cleanupApp(container);
+      cleanup();
+      clearRoutes();
+      window.history.replaceState({}, '', '/');
+      resetExecutionModel();
+      vi.useRealTimers();
+    }
+  });
+
+  it('should not duplicate interval invalidation after rerenders', () => {
+    vi.useFakeTimers();
+    const recorder = createInvalidationRecorder();
+    let setCount!: (value: number) => void;
+
+    const App = (): JSXElement => {
+      const count = state(0);
+      setCount = count.set;
+      invalidateOnInterval('dashboard:', {
+        intervalMs: 50,
+        markPendingWrite: true,
+      });
+      return <button>{String(count())}</button>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      setCount(1);
+      flushScheduler();
+      setCount(2);
+      flushScheduler();
+
+      vi.advanceTimersByTime(110);
+
+      expect(recorder.calls).toEqual([
+        { prefix: 'dashboard:', markPendingWrite: true },
+        { prefix: 'dashboard:', markPendingWrite: true },
+      ]);
+    } finally {
+      recorder.stop();
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
   it('should share query instances by key and update all readers', async () => {
     let resolveUser!: (value: { name: string }) => void;
     const loadUser = vi.fn(

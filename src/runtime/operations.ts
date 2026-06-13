@@ -1,6 +1,7 @@
 import {
+  claimHookIndex,
   getCurrentComponentInstance,
-  registerMountOperation,
+  registerCommitOperation,
   type ComponentInstance,
 } from './component';
 import { getCurrentContextFrame } from './context';
@@ -10,12 +11,88 @@ import { globalScheduler } from './scheduler';
 import { getSSRBridge } from './ssr-bridge';
 import { brandSnapshotSource } from './snapshot-source';
 import { SSRDataMissingError } from '../common/ssr-errors';
+import { isRouteActivityActive } from '../common/route-activity';
 
 export interface ResourceResult<T> {
   value: T | null;
   pending: boolean;
   error: Error | null;
   refresh(): void;
+}
+
+export type ActivityPredicate = () => boolean;
+
+export interface TimerOptions {
+  when?: ActivityPredicate | readonly ActivityPredicate[];
+}
+
+function normalizePredicates(
+  predicates: TimerOptions['when']
+): readonly ActivityPredicate[] {
+  if (!predicates) {
+    return [];
+  }
+
+  return typeof predicates === 'function' ? [predicates] : predicates;
+}
+
+function allPredicatesPass(predicates: readonly ActivityPredicate[]): boolean {
+  for (const predicate of predicates) {
+    if (!predicate()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+type LifecycleSlotKind = 'timer' | 'listener' | 'task';
+
+type LifecycleSlot = {
+  kind: LifecycleSlotKind;
+};
+
+function getLifecycleSlot<TSlot extends LifecycleSlot>(
+  instance: ComponentInstance,
+  index: number,
+  kind: TSlot['kind'],
+  create: () => TSlot
+): TSlot {
+  const existing = instance.lifecycleSlots[index];
+
+  if (existing) {
+    const slot = existing as LifecycleSlot;
+    if (slot.kind !== kind) {
+      throw new Error(
+        `${kind}() lifecycle order violation: slot ${index} already belongs to ${slot.kind}(). ` +
+          'Keep lifecycle primitives in a stable top-level order.'
+      );
+    }
+
+    return existing as TSlot;
+  }
+
+  const slot = create();
+  instance.lifecycleSlots[index] = slot;
+  return slot;
+}
+
+export function routeActive(
+  pathOrPaths: string | readonly string[]
+): ActivityPredicate {
+  return () => isRouteActivityActive(pathOrPaths);
+}
+
+export function documentVisible(): ActivityPredicate {
+  return () =>
+    typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+
+export function windowFocused(): ActivityPredicate {
+  return () =>
+    typeof document === 'undefined' ||
+    typeof document.hasFocus !== 'function' ||
+    document.hasFocus();
 }
 
 export function resource<T, const TDeps extends readonly unknown[]>(
@@ -269,39 +346,237 @@ export function resource<T>(
   return h.snapshot;
 }
 
+type ListenerOptions = boolean | AddEventListenerOptions | undefined;
+
+type NormalizedListenerOptions =
+  | boolean
+  | {
+      capture?: boolean;
+      once?: boolean;
+      passive?: boolean;
+      signal?: AbortSignal;
+    }
+  | undefined;
+
+interface ListenerSlot extends LifecycleSlot {
+  kind: 'listener';
+  target: EventTarget | null;
+  event: string;
+  handler: EventListener;
+  listener: EventListener;
+  options: NormalizedListenerOptions;
+  pendingTarget: EventTarget;
+  pendingEvent: string;
+  pendingHandler: EventListener;
+  pendingOptions: NormalizedListenerOptions;
+  attached: boolean;
+  cleanupRegistered: boolean;
+}
+
+function normalizeListenerOptions(
+  options: ListenerOptions
+): NormalizedListenerOptions {
+  if (options === undefined || typeof options === 'boolean') {
+    return options;
+  }
+
+  return {
+    ...(options.capture !== undefined ? { capture: options.capture } : {}),
+    ...(options.once !== undefined ? { once: options.once } : {}),
+    ...(options.passive !== undefined ? { passive: options.passive } : {}),
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  };
+}
+
+function listenerOptionsEqual(
+  a: NormalizedListenerOptions,
+  b: NormalizedListenerOptions
+): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (typeof a === 'boolean' || typeof b === 'boolean') {
+    return a === b;
+  }
+  if (!a || !b) {
+    return a === b;
+  }
+
+  return (
+    a.capture === b.capture &&
+    a.once === b.once &&
+    a.passive === b.passive &&
+    a.signal === b.signal
+  );
+}
+
+function detachListenerSlot(slot: ListenerSlot): void {
+  if (!slot.attached || !slot.target) {
+    return;
+  }
+
+  slot.target.removeEventListener(slot.event, slot.listener, slot.options);
+  slot.attached = false;
+}
+
+function commitListenerSlot(
+  instance: ComponentInstance,
+  slot: ListenerSlot
+): void {
+  slot.handler = slot.pendingHandler;
+
+  const shouldReattach =
+    !slot.attached ||
+    slot.target !== slot.pendingTarget ||
+    slot.event !== slot.pendingEvent ||
+    !listenerOptionsEqual(slot.options, slot.pendingOptions);
+
+  if (shouldReattach) {
+    detachListenerSlot(slot);
+    slot.target = slot.pendingTarget;
+    slot.event = slot.pendingEvent;
+    slot.options = slot.pendingOptions;
+    slot.target.addEventListener(slot.event, slot.listener, slot.options);
+    slot.attached = true;
+  }
+
+  if (!slot.cleanupRegistered) {
+    slot.cleanupRegistered = true;
+    instance.cleanupFns.push(() => {
+      detachListenerSlot(slot);
+      slot.cleanupRegistered = false;
+    });
+  }
+}
+
 export function on(
   target: EventTarget,
   event: string,
-  handler: EventListener
+  handler: EventListener,
+  options?: ListenerOptions
 ): void {
-  const ownerIsRoot = getCurrentComponentInstance()?.isRoot ?? false;
-  // Register the listener to be attached on mount. If the owner is not the
-  // root app instance, fail loudly to prevent silent no-op behavior.
-  registerMountOperation(() => {
-    if (!ownerIsRoot) {
-      throw new Error('[Askr] on() may only be used in root components');
+  const instance = getCurrentComponentInstance();
+  if (!instance) {
+    return;
+  }
+
+  const index = claimHookIndex(instance, 'on');
+  const normalizedOptions = normalizeListenerOptions(options);
+  const slot = getLifecycleSlot<ListenerSlot>(
+    instance,
+    index,
+    'listener',
+    () => {
+      const createdSlot = {
+        kind: 'listener' as const,
+        target: null,
+        event,
+        handler,
+        listener: ((evt: Event) => {
+          createdSlot.handler.call(createdSlot.target, evt);
+        }) as EventListener,
+        options: undefined,
+        pendingTarget: target,
+        pendingEvent: event,
+        pendingHandler: handler,
+        pendingOptions: normalizedOptions,
+        attached: false,
+        cleanupRegistered: false,
+      };
+      return createdSlot;
     }
-    target.addEventListener(event, handler);
-    // Return cleanup function
-    return () => {
-      target.removeEventListener(event, handler);
-    };
+  );
+
+  slot.pendingTarget = target;
+  slot.pendingEvent = event;
+  slot.pendingHandler = handler;
+  slot.pendingOptions = normalizedOptions;
+
+  registerCommitOperation(() => {
+    commitListenerSlot(instance, slot);
   });
 }
 
-export function timer(intervalMs: number, fn: () => void): void {
-  const ownerIsRoot = getCurrentComponentInstance()?.isRoot ?? false;
-  // Register the timer to be started on mount. Fail loudly when used outside
-  // of the root component to avoid silent no-ops.
-  registerMountOperation(() => {
-    if (!ownerIsRoot) {
-      throw new Error('[Askr] timer() may only be used in root components');
+interface TimerSlot extends LifecycleSlot {
+  kind: 'timer';
+  id: ReturnType<typeof setInterval> | null;
+  intervalMs: number | null;
+  pendingIntervalMs: number;
+  callback: () => void;
+  predicates: readonly ActivityPredicate[];
+  pendingCallback: () => void;
+  pendingPredicates: readonly ActivityPredicate[];
+  cleanupRegistered: boolean;
+}
+
+function stopTimerSlot(slot: TimerSlot): void {
+  if (slot.id === null) {
+    return;
+  }
+
+  clearInterval(slot.id);
+  slot.id = null;
+}
+
+function startTimerSlot(slot: TimerSlot): void {
+  slot.id = setInterval(() => {
+    if (allPredicatesPass(slot.predicates)) {
+      slot.callback();
     }
-    const id = setInterval(fn, intervalMs);
-    // Return cleanup function
-    return () => {
-      clearInterval(id);
-    };
+  }, slot.intervalMs ?? slot.pendingIntervalMs);
+}
+
+function commitTimerSlot(instance: ComponentInstance, slot: TimerSlot): void {
+  const intervalChanged = slot.intervalMs !== slot.pendingIntervalMs;
+
+  slot.callback = slot.pendingCallback;
+  slot.predicates = slot.pendingPredicates;
+
+  if (slot.id === null || intervalChanged) {
+    stopTimerSlot(slot);
+    slot.intervalMs = slot.pendingIntervalMs;
+    startTimerSlot(slot);
+  }
+
+  if (!slot.cleanupRegistered) {
+    slot.cleanupRegistered = true;
+    instance.cleanupFns.push(() => {
+      stopTimerSlot(slot);
+      slot.cleanupRegistered = false;
+    });
+  }
+}
+
+export function timer(
+  intervalMs: number,
+  fn: () => void,
+  options?: TimerOptions
+): void {
+  const instance = getCurrentComponentInstance();
+  if (!instance) {
+    return;
+  }
+
+  const index = claimHookIndex(instance, 'timer');
+  const predicates = normalizePredicates(options?.when);
+  const slot = getLifecycleSlot<TimerSlot>(instance, index, 'timer', () => ({
+    kind: 'timer',
+    id: null,
+    intervalMs: null,
+    pendingIntervalMs: intervalMs,
+    callback: fn,
+    predicates,
+    pendingCallback: fn,
+    pendingPredicates: predicates,
+    cleanupRegistered: false,
+  }));
+
+  slot.pendingIntervalMs = intervalMs;
+  slot.pendingCallback = fn;
+  slot.pendingPredicates = predicates;
+
+  registerCommitOperation(() => {
+    commitTimerSlot(instance, slot);
   });
 }
 
@@ -316,16 +591,35 @@ export function stream<T>(
 export function task(
   fn: () => void | (() => void) | PromiseLike<void | (() => void)>
 ): void {
-  const ownerIsRoot = getCurrentComponentInstance()?.isRoot ?? false;
-  // Register the task to run on mount. Fail loudly when used outside the root
-  // component so callers get immediate feedback rather than silent no-op.
-  registerMountOperation(async () => {
-    if (!ownerIsRoot) {
-      throw new Error('[Askr] task() may only be used in root components');
+  const instance = getCurrentComponentInstance();
+  if (!instance) {
+    return;
+  }
+
+  const index = claimHookIndex(instance, 'task');
+  const slot = getLifecycleSlot<
+    LifecycleSlot & {
+      kind: 'task';
+      started: boolean;
+      task: typeof fn;
     }
-    // Execute the task (may be async) and return its cleanup
-    return await fn();
-  });
+  >(instance, index, 'task', () => ({
+    kind: 'task',
+    started: false,
+    task: fn,
+  }));
+
+  if (!slot.started) {
+    slot.task = fn;
+    registerCommitOperation(async () => {
+      if (slot.started) {
+        return;
+      }
+
+      slot.started = true;
+      return await slot.task();
+    });
+  }
 }
 
 /**

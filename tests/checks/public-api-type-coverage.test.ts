@@ -136,4 +136,13 @@ describe('public API type coverage', () => {
 
     expect(uncovered).toEqual([]);
   });
+
+  it('should keep runtime operations independent from router internals', () => {
+    const operationsSource = fs.readFileSync(
+      path.join(rootDir, 'src', 'runtime', 'operations.ts'),
+      'utf8'
+    );
+
+    expect(operationsSource).not.toMatch(/from ['"]\.\.\/router\//);
+  });
 });

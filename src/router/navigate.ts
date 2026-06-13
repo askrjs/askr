@@ -3,6 +3,7 @@
  */
 
 import {
+  computeRouteActivityMatches,
   resolveRouteRequest,
   resolveRouteFromRoutes,
   lockRouteRegistration,
@@ -56,6 +57,45 @@ type AppRegistration = AppNavigationSource & {
 };
 
 const registeredApps: AppRegistration[] = [];
+
+function collectRouteActivityMatches(
+  pathname: string,
+  apps: readonly AppRegistration[] = registeredApps
+) {
+  const matches: ReturnType<typeof computeRouteActivityMatches> = [];
+  const seenPaths = new Set<string>();
+
+  for (const app of apps) {
+    const appMatches = computeRouteActivityMatches(pathname, {
+      manifest: app.manifest,
+      routes: app.routes,
+    });
+
+    for (const match of appMatches) {
+      if (seenPaths.has(match.path)) {
+        continue;
+      }
+      seenPaths.add(match.path);
+      matches.push(match);
+    }
+  }
+
+  return matches;
+}
+
+function syncRegisteredRouteSnapshot(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const pathname = window.location.pathname || '/';
+  syncCurrentRouteSnapshot(
+    pathname,
+    window.location.search || '',
+    window.location.hash || '',
+    collectRouteActivityMatches(pathname)
+  );
+}
 
 function syncAppRegistrationLocation(
   app: AppRegistration,
@@ -408,6 +448,8 @@ function remountResolvedRoute(
   instance.evaluationGeneration++;
   instance.notifyUpdate = null;
   instance.mountOperations = [];
+  instance.commitOperations = [];
+  instance.lifecycleSlots = [];
   instance.cleanupFns = [];
   instance._placeholder = undefined;
   instance.hasPendingUpdate = false;
@@ -586,11 +628,7 @@ function applyNavigationTargets(
       ? 'replaceState'
       : 'pushState';
   window.history[historyMethod]({ path: href }, '', href);
-  syncCurrentRouteSnapshot(
-    window.location.pathname,
-    window.location.search,
-    window.location.hash
-  );
+  syncRegisteredRouteSnapshot();
 
   for (const target of matchedTargets) {
     const resolved = target.resolved!;
@@ -649,11 +687,7 @@ export function registerAppInstance(
   currentInstance = instance;
   currentPathname = path;
   currentHref = getWindowHref();
-  syncCurrentRouteSnapshot(
-    window.location.pathname,
-    window.location.search,
-    window.location.hash
-  );
+  syncRegisteredRouteSnapshot();
   // Lock further route registrations after the app has started — but allow tests to register routes.
   // Enforce only in production to avoid breaking test infra which registers routes dynamically.
   if (isProductionEnvironment()) {
@@ -668,6 +702,7 @@ export function unregisterAppInstance(instance: ComponentInstance): void {
   if (existingIndex >= 0) {
     registeredApps.splice(existingIndex, 1);
   }
+  syncRegisteredRouteSnapshot();
 
   if (currentInstance !== instance) {
     return;
@@ -681,6 +716,7 @@ export function unregisterAppInstance(instance: ComponentInstance): void {
   if (nextApp) {
     currentPathname = nextApp.pathname;
     currentHref = nextApp.href;
+    syncRegisteredRouteSnapshot();
     return;
   }
 
@@ -689,6 +725,9 @@ export function unregisterAppInstance(instance: ComponentInstance): void {
   activeRouteRequestController = null;
   currentPathname = '/';
   currentHref = '/';
+  if (typeof window === 'undefined') {
+    syncCurrentRouteSnapshot('/', '', '', []);
+  }
 }
 
 /**
@@ -812,11 +851,7 @@ function handlePopState(_event: PopStateEvent): void {
       return;
     }
 
-    syncCurrentRouteSnapshot(
-      window.location.pathname,
-      window.location.search,
-      window.location.hash
-    );
+    syncRegisteredRouteSnapshot();
 
     for (const target of matchedTargets) {
       const resolved = target.resolved!;

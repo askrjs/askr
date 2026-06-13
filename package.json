@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.42",
+  "version": "0.0.43",
   "description": "Actor-backed deterministic UI framework",
   "keywords": [
     "askr",
@@ -80,6 +80,10 @@
       "import": "./dist/data/index.js",
       "types": "./dist/data/index.d.ts"
     },
+    "./testing": {
+      "import": "./dist/testing/index.js",
+      "types": "./dist/testing/index.d.ts"
+    },
     "./fx": {
       "import": "./dist/fx/index.js",
       "types": "./dist/fx/index.d.ts"
@@ -127,7 +131,7 @@
     "bench:tier4": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts"
   },
   "devDependencies": {
-    "@types/node": "^25.9.2",
+    "@types/node": "^25.9.3",
     "cross-env": "^10.1.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
@@ -145,5 +149,9 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "npm@11.16.0"
+  "packageManager": "npm@11.17.0",
+  "allowScripts": {
+    "fsevents@2.3.3": true,
+    "fsevents@2.3.2": true
+  }
 }

@@ -5,6 +5,7 @@ export const packageAliasEntries = [
   ['@askrjs/askr/boot', 'src/boot/index.ts'],
   ['@askrjs/askr/control', 'src/control/index.ts'],
   ['@askrjs/askr/data', 'src/data/index.ts'],
+  ['@askrjs/askr/testing', 'src/testing/index.ts'],
   ['@askrjs/askr/foundations', 'src/foundations/index.ts'],
   ['@askrjs/askr/foundations/utilities', 'src/foundations/utilities/index.ts'],
   [
@@ -31,6 +32,7 @@ export const buildInputEntries = [
   ['boot/index', 'src/boot/index.ts'],
   ['control/index', 'src/control/index.ts'],
   ['data/index', 'src/data/index.ts'],
+  ['testing/index', 'src/testing/index.ts'],
   ['foundations/index', 'src/foundations/index.ts'],
   ['foundations/utilities/index', 'src/foundations/utilities/index.ts'],
   ['foundations/interactions/index', 'src/foundations/interactions/index.ts'],

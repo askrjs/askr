@@ -6,7 +6,7 @@ import type { ComponentFunction } from '../runtime/component';
 import {
   elementListeners,
   removeAllListeners,
-  cleanupInstanceIfPresent,
+  teardownNodeSubtree,
 } from './cleanup';
 import { keyedElements } from './keyed';
 import { reconcileKeyedChildren } from './reconcile';
@@ -377,10 +377,7 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
     // Clean up all children before clearing
     for (let n = element.firstChild; n; ) {
       const next = n.nextSibling;
-      if (n instanceof Element) {
-        removeAllListeners(n);
-        cleanupInstanceIfPresent(n);
-      }
+      cleanupRangeNode(n);
       n = next;
     }
     element.textContent = '';
@@ -407,10 +404,7 @@ function updateElementChildren(element: Element, vnodeChildren: unknown): void {
     // Clean up all children before clearing
     for (let n = element.firstChild; n; ) {
       const next = n.nextSibling;
-      if (n instanceof Element) {
-        removeAllListeners(n);
-        cleanupInstanceIfPresent(n);
-      }
+      cleanupRangeNode(n);
       n = next;
     }
     element.textContent = '';
@@ -501,10 +495,7 @@ function processFragmentChildren(target: Element, childArray: unknown[]): void {
 }
 
 function cleanupRangeNode(node: Node): void {
-  if (node instanceof Element) {
-    removeAllListeners(node);
-    cleanupInstanceIfPresent(node);
-  }
+  teardownNodeSubtree(node);
 }
 
 function updateDOMRange(
@@ -870,6 +861,11 @@ export function evaluate(
       smartUpdateElement(firstChild, vnode as DOMElement);
     } else {
       // Clear and rebuild (first render or structure changed)
+      for (let node = target.firstChild; node; ) {
+        const next = node.nextSibling;
+        cleanupRangeNode(node);
+        node = next;
+      }
       target.textContent = '';
 
       // Check if this is an element with keyed children even on first render

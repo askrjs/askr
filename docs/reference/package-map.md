@@ -15,6 +15,7 @@ Responsibilities:
 - Reactivity via `state()`, `derive()`, and `selector()`
 - Async resources via `@askrjs/askr/resources`
 - Query and mutation state via `@askrjs/askr/data`
+- Test fixtures via `@askrjs/askr/testing`
 - UI error boundaries via `@askrjs/askr/components`
 - Timing helpers via `@askrjs/askr/fx`
 - JSX control flow via `@askrjs/askr/control`
@@ -114,7 +115,8 @@ Prefer the package that owns the feature. Use subpaths for feature-focused impor
 import { state } from '@askrjs/askr';
 import { createIsland } from '@askrjs/askr/boot';
 import { ErrorBoundary } from '@askrjs/askr/components';
-import { createQuery } from '@askrjs/askr/data';
+import { createQuery, invalidateOnInterval } from '@askrjs/askr/data';
+import { queryState } from '@askrjs/askr/testing';
 import { route } from '@askrjs/askr/router';
 import { resource } from '@askrjs/askr/resources';
 import { debounce } from '@askrjs/askr/fx';

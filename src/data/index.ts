@@ -13,6 +13,14 @@ import {
 } from '../runtime/readable';
 import { getRenderContext } from '../ssr/context';
 import { logger } from '../dev/logger';
+import { emitInvalidation } from './invalidation-listeners';
+import {
+  documentVisible,
+  routeActive,
+  timer,
+  windowFocused,
+  type ActivityPredicate,
+} from '../runtime/operations';
 
 export type QueryConsistency =
   | 'fresh'
@@ -21,6 +29,17 @@ export type QueryConsistency =
   | 'pending-write';
 
 export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
+
+export interface InvalidateOptions {
+  markPendingWrite?: boolean;
+}
+
+export interface InvalidateOnIntervalOptions extends InvalidateOptions {
+  intervalMs: number;
+  activeOn?: string | readonly string[];
+  visibleOnly?: boolean;
+  focusedOnly?: boolean;
+}
 
 type QueryControls = {
   refresh(): Promise<void>;
@@ -296,6 +315,8 @@ function normalizeAsyncDataError(error: unknown, fallbackMessage: string): {} {
 }
 
 function invalidateQueries(prefix: string, markPendingWrite: boolean): void {
+  emitInvalidation({ prefix, markPendingWrite });
+
   const cache = getQueryCache();
 
   for (const [key, query] of cache) {
@@ -864,8 +885,49 @@ export function createQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
   return cell as unknown as Query<T>;
 }
 
-export function invalidate(prefix: string): void {
-  invalidateQueries(prefix, false);
+export function invalidate(prefix: string, options?: InvalidateOptions): void {
+  invalidateQueries(prefix, options?.markPendingWrite ?? false);
+}
+
+const INVALIDATE_ON_INTERVAL_OPTIONS_ERROR =
+  '[Askr] invalidateOnInterval() requires an options object with a finite numeric intervalMs.';
+
+export function invalidateOnInterval(
+  prefix: string,
+  options: InvalidateOnIntervalOptions
+): void {
+  if (
+    !options ||
+    typeof options !== 'object' ||
+    typeof options.intervalMs !== 'number' ||
+    !Number.isFinite(options.intervalMs)
+  ) {
+    throw new Error(INVALIDATE_ON_INTERVAL_OPTIONS_ERROR);
+  }
+
+  const when: ActivityPredicate[] = [];
+
+  if (options.activeOn) {
+    when.push(routeActive(options.activeOn));
+  }
+
+  if (options.visibleOnly) {
+    when.push(documentVisible());
+  }
+
+  if (options.focusedOnly) {
+    when.push(windowFocused());
+  }
+
+  timer(
+    options.intervalMs,
+    () => {
+      invalidate(prefix, {
+        markPendingWrite: options.markPendingWrite,
+      });
+    },
+    when.length > 0 ? { when } : undefined
+  );
 }
 
 export function createMutation<TInput, TResult>(
