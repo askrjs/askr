@@ -15,6 +15,7 @@ import type {
 } from './types';
 import {
   expandRoutes,
+  resolveSsgRouteData,
   resolveSsgData,
   validateRoutes,
 } from './resolve-ssg-data';
@@ -260,9 +261,14 @@ export function createStaticGen<
 
       for (const entry of selected) {
         const { descriptor, previous, reason } = entry;
-        const baseData =
-          dataMap[descriptor.route.path] ?? dataMap[descriptor.path] ?? {};
-        const resourceCount = Object.keys(baseData).length;
+        const resolvedData = resolveSsgRouteData(
+          dataMap,
+          descriptor.route.path,
+          descriptor.path
+        );
+        const baseData = resolvedData.hasData ? resolvedData.data : undefined;
+        const resourceCount =
+          resolvedData.hasData && baseData ? Object.keys(baseData).length : 0;
 
         if (reason === 'unchanged') {
           routeResultsById.set(descriptor.routeId, {
