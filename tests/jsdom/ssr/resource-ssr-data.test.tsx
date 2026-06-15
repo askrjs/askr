@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { renderToStringSync } from '../../../src/ssr';
+import {
+  renderToString,
+  renderToStringSync,
+  SSRDataMissingError,
+} from '../../../src/ssr';
 import { resource } from '../../../src/resources';
 import type { JSXElement } from '../../../src/jsx/types';
+
+function UsesSyncResource(): JSXElement {
+  const result = resource<string>(() => 'loaded', []);
+  return <main>{result.value ?? 'loading'}</main>;
+}
 
 describe('SSR resource() with preloaded data', () => {
   it('should render a preloaded resource value without throwing', () => {
@@ -66,5 +75,19 @@ describe('SSR resource() with preloaded data', () => {
 
     expect(first).toContain('first-value');
     expect(second).toContain('second-value');
+  });
+
+  it('should render route-based SSR with a synchronous resource when no render data is provided', () => {
+    const routes = [{ path: '/', handler: UsesSyncResource }];
+
+    expect(renderToString({ url: '/', routes })).toBe('<main>loaded</main>');
+  });
+
+  it('should throw when route-based SSR is given an explicit empty render-data object', () => {
+    const routes = [{ path: '/', handler: UsesSyncResource }];
+
+    expect(() => renderToString({ url: '/', routes, data: {} })).toThrowError(
+      SSRDataMissingError
+    );
   });
 });

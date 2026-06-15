@@ -12,6 +12,7 @@ import { createStaticGen } from '../../../src/ssg/create-static-gen';
 import { SSG_MANIFEST_SCHEMA_VERSION } from '../../../src/ssg/incremental-manifest';
 import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
+import { resource } from '../../../src/resources';
 import { defineContext } from '../../../src/runtime/context';
 
 // Test utilities
@@ -61,6 +62,11 @@ const BlogPost = (props: { slug?: string }): JSXElement => (
     <p>Slug: {props.slug}</p>
   </div>
 );
+
+const SyncResourcePage = (): JSXElement => {
+  const result = resource(() => 'loaded', []);
+  return <main>{result.value ?? 'loading'}</main>;
+};
 
 describe('Static Site Generation', () => {
   let tempDir: string;
@@ -748,6 +754,43 @@ describe('Static Site Generation', () => {
 
       expect(result.failed).toBe(0);
       expect(result.routes[0].resourceCount).toBe(0);
+    });
+
+    it('should render synchronous resource routes without data overrides', async () => {
+      const ssg = createStaticGen({
+        routes: [{ path: '/', handler: SyncResourcePage }],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+      const indexFile = path.join(tempDir, 'index.html');
+      const content = fs.readFileSync(indexFile, 'utf8');
+
+      expect(result.successful).toBe(1);
+      expect(result.failed).toBe(0);
+      expect(result.routes[0].html).toBe('<main>loaded</main>');
+      expect(result.routes[0].resourceCount).toBe(0);
+      expect(content).toBe('<main>loaded</main>');
+    });
+
+    it('should keep explicit empty-object data overrides in SSR-data mode', async () => {
+      const ssg = createStaticGen({
+        routes: [{ path: '/', handler: SyncResourcePage }],
+        outputDir: tempDir,
+        dataOverrides: {
+          '/': {},
+        },
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.successful).toBe(0);
+      expect(result.failed).toBe(1);
+      expect(result.routes[0].status).toBe('error');
+      expect(result.routes[0].resourceCount).toBe(0);
+      expect(result.routes[0].error).toMatch(
+        /Server-side rendering requires all data to be available synchronously/
+      );
     });
 
     it('should use custom seed for deterministic generation', async () => {

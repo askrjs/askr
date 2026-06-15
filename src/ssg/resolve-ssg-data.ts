@@ -14,6 +14,18 @@ interface DataResolutionOptions {
   dataOverrides?: Record<string, unknown>;
 }
 
+export interface ResolvedSsgRouteData {
+  hasData: boolean;
+  data?: SSRData;
+}
+
+function hasOwnRouteData(
+  dataMap: Record<string, SSRData>,
+  path: string
+): boolean {
+  return Object.prototype.hasOwnProperty.call(dataMap, path);
+}
+
 /**
  * Resolve and validate data for SSG routes
  * Returns a map of route path -> SSRData
@@ -52,6 +64,31 @@ export function resolveSsgData(
   }
 
   return dataMap;
+}
+
+export function resolveSsgRouteData(
+  dataMap: Record<string, SSRData>,
+  routePath: string,
+  concretePath: string
+): ResolvedSsgRouteData {
+  if (hasOwnRouteData(dataMap, concretePath)) {
+    return {
+      hasData: true,
+      data: dataMap[concretePath],
+    };
+  }
+
+  if (hasOwnRouteData(dataMap, routePath)) {
+    return {
+      hasData: true,
+      data: dataMap[routePath],
+    };
+  }
+
+  return {
+    hasData: false,
+    data: undefined,
+  };
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {
