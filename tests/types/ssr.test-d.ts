@@ -5,6 +5,9 @@ import {
   renderToString,
   renderToStringSync,
   resolveRequest,
+  type DocumentRenderArgs,
+  type DocumentRenderContext,
+  type DocumentRenderer,
   type SSRComponent,
   type SSRRoute,
   type VNode,
@@ -30,13 +33,42 @@ expectAssignable<SSRComponent>(component);
 declare const vnode: VNode;
 expectAssignable<VNode>(vnode);
 
+const documentRenderer: DocumentRenderer = ({ appHtml, context }) => {
+  expectType<string>(appHtml);
+  expectType<DocumentRenderContext>(context);
+  return `<html>${appHtml}</html>`;
+};
+expectAssignable<DocumentRenderer>(documentRenderer);
+
+const documentArgs: DocumentRenderArgs = {
+  appHtml: '<main>ok</main>',
+  context: {
+    mode: 'ssr',
+    url: '/users/42',
+    pathname: '/users/42',
+    search: '',
+    hash: '',
+    params: { id: '42' },
+    data: { ready: true },
+    seed: 12345,
+    route: {
+      path: '/users/{id}',
+    },
+  },
+};
+expectType<string>(documentRenderer(documentArgs));
+
 expectType<string>(renderToStringSync(() => 'ok'));
 expectType<string>(renderToString(() => 'ok'));
 expectType<string>(renderToString({ url: '/users/42', routes }));
+expectType<string>(
+  renderToString({ url: '/users/42', routes, document: documentRenderer })
+);
 expectType<void>(
   renderToStream({
     url: '/users/42',
     routes,
+    document: documentRenderer,
     onChunk: (html) => {
       expectType<string>(html);
     },

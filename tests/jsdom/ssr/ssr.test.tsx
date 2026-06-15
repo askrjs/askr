@@ -127,6 +127,73 @@ describe('SSR strict purity', () => {
   });
 });
 
+describe('SSR document boundary', () => {
+  it('should keep route-based HTML unchanged when no document renderer is provided', () => {
+    const routes = [
+      {
+        path: '/users/{id}',
+        handler: ({ id }: { id: string }) => <main>User {id}</main>,
+      },
+    ];
+
+    expect(renderToString({ url: '/users/42', routes })).toBe(
+      '<main>User 42</main>'
+    );
+  });
+
+  it('should wrap route-based HTML with document context when provided', () => {
+    const routes = [
+      {
+        path: '/users/{id}',
+        namespace: 'app',
+        handler: ({ id }: { id: string }) => <main>User {id}</main>,
+      },
+    ];
+    const data = { greeting: 'hi' };
+    let seenContext: Record<string, unknown> | null = null;
+    const document = ({
+      appHtml,
+      context,
+    }: {
+      appHtml: string;
+      context: Record<string, unknown>;
+    }) => {
+      seenContext = context;
+      return `<!doctype html><html><body>${appHtml}</body></html>`;
+    };
+
+    const appHtml = renderToString({
+      url: '/users/42?tab=activity#top',
+      routes,
+      data,
+    });
+    const wrappedHtml = renderToString({
+      url: '/users/42?tab=activity#top',
+      routes,
+      data,
+      document,
+    });
+
+    expect(wrappedHtml).toBe(
+      `<!doctype html><html><body>${appHtml}</body></html>`
+    );
+    expect(seenContext).toMatchObject({
+      mode: 'ssr',
+      url: '/users/42?tab=activity#top',
+      pathname: '/users/42',
+      search: '?tab=activity',
+      hash: '#top',
+      params: { id: '42' },
+      data,
+      seed: 12345,
+      route: {
+        path: '/users/{id}',
+        namespace: 'app',
+      },
+    });
+  });
+});
+
 describe('SSR streaming parity', () => {
   it('should stream SSR matches string SSR', () => {
     const routes = [{ path: '/', handler: () => <div>x</div> }];

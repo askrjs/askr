@@ -70,4 +70,54 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     expect(html).toContain('<p>World</p>');
     expect(html).toContain('</article>');
   });
+
+  it('should buffer app HTML before applying a document renderer', () => {
+    const routes = [
+      {
+        path: '/users/{id}',
+        namespace: 'users',
+        handler: ({ id }: { id: string }) => <main>User {id}</main>,
+      },
+    ];
+    let seenContext: Record<string, unknown> | null = null;
+    const expectedAppHtml = renderToString({
+      url: '/users/42?view=full#summary',
+      routes,
+    });
+    const chunks: string[] = [];
+
+    renderToStream({
+      url: '/users/42?view=full#summary',
+      routes,
+      document: ({
+        appHtml,
+        context,
+      }: {
+        appHtml: string;
+        context: Record<string, unknown>;
+      }) => {
+        seenContext = context;
+        return `<!doctype html><html><body>${appHtml}</body></html>`;
+      },
+      onChunk: (c) => chunks.push(c),
+      onComplete: () => {},
+    });
+
+    expect(chunks).toEqual([
+      `<!doctype html><html><body>${expectedAppHtml}</body></html>`,
+    ]);
+    expect(seenContext).toMatchObject({
+      mode: 'ssr',
+      url: '/users/42?view=full#summary',
+      pathname: '/users/42',
+      search: '?view=full',
+      hash: '#summary',
+      params: { id: '42' },
+      seed: 12345,
+      route: {
+        path: '/users/{id}',
+        namespace: 'users',
+      },
+    });
+  });
 });
