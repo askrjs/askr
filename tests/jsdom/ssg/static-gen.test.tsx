@@ -167,6 +167,25 @@ describe('Static Site Generation', () => {
       expect(content).toBe('<span>a</span><main>b</main>');
     });
 
+    it('should preserve direct route handler sibling arrays in generated HTML', async () => {
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/',
+            handler: () => [<span>{'a'}</span>, <main>{'b'}</main>],
+          },
+        ],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+      const indexFile = path.join(tempDir, 'index.html');
+      const content = fs.readFileSync(indexFile, 'utf8');
+
+      expect(result.routes[0].html).toBe('<span>a</span><main>b</main>');
+      expect(content).toBe('<span>a</span><main>b</main>');
+    });
+
     it('should generate HTML files in correct directory structure', async () => {
       const ssg = createStaticGen({
         routes: [{ path: '/', component: Home }],

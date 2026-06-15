@@ -425,19 +425,7 @@ function renderChildrenSyncToSink(
   if (!children || !Array.isArray(children) || children.length === 0) return;
   if (children.length >= 32) {
     for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      if (child === null || child === undefined || child === false) continue;
-      if (typeof child === 'string') {
-        sink.write(escapeText(child));
-        continue;
-      }
-      if (typeof child === 'number') {
-        sink.write(escapeText(String(child)));
-        continue;
-      }
-      if (child && typeof child === 'object' && 'type' in child) {
-        renderNodeSyncToSink(child as VNode, sink, ctx);
-      }
+      renderRenderableSyncToSink(children[i], sink, ctx);
     }
     return;
   }
@@ -1035,6 +1023,10 @@ function verifyExpectedNode(
     return true;
   }
 
+  if (Array.isArray(node)) {
+    return verifyExpectedChildren(node, state, ctx);
+  }
+
   if (!node || typeof node !== 'object' || !('type' in node)) {
     return true;
   }
@@ -1421,12 +1413,12 @@ function renderResolvedRouteAppToSink(
     // Start render-phase keying so resource() can lookup resolved `data` by key
     startRenderPhase(data || null);
     try {
-      const node = executeComponentSync(
+      const app = executeComponentSync(
         route.handler as unknown as Component,
         params,
         ctx
       );
-      renderNodeSyncToSink(node, sink, ctx);
+      renderRenderableSyncToSink(app, sink, ctx);
       sink.write(serializeHydrationRenderData(data));
     } finally {
       try {

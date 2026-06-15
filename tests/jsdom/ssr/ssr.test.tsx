@@ -179,6 +179,24 @@ describe('SSR child normalization', () => {
     expect(renderToStringSync(App)).toBe('<span>a</span><main>b</main>');
   });
 
+  it('should preserve nested arrays in large child lists', () => {
+    const nestedChildren = Array.from({ length: 32 }, (_, index) => [
+      jsx('span', { children: String(index) }),
+    ]);
+    const expected = Array.from(
+      { length: nestedChildren.length },
+      (_, index) => `<span>${index}</span>`
+    ).join('');
+
+    expect(
+      renderToStringSync(() =>
+        jsx('div', {
+          children: nestedChildren,
+        })
+      )
+    ).toBe(`<div>${expected}</div>`);
+  });
+
   it('should preserve Context.Scope sibling children through route-based SSR', () => {
     const ThemeContext = defineContext('default');
     const routes = [
@@ -189,6 +207,19 @@ describe('SSR child normalization', () => {
             {[<span>{'a'}</span>, <main>{'b'}</main>]}
           </ThemeContext.Scope>
         ),
+      },
+    ];
+
+    expect(renderToString({ url: '/', routes })).toBe(
+      '<span>a</span><main>b</main>'
+    );
+  });
+
+  it('should preserve direct route handler sibling arrays through route-based SSR', () => {
+    const routes = [
+      {
+        path: '/',
+        handler: () => [<span>{'a'}</span>, <main>{'b'}</main>],
       },
     ];
 
