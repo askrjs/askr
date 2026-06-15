@@ -8,6 +8,7 @@ import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
 import type { ComponentFunction } from '../common/component';
 import type { SSRData } from '../common/ssr';
+import { resolveSsgRouteData } from './resolve-ssg-data';
 import { getOutputFilePath, interpolateRoutePath } from './route-utils';
 
 interface BatchRenderOptions {
@@ -35,7 +36,10 @@ export async function batchRenderRoutes(
     const startTime = performance.now();
     const url = interpolateRoutePath(route.path, route.params);
     const requestUrl = new URL(url, 'http://localhost');
-    const baseData = dataMap[route.path] ?? dataMap[url] ?? {};
+    const resolvedData = resolveSsgRouteData(dataMap, route.path, url);
+    const baseData = resolvedData.hasData ? resolvedData.data : undefined;
+    const resourceCount =
+      resolvedData.hasData && baseData ? Object.keys(baseData).length : 0;
 
     const mergedHandler: RouteHandler = route.handler
       ? route.handler
@@ -93,7 +97,7 @@ export async function batchRenderRoutes(
         html,
         fileSize: Buffer.byteLength(html, 'utf8'),
         renderDuration: Math.round(duration),
-        resourceCount: Object.keys(baseData).length,
+        resourceCount,
         status: 'success',
         reason: 'full',
         written: false,
@@ -106,7 +110,7 @@ export async function batchRenderRoutes(
         html: '',
         fileSize: 0,
         renderDuration: Math.round(duration),
-        resourceCount: Object.keys(baseData).length,
+        resourceCount,
         status: 'error',
         reason: 'full',
         written: false,
