@@ -28,6 +28,35 @@ export interface DocumentRenderArgs {
 
 export type DocumentRenderer = (args: DocumentRenderArgs) => string;
 
+export function renderDocument(
+  document: DocumentRenderer,
+  args: DocumentRenderArgs,
+  apiName: string
+): string {
+  const html = document(args);
+
+  if (typeof html !== 'string') {
+    const isPromiseLike =
+      typeof html === 'object' &&
+      html !== null &&
+      'then' in html &&
+      typeof html.then === 'function';
+    const received = isPromiseLike
+      ? 'a Promise-like value'
+      : html === null
+        ? 'null'
+        : Array.isArray(html)
+          ? 'an array'
+          : typeof html;
+
+    throw new Error(
+      `${apiName} document() must synchronously return a string; received ${received}.`
+    );
+  }
+
+  return html;
+}
+
 export const SSR_RENDER_DATA_ATTR = 'data-askr-render-data';
 
 /** Full context for sink-based streaming SSR */

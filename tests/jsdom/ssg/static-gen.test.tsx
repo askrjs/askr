@@ -306,6 +306,24 @@ describe('Static Site Generation', () => {
       expect(result.routes[0].html).toContain('first-post');
     });
 
+    it('should report a clear error when the document renderer returns a non-string', async () => {
+      const ssg = createStaticGen({
+        routes: [{ path: '/', component: Home }],
+        outputDir: tempDir,
+        document: (() => Promise.resolve('<html></html>')) as never,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.failed).toBe(1);
+      expect(result.routes[0]).toMatchObject({
+        status: 'error',
+        error: expect.stringMatching(
+          /document\(\) must synchronously return a string/i
+        ),
+      });
+    });
+
     it('should render multiple routes', async () => {
       const ssg = createStaticGen({
         routes: [

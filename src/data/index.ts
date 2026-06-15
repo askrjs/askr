@@ -963,7 +963,9 @@ function serializeQueryKeyPart(part: QueryKeyPart): string {
 
 export function queryScope(namespace: string): QueryScope {
   if (typeof namespace !== 'string' || namespace.trim().length === 0) {
-    throw new Error('[Askr] queryScope() requires a non-empty namespace string.');
+    throw new Error(
+      '[Askr] queryScope() requires a non-empty namespace string.'
+    );
   }
 
   const build = (parts: readonly QueryKeyPart[]): string =>

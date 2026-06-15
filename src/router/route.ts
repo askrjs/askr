@@ -738,13 +738,13 @@ function validateRoutePath(path: string): void {
     }
 
     if (isSplat && paramName === '*') {
-      throw new Error(
-        'Route named splat parameter name cannot be "*".'
-      );
+      throw new Error('Route named splat parameter name cannot be "*".');
     }
 
     if (isSplat && index !== segments.length - 1) {
-      throw new Error('Route named splat parameters must be the final segment.');
+      throw new Error(
+        'Route named splat parameters must be the final segment.'
+      );
     }
 
     if (seenParamNames.has(paramName)) {
@@ -1947,4 +1947,11 @@ export function resolveRouteFromRoutes(
 
   const match = findBestResolvedRouteFromRoutes(pathname, routeList);
   return match ? { handler: match.route.handler, params: match.params } : null;
+}
+
+export function _resolveRouteMatchFromRoutes(
+  pathname: string,
+  routeList: readonly Route[]
+): { route: Route; params: Record<string, string> } | null {
+  return findBestResolvedRouteFromRoutes(pathname, routeList);
 }

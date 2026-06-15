@@ -3,7 +3,7 @@
  */
 
 import { renderToString } from '../ssr';
-import type { DocumentRenderer } from '../common/ssr';
+import { renderDocument, type DocumentRenderer } from '../common/ssr';
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
 import type { ComponentFunction } from '../common/component';
@@ -34,6 +34,7 @@ export async function batchRenderRoutes(
   const renderOne = async (route: RouteConfig): Promise<RouteRenderResult> => {
     const startTime = performance.now();
     const url = interpolateRoutePath(route.path, route.params);
+    const requestUrl = new URL(url, 'http://localhost');
     const baseData = dataMap[route.path] ?? dataMap[url] ?? {};
 
     const mergedHandler: RouteHandler = route.handler
@@ -62,23 +63,27 @@ export async function batchRenderRoutes(
           document === undefined
             ? undefined
             : ({ appHtml }) =>
-                document({
-                  appHtml,
-                  context: {
-                    mode: 'ssg',
-                    url,
-                    pathname: url,
-                    search: '',
-                    hash: '',
-                    params: route.params ?? {},
-                    data: baseData,
-                    seed,
-                    route: {
-                      path: route.path,
-                      namespace: route.namespace,
+                renderDocument(
+                  document,
+                  {
+                    appHtml,
+                    context: {
+                      mode: 'ssg',
+                      url,
+                      pathname: requestUrl.pathname,
+                      search: requestUrl.search,
+                      hash: requestUrl.hash,
+                      params: route.params ?? {},
+                      data: baseData,
+                      seed,
+                      route: {
+                        path: route.path,
+                        namespace: route.namespace,
+                      },
                     },
                   },
-                }),
+                  'createStaticGen()'
+                ),
       });
 
       const duration = performance.now() - startTime;

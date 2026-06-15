@@ -18,6 +18,7 @@ import {
   type DocumentRenderArgs,
   type DocumentRenderContext,
   type DocumentRenderer,
+  renderDocument,
 } from '../common/ssr';
 import { isPromiseLike } from '../common/promise';
 import type {
@@ -26,12 +27,6 @@ import type {
   RouteManifest,
   RouteRequestResult,
 } from '../common/router';
-import {
-  computeRank,
-  matchSegments,
-  parseSegments,
-  splitPathSegments,
-} from '../router/match';
 import * as RouteModule from '../router/route';
 import type { Props } from '../common/props';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
@@ -1366,44 +1361,16 @@ type ResolvedSSRRouteRender = {
   document?: DocumentRenderer;
 };
 
-type RankedRoute = {
-  route: SSRRoute;
-  params: Record<string, string>;
-  rank: number;
-};
-
-function resolveRouteMatchFromRouteTable(
-  pathname: string,
-  routeTable: readonly SSRRoute[]
-): RankedRoute | null {
-  const normalized =
-    pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
-  const urlParts = splitPathSegments(normalized);
-  let bestMatch: RankedRoute | null = null;
-
-  for (const route of routeTable) {
-    const segments = parseSegments(route.path);
-    const params = matchSegments(urlParts, segments);
-    if (params === null) {
-      continue;
-    }
-
-    const rank = computeRank(segments);
-    if (bestMatch === null || rank > bestMatch.rank) {
-      bestMatch = { route, params, rank };
-    }
-  }
-
-  return bestMatch;
-}
-
 function resolveSSRRouteRender(
   opts: RouteRenderOptions
 ): ResolvedSSRRouteRender {
   const { url, routes, seed = 12345, data, document } = opts;
   const routeTable = routes.map((route) => ({ ...route }));
   const requestUrl = new URL(url, 'http://localhost');
-  const matched = resolveRouteMatchFromRouteTable(requestUrl.pathname, routeTable);
+  const matched = RouteModule._resolveRouteMatchFromRoutes(
+    requestUrl.pathname,
+    routeTable
+  );
   if (!matched) throw new Error(`SSR: no route found for url: ${url}`);
 
   const ctx = createRenderContext(seed, {
@@ -1505,9 +1472,7 @@ export function renderToStream(opts: RouteStreamOptions): void {
   sink.end();
 }
 
-function renderToSinkInternal(
-  opts: RouteRenderOptions & { sink: RenderSink }
-) {
+function renderToSinkInternal(opts: RouteRenderOptions & { sink: RenderSink }) {
   const { sink, ...renderOptions } = opts;
   const resolved = resolveSSRRouteRender(renderOptions);
 
@@ -1520,6 +1485,10 @@ function renderToSinkInternal(
   renderResolvedRouteAppToSink(resolved, appSink);
   appSink.end();
   sink.write(
-    resolved.document(buildDocumentRenderArgs(resolved, appSink.toString()))
+    renderDocument(
+      resolved.document,
+      buildDocumentRenderArgs(resolved, appSink.toString()),
+      'renderToString()/renderToStream()'
+    )
   );
 }
