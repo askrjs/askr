@@ -166,15 +166,46 @@ function popSSRStrictPurityGuard() {
 /**
  * Synchronous rendering helpers (used for strictly synchronous SSR)
  */
-function renderChildSync(child: unknown, ctx: RenderContext): string {
-  if (typeof child === 'string') return escapeText(child);
-  if (typeof child === 'number') return escapeText(String(child));
-  if (child === null || child === undefined || child === false) return '';
-  if (child && typeof child === 'object' && 'type' in child) {
-    // We already verified the shape above; assert as VNode for the sync renderer
-    return renderNodeSync(child as VNode, ctx);
+function renderRenderableSync(value: unknown, ctx: RenderContext): string {
+  if (typeof value === 'string') return escapeText(value);
+  if (typeof value === 'number') return escapeText(String(value));
+  if (value === null || value === undefined || value === false) return '';
+  if (Array.isArray(value)) return renderChildrenSync(value, ctx);
+  if (value && typeof value === 'object' && 'type' in value) {
+    return renderNodeSync(value as VNode, ctx);
   }
   return '';
+}
+
+function renderChildSync(child: unknown, ctx: RenderContext): string {
+  return renderRenderableSync(child, ctx);
+}
+
+function renderRenderableSyncToSink(
+  value: unknown,
+  sink: {
+    write(html: string): void;
+    write2?: (a: string, b: string) => void;
+    write3?: (a: string, b: string, c: string) => void;
+  },
+  ctx: RenderContext
+): void {
+  if (value === null || value === undefined || value === false) return;
+  if (typeof value === 'string') {
+    sink.write(escapeText(value));
+    return;
+  }
+  if (typeof value === 'number') {
+    sink.write(escapeText(String(value)));
+    return;
+  }
+  if (Array.isArray(value)) {
+    renderChildrenSyncToSink(value, sink, ctx);
+    return;
+  }
+  if (value && typeof value === 'object' && 'type' in value) {
+    renderNodeSyncToSink(value as VNode, sink, ctx);
+  }
 }
 
 function renderChildSyncToSink(
@@ -182,18 +213,7 @@ function renderChildSyncToSink(
   sink: { write(html: string): void },
   ctx: RenderContext
 ): void {
-  if (child === null || child === undefined || child === false) return;
-  if (typeof child === 'string') {
-    sink.write(escapeText(child));
-    return;
-  }
-  if (typeof child === 'number') {
-    sink.write(escapeText(String(child)));
-    return;
-  }
-  if (child && typeof child === 'object' && 'type' in child) {
-    renderNodeSyncToSink(child as VNode, sink, ctx);
-  }
+  renderRenderableSyncToSink(child, sink, ctx);
 }
 
 function serializeHydrationRenderData(data: SSRData | undefined): string {
@@ -405,19 +425,7 @@ function renderChildrenSyncToSink(
   if (!children || !Array.isArray(children) || children.length === 0) return;
   if (children.length >= 32) {
     for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      if (child === null || child === undefined || child === false) continue;
-      if (typeof child === 'string') {
-        sink.write(escapeText(child));
-        continue;
-      }
-      if (typeof child === 'number') {
-        sink.write(escapeText(String(child)));
-        continue;
-      }
-      if (child && typeof child === 'object' && 'type' in child) {
-        renderNodeSyncToSink(child as VNode, sink, ctx);
-      }
+      renderRenderableSyncToSink(children[i], sink, ctx);
     }
     return;
   }
@@ -474,25 +482,13 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
 
   if (typeof type === 'function') {
     const result = executeComponentSync(type as Component, props, ctx);
-    if (isPromiseLike(result)) {
-      // Use centralized SSR error to maintain a single failure mode
-      throwSSRDataMissing();
-    }
-    // executeComponentSync already normalizes primitives into VNode wrappers,
-    // so result is always a VNode or JSXElement here. Safe to recurse directly.
-    return renderNodeSync(result, ctx);
+    return renderRenderableSync(inheritRenderableKey(node, result), ctx);
   }
 
   // Special-case fragments (symbols) - render children directly
   if (typeof type === 'symbol') {
     if (type === Fragment) {
-      // Prefer explicit `children` array; fallback to `props.children` for
-      // JSX runtimes that place children on props.
-      const childrenArr = Array.isArray((node as VNode).children)
-        ? (node as VNode).children
-        : Array.isArray(props?.children)
-          ? (props?.children as unknown[])
-          : undefined;
+      const childrenArr = getRenderableChildren(node);
       /* istanbul ignore if - dev-only debug */
       if (__SSR_DEBUG) {
         try {
@@ -568,12 +564,12 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     if (dangerousHtml !== undefined) {
       return `<${typeStr}${attrs}>${dangerousHtml}</${typeStr}>`;
     }
-    const childrenHtml = renderChildrenSync((node as VNode).children, ctx);
+    const childrenHtml = renderChildrenSync(getRenderableChildren(node), ctx);
     return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
   }
 
   const attrs = renderAttrs(props);
-  const childrenHtml = renderChildrenSync((node as VNode).children, ctx);
+  const childrenHtml = renderChildrenSync(getRenderableChildren(node), ctx);
   return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
 }
 
@@ -590,19 +586,14 @@ function renderNodeSyncToSink(
 
   if (typeof type === 'function') {
     const result = executeComponentSync(type as Component, props, ctx);
-    // executeComponentSync guarantees synchronous result.
-    renderNodeSyncToSink(inheritRenderableKey(node, result), sink, ctx);
+    renderRenderableSyncToSink(inheritRenderableKey(node, result), sink, ctx);
     return;
   }
 
   // Fragment
   if (typeof type === 'symbol') {
     if (type === Fragment) {
-      const childrenArr = Array.isArray((node as VNode).children)
-        ? (node as VNode).children
-        : Array.isArray(props?.children)
-          ? (props?.children as unknown[])
-          : undefined;
+      const childrenArr = getRenderableChildren(node);
       renderChildrenSyncToSink(childrenArr, sink, ctx);
       return;
     }
@@ -690,22 +681,13 @@ function renderNodeSyncToSink(
     if (dangerousHtml !== undefined) {
       sink.write(dangerousHtml);
     } else {
-      renderChildrenSyncToSink((node as VNode).children, sink, ctx);
+      renderChildrenSyncToSink(getRenderableChildren(node), sink, ctx);
     }
     sinkWrite3(sink, '</', typeStr, '>');
     return;
   }
 
-  // Normalize children: prefer node.children, fallback to props.children (for JSXElement)
-  let children = (node as VNode).children;
-  if (children === undefined && props?.children !== undefined) {
-    const propsChildren = props.children as unknown;
-    if (Array.isArray(propsChildren)) {
-      children = propsChildren;
-    } else if (propsChildren !== null && propsChildren !== false) {
-      children = [propsChildren];
-    }
-  }
+  const children = getRenderableChildren(node);
 
   // Hot path: empty element (no children) - single write
   if (!children || (Array.isArray(children) && children.length === 0)) {
@@ -1041,6 +1023,10 @@ function verifyExpectedNode(
     return true;
   }
 
+  if (Array.isArray(node)) {
+    return verifyExpectedChildren(node, state, ctx);
+  }
+
   if (!node || typeof node !== 'object' || !('type' in node)) {
     return true;
   }
@@ -1049,7 +1035,7 @@ function verifyExpectedNode(
   const { type, props } = vnode;
 
   if (typeof type === 'function') {
-    return verifyExpectedNode(
+    return verifyRenderableNode(
       inheritRenderableKey(
         vnode,
         executeComponentSync(type as Component, props, ctx)
@@ -1427,12 +1413,12 @@ function renderResolvedRouteAppToSink(
     // Start render-phase keying so resource() can lookup resolved `data` by key
     startRenderPhase(data || null);
     try {
-      const node = executeComponentSync(
+      const app = executeComponentSync(
         route.handler as unknown as Component,
         params,
         ctx
       );
-      renderNodeSyncToSink(node, sink, ctx);
+      renderRenderableSyncToSink(app, sink, ctx);
       sink.write(serializeHydrationRenderData(data));
     } finally {
       try {

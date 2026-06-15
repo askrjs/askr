@@ -12,6 +12,7 @@ import { createStaticGen } from '../../../src/ssg/create-static-gen';
 import { SSG_MANIFEST_SCHEMA_VERSION } from '../../../src/ssg/incremental-manifest';
 import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
+import { defineContext } from '../../../src/runtime/context';
 
 // Test utilities
 function createTempDir(): string {
@@ -143,6 +144,46 @@ describe('Static Site Generation', () => {
       expect(result.routes[0].status).toBe('success');
       expect(result.routes[0].html).toContain('<div');
       expect(result.routes[0].html).toContain('Home');
+    });
+
+    it('should preserve Context.Scope sibling children in generated HTML', async () => {
+      const ThemeContext = defineContext('default');
+      const ScopedSiblings = (): JSXElement => (
+        <ThemeContext.Scope value={'scoped'}>
+          {[<span>{'a'}</span>, <main>{'b'}</main>]}
+        </ThemeContext.Scope>
+      );
+
+      const ssg = createStaticGen({
+        routes: [{ path: '/', component: ScopedSiblings }],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+      const indexFile = path.join(tempDir, 'index.html');
+      const content = fs.readFileSync(indexFile, 'utf8');
+
+      expect(result.routes[0].html).toBe('<span>a</span><main>b</main>');
+      expect(content).toBe('<span>a</span><main>b</main>');
+    });
+
+    it('should preserve direct route handler sibling arrays in generated HTML', async () => {
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/',
+            handler: () => [<span>{'a'}</span>, <main>{'b'}</main>],
+          },
+        ],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+      const indexFile = path.join(tempDir, 'index.html');
+      const content = fs.readFileSync(indexFile, 'utf8');
+
+      expect(result.routes[0].html).toBe('<span>a</span><main>b</main>');
+      expect(content).toBe('<span>a</span><main>b</main>');
     });
 
     it('should generate HTML files in correct directory structure', async () => {
