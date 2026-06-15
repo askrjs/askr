@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { For } from '../../../src/control';
+import { defineContext } from '../../../src/runtime/context';
 import {
   clearRoutes,
   fallback,
   getRoutes,
   route,
 } from '../../../src/router/route';
+import { Fragment, jsx, jsxs } from '../../../src/jsx/jsx-runtime';
 import {
   renderToStringSync,
   renderToString,
@@ -129,6 +131,101 @@ describe('SSR strict purity', () => {
     };
 
     expect(() => renderToStringSync(() => Component())).toThrow();
+  });
+});
+
+describe('SSR child normalization', () => {
+  it('should render a single Fragment child passed through props.children', () => {
+    expect(
+      renderToStringSync(() =>
+        jsx(Fragment, {
+          children: jsx('main', { children: 'hello' }),
+        })
+      )
+    ).toBe('<main>hello</main>');
+  });
+
+  it('should preserve the array-shaped Fragment child form', () => {
+    expect(
+      renderToStringSync(() =>
+        jsxs(Fragment, {
+          children: [jsx('main', { children: 'hello' })],
+        })
+      )
+    ).toBe('<main>hello</main>');
+  });
+
+  it('should preserve single Context.Scope children', () => {
+    const ThemeContext = defineContext('default');
+
+    const App = () => (
+      <ThemeContext.Scope value={'scoped'}>
+        <main>{'one'}</main>
+      </ThemeContext.Scope>
+    );
+
+    expect(renderToStringSync(App)).toBe('<main>one</main>');
+  });
+
+  it('should render multiple Context.Scope children as siblings', () => {
+    const ThemeContext = defineContext('default');
+
+    const App = () => (
+      <ThemeContext.Scope value={'scoped'}>
+        {[<span>{'a'}</span>, <main>{'b'}</main>]}
+      </ThemeContext.Scope>
+    );
+
+    expect(renderToStringSync(App)).toBe('<span>a</span><main>b</main>');
+  });
+
+  it('should preserve nested arrays in large child lists', () => {
+    const nestedChildren = Array.from({ length: 32 }, (_, index) => [
+      jsx('span', { children: String(index) }),
+    ]);
+    const expected = Array.from(
+      { length: nestedChildren.length },
+      (_, index) => `<span>${index}</span>`
+    ).join('');
+
+    expect(
+      renderToStringSync(() =>
+        jsx('div', {
+          children: nestedChildren,
+        })
+      )
+    ).toBe(`<div>${expected}</div>`);
+  });
+
+  it('should preserve Context.Scope sibling children through route-based SSR', () => {
+    const ThemeContext = defineContext('default');
+    const routes = [
+      {
+        path: '/',
+        handler: () => (
+          <ThemeContext.Scope value={'scoped'}>
+            {[<span>{'a'}</span>, <main>{'b'}</main>]}
+          </ThemeContext.Scope>
+        ),
+      },
+    ];
+
+    expect(renderToString({ url: '/', routes })).toBe(
+      '<span>a</span><main>b</main>'
+    );
+  });
+
+  it('should preserve direct route handler sibling arrays through route-based SSR', () => {
+    const routes = [
+      {
+        path: '/',
+        handler: () => [<span>{'a'}</span>, <main>{'b'}</main>],
+      },
+    ];
+
+    expect(renderToString({ url: '/', routes })).toBe(
+      '<span>a</span><main>b</main>'
+    );
   });
 });
 
