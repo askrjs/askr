@@ -3,6 +3,7 @@
  */
 
 import { renderToString } from '../ssr';
+import { renderDocument, type DocumentRenderer } from '../common/ssr';
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
 import type { ComponentFunction } from '../common/component';
@@ -13,6 +14,7 @@ interface BatchRenderOptions {
   seed?: number;
   dataMap?: Record<string, SSRData>;
   concurrency?: number;
+  document?: DocumentRenderer;
 }
 
 /**
@@ -22,7 +24,7 @@ export async function batchRenderRoutes(
   routes: RouteConfig[],
   options: BatchRenderOptions = {}
 ): Promise<RouteRenderResult[]> {
-  const { seed = 12345, dataMap = {}, concurrency = 1 } = options;
+  const { seed = 12345, dataMap = {}, concurrency = 1, document } = options;
 
   const workerCount = Math.max(1, Math.min(concurrency, routes.length || 1));
   const results: RouteRenderResult[] = [];
@@ -32,6 +34,7 @@ export async function batchRenderRoutes(
   const renderOne = async (route: RouteConfig): Promise<RouteRenderResult> => {
     const startTime = performance.now();
     const url = interpolateRoutePath(route.path, route.params);
+    const requestUrl = new URL(url, 'http://localhost');
     const baseData = dataMap[route.path] ?? dataMap[url] ?? {};
 
     const mergedHandler: RouteHandler = route.handler
@@ -56,6 +59,31 @@ export async function batchRenderRoutes(
         routes: [routeEntry],
         seed,
         data: baseData,
+        document:
+          document === undefined
+            ? undefined
+            : ({ appHtml }) =>
+                renderDocument(
+                  document,
+                  {
+                    appHtml,
+                    context: {
+                      mode: 'ssg',
+                      url,
+                      pathname: requestUrl.pathname,
+                      search: requestUrl.search,
+                      hash: requestUrl.hash,
+                      params: route.params ?? {},
+                      data: baseData,
+                      seed,
+                      route: {
+                        path: route.path,
+                        namespace: route.namespace,
+                      },
+                    },
+                  },
+                  'createStaticGen()'
+                ),
       });
 
       const duration = performance.now() - startTime;

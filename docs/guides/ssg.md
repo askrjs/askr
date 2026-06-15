@@ -29,6 +29,39 @@ const result = await ssg.generate();
 console.log(result.successful, result.totalRoutes);
 ```
 
+## Document boundary
+
+Use the optional `document` callback when routes should stay app-only and SSG
+should still write full HTML documents:
+
+```ts
+import { createStaticGen } from '@askrjs/askr/ssg';
+
+const routes = [
+  {
+    path: '/',
+    handler: () => <main>Hello</main>,
+  },
+];
+
+const ssg = createStaticGen({
+  routes,
+  outputDir: './dist/static',
+  document: ({ appHtml, context }) => `<!doctype html>
+<html lang="en">
+  <head>
+    <title>${context.pathname}</title>
+  </head>
+  <body>
+    ${appHtml}
+  </body>
+</html>`,
+});
+```
+
+The callback receives the concrete route URL plus the matched route template, so
+parameterized routes can share one app route table across SPA, SSR, and SSG.
+
 ## Route config
 
 Each route entry supports:
@@ -128,6 +161,7 @@ The generator writes `metadata.json` into the output directory with:
 - Output is always `.html` files.
 - Watch mode and ISR are not part of this flow.
 - Rendering is still synchronous per route even though route matching is isolated per render.
+- The `document` callback is synchronous and returns the final HTML string for each route.
 
 ## Next
 

@@ -164,9 +164,9 @@ export function matchSegments(
       if (seg.value !== part) return null;
     } else if (seg.kind === 'splat') {
       if (params === null) params = {};
-      params[seg.value] = normalizeCapturedSplatParts(urlParts
-        .slice(i)
-        .map(decodeRouteParam)).join('/');
+      params[seg.value] = normalizeCapturedSplatParts(
+        urlParts.slice(i).map(decodeRouteParam)
+      ).join('/');
       return params;
     } else {
       if (params === null) params = {};

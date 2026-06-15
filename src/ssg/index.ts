@@ -22,6 +22,11 @@
 
 export { createStaticGen } from './create-static-gen';
 export type {
+  DocumentRenderArgs,
+  DocumentRenderContext,
+  DocumentRenderer,
+} from '../common/ssr';
+export type {
   RouteConfig,
   RouteRenderReason,
   SSGOptions,

@@ -3,6 +3,7 @@
  */
 
 import type { ComponentFunction } from '../common/component';
+import type { DocumentRenderer } from '../common/ssr';
 import type {
   RouteAuthMode,
   RouteHandler,
@@ -86,6 +87,8 @@ export interface SSGOptions<
   seed?: number;
   /** Optional override data for resources (route-keyed) */
   dataOverrides?: Record<string, unknown>;
+  /** Optional document wrapper for full HTML output */
+  document?: DocumentRenderer;
   /** Optional concurrency limit for rendering (default: 10) */
   concurrency?: number;
   /** Preferred render parallelism. `'auto'` resolves from the host machine. */

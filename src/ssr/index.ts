@@ -13,7 +13,13 @@
 import type { JSXElement } from '../common/jsx';
 import { getPublicAttributeName } from '../common/attr-names';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
-import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
+import {
+  SSR_RENDER_DATA_ATTR,
+  type DocumentRenderArgs,
+  type DocumentRenderContext,
+  type DocumentRenderer,
+  renderDocument,
+} from '../common/ssr';
 import { isPromiseLike } from '../common/promise';
 import type {
   RouteAuthOptions,
@@ -114,6 +120,11 @@ installSSRBridge({
 });
 
 export { SSRDataMissingError } from './context';
+export type {
+  DocumentRenderArgs,
+  DocumentRenderContext,
+  DocumentRenderer,
+} from '../common/ssr';
 export type { VNode, SSRComponent } from './types';
 export { renderResolvedToStringSync } from './render-resolved';
 
@@ -1316,7 +1327,7 @@ export async function resolveRequest(
 }
 
 // --- Streaming sink-based renderer (v2) --------------------------------------------------
-import { StringSink, StreamSink } from './sink';
+import { StringSink, StreamSink, type RenderSink } from './sink';
 import { startRenderPhase, stopRenderPhase } from './render-keys';
 import { Component } from './stream-render';
 
@@ -1326,82 +1337,99 @@ export type SSRRoute = {
   namespace?: string;
 };
 
-export function renderToString(
-  component: (
-    props?: Record<string, unknown>
-  ) => VNode | JSXElement | string | number | null
-): string;
-export function renderToString(opts: {
+type RouteRenderOptions = {
   url: string;
   routes: SSRRoute[];
   seed?: number;
   data?: SSRData;
-}): string;
-export function renderToString(arg: unknown): string {
-  // Convenience: if a component function is passed, delegate to sync render
-  if (typeof arg === 'function') {
-    return renderToStringSync(
-      arg as (
-        props?: Record<string, unknown>
-      ) => VNode | JSXElement | string | number | null
-    );
-  }
-  const opts = arg as {
-    url: string;
-    routes: SSRRoute[];
-    seed?: number;
-    data?: SSRData;
-  };
-  const sink = new StringSink();
-  renderToSinkInternal({ ...opts, sink });
-  sink.end();
-  return sink.toString();
-}
+  document?: DocumentRenderer;
+};
 
-export function renderToStream(opts: {
-  url: string;
-  routes: SSRRoute[];
-  seed?: number;
-  data?: SSRData;
+type RouteStreamOptions = RouteRenderOptions & {
   onChunk(html: string): void;
   onComplete(): void;
-}): void {
-  const sink = new StreamSink(opts.onChunk, opts.onComplete);
-  renderToSinkInternal({ ...opts, sink });
-  sink.end();
-}
+};
 
-function renderToSinkInternal(opts: {
+type ResolvedSSRRouteRender = {
   url: string;
-  routes: SSRRoute[];
-  seed?: number;
+  requestUrl: URL;
+  route: SSRRoute;
+  params: Record<string, string>;
+  seed: number;
   data?: SSRData;
-  sink: { write(html: string): void; end(): void };
-}) {
-  const { url, routes, seed = 12345, data, sink } = opts;
+  ctx: RenderContext;
+  document?: DocumentRenderer;
+};
 
+function resolveSSRRouteRender(
+  opts: RouteRenderOptions
+): ResolvedSSRRouteRender {
+  const { url, routes, seed = 12345, data, document } = opts;
   const routeTable = routes.map((route) => ({ ...route }));
   const requestUrl = new URL(url, 'http://localhost');
-  const resolved = RouteModule.resolveRouteFromRoutes(
+  const matched = RouteModule._resolveRouteMatchFromRoutes(
     requestUrl.pathname,
     routeTable
   );
-  if (!resolved) throw new Error(`SSR: no route found for url: ${url}`);
+  if (!matched) throw new Error(`SSR: no route found for url: ${url}`);
 
   const ctx = createRenderContext(seed, {
     url,
     data,
-    params: resolved.params,
+    params: matched.params,
     routes: routeTable,
   });
+
+  return {
+    url,
+    requestUrl,
+    route: matched.route,
+    params: matched.params,
+    seed,
+    data,
+    ctx,
+    document,
+  };
+}
+
+function buildDocumentRenderArgs(
+  resolved: ResolvedSSRRouteRender,
+  appHtml: string
+): DocumentRenderArgs {
+  const context: DocumentRenderContext = {
+    mode: 'ssr',
+    url: resolved.url,
+    pathname: resolved.requestUrl.pathname,
+    search: resolved.requestUrl.search,
+    hash: resolved.requestUrl.hash,
+    params: resolved.params,
+    data: resolved.data,
+    seed: resolved.seed,
+    route: {
+      path: resolved.route.path,
+      namespace: resolved.route.namespace,
+    },
+  };
+
+  return {
+    appHtml,
+    context,
+  };
+}
+
+function renderResolvedRouteAppToSink(
+  resolved: ResolvedSSRRouteRender,
+  sink: RenderSink
+): void {
+  const { ctx, data, route, params } = resolved;
 
   withRenderContext(ctx, () => {
     // Start render-phase keying so resource() can lookup resolved `data` by key
     startRenderPhase(data || null);
     try {
       const node = executeComponentSync(
-        resolved.handler as unknown as Component,
-        resolved.params,
+        route.handler as unknown as Component,
+        params,
         ctx
       );
       renderNodeSyncToSink(node, sink, ctx);
@@ -1414,4 +1442,53 @@ function renderToSinkInternal(opts: {
       }
     }
   });
+}
+
+export function renderToString(
+  component: (
+    props?: Record<string, unknown>
+  ) => VNode | JSXElement | string | number | null
+): string;
+export function renderToString(opts: RouteRenderOptions): string;
+export function renderToString(arg: unknown): string {
+  // Convenience: if a component function is passed, delegate to sync render
+  if (typeof arg === 'function') {
+    return renderToStringSync(
+      arg as (
+        props?: Record<string, unknown>
+      ) => VNode | JSXElement | string | number | null
+    );
+  }
+  const opts = arg as RouteRenderOptions;
+  const sink = new StringSink();
+  renderToSinkInternal({ ...opts, sink });
+  sink.end();
+  return sink.toString();
+}
+
+export function renderToStream(opts: RouteStreamOptions): void {
+  const sink = new StreamSink(opts.onChunk, opts.onComplete);
+  renderToSinkInternal({ ...opts, sink });
+  sink.end();
+}
+
+function renderToSinkInternal(opts: RouteRenderOptions & { sink: RenderSink }) {
+  const { sink, ...renderOptions } = opts;
+  const resolved = resolveSSRRouteRender(renderOptions);
+
+  if (!resolved.document) {
+    renderResolvedRouteAppToSink(resolved, sink);
+    return;
+  }
+
+  const appSink = new StringSink();
+  renderResolvedRouteAppToSink(resolved, appSink);
+  appSink.end();
+  sink.write(
+    renderDocument(
+      resolved.document,
+      buildDocumentRenderArgs(resolved, appSink.toString()),
+      'renderToString()/renderToStream()'
+    )
+  );
 }

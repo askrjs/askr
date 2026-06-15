@@ -186,9 +186,7 @@ describe('path validation', () => {
   });
 
   it('should reject empty named splats', () => {
-    expect(() => route('/files/{*}', () => null)).toThrow(
-      /splat.*name/i
-    );
+    expect(() => route('/files/{*}', () => null)).toThrow(/splat.*name/i);
   });
 
   it('should reject reserved named splat parameters', () => {
