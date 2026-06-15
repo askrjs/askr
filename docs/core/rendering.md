@@ -40,6 +40,26 @@ const html = renderToString({ url: '/users/42?q=active', routes });
 The URL is parsed and matched against registered routes. The matched component renders
 to an HTML string.
 
+To keep route handlers app-only, pass a `document` callback that wraps the
+rendered app HTML into a full document:
+
+```tsx
+const document = ({ appHtml, context }) => `<!doctype html>
+<html lang="en">
+  <head>
+    <title>${context.pathname}</title>
+  </head>
+  <body>
+    ${appHtml}
+  </body>
+</html>`;
+
+const html = renderToString({ url: '/users/42?q=active', routes, document });
+```
+
+When `document` is used with `renderToStream()`, Askr buffers the app HTML
+before emitting the wrapped document output.
+
 ### Client hydration
 
 ```ts
@@ -73,6 +93,17 @@ const ssg = createStaticGen({
 
 const result = await ssg.generate();
 console.log(result.successful, result.totalRoutes);
+```
+
+SSG accepts the same `document` callback, which keeps the route table shared
+across SPA, SSR, and SSG while userland still owns the actual HTML template.
+
+```ts
+const ssg = createStaticGen({
+  routes,
+  outputDir: './dist/static',
+  document,
+});
 ```
 
 ### CLI SSG

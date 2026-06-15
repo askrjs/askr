@@ -27,15 +27,50 @@ Use the URL-based helpers when the server should resolve routes explicitly:
 import { renderToString } from '@askrjs/askr/ssr';
 
 const html = renderToString({
-	url: '/users/42"q=active',
-	routes: [
-		{
-			path: '/users/{id}',
-			handler: ({ id }) => <div>User {id}</div>,
-		},
-	],
+  url: '/users/42?q=active',
+  routes: [
+    {
+      path: '/users/{id}',
+      handler: ({ id }) => <div>User {id}</div>,
+    },
+  ],
 });
 ```
+
+## Document rendering boundary
+
+Keep shared route tables app-only by passing a document renderer at the SSR boundary:
+
+```ts
+import { renderToString } from '@askrjs/askr/ssr';
+
+const routes = [
+  {
+    path: '/',
+    handler: () => <main>Hello</main>,
+  },
+];
+
+const html = renderToString({
+  url: '/',
+  routes,
+  document: ({ appHtml, context }) => `<!doctype html>
+<html lang="en">
+  <head>
+    <title>${context.pathname}</title>
+  </head>
+  <body>
+    ${appHtml}
+  </body>
+</html>`,
+});
+```
+
+The `document` callback receives the rendered app HTML plus route context such as
+`pathname`, `params`, `search`, `hash`, `data`, and the matched route template.
+
+When you pass `document` to `renderToStream()`, Askr buffers the app HTML first,
+applies the callback, then emits the wrapped document output.
 
 ## Related topics
 

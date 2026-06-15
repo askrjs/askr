@@ -159,6 +159,46 @@ describe('Static Site Generation', () => {
       expect(content).toContain('Home');
     });
 
+    it('should wrap route output with a document renderer before writing files', async () => {
+      let seenContext: Record<string, unknown> | null = null;
+      const ssg = createStaticGen({
+        routes: [{ path: '/', component: Home }],
+        outputDir: tempDir,
+        document: ({
+          appHtml,
+          context,
+        }: {
+          appHtml: string;
+          context: Record<string, unknown>;
+        }) => {
+          seenContext = context;
+          return `<!doctype html><html><body data-path="${String(
+            context.pathname
+          )}">${appHtml}</body></html>`;
+        },
+      });
+
+      const result = await ssg.generate();
+      const indexFile = path.join(tempDir, 'index.html');
+      const content = fs.readFileSync(indexFile, 'utf8');
+
+      expect(result.routes[0].html).toBe(content);
+      expect(content).toContain('<!doctype html>');
+      expect(content).toContain('<body data-path="/">');
+      expect(seenContext).toMatchObject({
+        mode: 'ssg',
+        url: '/',
+        pathname: '/',
+        search: '',
+        hash: '',
+        params: {},
+        seed: 12345,
+        route: {
+          path: '/',
+        },
+      });
+    });
+
     it('should generate HTML for nested routes', async () => {
       const ssg = createStaticGen({
         routes: [
@@ -222,6 +262,66 @@ describe('Static Site Generation', () => {
       ).toBe(true);
       expect(result.routes[0].html).toContain('first-post');
       expect(result.routes[1].html).toContain('second-post');
+    });
+
+    it('should pass concrete paths and template paths to the SSG document renderer', async () => {
+      const contexts: Array<Record<string, unknown>> = [];
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/blog/{slug}',
+            component: BlogPost,
+            entries: async () => [{ slug: 'first-post' }],
+          },
+        ],
+        outputDir: tempDir,
+        document: ({
+          appHtml,
+          context,
+        }: {
+          appHtml: string;
+          context: Record<string, unknown>;
+        }) => {
+          contexts.push(context);
+          return `<html><body>${appHtml}</body></html>`;
+        },
+      });
+
+      const result = await ssg.generate();
+
+      expect(contexts).toHaveLength(1);
+      expect(contexts[0]).toMatchObject({
+        mode: 'ssg',
+        url: '/blog/first-post',
+        pathname: '/blog/first-post',
+        search: '',
+        hash: '',
+        params: { slug: 'first-post' },
+        seed: 12345,
+        route: {
+          path: '/blog/{slug}',
+        },
+      });
+      expect(result.routes[0].html).toContain('<html><body>');
+      expect(result.routes[0].html).toContain('first-post');
+    });
+
+    it('should report a clear error when the document renderer returns a non-string', async () => {
+      const ssg = createStaticGen({
+        routes: [{ path: '/', component: Home }],
+        outputDir: tempDir,
+        document: (() => Promise.resolve('<html></html>')) as never,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.failed).toBe(1);
+      expect(result.routes[0]).toMatchObject({
+        status: 'error',
+        error: expect.stringMatching(
+          /document\(\) must synchronously return a string/i
+        ),
+      });
     });
 
     it('should render multiple routes', async () => {

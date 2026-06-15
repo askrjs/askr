@@ -16,13 +16,13 @@ describe('testing public API', () => {
       route('/admin/buckets/{bucket}/files/{*path}', () => 'folder');
       const manifest = getManifest();
 
-      expect(
-        matchRoute('/admin/buckets/main/files/a/b', { manifest })
-      ).toEqual({
-        path: '/admin/buckets/{bucket}/files/{*path}',
-        params: { bucket: 'main', path: 'a/b' },
-        namespace: undefined,
-      });
+      expect(matchRoute('/admin/buckets/main/files/a/b', { manifest })).toEqual(
+        {
+          path: '/admin/buckets/{bucket}/files/{*path}',
+          params: { bucket: 'main', path: 'a/b' },
+          namespace: undefined,
+        }
+      );
       expect(matchRoute('/missing', { manifest })).toBeNull();
     } finally {
       clearRoutes();

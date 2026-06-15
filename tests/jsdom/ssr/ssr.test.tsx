@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { For } from '../../../src/control';
-import { route } from '../../../src/router/route';
+import {
+  clearRoutes,
+  fallback,
+  getRoutes,
+  route,
+} from '../../../src/router/route';
 import {
   renderToStringSync,
   renderToString,
@@ -124,6 +129,106 @@ describe('SSR strict purity', () => {
     };
 
     expect(() => renderToStringSync(() => Component())).toThrow();
+  });
+});
+
+describe('SSR document boundary', () => {
+  it('should keep route-based HTML unchanged when no document renderer is provided', () => {
+    const routes = [
+      {
+        path: '/users/{id}',
+        handler: ({ id }: { id: string }) => <main>User {id}</main>,
+      },
+    ];
+
+    expect(renderToString({ url: '/users/42', routes })).toBe(
+      '<main>User 42</main>'
+    );
+  });
+
+  it('should wrap route-based HTML with document context when provided', () => {
+    const routes = [
+      {
+        path: '/users/{id}',
+        namespace: 'app',
+        handler: ({ id }: { id: string }) => <main>User {id}</main>,
+      },
+    ];
+    const data = { greeting: 'hi' };
+    let seenContext: Record<string, unknown> | null = null;
+    const document = ({
+      appHtml,
+      context,
+    }: {
+      appHtml: string;
+      context: Record<string, unknown>;
+    }) => {
+      seenContext = context;
+      return `<!doctype html><html><body>${appHtml}</body></html>`;
+    };
+
+    const appHtml = renderToString({
+      url: '/users/42?tab=activity#top',
+      routes,
+      data,
+    });
+    const wrappedHtml = renderToString({
+      url: '/users/42?tab=activity#top',
+      routes,
+      data,
+      document,
+    });
+
+    expect(wrappedHtml).toBe(
+      `<!doctype html><html><body>${appHtml}</body></html>`
+    );
+    expect(seenContext).toMatchObject({
+      mode: 'ssr',
+      url: '/users/42?tab=activity#top',
+      pathname: '/users/42',
+      search: '?tab=activity',
+      hash: '#top',
+      params: { id: '42' },
+      data,
+      seed: 12345,
+      route: {
+        path: '/users/{id}',
+        namespace: 'app',
+      },
+    });
+  });
+
+  it('should preserve fallback matching for shared route tables', () => {
+    clearRoutes();
+    try {
+      route('/home', () => <div>{'home'}</div>);
+      fallback((params: Record<string, string>) => (
+        <div>{`root-missing:${params['*']}`}</div>
+      ));
+
+      const html = renderToString({
+        url: '/outside/deeper',
+        routes: getRoutes(),
+      });
+
+      expect(html).toContain('root-missing:/outside/deeper');
+      expect(html).not.toContain('home');
+    } finally {
+      clearRoutes();
+    }
+  });
+
+  it('should throw a clear error when the document renderer does not return a string', () => {
+    const routes = [{ path: '/', handler: () => <main>Hello</main> }];
+
+    expect(() =>
+      renderToString({
+        url: '/',
+        routes,
+        document: (() =>
+          Promise.resolve('<html><body>Hello</body></html>')) as never,
+      })
+    ).toThrow(/document\(\) must synchronously return a string/i);
   });
 });
 

@@ -110,9 +110,7 @@ describe('data layer', () => {
     expect(admin.key(['a', 1, true, null, undefined])).not.toBe(
       admin.key(['a', '1', 'true', 'null', 'undefined'])
     );
-    expect(admin.key({ q: 'x', page: 2 })).toBe(
-      admin.key({ page: 2, q: 'x' })
-    );
+    expect(admin.key({ q: 'x', page: 2 })).toBe(admin.key({ page: 2, q: 'x' }));
   });
 
   it('should reject empty or whitespace-only query scope namespaces', () => {

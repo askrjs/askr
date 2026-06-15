@@ -243,6 +243,7 @@ export function createStaticGen<
               seed,
               dataMap,
               concurrency: resolvedConcurrency,
+              document: options.document,
             })
           : [];
       addPerfDuration('ssgRenderTimeMs', performance.now() - renderStartTime);

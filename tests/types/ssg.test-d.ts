@@ -1,6 +1,9 @@
 import { expectAssignable, expectType } from 'tsd';
 import {
   createStaticGen,
+  type DocumentRenderArgs,
+  type DocumentRenderContext,
+  type DocumentRenderer,
   type DiscoveredResources,
   type RouteConfig,
   type RouteRenderReason,
@@ -32,6 +35,31 @@ const generatedRouteConfig: RouteConfig<'/posts/{slug}'> = {
 };
 expectAssignable<RouteConfig<'/posts/{slug}'>>(generatedRouteConfig);
 
+const documentRenderer: DocumentRenderer = ({ appHtml, context }) => {
+  expectType<string>(appHtml);
+  expectType<DocumentRenderContext>(context);
+  return `<html>${appHtml}</html>`;
+};
+expectAssignable<DocumentRenderer>(documentRenderer);
+
+const documentArgs: DocumentRenderArgs = {
+  appHtml: '<main>ok</main>',
+  context: {
+    mode: 'ssg',
+    url: '/posts/generated-post',
+    pathname: '/posts/generated-post',
+    search: '',
+    hash: '',
+    params: { slug: 'generated-post' },
+    data: { title: 'Generated Post' },
+    seed: 12345,
+    route: {
+      path: '/posts/{slug}',
+    },
+  },
+};
+expectType<string>(documentRenderer(documentArgs));
+
 createStaticGen({
   routes: [
     {
@@ -41,11 +69,13 @@ createStaticGen({
     },
   ],
   outputDir: './dist',
+  document: documentRenderer,
 });
 
 const options: SSGOptions = {
   routes: [{ path: '/', handler: () => 'home' }, routeConfig],
   outputDir: './dist',
+  document: documentRenderer,
   parallelism: 'auto',
 };
 expectAssignable<SSGOptions>(options);
