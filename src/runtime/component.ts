@@ -67,6 +67,7 @@ export interface ComponentInstance {
   _currentRenderToken?: number; // Token for the in-progress render (set before render)
   lastRenderToken?: number; // Token of the last *committed* render
   _pendingReadSources?: Set<ReadableSource<unknown>>; // Readables read during the in-progress render
+  _pendingReadSourceVersions?: Map<ReadableSource<unknown>, number>; // Source versions captured during the in-progress render
   _lastReadSources?: Set<ReadableSource<unknown>>; // Readables read during the last committed render
   devWarningsEmitted?: Set<string>; // Dev-only warning dedupe for this instance
 
@@ -124,6 +125,7 @@ export function createComponentInstance(
     _currentRenderToken: undefined,
     lastRenderToken: 0,
     _pendingReadSources: undefined,
+    _pendingReadSourceVersions: undefined,
     _lastReadSources: undefined,
     devWarningsEmitted: undefined,
   };
@@ -210,6 +212,9 @@ type ReadSubscriptionCommit = {
   instance: ComponentInstance;
   token: number;
   pendingReadSources: Set<ReadableSource<unknown>> | undefined;
+  pendingReadSourceVersions:
+    | Map<ReadableSource<unknown>, number>
+    | undefined;
 };
 
 type InlineRenderSnapshot = {
@@ -279,18 +284,25 @@ function enqueueReadSubscriptionCommit(
   batch: LifecycleCommitBatch,
   instance: ComponentInstance,
   token: number,
-  pendingReadSources: Set<ReadableSource<unknown>> | undefined
+  pendingReadSources: Set<ReadableSource<unknown>> | undefined,
+  pendingReadSourceVersions:
+    | Map<ReadableSource<unknown>, number>
+    | undefined
 ): void {
   const existing = batch.readCommitsByInstance.get(instance);
   const commit = existing ?? {
     instance,
     token,
     pendingReadSources,
+    pendingReadSourceVersions,
   };
 
   commit.token = token;
   commit.pendingReadSources = pendingReadSources
     ? new Set(pendingReadSources)
+    : undefined;
+  commit.pendingReadSourceVersions = pendingReadSourceVersions
+    ? new Map(pendingReadSourceVersions)
     : undefined;
 
   if (!existing) {
@@ -329,14 +341,18 @@ export function captureInlineRenderSnapshot(instance: ComponentInstance): void {
 function finalizeInlineReadSubscriptions(
   instance: ComponentInstance,
   token: number,
-  pendingReadSources: Set<ReadableSource<unknown>> | undefined
+  pendingReadSources: Set<ReadableSource<unknown>> | undefined,
+  pendingReadSourceVersions:
+    | Map<ReadableSource<unknown>, number>
+    | undefined
 ): void {
   if (currentLifecycleCommitBatch?.active) {
     enqueueReadSubscriptionCommit(
       currentLifecycleCommitBatch,
       instance,
       token,
-      pendingReadSources
+      pendingReadSources,
+      pendingReadSourceVersions
     );
     return;
   }
@@ -344,7 +360,8 @@ function finalizeInlineReadSubscriptions(
   finalizeReadableSubscriptionsFromSnapshot(
     instance,
     token,
-    pendingReadSources
+    pendingReadSources,
+    pendingReadSourceVersions
   );
 }
 
@@ -362,7 +379,8 @@ function flushLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
         batch.parent,
         commit.instance,
         commit.token,
-        commit.pendingReadSources
+        commit.pendingReadSources,
+        commit.pendingReadSourceVersions
       );
     }
     for (const entry of batch.entries) {
@@ -375,7 +393,8 @@ function flushLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
     finalizeReadableSubscriptionsFromSnapshot(
       commit.instance,
       commit.token,
-      commit.pendingReadSources
+      commit.pendingReadSources,
+      commit.pendingReadSourceVersions
     );
   }
 
@@ -595,6 +614,7 @@ function resetRenderState(instance: ComponentInstance): void {
   }
 
   instance._pendingReadSources = undefined;
+  instance._pendingReadSourceVersions = undefined;
 }
 
 function nextRenderToken(): number {
@@ -631,6 +651,7 @@ export function renderScopedComponent<T>(
   } finally {
     if (!didComplete) {
       instance._pendingReadSources = undefined;
+      instance._pendingReadSourceVersions = undefined;
       instance._currentRenderToken = undefined;
     }
     currentInstance = savedInstance;
@@ -903,11 +924,14 @@ export function renderComponentInline(
   const hadToken = instance._currentRenderToken !== undefined;
   const prevToken = instance._currentRenderToken;
   const prevPendingReads = instance._pendingReadSources;
+  const prevPendingReadVersions = instance._pendingReadSourceVersions;
   const savedInstance = currentInstance;
   const savedPortalScope = currentPortalScope;
+
   if (!hadToken) {
     instance._currentRenderToken = nextRenderToken();
     instance._pendingReadSources = undefined;
+    instance._pendingReadSourceVersions = undefined;
   }
 
   try {
@@ -919,7 +943,8 @@ export function renderComponentInline(
       finalizeInlineReadSubscriptions(
         instance,
         instance._currentRenderToken!,
-        instance._pendingReadSources
+        instance._pendingReadSources,
+        instance._pendingReadSourceVersions
       );
     }
     commitRenderedComponent(instance);
@@ -928,6 +953,7 @@ export function renderComponentInline(
     // Restore previous token/read states for nested inline render scenarios
     instance._currentRenderToken = prevToken;
     instance._pendingReadSources = prevPendingReads;
+    instance._pendingReadSourceVersions = prevPendingReadVersions;
     currentInstance = savedInstance;
     currentPortalScope = savedPortalScope;
   }

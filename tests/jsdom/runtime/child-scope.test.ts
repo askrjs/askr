@@ -5,8 +5,13 @@ import {
   createComponentInstance,
   renderScopedComponent,
 } from '../../../src/runtime/component';
-import type { ReadableSource } from '../../../src/runtime/readable';
+import {
+  notifyReadableReaders,
+  recordReadableRead,
+  type ReadableSource,
+} from '../../../src/runtime/readable';
 import { state, type State } from '../../../src/runtime/state';
+import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 type ReaderTracked = {
   _readers?: Map<unknown, unknown>;
@@ -92,5 +97,41 @@ describe('child scope runtime', () => {
     expect((rightSignal as unknown as ReaderTracked)._readers?.size ?? 0).toBe(
       0
     );
+  });
+
+  it('should replay a child scope update through the scope flush task when a readable changes during render', () => {
+    const parent = createComponentInstance('parent', () => null, {}, null);
+    let content = 'Loading';
+    let dirtyCount = 0;
+
+    const topology = (() => {
+      recordReadableRead(topology as unknown as ReadableSource<string>);
+      return content;
+    }) as ReadableSource<string>;
+
+    const scope = createChildScope(parent, 'topology', () => {
+      dirtyCount += 1;
+    });
+
+    scope.render(() => {
+      const value = topology();
+
+      if (value === 'Loading') {
+        content = 'Ready';
+        notifyReadableReaders(topology);
+      }
+
+      return value;
+    });
+
+    expect(scope.vnode).toBe('Loading');
+    expect(dirtyCount).toBe(0);
+
+    flushScheduler();
+
+    expect(scope.vnode).toBe('Ready');
+    expect(dirtyCount).toBe(1);
+
+    cleanupComponent(parent);
   });
 });
