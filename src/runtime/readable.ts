@@ -12,6 +12,7 @@ export interface ReadableSource<T = unknown> {
   _hasEverBeenRead?: boolean;
   _readers?: Map<ComponentInstance, number>;
   _derivedSubscribers?: Set<DerivedSubscriber>;
+  _version?: number;
 }
 
 export function markReadableUsage(source: unknown): void {
@@ -33,6 +34,24 @@ type RendererBridge = {
 let currentDerivedSubscriber: DerivedSubscriber | null = null;
 let suppressComponentReadTrackingDepth = 0;
 let currentFineGrainedReadSources: Set<ReadableSource<unknown>> | null = null;
+
+function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
+  if (instance.hasPendingUpdate) {
+    return;
+  }
+
+  instance.hasPendingUpdate = true;
+  const task = instance._pendingFlushTask;
+  if (task) {
+    globalScheduler.enqueue(task);
+    return;
+  }
+
+  globalScheduler.enqueue(() => {
+    instance.hasPendingUpdate = false;
+    instance.notifyUpdate?.();
+  });
+}
 
 export function recordReadableRead(source: ReadableSource<unknown>): void {
   source._hasEverBeenRead = true;
@@ -62,6 +81,14 @@ export function recordReadableRead(source: ReadableSource<unknown>): void {
     inst._pendingReadSources = new Set();
   }
   inst._pendingReadSources.add(source);
+
+  const sourceVersion = source._version ?? 0;
+  let pendingVersions = inst._pendingReadSourceVersions;
+  if (!pendingVersions) {
+    pendingVersions = new Map();
+    inst._pendingReadSourceVersions = pendingVersions;
+  }
+  pendingVersions.set(source, sourceVersion);
 }
 
 export function withFineGrainedReadTracking<T>(
@@ -83,22 +110,34 @@ export function finalizeReadableSubscriptions(
 ): void {
   const newSet = instance._pendingReadSources;
   const token = instance._currentRenderToken;
+  const pendingVersions = instance._pendingReadSourceVersions;
 
-  finalizeReadableSubscriptionsFromSnapshot(instance, token, newSet);
+  finalizeReadableSubscriptionsFromSnapshot(
+    instance,
+    token,
+    newSet,
+    pendingVersions
+  );
   instance._pendingReadSources = undefined;
   instance._currentRenderToken = undefined;
+  instance._pendingReadSourceVersions = undefined;
 }
 
 export function finalizeReadableSubscriptionsFromSnapshot(
   instance: ComponentInstance,
   token: number | undefined,
-  newSet: Set<ReadableSource<unknown>> | undefined
+  newSet: Set<ReadableSource<unknown>> | undefined,
+  pendingReadSourceVersions:
+    | Map<ReadableSource<unknown>, number>
+    | undefined = instance._pendingReadSourceVersions
 ): void {
   if (token === undefined) {
     return;
   }
 
   const oldSet = instance._lastReadSources;
+  const pendingVersions = pendingReadSourceVersions;
+  let needsFollowUpUpdate = false;
 
   if (oldSet) {
     for (const source of oldSet) {
@@ -112,6 +151,17 @@ export function finalizeReadableSubscriptionsFromSnapshot(
 
   if (newSet) {
     for (const source of newSet) {
+      // Replay only for sources already owned by this instance, or for its
+      // first committed read set. Newly entered branches in mounted components
+      // keep their existing scheduler-visible intermediate states.
+      if (pendingVersions && (!oldSet || oldSet.has(source))) {
+        const sourceVersion = source._version ?? 0;
+        const readVersion = pendingVersions.get(source);
+        if (readVersion !== undefined && sourceVersion !== readVersion) {
+          needsFollowUpUpdate = true;
+        }
+      }
+
       let readers = source._readers;
       if (!readers) {
         readers = new Map();
@@ -122,6 +172,10 @@ export function finalizeReadableSubscriptionsFromSnapshot(
   }
 
   instance._lastReadSources = newSet ?? new Set();
+
+  if (needsFollowUpUpdate) {
+    scheduleReadableInstanceUpdate(instance);
+  }
 }
 
 export function cleanupReadableSubscriptions(
@@ -129,6 +183,8 @@ export function cleanupReadableSubscriptions(
 ): void {
   const sources = instance._lastReadSources;
   if (!sources || sources.size === 0) {
+    instance._pendingReadSources = undefined;
+    instance._pendingReadSourceVersions = undefined;
     return;
   }
 
@@ -136,6 +192,8 @@ export function cleanupReadableSubscriptions(
     source._readers?.delete(instance);
   }
   instance._lastReadSources = new Set();
+  instance._pendingReadSources = undefined;
+  instance._pendingReadSourceVersions = undefined;
 }
 
 export function withDerivedReadTracking<T>(
@@ -216,6 +274,7 @@ export function notifyReadableReaders(
   source: ReadableSource<unknown>,
   skipInstance?: ComponentInstance | null
 ): boolean {
+  source._version = (source._version ?? 0) + 1;
   const readers = source._readers;
   let didScheduleUpdate = false;
 
@@ -234,16 +293,7 @@ export function notifyReadableReaders(
       continue;
     }
 
-    instance.hasPendingUpdate = true;
-    const task = instance._pendingFlushTask;
-    if (task) {
-      globalScheduler.enqueue(task);
-    } else {
-      globalScheduler.enqueue(() => {
-        instance.hasPendingUpdate = false;
-        instance.notifyUpdate?.();
-      });
-    }
+    scheduleReadableInstanceUpdate(instance);
     didScheduleUpdate = true;
   }
 
