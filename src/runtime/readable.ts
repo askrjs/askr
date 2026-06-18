@@ -35,6 +35,24 @@ let currentDerivedSubscriber: DerivedSubscriber | null = null;
 let suppressComponentReadTrackingDepth = 0;
 let currentFineGrainedReadSources: Set<ReadableSource<unknown>> | null = null;
 
+function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
+  if (instance.hasPendingUpdate) {
+    return;
+  }
+
+  instance.hasPendingUpdate = true;
+  const task = instance._pendingFlushTask;
+  if (task) {
+    globalScheduler.enqueue(task);
+    return;
+  }
+
+  globalScheduler.enqueue(() => {
+    instance.hasPendingUpdate = false;
+    instance.notifyUpdate?.();
+  });
+}
+
 export function recordReadableRead(source: ReadableSource<unknown>): void {
   source._hasEverBeenRead = true;
 
@@ -156,7 +174,7 @@ export function finalizeReadableSubscriptionsFromSnapshot(
   instance._lastReadSources = newSet ?? new Set();
 
   if (needsFollowUpUpdate) {
-    instance.notifyUpdate?.();
+    scheduleReadableInstanceUpdate(instance);
   }
 }
 
@@ -275,16 +293,7 @@ export function notifyReadableReaders(
       continue;
     }
 
-    instance.hasPendingUpdate = true;
-    const task = instance._pendingFlushTask;
-    if (task) {
-      globalScheduler.enqueue(task);
-    } else {
-      globalScheduler.enqueue(() => {
-        instance.hasPendingUpdate = false;
-        instance.notifyUpdate?.();
-      });
-    }
+    scheduleReadableInstanceUpdate(instance);
     didScheduleUpdate = true;
   }
 
