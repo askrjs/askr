@@ -212,9 +212,7 @@ type ReadSubscriptionCommit = {
   instance: ComponentInstance;
   token: number;
   pendingReadSources: Set<ReadableSource<unknown>> | undefined;
-  pendingReadSourceVersions:
-    | Map<ReadableSource<unknown>, number>
-    | undefined;
+  pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined;
 };
 
 type InlineRenderSnapshot = {
@@ -285,9 +283,7 @@ function enqueueReadSubscriptionCommit(
   instance: ComponentInstance,
   token: number,
   pendingReadSources: Set<ReadableSource<unknown>> | undefined,
-  pendingReadSourceVersions:
-    | Map<ReadableSource<unknown>, number>
-    | undefined
+  pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined
 ): void {
   const existing = batch.readCommitsByInstance.get(instance);
   const commit = existing ?? {
@@ -342,9 +338,7 @@ function finalizeInlineReadSubscriptions(
   instance: ComponentInstance,
   token: number,
   pendingReadSources: Set<ReadableSource<unknown>> | undefined,
-  pendingReadSourceVersions:
-    | Map<ReadableSource<unknown>, number>
-    | undefined
+  pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined
 ): void {
   if (currentLifecycleCommitBatch?.active) {
     enqueueReadSubscriptionCommit(

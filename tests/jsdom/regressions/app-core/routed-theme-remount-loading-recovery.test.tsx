@@ -72,7 +72,10 @@ describe('routed theme remount loading recovery', () => {
       return (
         <div data-theme={phase() % 2 === 0 ? 'light' : 'dark'}>
           <header>
-            <button type="button" onClick={() => phase.set((value) => value + 1)}>
+            <button
+              type="button"
+              onClick={() => phase.set((value) => value + 1)}
+            >
               Toggle theme
             </button>
           </header>
@@ -92,9 +95,12 @@ describe('routed theme remount loading recovery', () => {
     await createSPA({ root: container, manifest: getManifest() });
     flushScheduler();
 
-    const toggle = container.querySelector('button') as HTMLButtonElement | null;
+    const toggle = container.querySelector(
+      'button'
+    ) as HTMLButtonElement | null;
     const page = () =>
-      container.querySelector('[data-testid="topology-page"]')
+      container
+        .querySelector('[data-testid="topology-page"]')
         ?.textContent?.trim() ?? '';
 
     expect(step).toBe(0);
@@ -114,8 +120,8 @@ describe('routed theme remount loading recovery', () => {
     expect(step).toBe(2);
     expect(window.location.pathname).toBe('/example');
     expect(page()).toBe('Messaging topology');
-    expect(container.querySelector('[data-theme]')?.getAttribute('data-theme')).toBe(
-      'light'
-    );
+    expect(
+      container.querySelector('[data-theme]')?.getAttribute('data-theme')
+    ).toBe('light');
   });
 });
