@@ -120,6 +120,166 @@ describe('strict keyed list guarantees', () => {
     cleanup();
   });
 
+  it('should preserve all keyed component siblings when parent props update', () => {
+    const { container, cleanup } = createTestContainer();
+
+    let setCollapsed: (value: boolean) => void = () => {};
+    const groups = [
+      'app',
+      'get-started',
+      'concepts',
+      'ui',
+      'patterns',
+      'reference',
+    ];
+
+    function Group({ group }: { group: string }) {
+      return (
+        <section data-key={group} data-testid={'group'}>
+          <h2>{group}</h2>
+          <a href={`#${group}-a`}>{`${group} a`}</a>
+          <a href={`#${group}-b`}>{`${group} b`}</a>
+        </section>
+      );
+    }
+
+    const App = () => {
+      const collapsed = state(false);
+      setCollapsed = (value: boolean) => collapsed.set(value);
+
+      return (
+        <aside data-collapsible={collapsed() ? 'icon' : 'none'}>
+          {groups.map((group) => (
+            <Group key={group} group={group} />
+          ))}
+        </aside>
+      ) as unknown as JSXElement;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelectorAll('[data-testid="group"]')).toHaveLength(
+      groups.length
+    );
+
+    setCollapsed(true);
+    flushScheduler();
+
+    expect(container.querySelectorAll('[data-testid="group"]')).toHaveLength(
+      groups.length
+    );
+    expect(
+      Array.from(container.querySelectorAll('[data-testid="group"]')).map(
+        (node) => node.getAttribute('data-key')
+      )
+    ).toEqual(groups);
+
+    setCollapsed(false);
+    flushScheduler();
+
+    expect(container.querySelectorAll('[data-testid="group"]')).toHaveLength(
+      groups.length
+    );
+
+    cleanup();
+  });
+
+  it('should preserve keyed component siblings after unkeyed component prefix updates', () => {
+    const { container, cleanup } = createTestContainer();
+
+    let setCollapsed: (value: boolean) => void = () => {};
+    const groups = [
+      'get-started',
+      'concepts',
+      'ui',
+      'patterns',
+      'reference',
+    ];
+
+    function Part({ children }: { children?: unknown }) {
+      return <div>{children as never}</div>;
+    }
+
+    function MenuButton({ label }: { label: string }) {
+      return (
+        <button type="button">
+          <span>{label}</span>
+        </button>
+      );
+    }
+
+    function AppGroup() {
+      return (
+        <Part>
+          <MenuButton label="Overview" />
+          <MenuButton label="Docs" />
+          <MenuButton label="About" />
+          <MenuButton label="Contact" />
+        </Part>
+      );
+    }
+
+    function Separator() {
+      return <hr />;
+    }
+
+    function Group({ group }: { group: string }) {
+      return (
+        <Part>
+          <h2>{group}</h2>
+          <MenuButton label={`${group} a`} />
+          <MenuButton label={`${group} b`} />
+        </Part>
+      );
+    }
+
+    const App = () => {
+      const collapsed = state(false);
+      setCollapsed = (value: boolean) => collapsed.set(value);
+
+      return (
+        <aside data-collapsible={collapsed() ? 'icon' : 'none'}>
+          <div data-testid="content">
+            <AppGroup />
+            <Separator />
+            {groups.map((group) => (
+              <Group key={group} group={group} />
+            ))}
+          </div>
+        </aside>
+      ) as unknown as JSXElement;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const content = container.querySelector('[data-testid="content"]');
+    expect(content?.children).toHaveLength(groups.length + 2);
+
+    setCollapsed(true);
+    flushScheduler();
+
+    expect(content?.children).toHaveLength(groups.length + 2);
+    expect(Array.from(content?.children ?? []).map((node) => node.textContent))
+      .toEqual([
+        'OverviewDocsAboutContact',
+        '',
+        'get-startedget-started aget-started b',
+        'conceptsconcepts aconcepts b',
+        'uiui aui b',
+        'patternspatterns apatterns b',
+        'referencereference areference b',
+      ]);
+
+    setCollapsed(false);
+    flushScheduler();
+
+    expect(content?.children).toHaveLength(groups.length + 2);
+
+    cleanup();
+  });
+
   it('should preserve keyed row identity across component-boundary reorders', () => {
     const { container, cleanup } = createTestContainer();
 

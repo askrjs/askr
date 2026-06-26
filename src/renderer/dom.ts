@@ -2638,12 +2638,16 @@ function normalizeComponentChildren(result: unknown): unknown[] {
   }
 
   if (Array.isArray(result)) {
-    return result;
+    const children: unknown[] = [];
+    for (const child of result) {
+      children.push(...normalizeComponentChildren(child));
+    }
+    return children;
   }
 
   if (isFragmentVNode(result)) {
     const children = result.props?.children ?? result.children ?? [];
-    return Array.isArray(children) ? children : [children];
+    return normalizeComponentChildren(children);
   }
 
   return [result];
@@ -4092,23 +4096,29 @@ export function updateElementChildren(
   }
 
   if (Array.isArray(children)) {
-    if (trySyncScalarChildSequenceInPlace(el, children)) {
+    const normalizedChildren = normalizeComponentChildren(children) as VNode[];
+
+    if (trySyncScalarChildSequenceInPlace(el, normalizedChildren)) {
       keyedElements.delete(el);
       return;
     }
 
-    if (hasKeyedVNodeChildren(children)) {
+    if (hasKeyedVNodeChildren(normalizedChildren)) {
       const oldKeyMap = getOrBuildDomKeyMap(el);
-      const newKeyMap = reconcileKeyedChildren(el, children, oldKeyMap);
+      const newKeyMap = reconcileKeyedChildren(
+        el,
+        normalizedChildren,
+        oldKeyMap
+      );
       keyedElements.set(el, newKeyMap);
       return;
     }
-    if (isBulkTextFastPathEligible(el, children)) {
-      performBulkTextReplace(el, children);
+    if (isBulkTextFastPathEligible(el, normalizedChildren)) {
+      performBulkTextReplace(el, normalizedChildren);
       keyedElements.delete(el);
       return;
     }
-    updateUnkeyedChildren(el, children as unknown[], forceUpdate);
+    updateUnkeyedChildren(el, normalizedChildren, forceUpdate);
     return;
   }
 
