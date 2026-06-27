@@ -39,6 +39,7 @@ import {
   REACTIVE_CHILDREN_KEY,
   removeElementListeners,
   removeElementReactiveProps,
+  updateElementRef,
   type ReactivePropCleanupEntry,
 } from './cleanup';
 import { incDevCounter, getDevValue } from '../runtime/dev-namespace';
@@ -1883,7 +1884,7 @@ function applyPropsToElement(
     const value = props[key];
     // Handle ref BEFORE isSkippedProp check since it needs special processing
     if (key === 'ref') {
-      applyRef(el, value);
+      updateElementRef(el, value);
       continue;
     }
     if (isSkippedProp(key)) continue;
@@ -1933,25 +1934,6 @@ function applyPropsToElement(
     } else {
       setRenderedAttribute(el, key, String(value));
     }
-  }
-}
-
-type Ref<T> =
-  | ((value: T | null) => void)
-  | { current: T | null }
-  | null
-  | undefined;
-
-function applyRef<T>(el: T, ref: unknown): void {
-  const r = ref as Ref<T>;
-  if (!r) return;
-  if (typeof r === 'function') {
-    r(el);
-    return;
-  }
-  // Fast path: use Object.isExtensible check instead of try/catch
-  if (Object.isExtensible(r)) {
-    (r as { current: T | null }).current = el;
   }
 }
 
@@ -3732,6 +3714,7 @@ export function updateElementFromVnode(
 
   // Ensure key is materialized
   materializeKey(el, vnode, props);
+  updateElementRef(el, props.ref);
 
   // Diff and update event listeners and other attributes
   const existingListeners = elementListeners.get(el);
@@ -3774,6 +3757,7 @@ export function updateElementFromVnode(
 
   for (const key in props) {
     const value = props[key];
+    if (key === 'ref') continue;
     if (isSkippedProp(key)) continue;
 
     const eventProp = parseEventProp(key);
