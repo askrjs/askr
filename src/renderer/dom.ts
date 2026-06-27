@@ -39,6 +39,7 @@ import {
   REACTIVE_CHILDREN_KEY,
   removeElementListeners,
   removeElementReactiveProps,
+  updateElementRef,
   type ReactivePropCleanupEntry,
 } from './cleanup';
 import { incDevCounter, getDevValue } from '../runtime/dev-namespace';
@@ -441,6 +442,51 @@ function cleanupDetachedComponentHost(
     delete host.__ASKR_WRAPPER_HOST;
   } catch {
     // Ignore host cleanup failures.
+  }
+}
+
+function pruneComponentHostInstances(
+  host: InstanceHostElement,
+  retainedInstances: Iterable<ComponentInstance>
+): void {
+  const retained = new Set(retainedInstances);
+  const nextInstances: ComponentInstance[] = [];
+  const staleInstances = new Set<ComponentInstance>();
+
+  const retainOrMarkStale = (instance: ComponentInstance | undefined) => {
+    if (!instance) {
+      return;
+    }
+
+    if (retained.has(instance)) {
+      if (!nextInstances.includes(instance)) {
+        nextInstances.push(instance);
+      }
+      return;
+    }
+
+    staleInstances.add(instance);
+  };
+
+  for (const instance of host.__ASKR_INSTANCES ?? []) {
+    retainOrMarkStale(instance);
+  }
+  retainOrMarkStale(host.__ASKR_INSTANCE);
+
+  for (const instance of staleInstances) {
+    cleanupComponent(instance);
+  }
+
+  try {
+    if (nextInstances.length > 0) {
+      host.__ASKR_INSTANCES = nextInstances;
+      host.__ASKR_INSTANCE = nextInstances[0];
+    } else {
+      delete host.__ASKR_INSTANCES;
+      delete host.__ASKR_INSTANCE;
+    }
+  } catch {
+    // Ignore host metadata cleanup failures.
   }
 }
 
@@ -1838,7 +1884,7 @@ function applyPropsToElement(
     const value = props[key];
     // Handle ref BEFORE isSkippedProp check since it needs special processing
     if (key === 'ref') {
-      applyRef(el, value);
+      updateElementRef(el, value);
       continue;
     }
     if (isSkippedProp(key)) continue;
@@ -1888,25 +1934,6 @@ function applyPropsToElement(
     } else {
       setRenderedAttribute(el, key, String(value));
     }
-  }
-}
-
-type Ref<T> =
-  | ((value: T | null) => void)
-  | { current: T | null }
-  | null
-  | undefined;
-
-function applyRef<T>(el: T, ref: unknown): void {
-  const r = ref as Ref<T>;
-  if (!r) return;
-  if (typeof r === 'function') {
-    r(el);
-    return;
-  }
-  // Fast path: use Object.isExtensible check instead of try/catch
-  if (Object.isExtensible(r)) {
-    (r as { current: T | null }).current = el;
   }
 }
 
@@ -2638,12 +2665,16 @@ function normalizeComponentChildren(result: unknown): unknown[] {
   }
 
   if (Array.isArray(result)) {
-    return result;
+    const children: unknown[] = [];
+    for (const child of result) {
+      children.push(...normalizeComponentChildren(child));
+    }
+    return children;
   }
 
   if (isFragmentVNode(result)) {
     const children = result.props?.children ?? result.children ?? [];
-    return Array.isArray(children) ? children : [children];
+    return normalizeComponentChildren(children);
   }
 
   return [result];
@@ -2711,6 +2742,12 @@ export function syncComponentElement(
         (scopedResult as DOMElement).type as string
       )
     ) {
+      pruneComponentHostInstances(
+        existingHost,
+        retainedHostInstances
+          ? [hydrationInstance, ...retainedHostInstances]
+          : [hydrationInstance]
+      );
       withContext(snapshot, () => {
         updateElementFromVnode(
           existingHost,
@@ -2822,6 +2859,12 @@ export function syncComponentElement(
       (scopedResult as DOMElement).type as string
     )
   ) {
+    pruneComponentHostInstances(
+      existingHost,
+      retainedHostInstances
+        ? [existingInstance, ...retainedHostInstances]
+        : [existingInstance]
+    );
     withContext(snapshot, () => {
       updateElementFromVnode(
         existingHost,
@@ -3671,6 +3714,7 @@ export function updateElementFromVnode(
 
   // Ensure key is materialized
   materializeKey(el, vnode, props);
+  updateElementRef(el, props.ref);
 
   // Diff and update event listeners and other attributes
   const existingListeners = elementListeners.get(el);
@@ -3713,6 +3757,7 @@ export function updateElementFromVnode(
 
   for (const key in props) {
     const value = props[key];
+    if (key === 'ref') continue;
     if (isSkippedProp(key)) continue;
 
     const eventProp = parseEventProp(key);
@@ -4092,23 +4137,29 @@ export function updateElementChildren(
   }
 
   if (Array.isArray(children)) {
-    if (trySyncScalarChildSequenceInPlace(el, children)) {
+    const normalizedChildren = normalizeComponentChildren(children) as VNode[];
+
+    if (trySyncScalarChildSequenceInPlace(el, normalizedChildren)) {
       keyedElements.delete(el);
       return;
     }
 
-    if (hasKeyedVNodeChildren(children)) {
+    if (hasKeyedVNodeChildren(normalizedChildren)) {
       const oldKeyMap = getOrBuildDomKeyMap(el);
-      const newKeyMap = reconcileKeyedChildren(el, children, oldKeyMap);
+      const newKeyMap = reconcileKeyedChildren(
+        el,
+        normalizedChildren,
+        oldKeyMap
+      );
       keyedElements.set(el, newKeyMap);
       return;
     }
-    if (isBulkTextFastPathEligible(el, children)) {
-      performBulkTextReplace(el, children);
+    if (isBulkTextFastPathEligible(el, normalizedChildren)) {
+      performBulkTextReplace(el, normalizedChildren);
       keyedElements.delete(el);
       return;
     }
-    updateUnkeyedChildren(el, children as unknown[], forceUpdate);
+    updateUnkeyedChildren(el, normalizedChildren, forceUpdate);
     return;
   }
 

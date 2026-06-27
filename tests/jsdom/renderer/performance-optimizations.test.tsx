@@ -198,6 +198,104 @@ describe('performance optimizations (RENDERER)', () => {
 
       expect(capturedElement).toBe(container.firstElementChild);
     });
+
+    it('should reattach changed callback refs on reused host elements', () => {
+      const calls: string[] = [];
+      let setMode!: (mode: 'table' | 'empty' | 'restored') => void;
+
+      const tableRef = (element: Element | null) => {
+        calls.push(element ? 'table:attach' : 'table:detach');
+      };
+      const emptyRef = (element: Element | null) => {
+        calls.push(element ? 'empty:attach' : 'empty:detach');
+      };
+      const restoredRef = (element: Element | null) => {
+        calls.push(element ? 'restored:attach' : 'restored:detach');
+      };
+
+      const Component = () => {
+        const mode = state<'table' | 'empty' | 'restored'>('table');
+        setMode = mode.set;
+
+        if (mode() === 'empty') {
+          return (
+            <div data-testid="host" ref={emptyRef}>
+              Empty
+            </div>
+          );
+        }
+
+        if (mode() === 'restored') {
+          return (
+            <div data-testid="host" ref={restoredRef}>
+              Restored
+            </div>
+          );
+        }
+
+        return (
+          <div data-testid="host" ref={tableRef}>
+            Table
+          </div>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const host = container.querySelector('[data-testid="host"]');
+
+      setMode('empty');
+      flushScheduler();
+
+      expect(container.querySelector('[data-testid="host"]')).toBe(host);
+
+      setMode('restored');
+      flushScheduler();
+
+      expect(container.querySelector('[data-testid="host"]')).toBe(host);
+      expect(calls).toEqual([
+        'table:attach',
+        'table:detach',
+        'empty:attach',
+        'empty:detach',
+        'restored:attach',
+      ]);
+    });
+
+    it('should detach callback refs removed from reused host elements', () => {
+      const calls: string[] = [];
+      let setWithRef!: (withRef: boolean) => void;
+      const hostRef = (element: Element | null) => {
+        calls.push(element ? 'attach' : 'detach');
+      };
+
+      const Component = () => {
+        const withRef = state(true);
+        setWithRef = withRef.set;
+
+        if (withRef()) {
+          return (
+            <div data-testid="host" ref={hostRef}>
+              With ref
+            </div>
+          );
+        }
+
+        return <div data-testid="host">Without ref</div>;
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const host = container.querySelector('[data-testid="host"]');
+
+      setWithRef(false);
+      flushScheduler();
+
+      expect(container.querySelector('[data-testid="host"]')).toBe(host);
+      expect(calls).toEqual(['attach', 'detach']);
+    });
   });
 
   describe('reactive prop caching', () => {

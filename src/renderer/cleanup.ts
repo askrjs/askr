@@ -12,6 +12,64 @@ type InstanceHost = Node & {
   __ASKR_INSTANCES?: unknown[];
 };
 
+type Ref<T> =
+  | ((value: T | null) => void)
+  | { current: T | null }
+  | null
+  | undefined;
+
+export const elementRefs = new WeakMap<Element, unknown>();
+
+function applyRefValue<T>(ref: unknown, value: T | null): void {
+  const resolvedRef = ref as Ref<T>;
+
+  if (!resolvedRef) {
+    return;
+  }
+
+  if (typeof resolvedRef === 'function') {
+    resolvedRef(value);
+    return;
+  }
+
+  if (Object.isExtensible(resolvedRef)) {
+    (resolvedRef as { current: T | null }).current = value;
+  }
+}
+
+export function updateElementRef<T extends Element>(
+  element: T,
+  ref: unknown
+): void {
+  const previousRef = elementRefs.get(element);
+
+  if (previousRef === ref) {
+    return;
+  }
+
+  if (previousRef) {
+    applyRefValue(previousRef, null);
+  }
+
+  if (ref) {
+    applyRefValue(ref, element);
+    elementRefs.set(element, ref);
+  } else {
+    elementRefs.delete(element);
+  }
+}
+
+export function removeElementRef(element: Element): void {
+  const ref = elementRefs.get(element);
+
+  if (!ref) {
+    return;
+  }
+
+  applyRefValue(ref, null);
+  elementRefs.delete(element);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Instance Cleanup Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,6 +115,13 @@ function teardownSingleElement(
   errors: unknown[] | null,
   strict: boolean
 ): void {
+  try {
+    removeElementRef(element);
+  } catch (err) {
+    if (strict) errors!.push(err);
+    else logger.warn('[Askr] removeElementRef failed:', err);
+  }
+
   try {
     removeElementListeners(element);
   } catch (err) {
@@ -308,6 +373,7 @@ export function removeAllListeners(root: Element | null): void {
   if (!root) return;
 
   forEachElementInSubtree(root, (el) => {
+    removeElementRef(el);
     removeElementListeners(el);
     removeElementReactiveProps(el);
   });

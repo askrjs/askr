@@ -116,6 +116,37 @@ import {
 } from './utils';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
+function getParentNamespace(parent: Element): string | undefined {
+  return parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
+}
+
+function resolveChildNamespace(
+  type: string,
+  parentNamespace: string | undefined
+): string | undefined {
+  if (type === 'svg') return SVG_NAMESPACE;
+  if (parentNamespace === SVG_NAMESPACE && type !== 'foreignObject') {
+    return SVG_NAMESPACE;
+  }
+  return undefined;
+}
+
+function canReuseIntrinsicElementInNamespace(
+  existing: Element,
+  type: string,
+  parentNamespace: string | undefined
+): boolean {
+  if (!tagNamesEqualIgnoreCase(existing.tagName, type)) {
+    return false;
+  }
+
+  const expectedNamespace = resolveChildNamespace(type, parentNamespace);
+  return expectedNamespace === undefined
+    ? true
+    : existing.namespaceURI === expectedNamespace;
+}
 
 // Helper type for narrowings
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
@@ -292,7 +323,12 @@ function tryPositionalBulkUpdate(
     return null;
   }
 
-  const matchCount = countPositionalMatches(parent, keyedVnodes);
+  const parentNamespace = getParentNamespace(parent);
+  const matchCount = countPositionalMatches(
+    parent,
+    keyedVnodes,
+    parentNamespace
+  );
 
   // For keyed lists, the positional bulk update path makes sense in two cases:
   // 1. Perfect match (100%): All keys are in the right positions, just update text
@@ -334,7 +370,8 @@ function tryPositionalBulkUpdate(
 /** Count how many vnodes match parent children by position and tag */
 function countPositionalMatches(
   parent: Element,
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  parentNamespace: string | undefined
 ): number {
   let matchCount = 0;
 
@@ -351,7 +388,9 @@ function countPositionalMatches(
       if (!el) continue;
 
       // For keyed lists, check BOTH tag name AND key match
-      if (tagNamesEqualIgnoreCase(el.tagName, vnode.type)) {
+      if (
+        canReuseIntrinsicElementInNamespace(el, vnode.type, parentNamespace)
+      ) {
         // Check if the element at this position has the expected key
         const actualKey = el.getAttribute('data-key');
         const keyMatches =
@@ -540,7 +579,10 @@ function reconcileSingleChild(
   const resolvedControlBoundary = prepareControlBoundaryResolution(child);
   if (resolvedControlBoundary !== null) {
     if (resolvedControlBoundary.remount) {
-      return createDOMNode(resolvedControlBoundary.vnode);
+      return createDOMNode(
+        resolvedControlBoundary.vnode,
+        getParentNamespace(parent)
+      );
     }
 
     return reconcileSingleChild(
@@ -579,6 +621,7 @@ function reconcileKeyedChild(
   newKeyMap: Map<string | number, Element>
 ): Node | null {
   const el = resolveOldElOnce(key);
+  const parentNamespace = getParentNamespace(parent);
 
   if (el && el.parentElement === parent) {
     // Strict keyed guarantee: if the element tag changes for an existing key,
@@ -590,7 +633,13 @@ function reconcileKeyedChild(
         typeof childObj === 'object' &&
         typeof childObj.type === 'string'
       ) {
-        if (tagNamesEqualIgnoreCase(el.tagName, childObj.type)) {
+        if (
+          canReuseIntrinsicElementInNamespace(
+            el,
+            childObj.type,
+            parentNamespace
+          )
+        ) {
           updateElementFromVnode(el, child);
           newKeyMap.set(key, el);
           return el;
@@ -601,7 +650,8 @@ function reconcileKeyedChild(
           el,
           child,
           child.type,
-          ((child.props ?? {}) as Props) || {}
+          ((child.props ?? {}) as Props) || {},
+          parentNamespace
         );
         if (synced) {
           if (synced instanceof Element) newKeyMap.set(key, synced);
@@ -613,7 +663,7 @@ function reconcileKeyedChild(
     }
   }
 
-  const dom = createDOMNode(child);
+  const dom = createDOMNode(child, parentNamespace);
   if (dom) {
     if (dom instanceof Element) newKeyMap.set(key, dom);
     return dom;
@@ -630,6 +680,8 @@ function reconcileUnkeyedChild(
   resolveUnkeyedOnce: () => Element | undefined,
   usedOldEls: WeakSet<Node>
 ): Node | null {
+  const parentNamespace = getParentNamespace(parent);
+
   try {
     // Use childNodes (includes Text nodes) instead of children (elements only)
     const existing = parent.childNodes[index] as Node | undefined;
@@ -642,16 +694,24 @@ function reconcileUnkeyedChild(
         usedOldEls.add(existing);
         return existing;
       }
-      return createDOMNode(child);
+      return createDOMNode(child, parentNamespace);
     }
 
     if (existing instanceof Element) {
-      const synced = trySyncComponentChild(existing, child, usedOldEls);
+      const synced = trySyncComponentChild(
+        existing,
+        child,
+        usedOldEls,
+        parentNamespace
+      );
       if (synced) return synced;
     }
 
     // Element child matching existing unkeyed element
-    if (existing instanceof Element && canReuseElement(existing, child)) {
+    if (
+      existing instanceof Element &&
+      canReuseElement(existing, child, parentNamespace)
+    ) {
       updateElementFromVnode(existing, child);
       usedOldEls.add(existing);
       return existing;
@@ -660,14 +720,19 @@ function reconcileUnkeyedChild(
     // Try to find available unkeyed element elsewhere
     const avail = resolveUnkeyedOnce();
     if (avail) {
-      const reuseResult = tryReuseElement(avail, child, usedOldEls);
+      const reuseResult = tryReuseElement(
+        avail,
+        child,
+        usedOldEls,
+        parentNamespace
+      );
       if (reuseResult) return reuseResult;
     }
   } catch {
     // Fall through to create new
   }
 
-  const dom = createDOMNode(child);
+  const dom = createDOMNode(child, parentNamespace);
   return dom;
 }
 
@@ -736,7 +801,8 @@ function evaluateControlBoundaryChildren(
 function trySyncComponentChild(
   existing: Element,
   child: VNode,
-  usedOldEls: WeakSet<Node>
+  usedOldEls: WeakSet<Node>,
+  parentNamespace: string | undefined
 ): Node | null {
   if (!isComponentVNode(child)) return null;
 
@@ -744,7 +810,8 @@ function trySyncComponentChild(
     existing,
     child,
     child.type,
-    ((child.props ?? {}) as Props) || {}
+    ((child.props ?? {}) as Props) || {},
+    parentNamespace
   );
   if (!synced) return null;
 
@@ -754,7 +821,11 @@ function trySyncComponentChild(
 }
 
 /** Check if existing element can be reused for child */
-function canReuseElement(existing: Element | undefined, child: VNode): boolean {
+function canReuseElement(
+  existing: Element | undefined,
+  child: VNode,
+  parentNamespace: string | undefined
+): boolean {
   if (!existing) return false;
   if (typeof child !== 'object' || child === null || !('type' in child))
     return false;
@@ -766,7 +837,11 @@ function canReuseElement(existing: Element | undefined, child: VNode): boolean {
   return (
     hasNoKey &&
     typeof childObj.type === 'string' &&
-    tagNamesEqualIgnoreCase(existing.tagName, childObj.type)
+    canReuseIntrinsicElementInNamespace(
+      existing,
+      childObj.type,
+      parentNamespace
+    )
   );
 }
 
@@ -783,13 +858,19 @@ function collectUnkeyedElements(parent: Element): Element[] {
 function tryReuseElement(
   avail: Element,
   child: VNode,
-  usedOldEls: WeakSet<Node>
+  usedOldEls: WeakSet<Node>,
+  parentNamespace: string | undefined
 ): Node | null {
   if (typeof child === 'string' || typeof child === 'number') {
     return null;
   }
 
-  const synced = trySyncComponentChild(avail, child, usedOldEls);
+  const synced = trySyncComponentChild(
+    avail,
+    child,
+    usedOldEls,
+    parentNamespace
+  );
   if (synced) {
     return synced;
   }
@@ -798,7 +879,7 @@ function tryReuseElement(
     const childObj = child as VnodeObj;
     if (
       typeof childObj.type === 'string' &&
-      tagNamesEqualIgnoreCase(avail.tagName, childObj.type)
+      canReuseIntrinsicElementInNamespace(avail, childObj.type, parentNamespace)
     ) {
       updateElementFromVnode(avail, child);
       usedOldEls.add(avail);
