@@ -189,13 +189,7 @@ describe('strict keyed list guarantees', () => {
     const { container, cleanup } = createTestContainer();
 
     let setCollapsed: (value: boolean) => void = () => {};
-    const groups = [
-      'get-started',
-      'concepts',
-      'ui',
-      'patterns',
-      'reference',
-    ];
+    const groups = ['get-started', 'concepts', 'ui', 'patterns', 'reference'];
 
     function Part({ children }: { children?: unknown }) {
       return <div>{children as never}</div>;
@@ -261,16 +255,17 @@ describe('strict keyed list guarantees', () => {
     flushScheduler();
 
     expect(content?.children).toHaveLength(groups.length + 2);
-    expect(Array.from(content?.children ?? []).map((node) => node.textContent))
-      .toEqual([
-        'OverviewDocsAboutContact',
-        '',
-        'get-startedget-started aget-started b',
-        'conceptsconcepts aconcepts b',
-        'uiui aui b',
-        'patternspatterns apatterns b',
-        'referencereference areference b',
-      ]);
+    expect(
+      Array.from(content?.children ?? []).map((node) => node.textContent)
+    ).toEqual([
+      'OverviewDocsAboutContact',
+      '',
+      'get-startedget-started aget-started b',
+      'conceptsconcepts aconcepts b',
+      'uiui aui b',
+      'patternspatterns apatterns b',
+      'referencereference areference b',
+    ]);
 
     setCollapsed(false);
     flushScheduler();

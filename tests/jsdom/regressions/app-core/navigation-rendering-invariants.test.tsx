@@ -199,9 +199,7 @@ describe('navigation rendering invariants regression coverage', () => {
     flushScheduler();
 
     const pageHost = container.querySelector('[data-testid="search-page"]');
-    const input = container.querySelector(
-      '#search-draft'
-    ) as HTMLInputElement;
+    const input = container.querySelector('#search-draft') as HTMLInputElement;
 
     expect(textFor('[data-testid="route-snapshot"]', container)).toBe(
       'one|#top'
@@ -333,9 +331,7 @@ describe('navigation rendering invariants regression coverage', () => {
     ).toHaveLength(3);
     expect(container.textContent).not.toContain('delta');
 
-    (
-      container.querySelector('#toggle-shell') as HTMLButtonElement
-    ).click();
+    (container.querySelector('#toggle-shell') as HTMLButtonElement).click();
     flushScheduler();
 
     expect(container.querySelector('[data-testid="routed-shell"]')).toBe(shell);
