@@ -444,6 +444,51 @@ function cleanupDetachedComponentHost(
   }
 }
 
+function pruneComponentHostInstances(
+  host: InstanceHostElement,
+  retainedInstances: Iterable<ComponentInstance>
+): void {
+  const retained = new Set(retainedInstances);
+  const nextInstances: ComponentInstance[] = [];
+  const staleInstances = new Set<ComponentInstance>();
+
+  const retainOrMarkStale = (instance: ComponentInstance | undefined) => {
+    if (!instance) {
+      return;
+    }
+
+    if (retained.has(instance)) {
+      if (!nextInstances.includes(instance)) {
+        nextInstances.push(instance);
+      }
+      return;
+    }
+
+    staleInstances.add(instance);
+  };
+
+  for (const instance of host.__ASKR_INSTANCES ?? []) {
+    retainOrMarkStale(instance);
+  }
+  retainOrMarkStale(host.__ASKR_INSTANCE);
+
+  for (const instance of staleInstances) {
+    cleanupComponent(instance);
+  }
+
+  try {
+    if (nextInstances.length > 0) {
+      host.__ASKR_INSTANCES = nextInstances;
+      host.__ASKR_INSTANCE = nextInstances[0];
+    } else {
+      delete host.__ASKR_INSTANCES;
+      delete host.__ASKR_INSTANCE;
+    }
+  } catch {
+    // Ignore host metadata cleanup failures.
+  }
+}
+
 function canUpdateReactiveChildBoundarySequenceSource(
   previousSource: unknown,
   nextSource: ReactiveChildBoundarySequenceSource
@@ -2715,6 +2760,12 @@ export function syncComponentElement(
         (scopedResult as DOMElement).type as string
       )
     ) {
+      pruneComponentHostInstances(
+        existingHost,
+        retainedHostInstances
+          ? [hydrationInstance, ...retainedHostInstances]
+          : [hydrationInstance]
+      );
       withContext(snapshot, () => {
         updateElementFromVnode(
           existingHost,
@@ -2826,6 +2877,12 @@ export function syncComponentElement(
       (scopedResult as DOMElement).type as string
     )
   ) {
+    pruneComponentHostInstances(
+      existingHost,
+      retainedHostInstances
+        ? [existingInstance, ...retainedHostInstances]
+        : [existingInstance]
+    );
     withContext(snapshot, () => {
       updateElementFromVnode(
         existingHost,
