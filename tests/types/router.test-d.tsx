@@ -22,6 +22,7 @@ import {
   requireRole,
   route,
   unauthorized,
+  updateRouteQuery,
   type AccessDecision,
   type AccessDenyDecision,
   type AccessRedirectDecision,
@@ -55,6 +56,11 @@ import {
   type RouteRequestOptions,
   type ScrollRestorationOptions,
   type RouteSnapshot,
+  type RouteQueryParamInput,
+  type RouteQueryParamValue,
+  type RouteQueryUpdater,
+  type RouteQueryUpdates,
+  type UpdateRouteQueryOptions,
 } from '@askrjs/askr/router';
 
 expectType<void>(
@@ -134,6 +140,26 @@ const navigateOptions: NavigateOptions = {
 };
 expectAssignable<NavigateOptions>(navigateOptions);
 expectType<void>(navigate('/home', navigateOptions));
+
+const updateRouteQueryOptions: UpdateRouteQueryOptions = {
+  history: 'replace',
+  replace: true,
+};
+expectAssignable<UpdateRouteQueryOptions>(updateRouteQueryOptions);
+expectType<void>(updateRouteQuery({ q: 'northwind' }));
+expectType<void>(updateRouteQuery({ q: null, page: 2, tags: ['ops'] }));
+expectType<void>(
+  updateRouteQuery((searchParams) => {
+    expectType<URLSearchParams>(searchParams);
+    searchParams.set('q', 'northwind');
+  }, updateRouteQueryOptions)
+);
+expectAssignable<RouteQueryParamValue>('northwind');
+expectAssignable<RouteQueryParamInput>(['ops', 'billing']);
+expectAssignable<RouteQueryUpdater>((searchParams) => {
+  searchParams.delete('q');
+});
+expectAssignable<RouteQueryUpdates>({ q: 'northwind', page: 2 });
 
 const snapshot = currentRoute();
 expectType<RouteSnapshot>(snapshot);

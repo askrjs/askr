@@ -61,12 +61,17 @@ export type {
   PageScopeRecord,
 } from '../common/router';
 
-export { navigate } from './navigate';
+export { navigate, updateRouteQuery } from './navigate';
 export type {
   NavigateOptions,
   NavigationScrollBehavior,
   HistoryScrollBehavior,
   ScrollRestorationOptions,
+  RouteQueryParamValue,
+  RouteQueryParamInput,
+  RouteQueryUpdates,
+  RouteQueryUpdater,
+  UpdateRouteQueryOptions,
 } from './navigate';
 
 export { Link } from '../components/link';

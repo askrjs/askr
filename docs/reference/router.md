@@ -196,6 +196,24 @@ before mounting the replacement. Reconciliation can preserve shared layout DOM
 nodes, but state that must survive navigation belongs in a shared layout,
 context, or external store.
 
+## `updateRouteQuery(updates, options)`
+
+Updates the current URL query string without resolving or remounting the route.
+Use it for route-local view state such as search, filters, tabs, and pagination.
+The default history mode is `replace`, so high-frequency controls do not create
+one Back-button entry per keystroke.
+
+```ts
+import { updateRouteQuery } from '@askrjs/askr/router';
+
+updateRouteQuery({ q: 'northwind' });
+updateRouteQuery({ q: null, tags: ['ops', 'billing'] }, { history: 'push' });
+updateRouteQuery((searchParams) => searchParams.set('page', '2'));
+```
+
+`null` and `undefined` delete a query key. Array values append repeated query
+keys in order.
+
 ## `Link`
 
 Declarative navigation component.
