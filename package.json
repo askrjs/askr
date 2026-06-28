@@ -131,7 +131,7 @@
     "bench:tier4": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts"
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.0.0",
     "@vitest/browser-playwright": "4.1.9",
     "cross-env": "^10.1.0",
     "jsdom": "^29.1.1",
