@@ -15,8 +15,13 @@ import {
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createSPA } from '@askrjs/askr/boot';
-import { navigate } from '../../../src/router/navigate';
-import { clearRoutes, getRoutes, route } from '../../../src/router/route';
+import { navigate, updateRouteQuery } from '../../../src/router/navigate';
+import {
+  clearRoutes,
+  currentRoute,
+  getRoutes,
+  route,
+} from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -298,6 +303,201 @@ describe('route navigation (ROUTER)', () => {
 
       expect(nextCountNode?.textContent).toBe('1');
       expect(document.activeElement).toBe(nextInput);
+    });
+
+    it('should update current route query without route navigation', async () => {
+      const historyReplaceSpy = vi.spyOn(window.history, 'replaceState');
+      let renderCount = 0;
+
+      route('/accounts', () => {
+        renderCount++;
+        const routeSnapshot = currentRoute();
+        const clicks = state(0);
+
+        return (
+          <div>
+            <button id="inc" onClick={() => clicks.set((value) => value + 1)}>
+              Inc
+            </button>
+            <span id="click-count">{String(clicks())}</span>
+            <span id="query-value">{routeSnapshot.query.get('q') ?? ''}</span>
+          </div>
+        );
+      });
+
+      window.history.replaceState({}, '', '/accounts');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      const button = container.querySelector('#inc') as HTMLButtonElement;
+      button.click();
+      flushScheduler();
+
+      expect(container.querySelector('#click-count')?.textContent).toBe('1');
+
+      updateRouteQuery({ q: 'northwind' });
+      flushScheduler();
+
+      expect(window.location.pathname).toBe('/accounts');
+      expect(window.location.search).toBe('?q=northwind');
+      expect(historyReplaceSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ path: '/accounts?q=northwind' }),
+        '',
+        '/accounts?q=northwind'
+      );
+      expect(container.querySelector('#click-count')?.textContent).toBe('1');
+      expect(container.querySelector('#query-value')?.textContent).toBe(
+        'northwind'
+      );
+      expect(renderCount).toBeGreaterThanOrEqual(2);
+
+      historyReplaceSpy.mockRestore();
+    });
+
+    it('should support deleting and appending route query values', async () => {
+      const historyPushSpy = vi.spyOn(window.history, 'pushState');
+
+      route('/accounts', () => <div>Accounts</div>);
+
+      window.history.replaceState({}, '', '/accounts?q=old&keep=yes');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      updateRouteQuery(
+        {
+          q: null,
+          tags: ['ops', 'billing'],
+        },
+        { history: 'push' }
+      );
+
+      expect(window.location.search).toBe('?keep=yes&tags=ops&tags=billing');
+      expect(historyPushSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          path: '/accounts?keep=yes&tags=ops&tags=billing',
+        }),
+        '',
+        '/accounts?keep=yes&tags=ops&tags=billing'
+      );
+
+      historyPushSpy.mockRestore();
+    });
+
+    it('should stringify scalar query values and skip empty array entries', async () => {
+      route('/accounts', () => <div>Accounts</div>);
+
+      window.history.replaceState({}, '', '/accounts?keep=yes&q=old');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      updateRouteQuery({
+        q: undefined,
+        page: 2,
+        archived: false,
+        tags: ['ops', null, undefined, 'billing'],
+        empty: [],
+      });
+
+      expect(window.location.search).toBe(
+        '?keep=yes&page=2&archived=false&tags=ops&tags=billing'
+      );
+    });
+
+    it('should support functional query updates and preserve the current hash', async () => {
+      route('/accounts', () => {
+        const routeSnapshot = currentRoute();
+
+        return (
+          <div>
+            <span id="tags">{routeSnapshot.query.getAll('tag').join('|')}</span>
+            <span id="page">{routeSnapshot.query.get('page') ?? ''}</span>
+            <span id="hash">{routeSnapshot.hash ?? ''}</span>
+          </div>
+        );
+      });
+
+      window.history.replaceState({}, '', '/accounts?tag=ops#activity');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      updateRouteQuery((searchParams) => {
+        searchParams.append('tag', 'billing');
+        searchParams.set('page', '2');
+      });
+      flushScheduler();
+
+      expect(window.location.pathname).toBe('/accounts');
+      expect(window.location.search).toBe('?tag=ops&tag=billing&page=2');
+      expect(window.location.hash).toBe('#activity');
+      expect(container.querySelector('#tags')?.textContent).toBe(
+        'ops|billing'
+      );
+      expect(container.querySelector('#page')?.textContent).toBe('2');
+      expect(container.querySelector('#hash')?.textContent).toBe('#activity');
+    });
+
+    it('should not write history or rerender route readers when query is unchanged', async () => {
+      const historyPushSpy = vi.spyOn(window.history, 'pushState');
+      const historyReplaceSpy = vi.spyOn(window.history, 'replaceState');
+      let renderCount = 0;
+
+      route('/accounts', () => {
+        renderCount++;
+        const routeSnapshot = currentRoute();
+        return <span id="query-value">{routeSnapshot.query.get('q') ?? ''}</span>;
+      });
+
+      window.history.replaceState({}, '', '/accounts?q=northwind');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+      historyPushSpy.mockClear();
+      historyReplaceSpy.mockClear();
+      const rendersAfterMount = renderCount;
+
+      updateRouteQuery({ q: 'northwind' });
+      flushScheduler();
+
+      expect(historyPushSpy).not.toHaveBeenCalled();
+      expect(historyReplaceSpy).not.toHaveBeenCalled();
+      expect(renderCount).toBe(rendersAfterMount);
+      expect(container.querySelector('#query-value')?.textContent).toBe(
+        'northwind'
+      );
+
+      historyPushSpy.mockRestore();
+      historyReplaceSpy.mockRestore();
+    });
+
+    it('should support push history mode and replace=false alias for query updates', async () => {
+      const historyPushSpy = vi.spyOn(window.history, 'pushState');
+      const historyReplaceSpy = vi.spyOn(window.history, 'replaceState');
+
+      route('/accounts', () => <div>Accounts</div>);
+
+      window.history.replaceState({}, '', '/accounts');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+      historyPushSpy.mockClear();
+      historyReplaceSpy.mockClear();
+
+      updateRouteQuery({ q: 'northwind' }, { replace: false });
+
+      expect(historyPushSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ path: '/accounts?q=northwind' }),
+        '',
+        '/accounts?q=northwind'
+      );
+
+      updateRouteQuery({ q: 'contoso' }, { history: 'replace', replace: false });
+
+      expect(historyReplaceSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ path: '/accounts?q=contoso' }),
+        '',
+        '/accounts?q=contoso'
+      );
+
+      historyPushSpy.mockRestore();
+      historyReplaceSpy.mockRestore();
     });
   });
 
