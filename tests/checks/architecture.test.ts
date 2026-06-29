@@ -57,7 +57,7 @@ function collectSourceFiles(dir: string): SourceFile[] {
       continue;
     }
 
-    if (!/\.(ts|tsx)$/.test(entry.name) || /\.d\.ts$/.test(entry.name)) {
+    if (!/\.(ts|tsx)$/.test(entry.name) || entry.name.endsWith('.d.ts')) {
       continue;
     }
 
@@ -81,7 +81,6 @@ function collectSourceFiles(dir: string): SourceFile[] {
 
 const sourceFiles = collectSourceFiles(srcDir);
 const sourcePathSet = new Set(sourceFiles.map((file) => file.filePath));
-const sourceByPath = new Map(sourceFiles.map((file) => [file.filePath, file]));
 
 function topLevelArea(filePath: string): string {
   const relativePath = path.relative(srcDir, filePath).replaceAll(path.sep, '/');
@@ -190,10 +189,6 @@ function relative(filePath: string): string {
 
 function formatEdge(edge: ImportEdge): string {
   return `${relative(edge.from)} -> ${relative(edge.to)} (${edge.specifier})`;
-}
-
-function dependencyKey(edge: ImportEdge): string {
-  return `${topLevelArea(edge.from)} -> ${topLevelArea(edge.to)}`;
 }
 
 function findAreaCycles(edges: readonly ImportEdge[]): string[] {
