@@ -4,9 +4,12 @@ import {
   clearRoutes,
   registerRoutes,
   getRoutes,
+  createRouteRegistry,
+  fallback,
+  page,
   route,
 } from '../../../src/router/route';
-import { resolveRequest } from '../../../src/ssr';
+import { renderToString, resolveRequest } from '../../../src/ssr';
 import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
 import { getCurrentRenderData } from '../../../src/ssr/render-keys';
 
@@ -79,6 +82,23 @@ describe('SSR request resolution', () => {
       kind: 'render',
       handler,
       params: {},
+    });
+  });
+
+  it('should resolve requests from an explicit route registry', async () => {
+    const registry = createRouteRegistry(() => {
+      route('/registry/{id}', ({ id }) => <div>{id}</div>);
+    });
+
+    const result = await resolveRequest({
+      url: '/registry/42',
+      registry,
+    });
+
+    expect(result).toEqual({
+      kind: 'render',
+      handler: expect.any(Function),
+      params: { id: '42' },
     });
   });
 
@@ -157,5 +177,51 @@ describe('SSR request resolution', () => {
     expect(loader).toHaveBeenCalledTimes(1);
     expect(loader).toHaveBeenCalledWith({ params: { slug: 'intro' } });
     expect(html).toContain('intro');
+  });
+
+  it('should preserve scoped fallback params when rendering getRoutes()', () => {
+    let receivedCatchAll: string | undefined;
+
+    page(
+      '/docs',
+      () => <section>{'docs'}</section>,
+      () => {
+        fallback((params) => {
+          receivedCatchAll = params['*'];
+          return <div>{'missing'}</div>;
+        });
+      }
+    );
+
+    renderToString({
+      url: '/docs/a/b',
+      routes: getRoutes(),
+    });
+
+    expect(receivedCatchAll).toBe('/a/b');
+  });
+
+  it('should preserve scoped fallback params when rendering a registry', () => {
+    let receivedCatchAll: string | undefined;
+
+    const registry = createRouteRegistry(() => {
+      page(
+        '/docs',
+        () => <section>{'docs'}</section>,
+        () => {
+          fallback((params) => {
+            receivedCatchAll = params['*'];
+            return <div>{'missing'}</div>;
+          });
+        }
+      );
+    });
+
+    renderToString({
+      url: '/docs/a/b',
+      registry,
+    });
+
+    expect(receivedCatchAll).toBe('/a/b');
   });
 });

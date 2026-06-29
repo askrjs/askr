@@ -86,8 +86,32 @@ automatically.
 ## Minimal data layer
 
 For app data, use the thin query and mutation primitives from `@askrjs/askr/data`.
-They are intentionally small: keyed caching, prefix invalidation, and explicit
-eventual-consistency signaling without a query-client abstraction.
+They are intentionally small: keyed caching, prefix invalidation, explicit
+eventual-consistency signaling, and an optional data runtime for cache isolation.
+
+### Data runtimes
+
+The default data runtime is enough for one app instance. Use `createDataRuntime()`
+when tests, embedded apps, or multi-root shells need isolated query and mutation
+state:
+
+```ts
+import {
+  createDataRuntime,
+  createQuery,
+  invalidate,
+} from '@askrjs/askr/data';
+
+const dataRuntime = createDataRuntime();
+
+const user = createQuery({
+  runtime: dataRuntime,
+  key: 'user:123',
+  fetch: ({ signal }) => userService.getUser('123', { signal }),
+});
+
+invalidate('user:', { runtime: dataRuntime });
+```
 
 ### Queries
 

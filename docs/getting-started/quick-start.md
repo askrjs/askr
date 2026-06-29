@@ -45,7 +45,7 @@ Use router subpath APIs when you need navigation.
 
 ```tsx
 import { createSPA } from '@askrjs/askr/boot';
-import { route, getRoutes, Link } from '@askrjs/askr/router';
+import { createRouteRegistry, route, Link } from '@askrjs/askr/router';
 
 function Home() {
   return (
@@ -60,12 +60,14 @@ function About() {
   return <h1>About</h1>;
 }
 
-route('/', () => <Home />);
-route('/about', () => <About />);
+const registry = createRouteRegistry(() => {
+  route('/', () => <Home />);
+  route('/about', () => <About />);
+});
 
 await createSPA({
   root: document.getElementById('app')!,
-  routes: getRoutes(),
+  registry,
 });
 ```
 

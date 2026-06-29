@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { state } from '../../../src';
 import {
+  createDataRuntime,
   createQuery,
   createMutation,
   invalidate,
@@ -120,6 +121,42 @@ describe('data layer', () => {
 
     expect(() => callQueryScope('')).toThrow(/non-empty namespace/i);
     expect(() => callQueryScope('   ')).toThrow(/non-empty namespace/i);
+  });
+
+  it('should isolate query caches by explicit data runtime', async () => {
+    const runtimeA = createDataRuntime();
+    const runtimeB = createDataRuntime();
+    let fetchCountA = 0;
+    let fetchCountB = 0;
+
+    const queryA = createQuery({
+      runtime: runtimeA,
+      key: 'shared',
+      fetch: async () => {
+        fetchCountA += 1;
+        return { value: `a:${fetchCountA}` };
+      },
+    });
+    const queryB = createQuery({
+      runtime: runtimeB,
+      key: 'shared',
+      fetch: async () => {
+        fetchCountB += 1;
+        return { value: `b:${fetchCountB}` };
+      },
+    });
+
+    await settle();
+    expect(queryA.data).toEqual({ value: 'a:1' });
+    expect(queryB.data).toEqual({ value: 'b:1' });
+
+    invalidate('shared', { runtime: runtimeA });
+    await settle();
+
+    expect(fetchCountA).toBe(2);
+    expect(fetchCountB).toBe(1);
+    expect(queryA.data).toEqual({ value: 'a:2' });
+    expect(queryB.data).toEqual({ value: 'b:1' });
   });
 
   it('should invalidate canonical scoped query prefixes', () => {

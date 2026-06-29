@@ -89,11 +89,11 @@ Components should not:
 
 ## Route registration
 
-All routes are registered in one file using `registerRoutes()`, `group()`, and `route()`:
+All routes are captured in one file using `createRouteRegistry()`, `group()`, and `route()`:
 
 ```ts
 // src/router.tsx
-registerRoutes(() => {
+export const registry = createRouteRegistry(() => {
   group({ layout: AppLayout }, () => {
     route('/', Home);
     route('/users', Users);

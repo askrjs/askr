@@ -25,6 +25,11 @@ import {
 import { logger } from '../dev/logger';
 import { incDevCounter, setDevValue } from './dev-namespace';
 import { isPromiseLike } from '../common/promise';
+import {
+  isBulkCommitActive,
+  tryRuntimeFastLaneSync,
+} from './fastlane';
+import { getDefaultRuntime } from './runtime';
 
 export type { ComponentFunction } from '../common/component';
 
@@ -195,8 +200,6 @@ export function getCurrentPortalScope(): object | null {
  * Register a mount operation that will run after the component is mounted
  * Used by operations (task, on, timer, etc) to execute after render completes
  */
-import { isBulkCommitActive } from './fastlane';
-import { evaluate, cleanupInstancesUnder } from '../renderer';
 
 type LifecycleOperation = () =>
   | void
@@ -682,18 +685,8 @@ function runComponent(instance: ComponentInstance): void {
     // Try runtime fast-lane synchronously; if it activates we do not enqueue
     // follow-up work and the commit happens atomically in this task.
     // (Runtime fast-lane has conservative preconditions.)
-    const fastlaneBridge = (
-      globalThis as {
-        __ASKR_FASTLANE?: {
-          tryRuntimeFastLaneSync?: (
-            instance: unknown,
-            result: unknown
-          ) => boolean;
-        };
-      }
-    ).__ASKR_FASTLANE;
     try {
-      const used = fastlaneBridge?.tryRuntimeFastLaneSync?.(instance, result);
+      const used = tryRuntimeFastLaneSync(instance, result);
       if (used) {
         warnUnusedStateReads(instance);
         return;
@@ -731,6 +724,7 @@ function runComponent(instance: ComponentInstance): void {
 
         // Create a new host element for the content
         const host = document.createElement('div');
+        const renderer = getDefaultRuntime().renderer;
         const executionFrame: ContextFrame = {
           parent: instance.ownerFrame,
           values: null,
@@ -743,7 +737,7 @@ function runComponent(instance: ComponentInstance): void {
         try {
           try {
             withContext(executionFrame, () => {
-              evaluate(result, host);
+              renderer.evaluate(result, host);
             });
 
             // Replace placeholder with host
@@ -771,6 +765,7 @@ function runComponent(instance: ComponentInstance): void {
       }
 
       if (instance.target) {
+        const renderer = getDefaultRuntime().renderer;
         let oldChildren: Node[] = [];
         let restoredOldChildren = false;
         try {
@@ -794,7 +789,7 @@ function runComponent(instance: ComponentInstance): void {
           try {
             try {
               withContext(executionFrame, () => {
-                evaluate(result, instance.target, undefined, instance);
+                renderer.evaluate(result, instance.target, undefined, instance);
               });
             } catch (e) {
               discardLifecycleCommitBatch(lifecycleBatch);
@@ -811,7 +806,7 @@ function runComponent(instance: ComponentInstance): void {
                   continue;
                 }
                 try {
-                  cleanupInstancesUnder(n);
+                  renderer.cleanupInstancesUnder(n);
                 } catch (err) {
                   logger.warn(
                     '[Askr] error cleaning up failed commit children:',
@@ -867,7 +862,7 @@ function runComponent(instance: ComponentInstance): void {
                 continue;
               }
               try {
-                cleanupInstancesUnder(n);
+                renderer.cleanupInstancesUnder(n);
               } catch (err) {
                 logger.warn(
                   '[Askr] error cleaning up partial children during rollback:',

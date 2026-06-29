@@ -2,19 +2,26 @@
 
 Import router-specific APIs from `@askrjs/askr/router`.
 
-## `registerRoutes(definition, options)`
+## `createRouteRegistry(definition, options)`
 
-Runs a callback-based route definition and can attach app-level auth resolution.
+Runs a callback-based route definition and returns an explicit route registry
+with both `manifest` and `routes` fields. Pass the registry to browser boot,
+SSR, or SSG composition instead of relying on module-level route state.
 
 ```ts
-import { registerRoutes } from '@askrjs/askr/router';
+import { createRouteRegistry } from '@askrjs/askr/router';
 import { routeAuth } from './auth';
 import { registerAppRoutes } from './routes';
 
-registerRoutes(registerAppRoutes, {
+export const registry = createRouteRegistry(registerAppRoutes, {
   auth: routeAuth,
 });
 ```
+
+## `registerRoutes(definition, options)`
+
+Legacy compatibility helper that runs a route definition against the module-level
+route store. Prefer `createRouteRegistry()` for new code.
 
 ## `group(options, fn)`
 
@@ -178,11 +185,13 @@ Inside a component, call `currentRoute()` to read the current route snapshot.
 
 ## `getManifest()`
 
-Returns the normalized route manifest built from registered routes.
+Returns the manifest from the module-level route store. Prefer
+`createRouteRegistry().manifest` for new code.
 
 ## `getRoutes()`
 
-Returns the flat registered route array. Prefer `getManifest()` when route metadata is needed.
+Returns the flat route array from the module-level route store. Prefer
+`createRouteRegistry().routes` for new code.
 
 ## `clearRoutes()`
 

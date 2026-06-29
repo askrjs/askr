@@ -7,6 +7,7 @@ import {
   currentRoute,
   deny,
   forbidden,
+  createRouteRegistry,
   getManifest,
   getRoutes,
   group,
@@ -53,6 +54,7 @@ import {
   type RoutePolicy,
   type RouteQuery,
   type RouteRecord,
+  type RouteRegistry,
   type RouteRequestOptions,
   type ScrollRestorationOptions,
   type RouteSnapshot,
@@ -97,6 +99,15 @@ expectType<void>(
       );
     });
   })
+);
+
+const registry = createRouteRegistry(() => {
+  route('/registry/{id}', (params) => params.id);
+});
+expectType<RouteRegistry>(registry);
+expectType<RouteManifest>(registry.manifest);
+expectType<readonly import('@askrjs/askr/router').Route[]>(
+  registry.routes
 );
 
 route('/users/{id}', (params: Record<string, string>) => params.id);

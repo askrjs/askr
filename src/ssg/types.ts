@@ -9,6 +9,7 @@ import type {
   RouteHandler,
   RoutePathParams,
   RoutePolicy,
+  RouteRegistry,
 } from '../common/router';
 
 export type SSGMode = 'full' | 'incremental';
@@ -75,12 +76,7 @@ export interface RouteConfig<Path extends string = string> {
     | Promise<Array<RouteConfigParams<Path>>>;
 }
 
-/** Options for createStaticGen */
-export interface SSGOptions<
-  TRoutes extends readonly RouteConfig[] = RouteConfig[],
-> {
-  /** Routes to generate */
-  routes: TRoutes;
+interface SSGBaseOptions {
   /** Output directory for generated HTML files */
   outputDir: string;
   /** Optional seed for deterministic rendering */
@@ -94,6 +90,23 @@ export interface SSGOptions<
   /** Preferred render parallelism. `'auto'` resolves from the host machine. */
   parallelism?: number | 'auto';
 }
+
+/** Options for createStaticGen */
+export type SSGOptions<
+  TRoutes extends readonly RouteConfig[] = RouteConfig[],
+> = SSGBaseOptions &
+  (
+    | {
+        /** Routes to generate. Prefer `registry` when routes are already defined through the router DSL. */
+        routes: TRoutes;
+        registry?: never;
+      }
+    | {
+        /** Explicit route registry captured with `createRouteRegistry()`. */
+        registry: RouteRegistry;
+        routes?: never;
+      }
+  );
 
 /** Options for a single generation run */
 export interface SSGGenerateOptions {

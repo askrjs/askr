@@ -1,5 +1,5 @@
 import { logger } from '../dev/logger';
-import type { ComponentFunction } from '../runtime/component';
+import type { ComponentFunction } from '../runtime/component-contracts';
 import {
   clearCaseDomUpdateState,
   clearShowDomUpdateState,
@@ -12,7 +12,7 @@ import {
   evaluateForState,
   recordBenchEvent,
 } from '../runtime/for';
-import type { ComponentInstance } from '../runtime/component';
+import type { ComponentInstance } from '../runtime/component-contracts';
 import { teardownNodeSubtree } from './cleanup';
 import { keyedElements } from './keyed';
 import { commitForStateBoundaryChildren } from './for-commit';

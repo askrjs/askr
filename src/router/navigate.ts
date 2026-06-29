@@ -598,6 +598,14 @@ function resolveAppRouteRequest(
   href: string,
   signal: AbortSignal
 ): RouteRequestResult | Promise<RouteRequestResult> {
+  if (app.manifest) {
+    return resolveRouteRequest(href, {
+      manifest: app.manifest,
+      auth: app.auth,
+      signal,
+    });
+  }
+
   if (app.routes) {
     const resolved = resolveRouteFromRoutes(pathname, app.routes);
     if (!resolved) {
@@ -612,7 +620,6 @@ function resolveAppRouteRequest(
   }
 
   return resolveRouteRequest(href, {
-    manifest: app.manifest,
     auth: app.auth,
     signal,
   });

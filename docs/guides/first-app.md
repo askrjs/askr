@@ -57,27 +57,27 @@ export function TaskList() {
 
 ```tsx
 import { createSPA } from '@askrjs/askr/boot';
-import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 import { TaskList } from './task-list';
 
 function About() {
   return <p>Built with Askr.</p>;
 }
 
-registerRoutes(() => {
+const registry = createRouteRegistry(() => {
   route('/', TaskList);
   route('/about', About);
 });
 
 await createSPA({
   root: '#app',
-  manifest: getManifest(),
+  registry,
 });
 ```
 
 ## Common Pitfalls
 
-- Register routes before calling `createSPA()`.
+- Create the route registry before calling `createSPA()`.
 - Keep route handlers synchronous; use `resource()` inside components for async data.
 - Use `cleanupApp(root)` in tests when a mounted app must be torn down.
 

@@ -282,6 +282,11 @@ export interface Route<TParams extends RouteParams = RouteParams> {
   namespace?: string;
 }
 
+export interface RouteRegistry {
+  manifest: RouteManifest;
+  routes: readonly Route[];
+}
+
 export interface ResolvedRoute<TParams extends RouteParams = RouteParams> {
   handler: RouteHandler<TParams>;
   params: TParams;

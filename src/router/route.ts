@@ -37,7 +37,7 @@ import {
   recordReadableRead,
   type ReadableSource,
 } from '../runtime/readable';
-import { getRenderContext } from '../ssr/context';
+import { getActiveRenderContext } from '../common/render-context';
 import {
   requireAuth,
   requireGuest,
@@ -77,6 +77,7 @@ export type {
   PageScopeRecord,
   RouteRecord,
   RouteManifest,
+  RouteRegistry,
 } from '../common/router';
 
 import type {
@@ -103,6 +104,7 @@ import type {
   PageScopeRecord,
   RouteRecord,
   RouteManifest,
+  RouteRegistry,
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
@@ -199,20 +201,6 @@ type AccessScopeState = {
 
 let defaultRouteAuthOptions: RouteAuthOptions | undefined;
 let activeClientRouteAuthOptions: RouteAuthOptions | undefined;
-
-const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
-
-function setHasRoutes(value: boolean): void {
-  try {
-    const g = globalThis as unknown as Record<string | symbol, unknown>;
-    g[HAS_ROUTES_KEY] = value;
-  } catch {
-    // ignore
-  }
-}
-
-// Initialize to false at module load.
-setHasRoutes(false);
 
 // Route index by depth - maintains insertion order
 const routesByDepth = new Map<number, Route[]>();
@@ -476,12 +464,12 @@ export function computeRouteActivityMatches(
     routes?: readonly Route[];
   } = {}
 ): RouteMatch[] {
-  if (options.routes) {
-    return computeMatchesFromRoutes(pathname, options.routes);
-  }
-
   if (options.manifest) {
     return computeMatchesFromRouteRecords(pathname, options.manifest.records);
+  }
+
+  if (options.routes) {
+    return computeMatchesFromRoutes(pathname, options.routes);
   }
 
   return computeMatchesFromRoutes(pathname, getActiveRoutes());
@@ -555,7 +543,7 @@ function findBestResolvedRouteFromRoutes(
 }
 
 function getActiveRoutes(): readonly Route[] {
-  const renderContext = getRenderContext();
+  const renderContext = getActiveRenderContext();
   return renderContext?.routes ?? routes;
 }
 
@@ -566,7 +554,7 @@ function getActiveRouteAuthOptions(
     return override;
   }
 
-  const renderContext = getRenderContext();
+  const renderContext = getActiveRenderContext();
   return (
     renderContext?.routeAuth ??
     activeClientRouteAuthOptions ??
@@ -842,7 +830,6 @@ function insertRecordSorted(record: RouteRecord): void {
 
 function addRouteToStores(routeObj: Route): void {
   routes.push(routeObj);
-  setHasRoutes(true);
 
   const depth = getDepth(routeObj.path);
   let depthRoutes = routesByDepth.get(depth);
@@ -863,6 +850,8 @@ function addRouteToStores(routeObj: Route): void {
 
 /** Promises from in-flight lazy() imports, drained by createSPA / hydrateSPA. */
 const pendingLazy = new Set<Promise<unknown>>();
+const registryLazyImports = new WeakMap<RouteRegistry, Promise<unknown>[]>();
+const manifestLazyImports = new WeakMap<RouteManifest, Promise<unknown>[]>();
 
 const outletContext = defineContext<RenderableChild>(null);
 
@@ -882,6 +871,28 @@ export function Outlet(): JSXElement {
  */
 export function _snapshotLazy(): Promise<unknown>[] {
   return [...pendingLazy];
+}
+
+export function _snapshotRouteSourceLazy(source: {
+  registry?: RouteRegistry;
+  manifest?: RouteManifest;
+}): Promise<unknown>[] {
+  const imports = new Set<Promise<unknown>>();
+
+  if (source.registry) {
+    for (const lazyImport of registryLazyImports.get(source.registry) ?? []) {
+      imports.add(lazyImport);
+    }
+  }
+
+  const manifest = source.manifest ?? source.registry?.manifest;
+  if (manifest) {
+    for (const lazyImport of manifestLazyImports.get(manifest) ?? []) {
+      imports.add(lazyImport);
+    }
+  }
+
+  return [...imports];
 }
 
 /**
@@ -1408,6 +1419,97 @@ export function registerRoutes(
   }
 }
 
+type RouteStoreSnapshot = {
+  routes: InternalRoute[];
+  records: InternalRouteRecord[];
+  namespaces: string[];
+  registrationLocked: boolean;
+  defaultRouteAuthOptions: RouteAuthOptions | undefined;
+  activeClientRouteAuthOptions: RouteAuthOptions | undefined;
+  routesByDepth: Array<[number, Route[]]>;
+  registrationScopeStack: RegistrationScope[];
+  registrationSessionStack: RegistrationSession[];
+  pendingLazy: Promise<unknown>[];
+};
+
+function snapshotRouteStore(): RouteStoreSnapshot {
+  return {
+    routes: [...routes],
+    records: [...records],
+    namespaces: [...namespaces],
+    registrationLocked,
+    defaultRouteAuthOptions,
+    activeClientRouteAuthOptions,
+    routesByDepth: [...routesByDepth.entries()].map(([depth, depthRoutes]) => [
+      depth,
+      [...depthRoutes],
+    ]),
+    registrationScopeStack: [...registrationScopeStack],
+    registrationSessionStack: [...registrationSessionStack],
+    pendingLazy: [...pendingLazy],
+  };
+}
+
+function restoreRouteStore(snapshot: RouteStoreSnapshot): void {
+  routes.length = 0;
+  routes.push(...snapshot.routes);
+
+  records.length = 0;
+  records.push(...snapshot.records);
+
+  namespaces.clear();
+  for (const namespace of snapshot.namespaces) {
+    namespaces.add(namespace);
+  }
+
+  routesByDepth.clear();
+  for (const [depth, depthRoutes] of snapshot.routesByDepth) {
+    routesByDepth.set(depth, [...depthRoutes]);
+  }
+
+  registrationScopeStack.length = 0;
+  registrationScopeStack.push(...snapshot.registrationScopeStack);
+
+  registrationSessionStack.length = 0;
+  registrationSessionStack.push(...snapshot.registrationSessionStack);
+
+  registrationLocked = snapshot.registrationLocked;
+  defaultRouteAuthOptions = snapshot.defaultRouteAuthOptions;
+  activeClientRouteAuthOptions = snapshot.activeClientRouteAuthOptions;
+
+  pendingLazy.clear();
+  for (const lazyImport of snapshot.pendingLazy) {
+    pendingLazy.add(lazyImport);
+  }
+}
+
+export function createRouteRegistry(
+  definition: RouteDefinition,
+  options: RegisterRoutesOptions = {}
+): RouteRegistry {
+  const previous = snapshotRouteStore();
+  clearRoutes();
+
+  try {
+    registerRoutes(definition, options);
+    const manifest = getManifest();
+    const registry = Object.freeze({
+      manifest,
+      routes: getRoutes(),
+    });
+    const lazyImports = _snapshotLazy();
+
+    if (lazyImports.length > 0) {
+      registryLazyImports.set(registry, lazyImports);
+      manifestLazyImports.set(manifest, lazyImports);
+    }
+
+    return registry;
+  } finally {
+    restoreRouteStore(previous);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // route() — dual-purpose: registration (module load) + accessor (render time)
 // ---------------------------------------------------------------------------
@@ -1426,7 +1528,7 @@ function readCurrentRouteSnapshot<
   let pathname = '/';
   let search = '';
   let hash = '';
-  const renderContext = getRenderContext();
+  const renderContext = getActiveRenderContext();
 
   if (instance.ssr && renderContext?.url) {
     const parsed = parseLocation(renderContext.url);
@@ -1621,6 +1723,11 @@ export function getRoutes(): Route[] {
   return [...routes];
 }
 
+/** True when the module-level router store contains registered routes. */
+export function hasRegisteredRoutes(): boolean {
+  return routes.length > 0 || records.length > 0;
+}
+
 /** Get routes for a specific namespace. */
 export function getNamespaceRoutes(namespace: string): Route[] {
   return routes.filter((r) => r.namespace === namespace);
@@ -1666,7 +1773,6 @@ export function clearRoutes(): void {
   registrationLocked = false;
   defaultRouteAuthOptions = undefined;
   activeClientRouteAuthOptions = undefined;
-  setHasRoutes(false);
   pendingLazy.clear();
 }
 
@@ -1793,7 +1899,7 @@ function createRenderDataAwareHandler(
   data: unknown
 ): RouteHandler {
   return (params, context) => {
-    const renderContext = getRenderContext();
+    const renderContext = getActiveRenderContext();
     if (renderContext) {
       renderContext.renderData = (data ?? null) as Record<
         string,
@@ -1889,7 +1995,7 @@ export function resolveRouteRequest(
 
   const signal =
     options.signal ??
-    getRenderContext()?.signal ??
+    getActiveRenderContext()?.signal ??
     new AbortController().signal;
   const auth = getActiveRouteAuthOptions(
     options.auth ?? options.manifest?.auth

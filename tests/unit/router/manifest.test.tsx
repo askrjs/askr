@@ -14,6 +14,7 @@ import {
   index,
   getManifest,
   clearRoutes,
+  createRouteRegistry,
   page,
   resolveRoute,
   resolveRouteFromRoutes,
@@ -89,6 +90,25 @@ describe('parseSegments()', () => {
   it('should normalize trailing slash', () => {
     expect(parseSegments('/users/')).toEqual([
       { kind: 'static', value: 'users' },
+    ]);
+  });
+});
+
+describe('createRouteRegistry()', () => {
+  it('should capture routes without mutating the module-level route store', () => {
+    route('/legacy', () => 'legacy');
+
+    const registry = createRouteRegistry(() => {
+      route('/registry', () => 'registry');
+    });
+
+    expect(registry.routes.map((entry) => entry.path)).toEqual(['/registry']);
+    expect(registry.manifest.records.map((record) => record.path)).toEqual([
+      '/registry',
+    ]);
+    expect(getRoutes().map((entry) => entry.path)).toEqual(['/legacy']);
+    expect(getManifest().records.map((record) => record.path)).toEqual([
+      '/legacy',
     ]);
   });
 });
