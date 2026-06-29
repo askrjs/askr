@@ -37,7 +37,7 @@ import {
   recordReadableRead,
   type ReadableSource,
 } from '../runtime/readable';
-import { getRenderContext } from '../ssr/context';
+import { getActiveRenderContext } from '../common/render-context';
 import {
   requireAuth,
   requireGuest,
@@ -199,20 +199,6 @@ type AccessScopeState = {
 
 let defaultRouteAuthOptions: RouteAuthOptions | undefined;
 let activeClientRouteAuthOptions: RouteAuthOptions | undefined;
-
-const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
-
-function setHasRoutes(value: boolean): void {
-  try {
-    const g = globalThis as unknown as Record<string | symbol, unknown>;
-    g[HAS_ROUTES_KEY] = value;
-  } catch {
-    // ignore
-  }
-}
-
-// Initialize to false at module load.
-setHasRoutes(false);
 
 // Route index by depth - maintains insertion order
 const routesByDepth = new Map<number, Route[]>();
@@ -555,7 +541,7 @@ function findBestResolvedRouteFromRoutes(
 }
 
 function getActiveRoutes(): readonly Route[] {
-  const renderContext = getRenderContext();
+  const renderContext = getActiveRenderContext();
   return renderContext?.routes ?? routes;
 }
 
@@ -566,7 +552,7 @@ function getActiveRouteAuthOptions(
     return override;
   }
 
-  const renderContext = getRenderContext();
+  const renderContext = getActiveRenderContext();
   return (
     renderContext?.routeAuth ??
     activeClientRouteAuthOptions ??
@@ -842,7 +828,6 @@ function insertRecordSorted(record: RouteRecord): void {
 
 function addRouteToStores(routeObj: Route): void {
   routes.push(routeObj);
-  setHasRoutes(true);
 
   const depth = getDepth(routeObj.path);
   let depthRoutes = routesByDepth.get(depth);
@@ -1426,7 +1411,7 @@ function readCurrentRouteSnapshot<
   let pathname = '/';
   let search = '';
   let hash = '';
-  const renderContext = getRenderContext();
+  const renderContext = getActiveRenderContext();
 
   if (instance.ssr && renderContext?.url) {
     const parsed = parseLocation(renderContext.url);
@@ -1621,6 +1606,11 @@ export function getRoutes(): Route[] {
   return [...routes];
 }
 
+/** True when the module-level router store contains registered routes. */
+export function hasRegisteredRoutes(): boolean {
+  return routes.length > 0 || records.length > 0;
+}
+
 /** Get routes for a specific namespace. */
 export function getNamespaceRoutes(namespace: string): Route[] {
   return routes.filter((r) => r.namespace === namespace);
@@ -1666,7 +1656,6 @@ export function clearRoutes(): void {
   registrationLocked = false;
   defaultRouteAuthOptions = undefined;
   activeClientRouteAuthOptions = undefined;
-  setHasRoutes(false);
   pendingLazy.clear();
 }
 
@@ -1793,7 +1782,7 @@ function createRenderDataAwareHandler(
   data: unknown
 ): RouteHandler {
   return (params, context) => {
-    const renderContext = getRenderContext();
+    const renderContext = getActiveRenderContext();
     if (renderContext) {
       renderContext.renderData = (data ?? null) as Record<
         string,
@@ -1889,7 +1878,7 @@ export function resolveRouteRequest(
 
   const signal =
     options.signal ??
-    getRenderContext()?.signal ??
+    getActiveRenderContext()?.signal ??
     new AbortController().signal;
   const auth = getActiveRouteAuthOptions(
     options.auth ?? options.manifest?.auth

@@ -29,6 +29,7 @@ import {
   _setActiveRouteAuthOptions,
   _snapshotLazy,
   clearRoutes,
+  hasRegisteredRoutes,
   lockRouteRegistration,
   resolveRouteRequest,
   route as registerRoute,
@@ -43,8 +44,6 @@ import {
   startHydrationRenderPhase,
   stopHydrationRenderPhase,
 } from '../ssr/render-keys';
-
-const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
 
 let componentIdCounter = 0;
 
@@ -492,15 +491,10 @@ export function createIsland(config: IslandConfig): void {
   // Routes are never supported with islands.
   // If routes were registered (even at module load time), fail fast to avoid
   // surprising partial router behavior.
-  try {
-    const g = globalThis as unknown as Record<string | symbol, unknown>;
-    if (g[HAS_ROUTES_KEY]) {
-      throw new Error(
-        'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
-      );
-    }
-  } catch {
-    // ignore
+  if (hasRegisteredRoutes()) {
+    throw new Error(
+      'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
+    );
   }
 
   mountOrUpdate(rootElement, config.component, {

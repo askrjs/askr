@@ -8,6 +8,7 @@
 
 import { SSRDataMissingError } from './errors';
 import { clearEscapeCache } from './escape';
+import { configureRenderContextProvider } from '../common/render-context';
 
 export type { SSRData } from '../common/ssr';
 import type { SSRData } from '../common/ssr';
@@ -140,6 +141,10 @@ export function getRenderContext(): RenderContext | null {
   }
   return fallbackStack;
 }
+
+configureRenderContextProvider({
+  getRenderContext,
+});
 
 // Legacy API aliases (deprecated, for backwards compatibility)
 export const getSSRContext = getRenderContext;
