@@ -34,14 +34,11 @@ import { DefaultPortal } from '../foundations/structures/portal';
 import { disposeDefaultPortalScope } from '../foundations/structures/portal';
 import {
   createRenderContext,
-  getRenderContext,
   withRenderContext,
   throwSSRDataMissing,
   type RenderContext,
   type SSRData,
 } from './context';
-import { installSSRBridge } from '../runtime/ssr-bridge';
-import { getCurrentRenderData, getNextKey } from './render-keys';
 import {
   createComponentInstance,
   cleanupComponent,
@@ -108,16 +105,6 @@ function inheritRenderableKey(
 
   return result;
 }
-
-// Install SSR bridge once so runtime primitives (resource/derive/etc) can
-// detect SSR mode and access deterministic render-phase data without a
-// runtime->ssr import.
-installSSRBridge({
-  getCurrentSSRContext: getRenderContext,
-  throwSSRDataMissing,
-  getCurrentRenderData,
-  getNextKey,
-});
 
 export { SSRDataMissingError } from './context';
 export type {

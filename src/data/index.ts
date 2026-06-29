@@ -11,7 +11,7 @@ import {
   recordReadableRead,
   type ReadableSource,
 } from '../runtime/readable';
-import { getRenderContext } from '../ssr/context';
+import { getActiveRenderContext } from '../common/render-context';
 import { logger } from '../dev/logger';
 import { emitInvalidation } from './invalidation-listeners';
 import {
@@ -234,7 +234,7 @@ function createReadableSource(): ReadableSource<unknown> {
 
 function getQueryCache(): Map<string, QueryCell<unknown>> {
   return (
-    (getRenderContext()?.queryCache as Map<
+    (getActiveRenderContext()?.queryCache as Map<
       string,
       QueryCell<unknown>
     > | null) ?? globalQueryCache

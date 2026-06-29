@@ -43,7 +43,7 @@ import { SSR_RENDER_DATA_ATTR, type SSRData } from '../common/ssr';
 import {
   startHydrationRenderPhase,
   stopHydrationRenderPhase,
-} from '../ssr/render-keys';
+} from '../common/render-context';
 
 let componentIdCounter = 0;
 
