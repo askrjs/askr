@@ -1,4 +1,4 @@
-import { expectType } from 'tsd';
+import { expectAssignable, expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
 import type {
   AskrRuntimeOptions,
@@ -58,11 +58,11 @@ expectType<typeof rootSurface.getDefaultRuntime>(rootSurface.getDefaultRuntime);
 expectType<typeof rootSurface.AskrRuntime>(rootSurface.AskrRuntime);
 expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
 expectType<rootSurface.AskrRuntime>(rootSurface.getDefaultRuntime());
-expectType<AskrRuntimeOptions>({});
+expectAssignable<AskrRuntimeOptions>({});
 expectType<RuntimeRendererHost>(
   null as unknown as RuntimeRendererHost
 );
-expectType<RuntimeKeyedReorderDecision>({
+expectAssignable<RuntimeKeyedReorderDecision>({
   useFastPath: false,
   totalKeyed: 0,
   totalChildren: 0,
