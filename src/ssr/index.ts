@@ -1367,6 +1367,7 @@ function resolveSSRRouteSource(source: SSRRouteSource): SSRRoute[] {
   }
 
   return routes.map((route) => ({
+    ...route,
     path: route.path,
     handler: route.handler,
     namespace: route.namespace,

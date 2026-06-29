@@ -19,8 +19,10 @@ import { task } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
 import {
   clearRoutes,
+  createRouteRegistry,
   getManifest,
   getRoutes,
+  lazy,
   route,
 } from '../../../src/router/route';
 import {
@@ -286,6 +288,66 @@ describe('history integration (ROUTER)', () => {
       expect(container.textContent).toBe('fast');
       expect(window.location.pathname).toBe('/fast');
       expect(guardAborted).toBe(true);
+    });
+
+    it('should resolve registry navigation through manifest guards', async () => {
+      const registry = createRouteRegistry(
+        () => {
+          route('/', () => <div>{'public'}</div>);
+          route('/login', () => <div>{'login'}</div>, { auth: 'guest' });
+          route('/dashboard', () => <div>{'protected'}</div>, {
+            auth: true,
+          });
+        },
+        {
+          auth: {
+            resolve: () => ({ session: null, user: null }),
+            loginPath: '/login',
+          },
+        }
+      );
+
+      window.history.replaceState({ path: '/' }, '', '/');
+      await createSPA({ root: container, registry });
+      flushScheduler();
+
+      expect(container.textContent).toBe('public');
+
+      navigate('/dashboard');
+      await settleNavigation();
+
+      expect(window.location.pathname).toBe('/login');
+      expect(container.textContent).toBe('login');
+      expect(container.textContent).not.toContain('protected');
+    });
+
+    it('should await lazy route imports captured by a registry', async () => {
+      const LazyHome = () => <div>{'lazy home'}</div>;
+      let resolveImport!: (mod: { default: typeof LazyHome }) => void;
+
+      const registry = createRouteRegistry(() => {
+        route(
+          '/',
+          lazy(
+            () =>
+              new Promise<{ default: typeof LazyHome }>((resolve) => {
+                resolveImport = resolve;
+              })
+          )
+        );
+      });
+
+      window.history.replaceState({ path: '/' }, '', '/');
+      const boot = createSPA({ root: container, registry });
+      await Promise.resolve();
+
+      expect(container.textContent).toBe('');
+
+      resolveImport({ default: LazyHome });
+      await boot;
+      flushScheduler();
+
+      expect(container.textContent).toBe('lazy home');
     });
 
     it('should log async popstate remount failures instead of leaking unhandled rejections', async () => {

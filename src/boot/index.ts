@@ -27,6 +27,7 @@ import {
   _applyManifest,
   _drainLazy,
   _setActiveRouteAuthOptions,
+  _snapshotRouteSourceLazy,
   _snapshotLazy,
   clearRoutes,
   hasRegisteredRoutes,
@@ -567,7 +568,10 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
-  const pendingLazyAtBoot = _snapshotLazy();
+  const pendingLazyAtBoot = [
+    ..._snapshotLazy(),
+    ..._snapshotRouteSourceLazy({ registry: config.registry, manifest }),
+  ];
 
   configureScrollRestoration(config.scrollRestoration);
 
@@ -584,6 +588,12 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   }
 
   const routeAuth = config.auth ?? manifest?.auth;
+  const activeManifest = hasManifest ? manifest : undefined;
+  const appRouteSource = {
+    manifest: activeManifest,
+    routes: hasManifest ? undefined : routeTable,
+    auth: routeAuth,
+  };
   _setActiveRouteAuthOptions(routeAuth);
 
   // Drain any lazy() imports so all split chunks are ready before mounting
@@ -601,9 +611,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     });
 
     await registerAppNavigation(rootElement, path, {
-      manifest,
-      routes: routeTable,
-      auth: routeAuth,
+      ...appRouteSource,
     });
     return;
   }
@@ -614,9 +622,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     });
 
     await registerAppNavigation(rootElement, path, {
-      manifest,
-      routes: routeTable,
-      auth: routeAuth,
+      ...appRouteSource,
     });
     return;
   }
@@ -635,9 +641,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   );
 
   await registerAppNavigation(rootElement, path, {
-    manifest,
-    routes: routeTable,
-    auth: routeAuth,
+    ...appRouteSource,
   });
 }
 
@@ -923,7 +927,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
   const hydrationRenderData = takeHydrationRenderData(rootElement);
 
-  const pendingLazyAtHydrationBoot = _snapshotLazy();
+  const pendingLazyAtHydrationBoot = [
+    ..._snapshotLazy(),
+    ..._snapshotRouteSourceLazy({ registry: config.registry, manifest }),
+  ];
 
   configureScrollRestoration(config.scrollRestoration);
 
@@ -937,7 +944,14 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
 
-  _setActiveRouteAuthOptions(config.auth ?? manifest?.auth);
+  const routeAuth = config.auth ?? manifest?.auth;
+  const activeManifest = hasManifest ? manifest : undefined;
+  const appRouteSource = {
+    manifest: activeManifest,
+    routes: hasManifest ? undefined : routeTable,
+    auth: routeAuth,
+  };
+  _setActiveRouteAuthOptions(routeAuth);
 
   // Drain any lazy() imports so all split chunks are ready before mounting
   await _drainLazy(pendingLazyAtHydrationBoot);
@@ -946,7 +960,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     path,
     href: currentUrl,
     resolved,
-  } = await resolveInitialRoute(config.auth ?? manifest?.auth);
+  } = await resolveInitialRoute(routeAuth);
   setServerLocation(currentUrl);
   if (isProductionEnvironment()) lockRouteRegistration();
 
@@ -968,6 +982,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   if (shouldVerifyHydrationMarkup(config)) {
     const legacyRouteTable = hasManifest
       ? manifest!.records.map((r) => ({
+          ...r,
           path: r.path,
           handler: r.handler,
           namespace: r.options.namespace,
@@ -1006,11 +1021,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           path,
           config.cleanupStrict,
           hydrateOptions,
-          {
-            manifest,
-            routes: routeTable,
-            auth: config.auth ?? manifest?.auth,
-          }
+          appRouteSource
         );
       } finally {
         if (hydrationRenderData) {
@@ -1044,9 +1055,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
   await registerAppNavigation(rootElement, path, {
-    manifest,
-    routes: routeTable,
-    auth: config.auth ?? manifest?.auth,
+    ...appRouteSource,
   });
 }
 

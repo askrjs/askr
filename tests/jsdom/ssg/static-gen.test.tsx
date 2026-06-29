@@ -14,7 +14,7 @@ import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
 import { resource } from '../../../src/resources';
 import { defineContext } from '../../../src/runtime/context';
-import { createRouteRegistry, route } from '../../../src/router/route';
+import { createRouteRegistry, fallback, route } from '../../../src/router/route';
 
 // Test utilities
 function createTempDir(): string {
@@ -167,6 +167,23 @@ describe('Static Site Generation', () => {
       expect(result.totalRoutes).toBe(1);
       expect(result.successful).toBe(1);
       expect(result.routes[0].html).toBe('<main>Registry Home</main>');
+    });
+
+    it('should not generate registry fallback records as concrete pages', async () => {
+      const registry = createRouteRegistry(() => {
+        route('/', () => <main>{'Registry Home'}</main>);
+        fallback(() => <main>{'Missing'}</main>);
+      });
+      const ssg = createStaticGen({
+        registry,
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.totalRoutes).toBe(1);
+      expect(result.routes.map((route) => route.path)).toEqual(['/']);
+      expect(fs.existsSync(path.join(tempDir, '*', 'index.html'))).toBe(false);
     });
 
     it('should preserve Context.Scope sibling children in generated HTML', async () => {
@@ -555,6 +572,107 @@ describe('Static Site Generation', () => {
       expect(fs.existsSync(path.join(tempDir, 'login', 'index.html'))).toBe(
         true
       );
+    });
+
+    it('should keep registry guest routes prerenderable during SSG', async () => {
+      const registry = createRouteRegistry(
+        () => {
+          route('/login', () => <main>{'Registry Login'}</main>, {
+            auth: 'guest',
+          });
+        },
+        {
+          auth: {
+            resolve: () => ({ session: null, user: null }),
+          },
+        }
+      );
+      const ssg = createStaticGen({
+        registry,
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.successful).toBe(1);
+      expect(result.skipped).toBe(0);
+      expect(result.routes[0].path).toBe('/login');
+      expect(fs.existsSync(path.join(tempDir, 'login', 'index.html'))).toBe(
+        true
+      );
+    });
+
+    it('should skip registry authenticated and custom-policy routes as runtime-only', async () => {
+      const registry = createRouteRegistry(
+        () => {
+          route('/', () => <main>{'Registry Home'}</main>);
+          route('/dashboard', () => <main>{'Dashboard'}</main>, {
+            auth: true,
+          });
+          route('/billing', () => <main>{'Billing'}</main>, {
+            policies: [() => ({ kind: 'allow' as const })],
+          });
+        },
+        {
+          auth: {
+            resolve: () => ({ session: null, user: null }),
+          },
+        }
+      );
+      const ssg = createStaticGen({
+        registry,
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.successful).toBe(1);
+      expect(result.skipped).toBe(2);
+      expect(
+        result.routes.find((route) => route.path === '/dashboard')
+      ).toMatchObject({
+        status: 'skipped',
+        reason: 'runtime-only',
+      });
+      expect(
+        result.routes.find((route) => route.path === '/billing')
+      ).toMatchObject({
+        status: 'skipped',
+        reason: 'runtime-only',
+      });
+      expect(fs.existsSync(path.join(tempDir, 'dashboard', 'index.html'))).toBe(
+        false
+      );
+    });
+
+    it('should skip registry authenticated parameterized routes before param validation', async () => {
+      const registry = createRouteRegistry(
+        () => {
+          route('/account/{id}', ({ id }) => <main>{id}</main>, {
+            auth: true,
+          });
+        },
+        {
+          auth: {
+            resolve: () => ({ session: null, user: null }),
+          },
+        }
+      );
+      const ssg = createStaticGen({
+        registry,
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.totalRoutes).toBe(1);
+      expect(result.successful).toBe(0);
+      expect(result.skipped).toBe(1);
+      expect(result.routes[0]).toMatchObject({
+        path: '/account/{id}',
+        status: 'skipped',
+        reason: 'runtime-only',
+      });
     });
 
     it('should reject entry routes with missing required path params', async () => {

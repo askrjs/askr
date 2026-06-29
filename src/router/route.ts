@@ -464,12 +464,12 @@ export function computeRouteActivityMatches(
     routes?: readonly Route[];
   } = {}
 ): RouteMatch[] {
-  if (options.routes) {
-    return computeMatchesFromRoutes(pathname, options.routes);
-  }
-
   if (options.manifest) {
     return computeMatchesFromRouteRecords(pathname, options.manifest.records);
+  }
+
+  if (options.routes) {
+    return computeMatchesFromRoutes(pathname, options.routes);
   }
 
   return computeMatchesFromRoutes(pathname, getActiveRoutes());
@@ -850,6 +850,8 @@ function addRouteToStores(routeObj: Route): void {
 
 /** Promises from in-flight lazy() imports, drained by createSPA / hydrateSPA. */
 const pendingLazy = new Set<Promise<unknown>>();
+const registryLazyImports = new WeakMap<RouteRegistry, Promise<unknown>[]>();
+const manifestLazyImports = new WeakMap<RouteManifest, Promise<unknown>[]>();
 
 const outletContext = defineContext<RenderableChild>(null);
 
@@ -869,6 +871,28 @@ export function Outlet(): JSXElement {
  */
 export function _snapshotLazy(): Promise<unknown>[] {
   return [...pendingLazy];
+}
+
+export function _snapshotRouteSourceLazy(source: {
+  registry?: RouteRegistry;
+  manifest?: RouteManifest;
+}): Promise<unknown>[] {
+  const imports = new Set<Promise<unknown>>();
+
+  if (source.registry) {
+    for (const lazyImport of registryLazyImports.get(source.registry) ?? []) {
+      imports.add(lazyImport);
+    }
+  }
+
+  const manifest = source.manifest ?? source.registry?.manifest;
+  if (manifest) {
+    for (const lazyImport of manifestLazyImports.get(manifest) ?? []) {
+      imports.add(lazyImport);
+    }
+  }
+
+  return [...imports];
 }
 
 /**
@@ -1468,10 +1492,19 @@ export function createRouteRegistry(
 
   try {
     registerRoutes(definition, options);
-    return Object.freeze({
-      manifest: getManifest(),
+    const manifest = getManifest();
+    const registry = Object.freeze({
+      manifest,
       routes: getRoutes(),
     });
+    const lazyImports = _snapshotLazy();
+
+    if (lazyImports.length > 0) {
+      registryLazyImports.set(registry, lazyImports);
+      manifestLazyImports.set(manifest, lazyImports);
+    }
+
+    return registry;
   } finally {
     restoreRouteStore(previous);
   }
