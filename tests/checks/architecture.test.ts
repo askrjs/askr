@@ -258,7 +258,7 @@ function findAreaCycles(edges: readonly ImportEdge[]): string[] {
 const edges = collectImportEdges(sourceFiles);
 
 describe('architecture boundaries', () => {
-  it('keeps runtime independent from concrete platform subsystems', () => {
+  it('should keep runtime independent from concrete platform subsystems', () => {
     const forbidden = edges
       .filter((edge) => !edge.typeOnly && topLevelArea(edge.from) === 'runtime')
       .filter((edge) => {
@@ -274,7 +274,7 @@ describe('architecture boundaries', () => {
     expect(forbidden).toEqual([]);
   });
 
-  it('keeps renderer on narrow runtime contracts instead of component internals', () => {
+  it('should keep renderer on narrow runtime contracts instead of component internals', () => {
     const forbidden = edges
       .filter((edge) => topLevelArea(edge.from) === 'renderer')
       .filter((edge) => relative(edge.to) === 'src/runtime/component.ts')
@@ -283,11 +283,11 @@ describe('architecture boundaries', () => {
     expect(forbidden).toEqual([]);
   });
 
-  it('keeps subsystem value imports acyclic', () => {
+  it('should keep subsystem value imports acyclic', () => {
     expect(findAreaCycles(edges)).toEqual([]);
   });
 
-  it('keeps hidden singleton bridge globals out of runtime code', () => {
+  it('should keep hidden singleton bridge globals out of runtime code', () => {
     const forbiddenNames = [
       '__ASKR_RENDERER',
       '__ASKR_FASTLANE',
@@ -305,7 +305,7 @@ describe('architecture boundaries', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('requires explicit exemptions for oversized responsibility clusters', () => {
+  it('should require explicit exemptions for oversized responsibility clusters', () => {
     const oversized = sourceFiles
       .filter((file) => file.text.split(/\r?\n/).length > OVERSIZED_LINE_LIMIT)
       .map((file) => file.relativePath)

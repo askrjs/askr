@@ -49,6 +49,7 @@ let componentIdCounter = 0;
 
 // Track instances by root element to support multiple createIsland calls on same root
 const instancesByRoot = new WeakMap<Element, ComponentInstance>();
+const routedRoots = new Set<Element>();
 
 // Symbol for storing cleanup on elements
 const CLEANUP_SYMBOL = Symbol.for('__askrCleanup__');
@@ -600,8 +601,8 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     });
 
     await registerAppNavigation(rootElement, path, {
-      manifest: config.manifest,
-      routes: config.routes,
+      manifest,
+      routes: routeTable,
       auth: routeAuth,
     });
     return;
@@ -613,8 +614,8 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     });
 
     await registerAppNavigation(rootElement, path, {
-      manifest: config.manifest,
-      routes: config.routes,
+      manifest,
+      routes: routeTable,
       auth: routeAuth,
     });
     return;
@@ -634,8 +635,8 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   );
 
   await registerAppNavigation(rootElement, path, {
-    manifest: config.manifest,
-    routes: config.routes,
+    manifest,
+    routes: routeTable,
     auth: routeAuth,
   });
 }
@@ -752,12 +753,13 @@ async function registerAppNavigation(
   path: string,
   source?: {
     manifest?: RouteManifest;
-    routes?: Route[];
+    routes?: readonly Route[];
     auth?: RouteAuthOptions;
   }
 ) {
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
+  routedRoots.add(rootElement);
   registerAppInstance(instance as ComponentInstance, path, source);
   initializeNavigation();
 }
@@ -770,7 +772,12 @@ async function applySelectiveHydration(
   resolved: { handler: ComponentFunction; params: Record<string, unknown> },
   path: string,
   cleanupStrict: boolean | undefined,
-  hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>
+  hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>,
+  source?: {
+    manifest?: RouteManifest;
+    routes?: readonly Route[];
+    auth?: RouteAuthOptions;
+  }
 ): Promise<void> {
   const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
@@ -847,7 +854,7 @@ async function applySelectiveHydration(
         }
       );
     });
-    await registerAppNavigation(rootElement, path);
+    await registerAppNavigation(rootElement, path, source);
     return;
   }
 
@@ -859,7 +866,7 @@ async function applySelectiveHydration(
         cleanupStrict,
       }
     );
-    await registerAppNavigation(rootElement, path);
+    await registerAppNavigation(rootElement, path, source);
   } catch (error) {
     releaseSelectiveHydrationResources();
     throw error;
@@ -939,7 +946,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     path,
     href: currentUrl,
     resolved,
-  } = await resolveInitialRoute(config.auth ?? config.manifest?.auth);
+  } = await resolveInitialRoute(config.auth ?? manifest?.auth);
   setServerLocation(currentUrl);
   if (isProductionEnvironment()) lockRouteRegistration();
 
@@ -960,12 +967,12 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
   if (shouldVerifyHydrationMarkup(config)) {
     const legacyRouteTable = hasManifest
-      ? config.manifest!.records.map((r) => ({
+      ? manifest!.records.map((r) => ({
           path: r.path,
           handler: r.handler,
           namespace: r.options.namespace,
         }))
-      : config.routes!;
+      : routeTable!;
 
     const { verifyHydrationSyncForUrl } =
       await import('../ssr/verify-hydration');
@@ -998,7 +1005,12 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           hydrationResolved,
           path,
           config.cleanupStrict,
-          hydrateOptions
+          hydrateOptions,
+          {
+            manifest,
+            routes: routeTable,
+            auth: config.auth ?? manifest?.auth,
+          }
         );
       } finally {
         if (hydrationRenderData) {
@@ -1032,9 +1044,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
   await registerAppNavigation(rootElement, path, {
-    manifest: config.manifest,
-    routes: config.routes,
-    auth: config.auth ?? config.manifest?.auth,
+    manifest,
+    routes: routeTable,
+    auth: config.auth ?? manifest?.auth,
   });
 }
 
@@ -1054,8 +1066,12 @@ export function cleanupApp(root: Element | string): void {
       cleanupFn();
     }
   } finally {
+    const wasRoutedRoot = routedRoots.delete(rootElement);
     instancesByRoot.delete(rootElement);
     clearRootCleanupCallbacks(rootElement);
+    if (wasRoutedRoot && routedRoots.size === 0) {
+      clearRoutes();
+    }
     try {
       delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
     } catch {
