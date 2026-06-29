@@ -64,13 +64,13 @@ before emitting the wrapped document output.
 
 ```ts
 import { hydrateSPA } from '@askrjs/askr/boot';
-import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
-registerRoutes(() => {
+const registry = createRouteRegistry(() => {
   route('/', () => <Home />);
 });
 
-await hydrateSPA({ root: 'app', manifest: getManifest() });
+await hydrateSPA({ root: 'app', registry });
 ```
 
 ## Static Site Generation (SSG)

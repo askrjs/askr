@@ -77,6 +77,7 @@ export type {
   PageScopeRecord,
   RouteRecord,
   RouteManifest,
+  RouteRegistry,
 } from '../common/router';
 
 import type {
@@ -103,6 +104,7 @@ import type {
   PageScopeRecord,
   RouteRecord,
   RouteManifest,
+  RouteRegistry,
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
@@ -1390,6 +1392,88 @@ export function registerRoutes(
     definition();
   } finally {
     registrationSessionStack.pop();
+  }
+}
+
+type RouteStoreSnapshot = {
+  routes: InternalRoute[];
+  records: InternalRouteRecord[];
+  namespaces: string[];
+  registrationLocked: boolean;
+  defaultRouteAuthOptions: RouteAuthOptions | undefined;
+  activeClientRouteAuthOptions: RouteAuthOptions | undefined;
+  routesByDepth: Array<[number, Route[]]>;
+  registrationScopeStack: RegistrationScope[];
+  registrationSessionStack: RegistrationSession[];
+  pendingLazy: Promise<unknown>[];
+};
+
+function snapshotRouteStore(): RouteStoreSnapshot {
+  return {
+    routes: [...routes],
+    records: [...records],
+    namespaces: [...namespaces],
+    registrationLocked,
+    defaultRouteAuthOptions,
+    activeClientRouteAuthOptions,
+    routesByDepth: [...routesByDepth.entries()].map(([depth, depthRoutes]) => [
+      depth,
+      [...depthRoutes],
+    ]),
+    registrationScopeStack: [...registrationScopeStack],
+    registrationSessionStack: [...registrationSessionStack],
+    pendingLazy: [...pendingLazy],
+  };
+}
+
+function restoreRouteStore(snapshot: RouteStoreSnapshot): void {
+  routes.length = 0;
+  routes.push(...snapshot.routes);
+
+  records.length = 0;
+  records.push(...snapshot.records);
+
+  namespaces.clear();
+  for (const namespace of snapshot.namespaces) {
+    namespaces.add(namespace);
+  }
+
+  routesByDepth.clear();
+  for (const [depth, depthRoutes] of snapshot.routesByDepth) {
+    routesByDepth.set(depth, [...depthRoutes]);
+  }
+
+  registrationScopeStack.length = 0;
+  registrationScopeStack.push(...snapshot.registrationScopeStack);
+
+  registrationSessionStack.length = 0;
+  registrationSessionStack.push(...snapshot.registrationSessionStack);
+
+  registrationLocked = snapshot.registrationLocked;
+  defaultRouteAuthOptions = snapshot.defaultRouteAuthOptions;
+  activeClientRouteAuthOptions = snapshot.activeClientRouteAuthOptions;
+
+  pendingLazy.clear();
+  for (const lazyImport of snapshot.pendingLazy) {
+    pendingLazy.add(lazyImport);
+  }
+}
+
+export function createRouteRegistry(
+  definition: RouteDefinition,
+  options: RegisterRoutesOptions = {}
+): RouteRegistry {
+  const previous = snapshotRouteStore();
+  clearRoutes();
+
+  try {
+    registerRoutes(definition, options);
+    return Object.freeze({
+      manifest: getManifest(),
+      routes: getRoutes(),
+    });
+  } finally {
+    restoreRouteStore(previous);
   }
 }
 

@@ -49,7 +49,7 @@ Static Site Generation. Routes are pre-rendered to `.html` files at build time u
 **Route**
 
 A mapping from a URL path to a component. Defined with `route(path, Component)`. Routes
-can be grouped under `registerRoutes()` and `group()` scopes.
+can be captured by `createRouteRegistry()` and grouped under `group()` scopes.
 
 ---
 

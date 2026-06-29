@@ -32,16 +32,16 @@ Use `createSPA()` for a full client-rendered application with the Askr router.
 
 ```ts
 import { createSPA } from '@askrjs/askr/boot';
-import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
-registerRoutes(() => {
+const registry = createRouteRegistry(() => {
   route('/', () => <Home />);
 });
 
-await createSPA({ root: 'app', manifest: getManifest() });
+await createSPA({ root: 'app', registry });
 ```
 
-Routes must be registered before `createSPA()` is called.
+Create the route registry before `createSPA()` is called.
 
 ## SSR + SPA hydration
 
@@ -56,9 +56,9 @@ const html = renderToString({ url: req.url, routes });
 
 // client
 import { hydrateSPA } from '@askrjs/askr/boot';
-import { getManifest } from '@askrjs/askr/router';
+import { registry } from './routes';
 
-await hydrateSPA({ root: 'app', manifest: getManifest() });
+await hydrateSPA({ root: 'app', registry });
 ```
 
 ## Cleanup

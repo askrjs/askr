@@ -73,14 +73,14 @@ setCount((value) => value + 1);
 
 ```ts
 import { createSPA } from '@askrjs/askr/boot';
-import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
-registerRoutes(() => {
+const registry = createRouteRegistry(() => {
   route('/', () => <Home />);
   route('/about', () => <About />);
 });
 
-await createSPA({ root: document.body, manifest: getManifest() });
+await createSPA({ root: document.body, registry });
 ```
 
 ## Migration Notes

@@ -356,6 +356,7 @@ function bindDeniedStatus(status: number): ComponentFunction {
 import type {
   Route,
   RouteManifest,
+  RouteRegistry,
   ResolvedRoute,
   RouteAuthOptions,
   RouteRequestResult,
@@ -382,11 +383,18 @@ export type IslandsConfig = {
 
 type BootRouteSource =
   | {
+      registry: RouteRegistry;
+      manifest?: RouteManifest;
+      routes?: Route[];
+    }
+  | {
       manifest: RouteManifest;
+      registry?: RouteRegistry;
       routes?: Route[];
     }
   | {
       manifest?: RouteManifest;
+      registry?: RouteRegistry;
       routes: Route[];
     };
 
@@ -539,9 +547,10 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     throw new Error('createSPA requires a config object');
   }
 
-  const hasManifest =
-    config.manifest != null && config.manifest.records.length > 0;
-  const hasRoutes = Array.isArray(config.routes) && config.routes.length > 0;
+  const manifest = config.manifest ?? config.registry?.manifest;
+  const routeTable = config.routes ?? config.registry?.routes;
+  const hasManifest = manifest != null && manifest.records.length > 0;
+  const hasRoutes = Array.isArray(routeTable) && routeTable.length > 0;
 
   if (!hasManifest && !hasRoutes) {
     throw new Error(
@@ -565,15 +574,15 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
   if (hasManifest) {
     // Preferred path: apply pre-built manifest records directly
-    _applyManifest(config.manifest!);
+    _applyManifest(manifest!);
   } else {
     // Legacy path: register plain Route objects (no layout metadata)
-    for (const r of config.routes!) {
+    for (const r of routeTable!) {
       registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
     }
   }
 
-  const routeAuth = config.auth ?? config.manifest?.auth;
+  const routeAuth = config.auth ?? manifest?.auth;
   _setActiveRouteAuthOptions(routeAuth);
 
   // Drain any lazy() imports so all split chunks are ready before mounting
@@ -887,9 +896,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     throw new Error('hydrateSPA requires a config object');
   }
 
-  const hasManifest =
-    config.manifest != null && config.manifest.records.length > 0;
-  const hasRoutes = Array.isArray(config.routes) && config.routes.length > 0;
+  const manifest = config.manifest ?? config.registry?.manifest;
+  const routeTable = config.routes ?? config.registry?.routes;
+  const hasManifest = manifest != null && manifest.records.length > 0;
+  const hasRoutes = Array.isArray(routeTable) && routeTable.length > 0;
 
   if (!hasManifest && !hasRoutes) {
     throw new Error(
@@ -913,14 +923,14 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   clearRoutes();
 
   if (hasManifest) {
-    _applyManifest(config.manifest!);
+    _applyManifest(manifest!);
   } else {
-    for (const r of config.routes!) {
+    for (const r of routeTable!) {
       registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
     }
   }
 
-  _setActiveRouteAuthOptions(config.auth ?? config.manifest?.auth);
+  _setActiveRouteAuthOptions(config.auth ?? manifest?.auth);
 
   // Drain any lazy() imports so all split chunks are ready before mounting
   await _drainLazy(pendingLazyAtHydrationBoot);
