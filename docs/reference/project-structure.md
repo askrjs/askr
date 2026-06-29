@@ -32,16 +32,16 @@ src/routes/
 ```
 
 Routes are registered in a central `router.tsx` or `routes.ts` file and grouped using
-`registerRoutes()` and `group({ layout })`.
+`createRouteRegistry()` and `group({ layout })`.
 
 ```ts
 // src/router.tsx
-import { group, registerRoutes, route } from '@askrjs/askr/router';
+import { createRouteRegistry, group, route } from '@askrjs/askr/router';
 import AppLayout from './layouts/app-layout';
 import Home from './routes/home';
 import Users from './routes/users';
 
-registerRoutes(() => {
+export const registry = createRouteRegistry(() => {
   group({ layout: AppLayout }, () => {
     route('/', Home);
     route('/users', Users);

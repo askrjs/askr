@@ -27,8 +27,10 @@ import {
   _applyManifest,
   _drainLazy,
   _setActiveRouteAuthOptions,
+  _snapshotRouteSourceLazy,
   _snapshotLazy,
   clearRoutes,
+  hasRegisteredRoutes,
   lockRouteRegistration,
   resolveRouteRequest,
   route as registerRoute,
@@ -42,14 +44,13 @@ import { SSR_RENDER_DATA_ATTR, type SSRData } from '../common/ssr';
 import {
   startHydrationRenderPhase,
   stopHydrationRenderPhase,
-} from '../ssr/render-keys';
-
-const HAS_ROUTES_KEY = Symbol.for('__ASKR_HAS_ROUTES__');
+} from '../common/render-context';
 
 let componentIdCounter = 0;
 
 // Track instances by root element to support multiple createIsland calls on same root
 const instancesByRoot = new WeakMap<Element, ComponentInstance>();
+const routedRoots = new Set<Element>();
 
 // Symbol for storing cleanup on elements
 const CLEANUP_SYMBOL = Symbol.for('__askrCleanup__');
@@ -357,6 +358,7 @@ function bindDeniedStatus(status: number): ComponentFunction {
 import type {
   Route,
   RouteManifest,
+  RouteRegistry,
   ResolvedRoute,
   RouteAuthOptions,
   RouteRequestResult,
@@ -383,11 +385,18 @@ export type IslandsConfig = {
 
 type BootRouteSource =
   | {
+      registry: RouteRegistry;
+      manifest?: RouteManifest;
+      routes?: Route[];
+    }
+  | {
       manifest: RouteManifest;
+      registry?: RouteRegistry;
       routes?: Route[];
     }
   | {
       manifest?: RouteManifest;
+      registry?: RouteRegistry;
       routes: Route[];
     };
 
@@ -492,15 +501,10 @@ export function createIsland(config: IslandConfig): void {
   // Routes are never supported with islands.
   // If routes were registered (even at module load time), fail fast to avoid
   // surprising partial router behavior.
-  try {
-    const g = globalThis as unknown as Record<string | symbol, unknown>;
-    if (g[HAS_ROUTES_KEY]) {
-      throw new Error(
-        'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
-      );
-    }
-  } catch {
-    // ignore
+  if (hasRegisteredRoutes()) {
+    throw new Error(
+      'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
+    );
   }
 
   mountOrUpdate(rootElement, config.component, {
@@ -545,9 +549,10 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     throw new Error('createSPA requires a config object');
   }
 
-  const hasManifest =
-    config.manifest != null && config.manifest.records.length > 0;
-  const hasRoutes = Array.isArray(config.routes) && config.routes.length > 0;
+  const manifest = config.manifest ?? config.registry?.manifest;
+  const routeTable = config.routes ?? config.registry?.routes;
+  const hasManifest = manifest != null && manifest.records.length > 0;
+  const hasRoutes = Array.isArray(routeTable) && routeTable.length > 0;
 
   if (!hasManifest && !hasRoutes) {
     throw new Error(
@@ -563,7 +568,10 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
-  const pendingLazyAtBoot = _snapshotLazy();
+  const pendingLazyAtBoot = [
+    ..._snapshotLazy(),
+    ..._snapshotRouteSourceLazy({ registry: config.registry, manifest }),
+  ];
 
   configureScrollRestoration(config.scrollRestoration);
 
@@ -571,15 +579,21 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
   if (hasManifest) {
     // Preferred path: apply pre-built manifest records directly
-    _applyManifest(config.manifest!);
+    _applyManifest(manifest!);
   } else {
     // Legacy path: register plain Route objects (no layout metadata)
-    for (const r of config.routes!) {
+    for (const r of routeTable!) {
       registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
     }
   }
 
-  const routeAuth = config.auth ?? config.manifest?.auth;
+  const routeAuth = config.auth ?? manifest?.auth;
+  const activeManifest = hasManifest ? manifest : undefined;
+  const appRouteSource = {
+    manifest: activeManifest,
+    routes: hasManifest ? undefined : routeTable,
+    auth: routeAuth,
+  };
   _setActiveRouteAuthOptions(routeAuth);
 
   // Drain any lazy() imports so all split chunks are ready before mounting
@@ -597,9 +611,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     });
 
     await registerAppNavigation(rootElement, path, {
-      manifest: config.manifest,
-      routes: config.routes,
-      auth: routeAuth,
+      ...appRouteSource,
     });
     return;
   }
@@ -610,9 +622,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     });
 
     await registerAppNavigation(rootElement, path, {
-      manifest: config.manifest,
-      routes: config.routes,
-      auth: routeAuth,
+      ...appRouteSource,
     });
     return;
   }
@@ -631,9 +641,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   );
 
   await registerAppNavigation(rootElement, path, {
-    manifest: config.manifest,
-    routes: config.routes,
-    auth: routeAuth,
+    ...appRouteSource,
   });
 }
 
@@ -749,12 +757,13 @@ async function registerAppNavigation(
   path: string,
   source?: {
     manifest?: RouteManifest;
-    routes?: Route[];
+    routes?: readonly Route[];
     auth?: RouteAuthOptions;
   }
 ) {
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
+  routedRoots.add(rootElement);
   registerAppInstance(instance as ComponentInstance, path, source);
   initializeNavigation();
 }
@@ -767,7 +776,12 @@ async function applySelectiveHydration(
   resolved: { handler: ComponentFunction; params: Record<string, unknown> },
   path: string,
   cleanupStrict: boolean | undefined,
-  hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>
+  hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>,
+  source?: {
+    manifest?: RouteManifest;
+    routes?: readonly Route[];
+    auth?: RouteAuthOptions;
+  }
 ): Promise<void> {
   const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
@@ -844,7 +858,7 @@ async function applySelectiveHydration(
         }
       );
     });
-    await registerAppNavigation(rootElement, path);
+    await registerAppNavigation(rootElement, path, source);
     return;
   }
 
@@ -856,7 +870,7 @@ async function applySelectiveHydration(
         cleanupStrict,
       }
     );
-    await registerAppNavigation(rootElement, path);
+    await registerAppNavigation(rootElement, path, source);
   } catch (error) {
     releaseSelectiveHydrationResources();
     throw error;
@@ -893,9 +907,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     throw new Error('hydrateSPA requires a config object');
   }
 
-  const hasManifest =
-    config.manifest != null && config.manifest.records.length > 0;
-  const hasRoutes = Array.isArray(config.routes) && config.routes.length > 0;
+  const manifest = config.manifest ?? config.registry?.manifest;
+  const routeTable = config.routes ?? config.registry?.routes;
+  const hasManifest = manifest != null && manifest.records.length > 0;
+  const hasRoutes = Array.isArray(routeTable) && routeTable.length > 0;
 
   if (!hasManifest && !hasRoutes) {
     throw new Error(
@@ -912,21 +927,31 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
   const hydrationRenderData = takeHydrationRenderData(rootElement);
 
-  const pendingLazyAtHydrationBoot = _snapshotLazy();
+  const pendingLazyAtHydrationBoot = [
+    ..._snapshotLazy(),
+    ..._snapshotRouteSourceLazy({ registry: config.registry, manifest }),
+  ];
 
   configureScrollRestoration(config.scrollRestoration);
 
   clearRoutes();
 
   if (hasManifest) {
-    _applyManifest(config.manifest!);
+    _applyManifest(manifest!);
   } else {
-    for (const r of config.routes!) {
+    for (const r of routeTable!) {
       registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
     }
   }
 
-  _setActiveRouteAuthOptions(config.auth ?? config.manifest?.auth);
+  const routeAuth = config.auth ?? manifest?.auth;
+  const activeManifest = hasManifest ? manifest : undefined;
+  const appRouteSource = {
+    manifest: activeManifest,
+    routes: hasManifest ? undefined : routeTable,
+    auth: routeAuth,
+  };
+  _setActiveRouteAuthOptions(routeAuth);
 
   // Drain any lazy() imports so all split chunks are ready before mounting
   await _drainLazy(pendingLazyAtHydrationBoot);
@@ -935,7 +960,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     path,
     href: currentUrl,
     resolved,
-  } = await resolveInitialRoute(config.auth ?? config.manifest?.auth);
+  } = await resolveInitialRoute(routeAuth);
   setServerLocation(currentUrl);
   if (isProductionEnvironment()) lockRouteRegistration();
 
@@ -956,12 +981,13 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
   if (shouldVerifyHydrationMarkup(config)) {
     const legacyRouteTable = hasManifest
-      ? config.manifest!.records.map((r) => ({
+      ? manifest!.records.map((r) => ({
+          ...r,
           path: r.path,
           handler: r.handler,
           namespace: r.options.namespace,
         }))
-      : config.routes!;
+      : routeTable!;
 
     const { verifyHydrationSyncForUrl } =
       await import('../ssr/verify-hydration');
@@ -994,7 +1020,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           hydrationResolved,
           path,
           config.cleanupStrict,
-          hydrateOptions
+          hydrateOptions,
+          appRouteSource
         );
       } finally {
         if (hydrationRenderData) {
@@ -1028,9 +1055,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
   await registerAppNavigation(rootElement, path, {
-    manifest: config.manifest,
-    routes: config.routes,
-    auth: config.auth ?? config.manifest?.auth,
+    ...appRouteSource,
   });
 }
 
@@ -1050,8 +1075,12 @@ export function cleanupApp(root: Element | string): void {
       cleanupFn();
     }
   } finally {
+    const wasRoutedRoot = routedRoots.delete(rootElement);
     instancesByRoot.delete(rootElement);
     clearRootCleanupCallbacks(rootElement);
+    if (wasRoutedRoot && routedRoots.size === 0) {
+      clearRoutes();
+    }
     try {
       delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
     } catch {

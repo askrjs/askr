@@ -1,15 +1,10 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { globalScheduler } from './scheduler';
-import { logger } from '../dev/logger';
 import type { ComponentInstance } from './component';
 import { finalizeReadableSubscriptions } from './readable';
-import {
-  getKeyMapForElement,
-  isKeyedReorderFastPathEligible,
-  populateKeyMapForElement,
-} from '../renderer/keyed';
 import { Fragment } from '../common/jsx';
 import { setDevValue, getDevValue, getDevNamespace } from './dev-namespace';
+import { getDefaultRuntime } from './runtime';
 
 let _bulkCommitActive = false;
 let _appliedParents: WeakSet<Element> | null = null;
@@ -18,7 +13,7 @@ export function enterBulkCommit(): void {
   _bulkCommitActive = true;
   // Initialize registry of parents that had fast-path applied during this bulk commit
   _appliedParents = new WeakSet<Element>();
-  setDevValue('__ASKR_FASTLANE_CLEARED_TASKS', 0);
+  setDevValue('__FASTLANE_CLEARED_TASKS', 0);
 }
 
 export function exitBulkCommit(): void {
@@ -145,14 +140,15 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
 
   // Ask renderer for keyed reorder eligibility (prop differences & heuristics)
   // Ensure a keyed map is available for the first child by populating it proactively.
+  const renderer = getDefaultRuntime().renderer;
   try {
-    populateKeyMapForElement(firstChild);
+    renderer.populateKeyMapForElement(firstChild);
   } catch {
     // ignore
   }
 
-  const oldKeyMap = getKeyMapForElement(firstChild);
-  const decision = isKeyedReorderFastPathEligible(
+  const oldKeyMap = renderer.getKeyMapForElement(firstChild);
+  const decision = renderer.isKeyedReorderFastPathEligible(
     firstChild,
     children,
     oldKeyMap
@@ -169,20 +165,7 @@ export function commitReorderOnly(
   result: unknown
 ): boolean {
   // Performs the minimal, synchronous reorder-only commit.
-  const evaluate = (
-    globalThis as {
-      __ASKR_RENDERER?: {
-        evaluate?: (node: unknown, target: Element | null) => void;
-      };
-    }
-  ).__ASKR_RENDERER?.evaluate;
-
-  if (typeof evaluate !== 'function') {
-    logger.warn(
-      '[Tempo][FASTPATH][DEV] renderer.evaluate not available; declining fast-lane'
-    );
-    return false;
-  }
+  const renderer = getDefaultRuntime().renderer;
 
   const schedBefore = isDevelopmentEnvironment()
     ? globalScheduler.getState()
@@ -192,7 +175,7 @@ export function commitReorderOnly(
 
   try {
     globalScheduler.runWithSyncProgress(() => {
-      evaluate(result, instance.target);
+      renderer.evaluate(result, instance.target);
 
       // Finalize runtime bookkeeping (read subscriptions / tokens)
       try {
@@ -305,14 +288,4 @@ export function tryRuntimeFastLaneSync(
   }
 }
 
-// Expose fastlane bridge on globalThis for environments/tests
-if (typeof globalThis !== 'undefined') {
-  (globalThis as Record<string, unknown>).__ASKR_FASTLANE = {
-    isBulkCommitActive,
-    enterBulkCommit,
-    exitBulkCommit,
-    tryRuntimeFastLaneSync,
-    markFastPathApplied,
-    isFastPathApplied,
-  };
-}
+globalScheduler.setBulkCommitProbe(isBulkCommitActive);

@@ -12,6 +12,7 @@ export {
   group,
   fallback,
   lazy,
+  createRouteRegistry,
   getManifest,
   getRoutes,
   clearRoutes,
@@ -58,6 +59,7 @@ export type {
   LayoutScopeRecord,
   RouteRecord,
   RouteManifest,
+  RouteRegistry,
   PageScopeRecord,
 } from '../common/router';
 

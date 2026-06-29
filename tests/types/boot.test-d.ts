@@ -11,10 +11,11 @@ import {
   type IslandsConfig,
   type SPAConfig,
 } from '@askrjs/askr/boot';
-import type { Route, RouteManifest } from '@askrjs/askr/router';
+import type { Route, RouteManifest, RouteRegistry } from '@askrjs/askr/router';
 
 declare const manifest: RouteManifest;
 declare const routes: Route[];
+declare const registry: RouteRegistry;
 
 const islandConfig: IslandConfig = {
   root: document.body,
@@ -44,6 +45,13 @@ const spaRoutesConfig: SPAConfig = {
 expectAssignable<SPAConfig>(spaRoutesConfig);
 expectType<Promise<void>>(createSPA(spaRoutesConfig));
 
+const spaRegistryConfig: SPAConfig = {
+  root: document.body,
+  registry,
+};
+expectAssignable<SPAConfig>(spaRegistryConfig);
+expectType<Promise<void>>(createSPA(spaRegistryConfig));
+
 const hydrateManifestConfig: HydrateSPAConfig = {
   root: document.body,
   manifest,
@@ -57,6 +65,13 @@ const hydrateRoutesConfig: HydrateSPAConfig = {
 };
 expectAssignable<HydrateSPAConfig>(hydrateRoutesConfig);
 expectType<Promise<void>>(hydrateSPA(hydrateRoutesConfig));
+
+const hydrateRegistryConfig: HydrateSPAConfig = {
+  root: document.body,
+  registry,
+};
+expectAssignable<HydrateSPAConfig>(hydrateRegistryConfig);
+expectType<Promise<void>>(hydrateSPA(hydrateRegistryConfig));
 
 expectType<void>(cleanupApp(document.body));
 expectType<boolean>(hasApp(document.body));

@@ -25,19 +25,17 @@ Use deterministic inputs for stable hydration output.
 Use the URL-based helper when the server needs to resolve routes explicitly:
 
 ```tsx
-import { renderToString, type SSRRoute } from '@askrjs/askr/ssr';
+import { renderToString } from '@askrjs/askr/ssr';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
-const routes: SSRRoute[] = [
-  {
-    path: '/users/{id}',
-    handler: ({ id }) => <div>User {id}</div>,
-  },
-];
+const registry = createRouteRegistry(() => {
+  route('/users/{id}', ({ id }) => <div>User {id}</div>);
+});
 
-const html = renderToString({ url: '/users/42?q=active', routes });
+const html = renderToString({ url: '/users/42?q=active', registry });
 ```
 
-The URL is parsed and matched against registered routes. The matched component renders
+The URL is parsed and matched against registry routes. The matched component renders
 to an HTML string.
 
 To keep route handlers app-only, pass a `document` callback that wraps the
@@ -54,7 +52,11 @@ const document = ({ appHtml, context }) => `<!doctype html>
   </body>
 </html>`;
 
-const html = renderToString({ url: '/users/42?q=active', routes, document });
+const html = renderToString({
+  url: '/users/42?q=active',
+  registry,
+  document,
+});
 ```
 
 When `document` is used with `renderToStream()`, Askr buffers the app HTML
@@ -64,13 +66,13 @@ before emitting the wrapped document output.
 
 ```ts
 import { hydrateSPA } from '@askrjs/askr/boot';
-import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
-registerRoutes(() => {
+const registry = createRouteRegistry(() => {
   route('/', () => <Home />);
 });
 
-await hydrateSPA({ root: 'app', manifest: getManifest() });
+await hydrateSPA({ root: 'app', registry });
 ```
 
 ## Static Site Generation (SSG)
@@ -81,13 +83,15 @@ SSG pre-renders Askr routes into `.html` files at build time.
 
 ```ts
 import { createStaticGen } from '@askrjs/askr/ssg';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
+
+const registry = createRouteRegistry(() => {
+  route('/', () => <HomePage />);
+  route('/about', () => <AboutPage />);
+});
 
 const ssg = createStaticGen({
-  routes: [
-    { path: '/', component: HomePage },
-    { path: '/about', component: AboutPage },
-    { path: '/blog/{slug}', component: BlogPost, params: blogPosts },
-  ],
+  registry,
   outputDir: './dist/static',
 });
 
@@ -100,7 +104,7 @@ across SPA, SSR, and SSG while userland still owns the actual HTML template.
 
 ```ts
 const ssg = createStaticGen({
-  routes,
+  registry,
   outputDir: './dist/static',
   document,
 });
@@ -123,7 +127,7 @@ Provide route-keyed data when components need pre-supplied values:
 
 ```ts
 const ssg = createStaticGen({
-  routes,
+  registry,
   outputDir: './dist/static',
   dataOverrides: {
     '/': { appName: 'my-site' },

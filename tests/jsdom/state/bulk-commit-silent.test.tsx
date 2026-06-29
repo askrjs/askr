@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import '../../../src/runtime/fastlane';
+import {
+  enterBulkCommit,
+  exitBulkCommit,
+} from '../../../src/runtime/fastlane';
 import {
   createTestContainer,
   flushScheduler,
@@ -34,29 +37,17 @@ describe('bulk commit silence', () => {
   });
 
   it('should not log or warn when a state.set() occurs during bulk commit', async () => {
-    // Force bulk commit active
-    const fast = (
-      globalThis as unknown as {
-        __ASKR_FASTLANE?: {
-          enterBulkCommit: () => void;
-          exitBulkCommit: () => void;
-        };
-      }
-    ).__ASKR_FASTLANE;
-    if (!fast)
-      throw new Error('__ASKR_FASTLANE bridge not available in test env');
-
     const logSpy = vi.spyOn(console, 'log');
     const warnSpy = vi.spyOn(console, 'warn');
 
     try {
-      fast.enterBulkCommit();
+      enterBulkCommit();
       items.set(items().map((x) => x + 1));
       // No logging should occur during the bulk-commit update
       expect(logSpy).not.toHaveBeenCalled();
       expect(warnSpy).not.toHaveBeenCalled();
     } finally {
-      fast.exitBulkCommit();
+      exitBulkCommit();
       logSpy.mockRestore();
       warnSpy.mockRestore();
     }

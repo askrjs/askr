@@ -8,6 +8,14 @@ import { installRendererBridge } from './renderer';
 
 installRendererBridge();
 
+export { createRuntime, getDefaultRuntime } from './runtime/runtime';
+export type {
+  AskrRuntimeOptions,
+  RuntimeRendererHost,
+  RuntimeKeyedReorderDecision,
+} from './runtime/runtime';
+export { AskrRuntime } from './runtime/runtime';
+
 // Runtime primitives
 export { state } from './runtime/state';
 export type { State, StateSetter, StateTuple } from './runtime/state';

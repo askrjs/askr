@@ -15,9 +15,10 @@ import {
   type SSGOptions,
   type SSGResult,
 } from '@askrjs/askr/ssg';
-import type { RouteHandler } from '@askrjs/askr/router';
+import type { RouteHandler, RouteRegistry } from '@askrjs/askr/router';
 
 const handler: RouteHandler = (params) => params.slug ?? 'home';
+declare const registry: RouteRegistry;
 
 const routeConfig: RouteConfig = {
   path: '/posts/{slug}',
@@ -82,6 +83,13 @@ expectAssignable<SSGOptions>(options);
 
 const ssg = createStaticGen(options);
 expectType<Promise<SSGResult>>(ssg.generate());
+
+const registrySsg = createStaticGen({
+  registry,
+  outputDir: './dist',
+  document: documentRenderer,
+});
+expectType<Promise<SSGResult>>(registrySsg.generate());
 
 const generateOptions: SSGGenerateOptions = {
   mode: 'incremental',

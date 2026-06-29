@@ -15,12 +15,15 @@ Import from the SSG subpath:
 
 ```ts
 import { createStaticGen } from '@askrjs/askr/ssg';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
+
+const registry = createRouteRegistry(() => {
+  route('/', () => <HomePage />);
+  route('/about', () => <AboutPage />);
+});
 
 const ssg = createStaticGen({
-  routes: [
-    { path: '/', component: HomePage },
-    { path: '/about', component: AboutPage },
-  ],
+  registry,
   outputDir: './dist/static',
   seed: 12345,
 });
@@ -36,16 +39,10 @@ should still write full HTML documents:
 
 ```ts
 import { createStaticGen } from '@askrjs/askr/ssg';
-
-const routes = [
-  {
-    path: '/',
-    handler: () => <main>Hello</main>,
-  },
-];
+import { registry } from './routes';
 
 const ssg = createStaticGen({
-  routes,
+  registry,
   outputDir: './dist/static',
   document: ({ appHtml, context }) => `<!doctype html>
 <html lang="en">
@@ -64,7 +61,9 @@ parameterized routes can share one app route table across SPA, SSR, and SSG.
 
 ## Route config
 
-Each route entry supports:
+When you pass a registry, SSG reads path, handler, access metadata, and
+`entries()` from route records. You can still pass raw route entries for
+one-off generation. Each raw route entry supports:
 
 - `path`: route path (supports params like `/blog/{slug}` and final named splats like `/admin/files/{*path}`; splat names are trimmed, must be non-empty, and `*` is reserved)
 - `component` or `handler`: render function

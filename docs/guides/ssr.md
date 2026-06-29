@@ -4,7 +4,7 @@ Askr's current SSR APIs render UI to HTML strings for server output.
 
 ## High-level workflow
 
-1. Register routes.
+1. Create a route registry.
 2. Resolve request path on server.
 3. Render to HTML with SSR APIs.
 4. Hydrate on the client with matching route state.
@@ -21,19 +21,20 @@ a production-finished answer for that today.
 
 ## URL-based rendering
 
-Use the URL-based helpers when the server should resolve routes explicitly:
+Use the URL-based helpers when the server should resolve routes explicitly.
+New apps should pass the registry returned by `createRouteRegistry()`:
 
 ```ts
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 import { renderToString } from '@askrjs/askr/ssr';
+
+const registry = createRouteRegistry(() => {
+  route('/users/{id}', ({ id }) => <div>User {id}</div>);
+});
 
 const html = renderToString({
   url: '/users/42?q=active',
-  routes: [
-    {
-      path: '/users/{id}',
-      handler: ({ id }) => <div>User {id}</div>,
-    },
-  ],
+  registry,
 });
 ```
 
@@ -43,17 +44,11 @@ Keep shared route tables app-only by passing a document renderer at the SSR boun
 
 ```ts
 import { renderToString } from '@askrjs/askr/ssr';
-
-const routes = [
-  {
-    path: '/',
-    handler: () => <main>Hello</main>,
-  },
-];
+import { registry } from './routes';
 
 const html = renderToString({
   url: '/',
-  routes,
+  registry,
   document: ({ appHtml, context }) => `<!doctype html>
 <html lang="en">
   <head>

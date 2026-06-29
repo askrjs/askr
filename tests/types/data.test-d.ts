@@ -1,10 +1,14 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
+  createDataRuntime,
   createMutation,
   createQuery,
+  getDefaultDataRuntime,
   invalidate,
   invalidateOnInterval,
   queryScope,
+  type DataRuntime,
+  type DataRuntimeOptions,
   type InvalidateOnIntervalOptions,
   type InvalidateOptions,
   type Mutation,
@@ -15,8 +19,19 @@ import {
   type QueryStaleReason,
 } from '@askrjs/askr/data';
 
+const dataRuntime = createDataRuntime();
+expectType<DataRuntime>(dataRuntime);
+expectType<Map<string, unknown>>(dataRuntime.queryCache);
+expectType<DataRuntime>(getDefaultDataRuntime());
+expectType<DataRuntime>(createDataRuntime({ queryCache: new Map() }));
+const dataRuntimeOptions: DataRuntimeOptions = {
+  queryCache: new Map<string, unknown>(),
+};
+expectType<DataRuntimeOptions>(dataRuntimeOptions);
+
 const query = createQuery({
   key: 'user:123',
+  runtime: dataRuntime,
   fetch: async ({ signal }) => {
     expectType<AbortSignal>(signal);
     return { id: '123', name: 'Ada' };
@@ -43,6 +58,7 @@ expectType<QueryStaleReason | null>(query.staleReason);
 expectType<Promise<void>>(query.refresh());
 expectType<void>(invalidate('user:'));
 expectType<void>(invalidate('user:', { markPendingWrite: true }));
+expectType<void>(invalidate('user:', { runtime: dataRuntime }));
 
 const scoped = queryScope('admin');
 expectType<QueryScope>(scoped);
@@ -64,6 +80,7 @@ const intervalOptions: InvalidateOnIntervalOptions = {
   visibleOnly: true,
   focusedOnly: false,
   markPendingWrite: true,
+  runtime: dataRuntime,
 };
 expectType<InvalidateOnIntervalOptions>(intervalOptions);
 expectType<void>(invalidateOnInterval('user:', intervalOptions));
@@ -171,6 +188,7 @@ if (query.consistency === 'fresh' && !query.loading) {
 }
 
 const mutation = createMutation({
+  runtime: dataRuntime,
   action: async (input: { id: string }, { signal }) => {
     expectType<AbortSignal>(signal);
     return { length: input.id.length };

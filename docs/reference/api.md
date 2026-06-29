@@ -45,7 +45,7 @@ Public types:
 - `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, and `hasApp`
 - `@askrjs/askr/components` - `ErrorBoundary`
 - `@askrjs/askr/control` - JSX control-flow helpers
-- `@askrjs/askr/data` - `createQuery`, `createMutation`, `invalidate`, and `invalidateOnInterval`
+- `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - test helpers such as `mockQuery`, `queryState`, and `createInvalidationRecorder`
 - `@askrjs/askr/resources` - async resource helpers such as `resource`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`, plus the current placeholder `stream` surface
 - `@askrjs/askr/router` - route registration, routing state, and navigation helpers
@@ -73,14 +73,14 @@ setCount((value) => value + 1);
 
 ```ts
 import { createSPA } from '@askrjs/askr/boot';
-import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
-registerRoutes(() => {
+const registry = createRouteRegistry(() => {
   route('/', () => <Home />);
   route('/about', () => <About />);
 });
 
-await createSPA({ root: document.body, manifest: getManifest() });
+await createSPA({ root: document.body, registry });
 ```
 
 ## Migration Notes
@@ -100,5 +100,6 @@ await createSPA({ root: document.body, manifest: getManifest() });
 - `Link`, `layout`, `Slot`, `Presence`, and the default portal surfaces accept normal renderable child content. Imperative DOM `Node` children are not part of that public contract.
 - Router page components, `lazy()` route components, and router layout functions also return normal renderable content rather than imperative DOM `Node` values.
 - `createQuery()` exposes `consistency` plus `staleReason` so settled stale states can be narrowed into `inconsistent`, `aborted`, or `error` without guessing from broad booleans alone.
+- `createDataRuntime()` creates isolated query and mutation state for tests, embedded apps, and multi-root shells; pass it through data operation options with `runtime`.
 - `resource()` is available from `@askrjs/askr/resources`.
-- `createStaticGen()` is available from `@askrjs/askr/ssg`.
+- `renderToString()`, `renderToStream()`, `resolveRequest()`, and `createStaticGen()` accept route registries captured with `createRouteRegistry()`.

@@ -1,11 +1,11 @@
 import { withAsyncResourceContext, type ContextFrame } from './context';
 import { logger } from '../dev/logger';
-import { getSSRBridge } from './ssr-bridge';
 import {
   brandSnapshotSource,
   type SnapshotSourceBrand,
 } from './snapshot-source';
 import { isPromiseLike } from '../common/promise';
+import { throwSSRDataMissing } from '../common/render-context';
 
 /**
  * Pure, component-agnostic ResourceCell state machine.
@@ -107,7 +107,7 @@ export class ResourceCell<U> {
 
     if (ssr) {
       // During SSR async results are disallowed
-      getSSRBridge().throwSSRDataMissing();
+      throwSSRDataMissing();
     }
 
     Promise.resolve(result)

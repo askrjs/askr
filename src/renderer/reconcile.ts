@@ -99,7 +99,7 @@ import {
 import { teardownNodeSubtree } from './cleanup';
 import { applyRendererFastPath } from './fastpath';
 import { getRuntimeEnv } from './env';
-import type { ComponentFunction } from '../runtime/component';
+import type { ComponentFunction } from '../runtime/component-contracts';
 import {
   evaluateCaseState,
   evaluateShowState,

@@ -1,5 +1,6 @@
 import { globalScheduler } from './scheduler';
 import { getCurrentInstance, type ComponentInstance } from './component';
+import { getDefaultRuntime } from './runtime';
 
 export interface DerivedSubscriber {
   _markDirty(): void;
@@ -26,10 +27,6 @@ export function markReadableUsage(source: unknown): void {
     readable._hasEverBeenRead = true;
   }
 }
-
-type RendererBridge = {
-  markReactivePropsDirtySource?: (source: ReadableSource<unknown>) => void;
-};
 
 let currentDerivedSubscriber: DerivedSubscriber | null = null;
 let suppressComponentReadTrackingDepth = 0;
@@ -260,11 +257,7 @@ export function markReactivePropsDirtySource(
   source: ReadableSource<unknown>
 ): void {
   try {
-    (
-      globalThis as {
-        __ASKR_RENDERER?: RendererBridge;
-      }
-    ).__ASKR_RENDERER?.markReactivePropsDirtySource?.(source);
+    getDefaultRuntime().renderer.markReactivePropsDirtySource(source);
   } catch {
     // Keep readable notifications side-effect safe.
   }

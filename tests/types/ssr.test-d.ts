@@ -12,9 +12,14 @@ import {
   type SSRRoute,
   type VNode,
 } from '@askrjs/askr/ssr';
-import type { RouteManifest, RouteRequestResult } from '@askrjs/askr/router';
+import type {
+  RouteManifest,
+  RouteRegistry,
+  RouteRequestResult,
+} from '@askrjs/askr/router';
 
 declare const manifest: RouteManifest;
+declare const registry: RouteRegistry;
 
 const routes: SSRRoute[] = [
   {
@@ -61,6 +66,7 @@ expectType<string>(documentRenderer(documentArgs));
 expectType<string>(renderToStringSync(() => 'ok'));
 expectType<string>(renderToString(() => 'ok'));
 expectType<string>(renderToString({ url: '/users/42', routes }));
+expectType<string>(renderToString({ url: '/users/42', registry }));
 expectType<string>(
   renderToString({ url: '/users/42', routes, document: documentRenderer })
 );
@@ -75,9 +81,22 @@ expectType<void>(
     onComplete: () => {},
   })
 );
+expectType<void>(
+  renderToStream({
+    url: '/users/42',
+    registry,
+    onChunk: (html) => {
+      expectType<string>(html);
+    },
+    onComplete: () => {},
+  })
+);
 
 expectType<Promise<RouteRequestResult>>(
   resolveRequest({ url: '/users/42', manifest })
+);
+expectType<Promise<RouteRequestResult>>(
+  resolveRequest({ url: '/users/42', registry })
 );
 expectType<Promise<RouteRequestResult>>(
   resolveRequest({ url: '/users/42', routes })

@@ -12,9 +12,21 @@ import type {
 import { isPromiseLike } from '../common/promise';
 
 const ROUTE_AUTH_OPTIONS = Symbol.for('__ASKR_ROUTE_AUTH_OPTIONS__');
+const BUILT_IN_ROUTE_POLICY = Symbol.for('__ASKR_BUILT_IN_ROUTE_POLICY__');
 
 type InternalRouteContext = RouteContext & {
   [ROUTE_AUTH_OPTIONS]?: RouteAuthOptions;
+};
+
+export type BuiltInRoutePolicyKind = 'auth' | 'guest' | 'role' | 'permission';
+
+export interface BuiltInRoutePolicyMetadata {
+  kind: BuiltInRoutePolicyKind;
+  value?: string;
+}
+
+type InternalRoutePolicy = RoutePolicy & {
+  [BUILT_IN_ROUTE_POLICY]?: BuiltInRoutePolicyMetadata;
 };
 
 type RoutePathResolver =
@@ -93,6 +105,24 @@ function assertRouteAuthOptions(context: RouteContext): RouteAuthOptions {
   }
 
   return auth;
+}
+
+function markBuiltInRoutePolicy(
+  policy: RoutePolicy,
+  metadata: BuiltInRoutePolicyMetadata
+): RoutePolicy {
+  Object.defineProperty(policy, BUILT_IN_ROUTE_POLICY, {
+    value: Object.freeze({ ...metadata }),
+    enumerable: false,
+    configurable: false,
+  });
+  return policy;
+}
+
+export function _getBuiltInRoutePolicy(
+  policy: RoutePolicy
+): BuiltInRoutePolicyMetadata | null {
+  return (policy as InternalRoutePolicy)[BUILT_IN_ROUTE_POLICY] ?? null;
 }
 
 function resolvePathSetting(
@@ -192,65 +222,77 @@ function resolveAuthenticatedRedirect(
 }
 
 export function requireAuth(): RoutePolicy {
-  return (context) => {
-    if (context.session) {
-      return allow();
-    }
+  return markBuiltInRoutePolicy(
+    (context) => {
+      if (context.session) {
+        return allow();
+      }
 
-    return resolveUnauthenticatedRedirect(context);
-  };
+      return resolveUnauthenticatedRedirect(context);
+    },
+    { kind: 'auth' }
+  );
 }
 
 export function requireGuest(): RoutePolicy {
-  return (context) => {
-    if (!context.session) {
-      return allow();
-    }
+  return markBuiltInRoutePolicy(
+    (context) => {
+      if (!context.session) {
+        return allow();
+      }
 
-    return resolveAuthenticatedRedirect(context);
-  };
+      return resolveAuthenticatedRedirect(context);
+    },
+    { kind: 'guest' }
+  );
 }
 
 export function requireRole(role: string): RoutePolicy {
-  return (context) => {
-    if (!context.user) {
-      return resolveUnauthenticatedRedirect(context);
-    }
+  return markBuiltInRoutePolicy(
+    (context) => {
+      if (!context.user) {
+        return resolveUnauthenticatedRedirect(context);
+      }
 
-    const auth = assertRouteAuthOptions(context);
-    const hasRole = auth.hasRole
-      ? auth.hasRole(context.user, role, context)
-      : defaultHasRole(context.user, role);
+      const auth = assertRouteAuthOptions(context);
+      const hasRole = auth.hasRole
+        ? auth.hasRole(context.user, role, context)
+        : defaultHasRole(context.user, role);
 
-    if (isPromiseLike<boolean>(hasRole)) {
-      return Promise.resolve(hasRole).then((next) =>
-        next ? allow() : forbidden()
-      );
-    }
+      if (isPromiseLike<boolean>(hasRole)) {
+        return Promise.resolve(hasRole).then((next) =>
+          next ? allow() : forbidden()
+        );
+      }
 
-    return hasRole ? allow() : forbidden();
-  };
+      return hasRole ? allow() : forbidden();
+    },
+    { kind: 'role', value: role }
+  );
 }
 
 export function requirePermission(permission: string): RoutePolicy {
-  return (context) => {
-    if (!context.user) {
-      return resolveUnauthenticatedRedirect(context);
-    }
+  return markBuiltInRoutePolicy(
+    (context) => {
+      if (!context.user) {
+        return resolveUnauthenticatedRedirect(context);
+      }
 
-    const auth = assertRouteAuthOptions(context);
-    const hasPermission = auth.hasPermission
-      ? auth.hasPermission(context.user, permission, context)
-      : defaultHasPermission(context.user, permission);
+      const auth = assertRouteAuthOptions(context);
+      const hasPermission = auth.hasPermission
+        ? auth.hasPermission(context.user, permission, context)
+        : defaultHasPermission(context.user, permission);
 
-    if (isPromiseLike<boolean>(hasPermission)) {
-      return Promise.resolve(hasPermission).then((next) =>
-        next ? allow() : forbidden()
-      );
-    }
+      if (isPromiseLike<boolean>(hasPermission)) {
+        return Promise.resolve(hasPermission).then((next) =>
+          next ? allow() : forbidden()
+        );
+      }
 
-    return hasPermission ? allow() : forbidden();
-  };
+      return hasPermission ? allow() : forbidden();
+    },
+    { kind: 'permission', value: permission }
+  );
 }
 
 export async function evaluateRoutePolicy(

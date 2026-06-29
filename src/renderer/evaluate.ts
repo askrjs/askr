@@ -1,8 +1,10 @@
 import { logger } from '../dev/logger';
 import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
-import type { ComponentInstance } from '../runtime/component';
-import type { ComponentFunction } from '../runtime/component';
+import type {
+  ComponentFunction,
+  ComponentInstance,
+} from '../runtime/component-contracts';
 import {
   elementListeners,
   removeAllListeners,

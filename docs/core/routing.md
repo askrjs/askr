@@ -2,7 +2,7 @@
 
 The Askr router uses one route model across SPA, SSR, and SSG:
 
-- `registerRoutes()` starts registration
+- `createRouteRegistry()` captures route definitions
 - `group()` defines inherited layout and access behavior
 - `page()` defines a renderable route shell with nested child routes
 - `index()` defines the default child route inside a page host
@@ -13,13 +13,12 @@ The Askr router uses one route model across SPA, SSR, and SSG:
 
 ```ts
 import {
+  createRouteRegistry,
   fallback,
-  getManifest,
   group,
   index,
   Outlet,
   page,
-  registerRoutes,
   route,
 } from '@askrjs/askr/router';
 
@@ -30,7 +29,7 @@ import Dashboard from './routes/dashboard';
 import Login from './routes/login';
 import NotFound from './routes/not-found';
 
-registerRoutes(() => {
+export const registry = createRouteRegistry(() => {
   group({ layout: AppLayout }, () => {
     route('/', Home);
 

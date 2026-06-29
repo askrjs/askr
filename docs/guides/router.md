@@ -6,7 +6,7 @@ The Askr router is built around one mental model:
 - `group()` defines inherited behavior
 - `page()` defines a renderable route shell with nested child routes
 - `index()` defines the default child leaf inside that shell
-- `registerRoutes()` runs the composed route tree
+- `createRouteRegistry()` captures the composed route tree
 
 The same route definitions drive SPA navigation, SSR request resolution, and SSG.
 
@@ -38,12 +38,16 @@ export function registerAppRoutes() {
 ```ts
 // main.ts
 import { createSPA } from '@askrjs/askr/boot';
-import { getManifest, registerRoutes } from '@askrjs/askr/router';
+import { createRouteRegistry } from '@askrjs/askr/router';
 import { registerAppRoutes } from './routes';
 
-registerRoutes(registerAppRoutes);
-await createSPA({ root: '#app', manifest: getManifest() });
+const registry = createRouteRegistry(registerAppRoutes);
+await createSPA({ root: '#app', registry });
 ```
+
+`registerRoutes()` and `getManifest()` remain as legacy wrappers for apps that
+still use the module-level route store. New code should prefer a registry and
+pass that registry to `createSPA()` or `hydrateSPA()`.
 
 ## Group inheritance
 

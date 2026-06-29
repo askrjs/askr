@@ -1,5 +1,7 @@
-import { cleanupComponent } from '../runtime/component';
-import type { ComponentInstance } from '../runtime/component';
+import {
+  cleanupComponent,
+  type ComponentInstance,
+} from '../runtime/component-contracts';
 import { logger } from '../dev/logger';
 import { incDevCounter } from '../runtime/dev-namespace';
 import {

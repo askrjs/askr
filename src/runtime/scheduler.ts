@@ -18,6 +18,7 @@ const MAX_FLUSH_DEPTH = 50;
 
 type Task = () => void;
 export type SchedulerLane = 'derived' | 'component' | 'reactive' | 'post';
+export type SchedulerBulkCommitProbe = () => boolean;
 
 const SCHEDULER_LANES: SchedulerLane[] = [
   'derived',
@@ -31,23 +32,9 @@ interface LaneQueue {
   head: number;
 }
 
-function isBulkCommitActive(): boolean {
-  try {
-    const fb = (
-      globalThis as {
-        __ASKR_FASTLANE?: { isBulkCommitActive?: () => boolean };
-      }
-    ).__ASKR_FASTLANE;
-    return typeof fb?.isBulkCommitActive === 'function'
-      ? !!fb.isBulkCommitActive()
-      : false;
-  } catch (e) {
-    void e;
-    return false;
-  }
-}
-
 export class Scheduler {
+  private bulkCommitProbe: SchedulerBulkCommitProbe = () => false;
+
   private lanes: Record<SchedulerLane, LaneQueue> = {
     derived: { tasks: [], head: 0 },
     component: { tasks: [], head: 0 },
@@ -79,6 +66,19 @@ export class Scheduler {
 
   // Keep a lightweight taskCount for compatibility/diagnostics
   private taskCount = 0;
+
+  setBulkCommitProbe(probe: SchedulerBulkCommitProbe): void {
+    this.bulkCommitProbe = probe;
+  }
+
+  private isBulkCommitActive(): boolean {
+    try {
+      return this.bulkCommitProbe();
+    } catch (e) {
+      void e;
+      return false;
+    }
+  }
 
   private hasPendingTasks(): boolean {
     for (const lane of SCHEDULER_LANES) {
@@ -124,7 +124,7 @@ export class Scheduler {
       this.kickScheduled ||
       this.inHandler ||
       this.allowSyncProgress ||
-      isBulkCommitActive() ||
+      this.isBulkCommitActive() ||
       !this.hasPendingTasks()
     ) {
       return;
@@ -133,7 +133,11 @@ export class Scheduler {
     this.kickScheduled = true;
     queueMicrotask(() => {
       this.kickScheduled = false;
-      if (this.running || isBulkCommitActive() || !this.hasPendingTasks()) {
+      if (
+        this.running ||
+        this.isBulkCommitActive() ||
+        !this.hasPendingTasks()
+      ) {
         return;
       }
       try {
@@ -157,7 +161,7 @@ export class Scheduler {
     );
 
     // Strict rule: during bulk commit, only allow enqueues if runWithSyncProgress enabled
-    if (isBulkCommitActive() && !this.allowSyncProgress) {
+    if (this.isBulkCommitActive() && !this.allowSyncProgress) {
       if (isDevelopmentEnvironment()) {
         throw new Error(
           '[Scheduler] enqueue() during bulk commit (not allowed)'
@@ -181,7 +185,7 @@ export class Scheduler {
 
     // Dev-only guard: disallow flush during bulk commit unless allowed
     if (isDevelopmentEnvironment()) {
-      if (isBulkCommitActive() && !this.allowSyncProgress) {
+      if (this.isBulkCommitActive() && !this.allowSyncProgress) {
         throw new Error(
           '[Scheduler] flush() started during bulk commit (not allowed)'
         );
@@ -324,7 +328,7 @@ export class Scheduler {
           queueLen: this.getPendingTaskCount(),
           running: this.running,
           inHandler: this.inHandler,
-          bulk: isBulkCommitActive(),
+          bulk: this.isBulkCommitActive(),
           namespace: ns,
         };
         reject(
