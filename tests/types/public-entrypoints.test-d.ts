@@ -1,5 +1,10 @@
 import { expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
+import type {
+  AskrRuntimeOptions,
+  RuntimeKeyedReorderDecision,
+  RuntimeRendererHost,
+} from '@askrjs/askr';
 import {
   createIsland,
   createIslands,
@@ -48,6 +53,25 @@ expectType<typeof jsxDEV>(jsxDEV);
 expectType<typeof rootSurface.jsx>(rootSurface.jsx);
 expectType<typeof rootSurface.jsxs>(rootSurface.jsxs);
 expectType<typeof rootSurface.Fragment>(rootSurface.Fragment);
+expectType<typeof rootSurface.createRuntime>(rootSurface.createRuntime);
+expectType<typeof rootSurface.getDefaultRuntime>(rootSurface.getDefaultRuntime);
+expectType<typeof rootSurface.AskrRuntime>(rootSurface.AskrRuntime);
+expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
+expectType<rootSurface.AskrRuntime>(rootSurface.getDefaultRuntime());
+expectType<AskrRuntimeOptions>({});
+expectType<RuntimeRendererHost>(
+  null as unknown as RuntimeRendererHost
+);
+expectType<RuntimeKeyedReorderDecision>({
+  useFastPath: false,
+  totalKeyed: 0,
+  totalChildren: 0,
+  currentKeyCount: 0,
+  moveCount: 0,
+  lisLen: 0,
+  hasPropChanges: false,
+  isWholeKeyedList: false,
+});
 expectType<typeof testingSurface.mockQuery>(testingSurface.mockQuery);
 expectType<typeof testingSurface.queryState>(testingSurface.queryState);
 expectType<typeof testingSurface.createInvalidationRecorder>(

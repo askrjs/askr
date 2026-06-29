@@ -9,12 +9,12 @@ import { type ComponentInstance, getCurrentInstance } from './component';
 import { claimHookIndex } from './component';
 import { type DOMElement, type VNode } from '../common/vnode';
 import { isDevelopmentEnvironment } from '../common/env';
-import { teardownNodeSubtree } from '../renderer/cleanup';
 import {
   createChildScope,
   disposeChildScope,
   type ChildScope,
 } from './child-scope';
+import { getDefaultRuntime } from './runtime';
 import type { ForProps } from '../control/for';
 import type { ForEachSource } from '../control/for';
 import {
@@ -566,7 +566,7 @@ function disposeItemInstance<T>(
 
   if (removedDom instanceof Element) {
     if (domCleanup === 'teardown') {
-      teardownNodeSubtree(removedDom);
+      getDefaultRuntime().renderer.teardownNodeSubtree(removedDom);
     }
   }
 
@@ -720,7 +720,7 @@ function disposeFallbackScope<T>(
 
   if (removedDom instanceof Element) {
     if (domCleanup === 'teardown') {
-      teardownNodeSubtree(removedDom);
+      getDefaultRuntime().renderer.teardownNodeSubtree(removedDom);
     }
   }
 

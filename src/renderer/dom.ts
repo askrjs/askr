@@ -24,7 +24,7 @@ import {
   warnUnusedStateReads,
   type ComponentInstance,
   type ComponentFunction,
-} from '../runtime/component';
+} from '../runtime/component-contracts';
 import {
   createChildScope,
   disposeChildScope,
