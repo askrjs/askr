@@ -15,6 +15,7 @@ import type { JSXElement } from '../../../src/jsx/types';
 import { resource } from '../../../src/resources';
 import { defineContext } from '../../../src/runtime/context';
 import { createRouteRegistry, fallback, route } from '../../../src/router/route';
+import { requireGuest } from '../../../src/router/policy';
 
 // Test utilities
 function createTempDir(): string {
@@ -562,6 +563,27 @@ describe('Static Site Generation', () => {
     it('should keep guest routes prerenderable during SSG', async () => {
       const ssg = createStaticGen({
         routes: [{ path: '/login', component: About, auth: 'guest' }],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.successful).toBe(1);
+      expect(result.skipped).toBe(0);
+      expect(fs.existsSync(path.join(tempDir, 'login', 'index.html'))).toBe(
+        true
+      );
+    });
+
+    it('should keep raw guest policy routes prerenderable during SSG', async () => {
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/login',
+            component: About,
+            policies: [requireGuest()],
+          },
+        ],
         outputDir: tempDir,
       });
 

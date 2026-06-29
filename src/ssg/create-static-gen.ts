@@ -130,7 +130,7 @@ function getRuntimeOnlyDiagnostic(route: RouteConfig, path: string): string | nu
       return `Skipped prerender for "${path}": permission-gated routes are runtime-only by default.`;
     }
 
-    return `Skipped prerender for "${path}": routes with custom policies are runtime-only by default.`;
+    return null;
   }
 
   return null;
