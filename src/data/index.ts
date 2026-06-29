@@ -32,6 +32,7 @@ export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
 
 export interface InvalidateOptions {
   markPendingWrite?: boolean;
+  runtime?: DataRuntime;
 }
 
 export interface InvalidateOnIntervalOptions extends InvalidateOptions {
@@ -189,12 +190,14 @@ type QueryOptions<T> = {
   fetch: (ctx: { signal: AbortSignal }) => Promise<T>;
   isConsistent?: (data: T) => boolean;
   reconcile?: (data: T, ctx: { key: string }) => Promise<boolean> | boolean;
+  runtime?: DataRuntime;
 };
 
 type MutationOptions<TInput, TResult> = {
   action: (input: TInput, ctx: { signal: AbortSignal }) => Promise<TResult>;
   affects?: (input: TInput, result: TResult) => string[];
   afterSuccess?: 'invalidate';
+  runtime?: DataRuntime;
 };
 
 type QueryState<T> = {
@@ -216,63 +219,154 @@ type QueryDefinitionField = 'fetch' | 'isConsistent' | 'reconcile';
 
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
-const globalQueryCache = new Map<string, QueryCell<unknown>>();
-const querySlotsByInstance = new WeakMap<
-  ComponentInstance,
-  Map<number, QuerySlot>
->();
-const mutationSlotsByInstance = new WeakMap<
-  ComponentInstance,
-  Map<number, MutationCell<unknown, unknown>>
->();
-const queryCleanupRegistered = new WeakSet<ComponentInstance>();
-const mutationCleanupRegistered = new WeakSet<ComponentInstance>();
+
+export interface DataRuntime {
+  readonly queryCache: Map<string, unknown>;
+}
+
+export interface DataRuntimeOptions {
+  queryCache?: Map<string, unknown>;
+}
+
+type DataRuntimeState = {
+  queryCache: Map<string, QueryCell<unknown>>;
+  querySlotsByInstance: WeakMap<ComponentInstance, Map<number, QuerySlot>>;
+  mutationSlotsByInstance: WeakMap<
+    ComponentInstance,
+    Map<number, MutationCell<unknown, unknown>>
+  >;
+  queryCleanupRegistered: WeakSet<ComponentInstance>;
+  mutationCleanupRegistered: WeakSet<ComponentInstance>;
+};
+
+const dataRuntimeStates = new WeakMap<DataRuntime, DataRuntimeState>();
+const dataRuntimeByQueryCache = new WeakMap<Map<string, unknown>, DataRuntime>();
+
+function createDataRuntimeState(
+  queryCache: Map<string, unknown>
+): DataRuntimeState {
+  return {
+    queryCache: queryCache as Map<string, QueryCell<unknown>>,
+    querySlotsByInstance: new WeakMap(),
+    mutationSlotsByInstance: new WeakMap(),
+    queryCleanupRegistered: new WeakSet(),
+    mutationCleanupRegistered: new WeakSet(),
+  };
+}
+
+export function createDataRuntime(
+  options: DataRuntimeOptions = {}
+): DataRuntime {
+  const runtime: DataRuntime = Object.freeze({
+    queryCache: options.queryCache ?? new Map<string, unknown>(),
+  });
+  dataRuntimeStates.set(
+    runtime,
+    createDataRuntimeState(runtime.queryCache)
+  );
+  dataRuntimeByQueryCache.set(runtime.queryCache, runtime);
+  return runtime;
+}
+
+const defaultDataRuntime = createDataRuntime();
+
+export function getDefaultDataRuntime(): DataRuntime {
+  return defaultDataRuntime;
+}
+
+function getDataRuntimeState(runtime: DataRuntime): DataRuntimeState {
+  const state = dataRuntimeStates.get(runtime);
+  if (!state) {
+    throw new Error(
+      '[Askr] data runtime was not created by createDataRuntime().'
+    );
+  }
+  return state;
+}
+
+function isDataRuntime(value: unknown): value is DataRuntime {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    dataRuntimeStates.has(value as DataRuntime)
+  );
+}
+
+function getDataRuntimeForQueryCache(
+  queryCache: Map<string, unknown>
+): DataRuntime {
+  let runtime = dataRuntimeByQueryCache.get(queryCache);
+  if (!runtime) {
+    runtime = createDataRuntime({ queryCache });
+    dataRuntimeByQueryCache.set(queryCache, runtime);
+  }
+  return runtime;
+}
+
+function getActiveDataRuntime(): DataRuntime {
+  const ctx = getActiveRenderContext();
+  if (isDataRuntime(ctx?.dataRuntime)) {
+    return ctx.dataRuntime;
+  }
+
+  if (ctx?.queryCache) {
+    return getDataRuntimeForQueryCache(ctx.queryCache);
+  }
+
+  return defaultDataRuntime;
+}
+
+function getActiveDataRuntimeState(): DataRuntimeState {
+  return getDataRuntimeState(getActiveDataRuntime());
+}
+
+function resolveDataRuntimeState(runtime?: DataRuntime): DataRuntimeState {
+  return runtime
+    ? getDataRuntimeState(runtime)
+    : getActiveDataRuntimeState();
+}
 
 function createReadableSource(): ReadableSource<unknown> {
   return (() => undefined) as ReadableSource<unknown>;
 }
 
-function getQueryCache(): Map<string, QueryCell<unknown>> {
-  return (
-    (getActiveRenderContext()?.queryCache as Map<
-      string,
-      QueryCell<unknown>
-    > | null) ?? globalQueryCache
-  );
-}
-
 function getQuerySlotStore(
+  runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, QuerySlot> {
-  let store = querySlotsByInstance.get(instance);
+  let store = runtimeState.querySlotsByInstance.get(instance);
   if (!store) {
     store = new Map();
-    querySlotsByInstance.set(instance, store);
+    runtimeState.querySlotsByInstance.set(instance, store);
   }
   return store;
 }
 
 function getMutationSlotStore(
+  runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, MutationCell<unknown, unknown>> {
-  let store = mutationSlotsByInstance.get(instance);
+  let store = runtimeState.mutationSlotsByInstance.get(instance);
   if (!store) {
     store = new Map();
-    mutationSlotsByInstance.set(instance, store);
+    runtimeState.mutationSlotsByInstance.set(instance, store);
   }
   return store;
 }
 
-function ensureQueryCleanup(instance: ComponentInstance): void {
-  if (queryCleanupRegistered.has(instance)) {
+function ensureQueryCleanup(
+  runtimeState: DataRuntimeState,
+  instance: ComponentInstance
+): void {
+  if (runtimeState.queryCleanupRegistered.has(instance)) {
     return;
   }
 
-  queryCleanupRegistered.add(instance);
+  runtimeState.queryCleanupRegistered.add(instance);
   instance.cleanupFns.push(() => {
-    const slots = querySlotsByInstance.get(instance);
+    const slots = runtimeState.querySlotsByInstance.get(instance);
     if (!slots) {
-      queryCleanupRegistered.delete(instance);
+      runtimeState.queryCleanupRegistered.delete(instance);
       return;
     }
 
@@ -281,21 +375,24 @@ function ensureQueryCleanup(instance: ComponentInstance): void {
     }
 
     slots.clear();
-    querySlotsByInstance.delete(instance);
-    queryCleanupRegistered.delete(instance);
+    runtimeState.querySlotsByInstance.delete(instance);
+    runtimeState.queryCleanupRegistered.delete(instance);
   });
 }
 
-function ensureMutationCleanup(instance: ComponentInstance): void {
-  if (mutationCleanupRegistered.has(instance)) {
+function ensureMutationCleanup(
+  runtimeState: DataRuntimeState,
+  instance: ComponentInstance
+): void {
+  if (runtimeState.mutationCleanupRegistered.has(instance)) {
     return;
   }
 
-  mutationCleanupRegistered.add(instance);
+  runtimeState.mutationCleanupRegistered.add(instance);
   instance.cleanupFns.push(() => {
-    const slots = mutationSlotsByInstance.get(instance);
+    const slots = runtimeState.mutationSlotsByInstance.get(instance);
     if (!slots) {
-      mutationCleanupRegistered.delete(instance);
+      runtimeState.mutationCleanupRegistered.delete(instance);
       return;
     }
 
@@ -304,8 +401,8 @@ function ensureMutationCleanup(instance: ComponentInstance): void {
     }
 
     slots.clear();
-    mutationSlotsByInstance.delete(instance);
-    mutationCleanupRegistered.delete(instance);
+    runtimeState.mutationSlotsByInstance.delete(instance);
+    runtimeState.mutationCleanupRegistered.delete(instance);
   });
 }
 
@@ -329,10 +426,14 @@ function normalizeAsyncDataError(error: unknown, fallbackMessage: string): {} {
   return error ?? new Error(fallbackMessage);
 }
 
-function invalidateQueries(prefix: string, markPendingWrite: boolean): void {
+function invalidateQueriesForRuntime(
+  runtimeState: DataRuntimeState,
+  prefix: string,
+  markPendingWrite: boolean
+): void {
   emitInvalidation({ prefix, markPendingWrite });
 
-  const cache = getQueryCache();
+  const cache = runtimeState.queryCache;
 
   for (const [key, query] of cache) {
     if (!key.startsWith(prefix)) {
@@ -737,6 +838,7 @@ class QueryCell<T> {
 
 class MutationCell<TInput, TResult> {
   private readonly source = createReadableSource();
+  private readonly runtimeState: DataRuntimeState;
   private action: MutationOptions<TInput, TResult>['action'];
   private affects?: MutationOptions<TInput, TResult>['affects'];
   private afterSuccess?: MutationOptions<TInput, TResult>['afterSuccess'];
@@ -749,7 +851,11 @@ class MutationCell<TInput, TResult> {
     result: null,
   };
 
-  constructor(options: MutationOptions<TInput, TResult>) {
+  constructor(
+    options: MutationOptions<TInput, TResult>,
+    runtimeState: DataRuntimeState
+  ) {
+    this.runtimeState = runtimeState;
     this.action = options.action;
     this.affects = options.affects;
     this.afterSuccess = options.afterSuccess;
@@ -828,7 +934,7 @@ class MutationCell<TInput, TResult> {
     if (this.afterSuccess === 'invalidate') {
       const prefixes = this.affects?.(input, result) ?? [];
       for (const prefix of new Set(prefixes)) {
-        invalidateQueries(prefix, true);
+        invalidateQueriesForRuntime(this.runtimeState, prefix, true);
       }
     }
 
@@ -856,7 +962,8 @@ class MutationCell<TInput, TResult> {
 
 export function createQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
   const instance = getCurrentComponentInstance();
-  const cache = getQueryCache();
+  const runtimeState = resolveDataRuntimeState(options.runtime);
+  const cache = runtimeState.queryCache;
   if (!instance) {
     let cell = cache.get(options.key) as QueryCell<T> | undefined;
     if (!cell) {
@@ -870,9 +977,9 @@ export function createQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
   }
 
   const hookIndex = claimHookIndex(instance, 'query');
-  ensureQueryCleanup(instance);
+  ensureQueryCleanup(runtimeState, instance);
 
-  const slotStore = getQuerySlotStore(instance);
+  const slotStore = getQuerySlotStore(runtimeState, instance);
   const existingSlot = slotStore.get(hookIndex);
   if (existingSlot && existingSlot.key === options.key) {
     (existingSlot.cell as QueryCell<T>).warnOnConflictingDefinition(options);
@@ -901,7 +1008,11 @@ export function createQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
 }
 
 export function invalidate(prefix: string, options?: InvalidateOptions): void {
-  invalidateQueries(prefix, options?.markPendingWrite ?? false);
+  invalidateQueriesForRuntime(
+    resolveDataRuntimeState(options?.runtime),
+    prefix,
+    options?.markPendingWrite ?? false
+  );
 }
 
 function serializeQueryKeyNumber(part: number): string {
@@ -1002,6 +1113,7 @@ export function invalidateOnInterval(
     throw new Error(INVALIDATE_ON_INTERVAL_OPTIONS_ERROR);
   }
 
+  const runtimeState = resolveDataRuntimeState(options.runtime);
   const when: ActivityPredicate[] = [];
 
   if (options.activeOn) {
@@ -1019,9 +1131,11 @@ export function invalidateOnInterval(
   timer(
     options.intervalMs,
     () => {
-      invalidate(prefix, {
-        markPendingWrite: options.markPendingWrite,
-      });
+      invalidateQueriesForRuntime(
+        runtimeState,
+        prefix,
+        options.markPendingWrite ?? false
+      );
     },
     when.length > 0 ? { when } : undefined
   );
@@ -1031,15 +1145,19 @@ export function createMutation<TInput, TResult>(
   options: MutationOptions<TInput, TResult>
 ): Mutation<TInput, TResult> {
   const instance = getCurrentComponentInstance();
+  const runtimeState = resolveDataRuntimeState(options.runtime);
 
   if (!instance) {
-    return new MutationCell(options) as unknown as Mutation<TInput, TResult>;
+    return new MutationCell(
+      options,
+      runtimeState
+    ) as unknown as Mutation<TInput, TResult>;
   }
 
   const hookIndex = claimHookIndex(instance, 'mutation');
-  ensureMutationCleanup(instance);
+  ensureMutationCleanup(runtimeState, instance);
 
-  const slotStore = getMutationSlotStore(instance);
+  const slotStore = getMutationSlotStore(runtimeState, instance);
   const existing = slotStore.get(hookIndex) as
     | MutationCell<TInput, TResult>
     | undefined;
@@ -1048,7 +1166,7 @@ export function createMutation<TInput, TResult>(
     return existing as unknown as Mutation<TInput, TResult>;
   }
 
-  const created = new MutationCell(options);
+  const created = new MutationCell(options, runtimeState);
   slotStore.set(hookIndex, created as MutationCell<unknown, unknown>);
   return created as unknown as Mutation<TInput, TResult>;
 }

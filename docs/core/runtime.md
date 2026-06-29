@@ -49,14 +49,13 @@ Server renders to HTML string. Client hydrates with matching route state.
 
 ```tsx
 // server
-import { renderToString, type SSRRoute } from '@askrjs/askr/ssr';
+import { renderToString } from '@askrjs/askr/ssr';
+import { registry } from './routes';
 
-const routes: SSRRoute[] = [{ path: '/', handler: () => <Home /> }];
-const html = renderToString({ url: req.url, routes });
+const html = renderToString({ url: req.url, registry });
 
 // client
 import { hydrateSPA } from '@askrjs/askr/boot';
-import { registry } from './routes';
 
 await hydrateSPA({ root: 'app', registry });
 ```

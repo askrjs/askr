@@ -9,6 +9,7 @@ export interface ActiveRenderContext {
   routes?: readonly Route[];
   routeAuth?: RouteAuthOptions;
   signal?: AbortSignal;
+  dataRuntime?: unknown;
   queryCache?: Map<string, unknown>;
   keyCounter: number;
   renderData: Record<string, unknown> | null;

@@ -4,6 +4,7 @@ import {
   clearRoutes,
   registerRoutes,
   getRoutes,
+  createRouteRegistry,
   route,
 } from '../../../src/router/route';
 import { resolveRequest } from '../../../src/ssr';
@@ -79,6 +80,23 @@ describe('SSR request resolution', () => {
       kind: 'render',
       handler,
       params: {},
+    });
+  });
+
+  it('should resolve requests from an explicit route registry', async () => {
+    const registry = createRouteRegistry(() => {
+      route('/registry/{id}', ({ id }) => <div>{id}</div>);
+    });
+
+    const result = await resolveRequest({
+      url: '/registry/42',
+      registry,
+    });
+
+    expect(result).toEqual({
+      kind: 'render',
+      handler: expect.any(Function),
+      params: { id: '42' },
     });
   });
 

@@ -25,6 +25,7 @@ import type {
   RouteAuthOptions,
   RouteHandler,
   RouteManifest,
+  RouteRegistry,
   RouteRequestResult,
 } from '../common/router';
 import * as RouteModule from '../router/route';
@@ -1246,7 +1247,20 @@ export async function resolveRequest(
   opts:
     | {
         url: string;
+        registry: RouteRegistry;
+        manifest?: RouteManifest;
+        routes?: Array<{
+          path: string;
+          handler: RouteHandler;
+          namespace?: string;
+        }>;
+        auth?: RouteAuthOptions;
+        signal?: AbortSignal;
+      }
+    | {
+        url: string;
         manifest: RouteManifest;
+        registry?: RouteRegistry;
         routes?: Array<{
           path: string;
           handler: RouteHandler;
@@ -1258,6 +1272,7 @@ export async function resolveRequest(
     | {
         url: string;
         manifest?: RouteManifest;
+        registry?: RouteRegistry;
         routes: Array<{
           path: string;
           handler: RouteHandler;
@@ -1267,7 +1282,9 @@ export async function resolveRequest(
         signal?: AbortSignal;
       }
 ): Promise<RouteRequestResult> {
-  const { url, manifest, routes, auth, signal } = opts;
+  const { url, auth, signal } = opts;
+  const manifest = opts.manifest ?? opts.registry?.manifest;
+  const routes = opts.routes ?? opts.registry?.routes;
 
   if (manifest) {
     return await RouteModule.resolveRouteRequest(url, {
@@ -1310,9 +1327,18 @@ export type SSRRoute = {
   namespace?: string;
 };
 
-type RouteRenderOptions = {
+type SSRRouteSource =
+  | {
+      registry: RouteRegistry;
+      routes?: readonly SSRRoute[];
+    }
+  | {
+      registry?: RouteRegistry;
+      routes: readonly SSRRoute[];
+    };
+
+type RouteRenderOptions = SSRRouteSource & {
   url: string;
-  routes: SSRRoute[];
   seed?: number;
   data?: SSRData;
   document?: DocumentRenderer;
@@ -1334,11 +1360,24 @@ type ResolvedSSRRouteRender = {
   document?: DocumentRenderer;
 };
 
+function resolveSSRRouteSource(source: SSRRouteSource): SSRRoute[] {
+  const routes = source.routes ?? source.registry?.routes;
+  if (!routes || routes.length === 0) {
+    throw new Error('SSR requires a route registry or route table.');
+  }
+
+  return routes.map((route) => ({
+    path: route.path,
+    handler: route.handler,
+    namespace: route.namespace,
+  }));
+}
+
 function resolveSSRRouteRender(
   opts: RouteRenderOptions
 ): ResolvedSSRRouteRender {
-  const { url, routes, seed = 12345, data, document } = opts;
-  const routeTable = routes.map((route) => ({ ...route }));
+  const { url, seed = 12345, data, document } = opts;
+  const routeTable = resolveSSRRouteSource(opts);
   const requestUrl = new URL(url, 'http://localhost');
   const matched = RouteModule._resolveRouteMatchFromRoutes(
     requestUrl.pathname,

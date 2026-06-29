@@ -14,6 +14,7 @@ import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
 import { resource } from '../../../src/resources';
 import { defineContext } from '../../../src/runtime/context';
+import { createRouteRegistry, route } from '../../../src/router/route';
 
 // Test utilities
 function createTempDir(): string {
@@ -80,13 +81,13 @@ describe('Static Site Generation', () => {
   });
 
   describe('createStaticGen', () => {
-    it('should throw if no routes provided', () => {
+    it('should throw if no routes or registry provided', () => {
       expect(() =>
         createStaticGen({
           routes: [],
           outputDir: tempDir,
         })
-      ).toThrow('routes array is required');
+      ).toThrow('routes array or route registry is required');
     });
 
     it('should throw if no outputDir provided', () => {
@@ -150,6 +151,22 @@ describe('Static Site Generation', () => {
       expect(result.routes[0].status).toBe('success');
       expect(result.routes[0].html).toContain('<div');
       expect(result.routes[0].html).toContain('Home');
+    });
+
+    it('should generate static HTML from an explicit route registry', async () => {
+      const registry = createRouteRegistry(() => {
+        route('/', () => <main>{'Registry Home'}</main>);
+      });
+      const ssg = createStaticGen({
+        registry,
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate();
+
+      expect(result.totalRoutes).toBe(1);
+      expect(result.successful).toBe(1);
+      expect(result.routes[0].html).toBe('<main>Registry Home</main>');
     });
 
     it('should preserve Context.Scope sibling children in generated HTML', async () => {

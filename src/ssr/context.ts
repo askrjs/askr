@@ -23,6 +23,7 @@ export interface RenderContext {
   routes?: readonly Route[];
   routeAuth?: RouteAuthOptions;
   signal?: AbortSignal;
+  dataRuntime?: unknown;
   queryCache?: Map<string, unknown>;
   ssrCleanupFns: Array<() => void>;
   // Per-render key state (moved from render-keys.ts globals)
@@ -92,6 +93,7 @@ export function createRenderContext(
     routes?: readonly Route[];
     routeAuth?: RouteAuthOptions;
     signal?: AbortSignal;
+    dataRuntime?: unknown;
   } = {}
 ): RenderContext {
   clearEscapeCache();
@@ -104,6 +106,7 @@ export function createRenderContext(
     routes: opts.routes,
     routeAuth: opts.routeAuth,
     signal: opts.signal,
+    dataRuntime: opts.dataRuntime,
     queryCache: new Map<string, unknown>(),
     ssrCleanupFns: [],
     keyCounter: 0,

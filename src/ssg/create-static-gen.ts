@@ -13,6 +13,7 @@ import type {
   SSGOptions,
   SSGResult,
 } from './types';
+import type { RouteRegistry } from '../common/router';
 import {
   expandRoutes,
   resolveSsgRouteData,
@@ -57,6 +58,16 @@ type StrictRouteConfigs<TRoutes extends readonly AnyRouteConfig[]> = {
     ? StrictRouteConfig<TRoutes[TIndex]>
     : never;
 };
+
+type StaticGenRouteSource<TRoutes extends readonly AnyRouteConfig[]> =
+  | {
+      routes: TRoutes & StrictRouteConfigs<TRoutes>;
+      registry?: never;
+    }
+  | {
+      registry: RouteRegistry;
+      routes?: never;
+    };
 
 interface SelectedRoute {
   descriptor: ResolvedRouteDescriptor;
@@ -114,6 +125,29 @@ function resolveParallelism(requested: number | 'auto' | undefined): number {
   return 1;
 }
 
+function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
+  return registry.manifest.records.map((record) => ({
+    path: record.path,
+    handler: record.handler,
+    namespace: record.options.namespace,
+    auth: record.options.auth,
+    role: record.options.role,
+    permission: record.options.permission,
+    policies: record.options.policies,
+    entries: record.options.entries,
+  }));
+}
+
+function normalizeStaticRoutes<TRoutes extends readonly AnyRouteConfig[]>(
+  options: StaticGenRouteSource<TRoutes>
+): RouteConfig[] {
+  if (options.registry) {
+    return routeRegistryToRouteConfigs(options.registry);
+  }
+
+  return [...(options.routes as readonly RouteConfig[])];
+}
+
 /**
  * Create a Static Site Generator
  *
@@ -137,11 +171,11 @@ function resolveParallelism(requested: number | 'auto' | undefined): number {
 export function createStaticGen<
   const TRoutes extends readonly AnyRouteConfig[],
 >(
-  options: Omit<SSGOptions<TRoutes>, 'routes'> & {
-    routes: TRoutes & StrictRouteConfigs<TRoutes>;
-  }
+  options: Omit<SSGOptions<TRoutes>, 'routes' | 'registry'> &
+    StaticGenRouteSource<TRoutes>
 ) {
   let result: SSGResult | null = null;
+  const configuredRoutes = normalizeStaticRoutes(options);
   const seed = options.seed ?? 12345;
   const resolvedParallelism = resolveParallelism(options.parallelism);
   const resolvedConcurrency = Math.max(
@@ -149,8 +183,8 @@ export function createStaticGen<
     options.concurrency ?? resolvedParallelism
   );
 
-  if (!Array.isArray(options.routes) || options.routes.length === 0) {
-    throw new Error('routes array is required');
+  if (configuredRoutes.length === 0) {
+    throw new Error('routes array or route registry is required');
   }
 
   if (!options.outputDir || options.outputDir.trim().length === 0) {
@@ -166,7 +200,7 @@ export function createStaticGen<
     async generate(
       generateOptions: SSGGenerateOptions = {}
     ): Promise<SSGResult> {
-      const routes = await expandRoutes(options.routes as RouteConfig[]);
+      const routes = await expandRoutes(configuredRoutes);
       validateRoutes(routes);
 
       const changedKeys = dedupeStrings(generateOptions.changedKeys);
@@ -401,7 +435,7 @@ export function createStaticGen<
      */
     getConfig() {
       return {
-        routeCount: options.routes.length,
+        routeCount: configuredRoutes.length,
         outputDir: options.outputDir,
         seed,
         concurrency: resolvedConcurrency,
