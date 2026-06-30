@@ -253,6 +253,9 @@ facade cleanup:
 - The renderer helper owners (`attributes.ts` and `boundaries.ts`) are now
   active dependencies. Future extraction should keep the running path wired to
   the owner modules rather than duplicating behavior.
+- `For` reactive item/index signal behavior is now isolated in
+  `runtime/for-signals.ts`; remaining `For` debt is in reconciliation,
+  fallback, and item-scope orchestration.
 
 ## Related docs
 

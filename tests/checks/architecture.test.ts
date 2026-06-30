@@ -35,7 +35,7 @@ const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
   ],
   [
     'src/runtime/for-internal.ts',
-    'Temporary architecture debt: For implementation still owns item signals, key validation, reconciliation, fallback handling, and disposal.',
+    'Temporary architecture debt: For implementation still owns state storage, key validation, item scope rendering, reconciliation, fallback handling, and disposal.',
   ],
   [
     'src/ssr/index-internal.ts',
@@ -372,6 +372,10 @@ const RUNTIME_FOR_FACADE_MODULES = new Map<string, number>([
   ['src/runtime/for.ts', 20],
 ]);
 
+const RUNTIME_FOR_HELPER_MODULES = new Map<string, number>([
+  ['src/runtime/for-signals.ts', 300],
+]);
+
 const SSR_FACADE_MODULES = new Map<string, number>([['src/ssr/index.ts', 20]]);
 
 const SSR_ROUTE_RENDER_MODULES = new Map<string, number>([
@@ -392,7 +396,7 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   ],
   [
     'src/runtime/for-internal.ts',
-    { maxLines: 1358, name: 'For reconciliation implementation cluster' },
+    { maxLines: 1160, name: 'For reconciliation implementation cluster' },
   ],
   [
     'src/ssr/index-internal.ts',
@@ -702,6 +706,33 @@ describe('architecture boundaries', () => {
     );
 
     for (const [filePath, maxLines] of RUNTIME_FOR_FACADE_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep For reactive item signals split out of reconciliation ownership', () => {
+    const forInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-internal.ts'
+    );
+    const forSignals = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-signals.ts'
+    );
+
+    expect(forInternal).toBeDefined();
+    expect(forSignals).toBeDefined();
+
+    const helperImports = edges
+      .filter((edge) => edge.from === forInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/runtime/for-signals.ts');
+    expect(forInternal!.text).not.toMatch(
+      /function\s+(createForIndexSignal|syncForIndexSignal|createForItemSignal|createForItemPropertySignal|readForItemProperty|haveSameOwnKeys|scopeReadsSource|removeForParentReaders|getOrCreateForItemPropertySignal|canProxyForItem|createReactiveForItem)\s*\(/
+    );
+
+    for (const [filePath, maxLines] of RUNTIME_FOR_HELPER_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
       expect(file, `${filePath} should exist`).toBeDefined();
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);

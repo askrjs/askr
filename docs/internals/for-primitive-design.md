@@ -89,6 +89,12 @@ Each live key owns:
 - one cached vnode
 - one cached DOM root
 
+Reactive item and index accessor mechanics live in
+`src/runtime/for-signals.ts`. The reconciliation owner calls into that helper
+to create row-local item signals, proxy object property reads, notify readable
+subscribers, and prune parent readers when a row updates without rerendering the
+owning component.
+
 The `each` source is owned by the `For` boundary itself. List-source reads are tracked through a boundary-local fine-grained effect, so source changes dirty the `For` boundary instead of subscribing the parent component render. Same-order keyed updates can therefore stay row-local, while append, truncate, and reorder work still flow through keyed reconciliation.
 
 The runtime keeps the existing fast lanes:

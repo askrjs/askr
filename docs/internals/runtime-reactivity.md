@@ -83,6 +83,7 @@ flowchart TB
 
   forFacade[for.ts facade]
   forCore[for-internal.ts]
+  forSignals[for-signals.ts]
   forState[ForState and item instances]
   itemSignals[item, index, and property signals]
   reconcile[reconcileForItems strategy]
@@ -96,7 +97,8 @@ flowchart TB
   componentCore --> cleanup
   forFacade --> forCore
   forCore --> forState
-  forCore --> itemSignals
+  forCore --> forSignals
+  forSignals --> itemSignals
   forCore --> reconcile
   forCore --> fallback
   forCore --> componentFacade
@@ -203,9 +205,11 @@ flowchart LR
   creation, current-instance state, lifecycle batching, render execution, hook
   index claiming, cleanup, and owned child scopes.
 - `src/runtime/for.ts` is the compatibility facade for `For` runtime state.
-  `src/runtime/for-internal.ts` currently owns item signals, key validation,
-  per-item creation/update/disposal, fallback handling, and array
-  reconciliation.
+  `src/runtime/for-internal.ts` currently owns state storage, key validation,
+  per-item scope creation/update/disposal, fallback handling, and array
+  reconciliation. `src/runtime/for-signals.ts` owns reactive item/index
+  signals, property proxy reads, signal notification, and parent-reader
+  pruning.
 - `src/runtime/state.ts` stores component-local writable cells.
 - `src/runtime/derive.ts` tracks dependency reads and recomputes in the
   scheduler's `derived` lane.
@@ -225,9 +229,9 @@ flowchart LR
 
 The runtime diagrams expose two follow-ups:
 
-- Component lifecycle and `For` reconciliation are still large implementation
-  clusters. The next cleanup should split by ownership rather than only by
-  import facade.
+- Component lifecycle and remaining `For` reconciliation/fallback behavior are
+  still large implementation clusters. The next cleanup should split by
+  ownership rather than only by import facade.
 - `For` depends on component hook indexing and child-scope cleanup. That
   coupling is legitimate, but it needs explicit contract modules so future
   splits do not reach back into component internals.
