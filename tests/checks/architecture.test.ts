@@ -31,7 +31,7 @@ const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
   ],
   [
     'src/runtime/component-internal.ts',
-    'Temporary architecture debt: component implementation still owns instance state, hook indexing, render execution, and cleanup.',
+    'Temporary architecture debt: component implementation still owns instance creation, component function execution, inline rendering, and cleanup.',
   ],
   [
     'src/runtime/for-internal.ts',
@@ -369,7 +369,9 @@ const RUNTIME_COMPONENT_FACADE_MODULES = new Map<string, number>([
 ]);
 
 const RUNTIME_COMPONENT_HELPER_MODULES = new Map<string, number>([
+  ['src/runtime/component-commit.ts', 430],
   ['src/runtime/component-lifecycle.ts', 430],
+  ['src/runtime/component-scope.ts', 360],
 ]);
 
 const RUNTIME_FOR_FACADE_MODULES = new Map<string, number>([
@@ -397,7 +399,7 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   ],
   [
     'src/runtime/component-internal.ts',
-    { maxLines: 1050, name: 'component implementation cluster' },
+    { maxLines: 680, name: 'component implementation cluster' },
   ],
   [
     'src/runtime/for-internal.ts',
@@ -723,6 +725,73 @@ describe('architecture boundaries', () => {
     );
     expect(componentInternal!.text).not.toMatch(
       /type\s+(LifecycleOperation|LifecycleCommitBatchEntry|ReadSubscriptionCommit|InlineRenderSnapshot|LifecycleCommitBatch)\s*=|let\s+currentLifecycleCommitBatch\s*:/
+    );
+
+    for (const [filePath, maxLines] of RUNTIME_COMPONENT_HELPER_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep scheduled component DOM commit orchestration split out of component internals', () => {
+    const componentInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component-internal.ts'
+    );
+    const componentCommit = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component-commit.ts'
+    );
+
+    expect(componentInternal).toBeDefined();
+    expect(componentCommit).toBeDefined();
+
+    const helperImports = edges
+      .filter(
+        (edge) => edge.from === componentInternal!.filePath && !edge.typeOnly
+      )
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/runtime/component-commit.ts');
+    expect(componentInternal!.text).not.toMatch(
+      /function\s+runComponent\s*\(/
+    );
+    expect(componentInternal!.text).not.toMatch(
+      /\btryRuntimeFastLaneSync\b|\bgetRuntimeRenderer\b|\bbeginLifecycleCommitBatch\b|\bdiscardLifecycleCommitBatch\b|\bflushLifecycleCommitBatch\b|\benterDomCommitScope\b|\brestoreDomCommitScope\b/
+    );
+    expect(componentInternal!.text).not.toMatch(
+      /__LAST_DOM_REPLACE_STACK_COMPONENT_(?:RESTORE|ROLLBACK)|placeholder no longer in DOM, cannot render component/
+    );
+  });
+
+  it('should keep component scope ownership split out of component internals', () => {
+    const componentInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component-internal.ts'
+    );
+    const componentScope = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component-scope.ts'
+    );
+
+    expect(componentInternal).toBeDefined();
+    expect(componentScope).toBeDefined();
+
+    const helperImports = edges
+      .filter(
+        (edge) => edge.from === componentInternal!.filePath && !edge.typeOnly
+      )
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/runtime/component-scope.ts');
+    expect(componentInternal!.text).not.toMatch(
+      /let\s+(_globalRenderCounter|globalRenderCounter|currentInstance|currentPortalScope|stateIndex)\s*=/
+    );
+    expect(componentInternal!.text).not.toMatch(
+      /function\s+(ensureAbortController|nextRenderToken|resetRenderState)\s*\(/
+    );
+    expect(componentInternal!.text).not.toMatch(
+      /export\s+function\s+(getCurrentComponentInstance|setCurrentComponentInstance|getCurrentPortalScope|getCurrentInstance|getSignal|getNextStateIndex|claimHookIndex|getCurrentStateIndex|resetStateIndex|setStateIndex)\s*\(/
+    );
+    expect(componentInternal!.text).not.toMatch(
+      /\benterDomCommitScope\b|\brestoreDomCommitScope\b/
     );
 
     for (const [filePath, maxLines] of RUNTIME_COMPONENT_HELPER_MODULES) {

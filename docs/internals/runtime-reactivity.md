@@ -75,11 +75,14 @@ when the implementation is split further.
 flowchart TB
   componentFacade[component.ts facade]
   componentCore[component-internal.ts]
+  componentScope[component-scope.ts]
+  componentCommit[component-commit.ts]
   componentLifecycle[component-lifecycle.ts]
   current[current instance and portal scope]
+  renderScope[hook cursor, render tokens, and signal access]
+  scheduledCommit[scheduled render result handling, fast-lane fallback, DOM rollback]
   lifecycle[lifecycle commit batching, inline snapshots, deferred reads]
-  render[render execution]
-  hooks[hook index claiming]
+  render[instance creation, component execution, inline rendering]
   cleanup[component cleanup and owned child scopes]
 
   forFacade[for.ts facade]
@@ -92,11 +95,15 @@ flowchart TB
   scopeOwnership[item and fallback child scopes]
 
   componentFacade --> componentCore
-  componentCore --> current
+  componentFacade --> componentScope
+  componentCore --> componentScope
+  componentCore --> componentCommit
+  componentScope --> current
+  componentScope --> renderScope
   componentCore --> componentLifecycle
+  componentCommit --> scheduledCommit
   componentLifecycle --> lifecycle
   componentCore --> render
-  componentCore --> hooks
   componentCore --> cleanup
   forFacade --> forCore
   forCore --> forState
@@ -205,9 +212,13 @@ flowchart LR
 ## Design notes
 
 - `src/runtime/component.ts` is the compatibility facade for the component
-  runtime. `src/runtime/component-internal.ts` currently owns instance
-  creation, current-instance and portal-scope state, render execution, hook
-  index claiming, cleanup, and owned child scopes.
+  runtime. `src/runtime/component-scope.ts` owns current-instance and
+  portal-scope state, hook cursor and order validation, render-token helpers,
+  and component signal access. `src/runtime/component-commit.ts` owns
+  scheduled render result handling, fast-lane fallback, placeholder
+  replacement, target DOM evaluation, and rollback.
+  `src/runtime/component-internal.ts` owns instance creation, component
+  function execution, inline rendering, cleanup, and owned child scopes.
   `src/runtime/component-lifecycle.ts` owns lifecycle commit batching, inline
   render snapshots, deferred read subscription commits, mount and commit
   operation settlement, and commit discard.
@@ -238,13 +249,14 @@ flowchart LR
 
 The runtime diagrams expose two follow-ups:
 
-- Component render execution, hook indexing, cleanup, instance state, and
-  remaining `For` reconciliation/fallback behavior are still large
+- Component render execution, DOM commit orchestration, cleanup, instance
+  creation, and remaining `For` reconciliation/fallback behavior are still large
   implementation clusters. The next cleanup should split by ownership rather
   than only by import facade.
-- `For` depends on component hook indexing and child-scope cleanup. That
-  coupling is legitimate, but it needs explicit contract modules so future
-  splits do not reach back into component internals.
+- `For` depends on component hook indexing from `component-scope.ts` and
+  child-scope cleanup from `component-internal.ts`. That coupling is
+  legitimate, but it needs explicit contract modules so future splits do not
+  reach back into component internals.
 
 ## Related docs
 

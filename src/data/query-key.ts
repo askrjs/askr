@@ -50,11 +50,12 @@ function serializeQueryKeyPart(part: QueryKeyPart): string {
         return `a[${part.map((item) => serializeQueryKeyPart(item)).join(',')}]`;
       }
 
-      return `o{${Object.keys(part)
+      const objectPart = part as { readonly [key: string]: QueryKeyPart };
+      return `o{${Object.keys(objectPart)
         .sort()
         .map(
           (key) =>
-            `${encodeURIComponent(key)}=${serializeQueryKeyPart(part[key])}`
+            `${encodeURIComponent(key)}=${serializeQueryKeyPart(objectPart[key])}`
         )
         .join(',')}}`;
     default:

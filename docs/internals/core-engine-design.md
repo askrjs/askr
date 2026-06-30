@@ -20,7 +20,7 @@ flowchart TB
   subgraph engine[Core engine]
     boot[Boot orchestration<br/>index.ts, hydration.ts, types.ts]
     runtime[Runtime core<br/>component facade, state.ts, derive.ts, context.ts]
-    componentCore[Component implementation<br/>component-internal.ts<br/>component-lifecycle.ts]
+    componentCore[Component implementation<br/>component-internal.ts<br/>component-scope.ts<br/>component-lifecycle.ts]
     forCore[For runtime implementation<br/>for-internal.ts<br/>for-scopes.ts]
     runtimeAccess[Runtime access boundary<br/>access.ts]
     scheduler[Scheduler<br/>derived, component, reactive, post lanes]
@@ -74,6 +74,8 @@ flowchart TB
     context[context.ts]
     componentFacade[component.ts facade]
     componentCore[component-internal.ts]
+    componentScope[component-scope.ts]
+    componentCommit[component-commit.ts]
     componentLifecycle[component-lifecycle.ts]
     forFacade[for.ts facade]
     forCore[for-internal.ts]
@@ -149,6 +151,8 @@ flowchart TB
   state --> readable
   derive --> readable
   componentFacade --> componentCore
+  componentFacade --> componentScope
+  componentCore --> componentScope
   componentCore --> componentLifecycle
   componentCore --> readable
   componentCore --> access
@@ -213,7 +217,8 @@ diagrams:
   pluggable renderer host instead of embedding DOM behavior directly.
 - `src/runtime/component.ts`, `src/runtime/for.ts`, `src/renderer/dom.ts`, and
   `src/ssr/index.ts` are compatibility facades. Their current implementations
-  live in `component-internal.ts` plus `component-lifecycle.ts`,
+  live in `component-internal.ts` plus `component-scope.ts`,
+  `component-commit.ts`, and `component-lifecycle.ts`,
   `for-internal.ts` plus `for-scopes.ts`, `dom-internal.ts`, and the SSR
   `index-internal.ts` plus `route-render.ts`.
 - `src/runtime/access.ts` is the internal boundary used by runtime, renderer,

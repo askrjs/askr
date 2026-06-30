@@ -333,20 +333,29 @@ function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentFunction {
     resolved.handler(resolved.params) as ReturnType<ComponentFunction>;
 }
 
-function bindDeniedStatus(status: number): ComponentFunction {
-  return () => ({
+function createDeniedStatusNode(status: number) {
+  return {
     type: 'div',
     props: {
       'data-route-denied': String(status),
     },
     children: [String(status)],
-  });
+  };
+}
+
+function bindDeniedStatus(status: number): ComponentFunction {
+  return () => createDeniedStatusNode(status);
+}
+
+function bindDeniedRouteHandler(status: number): RouteHandler {
+  return () => createDeniedStatusNode(status);
 }
 
 // New strongly-typed init functions
 import type {
   ResolvedRoute,
   RouteAuthOptions,
+  RouteHandler,
   RouteRequestResult,
 } from '../common/router';
 import {
@@ -669,7 +678,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
   const hydrationResolved: ResolvedRoute =
     resolved.kind === 'deny'
-      ? { handler: bindDeniedStatus(resolved.status), params: {} }
+      ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
       : { handler: resolved.handler, params: resolved.params };
 
   if (shouldVerifyHydrationMarkup(config)) {

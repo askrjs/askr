@@ -2560,7 +2560,7 @@ function itemInstanceHydrationComplete(host: InstanceHostElement): void {
 
 function createComponentElement(
   node: ElementWithContext,
-  type: (props: Props) => unknown,
+  type: (props: never) => unknown,
   props: Record<string, unknown>,
   parentNamespace?: string
 ): Node {
@@ -2568,7 +2568,7 @@ function createComponentElement(
   const frame = getVNodeContextFrame(node);
   const snapshot = frame || getCurrentContextFrame();
 
-  const componentFn = type as (props: Props) => unknown;
+  const componentFn = type as unknown as (props: Props) => unknown;
   const isAsync = componentFn.constructor.name === 'AsyncFunction';
 
   if (isAsync) {

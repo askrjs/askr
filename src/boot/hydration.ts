@@ -1,5 +1,6 @@
 import { isProductionEnvironment } from '../common/env';
 import { SSR_RENDER_DATA_ATTR, type SSRData } from '../common/ssr';
+import type { ResolvedRoute } from '../common/router';
 import type { ComponentFunction } from '../runtime/component';
 import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
@@ -39,10 +40,11 @@ export function takeHydrationRenderData(rootElement: Element): SSRData | null {
       try {
         return JSON.parse(raw) as SSRData;
       } catch (err) {
-        throw new Error(
-          '[Askr] Failed to parse embedded SSR render data during hydration.',
-          { cause: err }
+        const error = new Error(
+          '[Askr] Failed to parse embedded SSR render data during hydration.'
         );
+        (error as Error & { cause?: unknown }).cause = err;
+        throw error;
       }
     }
   }
@@ -152,7 +154,7 @@ export function shouldVerifyHydrationMarkup(config: HydrateSPAConfig): boolean {
 
 export async function applySelectiveHydration(
   rootElement: Element,
-  resolved: { handler: ComponentFunction; params: Record<string, unknown> },
+  resolved: ResolvedRoute,
   path: string,
   cleanupStrict: boolean | undefined,
   hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>,

@@ -83,7 +83,7 @@ function createFreshQuery<T extends {}>(
 
 export const mockQuery = Object.assign(createFreshQuery, {
   loading<T extends {} = {}>(options?: MockQueryOptions): Query<T> {
-    return makeQuery(
+    return makeQuery<T>(
       {
         data: null,
         error: null,

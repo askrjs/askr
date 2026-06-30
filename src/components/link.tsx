@@ -4,7 +4,7 @@
 
 import '../jsx/types';
 import type { JSXElement } from '../common/jsx';
-import type { Props } from '../common/props';
+import type { AnchorIntrinsicProps, Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
 import { navigate } from '../router/navigate';
 import { applyInteractionPolicy } from '../foundations/interactions/interaction-policy';
@@ -143,5 +143,5 @@ export function Link({
     'aria-label': ariaLabel,
   });
 
-  return <a {...props}>{children}</a>;
+  return <a {...(props as AnchorIntrinsicProps)}>{children}</a>;
 }
