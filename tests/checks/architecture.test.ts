@@ -34,10 +34,6 @@ const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
     'Temporary architecture debt: component implementation still owns instance creation, component function execution, inline rendering, and cleanup.',
   ],
   [
-    'src/runtime/for-internal.ts',
-    'Temporary architecture debt: For implementation still owns state storage, key validation, reconciliation strategy, source effect wiring, and commit bookkeeping.',
-  ],
-  [
     'src/ssr/index-internal.ts',
     'Temporary architecture debt: SSR implementation still owns serialization, component execution, boundary rendering, route orchestration, and sink entrypoints.',
   ],
@@ -379,6 +375,7 @@ const RUNTIME_FOR_FACADE_MODULES = new Map<string, number>([
 ]);
 
 const RUNTIME_FOR_HELPER_MODULES = new Map<string, number>([
+  ['src/runtime/for-reconcile.ts', 660],
   ['src/runtime/for-scopes.ts', 430],
   ['src/runtime/for-signals.ts', 300],
 ]);
@@ -403,7 +400,7 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   ],
   [
     'src/runtime/for-internal.ts',
-    { maxLines: 850, name: 'For reconciliation implementation cluster' },
+    { maxLines: 320, name: 'For state implementation cluster' },
   ],
   [
     'src/ssr/index-internal.ts',
@@ -822,6 +819,9 @@ describe('architecture boundaries', () => {
     const forInternal = sourceFiles.find(
       (file) => file.relativePath === 'src/runtime/for-internal.ts'
     );
+    const forReconcile = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-reconcile.ts'
+    );
     const forScopes = sourceFiles.find(
       (file) => file.relativePath === 'src/runtime/for-scopes.ts'
     );
@@ -830,6 +830,7 @@ describe('architecture boundaries', () => {
     );
 
     expect(forInternal).toBeDefined();
+    expect(forReconcile).toBeDefined();
     expect(forScopes).toBeDefined();
     expect(forSignals).toBeDefined();
 
@@ -841,6 +842,9 @@ describe('architecture boundaries', () => {
     expect(forInternal!.text).not.toMatch(
       /function\s+(createForIndexSignal|syncForIndexSignal|createForItemSignal|createForItemPropertySignal|readForItemProperty|haveSameOwnKeys|scopeReadsSource|removeForParentReaders|getOrCreateForItemPropertySignal|canProxyForItem|createReactiveForItem)\s*\(/
     );
+    expect(forReconcile!.text).not.toMatch(
+      /function\s+(createForIndexSignal|syncForIndexSignal|createForItemSignal|createForItemPropertySignal|readForItemProperty|haveSameOwnKeys|scopeReadsSource|removeForParentReaders|getOrCreateForItemPropertySignal|canProxyForItem|createReactiveForItem)\s*\(/
+    );
 
     for (const [filePath, maxLines] of RUNTIME_FOR_HELPER_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
@@ -850,25 +854,25 @@ describe('architecture boundaries', () => {
   });
 
   it('should keep For item and fallback child scopes split out of reconciliation ownership', () => {
-    const forInternal = sourceFiles.find(
-      (file) => file.relativePath === 'src/runtime/for-internal.ts'
+    const forReconcile = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-reconcile.ts'
     );
     const forScopes = sourceFiles.find(
       (file) => file.relativePath === 'src/runtime/for-scopes.ts'
     );
 
-    expect(forInternal).toBeDefined();
+    expect(forReconcile).toBeDefined();
     expect(forScopes).toBeDefined();
 
     const helperImports = edges
-      .filter((edge) => edge.from === forInternal!.filePath && !edge.typeOnly)
+      .filter((edge) => edge.from === forReconcile!.filePath && !edge.typeOnly)
       .map((edge) => relative(edge.to));
 
     expect(helperImports).toContain('src/runtime/for-scopes.ts');
-    expect(forInternal!.text).not.toMatch(
+    expect(forReconcile!.text).not.toMatch(
       /function\s+(syncForItemIndex|materializeItemVnode|renderItemScope|disposeItemInstance|createItemInstance|rerenderItemInstance|updateItemInstance|disposeFallbackScope|renderFallbackScope|disposeAllItems)\s*\(/
     );
-    expect(forInternal!.text).not.toMatch(
+    expect(forReconcile!.text).not.toMatch(
       /interface\s+ForItemInstance|type\s+RemovedDomCleanupMode\s*=|const\s+FOR_FALLBACK_SCOPE_KEY\s*=/
     );
 
@@ -877,6 +881,30 @@ describe('architecture boundaries', () => {
       expect(file, `${filePath} should exist`).toBeDefined();
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
     }
+  });
+
+  it('should keep For key validation and reconciliation strategy split out of state ownership', () => {
+    const forInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-internal.ts'
+    );
+    const forReconcile = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-reconcile.ts'
+    );
+
+    expect(forInternal).toBeDefined();
+    expect(forReconcile).toBeDefined();
+
+    const helperImports = edges
+      .filter((edge) => edge.from === forInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/runtime/for-reconcile.ts');
+    expect(forInternal!.text).not.toMatch(
+      /function\s+(failForValidation|validateForKeys|reconcileForItems)\s*\(/
+    );
+    expect(forInternal!.text).not.toMatch(
+      /FAST PATH [ABC]|FULL KEYED RECONCILIATION|\brecordBenchFastLane\b/
+    );
   });
 
   it('should keep the SSR facade free of synchronous renderer internals', () => {

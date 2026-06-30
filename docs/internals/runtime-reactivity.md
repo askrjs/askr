@@ -87,11 +87,13 @@ flowchart TB
 
   forFacade[for.ts facade]
   forCore[for-internal.ts]
+  forReconcile[for-reconcile.ts]
   forScopes[for-scopes.ts]
   forSignals[for-signals.ts]
-  forState[ForState storage and commit bookkeeping]
+  forState[ForState storage and hook binding]
   itemSignals[item, index, and property signals]
-  reconcile[reconcileForItems strategy]
+  reconcile[key validation and reconciliation strategy]
+  commitPlanning[commit strategy and dirty/move planning]
   scopeOwnership[item and fallback child scopes]
 
   componentFacade --> componentCore
@@ -107,10 +109,12 @@ flowchart TB
   componentCore --> cleanup
   forFacade --> forCore
   forCore --> forState
-  forCore --> forScopes
+  forCore --> forReconcile
+  forReconcile --> reconcile
+  forReconcile --> commitPlanning
+  forReconcile --> forScopes
   forScopes --> forSignals
   forSignals --> itemSignals
-  forCore --> reconcile
   forScopes --> scopeOwnership
   forScopes --> componentFacade
 ```
@@ -223,11 +227,13 @@ flowchart LR
   render snapshots, deferred read subscription commits, mount and commit
   operation settlement, and commit discard.
 - `src/runtime/for.ts` is the compatibility facade for `For` runtime state.
-  `src/runtime/for-internal.ts` currently owns state storage, key validation,
-  reconciliation strategy, source effect wiring, and commit bookkeeping.
-  `src/runtime/for-scopes.ts` owns per-item scope
-  creation/render/update/disposal, index-signal synchronization, fallback scope
-  rendering/disposal, and removed-node bookkeeping.
+  `src/runtime/for-internal.ts` owns state storage, hook binding, source effect
+  cleanup registration, source evaluation, and DOM update state clearing.
+  `src/runtime/for-reconcile.ts` owns development key validation,
+  reconciliation strategy selection and execution, benchmark fast-lane/timing
+  recording, and commit planning fields. `src/runtime/for-scopes.ts` owns
+  per-item scope creation/render/update/disposal, index-signal synchronization,
+  fallback scope rendering/disposal, and removed-node bookkeeping.
   `src/runtime/for-signals.ts` owns reactive item/index signals, property proxy
   reads, signal notification, and parent-reader pruning.
 - `src/runtime/state.ts` stores component-local writable cells.
