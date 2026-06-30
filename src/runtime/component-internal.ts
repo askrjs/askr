@@ -15,7 +15,6 @@ import {
 import {
   type ReadableSource,
   finalizeReadableSubscriptions,
-  cleanupReadableSubscriptions,
 } from './readable';
 import {
   isDevelopmentEnvironment,
@@ -23,6 +22,12 @@ import {
 } from '../common/env';
 import { logger } from '../dev/logger';
 import { incDevCounter } from './dev-namespace';
+import {
+  cleanupComponent,
+  registerOwnedChildScope,
+  unregisterOwnedChildScope,
+  type OwnedChildScope,
+} from './component-cleanup';
 import { runScheduledComponent } from './component-commit';
 import {
   captureInlineRenderSnapshot as captureLifecycleInlineRenderSnapshot,
@@ -38,7 +43,6 @@ import {
   beginRenderTracking,
   captureInlineComponentScope,
   captureInlineRenderTracking,
-  clearCurrentComponentScope,
   clearRenderTracking,
   enterComponentExecutionScope,
   enterRenderScopedComponent,
@@ -48,13 +52,17 @@ import {
   getCurrentPortalScope,
   getSignalForInstance,
   resetRenderState,
-  restoreCurrentComponentScope,
   restoreInlineComponentScope,
   restoreInlineRenderTracking,
   restoreRenderScopedComponent,
 } from './component-scope';
 
 export type { ComponentFunction } from '../common/component';
+export {
+  cleanupComponent,
+  registerOwnedChildScope,
+  unregisterOwnedChildScope,
+};
 
 export interface ComponentInstance {
   id: string;
@@ -102,10 +110,7 @@ export interface ComponentInstance {
   // Placeholder for null-returning components. When a component initially returns
   // null, we create a comment placeholder so updates can replace it with content.
   _placeholder?: Comment;
-  _ownedChildScopes?: Set<{
-    key: string | number;
-    dispose(): void;
-  }>;
+  _ownedChildScopes?: Set<OwnedChildScope>;
   errorBoundaryState?: {
     error: unknown | null;
     resetKey: unknown;
@@ -190,11 +195,6 @@ export function createComponentInstance(
 
   return instance;
 }
-
-type OwnedChildScope = {
-  key: string | number;
-  dispose(): void;
-};
 
 /**
  * Register a mount operation that will run after the component is mounted
@@ -461,108 +461,6 @@ export function finalizeReadSubscriptions(instance: ComponentInstance): void {
  */
 export function mountComponent(instance: ComponentInstance): void {
   executeComponent(instance);
-}
-
-/**
- * Clean up component — abort pending operations
- * Called on unmount or route change
- */
-export function cleanupComponent(instance: ComponentInstance): void {
-  const savedScope = clearCurrentComponentScope();
-
-  try {
-    const cleanupErrors: unknown[] = [];
-    const recordCleanupError = (message: string, err: unknown): void => {
-      if (instance.cleanupStrict) {
-        cleanupErrors.push(err);
-      } else if (isDevelopmentEnvironment()) {
-        logger.warn(message, err);
-      }
-    };
-
-    const ownedChildScopes = instance._ownedChildScopes;
-    if (ownedChildScopes && ownedChildScopes.size > 0) {
-      instance._ownedChildScopes = new Set();
-      for (const scope of ownedChildScopes) {
-        try {
-          scope.dispose();
-        } catch (err) {
-          recordCleanupError('[Askr] child scope cleanup threw:', err);
-        }
-      }
-    }
-
-    // Execute cleanup functions (from mount effects)
-    const cleanupFns = instance.cleanupFns;
-    instance.cleanupFns = [];
-    for (const cleanup of cleanupFns) {
-      try {
-        cleanup();
-      } catch (err) {
-        recordCleanupError('[Askr] cleanup function threw:', err);
-      }
-    }
-
-    // Remove deterministic state subscriptions for this instance
-    try {
-      cleanupReadableSubscriptions(instance);
-    } catch (err) {
-      recordCleanupError('[Askr] readable subscription cleanup threw:', err);
-    }
-
-    // Abort all pending operations
-    try {
-      if (
-        instance.abortController &&
-        !instance.abortController.signal.aborted
-      ) {
-        instance.abortController.abort();
-      }
-    } catch (err) {
-      recordCleanupError('[Askr] abort controller cleanup threw:', err);
-    }
-    instance.abortController = null;
-
-    // Clear update callback to prevent dangling references and stale updates
-    instance.lifecycleGeneration++;
-    instance.evaluationGeneration++;
-    instance.mountOperations = [];
-    instance.commitOperations = [];
-    instance.lifecycleSlots = [];
-    instance.hasPendingUpdate = false;
-    instance.notifyUpdate = null;
-    instance._placeholder = undefined;
-
-    // Mark instance as unmounted so external tracking (e.g., portal host lists)
-    // can deterministically prune stale instances. Not marking this leads to
-    // retained "mounted" flags across cleanup boundaries which breaks
-    // owner selection in the portal fallback.
-    instance.mounted = false;
-
-    if (cleanupErrors.length > 0) {
-      throw new AggregateError(
-        cleanupErrors,
-        `Cleanup failed for component ${instance.id}`
-      );
-    }
-  } finally {
-    restoreCurrentComponentScope(savedScope);
-  }
-}
-
-export function registerOwnedChildScope(
-  instance: ComponentInstance,
-  scope: OwnedChildScope
-): void {
-  const scopes = (instance._ownedChildScopes ??= new Set());
-  scopes.add(scope);
-}
-
-export function unregisterOwnedChildScope(
-  instance: ComponentInstance,
-  scope: OwnedChildScope
-): void {
-  instance._ownedChildScopes?.delete(scope);
 }
 
 function warnInstanceOnce(

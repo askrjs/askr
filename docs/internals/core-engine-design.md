@@ -20,7 +20,7 @@ flowchart TB
   subgraph engine[Core engine]
     boot[Boot orchestration<br/>index.ts, hydration.ts, types.ts]
     runtime[Runtime core<br/>component facade, state.ts, derive.ts, context.ts]
-    componentCore[Component implementation<br/>component-internal.ts<br/>component-scope.ts<br/>component-lifecycle.ts]
+    componentCore[Component implementation<br/>component-internal.ts<br/>component-cleanup.ts<br/>component-scope.ts<br/>component-lifecycle.ts]
     forCore[For runtime implementation<br/>for-internal.ts<br/>for-reconcile.ts<br/>for-scopes.ts]
     runtimeAccess[Runtime access boundary<br/>access.ts]
     scheduler[Scheduler<br/>derived, component, reactive, post lanes]
@@ -74,6 +74,7 @@ flowchart TB
     context[context.ts]
     componentFacade[component.ts facade]
     componentCore[component-internal.ts]
+    componentCleanup[component-cleanup.ts]
     componentScope[component-scope.ts]
     componentCommit[component-commit.ts]
     componentLifecycle[component-lifecycle.ts]
@@ -155,6 +156,7 @@ flowchart TB
   state --> readable
   derive --> readable
   componentFacade --> componentCore
+  componentCore --> componentCleanup
   componentFacade --> componentScope
   componentCore --> componentScope
   componentCore --> componentLifecycle
@@ -226,7 +228,8 @@ diagrams:
 - `src/runtime/component.ts`, `src/runtime/for.ts`, `src/renderer/dom.ts`, and
   `src/ssr/index.ts` are compatibility facades. Their current implementations
   live in `component-internal.ts` plus `component-scope.ts`,
-  `component-commit.ts`, and `component-lifecycle.ts`,
+  `component-commit.ts`, `component-lifecycle.ts`, and
+  `component-cleanup.ts`,
   `for-internal.ts` plus `for-reconcile.ts`, `for-scopes.ts`, and
   `for-signals.ts`, `dom-internal.ts`, and the SSR `index-internal.ts` plus
   `boundaries.ts`, `component-runtime.ts`, and `route-render.ts`.
@@ -265,11 +268,11 @@ diagrams:
 The diagrams above expose follow-up issues that are not fully solved by the
 facade cleanup:
 
-- The largest DOM and component responsibilities are still grouped in explicit
-  internal `.ts` implementation clusters. Architecture checks reject `.mts`
-  source files and track the current cluster line counts, while the SSR
-  serialization cluster now stays under the oversized-file limit with boundary,
-  component, and route responsibilities split out.
+- The DOM renderer remains an explicit oversized implementation cluster.
+  Component execution is still tracked with a tight line ceiling, with cleanup,
+  lifecycle, scope, and commit responsibilities split into active helpers.
+  Architecture checks reject `.mts` source files and track current cluster line
+  counts.
 - SSG depends on SSR, not the other way around. Diagrams should keep that edge
   direction explicit because it is the contract that preserves one server
   renderer.

@@ -75,6 +75,7 @@ when the implementation is split further.
 flowchart TB
   componentFacade[component.ts facade]
   componentCore[component-internal.ts]
+  componentCleanup[component-cleanup.ts]
   componentScope[component-scope.ts]
   componentCommit[component-commit.ts]
   componentLifecycle[component-lifecycle.ts]
@@ -100,13 +101,14 @@ flowchart TB
   componentFacade --> componentScope
   componentCore --> componentScope
   componentCore --> componentCommit
+  componentCore --> componentCleanup
   componentScope --> current
   componentScope --> renderScope
   componentCore --> componentLifecycle
   componentCommit --> scheduledCommit
   componentLifecycle --> lifecycle
   componentCore --> render
-  componentCore --> cleanup
+  componentCleanup --> cleanup
   forFacade --> forCore
   forCore --> forState
   forCore --> forReconcile
@@ -222,7 +224,8 @@ flowchart LR
   scheduled render result handling, fast-lane fallback, placeholder
   replacement, target DOM evaluation, and rollback.
   `src/runtime/component-internal.ts` owns instance creation, component
-  function execution, inline rendering, cleanup, and owned child scopes.
+  function execution, and inline rendering. `src/runtime/component-cleanup.ts`
+  owns cleanup, strict cleanup aggregation, and owned child scopes.
   `src/runtime/component-lifecycle.ts` owns lifecycle commit batching, inline
   render snapshots, deferred read subscription commits, mount and commit
   operation settlement, and commit discard.
@@ -255,13 +258,14 @@ flowchart LR
 
 The runtime diagrams expose two follow-ups:
 
-- Component render execution, DOM commit orchestration, cleanup, instance
-  creation, and remaining `For` reconciliation/fallback behavior are still large
-  implementation clusters. The next cleanup should split by ownership rather
-  than only by import facade.
+- Component render execution, DOM commit orchestration, instance creation, and
+  remaining `For` reconciliation/fallback behavior are still implementation
+  clusters. The next cleanup should split by ownership rather than only by
+  import facade.
 - `For` depends on component hook indexing from `component-scope.ts` and
-  child-scope cleanup from `component-internal.ts`. That coupling is
-  legitimate, but it needs explicit contract modules so future splits do not
+  child-scope cleanup from `component-cleanup.ts`. That coupling is
+  legitimate, but it should stay behind explicit contract modules so future
+  splits do not
   reach back into component internals.
 
 ## Related docs

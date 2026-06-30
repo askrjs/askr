@@ -29,10 +29,6 @@ const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
     'src/renderer/dom-internal.ts',
     'Temporary architecture debt: DOM renderer implementation still owns element creation, reactive props and children, component host handoff, boundaries, and static reuse.',
   ],
-  [
-    'src/runtime/component-internal.ts',
-    'Temporary architecture debt: component implementation still owns instance creation, component function execution, inline rendering, and cleanup.',
-  ],
 ]);
 
 const OVERSIZED_LINE_LIMIT = 900;
@@ -361,6 +357,7 @@ const RUNTIME_COMPONENT_FACADE_MODULES = new Map<string, number>([
 ]);
 
 const RUNTIME_COMPONENT_HELPER_MODULES = new Map<string, number>([
+  ['src/runtime/component-cleanup.ts', 180],
   ['src/runtime/component-commit.ts', 430],
   ['src/runtime/component-lifecycle.ts', 430],
   ['src/runtime/component-scope.ts', 360],
@@ -400,7 +397,7 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   ],
   [
     'src/runtime/component-internal.ts',
-    { maxLines: 680, name: 'component implementation cluster' },
+    { maxLines: 500, name: 'component execution implementation cluster' },
   ],
   [
     'src/runtime/for-internal.ts',
@@ -800,6 +797,35 @@ describe('architecture boundaries', () => {
       expect(file, `${filePath} should exist`).toBeDefined();
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
     }
+  });
+
+  it('should keep component cleanup and owned child-scope disposal split out of component internals', () => {
+    const componentInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component-internal.ts'
+    );
+    const componentCleanup = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component-cleanup.ts'
+    );
+
+    expect(componentInternal).toBeDefined();
+    expect(componentCleanup).toBeDefined();
+
+    const helperImports = edges
+      .filter(
+        (edge) => edge.from === componentInternal!.filePath && !edge.typeOnly
+      )
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/runtime/component-cleanup.ts');
+    expect(componentInternal!.text).not.toMatch(
+      /function\s+(cleanupComponent|registerOwnedChildScope|unregisterOwnedChildScope)\s*\(/
+    );
+    expect(componentInternal!.text).not.toMatch(
+      /type\s+OwnedChildScope\s*=|\bcleanupReadableSubscriptions\b|\bclearCurrentComponentScope\b|\brestoreCurrentComponentScope\b/
+    );
+    expect(componentInternal!.text).not.toMatch(
+      /child scope cleanup threw|cleanup function threw|readable subscription cleanup threw|abort controller cleanup threw|Cleanup failed for component/
+    );
   });
 
   it('should keep the For facade free of reconciliation implementation logic', () => {
