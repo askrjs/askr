@@ -75,33 +75,37 @@ when the implementation is split further.
 flowchart TB
   componentFacade[component.ts facade]
   componentCore[component-internal.ts]
+  componentLifecycle[component-lifecycle.ts]
   current[current instance and portal scope]
-  lifecycle[lifecycle commit batching]
-  render[render execution and inline snapshots]
+  lifecycle[lifecycle commit batching, inline snapshots, deferred reads]
+  render[render execution]
   hooks[hook index claiming]
   cleanup[component cleanup and owned child scopes]
 
   forFacade[for.ts facade]
   forCore[for-internal.ts]
+  forScopes[for-scopes.ts]
   forSignals[for-signals.ts]
-  forState[ForState and item instances]
+  forState[ForState storage and commit bookkeeping]
   itemSignals[item, index, and property signals]
   reconcile[reconcileForItems strategy]
-  fallback[fallback and item disposal]
+  scopeOwnership[item and fallback child scopes]
 
   componentFacade --> componentCore
   componentCore --> current
-  componentCore --> lifecycle
+  componentCore --> componentLifecycle
+  componentLifecycle --> lifecycle
   componentCore --> render
   componentCore --> hooks
   componentCore --> cleanup
   forFacade --> forCore
   forCore --> forState
-  forCore --> forSignals
+  forCore --> forScopes
+  forScopes --> forSignals
   forSignals --> itemSignals
   forCore --> reconcile
-  forCore --> fallback
-  forCore --> componentFacade
+  forScopes --> scopeOwnership
+  forScopes --> componentFacade
 ```
 
 ## Readable graph
@@ -202,14 +206,19 @@ flowchart LR
 
 - `src/runtime/component.ts` is the compatibility facade for the component
   runtime. `src/runtime/component-internal.ts` currently owns instance
-  creation, current-instance state, lifecycle batching, render execution, hook
+  creation, current-instance and portal-scope state, render execution, hook
   index claiming, cleanup, and owned child scopes.
+  `src/runtime/component-lifecycle.ts` owns lifecycle commit batching, inline
+  render snapshots, deferred read subscription commits, mount and commit
+  operation settlement, and commit discard.
 - `src/runtime/for.ts` is the compatibility facade for `For` runtime state.
   `src/runtime/for-internal.ts` currently owns state storage, key validation,
-  per-item scope creation/update/disposal, fallback handling, and array
-  reconciliation. `src/runtime/for-signals.ts` owns reactive item/index
-  signals, property proxy reads, signal notification, and parent-reader
-  pruning.
+  reconciliation strategy, source effect wiring, and commit bookkeeping.
+  `src/runtime/for-scopes.ts` owns per-item scope
+  creation/render/update/disposal, index-signal synchronization, fallback scope
+  rendering/disposal, and removed-node bookkeeping.
+  `src/runtime/for-signals.ts` owns reactive item/index signals, property proxy
+  reads, signal notification, and parent-reader pruning.
 - `src/runtime/state.ts` stores component-local writable cells.
 - `src/runtime/derive.ts` tracks dependency reads and recomputes in the
   scheduler's `derived` lane.
@@ -229,9 +238,10 @@ flowchart LR
 
 The runtime diagrams expose two follow-ups:
 
-- Component lifecycle and remaining `For` reconciliation/fallback behavior are
-  still large implementation clusters. The next cleanup should split by
-  ownership rather than only by import facade.
+- Component render execution, hook indexing, cleanup, instance state, and
+  remaining `For` reconciliation/fallback behavior are still large
+  implementation clusters. The next cleanup should split by ownership rather
+  than only by import facade.
 - `For` depends on component hook indexing and child-scope cleanup. That
   coupling is legitimate, but it needs explicit contract modules so future
   splits do not reach back into component internals.

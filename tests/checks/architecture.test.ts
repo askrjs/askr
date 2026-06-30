@@ -31,11 +31,11 @@ const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
   ],
   [
     'src/runtime/component-internal.ts',
-    'Temporary architecture debt: component implementation still owns instance state, lifecycle batching, hook indexing, render execution, and cleanup.',
+    'Temporary architecture debt: component implementation still owns instance state, hook indexing, render execution, and cleanup.',
   ],
   [
     'src/runtime/for-internal.ts',
-    'Temporary architecture debt: For implementation still owns state storage, key validation, item scope rendering, reconciliation, fallback handling, and disposal.',
+    'Temporary architecture debt: For implementation still owns state storage, key validation, reconciliation strategy, source effect wiring, and commit bookkeeping.',
   ],
   [
     'src/ssr/index-internal.ts',
@@ -368,11 +368,16 @@ const RUNTIME_COMPONENT_FACADE_MODULES = new Map<string, number>([
   ['src/runtime/component.ts', 20],
 ]);
 
+const RUNTIME_COMPONENT_HELPER_MODULES = new Map<string, number>([
+  ['src/runtime/component-lifecycle.ts', 430],
+]);
+
 const RUNTIME_FOR_FACADE_MODULES = new Map<string, number>([
   ['src/runtime/for.ts', 20],
 ]);
 
 const RUNTIME_FOR_HELPER_MODULES = new Map<string, number>([
+  ['src/runtime/for-scopes.ts', 430],
   ['src/runtime/for-signals.ts', 300],
 ]);
 
@@ -392,11 +397,11 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   ],
   [
     'src/runtime/component-internal.ts',
-    { maxLines: 1304, name: 'component lifecycle implementation cluster' },
+    { maxLines: 1050, name: 'component implementation cluster' },
   ],
   [
     'src/runtime/for-internal.ts',
-    { maxLines: 1160, name: 'For reconciliation implementation cluster' },
+    { maxLines: 850, name: 'For reconciliation implementation cluster' },
   ],
   [
     'src/ssr/index-internal.ts',
@@ -695,6 +700,38 @@ describe('architecture boundaries', () => {
     }
   });
 
+  it('should keep component lifecycle batching split out of component internals', () => {
+    const componentInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component-internal.ts'
+    );
+    const componentLifecycle = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component-lifecycle.ts'
+    );
+
+    expect(componentInternal).toBeDefined();
+    expect(componentLifecycle).toBeDefined();
+
+    const helperImports = edges
+      .filter(
+        (edge) => edge.from === componentInternal!.filePath && !edge.typeOnly
+      )
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/runtime/component-lifecycle.ts');
+    expect(componentInternal!.text).not.toMatch(
+      /function\s+(beginLifecycleCommitBatch|closeLifecycleCommitBatch|enqueueLifecycleCommit|enqueueReadSubscriptionCommit|enqueueInlineRenderSnapshot|finalizeInlineReadSubscriptions|flushLifecycleCommitBatch|discardLifecycleCommitBatch|settleLifecycleOperationResult|executeMountOperations|executeCommitOperations|discardCommitOperations|executeCommittedLifecycleOperations|commitLifecycleForInstance)\s*\(/
+    );
+    expect(componentInternal!.text).not.toMatch(
+      /type\s+(LifecycleOperation|LifecycleCommitBatchEntry|ReadSubscriptionCommit|InlineRenderSnapshot|LifecycleCommitBatch)\s*=|let\s+currentLifecycleCommitBatch\s*:/
+    );
+
+    for (const [filePath, maxLines] of RUNTIME_COMPONENT_HELPER_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
   it('should keep the For facade free of reconciliation implementation logic', () => {
     const facade = sourceFiles.find(
       (file) => file.relativePath === 'src/runtime/for.ts'
@@ -716,20 +753,54 @@ describe('architecture boundaries', () => {
     const forInternal = sourceFiles.find(
       (file) => file.relativePath === 'src/runtime/for-internal.ts'
     );
+    const forScopes = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-scopes.ts'
+    );
     const forSignals = sourceFiles.find(
       (file) => file.relativePath === 'src/runtime/for-signals.ts'
     );
 
     expect(forInternal).toBeDefined();
+    expect(forScopes).toBeDefined();
     expect(forSignals).toBeDefined();
 
     const helperImports = edges
-      .filter((edge) => edge.from === forInternal!.filePath && !edge.typeOnly)
+      .filter((edge) => edge.from === forScopes!.filePath && !edge.typeOnly)
       .map((edge) => relative(edge.to));
 
     expect(helperImports).toContain('src/runtime/for-signals.ts');
     expect(forInternal!.text).not.toMatch(
       /function\s+(createForIndexSignal|syncForIndexSignal|createForItemSignal|createForItemPropertySignal|readForItemProperty|haveSameOwnKeys|scopeReadsSource|removeForParentReaders|getOrCreateForItemPropertySignal|canProxyForItem|createReactiveForItem)\s*\(/
+    );
+
+    for (const [filePath, maxLines] of RUNTIME_FOR_HELPER_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep For item and fallback child scopes split out of reconciliation ownership', () => {
+    const forInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-internal.ts'
+    );
+    const forScopes = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-scopes.ts'
+    );
+
+    expect(forInternal).toBeDefined();
+    expect(forScopes).toBeDefined();
+
+    const helperImports = edges
+      .filter((edge) => edge.from === forInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/runtime/for-scopes.ts');
+    expect(forInternal!.text).not.toMatch(
+      /function\s+(syncForItemIndex|materializeItemVnode|renderItemScope|disposeItemInstance|createItemInstance|rerenderItemInstance|updateItemInstance|disposeFallbackScope|renderFallbackScope|disposeAllItems)\s*\(/
+    );
+    expect(forInternal!.text).not.toMatch(
+      /interface\s+ForItemInstance|type\s+RemovedDomCleanupMode\s*=|const\s+FOR_FALLBACK_SCOPE_KEY\s*=/
     );
 
     for (const [filePath, maxLines] of RUNTIME_FOR_HELPER_MODULES) {

@@ -20,8 +20,8 @@ flowchart TB
   subgraph engine[Core engine]
     boot[Boot orchestration<br/>index.ts, hydration.ts, types.ts]
     runtime[Runtime core<br/>component facade, state.ts, derive.ts, context.ts]
-    componentCore[Component implementation<br/>component-internal.ts]
-    forCore[For runtime implementation<br/>for-internal.ts]
+    componentCore[Component implementation<br/>component-internal.ts<br/>component-lifecycle.ts]
+    forCore[For runtime implementation<br/>for-internal.ts<br/>for-scopes.ts]
     runtimeAccess[Runtime access boundary<br/>access.ts]
     scheduler[Scheduler<br/>derived, component, reactive, post lanes]
     rendererBridge[Renderer bridge<br/>runtime.ts <-> renderer/index.ts]
@@ -74,8 +74,10 @@ flowchart TB
     context[context.ts]
     componentFacade[component.ts facade]
     componentCore[component-internal.ts]
+    componentLifecycle[component-lifecycle.ts]
     forFacade[for.ts facade]
     forCore[for-internal.ts]
+    forScopes[for-scopes.ts]
     readable[readable subscriptions]
     scheduler[scheduler.ts]
     runtime[runtime.ts]
@@ -147,10 +149,13 @@ flowchart TB
   state --> readable
   derive --> readable
   componentFacade --> componentCore
+  componentCore --> componentLifecycle
   componentCore --> readable
   componentCore --> access
   forFacade --> forCore
   forCore --> componentFacade
+  forCore --> forScopes
+  forScopes --> componentFacade
   forCore --> readable
   api --> bridge
   bridge --> runtime
@@ -208,8 +213,9 @@ diagrams:
   pluggable renderer host instead of embedding DOM behavior directly.
 - `src/runtime/component.ts`, `src/runtime/for.ts`, `src/renderer/dom.ts`, and
   `src/ssr/index.ts` are compatibility facades. Their current implementations
-  live in `component-internal.ts`, `for-internal.ts`, `dom-internal.ts`, and
-  the SSR `index-internal.ts` plus `route-render.ts`.
+  live in `component-internal.ts` plus `component-lifecycle.ts`,
+  `for-internal.ts` plus `for-scopes.ts`, `dom-internal.ts`, and the SSR
+  `index-internal.ts` plus `route-render.ts`.
 - `src/runtime/access.ts` is the internal boundary used by runtime, renderer,
   data, and FX implementation paths when they need the default scheduler or
   renderer host. Compatibility globals remain exported from their original
