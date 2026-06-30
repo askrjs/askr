@@ -62,15 +62,17 @@ flowchart LR
 
 `src/ssr/index.ts` preserves the public entrypoint. The active implementation
 is split between route/document orchestration in `route-render.ts` and
-synchronous node serialization plus component execution in `index-internal.ts`.
-Helper modules own escaping, attributes, sinks, render context, resolved-route
-rendering, and hydration verification.
+synchronous component execution in `component-runtime.ts`. `index-internal.ts`
+keeps synchronous node serialization and boundary rendering. Helper modules own
+escaping, attributes, sinks, render context, resolved-route rendering, and
+hydration verification.
 
 ```mermaid
 flowchart TB
   facade[index.ts facade]
   routeRender[route-render.ts]
   internal[index-internal.ts]
+  componentRuntime[component-runtime.ts]
   serialize[renderable and node serialization]
   controls[error and control boundary rendering]
   components[component execution for sync SSR]
@@ -81,9 +83,10 @@ flowchart TB
 
   facade --> internal
   internal --> routeRender
+  internal --> componentRuntime
   internal --> serialize
   internal --> controls
-  internal --> components
+  componentRuntime --> components
   internal --> hydration
   routeRender --> routes
   routeRender --> sinks
@@ -175,8 +178,10 @@ flowchart LR
 ## Design notes
 
 - `src/ssr/index.ts` is the stable SSR facade. `src/ssr/index-internal.ts`
-  keeps synchronous HTML serialization, component execution, hydration data,
-  and component-form `renderToString()`.
+  keeps synchronous HTML serialization, hydration data, boundary rendering, and
+  component-form `renderToString()`. `src/ssr/component-runtime.ts` owns
+  synchronous component execution, strict-purity guards, temporary owner
+  cleanup, and default portal wrapping.
 - `src/ssr/route-render.ts` owns object-form `renderToString()`,
   `renderToStream()`, route source normalization, route match resolution,
   `resolveRequest()`, document render argument construction, and string/stream
@@ -192,10 +197,10 @@ flowchart LR
 
 The SSR and SSG diagrams expose two follow-ups:
 
-- `index-internal.ts` still mixes serialization, component execution, boundary
-  rendering, and hydration data. Route and document orchestration have been
-  split to `route-render.ts`, but the synchronous renderer remains a large
-  responsibility cluster.
+- `index-internal.ts` still mixes serialization, boundary rendering, and
+  hydration data. Route/document orchestration and component execution have
+  been split to `route-render.ts` and `component-runtime.ts`, but the
+  synchronous renderer remains a large responsibility cluster.
 - SSG should remain an orchestration layer over route expansion and repeated
   synchronous SSR. Any new data-loading work belongs before render, not inside
   the SSR render phase.

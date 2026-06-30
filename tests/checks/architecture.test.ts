@@ -35,7 +35,7 @@ const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
   ],
   [
     'src/ssr/index-internal.ts',
-    'Temporary architecture debt: SSR implementation still owns serialization, component execution, boundary rendering, route orchestration, and sink entrypoints.',
+    'Temporary architecture debt: SSR implementation still owns serialization, boundary rendering, hydration data, and sink entrypoints.',
   ],
 ]);
 
@@ -386,6 +386,10 @@ const SSR_ROUTE_RENDER_MODULES = new Map<string, number>([
   ['src/ssr/route-render.ts', 360],
 ]);
 
+const SSR_COMPONENT_RUNTIME_MODULES = new Map<string, number>([
+  ['src/ssr/component-runtime.ts', 240],
+]);
+
 const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   string,
   { maxLines: number; name: string }
@@ -404,7 +408,7 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   ],
   [
     'src/ssr/index-internal.ts',
-    { maxLines: 1250, name: 'SSR renderer implementation cluster' },
+    { maxLines: 1120, name: 'SSR renderer implementation cluster' },
   ],
 ]);
 
@@ -945,6 +949,34 @@ describe('architecture boundaries', () => {
     expect(ssrImports).toContain('src/ssr/route-render.ts');
 
     for (const [filePath, maxLines] of SSR_ROUTE_RENDER_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep SSR component execution split out of the synchronous renderer cluster', () => {
+    const ssrInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/index-internal.ts'
+    );
+    const componentRuntime = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/component-runtime.ts'
+    );
+
+    expect(ssrInternal).toBeDefined();
+    expect(componentRuntime).toBeDefined();
+    expect(ssrInternal!.text).not.toMatch(
+      /function\s+(pushSSRStrictPurityGuard|popSSRStrictPurityGuard|executeComponentSync|disposeSSRTemporaryOwners|wrapWithDefaultPortal|renderSyncComponentRoot)\s*\(/
+    );
+    expect(ssrInternal!.text).not.toMatch(/\b__ssrGuardStack\b/);
+
+    const ssrImports = edges
+      .filter((edge) => edge.from === ssrInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(ssrImports).toContain('src/ssr/component-runtime.ts');
+
+    for (const [filePath, maxLines] of SSR_COMPONENT_RUNTIME_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
       expect(file, `${filePath} should exist`).toBeDefined();
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
