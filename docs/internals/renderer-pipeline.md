@@ -26,7 +26,7 @@ flowchart LR
 
 `evaluate()` is the central dispatcher. It decides whether a node is text,
 element, component, fragment, or control-flow boundary, then routes it to the
- right DOM or component path.
+right DOM or component path.
 
 ```mermaid
 flowchart LR
@@ -132,10 +132,15 @@ flowchart LR
 ## Design notes
 
 - `src/renderer/evaluate.ts` is the renderer's dispatcher.
-- `src/renderer/dom.ts` owns element creation, prop syncing, and many fast
-  paths.
+- `src/renderer/dom.ts` is the compatibility facade for the DOM renderer. The
+  element creation, prop syncing, component-host handoff, and boundary commit
+  implementation live behind that stable import path.
+- `src/renderer/keyed-children.ts` owns keyed vnode snapshots and DOM key-map
+  scans shared by the keyed planner and reconciler.
+- `src/renderer/namespaces.ts` owns intrinsic DOM namespace matching used when
+  the reconciler decides whether an existing element can be reused.
 - `src/renderer/reconcile.ts` and `src/renderer/keyed.ts` handle keyed-child
-  reuse and movement decisions.
+  reuse, movement planning, and commit orchestration.
 - `src/renderer/cleanup.ts` owns listener removal and subtree teardown.
 - The renderer is deliberately host-shaped so the runtime can stay mostly
   agnostic about DOM details.

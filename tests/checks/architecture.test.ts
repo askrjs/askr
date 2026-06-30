@@ -22,17 +22,7 @@ type ImportEdge = {
   typeOnly: boolean;
 };
 
-const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
-  ['src/boot/index.ts', 'legacy browser composition entrypoint'],
-  ['src/data/index.ts', 'legacy data API barrel and state machines'],
-  ['src/renderer/dom.ts', 'legacy renderer implementation cluster'],
-  ['src/renderer/reconcile.ts', 'legacy reconciliation implementation cluster'],
-  ['src/router/navigate.ts', 'legacy browser navigation driver cluster'],
-  ['src/router/route.ts', 'legacy route registry and runtime cluster'],
-  ['src/runtime/component.ts', 'legacy component lifecycle cluster'],
-  ['src/runtime/for.ts', 'legacy For reconciliation cluster'],
-  ['src/ssr/index.ts', 'legacy SSR renderer cluster'],
-]);
+const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([]);
 
 const OVERSIZED_LINE_LIMIT = 900;
 const ARCHITECTURE_AREAS = new Set([
@@ -83,7 +73,9 @@ const sourceFiles = collectSourceFiles(srcDir);
 const sourcePathSet = new Set(sourceFiles.map((file) => file.filePath));
 
 function topLevelArea(filePath: string): string {
-  const relativePath = path.relative(srcDir, filePath).replaceAll(path.sep, '/');
+  const relativePath = path
+    .relative(srcDir, filePath)
+    .replaceAll(path.sep, '/');
   return relativePath.split('/')[0] ?? '';
 }
 
@@ -91,7 +83,10 @@ function isRelativeSpecifier(specifier: string): boolean {
   return specifier.startsWith('./') || specifier.startsWith('../');
 }
 
-function resolveRelativeImport(fromFile: string, specifier: string): string | null {
+function resolveRelativeImport(
+  fromFile: string,
+  specifier: string
+): string | null {
   if (!isRelativeSpecifier(specifier)) {
     return null;
   }
@@ -114,7 +109,9 @@ function resolveRelativeImport(fromFile: string, specifier: string): string | nu
   return null;
 }
 
-function importClauseIsTypeOnly(importClause: ts.ImportClause | undefined): boolean {
+function importClauseIsTypeOnly(
+  importClause: ts.ImportClause | undefined
+): boolean {
   if (!importClause) {
     return false;
   }
@@ -257,6 +254,104 @@ function findAreaCycles(edges: readonly ImportEdge[]): string[] {
 
 const edges = collectImportEdges(sourceFiles);
 
+const BOOT_SPLIT_MODULES = new Map<string, number>([
+  ['src/boot/hydration.ts', 360],
+  ['src/boot/index.ts', OVERSIZED_LINE_LIMIT],
+  ['src/boot/types.ts', 120],
+]);
+
+const DATA_SPLIT_MODULES = new Map<string, number>([
+  ['src/data/index.ts', OVERSIZED_LINE_LIMIT],
+  ['src/data/query-key.ts', 120],
+  ['src/data/shared.ts', 80],
+  ['src/data/types.ts', 220],
+]);
+
+const ROUTER_SPLIT_MODULES = new Map<string, number>([
+  ['src/router/access.ts', 220],
+  ['src/router/activity.ts', 260],
+  ['src/router/authoring.ts', 700],
+  ['src/router/lazy.ts', 180],
+  ['src/router/manifest.ts', 180],
+  ['src/router/navigate.ts', 900],
+  ['src/router/navigation-scroll.ts', 240],
+  ['src/router/rendering.ts', 180],
+  ['src/router/resolution.ts', 700],
+  ['src/router/store.ts', 420],
+]);
+
+const RENDERER_RECONCILE_MODULES = new Map<string, number>([
+  ['src/renderer/keyed-children.ts', 120],
+  ['src/renderer/keyed.ts', 360],
+  ['src/renderer/namespaces.ts', 90],
+  ['src/renderer/reconcile.ts', OVERSIZED_LINE_LIMIT],
+]);
+
+const RENDERER_DOM_FACADE_MODULES = new Map<string, number>([
+  ['src/renderer/dom.ts', 20],
+]);
+
+const RUNTIME_COMPONENT_FACADE_MODULES = new Map<string, number>([
+  ['src/runtime/component.ts', 20],
+]);
+
+const RUNTIME_FOR_FACADE_MODULES = new Map<string, number>([
+  ['src/runtime/for.ts', 20],
+]);
+
+const SSR_FACADE_MODULES = new Map<string, number>([['src/ssr/index.ts', 20]]);
+
+const SINGLETON_IMPORT_ALLOWLIST = new Set([
+  'src/runtime/access.ts',
+  'src/runtime/runtime.ts',
+]);
+
+const RUNTIME_SCHEDULER_VALUE_IMPORT_ALLOWLIST = new Set([
+  'src/fx/index.ts',
+  'src/runtime/access.ts',
+  'src/runtime/runtime.ts',
+]);
+
+function collectNamedImports(
+  file: SourceFile
+): Array<{ name: string; target: string }> {
+  const imports: Array<{ name: string; target: string }> = [];
+
+  for (const statement of file.source.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier)
+    ) {
+      continue;
+    }
+
+    const target = resolveRelativeImport(
+      file.filePath,
+      statement.moduleSpecifier.text
+    );
+    if (!target || importClauseIsTypeOnly(statement.importClause)) {
+      continue;
+    }
+
+    const namedBindings = statement.importClause?.namedBindings;
+    if (!namedBindings || ts.isNamespaceImport(namedBindings)) {
+      continue;
+    }
+
+    for (const element of namedBindings.elements) {
+      if (element.isTypeOnly) {
+        continue;
+      }
+      imports.push({
+        name: element.propertyName?.text ?? element.name.text,
+        target: relative(target),
+      });
+    }
+  }
+
+  return imports;
+}
+
 describe('architecture boundaries', () => {
   it('should keep runtime independent from concrete platform subsystems', () => {
     const forbidden = edges
@@ -303,6 +398,187 @@ describe('architecture boundaries', () => {
       .sort();
 
     expect(offenders).toEqual([]);
+  });
+
+  it('should keep default runtime singletons behind the runtime access boundary', () => {
+    const forbidden = sourceFiles
+      .filter((file) => !SINGLETON_IMPORT_ALLOWLIST.has(file.relativePath))
+      .flatMap((file) =>
+        collectNamedImports(file)
+          .filter(
+            (imported) =>
+              (imported.name === 'globalScheduler' &&
+                imported.target === 'src/runtime/scheduler.ts') ||
+              (imported.name === 'getDefaultRuntime' &&
+                imported.target === 'src/runtime/runtime.ts')
+          )
+          .map(
+            (imported) =>
+              `${file.relativePath}: ${imported.name} from ${imported.target}`
+          )
+      )
+      .sort();
+
+    expect(forbidden).toEqual([]);
+  });
+
+  it('should keep scheduler value access behind runtime access or compatibility exports', () => {
+    const forbidden = edges
+      .filter((edge) => !edge.typeOnly)
+      .filter((edge) => relative(edge.to) === 'src/runtime/scheduler.ts')
+      .filter(
+        (edge) =>
+          !RUNTIME_SCHEDULER_VALUE_IMPORT_ALLOWLIST.has(relative(edge.from))
+      )
+      .map(formatEdge)
+      .sort();
+
+    expect(forbidden).toEqual([]);
+  });
+
+  it('should keep boot hydration and config types split out of the entrypoint', () => {
+    const boot = sourceFiles.find(
+      (file) => file.relativePath === 'src/boot/index.ts'
+    );
+
+    expect(boot).toBeDefined();
+    expect(boot!.text).not.toMatch(
+      /function\s+(takeHydrationRenderData|markSkippedElements|collectDeferredBelowFoldBoundaries|applySelectiveHydration)|type\s+BootRouteSource|export\s+type\s+(SPAConfig|HydrateSPAConfig|IslandConfig)/
+    );
+
+    for (const [filePath, maxLines] of BOOT_SPLIT_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep data contracts and query key serialization split out of the data runtime', () => {
+    const data = sourceFiles.find(
+      (file) => file.relativePath === 'src/data/index.ts'
+    );
+
+    expect(data).toBeDefined();
+    expect(data!.text).not.toMatch(
+      /function\s+(serializeQueryKeyPart|serializeQueryKeyNumber|createReadableSource|notifySource|isAbortError|normalizeAsyncDataError)|type\s+(QueryLoading|QueryFresh|QueryRefreshing|QueryPendingWrite|QueryStaleValue|QueryStaleErrorWithValue|QueryStaleError|MutationIdle|MutationPending|MutationSuccess|MutationError)|interface\s+(DataRuntime|DataRuntimeOptions|InvalidateOptions|QueryScope)/
+    );
+
+    for (const [filePath, maxLines] of DATA_SPLIT_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep router state and resolution split out of the route facade', () => {
+    const facade = sourceFiles.find(
+      (file) => file.relativePath === 'src/router/route.ts'
+    );
+
+    expect(facade).toBeDefined();
+    expect(facade!.text.split(/\r?\n/).length).toBeLessThanOrEqual(160);
+    expect(facade!.text).not.toMatch(
+      /currentRouteSnapshot|registerRouteAtResolvedPath|resolveRouteRequest\s*\(|const routes\s*=/
+    );
+
+    const navigate = sourceFiles.find(
+      (file) => file.relativePath === 'src/router/navigate.ts'
+    );
+    expect(navigate).toBeDefined();
+    expect(navigate!.text).not.toMatch(
+      /scrollPositions|scrollRestorationOptions|function readScrollPosition/
+    );
+
+    for (const [filePath, maxLines] of ROUTER_SPLIT_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep keyed child snapshots split out of the reconcile orchestrator', () => {
+    const reconcile = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/reconcile.ts'
+    );
+
+    expect(reconcile).toBeDefined();
+    expect(reconcile!.text).not.toMatch(
+      /function\s+(buildDOMKeyMap|extractKeyedVnodes|getParentNamespace|resolveChildNamespace)|interface\s+KeyedVnode/
+    );
+
+    for (const [filePath, maxLines] of RENDERER_RECONCILE_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep the DOM renderer facade free of implementation logic', () => {
+    const facade = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/dom.ts'
+    );
+
+    expect(facade).toBeDefined();
+    expect(facade!.text).not.toMatch(
+      /function\s+(createDOMNode|updateElementFromVnode|updateElementChildren|syncComponentElement|createForBoundary|commitForBoundaryChildren|tryPatchStableForDirtyItem|setStaticChildSlotsCacheEnabled)/
+    );
+
+    for (const [filePath, maxLines] of RENDERER_DOM_FACADE_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep the component facade free of lifecycle implementation logic', () => {
+    const facade = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/component.ts'
+    );
+
+    expect(facade).toBeDefined();
+    expect(facade!.text).not.toMatch(
+      /function\s+(createComponentInstance|commitRenderedComponent|mountInstanceInline|renderComponentInline|executeComponent|cleanupComponent|claimHookIndex)/
+    );
+
+    for (const [filePath, maxLines] of RUNTIME_COMPONENT_FACADE_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep the For facade free of reconciliation implementation logic', () => {
+    const facade = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for.ts'
+    );
+
+    expect(facade).toBeDefined();
+    expect(facade!.text).not.toMatch(
+      /function\s+(createForState|useForState|createItemInstance|reconcileForItems|evaluateForState|clearForDomUpdateState)/
+    );
+
+    for (const [filePath, maxLines] of RUNTIME_FOR_FACADE_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep the SSR facade free of synchronous renderer internals', () => {
+    const facade = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/index.ts'
+    );
+
+    expect(facade).toBeDefined();
+    expect(facade!.text).not.toMatch(
+      /function\s+(renderToStringSync|renderToString|renderToStream|resolveRequest|renderNodeSync|verifyRenderableNode|executeComponentSync)/
+    );
+
+    for (const [filePath, maxLines] of SSR_FACADE_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
   });
 
   it('should require explicit exemptions for oversized responsibility clusters', () => {

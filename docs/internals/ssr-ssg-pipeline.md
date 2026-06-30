@@ -52,8 +52,10 @@ flowchart LR
 
 ## SSR execution constraints
 
-The current SSR implementation is synchronous. Async components are rejected,
-and async `resource()` work throws because missing data would break determinism.
+The current SSR implementation is synchronous. Async components, async
+`resource()` work, and async document renderers are rejected because awaiting
+during render would break deterministic hydration output. Request handlers may
+perform async work before rendering, but the render phase itself does not await.
 
 ```mermaid
 flowchart LR
@@ -72,6 +74,8 @@ flowchart LR
 ## SSG generation flow
 
 SSG wraps SSR with route expansion, batching, file writes, and metadata.
+`entries()` may be async because it runs before rendering; each concrete page
+still renders through the synchronous SSR engine.
 
 ```mermaid
 flowchart LR
@@ -130,12 +134,15 @@ flowchart LR
 
 ## Design notes
 
-- `src/ssr/index.ts` is the main HTML serialization path.
+- `src/ssr/index.ts` is the stable SSR facade. The HTML serialization,
+  component execution, hydration verification, and route orchestration
+  implementation live behind that synchronous entrypoint.
 - `src/ssr/create-ssr.ts` wraps that path into a request-oriented API.
 - `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator.
-- SSG is not a separate renderer; it is route expansion plus repeated SSR.
-- Both modes depend on the normalized route model rather than a second routing
-  implementation.
+- SSG is not a separate renderer; it is route expansion plus repeated
+  synchronous SSR.
+- Both modes depend on `src/router/resolution.ts` and the normalized route
+  model rather than a second routing implementation.
 
 ## Related docs
 

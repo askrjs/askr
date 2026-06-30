@@ -15,6 +15,7 @@ sequenceDiagram
   participant Event as Event handler / async callback
   participant State as state.set()
   participant Readable as readable graph
+  participant Access as runtime/access.ts
   participant Scheduler as Scheduler lanes
   participant Derived as derive flush
   participant Component as Component instance
@@ -24,10 +25,12 @@ sequenceDiagram
   Event->>State: write next value
   State->>Readable: mark derived subscribers dirty
   State->>Readable: mark reactive props dirty
-  State->>Scheduler: notify readable readers
+  State->>Access: notify readable readers
+  Access->>Scheduler: enqueue reader task
   Scheduler->>Derived: flush derived lane
   Derived->>Readable: recompute dirty derived cells
-  Derived->>Scheduler: enqueue downstream readers if value changed
+  Derived->>Access: enqueue downstream readers if value changed
+  Access->>Scheduler: enqueue task
   Scheduler->>Component: run component lane task
   Component->>Renderer: evaluate new render output
   Renderer->>DOM: reconcile keyed/unkeyed children
@@ -74,12 +77,14 @@ flowchart LR
   component[Component render readers]
   reactiveProps[reactive prop dirtiness]
   scheduler[Scheduler]
+  access[runtime/access.ts]
 
   state --> readable
   derive --> readable
   readable --> component
   readable --> reactiveProps
-  readable --> scheduler
+  readable --> access
+  access --> scheduler
 ```
 
 ## Scheduler lanes
@@ -136,6 +141,8 @@ oriented rather than purely lifecycle oriented.
 ```mermaid
 flowchart LR
   queryCall[createQuery or createMutation]
+  dataTypes[data/types.ts contracts]
+  queryKey[data/query-key.ts scoped keys]
   dataRuntime[DataRuntime]
   cache[Query cache by key]
   consistency[Consistency state<br/>fresh stale refreshing pending-write]
@@ -143,6 +150,8 @@ flowchart LR
   readers[component readers]
 
   queryCall --> dataRuntime
+  queryCall --> dataTypes
+  queryCall --> queryKey
   dataRuntime --> cache
   cache --> consistency
   invalidate --> cache
@@ -151,16 +160,23 @@ flowchart LR
 
 ## Design notes
 
-- `src/runtime/component.ts` is the main ownership and lifecycle file.
+- `src/runtime/component.ts` is the compatibility facade for the component
+  runtime. The lifecycle, render execution, and cleanup implementation now live
+  behind that stable entrypoint.
 - `src/runtime/state.ts` stores component-local writable cells.
 - `src/runtime/derive.ts` tracks dependency reads and recomputes in the
   scheduler's `derived` lane.
 - `src/runtime/readable.ts` is the shared substrate connecting state, derived
   values, reactive props, and component readers.
+- `src/runtime/access.ts` is the internal boundary for default scheduler and
+  renderer-host access used by runtime, renderer, data, and FX hot paths.
 - `src/runtime/resource-cell.ts` is intentionally component-agnostic. The
   component binding lives in `src/runtime/operations.ts`.
-- `src/data/index.ts` provides a separate keyed cache runtime for app data and
-  eventual-consistency workflows.
+- `src/data/index.ts` provides the keyed cache runtime for app data and
+  eventual-consistency workflows. `src/data/types.ts` holds the public and
+  internal contracts, `src/data/query-key.ts` owns `queryScope()` key
+  serialization, and `src/data/shared.ts` owns readable notification and async
+  error helpers shared by query and mutation cells.
 
 ## Related docs
 
