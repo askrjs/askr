@@ -1,1 +1,1 @@
-export * from './index-internal.mjs';
+export * from './index-internal';

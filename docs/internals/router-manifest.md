@@ -51,6 +51,46 @@ The authoring flow is:
      the handler in the legacy flat route list for backward-compatible
      resolution
 
+## Module ownership
+
+The router split is the model the remaining runtime and renderer cleanup should
+move toward: the facade is small, and each extracted module owns active
+behavior used by the pipeline.
+
+```mermaid
+flowchart TB
+  facade[route.ts facade]
+  authoring[authoring.ts declarations]
+  store[store.ts records and flat routes]
+  manifest[manifest.ts registries]
+  rendering[rendering.ts layout composition]
+  resolution[resolution.ts matching and requests]
+  activity[activity.ts route snapshots]
+  access[access.ts auth policy helpers]
+  lazy[lazy.ts import tracking]
+  navigate[navigate.ts navigation]
+  scroll[navigation-scroll.ts scroll state]
+
+  facade --> authoring
+  facade --> store
+  facade --> manifest
+  facade --> rendering
+  facade --> resolution
+  facade --> activity
+  facade --> lazy
+  authoring --> access
+  authoring --> store
+  authoring --> rendering
+  manifest --> store
+  manifest --> lazy
+  resolution --> access
+  resolution --> store
+  resolution --> rendering
+  activity --> resolution
+  navigate --> facade
+  navigate --> scroll
+```
+
 ## RouteRecord structure
 
 ```ts

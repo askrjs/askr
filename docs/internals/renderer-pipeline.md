@@ -46,6 +46,39 @@ flowchart LR
   evaluate --> fragment
 ```
 
+## DOM Implementation Ownership
+
+The public renderer entrypoint is intentionally tiny, but the implementation is
+not yet fully decomposed. Today the active path routes through
+`dom-internal.ts`, which still owns several responsibilities that should become
+separate modules.
+
+```mermaid
+flowchart TB
+  facade[dom.ts facade]
+  internal[dom-internal.ts implementation cluster]
+  reactive[reactive children and props]
+  attributes[attributes.ts scalar props and keys]
+  intrinsic[intrinsic element create and prop orchestration]
+  componentHost[component host handoff]
+  boundaries[boundaries.ts control and For boundary commit]
+  staticReuse[static subtree and child-slot reuse]
+  reconcile[reconcile.ts keyed orchestration]
+  forCommit[for-commit.ts For list DOM commit]
+  cleanup[cleanup.ts teardown]
+
+  facade --> internal
+  internal --> reactive
+  internal --> attributes
+  internal --> intrinsic
+  internal --> componentHost
+  internal --> boundaries
+  internal --> staticReuse
+  internal --> reconcile
+  internal --> forCommit
+  internal --> cleanup
+```
+
 ## Component to DOM handoff
 
 Components do not mutate DOM directly. They produce render output, then hand
@@ -79,6 +112,7 @@ flowchart LR
   text[text fast path]
   unkeyed[unkeyed child update]
   keyed[keyed reconciliation]
+  staticReuse[static subtree reuse]
   bulk[bulk positional fast paths]
   cleanup[listener and subtree cleanup]
 
@@ -87,10 +121,12 @@ flowchart LR
   childShape --> text
   childShape --> unkeyed
   childShape --> keyed
+  childShape --> staticReuse
   keyed --> bulk
   text --> cleanup
   unkeyed --> cleanup
   keyed --> cleanup
+  staticReuse --> cleanup
 ```
 
 ## Control-flow boundaries
@@ -132,9 +168,19 @@ flowchart LR
 ## Design notes
 
 - `src/renderer/evaluate.ts` is the renderer's dispatcher.
-- `src/renderer/dom.ts` is the compatibility facade for the DOM renderer. The
-  element creation, prop syncing, component-host handoff, and boundary commit
-  implementation live behind that stable import path.
+- `src/renderer/dom.ts` is the compatibility facade for the DOM renderer.
+  `src/renderer/dom-internal.ts` currently owns the active element creation,
+  reactive prop/child handling, component-host handoff, and static-subtree
+  reuse implementation.
+- `src/renderer/attributes.ts` owns scalar prop writes and removals, including
+  class token patching, style string/object/null handling, form `value` and
+  `checked`, stale attribute removal, static scalar props, and key
+  materialization.
+- `src/renderer/boundaries.ts` owns control-boundary state evaluation, direct
+  control-boundary detection, commit-owner scheduling, and For/Show/Case
+  boundary commit orchestration. It uses an explicit DOM host registered by
+  `dom-internal.ts` for DOM operations that would otherwise create an import
+  cycle.
 - `src/renderer/keyed-children.ts` owns keyed vnode snapshots and DOM key-map
   scans shared by the keyed planner and reconciler.
 - `src/renderer/namespaces.ts` owns intrinsic DOM namespace matching used when
@@ -144,6 +190,17 @@ flowchart LR
 - `src/renderer/cleanup.ts` owns listener removal and subtree teardown.
 - The renderer is deliberately host-shaped so the runtime can stay mostly
   agnostic about DOM details.
+
+## Architecture Review Notes
+
+The renderer diagrams point to two concrete follow-ups:
+
+- `dom-internal.ts` is still the highest-risk renderer file because it mixes
+  reactive child ownership, component host reuse, error boundaries, static
+  subtree reuse, and child reconciliation.
+- Extracted renderer helpers are now active dependencies. Future splits should
+  keep helper modules wired into the running path rather than creating parallel
+  implementations.
 
 ## Related docs
 

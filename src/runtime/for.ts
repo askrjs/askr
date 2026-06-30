@@ -1,1 +1,1 @@
-export * from './for-internal.mjs';
+export * from './for-internal';

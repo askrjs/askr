@@ -19,7 +19,9 @@ flowchart TB
 
   subgraph engine[Core engine]
     boot[Boot orchestration<br/>index.ts, hydration.ts, types.ts]
-    runtime[Runtime core<br/>component.ts, state.ts, derive.ts, context.ts]
+    runtime[Runtime core<br/>component facade, state.ts, derive.ts, context.ts]
+    componentCore[Component implementation<br/>component-internal.ts]
+    forCore[For runtime implementation<br/>for-internal.ts]
     runtimeAccess[Runtime access boundary<br/>access.ts]
     scheduler[Scheduler<br/>derived, component, reactive, post lanes]
     rendererBridge[Renderer bridge<br/>runtime.ts <-> renderer/index.ts]
@@ -28,9 +30,9 @@ flowchart TB
   end
 
   subgraph outputs[Outputs]
-    dom[DOM renderer<br/>evaluate.ts, dom.ts, reconcile.ts, keyed-children.ts, namespaces.ts]
+    dom[DOM renderer<br/>dom facade, dom-internal.ts, attributes.ts, boundaries.ts]
     spa[SPA navigation]
-    ssr[SSR HTML rendering]
+    ssr[SSR HTML rendering<br/>index facade, index-internal.ts, route-render.ts]
     ssg[SSG batch generation]
   end
 
@@ -43,6 +45,8 @@ flowchart TB
   boot --> routerManifest
   boot --> dom
   runtime --> runtimeAccess
+  runtime --> componentCore
+  runtime --> forCore
   runtimeAccess --> scheduler
   runtime --> rendererBridge
   asyncData --> runtime
@@ -52,7 +56,7 @@ flowchart TB
   rendererBridge --> dom
   scheduler --> dom
   spa --> dom
-  ssr --> ssg
+  ssg --> ssr
 ```
 
 ## 2. Module map
@@ -68,7 +72,10 @@ flowchart TB
     state[state.ts]
     derive[derive.ts]
     context[context.ts]
-    component[component.ts]
+    componentFacade[component.ts facade]
+    componentCore[component-internal.ts]
+    forFacade[for.ts facade]
+    forCore[for-internal.ts]
     readable[readable subscriptions]
     scheduler[scheduler.ts]
     runtime[runtime.ts]
@@ -84,8 +91,14 @@ flowchart TB
   subgraph render[DOM renderer]
     bridge[renderer/index.ts bridge]
     evaluate[evaluate.ts]
-    dom[dom.ts]
-    reconcile[reconcile and keyed fast paths]
+    domFacade[dom.ts facade]
+    domCore[dom-internal.ts]
+    attrs[attributes.ts]
+    boundaries[boundaries.ts]
+    reconcile[reconcile.ts and keyed.ts]
+    keyedChildren[keyed-children.ts]
+    namespaces[namespaces.ts]
+    forCommit[for-commit.ts]
     cleanup[cleanup.ts]
   end
 
@@ -110,7 +123,10 @@ flowchart TB
   end
 
   subgraph server[Server outputs]
-    ssr[ssr/index.ts]
+    ssrFacade[ssr/index.ts facade]
+    ssrCore[index-internal.ts]
+    ssrRoute[route-render.ts]
+    ssrHelpers[attrs, escape, sink, render-resolved]
     ssg[ssg/create-static-gen.ts]
   end
 
@@ -130,14 +146,24 @@ flowchart TB
   access --> scheduler
   state --> readable
   derive --> readable
-  component --> readable
-  component --> access
+  componentFacade --> componentCore
+  componentCore --> readable
+  componentCore --> access
+  forFacade --> forCore
+  forCore --> componentFacade
+  forCore --> readable
   api --> bridge
   bridge --> runtime
   bridge --> evaluate
-  evaluate --> dom
+  evaluate --> domFacade
   evaluate --> reconcile
-  evaluate --> component
+  evaluate --> componentFacade
+  domFacade --> domCore
+  domCore --> attrs
+  domCore --> boundaries
+  domCore --> forCommit
+  reconcile --> keyedChildren
+  reconcile --> namespaces
   reconcile --> cleanup
   api --> routeFacade
   routeFacade --> authoring
@@ -157,9 +183,13 @@ flowchart TB
   query --> dataTypes
   query --> queryKey
   query --> dataShared
-  routeResolution --> ssr
+  routeResolution --> ssrFacade
   routeManifest --> ssg
-  component --> ssr
+  ssrFacade --> ssrCore
+  ssrCore --> ssrRoute
+  ssrCore --> ssrHelpers
+  componentFacade --> ssrCore
+  ssg --> ssrFacade
 ```
 
 ## 3. Drill-down pages
@@ -176,12 +206,18 @@ diagrams:
 
 - `src/runtime/runtime.ts` is intentionally small. It owns the scheduler and a
   pluggable renderer host instead of embedding DOM behavior directly.
+- `src/runtime/component.ts`, `src/runtime/for.ts`, `src/renderer/dom.ts`, and
+  `src/ssr/index.ts` are compatibility facades. Their current implementations
+  live in `component-internal.ts`, `for-internal.ts`, `dom-internal.ts`, and
+  the SSR `index-internal.ts` plus `route-render.ts`.
 - `src/runtime/access.ts` is the internal boundary used by runtime, renderer,
   data, and FX implementation paths when they need the default scheduler or
   renderer host. Compatibility globals remain exported from their original
   modules.
 - `src/renderer/index.ts` installs the renderer bridge at package startup, which
   lets runtime primitives stay renderer-agnostic.
+- `src/renderer/attributes.ts` and `src/renderer/boundaries.ts` are active DOM
+  renderer owners wired through `dom-internal.ts`.
 - `src/boot/index.ts` is the public lifecycle facade. `boot/types.ts` owns boot
   config contracts and `boot/hydration.ts` owns selective hydration DOM helpers.
 - `src/router/route.ts` is a facade. `authoring.ts`, `store.ts`,
@@ -195,12 +231,28 @@ diagrams:
   owns the public and internal data contracts, `query-key.ts` owns scoped key
   serialization, and `shared.ts` owns readable notification and async error
   helpers used by data cells.
-- `src/ssr/index.ts` is the stable SSR facade. It reuses the same component
-  and route model, but swaps the sink from DOM mutation to synchronous HTML
-  serialization.
+- `src/ssr/index.ts` is the stable SSR facade. `index-internal.ts` owns
+  synchronous serialization and component execution, while `route-render.ts`
+  owns route/document orchestration for object-form rendering and streams.
 - `src/ssg/create-static-gen.ts` is an orchestration layer over route expansion,
   SSR rendering, file output, and metadata generation rather than a separate
   rendering engine.
+
+## Architecture Review Notes
+
+The diagrams above expose follow-up issues that are not fully solved by the
+facade cleanup:
+
+- The largest DOM, component, `For`, and SSR responsibilities are still grouped
+  in explicit internal `.ts` implementation clusters. Architecture checks
+  reject `.mts` source files and track the current cluster line counts, but the
+  implementation files still need responsibility-level extraction.
+- SSG depends on SSR, not the other way around. Diagrams should keep that edge
+  direction explicit because it is the contract that preserves one server
+  renderer.
+- The renderer helper owners (`attributes.ts` and `boundaries.ts`) are now
+  active dependencies. Future extraction should keep the running path wired to
+  the owner modules rather than duplicating behavior.
 
 ## Related docs
 

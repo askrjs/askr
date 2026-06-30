@@ -64,6 +64,44 @@ flowchart LR
   instance --> updates
 ```
 
+## Component and For Implementation Ownership
+
+The runtime public import paths remain stable while their active
+implementations live behind facades. `For` item scopes depend on component hook
+indexing and child-scope ownership, so that relationship should stay explicit
+when the implementation is split further.
+
+```mermaid
+flowchart TB
+  componentFacade[component.ts facade]
+  componentCore[component-internal.ts]
+  current[current instance and portal scope]
+  lifecycle[lifecycle commit batching]
+  render[render execution and inline snapshots]
+  hooks[hook index claiming]
+  cleanup[component cleanup and owned child scopes]
+
+  forFacade[for.ts facade]
+  forCore[for-internal.ts]
+  forState[ForState and item instances]
+  itemSignals[item, index, and property signals]
+  reconcile[reconcileForItems strategy]
+  fallback[fallback and item disposal]
+
+  componentFacade --> componentCore
+  componentCore --> current
+  componentCore --> lifecycle
+  componentCore --> render
+  componentCore --> hooks
+  componentCore --> cleanup
+  forFacade --> forCore
+  forCore --> forState
+  forCore --> itemSignals
+  forCore --> reconcile
+  forCore --> fallback
+  forCore --> componentFacade
+```
+
 ## Readable graph
 
 State and derived values are two kinds of readable source feeding the same
@@ -161,8 +199,13 @@ flowchart LR
 ## Design notes
 
 - `src/runtime/component.ts` is the compatibility facade for the component
-  runtime. The lifecycle, render execution, and cleanup implementation now live
-  behind that stable entrypoint.
+  runtime. `src/runtime/component-internal.ts` currently owns instance
+  creation, current-instance state, lifecycle batching, render execution, hook
+  index claiming, cleanup, and owned child scopes.
+- `src/runtime/for.ts` is the compatibility facade for `For` runtime state.
+  `src/runtime/for-internal.ts` currently owns item signals, key validation,
+  per-item creation/update/disposal, fallback handling, and array
+  reconciliation.
 - `src/runtime/state.ts` stores component-local writable cells.
 - `src/runtime/derive.ts` tracks dependency reads and recomputes in the
   scheduler's `derived` lane.
@@ -177,6 +220,17 @@ flowchart LR
   internal contracts, `src/data/query-key.ts` owns `queryScope()` key
   serialization, and `src/data/shared.ts` owns readable notification and async
   error helpers shared by query and mutation cells.
+
+## Architecture Review Notes
+
+The runtime diagrams expose two follow-ups:
+
+- Component lifecycle and `For` reconciliation are still large implementation
+  clusters. The next cleanup should split by ownership rather than only by
+  import facade.
+- `For` depends on component hook indexing and child-scope cleanup. That
+  coupling is legitimate, but it needs explicit contract modules so future
+  splits do not reach back into component internals.
 
 ## Related docs
 

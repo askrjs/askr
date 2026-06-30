@@ -46,33 +46,37 @@ import { incDevCounter, getDevValue } from '../runtime/dev-namespace';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__, __ERROR_BOUNDARY__ } from '../common/vnode';
 import {
-  evaluateForState,
-  clearForDomUpdateState,
   isBenchMetricScopeActive,
   recordBenchCounter,
   recordBenchEvent,
 } from '../runtime/for';
-import {
-  clearCaseDomUpdateState,
-  clearShowDomUpdateState,
-  evaluateCaseState,
-  evaluateShowState,
-  type ControlBoundaryState,
-} from '../runtime/control';
 import { keyedElements } from './keyed';
-import { commitForStateBoundaryChildren } from './for-commit';
+import {
+  applyScalarPropValue,
+  applyStaticScalarPropsToElement,
+  hasMatchingStaticProps,
+  materializeKey,
+  removeStaleAttributes,
+} from './attributes';
+import {
+  clearControlBoundaryCommitOwner,
+  commitForBoundaryChildren,
+  configureBoundaryDOMHost,
+  createForBoundary,
+  evaluateControlBoundaryState,
+  getControlBoundaryState,
+  getDirectControlBoundaryVNode,
+  registerControlBoundaryCommitOwner,
+  syncControlBoundaryScopeDom,
+  trySyncControlBoundaryChild,
+} from './boundaries';
 import {
   getEventListenerKey,
   getEventListenerOptions,
   parseEventName,
   parseEventProp,
   createMutableWrappedHandler,
-  getRenderedAttributeName,
   isSkippedProp,
-  removeRenderedAttribute,
-  readElementClassName,
-  setRenderedAttribute,
-  writeElementClassName,
   tagNamesEqualIgnoreCase,
   extractKey,
 } from './utils';
@@ -84,7 +88,6 @@ import {
 } from './children';
 import type { ReadableSource } from '../runtime/readable';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
-import { enqueueRuntimeTask } from '../runtime/access';
 import {
   createFineGrainedEffect,
   markFineGrainedEffectsDirtySource,
@@ -106,6 +109,7 @@ import {
   isDelegatedEvent,
 } from '../runtime/events';
 
+export { createForBoundary, commitForBoundaryChildren } from './boundaries';
 export {
   isBulkTextFastPathEligible,
   performBulkPositionalKeyedTextUpdate,
@@ -132,8 +136,6 @@ interface ReactivePropDescriptor {
   lastClassTokens: string[] | null;
 }
 
-type StyleEntries = Map<string, string>;
-
 type ReactiveScalarChildSourceSlot =
   | { kind: 'static'; value: string }
   | { kind: 'dynamic'; compute: () => unknown };
@@ -151,7 +153,6 @@ type ReactiveChildBoundarySequenceEntry =
   | { kind: 'dynamic'; scope: ChildScope; nodes: Node[] };
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
-const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
 
 function isRouteRootComponentVNode(node: unknown): boolean {
   return (
@@ -169,9 +170,6 @@ function inheritComponentCleanupStrict(instance: ComponentInstance): void {
   }
 }
 
-type ControlBoundaryCommitOwnerState = ControlBoundaryState & {
-  _commitOwner?: Element | null;
-};
 let reactiveChildScopeId = 0;
 
 function collectReactiveScalarSequenceValue(
@@ -860,7 +858,11 @@ function commitReactiveChildBoundaryEntryNodes(
     entry.scope.dom = undefined;
   }
 
-  const nextDom = syncForItemDom(el, entry.scope, entry.scope.vnode ?? null);
+  const nextDom = syncControlBoundaryScopeDom(
+    el,
+    entry.scope,
+    entry.scope.vnode ?? null
+  );
   if (!nextDom) {
     entry.nodes = [];
     entry.scope.needsDomUpdate = false;
@@ -1560,7 +1562,14 @@ function setupReactiveProp(
     compute: () => descriptor.propFn(),
     commit: (value, previousValue) => {
       incrementPerfMetric('reactivePropReevaluations');
-      applyPropValue(el, propName, value, tagName, previousValue, descriptor);
+      applyScalarPropValue(
+        el,
+        propName,
+        value,
+        tagName,
+        previousValue,
+        descriptor
+      );
     },
     equals: (previousValue, nextValue) => {
       if (Object.is(previousValue, nextValue)) {
@@ -1606,266 +1615,6 @@ function setupReactiveProp(
     cleanup,
     updateFn,
   };
-}
-
-/**
- * Apply a prop value to an element (helper for reactive props)
- */
-function applyPropValue(
-  el: Element,
-  key: string,
-  value: unknown,
-  tagName: string,
-  previousValue?: unknown,
-  descriptor?: ReactivePropDescriptor
-): void {
-  if (value === undefined || value === null || value === false) {
-    if (key === 'class' || key === 'className') {
-      const previousTokens = descriptor?.lastClassTokens;
-      if (previousTokens && previousTokens.length > 0) {
-        el.classList.remove(...previousTokens);
-        incrementPerfMetric('classListPatchOps');
-      } else {
-        writeElementClassName(el, '');
-      }
-      if (descriptor) {
-        descriptor.lastClassTokens = [];
-      }
-    } else if (key === 'value') {
-      applyFormControlProp(el, key, '', tagName);
-    } else if (key === 'checked') {
-      applyFormControlProp(el, key, false, tagName);
-    } else if (key === 'style') {
-      applyStylePropValue(el, null);
-    } else {
-      removeRenderedAttribute(el, key);
-    }
-    return;
-  }
-
-  if (key === 'class' || key === 'className') {
-    applyClassPropValue(el, value, previousValue, descriptor);
-  } else if (key === 'style') {
-    applyStylePropValue(el, value);
-  } else if (key === 'value' || key === 'checked') {
-    applyFormControlProp(el, key, value, tagName);
-  } else {
-    setRenderedAttribute(el, key, String(value));
-  }
-}
-
-function normalizeStylePropertyName(propertyName: string): string {
-  if (propertyName.startsWith('--')) {
-    return propertyName;
-  }
-
-  return propertyName.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-}
-
-function collectCurrentStyleEntries(el: Element): StyleEntries {
-  const entries: StyleEntries = new Map();
-  const style = (el as HTMLElement | SVGElement).style;
-
-  if (!style) {
-    return entries;
-  }
-
-  for (let index = 0; index < style.length; index += 1) {
-    const propertyName = style.item(index);
-    entries.set(propertyName, style.getPropertyValue(propertyName));
-  }
-
-  return entries;
-}
-
-function normalizeStyleEntries(value: unknown): StyleEntries | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const entries: StyleEntries = new Map();
-  for (const [key, entryValue] of Object.entries(
-    value as Record<string, unknown>
-  )) {
-    if (
-      entryValue === undefined ||
-      entryValue === null ||
-      entryValue === false
-    ) {
-      continue;
-    }
-
-    entries.set(normalizeStylePropertyName(key), String(entryValue));
-  }
-
-  return entries;
-}
-
-function applyStylePropValue(el: Element, value: unknown): void {
-  const style = (el as HTMLElement | SVGElement).style;
-  if (!style) {
-    if (value === null || value === undefined || value === false) {
-      el.removeAttribute('style');
-      return;
-    }
-
-    el.setAttribute('style', String(value));
-    return;
-  }
-
-  if (value === null || value === undefined || value === false) {
-    if (!el.getAttribute('style')) {
-      incrementPerfMetric('skippedDomPropWrites');
-      return;
-    }
-
-    style.cssText = '';
-    el.removeAttribute('style');
-    return;
-  }
-
-  if (typeof value === 'string') {
-    if ((el.getAttribute('style') ?? '') === value) {
-      incrementPerfMetric('skippedDomPropWrites');
-      return;
-    }
-
-    style.cssText = value;
-    return;
-  }
-
-  const nextEntries = normalizeStyleEntries(value);
-  if (!nextEntries) {
-    const nextText = String(value);
-    if ((el.getAttribute('style') ?? '') === nextText) {
-      incrementPerfMetric('skippedDomPropWrites');
-      return;
-    }
-
-    style.cssText = nextText;
-    return;
-  }
-
-  const previousEntries = collectCurrentStyleEntries(el);
-  let didWrite = false;
-
-  for (const [propertyName] of previousEntries) {
-    if (nextEntries.has(propertyName)) {
-      continue;
-    }
-
-    style.removeProperty(propertyName);
-    didWrite = true;
-  }
-
-  for (const [propertyName, propertyValue] of nextEntries) {
-    if (previousEntries.get(propertyName) === propertyValue) {
-      continue;
-    }
-
-    style.setProperty(propertyName, propertyValue);
-    didWrite = true;
-  }
-
-  if (!didWrite) {
-    incrementPerfMetric('skippedDomPropWrites');
-  }
-}
-
-function tokenizeClassValue(value: unknown): string[] | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return [];
-  }
-
-  return trimmed.split(/\s+/);
-}
-
-function patchClassList(
-  el: Element,
-  previousTokens: string[],
-  nextTokens: string[]
-): void {
-  if (previousTokens.length === nextTokens.length) {
-    let identical = true;
-    for (let index = 0; index < previousTokens.length; index += 1) {
-      if (previousTokens[index] !== nextTokens[index]) {
-        identical = false;
-        break;
-      }
-    }
-    if (identical) {
-      return;
-    }
-  }
-
-  if (previousTokens.length === 0) {
-    if (nextTokens.length === 0) {
-      return;
-    }
-    el.classList.add(...nextTokens);
-    incrementPerfMetric('classListPatchOps');
-    return;
-  }
-
-  if (nextTokens.length === 0) {
-    el.classList.remove(...previousTokens);
-    incrementPerfMetric('classListPatchOps');
-    return;
-  }
-
-  if (previousTokens.length === 1 && nextTokens.length === 1) {
-    el.classList.remove(previousTokens[0]);
-    el.classList.add(nextTokens[0]);
-    incrementPerfMetric('classListPatchOps');
-    return;
-  }
-
-  const nextSet = new Set(nextTokens);
-  const previousSet = new Set(previousTokens);
-
-  for (const token of previousTokens) {
-    if (!nextSet.has(token)) {
-      el.classList.remove(token);
-    }
-  }
-
-  for (const token of nextTokens) {
-    if (!previousSet.has(token)) {
-      el.classList.add(token);
-    }
-  }
-
-  incrementPerfMetric('classListPatchOps');
-}
-
-function applyClassPropValue(
-  el: Element,
-  value: unknown,
-  previousValue: unknown,
-  descriptor?: ReactivePropDescriptor
-): void {
-  const nextString = String(value);
-  const nextTokens = tokenizeClassValue(nextString);
-  const previousTokens =
-    descriptor?.lastClassTokens ?? tokenizeClassValue(previousValue);
-
-  if (nextTokens && previousTokens) {
-    patchClassList(el, previousTokens, nextTokens);
-    if (descriptor) {
-      descriptor.lastClassTokens = nextTokens;
-    }
-    return;
-  }
-
-  writeElementClassName(el, nextString);
-  if (descriptor) {
-    descriptor.lastClassTokens = nextTokens;
-  }
 }
 
 /**
@@ -1925,106 +1674,7 @@ function applyPropsToElement(
       continue;
     }
 
-    if (key === 'class' || key === 'className') {
-      writeElementClassName(el, String(value));
-    } else if (key === 'style') {
-      applyStylePropValue(el, value);
-    } else if (key === 'value' || key === 'checked') {
-      applyFormControlProp(el, key, value, tagName);
-    } else {
-      setRenderedAttribute(el, key, String(value));
-    }
-  }
-}
-
-function removeStaleAttributes(
-  el: Element,
-  vnode: DOMElement,
-  props: Record<string, unknown>
-): void {
-  const desiredAttributes = new Set<string>();
-  const key = extractKey(vnode);
-
-  if (key !== undefined) {
-    desiredAttributes.add('data-key');
-  }
-
-  for (const propName in props) {
-    if (isSkippedProp(propName)) continue;
-    if (parseEventName(propName)) continue;
-
-    const value = props[propName];
-    if (value === undefined || value === null || value === false) continue;
-
-    desiredAttributes.add(getRenderedAttributeName(el, propName));
-  }
-
-  for (const attribute of Array.from(el.attributes)) {
-    if (!desiredAttributes.has(getRenderedAttributeName(el, attribute.name))) {
-      el.removeAttribute(attribute.name);
-    }
-  }
-}
-
-/**
- * Apply value/checked props to form controls
- */
-function applyFormControlProp(
-  el: Element,
-  key: string,
-  value: unknown,
-  tagName: string
-): void {
-  if (key === 'value') {
-    if (
-      tagNamesEqualIgnoreCase(tagName, 'input') ||
-      tagNamesEqualIgnoreCase(tagName, 'textarea') ||
-      tagNamesEqualIgnoreCase(tagName, 'select')
-    ) {
-      (el as HTMLInputElement & Props).value = String(value);
-      el.setAttribute('value', String(value));
-    } else {
-      el.setAttribute('value', String(value));
-    }
-  } else if (key === 'checked') {
-    if (tagNamesEqualIgnoreCase(tagName, 'input')) {
-      const checked = Boolean(value);
-      (el as HTMLInputElement & Props).checked = checked;
-      if (checked) {
-        el.setAttribute('checked', '');
-      } else {
-        el.removeAttribute('checked');
-      }
-    } else {
-      if (value) {
-        el.setAttribute('checked', '');
-      } else {
-        el.removeAttribute('checked');
-      }
-    }
-  }
-}
-
-/**
- * Materialize vnode key as data-key attribute
- */
-function materializeKey(
-  el: Element,
-  vnode: DOMElement,
-  props: Record<string, unknown>
-): void {
-  const rawKey = vnode.key ?? props?.key;
-  const vnodeKey =
-    rawKey === null || rawKey === undefined
-      ? undefined
-      : typeof rawKey === 'symbol'
-        ? String(rawKey)
-        : (rawKey as string | number);
-  if (vnodeKey !== undefined) {
-    const nextKey = String(vnodeKey);
-    if (el.getAttribute('data-key') !== nextKey) {
-      el.setAttribute('data-key', nextKey);
-    }
+    applyScalarPropValue(el, key, value, tagName);
   }
 }
 
@@ -2283,32 +1933,6 @@ function tryGetStaticCreateFastPathShape(
   return childShape;
 }
 
-function applyStaticScalarPropsToElement(
-  el: Element,
-  props: Record<string, unknown>
-): void {
-  for (const key in props) {
-    if (isSkippedProp(key)) {
-      continue;
-    }
-
-    const value = props[key];
-    if (value === undefined || value === null || value === false) {
-      continue;
-    }
-
-    if (key === 'class' || key === 'className') {
-      writeElementClassName(el, String(value));
-    } else if (key === 'style') {
-      applyStylePropValue(el, value);
-    } else if (key === 'value' || key === 'checked') {
-      (el as HTMLElement & Record<string, unknown>)[key] = value;
-    } else {
-      setRenderedAttribute(el, key, String(value));
-    }
-  }
-}
-
 /**
  * Create an intrinsic DOM element (div, span, etc.)
  */
@@ -2332,7 +1956,7 @@ function createIntrinsicElement(
   const staticCreateFastPath = tryGetStaticCreateFastPathShape(props, children);
 
   if (staticCreateFastPath) {
-    applyStaticScalarPropsToElement(el, props);
+    applyStaticScalarPropsToElement(el, props, type);
     if (staticCreateFastPath.textContent !== null) {
       el.textContent = staticCreateFastPath.textContent;
       if (isBenchMetricScopeActive('coldCreate')) {
@@ -3030,302 +2654,6 @@ function createFragmentElement(
   return fragment;
 }
 
-/**
- * Check if a cached DOM node can be reused for a given vnode.
- *
- * Returns true if shape has changed (i.e., DOM cannot be reused).
- * Structural check: compares DOM tagName with vnode type.
- * Do NOT rely on vnode identity (===) ├óΓé¼ΓÇ¥ vnodes are mutable.
- */
-function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
-  if (!_isDOMElement(vnode)) return true;
-  if (!(dom instanceof Element)) return true;
-  // Structural check: element type must match
-  const vnodeType = (vnode as DOMElement).type;
-  if (typeof vnodeType !== 'string') return true;
-  return dom.tagName.toLowerCase() !== vnodeType.toLowerCase();
-}
-
-function materializeChildScopeDom(
-  vnode: VNode,
-  parentNamespace?: string
-): Node | null {
-  if (vnode === null || vnode === undefined || vnode === false) {
-    return document.createComment('');
-  }
-
-  const dom = createDOMNode(vnode, parentNamespace);
-  if (!(dom instanceof DocumentFragment)) {
-    return dom;
-  }
-
-  const firstChild = dom.firstChild;
-  const secondChild = firstChild?.nextSibling ?? null;
-  if (!firstChild) {
-    return document.createComment('');
-  }
-  if (secondChild) {
-    throw new Error('[askr] Child scopes must render a single DOM root node.');
-  }
-  return firstChild;
-}
-
-function evaluateControlBoundaryState(
-  controlState: ControlBoundaryState
-): VNode[] {
-  if (controlState.kind === 'for') {
-    return evaluateForState(controlState);
-  }
-  if (controlState.kind === 'show') {
-    return evaluateShowState(controlState);
-  }
-  return evaluateCaseState(controlState);
-}
-
-function clearControlBoundaryDomUpdateState(
-  controlState: ControlBoundaryState
-): void {
-  if (controlState.kind === 'for') {
-    clearForDomUpdateState(controlState);
-    return;
-  }
-  if (controlState.kind === 'show') {
-    clearShowDomUpdateState(controlState);
-    return;
-  }
-  clearCaseDomUpdateState(controlState);
-}
-
-function getControlBoundaryState(
-  node: DOMElement
-): ControlBoundaryState | null {
-  return (
-    node._controlState ??
-    (node._forState as ControlBoundaryState | undefined) ??
-    null
-  );
-}
-
-function getDirectControlBoundaryVNode(children: unknown): DOMElement | null {
-  if (
-    !Array.isArray(children) &&
-    _isDOMElement(children) &&
-    (children as DOMElement).type === __FOR_BOUNDARY__
-  ) {
-    return children as DOMElement;
-  }
-
-  if (
-    Array.isArray(children) &&
-    children.length === 1 &&
-    _isDOMElement(children[0]) &&
-    (children[0] as DOMElement).type === __FOR_BOUNDARY__
-  ) {
-    return children[0] as DOMElement;
-  }
-
-  return null;
-}
-
-function getControlBoundaryCommitChildren(
-  controlState: ControlBoundaryState
-): VNode[] {
-  if (controlState.kind === 'for' && controlState._needsSourceReconcile) {
-    return evaluateForState(controlState);
-  }
-
-  if (controlState.kind !== 'for') {
-    const activeVNode = controlState.activeScope?.vnode;
-    return activeVNode == null || activeVNode === false ? [] : [activeVNode];
-  }
-
-  if (controlState.orderedKeys.length === 0) {
-    const fallbackVNode = controlState.fallbackScope?.vnode;
-    return fallbackVNode == null || fallbackVNode === false
-      ? []
-      : [fallbackVNode];
-  }
-
-  const childrenVNodes: VNode[] = [];
-  for (let index = 0; index < controlState.orderedKeys.length; index += 1) {
-    const itemKey = controlState.orderedKeys[index];
-    const itemInstance = controlState.items.get(itemKey);
-    childrenVNodes.push((itemInstance?.scope.vnode ?? null) as VNode);
-  }
-
-  return childrenVNodes;
-}
-
-function clearControlBoundaryCommitOwner(parent: Element): void {
-  const owner = controlBoundaryOwners.get(parent) as
-    | ControlBoundaryCommitOwnerState
-    | undefined;
-  if (owner) {
-    owner._enqueueBoundaryCommit = null;
-    owner._hasPendingBoundaryCommit = false;
-    if (owner._commitOwner === parent) {
-      owner._commitOwner = null;
-    }
-  }
-
-  controlBoundaryOwners.delete(parent);
-}
-
-function registerControlBoundaryCommitOwner(
-  parent: Element,
-  controlState: ControlBoundaryState
-): void {
-  const ownerState = controlState as ControlBoundaryCommitOwnerState;
-  const previousParent = ownerState._commitOwner;
-  if (
-    previousParent &&
-    previousParent !== parent &&
-    controlBoundaryOwners.get(previousParent) === controlState
-  ) {
-    controlBoundaryOwners.delete(previousParent);
-  }
-
-  const previousOwner = controlBoundaryOwners.get(parent) as
-    | ControlBoundaryCommitOwnerState
-    | undefined;
-  if (previousOwner && previousOwner !== controlState) {
-    previousOwner._enqueueBoundaryCommit = null;
-    previousOwner._hasPendingBoundaryCommit = false;
-    if (previousOwner._commitOwner === parent) {
-      previousOwner._commitOwner = null;
-    }
-  }
-
-  controlBoundaryOwners.set(parent, controlState);
-  ownerState._commitOwner = parent;
-  controlState._enqueueBoundaryCommit = () => {
-    if (controlState._hasPendingBoundaryCommit) {
-      return;
-    }
-
-    controlState._hasPendingBoundaryCommit = true;
-    enqueueRuntimeTask(() => {
-      controlState._hasPendingBoundaryCommit = false;
-
-      if (controlBoundaryOwners.get(parent) !== controlState) {
-        return;
-      }
-
-      const childrenVNodes = getControlBoundaryCommitChildren(controlState);
-      commitForBoundaryChildren(parent, controlState, childrenVNodes);
-    });
-  };
-}
-
-/**
- * Create DOM from For boundary - evaluates list and renders items
- *
- * CRITICAL INVARIANT:
- * DOM order MUST be reconstructed from the current vnode list on every render.
- * Reusing DOM nodes never implies preserving their position.
- *
- * This function ALWAYS returns a fragment whose child order exactly matches
- * the evaluated vnode list, even when all DOM nodes are reused.
- * Appending an existing node to the fragment is how we express reordering
- * (per DOM spec, appendChild moves already-attached nodes).
- *
- * Do NOT:
- * - Skip appending based on parentElement or existing attachment
- * - Rely on vnode identity (===) to decide DOM reuse (vnodes are mutable)
- * - Introduce fast-paths that might skip DOM reconstruction
- */
-export function createForBoundary(
-  node: DOMElement,
-  props: Record<string, unknown>,
-  parentNamespace?: string
-): DocumentFragment {
-  void props;
-  const controlState = getControlBoundaryState(node);
-
-  if (!controlState) {
-    if (getRuntimeEnv().NODE_ENV !== 'production') {
-      logger.warn('[Askr] Control boundary missing state');
-    }
-    return document.createDocumentFragment();
-  }
-
-  const childrenVNodes = evaluateControlBoundaryState(controlState);
-
-  // DOM order MUST be reconstructed from the current vnode list on every render.
-  // Reusing DOM nodes never implies preserving their position.
-  const fragment = document.createDocumentFragment();
-
-  if (controlState.kind !== 'for') {
-    const activeScope = controlState.activeScope;
-    const vnode = childrenVNodes[0];
-    if (activeScope && vnode !== undefined) {
-      const dom = materializeChildScopeDom(vnode, parentNamespace);
-      activeScope.dom = dom ?? undefined;
-      if (dom) {
-        fragment.appendChild(dom);
-      }
-    }
-    clearControlBoundaryDomUpdateState(controlState);
-    return fragment;
-  }
-
-  const forState = controlState;
-  if (forState.orderedKeys.length === 0) {
-    const fallbackScope = forState.fallbackScope;
-    const fallbackVNode = childrenVNodes[0];
-    if (fallbackScope && fallbackVNode !== undefined) {
-      const dom = materializeChildScopeDom(fallbackVNode, parentNamespace);
-      fallbackScope.dom = dom ?? undefined;
-      if (dom) {
-        fragment.appendChild(dom);
-      }
-    }
-    clearControlBoundaryDomUpdateState(controlState);
-    return fragment;
-  }
-
-  for (let i = 0; i < childrenVNodes.length; i++) {
-    const childVNode = childrenVNodes[i];
-    // Use orderedKeys[i] to look up items ├óΓé¼ΓÇ¥ this is aligned with vnode order
-    // after reconciliation. Do NOT use childVNode.key (JSX key may differ).
-    const itemKey = forState.orderedKeys[i];
-    const itemInstance = itemKey != null ? forState.items.get(itemKey) : null;
-
-    let dom: Node | null = null;
-
-    // Try to reuse existing DOM if element type matches (structural check).
-    // Do NOT rely on vnode identity (===) ├óΓé¼ΓÇ¥ vnodes are mutable.
-    if (itemInstance && itemInstance.scope.dom) {
-      const cachedDom = itemInstance.scope.dom;
-      // Structural check: element type must match for safe reuse
-      if (!checkVNodeShapeChanged(cachedDom, childVNode)) {
-        dom = cachedDom;
-      }
-    }
-
-    // Create new DOM if no reusable node available
-    if (!dom) {
-      dom = materializeChildScopeDom(childVNode, parentNamespace);
-      // Cache the DOM in the item instance for future reuse
-      if (itemInstance) {
-        itemInstance.scope.dom = dom ?? undefined;
-      }
-    }
-
-    if (dom) {
-      // Always update reused DOM from current vnode (never rely on vnode identity)
-
-      // ALWAYS append to fragment ├óΓé¼ΓÇ¥ this is mandatory for correct ordering.
-      // Appending an existing node moves it (DOM spec) ├óΓé¼ΓÇ¥ this is how reordering works.
-      // No parentElement checks may gate insertion.
-      fragment.appendChild(dom);
-    }
-  }
-
-  clearControlBoundaryDomUpdateState(controlState);
-  return fragment;
-}
-
 type ErrorBoundaryVNode = DOMElement & {
   __instance?: ComponentInstance;
 };
@@ -3376,84 +2704,6 @@ function createErrorBoundaryElement(
     const fallbackDom = createDOMNode(fallbackValue, parentNamespace);
     return fallbackDom ?? document.createComment('');
   }
-}
-
-function syncForItemDom(
-  parent: Element,
-  scope: {
-    dom?: Node;
-    needsDomUpdate: boolean;
-  },
-  vnode: VNode
-): Node | null {
-  let dom = scope.dom ?? null;
-
-  const parentNamespace =
-    parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
-
-  if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
-    const syncedComponentDom = syncComponentElement(
-      dom,
-      vnode as ElementWithContext,
-      vnode.type as ComponentFunction,
-      ((vnode as DOMElement).props ?? {}) as Record<string, unknown>,
-      parentNamespace
-    );
-    if (syncedComponentDom) {
-      scope.dom = syncedComponentDom ?? undefined;
-      return syncedComponentDom;
-    }
-  }
-
-  if (!dom) {
-    dom = materializeChildScopeDom(vnode, parentNamespace);
-    scope.dom = dom ?? undefined;
-    return dom;
-  }
-
-  if (
-    dom.nodeType === 3 &&
-    (typeof vnode === 'string' || typeof vnode === 'number')
-  ) {
-    (dom as Text).data = String(vnode);
-    return dom;
-  }
-
-  if (
-    dom.nodeType === 8 &&
-    (vnode === null || vnode === undefined || vnode === false)
-  ) {
-    return dom;
-  }
-
-  if (
-    dom instanceof Element &&
-    _isDOMElement(vnode) &&
-    typeof vnode.type === 'string' &&
-    tagNamesEqualIgnoreCase(dom.tagName, vnode.type)
-  ) {
-    updateElementFromVnode(dom, vnode, true);
-    return dom;
-  }
-
-  const nextDom = materializeChildScopeDom(vnode, parentNamespace);
-  if (!nextDom) {
-    if (dom.parentNode === parent) {
-      teardownNodeSubtree(dom);
-      dom.parentNode.removeChild(dom);
-    }
-    scope.dom = undefined;
-    return null;
-  }
-
-  if (dom.parentNode === parent) {
-    parent.replaceChild(nextDom, dom);
-  }
-
-  teardownNodeSubtree(dom);
-
-  scope.dom = nextDom;
-  return nextDom;
 }
 
 function normalizeStableIntrinsicChildren(
@@ -3639,55 +2889,14 @@ export function tryPatchStableForDirtyItem(scope: {
   return didPatch;
 }
 
-export function commitForBoundaryChildren(
-  parent: Element,
-  controlState: ControlBoundaryState,
-  childrenVNodes: VNode[]
-): void {
-  if (controlState.kind !== 'for') {
-    const activeScope = controlState.activeScope;
-    const activeVNode = childrenVNodes[0];
-    const nextDom =
-      activeScope && activeVNode !== undefined
-        ? syncForItemDom(parent, activeScope, activeVNode)
-        : null;
-
-    for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
-      const removedNode = controlState.lastRemovedNodes[i];
-      if (removedNode instanceof Element) {
-        teardownNodeSubtree(removedNode);
-      }
-      if (removedNode.parentNode === parent) {
-        recordBenchEvent('domRemove');
-        parent.removeChild(removedNode);
-      }
-    }
-
-    if (nextDom) {
-      if (
-        parent.childNodes.length !== 1 ||
-        parent.firstChild !== nextDom ||
-        controlState.lastRemovedNodes.length > 0
-      ) {
-        parent.replaceChildren(nextDom);
-      }
-    } else if (parent.firstChild) {
-      parent.textContent = '';
-    }
-
-    keyedElements.delete(parent);
-    clearControlBoundaryDomUpdateState(controlState);
-    return;
-  }
-
-  commitForStateBoundaryChildren(parent, controlState, childrenVNodes, {
-    isProduction: () => getRuntimeEnv().NODE_ENV === 'production',
-    syncForItemDom,
-    tryPatchStableForDirtyItem,
-  });
-}
-
 // ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
+configureBoundaryDOMHost({
+  createDOMNode,
+  syncComponentElement,
+  updateElementFromVnode,
+  tryPatchStableForDirtyItem,
+});
+
 // Element Updates
 // ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
 
@@ -3770,13 +2979,7 @@ export function updateElementFromVnode(
 
     // Handle removal cases
     if (value === undefined || value === null || value === false) {
-      if (key === 'class' || key === 'className') {
-        writeElementClassName(el, '');
-      } else if (key === 'value') {
-        applyFormControlProp(el, key, '', vnode.type as string);
-      } else if (key === 'checked') {
-        applyFormControlProp(el, key, false, vnode.type as string);
-      } else if (listenerKey && existingListeners?.has(listenerKey)) {
+      if (listenerKey && existingListeners?.has(listenerKey)) {
         const entry = existingListeners.get(listenerKey)!;
         incDevCounter('listenerRemoves');
         if (entry.isDelegated) {
@@ -3799,7 +3002,7 @@ export function updateElementFromVnode(
           entry.cleanup();
           existingReactiveProps?.delete(key);
         } else {
-          removeRenderedAttribute(el, key);
+          applyScalarPropValue(el, key, value, vnode.type as string);
         }
       }
       continue;
@@ -3855,13 +3058,7 @@ export function updateElementFromVnode(
       existingReactiveProps?.delete(key);
     }
 
-    if (key === 'class' || key === 'className') {
-      writeElementClassName(el, String(value));
-    } else if (key === 'style') {
-      applyStylePropValue(el, value);
-    } else if (key === 'value' || key === 'checked') {
-      applyFormControlProp(el, key, value, vnode.type as string);
-    } else if (eventProp && listenerKey) {
+    if (eventProp && listenerKey) {
       const eventName = eventProp.eventName;
       const eventCapture = eventProp.capture;
       const useDelegation =
@@ -3975,7 +3172,7 @@ export function updateElementFromVnode(
       }
       elementListeners.get(el)!.set(listenerKey, listenerEntry);
     } else {
-      setRenderedAttribute(el, key, String(value));
+      applyScalarPropValue(el, key, value, vnode.type as string);
     }
   }
 
@@ -4325,71 +3522,6 @@ function getStaticChildSlots(vnode: DOMElement): StaticChildSlot[] | null {
   return staticSlots;
 }
 
-function hasMatchingStaticProps(
-  el: Element,
-  props: Record<string, unknown>,
-  vnodeType: string
-): boolean {
-  let staticPropCount = 0;
-
-  for (const key in props) {
-    if (isSkippedProp(key)) continue;
-
-    const value = props[key];
-    if (value === undefined || value === null || value === false) {
-      return false;
-    }
-
-    const eventName = parseEventName(key);
-    if (eventName || typeof value === 'function') {
-      return false;
-    }
-
-    if (key === 'class' || key === 'className') {
-      if (readElementClassName(el) !== String(value)) {
-        return false;
-      }
-      staticPropCount += 1;
-      continue;
-    }
-
-    if (key === 'style') {
-      const styleValue =
-        typeof value === 'string' ? value.trim().replace(/;$/, '') : null;
-      const domStyle = el.getAttribute('style')?.trim().replace(/;$/, '') ?? '';
-      if (styleValue === null || domStyle !== styleValue) {
-        return false;
-      }
-      staticPropCount += 1;
-      continue;
-    }
-
-    if (key === 'value' || key === 'checked') {
-      if ((el as HTMLElement & Record<string, unknown>)[key] !== value) {
-        return false;
-      }
-      staticPropCount += 1;
-      continue;
-    }
-
-    if (key === 'selected' && vnodeType === 'option') {
-      if ((el as HTMLOptionElement).selected !== Boolean(value)) {
-        return false;
-      }
-      staticPropCount += 1;
-      continue;
-    }
-
-    if (el.getAttribute(getRenderedAttributeName(el, key)) !== String(value)) {
-      return false;
-    }
-
-    staticPropCount += 1;
-  }
-
-  return el.attributes.length === staticPropCount;
-}
-
 function canReuseStaticSubtree(el: Element, vnode: DOMElement): boolean {
   if (
     typeof vnode.type !== 'string' ||
@@ -4462,58 +3594,6 @@ export function updateUnkeyedChildren(
       parentNamespace,
       forceUpdate
     );
-  };
-
-  const trySyncControlBoundaryChild = (
-    parent: Element,
-    currentNode: Node | null,
-    next: DOMElement
-  ): boolean => {
-    if (next.type !== __FOR_BOUNDARY__) {
-      return false;
-    }
-
-    const controlState = getControlBoundaryState(next);
-    if (!controlState || controlState.kind === 'for') {
-      return false;
-    }
-
-    const childrenVNodes = evaluateControlBoundaryState(controlState);
-    const activeScope = controlState.activeScope;
-    const activeVNode = childrenVNodes[0];
-    const nextDom =
-      activeScope && activeVNode !== undefined
-        ? syncForItemDom(parent, activeScope, activeVNode)
-        : null;
-
-    for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
-      const removedNode = controlState.lastRemovedNodes[i];
-      if (removedNode.parentNode !== parent) {
-        continue;
-      }
-
-      teardownNodeSubtree(removedNode);
-      if (nextDom && nextDom !== removedNode && !nextDom.parentNode) {
-        parent.replaceChild(nextDom, removedNode);
-      } else {
-        parent.removeChild(removedNode);
-      }
-    }
-
-    if (nextDom && !nextDom.parentNode) {
-      if (currentNode?.parentNode === parent) {
-        teardownNodeSubtree(currentNode);
-        parent.replaceChild(nextDom, currentNode);
-      } else {
-        parent.appendChild(nextDom);
-      }
-    } else if (!nextDom && currentNode?.parentNode === parent) {
-      teardownNodeSubtree(currentNode);
-      parent.removeChild(currentNode);
-    }
-
-    clearControlBoundaryDomUpdateState(controlState);
-    return true;
   };
 
   // Check if newChildren has mixed content (both text/primitives and elements)

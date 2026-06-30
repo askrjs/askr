@@ -1,1 +1,1 @@
-export * from './component-internal.mjs';
+export * from './component-internal';

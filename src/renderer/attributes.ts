@@ -5,6 +5,7 @@ import {
   getRenderedAttributeName,
   isSkippedProp,
   parseEventName,
+  readElementClassName,
   removeRenderedAttribute,
   setRenderedAttribute,
   tagNamesEqualIgnoreCase,
@@ -14,6 +15,8 @@ import {
 type ClassTokenDescriptor = {
   lastClassTokens: string[] | null;
 };
+
+type StyleEntries = Map<string, string>;
 
 type Ref<T> =
   | ((value: T | null) => void)
@@ -71,6 +74,124 @@ export function applyFormControlProp(
   }
 }
 
+function normalizeStylePropertyName(propertyName: string): string {
+  if (propertyName.startsWith('--')) {
+    return propertyName;
+  }
+
+  return propertyName.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+}
+
+function collectCurrentStyleEntries(el: Element): StyleEntries {
+  const entries: StyleEntries = new Map();
+  const style = (el as HTMLElement | SVGElement).style;
+
+  if (!style) {
+    return entries;
+  }
+
+  for (let index = 0; index < style.length; index += 1) {
+    const propertyName = style.item(index);
+    entries.set(propertyName, style.getPropertyValue(propertyName));
+  }
+
+  return entries;
+}
+
+function normalizeStyleEntries(value: unknown): StyleEntries | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const entries: StyleEntries = new Map();
+  for (const [key, entryValue] of Object.entries(
+    value as Record<string, unknown>
+  )) {
+    if (
+      entryValue === undefined ||
+      entryValue === null ||
+      entryValue === false
+    ) {
+      continue;
+    }
+
+    entries.set(normalizeStylePropertyName(key), String(entryValue));
+  }
+
+  return entries;
+}
+
+export function applyStylePropValue(el: Element, value: unknown): void {
+  const style = (el as HTMLElement | SVGElement).style;
+  if (!style) {
+    if (value === null || value === undefined || value === false) {
+      el.removeAttribute('style');
+      return;
+    }
+
+    el.setAttribute('style', String(value));
+    return;
+  }
+
+  if (value === null || value === undefined || value === false) {
+    if (!el.getAttribute('style')) {
+      incrementPerfMetric('skippedDomPropWrites');
+      return;
+    }
+
+    style.cssText = '';
+    el.removeAttribute('style');
+    return;
+  }
+
+  if (typeof value === 'string') {
+    if ((el.getAttribute('style') ?? '') === value) {
+      incrementPerfMetric('skippedDomPropWrites');
+      return;
+    }
+
+    style.cssText = value;
+    return;
+  }
+
+  const nextEntries = normalizeStyleEntries(value);
+  if (!nextEntries) {
+    const nextText = String(value);
+    if ((el.getAttribute('style') ?? '') === nextText) {
+      incrementPerfMetric('skippedDomPropWrites');
+      return;
+    }
+
+    style.cssText = nextText;
+    return;
+  }
+
+  const previousEntries = collectCurrentStyleEntries(el);
+  let didWrite = false;
+
+  for (const [propertyName] of previousEntries) {
+    if (nextEntries.has(propertyName)) {
+      continue;
+    }
+
+    style.removeProperty(propertyName);
+    didWrite = true;
+  }
+
+  for (const [propertyName, propertyValue] of nextEntries) {
+    if (previousEntries.get(propertyName) === propertyValue) {
+      continue;
+    }
+
+    style.setProperty(propertyName, propertyValue);
+    didWrite = true;
+  }
+
+  if (!didWrite) {
+    incrementPerfMetric('skippedDomPropWrites');
+  }
+}
+
 export function applyStaticScalarPropsToElement(
   el: Element,
   props: Record<string, unknown>,
@@ -88,6 +209,8 @@ export function applyStaticScalarPropsToElement(
 
     if (key === 'class' || key === 'className') {
       writeElementClassName(el, String(value));
+    } else if (key === 'style') {
+      applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
     } else {
@@ -192,6 +315,49 @@ export function applyClassPropValue(
   }
 }
 
+export function applyScalarPropValue(
+  el: Element,
+  key: string,
+  value: unknown,
+  tagName: string,
+  previousValue?: unknown,
+  descriptor?: ClassTokenDescriptor
+): void {
+  if (value === undefined || value === null || value === false) {
+    if (key === 'class' || key === 'className') {
+      const previousTokens = descriptor?.lastClassTokens;
+      if (previousTokens && previousTokens.length > 0) {
+        el.classList.remove(...previousTokens);
+        incrementPerfMetric('classListPatchOps');
+      } else {
+        writeElementClassName(el, '');
+      }
+      if (descriptor) {
+        descriptor.lastClassTokens = [];
+      }
+    } else if (key === 'value') {
+      applyFormControlProp(el, key, '', tagName);
+    } else if (key === 'checked') {
+      applyFormControlProp(el, key, false, tagName);
+    } else if (key === 'style') {
+      applyStylePropValue(el, null);
+    } else {
+      removeRenderedAttribute(el, key);
+    }
+    return;
+  }
+
+  if (key === 'class' || key === 'className') {
+    applyClassPropValue(el, value, previousValue, descriptor);
+  } else if (key === 'style') {
+    applyStylePropValue(el, value);
+  } else if (key === 'value' || key === 'checked') {
+    applyFormControlProp(el, key, value, tagName);
+  } else {
+    setRenderedAttribute(el, key, String(value));
+  }
+}
+
 export function removeStaleAttributes(
   el: Element,
   vnode: unknown,
@@ -219,4 +385,89 @@ export function removeStaleAttributes(
       removeRenderedAttribute(el, attribute.name);
     }
   }
+}
+
+export function materializeKey(
+  el: Element,
+  vnode: { key?: unknown },
+  props: Record<string, unknown>
+): void {
+  const rawKey = vnode.key ?? props.key;
+  const vnodeKey =
+    rawKey === null || rawKey === undefined
+      ? undefined
+      : typeof rawKey === 'symbol'
+        ? String(rawKey)
+        : (rawKey as string | number);
+  if (vnodeKey !== undefined) {
+    const nextKey = String(vnodeKey);
+    if (el.getAttribute('data-key') !== nextKey) {
+      el.setAttribute('data-key', nextKey);
+    }
+  }
+}
+
+export function hasMatchingStaticProps(
+  el: Element,
+  props: Record<string, unknown>,
+  vnodeType: string
+): boolean {
+  let staticPropCount = 0;
+
+  for (const key in props) {
+    if (isSkippedProp(key)) continue;
+
+    const value = props[key];
+    if (value === undefined || value === null || value === false) {
+      return false;
+    }
+
+    const eventName = parseEventName(key);
+    if (eventName || typeof value === 'function') {
+      return false;
+    }
+
+    if (key === 'class' || key === 'className') {
+      if (readElementClassName(el) !== String(value)) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (key === 'style') {
+      const styleValue =
+        typeof value === 'string' ? value.trim().replace(/;$/, '') : null;
+      const domStyle = el.getAttribute('style')?.trim().replace(/;$/, '') ?? '';
+      if (styleValue === null || domStyle !== styleValue) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (key === 'value' || key === 'checked') {
+      if ((el as HTMLElement & Record<string, unknown>)[key] !== value) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (key === 'selected' && vnodeType === 'option') {
+      if ((el as HTMLOptionElement).selected !== Boolean(value)) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (el.getAttribute(getRenderedAttributeName(el, key)) !== String(value)) {
+      return false;
+    }
+
+    staticPropCount += 1;
+  }
+
+  return el.attributes.length === staticPropCount;
 }

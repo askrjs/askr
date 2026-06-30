@@ -1,1 +1,1 @@
-export * from './dom-internal.mjs';
+export * from './dom-internal';

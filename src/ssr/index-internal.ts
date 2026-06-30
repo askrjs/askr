@@ -1,34 +1,8 @@
-/**
- * SSR - Server-Side Rendering
- *
- * Renders Askr components to static HTML strings for server-side rendering.
- * SSR is synchronous: async components are not supported; async work should use
- * `resource()` which is rejected during synchronous SSR. This module throws
- * when an async component or async resource is encountered during sync SSR.
- *
- * Concurrency: Each render call uses AsyncLocalStorage (Node.js) to isolate
- * render state, making concurrent SSR requests safe.
- */
-
 import type { JSXElement } from '../common/jsx';
 import { getPublicAttributeName } from '../common/attr-names';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
-import {
-  SSR_RENDER_DATA_ATTR,
-  type DocumentRenderArgs,
-  type DocumentRenderContext,
-  type DocumentRenderer,
-  renderDocument,
-} from '../common/ssr';
+import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
 import { isPromiseLike } from '../common/promise';
-import type {
-  RouteAuthOptions,
-  RouteHandler,
-  RouteManifest,
-  RouteRegistry,
-  RouteRequestResult,
-} from '../common/router';
-import * as RouteModule from '../router/route';
 import type { Props } from '../common/props';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
 import { DefaultPortal } from '../foundations/structures/portal';
@@ -53,6 +27,18 @@ import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { VOID_ELEMENTS, escapeText, styleObjToCss } from './escape';
 import { renderAttrs, renderAttrsDirect } from './attrs';
 import type { VNode } from './types';
+import {
+  renderRouteToStream,
+  renderRouteToString,
+  resolveRequest,
+  type RouteAppRenderInput,
+  type RouteRenderHost,
+  type RouteRenderOptions,
+  type RouteStreamOptions,
+} from './route-render';
+import { startRenderPhase, stopRenderPhase } from './render-keys';
+import { StringSink } from './sink';
+import { Component } from './stream-render';
 
 import { logger } from '../dev/logger';
 import {
@@ -113,13 +99,11 @@ export type {
   DocumentRenderContext,
   DocumentRenderer,
 } from '../common/ssr';
+export type { SSRRoute } from './route-render';
 export type { VNode, SSRComponent } from './types';
 export { renderResolvedToStringSync } from './render-resolved';
+export { resolveRequest };
 
-// Dev-only SSR strictness guard helpers. We mutate globals in dev to make
-// accidental usage of Math.random/Date.now during sync SSR fail fast.
-// We implement a re-entrant stack so nested or concurrent calls don't clobber
-// global values unexpectedly.
 const __ssrGuardStack: Array<{ random: () => number; now: () => number }> = [];
 
 function pushSSRStrictPurityGuard() {
@@ -151,9 +135,6 @@ function popSSRStrictPurityGuard() {
   }
 }
 
-/**
- * Synchronous rendering helpers (used for strictly synchronous SSR)
- */
 function renderRenderableSync(value: unknown, ctx: RenderContext): string {
   if (typeof value === 'string') return escapeText(value);
   if (typeof value === 'number') return escapeText(String(value));
@@ -224,9 +205,6 @@ function renderChildrenSync(
   if (!children || !Array.isArray(children) || children.length === 0) return '';
   if (children.length === 1) return renderChildSync(children[0], ctx);
 
-  // Small child arrays are common; concatenation is usually faster than
-  // allocating + joining. Large sibling lists (10k+) need join to avoid O(n^2)
-  // concatenation costs.
   if (children.length <= 8) {
     let result = '';
     for (const child of children) result += renderChildSync(child, ctx);
@@ -453,9 +431,6 @@ function sinkWrite3(
   sink.write(c);
 }
 
-/**
- * Render a VNode synchronously. Throws if an async component is encountered.
- */
 function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   const { type, props } = node;
 
@@ -464,7 +439,6 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     try {
       logger.warn('[SSR] renderNodeSync type:', typeof type, type);
     } catch {
-      // Ignore coercion errors for Symbols
     }
   }
 
@@ -473,7 +447,6 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     return renderRenderableSync(inheritRenderableKey(node, result), ctx);
   }
 
-  // Special-case fragments (symbols) - render children directly
   if (typeof type === 'symbol') {
     if (type === Fragment) {
       const childrenArr = getRenderableChildren(node);
@@ -540,8 +513,6 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     return `<${typeStr}${attrs} />`;
   }
 
-  // Hot path: most nodes don't use dangerouslySetInnerHTML.
-  // Avoid allocating the `{ attrs, dangerousHtml }` object unless the prop exists.
   const maybeDangerous = (
     props as unknown as { dangerouslySetInnerHTML?: unknown }
   )?.dangerouslySetInnerHTML;
@@ -578,7 +549,6 @@ function renderNodeSyncToSink(
     return;
   }
 
-  // Fragment
   if (typeof type === 'symbol') {
     if (type === Fragment) {
       const childrenArr = getRenderableChildren(node);
@@ -677,7 +647,6 @@ function renderNodeSyncToSink(
 
   const children = getRenderableChildren(node);
 
-  // Hot path: empty element (no children) - single write
   if (!children || (Array.isArray(children) && children.length === 0)) {
     sinkWrite2(sink, '<', typeStr);
     renderAttrsDirect(props, sink);
@@ -686,7 +655,6 @@ function renderNodeSyncToSink(
     return;
   }
 
-  // Hot path: single text child - single write
   if (Array.isArray(children) && children.length === 1) {
     const only = children[0];
     if (typeof only === 'string') {
@@ -709,7 +677,6 @@ function renderNodeSyncToSink(
     }
   }
 
-  // General case: element with complex children
   sinkWrite2(sink, '<', typeStr);
   renderAttrsDirect(props, sink);
   sink.write('>');
@@ -717,35 +684,15 @@ function renderNodeSyncToSink(
   sinkWrite3(sink, '</', typeStr, '>');
 }
 
-/**
- * Execute a component function (synchronously or async) and return VNode
- */
-/**
- * Execute a component synchronously inside a render-only context.
- * This must not create or reuse runtime ComponentInstance objects. We pass
- * the render context explicitly as `context.ssr` in the second argument so
- * components can opt-in to deterministic randomness/time via the provided RNG.
- */
 function executeComponentSync(
   component: Component,
   props: Record<string, unknown> | undefined,
   ctx: RenderContext
 ): VNode | JSXElement {
-  // Dev-only: enforce SSR purity with clear messages. We temporarily override
-  // `Math.random` and `Date.now` while rendering to produce a targeted error
-  // if components call them directly. We restore them immediately afterwards.
-  // Re-entrant guard for dev-only SSR strict purity checks.
-  // We avoid clobbering globals permanently by pushing the original functions
-  // onto a stack and restoring them on exit. This is safer for nested or
-  // stacked SSR render invocations.
-
   try {
     if (process.env.NODE_ENV !== 'production') {
       pushSSRStrictPurityGuard();
     }
-    // Create a temporary, lightweight component instance so runtime APIs like
-    // `state()` and `currentRoute()` can be called during SSR render. We avoid mounting
-    // or side-effects by not attaching the instance to any DOM target.
     const prev = getCurrentComponentInstance();
     const temp = createComponentInstance(
       'ssr-temp',
@@ -782,10 +729,8 @@ function executeComponentSync(
     });
     setCurrentComponentInstance(temp);
     try {
-      // Context already set via withRenderContext at render entry point
       const result = component((props || {}) as Props, { ssr: ctx });
       if (isPromiseLike(result)) {
-        // Use the centralized SSR error for async data/components during SSR
         throwSSRDataMissing();
       }
       if (
@@ -795,7 +740,6 @@ function executeComponentSync(
         result === null ||
         result === undefined
       ) {
-        // Return a Fragment with the text content, not a div wrapper
         const inner =
           result === null || result === undefined || result === false
             ? ''
@@ -808,7 +752,6 @@ function executeComponentSync(
       }
       return result as VNode | JSXElement;
     } finally {
-      // Restore the previous instance (if any)
       setCurrentComponentInstance(prev);
     }
   } finally {
@@ -1201,11 +1144,6 @@ function verifyRenderableNode(
     : verifyExpectedNode(value, state, ctx);
 }
 
-/**
- * Single synchronous SSR entrypoint: render a component to an HTML string.
- * This is strictly synchronous and deterministic. Optionally provide a seed
- * for deterministic randomness via `options.seed`.
- */
 export function renderToStringSync(
   component: (
     props?: Record<string, unknown>
@@ -1217,7 +1155,6 @@ export function renderToStringSync(
   const ctx = createRenderContext(seed, { data: options?.data });
 
   return withRenderContext(ctx, () => {
-    // Set render data on context (startRenderPhase now reads from context)
     startRenderPhase(options?.data ?? null);
     try {
       const node = renderSyncComponentRoot(
@@ -1243,201 +1180,10 @@ export function renderToStringSync(
   });
 }
 
-export async function resolveRequest(
-  opts:
-    | {
-        url: string;
-        registry: RouteRegistry;
-        manifest?: RouteManifest;
-        routes?: Array<{
-          path: string;
-          handler: RouteHandler;
-          namespace?: string;
-        }>;
-        auth?: RouteAuthOptions;
-        signal?: AbortSignal;
-      }
-    | {
-        url: string;
-        manifest: RouteManifest;
-        registry?: RouteRegistry;
-        routes?: Array<{
-          path: string;
-          handler: RouteHandler;
-          namespace?: string;
-        }>;
-        auth?: RouteAuthOptions;
-        signal?: AbortSignal;
-      }
-    | {
-        url: string;
-        manifest?: RouteManifest;
-        registry?: RouteRegistry;
-        routes: Array<{
-          path: string;
-          handler: RouteHandler;
-          namespace?: string;
-        }>;
-        auth?: RouteAuthOptions;
-        signal?: AbortSignal;
-      }
-): Promise<RouteRequestResult> {
-  const { url, auth, signal } = opts;
-  const manifest = opts.manifest ?? opts.registry?.manifest;
-  const routes = opts.routes ?? opts.registry?.routes;
-
-  if (manifest) {
-    return await RouteModule.resolveRouteRequest(url, {
-      manifest,
-      mode: 'ssr',
-      auth,
-      signal,
-    });
-  }
-
-  if (!routes) {
-    throw new Error('resolveRequest requires a route manifest or route table.');
-  }
-
-  const requestUrl = new URL(url, 'http://localhost');
-  const resolved = RouteModule.resolveRouteFromRoutes(
-    requestUrl.pathname,
-    routes
-  );
-
-  if (!resolved) {
-    return null;
-  }
-
-  return {
-    kind: 'render',
-    handler: resolved.handler,
-    params: resolved.params,
-  };
-}
-
-// --- Streaming sink-based renderer (v2) --------------------------------------------------
-import { StringSink, StreamSink, type RenderSink } from './sink';
-import { startRenderPhase, stopRenderPhase } from './render-keys';
-import { Component } from './stream-render';
-
-export type SSRRoute = {
-  path: string;
-  handler: RouteHandler;
-  namespace?: string;
-};
-
-type SSRRouteSource =
-  | {
-      registry: RouteRegistry;
-      routes?: readonly SSRRoute[];
-    }
-  | {
-      registry?: RouteRegistry;
-      routes: readonly SSRRoute[];
-    };
-
-type RouteRenderOptions = SSRRouteSource & {
-  url: string;
-  seed?: number;
-  data?: SSRData;
-  document?: DocumentRenderer;
-};
-
-type RouteStreamOptions = RouteRenderOptions & {
-  onChunk(html: string): void;
-  onComplete(): void;
-};
-
-type ResolvedSSRRouteRender = {
-  url: string;
-  requestUrl: URL;
-  route: SSRRoute;
-  params: Record<string, string>;
-  seed: number;
-  data?: SSRData;
-  ctx: RenderContext;
-  document?: DocumentRenderer;
-};
-
-function resolveSSRRouteSource(source: SSRRouteSource): SSRRoute[] {
-  const routes = source.routes ?? source.registry?.routes;
-  if (!routes || routes.length === 0) {
-    throw new Error('SSR requires a route registry or route table.');
-  }
-
-  return routes.map((route) => ({
-    ...route,
-    path: route.path,
-    handler: route.handler,
-    namespace: route.namespace,
-  }));
-}
-
-function resolveSSRRouteRender(
-  opts: RouteRenderOptions
-): ResolvedSSRRouteRender {
-  const { url, seed = 12345, data, document } = opts;
-  const routeTable = resolveSSRRouteSource(opts);
-  const requestUrl = new URL(url, 'http://localhost');
-  const matched = RouteModule._resolveRouteMatchFromRoutes(
-    requestUrl.pathname,
-    routeTable
-  );
-  if (!matched) throw new Error(`SSR: no route found for url: ${url}`);
-
-  const ctx = createRenderContext(seed, {
-    url,
-    data,
-    params: matched.params,
-    routes: routeTable,
-  });
-
-  return {
-    url,
-    requestUrl,
-    route: matched.route,
-    params: matched.params,
-    seed,
-    data,
-    ctx,
-    document,
-  };
-}
-
-function buildDocumentRenderArgs(
-  resolved: ResolvedSSRRouteRender,
-  appHtml: string
-): DocumentRenderArgs {
-  const context: DocumentRenderContext = {
-    mode: 'ssr',
-    url: resolved.url,
-    pathname: resolved.requestUrl.pathname,
-    search: resolved.requestUrl.search,
-    hash: resolved.requestUrl.hash,
-    params: resolved.params,
-    data: resolved.data,
-    seed: resolved.seed,
-    route: {
-      path: resolved.route.path,
-      namespace: resolved.route.namespace,
-    },
-  };
-
-  return {
-    appHtml,
-    context,
-  };
-}
-
-function renderResolvedRouteAppToSink(
-  resolved: ResolvedSSRRouteRender,
-  sink: RenderSink
-): void {
-  const { ctx, data, route, params } = resolved;
+function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
+  const { ctx, data, route, params, sink } = input;
 
   withRenderContext(ctx, () => {
-    // Start render-phase keying so resource() can lookup resolved `data` by key
     startRenderPhase(data || null);
     try {
       const app = executeComponentSync(
@@ -1457,6 +1203,10 @@ function renderResolvedRouteAppToSink(
   });
 }
 
+const routeRenderHost: RouteRenderHost = {
+  renderAppToSink: renderSSRRouteAppToSink,
+};
+
 export function renderToString(
   component: (
     props?: Record<string, unknown>
@@ -1464,7 +1214,6 @@ export function renderToString(
 ): string;
 export function renderToString(opts: RouteRenderOptions): string;
 export function renderToString(arg: unknown): string {
-  // Convenience: if a component function is passed, delegate to sync render
   if (typeof arg === 'function') {
     return renderToStringSync(
       arg as (
@@ -1473,35 +1222,9 @@ export function renderToString(arg: unknown): string {
     );
   }
   const opts = arg as RouteRenderOptions;
-  const sink = new StringSink();
-  renderToSinkInternal({ ...opts, sink });
-  sink.end();
-  return sink.toString();
+  return renderRouteToString(opts, routeRenderHost);
 }
 
 export function renderToStream(opts: RouteStreamOptions): void {
-  const sink = new StreamSink(opts.onChunk, opts.onComplete);
-  renderToSinkInternal({ ...opts, sink });
-  sink.end();
-}
-
-function renderToSinkInternal(opts: RouteRenderOptions & { sink: RenderSink }) {
-  const { sink, ...renderOptions } = opts;
-  const resolved = resolveSSRRouteRender(renderOptions);
-
-  if (!resolved.document) {
-    renderResolvedRouteAppToSink(resolved, sink);
-    return;
-  }
-
-  const appSink = new StringSink();
-  renderResolvedRouteAppToSink(resolved, appSink);
-  appSink.end();
-  sink.write(
-    renderDocument(
-      resolved.document,
-      buildDocumentRenderArgs(resolved, appSink.toString()),
-      'renderToString()/renderToStream()'
-    )
-  );
+  renderRouteToStream(opts, routeRenderHost);
 }

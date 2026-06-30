@@ -1,5 +1,11 @@
+import { __FOR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../dev/logger';
-import type { ComponentFunction } from '../runtime/component-contracts';
+import { enqueueRuntimeTask } from '../runtime/access';
+import type { ChildScope } from '../runtime/child-scope';
+import type {
+  ComponentFunction,
+  ComponentInstance,
+} from '../runtime/component-contracts';
 import {
   clearCaseDomUpdateState,
   clearShowDomUpdateState,
@@ -12,23 +18,59 @@ import {
   evaluateForState,
   recordBenchEvent,
 } from '../runtime/for';
-import type { ComponentInstance } from '../runtime/component-contracts';
 import { teardownNodeSubtree } from './cleanup';
-import { keyedElements } from './keyed';
-import { commitForStateBoundaryChildren } from './for-commit';
 import { getRuntimeEnv } from './env';
+import { commitForStateBoundaryChildren } from './for-commit';
+import { keyedElements } from './keyed';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
-import {
-  createDOMNode,
-  syncComponentElement,
-  updateElementFromVnode,
-  tryPatchStableForDirtyItem,
-} from './dom';
+
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 type ElementWithContext = DOMElement & {
   __instance?: ComponentInstance;
 };
+
+type BoundaryCommitOwnerState = ControlBoundaryState & {
+  _commitOwner?: Element | null;
+};
+
+export interface BoundaryDOMHost {
+  createDOMNode(vnode: unknown, parentNamespace?: string): Node | null;
+  syncComponentElement(
+    currentDom: Node | null,
+    node: ElementWithContext,
+    type: ComponentFunction,
+    props: Record<string, unknown>,
+    parentNamespace?: string,
+    forceChildrenUpdate?: boolean,
+    retainedHostInstances?: Iterable<ComponentInstance>
+  ): Node | null;
+  updateElementFromVnode(
+    el: Element,
+    vnode: VNode,
+    updateChildren?: boolean,
+    forceChildrenUpdate?: boolean
+  ): void;
+  tryPatchStableForDirtyItem(scope: {
+    dom?: Node;
+    vnode?: VNode;
+  }): boolean;
+}
+
+let boundaryDOMHost: BoundaryDOMHost | null = null;
+const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
+
+export function configureBoundaryDOMHost(host: BoundaryDOMHost): void {
+  boundaryDOMHost = host;
+}
+
+function getBoundaryDOMHost(): BoundaryDOMHost {
+  if (!boundaryDOMHost) {
+    throw new Error('[askr] Control boundary DOM host is not configured.');
+  }
+  return boundaryDOMHost;
+}
 
 function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
   if (!_isDOMElement(vnode)) return true;
@@ -38,12 +80,15 @@ function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
   return dom.tagName.toLowerCase() !== vnodeType.toLowerCase();
 }
 
-function materializeChildScopeDom(vnode: VNode): Node | null {
+function materializeChildScopeDom(
+  vnode: VNode,
+  parentNamespace?: string
+): Node | null {
   if (vnode === null || vnode === undefined || vnode === false) {
     return document.createComment('');
   }
 
-  const dom = createDOMNode(vnode);
+  const dom = getBoundaryDOMHost().createDOMNode(vnode, parentNamespace);
   if (!(dom instanceof DocumentFragment)) {
     return dom;
   }
@@ -95,26 +140,130 @@ export function getControlBoundaryState(
   );
 }
 
+export function getDirectControlBoundaryVNode(
+  children: unknown
+): DOMElement | null {
+  if (
+    !Array.isArray(children) &&
+    _isDOMElement(children) &&
+    (children as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    return children as DOMElement;
+  }
+
+  if (
+    Array.isArray(children) &&
+    children.length === 1 &&
+    _isDOMElement(children[0]) &&
+    (children[0] as DOMElement).type === __FOR_BOUNDARY__
+  ) {
+    return children[0] as DOMElement;
+  }
+
+  return null;
+}
+
+function getControlBoundaryCommitChildren(
+  controlState: ControlBoundaryState
+): VNode[] {
+  if (controlState.kind === 'for' && controlState._needsSourceReconcile) {
+    return evaluateForState(controlState);
+  }
+
+  if (controlState.kind !== 'for') {
+    const activeVNode = controlState.activeScope?.vnode;
+    return activeVNode == null || activeVNode === false ? [] : [activeVNode];
+  }
+
+  if (controlState.orderedKeys.length === 0) {
+    const fallbackVNode = controlState.fallbackScope?.vnode;
+    return fallbackVNode == null || fallbackVNode === false
+      ? []
+      : [fallbackVNode];
+  }
+
+  const childrenVNodes: VNode[] = [];
+  for (let index = 0; index < controlState.orderedKeys.length; index += 1) {
+    const itemKey = controlState.orderedKeys[index];
+    const itemInstance = controlState.items.get(itemKey);
+    childrenVNodes.push((itemInstance?.scope.vnode ?? null) as VNode);
+  }
+
+  return childrenVNodes;
+}
+
+export function clearControlBoundaryCommitOwner(parent: Element): void {
+  const owner = controlBoundaryOwners.get(parent) as
+    | BoundaryCommitOwnerState
+    | undefined;
+  if (owner) {
+    owner._enqueueBoundaryCommit = null;
+    owner._hasPendingBoundaryCommit = false;
+    if (owner._commitOwner === parent) {
+      owner._commitOwner = null;
+    }
+  }
+
+  controlBoundaryOwners.delete(parent);
+}
+
+export function registerControlBoundaryCommitOwner(
+  parent: Element,
+  controlState: ControlBoundaryState
+): void {
+  const ownerState = controlState as BoundaryCommitOwnerState;
+  const previousParent = ownerState._commitOwner;
+  if (
+    previousParent &&
+    previousParent !== parent &&
+    controlBoundaryOwners.get(previousParent) === controlState
+  ) {
+    controlBoundaryOwners.delete(previousParent);
+  }
+
+  const previousOwner = controlBoundaryOwners.get(parent) as
+    | BoundaryCommitOwnerState
+    | undefined;
+  if (previousOwner && previousOwner !== controlState) {
+    previousOwner._enqueueBoundaryCommit = null;
+    previousOwner._hasPendingBoundaryCommit = false;
+    if (previousOwner._commitOwner === parent) {
+      previousOwner._commitOwner = null;
+    }
+  }
+
+  controlBoundaryOwners.set(parent, controlState);
+  ownerState._commitOwner = parent;
+  controlState._enqueueBoundaryCommit = () => {
+    if (controlState._hasPendingBoundaryCommit) {
+      return;
+    }
+
+    controlState._hasPendingBoundaryCommit = true;
+    enqueueRuntimeTask(() => {
+      controlState._hasPendingBoundaryCommit = false;
+
+      if (controlBoundaryOwners.get(parent) !== controlState) {
+        return;
+      }
+
+      const childrenVNodes = getControlBoundaryCommitChildren(controlState);
+      commitForBoundaryChildren(parent, controlState, childrenVNodes);
+    });
+  };
+}
+
 /**
- * Create DOM from For boundary - evaluates list and renders items
+ * Create DOM from For/Show/Case control boundaries.
  *
- * CRITICAL INVARIANT:
- * DOM order MUST be reconstructed from the current vnode list on every render.
- * Reusing DOM nodes never implies preserving their position.
- *
- * This function ALWAYS returns a fragment whose child order exactly matches
- * the evaluated vnode list, even when all DOM nodes are reused.
- * Appending an existing node to the fragment is how we express reordering
- * (per DOM spec, appendChild moves already-attached nodes).
- *
- * Do NOT:
- * - Skip appending based on parentElement or existing attachment
- * - Rely on vnode identity (===) to decide DOM reuse (vnodes are mutable)
- * - Introduce fast-paths that might skip DOM reconstruction
+ * DOM order is reconstructed from the current vnode list on every render.
+ * Reusing DOM nodes never implies preserving their position; appending an
+ * existing node to the fragment expresses reordering per the DOM spec.
  */
 export function createForBoundary(
   node: DOMElement,
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
+  parentNamespace?: string
 ): DocumentFragment {
   void props;
   const controlState = getControlBoundaryState(node);
@@ -127,14 +276,13 @@ export function createForBoundary(
   }
 
   const childrenVNodes = evaluateControlBoundaryState(controlState);
-
   const fragment = document.createDocumentFragment();
 
   if (controlState.kind !== 'for') {
     const activeScope = controlState.activeScope;
     const vnode = childrenVNodes[0];
     if (activeScope && vnode !== undefined) {
-      const dom = materializeChildScopeDom(vnode);
+      const dom = materializeChildScopeDom(vnode, parentNamespace);
       activeScope.dom = dom ?? undefined;
       if (dom) {
         fragment.appendChild(dom);
@@ -149,7 +297,7 @@ export function createForBoundary(
     const fallbackScope = forState.fallbackScope;
     const fallbackVNode = childrenVNodes[0];
     if (fallbackScope && fallbackVNode !== undefined) {
-      const dom = materializeChildScopeDom(fallbackVNode);
+      const dom = materializeChildScopeDom(fallbackVNode, parentNamespace);
       fallbackScope.dom = dom ?? undefined;
       if (dom) {
         fragment.appendChild(dom);
@@ -174,7 +322,7 @@ export function createForBoundary(
     }
 
     if (!dom) {
-      dom = materializeChildScopeDom(childVNode);
+      dom = materializeChildScopeDom(childVNode, parentNamespace);
       if (itemInstance) {
         itemInstance.scope.dom = dom ?? undefined;
       }
@@ -189,26 +337,23 @@ export function createForBoundary(
   return fragment;
 }
 
-function syncForItemDom(
+export function syncControlBoundaryScopeDom(
   parent: Element,
-  scope: {
-    dom?: Node;
-    needsDomUpdate: boolean;
-  },
+  scope: ChildScope,
   vnode: VNode
 ): Node | null {
   let dom = scope.dom ?? null;
-
-  if (dom && !scope.needsDomUpdate) {
-    return dom;
-  }
+  const parentNamespace =
+    parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
+  const host = getBoundaryDOMHost();
 
   if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
-    const syncedComponentDom = syncComponentElement(
+    const syncedComponentDom = host.syncComponentElement(
       dom,
       vnode as ElementWithContext,
       vnode.type as ComponentFunction,
-      ((vnode as DOMElement).props ?? {}) as Record<string, unknown>
+      ((vnode as DOMElement).props ?? {}) as Record<string, unknown>,
+      parentNamespace
     );
     if (syncedComponentDom) {
       scope.dom = syncedComponentDom ?? undefined;
@@ -217,7 +362,7 @@ function syncForItemDom(
   }
 
   if (!dom) {
-    dom = materializeChildScopeDom(vnode);
+    dom = materializeChildScopeDom(vnode, parentNamespace);
     scope.dom = dom ?? undefined;
     return dom;
   }
@@ -243,13 +388,14 @@ function syncForItemDom(
     typeof vnode.type === 'string' &&
     tagNamesEqualIgnoreCase(dom.tagName, vnode.type)
   ) {
-    updateElementFromVnode(dom, vnode, true);
+    host.updateElementFromVnode(dom, vnode, true);
     return dom;
   }
 
-  const nextDom = materializeChildScopeDom(vnode);
+  const nextDom = materializeChildScopeDom(vnode, parentNamespace);
   if (!nextDom) {
     if (dom.parentNode === parent) {
+      teardownNodeSubtree(dom);
       dom.parentNode.removeChild(dom);
     }
     scope.dom = undefined;
@@ -260,9 +406,7 @@ function syncForItemDom(
     parent.replaceChild(nextDom, dom);
   }
 
-  if (dom instanceof Element) {
-    teardownNodeSubtree(dom);
-  }
+  teardownNodeSubtree(dom);
 
   scope.dom = nextDom;
   return nextDom;
@@ -278,7 +422,7 @@ export function commitForBoundaryChildren(
     const activeVNode = childrenVNodes[0];
     const nextDom =
       activeScope && activeVNode !== undefined
-        ? syncForItemDom(parent, activeScope, activeVNode)
+        ? syncControlBoundaryScopeDom(parent, activeScope, activeVNode)
         : null;
 
     for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
@@ -311,7 +455,60 @@ export function commitForBoundaryChildren(
 
   commitForStateBoundaryChildren(parent, controlState, childrenVNodes, {
     isProduction: () => getRuntimeEnv().NODE_ENV === 'production',
-    syncForItemDom,
-    tryPatchStableForDirtyItem,
+    syncForItemDom: syncControlBoundaryScopeDom,
+    tryPatchStableForDirtyItem: (scope) =>
+      getBoundaryDOMHost().tryPatchStableForDirtyItem(scope),
   });
+}
+
+export function trySyncControlBoundaryChild(
+  parent: Element,
+  currentNode: Node | null,
+  next: DOMElement
+): boolean {
+  if (next.type !== __FOR_BOUNDARY__) {
+    return false;
+  }
+
+  const controlState = getControlBoundaryState(next);
+  if (!controlState || controlState.kind === 'for') {
+    return false;
+  }
+
+  const childrenVNodes = evaluateControlBoundaryState(controlState);
+  const activeScope = controlState.activeScope;
+  const activeVNode = childrenVNodes[0];
+  const nextDom =
+    activeScope && activeVNode !== undefined
+      ? syncControlBoundaryScopeDom(parent, activeScope, activeVNode)
+      : null;
+
+  for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
+    const removedNode = controlState.lastRemovedNodes[i];
+    if (removedNode.parentNode !== parent) {
+      continue;
+    }
+
+    teardownNodeSubtree(removedNode);
+    if (nextDom && nextDom !== removedNode && !nextDom.parentNode) {
+      parent.replaceChild(nextDom, removedNode);
+    } else {
+      parent.removeChild(removedNode);
+    }
+  }
+
+  if (nextDom && !nextDom.parentNode) {
+    if (currentNode?.parentNode === parent) {
+      teardownNodeSubtree(currentNode);
+      parent.replaceChild(nextDom, currentNode);
+    } else {
+      parent.appendChild(nextDom);
+    }
+  } else if (!nextDom && currentNode?.parentNode === parent) {
+    teardownNodeSubtree(currentNode);
+    parent.removeChild(currentNode);
+  }
+
+  clearControlBoundaryDomUpdateState(controlState);
+  return true;
 }

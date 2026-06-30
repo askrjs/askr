@@ -22,7 +22,26 @@ type ImportEdge = {
   typeOnly: boolean;
 };
 
-const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([]);
+const TYPESCRIPT_SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'] as const;
+
+const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
+  [
+    'src/renderer/dom-internal.ts',
+    'Temporary architecture debt: DOM renderer implementation still owns element creation, reactive props and children, component host handoff, boundaries, and static reuse.',
+  ],
+  [
+    'src/runtime/component-internal.ts',
+    'Temporary architecture debt: component implementation still owns instance state, lifecycle batching, hook indexing, render execution, and cleanup.',
+  ],
+  [
+    'src/runtime/for-internal.ts',
+    'Temporary architecture debt: For implementation still owns item signals, key validation, reconciliation, fallback handling, and disposal.',
+  ],
+  [
+    'src/ssr/index-internal.ts',
+    'Temporary architecture debt: SSR implementation still owns serialization, component execution, boundary rendering, route orchestration, and sink entrypoints.',
+  ],
+]);
 
 const OVERSIZED_LINE_LIMIT = 900;
 const ARCHITECTURE_AREAS = new Set([
@@ -36,6 +55,30 @@ const ARCHITECTURE_AREAS = new Set([
   'ssr',
 ]);
 
+const NO_MTS_SCAN_PATHS = [
+  'src',
+  'tests',
+  'docs',
+  'benches',
+  'examples',
+  'test-utils',
+  'types',
+  'scripts',
+  'tooling',
+];
+
+function isGovernedTypeScriptSourceFile(fileName: string): boolean {
+  return (
+    TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) =>
+      fileName.endsWith(extension)
+    ) && !/\.d\.(?:ts|mts|cts)$/.test(fileName)
+  );
+}
+
+function getSourceScriptKind(fileName: string): ts.ScriptKind {
+  return fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+}
+
 function collectSourceFiles(dir: string): SourceFile[] {
   const result: SourceFile[] = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -47,7 +90,7 @@ function collectSourceFiles(dir: string): SourceFile[] {
       continue;
     }
 
-    if (!/\.(ts|tsx)$/.test(entry.name) || entry.name.endsWith('.d.ts')) {
+    if (!isGovernedTypeScriptSourceFile(entry.name)) {
       continue;
     }
 
@@ -60,10 +103,33 @@ function collectSourceFiles(dir: string): SourceFile[] {
         text,
         ts.ScriptTarget.Latest,
         true,
-        entry.name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+        getSourceScriptKind(entry.name)
       ),
       text,
     });
+  }
+
+  return result;
+}
+
+function collectFilesWithExtension(dir: string, extension: string): string[] {
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+
+  const result: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const filePath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      result.push(...collectFilesWithExtension(filePath, extension));
+      continue;
+    }
+
+    if (entry.name.endsWith(extension)) {
+      result.push(filePath);
+    }
   }
 
   return result;
@@ -94,10 +160,12 @@ function resolveRelativeImport(
   const basePath = path.resolve(path.dirname(fromFile), specifier);
   const candidates = [
     basePath,
-    `${basePath}.ts`,
-    `${basePath}.tsx`,
-    path.join(basePath, 'index.ts'),
-    path.join(basePath, 'index.tsx'),
+    ...TYPESCRIPT_SOURCE_EXTENSIONS.map(
+      (extension) => `${basePath}${extension}`
+    ),
+    ...TYPESCRIPT_SOURCE_EXTENSIONS.map((extension) =>
+      path.join(basePath, `index${extension}`)
+    ),
   ];
 
   for (const candidate of candidates) {
@@ -291,6 +359,11 @@ const RENDERER_DOM_FACADE_MODULES = new Map<string, number>([
   ['src/renderer/dom.ts', 20],
 ]);
 
+const RENDERER_DOM_HELPER_MODULES = new Map<string, number>([
+  ['src/renderer/attributes.ts', 520],
+  ['src/renderer/boundaries.ts', 760],
+]);
+
 const RUNTIME_COMPONENT_FACADE_MODULES = new Map<string, number>([
   ['src/runtime/component.ts', 20],
 ]);
@@ -300,6 +373,32 @@ const RUNTIME_FOR_FACADE_MODULES = new Map<string, number>([
 ]);
 
 const SSR_FACADE_MODULES = new Map<string, number>([['src/ssr/index.ts', 20]]);
+
+const SSR_ROUTE_RENDER_MODULES = new Map<string, number>([
+  ['src/ssr/route-render.ts', 360],
+]);
+
+const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
+  string,
+  { maxLines: number; name: string }
+>([
+  [
+    'src/renderer/dom-internal.ts',
+    { maxLines: 3900, name: 'DOM renderer implementation cluster' },
+  ],
+  [
+    'src/runtime/component-internal.ts',
+    { maxLines: 1304, name: 'component lifecycle implementation cluster' },
+  ],
+  [
+    'src/runtime/for-internal.ts',
+    { maxLines: 1358, name: 'For reconciliation implementation cluster' },
+  ],
+  [
+    'src/ssr/index-internal.ts',
+    { maxLines: 1250, name: 'SSR renderer implementation cluster' },
+  ],
+]);
 
 const SINGLETON_IMPORT_ALLOWLIST = new Set([
   'src/runtime/access.ts',
@@ -353,6 +452,18 @@ function collectNamedImports(
 }
 
 describe('architecture boundaries', () => {
+  it('should reject .mts files in governed source, docs, and test paths', () => {
+    const offenders = NO_MTS_SCAN_PATHS.flatMap((scanPath) =>
+      collectFilesWithExtension(path.join(rootDir, scanPath), '.mts')
+    )
+      .map((filePath) =>
+        path.relative(rootDir, filePath).replaceAll(path.sep, '/')
+      )
+      .sort();
+
+    expect(offenders).toEqual([]);
+  });
+
   it('should keep runtime independent from concrete platform subsystems', () => {
     const forbidden = edges
       .filter((edge) => !edge.typeOnly && topLevelArea(edge.from) === 'runtime')
@@ -530,6 +641,39 @@ describe('architecture boundaries', () => {
     }
   });
 
+  it('should keep renderer attribute and control-boundary helpers wired into the active DOM path', () => {
+    const domInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/dom-internal.ts'
+    );
+    const boundaries = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/boundaries.ts'
+    );
+
+    expect(domInternal).toBeDefined();
+    expect(boundaries).toBeDefined();
+
+    const helperImports = edges
+      .filter((edge) => edge.from === domInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/renderer/attributes.ts');
+    expect(helperImports).toContain('src/renderer/boundaries.ts');
+
+    expect(domInternal!.text).not.toMatch(
+      /function\s+(applyFormControlProp|applyStaticScalarPropsToElement|applyClassPropValue|applyStylePropValue|removeStaleAttributes|materializeKey|hasMatchingStaticProps|evaluateControlBoundaryState|getDirectControlBoundaryVNode|registerControlBoundaryCommitOwner|commitForBoundaryChildren|syncForItemDom|trySyncControlBoundaryChild)\s*\(/
+    );
+    expect(domInternal!.text).not.toMatch(
+      /const\s+controlBoundaryOwners\s*=|type\s+ControlBoundaryCommitOwnerState\s*=/
+    );
+    expect(boundaries!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+
+    for (const [filePath, maxLines] of RENDERER_DOM_HELPER_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
   it('should keep the component facade free of lifecycle implementation logic', () => {
     const facade = sourceFiles.find(
       (file) => file.relativePath === 'src/runtime/component.ts'
@@ -578,6 +722,44 @@ describe('architecture boundaries', () => {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
       expect(file, `${filePath} should exist`).toBeDefined();
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep SSR route and document orchestration split out of the synchronous renderer cluster', () => {
+    const ssrInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/index-internal.ts'
+    );
+    const routeRender = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/route-render.ts'
+    );
+
+    expect(ssrInternal).toBeDefined();
+    expect(routeRender).toBeDefined();
+    expect(ssrInternal!.text).not.toMatch(
+      /function\s+(resolveSSRRouteSource|resolveSSRRouteRender|buildDocumentRenderArgs|renderResolvedRouteAppToSink|renderToSinkInternal)\s*\(/
+    );
+
+    const ssrImports = edges
+      .filter((edge) => edge.from === ssrInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(ssrImports).toContain('src/ssr/route-render.ts');
+
+    for (const [filePath, maxLines] of SSR_ROUTE_RENDER_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should track temporary internal implementation clusters with current line ceilings', () => {
+    for (const [filePath, debt] of INTERNAL_IMPLEMENTATION_CLUSTER_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(debt.name.length).toBeGreaterThan(10);
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(
+        debt.maxLines
+      );
     }
   });
 
