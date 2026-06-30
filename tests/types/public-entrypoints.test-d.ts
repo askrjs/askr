@@ -59,9 +59,7 @@ expectType<typeof rootSurface.AskrRuntime>(rootSurface.AskrRuntime);
 expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
 expectType<rootSurface.AskrRuntime>(rootSurface.getDefaultRuntime());
 expectAssignable<AskrRuntimeOptions>({});
-expectType<RuntimeRendererHost>(
-  null as unknown as RuntimeRendererHost
-);
+expectType<RuntimeRendererHost>(null as unknown as RuntimeRendererHost);
 expectAssignable<RuntimeKeyedReorderDecision>({
   useFastPath: false,
   totalKeyed: 0,

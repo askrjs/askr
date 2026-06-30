@@ -1,10 +1,14 @@
 import { isDevelopmentEnvironment } from '../common/env';
-import { globalScheduler } from './scheduler';
+import {
+  getRuntimeRenderer,
+  getRuntimeSchedulerState,
+  runRuntimeWithSyncProgress,
+  setRuntimeBulkCommitProbe,
+} from './access';
 import type { ComponentInstance } from './component';
 import { finalizeReadableSubscriptions } from './readable';
 import { Fragment } from '../common/jsx';
 import { setDevValue, getDevValue, getDevNamespace } from './dev-namespace';
-import { getDefaultRuntime } from './runtime';
 
 let _bulkCommitActive = false;
 let _appliedParents: WeakSet<Element> | null = null;
@@ -140,7 +144,7 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
 
   // Ask renderer for keyed reorder eligibility (prop differences & heuristics)
   // Ensure a keyed map is available for the first child by populating it proactively.
-  const renderer = getDefaultRuntime().renderer;
+  const renderer = getRuntimeRenderer();
   try {
     renderer.populateKeyMapForElement(firstChild);
   } catch {
@@ -165,16 +169,16 @@ export function commitReorderOnly(
   result: unknown
 ): boolean {
   // Performs the minimal, synchronous reorder-only commit.
-  const renderer = getDefaultRuntime().renderer;
+  const renderer = getRuntimeRenderer();
 
   const schedBefore = isDevelopmentEnvironment()
-    ? globalScheduler.getState()
+    ? getRuntimeSchedulerState()
     : null;
 
   enterBulkCommit();
 
   try {
-    globalScheduler.runWithSyncProgress(() => {
+    runRuntimeWithSyncProgress(() => {
       renderer.evaluate(result, instance.target);
 
       // Finalize runtime bookkeeping (read subscriptions / tokens)
@@ -208,7 +212,7 @@ export function commitReorderOnly(
  */
 function validateFastLaneInvariants(
   instance: ComponentInstance,
-  schedBefore: ReturnType<typeof globalScheduler.getState> | null
+  schedBefore: ReturnType<typeof getRuntimeSchedulerState> | null
 ): void {
   const commitCount = getDevValue<number>('__LAST_FASTPATH_COMMIT_COUNT') ?? 0;
   const invariants = {
@@ -249,7 +253,7 @@ function validateFastLaneInvariants(
     );
   }
 
-  const schedAfter = globalScheduler.getState();
+  const schedAfter = getRuntimeSchedulerState();
   if (
     schedBefore &&
     schedAfter &&
@@ -288,4 +292,4 @@ export function tryRuntimeFastLaneSync(
   }
 }
 
-globalScheduler.setBulkCommitProbe(isBulkCommitActive);
+setRuntimeBulkCommitProbe(isBulkCommitActive);

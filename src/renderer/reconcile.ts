@@ -96,6 +96,11 @@ import {
   _reconcilerRecordedParents,
   planKeyedReorderFastPath,
 } from './keyed';
+import {
+  buildDOMKeyMap,
+  extractKeyedVnodes,
+  type KeyedVnode,
+} from './keyed-children';
 import { teardownNodeSubtree } from './cleanup';
 import { applyRendererFastPath } from './fastpath';
 import { getRuntimeEnv } from './env';
@@ -112,41 +117,13 @@ import {
   checkPropChanges,
   recordFastPathStats,
   recordDOMReplace,
-  tagNamesEqualIgnoreCase,
 } from './utils';
+import {
+  canReuseIntrinsicElementInNamespace,
+  getParentNamespace,
+} from './namespaces';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-
-function getParentNamespace(parent: Element): string | undefined {
-  return parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
-}
-
-function resolveChildNamespace(
-  type: string,
-  parentNamespace: string | undefined
-): string | undefined {
-  if (type === 'svg') return SVG_NAMESPACE;
-  if (parentNamespace === SVG_NAMESPACE && type !== 'foreignObject') {
-    return SVG_NAMESPACE;
-  }
-  return undefined;
-}
-
-function canReuseIntrinsicElementInNamespace(
-  existing: Element,
-  type: string,
-  parentNamespace: string | undefined
-): boolean {
-  if (!tagNamesEqualIgnoreCase(existing.tagName, type)) {
-    return false;
-  }
-
-  const expectedNamespace = resolveChildNamespace(type, parentNamespace);
-  return expectedNamespace === undefined
-    ? true
-    : existing.namespaceURI === expectedNamespace;
-}
 
 // Helper type for narrowings
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
@@ -157,11 +134,11 @@ export function reconcileKeyedChildren(
   newChildren: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> {
-  const keyedVnodes = extractKeyedChildren(newChildren);
+  const keyedVnodes = extractKeyedVnodes(newChildren);
 
   // Ensure we have a key map before reconciliation to avoid O(n) DOM scans
   // during O(n) reconciliation loop (which would be O(n²))
-  const ensuredOldKeyMap = oldKeyMap || buildKeyMapFromDOM(parent);
+  const ensuredOldKeyMap = oldKeyMap || buildDOMKeyMap(parent);
 
   // Try fast paths first
   const fastPathResult = tryFastPaths(
@@ -183,46 +160,11 @@ export function reconcileKeyedChildren(
   );
 }
 
-/** Build key map from DOM children */
-function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
-  const keyMap = new Map<string | number, Element>();
-  try {
-    for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
-      const k = el.getAttribute('data-key');
-      if (k !== null) {
-        keyMap.set(k, el);
-        const n = Number(k);
-        if (!Number.isNaN(n)) keyMap.set(n, el);
-      }
-    }
-  } catch {
-    // Ignore
-  }
-  return keyMap;
-}
-
-/** Extract keyed children in a single pass. */
-function extractKeyedChildren(
-  newChildren: VNode[]
-): Array<{ key: string | number; vnode: VNode }> {
-  const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
-
-  for (let i = 0; i < newChildren.length; i++) {
-    const child = newChildren[i];
-    const key = extractKey(child);
-    if (key !== undefined) {
-      keyedVnodes.push({ key, vnode: child });
-    }
-  }
-
-  return keyedVnodes;
-}
-
 /** Try fast paths before full reconciliation */
 function tryFastPaths(
   parent: Element,
   newChildren: VNode[],
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  keyedVnodes: KeyedVnode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> | null {
   try {
@@ -261,7 +203,7 @@ function tryFastPaths(
 /** Try renderer fast-path */
 function tryRendererFastPath(
   parent: Element,
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  keyedVnodes: KeyedVnode[],
   totalChildren: number,
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> | null {
@@ -291,7 +233,7 @@ function tryRendererFastPath(
 function tryForcedPositionalBulkUpdate(
   parent: Element,
   newChildren: VNode[],
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+  keyedVnodes: KeyedVnode[]
 ): Map<string | number, Element> | null {
   if (getRuntimeEnv().ASKR_FORCE_BULK_POSREUSE !== '1') return null;
   if (keyedVnodes.length === 0 || keyedVnodes.length !== newChildren.length) {
@@ -312,7 +254,7 @@ function tryForcedPositionalBulkUpdate(
 /** Try positional bulk update for medium-sized lists */
 function tryPositionalBulkUpdate(
   parent: Element,
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+  keyedVnodes: KeyedVnode[]
 ): Map<string | number, Element> | null {
   const total = keyedVnodes.length;
   if (total < 10) return null;
@@ -370,7 +312,7 @@ function tryPositionalBulkUpdate(
 /** Count how many vnodes match parent children by position and tag */
 function countPositionalMatches(
   parent: Element,
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  keyedVnodes: KeyedVnode[],
   parentNamespace: string | undefined
 ): number {
   let matchCount = 0;
@@ -414,7 +356,7 @@ function countPositionalMatches(
 /** Check if positional prop changes would prevent bulk update */
 function hasPositionalPropChanges(
   parent: Element,
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>
+  keyedVnodes: KeyedVnode[]
 ): boolean {
   try {
     // For keyed children, use children (elements only) since keyed nodes are elements
@@ -456,7 +398,7 @@ function rebuildKeyedMap(parent: Element): void {
 function performFullReconciliation(
   parent: Element,
   newChildren: VNode[],
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  keyedVnodes: KeyedVnode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> {
   const newKeyMap = new Map<string | number, Element>();

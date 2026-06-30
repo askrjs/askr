@@ -7,7 +7,7 @@ import {
 import { getCurrentContextFrame } from './context';
 import { ResourceCell } from './resource-cell';
 import { state } from './state';
-import { globalScheduler } from './scheduler';
+import { enqueueRuntimeLane } from './access';
 import { brandSnapshotSource } from './snapshot-source';
 import { SSRDataMissingError } from '../common/ssr-errors';
 import { isRouteActivityActive } from '../common/route-activity';
@@ -250,7 +250,7 @@ export function resource<T>(
     } else {
       // Client: start after render via scheduler (never inline)
       const scheduledGeneration = cell.generation;
-      globalScheduler.enqueueInLane('post', () => {
+      enqueueRuntimeLane('post', () => {
         if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
           return;
         }
@@ -317,7 +317,7 @@ export function resource<T>(
         }
       } else {
         const scheduledGeneration = cell.generation;
-        globalScheduler.enqueueInLane('post', () => {
+        enqueueRuntimeLane('post', () => {
           if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
             return;
           }

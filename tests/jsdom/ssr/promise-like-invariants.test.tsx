@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
-import { renderToStringSync, SSRDataMissingError } from '../../../src/ssr';
+import {
+  renderToString,
+  renderToStringSync,
+  SSRDataMissingError,
+} from '../../../src/ssr';
 
 function createNeverThenable(): PromiseLike<unknown> {
   return {
@@ -29,6 +33,20 @@ describe('component promise-like invariants', () => {
   it('should reject thenable SSR components through the synchronous SSR error', () => {
     expect(() =>
       renderToStringSync(() => createNeverThenable() as never)
+    ).toThrow(SSRDataMissingError);
+  });
+
+  it('should reject async route handlers during synchronous route SSR', () => {
+    expect(() =>
+      renderToString({
+        url: '/',
+        routes: [
+          {
+            path: '/',
+            handler: (async () => <main>{'async'}</main>) as never,
+          },
+        ],
+      })
     ).toThrow(SSRDataMissingError);
   });
 });

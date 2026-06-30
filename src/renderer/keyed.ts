@@ -1,10 +1,12 @@
 import type { VNode } from './types';
+import { extractKeyedVnodes, type KeyedVnode } from './keyed-children';
 import {
-  extractKey,
   isIgnoredForPropChanges,
   hasPropChanged,
   buildKeyMapFromChildren,
 } from './utils';
+
+export type { KeyedVnode } from './keyed-children';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Key Map Registry
@@ -63,25 +65,6 @@ export const _reconcilerRecordedParents = new WeakSet<Element>();
 
 // Configuration: LIS fast-path thresholds
 const LIS_THRESHOLD_MIN = 64; // Minimum list size for LIS optimization
-
-export interface KeyedVnode {
-  key: string | number;
-  vnode: VNode;
-}
-
-/**
- * Extract keyed vnodes from children array
- */
-function extractKeyedVnodes(newChildren: VNode[]): KeyedVnode[] {
-  const result: KeyedVnode[] = [];
-  for (const child of newChildren) {
-    const key = extractKey(child);
-    if (key !== undefined) {
-      result.push({ key, vnode: child });
-    }
-  }
-  return result;
-}
 
 /**
  * Compute LIS (Longest Increasing Subsequence) length for positions

@@ -1,6 +1,8 @@
-import { globalScheduler } from './scheduler';
+import {
+  enqueueRuntimeTask,
+  markRuntimeReactivePropsDirtySource,
+} from './access';
 import { getCurrentInstance, type ComponentInstance } from './component';
-import { getDefaultRuntime } from './runtime';
 
 export interface DerivedSubscriber {
   _markDirty(): void;
@@ -40,11 +42,11 @@ function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
   instance.hasPendingUpdate = true;
   const task = instance._pendingFlushTask;
   if (task) {
-    globalScheduler.enqueue(task);
+    enqueueRuntimeTask(task);
     return;
   }
 
-  globalScheduler.enqueue(() => {
+  enqueueRuntimeTask(() => {
     instance.hasPendingUpdate = false;
     instance.notifyUpdate?.();
   });
@@ -257,7 +259,7 @@ export function markReactivePropsDirtySource(
   source: ReadableSource<unknown>
 ): void {
   try {
-    getDefaultRuntime().renderer.markReactivePropsDirtySource(source);
+    markRuntimeReactivePropsDirtySource(source);
   } catch {
     // Keep readable notifications side-effect safe.
   }

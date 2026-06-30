@@ -25,7 +25,19 @@ group({ layout: AppLayout }, () => {
 });
 ```
 
-Internally:
+Internally, `src/router/route.ts` is a compatibility facade. Ownership is split
+across focused modules:
+
+- `authoring.ts` owns route declaration helpers and path/access validation.
+- `store.ts` owns module-level route records, flat routes, namespaces, auth
+  defaults, and registration locking.
+- `manifest.ts` creates registries and applies manifests into the store.
+- `rendering.ts` composes route, page, layout, and `Outlet` handlers.
+- `resolution.ts` owns matching, request resolution, and activity-match
+  computation.
+- `activity.ts` owns `currentRoute()` snapshots and active-route state.
+
+The authoring flow is:
 
 1. `group({ layout: Component }, fn)` pushes a `LayoutScopeRecord` onto the scope stack and pops it when
    `fn` returns.
@@ -35,8 +47,9 @@ Internally:
    - Computes a deterministic `rank` (specificity score) via `computeRank()`
    - Snapshots the current layout scope stack as the route's `layoutChain`
    - Auto-composes a `RouteHandler` that renders the page inside the layout chain
-   - Appends a `RouteRecord` to `records[]` and also registers the handler in the legacy
-     `routes[]` store for backward-compatible resolution
+   - Appends a `RouteRecord` to the `store.ts` record list and also registers
+     the handler in the legacy flat route list for backward-compatible
+     resolution
 
 ## RouteRecord structure
 
@@ -68,10 +81,13 @@ Sum of segment scores = route rank. Higher rank wins when multiple routes match 
 
 ### SPA navigation
 
-`createSPA({ manifest })` calls `_applyManifest()` which populates the two runtime stores:
+`createSPA({ registry })` uses the registry manifest and flat routes together.
+When only a manifest is passed, `_applyManifest()` populates the two runtime
+stores:
 
-- `routes[]` - flat list used by `resolveRoute()` (the depth-indexed O(1) fast path)
-- `records[]` - parsed records used by `getManifest()` and future extensions
+- flat routes - legacy handler list used by direct route-table resolution
+- records - parsed records used by request resolution, metadata, layouts, and
+  future manifest extensions
 
 When `navigate(path)` fires, `resolveRouteRequest()` finds the best record and
 returns its renderer handler. The renderer handler has the layout chain baked
@@ -85,8 +101,9 @@ without executing routed leaves before layout providers render.
 
 ### SSR request resolution
 
-`renderToString({ url, routes })` calls `resolveRouteFromRoutes()` with the provided flat route
-table. Pass manifest-derived routes via:
+`renderToString({ url, registry })` uses the registry route table for route
+matching and keeps request state in render context. Flat route tables are still
+supported for compatibility:
 
 ```ts
 routes: getManifest().records.map((r) => ({
@@ -106,7 +123,8 @@ The SSG pipeline walks `RouteManifest.records`. Records with `options.entries` a
 
 - Route records are always produced in **declaration order** (insertion order within scope).
 - Equal-rank routes are resolved by insertion order (first declared wins).
-- `clearRoutes()` resets both `routes[]` and `records[]` and unlocks registration.
+- `clearRoutes()` resets the flat routes, records, namespace set, auth defaults,
+  registration stacks, lazy import tracking, and registration lock.
 - Registration is locked after `createSPA` / `hydrateSPA` in production (not in tests).
 - The manifest is statically representable: it contains no closures that reference dynamic
   runtime state, making it suitable for serialization and pre-compilation in future tooling.

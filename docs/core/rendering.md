@@ -5,8 +5,8 @@ HTML files (SSG). The same component code works in all three modes.
 
 ## DOM rendering (SPA)
 
-The default mode. Components are rendered into the DOM via `createSPA({ root, manifest })`
-or `createIsland({ root, component })`.
+The default mode. Components are rendered into the DOM via
+`createSPA({ root, registry })` or `createIsland({ root, component })`.
 
 See [Runtime](./runtime.md) for boot APIs.
 
@@ -16,9 +16,11 @@ Askr renders components to an HTML string on the server. The client hydrates the
 
 ### Current status
 
-The shipped SSR API is synchronous and best suited to static or preloaded data.
-Async components and async server data resolution are not part of the finished SSR story yet.
-Use deterministic inputs for stable hydration output.
+The shipped SSR render phase is synchronous and best suited to static or
+preloaded data. It does not await async components, async `resource()` loaders,
+or async document renderers; those paths throw so hydration output remains
+deterministic. Resolve request-time async work before rendering and pass the
+result through route loaders, `data`, or other synchronous inputs.
 
 ### URL-based rendering
 
@@ -99,8 +101,9 @@ const result = await ssg.generate();
 console.log(result.successful, result.totalRoutes);
 ```
 
-SSG accepts the same `document` callback, which keeps the route table shared
-across SPA, SSR, and SSG while userland still owns the actual HTML template.
+SSG accepts the same synchronous `document` callback, which keeps the route
+table shared across SPA, SSR, and SSG while userland still owns the actual HTML
+template.
 
 ```ts
 const ssg = createStaticGen({
@@ -134,6 +137,9 @@ const ssg = createStaticGen({
   },
 });
 ```
+
+SSG may await route expansion work such as `entries()`, but each generated page
+is rendered through the same synchronous SSR engine.
 
 ## See also
 

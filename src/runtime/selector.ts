@@ -3,7 +3,7 @@ import {
   getCurrentInstance,
   type ComponentInstance,
 } from './component';
-import { globalScheduler } from './scheduler';
+import { enqueueRuntimeLane } from './access';
 import {
   clearDerivedDependencySubscriptions,
   markReadableDerivedSubscribersDirty,
@@ -100,7 +100,7 @@ function scheduleSelectorFlush(): void {
   }
 
   hasPendingSelectorFlush = true;
-  globalScheduler.enqueueInLane('derived', flushDirtySelectorRecords);
+  enqueueRuntimeLane('derived', flushDirtySelectorRecords);
 }
 
 function markSelectorRecordDirty(record: SelectorSourceRecord<unknown>): void {

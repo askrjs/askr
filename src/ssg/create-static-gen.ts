@@ -83,7 +83,10 @@ type RuntimeOnlyRoute = {
   result: RouteRenderResult;
 };
 
-function getRuntimeOnlyDiagnostic(route: RouteConfig, path: string): string | null {
+function getRuntimeOnlyDiagnostic(
+  route: RouteConfig,
+  path: string
+): string | null {
   const policies = route.policies ?? [];
 
   if (route.auth === true) {
@@ -137,7 +140,9 @@ function getRuntimeOnlyDiagnostic(route: RouteConfig, path: string): string | nu
 }
 
 function getRouteResultPath(route: RouteConfig): string {
-  return route.params ? interpolateRoutePath(route.path, route.params) : route.path;
+  return route.params
+    ? interpolateRoutePath(route.path, route.params)
+    : route.path;
 }
 
 function createRuntimeOnlyRoute(

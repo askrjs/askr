@@ -429,9 +429,7 @@ describe('route navigation (ROUTER)', () => {
       expect(window.location.pathname).toBe('/accounts');
       expect(window.location.search).toBe('?tag=ops&tag=billing&page=2');
       expect(window.location.hash).toBe('#activity');
-      expect(container.querySelector('#tags')?.textContent).toBe(
-        'ops|billing'
-      );
+      expect(container.querySelector('#tags')?.textContent).toBe('ops|billing');
       expect(container.querySelector('#page')?.textContent).toBe('2');
       expect(container.querySelector('#hash')?.textContent).toBe('#activity');
     });
@@ -444,7 +442,9 @@ describe('route navigation (ROUTER)', () => {
       route('/accounts', () => {
         renderCount++;
         const routeSnapshot = currentRoute();
-        return <span id="query-value">{routeSnapshot.query.get('q') ?? ''}</span>;
+        return (
+          <span id="query-value">{routeSnapshot.query.get('q') ?? ''}</span>
+        );
       });
 
       window.history.replaceState({}, '', '/accounts?q=northwind');
@@ -488,7 +488,10 @@ describe('route navigation (ROUTER)', () => {
         '/accounts?q=northwind'
       );
 
-      updateRouteQuery({ q: 'contoso' }, { history: 'replace', replace: false });
+      updateRouteQuery(
+        { q: 'contoso' },
+        { history: 'replace', replace: false }
+      );
 
       expect(historyReplaceSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({ path: '/accounts?q=contoso' }),

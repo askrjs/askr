@@ -15,13 +15,10 @@ import {
 } from '../common/env';
 import { logger } from '../dev/logger';
 import {
+  configureScrollRestoration,
   initializeNavigation,
   registerAppInstance,
   unregisterAppInstance,
-} from '../router/navigate';
-import {
-  configureScrollRestoration,
-  type ScrollRestorationOptions,
 } from '../router/navigate';
 import {
   _applyManifest,
@@ -36,15 +33,33 @@ import {
   route as registerRoute,
   setServerLocation,
 } from '../router/route';
-import { globalScheduler } from '../runtime/scheduler';
+import { flushRuntimeScheduler } from '../runtime/access';
 import { assertExecutionModel } from '../runtime/execution-model';
-import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
 import { isPromiseLike } from '../common/promise';
-import { SSR_RENDER_DATA_ATTR, type SSRData } from '../common/ssr';
 import {
   startHydrationRenderPhase,
   stopHydrationRenderPhase,
 } from '../common/render-context';
+import {
+  applySelectiveHydration,
+  markSkippedElements,
+  shouldVerifyHydrationMarkup,
+  takeHydrationRenderData,
+} from './hydration';
+import type {
+  BootAppRouteSource,
+  HydrateSPAConfig,
+  IslandConfig,
+  IslandsConfig,
+  SPAConfig,
+} from './types';
+
+export type {
+  HydrateSPAConfig,
+  IslandConfig,
+  IslandsConfig,
+  SPAConfig,
+} from './types';
 
 let componentIdCounter = 0;
 
@@ -66,32 +81,6 @@ type RootCleanupOptions = {
 interface ElementWithCleanup extends Element {
   [CLEANUP_SYMBOL]?: (options?: RootCleanupOptions) => void;
   [ROOT_CLEANUP_CALLBACKS_SYMBOL]?: Set<() => void>;
-}
-
-function takeHydrationRenderData(rootElement: Element): SSRData | null {
-  for (const child of Array.from(rootElement.children)) {
-    if (
-      child instanceof HTMLScriptElement &&
-      child.getAttribute(SSR_RENDER_DATA_ATTR) === 'true'
-    ) {
-      const raw = child.textContent ?? '';
-      child.remove();
-      if (!raw) {
-        return {};
-      }
-
-      try {
-        return JSON.parse(raw) as SSRData;
-      } catch (err) {
-        throw new Error(
-          '[Askr] Failed to parse embedded SSR render data during hydration.',
-          { cause: err }
-        );
-      }
-    }
-  }
-
-  return null;
 }
 
 function clearRootCleanupCallbacks(rootElement: Element): void {
@@ -336,7 +325,7 @@ function mountOrUpdate(
     disposeDefaultPortalScope(instance.portalScope ?? instance);
   });
   mountComponent(instance);
-  globalScheduler.flush();
+  flushRuntimeScheduler();
 }
 
 function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentFunction {
@@ -356,9 +345,6 @@ function bindDeniedStatus(status: number): ComponentFunction {
 
 // New strongly-typed init functions
 import type {
-  Route,
-  RouteManifest,
-  RouteRegistry,
   ResolvedRoute,
   RouteAuthOptions,
   RouteRequestResult,
@@ -369,66 +355,6 @@ import {
   teardownNodeSubtree,
 } from '../renderer';
 installRendererBridge();
-
-export type IslandConfig = {
-  root: Element | string;
-  component: ComponentFunction;
-  // Optional: surface cleanup errors during teardown for this island
-  cleanupStrict?: boolean;
-  // Explicitly disallow routes on islands at type level
-  routes?: never;
-};
-
-export type IslandsConfig = {
-  islands: IslandConfig[];
-};
-
-type BootRouteSource =
-  | {
-      registry: RouteRegistry;
-      manifest?: RouteManifest;
-      routes?: Route[];
-    }
-  | {
-      manifest: RouteManifest;
-      registry?: RouteRegistry;
-      routes?: Route[];
-    }
-  | {
-      manifest?: RouteManifest;
-      registry?: RouteRegistry;
-      routes: Route[];
-    };
-
-export type SPAConfig = BootRouteSource & {
-  root: Element | string;
-  /**
-   * Preferred: pass the route manifest built via `registerRoutes(() => { ... })`.
-   * ```ts
-   * import { getManifest } from '@askrjs/askr/router';
-   * await createSPA({ root: '#app', manifest: getManifest() });
-   * ```
-   */
-  auth?: RouteAuthOptions;
-  scrollRestoration?: boolean | ScrollRestorationOptions;
-  cleanupStrict?: boolean;
-  component?: never;
-};
-
-export type HydrateSPAConfig = BootRouteSource & {
-  root: Element | string;
-  /** Preferred manifest input — see `SPAConfig.manifest`. */
-  auth?: RouteAuthOptions;
-  scrollRestoration?: boolean | ScrollRestorationOptions;
-  cleanupStrict?: boolean;
-  hydrate?: {
-    verifyMarkup?: boolean;
-    deferUntilIdle?: boolean;
-    deferBelowFold?: boolean;
-    foldThreshold?: number;
-    skipSelectors?: string[];
-  };
-};
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
 
@@ -645,256 +571,23 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   });
 }
 
-/**
- * Mark elements that should be skipped during hydration
- */
-function markSkippedElements(root: Element, skipSelectors: string[]): void {
-  if (skipSelectors.length === 0) {
-    return;
-  }
-
-  const uniqueSelectors = Array.from(new Set(skipSelectors));
-  const selectorList = uniqueSelectors.join(', ');
-  const elements = root.querySelectorAll(selectorList);
-  elements.forEach((el) => el.setAttribute('data-skip-hydrate', 'true'));
-}
-
-function collectDeferredBelowFoldBoundaries(
-  root: Element,
-  foldY: number
-): Element[] {
-  const boundaries: Element[] = [];
-  const stack: Element[] = [];
-
-  for (let index = root.children.length - 1; index >= 0; index -= 1) {
-    stack.push(root.children[index]);
-  }
-
-  while (stack.length > 0) {
-    const element = stack.pop()!;
-
-    if (element.hasAttribute('data-skip-hydrate')) {
-      continue;
-    }
-
-    const rect = element.getBoundingClientRect();
-    if (rect.top >= foldY) {
-      element.setAttribute('data-skip-hydrate', 'true');
-      boundaries.push(element);
-      continue;
-    }
-
-    for (let index = element.children.length - 1; index >= 0; index -= 1) {
-      stack.push(element.children[index]);
-    }
-  }
-
-  return boundaries;
-}
-
-function activateVisibleDeferredBoundaries(
-  boundaries: Element[],
-  foldY: number
-): { activated: boolean; remaining: number } {
-  let activated = false;
-  let remaining = 0;
-
-  for (const element of boundaries) {
-    if (!element.hasAttribute('data-skip-hydrate')) {
-      continue;
-    }
-
-    const rect = element.getBoundingClientRect();
-    if (rect.top < foldY) {
-      element.removeAttribute('data-skip-hydrate');
-      activated = true;
-    } else {
-      remaining += 1;
-    }
-  }
-
-  return { activated, remaining };
-}
-
-function queueIdleWork(work: () => void): Promise<void> {
-  return new Promise((resolve) => {
-    if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(
-        () => {
-          work();
-          resolve();
-        },
-        { timeout: 2000 }
-      );
-      return;
-    }
-
-    setTimeout(() => {
-      work();
-      resolve();
-    }, 0);
-  });
-}
-
 function flushHydrationActivation(rootElement: Element): void {
   const instance = instancesByRoot.get(rootElement);
   if (!instance) return;
   instance._enqueueRun?.();
-  globalScheduler.flush();
-}
-
-function shouldVerifyHydrationMarkup(config: HydrateSPAConfig): boolean {
-  const explicit = config.hydrate?.verifyMarkup;
-  if (typeof explicit === 'boolean') {
-    return explicit;
-  }
-
-  return !isProductionEnvironment();
+  flushRuntimeScheduler();
 }
 
 async function registerAppNavigation(
   rootElement: Element,
   path: string,
-  source?: {
-    manifest?: RouteManifest;
-    routes?: readonly Route[];
-    auth?: RouteAuthOptions;
-  }
+  source?: BootAppRouteSource
 ) {
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
   routedRoots.add(rootElement);
   registerAppInstance(instance as ComponentInstance, path, source);
   initializeNavigation();
-}
-
-/**
- * Apply selective hydration with deferral options
- */
-async function applySelectiveHydration(
-  rootElement: Element,
-  resolved: { handler: ComponentFunction; params: Record<string, unknown> },
-  path: string,
-  cleanupStrict: boolean | undefined,
-  hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>,
-  source?: {
-    manifest?: RouteManifest;
-    routes?: readonly Route[];
-    auth?: RouteAuthOptions;
-  }
-): Promise<void> {
-  const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
-  const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
-  const hasSelectiveBoundaries = hasPermanentSkips || hasBelowFoldDeferral;
-  let staticChildSlotsCacheSuspended = false;
-  let releaseSelectiveHydrationResources = () => {};
-
-  const restoreStaticChildSlotsCache = () => {
-    if (!staticChildSlotsCacheSuspended) {
-      return;
-    }
-
-    setStaticChildSlotsCacheEnabled(true);
-    staticChildSlotsCacheSuspended = false;
-  };
-
-  if (hydrateOptions.skipSelectors?.length) {
-    markSkippedElements(rootElement, hydrateOptions.skipSelectors);
-  }
-
-  let deferredBoundaries: Element[] = [];
-  if (hydrateOptions.deferBelowFold) {
-    setStaticChildSlotsCacheEnabled(false);
-    staticChildSlotsCacheSuspended = true;
-    const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
-    deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
-
-    let selectiveHydrationResourcesReleased = false;
-    let unregisterRootCleanupCallback = () => {};
-
-    function handleScroll() {
-      const { activated, remaining } = activateVisibleDeferredBoundaries(
-        deferredBoundaries,
-        foldY
-      );
-
-      if (!activated) {
-        return;
-      }
-
-      flushHydrationActivation(rootElement);
-
-      if (remaining === 0) {
-        releaseSelectiveHydrationResources();
-      }
-    }
-
-    releaseSelectiveHydrationResources = () => {
-      if (selectiveHydrationResourcesReleased) {
-        return;
-      }
-
-      selectiveHydrationResourcesReleased = true;
-      unregisterRootCleanupCallback();
-      window.removeEventListener('scroll', handleScroll);
-      restoreStaticChildSlotsCache();
-    };
-
-    unregisterRootCleanupCallback = registerRootCleanupCallback(
-      rootElement,
-      releaseSelectiveHydrationResources
-    );
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-  }
-
-  if (hydrateOptions.deferUntilIdle && !hasSelectiveBoundaries) {
-    await queueIdleWork(() => {
-      mountOrUpdate(
-        rootElement,
-        (() => resolved.handler(resolved.params)) as ComponentFunction,
-        {
-          cleanupStrict,
-        }
-      );
-    });
-    await registerAppNavigation(rootElement, path, source);
-    return;
-  }
-
-  try {
-    mountOrUpdate(
-      rootElement,
-      (() => resolved.handler(resolved.params)) as ComponentFunction,
-      {
-        cleanupStrict,
-      }
-    );
-    await registerAppNavigation(rootElement, path, source);
-  } catch (error) {
-    releaseSelectiveHydrationResources();
-    throw error;
-  }
-
-  if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
-    await queueIdleWork(() => {
-      try {
-        const { activated } = activateVisibleDeferredBoundaries(
-          deferredBoundaries,
-          Number.POSITIVE_INFINITY
-        );
-        if (activated) {
-          flushHydrationActivation(rootElement);
-        }
-      } finally {
-        releaseSelectiveHydrationResources();
-      }
-    });
-  }
-
-  if (deferredBoundaries.length === 0) {
-    releaseSelectiveHydrationResources();
-  }
 }
 
 /**
@@ -1021,7 +714,13 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           path,
           config.cleanupStrict,
           hydrateOptions,
-          appRouteSource
+          appRouteSource,
+          {
+            mountOrUpdate,
+            registerAppNavigation,
+            registerRootCleanupCallback,
+            flushHydrationActivation,
+          }
         );
       } finally {
         if (hydrationRenderData) {

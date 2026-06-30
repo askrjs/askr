@@ -1,19 +1,46 @@
-import { globalScheduler } from '../runtime/scheduler';
+import { enqueueRuntimeTask } from '../runtime/access';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
   type ComponentInstance,
 } from '../runtime/component';
-import {
-  markReadableDerivedSubscribersDirty,
-  markReactivePropsDirtySource,
-  notifyReadableReaders,
-  recordReadableRead,
-  type ReadableSource,
-} from '../runtime/readable';
+import { recordReadableRead } from '../runtime/readable';
 import { getActiveRenderContext } from '../common/render-context';
 import { logger } from '../dev/logger';
 import { emitInvalidation } from './invalidation-listeners';
+import { createQueryScope } from './query-key';
+import {
+  createReadableSource,
+  isAbortError,
+  normalizeAsyncDataError,
+  notifySource,
+} from './shared';
+import type {
+  DataRuntime,
+  DataRuntimeOptions,
+  InvalidateOnIntervalOptions,
+  InvalidateOptions,
+  Mutation,
+  MutationOptions,
+  MutationRecord,
+  Query,
+  QueryDefinitionField,
+  QueryOptions,
+  QueryScope,
+  QueryState,
+} from './types';
+export type {
+  DataRuntime,
+  DataRuntimeOptions,
+  InvalidateOnIntervalOptions,
+  InvalidateOptions,
+  Mutation,
+  Query,
+  QueryConsistency,
+  QueryKeyPart,
+  QueryScope,
+  QueryStaleReason,
+} from './types';
 import {
   documentVisible,
   routeActive,
@@ -22,211 +49,13 @@ import {
   type ActivityPredicate,
 } from '../runtime/operations';
 
-export type QueryConsistency =
-  | 'fresh'
-  | 'stale'
-  | 'refreshing'
-  | 'pending-write';
-
-export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
-
-export interface InvalidateOptions {
-  markPendingWrite?: boolean;
-  runtime?: DataRuntime;
-}
-
-export interface InvalidateOnIntervalOptions extends InvalidateOptions {
-  intervalMs: number;
-  activeOn?: string | readonly string[];
-  visibleOnly?: boolean;
-  focusedOnly?: boolean;
-}
-
-export type QueryKeyPart =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | readonly QueryKeyPart[]
-  | { readonly [key: string]: QueryKeyPart };
-
-export interface QueryScope {
-  key(...parts: QueryKeyPart[]): string;
-  prefix(...parts: QueryKeyPart[]): string;
-  invalidate(parts: readonly QueryKeyPart[], options?: InvalidateOptions): void;
-}
-
-type QueryControls = {
-  refresh(): Promise<void>;
-};
-
-type QueryLoading = {
-  data: null;
-  error: null;
-  loading: true;
-  refreshing: false;
-  stale: false;
-  consistency: 'fresh';
-  staleReason: null;
-};
-
-type QueryFresh<T> = {
-  data: T;
-  error: null;
-  loading: false;
-  refreshing: false;
-  stale: false;
-  consistency: 'fresh';
-  staleReason: null;
-};
-
-type QueryRefreshing<T> = {
-  data: T;
-  error: null;
-  loading: false;
-  refreshing: true;
-  stale: true;
-  consistency: 'refreshing';
-  staleReason: null;
-};
-
-type QueryPendingWrite<T> = {
-  data: T;
-  error: null;
-  loading: false;
-  refreshing: true;
-  stale: true;
-  consistency: 'pending-write';
-  staleReason: null;
-};
-
-type QueryStaleValue<T> = {
-  data: T;
-  error: null;
-  loading: false;
-  refreshing: false;
-  stale: true;
-  consistency: 'stale';
-  staleReason: 'aborted' | 'inconsistent';
-};
-
-type QueryStaleErrorWithValue<T> = {
-  data: T;
-  error: {};
-  loading: false;
-  refreshing: false;
-  stale: true;
-  consistency: 'stale';
-  staleReason: 'error';
-};
-
-type QueryStaleError = {
-  data: null;
-  error: {};
-  loading: false;
-  refreshing: false;
-  stale: true;
-  consistency: 'stale';
-  staleReason: 'error';
-};
-
-export type Query<T extends {}> = QueryControls &
-  (
-    | QueryLoading
-    | QueryFresh<T>
-    | QueryRefreshing<T>
-    | QueryPendingWrite<T>
-    | QueryStaleValue<T>
-    | QueryStaleErrorWithValue<T>
-    | QueryStaleError
-  );
-
-type MutationControls<TInput, TResult> = {
-  execute(input: TInput): Promise<TResult>;
-  abort(): void;
-  reset(): void;
-};
-
-type MutationIdle = {
-  status: 'idle';
-  pending: false;
-  error: null;
-  result: null;
-};
-
-type MutationPending = {
-  status: 'pending';
-  pending: true;
-  error: null;
-  result: null;
-};
-
-type MutationSuccess<TResult> = {
-  status: 'success';
-  pending: false;
-  error: null;
-  result: TResult;
-};
-
-type MutationError = {
-  status: 'error';
-  pending: false;
-  error: {};
-  result: null;
-};
-
-export type Mutation<TInput, TResult> = MutationControls<TInput, TResult> &
-  (MutationIdle | MutationPending | MutationSuccess<TResult> | MutationError);
-
-type MutationRecord<TResult> = {
-  status: 'idle' | 'pending' | 'success' | 'error';
-  error: {} | null;
-  result: TResult | null;
-};
-
-type QueryOptions<T> = {
-  key: string;
-  fetch: (ctx: { signal: AbortSignal }) => Promise<T>;
-  isConsistent?: (data: T) => boolean;
-  reconcile?: (data: T, ctx: { key: string }) => Promise<boolean> | boolean;
-  runtime?: DataRuntime;
-};
-
-type MutationOptions<TInput, TResult> = {
-  action: (input: TInput, ctx: { signal: AbortSignal }) => Promise<TResult>;
-  affects?: (input: TInput, result: TResult) => string[];
-  afterSuccess?: 'invalidate';
-  runtime?: DataRuntime;
-};
-
-type QueryState<T> = {
-  data: T | null;
-  error: {} | null;
-  loading: boolean;
-  refreshing: boolean;
-  stale: boolean;
-  consistency: QueryConsistency;
-  staleReason: QueryStaleReason | null;
-};
-
 type QuerySlot = {
   key: string;
   cell: QueryCell<unknown>;
 };
 
-type QueryDefinitionField = 'fetch' | 'isConsistent' | 'reconcile';
-
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
-
-export interface DataRuntime {
-  readonly queryCache: Map<string, unknown>;
-}
-
-export interface DataRuntimeOptions {
-  queryCache?: Map<string, unknown>;
-}
 
 type DataRuntimeState = {
   queryCache: Map<string, QueryCell<unknown>>;
@@ -240,7 +69,10 @@ type DataRuntimeState = {
 };
 
 const dataRuntimeStates = new WeakMap<DataRuntime, DataRuntimeState>();
-const dataRuntimeByQueryCache = new WeakMap<Map<string, unknown>, DataRuntime>();
+const dataRuntimeByQueryCache = new WeakMap<
+  Map<string, unknown>,
+  DataRuntime
+>();
 
 function createDataRuntimeState(
   queryCache: Map<string, unknown>
@@ -260,10 +92,7 @@ export function createDataRuntime(
   const runtime: DataRuntime = Object.freeze({
     queryCache: options.queryCache ?? new Map<string, unknown>(),
   });
-  dataRuntimeStates.set(
-    runtime,
-    createDataRuntimeState(runtime.queryCache)
-  );
+  dataRuntimeStates.set(runtime, createDataRuntimeState(runtime.queryCache));
   dataRuntimeByQueryCache.set(runtime.queryCache, runtime);
   return runtime;
 }
@@ -321,13 +150,7 @@ function getActiveDataRuntimeState(): DataRuntimeState {
 }
 
 function resolveDataRuntimeState(runtime?: DataRuntime): DataRuntimeState {
-  return runtime
-    ? getDataRuntimeState(runtime)
-    : getActiveDataRuntimeState();
-}
-
-function createReadableSource(): ReadableSource<unknown> {
-  return (() => undefined) as ReadableSource<unknown>;
+  return runtime ? getDataRuntimeState(runtime) : getActiveDataRuntimeState();
 }
 
 function getQuerySlotStore(
@@ -404,26 +227,6 @@ function ensureMutationCleanup(
     runtimeState.mutationSlotsByInstance.delete(instance);
     runtimeState.mutationCleanupRegistered.delete(instance);
   });
-}
-
-function notifySource(source: ReadableSource<unknown>): void {
-  markReadableDerivedSubscribersDirty(source);
-  markReactivePropsDirtySource(source);
-  notifyReadableReaders(source);
-}
-
-function isAbortError(error: unknown, signal: AbortSignal): boolean {
-  return (
-    signal.aborted ||
-    (error instanceof Error && error.name === 'AbortError') ||
-    (typeof DOMException !== 'undefined' &&
-      error instanceof DOMException &&
-      error.name === 'AbortError')
-  );
-}
-
-function normalizeAsyncDataError(error: unknown, fallbackMessage: string): {} {
-  return error ?? new Error(fallbackMessage);
 }
 
 function invalidateQueriesForRuntime(
@@ -601,12 +404,12 @@ class QueryCell<T> {
     return this.state.stale;
   }
 
-  get consistency(): QueryConsistency {
+  get consistency(): QueryState<T>['consistency'] {
     recordReadableRead(this.source);
     return this.state.consistency;
   }
 
-  get staleReason(): QueryStaleReason | null {
+  get staleReason(): QueryState<T>['staleReason'] {
     recordReadableRead(this.source);
     return this.state.staleReason;
   }
@@ -666,7 +469,7 @@ class QueryCell<T> {
     this.startQueued = true;
     this.pendingRefresh = new Promise<void>((resolve) => {
       this.pendingRefreshResolve = resolve;
-      globalScheduler.enqueue(() => {
+      enqueueRuntimeTask(() => {
         this.startQueued = false;
         if (this.destroyed) {
           this.finishPendingRefresh();
@@ -1015,86 +818,8 @@ export function invalidate(prefix: string, options?: InvalidateOptions): void {
   );
 }
 
-function serializeQueryKeyNumber(part: number): string {
-  if (Number.isNaN(part)) {
-    return 'NaN';
-  }
-
-  if (Object.is(part, -0)) {
-    return '-0';
-  }
-
-  if (part === Infinity) {
-    return 'Infinity';
-  }
-
-  if (part === -Infinity) {
-    return '-Infinity';
-  }
-
-  return String(part);
-}
-
-function serializeQueryKeyPart(part: QueryKeyPart): string {
-  if (typeof (part as unknown) === 'symbol') {
-    throw new Error('[Askr] queryScope() key parts cannot be symbols.');
-  }
-
-  if (part === null) {
-    return 'null';
-  }
-
-  if (part === undefined) {
-    return 'undefined';
-  }
-
-  switch (typeof part) {
-    case 'string':
-      return `s=${encodeURIComponent(part)}`;
-    case 'number':
-      return `n=${serializeQueryKeyNumber(part)}`;
-    case 'boolean':
-      return `b=${part ? '1' : '0'}`;
-    case 'object':
-      if (Array.isArray(part)) {
-        return `a[${part.map((item) => serializeQueryKeyPart(item)).join(',')}]`;
-      }
-
-      return `o{${Object.keys(part)
-        .sort()
-        .map(
-          (key) =>
-            `${encodeURIComponent(key)}=${serializeQueryKeyPart(part[key])}`
-        )
-        .join(',')}}`;
-    default:
-      return String(part);
-  }
-}
-
 export function queryScope(namespace: string): QueryScope {
-  if (typeof namespace !== 'string' || namespace.trim().length === 0) {
-    throw new Error(
-      '[Askr] queryScope() requires a non-empty namespace string.'
-    );
-  }
-
-  const build = (parts: readonly QueryKeyPart[]): string =>
-    [namespace, ...parts].map(serializeQueryKeyPart).join(':') + ':';
-
-  return {
-    key(...parts) {
-      return build(parts);
-    },
-
-    prefix(...parts) {
-      return build(parts);
-    },
-
-    invalidate(parts, options) {
-      invalidate(build(parts), options);
-    },
-  };
+  return createQueryScope(namespace, invalidate);
 }
 
 const INVALIDATE_ON_INTERVAL_OPTIONS_ERROR =
@@ -1148,10 +873,10 @@ export function createMutation<TInput, TResult>(
   const runtimeState = resolveDataRuntimeState(options.runtime);
 
   if (!instance) {
-    return new MutationCell(
-      options,
-      runtimeState
-    ) as unknown as Mutation<TInput, TResult>;
+    return new MutationCell(options, runtimeState) as unknown as Mutation<
+      TInput,
+      TResult
+    >;
   }
 
   const hookIndex = claimHookIndex(instance, 'mutation');
