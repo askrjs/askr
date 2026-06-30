@@ -33,10 +33,6 @@ const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
     'src/runtime/component-internal.ts',
     'Temporary architecture debt: component implementation still owns instance creation, component function execution, inline rendering, and cleanup.',
   ],
-  [
-    'src/ssr/index-internal.ts',
-    'Temporary architecture debt: SSR implementation still owns serialization, boundary rendering, hydration data, and sink entrypoints.',
-  ],
 ]);
 
 const OVERSIZED_LINE_LIMIT = 900;
@@ -390,6 +386,10 @@ const SSR_COMPONENT_RUNTIME_MODULES = new Map<string, number>([
   ['src/ssr/component-runtime.ts', 240],
 ]);
 
+const SSR_BOUNDARY_MODULES = new Map<string, number>([
+  ['src/ssr/boundaries.ts', 240],
+]);
+
 const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   string,
   { maxLines: number; name: string }
@@ -408,7 +408,7 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
   ],
   [
     'src/ssr/index-internal.ts',
-    { maxLines: 1120, name: 'SSR renderer implementation cluster' },
+    { maxLines: 900, name: 'SSR serialization implementation cluster' },
   ],
 ]);
 
@@ -977,6 +977,36 @@ describe('architecture boundaries', () => {
     expect(ssrImports).toContain('src/ssr/component-runtime.ts');
 
     for (const [filePath, maxLines] of SSR_COMPONENT_RUNTIME_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep SSR boundary state and fallback helpers split out of the synchronous renderer cluster', () => {
+    const ssrInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/index-internal.ts'
+    );
+    const boundaries = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/boundaries.ts'
+    );
+
+    expect(ssrInternal).toBeDefined();
+    expect(boundaries).toBeDefined();
+    expect(ssrInternal!.text).not.toMatch(
+      /function\s+(normalizeRenderableChildren|getRenderableChildren|getErrorBoundaryState|resetErrorBoundaryState|createErrorBoundaryReset|createDefaultErrorBoundaryFallbackVNode|resolveErrorBoundaryFallbackNode|getControlBoundaryState|evaluateControlBoundaryChildren)\s*\(/
+    );
+    expect(ssrInternal!.text).not.toMatch(
+      /data-askr-error-boundary|Something went wrong while rendering this view|\bevaluateForState\b|\bevaluateShowState\b|\bevaluateCaseState\b/
+    );
+
+    const ssrImports = edges
+      .filter((edge) => edge.from === ssrInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(ssrImports).toContain('src/ssr/boundaries.ts');
+
+    for (const [filePath, maxLines] of SSR_BOUNDARY_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
       expect(file, `${filePath} should exist`).toBeDefined();
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);

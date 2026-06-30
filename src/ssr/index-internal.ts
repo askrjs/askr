@@ -3,7 +3,7 @@ import { getPublicAttributeName } from '../common/attr-names';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
 import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
 import type { Props } from '../common/props';
-import { Fragment, ELEMENT_TYPE } from '../jsx';
+import { Fragment } from '../jsx';
 import {
   createRenderContext,
   withRenderContext,
@@ -16,12 +16,19 @@ import {
   renderSyncComponentRoot,
   type Component,
 } from './component-runtime';
-import type { ComponentInstance } from '../runtime/component';
 import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { VOID_ELEMENTS, escapeText, styleObjToCss } from './escape';
 import { renderAttrs, renderAttrsDirect } from './attrs';
 import type { VNode } from './types';
+import {
+  createErrorBoundaryReset,
+  evaluateControlBoundaryChildren,
+  getErrorBoundaryState,
+  getRenderableChildren,
+  normalizeRenderableChildren,
+  resolveErrorBoundaryFallbackNode,
+} from './boundaries';
 import {
   renderRouteToStream,
   renderRouteToString,
@@ -35,12 +42,6 @@ import { startRenderPhase, stopRenderPhase } from './render-keys';
 import { StringSink } from './sink';
 
 import { logger } from '../dev/logger';
-import {
-  type ControlBoundaryState,
-  evaluateCaseState,
-  evaluateShowState,
-} from '../runtime/control';
-import { evaluateForState } from '../runtime/for';
 
 const __SSR_DEBUG =
   process.env.NODE_ENV !== 'production' &&
@@ -180,116 +181,6 @@ function renderChildrenSync(
   return parts.join('');
 }
 
-function normalizeRenderableChildren(value: unknown): unknown[] {
-  if (value === null || value === undefined || value === false) {
-    return [];
-  }
-
-  return Array.isArray(value) ? value : [value];
-}
-
-function getErrorBoundaryState(
-  node: VNode | JSXElement
-): NonNullable<ComponentInstance['errorBoundaryState']> | null {
-  return (
-    (node as DOMElement & { __instance?: ComponentInstance }).__instance
-      ?.errorBoundaryState ?? null
-  );
-}
-
-function createDefaultErrorBoundaryFallbackVNode(error: unknown): JSXElement {
-  const message =
-    error instanceof Error
-      ? error.stack || error.message || error.name
-      : typeof error === 'string'
-        ? error
-        : (() => {
-            try {
-              return JSON.stringify(error);
-            } catch {
-              return String(error);
-            }
-          })();
-
-  return {
-    $$typeof: ELEMENT_TYPE,
-    type: 'div',
-    props: {
-      role: 'alert',
-      'data-askr-error-boundary': 'true',
-      style: {
-        boxSizing: 'border-box',
-        padding: '1rem',
-        border: '1px solid currentColor',
-        borderRadius: '0.75rem',
-        display: 'grid',
-        gap: '0.75rem',
-        maxWidth: '100%',
-      },
-      children: [
-        {
-          $$typeof: ELEMENT_TYPE,
-          type: 'strong',
-          props: {
-            children: ['Something went wrong while rendering this view.'],
-          },
-        },
-        {
-          $$typeof: ELEMENT_TYPE,
-          type: 'p',
-          props: {
-            style: { margin: '0' },
-            children: [
-              'The app recovered into a visible fallback so the error is not hidden in the console.',
-            ],
-          },
-        },
-        {
-          $$typeof: ELEMENT_TYPE,
-          type: 'details',
-          props: {
-            open: process.env.NODE_ENV !== 'production',
-            children: [
-              {
-                $$typeof: ELEMENT_TYPE,
-                type: 'summary',
-                props: {
-                  children: ['Error details'],
-                },
-              },
-              {
-                $$typeof: ELEMENT_TYPE,
-                type: 'pre',
-                props: {
-                  style: {
-                    margin: '0',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  },
-                  children: [message],
-                },
-              },
-            ],
-          },
-        },
-      ],
-    },
-    key: null,
-  } as JSXElement;
-}
-
-function resolveErrorBoundaryFallbackNode(
-  fallback: unknown,
-  error: unknown,
-  reset: () => void
-): unknown {
-  return typeof fallback === 'function'
-    ? (fallback as (error: unknown, reset: () => void) => unknown)(error, reset)
-    : fallback !== undefined
-      ? fallback
-      : createDefaultErrorBoundaryFallbackVNode(error);
-}
-
 function renderErrorBoundaryFallbackValue(
   fallback: unknown,
   error: unknown,
@@ -311,39 +202,6 @@ function renderErrorBoundaryFallbackValueToSink(
   ctx: RenderContext
 ): void {
   sink.write(renderErrorBoundaryFallbackValue(fallback, error, reset, ctx));
-}
-
-function getControlBoundaryState(
-  node: VNode | JSXElement
-): ControlBoundaryState | null {
-  const boundaryNode = node as DOMElement;
-
-  return (
-    boundaryNode._controlState ??
-    (boundaryNode._forState as ControlBoundaryState | undefined) ??
-    null
-  );
-}
-
-function evaluateControlBoundaryChildren(
-  node: VNode | JSXElement
-): unknown[] | undefined {
-  if (node.type !== __CONTROL_BOUNDARY__) {
-    return undefined;
-  }
-
-  const controlState = getControlBoundaryState(node);
-  if (!controlState) {
-    return [];
-  }
-
-  if (controlState.kind === 'for') {
-    return evaluateForState(controlState);
-  }
-  if (controlState.kind === 'show') {
-    return evaluateShowState(controlState);
-  }
-  return evaluateCaseState(controlState);
 }
 
 function renderChildrenSyncToSink(
@@ -429,16 +287,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     if (type === __ERROR_BOUNDARY__) {
       const boundaryState = getErrorBoundaryState(node);
       const fallback = props?.fallback;
-      const reset = () => {
-        const instance = (
-          node as DOMElement & { __instance?: ComponentInstance }
-        ).__instance;
-        const state = instance?.errorBoundaryState;
-        if (state) {
-          state.error = null;
-          state.notified = false;
-        }
-      };
+      const reset = createErrorBoundaryReset(node);
 
       if (boundaryState?.error != null) {
         return renderErrorBoundaryFallbackValue(
@@ -529,16 +378,7 @@ function renderNodeSyncToSink(
     if (type === __ERROR_BOUNDARY__) {
       const boundaryState = getErrorBoundaryState(node);
       const fallback = props?.fallback;
-      const reset = () => {
-        const instance = (
-          node as DOMElement & { __instance?: ComponentInstance }
-        ).__instance;
-        const state = instance?.errorBoundaryState;
-        if (state) {
-          state.error = null;
-          state.notified = false;
-        }
-      };
+      const reset = createErrorBoundaryReset(node);
 
       if (boundaryState?.error != null) {
         renderErrorBoundaryFallbackValueToSink(
@@ -645,25 +485,6 @@ function renderNodeSyncToSink(
   sink.write('>');
   renderChildrenSyncToSink(children, sink, ctx);
   sinkWrite3(sink, '</', typeStr, '>');
-}
-
-function getRenderableChildren(
-  node: VNode | JSXElement
-): unknown[] | undefined {
-  if (Array.isArray((node as VNode).children)) {
-    return (node as VNode).children;
-  }
-  if (Array.isArray(node.props?.children)) {
-    return node.props.children as unknown[];
-  }
-  if (
-    node.props?.children !== undefined &&
-    node.props.children !== null &&
-    node.props.children !== false
-  ) {
-    return [node.props.children];
-  }
-  return undefined;
 }
 
 type VerifyState = {
@@ -815,16 +636,7 @@ function verifyExpectedNode(
     if (type === __ERROR_BOUNDARY__) {
       const boundaryState = getErrorBoundaryState(vnode);
       const fallback = props?.fallback;
-      const reset = () => {
-        const instance = (
-          vnode as DOMElement & { __instance?: ComponentInstance }
-        ).__instance;
-        const stateRef = instance?.errorBoundaryState;
-        if (stateRef) {
-          stateRef.error = null;
-          stateRef.notified = false;
-        }
-      };
+      const reset = createErrorBoundaryReset(vnode);
 
       const snapshot: VerifyState = {
         current: state.current,

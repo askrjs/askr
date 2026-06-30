@@ -32,7 +32,7 @@ flowchart TB
   subgraph outputs[Outputs]
     dom[DOM renderer<br/>dom facade, dom-internal.ts, attributes.ts, boundaries.ts]
     spa[SPA navigation]
-    ssr[SSR HTML rendering<br/>index facade, index-internal.ts, component-runtime.ts, route-render.ts]
+    ssr[SSR HTML rendering<br/>index facade, index-internal.ts, boundaries.ts, component-runtime.ts, route-render.ts]
     ssg[SSG batch generation]
   end
 
@@ -131,6 +131,7 @@ flowchart TB
   subgraph server[Server outputs]
     ssrFacade[ssr/index.ts facade]
     ssrCore[index-internal.ts]
+    ssrBoundaries[boundaries.ts]
     ssrComponents[component-runtime.ts]
     ssrRoute[route-render.ts]
     ssrHelpers[attrs, escape, sink, render-resolved]
@@ -200,6 +201,7 @@ flowchart TB
   routeResolution --> ssrFacade
   routeManifest --> ssg
   ssrFacade --> ssrCore
+  ssrCore --> ssrBoundaries
   ssrCore --> ssrComponents
   ssrCore --> ssrRoute
   ssrCore --> ssrHelpers
@@ -227,7 +229,7 @@ diagrams:
   `component-commit.ts`, and `component-lifecycle.ts`,
   `for-internal.ts` plus `for-reconcile.ts`, `for-scopes.ts`, and
   `for-signals.ts`, `dom-internal.ts`, and the SSR `index-internal.ts` plus
-  `component-runtime.ts` and `route-render.ts`.
+  `boundaries.ts`, `component-runtime.ts`, and `route-render.ts`.
 - `src/runtime/access.ts` is the internal boundary used by runtime, renderer,
   data, and FX implementation paths when they need the default scheduler or
   renderer host. Compatibility globals remain exported from their original
@@ -250,10 +252,10 @@ diagrams:
   serialization, and `shared.ts` owns readable notification and async error
   helpers used by data cells.
 - `src/ssr/index.ts` is the stable SSR facade. `index-internal.ts` owns
-  synchronous serialization and boundary rendering, `component-runtime.ts` owns
-  synchronous component execution and temporary owner cleanup, and
-  `route-render.ts` owns route/document orchestration for object-form rendering
-  and streams.
+  synchronous serialization, `boundaries.ts` owns error/control boundary state
+  helpers and fallback construction, `component-runtime.ts` owns synchronous
+  component execution and temporary owner cleanup, and `route-render.ts` owns
+  route/document orchestration for object-form rendering and streams.
 - `src/ssg/create-static-gen.ts` is an orchestration layer over route expansion,
   SSR rendering, file output, and metadata generation rather than a separate
   rendering engine.
@@ -263,10 +265,11 @@ diagrams:
 The diagrams above expose follow-up issues that are not fully solved by the
 facade cleanup:
 
-- The largest DOM, component, and SSR responsibilities are still grouped in
-  explicit internal `.ts` implementation clusters. Architecture checks reject
-  `.mts` source files and track the current cluster line counts, but those
-  implementation files still need responsibility-level extraction.
+- The largest DOM and component responsibilities are still grouped in explicit
+  internal `.ts` implementation clusters. Architecture checks reject `.mts`
+  source files and track the current cluster line counts, while the SSR
+  serialization cluster now stays under the oversized-file limit with boundary,
+  component, and route responsibilities split out.
 - SSG depends on SSR, not the other way around. Diagrams should keep that edge
   direction explicit because it is the contract that preserves one server
   renderer.
