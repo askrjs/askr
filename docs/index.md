@@ -57,6 +57,10 @@ package boundaries in the platform.
 
 ## Additional Reading
 
+- [Internals: Core engine design](./internals/core-engine-design.md)
+- [Internals: Runtime reactivity](./internals/runtime-reactivity.md)
+- [Internals: Renderer pipeline](./internals/renderer-pipeline.md)
+- [Internals: SSR and SSG pipeline](./internals/ssr-ssg-pipeline.md)
 - [Internals: Control-flow primitive design](./internals/for-primitive-design.md)
 - [Internals: Foundations pit of success](./internals/foundations-pit-of-success.md)
 - [Internals: Foundations audit report](./internals/foundations-audit-report.md)

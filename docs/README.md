@@ -72,6 +72,13 @@ Benchmark workflow and current optimization goals live under
 [stability workflow](./benchmarks/stability.md), and
 [performance targets](./benchmarks/performance-targets.md).
 
+For contributors who need the runtime shape rather than API-first docs, see
+[Internals: Core engine design](./internals/core-engine-design.md).
+The detailed drill-downs live in
+[Runtime reactivity](./internals/runtime-reactivity.md),
+[Renderer pipeline](./internals/renderer-pipeline.md), and
+[SSR and SSG pipeline](./internals/ssr-ssg-pipeline.md).
+
 ## The most important rule
 
 Every doc reinforces one thing: **there is a canonical way to build an Askr app**.
