@@ -140,6 +140,47 @@ describe('state subscription invariants', () => {
     cleanup();
   });
 
+  it('should ignore a child state setter captured before unmount', () => {
+    const { container, cleanup } = createTestContainer();
+    let setShow!: (value: boolean) => void;
+    let setChildCount!: (value: number) => void;
+    let childRenders = 0;
+
+    const Child = () => {
+      childRenders += 1;
+      const count = state(0);
+      setChildCount = count.set;
+
+      return <span id={'child'}>{String(count())}</span>;
+    };
+
+    const App = () => {
+      const show = state(true);
+      setShow = show.set;
+
+      return <section>{show() ? <Child /> : null}</section>;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(childRenders).toBe(1);
+    expect(container.querySelector('#child')?.textContent).toBe('0');
+
+    setShow(false);
+    flushScheduler();
+
+    expect(container.querySelector('#child')).toBeNull();
+
+    setChildCount(1);
+    flushScheduler();
+
+    expect(childRenders).toBe(1);
+    expect(container.querySelector('#child')).toBeNull();
+
+    cleanup();
+  });
+
   it('should roll back inline child read subscriptions and props after a failed parent commit', async () => {
     allowFrameworkWarnings(/Unused state variable detected in App at index 3/);
     const { container, cleanup } = createTestContainer();

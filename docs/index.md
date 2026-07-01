@@ -15,12 +15,12 @@ package boundaries in the platform.
 
 ## Core
 
-| Page                             | Description                                                |
-| -------------------------------- | ---------------------------------------------------------- |
-| [Runtime](./core/runtime.md)     | `createIsland`, `createSPA`, lifecycle                     |
+| Page                             | Description                                                     |
+| -------------------------------- | --------------------------------------------------------------- |
+| [Runtime](./core/runtime.md)     | `createIsland`, `createSPA`, lifecycle                          |
 | [Routing](./core/routing.md)     | `createRouteRegistry`, `group`, `route`, `currentRoute`, `Link` |
-| [Rendering](./core/rendering.md) | SSR and SSG output                                         |
-| [Data](./core/data.md)           | `state`, `derive`, `resource`, `query`, `mutation`         |
+| [Rendering](./core/rendering.md) | SSR and SSG output                                              |
+| [Data](./core/data.md)           | `state`, `derive`, `resource`, `query`, `mutation`              |
 
 ## Package Boundaries
 

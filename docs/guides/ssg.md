@@ -4,6 +4,10 @@ SSG is an advanced build-time feature for teams that need pre-rendered HTML outp
 
 Use Static Site Generation (SSG) to pre-render Askr routes into `.html` files at build time.
 
+SSG can await build-time route expansion such as `entries()`, but each page is
+rendered by the synchronous SSR engine. Async components, async `resource()`
+loaders, and async document renderers are rejected during the page render.
+
 ## What SSG generates
 
 - Route HTML files: `/` -> `index.html`, `/about` -> `about/index.html`
@@ -68,7 +72,7 @@ one-off generation. Each raw route entry supports:
 - `path`: route path (supports params like `/blog/{slug}` and final named splats like `/admin/files/{*path}`; splat names are trimmed, must be non-empty, and `*` is reserved)
 - `component` or `handler`: render function
 - `params`: values for path placeholders
-- `entries`: async param expansion for generating many concrete pages from one template
+- `entries`: async build-time param expansion for generating many concrete pages from one template
 - `props`: optional base props merged into rendered params
 
 ## Parameterized routes

@@ -18,7 +18,7 @@ function normalizeHydrationHtml(html: string): string {
 export function verifyHydrationSyncForUrl(opts: {
   root: Element;
   url: string;
-  routes: SSRRoute[];
+  routes: readonly SSRRoute[];
   resolved: ResolvedRoute;
   options?: { seed?: number; data?: SSRData };
 }): boolean {

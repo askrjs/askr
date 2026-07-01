@@ -20,6 +20,7 @@ export interface RetryOptions {
 }
 
 type AnyFn = (...args: never[]) => unknown;
+type CallableFn = (this: unknown, ...args: unknown[]) => unknown;
 
 /**
  * Debounce — delay execution, coalesce rapid calls
@@ -43,6 +44,7 @@ export function debounce<T extends AnyFn>(
   ms: number,
   options?: DebounceOptions
 ): T & { cancel(): void } {
+  const callable = fn as unknown as CallableFn;
   let timeoutId: NodeJS.Timeout | null = null;
   const { leading = false, trailing = true } = options || {};
   let lastArgs: unknown[] | null = null;
@@ -60,13 +62,13 @@ export function debounce<T extends AnyFn>(
     }
 
     if (leading && callTime - lastCallTime >= ms) {
-      fn.apply(this, args);
+      callable.apply(this, args);
       lastCallTime = callTime;
     }
 
     if (trailing) {
       timeoutId = setTimeout(() => {
-        fn.apply(lastThis, lastArgs!);
+        callable.apply(lastThis, lastArgs!);
         timeoutId = null;
         lastCallTime = Date.now();
       }, ms);
@@ -80,7 +82,7 @@ export function debounce<T extends AnyFn>(
     }
   };
 
-  return debounced as T & { cancel(): void };
+  return debounced as unknown as T & { cancel(): void };
 }
 
 /**
@@ -105,6 +107,7 @@ export function throttle<T extends AnyFn>(
   ms: number,
   options?: ThrottleOptions
 ): T & { cancel(): void } {
+  const callable = fn as unknown as CallableFn;
   let lastCallTime: number | null = null;
   let timeoutId: NodeJS.Timeout | null = null;
   const { leading = true, trailing = true } = options || {};
@@ -122,7 +125,7 @@ export function throttle<T extends AnyFn>(
     lastThis = this;
 
     if (leading && timeSinceLastCall >= ms) {
-      fn.apply(this, args);
+      callable.apply(this, args);
       lastCallTime = callTime;
       if (timeoutId !== null) {
         clearTimeout(timeoutId);
@@ -138,7 +141,7 @@ export function throttle<T extends AnyFn>(
     if (trailing && timeoutId === null) {
       timeoutId = setTimeout(
         () => {
-          fn.apply(lastThis, lastArgs!);
+          callable.apply(lastThis, lastArgs!);
           lastCallTime = Date.now();
           timeoutId = null;
         },
@@ -154,7 +157,7 @@ export function throttle<T extends AnyFn>(
     }
   };
 
-  return throttled as T & { cancel(): void };
+  return throttled as unknown as T & { cancel(): void };
 }
 
 /**
@@ -174,16 +177,17 @@ export function throttle<T extends AnyFn>(
  * ```
  */
 export function once<T extends AnyFn>(fn: T): T {
+  const callable = fn as unknown as CallableFn;
   let called = false;
   let result: unknown;
 
   return ((...args: unknown[]) => {
     if (!called) {
       called = true;
-      result = fn(...args);
+      result = callable(...args);
     }
     return result;
-  }) as T;
+  }) as unknown as T;
 }
 
 /**
@@ -219,6 +223,7 @@ export function defer(fn: () => void): void {
  * ```
  */
 export function raf<T extends AnyFn>(fn: T): T {
+  const callable = fn as unknown as CallableFn;
   let frameId: number | null = null;
   let lastArgs: unknown[] | null = null;
   let lastThis: unknown = null;
@@ -230,11 +235,11 @@ export function raf<T extends AnyFn>(fn: T): T {
 
     if (frameId === null) {
       frameId = requestAnimationFrame(() => {
-        fn.apply(lastThis, lastArgs!);
+        callable.apply(lastThis, lastArgs!);
         frameId = null;
       });
     }
-  } as T;
+  } as unknown as T;
 }
 
 /**

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
-import { For } from '@askrjs/askr/control';
+import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { For, Show } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
   createTestContainer,
@@ -168,6 +169,241 @@ describe('For JSX primitive', () => {
       ]);
       expect(afterNodes[2].textContent).toBe('row-3 updated');
       expect(wrapperRenders).toBe(initialRows.length);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should clean nested descendants exactly once when a keyed row is removed', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    let setItems: (next: Item[]) => void = () => {};
+    const cleanupCounts = new Map<number, number>();
+    const localSetters = new Map<number, (next: number) => void>();
+
+    const Nested = ({ id }: { id: number }) => {
+      const instance = getCurrentComponentInstance();
+      if (!instance) {
+        throw new Error('expected nested component instance');
+      }
+
+      const local = state(0);
+      localSetters.set(id, local.set);
+      instance.cleanupFns.push(() => {
+        cleanupCounts.set(id, (cleanupCounts.get(id) ?? 0) + 1);
+      });
+
+      return (
+        <button data-nested={String(id)}>
+          {id}:{local()}
+        </button>
+      );
+    };
+
+    const App = () => {
+      const items = state<Item[]>([
+        { id: 1, label: 'alpha' },
+        { id: 2, label: 'beta' },
+        { id: 3, label: 'gamma' },
+      ]);
+      setItems = (next) => items.set(next);
+
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item) => (
+              <li data-id={String(item.id)}>
+                {item.label}
+                <Nested id={item.id} />
+              </li>
+            )}
+          </For>
+        </ul>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      setItems([
+        { id: 1, label: 'alpha' },
+        { id: 3, label: 'gamma' },
+      ]);
+      flushScheduler();
+
+      expect(
+        Array.from(container.querySelectorAll('li'), (node) =>
+          node.getAttribute('data-id')
+        )
+      ).toEqual(['1', '3']);
+      expect(cleanupCounts.get(2)).toBe(1);
+      expect(cleanupCounts.get(1) ?? 0).toBe(0);
+      expect(cleanupCounts.get(3) ?? 0).toBe(0);
+
+      localSetters.get(2)?.(1);
+      flushScheduler();
+
+      expect(container.querySelector('[data-id="2"]')).toBeNull();
+      expect(cleanupCounts.get(2)).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should keep row-local state attached to keys across reorder', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    let setItems: (next: Item[]) => void = () => {};
+
+    const Row = ({ item }: { item: Item }) => {
+      const local = state(0);
+
+      return (
+        <button
+          data-row={String(item.id)}
+          onClick={() => local.set((value) => value + 1)}
+        >
+          {item.label}:{local()}
+        </button>
+      );
+    };
+
+    const App = () => {
+      const items = state<Item[]>([
+        { id: 1, label: 'a' },
+        { id: 2, label: 'b' },
+        { id: 3, label: 'c' },
+      ]);
+      setItems = (next) => items.set(next);
+
+      return (
+        <div>
+          <For each={items} by={(item) => item.id}>
+            {(item) => <Row item={item} />}
+          </For>
+        </div>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      const rowTwoBefore = container.querySelector(
+        '[data-row="2"]'
+      ) as HTMLButtonElement;
+      rowTwoBefore.click();
+      flushScheduler();
+
+      expect(rowTwoBefore.textContent).toBe('b:1');
+
+      setItems([
+        { id: 3, label: 'c' },
+        { id: 1, label: 'a' },
+        { id: 2, label: 'b' },
+      ]);
+      flushScheduler();
+
+      const rows = Array.from(
+        container.querySelectorAll<HTMLButtonElement>('[data-row]')
+      );
+      expect(rows.map((row) => row.getAttribute('data-row'))).toEqual([
+        '3',
+        '1',
+        '2',
+      ]);
+      expect(rows.map((row) => row.textContent)).toEqual(['c:0', 'a:0', 'b:1']);
+      expect(container.querySelector('[data-row="2"]')).toBe(rowTwoBefore);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should dispose only removed nested For and Show ownership', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string; showDetails: boolean };
+    let setItems: (next: Item[]) => void = () => {};
+    const rowCleanups = new Map<number, number>();
+    const detailCleanups = new Map<number, number>();
+
+    const Details = ({ id }: { id: number }) => {
+      const instance = getCurrentComponentInstance();
+      if (!instance) {
+        throw new Error('expected details component instance');
+      }
+      instance.cleanupFns.push(() => {
+        detailCleanups.set(id, (detailCleanups.get(id) ?? 0) + 1);
+      });
+
+      return <span data-detail={String(id)}>{`detail:${String(id)}`}</span>;
+    };
+
+    const Row = ({ item }: { item: Item }) => {
+      const instance = getCurrentComponentInstance();
+      if (!instance) {
+        throw new Error('expected row component instance');
+      }
+      instance.cleanupFns.push(() => {
+        rowCleanups.set(item.id, (rowCleanups.get(item.id) ?? 0) + 1);
+      });
+
+      return (
+        <li data-row={String(item.id)}>
+          {item.label}
+          <Show when={item.showDetails}>
+            <Details id={item.id} />
+          </Show>
+        </li>
+      );
+    };
+
+    const App = () => {
+      const items = state<Item[]>([
+        { id: 1, label: 'alpha', showDetails: true },
+        { id: 2, label: 'beta', showDetails: true },
+        { id: 3, label: 'gamma', showDetails: true },
+      ]);
+      setItems = (next) => items.set(next);
+
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item) => <Row item={item} />}
+          </For>
+        </ul>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      setItems([
+        { id: 1, label: 'alpha', showDetails: true },
+        { id: 3, label: 'gamma', showDetails: false },
+      ]);
+      flushScheduler();
+
+      expect(
+        Array.from(container.querySelectorAll('[data-row]'), (node) =>
+          node.getAttribute('data-row')
+        )
+      ).toEqual(['1', '3']);
+      expect(
+        Array.from(container.querySelectorAll('[data-detail]'), (node) =>
+          node.getAttribute('data-detail')
+        )
+      ).toEqual(['1']);
+      expect(rowCleanups.get(1) ?? 0).toBe(0);
+      expect(rowCleanups.get(2)).toBe(1);
+      expect(rowCleanups.get(3) ?? 0).toBe(0);
+      expect(detailCleanups.get(1) ?? 0).toBe(0);
+      expect(detailCleanups.get(2)).toBe(1);
+      expect(detailCleanups.get(3)).toBe(1);
     } finally {
       cleanup();
     }

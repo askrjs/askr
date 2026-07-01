@@ -28,7 +28,11 @@ function sameRouteParams(
 
 export function renderResolvedToStringSync(opts: {
   url: string;
-  routes: Array<{ path: string; handler: RouteHandler; namespace?: string }>;
+  routes: ReadonlyArray<{
+    path: string;
+    handler: RouteHandler;
+    namespace?: string;
+  }>;
   handler: RouteHandler;
   params?: Record<string, string>;
   options?: { seed?: number; data?: SSRData };

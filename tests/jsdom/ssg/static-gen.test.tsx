@@ -14,7 +14,11 @@ import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
 import { resource } from '../../../src/resources';
 import { defineContext } from '../../../src/runtime/context';
-import { createRouteRegistry, fallback, route } from '../../../src/router/route';
+import {
+  createRouteRegistry,
+  fallback,
+  route,
+} from '../../../src/router/route';
 import { requireGuest } from '../../../src/router/policy';
 
 // Test utilities

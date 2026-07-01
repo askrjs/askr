@@ -11,13 +11,14 @@ Askr's current SSR APIs render UI to HTML strings for server output.
 
 ## Current status
 
-- The shipped SSR API is currently synchronous and best suited to static or preloaded data.
-- Async components and async server data resolution are not part of the finished SSR story yet.
+- The shipped SSR render phase is synchronous and best suited to static or preloaded data.
+- Async components, async `resource()` loaders, and async document renderers are rejected during SSR instead of awaited.
 - Use deterministic inputs for stable hydration output.
 - URL-based SSR helpers keep route tables in per-render context instead of mutating the client router registry.
 
-If you need streaming HTML or request-time async data loading, Askr does not have
-a production-finished answer for that today.
+If you need request-time async data loading, resolve it before calling the SSR
+renderer and pass the result as synchronous render data. Streaming helpers
+preserve the same synchronous component render boundary.
 
 ## URL-based rendering
 
@@ -37,6 +38,11 @@ const html = renderToString({
   registry,
 });
 ```
+
+When you pass a registry, URL-based SSR applies the registry's synchronous route
+auth and policy decisions before rendering. Denied routes render the same
+denial marker used by client startup and hydration, and redirects render the
+final target route.
 
 ## Document rendering boundary
 

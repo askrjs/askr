@@ -19,9 +19,9 @@ import { cleanupInstancesUnder, teardownNodeSubtree } from './cleanup';
 import { isKeyedReorderFastPathEligible, getKeyMapForElement } from './keyed';
 import { populateKeyMapForElement } from './keyed';
 import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
+import { getDefaultRuntimeInstance } from '../runtime/access';
 import {
   configureRuntimeRenderer,
-  getDefaultRuntime,
   type AskrRuntime,
   type RuntimeRendererHost,
 } from '../runtime/runtime';
@@ -39,7 +39,7 @@ export function createRendererHost(): RuntimeRendererHost {
 }
 
 export function installRendererBridge(
-  runtime: AskrRuntime = getDefaultRuntime()
+  runtime: AskrRuntime = getDefaultRuntimeInstance()
 ): true {
   configureRuntimeRenderer(createRendererHost(), runtime);
   return true;

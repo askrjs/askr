@@ -305,6 +305,45 @@ describe('route navigation (ROUTER)', () => {
       expect(document.activeElement).toBe(nextInput);
     });
 
+    it('should preserve same-path DOM identity when query and hash change', async () => {
+      route('/accounts', () => {
+        const routeSnapshot = currentRoute();
+        const clicks = state(0);
+
+        return (
+          <article id="account-route">
+            <button id="inc" onClick={() => clicks.set((value) => value + 1)}>
+              {String(clicks())}
+            </button>
+            <span id="query-value">{routeSnapshot.query.get('q') ?? ''}</span>
+            <span id="hash-value">{routeSnapshot.hash ?? ''}</span>
+          </article>
+        );
+      });
+
+      window.history.replaceState({}, '', '/accounts?q=old#one');
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      const routeHost = container.querySelector('#account-route');
+      const button = container.querySelector('#inc') as HTMLButtonElement;
+      button.click();
+      flushScheduler();
+
+      expect(button.textContent).toBe('1');
+      expect(container.querySelector('#query-value')?.textContent).toBe('old');
+      expect(container.querySelector('#hash-value')?.textContent).toBe('#one');
+
+      navigate('/accounts?q=new#two', { history: 'replace' });
+      flushScheduler();
+
+      expect(container.querySelector('#account-route')).toBe(routeHost);
+      expect(container.querySelector('#inc')).toBe(button);
+      expect(container.querySelector('#inc')?.textContent).toBe('1');
+      expect(container.querySelector('#query-value')?.textContent).toBe('new');
+      expect(container.querySelector('#hash-value')?.textContent).toBe('#two');
+    });
+
     it('should update current route query without route navigation', async () => {
       const historyReplaceSpy = vi.spyOn(window.history, 'replaceState');
       let renderCount = 0;
@@ -429,9 +468,7 @@ describe('route navigation (ROUTER)', () => {
       expect(window.location.pathname).toBe('/accounts');
       expect(window.location.search).toBe('?tag=ops&tag=billing&page=2');
       expect(window.location.hash).toBe('#activity');
-      expect(container.querySelector('#tags')?.textContent).toBe(
-        'ops|billing'
-      );
+      expect(container.querySelector('#tags')?.textContent).toBe('ops|billing');
       expect(container.querySelector('#page')?.textContent).toBe('2');
       expect(container.querySelector('#hash')?.textContent).toBe('#activity');
     });
@@ -444,7 +481,9 @@ describe('route navigation (ROUTER)', () => {
       route('/accounts', () => {
         renderCount++;
         const routeSnapshot = currentRoute();
-        return <span id="query-value">{routeSnapshot.query.get('q') ?? ''}</span>;
+        return (
+          <span id="query-value">{routeSnapshot.query.get('q') ?? ''}</span>
+        );
       });
 
       window.history.replaceState({}, '', '/accounts?q=northwind');
@@ -488,7 +527,10 @@ describe('route navigation (ROUTER)', () => {
         '/accounts?q=northwind'
       );
 
-      updateRouteQuery({ q: 'contoso' }, { history: 'replace', replace: false });
+      updateRouteQuery(
+        { q: 'contoso' },
+        { history: 'replace', replace: false }
+      );
 
       expect(historyReplaceSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({ path: '/accounts?q=contoso' }),

@@ -5,10 +5,10 @@ import { getRuntimeEnv } from './env';
 import { cleanupInstanceIfPresent, removeAllListeners } from './cleanup';
 import { recordBenchCounter, recordBenchEvent } from '../runtime/for-bench';
 import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
-import { isSchedulerExecuting } from '../runtime/scheduler';
+import { isRuntimeSchedulerExecuting } from '../runtime/access';
 import { isBulkCommitActive, markFastPathApplied } from '../runtime/fastlane';
 import { canUseDirectReplaceChildrenSpread } from './utils';
-import type { VNode } from './types';
+import type { KeyedVnode } from './keyed-children';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
@@ -18,7 +18,7 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 // returns null to indicate the caller should continue with fallback paths.
 export function applyRendererFastPath(
   parent: Element,
-  keyedVnodes: Array<{ key: string | number; vnode: VNode }>,
+  keyedVnodes: KeyedVnode[],
   oldKeyMap?: Map<string | number, Element>
 ): Map<string | number, Element> | null {
   // SSR guard: fast-path is DOM-specific
@@ -28,7 +28,7 @@ export function applyRendererFastPath(
   if (totalKeyed === 0) return null;
 
   // Dev invariant: ensure we are executing inside the scheduler/commit flush
-  if (!isSchedulerExecuting()) {
+  if (!isRuntimeSchedulerExecuting()) {
     logger.warn(
       '[Askr][FASTPATH][DEV] Fast-path reconciliation invoked outside scheduler execution'
     );

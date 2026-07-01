@@ -9,8 +9,8 @@ Askr supports three rendering modes. You choose the mode when you boot the appli
 | Mode            | API                                 | Use case                                  |
 | --------------- | ----------------------------------- | ----------------------------------------- |
 | Island          | `createIsland({ root, component })` | Single mounted component in a larger page |
-| SPA             | `createSPA({ root, manifest })`     | Full client-rendered app with router      |
-| SSR + hydration | `hydrateSPA({ root, manifest })`    | Server-rendered HTML hydrated on client   |
+| SPA             | `createSPA({ root, registry })`     | Full client-rendered app with router      |
+| SSR + hydration | `hydrateSPA({ root, registry })`    | Server-rendered HTML hydrated on client   |
 
 ## Island mode
 
@@ -43,6 +43,10 @@ await createSPA({ root: 'app', registry });
 
 Create the route registry before `createSPA()` is called.
 
+Internally, `createSPA()` also accepts a manifest or flat route table for
+compatibility, but `createRouteRegistry()` is the preferred authoring boundary
+because it keeps the normalized manifest and legacy route table together.
+
 ## SSR + SPA hydration
 
 Server renders to HTML string. Client hydrates with matching route state.
@@ -59,6 +63,17 @@ import { hydrateSPA } from '@askrjs/askr/boot';
 
 await hydrateSPA({ root: 'app', registry });
 ```
+
+SSR rendering is synchronous. Resolve async data before rendering and pass it as
+deterministic inputs; async components or async `resource()` work during SSR
+throw instead of being awaited.
+
+## Runtime boundary
+
+The public runtime keeps compatibility exports such as `createRuntime()`,
+`getDefaultRuntime()`, and `globalScheduler`. Core implementation modules route
+default scheduler and renderer access through the internal runtime access
+boundary so hot paths do not import singleton globals directly.
 
 ## Cleanup
 

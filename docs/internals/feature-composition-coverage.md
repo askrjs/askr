@@ -169,16 +169,16 @@ form remounts with fresh local state.
 
 ## Validation
 
-| Command               | Result                                                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `npm run lint`        | Passed.                                                                                                               |
-| `npm run build`       | Passed.                                                                                                               |
-| `npm test`            | Passed end to end: 104 unit, 4 checks, 832 jsdom, and 38 browser tests.                                               |
-| `npm run test:types`  | Passed after the parent-owned DOM removal typing correction.                                                          |
-| `npm run bench:tier1` | Passed.                                                                                                               |
-| `npm run bench:tier2` | Existing fixture failure: `tier2-subsystem-hydration-verify-markup.tsx` omits the required `resolved` verifier input. |
-| `npm run bench:tier3` | Passed.                                                                                                               |
-| `npm run bench:tier4` | Passed.                                                                                                               |
+| Command               | Result                                                                  |
+| --------------------- | ----------------------------------------------------------------------- |
+| `npm run lint`        | Passed.                                                                 |
+| `npm run build`       | Passed.                                                                 |
+| `npm test`            | Passed end to end: 104 unit, 4 checks, 832 jsdom, and 38 browser tests. |
+| `npm run test:types`  | Passed after the parent-owned DOM removal typing correction.            |
+| `npm run bench:tier1` | Passed.                                                                 |
+| `npm run bench:tier2` | Passed.                                                                 |
+| `npm run bench:tier3` | Passed.                                                                 |
+| `npm run bench:tier4` | Passed.                                                                 |
 
 After the parent-owned removal typing correction, one aggregate `npm test`
 rerun timed out in the existing `should append rows with JSX` benchmark
@@ -188,9 +188,7 @@ reruns passed all 104 unit, 4 checks, 825 jsdom, and 38 browser tests.
 The second batch added seven jsdom regressions and app flows. Final-code
 validation passed `npm run lint`, `npm run build`, `npm run test:types`, and
 the aggregate `npm test` run with 104 unit, 4 checks, 832 jsdom, and 38 browser
-tests. Tier 1, Tier 3, and Tier 4 benchmarks passed. Tier 2 reproduced only its
-existing verifier-fixture failure: `tier2-subsystem-hydration-verify-markup.tsx`
-still omits the required `resolved` input.
+tests. Tier 1, Tier 2, Tier 3, and Tier 4 benchmarks passed.
 
 ## Cross-package regression follow-up
 
