@@ -17,6 +17,7 @@ import {
   type RenderContext,
   type SSRData,
 } from './context';
+import { resolvePolicyAwareSSRRoute } from './route-policy-resolution';
 import { StringSink, StreamSink, type RenderSink } from './sink';
 
 export type SSRRoute = {
@@ -160,27 +161,23 @@ function resolveSSRRouteSource(source: SSRRouteSource): SSRRoute[] {
 function resolveSSRRouteRender(
   opts: RouteRenderOptions
 ): ResolvedSSRRouteRender {
-  const { url, seed = 12345, data, document } = opts;
+  const { seed = 12345, data, document } = opts;
   const routeTable = resolveSSRRouteSource(opts);
-  const requestUrl = new URL(url, 'http://localhost');
-  const matched = RouteModule._resolveRouteMatchFromRoutes(
-    requestUrl.pathname,
-    routeTable
-  );
-  if (!matched) throw new Error(`SSR: no route found for url: ${url}`);
+  const resolvedRoute = resolvePolicyAwareSSRRoute(opts, routeTable);
+  const requestUrl = new URL(resolvedRoute.url, 'http://localhost');
 
   const ctx = createRenderContext(seed, {
-    url,
+    url: resolvedRoute.url,
     data,
-    params: matched.params,
+    params: resolvedRoute.params,
     routes: routeTable,
   });
 
   return {
-    url,
+    url: resolvedRoute.url,
     requestUrl,
-    route: matched.route,
-    params: matched.params,
+    route: resolvedRoute.route,
+    params: resolvedRoute.params,
     seed,
     data,
     ctx,

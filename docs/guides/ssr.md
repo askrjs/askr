@@ -39,6 +39,11 @@ const html = renderToString({
 });
 ```
 
+When you pass a registry, URL-based SSR applies the registry's synchronous route
+auth and policy decisions before rendering. Denied routes render the same
+denial marker used by client startup and hydration, and redirects render the
+final target route.
+
 ## Document rendering boundary
 
 Keep shared route tables app-only by passing a document renderer at the SSR boundary:

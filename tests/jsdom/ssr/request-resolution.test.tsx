@@ -9,6 +9,7 @@ import {
   page,
   route,
 } from '../../../src/router/route';
+import { deny } from '../../../src/router/policy';
 import { renderToString, resolveRequest } from '../../../src/ssr';
 import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
 import { getCurrentRenderData } from '../../../src/ssr/render-keys';
@@ -68,6 +69,61 @@ describe('SSR request resolution', () => {
       kind: 'deny',
       status: 403,
     });
+  });
+
+  it('should render denied SSR requests without invoking protected content', () => {
+    let renderedProtectedContent = false;
+
+    const registry = createRouteRegistry(() => {
+      route(
+        '/private',
+        () => {
+          renderedProtectedContent = true;
+          return <div>{'private'}</div>;
+        },
+        { policies: [() => deny(403)] }
+      );
+    });
+
+    const html = renderToString({
+      url: '/private',
+      registry,
+    });
+
+    expect(renderedProtectedContent).toBe(false);
+    expect(html).toBe('<div data-route-denied="403">403</div>');
+  });
+
+  it('should render redirected SSR requests at the redirect target', () => {
+    let renderedDashboard = false;
+
+    const registry = createRouteRegistry(
+      () => {
+        route('/login', () => <div>{'login-page'}</div>, { auth: 'guest' });
+        route(
+          '/dashboard',
+          () => {
+            renderedDashboard = true;
+            return <div>{'dashboard-page'}</div>;
+          },
+          { auth: true }
+        );
+      },
+      {
+        auth: {
+          resolve: () => ({ session: null, user: null }),
+          loginPath: '/login',
+        },
+      }
+    );
+
+    const html = renderToString({
+      url: '/dashboard?tab=usage',
+      registry,
+    });
+
+    expect(renderedDashboard).toBe(false);
+    expect(html).toBe('<div>login-page</div>');
   });
 
   it('should render plain route tables when no manifest is provided', async () => {

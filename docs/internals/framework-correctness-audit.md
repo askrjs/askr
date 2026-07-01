@@ -275,8 +275,9 @@ Result after follow-up fixes: 4 files and 47 tests passed.
 ### Matrix coverage crosswalk
 
 The audit added direct regressions for items 1-9, 11, 12, 14, 15, 20, 29,
-32-37, 46, and 49. The retained-node probe for item 10 passed without a runtime
-change. The complete suite also reruns the existing focused coverage families:
+32-37, 44, 46, and 49. The retained-node probe for item 10 passed without a
+runtime change. The complete suite also reruns the existing focused coverage
+families:
 
 | Matrix items   | Existing regression families rerun                                                                                       |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -302,6 +303,10 @@ Resolved follow-up probes:
   reorder/removal/insertion. Failed retained updates restore the existing
   element in place, including attributes, children, text data, form-control
   state, refs, reactive props, and direct/delegated listener handler metadata.
+- Item 44: URL-based SSR rendering through a registry now applies synchronous
+  deny and redirect route policy before rendering. Denied routes render the same
+  marker as startup and hydration without invoking protected handlers, and
+  redirects render the final target route.
 - Item 48: the forced non-`AsyncLocalStorage` SSR fallback path now has
   dedicated invariants. Nested synchronous fallback contexts restore in stack
   order, and promise-like fallback callbacks throw a deterministic unsupported
