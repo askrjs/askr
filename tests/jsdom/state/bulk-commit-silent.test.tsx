@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import {
-  enterBulkCommit,
-  exitBulkCommit,
-} from '../../../src/runtime/fastlane';
+import { enterBulkCommit, exitBulkCommit } from '../../../src/runtime/fastlane';
 import {
   createTestContainer,
   flushScheduler,

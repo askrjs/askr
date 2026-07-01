@@ -26,7 +26,7 @@ flowchart LR
 
 `evaluate()` is the central dispatcher. It decides whether a node is text,
 element, component, fragment, or control-flow boundary, then routes it to the
- right DOM or component path.
+right DOM or component path.
 
 ```mermaid
 flowchart LR
@@ -44,6 +44,71 @@ flowchart LR
   evaluate --> component
   evaluate --> controls
   evaluate --> fragment
+```
+
+## DOM Implementation Ownership
+
+The public renderer entrypoint is intentionally tiny. `dom-internal.ts` now
+coordinates element creation and host registration while active helper modules
+own component hosts, child reconciliation, stable patching, error-boundary DOM,
+reactive children, attributes, and control-boundary commits.
+
+```mermaid
+flowchart TB
+  facade[dom.ts facade]
+  internal[dom-internal.ts orchestration]
+  domHost[dom-host.ts host contract]
+  componentHost[component-host.ts component materialization and sync]
+  componentInstances[component-host-instances.ts component instance metadata]
+  componentCleanup[component-host-cleanup.ts detached host cleanup]
+  elementChildren[element-children.ts element child updates]
+  stablePatch[stable-patch.ts stable intrinsic patching]
+  errorBoundaryDom[error-boundary-dom.ts error fallback DOM]
+  reactiveChildren[reactive-children.ts reactive child effects]
+  reactiveChildDom[reactive-child-dom.ts reactive child DOM sync]
+  reactiveSources[reactive-child-sources.ts reactive child planning]
+  childShape[child-shape.ts child normalization]
+  propBindings[prop-bindings.ts listeners and reactive props]
+  attributes[attributes.ts scalar props and keys]
+  intrinsic[intrinsic element create orchestration]
+  boundaries[boundaries.ts control and For boundary commit]
+  staticReuse[static subtree and child-slot reuse]
+  reconcile[reconcile.ts keyed orchestration]
+  reconcileFast[reconcile-fastpaths.ts fast paths]
+  reconcileResolution[reconcile-resolution.ts vnode resolution]
+  reconcileCommit[reconcile-commit.ts DOM commit]
+  forCommit[for-commit.ts For list DOM commit]
+  forMap[for-commit-dom-map.ts DOM key maps]
+  forRemoval[for-commit-removal.ts removed node teardown]
+  forReorder[for-commit-reorder.ts move-only reorder]
+  cleanup[cleanup.ts teardown]
+
+  facade --> internal
+  internal --> domHost
+  internal --> componentHost
+  componentHost --> componentInstances
+  internal --> componentCleanup
+  internal --> elementChildren
+  internal --> stablePatch
+  internal --> errorBoundaryDom
+  internal --> reactiveChildren
+  reactiveChildren --> reactiveChildDom
+  reactiveChildren --> reactiveSources
+  internal --> childShape
+  internal --> propBindings
+  internal --> attributes
+  internal --> intrinsic
+  internal --> boundaries
+  internal --> staticReuse
+  internal --> reconcile
+  reconcile --> reconcileFast
+  reconcile --> reconcileResolution
+  reconcile --> reconcileCommit
+  internal --> forCommit
+  forCommit --> forMap
+  forCommit --> forRemoval
+  forCommit --> forReorder
+  internal --> cleanup
 ```
 
 ## Component to DOM handoff
@@ -74,11 +139,12 @@ lists and bulk text updates take specialized paths.
 ```mermaid
 flowchart LR
   domNode[element target]
-  props[prop and attr sync]
+  props[prop bindings and attr sync]
   childShape[child shape inspection]
   text[text fast path]
   unkeyed[unkeyed child update]
   keyed[keyed reconciliation]
+  staticReuse[static subtree reuse]
   bulk[bulk positional fast paths]
   cleanup[listener and subtree cleanup]
 
@@ -87,10 +153,12 @@ flowchart LR
   childShape --> text
   childShape --> unkeyed
   childShape --> keyed
+  childShape --> staticReuse
   keyed --> bulk
   text --> cleanup
   unkeyed --> cleanup
   keyed --> cleanup
+  staticReuse --> cleanup
 ```
 
 ## Control-flow boundaries
@@ -132,13 +200,72 @@ flowchart LR
 ## Design notes
 
 - `src/renderer/evaluate.ts` is the renderer's dispatcher.
-- `src/renderer/dom.ts` owns element creation, prop syncing, and many fast
-  paths.
-- `src/renderer/reconcile.ts` and `src/renderer/keyed.ts` handle keyed-child
-  reuse and movement decisions.
+- `src/renderer/dom.ts` is the compatibility facade for the DOM renderer.
+  `src/renderer/dom-internal.ts` coordinates active element creation,
+  host registration, and helper-owner orchestration.
+- `src/renderer/dom-host.ts` owns the internal host contract used by renderer
+  helpers that need DOM operations without importing the facade.
+- `src/renderer/component-host.ts` owns component host reuse, component
+  materialization/synchronization, and nested component resolution.
+- `src/renderer/component-host-instances.ts` owns route-root detection,
+  cleanup-strict inheritance, vnode component instance storage, component
+  instance IDs, component host instance lookup, and component key inheritance.
+- `src/renderer/component-host-cleanup.ts` owns detached component host cleanup
+  and stale host instance pruning.
+- `src/renderer/element-children.ts` owns element child updates, keyed child
+  map lookup, empty-child handling, scalar replacement, and unkeyed children.
+- `src/renderer/error-boundary-dom.ts` owns DOM creation for error-boundary
+  fallback and child rendering.
+- `src/renderer/stable-patch.ts` owns stable intrinsic patching and dirty
+  `For` item patch attempts.
+- `src/renderer/attributes.ts` owns scalar prop writes and removals, including
+  class token patching, style string/object/null handling, form `value` and
+  `checked`, stale attribute removal, static scalar props, and key
+  materialization.
+- `src/renderer/prop-bindings.ts` owns tracked event listener registration,
+  reactive prop effects, prop cleanup bookkeeping, and update-time prop/listener
+  diffing used by the DOM renderer.
+- `src/renderer/child-shape.ts` owns fragment detection, child flattening,
+  dynamic-list missing-key warnings, and static-create child-shape checks used
+  by the DOM renderer.
+- `src/renderer/reactive-child-sources.ts` owns reactive child source
+  normalization, equality checks, scalar sequence detection, and boundary
+  sequence planning.
+- `src/renderer/reactive-child-dom.ts` owns retained reactive child DOM
+  synchronization, boundary-node materialization, scalar text patching, and
+  expected-node ordering.
+- `src/renderer/reactive-children.ts` owns reactive child effects, child-scope
+  commit callbacks, and cleanup map entries for reactive children.
+- `src/renderer/boundaries.ts` owns control-boundary state evaluation, direct
+  control-boundary detection, commit-owner scheduling, and For/Show/Case
+  boundary commit orchestration. It uses an explicit DOM host registered by
+  `dom-internal.ts` for DOM operations that would otherwise create an import
+  cycle.
+- `src/renderer/keyed-children.ts` owns keyed vnode snapshots and DOM key-map
+  scans shared by the keyed planner and reconciler.
+- `src/renderer/namespaces.ts` owns intrinsic DOM namespace detection,
+  namespaced element creation, and reuse matching used by the DOM renderer,
+  evaluator, control-boundary commits, and keyed reconciler.
+- `src/renderer/static-reuse.ts` owns static child-slot caching, fast tag-name
+  comparison, and static-subtree reuse eligibility used by the DOM renderer.
+- `src/renderer/reconcile.ts` orchestrates keyed child reconciliation.
+  `reconcile-fastpaths.ts` owns stable and bulk fast paths,
+  `reconcile-resolution.ts` owns vnode-to-DOM resolution, and
+  `reconcile-commit.ts` owns DOM commit application.
+- `src/renderer/for-commit.ts` orchestrates keyed `For` DOM commits.
+  `for-commit-dom-map.ts` owns DOM key-map hydration/synchronization and
+  `for-commit-removal.ts` owns removed boundary-node teardown and bulk clears,
+  while `for-commit-reorder.ts` owns move-only reorders.
 - `src/renderer/cleanup.ts` owns listener removal and subtree teardown.
 - The renderer is deliberately host-shaped so the runtime can stay mostly
   agnostic about DOM details.
+
+## Architecture Review Notes
+
+The renderer diagrams are backed by architecture checks: `dom-internal.ts` and
+the extracted helper owners each have explicit line ceilings, helpers are
+required to be active value imports, and helpers that need DOM operations use
+the internal host contract instead of importing `./dom`.
 
 ## Related docs
 

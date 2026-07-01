@@ -33,7 +33,7 @@ export function renderDocument(
   args: DocumentRenderArgs,
   apiName: string
 ): string {
-  const html = document(args);
+  const html: unknown = document(args);
 
   if (typeof html !== 'string') {
     const isPromiseLike =

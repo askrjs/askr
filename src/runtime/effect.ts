@@ -1,6 +1,7 @@
 import { incDevCounter } from './dev-namespace';
 import { type ReadableSource, withFineGrainedReadTracking } from './readable';
-import { globalScheduler, type SchedulerLane } from './scheduler';
+import { enqueueRuntimeLane } from './access';
+import type { SchedulerLane } from './scheduler';
 
 type EffectRegistry = WeakMap<
   ReadableSource<unknown>,
@@ -223,7 +224,7 @@ function scheduleLaneFlush(lane: SchedulerLane): void {
   }
 
   hasPendingLaneFlush[lane] = true;
-  globalScheduler.enqueueInLane(lane, LANE_FLUSH_TASKS[lane]);
+  enqueueRuntimeLane(lane, LANE_FLUSH_TASKS[lane]);
 }
 
 function unscheduleEffect(effect: FineGrainedEffect<unknown>): void {

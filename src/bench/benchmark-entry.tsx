@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createIsland } from '../boot';
 import { installRendererBridge } from '../renderer';
+import { flushRuntimeScheduler } from '../runtime/access';
 import { selector } from '../runtime/selector';
 import { state, State } from '../runtime/state';
-import { globalScheduler } from '../runtime/scheduler';
 import { BenchmarkTable } from './components/benchmark-table';
 import type { BenchmarkRowData } from './components/benchmark-row';
 
@@ -69,18 +69,18 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   };
 
   createIsland({ root, component: App as any });
-  globalScheduler.flush();
+  flushRuntimeScheduler();
 
   return {
     setRows(rows: RowData[]) {
       dataState.set(rows);
       // Ensure work is flushed so external harnesses (like JFB) that check the DOM
       // immediately after calling `setRows` observe the committed DOM.
-      globalScheduler.flush();
+      flushRuntimeScheduler();
     },
     setSelected(id: number | null) {
       selectedState.set(id);
-      globalScheduler.flush();
+      flushRuntimeScheduler();
     },
     cleanup() {
       // nothing to do; outer test may clean the container

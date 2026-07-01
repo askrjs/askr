@@ -62,9 +62,7 @@ export function getNextRenderKey(): string {
   return 'r:0';
 }
 
-export function startHydrationRenderPhase(
-  data: Record<string, unknown>
-): void {
+export function startHydrationRenderPhase(data: Record<string, unknown>): void {
   hydrationRenderData = data;
   hydrationKeyCounter = 0;
 }
@@ -74,9 +72,7 @@ export function stopHydrationRenderPhase(): void {
   hydrationKeyCounter = 0;
 }
 
-export function startRenderPhase(
-  data: Record<string, unknown> | null
-): void {
+export function startRenderPhase(data: Record<string, unknown> | null): void {
   const ctx = getActiveRenderContext();
   if (ctx) {
     ctx.renderData = data ?? null;

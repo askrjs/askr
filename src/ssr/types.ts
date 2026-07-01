@@ -11,6 +11,7 @@ export type VNode = {
   type: string | SSRComponent | symbol;
   props?: Props;
   children?: unknown[];
+  key?: string | number | null;
 };
 
 /**

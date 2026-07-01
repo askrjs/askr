@@ -67,14 +67,26 @@ function inheritRenderableKey(source: VNode, result: unknown): unknown {
 
 // Render children directly without allocating wrapper array when possible
 function renderChildrenDirect(
-  node: Record<string, unknown>,
+  node: unknown,
   sink: RenderSink,
   ctx: RenderContext
 ): void {
+  if (Array.isArray(node)) {
+    for (let i = 0; i < node.length; i++) {
+      renderNodeToSink(node[i], sink, ctx);
+    }
+    return;
+  }
+
+  const childNode = node as
+    | { children?: unknown; props?: { children?: unknown } }
+    | null
+    | undefined;
+
   // Prefer explicit children; fallback to props.children
-  let raw: unknown = node.children;
+  let raw: unknown = childNode?.children;
   if (raw === undefined) {
-    raw = (node.props as Record<string, unknown> | undefined)?.children;
+    raw = childNode?.props?.children;
   }
 
   if (raw === null || raw === undefined || raw === false) return;
@@ -91,23 +103,9 @@ function renderChildrenDirect(
 }
 
 function getControlBoundaryState(
-  node: Record<string, unknown>
+  node: DOMElement
 ): ControlBoundaryState | null {
-  return (
-    (
-      node as DOMElement & {
-        _controlState?: ControlBoundaryState;
-        _forState?: ControlBoundaryState;
-      }
-    )._controlState ??
-    (
-      node as DOMElement & {
-        _controlState?: ControlBoundaryState;
-        _forState?: ControlBoundaryState;
-      }
-    )._forState ??
-    null
-  );
+  return node._controlState ?? node._forState ?? null;
 }
 
 function renderControlBoundaryChildren(
@@ -115,7 +113,7 @@ function renderControlBoundaryChildren(
   sink: RenderSink,
   ctx: RenderContext
 ): void {
-  const controlState = getControlBoundaryState(node as Record<string, unknown>);
+  const controlState = getControlBoundaryState(node as unknown as DOMElement);
   if (!controlState) {
     return;
   }

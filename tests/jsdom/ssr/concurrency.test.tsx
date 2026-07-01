@@ -5,12 +5,17 @@
  * and do not share keys, renderData, or context state.
  */
 
-import { describe, it, expect } from 'vite-plus/test';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { renderToString, renderToStringSync } from '../../../src/ssr';
 import { createQuery } from '../../../src/data';
+import { resource } from '../../../src/resources';
 import { getNextKey, getCurrentRenderData } from '../../../src/ssr/render-keys';
 import { getRenderContext } from '../../../src/ssr/context';
-import { currentRoute } from '../../../src/router/route';
+import {
+  createRouteRegistry,
+  currentRoute,
+  route,
+} from '../../../src/router/route';
 
 describe('SSR concurrency isolation', () => {
   it('should isolate render context between concurrent renders', async () => {
@@ -237,6 +242,48 @@ describe('SSR concurrency isolation', () => {
 
     expect(htmlA).toContain('A:1:alpha:#one');
     expect(htmlB).toContain('B:2:beta:#two');
+  });
+
+  it('should isolate URL-based registry route resource data between concurrent renders', async () => {
+    const nameLoader = vi.fn((_opts: { signal: AbortSignal }) => 'loader-name');
+    const roleLoader = vi.fn((_opts: { signal: AbortSignal }) => 'loader-role');
+    const registry = createRouteRegistry(() => {
+      route('/profiles/{id}', ({ id }) => {
+        const snapshot = currentRoute();
+        const name = resource<string>(nameLoader, [id]);
+        const role = resource<string>(roleLoader, [id]);
+
+        return (
+          <div>
+            {snapshot.params.id}:{name.value}:{role.value}
+          </div>
+        );
+      });
+    });
+
+    const [htmlA, htmlB] = await Promise.all([
+      Promise.resolve().then(() =>
+        renderToString({
+          url: '/profiles/a',
+          registry,
+          data: { 'r:0': 'Ada', 'r:1': 'admin' },
+        })
+      ),
+      Promise.resolve().then(() =>
+        renderToString({
+          url: '/profiles/b',
+          registry,
+          data: { 'r:0': 'Lin', 'r:1': 'guest' },
+        })
+      ),
+    ]);
+
+    expect(htmlA).toContain('a:Ada:admin');
+    expect(htmlA).toContain('{"r:0":"Ada","r:1":"admin"}');
+    expect(htmlB).toContain('b:Lin:guest');
+    expect(htmlB).toContain('{"r:0":"Lin","r:1":"guest"}');
+    expect(nameLoader).not.toHaveBeenCalled();
+    expect(roleLoader).not.toHaveBeenCalled();
   });
 
   it('should isolate route tables between concurrent URL renders', async () => {

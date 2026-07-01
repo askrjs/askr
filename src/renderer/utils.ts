@@ -3,7 +3,7 @@
  * Consolidates common patterns to reduce code duplication.
  */
 
-import { globalScheduler } from '../runtime/scheduler';
+import { runRuntimeHandlerScope } from '../runtime/access';
 import { logger } from '../dev/logger';
 import { getPublicAttributeName } from '../common/attr-names';
 import { getRuntimeEnv } from './env';
@@ -125,7 +125,7 @@ export function createWrappedHandler(
 
   const wrapped: EventListener = (event: Event) => {
     try {
-      globalScheduler.runInHandlerScope(
+      runRuntimeHandlerScope(
         () => {
           try {
             handler(event);
@@ -176,7 +176,7 @@ export function createMutableWrappedHandler(
 
   const wrapped: EventListener = (event: Event) => {
     try {
-      globalScheduler.runInHandlerScope(
+      runRuntimeHandlerScope(
         () => {
           try {
             currentHandler(event);

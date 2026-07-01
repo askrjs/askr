@@ -96,11 +96,7 @@ when tests, embedded apps, or multi-root shells need isolated query and mutation
 state:
 
 ```ts
-import {
-  createDataRuntime,
-  createQuery,
-  invalidate,
-} from '@askrjs/askr/data';
+import { createDataRuntime, createQuery, invalidate } from '@askrjs/askr/data';
 
 const dataRuntime = createDataRuntime();
 

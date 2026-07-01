@@ -3,7 +3,7 @@ import {
   getCurrentInstance,
   type ComponentInstance,
 } from './component';
-import { globalScheduler } from './scheduler';
+import { enqueueRuntimeLane, getRuntimeFlushVersion } from './access';
 import {
   clearDerivedDependencySubscriptions,
   markReadableDerivedSubscribersDirty,
@@ -71,7 +71,7 @@ function markDerivedCellDirty(cell: DerivedCell<unknown>): void {
 
   if (!hasPendingDerivedFlush) {
     hasPendingDerivedFlush = true;
-    globalScheduler.enqueueInLane('derived', flushDirtyDerivedCells);
+    enqueueRuntimeLane('derived', flushDirtyDerivedCells);
   }
 }
 
@@ -135,7 +135,7 @@ function recomputeDerivedCell<T>(
   const valueChanged = !cell._hasValue || !Object.is(cell._value, nextValue);
   cell._hasValue = true;
   cell._value = nextValue;
-  cell._lastRecomputeFlushVersion = globalScheduler.getFlushVersion();
+  cell._lastRecomputeFlushVersion = getRuntimeFlushVersion();
 
   if (valueChanged && notifyDownstream) {
     markReadableDerivedSubscribersDirty(cell);
@@ -199,9 +199,7 @@ function getOrCreateDerivedCell<T>(
   const existing = store.get(hookIndex) as DerivedCell<T> | undefined;
   if (existing) {
     existing._compute = compute;
-    if (
-      existing._lastRecomputeFlushVersion !== globalScheduler.getFlushVersion()
-    ) {
+    if (existing._lastRecomputeFlushVersion !== getRuntimeFlushVersion()) {
       existing._dirty = true;
     }
     return existing;

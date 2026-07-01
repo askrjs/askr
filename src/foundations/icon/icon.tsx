@@ -1,6 +1,7 @@
 /* eslint-disable askr/no-hardcoded-theme-tokens -- Icon exposes a stable CSS variable contract consumed by themes. */
 import { jsx, jsxs } from '../../jsx/jsx-runtime';
 import type { JSXElement } from '../../common/jsx';
+import type { KnownIntrinsicElementProps } from '../../common/props';
 import type { IconProps, IconSizeToken, IconStyleObject } from './icon.types';
 
 const ICON_SIZE_TOKENS: readonly IconSizeToken[] = ['sm', 'md', 'lg', 'xl'];
@@ -133,7 +134,7 @@ export function IconBase({
     ? [jsx('title', { children: title }), children]
     : children;
 
-  return jsxs('svg', {
+  const svgProps = {
     ...rest,
     ...attrs,
     viewBox: rest.viewBox ?? '0 0 24 24',
@@ -142,5 +143,7 @@ export function IconBase({
     class: className,
     ref,
     children: finalChildren,
-  });
+  } as unknown as KnownIntrinsicElementProps['svg'];
+
+  return jsxs('svg', svgProps);
 }

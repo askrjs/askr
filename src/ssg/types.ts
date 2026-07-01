@@ -92,21 +92,20 @@ interface SSGBaseOptions {
 }
 
 /** Options for createStaticGen */
-export type SSGOptions<
-  TRoutes extends readonly RouteConfig[] = RouteConfig[],
-> = SSGBaseOptions &
-  (
-    | {
-        /** Routes to generate. Prefer `registry` when routes are already defined through the router DSL. */
-        routes: TRoutes;
-        registry?: never;
-      }
-    | {
-        /** Explicit route registry captured with `createRouteRegistry()`. */
-        registry: RouteRegistry;
-        routes?: never;
-      }
-  );
+export type SSGOptions<TRoutes extends readonly RouteConfig[] = RouteConfig[]> =
+  SSGBaseOptions &
+    (
+      | {
+          /** Routes to generate. Prefer `registry` when routes are already defined through the router DSL. */
+          routes: TRoutes;
+          registry?: never;
+        }
+      | {
+          /** Explicit route registry captured with `createRouteRegistry()`. */
+          registry: RouteRegistry;
+          routes?: never;
+        }
+    );
 
 /** Options for a single generation run */
 export interface SSGGenerateOptions {

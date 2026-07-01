@@ -1,4 +1,4 @@
-import { globalScheduler } from '../runtime/scheduler';
+import { enqueueRuntimeTask } from '../runtime/access';
 import { getCurrentComponentInstance } from '../runtime/component';
 import { logger } from '../dev/logger';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
@@ -31,7 +31,7 @@ function throwIfDuringRender(): void {
  * Helper: schedule a user callback through the global scheduler
  */
 function enqueueUserCallback(fn: () => void) {
-  globalScheduler.enqueue(() => {
+  enqueueRuntimeTask(() => {
     try {
       fn();
     } catch (err) {
@@ -329,7 +329,7 @@ export function scheduleRetry<T>(
   const attempt = (index: number) => {
     if (cancelled) return;
     // Run user fn inside scheduler
-    globalScheduler.enqueue(() => {
+    enqueueRuntimeTask(() => {
       if (cancelled) return;
       // Call fn (it may be async)
       const p = fn();

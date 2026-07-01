@@ -3,6 +3,7 @@
  */
 
 import type { Props } from './props';
+import type { JSXElement } from './jsx';
 import type { ControlBoundaryState } from '../runtime/control';
 import type { ForState } from '../runtime/for';
 export { __CONTROL_BOUNDARY__ } from './control';
@@ -14,8 +15,7 @@ export interface DOMElement {
   // Element `type` can be an intrinsic tag name, a component function, or
   // a special symbol (e.g. `Fragment`). Include `symbol` in the type union
   // so runtime comparisons against `Fragment` are type-safe.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  type: string | ((props: Props) => any) | symbol;
+  type: string | ((props: never) => unknown) | symbol;
   props?: Props;
   children?: VNode[];
   key?: string | number | null;
@@ -26,7 +26,7 @@ export interface DOMElement {
 
 // Type for virtual DOM nodes
 export type VNode = DOMElement | string | number | boolean | null | undefined;
-export type RenderableChild = VNode | readonly VNode[];
+export type RenderableChild = VNode | JSXElement | readonly RenderableChild[];
 
 // Backward-compatible internal alias while renderer/runtime migrates away from
 // the old For-only boundary naming.

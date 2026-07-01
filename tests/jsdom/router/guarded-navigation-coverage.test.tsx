@@ -157,6 +157,70 @@ describe('guarded router navigation coverage', () => {
     }
   });
 
+  it('should keep the newest guarded navigation when guards resolve out of order', async () => {
+    let releaseFirstGuard: (() => void) | null = null;
+    let releaseSecondGuard: (() => void) | null = null;
+    const rendered: string[] = [];
+
+    route('/', () => <div>{'home'}</div>);
+    route(
+      '/first',
+      () => {
+        rendered.push('first');
+        return <div>{'first'}</div>;
+      },
+      {
+        policies: [
+          () =>
+            new Promise((resolve) => {
+              releaseFirstGuard = () => resolve(allow());
+            }),
+        ],
+      }
+    );
+    route(
+      '/second',
+      () => {
+        rendered.push('second');
+        return <div>{'second'}</div>;
+      },
+      {
+        policies: [
+          () =>
+            new Promise((resolve) => {
+              releaseSecondGuard = () => resolve(allow());
+            }),
+        ],
+      }
+    );
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      await createSPA({ root: container, manifest: getManifest() });
+      flushScheduler();
+
+      navigate('/first');
+      navigate('/second');
+      await Promise.resolve();
+
+      releaseSecondGuard?.();
+      await settleNavigation();
+
+      expect(container.textContent).toBe('second');
+      expect(window.location.pathname).toBe('/second');
+      expect(rendered).toEqual(['second']);
+
+      releaseFirstGuard?.();
+      await settleNavigation();
+
+      expect(container.textContent).toBe('second');
+      expect(window.location.pathname).toBe('/second');
+      expect(rendered).toEqual(['second']);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should abort superseded guarded navigation signals', async () => {
     let guardAborted = false;
 

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
+import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { createFineGrainedEffect } from '../../../src/runtime/effect';
 import { Case, Match, Show } from '@askrjs/askr/control';
 import {
   createTestContainer,
@@ -311,6 +313,95 @@ describe('Show primitive', () => {
     shared.set('changed');
     flushScheduler();
     expect(branchRenders).toBe(renderCount);
+
+    cleanup();
+  });
+
+  it('should dispose nested resource and effect descendants when branch is removed', () => {
+    const { container, cleanup } = createTestContainer();
+    let setVisible: (next: boolean) => void = () => {};
+    let setNestedCount: (next: number) => void = () => {};
+    let resourceAborts = 0;
+    let effectCleanups = 0;
+    const effectCommits: number[] = [];
+
+    const Nested = () => {
+      const instance = getCurrentComponentInstance();
+      if (!instance) {
+        throw new Error('expected nested component instance');
+      }
+
+      const count = state(0);
+      setNestedCount = count.set;
+      const data = resource<string>(
+        ({ signal }) =>
+          new Promise<string>(() => {
+            signal.addEventListener('abort', () => {
+              resourceAborts += 1;
+            });
+          }),
+        []
+      );
+      const effect = createFineGrainedEffect({
+        lane: 'reactive',
+        compute: () => count(),
+        commit: (value) => {
+          effectCommits.push(value);
+        },
+      });
+
+      instance.cleanupFns.push(() => {
+        effectCleanups += 1;
+        effect.cleanup();
+      });
+
+      return (
+        <span id={'show-nested'}>
+          {data.pending ? 'loading' : data.value}:{count()}
+        </span>
+      );
+    };
+
+    const Branch = () => (
+      <div id={'show-branch'}>
+        <Nested />
+      </div>
+    );
+
+    const App = () => {
+      const visible = state(true);
+      setVisible = (next) => visible.set(next);
+
+      return (
+        <Show when={visible} fallback={<div id="show-fallback">fallback</div>}>
+          <Branch />
+        </Show>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelector('#show-nested')?.textContent).toBe(
+      'loading:0'
+    );
+    expect(effectCommits).toEqual([0]);
+
+    setVisible(false);
+    flushScheduler();
+
+    expect(container.querySelector('#show-branch')).toBeNull();
+    expect(container.querySelector('#show-fallback')?.textContent).toBe(
+      'fallback'
+    );
+    expect(resourceAborts).toBe(1);
+    expect(effectCleanups).toBe(1);
+
+    setNestedCount(1);
+    flushScheduler();
+
+    expect(effectCommits).toEqual([0]);
+    expect(container.querySelector('#show-nested')).toBeNull();
 
     cleanup();
   });

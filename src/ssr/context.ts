@@ -8,11 +8,15 @@
 
 import { SSRDataMissingError } from './errors';
 import { clearEscapeCache } from './escape';
+import { isPromiseLike } from '../common/promise';
 import { configureRenderContextProvider } from '../common/render-context';
 
 export type { SSRData } from '../common/ssr';
 import type { SSRData } from '../common/ssr';
 import type { Route, RouteAuthOptions } from '../common/router';
+
+const FALLBACK_ASYNC_CONTEXT_ERROR =
+  '[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage.';
 
 // Unified per-render context combining SSRContext and RenderContext
 export interface RenderContext {
@@ -127,7 +131,11 @@ export function withRenderContext<T>(ctx: RenderContext, fn: () => T): T {
   const prev = fallbackStack;
   fallbackStack = ctx;
   try {
-    return fn();
+    const result = fn();
+    if (isPromiseLike(result)) {
+      throw new Error(FALLBACK_ASYNC_CONTEXT_ERROR);
+    }
+    return result;
   } finally {
     fallbackStack = prev;
   }

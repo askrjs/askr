@@ -77,7 +77,8 @@ For contributors who need the runtime shape rather than API-first docs, see
 The detailed drill-downs live in
 [Runtime reactivity](./internals/runtime-reactivity.md),
 [Renderer pipeline](./internals/renderer-pipeline.md), and
-[SSR and SSG pipeline](./internals/ssr-ssg-pipeline.md).
+[SSR and SSG pipeline](./internals/ssr-ssg-pipeline.md), with the route split
+covered in [Router internals](./internals/router-manifest.md).
 
 ## The most important rule
 

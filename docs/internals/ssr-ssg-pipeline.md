@@ -21,7 +21,7 @@ flowchart TB
   components --> ssrRender
   routeResolve --> ssrRender
   ssrRender --> html
-  ssrRender --> ssgBatch
+  ssgBatch --> ssrRender
   ssgBatch --> files
 ```
 
@@ -35,25 +35,88 @@ flowchart LR
   url[request URL]
   routeResolve[route resolution]
   ssrContext[SSR render context]
+  facade[ssr/index.ts facade]
+  routeRender[route-render.ts route/document orchestration]
+  internal[index-internal.ts]
+  renderSync[render-sync.ts]
+  hydrationData[hydration-data.ts]
+  boundaries[boundaries.ts boundary helpers]
   componentInstance[temp component instances]
   syncRender[sync component render]
   attrs[attr escaping and serialization]
+  verify[hydration-verify.ts]
   html[HTML string or stream]
   hydrateData[serialized hydration data]
 
   url --> routeResolve
-  routeResolve --> ssrContext
-  ssrContext --> componentInstance
+  routeResolve --> facade
+  facade --> routeRender
+  routeRender --> ssrContext
+  routeRender --> internal
+  internal --> renderSync
+  internal --> verify
+  renderSync --> boundaries
+  renderSync --> componentInstance
   componentInstance --> syncRender
-  syncRender --> attrs
+  renderSync --> attrs
   attrs --> html
-  syncRender --> hydrateData
+  renderSync --> hydrationData
+  hydrationData --> hydrateData
+```
+
+## SSR Implementation Ownership
+
+`src/ssr/index.ts` preserves the public entrypoint. The active implementation
+is split between route/document orchestration in `route-render.ts` and
+synchronous serialization in `render-sync.ts`. `index-internal.ts` keeps the
+public SSR orchestration and route render host. `component-runtime.ts` owns
+synchronous component execution. `hydration-data.ts` owns render-data script
+serialization and `hydration-verify.ts` owns hydration verifier state.
+`boundaries.ts` owns error/control boundary state helpers, renderable child
+normalization, and default fallback construction. Helper modules own escaping,
+attributes, sinks, render context, and resolved-route rendering.
+
+```mermaid
+flowchart TB
+  facade[index.ts facade]
+  routeRender[route-render.ts]
+  internal[index-internal.ts]
+  renderSync[render-sync.ts]
+  hydrationData[hydration-data.ts]
+  hydrationVerify[hydration-verify.ts]
+  boundaries[boundaries.ts]
+  componentRuntime[component-runtime.ts]
+  serialize[renderable and node serialization]
+  controls[error and control boundary state/fallback helpers]
+  components[component execution for sync SSR]
+  hydration[hydration data and verification]
+  routes[route source and document orchestration]
+  sinks[string and stream sinks]
+  helpers[attrs, escape, context, render-resolved]
+
+  facade --> internal
+  internal --> routeRender
+  internal --> renderSync
+  internal --> hydrationVerify
+  renderSync --> componentRuntime
+  renderSync --> boundaries
+  renderSync --> serialize
+  renderSync --> hydrationData
+  boundaries --> controls
+  componentRuntime --> components
+  hydrationData --> hydration
+  hydrationVerify --> hydration
+  routeRender --> routes
+  routeRender --> sinks
+  renderSync --> helpers
 ```
 
 ## SSR execution constraints
 
-The current SSR implementation is synchronous. Async components are rejected,
-and async `resource()` work throws because missing data would break determinism.
+The current SSR implementation is synchronous. Async components, async
+`resource()` work, and async document renderers are rejected because awaiting
+during render would break deterministic hydration output. Request handlers may
+perform async work before rendering, but the render phase itself does not await.
 
 ```mermaid
 flowchart LR
@@ -72,6 +135,8 @@ flowchart LR
 ## SSG generation flow
 
 SSG wraps SSR with route expansion, batching, file writes, and metadata.
+`entries()` may be async because it runs before rendering; each concrete page
+still renders through the synchronous SSR engine.
 
 ```mermaid
 flowchart LR
@@ -130,12 +195,42 @@ flowchart LR
 
 ## Design notes
 
-- `src/ssr/index.ts` is the main HTML serialization path.
+- `src/ssr/index.ts` is the stable SSR facade. `src/ssr/index-internal.ts`
+  keeps public SSR orchestration and the route render host.
+  `src/ssr/render-sync.ts` owns synchronous HTML serialization and
+  component-form `renderToString()`. `src/ssr/hydration-data.ts` owns
+  hydration render-data serialization, and `src/ssr/hydration-verify.ts` owns
+  hydration verifier state. `src/ssr/boundaries.ts` owns error/control
+  boundary state helpers, renderable child normalization, and default fallback
+  construction. `src/ssr/component-runtime.ts` owns synchronous component
+  execution, strict-purity guards, temporary owner cleanup, and default portal
+  wrapping.
+- `src/ssr/route-render.ts` owns object-form `renderToString()`,
+  `renderToStream()`, route source normalization, route match resolution,
+  `resolveRequest()`, document render argument construction, and string/stream
+  sink orchestration.
 - `src/ssr/create-ssr.ts` wraps that path into a request-oriented API.
-- `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator.
-- SSG is not a separate renderer; it is route expansion plus repeated SSR.
-- Both modes depend on the normalized route model rather than a second routing
-  implementation.
+- `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator for
+  generation config, render batching, file writes, metadata, and manifest
+  assembly. `static-routes.ts` owns route-source normalization, `entries()`
+  expansion, and runtime-only route filtering. `generation-plan.ts` owns
+  incremental route selection and stale-route result planning.
+- SSG is not a separate renderer; it is route expansion plus repeated
+  synchronous SSR.
+- Both modes depend on `src/router/resolution.ts` and the normalized route
+  model rather than a second routing implementation.
+
+## Architecture Review Notes
+
+The SSR and SSG diagrams are backed by architecture checks:
+
+- `index-internal.ts`, `render-sync.ts`, `hydration-data.ts`, and
+  `hydration-verify.ts` each have explicit ownership and line ceilings.
+- `create-static-gen.ts`, `static-routes.ts`, and `generation-plan.ts` have
+  explicit ownership and line ceilings.
+- SSG should remain an orchestration layer over route expansion and repeated
+  synchronous SSR. Any new data-loading work belongs before render, not inside
+  the SSR render phase.
 
 ## Related docs
 

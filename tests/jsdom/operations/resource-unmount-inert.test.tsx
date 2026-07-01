@@ -93,4 +93,43 @@ describe('resource() late resolution after unmount (B5)', () => {
 
     expect(snapshot!.value).toBe(null);
   });
+
+  it('should abort a pending resource on unmount and ignore late completion', async () => {
+    let resolveFetch!: (v: string) => void;
+    let aborts = 0;
+    let snapshot: { value: string | null; pending: boolean } | null = null;
+
+    const App = (): JSXElement => {
+      const result = resource<string>(
+        ({ signal }) =>
+          new Promise<string>((resolve) => {
+            resolveFetch = resolve;
+            signal.addEventListener('abort', () => {
+              aborts += 1;
+            });
+          }),
+        []
+      );
+      snapshot = result;
+
+      return <div>{result.value ?? 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.textContent).toBe('loading');
+    expect(snapshot!.pending).toBe(true);
+
+    cleanup();
+
+    expect(aborts).toBe(1);
+
+    expect(() => resolveFetch('late')).not.toThrow();
+    await settleResourceWork();
+
+    expect(snapshot!.value).toBe(null);
+    expect(snapshot!.pending).toBe(true);
+  });
 });

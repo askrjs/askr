@@ -324,6 +324,7 @@ export function teardownNodeSubtree(
 export interface ReactivePropCleanupEntry {
   cleanup: () => void;
   fnRef: unknown;
+  restoreFn?: (nextValue: unknown) => ReactivePropCleanupEntry;
   updateFn?: (nextValue: unknown) => void;
 }
 

@@ -274,9 +274,10 @@ Result after follow-up fixes: 4 files and 47 tests passed.
 
 ### Matrix coverage crosswalk
 
-The audit added direct regressions for items 1-9, 11, 12, 14, 15, 20, 29,
-32-37, 46, and 49. The retained-node probe for item 10 passed without a runtime
-change. The complete suite also reruns the existing focused coverage families:
+The audit added direct regressions for items 1-9, 11-47, 49, and 50. The
+retained-node probe for item 10 passed without a
+runtime change. The complete suite also reruns the existing focused coverage
+families:
 
 | Matrix items   | Existing regression families rerun                                                                                       |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -288,22 +289,95 @@ change. The complete suite also reruns the existing focused coverage families:
 
 Final matrix follow-up:
 
+- Item 13 now has a direct fine-grained effect probe. After an effect switches
+  from one dependency branch to another, writes to the old source no longer run
+  the effect while writes to the active source still commit.
+- Item 16 now has a direct queued-effect disposal probe. When one invalidated
+  effect is cleaned up before the lane flush, that effect is skipped and sibling
+  queued work still commits.
+- Item 17 now has a direct cleanup-write ownership probe. A cleanup callback can
+  write shared state for live descendants without rerendering or retaining the
+  disposed child that originally read that state.
+- Item 18 now has a direct scheduler lane-order probe. A mixed batch of derived,
+  component, reactive, and post work drains in stable lane order while
+  preserving FIFO order inside each lane.
+- Item 19 now has a direct active-flush enqueue probe. Work scheduled by a task
+  already being flushed drains in the same epoch after existing sibling work and
+  leaves no pending queue entries behind.
 - Item 20 now has a direct scheduler probe. A user microtask queued before a
   framework flush runs first, and a user microtask queued after the framework
   flush runs afterward.
+- Item 21 now has a direct render-transaction probe. A render that reads a new
+  source and then throws on `state.set()` leaves the prior committed
+  subscriptions active and does not subscribe the speculative source.
+- Item 22 now has a direct stale-setter probe. A child-owned state setter
+  captured before unmount can be called later without rerendering or remounting
+  the disposed child.
+- Item 23 now has a direct `Show` descendant-disposal probe. Removing a truthy
+  branch aborts a nested resource, cleans a nested fine-grained effect, and
+  leaves stale descendant writes inert.
+- Item 24 now has a direct keyed `For` removal probe. Removing one keyed row
+  cleans that row's nested descendant exactly once while retained rows remain
+  live and the removed descendant's stale setter is inert.
+- Item 25 now has a direct keyed `For` reorder probe. Row-local state and DOM
+  identity follow their stable keys through a move-only reorder.
+- Item 26 now has a direct nested `For` + `Show` ownership probe. Removing one
+  keyed row disposes that row and its shown descendants while hiding a retained
+  row's `Show` branch disposes only that branch.
+- Item 27 now has a direct stale-success resource probe. When a newer refresh
+  succeeds first, a late success from the older generation cannot overwrite the
+  committed value.
+- Item 28 now has a direct stale-rejection resource probe. When a newer refresh
+  succeeds first, a late rejection from the older generation neither overwrites
+  the value nor logs an async resource error.
+- Item 30 now has a direct pending-resource unmount probe. Unmount aborts the
+  in-flight resource and a late completion leaves the disposed snapshot
+  unchanged.
+- Item 31 now has a direct resource transition probe covering pending, ready,
+  refresh-pending with the prior value retained, and refresh error.
+- Item 38 now has a direct fragment primitive-position probe. Fragment-wrapped
+  primitive siblings update in place around an element anchor without merging or
+  shifting text nodes.
+- Item 39 now has a direct keyed children probe combining reorder, append, and
+  removal in one update while preserving retained keyed nodes.
+- Item 40 now has a direct nested host replacement probe. Replacing a nested
+  component's root host detaches the old host ref once and removes its direct
+  listener while the new host listener remains active.
+- Item 41 now has a direct same-path navigation probe. Updating query and hash
+  for the current pathname preserves route DOM identity and local state while
+  refreshing the route snapshot.
+- Item 42 now has a direct guarded-navigation race probe. When two guarded
+  navigations overlap, the newer allowed route renders first and the older guard
+  resolving late cannot replace it.
 - Item 43 already has a direct history regression: a slow guarded popstate is
   aborted when a newer fast popstate wins, and the rendered route remains
   aligned with the URL.
+- Item 50 now has a direct compound stress probe. Repeated cycles mount a routed
+  app, switch a `Show` branch, navigate away and back, then unmount while
+  asserting cleanup counts and scheduler quiescence.
 
-Open probes retained for follow-up:
+Resolved follow-up probes:
 
-- Item 10: the new retained text and attribute rollback probe passes, but a
-  broader mutation journal was not justified. Continue injecting failures
-  after retained listener, property, and child-order mutations.
-- Item 48: the edge-runtime fallback context stack remains explicitly
-  non-concurrency-safe. Current public SSR renderers are synchronous, and the
-  Node path uses `AsyncLocalStorage`; forced asynchronous fallback overlap
-  needs a dedicated supported-environment harness.
+- Item 10: retained-node rollback now has focused failures after capture
+  listener replacement/addition, form-control property writes, and child
+  reorder/removal/insertion. Failed retained updates restore the existing
+  element in place, including attributes, children, text data, form-control
+  state, refs, reactive props, and direct/delegated listener handler metadata.
+- Item 44: URL-based SSR rendering through a registry now applies synchronous
+  deny and redirect route policy before rendering. Denied routes render the same
+  marker as startup and hydration without invoking protected handlers, and
+  redirects render the final target route.
+- Item 45: URL-based registry SSR now has direct preloaded resource data probes.
+  Route resources read deterministic `r:*` keys, serialize the supplied render
+  data for hydration, and throw `SSRDataMissingError` before invoking loaders
+  when a required key is absent.
+- Item 47: URL-based registry SSR now has a direct concurrent render probe that
+  shares one registry across two route renders while isolating route snapshots,
+  preloaded resource keys, serialized render data, and loader suppression.
+- Item 48: the forced non-`AsyncLocalStorage` SSR fallback path now has
+  dedicated invariants. Nested synchronous fallback contexts restore in stack
+  order, and promise-like fallback callbacks throw a deterministic unsupported
+  async fallback error before context can leak.
 
 ### Validation
 

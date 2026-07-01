@@ -1,12 +1,24 @@
 // tests/stress/mount_unmount_cycles.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { createIsland } from '@askrjs/askr/boot';
+import { cleanupApp, createIsland, createSPA } from '@askrjs/askr/boot';
+import { Show } from '../../../src/control';
+import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { navigate } from '../../../src/router/navigate';
+import { clearRoutes, getManifest, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
   getSchedulerState,
 } from '../../../test-utils/render/test-renderer';
+
+const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
+
+function resetExecutionModel(): void {
+  delete (globalThis as unknown as Record<string | symbol, unknown>)[
+    EXECUTION_MODEL_KEY
+  ];
+}
 
 describe('mount unmount cycles (STRESS)', () => {
   let { container, cleanup } = createTestContainer();
@@ -87,5 +99,87 @@ describe('mount unmount cycles (STRESS)', () => {
     // Even if someone holds a reference, unmount should detach resources.
     oldButton.click();
     expect(clicks).toBe(1);
+  });
+
+  it('should survive repeated routed branch switch and unmount cycles', async () => {
+    resetExecutionModel();
+
+    for (let cycle = 0; cycle < 5; cycle += 1) {
+      clearRoutes();
+      window.history.replaceState({}, '', '/dashboard');
+      const { container: local, cleanup: localCleanup } = createTestContainer();
+      let detailCleanups = 0;
+
+      const Details = () => {
+        const instance = getCurrentComponentInstance();
+        if (!instance) {
+          throw new Error('expected details component instance');
+        }
+        instance.cleanupFns.push(() => {
+          detailCleanups += 1;
+        });
+
+        return <p id={'details'}>{`details:${String(cycle)}`}</p>;
+      };
+
+      route('/dashboard', () => {
+        const open = state(true);
+
+        return (
+          <section id={'dashboard'}>
+            <button
+              id={'toggle-details'}
+              onClick={() => open.set((value) => !value)}
+            >
+              {'toggle'}
+            </button>
+            <Show when={open}>
+              <Details />
+            </Show>
+          </section>
+        );
+      });
+      route('/settings', () => <section id={'settings'}>{'settings'}</section>);
+
+      try {
+        await createSPA({ root: local, manifest: getManifest() });
+        flushScheduler();
+
+        expect(local.querySelector('#details')?.textContent).toBe(
+          `details:${String(cycle)}`
+        );
+
+        (local.querySelector('#toggle-details') as HTMLButtonElement).click();
+        flushScheduler();
+
+        expect(local.querySelector('#details')).toBeNull();
+        expect(detailCleanups).toBe(1);
+
+        navigate('/settings');
+        flushScheduler();
+
+        expect(local.querySelector('#settings')?.textContent).toBe('settings');
+
+        navigate('/dashboard');
+        flushScheduler();
+
+        expect(local.querySelector('#details')?.textContent).toBe(
+          `details:${String(cycle)}`
+        );
+
+        cleanupApp(local);
+        expect(detailCleanups).toBe(2);
+      } finally {
+        localCleanup();
+      }
+    }
+
+    clearRoutes();
+    window.history.replaceState({}, '', '/');
+    resetExecutionModel();
+    expect(getSchedulerState()).toMatchObject({
+      queueLength: 0,
+      running: false,
+    });
   });
 });

@@ -9,7 +9,7 @@
  * can still disable or re-enable it when they need to exercise both modes.
  */
 
-import { globalScheduler } from './scheduler';
+import { runRuntimeHandlerScope } from './access';
 import { logger } from '../dev/logger';
 import { incrementPerfMetric } from './perf-metrics';
 import { incDevCounter } from './dev-namespace';
@@ -181,7 +181,7 @@ function attachDelegatedListener(
       const target = e.target as Element;
       if (!target) return;
 
-      globalScheduler.runInHandlerScope(() => {
+      runRuntimeHandlerScope(() => {
         let current: Element | null = target;
         while (current && current !== container) {
           incrementPerfMetric('delegatedAncestorHops');

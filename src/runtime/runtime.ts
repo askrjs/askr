@@ -17,8 +17,8 @@ export interface RuntimeRendererHost {
   evaluate(
     node: unknown,
     target: Element | null,
-    namespace?: string,
-    owner?: ComponentInstance
+    context?: object,
+    retainedOwner?: ComponentInstance
   ): void;
   cleanupInstancesUnder(node: Node): void;
   teardownNodeSubtree(root: Element): void;

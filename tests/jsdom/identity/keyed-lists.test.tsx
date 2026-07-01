@@ -144,5 +144,69 @@ describe('keyed lists (SPEC 2.4)', () => {
       );
       expect(container.querySelector('[data-key="x"]')).toBe(elemX);
     });
+
+    it('should preserve keyed order through combined reorder append and removal', () => {
+      let items: ReturnType<
+        typeof state<Array<{ id: number; label: string }>>
+      > | null = null;
+
+      const Component = () => {
+        items = state([
+          { id: 1, label: 'one' },
+          { id: 2, label: 'two' },
+          { id: 3, label: 'three' },
+          { id: 4, label: 'four' },
+        ]);
+
+        return (
+          <ol>
+            {items().map((item) => (
+              <li key={item.id} data-id={String(item.id)}>
+                {item.label}
+              </li>
+            ))}
+          </ol>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const before = new Map(
+        Array.from(container.querySelectorAll('li'), (node) => [
+          node.getAttribute('data-id'),
+          node,
+        ])
+      );
+
+      items!.set([
+        { id: 3, label: 'three' },
+        { id: 1, label: 'one' },
+        { id: 5, label: 'five' },
+        { id: 4, label: 'four' },
+      ]);
+      flushScheduler();
+
+      const after = Array.from(container.querySelectorAll('li'));
+      expect(after.map((node) => node.getAttribute('data-id'))).toEqual([
+        '3',
+        '1',
+        '5',
+        '4',
+      ]);
+      expect(after.map((node) => node.textContent)).toEqual([
+        'three',
+        'one',
+        'five',
+        'four',
+      ]);
+      expect(container.querySelector('[data-id="3"]')).toBe(before.get('3'));
+      expect(container.querySelector('[data-id="1"]')).toBe(before.get('1'));
+      expect(container.querySelector('[data-id="4"]')).toBe(before.get('4'));
+      expect(container.querySelector('[data-id="2"]')).toBeNull();
+      expect(container.querySelector('[data-id="5"]')).not.toBe(
+        before.get('2')
+      );
+    });
   });
 });

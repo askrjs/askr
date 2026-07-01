@@ -106,9 +106,7 @@ const registry = createRouteRegistry(() => {
 });
 expectType<RouteRegistry>(registry);
 expectType<RouteManifest>(registry.manifest);
-expectType<readonly import('@askrjs/askr/router').Route[]>(
-  registry.routes
-);
+expectType<readonly import('@askrjs/askr/router').Route[]>(registry.routes);
 
 route('/users/{id}', (params: Record<string, string>) => params.id);
 route('/users/{id}', (params) => params.id, {
