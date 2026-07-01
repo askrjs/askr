@@ -274,7 +274,7 @@ Result after follow-up fixes: 4 files and 47 tests passed.
 
 ### Matrix coverage crosswalk
 
-The audit added direct regressions for items 1-9, 11-38, 44-47, and 49. The
+The audit added direct regressions for items 1-9, 11-39, 44-47, and 49. The
 retained-node probe for item 10 passed without a
 runtime change. The complete suite also reruns the existing focused coverage
 families:
@@ -338,6 +338,8 @@ Final matrix follow-up:
 - Item 38 now has a direct fragment primitive-position probe. Fragment-wrapped
   primitive siblings update in place around an element anchor without merging or
   shifting text nodes.
+- Item 39 now has a direct keyed children probe combining reorder, append, and
+  removal in one update while preserving retained keyed nodes.
 - Item 43 already has a direct history regression: a slow guarded popstate is
   aborted when a newer fast popstate wins, and the rendered route remains
   aligned with the URL.
