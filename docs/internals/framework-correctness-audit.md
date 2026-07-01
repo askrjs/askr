@@ -274,7 +274,7 @@ Result after follow-up fixes: 4 files and 47 tests passed.
 
 ### Matrix coverage crosswalk
 
-The audit added direct regressions for items 1-9, 11-25, 29,
+The audit added direct regressions for items 1-9, 11-26, 29,
 32-37, 44-47, and 49. The retained-node probe for item 10 passed without a
 runtime change. The complete suite also reruns the existing focused coverage
 families:
@@ -321,6 +321,9 @@ Final matrix follow-up:
   live and the removed descendant's stale setter is inert.
 - Item 25 now has a direct keyed `For` reorder probe. Row-local state and DOM
   identity follow their stable keys through a move-only reorder.
+- Item 26 now has a direct nested `For` + `Show` ownership probe. Removing one
+  keyed row disposes that row and its shown descendants while hiding a retained
+  row's `Show` branch disposes only that branch.
 - Item 43 already has a direct history regression: a slow guarded popstate is
   aborted when a newer fast popstate wins, and the rendered route remains
   aligned with the URL.
