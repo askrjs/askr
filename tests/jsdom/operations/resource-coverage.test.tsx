@@ -134,6 +134,56 @@ describe('resource coverage edges', () => {
     }
   });
 
+  it('should preserve a newer success when an older rejection resolves late', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const settlements: Array<{
+      resolve: (value: string) => void;
+      reject: (error: Error) => void;
+    }> = [];
+
+    const App = (): JSXElement => {
+      const result = resource(
+        () =>
+          new Promise<string>((resolve, reject) => {
+            settlements.push({ resolve, reject });
+          }),
+        []
+      );
+
+      return (
+        <button onClick={() => result.refresh()}>
+          {result.error?.message ??
+            result.value ??
+            (result.pending ? 'loading' : 'empty')}
+        </button>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('loading');
+
+      (container.firstElementChild as HTMLButtonElement).click();
+      flushScheduler();
+      expect(settlements.length).toBe(2);
+
+      settlements[1].resolve('newer');
+      await settleResourceWork();
+      expect(container.textContent).toBe('newer');
+
+      settlements[0].reject(new Error('older failed'));
+      await settleResourceWork();
+
+      expect(container.textContent).toBe('newer');
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+      cleanup();
+    }
+  });
+
   it('should recover from an error after refresh succeeds', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     let attempt = 0;
