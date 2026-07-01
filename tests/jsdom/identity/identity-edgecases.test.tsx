@@ -160,4 +160,48 @@ describe('identity edge cases', () => {
 
     cleanup();
   });
+
+  it('should update fragment primitive text positions without merging siblings', () => {
+    const { container, cleanup } = createTestContainer();
+    let setParts: (next: [string, string]) => void = () => {};
+
+    const Component = () => {
+      const parts = state<[string, string]>(['alpha', 'omega']);
+      setParts = (next) => parts.set(next);
+
+      return (
+        <p id={'fragment-primitives'}>
+          <>{parts()[0]}</>
+          <span data-anchor={'middle'}>{'|'}</span>
+          <>{parts()[1]}</>
+        </p>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const host = container.querySelector('#fragment-primitives') as HTMLElement;
+    const firstText = host.childNodes[0];
+    const anchor = host.childNodes[1];
+    const secondText = host.childNodes[2];
+
+    expect(firstText.nodeType).toBe(Node.TEXT_NODE);
+    expect(anchor).toBe(container.querySelector('[data-anchor="middle"]'));
+    expect(secondText.nodeType).toBe(Node.TEXT_NODE);
+    expect(firstText.textContent).toBe('alpha');
+    expect(secondText.textContent).toBe('omega');
+
+    setParts(['left', 'right']);
+    flushScheduler();
+
+    expect(host.childNodes.length).toBe(3);
+    expect(host.childNodes[0]).toBe(firstText);
+    expect(host.childNodes[1]).toBe(anchor);
+    expect(host.childNodes[2]).toBe(secondText);
+    expect(firstText.textContent).toBe('left');
+    expect(secondText.textContent).toBe('right');
+
+    cleanup();
+  });
 });
