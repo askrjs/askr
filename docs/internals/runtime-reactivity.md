@@ -174,7 +174,7 @@ snapshot object.
 ```mermaid
 flowchart LR
   component[Component render]
-  resourceHook[resource() in runtime/operations.ts]
+  resourceHook[resource() in runtime/resource-operation.ts]
   cell[ResourceCell]
   abort[AbortController]
   loader[loader fn with signal]
@@ -253,8 +253,11 @@ flowchart LR
   values, reactive props, and component readers.
 - `src/runtime/access.ts` is the internal boundary for default scheduler and
   renderer-host access used by runtime, renderer, data, and FX hot paths.
-- `src/runtime/resource-cell.ts` is intentionally component-agnostic. The
-  component binding lives in `src/runtime/operations.ts`.
+- `src/runtime/operations.ts` is the stable operations facade.
+  `src/runtime/resource-operation.ts` owns the component-bound `resource()`
+  wrapper around `ResourceCell`, while `src/runtime/lifecycle-operations.ts`
+  owns `on()`, `timer()`, `task()`, `capture()`, and lifecycle predicates.
+  `src/runtime/resource-cell.ts` remains intentionally component-agnostic.
 - `src/data/index.ts` is the stable data facade. `src/data/data-runtime.ts`
   owns keyed cache runtime state, default runtime resolution, and slot stores.
   `src/data/query-cell.ts` owns `QueryCell` and `createQuery()`,

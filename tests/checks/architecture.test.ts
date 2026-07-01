@@ -405,6 +405,12 @@ const RUNTIME_FOR_HELPER_MODULES = new Map<string, number>([
   ['src/runtime/for-signals.ts', 300],
 ]);
 
+const RUNTIME_OPERATIONS_MODULES = new Map<string, number>([
+  ['src/runtime/lifecycle-operations.ts', 420],
+  ['src/runtime/operations.ts', 30],
+  ['src/runtime/resource-operation.ts', 320],
+]);
+
 const SSR_FACADE_MODULES = new Map<string, number>([['src/ssr/index.ts', 20]]);
 
 const SSR_ROUTE_RENDER_MODULES = new Map<string, number>([
@@ -1309,6 +1315,44 @@ describe('architecture boundaries', () => {
     expect(forInternal!.text).not.toMatch(
       /FAST PATH [ABC]|FULL KEYED RECONCILIATION|\brecordBenchFastLane\b/
     );
+  });
+
+  it('should keep runtime operations split into resource and lifecycle owners', () => {
+    const operations = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/operations.ts'
+    );
+    const resourceOperation = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/resource-operation.ts'
+    );
+    const lifecycleOperations = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/lifecycle-operations.ts'
+    );
+
+    expect(operations).toBeDefined();
+    expect(resourceOperation).toBeDefined();
+    expect(lifecycleOperations).toBeDefined();
+    expect(operations!.text).not.toMatch(
+      /function\s+(resource|routeActive|documentVisible|windowFocused|on|timer|stream|task|capture|normalizePredicates|getLifecycleSlot|commitListenerSlot|commitTimerSlot)\s*\(/
+    );
+
+    const operationsImports = edges
+      .filter((edge) => edge.from === operations!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(operationsImports).toContain('src/runtime/resource-operation.ts');
+    expect(operationsImports).toContain('src/runtime/lifecycle-operations.ts');
+    expect(resourceOperation!.text).not.toMatch(
+      /function\s+(routeActive|documentVisible|windowFocused|on|timer|stream|task|capture|normalizePredicates|getLifecycleSlot)\s*\(/
+    );
+    expect(lifecycleOperations!.text).not.toMatch(
+      /new\s+ResourceCell\b|\bgetCurrentRenderData\b|\bthrowSSRDataMissing\b/
+    );
+
+    for (const [filePath, maxLines] of RUNTIME_OPERATIONS_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
   });
 
   it('should keep the SSR facade free of synchronous renderer internals', () => {
