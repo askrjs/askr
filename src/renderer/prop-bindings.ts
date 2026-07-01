@@ -5,10 +5,7 @@ import {
   markFineGrainedEffectsDirtySource,
   type FineGrainedEffectHandle,
 } from '../runtime/effect';
-import {
-  isBenchMetricScopeActive,
-  recordBenchCounter,
-} from '../runtime/for';
+import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime/for';
 import { incrementPerfMetric } from '../runtime/perf-metrics';
 import type { ReadableSource } from '../runtime/readable';
 import {
@@ -20,10 +17,7 @@ import {
   removeDelegatedListener,
   isDelegatedEvent,
 } from '../runtime/events';
-import {
-  applyScalarPropValue,
-  removeStaleAttributes,
-} from './attributes';
+import { applyScalarPropValue, removeStaleAttributes } from './attributes';
 import {
   elementListeners,
   elementReactivePropsCleanup,

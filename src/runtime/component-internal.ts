@@ -12,10 +12,7 @@ import {
   withContext,
   type ContextFrame,
 } from './context';
-import {
-  type ReadableSource,
-  finalizeReadableSubscriptions,
-} from './readable';
+import { type ReadableSource, finalizeReadableSubscriptions } from './readable';
 import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
@@ -58,11 +55,7 @@ import {
 } from './component-scope';
 
 export type { ComponentFunction } from '../common/component';
-export {
-  cleanupComponent,
-  registerOwnedChildScope,
-  unregisterOwnedChildScope,
-};
+export { cleanupComponent, registerOwnedChildScope, unregisterOwnedChildScope };
 
 export interface ComponentInstance {
   id: string;

@@ -1,8 +1,4 @@
-import type {
-  Route,
-  RouteAuthOptions,
-  RouteManifest,
-} from '../common/router';
+import type { Route, RouteAuthOptions, RouteManifest } from '../common/router';
 import { isProductionEnvironment } from '../common/env';
 import type { ComponentInstance } from '../runtime/component';
 import {

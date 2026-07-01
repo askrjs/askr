@@ -2,10 +2,7 @@ import type { VNode } from './types';
 import { performBulkPositionalKeyedTextUpdate } from './children';
 import { getRuntimeEnv } from './env';
 import { applyRendererFastPath } from './fastpath';
-import {
-  keyedElements,
-  planKeyedReorderFastPath,
-} from './keyed';
+import { keyedElements, planKeyedReorderFastPath } from './keyed';
 import type { KeyedVnode } from './keyed-children';
 import {
   canReuseIntrinsicElementInNamespace,

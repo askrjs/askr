@@ -16,11 +16,7 @@ import {
   normalizeAsyncDataError,
   notifySource,
 } from './shared';
-import type {
-  Mutation,
-  MutationOptions,
-  MutationRecord,
-} from './types';
+import type { Mutation, MutationOptions, MutationRecord } from './types';
 
 export class MutationCell<TInput, TResult> {
   private readonly source = createReadableSource();

@@ -40,10 +40,7 @@ import {
   type ErrorBoundaryVNode,
 } from './error-boundary-dom';
 import { getRuntimeEnv } from './env';
-import {
-  createElementForNamespace,
-  resolveChildNamespace,
-} from './namespaces';
+import { createElementForNamespace, resolveChildNamespace } from './namespaces';
 import {
   applyPropsToElement,
   hasTrackedElementPropBindings,

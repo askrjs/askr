@@ -12,10 +12,7 @@ import {
   normalizeRenderableChildren,
   resolveErrorBoundaryFallbackNode,
 } from './boundaries';
-import {
-  executeComponentSync,
-  type Component,
-} from './component-runtime';
+import { executeComponentSync, type Component } from './component-runtime';
 import type { RenderContext } from './context';
 import { VOID_ELEMENTS, styleObjToCss } from './escape';
 import { inheritRenderableKey } from './render-sync';

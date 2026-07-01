@@ -1,7 +1,4 @@
-import {
-  recordBenchCounter,
-  recordBenchEvent,
-} from '../runtime/for';
+import { recordBenchCounter, recordBenchEvent } from '../runtime/for';
 import { canUseDirectReplaceChildrenSpread } from './utils';
 
 const DENSE_MOVE_MINIMUM = 64;
@@ -72,10 +69,7 @@ function getLISIndices(sequence: number[]): number[] {
   return lisIndices;
 }
 
-export function commitMoveOnlyReorder(
-  parent: Element,
-  nodes: Node[]
-): boolean {
+export function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
   const currentNodes = Array.from(parent.childNodes);
   if (currentNodes.length !== nodes.length) {
     return false;

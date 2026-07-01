@@ -503,11 +503,7 @@ export function syncReactiveScalarChild(
     existingReactiveEntry?.cleanup();
 
     try {
-      const reactive = setupReactiveScalarChild(
-        el,
-        reactiveChildSource,
-        host
-      );
+      const reactive = setupReactiveScalarChild(el, reactiveChildSource, host);
       getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
         cleanup: reactive.cleanup,
         updateFn: (nextValue) => {

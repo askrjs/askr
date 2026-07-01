@@ -1,9 +1,6 @@
 import { cleanupComponent } from '../runtime/component-contracts';
 import type { ComponentInstance } from '../runtime/component-contracts';
-import {
-  removeElementListeners,
-  removeElementReactiveProps,
-} from './cleanup';
+import { removeElementListeners, removeElementReactiveProps } from './cleanup';
 import type { InstanceHostElement } from './dom-host';
 
 export function cleanupDetachedComponentHost(

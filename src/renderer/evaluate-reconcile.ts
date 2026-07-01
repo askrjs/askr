@@ -4,10 +4,7 @@ import type { Props } from '../common/props';
 import type { ComponentInstance } from '../runtime/component-contracts';
 import { elementListeners } from './cleanup';
 import { keyedElements } from './keyed';
-import {
-  createElementForNamespace,
-  getParentNamespace,
-} from './namespaces';
+import { createElementForNamespace, getParentNamespace } from './namespaces';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
@@ -106,10 +103,7 @@ function checkSimpleText(vnodeChildren: unknown): TextCheckResult {
 }
 
 function tryUpdateTextInPlace(element: Element, text: string): boolean {
-  if (
-    element.childNodes.length === 1 &&
-    element.firstChild?.nodeType === 3
-  ) {
+  if (element.childNodes.length === 1 && element.firstChild?.nodeType === 3) {
     (element.firstChild as Text).data = text;
     return true;
   }

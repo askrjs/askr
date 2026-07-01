@@ -1,9 +1,6 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
-import type {
-  RouteRenderResult,
-  RouteRequestResult,
-} from '../common/router';
+import type { RouteRenderResult, RouteRequestResult } from '../common/router';
 import {
   DefaultPortal,
   clearDefaultPortalForInstance,

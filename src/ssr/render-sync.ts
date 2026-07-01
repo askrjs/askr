@@ -214,8 +214,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   if (__SSR_DEBUG) {
     try {
       logger.warn('[SSR] renderNodeSync type:', typeof type, type);
-    } catch {
-    }
+    } catch {}
   }
 
   if (typeof type === 'function') {

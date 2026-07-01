@@ -21,9 +21,7 @@ type InstancePortalScopeSnapshot = {
 type InlineRenderTrackingSnapshot = {
   currentRenderToken: number | undefined;
   pendingReadSources: Set<ReadableSource<unknown>> | undefined;
-  pendingReadSourceVersions:
-    | Map<ReadableSource<unknown>, number>
-    | undefined;
+  pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined;
 };
 
 let currentInstance: ComponentInstance | null = null;

@@ -4,10 +4,7 @@ import type {
   ComponentInstance,
 } from '../runtime/component-contracts';
 import { removeAllListeners } from './cleanup';
-import {
-  createDOMNode,
-  syncComponentElement,
-} from './dom';
+import { createDOMNode, syncComponentElement } from './dom';
 import type { ElementWithContext } from './dom-host';
 import {
   cleanupRangeNode,

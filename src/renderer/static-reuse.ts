@@ -128,10 +128,7 @@ function getStaticChildSlots(vnode: DOMElement): StaticChildSlot[] | null {
   return staticSlots;
 }
 
-export function canReuseStaticSubtree(
-  el: Element,
-  vnode: DOMElement
-): boolean {
+export function canReuseStaticSubtree(el: Element, vnode: DOMElement): boolean {
   if (
     typeof vnode.type !== 'string' ||
     !tagsEqualIgnoreCase(el.tagName, vnode.type)

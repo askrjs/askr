@@ -12,10 +12,7 @@
 
 import type { VNode } from './types';
 import { keyedElements } from './keyed';
-import {
-  buildDOMKeyMap,
-  extractKeyedVnodes,
-} from './keyed-children';
+import { buildDOMKeyMap, extractKeyedVnodes } from './keyed-children';
 import { commitReconciliation } from './reconcile-commit';
 import { tryFastPaths } from './reconcile-fastpaths';
 import {
@@ -44,11 +41,7 @@ export function reconcileKeyedChildren(
     return fastPathResult;
   }
 
-  return performFullReconciliation(
-    parent,
-    newChildren,
-    ensuredOldKeyMap
-  );
+  return performFullReconciliation(parent, newChildren, ensuredOldKeyMap);
 }
 
 function performFullReconciliation(

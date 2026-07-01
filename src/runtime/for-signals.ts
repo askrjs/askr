@@ -135,10 +135,7 @@ function createForItemPropertySignal(
   return propertySignal;
 }
 
-export function readForItemProperty(
-  item: unknown,
-  prop: PropertyKey
-): unknown {
+export function readForItemProperty(item: unknown, prop: PropertyKey): unknown {
   return Reflect.get(Object(item), prop);
 }
 

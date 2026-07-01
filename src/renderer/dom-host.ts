@@ -38,10 +38,7 @@ export interface RendererDOMHost {
     children: VNode | VNode[] | undefined,
     forceUpdate?: boolean
   ): void;
-  tryPatchStableForDirtyItem(scope: {
-    dom?: Node;
-    vnode?: VNode;
-  }): boolean;
+  tryPatchStableForDirtyItem(scope: { dom?: Node; vnode?: VNode }): boolean;
 }
 
 let rendererDOMHost: RendererDOMHost | null = null;

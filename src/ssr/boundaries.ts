@@ -63,9 +63,7 @@ export function resetErrorBoundaryState(node: VNode | JSXElement): void {
   }
 }
 
-export function createErrorBoundaryReset(
-  node: VNode | JSXElement
-): () => void {
+export function createErrorBoundaryReset(node: VNode | JSXElement): () => void {
   return () => resetErrorBoundaryState(node);
 }
 

@@ -1,6 +1,4 @@
-import type {
-  ComponentFunction,
-} from '../runtime/component-contracts';
+import type { ComponentFunction } from '../runtime/component-contracts';
 import { clearControlBoundaryCommitOwner } from './boundaries';
 import {
   commitForBoundaryChildren,
@@ -10,19 +8,10 @@ import {
   registerControlBoundaryCommitOwner,
   trySyncControlBoundaryChild,
 } from './boundaries';
-import {
-  isBulkTextFastPathEligible,
-  performBulkTextReplace,
-} from './children';
-import {
-  isFragmentVNode,
-  normalizeComponentChildren,
-} from './child-shape';
+import { isBulkTextFastPathEligible, performBulkTextReplace } from './children';
+import { isFragmentVNode, normalizeComponentChildren } from './child-shape';
 import { teardownNodeSubtree } from './cleanup';
-import {
-  getRendererDOMHost,
-  type ElementWithContext,
-} from './dom-host';
+import { getRendererDOMHost, type ElementWithContext } from './dom-host';
 import { keyedElements } from './keyed';
 import { getParentNamespace } from './namespaces';
 import {

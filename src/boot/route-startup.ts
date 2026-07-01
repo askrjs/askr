@@ -1,4 +1,9 @@
-import type { ResolvedRoute, RouteAuthOptions, RouteHandler, RouteRequestResult } from '../common/router';
+import type {
+  ResolvedRoute,
+  RouteAuthOptions,
+  RouteHandler,
+  RouteRequestResult,
+} from '../common/router';
 import { resolveRouteRequest } from '../router/route';
 import type { ComponentFunction } from '../runtime/component';
 

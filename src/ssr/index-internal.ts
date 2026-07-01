@@ -7,10 +7,7 @@ import {
   type RouteRenderOptions,
   type RouteStreamOptions,
 } from './route-render';
-import {
-  renderSSRRouteAppToSink,
-  renderToStringSync,
-} from './render-sync';
+import { renderSSRRouteAppToSink, renderToStringSync } from './render-sync';
 import type { VNode } from './types';
 import './hydration-verify';
 

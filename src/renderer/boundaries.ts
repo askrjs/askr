@@ -51,10 +51,7 @@ export interface BoundaryDOMHost {
     updateChildren?: boolean,
     forceChildrenUpdate?: boolean
   ): void;
-  tryPatchStableForDirtyItem(scope: {
-    dom?: Node;
-    vnode?: VNode;
-  }): boolean;
+  tryPatchStableForDirtyItem(scope: { dom?: Node; vnode?: VNode }): boolean;
 }
 
 let boundaryDOMHost: BoundaryDOMHost | null = null;
