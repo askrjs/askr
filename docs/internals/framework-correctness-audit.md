@@ -275,7 +275,7 @@ Result after follow-up fixes: 4 files and 47 tests passed.
 ### Matrix coverage crosswalk
 
 The audit added direct regressions for items 1-9, 11, 12, 14, 15, 20, 29,
-32-37, 44, 46, and 49. The retained-node probe for item 10 passed without a
+32-37, 44, 45, 46, and 49. The retained-node probe for item 10 passed without a
 runtime change. The complete suite also reruns the existing focused coverage
 families:
 
@@ -307,6 +307,10 @@ Resolved follow-up probes:
   deny and redirect route policy before rendering. Denied routes render the same
   marker as startup and hydration without invoking protected handlers, and
   redirects render the final target route.
+- Item 45: URL-based registry SSR now has direct preloaded resource data probes.
+  Route resources read deterministic `r:*` keys, serialize the supplied render
+  data for hydration, and throw `SSRDataMissingError` before invoking loaders
+  when a required key is absent.
 - Item 48: the forced non-`AsyncLocalStorage` SSR fallback path now has
   dedicated invariants. Nested synchronous fallback contexts restore in stack
   order, and promise-like fallback callbacks throw a deterministic unsupported

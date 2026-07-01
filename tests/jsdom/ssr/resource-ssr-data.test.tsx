@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vite-plus/test';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import {
   renderToString,
   renderToStringSync,
   SSRDataMissingError,
 } from '../../../src/ssr';
 import { resource } from '../../../src/resources';
+import { createRouteRegistry, route } from '../../../src/router';
 import type { JSXElement } from '../../../src/jsx/types';
 
 function UsesSyncResource(): JSXElement {
@@ -89,5 +90,61 @@ describe('SSR resource() with preloaded data', () => {
     expect(() => renderToString({ url: '/', routes, data: {} })).toThrowError(
       SSRDataMissingError
     );
+  });
+
+  it('should render URL-based registry SSR with preloaded resource data deterministically', () => {
+    const nameLoader = vi.fn((_opts: { signal: AbortSignal }) => 'loader-name');
+    const tabLoader = vi.fn((_opts: { signal: AbortSignal }) => 'loader-tab');
+    const registry = createRouteRegistry(() => {
+      route('/users/{id}', ({ id }) => {
+        const name = resource<string>(nameLoader, [id]);
+        const tab = resource<string>(tabLoader, []);
+
+        return (
+          <main>
+            {id}:{name.value}:{tab.value}
+          </main>
+        );
+      });
+    });
+
+    const html = renderToString({
+      url: '/users/42?tab=profile',
+      registry,
+      data: { 'r:0': 'Ada', 'r:1': 'profile' },
+    });
+
+    expect(html).toBe(
+      '<main>42:Ada:profile</main><script type="application/json" data-askr-render-data="true">{"r:0":"Ada","r:1":"profile"}</script>'
+    );
+    expect(nameLoader).not.toHaveBeenCalled();
+    expect(tabLoader).not.toHaveBeenCalled();
+  });
+
+  it('should throw before invoking resource loaders when URL-based SSR data is incomplete', () => {
+    const nameLoader = vi.fn((_opts: { signal: AbortSignal }) => 'loader-name');
+    const tabLoader = vi.fn((_opts: { signal: AbortSignal }) => 'loader-tab');
+    const registry = createRouteRegistry(() => {
+      route('/users/{id}', ({ id }) => {
+        const name = resource<string>(nameLoader, [id]);
+        const tab = resource<string>(tabLoader, []);
+
+        return (
+          <main>
+            {id}:{name.value}:{tab.value}
+          </main>
+        );
+      });
+    });
+
+    expect(() =>
+      renderToString({
+        url: '/users/42?tab=profile',
+        registry,
+        data: { 'r:0': 'Ada' },
+      })
+    ).toThrowError(SSRDataMissingError);
+    expect(nameLoader).not.toHaveBeenCalled();
+    expect(tabLoader).not.toHaveBeenCalled();
   });
 });
