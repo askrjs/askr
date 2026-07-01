@@ -166,6 +166,29 @@ describe('scheduler invariants', () => {
     expect(runs).toBe(51);
   });
 
+  it('should flush scheduler lanes in derived component reactive post order', () => {
+    const scheduler = new Scheduler();
+    const order: string[] = [];
+
+    scheduler.enqueueInLane('post', () => order.push('post:1'));
+    scheduler.enqueueInLane('reactive', () => order.push('reactive:1'));
+    scheduler.enqueueInLane('component', () => order.push('component:1'));
+    scheduler.enqueueInLane('derived', () => order.push('derived:1'));
+    scheduler.enqueueInLane('component', () => order.push('component:2'));
+    scheduler.enqueueInLane('derived', () => order.push('derived:2'));
+
+    scheduler.flush();
+
+    expect(order).toEqual([
+      'derived:1',
+      'derived:2',
+      'component:1',
+      'component:2',
+      'reactive:1',
+      'post:1',
+    ]);
+  });
+
   it('should preserve user microtask order around a scheduled framework flush', async () => {
     const scheduler = new Scheduler();
     const events: string[] = [];
