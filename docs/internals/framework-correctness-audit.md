@@ -274,7 +274,7 @@ Result after follow-up fixes: 4 files and 47 tests passed.
 
 ### Matrix coverage crosswalk
 
-The audit added direct regressions for items 1-9, 11-41, 44-47, and 49. The
+The audit added direct regressions for items 1-9, 11-47, and 49. The
 retained-node probe for item 10 passed without a
 runtime change. The complete suite also reruns the existing focused coverage
 families:
@@ -346,6 +346,9 @@ Final matrix follow-up:
 - Item 41 now has a direct same-path navigation probe. Updating query and hash
   for the current pathname preserves route DOM identity and local state while
   refreshing the route snapshot.
+- Item 42 now has a direct guarded-navigation race probe. When two guarded
+  navigations overlap, the newer allowed route renders first and the older guard
+  resolving late cannot replace it.
 - Item 43 already has a direct history regression: a slow guarded popstate is
   aborted when a newer fast popstate wins, and the rendered route remains
   aligned with the URL.
