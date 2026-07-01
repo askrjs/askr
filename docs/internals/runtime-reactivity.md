@@ -200,15 +200,22 @@ flowchart LR
   queryCall[createQuery or createMutation]
   dataTypes[data/types.ts contracts]
   queryKey[data/query-key.ts scoped keys]
+  facade[data/index.ts facade]
   dataRuntime[DataRuntime]
+  queryCell[query-cell.ts]
+  mutationCell[mutation-cell.ts]
   cache[Query cache by key]
   consistency[Consistency state<br/>fresh stale refreshing pending-write]
   invalidate[invalidate prefix listeners]
   readers[component readers]
 
-  queryCall --> dataRuntime
-  queryCall --> dataTypes
-  queryCall --> queryKey
+  queryCall --> facade
+  facade --> queryCell
+  facade --> mutationCell
+  facade --> dataRuntime
+  queryCell --> dataTypes
+  queryCell --> queryKey
+  mutationCell --> dataTypes
   dataRuntime --> cache
   cache --> consistency
   invalidate --> cache
@@ -248,24 +255,25 @@ flowchart LR
   renderer-host access used by runtime, renderer, data, and FX hot paths.
 - `src/runtime/resource-cell.ts` is intentionally component-agnostic. The
   component binding lives in `src/runtime/operations.ts`.
-- `src/data/index.ts` provides the keyed cache runtime for app data and
-  eventual-consistency workflows. `src/data/types.ts` holds the public and
-  internal contracts, `src/data/query-key.ts` owns `queryScope()` key
-  serialization, and `src/data/shared.ts` owns readable notification and async
-  error helpers shared by query and mutation cells.
+- `src/data/index.ts` is the stable data facade. `src/data/data-runtime.ts`
+  owns keyed cache runtime state, default runtime resolution, and slot stores.
+  `src/data/query-cell.ts` owns `QueryCell` and `createQuery()`,
+  `src/data/mutation-cell.ts` owns `MutationCell` and `createMutation()`, and
+  `src/data/invalidation.ts` owns invalidation helpers and interval
+  invalidation. `src/data/types.ts` holds the public and internal contracts,
+  `src/data/query-key.ts` owns scoped key serialization, and
+  `src/data/shared.ts` owns readable notification and async error helpers
+  shared by query and mutation cells.
 
 ## Architecture Review Notes
 
-The runtime diagrams expose two follow-ups:
+The runtime diagrams are backed by architecture checks:
 
-- Component render execution, DOM commit orchestration, instance creation, and
-  remaining `For` reconciliation/fallback behavior are still implementation
-  clusters. The next cleanup should split by ownership rather than only by
-  import facade.
+- Component, `For`, and data helpers have explicit owner-module ceilings rather
+  than temporary cluster exemptions.
 - `For` depends on component hook indexing from `component-scope.ts` and
-  child-scope cleanup from `component-cleanup.ts`. That coupling is
-  legitimate, but it should stay behind explicit contract modules so future
-  splits do not
+  child-scope cleanup from `component-cleanup.ts`. That coupling is legitimate,
+  but it should stay behind explicit contract modules so future splits do not
   reach back into component internals.
 
 ## Related docs

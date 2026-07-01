@@ -48,40 +48,64 @@ flowchart LR
 
 ## DOM Implementation Ownership
 
-The public renderer entrypoint is intentionally tiny, but the implementation is
-not yet fully decomposed. Today the active path routes through
-`dom-internal.ts`, which still owns several responsibilities that should become
-separate modules.
+The public renderer entrypoint is intentionally tiny. `dom-internal.ts` now
+coordinates element creation and host registration while active helper modules
+own component hosts, child reconciliation, stable patching, error-boundary DOM,
+reactive children, attributes, and control-boundary commits.
 
 ```mermaid
 flowchart TB
   facade[dom.ts facade]
-  internal[dom-internal.ts implementation cluster]
+  internal[dom-internal.ts orchestration]
+  domHost[dom-host.ts host contract]
+  componentHost[component-host.ts component materialization and sync]
+  componentInstances[component-host-instances.ts component instance metadata]
+  componentCleanup[component-host-cleanup.ts detached host cleanup]
+  elementChildren[element-children.ts element child updates]
+  stablePatch[stable-patch.ts stable intrinsic patching]
+  errorBoundaryDom[error-boundary-dom.ts error fallback DOM]
   reactiveChildren[reactive-children.ts reactive child effects]
+  reactiveChildDom[reactive-child-dom.ts reactive child DOM sync]
   reactiveSources[reactive-child-sources.ts reactive child planning]
   childShape[child-shape.ts child normalization]
   propBindings[prop-bindings.ts listeners and reactive props]
   attributes[attributes.ts scalar props and keys]
   intrinsic[intrinsic element create orchestration]
-  componentHost[component host handoff]
   boundaries[boundaries.ts control and For boundary commit]
   staticReuse[static subtree and child-slot reuse]
   reconcile[reconcile.ts keyed orchestration]
+  reconcileFast[reconcile-fastpaths.ts fast paths]
+  reconcileResolution[reconcile-resolution.ts vnode resolution]
+  reconcileCommit[reconcile-commit.ts DOM commit]
   forCommit[for-commit.ts For list DOM commit]
+  forMap[for-commit-dom-map.ts DOM key maps]
+  forReorder[for-commit-reorder.ts move-only reorder]
   cleanup[cleanup.ts teardown]
 
   facade --> internal
+  internal --> domHost
+  internal --> componentHost
+  componentHost --> componentInstances
+  internal --> componentCleanup
+  internal --> elementChildren
+  internal --> stablePatch
+  internal --> errorBoundaryDom
   internal --> reactiveChildren
+  reactiveChildren --> reactiveChildDom
   reactiveChildren --> reactiveSources
   internal --> childShape
   internal --> propBindings
   internal --> attributes
   internal --> intrinsic
-  internal --> componentHost
   internal --> boundaries
   internal --> staticReuse
   internal --> reconcile
+  reconcile --> reconcileFast
+  reconcile --> reconcileResolution
+  reconcile --> reconcileCommit
   internal --> forCommit
+  forCommit --> forMap
+  forCommit --> forReorder
   internal --> cleanup
 ```
 
@@ -175,8 +199,23 @@ flowchart LR
 
 - `src/renderer/evaluate.ts` is the renderer's dispatcher.
 - `src/renderer/dom.ts` is the compatibility facade for the DOM renderer.
-  `src/renderer/dom-internal.ts` currently coordinates active element
-  creation and component-host handoff.
+  `src/renderer/dom-internal.ts` coordinates active element creation,
+  host registration, and helper-owner orchestration.
+- `src/renderer/dom-host.ts` owns the internal host contract used by renderer
+  helpers that need DOM operations without importing the facade.
+- `src/renderer/component-host.ts` owns component host reuse, component
+  materialization/synchronization, and nested component resolution.
+- `src/renderer/component-host-instances.ts` owns route-root detection,
+  cleanup-strict inheritance, vnode component instance storage, component
+  instance IDs, component host instance lookup, and component key inheritance.
+- `src/renderer/component-host-cleanup.ts` owns detached component host cleanup
+  and stale host instance pruning.
+- `src/renderer/element-children.ts` owns element child updates, keyed child
+  map lookup, empty-child handling, scalar replacement, and unkeyed children.
+- `src/renderer/error-boundary-dom.ts` owns DOM creation for error-boundary
+  fallback and child rendering.
+- `src/renderer/stable-patch.ts` owns stable intrinsic patching and dirty
+  `For` item patch attempts.
 - `src/renderer/attributes.ts` owns scalar prop writes and removals, including
   class token patching, style string/object/null handling, form `value` and
   `checked`, stale attribute removal, static scalar props, and key
@@ -190,9 +229,11 @@ flowchart LR
 - `src/renderer/reactive-child-sources.ts` owns reactive child source
   normalization, equality checks, scalar sequence detection, and boundary
   sequence planning.
+- `src/renderer/reactive-child-dom.ts` owns retained reactive child DOM
+  synchronization, boundary-node materialization, scalar text patching, and
+  expected-node ordering.
 - `src/renderer/reactive-children.ts` owns reactive child effects, child-scope
-  commit callbacks, retained reactive child DOM synchronization, and cleanup map
-  entries for reactive children.
+  commit callbacks, and cleanup map entries for reactive children.
 - `src/renderer/boundaries.ts` owns control-boundary state evaluation, direct
   control-boundary detection, commit-owner scheduling, and For/Show/Case
   boundary commit orchestration. It uses an explicit DOM host registered by
@@ -205,21 +246,23 @@ flowchart LR
   evaluator, control-boundary commits, and keyed reconciler.
 - `src/renderer/static-reuse.ts` owns static child-slot caching, fast tag-name
   comparison, and static-subtree reuse eligibility used by the DOM renderer.
-- `src/renderer/reconcile.ts` and `src/renderer/keyed.ts` handle keyed-child
-  reuse, movement planning, and commit orchestration.
+- `src/renderer/reconcile.ts` orchestrates keyed child reconciliation.
+  `reconcile-fastpaths.ts` owns stable and bulk fast paths,
+  `reconcile-resolution.ts` owns vnode-to-DOM resolution, and
+  `reconcile-commit.ts` owns DOM commit application.
+- `src/renderer/for-commit.ts` orchestrates keyed `For` DOM commits.
+  `for-commit-dom-map.ts` owns DOM key-map hydration/synchronization and
+  `for-commit-reorder.ts` owns move-only reorders.
 - `src/renderer/cleanup.ts` owns listener removal and subtree teardown.
 - The renderer is deliberately host-shaped so the runtime can stay mostly
   agnostic about DOM details.
 
 ## Architecture Review Notes
 
-The renderer diagrams point to two concrete follow-ups:
-
-- `dom-internal.ts` is still the highest-risk renderer file because it mixes
-  component host reuse, error boundary creation, and child reconciliation.
-- Extracted renderer helpers are now active dependencies. Future splits should
-  keep helper modules wired into the running path rather than creating parallel
-  implementations.
+The renderer diagrams are backed by architecture checks: `dom-internal.ts` and
+the extracted helper owners each have explicit line ceilings, helpers are
+required to be active value imports, and helpers that need DOM operations use
+the internal host contract instead of importing `./dom`.
 
 ## Related docs
 

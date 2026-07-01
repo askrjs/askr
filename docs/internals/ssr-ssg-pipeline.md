@@ -38,11 +38,13 @@ flowchart LR
   facade[ssr/index.ts facade]
   routeRender[route-render.ts route/document orchestration]
   internal[index-internal.ts]
+  renderSync[render-sync.ts]
+  hydrationData[hydration-data.ts]
   boundaries[boundaries.ts boundary helpers]
   componentInstance[temp component instances]
   syncRender[sync component render]
   attrs[attr escaping and serialization]
-  verify[hydration verification helpers]
+  verify[hydration-verify.ts]
   html[HTML string or stream]
   hydrateData[serialized hydration data]
 
@@ -51,30 +53,37 @@ flowchart LR
   facade --> routeRender
   routeRender --> ssrContext
   routeRender --> internal
-  internal --> boundaries
-  internal --> componentInstance
+  internal --> renderSync
+  internal --> verify
+  renderSync --> boundaries
+  renderSync --> componentInstance
   componentInstance --> syncRender
-  syncRender --> attrs
-  syncRender --> verify
+  renderSync --> attrs
   attrs --> html
-  syncRender --> hydrateData
+  renderSync --> hydrationData
+  hydrationData --> hydrateData
 ```
 
 ## SSR Implementation Ownership
 
 `src/ssr/index.ts` preserves the public entrypoint. The active implementation
 is split between route/document orchestration in `route-render.ts` and
-synchronous component execution in `component-runtime.ts`. `index-internal.ts`
-keeps synchronous node serialization. `boundaries.ts` owns error/control
-boundary state helpers, renderable child normalization, and default fallback
-construction. Helper modules own escaping, attributes, sinks, render context,
-resolved-route rendering, and hydration verification.
+synchronous serialization in `render-sync.ts`. `index-internal.ts` keeps the
+public SSR orchestration and route render host. `component-runtime.ts` owns
+synchronous component execution. `hydration-data.ts` owns render-data script
+serialization and `hydration-verify.ts` owns hydration verifier state.
+`boundaries.ts` owns error/control boundary state helpers, renderable child
+normalization, and default fallback construction. Helper modules own escaping,
+attributes, sinks, render context, and resolved-route rendering.
 
 ```mermaid
 flowchart TB
   facade[index.ts facade]
   routeRender[route-render.ts]
   internal[index-internal.ts]
+  renderSync[render-sync.ts]
+  hydrationData[hydration-data.ts]
+  hydrationVerify[hydration-verify.ts]
   boundaries[boundaries.ts]
   componentRuntime[component-runtime.ts]
   serialize[renderable and node serialization]
@@ -87,15 +96,19 @@ flowchart TB
 
   facade --> internal
   internal --> routeRender
-  internal --> componentRuntime
-  internal --> boundaries
-  internal --> serialize
+  internal --> renderSync
+  internal --> hydrationVerify
+  renderSync --> componentRuntime
+  renderSync --> boundaries
+  renderSync --> serialize
+  renderSync --> hydrationData
   boundaries --> controls
   componentRuntime --> components
-  internal --> hydration
+  hydrationData --> hydration
+  hydrationVerify --> hydration
   routeRender --> routes
   routeRender --> sinks
-  internal --> helpers
+  renderSync --> helpers
 ```
 
 ## SSR execution constraints
@@ -183,9 +196,12 @@ flowchart LR
 ## Design notes
 
 - `src/ssr/index.ts` is the stable SSR facade. `src/ssr/index-internal.ts`
-  keeps synchronous HTML serialization, hydration data, and component-form
-  `renderToString()`. `src/ssr/boundaries.ts` owns error/control boundary
-  state helpers, renderable child normalization, and default fallback
+  keeps public SSR orchestration and the route render host.
+  `src/ssr/render-sync.ts` owns synchronous HTML serialization and
+  component-form `renderToString()`. `src/ssr/hydration-data.ts` owns
+  hydration render-data serialization, and `src/ssr/hydration-verify.ts` owns
+  hydration verifier state. `src/ssr/boundaries.ts` owns error/control
+  boundary state helpers, renderable child normalization, and default fallback
   construction. `src/ssr/component-runtime.ts` owns synchronous component
   execution, strict-purity guards, temporary owner cleanup, and default portal
   wrapping.
@@ -202,13 +218,10 @@ flowchart LR
 
 ## Architecture Review Notes
 
-The SSR and SSG diagrams expose two follow-ups:
+The SSR and SSG diagrams are backed by architecture checks:
 
-- `index-internal.ts` still mixes string/sink serialization and hydration data.
-  Route/document orchestration, boundary state helpers, and component execution
-  have been split to `route-render.ts`, `boundaries.ts`, and
-  `component-runtime.ts`, but the synchronous renderer remains a responsibility
-  cluster.
+- `index-internal.ts`, `render-sync.ts`, `hydration-data.ts`, and
+  `hydration-verify.ts` each have explicit ownership and line ceilings.
 - SSG should remain an orchestration layer over route expansion and repeated
   synchronous SSR. Any new data-loading work belongs before render, not inside
   the SSR render phase.

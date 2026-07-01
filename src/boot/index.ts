@@ -2,24 +2,9 @@
  * App bootstrap and mount
  */
 
-import {
-  createComponentInstance,
-  mountComponent,
-  cleanupComponent,
-  type ComponentFunction,
-  type ComponentInstance,
-} from '../runtime/component';
-import {
-  isDevelopmentEnvironment,
-  isProductionEnvironment,
-} from '../common/env';
-import { logger } from '../dev/logger';
-import {
-  configureScrollRestoration,
-  initializeNavigation,
-  registerAppInstance,
-  unregisterAppInstance,
-} from '../router/navigate';
+import { isProductionEnvironment } from '../common/env';
+import type { ResolvedRoute } from '../common/router';
+import { configureScrollRestoration } from '../router/navigate';
 import {
   _applyManifest,
   _drainLazy,
@@ -29,13 +14,10 @@ import {
   clearRoutes,
   hasRegisteredRoutes,
   lockRouteRegistration,
-  resolveRouteRequest,
   route as registerRoute,
   setServerLocation,
 } from '../router/route';
-import { flushRuntimeScheduler } from '../runtime/access';
 import { assertExecutionModel } from '../runtime/execution-model';
-import { isPromiseLike } from '../common/promise';
 import {
   startHydrationRenderPhase,
   stopHydrationRenderPhase,
@@ -46,367 +28,32 @@ import {
   shouldVerifyHydrationMarkup,
   takeHydrationRenderData,
 } from './hydration';
+import {
+  flushHydrationActivation,
+  mountOrUpdate,
+  registerAppNavigation,
+  registerRootCleanupCallback,
+} from './root-lifecycle';
+import {
+  bindDeniedRouteHandler,
+  bindDeniedStatus,
+  bindResolvedRouteHandler,
+  resolveInitialRoute,
+} from './route-startup';
 import type {
-  BootAppRouteSource,
   HydrateSPAConfig,
   IslandConfig,
   IslandsConfig,
   SPAConfig,
 } from './types';
 
+export { cleanupApp, hasApp } from './root-lifecycle';
 export type {
   HydrateSPAConfig,
   IslandConfig,
   IslandsConfig,
   SPAConfig,
 } from './types';
-
-let componentIdCounter = 0;
-
-// Track instances by root element to support multiple createIsland calls on same root
-const instancesByRoot = new WeakMap<Element, ComponentInstance>();
-const routedRoots = new Set<Element>();
-
-// Symbol for storing cleanup on elements
-const CLEANUP_SYMBOL = Symbol.for('__askrCleanup__');
-const ROOT_CLEANUP_CALLBACKS_SYMBOL = Symbol.for(
-  '__askrRootCleanupCallbacks__'
-);
-
-type RootCleanupOptions = {
-  preserveInstance?: boolean;
-};
-
-// Type for elements that have cleanup functions attached
-interface ElementWithCleanup extends Element {
-  [CLEANUP_SYMBOL]?: (options?: RootCleanupOptions) => void;
-  [ROOT_CLEANUP_CALLBACKS_SYMBOL]?: Set<() => void>;
-}
-
-function clearRootCleanupCallbacks(rootElement: Element): void {
-  try {
-    delete (rootElement as ElementWithCleanup)[ROOT_CLEANUP_CALLBACKS_SYMBOL];
-  } catch {
-    (rootElement as ElementWithCleanup)[ROOT_CLEANUP_CALLBACKS_SYMBOL]?.clear();
-  }
-}
-
-function registerRootCleanupCallback(
-  rootElement: Element,
-  callback: () => void
-): () => void {
-  const elementWithCleanup = rootElement as ElementWithCleanup;
-  const callbacks =
-    elementWithCleanup[ROOT_CLEANUP_CALLBACKS_SYMBOL] ?? new Set();
-  callbacks.add(callback);
-  elementWithCleanup[ROOT_CLEANUP_CALLBACKS_SYMBOL] = callbacks;
-
-  return () => {
-    callbacks.delete(callback);
-    if (callbacks.size === 0) {
-      clearRootCleanupCallbacks(rootElement);
-    }
-  };
-}
-
-function runRootCleanupCallbacks(
-  rootElement: Element,
-  errors: unknown[]
-): void {
-  const callbacks = (rootElement as ElementWithCleanup)[
-    ROOT_CLEANUP_CALLBACKS_SYMBOL
-  ];
-  if (!callbacks || callbacks.size === 0) {
-    clearRootCleanupCallbacks(rootElement);
-    return;
-  }
-
-  clearRootCleanupCallbacks(rootElement);
-  for (const callback of callbacks) {
-    try {
-      callback();
-    } catch (e) {
-      errors.push(e);
-    }
-  }
-}
-
-function cleanupRootInstance(
-  rootElement: Element,
-  instance: ComponentInstance,
-  options?: RootCleanupOptions
-) {
-  // Attempt to remove listeners and cleanup instances under the root.
-  // In non-strict mode we preserve previous behavior by swallowing errors
-  // (but logging in dev); in strict mode we aggregate and re-throw.
-  const errors: unknown[] = [];
-  try {
-    teardownNodeSubtree(rootElement);
-  } catch (e) {
-    errors.push(e);
-  }
-
-  try {
-    cleanupComponent(instance);
-  } catch (e) {
-    errors.push(e);
-  }
-
-  runRootCleanupCallbacks(rootElement, errors);
-
-  if (!options?.preserveInstance) {
-    unregisterAppInstance(instance);
-    instancesByRoot.delete(rootElement);
-    clearRootCleanupCallbacks(rootElement);
-    try {
-      delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-    } catch {
-      // Ignore cleanup marker removal failures.
-    }
-  }
-
-  if (errors.length > 0) {
-    if (instance.cleanupStrict) {
-      throw new AggregateError(errors, `cleanup failed for app root`);
-    } else if (isDevelopmentEnvironment()) {
-      for (const err of errors) logger.warn('[Askr] cleanup error:', err);
-    }
-  }
-}
-
-function attachCleanupForRoot(
-  rootElement: Element,
-  instance: ComponentInstance
-) {
-  (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL] = (options) => {
-    cleanupRootInstance(rootElement, instance, options);
-  };
-
-  try {
-    const descriptor =
-      Object.getOwnPropertyDescriptor(rootElement, 'innerHTML') ||
-      Object.getOwnPropertyDescriptor(
-        Object.getPrototypeOf(rootElement),
-        'innerHTML'
-      ) ||
-      Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-
-    if (descriptor && (descriptor.get || descriptor.set)) {
-      Object.defineProperty(rootElement, 'innerHTML', {
-        get: descriptor.get
-          ? function (this: Element) {
-              return descriptor.get!.call(this);
-            }
-          : undefined,
-        set: function (this: Element, value: string) {
-          if (value === '' && instancesByRoot.get(this) === instance) {
-            cleanupRootInstance(rootElement, instance);
-          }
-          if (descriptor.set) {
-            return descriptor.set.call(this, value);
-          }
-        },
-        configurable: true,
-      });
-    }
-  } catch {
-    // If Object.defineProperty fails, ignore
-  }
-}
-
-import { Fragment, ELEMENT_TYPE } from '../jsx';
-
-import { DefaultPortal } from '../foundations/structures/portal';
-import { disposeDefaultPortalScope } from '../foundations/structures/portal';
-
-function mountOrUpdate(
-  rootElement: Element,
-  componentFn: ComponentFunction,
-  options?: { cleanupStrict?: boolean }
-) {
-  // Ensure root component always includes a DefaultPortal host by wrapping it.
-  const wrappedFn: ComponentFunction = (props, ctx) => {
-    const out = componentFn(props, ctx);
-    if (isPromiseLike(out)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
-    const portalVNode = {
-      $$typeof: ELEMENT_TYPE,
-      type: DefaultPortal,
-      props: {},
-      key: '__default_portal',
-    } as unknown;
-    return {
-      $$typeof: ELEMENT_TYPE,
-      type: Fragment,
-      props: {
-        children:
-          out === undefined || out === null
-            ? [portalVNode]
-            : [out, portalVNode],
-      },
-    } as unknown as ReturnType<ComponentFunction>;
-  };
-  // Preserve the original component name for debugging/dev warnings
-  Object.defineProperty(wrappedFn, 'name', {
-    value: componentFn.name || 'Component',
-  });
-
-  // Clean up existing cleanup function before mounting new one
-  const existingCleanup = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-  const reusedExistingInstance = typeof existingCleanup === 'function';
-  if (reusedExistingInstance) {
-    existingCleanup({ preserveInstance: true });
-  }
-
-  let instance = instancesByRoot.get(rootElement);
-
-  if (instance) {
-    const shouldResetHookState = instance.fn.name !== wrappedFn.name;
-
-    if (!reusedExistingInstance) {
-      removeAllListeners(rootElement);
-      try {
-        cleanupComponent(instance);
-      } catch (e) {
-        // If previous cleanup threw in strict mode, log but continue mounting new instance
-        if (isDevelopmentEnvironment()) {
-          logger.warn('[Askr] prior cleanup threw:', e);
-        }
-      }
-    }
-
-    instance.fn = wrappedFn;
-    instance.evaluationGeneration++;
-    instance.mounted = false;
-    instance.expectedStateIndices = [];
-    instance.firstRenderComplete = false;
-    instance.isRoot = true;
-    instance.portalScope = instance;
-
-    if (shouldResetHookState) {
-      instance.stateValues = [];
-      instance.hasPendingUpdate = false;
-      instance.notifyUpdate = null;
-      instance.stateIndexCheck = -1;
-      instance.mountOperations = [];
-      instance.commitOperations = [];
-      instance.lifecycleSlots = [];
-      instance.cleanupFns = [];
-      instance._currentRenderToken = undefined;
-      instance.lastRenderToken = 0;
-      instance._pendingReadSources = undefined;
-      instance._lastReadSources = undefined;
-      instance._placeholder = undefined;
-      instance.errorBoundaryState = undefined;
-      instance.devWarningsEmitted = undefined;
-    }
-
-    // Update strict flag if provided
-    if (options && typeof options.cleanupStrict === 'boolean') {
-      instance.cleanupStrict = options.cleanupStrict;
-    }
-  } else {
-    const componentId = String(++componentIdCounter);
-    instance = createComponentInstance(componentId, wrappedFn, {}, rootElement);
-    instancesByRoot.set(rootElement, instance);
-    instance.isRoot = true;
-    instance.portalScope = instance;
-    // Initialize strict flag from options
-    if (options && typeof options.cleanupStrict === 'boolean') {
-      instance.cleanupStrict = options.cleanupStrict;
-    }
-  }
-
-  attachCleanupForRoot(rootElement, instance);
-  registerRootCleanupCallback(rootElement, () => {
-    disposeDefaultPortalScope(instance.portalScope ?? instance);
-  });
-  mountComponent(instance);
-  flushRuntimeScheduler();
-}
-
-function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentFunction {
-  return () =>
-    resolved.handler(resolved.params) as ReturnType<ComponentFunction>;
-}
-
-function createDeniedStatusNode(status: number) {
-  return {
-    type: 'div',
-    props: {
-      'data-route-denied': String(status),
-    },
-    children: [String(status)],
-  };
-}
-
-function bindDeniedStatus(status: number): ComponentFunction {
-  return () => createDeniedStatusNode(status);
-}
-
-function bindDeniedRouteHandler(status: number): RouteHandler {
-  return () => createDeniedStatusNode(status);
-}
-
-// New strongly-typed init functions
-import type {
-  ResolvedRoute,
-  RouteAuthOptions,
-  RouteHandler,
-  RouteRequestResult,
-} from '../common/router';
-import {
-  installRendererBridge,
-  removeAllListeners,
-  teardownNodeSubtree,
-} from '../renderer';
-installRendererBridge();
-
-const MAX_INITIAL_ROUTE_REDIRECTS = 20;
-
-async function resolveInitialRoute(
-  auth?: RouteAuthOptions
-): Promise<{ path: string; href: string; resolved: RouteRequestResult }> {
-  let path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  let href =
-    typeof window !== 'undefined'
-      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
-      : path;
-  const visited = new Set<string>();
-
-  for (
-    let redirects = 0;
-    redirects <= MAX_INITIAL_ROUTE_REDIRECTS;
-    redirects++
-  ) {
-    if (visited.has(href)) {
-      throw new Error(`[Askr] Route redirect cycle detected at ${href}.`);
-    }
-    visited.add(href);
-
-    const resolved = await resolveRouteRequest(href, { auth });
-    if (
-      typeof window === 'undefined' ||
-      !resolved ||
-      resolved.kind !== 'redirect'
-    ) {
-      return { path, href, resolved };
-    }
-
-    const redirectTarget = new URL(resolved.to, window.location.href);
-    const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
-    window.history.replaceState({ path: redirectHref }, '', redirectHref);
-    path = redirectTarget.pathname;
-    href = redirectHref;
-  }
-
-  throw new Error(
-    `[Askr] Route redirect limit exceeded (${MAX_INITIAL_ROUTE_REDIRECTS}).`
-  );
-}
 
 /**
  * createIsland: Enhances existing DOM (no router, mounts once)
@@ -580,25 +227,6 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   });
 }
 
-function flushHydrationActivation(rootElement: Element): void {
-  const instance = instancesByRoot.get(rootElement);
-  if (!instance) return;
-  instance._enqueueRun?.();
-  flushRuntimeScheduler();
-}
-
-async function registerAppNavigation(
-  rootElement: Element,
-  path: string,
-  source?: BootAppRouteSource
-) {
-  const instance = instancesByRoot.get(rootElement);
-  if (!instance) throw new Error('Internal error: app instance missing');
-  routedRoots.add(rootElement);
-  registerAppInstance(instance as ComponentInstance, path, source);
-  initializeNavigation();
-}
-
 /**
  * hydrateSPA: Hydrate server-rendered HTML.
  * Accepts either a `manifest` (preferred) or a legacy `routes` array.
@@ -765,45 +393,4 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   await registerAppNavigation(rootElement, path, {
     ...appRouteSource,
   });
-}
-
-/**
- * Cleanup an app mounted on a root element (element or id).
- * Safe to call multiple times — no-op when nothing is mounted.
- */
-export function cleanupApp(root: Element | string): void {
-  const rootElement =
-    typeof root === 'string' ? document.getElementById(root) : root;
-
-  if (!rootElement) return;
-
-  const cleanupFn = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-  try {
-    if (typeof cleanupFn === 'function') {
-      cleanupFn();
-    }
-  } finally {
-    const wasRoutedRoot = routedRoots.delete(rootElement);
-    instancesByRoot.delete(rootElement);
-    clearRootCleanupCallbacks(rootElement);
-    if (wasRoutedRoot && routedRoots.size === 0) {
-      clearRoutes();
-    }
-    try {
-      delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-    } catch {
-      // Ignore cleanup marker removal failures.
-    }
-  }
-}
-
-/**
- * Check whether an app is mounted on the given root
- */
-export function hasApp(root: Element | string): boolean {
-  const rootElement =
-    typeof root === 'string' ? document.getElementById(root) : root;
-
-  if (!rootElement) return false;
-  return instancesByRoot.has(rootElement);
 }

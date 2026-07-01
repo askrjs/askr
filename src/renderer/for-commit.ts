@@ -4,7 +4,6 @@ import {
   recordBenchCounter,
   recordBenchEvent,
   recordBenchTiming,
-  type ForCommitStrategy,
   type ForState,
   withBenchMetricScope,
 } from '../runtime/for';
@@ -12,68 +11,20 @@ import { teardownNodeSubtree } from './cleanup';
 import { keyedElements } from './keyed';
 import type { VNode } from './types';
 import { canUseDirectReplaceChildrenSpread } from './utils';
-
-const DENSE_MOVE_MINIMUM = 64;
-const DENSE_MOVE_RATIO = 0.75;
+import {
+  getOrBuildDomKeyMap,
+  hydrateExistingForDomInOrder,
+  syncKeyedMapFromForState,
+} from './for-commit-dom-map';
+import {
+  commitMoveOnlyReorder,
+  replaceChildrenInOrder,
+} from './for-commit-reorder';
 
 export interface ForCommitRuntime {
   isProduction(): boolean;
   syncForItemDom(parent: Element, scope: ChildScope, vnode: VNode): Node | null;
   tryPatchStableForDirtyItem(scope: ChildScope): boolean;
-}
-
-function getOrBuildDomKeyMap(
-  parent: Element
-): Map<string | number, Element> | undefined {
-  let keyMap = keyedElements.get(parent);
-  if (!keyMap) {
-    keyMap = new Map<string | number, Element>();
-    for (
-      let child = parent.firstElementChild;
-      child;
-      child = child.nextElementSibling
-    ) {
-      const key = child.getAttribute('data-key');
-      if (key !== null) {
-        keyMap.set(key, child);
-        const numericKey = Number(key);
-        if (!Number.isNaN(numericKey)) {
-          keyMap.set(numericKey, child);
-        }
-      }
-    }
-    if (keyMap.size > 0) {
-      keyedElements.set(parent, keyMap);
-    }
-  }
-  return keyMap.size > 0 ? keyMap : undefined;
-}
-
-function hydrateExistingForDomInOrder(
-  parent: Element,
-  forState: ForState<unknown>
-): boolean {
-  if (parent.children.length !== forState.orderedKeys.length) {
-    return false;
-  }
-
-  for (let i = 0; i < forState.orderedKeys.length; i += 1) {
-    const itemKey = forState.orderedKeys[i];
-    const itemInstance = forState.items.get(itemKey);
-    const currentDom = parent.children[i];
-
-    if (
-      !itemInstance ||
-      currentDom.getAttribute('data-key') !== String(itemKey)
-    ) {
-      return false;
-    }
-
-    itemInstance.scope.dom = currentDom;
-    itemInstance.scope.needsDomUpdate = true;
-  }
-
-  return true;
 }
 
 function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
@@ -110,228 +61,6 @@ function removeForBoundaryNodes(parent: Element, removedNodes: Node[]): void {
       parent.removeChild(node);
     }
   }
-}
-
-function syncKeyedMapFromForState(
-  parent: Element,
-  forState: ForState<unknown>,
-  strategy: ForCommitStrategy,
-  removedNodes: Node[]
-): void {
-  const existing = keyedElements.get(parent);
-  const ensureMapEntry = (
-    map: Map<string | number, Element>,
-    key: string | number,
-    element: Element
-  ): void => {
-    map.set(key, element);
-    const keyString = String(key);
-    map.set(keyString, element);
-    const keyNumber = Number(keyString);
-    if (!Number.isNaN(keyNumber)) {
-      map.set(keyNumber, element);
-    }
-  };
-
-  if (strategy === 'SWAP') {
-    if (existing) {
-      return;
-    }
-  }
-
-  if (strategy === 'FULL_KEYED' && existing && removedNodes.length === 0) {
-    return;
-  }
-
-  if (strategy === 'NO_REORDER') {
-    if (existing && removedNodes.length === 0) {
-      return;
-    }
-
-    if (existing) {
-      for (const [mapKey, element] of existing) {
-        if (element.parentNode !== parent) {
-          existing.delete(mapKey);
-        }
-      }
-
-      if (existing.size > 0) {
-        keyedElements.set(parent, existing);
-      } else {
-        keyedElements.delete(parent);
-      }
-      return;
-    }
-  }
-
-  if (strategy === 'TRUNCATE' && forState.orderedKeys.length === 0) {
-    if (existing) {
-      existing.clear();
-    }
-    keyedElements.delete(parent);
-    return;
-  }
-
-  if (strategy === 'APPEND' && existing) {
-    for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const key = forState.orderedKeys[i];
-      if (key === null || existing.has(key)) continue;
-      const itemInstance = forState.items.get(key);
-      if (itemInstance?.scope.dom instanceof Element) {
-        ensureMapEntry(existing, key, itemInstance.scope.dom);
-      }
-    }
-
-    if (existing.size > 0) {
-      keyedElements.set(parent, existing);
-    } else {
-      keyedElements.delete(parent);
-    }
-    return;
-  }
-
-  const nextMap = existing ?? new Map<string | number, Element>();
-  nextMap.clear();
-
-  for (let i = 0; i < forState.orderedKeys.length; i++) {
-    const key = forState.orderedKeys[i];
-    if (key === null) continue;
-    const itemInstance = forState.items.get(key);
-    if (itemInstance?.scope.dom instanceof Element) {
-      ensureMapEntry(nextMap, key, itemInstance.scope.dom);
-    }
-  }
-
-  if (nextMap.size > 0) {
-    keyedElements.set(parent, nextMap);
-  } else {
-    keyedElements.delete(parent);
-  }
-}
-
-function replaceChildrenInOrder(
-  parent: Element,
-  nodes: Node[],
-  allowDirectSpread: boolean
-): void {
-  if (allowDirectSpread && canUseDirectReplaceChildrenSpread(nodes.length)) {
-    parent.replaceChildren(...nodes);
-    return;
-  }
-
-  const fragment = parent.ownerDocument.createDocumentFragment();
-  for (let i = 0; i < nodes.length; i++) {
-    fragment.appendChild(nodes[i]);
-  }
-  parent.replaceChildren(fragment);
-}
-
-function getLISIndices(sequence: number[]): number[] {
-  if (sequence.length === 0) {
-    return [];
-  }
-
-  const predecessors = sequence.slice();
-  const lisIndices: number[] = [0];
-
-  for (let i = 1; i < sequence.length; i += 1) {
-    const current = sequence[i];
-    const lastLisIndex = lisIndices[lisIndices.length - 1];
-
-    if (sequence[lastLisIndex] < current) {
-      predecessors[i] = lastLisIndex;
-      lisIndices.push(i);
-      continue;
-    }
-
-    let lo = 0;
-    let hi = lisIndices.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (sequence[lisIndices[mid]] < current) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
-    }
-
-    if (current < sequence[lisIndices[lo]]) {
-      if (lo > 0) {
-        predecessors[i] = lisIndices[lo - 1];
-      }
-      lisIndices[lo] = i;
-    }
-  }
-
-  let cursor = lisIndices.length - 1;
-  let index = lisIndices[cursor];
-  while (cursor >= 0) {
-    lisIndices[cursor] = index;
-    index = predecessors[index];
-    cursor -= 1;
-  }
-
-  return lisIndices;
-}
-
-function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
-  const currentNodes = Array.from(parent.childNodes);
-  if (currentNodes.length !== nodes.length) {
-    return false;
-  }
-
-  const currentIndexByNode = new Map<Node, number>();
-  for (let i = 0; i < currentNodes.length; i += 1) {
-    currentIndexByNode.set(currentNodes[i], i);
-  }
-
-  const positions = Array.from({ length: nodes.length }, () => 0);
-  for (let i = 0; i < nodes.length; i += 1) {
-    const position = currentIndexByNode.get(nodes[i]);
-    if (position === undefined) {
-      return false;
-    }
-    positions[i] = position;
-  }
-
-  const lisIndices = getLISIndices(positions);
-  if (lisIndices.length === nodes.length) {
-    return true;
-  }
-
-  const moveCount = nodes.length - lisIndices.length;
-  const denseMoveThreshold = Math.max(
-    DENSE_MOVE_MINIMUM,
-    Math.floor(nodes.length * DENSE_MOVE_RATIO)
-  );
-
-  if (moveCount >= denseMoveThreshold) {
-    recordBenchEvent('domMove', moveCount);
-    recordBenchCounter('replaceChildrenCommits');
-    replaceChildrenInOrder(parent, nodes, false);
-    return true;
-  }
-
-  let lisCursor = lisIndices.length - 1;
-  let anchor: Node | null = null;
-
-  for (let i = nodes.length - 1; i >= 0; i -= 1) {
-    const node = nodes[i];
-    if (lisCursor >= 0 && i === lisIndices[lisCursor]) {
-      anchor = node;
-      lisCursor -= 1;
-      continue;
-    }
-
-    if (node.nextSibling !== anchor) {
-      recordBenchEvent('domMove');
-      parent.insertBefore(node, anchor);
-    }
-
-    anchor = node;
-  }
-
-  return true;
 }
 
 export function commitForStateBoundaryChildren(

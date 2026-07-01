@@ -24,14 +24,7 @@ type ImportEdge = {
 
 const TYPESCRIPT_SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'] as const;
 
-const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
-  [
-    'src/renderer/dom-internal.ts',
-    'Temporary architecture debt: DOM renderer implementation still owns element creation, component host handoff, error boundaries, and child reconciliation.',
-  ],
-]);
-
-const OVERSIZED_LINE_LIMIT = 900;
+const ARCHITECTURE_DRIFT_LINE_LIMIT = 850;
 const ARCHITECTURE_AREAS = new Set([
   'boot',
   'common',
@@ -312,12 +305,18 @@ const edges = collectImportEdges(sourceFiles);
 
 const BOOT_SPLIT_MODULES = new Map<string, number>([
   ['src/boot/hydration.ts', 360],
-  ['src/boot/index.ts', OVERSIZED_LINE_LIMIT],
+  ['src/boot/index.ts', 520],
+  ['src/boot/root-lifecycle.ts', 360],
+  ['src/boot/route-startup.ts', 160],
   ['src/boot/types.ts', 120],
 ]);
 
 const DATA_SPLIT_MODULES = new Map<string, number>([
-  ['src/data/index.ts', OVERSIZED_LINE_LIMIT],
+  ['src/data/data-runtime.ts', 260],
+  ['src/data/index.ts', 260],
+  ['src/data/invalidation.ts', 180],
+  ['src/data/mutation-cell.ts', 320],
+  ['src/data/query-cell.ts', 560],
   ['src/data/query-key.ts', 120],
   ['src/data/shared.ts', 80],
   ['src/data/types.ts', 220],
@@ -329,10 +328,13 @@ const ROUTER_SPLIT_MODULES = new Map<string, number>([
   ['src/router/authoring.ts', 700],
   ['src/router/lazy.ts', 180],
   ['src/router/manifest.ts', 180],
-  ['src/router/navigate.ts', 900],
+  ['src/router/navigate.ts', 620],
+  ['src/router/navigation-registry.ts', 320],
   ['src/router/navigation-scroll.ts', 240],
+  ['src/router/navigation-targets.ts', 500],
   ['src/router/rendering.ts', 180],
   ['src/router/resolution.ts', 700],
+  ['src/router/route-query.ts', 180],
   ['src/router/store.ts', 420],
 ]);
 
@@ -340,7 +342,10 @@ const RENDERER_RECONCILE_MODULES = new Map<string, number>([
   ['src/renderer/keyed-children.ts', 120],
   ['src/renderer/keyed.ts', 360],
   ['src/renderer/namespaces.ts', 90],
-  ['src/renderer/reconcile.ts', OVERSIZED_LINE_LIMIT],
+  ['src/renderer/reconcile.ts', 620],
+  ['src/renderer/reconcile-commit.ts', 120],
+  ['src/renderer/reconcile-fastpaths.ts', 320],
+  ['src/renderer/reconcile-resolution.ts', 420],
 ]);
 
 const RENDERER_DOM_FACADE_MODULES = new Map<string, number>([
@@ -351,10 +356,30 @@ const RENDERER_DOM_HELPER_MODULES = new Map<string, number>([
   ['src/renderer/attributes.ts', 520],
   ['src/renderer/boundaries.ts', 760],
   ['src/renderer/child-shape.ts', 180],
+  ['src/renderer/component-host.ts', 620],
+  ['src/renderer/component-host-cleanup.ts', 180],
+  ['src/renderer/component-host-instances.ts', 180],
+  ['src/renderer/dom-internal.ts', 850],
+  ['src/renderer/element-children.ts', 460],
+  ['src/renderer/error-boundary-dom.ts', 180],
   ['src/renderer/prop-bindings.ts', 580],
+  ['src/renderer/reactive-child-dom.ts', 260],
   ['src/renderer/reactive-child-sources.ts', 430],
-  ['src/renderer/reactive-children.ts', 820],
+  ['src/renderer/reactive-children.ts', 660],
+  ['src/renderer/stable-patch.ts', 280],
   ['src/renderer/static-reuse.ts', 220],
+]);
+
+const RENDERER_FOR_COMMIT_MODULES = new Map<string, number>([
+  ['src/renderer/for-commit.ts', 640],
+  ['src/renderer/for-commit-dom-map.ts', 220],
+  ['src/renderer/for-commit-reorder.ts', 220],
+]);
+
+const RENDERER_EVALUATE_MODULES = new Map<string, number>([
+  ['src/renderer/evaluate.ts', 620],
+  ['src/renderer/evaluate-dom-range.ts', 220],
+  ['src/renderer/evaluate-reconcile.ts', 520],
 ]);
 
 const RUNTIME_COMPONENT_FACADE_MODULES = new Map<string, number>([
@@ -392,26 +417,19 @@ const SSR_BOUNDARY_MODULES = new Map<string, number>([
   ['src/ssr/boundaries.ts', 240],
 ]);
 
-const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
-  string,
-  { maxLines: number; name: string }
->([
-  [
-    'src/renderer/dom-internal.ts',
-    { maxLines: 1900, name: 'DOM renderer implementation cluster' },
-  ],
-  [
-    'src/runtime/component-internal.ts',
-    { maxLines: 500, name: 'component execution implementation cluster' },
-  ],
-  [
-    'src/runtime/for-internal.ts',
-    { maxLines: 320, name: 'For state implementation cluster' },
-  ],
-  [
-    'src/ssr/index-internal.ts',
-    { maxLines: 900, name: 'SSR serialization implementation cluster' },
-  ],
+const RUNTIME_COMPONENT_OWNER_MODULES = new Map<string, number>([
+  ['src/runtime/component-internal.ts', 500],
+]);
+
+const RUNTIME_FOR_OWNER_MODULES = new Map<string, number>([
+  ['src/runtime/for-internal.ts', 320],
+]);
+
+const SSR_INTERNAL_MODULES = new Map<string, number>([
+  ['src/ssr/hydration-data.ts', 120],
+  ['src/ssr/hydration-verify.ts', 360],
+  ['src/ssr/index-internal.ts', 350],
+  ['src/ssr/render-sync.ts', 520],
 ]);
 
 const SINGLETON_IMPORT_ALLOWLIST = new Set([
@@ -565,11 +583,26 @@ describe('architecture boundaries', () => {
     const boot = sourceFiles.find(
       (file) => file.relativePath === 'src/boot/index.ts'
     );
+    const rootLifecycle = sourceFiles.find(
+      (file) => file.relativePath === 'src/boot/root-lifecycle.ts'
+    );
+    const routeStartup = sourceFiles.find(
+      (file) => file.relativePath === 'src/boot/route-startup.ts'
+    );
 
     expect(boot).toBeDefined();
+    expect(rootLifecycle).toBeDefined();
+    expect(routeStartup).toBeDefined();
     expect(boot!.text).not.toMatch(
-      /function\s+(takeHydrationRenderData|markSkippedElements|collectDeferredBelowFoldBoundaries|applySelectiveHydration)|type\s+BootRouteSource|export\s+type\s+(SPAConfig|HydrateSPAConfig|IslandConfig)/
+      /function\s+(takeHydrationRenderData|markSkippedElements|collectDeferredBelowFoldBoundaries|applySelectiveHydration|mountOrUpdate|cleanupRootInstance|resolveInitialRoute)|const\s+(instancesByRoot|MAX_INITIAL_ROUTE_REDIRECTS)\s*=|type\s+BootRouteSource|export\s+type\s+(SPAConfig|HydrateSPAConfig|IslandConfig)/
     );
+
+    const bootImports = edges
+      .filter((edge) => edge.from === boot!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(bootImports).toContain('src/boot/root-lifecycle.ts');
+    expect(bootImports).toContain('src/boot/route-startup.ts');
 
     for (const [filePath, maxLines] of BOOT_SPLIT_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
@@ -582,11 +615,41 @@ describe('architecture boundaries', () => {
     const data = sourceFiles.find(
       (file) => file.relativePath === 'src/data/index.ts'
     );
+    const dataRuntime = sourceFiles.find(
+      (file) => file.relativePath === 'src/data/data-runtime.ts'
+    );
+    const queryCell = sourceFiles.find(
+      (file) => file.relativePath === 'src/data/query-cell.ts'
+    );
+    const mutationCell = sourceFiles.find(
+      (file) => file.relativePath === 'src/data/mutation-cell.ts'
+    );
+    const invalidation = sourceFiles.find(
+      (file) => file.relativePath === 'src/data/invalidation.ts'
+    );
 
     expect(data).toBeDefined();
+    expect(dataRuntime).toBeDefined();
+    expect(queryCell).toBeDefined();
+    expect(mutationCell).toBeDefined();
+    expect(invalidation).toBeDefined();
     expect(data!.text).not.toMatch(
-      /function\s+(serializeQueryKeyPart|serializeQueryKeyNumber|createReadableSource|notifySource|isAbortError|normalizeAsyncDataError)|type\s+(QueryLoading|QueryFresh|QueryRefreshing|QueryPendingWrite|QueryStaleValue|QueryStaleErrorWithValue|QueryStaleError|MutationIdle|MutationPending|MutationSuccess|MutationError)|interface\s+(DataRuntime|DataRuntimeOptions|InvalidateOptions|QueryScope)/
+      /function\s+(serializeQueryKeyPart|serializeQueryKeyNumber|createReadableSource|notifySource|isAbortError|normalizeAsyncDataError|getActiveDataRuntime|ensureQueryCleanup|invalidateQueriesForRuntime|invalidateOnInterval)|class\s+(QueryCell|MutationCell)|type\s+(QueryLoading|QueryFresh|QueryRefreshing|QueryPendingWrite|QueryStaleValue|QueryStaleErrorWithValue|QueryStaleError|MutationIdle|MutationPending|MutationSuccess|MutationError|QuerySlot|DataRuntimeState)|interface\s+(DataRuntime|DataRuntimeOptions|InvalidateOptions|QueryScope)/
     );
+
+    const facadeImports = edges
+      .filter((edge) => edge.from === data!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(facadeImports).toContain('src/data/data-runtime.ts');
+    expect(facadeImports).toContain('src/data/query-cell.ts');
+    expect(facadeImports).toContain('src/data/mutation-cell.ts');
+    expect(facadeImports).toContain('src/data/invalidation.ts');
+    expect(queryCell!.text).not.toMatch(
+      /export\s+function\s+invalidate|export\s+function\s+invalidateOnInterval|class\s+MutationCell/
+    );
+    expect(mutationCell!.text).not.toMatch(/class\s+QueryCell/);
+    expect(invalidation!.text).not.toMatch(/class\s+(QueryCell|MutationCell)/);
 
     for (const [filePath, maxLines] of DATA_SPLIT_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
@@ -609,10 +672,33 @@ describe('architecture boundaries', () => {
     const navigate = sourceFiles.find(
       (file) => file.relativePath === 'src/router/navigate.ts'
     );
-    expect(navigate).toBeDefined();
-    expect(navigate!.text).not.toMatch(
-      /scrollPositions|scrollRestorationOptions|function readScrollPosition/
+    const routeQuery = sourceFiles.find(
+      (file) => file.relativePath === 'src/router/route-query.ts'
     );
+    const registry = sourceFiles.find(
+      (file) => file.relativePath === 'src/router/navigation-registry.ts'
+    );
+    const targets = sourceFiles.find(
+      (file) => file.relativePath === 'src/router/navigation-targets.ts'
+    );
+    expect(navigate).toBeDefined();
+    expect(routeQuery).toBeDefined();
+    expect(registry).toBeDefined();
+    expect(targets).toBeDefined();
+    expect(navigate!.text).not.toMatch(
+      /scrollPositions|scrollRestorationOptions|function readScrollPosition|function\s+(setRouteQueryValue|applyRouteQueryUpdates|resolveNavigationTargetsForApps|applyNavigationTargets|resolveAppRouteRequest|remountResolvedRoute|rerenderResolvedRoute|syncRegisteredRouteSnapshot|syncAppRegistrationLocation|cleanupRouteOwnership)|const\s+registeredApps\s*=|activeRouteRequestController/
+    );
+
+    const navigateImports = edges
+      .filter((edge) => edge.from === navigate!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(navigateImports).toContain('src/router/route-query.ts');
+    expect(navigateImports).toContain('src/router/navigation-registry.ts');
+    expect(navigateImports).toContain('src/router/navigation-targets.ts');
+    expect(routeQuery!.text).not.toMatch(/from\s+['"]\.\/navigate['"]/);
+    expect(registry!.text).not.toMatch(/from\s+['"]\.\/navigate['"]/);
+    expect(targets!.text).not.toMatch(/from\s+['"]\.\/navigate['"]/);
 
     for (const [filePath, maxLines] of ROUTER_SPLIT_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
@@ -625,11 +711,34 @@ describe('architecture boundaries', () => {
     const reconcile = sourceFiles.find(
       (file) => file.relativePath === 'src/renderer/reconcile.ts'
     );
+    const fastpaths = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/reconcile-fastpaths.ts'
+    );
+    const resolution = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/reconcile-resolution.ts'
+    );
+    const commit = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/reconcile-commit.ts'
+    );
 
     expect(reconcile).toBeDefined();
+    expect(fastpaths).toBeDefined();
+    expect(resolution).toBeDefined();
+    expect(commit).toBeDefined();
     expect(reconcile!.text).not.toMatch(
-      /function\s+(buildDOMKeyMap|extractKeyedVnodes|getParentNamespace|resolveChildNamespace)|interface\s+KeyedVnode/
+      /function\s+(buildDOMKeyMap|extractKeyedVnodes|getParentNamespace|resolveChildNamespace|tryFastPaths|tryRendererFastPath|tryForcedPositionalBulkUpdate|tryPositionalBulkUpdate|countPositionalMatches|hasPositionalPropChanges|prepareControlBoundaryResolution|evaluateControlBoundaryChildren|trySyncComponentChild|canReuseElement|collectUnkeyedElements|tryReuseElement|commitReconciliation)|interface\s+KeyedVnode/
     );
+
+    const reconcileImports = edges
+      .filter((edge) => edge.from === reconcile!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(reconcileImports).toContain('src/renderer/reconcile-fastpaths.ts');
+    expect(reconcileImports).toContain('src/renderer/reconcile-resolution.ts');
+    expect(reconcileImports).toContain('src/renderer/reconcile-commit.ts');
+    expect(fastpaths!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+    expect(resolution!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+    expect(commit!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
 
     for (const [filePath, maxLines] of RENDERER_RECONCILE_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
@@ -662,22 +771,41 @@ describe('architecture boundaries', () => {
     const boundaries = sourceFiles.find(
       (file) => file.relativePath === 'src/renderer/boundaries.ts'
     );
+    const componentHost = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/component-host.ts'
+    );
 
     expect(domInternal).toBeDefined();
     expect(boundaries).toBeDefined();
+    expect(componentHost).toBeDefined();
 
     const helperImports = edges
       .filter((edge) => edge.from === domInternal!.filePath && !edge.typeOnly)
       .map((edge) => relative(edge.to));
+    const componentHostImports = edges
+      .filter(
+        (edge) => edge.from === componentHost!.filePath && !edge.typeOnly
+      )
+      .map((edge) => relative(edge.to));
 
     expect(helperImports).toContain('src/renderer/attributes.ts');
     expect(helperImports).toContain('src/renderer/boundaries.ts');
+    expect(helperImports).toContain('src/renderer/component-host.ts');
+    expect(helperImports).toContain('src/renderer/element-children.ts');
+    expect(helperImports).toContain('src/renderer/error-boundary-dom.ts');
+    expect(helperImports).toContain('src/renderer/stable-patch.ts');
 
     expect(domInternal!.text).not.toMatch(
-      /function\s+(applyFormControlProp|applyStaticScalarPropsToElement|applyClassPropValue|applyStylePropValue|removeStaleAttributes|materializeKey|hasMatchingStaticProps|evaluateControlBoundaryState|getDirectControlBoundaryVNode|registerControlBoundaryCommitOwner|commitForBoundaryChildren|syncForItemDom|trySyncControlBoundaryChild)\s*\(/
+      /function\s+(applyFormControlProp|applyStaticScalarPropsToElement|applyClassPropValue|applyStylePropValue|removeStaleAttributes|materializeKey|hasMatchingStaticProps|evaluateControlBoundaryState|getDirectControlBoundaryVNode|registerControlBoundaryCommitOwner|commitForBoundaryChildren|syncForItemDom|trySyncControlBoundaryChild|cleanupDetachedComponentHost|pruneComponentHostInstances|inheritComponentKey|findHostInstanceByType|materializeComponentResultNode|resolveNestedComponentResult|resolveHostNestedComponentResult|resolveWrapperHostResult|syncComponentElement|createComponentElement|createErrorBoundaryElement|normalizeStableIntrinsicChildren|getStableIntrinsicChildren|patchStableIntrinsicText|patchStableIntrinsicElement|resolveStableIntrinsicPatchVNode|tryPatchStableForDirtyItem|updateElementChildren|hasKeyedVNodeChildren|isEmptyChild|getOrBuildDomKeyMap|updateUnkeyedChildren)\s*\(/
     );
     expect(domInternal!.text).not.toMatch(
-      /const\s+controlBoundaryOwners\s*=|type\s+ControlBoundaryCommitOwnerState\s*=/
+      /const\s+controlBoundaryOwners\s*=|type\s+ControlBoundaryCommitOwnerState\s*=|const\s+vnodeComponentInstances\s*=|type\s+InstanceHostElement\s*=|type\s+ErrorBoundaryVNode\s*=/
+    );
+    expect(componentHostImports).toContain(
+      'src/renderer/component-host-instances.ts'
+    );
+    expect(componentHost!.text).not.toMatch(
+      /function\s+(isRouteRootComponentVNode|inheritComponentCleanupStrict|getVNodeComponentInstance|setVNodeComponentInstance|nextComponentInstanceId|inheritComponentKey|findHostInstanceByType)\s*\(|const\s+vnodeComponentInstances\s*=|let\s+fallbackComponentInstanceId\s*=/
     );
     expect(boundaries!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
 
@@ -713,13 +841,84 @@ describe('architecture boundaries', () => {
     expect(staticReuse!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
   });
 
+  it('should keep For DOM commit maps and reorders split out of commit orchestration', () => {
+    const forCommit = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/for-commit.ts'
+    );
+    const domMap = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/for-commit-dom-map.ts'
+    );
+    const reorder = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/for-commit-reorder.ts'
+    );
+
+    expect(forCommit).toBeDefined();
+    expect(domMap).toBeDefined();
+    expect(reorder).toBeDefined();
+    expect(forCommit!.text).not.toMatch(
+      /function\s+(getOrBuildDomKeyMap|syncKeyedMapFromForState|hydrateExistingForDomInOrder|getLISIndices|commitMoveOnlyReorder)\s*\(/
+    );
+
+    const helperImports = edges
+      .filter((edge) => edge.from === forCommit!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/renderer/for-commit-dom-map.ts');
+    expect(helperImports).toContain('src/renderer/for-commit-reorder.ts');
+    expect(domMap!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+    expect(reorder!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+
+    for (const [filePath, maxLines] of RENDERER_FOR_COMMIT_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep evaluate range and reconciliation helpers split out of evaluator orchestration', () => {
+    const evaluate = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/evaluate.ts'
+    );
+    const range = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/evaluate-dom-range.ts'
+    );
+    const reconcile = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/evaluate-reconcile.ts'
+    );
+
+    expect(evaluate).toBeDefined();
+    expect(range).toBeDefined();
+    expect(reconcile).toBeDefined();
+    expect(evaluate!.text).not.toMatch(
+      /function\s+(getRetainedHostOwnerChain|retainHostOwnerChain|tagNamesEqualIgnoreCase|checkSimpleText|tryUpdateTextInPlace|buildKeyMapFromDOM|getOrBuildKeyMap|hasKeyedChildren|trackBulkTextStats|trackBulkTextMiss|reconcileKeyed|tryForcedBulkKeyedPath|reconcileUnkeyed|updateForBoundaryChildren|updateElementChildren|smartUpdateElement|processFragmentChildren|cleanupRangeNode|updateDOMRange)\s*\(/
+    );
+    expect(evaluate!.text).not.toMatch(
+      /interface\s+(DOMRange|SimpleTextResult|NotSimpleTextResult)|const\s+domRanges\s*=|type\s+TextCheckResult\s*=/
+    );
+
+    const helperImports = edges
+      .filter((edge) => edge.from === evaluate!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/renderer/evaluate-dom-range.ts');
+    expect(helperImports).toContain('src/renderer/evaluate-reconcile.ts');
+    expect(range!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+    expect(reconcile!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+
+    for (const [filePath, maxLines] of RENDERER_EVALUATE_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
   it('should keep renderer namespace helpers split out of DOM creation paths', () => {
     const namespaces = sourceFiles.find(
       (file) => file.relativePath === 'src/renderer/namespaces.ts'
     );
     const namespaceUsers = [
       'src/renderer/dom-internal.ts',
-      'src/renderer/evaluate.ts',
+      'src/renderer/evaluate-reconcile.ts',
       'src/renderer/boundaries.ts',
     ].map((filePath) => {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
@@ -805,10 +1004,14 @@ describe('architecture boundaries', () => {
       (file) =>
         file.relativePath === 'src/renderer/reactive-child-sources.ts'
     );
+    const reactiveChildDom = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/reactive-child-dom.ts'
+    );
 
     expect(domInternal).toBeDefined();
     expect(reactiveChildren).toBeDefined();
     expect(reactiveChildSources).toBeDefined();
+    expect(reactiveChildDom).toBeDefined();
 
     const domHelperImports = edges
       .filter((edge) => edge.from === domInternal!.filePath && !edge.typeOnly)
@@ -823,6 +1026,9 @@ describe('architecture boundaries', () => {
     expect(reactiveHelperImports).toContain(
       'src/renderer/reactive-child-sources.ts'
     );
+    expect(reactiveHelperImports).toContain(
+      'src/renderer/reactive-child-dom.ts'
+    );
     expect(domInternal!.text).not.toMatch(
       /function\s+(collectReactiveScalarSequenceValue|collectReactiveScalarChildSource|getReactiveScalarChildSource|getSingleReactiveChildBoundarySource|collectReactiveChildBoundarySequenceSource|getReactiveChildBoundarySequenceSource|areReactiveChildBoundarySequenceSourcesEqual|canUpdateReactiveChildBoundarySequenceSource|areReactiveScalarChildSourcesEqual|getOrCreateElementReactiveCleanupMap|normalizeReactiveScalarSequenceValues|normalizeOwnedReactiveTextValue|collectReactiveChildValuesAsVNodes|materializeReactiveChildBoundaryNodes|syncReactiveScalarTextNodes|trySyncScalarChildSequenceInPlace|normalizeReactiveChildBoundaryVNode|isSingleRootReactiveChildBoundaryValue|collectReactiveChildBoundaryVNodes|createReactiveChildBoundaryHost|disposeReactiveChildBoundaryNodes|syncReactiveChildExpectedNodes|commitReactiveChildBoundaryEntryNodes|syncReactiveChildSequenceNodes|setupReactiveScalarChild|setupReactiveChildBoundary|setupReactiveChildBoundarySequence|syncReactiveScalarChild)\s*\(/
     );
@@ -832,8 +1038,12 @@ describe('architecture boundaries', () => {
     expect(domInternal!.text).not.toMatch(
       /from\s+['"]\.\.\/runtime\/child-scope['"]/
     );
+    expect(reactiveChildren!.text).not.toMatch(
+      /function\s+(materializeReactiveChildBoundaryNodes|createReactiveChildBoundaryHost|disposeReactiveChildBoundaryNodes|syncReactiveChildExpectedNodes|commitReactiveChildBoundaryEntryNodes|syncReactiveChildSequenceNodes|syncReactiveScalarTextNodes)\s*\(|type\s+ReactiveChildBoundarySequenceEntry\s*=/
+    );
     expect(reactiveChildren!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
     expect(reactiveChildSources!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+    expect(reactiveChildDom!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
   });
 
   it('should keep the component facade free of lifecycle implementation logic', () => {
@@ -1138,22 +1348,26 @@ describe('architecture boundaries', () => {
     const ssrInternal = sourceFiles.find(
       (file) => file.relativePath === 'src/ssr/index-internal.ts'
     );
+    const renderSync = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/render-sync.ts'
+    );
     const componentRuntime = sourceFiles.find(
       (file) => file.relativePath === 'src/ssr/component-runtime.ts'
     );
 
     expect(ssrInternal).toBeDefined();
+    expect(renderSync).toBeDefined();
     expect(componentRuntime).toBeDefined();
     expect(ssrInternal!.text).not.toMatch(
       /function\s+(pushSSRStrictPurityGuard|popSSRStrictPurityGuard|executeComponentSync|disposeSSRTemporaryOwners|wrapWithDefaultPortal|renderSyncComponentRoot)\s*\(/
     );
     expect(ssrInternal!.text).not.toMatch(/\b__ssrGuardStack\b/);
 
-    const ssrImports = edges
-      .filter((edge) => edge.from === ssrInternal!.filePath && !edge.typeOnly)
+    const renderSyncImports = edges
+      .filter((edge) => edge.from === renderSync!.filePath && !edge.typeOnly)
       .map((edge) => relative(edge.to));
 
-    expect(ssrImports).toContain('src/ssr/component-runtime.ts');
+    expect(renderSyncImports).toContain('src/ssr/component-runtime.ts');
 
     for (const [filePath, maxLines] of SSR_COMPONENT_RUNTIME_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
@@ -1166,11 +1380,15 @@ describe('architecture boundaries', () => {
     const ssrInternal = sourceFiles.find(
       (file) => file.relativePath === 'src/ssr/index-internal.ts'
     );
+    const renderSync = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/render-sync.ts'
+    );
     const boundaries = sourceFiles.find(
       (file) => file.relativePath === 'src/ssr/boundaries.ts'
     );
 
     expect(ssrInternal).toBeDefined();
+    expect(renderSync).toBeDefined();
     expect(boundaries).toBeDefined();
     expect(ssrInternal!.text).not.toMatch(
       /function\s+(normalizeRenderableChildren|getRenderableChildren|getErrorBoundaryState|resetErrorBoundaryState|createErrorBoundaryReset|createDefaultErrorBoundaryFallbackVNode|resolveErrorBoundaryFallbackNode|getControlBoundaryState|evaluateControlBoundaryChildren)\s*\(/
@@ -1179,11 +1397,11 @@ describe('architecture boundaries', () => {
       /data-askr-error-boundary|Something went wrong while rendering this view|\bevaluateForState\b|\bevaluateShowState\b|\bevaluateCaseState\b/
     );
 
-    const ssrImports = edges
-      .filter((edge) => edge.from === ssrInternal!.filePath && !edge.typeOnly)
+    const renderSyncImports = edges
+      .filter((edge) => edge.from === renderSync!.filePath && !edge.typeOnly)
       .map((edge) => relative(edge.to));
 
-    expect(ssrImports).toContain('src/ssr/boundaries.ts');
+    expect(renderSyncImports).toContain('src/ssr/boundaries.ts');
 
     for (const [filePath, maxLines] of SSR_BOUNDARY_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
@@ -1192,29 +1410,68 @@ describe('architecture boundaries', () => {
     }
   });
 
-  it('should track temporary internal implementation clusters with current line ceilings', () => {
-    for (const [filePath, debt] of INTERNAL_IMPLEMENTATION_CLUSTER_MODULES) {
+  it('should keep SSR sync rendering and hydration verification split out of public orchestration', () => {
+    const ssrInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/index-internal.ts'
+    );
+    const renderSync = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/render-sync.ts'
+    );
+    const hydrationData = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/hydration-data.ts'
+    );
+    const hydrationVerify = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssr/hydration-verify.ts'
+    );
+
+    expect(ssrInternal).toBeDefined();
+    expect(renderSync).toBeDefined();
+    expect(hydrationData).toBeDefined();
+    expect(hydrationVerify).toBeDefined();
+    expect(ssrInternal!.text).not.toMatch(
+      /function\s+(inheritRenderableKey|renderRenderableSync|renderChildSync|renderRenderableSyncToSink|renderChildSyncToSink|serializeHydrationRenderData|renderChildrenSync|renderErrorBoundaryFallbackValue|renderErrorBoundaryFallbackValueToSink|renderChildrenSyncToSink|sinkWrite2|sinkWrite3|renderNodeSync|renderNodeSyncToSink|flushPendingText|verifyRenderedAttrs|verifyExpectedNode|verifyExpectedChildren|verifyRenderableNode)\s*\(|type\s+VerifyState\s*=/
+    );
+
+    const ssrImports = edges
+      .filter((edge) => edge.from === ssrInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+    const renderSyncImports = edges
+      .filter((edge) => edge.from === renderSync!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(ssrImports).toContain('src/ssr/render-sync.ts');
+    expect(ssrImports).toContain('src/ssr/hydration-verify.ts');
+    expect(renderSyncImports).toContain('src/ssr/hydration-data.ts');
+
+    for (const [filePath, maxLines] of SSR_INTERNAL_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
       expect(file, `${filePath} should exist`).toBeDefined();
-      expect(debt.name.length).toBeGreaterThan(10);
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(
-        debt.maxLines
+        maxLines
       );
     }
   });
 
-  it('should require explicit exemptions for oversized responsibility clusters', () => {
+  it('should keep remaining runtime owner modules under explicit ceilings', () => {
+    for (const [filePath, maxLines] of [
+      ...RUNTIME_COMPONENT_OWNER_MODULES,
+      ...RUNTIME_FOR_OWNER_MODULES,
+    ]) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should reject source files above the architecture drift line limit', () => {
     const oversized = sourceFiles
-      .filter((file) => file.text.split(/\r?\n/).length > OVERSIZED_LINE_LIMIT)
+      .filter(
+        (file) =>
+          file.text.split(/\r?\n/).length > ARCHITECTURE_DRIFT_LINE_LIMIT
+      )
       .map((file) => file.relativePath)
-      .filter((filePath) => !OVERSIZED_FILE_EXEMPTIONS.has(filePath))
       .sort();
 
     expect(oversized).toEqual([]);
-
-    for (const [filePath, reason] of OVERSIZED_FILE_EXEMPTIONS) {
-      expect(reason.length).toBeGreaterThan(10);
-      expect(fs.existsSync(path.join(rootDir, filePath))).toBe(true);
-    }
   });
 });

@@ -36,6 +36,12 @@ across focused modules:
 - `resolution.ts` owns matching, request resolution, and activity-match
   computation.
 - `activity.ts` owns `currentRoute()` snapshots and active-route state.
+- `navigate.ts` owns browser history and popstate orchestration.
+- `navigation-registry.ts` owns app registration and route snapshot
+  synchronization.
+- `navigation-targets.ts` owns route request cancellation, target resolution,
+  and target application.
+- `route-query.ts` owns URL query update helpers.
 
 The authoring flow is:
 
@@ -68,7 +74,10 @@ flowchart TB
   activity[activity.ts route snapshots]
   access[access.ts auth policy helpers]
   lazy[lazy.ts import tracking]
-  navigate[navigate.ts navigation]
+  navigate[navigate.ts history and popstate]
+  registry[navigation-registry.ts app registration]
+  targets[navigation-targets.ts target application]
+  routeQuery[route-query.ts query updates]
   scroll[navigation-scroll.ts scroll state]
 
   facade --> authoring
@@ -88,6 +97,9 @@ flowchart TB
   resolution --> rendering
   activity --> resolution
   navigate --> facade
+  navigate --> registry
+  navigate --> targets
+  navigate --> routeQuery
   navigate --> scroll
 ```
 
@@ -129,10 +141,11 @@ stores:
 - records - parsed records used by request resolution, metadata, layouts, and
   future manifest extensions
 
-When `navigate(path)` fires, `resolveRouteRequest()` finds the best record and
-returns its renderer handler. The renderer handler has the layout chain baked
-in, but defers matched page-shell and leaf component execution until their
-layout context is active. `navigate.ts` does not need to know about layouts.
+When `navigate(path)` fires, `navigation-targets.ts` starts a route request,
+uses `resolveRouteRequest()` to find the best record, and returns its renderer
+handler. The renderer handler has the layout chain baked in, but defers matched
+page-shell and leaf component execution until their layout context is active.
+`navigate.ts` does not need to know about layouts.
 
 `RouteRecord.handler` remains the eager low-level handler used by
 `resolveRoute()`, manifest inspection, and flat route tables. Keeping that
