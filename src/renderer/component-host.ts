@@ -40,7 +40,6 @@ import {
 } from './component-host-instances';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
-
 export {
   findHostInstanceByType,
   inheritComponentCleanupStrict,
@@ -48,7 +47,6 @@ export {
   isRouteRootComponentVNode,
   nextComponentInstanceId,
 } from './component-host-instances';
-
 function materializeComponentResultNode(
   childInstance: ComponentInstance,
   result: unknown,
@@ -64,7 +62,9 @@ function materializeComponentResultNode(
   if (!dom) {
     const placeholder = document.createComment('');
     try {
-      (placeholder as Comment & { __ASKR_INSTANCE?: ComponentInstance }).__ASKR_INSTANCE = childInstance;
+      (
+        placeholder as Comment & { __ASKR_INSTANCE?: ComponentInstance }
+      ).__ASKR_INSTANCE = childInstance;
     } catch {
       // Ignore placeholder metadata failures.
     }

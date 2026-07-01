@@ -210,7 +210,11 @@ flowchart LR
   `resolveRequest()`, document render argument construction, and string/stream
   sink orchestration.
 - `src/ssr/create-ssr.ts` wraps that path into a request-oriented API.
-- `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator.
+- `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator for
+  generation config, render batching, file writes, metadata, and manifest
+  assembly. `static-routes.ts` owns route-source normalization, `entries()`
+  expansion, and runtime-only route filtering. `generation-plan.ts` owns
+  incremental route selection and stale-route result planning.
 - SSG is not a separate renderer; it is route expansion plus repeated
   synchronous SSR.
 - Both modes depend on `src/router/resolution.ts` and the normalized route
@@ -222,6 +226,8 @@ The SSR and SSG diagrams are backed by architecture checks:
 
 - `index-internal.ts`, `render-sync.ts`, `hydration-data.ts`, and
   `hydration-verify.ts` each have explicit ownership and line ceilings.
+- `create-static-gen.ts`, `static-routes.ts`, and `generation-plan.ts` have
+  explicit ownership and line ceilings.
 - SSG should remain an orchestration layer over route expansion and repeated
   synchronous SSR. Any new data-loading work belongs before render, not inside
   the SSR render phase.

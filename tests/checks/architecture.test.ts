@@ -384,6 +384,7 @@ const RENDERER_EVALUATE_MODULES = new Map<string, number>([
 ]);
 
 const RUNTIME_COMPONENT_FACADE_MODULES = new Map<string, number>([
+  ['src/runtime/component-facade.ts', 60],
   ['src/runtime/component.ts', 20],
 ]);
 
@@ -431,6 +432,12 @@ const SSR_INTERNAL_MODULES = new Map<string, number>([
   ['src/ssr/hydration-verify.ts', 360],
   ['src/ssr/index-internal.ts', 350],
   ['src/ssr/render-sync.ts', 520],
+]);
+
+const SSG_ORCHESTRATION_MODULES = new Map<string, number>([
+  ['src/ssg/create-static-gen.ts', 460],
+  ['src/ssg/generation-plan.ts', 140],
+  ['src/ssg/static-routes.ts', 240],
 ]);
 
 const SINGLETON_IMPORT_ALLOWLIST = new Set([
@@ -784,9 +791,7 @@ describe('architecture boundaries', () => {
       .filter((edge) => edge.from === domInternal!.filePath && !edge.typeOnly)
       .map((edge) => relative(edge.to));
     const componentHostImports = edges
-      .filter(
-        (edge) => edge.from === componentHost!.filePath && !edge.typeOnly
-      )
+      .filter((edge) => edge.from === componentHost!.filePath && !edge.typeOnly)
       .map((edge) => relative(edge.to));
 
     expect(helperImports).toContain('src/renderer/attributes.ts');
@@ -971,7 +976,9 @@ describe('architecture boundaries', () => {
     expect(domInternal!.text).not.toMatch(
       /interface\s+ReactivePropDescriptor|reactivePropRegistry|export\s+function\s+markReactivePropsDirtySource/
     );
-    expect(domInternal!.text).not.toMatch(/from\s+['"]\.\.\/runtime\/events['"]/);
+    expect(domInternal!.text).not.toMatch(
+      /from\s+['"]\.\.\/runtime\/events['"]/
+    );
     expect(propBindings!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
   });
 
@@ -1008,8 +1015,7 @@ describe('architecture boundaries', () => {
       (file) => file.relativePath === 'src/renderer/reactive-children.ts'
     );
     const reactiveChildSources = sourceFiles.find(
-      (file) =>
-        file.relativePath === 'src/renderer/reactive-child-sources.ts'
+      (file) => file.relativePath === 'src/renderer/reactive-child-sources.ts'
     );
     const reactiveChildDom = sourceFiles.find(
       (file) => file.relativePath === 'src/renderer/reactive-child-dom.ts'
@@ -1120,9 +1126,7 @@ describe('architecture boundaries', () => {
       .map((edge) => relative(edge.to));
 
     expect(helperImports).toContain('src/runtime/component-commit.ts');
-    expect(componentInternal!.text).not.toMatch(
-      /function\s+runComponent\s*\(/
-    );
+    expect(componentInternal!.text).not.toMatch(/function\s+runComponent\s*\(/);
     expect(componentInternal!.text).not.toMatch(
       /\btryRuntimeFastLaneSync\b|\bgetRuntimeRenderer\b|\bbeginLifecycleCommitBatch\b|\bdiscardLifecycleCommitBatch\b|\bflushLifecycleCommitBatch\b|\benterDomCommitScope\b|\brestoreDomCommitScope\b/
     );
@@ -1453,9 +1457,41 @@ describe('architecture boundaries', () => {
     for (const [filePath, maxLines] of SSR_INTERNAL_MODULES) {
       const file = sourceFiles.find((item) => item.relativePath === filePath);
       expect(file, `${filePath} should exist`).toBeDefined();
-      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(
-        maxLines
-      );
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
+    }
+  });
+
+  it('should keep SSG route preparation and generation planning split out of static generation orchestration', () => {
+    const createStaticGen = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssg/create-static-gen.ts'
+    );
+    const generationPlan = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssg/generation-plan.ts'
+    );
+    const staticRoutes = sourceFiles.find(
+      (file) => file.relativePath === 'src/ssg/static-routes.ts'
+    );
+
+    expect(createStaticGen).toBeDefined();
+    expect(generationPlan).toBeDefined();
+    expect(staticRoutes).toBeDefined();
+    expect(createStaticGen!.text).not.toMatch(
+      /function\s+(getRuntimeOnlyDiagnostic|createRuntimeOnlyRoute|splitStaticRoutes|routeRegistryToRouteConfigs|stripRegistryGuestPolicies|normalizeStaticRoutes|dedupeStrings|getRoutesToRender|selectRouteForGeneration|collectRemovedRouteResults)\s*\(/
+    );
+
+    const createStaticGenImports = edges
+      .filter(
+        (edge) => edge.from === createStaticGen!.filePath && !edge.typeOnly
+      )
+      .map((edge) => relative(edge.to));
+
+    expect(createStaticGenImports).toContain('src/ssg/generation-plan.ts');
+    expect(createStaticGenImports).toContain('src/ssg/static-routes.ts');
+
+    for (const [filePath, maxLines] of SSG_ORCHESTRATION_MODULES) {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
     }
   });
 

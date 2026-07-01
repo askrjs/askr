@@ -353,9 +353,12 @@ diagrams:
   `component-runtime.ts` owns synchronous component execution and temporary
   owner cleanup, and `route-render.ts` owns route/document orchestration for
   object-form rendering and streams.
-- `src/ssg/create-static-gen.ts` is an orchestration layer over route expansion,
-  SSR rendering, file output, and metadata generation rather than a separate
-  rendering engine.
+- `src/ssg/create-static-gen.ts` is an orchestration layer over route
+  preparation, SSR rendering, file output, metadata, and manifest assembly
+  rather than a separate rendering engine. `src/ssg/static-routes.ts` owns
+  route-source normalization, `entries()` expansion, and runtime-only route
+  filtering. `src/ssg/generation-plan.ts` owns incremental route selection and
+  stale-route result planning.
 
 ## Architecture Review Notes
 
