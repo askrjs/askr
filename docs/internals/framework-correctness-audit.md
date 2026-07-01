@@ -274,7 +274,7 @@ Result after follow-up fixes: 4 files and 47 tests passed.
 
 ### Matrix coverage crosswalk
 
-The audit added direct regressions for items 1-9, 11-18, 20, 29,
+The audit added direct regressions for items 1-9, 11-20, 29,
 32-37, 44-47, and 49. The retained-node probe for item 10 passed without a
 runtime change. The complete suite also reruns the existing focused coverage
 families:
@@ -301,6 +301,9 @@ Final matrix follow-up:
 - Item 18 now has a direct scheduler lane-order probe. A mixed batch of derived,
   component, reactive, and post work drains in stable lane order while
   preserving FIFO order inside each lane.
+- Item 19 now has a direct active-flush enqueue probe. Work scheduled by a task
+  already being flushed drains in the same epoch after existing sibling work and
+  leaves no pending queue entries behind.
 - Item 20 now has a direct scheduler probe. A user microtask queued before a
   framework flush runs first, and a user microtask queued after the framework
   flush runs afterward.

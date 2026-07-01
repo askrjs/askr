@@ -189,6 +189,33 @@ describe('scheduler invariants', () => {
     ]);
   });
 
+  it('should drain work enqueued during an active flush without starvation', () => {
+    const scheduler = new Scheduler();
+    const order: string[] = [];
+
+    scheduler.enqueue(() => {
+      order.push('first');
+      scheduler.enqueue(() => {
+        order.push('nested');
+      });
+    });
+    scheduler.enqueue(() => {
+      order.push('sibling');
+    });
+
+    scheduler.flush();
+
+    expect(order).toEqual(['first', 'sibling', 'nested']);
+    expect(scheduler.getState()).toMatchObject({
+      queueLength: 0,
+      running: false,
+      taskCount: 0,
+      laneQueues: {
+        component: 0,
+      },
+    });
+  });
+
   it('should preserve user microtask order around a scheduled framework flush', async () => {
     const scheduler = new Scheduler();
     const events: string[] = [];
