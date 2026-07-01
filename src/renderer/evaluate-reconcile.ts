@@ -34,6 +34,7 @@ import {
   tagNamesEqualIgnoreCase as sharedTagNamesEqualIgnoreCase,
   writeElementClassName,
 } from './utils';
+import { runRetainedElementUpdate } from './retained-element-rollback';
 
 type ComponentHostElement = Element & {
   __ASKR_INSTANCE?: ComponentInstance;
@@ -350,6 +351,25 @@ export function updateElementChildren(
 }
 
 export function smartUpdateElement(
+  element: Element,
+  vnode: DOMElement,
+  cleanupRangeNode: (node: Node) => void
+): void {
+  const hadVNodeKey = Object.prototype.hasOwnProperty.call(vnode, 'key');
+  const previousVNodeKey = vnode.key;
+
+  runRetainedElementUpdate(
+    element,
+    cleanupRangeNode,
+    () => applySmartUpdateElement(element, vnode, cleanupRangeNode),
+    () => {
+      if (hadVNodeKey) vnode.key = previousVNodeKey;
+      else delete vnode.key;
+    }
+  );
+}
+
+function applySmartUpdateElement(
   element: Element,
   vnode: DOMElement,
   cleanupRangeNode: (node: Node) => void

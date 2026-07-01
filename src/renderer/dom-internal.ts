@@ -26,6 +26,7 @@ import {
 import {
   removeAllListeners,
   removeElementReactiveProps,
+  teardownNodeSubtree,
   updateElementRef,
 } from './cleanup';
 import { createComponentElement, syncComponentElement } from './component-host';
@@ -47,6 +48,7 @@ import {
   syncElementPropBindings,
 } from './prop-bindings';
 import { syncReactiveScalarChild } from './reactive-children';
+import { runRetainedElementUpdate } from './retained-element-rollback';
 import { canReuseStaticSubtree } from './static-reuse';
 import { tryPatchStableForDirtyItem } from './stable-patch';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
@@ -267,6 +269,17 @@ export function updateElementFromVnode(
   vnode: VNode,
   updateChildren = true,
   forceChildrenUpdate = false
+): void {
+  runRetainedElementUpdate(el, teardownNodeSubtree, () => {
+    applyElementUpdateFromVnode(el, vnode, updateChildren, forceChildrenUpdate);
+  });
+}
+
+function applyElementUpdateFromVnode(
+  el: Element,
+  vnode: VNode,
+  updateChildren: boolean,
+  forceChildrenUpdate: boolean
 ): void {
   if (!_isDOMElement(vnode)) {
     return;

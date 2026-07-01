@@ -295,15 +295,17 @@ Final matrix follow-up:
   aborted when a newer fast popstate wins, and the rendered route remains
   aligned with the URL.
 
-Open probes retained for follow-up:
+Resolved follow-up probes:
 
-- Item 10: the new retained text and attribute rollback probe passes, but a
-  broader mutation journal was not justified. Continue injecting failures
-  after retained listener, property, and child-order mutations.
-- Item 48: the edge-runtime fallback context stack remains explicitly
-  non-concurrency-safe. Current public SSR renderers are synchronous, and the
-  Node path uses `AsyncLocalStorage`; forced asynchronous fallback overlap
-  needs a dedicated supported-environment harness.
+- Item 10: retained-node rollback now has focused failures after capture
+  listener replacement/addition, form-control property writes, and child
+  reorder/removal/insertion. Failed retained updates restore the existing
+  element in place, including attributes, children, text data, form-control
+  state, refs, reactive props, and direct/delegated listener handler metadata.
+- Item 48: the forced non-`AsyncLocalStorage` SSR fallback path now has
+  dedicated invariants. Nested synchronous fallback contexts restore in stack
+  order, and promise-like fallback callbacks throw a deterministic unsupported
+  async fallback error before context can leak.
 
 ### Validation
 

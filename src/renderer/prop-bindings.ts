@@ -22,6 +22,7 @@ import {
   elementListeners,
   elementReactivePropsCleanup,
   REACTIVE_CHILDREN_KEY,
+  type ReactivePropCleanupEntry,
   updateElementRef,
 } from './cleanup';
 import { getRuntimeEnv } from './env';
@@ -173,6 +174,41 @@ function setupReactiveProp(
   };
 }
 
+function getOrCreateReactivePropsCleanupMap(
+  el: Element
+): Map<string, ReactivePropCleanupEntry> {
+  let cleanupMap = elementReactivePropsCleanup.get(el);
+  if (!cleanupMap) {
+    cleanupMap = new Map();
+    elementReactivePropsCleanup.set(el, cleanupMap);
+  }
+  return cleanupMap;
+}
+
+function createReactivePropCleanupEntry(
+  el: Element,
+  propName: string,
+  propFn: () => unknown,
+  tagName: string
+): ReactivePropCleanupEntry {
+  const reactive = setupReactiveProp(el, propName, propFn, tagName);
+
+  return {
+    cleanup: reactive.cleanup,
+    updateFn: (nextValue) => {
+      reactive.updateFn(nextValue as () => unknown);
+    },
+    restoreFn: (nextValue) =>
+      createReactivePropCleanupEntry(
+        el,
+        propName,
+        nextValue as () => unknown,
+        tagName
+      ),
+    fnRef: propFn,
+  };
+}
+
 export function hasTrackedElementPropBindings(el: Element): boolean {
   const existingListeners = elementListeners.get(el);
   const existingReactiveProps = elementReactivePropsCleanup.get(el);
@@ -213,23 +249,10 @@ export function applyPropsToElement(
     }
 
     if (typeof value === 'function' && key !== 'ref') {
-      const reactive = setupReactiveProp(
-        el,
+      getOrCreateReactivePropsCleanupMap(el).set(
         key,
-        value as () => unknown,
-        tagName
+        createReactivePropCleanupEntry(el, key, value as () => unknown, tagName)
       );
-
-      if (!elementReactivePropsCleanup.has(el)) {
-        elementReactivePropsCleanup.set(el, new Map());
-      }
-      elementReactivePropsCleanup.get(el)!.set(key, {
-        cleanup: reactive.cleanup,
-        updateFn: (nextValue) => {
-          reactive.updateFn(nextValue as () => unknown);
-        },
-        fnRef: value as () => unknown,
-      });
       continue;
     }
 
@@ -317,23 +340,15 @@ export function syncElementPropBindings(
         existingEntry.cleanup();
       }
 
-      const reactive = setupReactiveProp(
-        el,
+      getOrCreateReactivePropsCleanupMap(el).set(
         key,
-        value as () => unknown,
-        domVNode.type as string
+        createReactivePropCleanupEntry(
+          el,
+          key,
+          value as () => unknown,
+          domVNode.type as string
+        )
       );
-
-      if (!elementReactivePropsCleanup.has(el)) {
-        elementReactivePropsCleanup.set(el, new Map());
-      }
-      elementReactivePropsCleanup.get(el)!.set(key, {
-        cleanup: reactive.cleanup,
-        updateFn: (nextValue) => {
-          reactive.updateFn(nextValue as () => unknown);
-        },
-        fnRef: value as () => unknown,
-      });
       continue;
     }
 
