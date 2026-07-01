@@ -252,6 +252,76 @@ describe('For JSX primitive', () => {
     }
   });
 
+  it('should keep row-local state attached to keys across reorder', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    let setItems: (next: Item[]) => void = () => {};
+
+    const Row = ({ item }: { item: Item }) => {
+      const local = state(0);
+
+      return (
+        <button
+          data-row={String(item.id)}
+          onClick={() => local.set((value) => value + 1)}
+        >
+          {item.label}:{local()}
+        </button>
+      );
+    };
+
+    const App = () => {
+      const items = state<Item[]>([
+        { id: 1, label: 'a' },
+        { id: 2, label: 'b' },
+        { id: 3, label: 'c' },
+      ]);
+      setItems = (next) => items.set(next);
+
+      return (
+        <div>
+          <For each={items} by={(item) => item.id}>
+            {(item) => <Row item={item} />}
+          </For>
+        </div>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      const rowTwoBefore = container.querySelector(
+        '[data-row="2"]'
+      ) as HTMLButtonElement;
+      rowTwoBefore.click();
+      flushScheduler();
+
+      expect(rowTwoBefore.textContent).toBe('b:1');
+
+      setItems([
+        { id: 3, label: 'c' },
+        { id: 1, label: 'a' },
+        { id: 2, label: 'b' },
+      ]);
+      flushScheduler();
+
+      const rows = Array.from(
+        container.querySelectorAll<HTMLButtonElement>('[data-row]')
+      );
+      expect(rows.map((row) => row.getAttribute('data-row'))).toEqual([
+        '3',
+        '1',
+        '2',
+      ]);
+      expect(rows.map((row) => row.textContent)).toEqual(['c:0', 'a:0', 'b:1']);
+      expect(container.querySelector('[data-row="2"]')).toBe(rowTwoBefore);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should not subscribe a parent to cloned vnode item property updates', () => {
     const { container, cleanup } = createTestContainer();
     let closePanel: () => void = () => {};
