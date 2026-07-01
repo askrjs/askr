@@ -223,6 +223,58 @@ describe('resource coverage edges', () => {
     }
   });
 
+  it('should expose pending ready refresh and error transitions', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const settlements: Array<{
+      resolve: (value: string) => void;
+      reject: (error: Error) => void;
+    }> = [];
+
+    const App = (): JSXElement => {
+      const result = resource(
+        () =>
+          new Promise<string>((resolve, reject) => {
+            settlements.push({ resolve, reject });
+          }),
+        []
+      );
+
+      return (
+        <button onClick={() => result.refresh()}>
+          {result.pending ? 'pending' : 'settled'}|{result.value ?? 'none'}|
+          {result.error?.message ?? 'no-error'}
+        </button>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      expect(container.textContent).toBe('pending|none|no-error');
+      expect(settlements.length).toBe(1);
+
+      settlements[0].resolve('ready');
+      await settleResourceWork();
+      expect(container.textContent).toBe('settled|ready|no-error');
+
+      (container.firstElementChild as HTMLButtonElement).click();
+      flushScheduler();
+      expect(settlements.length).toBe(2);
+      expect(container.textContent).toBe('pending|ready|no-error');
+
+      settlements[1].reject(new Error('refresh failed'));
+      await settleResourceWork();
+
+      expect(container.textContent).toBe('settled|ready|refresh failed');
+      expect(errorSpy).toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+      cleanup();
+    }
+  });
+
   it('should start only the newest loader once when deps change before post drain', async () => {
     const calls: string[] = [];
     let id!: ReturnType<typeof state<string>>;
