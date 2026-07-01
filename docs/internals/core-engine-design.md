@@ -128,6 +128,7 @@ flowchart TB
     namespaces[namespaces.ts]
     forCommit[for-commit.ts]
     forCommitMap[for-commit-dom-map.ts]
+    forCommitRemoval[for-commit-removal.ts]
     forCommitReorder[for-commit-reorder.ts]
     cleanup[cleanup.ts]
   end
@@ -231,6 +232,7 @@ flowchart TB
   domCore --> namespaces
   domCore --> forCommit
   forCommit --> forCommitMap
+  forCommit --> forCommitRemoval
   forCommit --> forCommitReorder
   evaluateReconcile --> namespaces
   boundaries --> namespaces

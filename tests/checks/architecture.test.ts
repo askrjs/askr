@@ -371,8 +371,9 @@ const RENDERER_DOM_HELPER_MODULES = new Map<string, number>([
 ]);
 
 const RENDERER_FOR_COMMIT_MODULES = new Map<string, number>([
-  ['src/renderer/for-commit.ts', 640],
+  ['src/renderer/for-commit.ts', 620],
   ['src/renderer/for-commit-dom-map.ts', 220],
+  ['src/renderer/for-commit-removal.ts', 80],
   ['src/renderer/for-commit-reorder.ts', 220],
 ]);
 
@@ -851,12 +852,16 @@ describe('architecture boundaries', () => {
     const reorder = sourceFiles.find(
       (file) => file.relativePath === 'src/renderer/for-commit-reorder.ts'
     );
+    const removal = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/for-commit-removal.ts'
+    );
 
     expect(forCommit).toBeDefined();
     expect(domMap).toBeDefined();
     expect(reorder).toBeDefined();
+    expect(removal).toBeDefined();
     expect(forCommit!.text).not.toMatch(
-      /function\s+(getOrBuildDomKeyMap|syncKeyedMapFromForState|hydrateExistingForDomInOrder|getLISIndices|commitMoveOnlyReorder)\s*\(/
+      /function\s+(getOrBuildDomKeyMap|syncKeyedMapFromForState|hydrateExistingForDomInOrder|getLISIndices|commitMoveOnlyReorder|removeForBoundaryNodes)\s*\(/
     );
 
     const helperImports = edges
@@ -864,8 +869,10 @@ describe('architecture boundaries', () => {
       .map((edge) => relative(edge.to));
 
     expect(helperImports).toContain('src/renderer/for-commit-dom-map.ts');
+    expect(helperImports).toContain('src/renderer/for-commit-removal.ts');
     expect(helperImports).toContain('src/renderer/for-commit-reorder.ts');
     expect(domMap!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+    expect(removal!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
     expect(reorder!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
 
     for (const [filePath, maxLines] of RENDERER_FOR_COMMIT_MODULES) {

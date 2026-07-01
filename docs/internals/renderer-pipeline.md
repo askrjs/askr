@@ -79,6 +79,7 @@ flowchart TB
   reconcileCommit[reconcile-commit.ts DOM commit]
   forCommit[for-commit.ts For list DOM commit]
   forMap[for-commit-dom-map.ts DOM key maps]
+  forRemoval[for-commit-removal.ts removed node teardown]
   forReorder[for-commit-reorder.ts move-only reorder]
   cleanup[cleanup.ts teardown]
 
@@ -105,6 +106,7 @@ flowchart TB
   reconcile --> reconcileCommit
   internal --> forCommit
   forCommit --> forMap
+  forCommit --> forRemoval
   forCommit --> forReorder
   internal --> cleanup
 ```
@@ -252,7 +254,8 @@ flowchart LR
   `reconcile-commit.ts` owns DOM commit application.
 - `src/renderer/for-commit.ts` orchestrates keyed `For` DOM commits.
   `for-commit-dom-map.ts` owns DOM key-map hydration/synchronization and
-  `for-commit-reorder.ts` owns move-only reorders.
+  `for-commit-removal.ts` owns removed boundary-node teardown and bulk clears,
+  while `for-commit-reorder.ts` owns move-only reorders.
 - `src/renderer/cleanup.ts` owns listener removal and subtree teardown.
 - The renderer is deliberately host-shaped so the runtime can stay mostly
   agnostic about DOM details.
