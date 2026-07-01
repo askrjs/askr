@@ -93,6 +93,47 @@ describe('resource coverage edges', () => {
     }
   });
 
+  it('should preserve a newer success when an older success resolves late', async () => {
+    const resolvers: Array<(value: string) => void> = [];
+
+    const App = (): JSXElement => {
+      const result = resource(
+        () =>
+          new Promise<string>((resolve) => {
+            resolvers.push(resolve);
+          }),
+        []
+      );
+
+      return (
+        <button onClick={() => result.refresh()}>
+          {result.value ?? (result.pending ? 'loading' : 'empty')}
+        </button>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('loading');
+
+      (container.firstElementChild as HTMLButtonElement).click();
+      flushScheduler();
+      expect(resolvers.length).toBe(2);
+
+      resolvers[1]('newer');
+      await settleResourceWork();
+      expect(container.textContent).toBe('newer');
+
+      resolvers[0]('older');
+      await settleResourceWork();
+      expect(container.textContent).toBe('newer');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should recover from an error after refresh succeeds', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     let attempt = 0;
