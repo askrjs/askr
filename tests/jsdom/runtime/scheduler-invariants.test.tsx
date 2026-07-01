@@ -229,4 +229,64 @@ describe('scheduler invariants', () => {
 
     cleanup();
   });
+
+  it('should not resurrect disposed ownership after cleanup-triggered writes', () => {
+    const { container, cleanup } = createTestContainer();
+    let showChild!: State<boolean>;
+    let shared!: State<number>;
+    let childInstance: ReturnType<typeof getCurrentComponentInstance> = null;
+    let childRenders = 0;
+    let cleanupRuns = 0;
+
+    const Child = () => {
+      childRenders += 1;
+      const instance = getCurrentComponentInstance();
+      if (!instance) {
+        throw new Error('expected child component instance');
+      }
+      childInstance = instance;
+      instance.cleanupFns.push(() => {
+        cleanupRuns += 1;
+        shared.set((value) => value + 1);
+      });
+
+      return <span id={'child'}>{String(shared())}</span>;
+    };
+
+    const Sink = () => <output id={'sink'}>{String(shared())}</output>;
+
+    const App = () => {
+      showChild = state(true);
+      shared = state(0);
+
+      return (
+        <section>
+          {showChild() ? <Child /> : null}
+          <Sink />
+        </section>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(childRenders).toBe(1);
+    expect(container.querySelector('#child')?.textContent).toBe('0');
+    expect(container.querySelector('#sink')?.textContent).toBe('0');
+
+    showChild.set(false);
+    flushScheduler();
+    flushScheduler();
+
+    const readers = (shared as unknown as { _readers?: Map<unknown, unknown> })
+      ._readers;
+    expect(cleanupRuns).toBe(1);
+    expect(childRenders).toBe(1);
+    expect(container.querySelector('#child')).toBeNull();
+    expect(container.querySelector('#sink')?.textContent).toBe('1');
+    expect(readers?.has(childInstance)).toBe(false);
+    expect(readers?.size ?? 0).toBe(1);
+
+    cleanup();
+  });
 });

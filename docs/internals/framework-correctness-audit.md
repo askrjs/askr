@@ -274,7 +274,7 @@ Result after follow-up fixes: 4 files and 47 tests passed.
 
 ### Matrix coverage crosswalk
 
-The audit added direct regressions for items 1-9, 11-16, 20, 29,
+The audit added direct regressions for items 1-9, 11-17, 20, 29,
 32-37, 44-47, and 49. The retained-node probe for item 10 passed without a
 runtime change. The complete suite also reruns the existing focused coverage
 families:
@@ -295,6 +295,9 @@ Final matrix follow-up:
 - Item 16 now has a direct queued-effect disposal probe. When one invalidated
   effect is cleaned up before the lane flush, that effect is skipped and sibling
   queued work still commits.
+- Item 17 now has a direct cleanup-write ownership probe. A cleanup callback can
+  write shared state for live descendants without rerendering or retaining the
+  disposed child that originally read that state.
 - Item 20 now has a direct scheduler probe. A user microtask queued before a
   framework flush runs first, and a user microtask queued after the framework
   flush runs afterward.
