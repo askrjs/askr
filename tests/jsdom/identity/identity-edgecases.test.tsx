@@ -5,6 +5,10 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
+import {
+  disableEventDelegation,
+  enableEventDelegation,
+} from '../../../src/runtime/events';
 
 describe('identity edge cases', () => {
   it('should deterministically reuse prior DOM nodes for duplicate keys (no ambiguous remounts)', async () => {
@@ -203,5 +207,92 @@ describe('identity edge cases', () => {
     expect(secondText.textContent).toBe('right');
 
     cleanup();
+  });
+
+  it('should clean host refs and direct listeners when a nested component root host is replaced', () => {
+    disableEventDelegation();
+
+    const { container, cleanup } = createTestContainer();
+    let setKind: (next: 'button' | 'link') => void = () => {};
+    let oldClicks = 0;
+    let newClicks = 0;
+    let refDetaches = 0;
+    const refAttaches: Element[] = [];
+
+    const hostRef = (element: Element | null) => {
+      if (element) {
+        refAttaches.push(element);
+      } else {
+        refDetaches += 1;
+      }
+    };
+
+    const Child = ({ kind }: { kind: 'button' | 'link' }) =>
+      kind === 'button' ? (
+        <button
+          id={'nested-host'}
+          ref={hostRef}
+          onClick={() => {
+            oldClicks += 1;
+          }}
+        >
+          {'old'}
+        </button>
+      ) : (
+        <a
+          id={'nested-host'}
+          ref={hostRef}
+          onClick={() => {
+            newClicks += 1;
+          }}
+        >
+          {'new'}
+        </a>
+      );
+
+    const Component = () => {
+      const kind = state<'button' | 'link'>('button');
+      setKind = (next) => kind.set(next);
+
+      return (
+        <section>
+          <Child kind={kind()} />
+        </section>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const oldHost = container.querySelector(
+        '#nested-host'
+      ) as HTMLButtonElement;
+      oldHost.click();
+      flushScheduler();
+      expect(oldClicks).toBe(1);
+
+      setKind('link');
+      flushScheduler();
+
+      const newHost = container.querySelector(
+        '#nested-host'
+      ) as HTMLAnchorElement;
+      expect(newHost).not.toBe(oldHost);
+      expect(newHost.tagName).toBe('A');
+      expect(refAttaches).toEqual([oldHost, newHost]);
+      expect(refDetaches).toBe(1);
+
+      oldHost.click();
+      flushScheduler();
+      expect(oldClicks).toBe(1);
+
+      newHost.click();
+      flushScheduler();
+      expect(newClicks).toBe(1);
+    } finally {
+      cleanup();
+      enableEventDelegation();
+    }
   });
 });
