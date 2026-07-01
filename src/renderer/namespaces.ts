@@ -1,6 +1,6 @@
 import { tagNamesEqualIgnoreCase } from './utils';
 
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+export const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 export function getParentNamespace(parent: Element): string | undefined {
   return parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
@@ -8,13 +8,24 @@ export function getParentNamespace(parent: Element): string | undefined {
 
 export function resolveChildNamespace(
   type: string,
-  parentNamespace: string | undefined
+  parentNamespace?: string
 ): string | undefined {
   if (type === 'svg') return SVG_NAMESPACE;
   if (parentNamespace === SVG_NAMESPACE && type !== 'foreignObject') {
     return SVG_NAMESPACE;
   }
   return undefined;
+}
+
+export function createElementForNamespace(
+  type: string,
+  parentNamespace?: string,
+  ownerDocument: Document = document
+): Element {
+  const namespace = resolveChildNamespace(type, parentNamespace);
+  return namespace
+    ? ownerDocument.createElementNS(namespace, type)
+    : ownerDocument.createElement(type);
 }
 
 export function canReuseIntrinsicElementInNamespace(

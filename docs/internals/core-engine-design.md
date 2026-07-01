@@ -102,6 +102,7 @@ flowchart TB
     domCore[dom-internal.ts]
     attrs[attributes.ts]
     boundaries[boundaries.ts]
+    staticReuse[static-reuse.ts]
     reconcile[reconcile.ts and keyed.ts]
     keyedChildren[keyed-children.ts]
     namespaces[namespaces.ts]
@@ -178,7 +179,11 @@ flowchart TB
   domFacade --> domCore
   domCore --> attrs
   domCore --> boundaries
+  domCore --> staticReuse
+  domCore --> namespaces
   domCore --> forCommit
+  evaluate --> namespaces
+  boundaries --> namespaces
   reconcile --> keyedChildren
   reconcile --> namespaces
   reconcile --> cleanup

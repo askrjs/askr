@@ -350,6 +350,7 @@ const RENDERER_DOM_FACADE_MODULES = new Map<string, number>([
 const RENDERER_DOM_HELPER_MODULES = new Map<string, number>([
   ['src/renderer/attributes.ts', 520],
   ['src/renderer/boundaries.ts', 760],
+  ['src/renderer/static-reuse.ts', 220],
 ]);
 
 const RUNTIME_COMPONENT_FACADE_MODULES = new Map<string, number>([
@@ -393,7 +394,7 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
 >([
   [
     'src/renderer/dom-internal.ts',
-    { maxLines: 3900, name: 'DOM renderer implementation cluster' },
+    { maxLines: 3675, name: 'DOM renderer implementation cluster' },
   ],
   [
     'src/runtime/component-internal.ts',
@@ -681,6 +682,61 @@ describe('architecture boundaries', () => {
       expect(file, `${filePath} should exist`).toBeDefined();
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
     }
+  });
+
+  it('should keep renderer static subtree reuse split out of the active DOM path', () => {
+    const domInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/dom-internal.ts'
+    );
+    const staticReuse = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/static-reuse.ts'
+    );
+
+    expect(domInternal).toBeDefined();
+    expect(staticReuse).toBeDefined();
+
+    const helperImports = edges
+      .filter((edge) => edge.from === domInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/renderer/static-reuse.ts');
+    expect(domInternal!.text).not.toMatch(
+      /function\s+(upperCommonTagName|tagsEqualIgnoreCase|collectStaticChildSlots|getStaticChildSlots|canReuseStaticSubtree)\s*\(/
+    );
+    expect(domInternal!.text).not.toMatch(
+      /type\s+StaticChildSlot\s*=|interface\s+StaticChildSlotsCacheNode|STATIC_CHILD_SLOTS_CACHE|staticChildSlotsCacheEnabled/
+    );
+    expect(staticReuse!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+  });
+
+  it('should keep renderer namespace helpers split out of DOM creation paths', () => {
+    const namespaces = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/namespaces.ts'
+    );
+    const namespaceUsers = [
+      'src/renderer/dom-internal.ts',
+      'src/renderer/evaluate.ts',
+      'src/renderer/boundaries.ts',
+    ].map((filePath) => {
+      const file = sourceFiles.find((item) => item.relativePath === filePath);
+      expect(file, `${filePath} should exist`).toBeDefined();
+      return file!;
+    });
+
+    expect(namespaces).toBeDefined();
+
+    for (const file of namespaceUsers) {
+      const helperImports = edges
+        .filter((edge) => edge.from === file.filePath && !edge.typeOnly)
+        .map((edge) => relative(edge.to));
+
+      expect(helperImports).toContain('src/renderer/namespaces.ts');
+      expect(file.text).not.toMatch(
+        /const\s+SVG_NAMESPACE\s*=|function\s+(resolveChildNamespace|createElementForNamespace)\s*\(|createElementNS\s*\(/
+      );
+    }
+
+    expect(namespaces!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
   });
 
   it('should keep the component facade free of lifecycle implementation logic', () => {

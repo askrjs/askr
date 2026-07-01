@@ -22,10 +22,9 @@ import { teardownNodeSubtree } from './cleanup';
 import { getRuntimeEnv } from './env';
 import { commitForStateBoundaryChildren } from './for-commit';
 import { keyedElements } from './keyed';
+import { getParentNamespace } from './namespaces';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
-
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 type ElementWithContext = DOMElement & {
   __instance?: ComponentInstance;
@@ -343,8 +342,7 @@ export function syncControlBoundaryScopeDom(
   vnode: VNode
 ): Node | null {
   let dom = scope.dom ?? null;
-  const parentNamespace =
-    parent.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined;
+  const parentNamespace = getParentNamespace(parent);
   const host = getBoundaryDOMHost();
 
   if (_isDOMElement(vnode) && typeof vnode.type === 'function') {

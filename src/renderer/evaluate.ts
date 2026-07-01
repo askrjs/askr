@@ -11,6 +11,10 @@ import {
   teardownNodeSubtree,
 } from './cleanup';
 import { keyedElements } from './keyed';
+import {
+  createElementForNamespace,
+  getParentNamespace,
+} from './namespaces';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
@@ -53,29 +57,6 @@ interface DOMRange {
 }
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
-
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-
-function resolveChildNamespace(
-  type: string,
-  parentNamespace?: string
-): string | undefined {
-  if (type === 'svg') return SVG_NAMESPACE;
-  if (parentNamespace === SVG_NAMESPACE && type !== 'foreignObject') {
-    return SVG_NAMESPACE;
-  }
-  return undefined;
-}
-
-function createElementForNamespace(
-  type: string,
-  parentNamespace?: string
-): Element {
-  const namespace = resolveChildNamespace(type, parentNamespace);
-  return namespace
-    ? document.createElementNS(namespace, type)
-    : document.createElement(type);
-}
 
 const domRanges = new WeakMap<object, DOMRange>();
 
@@ -655,7 +636,7 @@ function tryFirstRenderKeyedChildren(
 
   const el = createElementForNamespace(
     vnode.type as string,
-    target.namespaceURI === SVG_NAMESPACE ? SVG_NAMESPACE : undefined
+    getParentNamespace(target)
   );
   target.appendChild(el);
 

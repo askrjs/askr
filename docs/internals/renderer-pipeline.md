@@ -169,9 +169,8 @@ flowchart LR
 
 - `src/renderer/evaluate.ts` is the renderer's dispatcher.
 - `src/renderer/dom.ts` is the compatibility facade for the DOM renderer.
-  `src/renderer/dom-internal.ts` currently owns the active element creation,
-  reactive prop/child handling, component-host handoff, and static-subtree
-  reuse implementation.
+  `src/renderer/dom-internal.ts` currently coordinates active element
+  creation, reactive prop/child handling, and component-host handoff.
 - `src/renderer/attributes.ts` owns scalar prop writes and removals, including
   class token patching, style string/object/null handling, form `value` and
   `checked`, stale attribute removal, static scalar props, and key
@@ -183,8 +182,11 @@ flowchart LR
   cycle.
 - `src/renderer/keyed-children.ts` owns keyed vnode snapshots and DOM key-map
   scans shared by the keyed planner and reconciler.
-- `src/renderer/namespaces.ts` owns intrinsic DOM namespace matching used when
-  the reconciler decides whether an existing element can be reused.
+- `src/renderer/namespaces.ts` owns intrinsic DOM namespace detection,
+  namespaced element creation, and reuse matching used by the DOM renderer,
+  evaluator, control-boundary commits, and keyed reconciler.
+- `src/renderer/static-reuse.ts` owns static child-slot caching, fast tag-name
+  comparison, and static-subtree reuse eligibility used by the DOM renderer.
 - `src/renderer/reconcile.ts` and `src/renderer/keyed.ts` handle keyed-child
   reuse, movement planning, and commit orchestration.
 - `src/renderer/cleanup.ts` owns listener removal and subtree teardown.
@@ -196,8 +198,8 @@ flowchart LR
 The renderer diagrams point to two concrete follow-ups:
 
 - `dom-internal.ts` is still the highest-risk renderer file because it mixes
-  reactive child ownership, component host reuse, error boundaries, static
-  subtree reuse, and child reconciliation.
+  reactive child ownership, component host reuse, error boundary creation, and
+  child reconciliation.
 - Extracted renderer helpers are now active dependencies. Future splits should
   keep helper modules wired into the running path rather than creating parallel
   implementations.
