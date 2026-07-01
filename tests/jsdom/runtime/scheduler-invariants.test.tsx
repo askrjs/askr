@@ -112,6 +112,46 @@ describe('scheduler invariants', () => {
     cleanup();
   });
 
+  it('should skip a disposed queued effect while sibling queued work runs', () => {
+    const { container, cleanup } = createTestContainer();
+    let source!: State<number>;
+    const commits: string[] = [];
+
+    createIsland({
+      root: container,
+      component: () => {
+        source = state(0);
+        return <div>{String(source())}</div>;
+      },
+    });
+    flushScheduler();
+
+    const first = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => source(),
+      commit: (value) => {
+        commits.push(`first:${String(value)}`);
+      },
+    });
+    const second = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => source(),
+      commit: (value) => {
+        commits.push(`second:${String(value)}`);
+      },
+    });
+
+    commits.length = 0;
+    source.set(1);
+    first.cleanup();
+    flushScheduler();
+
+    expect(commits).toEqual(['second:1']);
+
+    second.cleanup();
+    cleanup();
+  });
+
   it('should allow more than 50 independent tasks in one flush', () => {
     const scheduler = new Scheduler();
     let runs = 0;
