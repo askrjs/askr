@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
+import { getCurrentComponentInstance } from '../../../src/runtime/component';
 import { For } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
@@ -168,6 +169,84 @@ describe('For JSX primitive', () => {
       ]);
       expect(afterNodes[2].textContent).toBe('row-3 updated');
       expect(wrapperRenders).toBe(initialRows.length);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should clean nested descendants exactly once when a keyed row is removed', () => {
+    const { container, cleanup } = createTestContainer();
+
+    type Item = { id: number; label: string };
+    let setItems: (next: Item[]) => void = () => {};
+    const cleanupCounts = new Map<number, number>();
+    const localSetters = new Map<number, (next: number) => void>();
+
+    const Nested = ({ id }: { id: number }) => {
+      const instance = getCurrentComponentInstance();
+      if (!instance) {
+        throw new Error('expected nested component instance');
+      }
+
+      const local = state(0);
+      localSetters.set(id, local.set);
+      instance.cleanupFns.push(() => {
+        cleanupCounts.set(id, (cleanupCounts.get(id) ?? 0) + 1);
+      });
+
+      return (
+        <button data-nested={String(id)}>
+          {id}:{local()}
+        </button>
+      );
+    };
+
+    const App = () => {
+      const items = state<Item[]>([
+        { id: 1, label: 'alpha' },
+        { id: 2, label: 'beta' },
+        { id: 3, label: 'gamma' },
+      ]);
+      setItems = (next) => items.set(next);
+
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item) => (
+              <li data-id={String(item.id)}>
+                {item.label}
+                <Nested id={item.id} />
+              </li>
+            )}
+          </For>
+        </ul>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      setItems([
+        { id: 1, label: 'alpha' },
+        { id: 3, label: 'gamma' },
+      ]);
+      flushScheduler();
+
+      expect(
+        Array.from(container.querySelectorAll('li'), (node) =>
+          node.getAttribute('data-id')
+        )
+      ).toEqual(['1', '3']);
+      expect(cleanupCounts.get(2)).toBe(1);
+      expect(cleanupCounts.get(1) ?? 0).toBe(0);
+      expect(cleanupCounts.get(3) ?? 0).toBe(0);
+
+      localSetters.get(2)?.(1);
+      flushScheduler();
+
+      expect(container.querySelector('[data-id="2"]')).toBeNull();
+      expect(cleanupCounts.get(2)).toBe(1);
     } finally {
       cleanup();
     }
