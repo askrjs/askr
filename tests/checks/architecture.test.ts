@@ -27,7 +27,7 @@ const TYPESCRIPT_SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'] as const;
 const OVERSIZED_FILE_EXEMPTIONS = new Map<string, string>([
   [
     'src/renderer/dom-internal.ts',
-    'Temporary architecture debt: DOM renderer implementation still owns element creation, reactive props and children, component host handoff, boundaries, and static reuse.',
+    'Temporary architecture debt: DOM renderer implementation still owns element creation, component host handoff, error boundaries, and child reconciliation.',
   ],
 ]);
 
@@ -350,6 +350,10 @@ const RENDERER_DOM_FACADE_MODULES = new Map<string, number>([
 const RENDERER_DOM_HELPER_MODULES = new Map<string, number>([
   ['src/renderer/attributes.ts', 520],
   ['src/renderer/boundaries.ts', 760],
+  ['src/renderer/child-shape.ts', 180],
+  ['src/renderer/prop-bindings.ts', 580],
+  ['src/renderer/reactive-child-sources.ts', 430],
+  ['src/renderer/reactive-children.ts', 820],
   ['src/renderer/static-reuse.ts', 220],
 ]);
 
@@ -394,7 +398,7 @@ const INTERNAL_IMPLEMENTATION_CLUSTER_MODULES = new Map<
 >([
   [
     'src/renderer/dom-internal.ts',
-    { maxLines: 3675, name: 'DOM renderer implementation cluster' },
+    { maxLines: 1900, name: 'DOM renderer implementation cluster' },
   ],
   [
     'src/runtime/component-internal.ts',
@@ -737,6 +741,99 @@ describe('architecture boundaries', () => {
     }
 
     expect(namespaces!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+  });
+
+  it('should keep renderer prop bindings split out of the active DOM path', () => {
+    const domInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/dom-internal.ts'
+    );
+    const propBindings = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/prop-bindings.ts'
+    );
+
+    expect(domInternal).toBeDefined();
+    expect(propBindings).toBeDefined();
+
+    const helperImports = edges
+      .filter((edge) => edge.from === domInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/renderer/prop-bindings.ts');
+    expect(domInternal!.text).not.toMatch(
+      /function\s+(addTrackedListener|setupReactiveProp|applyPropsToElement|syncElementPropBindings|hasTrackedElementPropBindings)\s*\(/
+    );
+    expect(domInternal!.text).not.toMatch(
+      /interface\s+ReactivePropDescriptor|reactivePropRegistry|export\s+function\s+markReactivePropsDirtySource/
+    );
+    expect(domInternal!.text).not.toMatch(/from\s+['"]\.\.\/runtime\/events['"]/);
+    expect(propBindings!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+  });
+
+  it('should keep renderer child shape helpers split out of the active DOM path', () => {
+    const domInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/dom-internal.ts'
+    );
+    const childShape = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/child-shape.ts'
+    );
+
+    expect(domInternal).toBeDefined();
+    expect(childShape).toBeDefined();
+
+    const helperImports = edges
+      .filter((edge) => edge.from === domInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(helperImports).toContain('src/renderer/child-shape.ts');
+    expect(domInternal!.text).not.toMatch(
+      /function\s+(warnMissingKeys|hasStaticChildrenMarker|maybeWarnMissingKeys|isFragmentVNode|normalizeComponentChildren|tryGetStaticCreateChildShape|tryGetStaticCreateFastPathShape|isStaticCreateScalarValue)\s*\(/
+    );
+    expect(domInternal!.text).not.toMatch(
+      /type\s+StaticCreateChildShape|STATIC_CHILDREN/
+    );
+    expect(childShape!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+  });
+
+  it('should keep renderer reactive child effects split out of the active DOM path', () => {
+    const domInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/dom-internal.ts'
+    );
+    const reactiveChildren = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/reactive-children.ts'
+    );
+    const reactiveChildSources = sourceFiles.find(
+      (file) =>
+        file.relativePath === 'src/renderer/reactive-child-sources.ts'
+    );
+
+    expect(domInternal).toBeDefined();
+    expect(reactiveChildren).toBeDefined();
+    expect(reactiveChildSources).toBeDefined();
+
+    const domHelperImports = edges
+      .filter((edge) => edge.from === domInternal!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+    const reactiveHelperImports = edges
+      .filter(
+        (edge) => edge.from === reactiveChildren!.filePath && !edge.typeOnly
+      )
+      .map((edge) => relative(edge.to));
+
+    expect(domHelperImports).toContain('src/renderer/reactive-children.ts');
+    expect(reactiveHelperImports).toContain(
+      'src/renderer/reactive-child-sources.ts'
+    );
+    expect(domInternal!.text).not.toMatch(
+      /function\s+(collectReactiveScalarSequenceValue|collectReactiveScalarChildSource|getReactiveScalarChildSource|getSingleReactiveChildBoundarySource|collectReactiveChildBoundarySequenceSource|getReactiveChildBoundarySequenceSource|areReactiveChildBoundarySequenceSourcesEqual|canUpdateReactiveChildBoundarySequenceSource|areReactiveScalarChildSourcesEqual|getOrCreateElementReactiveCleanupMap|normalizeReactiveScalarSequenceValues|normalizeOwnedReactiveTextValue|collectReactiveChildValuesAsVNodes|materializeReactiveChildBoundaryNodes|syncReactiveScalarTextNodes|trySyncScalarChildSequenceInPlace|normalizeReactiveChildBoundaryVNode|isSingleRootReactiveChildBoundaryValue|collectReactiveChildBoundaryVNodes|createReactiveChildBoundaryHost|disposeReactiveChildBoundaryNodes|syncReactiveChildExpectedNodes|commitReactiveChildBoundaryEntryNodes|syncReactiveChildSequenceNodes|setupReactiveScalarChild|setupReactiveChildBoundary|setupReactiveChildBoundarySequence|syncReactiveScalarChild)\s*\(/
+    );
+    expect(domInternal!.text).not.toMatch(
+      /type\s+(ReactiveScalarChildSourceSlot|ReactiveScalarChildSource|ReactiveChildBoundarySequenceSource|ReactiveChildBoundarySequenceEntry)|reactiveChildScopeId|REACTIVE_CHILDREN_KEY|elementReactivePropsCleanup|createFineGrainedEffect/
+    );
+    expect(domInternal!.text).not.toMatch(
+      /from\s+['"]\.\.\/runtime\/child-scope['"]/
+    );
+    expect(reactiveChildren!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+    expect(reactiveChildSources!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
   });
 
   it('should keep the component facade free of lifecycle implementation logic', () => {

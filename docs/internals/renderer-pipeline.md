@@ -57,9 +57,12 @@ separate modules.
 flowchart TB
   facade[dom.ts facade]
   internal[dom-internal.ts implementation cluster]
-  reactive[reactive children and props]
+  reactiveChildren[reactive-children.ts reactive child effects]
+  reactiveSources[reactive-child-sources.ts reactive child planning]
+  childShape[child-shape.ts child normalization]
+  propBindings[prop-bindings.ts listeners and reactive props]
   attributes[attributes.ts scalar props and keys]
-  intrinsic[intrinsic element create and prop orchestration]
+  intrinsic[intrinsic element create orchestration]
   componentHost[component host handoff]
   boundaries[boundaries.ts control and For boundary commit]
   staticReuse[static subtree and child-slot reuse]
@@ -68,7 +71,10 @@ flowchart TB
   cleanup[cleanup.ts teardown]
 
   facade --> internal
-  internal --> reactive
+  internal --> reactiveChildren
+  reactiveChildren --> reactiveSources
+  internal --> childShape
+  internal --> propBindings
   internal --> attributes
   internal --> intrinsic
   internal --> componentHost
@@ -107,7 +113,7 @@ lists and bulk text updates take specialized paths.
 ```mermaid
 flowchart LR
   domNode[element target]
-  props[prop and attr sync]
+  props[prop bindings and attr sync]
   childShape[child shape inspection]
   text[text fast path]
   unkeyed[unkeyed child update]
@@ -170,11 +176,23 @@ flowchart LR
 - `src/renderer/evaluate.ts` is the renderer's dispatcher.
 - `src/renderer/dom.ts` is the compatibility facade for the DOM renderer.
   `src/renderer/dom-internal.ts` currently coordinates active element
-  creation, reactive prop/child handling, and component-host handoff.
+  creation and component-host handoff.
 - `src/renderer/attributes.ts` owns scalar prop writes and removals, including
   class token patching, style string/object/null handling, form `value` and
   `checked`, stale attribute removal, static scalar props, and key
   materialization.
+- `src/renderer/prop-bindings.ts` owns tracked event listener registration,
+  reactive prop effects, prop cleanup bookkeeping, and update-time prop/listener
+  diffing used by the DOM renderer.
+- `src/renderer/child-shape.ts` owns fragment detection, child flattening,
+  dynamic-list missing-key warnings, and static-create child-shape checks used
+  by the DOM renderer.
+- `src/renderer/reactive-child-sources.ts` owns reactive child source
+  normalization, equality checks, scalar sequence detection, and boundary
+  sequence planning.
+- `src/renderer/reactive-children.ts` owns reactive child effects, child-scope
+  commit callbacks, retained reactive child DOM synchronization, and cleanup map
+  entries for reactive children.
 - `src/renderer/boundaries.ts` owns control-boundary state evaluation, direct
   control-boundary detection, commit-owner scheduling, and For/Show/Case
   boundary commit orchestration. It uses an explicit DOM host registered by
@@ -198,8 +216,7 @@ flowchart LR
 The renderer diagrams point to two concrete follow-ups:
 
 - `dom-internal.ts` is still the highest-risk renderer file because it mixes
-  reactive child ownership, component host reuse, error boundary creation, and
-  child reconciliation.
+  component host reuse, error boundary creation, and child reconciliation.
 - Extracted renderer helpers are now active dependencies. Future splits should
   keep helper modules wired into the running path rather than creating parallel
   implementations.

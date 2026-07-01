@@ -30,7 +30,7 @@ flowchart TB
   end
 
   subgraph outputs[Outputs]
-    dom[DOM renderer<br/>dom facade, dom-internal.ts, attributes.ts, boundaries.ts]
+    dom[DOM renderer<br/>dom facade, dom-internal.ts, attributes.ts, child-shape.ts, prop-bindings.ts, reactive-children.ts, reactive-child-sources.ts, boundaries.ts]
     spa[SPA navigation]
     ssr[SSR HTML rendering<br/>index facade, index-internal.ts, boundaries.ts, component-runtime.ts, route-render.ts]
     ssg[SSG batch generation]
@@ -102,6 +102,10 @@ flowchart TB
     domCore[dom-internal.ts]
     attrs[attributes.ts]
     boundaries[boundaries.ts]
+    childShape[child-shape.ts]
+    propBindings[prop-bindings.ts]
+    reactiveChildren[reactive-children.ts]
+    reactiveChildSources[reactive-child-sources.ts]
     staticReuse[static-reuse.ts]
     reconcile[reconcile.ts and keyed.ts]
     keyedChildren[keyed-children.ts]
@@ -179,6 +183,10 @@ flowchart TB
   domFacade --> domCore
   domCore --> attrs
   domCore --> boundaries
+  domCore --> childShape
+  domCore --> propBindings
+  domCore --> reactiveChildren
+  reactiveChildren --> reactiveChildSources
   domCore --> staticReuse
   domCore --> namespaces
   domCore --> forCommit
@@ -236,7 +244,8 @@ diagrams:
   `component-commit.ts`, `component-lifecycle.ts`, and
   `component-cleanup.ts`,
   `for-internal.ts` plus `for-reconcile.ts`, `for-scopes.ts`, and
-  `for-signals.ts`, `dom-internal.ts`, and the SSR `index-internal.ts` plus
+  `for-signals.ts`, `dom-internal.ts` plus `reactive-children.ts`,
+  `reactive-child-sources.ts`, and the SSR `index-internal.ts` plus
   `boundaries.ts`, `component-runtime.ts`, and `route-render.ts`.
 - `src/runtime/access.ts` is the internal boundary used by runtime, renderer,
   data, and FX implementation paths when they need the default scheduler or
@@ -244,8 +253,10 @@ diagrams:
   modules.
 - `src/renderer/index.ts` installs the renderer bridge at package startup, which
   lets runtime primitives stay renderer-agnostic.
-- `src/renderer/attributes.ts` and `src/renderer/boundaries.ts` are active DOM
-  renderer owners wired through `dom-internal.ts`.
+- `src/renderer/attributes.ts`, `src/renderer/child-shape.ts`,
+  `src/renderer/prop-bindings.ts`, `src/renderer/reactive-children.ts`,
+  `src/renderer/reactive-child-sources.ts`, and `src/renderer/boundaries.ts`
+  are active DOM renderer owners wired through `dom-internal.ts`.
 - `src/boot/index.ts` is the public lifecycle facade. `boot/types.ts` owns boot
   config contracts and `boot/hydration.ts` owns selective hydration DOM helpers.
 - `src/router/route.ts` is a facade. `authoring.ts`, `store.ts`,
@@ -281,9 +292,10 @@ facade cleanup:
 - SSG depends on SSR, not the other way around. Diagrams should keep that edge
   direction explicit because it is the contract that preserves one server
   renderer.
-- The renderer helper owners (`attributes.ts` and `boundaries.ts`) are now
-  active dependencies. Future extraction should keep the running path wired to
-  the owner modules rather than duplicating behavior.
+- The renderer helper owners (`attributes.ts`, `child-shape.ts`,
+  `prop-bindings.ts`, `reactive-children.ts`, `reactive-child-sources.ts`, and
+  `boundaries.ts`) are now active dependencies. Future extraction should keep
+  the running path wired to the owner modules rather than duplicating behavior.
 - `For` state/hook ownership, reconciliation strategy, child-scope lifecycle,
   and item/index/property signal behavior are now split across
   `runtime/for-internal.ts`, `runtime/for-reconcile.ts`,
