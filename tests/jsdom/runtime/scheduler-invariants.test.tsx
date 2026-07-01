@@ -59,6 +59,59 @@ describe('scheduler invariants', () => {
     cleanup();
   });
 
+  it('should drop obsolete effect dependencies after switching branches', () => {
+    const { container, cleanup } = createTestContainer();
+    let useLeft!: State<boolean>;
+    let left!: State<string>;
+    let right!: State<string>;
+    const committedValues: string[] = [];
+
+    createIsland({
+      root: container,
+      component: () => {
+        useLeft = state(true);
+        left = state('left:0');
+        right = state('right:0');
+        return (
+          <div>
+            {useLeft() ? left() : right()}
+            {right()}
+          </div>
+        );
+      },
+    });
+    flushScheduler();
+
+    const effect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => (useLeft() ? left() : right()),
+      commit: (value) => {
+        committedValues.push(value);
+      },
+    });
+
+    expect(committedValues).toEqual(['left:0']);
+
+    left.set('left:1');
+    flushScheduler();
+    expect(committedValues).toEqual(['left:0', 'left:1']);
+
+    useLeft.set(false);
+    flushScheduler();
+    expect(committedValues).toEqual(['left:0', 'left:1', 'right:0']);
+
+    left.set('left:2');
+    flushScheduler();
+    expect(committedValues).toEqual(['left:0', 'left:1', 'right:0']);
+
+    right.set('right:1');
+    flushScheduler();
+    expect(committedValues).toEqual(['left:0', 'left:1', 'right:0', 'right:1']);
+
+    effect.cleanup();
+    cleanup();
+  });
+
   it('should allow more than 50 independent tasks in one flush', () => {
     const scheduler = new Scheduler();
     let runs = 0;
