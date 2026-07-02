@@ -38,7 +38,7 @@ import {
   nextComponentInstanceId,
   setVNodeComponentInstance,
 } from './component-host-instances';
-import { _isDOMElement, type DOMElement, type VNode } from './types';
+import { _isDOMElement, type DOMElement, type JSXComponent, type VNode } from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
 export {
   findHostInstanceByType,
@@ -551,7 +551,7 @@ function itemInstanceHydrationComplete(host: InstanceHostElement): void {
 
 export function createComponentElement(
   node: ElementWithContext,
-  type: (props: never) => unknown,
+  type: JSXComponent,
   props: Record<string, unknown>,
   parentNamespace?: string
 ): Node {

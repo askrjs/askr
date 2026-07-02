@@ -51,7 +51,7 @@ import { syncReactiveScalarChild } from './reactive-children';
 import { runRetainedElementUpdate } from './retained-element-rollback';
 import { canReuseStaticSubtree } from './static-reuse';
 import { tryPatchStableForDirtyItem } from './stable-patch';
-import { _isDOMElement, type DOMElement, type VNode } from './types';
+import { _isDOMElement, type DOMElement, type JSXComponent, type VNode } from './types';
 
 export { createForBoundary, commitForBoundaryChildren } from './boundaries';
 export { markReactivePropsDirtySource } from './prop-bindings';
@@ -145,7 +145,7 @@ export function createDOMNode(
     if (typeof type === 'function') {
       return createComponentElement(
         node as ElementWithContext,
-        type as (props: never) => unknown,
+        type as JSXComponent,
         props,
         parentNamespace
       );

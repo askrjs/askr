@@ -3,7 +3,7 @@
  */
 
 import type { Props } from './props';
-import type { JSXElement } from './jsx';
+import type { JSXElement, JSXElementType } from './jsx';
 import type { ControlBoundaryState } from '../runtime/control';
 import type { ForState } from '../runtime/for';
 export { __CONTROL_BOUNDARY__ } from './control';
@@ -15,7 +15,7 @@ export interface DOMElement {
   // Element `type` can be an intrinsic tag name, a component function, or
   // a special symbol (e.g. `Fragment`). Include `symbol` in the type union
   // so runtime comparisons against `Fragment` are type-safe.
-  type: string | ((props: never) => unknown) | symbol;
+  type: JSXElementType;
   props?: Props;
   children?: VNode[];
   key?: string | number | null;

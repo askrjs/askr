@@ -16,6 +16,7 @@ import {
   ELEMENT_TYPE,
   Fragment,
   STATIC_CHILDREN,
+  type JSXElementType,
   type JSXElement,
 } from './types';
 import { markReadableUsage } from '../runtime/readable';
@@ -88,7 +89,7 @@ export function jsxDEV(
 
   return {
     $$typeof: ELEMENT_TYPE,
-    type: type as string | ((props: Props) => unknown) | symbol,
+    type: type as JSXElementType,
     props: preparedProps,
     key: key ?? null,
   };
@@ -166,7 +167,7 @@ export function jsxs(
 
   return {
     $$typeof: ELEMENT_TYPE,
-    type: type as string | ((props: Props) => unknown) | symbol,
+    type: type as JSXElementType,
     props: normalizedProps,
     key: key ?? null,
   } as JSXElement;
@@ -174,4 +175,4 @@ export function jsxs(
 
 // Re-export Fragment for JSX.
 export { Fragment };
-export type { JSXElement };
+export type { JSXComponent, JSXElement, JSXElementType } from './types';

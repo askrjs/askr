@@ -6,7 +6,7 @@
 
 export type { Props, ComponentNode } from './props';
 export { ELEMENT_TYPE, Fragment } from './jsx';
-export type { JSXElement } from './jsx';
+export type { JSXComponent, JSXElement, JSXElementType } from './jsx';
 export type { VNode, DOMElement } from './vnode';
 export { _isDOMElement } from './vnode';
 export type { ComponentFunction, ComponentContext } from './component';

@@ -5,7 +5,14 @@ import {
   jsx as rootJsx,
   jsxs as rootJsxs,
 } from '@askrjs/askr';
-import { Fragment, jsx, jsxs, type JSXElement } from '@askrjs/askr/jsx-runtime';
+import {
+  Fragment,
+  jsx,
+  jsxs,
+  type JSXComponent,
+  type JSXElement,
+  type JSXElementType,
+} from '@askrjs/askr/jsx-runtime';
 import { jsxDEV } from '@askrjs/askr/jsx-dev-runtime';
 
 expectAssignable<typeof jsx>(rootJsx);
@@ -242,6 +249,14 @@ const badge = jsx(Badge, {
   tone: 'danger',
 });
 expectType<JSXElement>(badge);
+expectAssignable<JSXComponent>(Badge);
+expectAssignable<JSXElementType>(Badge);
+
+declare const publicElement: JSXElement;
+if (typeof publicElement.type === 'function') {
+  expectType<unknown>(publicElement.type(publicElement.props));
+  expectType<unknown>(publicElement.type({ children: 'child' }));
+}
 
 const fragment = jsxs(Fragment, {
   children: [jsx('span', { children: 'a' }), jsx('span', { children: 'b' })],
@@ -260,6 +275,7 @@ const devButton = jsxDEV(
 expectType<JSXElement>(devButton);
 
 expectAssignable<JSXElement>(<div class="demo">demo</div>);
+expectAssignable<JSXElement>(<Badge label="Alert" tone="danger" />);
 expectAssignable<JSXElement>(
   <main class="page-shell" data-layout="app">
     <header role="banner">
