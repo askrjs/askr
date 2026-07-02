@@ -2,14 +2,15 @@
  * Common call contracts: Component signatures
  */
 
-import type { Props } from './props';
 import type { JSXElement } from './jsx';
+import type { Props } from './props';
+import type { SSRContext } from './ssr';
+import type { VNode } from './vnode';
 
 export type ComponentContext = {
   signal: AbortSignal;
+  ssr?: SSRContext;
 };
-
-import { type VNode } from './vnode';
 
 // Internal-ish structural contract for what component functions may return
 // as plain objects. This is intentionally narrower than renderer/SSR VNode

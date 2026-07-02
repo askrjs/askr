@@ -73,6 +73,19 @@ createStaticGen({
   document: documentRenderer,
 });
 
+createStaticGen({
+  routes: [
+    {
+      path: '/posts/{slug}',
+      component: (props: { slug?: string }, context) => {
+        expectType<Record<string, unknown> | undefined>(context?.ssr?.data);
+        return props.slug ?? 'missing';
+      },
+    },
+  ],
+  outputDir: './dist',
+});
+
 const options: SSGOptions = {
   routes: [{ path: '/', handler: () => 'home' }, routeConfig],
   outputDir: './dist',

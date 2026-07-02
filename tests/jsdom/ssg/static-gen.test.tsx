@@ -12,6 +12,7 @@ import { createStaticGen } from '../../../src/ssg/create-static-gen';
 import { SSG_MANIFEST_SCHEMA_VERSION } from '../../../src/ssg/incremental-manifest';
 import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
+import type { DocumentRenderContext } from '../../../src/common/ssr';
 import { resource } from '../../../src/resources';
 import { defineContext } from '../../../src/runtime/context';
 import {
@@ -246,17 +247,11 @@ describe('Static Site Generation', () => {
     });
 
     it('should wrap route output with a document renderer before writing files', async () => {
-      let seenContext: Record<string, unknown> | null = null;
+      let seenContext: DocumentRenderContext | null = null;
       const ssg = createStaticGen({
         routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
-        document: ({
-          appHtml,
-          context,
-        }: {
-          appHtml: string;
-          context: Record<string, unknown>;
-        }) => {
+        document: ({ appHtml, context }) => {
           seenContext = context;
           return `<!doctype html><html><body data-path="${String(
             context.pathname
@@ -351,7 +346,7 @@ describe('Static Site Generation', () => {
     });
 
     it('should pass concrete paths and template paths to the SSG document renderer', async () => {
-      const contexts: Array<Record<string, unknown>> = [];
+      const contexts: DocumentRenderContext[] = [];
       const ssg = createStaticGen({
         routes: [
           {
@@ -361,13 +356,7 @@ describe('Static Site Generation', () => {
           },
         ],
         outputDir: tempDir,
-        document: ({
-          appHtml,
-          context,
-        }: {
-          appHtml: string;
-          context: Record<string, unknown>;
-        }) => {
+        document: ({ appHtml, context }) => {
           contexts.push(context);
           return `<html><body>${appHtml}</body></html>`;
         },

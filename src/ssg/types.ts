@@ -4,6 +4,7 @@
 
 import type { ComponentFunction } from '../common/component';
 import type { DocumentRenderer } from '../common/ssr';
+import type { RenderableChild } from '../common/vnode';
 import type {
   RouteAuthMode,
   RouteHandler,
@@ -30,6 +31,14 @@ type RouteConfigParams<Path extends string> = string extends Path
   ? Record<string, string>
   : RoutePathParams<Path>;
 
+type RouteComponentProps<Path extends string> = RouteConfigParams<Path> &
+  Record<string, unknown>;
+
+type StaticRouteComponent<Path extends string> = (
+  props: RouteComponentProps<Path>,
+  context?: Parameters<ComponentFunction>[1]
+) => RenderableChild;
+
 /**
  * Route config accepted by SSG.
  *
@@ -42,7 +51,7 @@ export interface RouteConfig<Path extends string = string> {
   /** Route handler compatible with router/SSR */
   handler?: RouteHandler;
   /** Backward-compatible alias for handler */
-  component?: ComponentFunction;
+  component?: StaticRouteComponent<Path>;
   /** Optional base props merged with route params during render */
   props?: Record<string, unknown>;
   /** Optional namespace for router compatibility */
