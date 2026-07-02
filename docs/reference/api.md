@@ -58,8 +58,8 @@ Public types:
 - `@askrjs/askr/foundations/interactions` - interaction-policy helpers
 - `@askrjs/askr/foundations/state` - controllable-state helpers
 - `@askrjs/askr/foundations/icon` - icon contract helpers
-- `@askrjs/askr/jsx-runtime` - JSX factory exports
-- `@askrjs/askr/jsx-dev-runtime` - JSX development runtime exports
+- `@askrjs/askr/jsx-runtime` - JSX factory exports plus `JSXElement`, `JSXComponent`, and `JSXElementType`
+- `@askrjs/askr/jsx-dev-runtime` - JSX development runtime exports plus the same JSX public types
 
 ## Examples
 

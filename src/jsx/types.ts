@@ -16,7 +16,11 @@ import type {
 import type { JSXElement } from '../common/jsx';
 
 export { ELEMENT_TYPE, Fragment, STATIC_CHILDREN } from '../common/jsx';
-export type { JSXElement } from '../common/jsx';
+export type {
+  JSXComponent,
+  JSXElement,
+  JSXElementType,
+} from '../common/jsx';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

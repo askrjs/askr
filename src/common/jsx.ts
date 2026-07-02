@@ -8,12 +8,18 @@ export const ELEMENT_TYPE = Symbol.for('askr.element');
 export const Fragment = Symbol.for('askr.fragment');
 export const STATIC_CHILDREN = Symbol.for('askr.static-children');
 
+export type JSXComponent<TProps extends object = Props> = {
+  bivarianceHack(props: TProps): unknown;
+}['bivarianceHack'];
+
+export type JSXElementType = string | JSXComponent | symbol;
+
 export interface JSXElement {
   /** Internal element marker */
   $$typeof: symbol;
 
   /** Element type: string, component, Fragment, etc */
-  type: string | ((props: never) => unknown) | symbol;
+  type: JSXElementType;
 
   /** Props bag */
   props: Props;
