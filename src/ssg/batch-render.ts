@@ -47,7 +47,7 @@ export async function batchRenderRoutes(
           const component = route.component as ComponentFunction;
           return component(
             { ...route.props, ...params },
-            ctx as { signal: AbortSignal; ssr?: unknown }
+            ctx as Parameters<ComponentFunction>[1]
           );
         };
 
