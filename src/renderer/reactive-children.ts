@@ -1,16 +1,16 @@
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import {
   createChildScope,
   disposeChildScope,
   rerenderChildScope,
   type ChildScope,
-} from '../runtime/child-scope';
-import { getCurrentInstance } from '../runtime/component-contracts';
-import { incDevCounter } from '../runtime/dev-namespace';
+} from '../runtime';
+import { getCurrentInstance } from '../runtime';
+import { incDevCounter } from '../runtime';
 import {
   createFineGrainedEffect,
   type FineGrainedEffectHandle,
-} from '../runtime/effect';
+} from '../runtime';
 import {
   elementReactivePropsCleanup,
   REACTIVE_CHILDREN_KEY,

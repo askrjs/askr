@@ -4,7 +4,7 @@
  * This tier exists to make async lifecycle intent explicit in import paths.
  */
 
-export { resource } from '../runtime/operations';
+export { resource } from '../runtime';
 export {
   documentVisible,
   on,
@@ -14,8 +14,8 @@ export {
   stream,
   capture,
   windowFocused,
-} from '../runtime/operations';
-export type { ResourceResult } from '../runtime/operations';
-export type { ActivityPredicate, TimerOptions } from '../runtime/operations';
+} from '../runtime';
+export type { ResourceResult } from '../runtime';
+export type { ActivityPredicate, TimerOptions } from '../runtime';
 
-export { getSignal } from '../runtime/component';
+export { getSignal } from '../runtime';

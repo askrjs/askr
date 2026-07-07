@@ -4,8 +4,8 @@ import {
 } from '../common/control';
 import type { JSXElement } from '../common/jsx';
 import type { VNode } from '../common/vnode';
-import { createShowState, type ShowState } from '../runtime/control';
-import { state } from '../runtime/state';
+import { createShowState, type ShowState } from '../runtime';
+import { state } from '../runtime';
 import {
   type BoundaryChild,
   normalizeBoundaryChild,

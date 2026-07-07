@@ -1,11 +1,10 @@
 /**
- * Centralized logger interface
- * - Keeps production builds silent for debug/warn/info messages
- * - Ensures consistent behavior across the codebase
- * - Protects against missing `console` in some environments
+ * Shared logger interface for runtime and tooling code.
+ *
+ * Debug, info, and warn stay silent in production. Errors always log.
  */
 
-import { isProductionEnvironment } from '../common/env';
+import { isProductionEnvironment } from './env';
 
 function callConsole(method: string, args: unknown[]): void {
   const c = typeof console !== 'undefined' ? (console as unknown) : undefined;
@@ -15,7 +14,7 @@ function callConsole(method: string, args: unknown[]): void {
     try {
       (fn as (...a: unknown[]) => unknown).apply(console, args as unknown[]);
     } catch {
-      // ignore logging errors
+      // Ignore logging failures.
     }
   }
 }

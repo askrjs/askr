@@ -10,14 +10,14 @@ import {
   warnUnusedStateReads,
   type ComponentFunction,
   type ComponentInstance,
-} from '../runtime/component-contracts';
+} from '../runtime';
 import {
   getCurrentContextFrame,
   getVNodeContextFrame,
   markVNodeTreeWithContextFrame,
   withContext,
   type ContextFrame,
-} from '../runtime/context';
+} from '../runtime';
 import { materializeKey } from './attributes';
 import { normalizeComponentChildren } from './child-shape';
 import {

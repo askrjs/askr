@@ -1,23 +1,23 @@
 import { __FOR_BOUNDARY__ } from '../common/vnode';
-import { logger } from '../dev/logger';
-import { enqueueRuntimeTask } from '../runtime/access';
-import type { ChildScope } from '../runtime/child-scope';
+import { logger } from '../common/logger';
+import { enqueueRuntimeTask } from '../runtime';
+import type { ChildScope } from '../runtime';
 import type {
   ComponentFunction,
   ComponentInstance,
-} from '../runtime/component-contracts';
+} from '../runtime';
 import {
   clearCaseDomUpdateState,
   clearShowDomUpdateState,
   evaluateCaseState,
   evaluateShowState,
   type ControlBoundaryState,
-} from '../runtime/control';
+} from '../runtime';
 import {
   clearForDomUpdateState,
   evaluateForState,
   recordBenchEvent,
-} from '../runtime/for';
+} from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
 import { getRuntimeEnv } from './env';
 import { commitForStateBoundaryChildren } from './for-commit';

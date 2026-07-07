@@ -55,28 +55,28 @@ SSG generation-specific behavior is deferred.
 
 ## Ranked suspected bugs
 
-| Rank | Suspicion                                                              | Probability | Impact   |
-| ---: | ---------------------------------------------------------------------- | ----------- | -------- |
-|    1 | Route remount skips root-owned cleanup and abort                       | High        | Critical |
-|    2 | Fast lane drops unrelated scheduler tasks                              | High        | Critical |
-|    3 | Fast lane strands dirty reactive lanes after deleting their flush task | High        | Critical |
-|    4 | Hydration bypasses route policies                                      | High        | Critical |
-|    5 | Strict cleanup error prevents final disposal                           | High        | High     |
-|    6 | Async `task()` cleanup resolving after unmount leaks                   | High        | High     |
-|    7 | Scheduler rejects valid fan-out over 50 tasks                          | High        | High     |
-|    8 | Mid-commit failure leaves partial DOM mutations                        | Medium-high | High     |
-|    9 | `cleanupApp()` leaves router globals and active requests alive         | High        | High     |
-|   10 | Redirect cycles are unbounded                                          | Medium-high | High     |
-|   11 | Resource thenables are treated as synchronous values                   | High        | Medium   |
-|   12 | Router policy thenables are treated as synchronous decisions           | Medium-high | High     |
-|   13 | Async component thenables are mishandled in client or SSR rendering    | Medium-high | Medium   |
-|   14 | Async router rejection has no deterministic handling path              | Medium-high | Medium   |
-|   15 | Nested fine-grained effect evaluation corrupts dependency tracking     | Medium      | High     |
-|   16 | Self-invalidating fine-grained effect loops outside scheduler guard    | Medium      | High     |
-|   17 | Deferred resource starts duplicate the newest loader invocation        | Medium      | Medium   |
-|   18 | SSR temporary component instances are not disposed after render        | Medium      | Medium   |
-|   19 | SSR fallback context stack is unsafe under overlapping edge renders    | Medium      | High     |
-|   20 | Delegated-event container bookkeeping can retain custom containers     | Medium-low  | Medium   |
+| Rank | Status             | Suspicion                                                              | Probability | Impact   |
+| ---: | ------------------ | ---------------------------------------------------------------------- | ----------- | -------- |
+|    1 | Fixed              | Route remount skips root-owned cleanup and abort                       | High        | Critical |
+|    2 | Fixed              | Fast lane drops unrelated scheduler tasks                              | High        | Critical |
+|    3 | Fixed              | Fast lane strands dirty reactive lanes after deleting their flush task | High        | Critical |
+|    4 | Fixed              | Hydration bypasses route policies                                      | High        | Critical |
+|    5 | Fixed              | Strict cleanup error prevents final disposal                           | High        | High     |
+|    6 | Fixed              | Async `task()` cleanup resolving after unmount leaks                   | High        | High     |
+|    7 | Fixed              | Scheduler rejects valid fan-out over 50 tasks                          | High        | High     |
+|    8 | Not reproduced     | Mid-commit failure leaves partial DOM mutations                        | Medium-high | High     |
+|    9 | Fixed              | `cleanupApp()` leaves router globals and active requests alive         | High        | High     |
+|   10 | Fixed              | Redirect cycles are unbounded                                          | Medium-high | High     |
+|   11 | Fixed              | Resource thenables are treated as synchronous values                   | High        | Medium   |
+|   12 | Fixed              | Router policy thenables are treated as synchronous decisions           | Medium-high | High     |
+|   13 | Fixed              | Async component thenables are mishandled in client or SSR rendering    | Medium-high | Medium   |
+|   14 | Fixed              | Async router rejection has no deterministic handling path              | Medium-high | Medium   |
+|   15 | Fixed              | Nested fine-grained effect evaluation corrupts dependency tracking     | Medium      | High     |
+|   16 | Fixed              | Self-invalidating fine-grained effect loops outside scheduler guard    | Medium      | High     |
+|   17 | Fixed              | Deferred resource starts duplicate the newest loader invocation        | Medium      | Medium   |
+|   18 | Fixed              | SSR temporary component instances are not disposed after render        | Medium      | Medium   |
+|   19 | Fixed              | SSR fallback context stack is unsafe under overlapping edge renders    | Medium      | High     |
+|   20 | Fixed              | Delegated-event container bookkeeping can retain custom containers     | Medium-low  | Medium   |
 
 ## Adversarial test matrix
 

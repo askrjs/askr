@@ -1,12 +1,12 @@
 import { __FOR_BOUNDARY__ } from '../common/vnode';
 import type { Props } from '../common/props';
-import type { ComponentFunction } from '../runtime/component-contracts';
+import type { ComponentFunction } from '../runtime';
 import {
   evaluateCaseState,
   evaluateShowState,
   type ControlBoundaryState,
-} from '../runtime/control';
-import { evaluateForState } from '../runtime/for';
+} from '../runtime';
+import { evaluateForState } from '../runtime';
 import { getRendererDOMHost, type ElementWithContext } from './dom-host';
 import {
   canReuseIntrinsicElementInNamespace,

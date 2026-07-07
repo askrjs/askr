@@ -9,8 +9,8 @@ import {
   createCaseState,
   type CaseState,
   type MatchBranch,
-} from '../runtime/control';
-import { state } from '../runtime/state';
+} from '../runtime';
+import { state } from '../runtime';
 import { type BoundaryChild, normalizeBoundaryChild } from './shared';
 
 type MatchChild = BoundaryChild | (() => BoundaryChild);

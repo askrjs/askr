@@ -10,9 +10,12 @@ import { claimHookIndex } from './component';
 import type { VNode } from '../common/vnode';
 import type { ChildScope } from './child-scope';
 import type { ForItemInstance } from './for-scopes';
-import type { ForProps } from '../control/for';
-import type { ForEachSource } from '../control/for';
 import type { FineGrainedEffectHandle } from './effect';
+import type {
+  ForEachSource,
+  ForKeySelector,
+  ForRenderItem,
+} from './for-types';
 import { reconcileForItems } from './for-reconcile';
 
 export {
@@ -44,8 +47,8 @@ export interface ForState<T> {
   orderedKeys: Array<string | number>;
   orderedItems: ForItemInstance<T>[];
   orderedVNodes: VNode[];
-  byFn: NonNullable<ForProps<T>['by']> | ((item: T, index: number) => number);
-  renderFn: (item: T, index: () => number) => VNode;
+  byFn: ForKeySelector<T>;
+  renderFn: ForRenderItem<T>;
   parentInstance: ComponentInstance | null;
   lastCommitStrategy: ForCommitStrategy;
   lastRemovedNodes: Node[];
@@ -80,7 +83,7 @@ function getForStore(
 export function createForState<T>(
   eachSource: ForEachSource<T>,
   byFn: ForState<T>['byFn'],
-  renderFn: (item: T, index: () => number) => VNode,
+  renderFn: ForRenderItem<T>,
   fallback: VNode | null
 ): ForState<T> {
   const parentInstance = getCurrentInstance();
@@ -115,7 +118,7 @@ export function createForState<T>(
 export function useForState<T>(
   eachSource: ForEachSource<T>,
   byFn: ForState<T>['byFn'],
-  renderFn: (item: T, index: () => number) => VNode,
+  renderFn: ForRenderItem<T>,
   fallback: VNode | null
 ): ForState<T> {
   const instance = getCurrentInstance();

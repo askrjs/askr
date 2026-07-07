@@ -19,7 +19,7 @@ import {
   type JSXElementType,
   type JSXElement,
 } from './types';
-import { markReadableUsage } from '../runtime/readable';
+import { markReadableUsage } from '../runtime';
 
 function annotatePropsUsage(props: Record<string, unknown> | null): Props {
   const normalizedProps = (props ?? {}) as Props;

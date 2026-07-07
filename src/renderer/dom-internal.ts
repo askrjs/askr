@@ -1,6 +1,6 @@
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import { Fragment } from '../jsx/jsx-runtime';
-import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime/for';
+import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime';
 import { __ERROR_BOUNDARY__, __FOR_BOUNDARY__ } from '../common/vnode';
 import {
   applyStaticScalarPropsToElement,

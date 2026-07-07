@@ -19,12 +19,12 @@ import { cleanupInstancesUnder, teardownNodeSubtree } from './cleanup';
 import { isKeyedReorderFastPathEligible, getKeyMapForElement } from './keyed';
 import { populateKeyMapForElement } from './keyed';
 import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
-import { getDefaultRuntimeInstance } from '../runtime/access';
+import { getDefaultRuntimeInstance } from '../runtime';
 import {
   configureRuntimeRenderer,
   type AskrRuntime,
   type RuntimeRendererHost,
-} from '../runtime/runtime';
+} from '../runtime';
 
 export function createRendererHost(): RuntimeRendererHost {
   return {

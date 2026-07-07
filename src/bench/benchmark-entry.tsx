@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createIsland } from '../boot';
 import { installRendererBridge } from '../renderer';
-import { flushRuntimeScheduler } from '../runtime/access';
-import { selector } from '../runtime/selector';
-import { state, State } from '../runtime/state';
+import { flushRuntimeScheduler } from '../runtime';
+import { selector } from '../runtime';
+import { state, State } from '../runtime';
 import { BenchmarkTable } from './components/benchmark-table';
 import type { BenchmarkRowData } from './components/benchmark-row';
 

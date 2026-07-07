@@ -17,7 +17,7 @@ import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
 } from '../common/env';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import { incDevCounter } from './dev-namespace';
 import {
   cleanupComponent,

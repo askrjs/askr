@@ -62,6 +62,7 @@ flowchart TB
   componentInstances[component-host-instances.ts component instance metadata]
   componentCleanup[component-host-cleanup.ts detached host cleanup]
   elementChildren[element-children.ts element child updates]
+  childrenFastpath[children-fastpath.ts positional keyed fast path]
   stablePatch[stable-patch.ts stable intrinsic patching]
   errorBoundaryDom[error-boundary-dom.ts error fallback DOM]
   reactiveChildren[reactive-children.ts reactive child effects]
@@ -89,6 +90,7 @@ flowchart TB
   componentHost --> componentInstances
   internal --> componentCleanup
   internal --> elementChildren
+  internal --> childrenFastpath
   internal --> stablePatch
   internal --> errorBoundaryDom
   internal --> reactiveChildren
@@ -214,6 +216,9 @@ flowchart LR
   and stale host instance pruning.
 - `src/renderer/element-children.ts` owns element child updates, keyed child
   map lookup, empty-child handling, scalar replacement, and unkeyed children.
+- `src/renderer/children-fastpath.ts` owns positional keyed bulk text updates,
+  tag reuse checks, and keyed DOM map refreshes used by reconciliation and DOM
+  evaluation.
 - `src/renderer/error-boundary-dom.ts` owns DOM creation for error-boundary
   fallback and child rendering.
 - `src/renderer/stable-patch.ts` owns stable intrinsic patching and dirty

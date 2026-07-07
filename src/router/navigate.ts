@@ -3,7 +3,7 @@
  */
 
 import { isPromiseLike } from '../common/promise';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import { saveScrollPosition } from './navigation-scroll';
 import {
   configureNavigationRegistryHost,

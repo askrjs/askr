@@ -14,6 +14,7 @@ import { getRenderContext } from '../../../src/ssr/context';
 import {
   createRouteRegistry,
   currentRoute,
+  isRoutePathActive,
   route,
 } from '../../../src/router/route';
 
@@ -242,6 +243,46 @@ describe('SSR concurrency isolation', () => {
 
     expect(htmlA).toContain('A:1:alpha:#one');
     expect(htmlB).toContain('B:2:beta:#two');
+  });
+
+  it('should isolate active-route checks between concurrent route renders', async () => {
+    const [htmlA, htmlB] = await Promise.all([
+      Promise.resolve().then(() =>
+        renderToString({
+          url: '/users/1',
+          routes: [
+            {
+              path: '/users/{id}',
+              handler: () => (
+                <div>
+                  A:{String(isRoutePathActive('/users/1'))}:
+                  {String(isRoutePathActive('/posts/2'))}
+                </div>
+              ),
+            },
+          ],
+        })
+      ),
+      Promise.resolve().then(() =>
+        renderToString({
+          url: '/posts/2',
+          routes: [
+            {
+              path: '/posts/{id}',
+              handler: () => (
+                <div>
+                  B:{String(isRoutePathActive('/posts/2'))}:
+                  {String(isRoutePathActive('/users/1'))}
+                </div>
+              ),
+            },
+          ],
+        })
+      ),
+    ]);
+
+    expect(htmlA).toContain('A:true:false');
+    expect(htmlB).toContain('B:true:false');
   });
 
   it('should isolate URL-based registry route resource data between concurrent renders', async () => {

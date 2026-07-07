@@ -3,8 +3,8 @@ import type { Props } from '../common/props';
 import {
   getCurrentInstance,
   type ComponentInstance,
-} from '../runtime/component-contracts';
-import { getDevValue, incDevCounter } from '../runtime/dev-namespace';
+} from '../runtime';
+import { getDevValue, incDevCounter } from '../runtime';
 import type { InstanceHostElement } from './dom-host';
 import type { DOMElement } from './types';
 import { extractKey } from './utils';

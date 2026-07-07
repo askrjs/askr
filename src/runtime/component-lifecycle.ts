@@ -1,7 +1,7 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
 import type { Props } from '../common/props';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import type { ContextFrame } from './context';
 import type { ComponentInstance } from './component-internal';
 import { isBulkCommitActive } from './fastlane';

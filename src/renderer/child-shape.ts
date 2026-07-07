@@ -1,8 +1,8 @@
 import { STATIC_CHILDREN } from '../common/jsx';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import { Fragment } from '../jsx/jsx-runtime';
-import { getCurrentInstance } from '../runtime/component-contracts';
+import { getCurrentInstance } from '../runtime';
 import { getRuntimeEnv } from './env';
 import { _isDOMElement, type DOMElement } from './types';
 import { isSkippedProp, parseEventName } from './utils';

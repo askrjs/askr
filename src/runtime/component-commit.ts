@@ -1,6 +1,6 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import { enqueueRuntimeTask, getRuntimeRenderer } from './access';
 import {
   beginLifecycleCommitBatch,

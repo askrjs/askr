@@ -1,5 +1,6 @@
 /*
- * Public exports for the slim structural foundations entrypoint.
+ * Public exports for structural foundations and runtime-backed portal
+ * primitives.
  *
  * Lower-level helpers are published from explicit subpaths so consumers can
  * import only the surface they need.

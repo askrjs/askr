@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { catchError, handle, tryWithLogging } from '../../../src/common/errors';
 import { SSRDataMissingError } from '../../../src/common/ssr-errors';
-import { logger } from '../../../src/dev/logger';
+import { logger } from '../../../src/common/logger';
 
 describe('common error utilities', () => {
   it('should return data from handle when a promise resolves', async () => {

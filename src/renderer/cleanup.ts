@@ -1,13 +1,13 @@
 import {
   cleanupComponent,
   type ComponentInstance,
-} from '../runtime/component-contracts';
-import { logger } from '../dev/logger';
-import { incDevCounter } from '../runtime/dev-namespace';
+} from '../runtime';
+import { logger } from '../common/logger';
+import { incDevCounter } from '../runtime';
 import {
   clearDelegatedHandlersForElement,
   removeDelegatedListener,
-} from '../runtime/events';
+} from '../runtime';
 
 type InstanceHost = Node & {
   __ASKR_INSTANCE?: unknown;

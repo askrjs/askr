@@ -10,7 +10,7 @@
  */
 
 import { runRuntimeHandlerScope } from './access';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import { incrementPerfMetric } from './perf-metrics';
 import { incDevCounter } from './dev-namespace';
 

@@ -454,6 +454,7 @@ const SINGLETON_IMPORT_ALLOWLIST = new Set([
 const RUNTIME_SCHEDULER_VALUE_IMPORT_ALLOWLIST = new Set([
   'src/fx/index.ts',
   'src/runtime/access.ts',
+  'src/runtime/index.ts',
   'src/runtime/runtime.ts',
 ]);
 
@@ -533,6 +534,37 @@ describe('architecture boundaries', () => {
       .map(formatEdge);
 
     expect(forbidden).toEqual([]);
+  });
+
+  it('should keep external runtime consumers on the runtime facade', () => {
+    const runtimeFacade = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/index.ts'
+    );
+
+    expect(runtimeFacade).toBeDefined();
+    expect(runtimeFacade!.text.split(/\r?\n/).length).toBeLessThanOrEqual(120);
+
+    const forbidden = edges
+      .filter((edge) => !edge.typeOnly)
+      .filter((edge) => topLevelArea(edge.from) !== 'runtime')
+      .filter(
+        (edge) =>
+          relative(edge.to).startsWith('src/runtime/') &&
+          relative(edge.to) !== 'src/runtime/index.ts'
+      )
+      .map(formatEdge)
+      .sort();
+
+    expect(forbidden).toEqual([]);
+  });
+
+  it('should keep shared infrastructure out of src/dev', () => {
+    const offenders = sourceFiles
+      .filter((file) => file.relativePath.startsWith('src/dev/'))
+      .map((file) => file.relativePath)
+      .sort();
+
+    expect(offenders).toEqual([]);
   });
 
   it('should keep subsystem value imports acyclic', () => {
@@ -721,6 +753,53 @@ describe('architecture boundaries', () => {
     }
   });
 
+  it('should keep route matching split out of policy continuation resolution', () => {
+    const resolution = sourceFiles.find(
+      (file) => file.relativePath === 'src/router/resolution.ts'
+    );
+    const routeMatching = sourceFiles.find(
+      (file) => file.relativePath === 'src/router/route-matching.ts'
+    );
+
+    expect(resolution).toBeDefined();
+    expect(routeMatching).toBeDefined();
+    expect(resolution!.text).not.toMatch(
+      /const\s+(routeSegsCache|routeRankCache|sortedListCache)\s*=|function\s+(cachedSegs|cachedRank|cachedSortedList|matchFallbackPrefix|findBestResolvedRouteFromRoutes|findBestScopedFallbackRecord|getMatchingRecord|computeMatchesFromRoutes|computeMatchesFromRouteRecords|computeRouteActivityMatches|resolveRouteFromRoutes|_resolveRouteMatchFromRoutes|resolveRoute)\s*\(/
+    );
+
+    const resolutionImports = edges
+      .filter((edge) => edge.from === resolution!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(resolutionImports).toContain('src/router/route-matching.ts');
+  });
+
+  it('should keep testing helpers on router and data owned facades', () => {
+    const testing = sourceFiles.find(
+      (file) => file.relativePath === 'src/testing/index.ts'
+    );
+    const routerTesting = sourceFiles.find(
+      (file) => file.relativePath === 'src/router/testing.ts'
+    );
+    const dataTesting = sourceFiles.find(
+      (file) => file.relativePath === 'src/data/testing.ts'
+    );
+
+    expect(testing).toBeDefined();
+    expect(routerTesting).toBeDefined();
+    expect(dataTesting).toBeDefined();
+    expect(testing!.text).not.toMatch(
+      /from\s+['"]\.\.\/router\/match['"]|from\s+['"]\.\.\/data\/invalidation-listeners['"]/
+    );
+
+    const testingImports = edges
+      .filter((edge) => edge.from === testing!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(testingImports).toContain('src/router/testing.ts');
+    expect(testingImports).toContain('src/data/testing.ts');
+  });
+
   it('should keep keyed child snapshots split out of the reconcile orchestrator', () => {
     const reconcile = sourceFiles.find(
       (file) => file.relativePath === 'src/renderer/reconcile.ts'
@@ -851,6 +930,45 @@ describe('architecture boundaries', () => {
       /type\s+StaticChildSlot\s*=|interface\s+StaticChildSlotsCacheNode|STATIC_CHILD_SLOTS_CACHE|staticChildSlotsCacheEnabled/
     );
     expect(staticReuse!.text).not.toMatch(/from\s+['"]\.\/dom['"]/);
+  });
+
+  it('should keep positional keyed child fast paths split out of bulk child replacement', () => {
+    const children = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/children.ts'
+    );
+    const fastpath = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/children-fastpath.ts'
+    );
+
+    expect(children).toBeDefined();
+    expect(fastpath).toBeDefined();
+    expect(children!.text).not.toMatch(
+      /function\s+(upperCommonTagName|updateTextContent|tryUpdateTwoChildTextPattern|setTextNodeData|setDataKey|replaceNodeAtPosition|updateKeyedElementsMap)\s*\(|export\s+function\s+performBulkPositionalKeyedTextUpdate\s*\(/
+    );
+
+    const childImports = edges
+      .filter((edge) => edge.from === children!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(childImports).toContain('src/renderer/children-fastpath.ts');
+  });
+
+  it('should keep DOM error boundary handling off the public components surface', () => {
+    const componentBoundary = sourceFiles.find(
+      (file) => file.relativePath === 'src/components/error-boundary.tsx'
+    );
+    const rendererBoundary = sourceFiles.find(
+      (file) => file.relativePath === 'src/renderer/error-boundary-dom.ts'
+    );
+
+    expect(componentBoundary).toBeDefined();
+    expect(rendererBoundary).toBeDefined();
+    expect(componentBoundary!.text).not.toMatch(
+      /export\s+function\s+(resolveErrorBoundaryFallback|createBoundaryReset|reportBoundaryError)\s*\(/
+    );
+    expect(rendererBoundary!.text).not.toMatch(
+      /from\s+['"]\.\.\/components\/error-boundary['"]/
+    );
   });
 
   it('should keep For DOM commit maps and reorders split out of commit orchestration', () => {
@@ -1225,6 +1343,40 @@ describe('architecture boundaries', () => {
     }
   });
 
+  it('should keep selector dirty-flush scheduling split out of selector hook logic', () => {
+    const selector = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/selector.ts'
+    );
+    const selectorStore = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/selector-store.ts'
+    );
+
+    expect(selector).toBeDefined();
+    expect(selectorStore).toBeDefined();
+    expect(selector!.text).not.toMatch(
+      /const\s+dirtySelectorRecords\s*=|let\s+hasPendingSelectorFlush\s*=|function\s+scheduleSelectorFlush\s*\(/
+    );
+
+    const selectorImports = edges
+      .filter((edge) => edge.from === selector!.filePath && !edge.typeOnly)
+      .map((edge) => relative(edge.to));
+
+    expect(selectorImports).toContain('src/runtime/selector-store.ts');
+  });
+
+  it('should keep For state ownership free of control-layer type imports', () => {
+    const forInternal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-internal.ts'
+    );
+    const forTypes = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/for-types.ts'
+    );
+
+    expect(forInternal).toBeDefined();
+    expect(forTypes).toBeDefined();
+    expect(forInternal!.text).not.toMatch(/from\s+['"]\.\.\/control\/for['"]/);
+  });
+
   it('should keep For reactive item signals split out of reconciliation ownership', () => {
     const forInternal = sourceFiles.find(
       (file) => file.relativePath === 'src/runtime/for-internal.ts'
@@ -1429,6 +1581,38 @@ describe('architecture boundaries', () => {
       expect(file, `${filePath} should exist`).toBeDefined();
       expect(file!.text.split(/\r?\n/).length).toBeLessThanOrEqual(maxLines);
     }
+  });
+
+  it('should keep default portal ownership under runtime rather than foundations', () => {
+    const foundationsPortal = sourceFiles.find(
+      (file) => file.relativePath === 'src/foundations/structures/portal.tsx'
+    );
+    const runtimePortal = sourceFiles.find(
+      (file) => file.relativePath === 'src/runtime/portal.ts'
+    );
+
+    expect(foundationsPortal).toBeDefined();
+    expect(runtimePortal).toBeDefined();
+    expect(foundationsPortal!.text).not.toMatch(
+      /let\s+_defaultPortalStates\s*=|function\s+(writeDefaultPortal|resolveDefaultPortalScope|applyPendingDefaultPortalValue|registerDefaultPortalOwner)\s*\(|export\s+const\s+DefaultPortal/
+    );
+
+    const forbidden = edges
+      .filter((edge) => !edge.typeOnly)
+      .filter((edge) =>
+        [
+          'src/boot/root-lifecycle.ts',
+          'src/router/navigation-targets.ts',
+          'src/ssr/component-runtime.ts',
+        ].includes(relative(edge.from))
+      )
+      .filter(
+        (edge) => relative(edge.to) === 'src/foundations/structures/portal.tsx'
+      )
+      .map(formatEdge)
+      .sort();
+
+    expect(forbidden).toEqual([]);
   });
 
   it('should keep SSR boundary state and fallback helpers split out of the synchronous renderer cluster', () => {

@@ -26,4 +26,4 @@ export {
   scheduleRetry,
 } from './fx';
 
-export { scheduleEventHandler } from '../runtime/scheduler';
+export { scheduleEventHandler } from '../runtime';

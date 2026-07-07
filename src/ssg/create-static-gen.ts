@@ -43,7 +43,7 @@ import {
   type SelectedRoute,
 } from './generation-plan';
 import { normalizeStaticRoutes, splitStaticRoutes } from './static-routes';
-import { addPerfDuration, incrementPerfMetric } from '../runtime/perf-metrics';
+import { addPerfDuration, incrementPerfMetric } from '../runtime';
 
 type AnyRouteConfig = RouteConfig<string>;
 

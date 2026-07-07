@@ -1,12 +1,12 @@
 import { createDOMNode, updateElementFromVnode } from './dom';
 import { _reconcilerRecordedParents } from './keyed';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import { getRuntimeEnv } from './env';
 import { cleanupInstanceIfPresent, removeAllListeners } from './cleanup';
-import { recordBenchCounter, recordBenchEvent } from '../runtime/for-bench';
-import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
-import { isRuntimeSchedulerExecuting } from '../runtime/access';
-import { isBulkCommitActive, markFastPathApplied } from '../runtime/fastlane';
+import { recordBenchCounter, recordBenchEvent } from '../runtime';
+import { setDevValue, incDevCounter } from '../runtime';
+import { isRuntimeSchedulerExecuting } from '../runtime';
+import { isBulkCommitActive, markFastPathApplied } from '../runtime';
 import { canUseDirectReplaceChildrenSpread } from './utils';
 import type { KeyedVnode } from './keyed-children';
 

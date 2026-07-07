@@ -3,7 +3,6 @@ import {
   getCurrentInstance,
   type ComponentInstance,
 } from './component';
-import { enqueueRuntimeLane } from './access';
 import {
   clearDerivedDependencySubscriptions,
   markReadableDerivedSubscribersDirty,
@@ -17,6 +16,10 @@ import {
   type ReadableSource,
 } from './readable';
 import { getPerfMetricsStore, incrementPerfMetric } from './perf-metrics';
+import {
+  markDirtySelectorRecord,
+  takeDirtySelectorRecords,
+} from './selector-store';
 
 type PrimitiveKey =
   | string
@@ -80,8 +83,6 @@ const selectorRecords = new WeakMap<
   ReadableSource<unknown>,
   SelectorSourceRecord<unknown>
 >();
-const dirtySelectorRecords = new Set<SelectorSourceRecord<unknown>>();
-let hasPendingSelectorFlush = false;
 
 function getSelectorStore(
   instance: ComponentInstance
@@ -94,37 +95,14 @@ function getSelectorStore(
   return store;
 }
 
-function scheduleSelectorFlush(): void {
-  if (hasPendingSelectorFlush) {
-    return;
-  }
-
-  hasPendingSelectorFlush = true;
-  enqueueRuntimeLane('derived', flushDirtySelectorRecords);
-}
-
 function markSelectorRecordDirty(record: SelectorSourceRecord<unknown>): void {
-  record._dirty = true;
-  if (record._scheduled) {
-    return;
-  }
-
-  record._scheduled = true;
-  dirtySelectorRecords.add(record);
-  scheduleSelectorFlush();
+  markDirtySelectorRecord(record, flushDirtySelectorRecords);
 }
 
 function flushDirtySelectorRecords(): void {
-  hasPendingSelectorFlush = false;
-
-  if (dirtySelectorRecords.size === 0) {
-    return;
-  }
-
-  const pending = Array.from(dirtySelectorRecords);
-  dirtySelectorRecords.clear();
-
-  for (const record of pending) {
+  for (const record of takeDirtySelectorRecords<
+    SelectorSourceRecord<unknown>
+  >()) {
     record._scheduled = false;
     if (!record._dirty) {
       continue;

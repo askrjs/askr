@@ -1,5 +1,5 @@
 import { getActiveRenderContext } from '../common/render-context';
-import type { ComponentInstance } from '../runtime/component';
+import type { ComponentInstance } from '../runtime';
 import { emitInvalidation } from './invalidation-listeners';
 import type { MutationCell } from './mutation-cell';
 import type { QueryCell } from './query-cell';

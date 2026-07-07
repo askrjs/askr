@@ -1,50 +1,21 @@
-import type { Props } from '../common/props';
+import type {
+  ErrorBoundaryFallbackRender,
+  ErrorBoundaryProps,
+} from '../common/error-boundary';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
-import type { VNode } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import {
   getCurrentComponentInstance,
   type ComponentInstance,
-} from '../runtime/component';
-import { logger } from '../dev/logger';
-import { isDevelopmentEnvironment } from '../common/env';
+} from '../runtime';
 
-type ErrorBoundaryContent = VNode | readonly VNode[];
-type ErrorBoundaryFallbackValue = ErrorBoundaryContent | Node;
-
-export type ErrorBoundaryFallbackRender = (
-  error: unknown,
-  reset: () => void
-) => ErrorBoundaryFallbackValue;
-
-export interface ErrorBoundaryProps extends Props {
-  children?: ErrorBoundaryContent;
-  fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;
-  onError?: (error: unknown) => void;
-  resetKey?: unknown;
-}
+export type { ErrorBoundaryFallbackRender, ErrorBoundaryProps };
 
 type ErrorBoundaryState = NonNullable<ComponentInstance['errorBoundaryState']>;
 
 type ErrorBoundaryVNode = JSXElement & {
   __instance?: ComponentInstance;
 };
-
-function getBoundaryMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message || error.name || 'Unknown error';
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return String(error);
-  }
-}
 
 function ensureBoundaryState(
   instance: ComponentInstance,
@@ -116,101 +87,4 @@ export function resolveErrorBoundaryState(
   vnode: ErrorBoundaryVNode
 ): ErrorBoundaryState | null {
   return vnode.__instance?.errorBoundaryState ?? null;
-}
-
-export function resolveErrorBoundaryFallback(
-  fallback: ErrorBoundaryProps['fallback'],
-  error: unknown,
-  reset: () => void
-): ErrorBoundaryFallbackValue {
-  if (typeof fallback === 'function') {
-    return fallback(error, reset);
-  }
-
-  if (fallback !== undefined) {
-    return fallback;
-  }
-
-  const message = getBoundaryMessage(error);
-  const wrapper = document.createElement('div');
-  wrapper.setAttribute('role', 'alert');
-  wrapper.setAttribute('data-askr-error-boundary', 'true');
-  wrapper.style.boxSizing = 'border-box';
-  wrapper.style.padding = '1rem';
-  wrapper.style.border = '1px solid currentColor';
-  wrapper.style.borderRadius = '0.75rem';
-  wrapper.style.display = 'grid';
-  wrapper.style.gap = '0.75rem';
-  wrapper.style.maxWidth = '100%';
-
-  const title = document.createElement('strong');
-  title.textContent = 'Something went wrong while rendering this view.';
-
-  const summary = document.createElement('p');
-  summary.textContent =
-    'The app recovered into a visible fallback so the error is not hidden in the console.';
-  summary.style.margin = '0';
-
-  const details = document.createElement('details');
-  details.open = isDevelopmentEnvironment();
-
-  const detailsSummary = document.createElement('summary');
-  detailsSummary.textContent = 'Error details';
-
-  const pre = document.createElement('pre');
-  pre.textContent = message;
-  pre.style.margin = '0';
-  pre.style.whiteSpace = 'pre-wrap';
-  pre.style.wordBreak = 'break-word';
-
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = 'Try again';
-  button.addEventListener('click', () => reset());
-
-  details.append(detailsSummary, pre);
-  wrapper.append(title, summary, details, button);
-  return wrapper;
-}
-
-export function createBoundaryReset(instance: ComponentInstance): () => void {
-  return () => {
-    const boundaryState = instance.errorBoundaryState;
-    if (!boundaryState) {
-      return;
-    }
-    boundaryState.error = null;
-    boundaryState.notified = false;
-    queueMicrotask(() => {
-      instance._enqueueRun?.();
-    });
-  };
-}
-
-export function reportBoundaryError(
-  instance: ComponentInstance,
-  error: unknown,
-  onError?: (error: unknown) => void
-): void {
-  const boundaryState = instance.errorBoundaryState;
-  if (
-    boundaryState &&
-    Object.is(boundaryState.error, error) &&
-    boundaryState.notified
-  ) {
-    return;
-  }
-
-  if (boundaryState) {
-    boundaryState.error = error;
-    boundaryState.notified = true;
-  }
-
-  try {
-    onError?.(error);
-  } catch (hookError) {
-    logger.error('[Askr] ErrorBoundary onError handler threw:', hookError);
-  }
-
-  logger.error('[Askr] ErrorBoundary caught render error:', error);
 }

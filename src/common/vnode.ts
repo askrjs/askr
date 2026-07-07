@@ -4,8 +4,8 @@
 
 import type { Props } from './props';
 import type { JSXElement, JSXElementType } from './jsx';
-import type { ControlBoundaryState } from '../runtime/control';
-import type { ForState } from '../runtime/for';
+import type { ControlBoundaryState } from '../runtime';
+import type { ForState } from '../runtime';
 export { __CONTROL_BOUNDARY__ } from './control';
 import { __CONTROL_BOUNDARY__ } from './control';
 

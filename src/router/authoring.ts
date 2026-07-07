@@ -8,8 +8,8 @@ import type {
   RouteParams,
   RoutePathParams,
 } from '../common/router';
-import { getCurrentComponentInstance } from '../runtime/component';
-import { getExecutionModel } from '../runtime/execution-model';
+import { getCurrentComponentInstance } from '../runtime';
+import { getExecutionModel } from '../runtime';
 import { computeRank, normalizeRouteSegmentName, parseSegments } from './match';
 import {
   compileNodePolicies,

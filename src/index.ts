@@ -8,30 +8,31 @@ import { installRendererBridge } from './renderer';
 
 installRendererBridge();
 
-export { createRuntime, getDefaultRuntime } from './runtime/runtime';
+export { createRuntime, getDefaultRuntime } from './runtime';
 export type {
   AskrRuntimeOptions,
   RuntimeRendererHost,
   RuntimeKeyedReorderDecision,
-} from './runtime/runtime';
-export { AskrRuntime } from './runtime/runtime';
+} from './runtime';
+export { AskrRuntime } from './runtime';
 
 // Runtime primitives
-export { state } from './runtime/state';
-export type { State, StateSetter, StateTuple } from './runtime/state';
-export { derive } from './runtime/derive';
-export type { Derived } from './runtime/derive';
-export { getSignal } from './runtime/component';
-export { selector } from './runtime/selector';
-export type { Selector } from './runtime/selector';
+export { derive, getSignal, selector, state } from './runtime';
+export type {
+  Derived,
+  Selector,
+  State,
+  StateSetter,
+  StateTuple,
+} from './runtime';
 
 // Control flow
 export { Case, For, Match, Show } from './control';
 export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
 
 // Context
-export { defineContext, readContext } from './runtime/context';
-export type { Context } from './runtime/context';
+export { defineContext, readContext } from './runtime';
+export type { Context } from './runtime';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
 export { jsx, jsxs, Fragment } from './jsx-runtime';

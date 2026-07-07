@@ -6,13 +6,13 @@ import type { JSXElement } from '../common/jsx';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { ELEMENT_TYPE } from '../jsx';
-import type { ComponentInstance } from '../runtime/component';
+import type { ComponentInstance } from '../runtime';
 import {
   type ControlBoundaryState,
   evaluateCaseState,
   evaluateShowState,
-} from '../runtime/control';
-import { evaluateForState } from '../runtime/for';
+} from '../runtime';
+import { evaluateForState } from '../runtime';
 import type { VNode } from './types';
 
 type ErrorBoundaryState = NonNullable<ComponentInstance['errorBoundaryState']>;

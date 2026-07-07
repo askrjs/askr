@@ -1,14 +1,14 @@
 import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
 import { getActiveRenderContext } from '../common/render-context';
-import { getCurrentComponentInstance } from '../runtime/component';
+import { getCurrentComponentInstance } from '../runtime';
 import {
   markReadableDerivedSubscribersDirty,
   markReactivePropsDirtySource,
   notifyReadableReaders,
   recordReadableRead,
   type ReadableSource,
-} from '../runtime/readable';
+} from '../runtime';
 import { deepFreeze, makeQuery, parseLocation } from './route-context';
 import { computeMatchesFromRoutes } from './resolution';
 import { getActiveRoutes } from './store';
@@ -84,6 +84,35 @@ function normalizeRouteActivityPath(path: string): string {
     : absolutePathname;
 }
 
+function readCurrentRouteLocation(): {
+  pathname: string;
+  search: string;
+  hash: string;
+} {
+  const renderContext = getActiveRenderContext();
+  if (renderContext?.url) {
+    return parseLocation(renderContext.url);
+  }
+
+  if (typeof window !== 'undefined' && window.location) {
+    return {
+      pathname: window.location.pathname || '/',
+      search: window.location.search || '',
+      hash: window.location.hash || '',
+    };
+  }
+
+  if (serverLocation) {
+    return parseLocation(serverLocation);
+  }
+
+  return {
+    pathname: currentRouteSnapshot.path,
+    search: '',
+    hash: currentRouteSnapshot.hash ?? '',
+  };
+}
+
 export function isRoutePathActive(
   pathOrPaths: string | readonly string[]
 ): boolean {
@@ -93,14 +122,7 @@ export function isRoutePathActive(
     )
   );
 
-  let pathname = currentRouteSnapshot.path;
-  if (typeof window !== 'undefined' && window.location) {
-    pathname = window.location.pathname || '/';
-  } else if (serverLocation) {
-    pathname = parseLocation(serverLocation).pathname;
-  }
-
-  const activePath = normalizeRouteActivityPath(pathname);
+  const activePath = normalizeRouteActivityPath(readCurrentRouteLocation().pathname);
   if (candidates.has(activePath)) {
     return true;
   }
@@ -122,26 +144,7 @@ function readCurrentRouteSnapshot<
     );
   }
 
-  let pathname = '/';
-  let search = '';
-  let hash = '';
-  const renderContext = getActiveRenderContext();
-
-  if (instance.ssr && renderContext?.url) {
-    const parsed = parseLocation(renderContext.url);
-    pathname = parsed.pathname;
-    search = parsed.search;
-    hash = parsed.hash;
-  } else if (typeof window !== 'undefined' && window.location) {
-    pathname = window.location.pathname || '/';
-    search = window.location.search || '';
-    hash = window.location.hash || '';
-  } else if (serverLocation) {
-    const parsed = parseLocation(serverLocation);
-    pathname = parsed.pathname;
-    search = parsed.search;
-    hash = parsed.hash;
-  }
+  const { pathname, search, hash } = readCurrentRouteLocation();
 
   const query = makeQuery(search);
   const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());

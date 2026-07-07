@@ -5,7 +5,7 @@ import type {
   RouteRequestResult,
 } from '../common/router';
 import { resolveRouteRequest } from '../router/route';
-import type { ComponentFunction } from '../runtime/component';
+import type { ComponentFunction } from '../runtime';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
 

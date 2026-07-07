@@ -4,7 +4,7 @@ import {
   timer,
   windowFocused,
   type ActivityPredicate,
-} from '../runtime/operations';
+} from '../runtime';
 import {
   invalidateQueriesForRuntime,
   resolveDataRuntimeState,
