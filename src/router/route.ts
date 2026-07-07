@@ -20,6 +20,7 @@ export {
   setServerLocation,
   syncCurrentRouteSnapshot,
 } from './activity';
+export { _getBuiltInRoutePolicy } from './policy';
 export {
   computeRouteActivityMatches,
   resolveRoute,

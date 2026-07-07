@@ -2,7 +2,7 @@ import { getRuntimeEnv } from './env';
 import type {
   ComponentFunction,
   ComponentInstance,
-} from '../runtime/component-contracts';
+} from '../runtime';
 import { removeAllListeners } from './cleanup';
 import { createDOMNode, syncComponentElement } from './dom';
 import type { ElementWithContext } from './dom-host';

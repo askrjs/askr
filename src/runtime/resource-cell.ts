@@ -1,5 +1,5 @@
 import { withAsyncResourceContext, type ContextFrame } from './context';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import {
   brandSnapshotSource,
   type SnapshotSourceBrand,

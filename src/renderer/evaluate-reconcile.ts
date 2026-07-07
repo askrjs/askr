@@ -1,19 +1,19 @@
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
-import type { ComponentInstance } from '../runtime/component-contracts';
+import type { ComponentInstance } from '../runtime';
 import { elementListeners } from './cleanup';
 import { keyedElements } from './keyed';
 import { createElementForNamespace, getParentNamespace } from './namespaces';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
-import { evaluateForState } from '../runtime/for';
+import { evaluateForState } from '../runtime';
 import {
   evaluateCaseState,
   evaluateShowState,
   type ControlBoundaryState,
-} from '../runtime/control';
+} from '../runtime';
 import { commitForBoundaryChildren } from './boundaries';
 import {
   isBulkTextFastPathEligible,
@@ -22,7 +22,7 @@ import {
 } from './children';
 import { getRendererDOMHost } from './dom-host';
 import { updateUnkeyedChildren } from './element-children';
-import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
+import { setDevValue, incDevCounter } from '../runtime';
 import { Fragment } from '../common/jsx';
 import {
   createWrappedHandler,

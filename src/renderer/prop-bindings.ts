@@ -1,13 +1,13 @@
-import { logger } from '../dev/logger';
-import { incDevCounter } from '../runtime/dev-namespace';
+import { logger } from '../common/logger';
+import { incDevCounter } from '../runtime';
 import {
   createFineGrainedEffect,
   markFineGrainedEffectsDirtySource,
   type FineGrainedEffectHandle,
-} from '../runtime/effect';
-import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime/for';
-import { incrementPerfMetric } from '../runtime/perf-metrics';
-import type { ReadableSource } from '../runtime/readable';
+} from '../runtime';
+import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime';
+import { incrementPerfMetric } from '../runtime';
+import type { ReadableSource } from '../runtime';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
@@ -16,7 +16,7 @@ import {
   updateDelegatedListener,
   removeDelegatedListener,
   isDelegatedEvent,
-} from '../runtime/events';
+} from '../runtime';
 import { applyScalarPropValue, removeStaleAttributes } from './attributes';
 import {
   elementListeners,

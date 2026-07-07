@@ -1,11 +1,11 @@
-import { logger } from '../dev/logger';
-import { enqueueRuntimeTask } from '../runtime/access';
+import { logger } from '../common/logger';
+import { enqueueRuntimeTask } from '../runtime';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
   type ComponentInstance,
-} from '../runtime/component';
-import { recordReadableRead } from '../runtime/readable';
+} from '../runtime';
+import { recordReadableRead } from '../runtime';
 import {
   ensureQueryCleanup,
   getQuerySlotStore,

@@ -11,8 +11,8 @@ import {
   evaluateCaseState,
   evaluateShowState,
   type ControlBoundaryState,
-} from '../runtime/control';
-import { evaluateForState } from '../runtime/for';
+} from '../runtime';
+import { evaluateForState } from '../runtime';
 
 // Re-export for backwards compatibility
 export type Component = SSRComponent;

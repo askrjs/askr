@@ -1,4 +1,4 @@
-import type { ChildScope } from '../runtime/child-scope';
+import type { ChildScope } from '../runtime';
 import { syncControlBoundaryScopeDom } from './boundaries';
 import { teardownNodeSubtree } from './cleanup';
 import {

@@ -1,5 +1,5 @@
 import type { Props } from '../common/props';
-import { incrementPerfMetric } from '../runtime/perf-metrics';
+import { incrementPerfMetric } from '../runtime';
 import {
   extractKey,
   getRenderedAttributeName,

@@ -2,7 +2,7 @@ import {
   recordBenchCounter,
   recordBenchEvent,
   withBenchMetricScope,
-} from '../runtime/for';
+} from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
 
 export function removeForBoundaryNodes(

@@ -1,4 +1,4 @@
-import type { ForCommitStrategy, ForState } from '../runtime/for';
+import type { ForCommitStrategy, ForState } from '../runtime';
 import { keyedElements } from './keyed';
 
 export function getOrBuildDomKeyMap(

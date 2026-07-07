@@ -1,8 +1,8 @@
 import {
   claimHookIndex,
   getCurrentComponentInstance,
-} from '../runtime/component';
-import { recordReadableRead } from '../runtime/readable';
+} from '../runtime';
+import { recordReadableRead } from '../runtime';
 import {
   ensureMutationCleanup,
   getMutationSlotStore,

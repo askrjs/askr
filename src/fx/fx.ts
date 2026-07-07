@@ -1,6 +1,6 @@
-import { enqueueRuntimeTask } from '../runtime/access';
-import { getCurrentComponentInstance } from '../runtime/component';
-import { logger } from '../dev/logger';
+import { enqueueRuntimeTask } from '../runtime';
+import { getCurrentComponentInstance } from '../runtime';
+import { logger } from '../common/logger';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
 
 export type CancelFn = () => void;

@@ -1,4 +1,4 @@
-import type { ChildScope } from '../runtime/child-scope';
+import type { ChildScope } from '../runtime';
 import {
   clearForDomUpdateState,
   recordBenchCounter,
@@ -6,7 +6,7 @@ import {
   recordBenchTiming,
   type ForState,
   withBenchMetricScope,
-} from '../runtime/for';
+} from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
 import { keyedElements } from './keyed';
 import type { VNode } from './types';

@@ -5,14 +5,14 @@ import {
   renderComponentInline,
   warnUnusedStateReads,
   type ComponentFunction,
-} from '../runtime/component-contracts';
+} from '../runtime';
 import {
   getCurrentContextFrame,
   getVNodeContextFrame,
   withContext,
-} from '../runtime/context';
-import { incDevCounter } from '../runtime/dev-namespace';
-import { recordBenchEvent } from '../runtime/for';
+} from '../runtime';
+import { incDevCounter } from '../runtime';
+import { recordBenchEvent } from '../runtime';
 import {
   findHostInstanceByType,
   inheritComponentCleanupStrict,

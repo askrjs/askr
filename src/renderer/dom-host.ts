@@ -1,8 +1,8 @@
 import type {
   ComponentFunction,
   ComponentInstance,
-} from '../runtime/component-contracts';
-import type { ContextFrame } from '../runtime/context';
+} from '../runtime';
+import type { ContextFrame } from '../runtime';
 import type { DOMElement, VNode } from './types';
 
 export type ElementWithContext = DOMElement & {

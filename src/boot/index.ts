@@ -17,7 +17,7 @@ import {
   route as registerRoute,
   setServerLocation,
 } from '../router/route';
-import { assertExecutionModel } from '../runtime/execution-model';
+import { assertExecutionModel } from '../runtime';
 import {
   startHydrationRenderPhase,
   stopHydrationRenderPhase,

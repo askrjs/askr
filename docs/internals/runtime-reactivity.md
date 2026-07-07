@@ -74,6 +74,8 @@ when the implementation is split further.
 ```mermaid
 flowchart TB
   componentFacade[component.ts facade]
+  componentInternalFacade[component-facade.ts]
+  componentContracts[component-contracts.ts]
   componentCore[component-internal.ts]
   componentCleanup[component-cleanup.ts]
   componentScope[component-scope.ts]
@@ -98,6 +100,9 @@ flowchart TB
   scopeOwnership[item and fallback child scopes]
 
   componentFacade --> componentCore
+  componentFacade --> componentInternalFacade
+  componentInternalFacade --> componentContracts
+  componentInternalFacade --> componentCore
   componentFacade --> componentScope
   componentCore --> componentScope
   componentCore --> componentCommit
@@ -120,6 +125,13 @@ flowchart TB
   forScopes --> scopeOwnership
   forScopes --> componentFacade
 ```
+
+`runtime/index.ts` is now the stable internal facade for non-runtime areas.
+`component.ts` remains the narrow component-facing entrypoint, while
+`component-facade.ts` and `component-contracts.ts` hold the stable helper
+surface used by renderer and SSR code. `portal.ts` owns the default portal
+inventory that foundations re-export publicly. `selector-store.ts` owns the
+dirty-selector flush queue used by `selector.ts`.
 
 ## Readable graph
 

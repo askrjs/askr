@@ -33,8 +33,10 @@ across focused modules:
   defaults, and registration locking.
 - `manifest.ts` creates registries and applies manifests into the store.
 - `rendering.ts` composes route, page, layout, and `Outlet` handlers.
-- `resolution.ts` owns matching, request resolution, and activity-match
+- `route-matching.ts` owns route ranking, fallback matching, and activity-match
   computation.
+- `resolution.ts` owns request resolution, loader handoff, and policy
+  continuation.
 - `activity.ts` owns `currentRoute()` snapshots and active-route state.
 - `navigate.ts` owns browser history and popstate orchestration.
 - `navigation-registry.ts` owns app registration and route snapshot
@@ -70,7 +72,8 @@ flowchart TB
   store[store.ts records and flat routes]
   manifest[manifest.ts registries]
   rendering[rendering.ts layout composition]
-  resolution[resolution.ts matching and requests]
+  matching[route-matching.ts matching and activity]
+  resolution[resolution.ts requests and policies]
   activity[activity.ts route snapshots]
   access[access.ts auth policy helpers]
   lazy[lazy.ts import tracking]
@@ -84,6 +87,7 @@ flowchart TB
   facade --> store
   facade --> manifest
   facade --> rendering
+  facade --> matching
   facade --> resolution
   facade --> activity
   facade --> lazy
@@ -92,6 +96,7 @@ flowchart TB
   authoring --> rendering
   manifest --> store
   manifest --> lazy
+  matching --> store
   resolution --> access
   resolution --> store
   resolution --> rendering

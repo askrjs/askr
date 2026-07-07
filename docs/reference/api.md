@@ -52,7 +52,7 @@ Public types:
 - `@askrjs/askr/fx` - timing and scheduling helpers
 - `@askrjs/askr/ssr` - server-side rendering helpers
 - `@askrjs/askr/ssg` - static-site generation helpers
-- `@askrjs/askr/foundations` - slim structural primitives such as `layout`, `Slot`, `Presence`, `definePortal`, `DefaultPortal`, and `Portal`
+- `@askrjs/askr/foundations` - structural primitives such as `layout`, `Slot`, `Presence`, plus runtime-backed portal helpers like `definePortal`, `DefaultPortal`, and `Portal`
 - `@askrjs/askr/foundations/structures` - structural registries and layering helpers such as `createCollection` and `createLayer`
 - `@askrjs/askr/foundations/utilities` - prop composition and ID helpers
 - `@askrjs/askr/foundations/interactions` - interaction-policy helpers

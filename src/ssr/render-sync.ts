@@ -3,7 +3,7 @@ import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { Fragment } from '../jsx';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import {
   createRenderContext,
   withRenderContext,

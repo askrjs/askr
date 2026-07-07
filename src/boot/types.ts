@@ -1,4 +1,4 @@
-import type { ComponentFunction } from '../runtime/component';
+import type { ComponentFunction } from '../runtime';
 import type {
   Route,
   RouteAuthOptions,

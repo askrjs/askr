@@ -7,14 +7,14 @@ import type { Props } from '../common/props';
 import type { ComponentFunction } from '../common/component';
 import { isPromiseLike } from '../common/promise';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
-import { DefaultPortal } from '../foundations/structures/portal';
-import { disposeDefaultPortalScope } from '../foundations/structures/portal';
 import {
   cleanupComponent,
   createComponentInstance,
+  DefaultPortal,
+  disposeDefaultPortalScope,
   getCurrentComponentInstance,
   setCurrentComponentInstance,
-} from '../runtime/component';
+} from '../runtime';
 import { throwSSRDataMissing, type RenderContext } from './context';
 import type { SSRComponent, VNode } from './types';
 

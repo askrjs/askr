@@ -22,7 +22,7 @@
  *    This is intentional — strict equality, no deep comparison.
  */
 
-import { state, type State } from '../../runtime/state';
+import { state, type State } from '../../runtime';
 
 export function isControlled<T>(value: T | undefined): value is T {
   return value !== undefined;

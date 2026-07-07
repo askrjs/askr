@@ -7,8 +7,8 @@ import type { JSXElement } from '../common/jsx';
 import type { AnchorIntrinsicProps, Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
 import { navigate } from '../router/navigate';
-import { applyInteractionPolicy } from '../foundations/interactions/interaction-policy';
-import { mergeProps } from '../foundations/utilities/merge-props';
+import { applyInteractionPolicy } from '../foundations/interactions';
+import { mergeProps } from '../foundations/utilities';
 
 export type LinkProps = Omit<
   Props,

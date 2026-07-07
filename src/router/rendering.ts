@@ -8,7 +8,7 @@ import type {
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { RenderableChild } from '../common/vnode';
-import { defineContext, readContext } from '../runtime/context';
+import { defineContext, readContext } from '../runtime';
 import type { InternalRouteRecord } from './internal-types';
 
 const outletContext = defineContext<RenderableChild>(null);

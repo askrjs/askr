@@ -1,18 +1,18 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
 import type { RouteRenderResult, RouteRequestResult } from '../common/router';
+import { cleanupInstancesUnder } from '../renderer';
 import {
   DefaultPortal,
   clearDefaultPortalForInstance,
-} from '../foundations/structures/portal';
+} from '../runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
-import { logger } from '../dev/logger';
-import { cleanupInstancesUnder } from '../renderer/cleanup';
+import { logger } from '../common/logger';
 import {
   cleanupComponent,
   mountComponent,
   type ComponentInstance,
-} from '../runtime/component';
+} from '../runtime';
 import {
   applyHistoryScroll,
   applyNavigationScroll,

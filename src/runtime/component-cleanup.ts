@@ -3,7 +3,7 @@
  */
 
 import { isDevelopmentEnvironment } from '../common/env';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import type { ComponentInstance } from './component-internal';
 import {
   clearCurrentComponentScope,

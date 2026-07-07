@@ -1,10 +1,10 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import {
   DefaultPortal,
   disposeDefaultPortalScope,
-} from '../foundations/structures/portal';
+} from '../runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import {
   initializeNavigation,
@@ -12,14 +12,14 @@ import {
   unregisterAppInstance,
 } from '../router/navigate';
 import { clearRoutes } from '../router/route';
-import { flushRuntimeScheduler } from '../runtime/access';
 import {
   cleanupComponent,
   createComponentInstance,
+  flushRuntimeScheduler,
   mountComponent,
   type ComponentFunction,
   type ComponentInstance,
-} from '../runtime/component';
+} from '../runtime';
 import {
   installRendererBridge,
   removeAllListeners,

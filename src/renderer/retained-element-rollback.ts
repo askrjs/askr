@@ -1,10 +1,10 @@
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 import {
   addDelegatedListener,
   getDelegatedHandlersForElement,
   removeDelegatedListener,
   updateDelegatedListener,
-} from '../runtime/events';
+} from '../runtime';
 import {
   elementListeners,
   elementReactivePropsCleanup,

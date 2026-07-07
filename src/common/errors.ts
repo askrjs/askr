@@ -3,7 +3,7 @@
  * No framework magic — just JavaScript patterns
  */
 
-import { logger } from '../dev/logger';
+import { logger } from '../common/logger';
 
 /**
  * Safe wrapper for async functions

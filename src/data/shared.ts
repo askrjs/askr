@@ -3,7 +3,7 @@ import {
   markReactivePropsDirtySource,
   notifyReadableReaders,
   type ReadableSource,
-} from '../runtime/readable';
+} from '../runtime';
 
 export function createReadableSource(): ReadableSource<unknown> {
   return (() => undefined) as ReadableSource<unknown>;

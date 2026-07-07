@@ -1,4 +1,4 @@
-import { recordBenchCounter, recordBenchEvent } from '../runtime/for';
+import { recordBenchCounter, recordBenchEvent } from '../runtime';
 import { canUseDirectReplaceChildrenSpread } from './utils';
 
 const DENSE_MOVE_MINIMUM = 64;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach } from 'vite-plus/test';
-import { logger } from '../src/dev/logger';
+import { logger } from '../src/common/logger';
 
 // Ensure tests run in a deterministic dev-like environment regardless of
 // the shell's NODE_ENV (bench/profiling commands may set it to 'production').

@@ -3,11 +3,11 @@
  * Consolidates common patterns to reduce code duplication.
  */
 
-import { runRuntimeHandlerScope } from '../runtime/access';
-import { logger } from '../dev/logger';
+import { runRuntimeHandlerScope } from '../runtime';
+import { logger } from '../common/logger';
 import { getPublicAttributeName } from '../common/attr-names';
 import { getRuntimeEnv } from './env';
-import { setDevValue, incDevCounter } from '../runtime/dev-namespace';
+import { setDevValue, incDevCounter } from '../runtime';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 

@@ -1,7 +1,7 @@
 import { isProductionEnvironment } from '../common/env';
 import { SSR_RENDER_DATA_ATTR, type SSRData } from '../common/ssr';
 import type { ResolvedRoute } from '../common/router';
-import type { ComponentFunction } from '../runtime/component';
+import type { ComponentFunction } from '../runtime';
 import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
 

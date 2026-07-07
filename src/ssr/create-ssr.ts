@@ -1,5 +1,5 @@
 import { renderToString, type SSRRoute } from './index';
-import { assertExecutionModel } from '../runtime/execution-model';
+import { assertExecutionModel } from '../runtime';
 import { createRenderContext, withRenderContext } from './context';
 
 export type SSRConfig = {

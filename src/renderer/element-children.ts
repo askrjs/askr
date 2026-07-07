@@ -1,4 +1,4 @@
-import type { ComponentFunction } from '../runtime/component-contracts';
+import type { ComponentFunction } from '../runtime';
 import { clearControlBoundaryCommitOwner } from './boundaries';
 import {
   commitForBoundaryChildren,

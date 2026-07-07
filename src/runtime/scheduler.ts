@@ -10,8 +10,8 @@
  */
 
 import { isDevelopmentEnvironment } from '../common/env';
-import { assertSchedulingPrecondition, invariant } from '../dev/invariant';
-import { logger } from '../dev/logger';
+import { assertSchedulingPrecondition, invariant } from '../common/invariant';
+import { logger } from '../common/logger';
 import { recordSchedulerFlushTaskCount } from './perf-metrics';
 
 const MAX_FLUSH_DEPTH = 50;

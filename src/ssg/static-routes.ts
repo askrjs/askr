@@ -4,7 +4,7 @@
 
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RoutePolicy, RouteRegistry } from '../common/router';
-import { _getBuiltInRoutePolicy } from '../router/policy';
+import { _getBuiltInRoutePolicy } from '../router/route';
 import { expandRoutes } from './resolve-ssg-data';
 import {
   getOutputFilePath,

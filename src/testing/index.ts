@@ -1,6 +1,4 @@
 import type { Query, QueryStaleReason } from '../data';
-import { parseSegments } from '../router/match';
-import { computeRouteActivityMatches } from '../router/route';
 import type {
   ParsedSegment,
   Route,
@@ -9,9 +7,13 @@ import type {
   RouteRecord,
 } from '../common/router';
 import {
-  addInvalidationListener,
   type InvalidationEvent,
-} from '../data/invalidation-listeners';
+  addInvalidationListener,
+} from '../data/testing';
+import {
+  computeRouteActivityMatches,
+  parseSegments,
+} from '../router/testing';
 
 export type MockRefresh = () => void | Promise<void>;
 
