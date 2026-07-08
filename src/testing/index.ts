@@ -10,10 +10,7 @@ import {
   type InvalidationEvent,
   addInvalidationListener,
 } from '../data/testing';
-import {
-  computeRouteActivityMatches,
-  parseSegments,
-} from '../router/testing';
+import { computeRouteActivityMatches, parseSegments } from '../router/testing';
 
 export type MockRefresh = () => void | Promise<void>;
 

@@ -11,11 +11,7 @@ import type { VNode } from '../common/vnode';
 import type { ChildScope } from './child-scope';
 import type { ForItemInstance } from './for-scopes';
 import type { FineGrainedEffectHandle } from './effect';
-import type {
-  ForEachSource,
-  ForKeySelector,
-  ForRenderItem,
-} from './for-types';
+import type { ForEachSource, ForKeySelector, ForRenderItem } from './for-types';
 import { reconcileForItems } from './for-reconcile';
 
 export {

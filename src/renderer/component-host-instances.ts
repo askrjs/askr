@@ -1,9 +1,6 @@
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { Props } from '../common/props';
-import {
-  getCurrentInstance,
-  type ComponentInstance,
-} from '../runtime';
+import { getCurrentInstance, type ComponentInstance } from '../runtime';
 import { getDevValue, incDevCounter } from '../runtime';
 import type { InstanceHostElement } from './dom-host';
 import type { DOMElement } from './types';

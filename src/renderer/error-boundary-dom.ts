@@ -4,10 +4,7 @@ import {
 } from '../common/error-boundary';
 import { isDevelopmentEnvironment } from '../common/env';
 import { logger } from '../common/logger';
-import {
-  createBoundaryReset,
-  reportBoundaryError,
-} from '../runtime';
+import { createBoundaryReset, reportBoundaryError } from '../runtime';
 import type { ComponentInstance } from '../runtime';
 import { getRendererDOMHost } from './dom-host';
 import type { DOMElement } from './types';
@@ -32,10 +29,7 @@ function getBoundaryMessage(error: unknown): string {
   }
 }
 
-function createDefaultFallbackNode(
-  error: unknown,
-  reset: () => void
-): Node {
+function createDefaultFallbackNode(error: unknown, reset: () => void): Node {
   const message = getBoundaryMessage(error);
   const wrapper = document.createElement('div');
   wrapper.setAttribute('role', 'alert');

@@ -2,10 +2,7 @@ import { __FOR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
 import { enqueueRuntimeTask } from '../runtime';
 import type { ChildScope } from '../runtime';
-import type {
-  ComponentFunction,
-  ComponentInstance,
-} from '../runtime';
+import type { ComponentFunction, ComponentInstance } from '../runtime';
 import {
   clearCaseDomUpdateState,
   clearShowDomUpdateState,

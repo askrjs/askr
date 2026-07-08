@@ -9,11 +9,7 @@
 import * as pathModule from 'path';
 import * as fsModule from 'fs';
 import { createStaticGen } from '../ssg/index';
-import type {
-  RouteConfig,
-  SSGGenerateOptions,
-  SSGResult,
-} from '../ssg/index';
+import type { RouteConfig, SSGGenerateOptions, SSGResult } from '../ssg/index';
 
 const { resolve } = pathModule;
 const { existsSync } = fsModule;

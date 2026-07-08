@@ -1,7 +1,4 @@
-import type {
-  ComponentFunction,
-  ComponentInstance,
-} from '../runtime';
+import type { ComponentFunction, ComponentInstance } from '../runtime';
 import type { ContextFrame } from '../runtime';
 import type { DOMElement, VNode } from './types';
 

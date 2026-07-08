@@ -1,10 +1,7 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
-import {
-  DefaultPortal,
-  disposeDefaultPortalScope,
-} from '../runtime';
+import { DefaultPortal, disposeDefaultPortalScope } from '../runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import {
   initializeNavigation,

@@ -2,10 +2,7 @@ import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
 import type { RouteRenderResult, RouteRequestResult } from '../common/router';
 import { cleanupInstancesUnder } from '../renderer';
-import {
-  DefaultPortal,
-  clearDefaultPortalForInstance,
-} from '../runtime';
+import { DefaultPortal, clearDefaultPortalForInstance } from '../runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import { logger } from '../common/logger';
 import {
