@@ -188,7 +188,7 @@ export function mountOrUpdate(
     const portalVNode = {
       $$typeof: ELEMENT_TYPE,
       type: DefaultPortal,
-      props: {},
+      props: { __askrAutoDefaultPortal: true },
       key: '__default_portal',
     } as unknown;
     return {
