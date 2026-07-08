@@ -257,7 +257,8 @@ flowchart LR
   per-item scope creation/render/update/disposal, index-signal synchronization,
   fallback scope rendering/disposal, and removed-node bookkeeping.
   `src/runtime/for-signals.ts` owns reactive item/index signals, property proxy
-  reads, signal notification, and parent-reader pruning.
+  reads for object/function row items, native array pass-through, signal
+  notification, and parent-reader pruning.
 - `src/runtime/state.ts` stores component-local writable cells.
 - `src/runtime/derive.ts` tracks dependency reads and recomputes in the
   scheduler's `derived` lane.

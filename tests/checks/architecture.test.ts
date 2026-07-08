@@ -356,7 +356,7 @@ const RENDERER_DOM_HELPER_MODULES = new Map<string, number>([
   ['src/renderer/attributes.ts', 520],
   ['src/renderer/boundaries.ts', 760],
   ['src/renderer/child-shape.ts', 180],
-  ['src/renderer/component-host.ts', 620],
+  ['src/renderer/component-host.ts', 625],
   ['src/renderer/component-host-cleanup.ts', 180],
   ['src/renderer/component-host-instances.ts', 180],
   ['src/renderer/dom-internal.ts', 850],

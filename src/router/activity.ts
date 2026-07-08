@@ -122,7 +122,9 @@ export function isRoutePathActive(
     )
   );
 
-  const activePath = normalizeRouteActivityPath(readCurrentRouteLocation().pathname);
+  const activePath = normalizeRouteActivityPath(
+    readCurrentRouteLocation().pathname
+  );
   if (candidates.has(activePath)) {
     return true;
   }

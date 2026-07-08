@@ -217,7 +217,8 @@ function getOrCreateForItemPropertySignal<T>(
 
 export function canProxyForItem(item: unknown): item is object {
   return (
-    (typeof item === 'object' && item !== null) || typeof item === 'function'
+    typeof item === 'function' ||
+    (typeof item === 'object' && item !== null && !Array.isArray(item))
   );
 }
 
