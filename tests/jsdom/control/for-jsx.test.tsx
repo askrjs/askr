@@ -844,6 +844,89 @@ describe('For JSX primitive', () => {
     }
   });
 
+  it('should pass array items through as native arrays for nested For lists', () => {
+    const { container, cleanup } = createTestContainer();
+    let setRows: (next: string[][]) => void = () => {};
+
+    const App = () => {
+      const rows = state<string[][]>([
+        ['a1', 'a2'],
+        ['b1', 'b2'],
+      ]);
+      setRows = (next) => rows.set(next);
+
+      return (
+        <table>
+          <tbody>
+            <For each={rows} byIndex={true}>
+              {(row, rowIndex) => {
+                const rowJson = JSON.stringify(row);
+
+                return (
+                  <tr
+                    data-row={String(rowIndex())}
+                    data-array={String(Array.isArray(row))}
+                    data-json={rowJson}
+                  >
+                    <For each={row} byIndex={true}>
+                      {(cell, cellIndex) => (
+                        <td data-cell={`${rowIndex()}-${cellIndex()}`}>
+                          {cell}
+                        </td>
+                      )}
+                    </For>
+                  </tr>
+                );
+              }}
+            </For>
+          </tbody>
+        </table>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      const initialRows = Array.from(container.querySelectorAll('tr'));
+      expect(initialRows.map((row) => row.getAttribute('data-array'))).toEqual([
+        'true',
+        'true',
+      ]);
+      expect(initialRows.map((row) => row.getAttribute('data-json'))).toEqual([
+        '["a1","a2"]',
+        '["b1","b2"]',
+      ]);
+      expect(
+        Array.from(container.querySelectorAll('td')).map(
+          (node) => node.textContent
+        )
+      ).toEqual(['a1', 'a2', 'b1', 'b2']);
+
+      setRows([
+        ['a1', 'a3'],
+        ['b1', 'b2', 'b3'],
+      ]);
+      flushScheduler();
+
+      const nextRows = Array.from(container.querySelectorAll('tr'));
+      expect(nextRows.map((row) => row.getAttribute('data-array'))).toEqual([
+        'true',
+        'true',
+      ]);
+      expect(nextRows.map((row) => row.getAttribute('data-json'))).toEqual([
+        '["a1","a3"]',
+        '["b1","b2","b3"]',
+      ]);
+      expect(
+        Array.from(container.querySelectorAll('td')).map(
+          (node) => node.textContent
+        )
+      ).toEqual(['a1', 'a3', 'b1', 'b2', 'b3']);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should throw when neither by nor byIndex is provided', () => {
     const { container, cleanup } = createTestContainer();
     const UnsafeFor = For as unknown as (
