@@ -38,9 +38,20 @@ import {
   nextComponentInstanceId,
   setVNodeComponentInstance,
 } from './component-host-instances';
-import { _isDOMElement, type DOMElement, type JSXComponent, type VNode } from './types';
+import {
+  _isDOMElement,
+  type DOMElement,
+  type JSXComponent,
+  type VNode,
+} from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
-export { findHostInstanceByType, inheritComponentCleanupStrict, inheritComponentKey, isRouteRootComponentVNode, nextComponentInstanceId } from './component-host-instances';
+export {
+  findHostInstanceByType,
+  inheritComponentCleanupStrict,
+  inheritComponentKey,
+  isRouteRootComponentVNode,
+  nextComponentInstanceId,
+} from './component-host-instances';
 function materializeComponentResultNode(
   childInstance: ComponentInstance,
   result: unknown,

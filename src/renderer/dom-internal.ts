@@ -51,7 +51,12 @@ import { syncReactiveScalarChild } from './reactive-children';
 import { runRetainedElementUpdate } from './retained-element-rollback';
 import { canReuseStaticSubtree } from './static-reuse';
 import { tryPatchStableForDirtyItem } from './stable-patch';
-import { _isDOMElement, type DOMElement, type JSXComponent, type VNode } from './types';
+import {
+  _isDOMElement,
+  type DOMElement,
+  type JSXComponent,
+  type VNode,
+} from './types';
 
 export { createForBoundary, commitForBoundaryChildren } from './boundaries';
 export { markReactivePropsDirtySource } from './prop-bindings';

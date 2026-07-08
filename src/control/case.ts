@@ -5,11 +5,7 @@ import {
 import type { JSXElement } from '../common/jsx';
 import type { VNode } from '../common/vnode';
 import { isDevelopmentEnvironment } from '../common/env';
-import {
-  createCaseState,
-  type CaseState,
-  type MatchBranch,
-} from '../runtime';
+import { createCaseState, type CaseState, type MatchBranch } from '../runtime';
 import { state } from '../runtime';
 import { type BoundaryChild, normalizeBoundaryChild } from './shared';
 
