@@ -128,4 +128,47 @@ describe('portal async parent update regression', () => {
     expect(list?.getAttribute('data-match-count')).toBe('1');
     expect(container.querySelectorAll('li')).toHaveLength(1);
   });
+
+  it('should restore the automatic fallback host when an explicit host unmounts', () => {
+    function App() {
+      const showExplicitHost = state(true);
+
+      return (
+        <>
+          <button type="button" onClick={() => showExplicitHost.set(false)}>
+            {'hide host'}
+          </button>
+          {showExplicitHost() ? (
+            <aside aria-label="Sidebar">
+              <DefaultPortal />
+            </aside>
+          ) : null}
+          <Portal>
+            <div data-testid="portal-surface">{'floating'}</div>
+          </Portal>
+        </>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(
+      container.querySelectorAll('[data-testid="portal-surface"]')
+    ).toHaveLength(1);
+    expect(
+      container.querySelector('aside [data-testid="portal-surface"]')
+    ).not.toBeNull();
+
+    (container.querySelector('button') as HTMLButtonElement).click();
+    flushScheduler();
+
+    expect(container.querySelector('aside')).toBeNull();
+    expect(
+      container.querySelectorAll('[data-testid="portal-surface"]')
+    ).toHaveLength(1);
+    expect(
+      container.querySelector('[data-testid="portal-surface"]')?.textContent
+    ).toBe('floating');
+  });
 });

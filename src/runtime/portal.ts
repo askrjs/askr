@@ -11,6 +11,7 @@ import {
   getCurrentPortalScope,
   type ComponentInstance,
 } from './component';
+import { enqueueRuntimeTask } from './access';
 
 export interface Portal<T extends RenderableChild = RenderableChild> {
   (): unknown;
@@ -90,9 +91,8 @@ type DefaultPortalState = {
   portal: Portal<RenderableChild>;
   owner: ComponentInstance | null;
   cleanupOwners: WeakSet<ComponentInstance>;
-  explicitHostOwners: WeakSet<ComponentInstance>;
-  explicitHostCount: number;
-  explicitHostVersion: number;
+  explicitHostOwners: Set<ComponentInstance>;
+  explicitHostCleanupOwners: WeakSet<ComponentInstance>;
   explicitHostSource: ReadableSource<number>;
 };
 
@@ -104,13 +104,13 @@ type DefaultPortalHostProps = {
   __askrAutoDefaultPortal?: boolean;
 };
 
-function createVersionSource(
-  readVersion: () => number
+function createExplicitHostSource(
+  readCount: () => number
 ): ReadableSource<number> {
   let source: ReadableSource<number>;
   source = (() => {
     recordReadableRead(source);
-    return readVersion();
+    return readCount();
   }) as ReadableSource<number>;
   return source;
 }
@@ -122,7 +122,6 @@ function readExplicitDefaultPortalHosts(state: DefaultPortalState): number {
 function notifyExplicitDefaultPortalHostReaders(
   state: DefaultPortalState
 ): void {
-  state.explicitHostVersion += 1;
   markReadableDerivedSubscribersDirty(state.explicitHostSource);
   markReactivePropsDirtySource(state.explicitHostSource);
   notifyReadableReaders(state.explicitHostSource);
@@ -133,16 +132,27 @@ function createDefaultPortalState(): DefaultPortalState {
     portal: definePortal<RenderableChild>(),
     owner: null,
     cleanupOwners: new WeakSet<ComponentInstance>(),
-    explicitHostOwners: new WeakSet<ComponentInstance>(),
-    explicitHostCount: 0,
-    explicitHostVersion: 0,
+    explicitHostOwners: new Set<ComponentInstance>(),
+    explicitHostCleanupOwners: new WeakSet<ComponentInstance>(),
     explicitHostSource: (() => 0) as ReadableSource<number>,
   };
 
-  state.explicitHostSource = createVersionSource(
-    () => state.explicitHostVersion
+  state.explicitHostSource = createExplicitHostSource(
+    () => state.explicitHostOwners.size
   );
   return state;
+}
+
+function isExplicitHostOwnerConnected(owner: ComponentInstance): boolean {
+  if (owner.target) {
+    return owner.target.isConnected;
+  }
+
+  if (owner._placeholder) {
+    return owner._placeholder.isConnected;
+  }
+
+  return owner.mounted;
 }
 
 export function _resetDefaultPortal(): void {
@@ -286,26 +296,38 @@ function registerExplicitDefaultPortalHost(
   state: DefaultPortalState,
   owner: ComponentInstance | null
 ): void {
-  if (!owner || state.explicitHostOwners.has(owner)) {
+  if (!owner) {
     return;
   }
 
-  state.explicitHostOwners.add(owner);
-  state.explicitHostCount += 1;
-  notifyExplicitDefaultPortalHostReaders(state);
-
-  owner.cleanupFns.push(() => {
-    if (_defaultPortalStates.get(scope) !== state) {
-      return;
-    }
-
-    if (!state.explicitHostOwners.delete(owner)) {
-      return;
-    }
-
-    state.explicitHostCount = Math.max(0, state.explicitHostCount - 1);
+  if (!state.explicitHostOwners.has(owner)) {
+    state.explicitHostOwners.add(owner);
     notifyExplicitDefaultPortalHostReaders(state);
-  });
+  }
+
+  if (!state.explicitHostCleanupOwners.has(owner)) {
+    state.explicitHostCleanupOwners.add(owner);
+    owner.cleanupFns.push(() => {
+      if (_defaultPortalStates.get(scope) !== state) {
+        return;
+      }
+
+      state.explicitHostCleanupOwners.delete(owner);
+      enqueueRuntimeTask(() => {
+        if (_defaultPortalStates.get(scope) !== state) {
+          return;
+        }
+
+        if (isExplicitHostOwnerConnected(owner)) {
+          return;
+        }
+
+        if (state.explicitHostOwners.delete(owner)) {
+          notifyExplicitDefaultPortalHostReaders(state);
+        }
+      });
+    });
+  }
 }
 
 export function clearDefaultPortalForInstance(
@@ -336,11 +358,10 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
     }
 
     const state = getDefaultPortalState(scope);
-    const explicitHostCount = readExplicitDefaultPortalHosts(state);
     const isAutomaticFallback = props?.__askrAutoDefaultPortal === true;
     if (!isAutomaticFallback) {
       registerExplicitDefaultPortalHost(scope, state, owner);
-    } else if (explicitHostCount > 0) {
+    } else if (readExplicitDefaultPortalHosts(state) > 0) {
       return null;
     }
 
