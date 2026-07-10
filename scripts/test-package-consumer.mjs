@@ -3,13 +3,18 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..'
+);
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')
 );
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'askr-package-consumer-'));
+const tempDir = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'askr-package-consumer-')
+);
 
 function run(command, args, cwd = rootDir) {
   return execFileSync(command, args, {
@@ -20,7 +25,15 @@ function run(command, args, cwd = rootDir) {
 }
 
 try {
-  const packed = JSON.parse(run('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', tempDir]));
+  const packed = JSON.parse(
+    run('npm', [
+      'pack',
+      '--ignore-scripts',
+      '--json',
+      '--pack-destination',
+      tempDir,
+    ])
+  );
   assert.equal(packed.length, 1, 'npm pack should produce one tarball');
   const tarball = path.join(tempDir, packed[0].filename);
   const packedFiles = packed[0].files.map((file) => file.path);
@@ -30,7 +43,18 @@ try {
     false,
     'package tarball must not contain source maps'
   );
-  assert.ok(packedFiles.includes('dist/bin/askr-ssg.js'), 'tarball must contain the SSG CLI');
+  for (const file of packedFiles.filter((file) => file.endsWith('.js'))) {
+    const source = run('tar', ['-xOf', tarball, `package/${file}`]);
+    assert.equal(
+      /\/\/[#@]\s*sourceMappingURL=/.test(source),
+      false,
+      `package JavaScript artifact ${file} must not reference an unpacked source map`
+    );
+  }
+  assert.ok(
+    packedFiles.includes('dist/bin/askr-ssg.js'),
+    'tarball must contain the SSG CLI'
+  );
 
   for (const [specifier, target] of Object.entries(packageJson.exports)) {
     const jsTarget = typeof target === 'string' ? target : target.import;
@@ -51,24 +75,80 @@ try {
   fs.mkdirSync(consumerDir);
   fs.writeFileSync(
     path.join(consumerDir, 'package.json'),
-    JSON.stringify({ name: 'askr-clean-consumer', private: true, type: 'module' })
+    JSON.stringify({
+      name: 'askr-clean-consumer',
+      private: true,
+      type: 'module',
+    })
   );
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], consumerDir);
+  run(
+    'npm',
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball],
+    consumerDir
+  );
 
-  for (const specifier of Object.keys(packageJson.exports)) {
-    const packageSpecifier = specifier === '.' ? packageJson.name : `${packageJson.name}/${specifier.slice(2)}`;
-    await import(packageSpecifier);
-  }
+  const publicSpecifiers = Object.keys(packageJson.exports).map((specifier) =>
+    specifier === '.'
+      ? packageJson.name
+      : `${packageJson.name}/${specifier.slice(2)}`
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      publicSpecifiers
+        .map((specifier) => `await import(${JSON.stringify(specifier)});`)
+        .join('\n'),
+    ],
+    consumerDir
+  );
 
-  const installedPackage = path.join(consumerDir, 'node_modules', ...packageJson.name.split('/'));
-  const cliPath = path.join(installedPackage, 'dist/bin/askr-ssg.js');
-  assert.ok(fs.existsSync(cliPath), 'installed package must expose the SSG CLI');
-  assert.match(fs.readFileSync(cliPath, 'utf8'), /askr-ssg - Static Site Generation for Askr/);
+  const installedPackage = path.join(
+    consumerDir,
+    'node_modules',
+    ...packageJson.name.split('/')
+  );
+  const cliPath = path.join(consumerDir, 'node_modules', '.bin', 'askr-ssg');
+  assert.ok(
+    fs.existsSync(cliPath),
+    'npm must create the installed askr-ssg bin symlink'
+  );
+  assert.match(
+    run(cliPath, ['--help'], consumerDir),
+    /askr-ssg - Static Site Generation for Askr/
+  );
+  const cliConfigPath = path.join(consumerDir, 'ssg.config.ts');
+  const cliOutputDir = path.join(consumerDir, 'static-site');
+  fs.writeFileSync(
+    cliConfigPath,
+    `export const routes = [{ path: '/', component: () => '<main>installed cli</main>' }];\n`
+  );
+  assert.match(
+    run(
+      cliPath,
+      ['--config', cliConfigPath, '--output', cliOutputDir],
+      consumerDir
+    ),
+    /Generated:\s+1\/1 routes/
+  );
+  assert.match(
+    fs.readFileSync(path.join(cliOutputDir, 'index.html'), 'utf8'),
+    /installed cli/
+  );
 
-  const smokeModule = await import(pathToFileURL(path.join(installedPackage, 'dist/index.js')).href);
-  const ssrModule = await import(pathToFileURL(path.join(installedPackage, 'dist/ssr/index.js')).href);
-  const html = ssrModule.renderToStringSync(() => smokeModule.jsx('main', { children: 'consumer smoke' }));
-  assert.equal(html, '<main>consumer smoke</main>');
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `import assert from 'node:assert/strict';
+       import { jsx } from ${JSON.stringify(packageJson.name)};
+       import { renderToStringSync } from ${JSON.stringify(`${packageJson.name}/ssr`)};
+       assert.equal(renderToStringSync(() => jsx('main', { children: 'consumer smoke' })), '<main>consumer smoke</main>');`,
+    ],
+    consumerDir
+  );
 
   fs.writeFileSync(
     path.join(consumerDir, 'index.ts'),
@@ -76,9 +156,24 @@ try {
   );
   fs.writeFileSync(
     path.join(consumerDir, 'tsconfig.json'),
-    JSON.stringify({ compilerOptions: { module: 'NodeNext', moduleResolution: 'NodeNext', noEmit: true, strict: true } })
+    JSON.stringify({
+      compilerOptions: {
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        noEmit: true,
+        strict: true,
+      },
+    })
   );
-  run(process.execPath, [path.join(rootDir, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'], consumerDir);
+  run(
+    process.execPath,
+    [
+      path.join(rootDir, 'node_modules/typescript/bin/tsc'),
+      '-p',
+      'tsconfig.json',
+    ],
+    consumerDir
+  );
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }

@@ -105,6 +105,9 @@ export function inheritComponentKey(
     if (props['data-key'] === undefined) {
       props['data-key'] = String(inheritedKey);
     }
+    if (props['data-askr-key-kind'] === undefined) {
+      props['data-askr-key-kind'] = typeof inheritedKey;
+    }
   }
 
   return target;

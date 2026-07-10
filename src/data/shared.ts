@@ -28,6 +28,9 @@ export function isAbortError(error: unknown, signal: AbortSignal): boolean {
 export function normalizeAsyncDataError(
   error: unknown,
   fallbackMessage: string
-): {} {
-  return error ?? new Error(fallbackMessage);
+): Error {
+  if (error instanceof Error) {
+    return error;
+  }
+  return new Error(error == null ? fallbackMessage : String(error));
 }

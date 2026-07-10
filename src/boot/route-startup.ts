@@ -3,8 +3,10 @@ import type {
   RouteAuthOptions,
   RouteHandler,
   RouteRequestResult,
+  Route,
+  RouteManifest,
 } from '../common/router';
-import { resolveRouteRequest } from '../router/route';
+import { resolveRouteFromRoutes, resolveRouteRequest } from '../router/route';
 import type { ComponentFunction } from '../runtime';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
@@ -35,7 +37,8 @@ export function bindDeniedRouteHandler(status: number): RouteHandler {
 }
 
 export async function resolveInitialRoute(
-  auth?: RouteAuthOptions
+  auth?: RouteAuthOptions,
+  source?: { manifest?: RouteManifest; routes?: readonly Route[] }
 ): Promise<{ path: string; href: string; resolved: RouteRequestResult }> {
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
   let href =
@@ -54,7 +57,20 @@ export async function resolveInitialRoute(
     }
     visited.add(href);
 
-    const resolved = await resolveRouteRequest(href, { auth });
+    const resolved = source?.manifest
+      ? await resolveRouteRequest(href, { manifest: source.manifest, auth })
+      : source?.routes
+        ? (() => {
+            const match = resolveRouteFromRoutes(path, source.routes!);
+            return match
+              ? {
+                  kind: 'render' as const,
+                  handler: match.handler,
+                  params: match.params,
+                }
+              : null;
+          })()
+        : await resolveRouteRequest(href, { auth });
     if (
       typeof window === 'undefined' ||
       !resolved ||

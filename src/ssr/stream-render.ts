@@ -60,6 +60,9 @@ function inheritRenderableKey(source: VNode, result: unknown): unknown {
     if (resultVNode.props['data-key'] === undefined) {
       resultVNode.props['data-key'] = String(inheritedKey);
     }
+    if (resultVNode.props['data-askr-key-kind'] === undefined) {
+      resultVNode.props['data-askr-key-kind'] = typeof inheritedKey;
+    }
   }
 
   return result;

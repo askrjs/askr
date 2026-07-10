@@ -185,7 +185,10 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (isProductionEnvironment()) lockRouteRegistration();
 
   // Mount the currently-resolved route handler (if any)
-  const { path, resolved } = await resolveInitialRoute(routeAuth);
+  const { path, resolved } = await resolveInitialRoute(routeAuth, {
+    manifest: activeManifest,
+    routes: hasManifest ? undefined : routeTable,
+  });
 
   if (!resolved) {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
@@ -290,7 +293,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     path,
     href: currentUrl,
     resolved,
-  } = await resolveInitialRoute(routeAuth);
+  } = await resolveInitialRoute(routeAuth, {
+    manifest: activeManifest,
+    routes: hasManifest ? undefined : routeTable,
+  });
   setServerLocation(currentUrl);
   if (isProductionEnvironment()) lockRouteRegistration();
 

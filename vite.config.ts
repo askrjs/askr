@@ -42,7 +42,9 @@ export default defineConfig({
     platform: 'neutral',
     tsconfig: 'tsconfig.pack.json',
     dts: true,
-    sourcemap: true,
+    // Keep maps for diagnostics without publishing dangling sourceMappingURL
+    // comments or map files in the package tarball.
+    sourcemap: 'hidden',
     unbundle: true,
     treeshake: false,
     define: createNodeEnvDefine(isProd ? 'production' : 'development'),

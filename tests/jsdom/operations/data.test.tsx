@@ -852,6 +852,56 @@ describe('data layer', () => {
     }
   });
 
+  it('should await an async reconciliation decision before retrying', async () => {
+    vi.useFakeTimers();
+    let resolveReconcile!: (shouldRetry: boolean) => void;
+    let queryCalls = 0;
+    const fetchUser = async () => {
+      queryCalls += 1;
+      return { id: '123', version: queryCalls };
+    };
+    const isConsistent = (data: { version: number }) => data.version > 1;
+    const reconcile = () =>
+      new Promise<boolean>((resolve) => {
+        resolveReconcile = resolve;
+      });
+
+    const App = (): JSXElement => {
+      const query = createQuery({
+        key: 'user:reconcile:await',
+        fetch: fetchUser,
+        isConsistent,
+        reconcile,
+      });
+      return <div>{query.data?.version ?? 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('1');
+      expect(queryCalls).toBe(1);
+
+      resolveReconcile(true);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(queryCalls).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(25);
+      flushScheduler();
+      await settle();
+
+      expect(queryCalls).toBe(2);
+      expect(container.textContent).toBe('2');
+    } finally {
+      vi.useRealTimers();
+      cleanup();
+    }
+  });
+
   it('should not expose pending-write while a query is still on its first load', async () => {
     let resolveUser!: (value: { id: string }) => void;
     let queryCalls = 0;
@@ -894,13 +944,55 @@ describe('data layer', () => {
       flushScheduler();
       await settle();
 
-      expect(queryCalls).toBe(1);
+      // An invalidation during the initial load aborts stale work and starts
+      // the newest generation; it must not expose pending-write state.
+      expect(queryCalls).toBe(2);
       expect(container.textContent).toBe('fresh|l|n|none');
 
       resolveUser({ id: '123' });
       await settle();
 
       expect(container.textContent).toBe('fresh|s|n|123');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should surface an awaited reconciliation failure as a terminal stale error', async () => {
+    let rejectReconcile!: (error: Error) => void;
+    let queryRef!: Query<{ id: string }>;
+    const reconcileError = new Error('reconciliation failed');
+
+    const App = (): JSXElement => {
+      const query = createQuery({
+        key: 'user:reconcile:error',
+        fetch: async () => ({ id: '123' }),
+        isConsistent: () => false,
+        reconcile: () =>
+          new Promise<boolean>((_resolve, reject) => {
+            rejectReconcile = reject as (error: Error) => void;
+          }),
+      });
+      queryRef = query;
+
+      return <div>{query.error ? 'error' : query.consistency}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('stale');
+      expect(queryRef.error).toBeNull();
+
+      rejectReconcile(reconcileError);
+      await settle();
+
+      expect(container.textContent).toBe('error');
+      expect(queryRef.error).toBe(reconcileError);
+      expect(queryRef.staleReason).toBe('error');
     } finally {
       cleanup();
     }
@@ -968,6 +1060,98 @@ describe('data layer', () => {
       expect(queryRef.staleReason).toBe('error');
       expect(queryRef.data).toEqual({ id: '123', version: 1 });
       expect(queryRef.error).toBe(refreshError);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should settle refresh when its consistency predicate throws', async () => {
+    let queryRef!: Query<{ id: string; version: number }>;
+    let queryCalls = 0;
+    const consistencyError = new Error('consistency failed');
+
+    const App = (): JSXElement => {
+      const query = createQuery({
+        key: 'user:consistency:error',
+        fetch: async () => {
+          queryCalls += 1;
+          return { id: '123', version: queryCalls };
+        },
+        isConsistent: (data) => {
+          if (data.version > 1) {
+            throw consistencyError;
+          }
+          return true;
+        },
+      });
+      queryRef = query;
+
+      return (
+        <div>{query.error ? 'error' : (query.data?.version ?? 'loading')}</div>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('1');
+
+      const refresh = queryRef.refresh();
+      flushScheduler();
+      await expect(refresh).resolves.toBeUndefined();
+      await settle();
+
+      expect(container.textContent).toBe('error');
+      expect(queryRef.error).toBe(consistencyError);
+      expect(queryRef.staleReason).toBe('error');
+      expect(queryRef.data).toEqual({ id: '123', version: 1 });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should coalesce equivalent manual refreshes into the newest request', async () => {
+    let resolveRefresh!: (value: { id: string; version: number }) => void;
+    let queryRef!: Query<{ id: string; version: number }>;
+    let queryCalls = 0;
+
+    const App = (): JSXElement => {
+      const query = createQuery({
+        key: 'user:manual:coalesce',
+        fetch: () => {
+          queryCalls += 1;
+          if (queryCalls === 1) {
+            return Promise.resolve({ id: '123', version: 1 });
+          }
+          return new Promise<{ id: string; version: number }>((resolve) => {
+            resolveRefresh = resolve;
+          });
+        },
+      });
+      queryRef = query;
+      return <div>{query.data?.version ?? 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('1');
+
+      const first = queryRef.refresh();
+      const second = queryRef.refresh();
+      expect(second).toBe(first);
+      flushScheduler();
+      expect(queryCalls).toBe(2);
+
+      resolveRefresh({ id: '123', version: 2 });
+      await expect(first).resolves.toBeUndefined();
+      await expect(second).resolves.toBeUndefined();
+      await settle();
+      expect(container.textContent).toBe('2');
     } finally {
       cleanup();
     }
@@ -1175,6 +1359,55 @@ describe('data layer', () => {
     expect(mutation.pending).toBe(false);
     expect(mutation.error).toBe(saveError);
     expect(mutation.result).toBeNull();
+  });
+
+  it('should retain mutation invalidation callbacks from execute start across a rerender', async () => {
+    let resolveAction!: (value: string) => void;
+    let setUseReplacement!: (value: boolean) => void;
+    const affects = vi.fn<(input: string, result: string) => string[]>();
+
+    const App = (): JSXElement => {
+      const useReplacement = state(false);
+      setUseReplacement = useReplacement.set;
+      const mutation = createMutation({
+        action: () =>
+          new Promise<string>((resolve) => {
+            resolveAction = resolve;
+          }),
+        affects: useReplacement()
+          ? () => {
+              affects('replacement', 'replacement');
+              return [];
+            }
+          : (input, result) => {
+              affects(input, result);
+              return [];
+            },
+        afterSuccess: 'invalidate',
+      });
+
+      return (
+        <button onClick={() => void mutation.execute('initial')}>save</button>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      (container.firstElementChild as HTMLButtonElement).click();
+      setUseReplacement(true);
+      flushScheduler();
+
+      resolveAction('saved');
+      await settle();
+
+      expect(affects).toHaveBeenCalledTimes(1);
+      expect(affects).toHaveBeenCalledWith('initial', 'saved');
+    } finally {
+      cleanup();
+    }
   });
 
   it('should normalize nullish mutation failures into a non-null error state', async () => {

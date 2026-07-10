@@ -8,6 +8,7 @@
 
 import * as pathModule from 'path';
 import * as fsModule from 'fs';
+import { spawnSync } from 'node:child_process';
 import { createStaticGen } from '../ssg/index';
 import type { RouteConfig, SSGGenerateOptions, SSGResult } from '../ssg/index';
 
@@ -80,8 +81,7 @@ Example:
   askr-ssg --config ./ssg.config.ts --output ./dist/static --incremental --changed-key blog/post-123
 
 TypeScript config execution:
-  Use tsx to run the CLI with TS config loading:
-  tsx node_modules/@askrjs/askr/dist/bin/askr-ssg.js --config ./ssg.config.ts --output ./dist/static
+  TypeScript configs are loaded automatically by the installed CLI.
 `;
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
@@ -239,10 +239,28 @@ export async function runCli(
 }
 
 async function main() {
-  const exitCode = await runCli(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  const configIndex = args.indexOf('--config');
+  const configPath = configIndex === -1 ? undefined : args[configIndex + 1];
+  if (configPath?.endsWith('.ts') && !process.env.ASKR_TS_CONFIG_LOADER) {
+    const child = spawnSync(
+      process.execPath,
+      ['--import', 'tsx', process.argv[1], ...args],
+      {
+        env: { ...process.env, ASKR_TS_CONFIG_LOADER: '1' },
+        stdio: 'inherit',
+      }
+    );
+    process.exit(child.status ?? 1);
+  }
+  const exitCode = await runCli(args);
   process.exit(exitCode);
 }
 
-if (process.argv[1] && import.meta.url === toFileUrl(process.argv[1])) {
+if (
+  process.argv[1] &&
+  (import.meta.url === toFileUrl(process.argv[1]) ||
+    process.argv[1].endsWith('/askr-ssg'))
+) {
   void main();
 }

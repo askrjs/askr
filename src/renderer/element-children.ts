@@ -13,6 +13,7 @@ import { isFragmentVNode, normalizeComponentChildren } from './child-shape';
 import { teardownNodeSubtree } from './cleanup';
 import { getRendererDOMHost, type ElementWithContext } from './dom-host';
 import { keyedElements } from './keyed';
+import { getMaterializedKey } from './utils';
 import { getParentNamespace } from './namespaces';
 import {
   trySyncScalarChildSequenceInPlace,
@@ -160,11 +161,9 @@ function getOrBuildDomKeyMap(
       child;
       child = child.nextElementSibling
     ) {
-      const key = child.getAttribute('data-key');
-      if (key !== null) {
+      const key = getMaterializedKey(child);
+      if (key !== undefined) {
         keyMap.set(key, child);
-        const numericKey = Number(key);
-        if (!Number.isNaN(numericKey)) keyMap.set(numericKey, child);
       }
     }
     if (keyMap.size > 0) keyedElements.set(parent, keyMap);

@@ -365,14 +365,22 @@ export function buildKeyMapFromChildren(
 ): Map<string | number, Element> {
   const map = new Map<string | number, Element>();
   for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
-    const k = ch.getAttribute('data-key');
-    if (k !== null) {
-      map.set(k, ch);
-      const n = Number(k);
-      if (!Number.isNaN(n)) map.set(n, ch);
+    const key = getMaterializedKey(ch);
+    if (key !== undefined) {
+      map.set(key, ch);
     }
   }
   return map;
+}
+
+export function getMaterializedKey(
+  element: Element
+): string | number | undefined {
+  const value = element.getAttribute('data-key');
+  if (value === null) return undefined;
+  return element.getAttribute('data-askr-key-kind') === 'number'
+    ? Number(value)
+    : value;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

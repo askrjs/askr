@@ -92,7 +92,7 @@ export class ResourceCell<U> {
       );
     } catch (err) {
       this.pending = false;
-      this.error = err as Error;
+      this.error = err instanceof Error ? err : new Error(String(err));
       if (notify) this.notifySubscribers();
       return;
     }
@@ -140,7 +140,7 @@ export class ResourceCell<U> {
         }
 
         this.pending = false;
-        this.error = err as Error;
+        this.error = err instanceof Error ? err : new Error(String(err));
         try {
           if (this.ownerName) {
             logger.error(

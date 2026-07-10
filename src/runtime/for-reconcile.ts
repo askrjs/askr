@@ -36,7 +36,7 @@ function validateForKeys<T>(forState: ForState<T>, newArray: T[]): void {
   }
 
   const seen = new Set<string | number>();
-  const keyKinds = new Map<string, 'number' | 'string'>();
+  const keyKinds = new Map<string | number, 'number' | 'string'>();
   for (let i = 0; i < newArray.length; i++) {
     const key = forState.byFn(newArray[i], i);
 
@@ -54,15 +54,14 @@ function validateForKeys<T>(forState: ForState<T>, newArray: T[]): void {
 
     seen.add(key);
 
-    const keyString = String(key);
     const keyKind = typeof key;
-    const previousKeyKind = forState.devKeyKinds?.get(keyString);
+    const previousKeyKind = forState.devKeyKinds?.get(key);
     if (previousKeyKind && previousKeyKind !== keyKind) {
       failForValidation(
-        `[askr] For key type changed for ${keyString}. Keys must remain consistently typed across renders.`
+        `[askr] For key type changed for ${String(key)}. Keys must remain consistently typed across renders.`
       );
     }
-    keyKinds.set(keyString, keyKind as 'number' | 'string');
+    keyKinds.set(key, keyKind as 'number' | 'string');
   }
 
   forState.devKeyKinds = keyKinds;

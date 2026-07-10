@@ -82,7 +82,7 @@ describe('SSR determinism (SSR)', () => {
     );
 
     expect(renderToStringSync(Component)).toBe(
-      '<ul><li data-index="0" data-key="a">alpha</li><li data-index="1" data-key="b">beta</li></ul>'
+      '<ul><li data-index="0" data-key="a" data-askr-key-kind="string">alpha</li><li data-index="1" data-key="b" data-askr-key-kind="string">beta</li></ul>'
     );
   });
 

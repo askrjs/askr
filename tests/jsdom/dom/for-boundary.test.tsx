@@ -21,12 +21,14 @@ test('should not emit wrapper element for For boundary', () => {
 
   createIsland({ root: container, component: Component });
 
-  // Expect no <for-boundary> tag — children should be direct divs inside .wrap
-  // and they should have data-key automatically injected.
-  const html = container.innerHTML.replace(/\s+/g, '');
-  expect(html).to.match(
-    /^<divclass="wrap"><divdata-key="1">1<\/div><divdata-key="2">2<\/div><divdata-key="3">3<\/div><\/div>(?:<!---->)?$/
-  );
+  // Range anchors are implementation detail; the list items themselves must
+  // remain direct children of the authored wrapper with their typed keys.
+  const wrapper = container.querySelector('.wrap')!;
+  expect(Array.from(wrapper.children).map((child) => child.outerHTML)).toEqual([
+    '<div data-key="1" data-askr-key-kind="number">1</div>',
+    '<div data-key="2" data-askr-key-kind="number">2</div>',
+    '<div data-key="3" data-askr-key-kind="number">3</div>',
+  ]);
 
   cleanup();
 });

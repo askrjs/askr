@@ -8,7 +8,11 @@ import {
   canReuseIntrinsicElementInNamespace,
   getParentNamespace,
 } from './namespaces';
-import { checkPropChanges, recordFastPathStats } from './utils';
+import {
+  checkPropChanges,
+  getMaterializedKey,
+  recordFastPathStats,
+} from './utils';
 
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 
@@ -161,12 +165,7 @@ function countPositionalMatches(
       if (
         canReuseIntrinsicElementInNamespace(el, vnode.type, parentNamespace)
       ) {
-        const actualKey = el.getAttribute('data-key');
-        const keyMatches =
-          actualKey === String(expectedKey) ||
-          (actualKey !== null &&
-            !Number.isNaN(Number(actualKey)) &&
-            Number(actualKey) === expectedKey);
+        const keyMatches = getMaterializedKey(el) === expectedKey;
 
         if (keyMatches) {
           matchCount++;
@@ -205,11 +204,9 @@ function rebuildKeyedMap(parent: Element): void {
   try {
     const map = new Map<string | number, Element>();
     for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
-      const k = el.getAttribute('data-key');
-      if (k !== null) {
-        map.set(k, el);
-        const n = Number(k);
-        if (!Number.isNaN(n)) map.set(n, el);
+      const key = getMaterializedKey(el);
+      if (key !== undefined) {
+        map.set(key, el);
       }
     }
     keyedElements.set(parent, map);

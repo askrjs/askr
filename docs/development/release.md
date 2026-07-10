@@ -24,19 +24,22 @@ The release flow is split across dedicated workflows:
 - `.github/workflows/quality.yml`: scheduled replayable lifecycle sequences
   plus Chromium and Firefox on Linux and WebKit on macOS. Failed runs retain
   browser reports and seed-trace artifacts.
-- `.github/workflows/publish.yml`: manual release workflow. It runs CI, computes
-  `v<version>` from `package.json`, creates the tag when needed, checks out that
-  exact tag, builds it, and publishes it to npm.
+- `.github/workflows/publish.yml`: manual release workflow. It installs Chromium
+  and runs the complete release gate before any tag is created. A reused tag
+  must resolve to that verified commit; only then can the workflow publish it.
 - `.github/workflows/bench.yml`: manual benchmark runner for stable and browser perf lanes.
 - `prepack`: always rebuilds package artifacts before npm creates a tarball.
 - `prepublishOnly`: runs `npm run release:verify`; manual npm publishing cannot
   skip lint, build, checks, public types, test suites, or the packed consumer
-  contract.
+  contract. The Chromium browser integration suite is part of that gate.
 
 The packed consumer contract imports every exported subpath from a fresh ESM
 install, verifies the matching emitted declaration files, runs a minimal
-runtime/SSR render, checks the `askr-ssg` CLI, and rejects source maps in the
-tarball. Local and CI builds retain maps for debugging; npm packages do not.
+runtime/SSR render, executes the `askr-ssg` CLI against a TypeScript config,
+and rejects source maps in the
+tarball. It removes `dist` before rebuilding, so the check cannot pass against
+stale artifacts. Local and CI builds retain maps for debugging; npm packages do
+not.
 
 The intended happy path is:
 

@@ -4,6 +4,7 @@ import {
   isIgnoredForPropChanges,
   hasPropChanged,
   buildKeyMapFromChildren,
+  getMaterializedKey,
 } from './utils';
 
 export type { KeyedVnode } from './keyed-children';
@@ -91,6 +92,10 @@ interface CurrentKeyOrderSnapshot {
   currentKeys: string[];
 }
 
+function keyToken(key: string | number): string {
+  return `${typeof key}:${String(key)}`;
+}
+
 function collectCurrentKeyOrder(
   parent: Element,
   oldKeyMap: Map<string | number, Element> | undefined
@@ -107,8 +112,7 @@ function collectCurrentKeyOrder(
       }
 
       lastElement = el;
-      const normalizedKey = String(key);
-      currentKeys.push(normalizedKey);
+      currentKeys.push(keyToken(key));
 
       keyCount++;
     }
@@ -122,12 +126,12 @@ function collectCurrentKeyOrder(
 
   try {
     for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
-      const keyAttr = el.getAttribute('data-key');
-      if (keyAttr === null) {
+      const key = getMaterializedKey(el);
+      if (key === undefined) {
         continue;
       }
 
-      currentKeys.push(keyAttr);
+      currentKeys.push(keyToken(key));
       keyCount++;
     }
   } catch {
@@ -218,7 +222,7 @@ export function planKeyedReorderFastPath(
 
   let moveCount = 0;
   for (let i = 0; i < totalKeyed; i++) {
-    if (currentKeys[i] !== String(keyedVnodes[i].key)) {
+    if (currentKeys[i] !== keyToken(keyedVnodes[i].key)) {
       moveCount++;
     }
   }
@@ -244,7 +248,7 @@ export function planKeyedReorderFastPath(
 
     const positions: number[] = Array(totalKeyed).fill(-1);
     for (let i = 0; i < totalKeyed; i++) {
-      positions[i] = indexByKey.get(String(keyedVnodes[i].key)) ?? -1;
+      positions[i] = indexByKey.get(keyToken(keyedVnodes[i].key)) ?? -1;
     }
     lisLen = computeLISLength(positions);
     lisTrigger = lisLen < Math.floor(totalKeyed * 0.5);

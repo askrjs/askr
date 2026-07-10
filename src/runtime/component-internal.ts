@@ -91,6 +91,7 @@ export interface ComponentInstance {
   hasPendingUpdate: boolean; // Flag to batch state updates (coalescing)
   ownerFrame: ContextFrame | null; // Provider chain for this component (set by Scope, never overwritten)
   isRoot?: boolean;
+  _rootComponentFn?: ComponentFunction;
 
   // Render-tracking for precise subscriptions (internal)
   _currentRenderToken?: number; // Token for the in-progress render (set before render)

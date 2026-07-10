@@ -30,7 +30,7 @@ const status: () => 'loading' | 'ready' = () => 'loading';
 </Case>;
 ```
 
-`For` is JSX-only. Stable keyed identity requires `by`. Positional identity is opt-in through `byIndex={true}`. The canonical feature subpath for these primitives is `@askrjs/askr/control`.
+`For` is JSX-only. Stable keyed identity requires `by`. Positional identity is opt-in through `byIndex={true}`. Keys are typed identities: numeric `1` and string `'1'` are different keys, while a key must retain its own type across renders. The canonical feature subpath for these primitives is `@askrjs/askr/control`.
 
 ## Core Runtime Primitive
 

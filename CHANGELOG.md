@@ -2,7 +2,21 @@
 
 ## Unreleased
 
-## 0.0.52
+### 0.0.52 — audit remediation
+
+- fix(release): rebuild packed artifacts from an absent `dist`, verify every
+  export-map subpath and installed CLI, and keep source maps out of npm
+  tarballs.
+- fix(data): make query invalidation generation-safe, await reconciliation,
+  normalize async failures, and retain mutation callbacks for an execution.
+- fix(router): isolate initial route sources per root and keep history/route
+  cleanup coherent when destination rendering or teardown fails.
+- fix(ssg): publish full builds through staging/backup swap and incremental
+  routes through temp-file replacement.
+- test(quality): add declaration snapshots, dependency-edge coverage, and
+  replayable lifecycle seed ranges.
+
+## 0.0.51
 
 - chore(quality): make release verification test packed consumers and public types, exclude source maps from npm tarballs, and replace architecture size checks with semantic boundaries.
 - feat(router): add route-query updates for route-local filters without remounting the active route.

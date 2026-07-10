@@ -34,6 +34,8 @@ jobs:
       - run: npx playwright install ${{ matrix.browser }}
         if: runner.os != 'Linux'
       - name: Run replayable lifecycle sequences
+        env:
+          ASKR_QUALITY_SEEDS: 0..99
         run: npm run test:jsdom -- --testNamePattern="lifecycle sequence"
       - name: Run browser coverage
         env:

@@ -219,8 +219,14 @@ function setDataKey(
 ): void {
   try {
     const next = String(key);
-    if (el.getAttribute('data-key') === next) return;
+    const keyKind = typeof key;
+    if (
+      el.getAttribute('data-key') === next &&
+      el.getAttribute('data-askr-key-kind') === keyKind
+    )
+      return;
     el.setAttribute('data-key', next);
+    el.setAttribute('data-askr-key-kind', keyKind);
     onSet();
   } catch {
     // Ignore errors setting data-key

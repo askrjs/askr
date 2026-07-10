@@ -75,6 +75,11 @@ export class MutationCell<TInput, TResult> {
   }
 
   async execute(input: TInput): Promise<TResult> {
+    // A render may replace these callbacks while this execution is pending.
+    // The operation must retain the definition it started with.
+    const action = this.action;
+    const affects = this.affects;
+    const afterSuccess = this.afterSuccess;
     this.generation += 1;
     const generation = this.generation;
 
@@ -86,7 +91,7 @@ export class MutationCell<TInput, TResult> {
 
     let result: TResult;
     try {
-      result = await this.action(input, { signal: controller.signal });
+      result = await action(input, { signal: controller.signal });
     } catch (error) {
       if (this.generation !== generation || this.controller !== controller) {
         throw error;
@@ -110,8 +115,8 @@ export class MutationCell<TInput, TResult> {
 
     this.setState({ status: 'success', error: null, result });
 
-    if (this.afterSuccess === 'invalidate') {
-      const prefixes = this.affects?.(input, result) ?? [];
+    if (afterSuccess === 'invalidate') {
+      const prefixes = affects?.(input, result) ?? [];
       for (const prefix of new Set(prefixes)) {
         invalidateQueriesForRuntime(this.runtimeState, prefix, true);
       }

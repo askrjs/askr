@@ -215,7 +215,7 @@ export function mountOrUpdate(
   let instance = instancesByRoot.get(rootElement);
 
   if (instance) {
-    const shouldResetHookState = instance.fn.name !== wrappedFn.name;
+    const shouldResetHookState = instance._rootComponentFn !== componentFn;
 
     if (!reusedExistingInstance) {
       removeAllListeners(rootElement);
@@ -229,6 +229,7 @@ export function mountOrUpdate(
     }
 
     instance.fn = wrappedFn;
+    instance._rootComponentFn = componentFn;
     instance.evaluationGeneration++;
     instance.mounted = false;
     instance.expectedStateIndices = [];
@@ -262,6 +263,7 @@ export function mountOrUpdate(
     instance = createComponentInstance(componentId, wrappedFn, {}, rootElement);
     instancesByRoot.set(rootElement, instance);
     instance.isRoot = true;
+    instance._rootComponentFn = componentFn;
     instance.portalScope = instance;
     if (options && typeof options.cleanupStrict === 'boolean') {
       instance.cleanupStrict = options.cleanupStrict;

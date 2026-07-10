@@ -246,8 +246,10 @@ flowchart LR
   boundary commit orchestration. It uses an explicit DOM host registered by
   `dom-internal.ts` for DOM operations that would otherwise create an import
   cycle.
-- `src/renderer/keyed-children.ts` owns keyed vnode snapshots and DOM key-map
-  scans shared by the keyed planner and reconciler.
+- `src/renderer/keyed-children.ts` owns keyed vnode snapshots and typed DOM
+  key-map scans shared by the keyed planner and reconciler. DOM key markers
+  preserve whether a key is a string or number, so `1` and `'1'` never share
+  ownership.
 - `src/renderer/namespaces.ts` owns intrinsic DOM namespace detection,
   namespaced element creation, and reuse matching used by the DOM renderer,
   evaluator, control-boundary commits, and keyed reconciler.

@@ -94,7 +94,7 @@ interface SSGBaseOptions {
   dataOverrides?: Record<string, unknown>;
   /** Optional document wrapper for full HTML output */
   document?: DocumentRenderer;
-  /** Optional concurrency limit for rendering (default: 10) */
+  /** Optional concurrency limit for rendering (default: 1) */
   concurrency?: number;
   /** Preferred render parallelism. `'auto'` resolves from the host machine. */
   parallelism?: number | 'auto';

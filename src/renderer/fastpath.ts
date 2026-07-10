@@ -7,7 +7,7 @@ import { recordBenchCounter, recordBenchEvent } from '../runtime';
 import { setDevValue, incDevCounter } from '../runtime';
 import { isRuntimeSchedulerExecuting } from '../runtime';
 import { isBulkCommitActive, markFastPathApplied } from '../runtime';
-import { canUseDirectReplaceChildrenSpread } from './utils';
+import { canUseDirectReplaceChildrenSpread, getMaterializedKey } from './utils';
 import type { KeyedVnode } from './keyed-children';
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
@@ -54,11 +54,9 @@ export function applyRendererFastPath(
     localOldKeyMap = new Map<string | number, Element>();
     try {
       for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
-        const k = ch.getAttribute('data-key');
-        if (k !== null) {
-          localOldKeyMap.set(k, ch);
-          const n = Number(k);
-          if (!Number.isNaN(n)) localOldKeyMap.set(n, ch);
+        const key = getMaterializedKey(ch);
+        if (key !== undefined) {
+          localOldKeyMap.set(key, ch);
         }
       }
     } catch (e) {
@@ -79,11 +77,9 @@ export function applyRendererFastPath(
 
     let el: Element | undefined;
     if (totalKeyed <= 20 && parentChildrenArr) {
-      const ks = String(key);
       for (let j = 0; j < parentChildrenArr.length; j++) {
         const ch = parentChildrenArr[j];
-        const k = ch.getAttribute('data-key');
-        if (k !== null && (k === ks || Number(k) === (key as number))) {
+        if (getMaterializedKey(ch) === key) {
           el = ch;
           break;
         }

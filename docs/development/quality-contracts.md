@@ -22,10 +22,16 @@ durable test family that observes it.
 
 - `tests/checks/architecture.test.ts` protects dependency direction, facades,
   singleton access, server/browser separation, lifecycle ownership, and the
-  reconciliation commit boundary.
+  reconciliation commit boundary. Its dependency matrix follows value imports,
+  type-only imports, re-exports, and literal dynamic imports.
+- `tests/checks/public-api-snapshot.test.ts` compares the emitted declaration
+  exports for every package subpath with `public-api.snapshot.json`. After an
+  intentional public API change, rebuild and run
+  `node scripts/generate-public-api-snapshot.mjs --write` before review.
 - `tests/jsdom/runtime/lifecycle-sequences.test.tsx` replays deterministic
-  mount/update/flush/dispose sequences. Add the failing seed to its table when
-  fixing a sequence failure.
+  mount/update/flush/dispose sequences. PR coverage uses seeds `1`, `7`, `42`,
+  and `0xc0ffee`; scheduled quality coverage uses `0..99`. Add a regression
+  seed to `ASKR_QUALITY_SEEDS` when fixing a sequence failure.
 - jsdom and browser flow suites cover hydration, navigation/resource races,
   mixed control boundaries, portals, and nested layout teardown. Use deferred
   promises or fake timers for scheduler/router/resource tests; real time is

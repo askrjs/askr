@@ -54,6 +54,28 @@ describe('root replacement freshness', () => {
     expect(container.textContent).toBe('0');
   });
 
+  it('should reset state when distinct root functions share a display name', () => {
+    let increment!: () => void;
+    const First = function Page() {
+      const count = state(1);
+      increment = () => count.set((value) => value + 1);
+      return <div>{count()}</div>;
+    };
+    const Second = function Page() {
+      const count = state(0);
+      return <div>{count()}</div>;
+    };
+
+    createIsland({ root: container, component: First });
+    increment();
+    flushScheduler();
+    expect(container.textContent).toBe('2');
+
+    createIsland({ root: container, component: Second });
+    flushScheduler();
+    expect(container.textContent).toBe('0');
+  });
+
   it('should create a fresh resource lifecycle when the root component is replaced on the same root', async () => {
     let oldLoads = 0;
     let newLoads = 0;

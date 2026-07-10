@@ -14,6 +14,11 @@ interface WriteStaticFilesOptions {
   concurrency?: number;
 }
 
+type StaticFileOperations = Pick<
+  typeof fs,
+  'mkdir' | 'readdir' | 'rename' | 'rm' | 'rmdir' | 'writeFile'
+>;
+
 /**
  * Write rendered routes to disk
  * Creates outputDir/{route-path}/index.html structure
@@ -21,9 +26,10 @@ interface WriteStaticFilesOptions {
 export async function writeStaticFiles(
   results: RouteRenderResult[],
   outputDir: string,
-  options: WriteStaticFilesOptions = {}
+  options: WriteStaticFilesOptions = {},
+  fileOperations: StaticFileOperations = fs
 ): Promise<void> {
-  await fs.mkdir(outputDir, { recursive: true });
+  await fileOperations.mkdir(outputDir, { recursive: true });
 
   for (const result of results) {
     if (result.status !== 'removed') {
@@ -32,8 +38,12 @@ export async function writeStaticFiles(
 
     const fullPath = pathModule.join(outputDir, result.filePath);
     if (fsSync.existsSync(fullPath)) {
-      await fs.rm(fullPath, { force: true });
-      await pruneEmptyDirs(pathModule.dirname(fullPath), outputDir);
+      await fileOperations.rm(fullPath, { force: true });
+      await pruneEmptyDirs(
+        pathModule.dirname(fullPath),
+        outputDir,
+        fileOperations
+      );
     }
   }
 
@@ -60,7 +70,7 @@ export async function writeStaticFiles(
   }
 
   for (const dir of directories) {
-    await fs.mkdir(dir, { recursive: true });
+    await fileOperations.mkdir(dir, { recursive: true });
   }
 
   const concurrency = Math.max(
@@ -79,7 +89,19 @@ export async function writeStaticFiles(
 
       const result = pendingWrites[current];
       const fullPath = pathModule.join(outputDir, result.filePath);
-      await fs.writeFile(fullPath, result.html, 'utf8');
+      // Incremental output is observable while a generation is running. Write
+      // the complete replacement beside the live file, then publish it with
+      // rename so a failed write cannot truncate the prior route HTML.
+      const tempPath = pathModule.join(
+        pathModule.dirname(fullPath),
+        `.${pathModule.basename(fullPath)}.askr-${process.pid}-${current}.tmp`
+      );
+      try {
+        await fileOperations.writeFile(tempPath, result.html, 'utf8');
+        await fileOperations.rename(tempPath, fullPath);
+      } finally {
+        await fileOperations.rm(tempPath, { force: true });
+      }
     }
   };
 
@@ -94,7 +116,8 @@ export { getOutputFilePath } from './route-utils';
 
 async function pruneEmptyDirs(
   startDir: string,
-  rootDir: string
+  rootDir: string,
+  fileOperations: Pick<StaticFileOperations, 'readdir' | 'rmdir'>
 ): Promise<void> {
   let current = startDir;
   const normalizedRoot = pathModule.resolve(rootDir);
@@ -104,11 +127,11 @@ async function pruneEmptyDirs(
       break;
     }
 
-    if ((await fs.readdir(current)).length > 0) {
+    if ((await fileOperations.readdir(current)).length > 0) {
       break;
     }
 
-    await fs.rmdir(current);
+    await fileOperations.rmdir(current);
     if (pathModule.resolve(current) === normalizedRoot) {
       break;
     }

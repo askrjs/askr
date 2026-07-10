@@ -7,6 +7,7 @@ import { ELEMENT_TYPE, Fragment } from '../jsx';
 import { logger } from '../common/logger';
 import {
   cleanupComponent,
+  flushRuntimeScheduler,
   mountComponent,
   type ComponentInstance,
 } from '../runtime';
@@ -182,9 +183,17 @@ function remountResolvedRoute(
   resolved: ResolvedRoute,
   pathname: string,
   href: string
-): boolean {
-  clearDefaultPortalForInstance(instance);
-  cleanupRouteOwnership(instance);
+): unknown | null {
+  let cleanupError: unknown | null = null;
+  try {
+    clearDefaultPortalForInstance(instance);
+    cleanupRouteOwnership(instance);
+  } catch (error) {
+    // Strict cleanup is reported after the next route has committed. The old
+    // ownership has still been invalidated, so it is safe to continue the
+    // replacement rather than strand navigation on teardown diagnostics.
+    cleanupError = error;
+  }
 
   instance.fn = wrapRootRouteHandler(bindResolvedRouteHandler(resolved));
   instance.props = {};
@@ -210,7 +219,7 @@ function remountResolvedRoute(
 
   mountComponent(instance);
   setCurrentRouteLocation(pathname, href);
-  return true;
+  return cleanupError;
 }
 
 function rerenderResolvedRoute(
@@ -322,6 +331,8 @@ export function applyNavigationTargets(
   ) => void
 ): void {
   const previousPathname = getCurrentPathname();
+  const previousHref = getCurrentHref();
+  const cleanupErrors: unknown[] = [];
 
   for (const target of targets) {
     const resolved = target.resolved;
@@ -371,15 +382,6 @@ export function applyNavigationTargets(
     return;
   }
 
-  saveScrollPosition(getCurrentHref());
-
-  const historyMethod =
-    getNavigationHistoryMode(options) === 'replace'
-      ? 'replaceState'
-      : 'pushState';
-  window.history[historyMethod]({ path: href }, '', href);
-  syncRegisteredRouteSnapshot();
-
   for (const target of matchedTargets) {
     const resolved = target.resolved!;
     if (resolved.kind === 'redirect') {
@@ -392,7 +394,7 @@ export function applyNavigationTargets(
       continue;
     }
 
-    remountResolvedRoute(
+    const cleanupError = remountResolvedRoute(
       target.app.instance,
       resolved.kind === 'deny'
         ? createDeniedResolvedRoute(resolved.status)
@@ -403,11 +405,28 @@ export function applyNavigationTargets(
       pathname,
       href
     );
+    if (cleanupError) cleanupErrors.push(cleanupError);
     syncAppRegistrationLocation(target.app, pathname, href);
   }
 
+  // Remounting is scheduler-backed. Flush every staged root before changing
+  // the URL so a destination render failure cannot publish a history entry.
+  flushRuntimeScheduler();
+
+  saveScrollPosition(previousHref);
+  const historyMethod =
+    getNavigationHistoryMode(options) === 'replace'
+      ? 'replaceState'
+      : 'pushState';
+  window.history[historyMethod]({ path: href }, '', href);
+  syncRegisteredRouteSnapshot();
+
   if (pathname !== previousPathname) {
     applyNavigationScroll(options.scroll);
+  }
+
+  for (const error of cleanupErrors) {
+    logger.error('[Askr] route cleanup failed:', error);
   }
 }
 
@@ -431,6 +450,7 @@ export function applyPopStateNavigationTargets(
     return;
   }
 
+  const cleanupErrors: unknown[] = [];
   for (const target of matchedTargets) {
     const resolved = target.resolved!;
     if (resolved.kind !== 'redirect') {
@@ -457,7 +477,7 @@ export function applyPopStateNavigationTargets(
       continue;
     }
 
-    remountResolvedRoute(
+    const cleanupError = remountResolvedRoute(
       target.app.instance,
       resolved.kind === 'deny'
         ? createDeniedResolvedRoute(resolved.status)
@@ -468,8 +488,12 @@ export function applyPopStateNavigationTargets(
       pathname,
       href
     );
+    if (cleanupError) cleanupErrors.push(cleanupError);
     syncAppRegistrationLocation(target.app, pathname, href);
   }
 
   applyHistoryScroll(href, state);
+  for (const error of cleanupErrors) {
+    logger.error('[Askr] route cleanup failed:', error);
+  }
 }
