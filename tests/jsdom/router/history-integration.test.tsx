@@ -350,7 +350,7 @@ describe('history integration (ROUTER)', () => {
       expect(container.textContent).toBe('lazy home');
     });
 
-    it('should log async popstate remount failures instead of leaking unhandled rejections', async () => {
+    it('should report popstate cleanup failures after committing the destination', async () => {
       const consoleError = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
@@ -385,11 +385,13 @@ describe('history integration (ROUTER)', () => {
         await settleNavigation();
 
         expect(consoleError).toHaveBeenCalledWith(
-          '[Askr] popstate navigation failed:',
+          '[Askr] route cleanup failed:',
           expect.objectContaining({
             message: expect.stringMatching(/Cleanup failed|cleanup failed/i),
           })
         );
+        expect(window.location.pathname).toBe('/slow');
+        expect(container.textContent).toContain('slow');
       } finally {
         consoleError.mockRestore();
       }

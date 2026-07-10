@@ -202,6 +202,6 @@ export function invalidateQueriesForRuntime(
       query.markPendingWrite();
     }
 
-    void query.refresh();
+    query.invalidate();
   }
 }

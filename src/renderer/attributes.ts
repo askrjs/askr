@@ -368,6 +368,7 @@ export function removeStaleAttributes(
 
   if (key !== undefined) {
     desiredAttributes.add('data-key');
+    desiredAttributes.add('data-askr-key-kind');
   }
 
   for (const propName in props) {
@@ -403,6 +404,10 @@ export function materializeKey(
     const nextKey = String(vnodeKey);
     if (el.getAttribute('data-key') !== nextKey) {
       el.setAttribute('data-key', nextKey);
+    }
+    const keyKind = typeof vnodeKey;
+    if (el.getAttribute('data-askr-key-kind') !== keyKind) {
+      el.setAttribute('data-askr-key-kind', keyKind);
     }
   }
 }

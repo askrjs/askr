@@ -14,6 +14,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
+import { registerMountOperation } from '../../../src/runtime/component';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
 import {
@@ -44,6 +45,56 @@ describe('route navigation (ROUTER)', () => {
   });
 
   describe('basic navigation', () => {
+    it('should not commit history when the destination route fails to render', async () => {
+      window.history.replaceState({}, '', '/stable');
+      route('/stable', () => <p>stable route</p>);
+      route('/broken', () => {
+        throw new Error('destination failed');
+      });
+
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+
+      expect(() => navigate('/broken')).toThrow('destination failed');
+      expect(window.location.pathname).toBe('/stable');
+      expect(container.textContent).toContain('stable route');
+    });
+
+    it('should report strict cleanup errors after committing the destination route', async () => {
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      window.history.replaceState({}, '', '/old');
+      route('/old', () => {
+        registerMountOperation(() => () => {
+          throw new Error('old route cleanup failed');
+        });
+        return <p>old route</p>;
+      });
+      route('/next', () => <p>next route</p>);
+
+      try {
+        await createSPA({
+          root: container,
+          routes: getRoutes(),
+          cleanupStrict: true,
+        });
+        flushScheduler();
+
+        expect(() => navigate('/next')).not.toThrow();
+        expect(window.location.pathname).toBe('/next');
+        expect(container.textContent).toContain('next route');
+        expect(consoleError).toHaveBeenCalledWith(
+          '[Askr] route cleanup failed:',
+          expect.objectContaining({
+            message: expect.stringMatching(/Cleanup failed|cleanup failed/i),
+          })
+        );
+      } finally {
+        consoleError.mockRestore();
+      }
+    });
+
     it('should navigate to registered routes when route is requested', async () => {
       let currentPath: string | null = null;
 

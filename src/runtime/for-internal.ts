@@ -57,7 +57,7 @@ export interface ForState<T> {
   _suspendSourceCommit: boolean;
   _enqueueBoundaryCommit?: (() => void) | null;
   _hasPendingBoundaryCommit?: boolean;
-  devKeyKinds?: Map<string, 'number' | 'string'>;
+  devKeyKinds?: Map<string | number, 'number' | 'string'>;
 }
 
 const forStates = new WeakMap<

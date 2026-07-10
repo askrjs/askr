@@ -4,6 +4,7 @@ import { resource } from '../../../src/resources';
 import {
   globalScheduler,
   scheduleEventHandler,
+  Scheduler,
 } from '../../../src/runtime/scheduler';
 import {
   createTestContainer,
@@ -25,6 +26,28 @@ describe('scheduler (SPEC 2.2)', () => {
   });
 
   describe('FIFO task execution', () => {
+    it('should drain sibling work and settle waiters when a task throws', async () => {
+      const scheduler = new Scheduler();
+      const taskError = new Error('task failed');
+      const events: string[] = [];
+
+      scheduler.enqueue(() => {
+        events.push('failed');
+        throw taskError;
+      });
+      scheduler.enqueue(() => {
+        events.push('sibling');
+      });
+
+      const flushed = scheduler.waitForFlush();
+      expect(() => scheduler.flush()).toThrow(taskError);
+      await flushed;
+
+      expect(events).toEqual(['failed', 'sibling']);
+      expect(scheduler.getState().queueLength).toBe(0);
+      expect(scheduler.getState().taskCount).toBe(0);
+    });
+
     it('should execute tasks in the order enqueued', async () => {
       const order: number[] = [];
 

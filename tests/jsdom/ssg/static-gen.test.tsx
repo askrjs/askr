@@ -8,7 +8,11 @@ import {
 } from 'vite-plus/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createStaticGen } from '../../../src/ssg/create-static-gen';
+import {
+  createStaticGen,
+  replaceOutputDirectory,
+} from '../../../src/ssg/create-static-gen';
+import { writeStaticFiles } from '../../../src/ssg/write-static-files';
 import { SSG_MANIFEST_SCHEMA_VERSION } from '../../../src/ssg/incremental-manifest';
 import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
@@ -772,8 +776,10 @@ describe('Static Site Generation', () => {
       expect(routeMetadata.written).toBe(true);
     });
 
-    it('should track failed routes in metadata', async () => {
+    it('should leave full-build output untouched when a route fails', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const existingHtml = path.join(tempDir, 'index.html');
+      fs.writeFileSync(existingHtml, '<main>previous site</main>');
       const BrokenComponent = (): JSXElement => {
         throw new Error('Render failed');
       };
@@ -792,15 +798,104 @@ describe('Static Site Generation', () => {
         expect(result.totalRoutes).toBe(2);
         expect(result.successful).toBe(1);
         expect(result.failed).toBe(1);
-        expect(warn).toHaveBeenCalledWith(
-          'Skipping failed route: /broken - Render failed'
+        expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+        expect(fs.readFileSync(existingHtml, 'utf8')).toBe(
+          '<main>previous site</main>'
         );
+        expect(warn).not.toHaveBeenCalled();
       } finally {
         warn.mockRestore();
       }
     });
 
-    it('should record error messages for failed routes', async () => {
+    it('should restore the previous site when the staged directory swap fails', async () => {
+      const existingHtml = path.join(tempDir, 'index.html');
+      fs.writeFileSync(existingHtml, '<main>previous site</main>');
+      const stagingDir = path.join(path.dirname(tempDir), '.askr-staging-test');
+      fs.mkdirSync(stagingDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(stagingDir, 'index.html'),
+        '<main>next site</main>'
+      );
+      const nativeRename = fs.promises.rename;
+
+      try {
+        await expect(
+          replaceOutputDirectory(stagingDir, tempDir, {
+            rename: async (from, to) => {
+              if (from === stagingDir && to === tempDir) {
+                throw new Error('staging swap failed');
+              }
+              await nativeRename(from, to);
+            },
+            rm: fs.promises.rm,
+          })
+        ).rejects.toThrow('staging swap failed');
+        expect(fs.readFileSync(existingHtml, 'utf8')).toBe(
+          '<main>previous site</main>'
+        );
+        expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+      } finally {
+        fs.rmSync(stagingDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should replace, rather than merge with, a previous site after a successful full build', async () => {
+      fs.writeFileSync(path.join(tempDir, 'obsolete.html'), 'obsolete');
+      const ssg = createStaticGen({
+        routes: [{ path: '/', component: Home }],
+        outputDir: tempDir,
+      });
+
+      await ssg.generate();
+
+      expect(fs.existsSync(path.join(tempDir, 'obsolete.html'))).toBe(false);
+      expect(
+        fs.readFileSync(path.join(tempDir, 'index.html'), 'utf8')
+      ).toContain('Home');
+    });
+
+    it('should preserve incremental HTML when its temporary write fails', async () => {
+      const routeDir = path.join(tempDir, 'reports');
+      const outputFile = path.join(routeDir, 'index.html');
+      fs.mkdirSync(routeDir, { recursive: true });
+      fs.writeFileSync(outputFile, '<main>previous report</main>');
+
+      await expect(
+        writeStaticFiles(
+          [
+            {
+              path: '/reports',
+              filePath: 'reports/index.html',
+              html: '<main>next report</main>',
+              fileSize: 24,
+              renderDuration: 0,
+              resourceCount: 0,
+              status: 'success',
+              reason: 'changed-route',
+              written: true,
+            },
+          ],
+          tempDir,
+          {},
+          {
+            ...fs.promises,
+            writeFile: async () => {
+              throw new Error('temporary write failed');
+            },
+          }
+        )
+      ).rejects.toThrow('temporary write failed');
+
+      expect(fs.readFileSync(outputFile, 'utf8')).toBe(
+        '<main>previous report</main>'
+      );
+      expect(
+        fs.readdirSync(routeDir).some((file) => file.endsWith('.tmp'))
+      ).toBe(false);
+    });
+
+    it('should return failed route errors without publishing partial metadata', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const BrokenComponent = (): JSXElement => {
         throw new Error('Test error message');
@@ -812,16 +907,13 @@ describe('Static Site Generation', () => {
       });
 
       try {
-        await ssg.generate();
-        const failedRoute = JSON.parse(
-          fs.readFileSync(path.join(tempDir, 'metadata.json'), 'utf8')
-        ).routes[0];
+        const result = await ssg.generate();
+        const failedRoute = result.routes[0];
 
         expect(failedRoute.status).toBe('error');
         expect(failedRoute.error).toContain('Test error message');
-        expect(warn).toHaveBeenCalledWith(
-          'Skipping failed route: /broken - Test error message'
-        );
+        expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+        expect(warn).not.toHaveBeenCalled();
       } finally {
         warn.mockRestore();
       }

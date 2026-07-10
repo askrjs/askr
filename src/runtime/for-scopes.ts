@@ -82,6 +82,9 @@ function materializeItemVnode(
       if (vn.props['data-key'] === undefined) {
         vn.props['data-key'] = String(key);
       }
+      if (vn.props['data-askr-key-kind'] === undefined) {
+        vn.props['data-askr-key-kind'] = typeof key;
+      }
     }
   }
 }

@@ -16,6 +16,11 @@ on:
       - '*.json'
       - '*.ts'
       - '*.js'
+      - '*.mjs'
+      - 'docs/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - '**.md'
       - '.gitattributes'
       - '.gitignore'
       - '.npmignore'
@@ -34,6 +39,11 @@ on:
       - '*.json'
       - '*.ts'
       - '*.js'
+      - '*.mjs'
+      - 'docs/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - '**.md'
       - '.gitattributes'
       - '.gitignore'
       - '.npmignore'
@@ -47,6 +57,10 @@ jobs:
   ci:
     name: Release Gate
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 'lts/*']
 
     steps:
       - uses: actions/checkout@v7
@@ -54,7 +68,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 'lts/*'
+          node-version: ${{ matrix.node }}
           cache: 'npm'
 
       - name: Install dependencies

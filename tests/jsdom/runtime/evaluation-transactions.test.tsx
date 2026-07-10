@@ -8,7 +8,14 @@
  * There is no partial DOM state visible.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr/boot';
 import { resource } from '../../../src/resources';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
@@ -107,6 +114,21 @@ describe('evaluation transactions (SPEC 2.1)', () => {
   });
 
   describe('failed render leaves DOM unchanged (rollback)', () => {
+    it('should not start a resource loader from a rolled-back render', () => {
+      const load = vi.fn(async () => 'loaded');
+      const BrokenComponent = (): JSXElement => {
+        resource(load, []);
+        throw new Error('render failed');
+      };
+
+      expect(() =>
+        createIsland({ root: container, component: BrokenComponent })
+      ).toThrow('render failed');
+
+      flushScheduler();
+      expect(load).not.toHaveBeenCalled();
+    });
+
     it('should not update DOM when component throws', () => {
       let renderCount = 0;
 
@@ -232,7 +254,9 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       // Strip comment placeholders for comparison since they're implementation details
       const snapshot = container.innerHTML.replace(/<!--.*?-->/g, '');
 
-      // Second update with failing resource should not change DOM
+      // A resource rejection settles as resource state; it is not a failed
+      // renderer transaction. The committed fallback is coherent (no partial
+      // output from the previous root leaks into the replacement).
       createIsland({
         root: container,
         component: () => Component({ shouldFail: true }),
@@ -240,9 +264,10 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       await new Promise((r) => setTimeout(r, 50));
       flushScheduler();
 
-      // Strip comment placeholders for comparison
+      // Strip comment placeholders for comparison.
       const afterFail = container.innerHTML.replace(/<!--.*?-->/g, '');
-      expect(afterFail).toBe(snapshot);
+      expect(snapshot).toBe('<div>Loaded</div>');
+      expect(afterFail).toBe('<div></div>');
     });
 
     it('should commit only latest generation resource result', async () => {

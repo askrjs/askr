@@ -13,7 +13,7 @@ import {
   getParentNamespace,
 } from './namespaces';
 import type { DOMElement, VNode } from './types';
-import { extractKey } from './utils';
+import { extractKey, getMaterializedKey } from './utils';
 
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 type ComponentVNode = DOMElement & { type: ComponentFunction };
@@ -32,46 +32,21 @@ export function createOldElResolver(
       return direct;
     }
 
-    const s = String(k);
-    const byString = oldKeyMap.get(s);
-    if (byString && !usedOldEls.has(byString)) {
-      usedOldEls.add(byString);
-      return byString;
-    }
-
-    const n = Number(s);
-    if (!Number.isNaN(n)) {
-      const byNum = oldKeyMap.get(n);
-      if (byNum && !usedOldEls.has(byNum)) {
-        usedOldEls.add(byNum);
-        return byNum;
-      }
-    }
-
-    return scanForElementByKey(parent, k, s, usedOldEls);
+    return scanForElementByKey(parent, k, usedOldEls);
   };
 }
 
 function scanForElementByKey(
   parent: Element,
   k: string | number,
-  keyStr: string,
   usedOldEls: WeakSet<Node>
 ): Element | undefined {
   try {
     for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
       if (usedOldEls.has(ch)) continue;
-      const attr = ch.getAttribute('data-key');
-      if (attr === keyStr) {
+      if (getMaterializedKey(ch) === k) {
         usedOldEls.add(ch);
         return ch;
-      }
-      if (attr !== null) {
-        const numAttr = Number(attr);
-        if (!Number.isNaN(numAttr) && numAttr === (k as number)) {
-          usedOldEls.add(ch);
-          return ch;
-        }
       }
     }
   } catch {

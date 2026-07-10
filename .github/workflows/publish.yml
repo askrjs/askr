@@ -33,25 +33,34 @@ jobs:
 
       - name: Compute release tag
         id: version
-        uses: askrjs/actions/actions/compute-release-tag@main
+        uses: askrjs/actions/actions/compute-release-tag@342228f45100712f78658dd2ef283f0b1acf2b80
 
       - name: Check whether tag exists
         id: tag_status
-        uses: askrjs/actions/actions/check-tag-exists@main
+        uses: askrjs/actions/actions/check-tag-exists@342228f45100712f78658dd2ef283f0b1acf2b80
         with:
           tag: ${{ steps.version.outputs.tag }}
 
-      - name: Checkout existing tag
+      - name: Verify an existing tag points to this verified commit
         if: steps.tag_status.outputs.exists == 'true'
         shell: bash
         run: |
           tag='${{ steps.version.outputs.tag }}'
           git fetch origin "refs/tags/$tag:refs/tags/$tag"
-          git checkout "$tag"
+          test "$(git rev-list -n 1 "$tag")" = "${GITHUB_SHA}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install chromium
+
+      - name: Run complete release gate before tagging
+        run: npm run release:verify
 
       - name: Create release tag
         if: steps.tag_status.outputs.exists != 'true'
-        uses: askrjs/actions/actions/create-tag@main
+        uses: askrjs/actions/actions/create-tag@342228f45100712f78658dd2ef283f0b1acf2b80
         with:
           tag: ${{ steps.version.outputs.tag }}
 
@@ -62,11 +71,5 @@ jobs:
           tag='${{ steps.version.outputs.tag }}'
           git checkout "$tag"
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build release
-        run: npm run build
-
       - name: Publish to npm
-        uses: askrjs/actions/actions/publish-package@main
+        uses: askrjs/actions/actions/publish-package@342228f45100712f78658dd2ef283f0b1acf2b80

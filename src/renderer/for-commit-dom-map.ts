@@ -1,5 +1,6 @@
 import type { ForCommitStrategy, ForState } from '../runtime';
 import { keyedElements } from './keyed';
+import { getMaterializedKey } from './utils';
 
 export function getOrBuildDomKeyMap(
   parent: Element
@@ -12,13 +13,9 @@ export function getOrBuildDomKeyMap(
       child;
       child = child.nextElementSibling
     ) {
-      const key = child.getAttribute('data-key');
-      if (key !== null) {
+      const key = getMaterializedKey(child);
+      if (key !== undefined) {
         keyMap.set(key, child);
-        const numericKey = Number(key);
-        if (!Number.isNaN(numericKey)) {
-          keyMap.set(numericKey, child);
-        }
       }
     }
     if (keyMap.size > 0) {
@@ -41,10 +38,7 @@ export function hydrateExistingForDomInOrder(
     const itemInstance = forState.items.get(itemKey);
     const currentDom = parent.children[i];
 
-    if (
-      !itemInstance ||
-      currentDom.getAttribute('data-key') !== String(itemKey)
-    ) {
+    if (!itemInstance || getMaterializedKey(currentDom) !== itemKey) {
       return false;
     }
 
@@ -68,12 +62,6 @@ export function syncKeyedMapFromForState(
     element: Element
   ): void => {
     map.set(key, element);
-    const keyString = String(key);
-    map.set(keyString, element);
-    const keyNumber = Number(keyString);
-    if (!Number.isNaN(keyNumber)) {
-      map.set(keyNumber, element);
-    }
   };
 
   if (strategy === 'SWAP') {

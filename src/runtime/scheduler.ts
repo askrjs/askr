@@ -194,13 +194,13 @@ export class Scheduler {
 
     this.running = true;
     this.depth = 0;
-    let fatal: unknown = null;
+    const failures: unknown[] = [];
     let executedTaskCount = 0;
     const checkFlushDepth = isDevelopmentEnvironment();
     const executionsByTask = checkFlushDepth ? new Map<Task, number>() : null;
 
     try {
-      while (fatal === null) {
+      while (true) {
         let didRunTask = false;
 
         for (const lane of SCHEDULER_LANES) {
@@ -223,24 +223,22 @@ export class Scheduler {
             try {
               this.executionDepth++;
               task();
-              this.executionDepth--;
+            } catch (err) {
+              failures.push(err);
+            } finally {
+              // A failed task has still been consumed. Keep scheduler
+              // accounting balanced and continue draining siblings so a
+              // single user callback cannot strand pending updates or flush
+              // waiters.
+              if (this.executionDepth > 0) this.executionDepth--;
               executedTaskCount++;
               executedInLane++;
               didRunTask = true;
-            } catch (err) {
-              // ensure executionDepth stays balanced for the task that threw
-              if (this.executionDepth > 0) this.executionDepth--;
-              fatal = err;
-              break;
             }
           }
 
           if (executedInLane > 0) {
             this.taskCount = Math.max(0, this.taskCount - executedInLane);
-          }
-
-          if (fatal !== null) {
-            break;
           }
         }
 
@@ -266,7 +264,12 @@ export class Scheduler {
       recordSchedulerFlushTaskCount(executedTaskCount);
     }
 
-    if (fatal) throw fatal;
+    if (failures.length === 1) {
+      throw failures[0];
+    }
+    if (failures.length > 1) {
+      throw new AggregateError(failures, 'Scheduler task failures');
+    }
   }
 
   runWithSyncProgress<T>(fn: () => T): T {

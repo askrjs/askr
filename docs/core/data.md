@@ -173,6 +173,10 @@ preserves the last value while refreshing, and surfaces `fresh`, `stale`, `refre
 load only, while `refreshing` and `pending-write` always imply `stale: true` and keep the
 previous value available.
 `staleReason` narrows settled stale states into `inconsistent`, `aborted`, or `error`.
+Manual calls to `refresh()` coalesce while a request is pending. `invalidate()`
+is the distinct operation that replaces stale work. A `reconcile` callback may
+be async; its decision is awaited before any retry is scheduled, and a thrown
+consistency or reconciliation callback becomes a terminal stale error.
 The key also defines the query contract itself. If multiple readers use the same key, or one
 reader rerenders that key with a different definition, keep `fetch`, `isConsistent`, and
 `reconcile` aligned; development builds warn when a later render tries to redefine a shared

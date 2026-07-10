@@ -37,6 +37,7 @@ export class QueryCell<T> {
   private startQueued = false;
   private pendingRefresh: Promise<void> | null = null;
   private pendingRefreshResolve: (() => void) | null = null;
+  private pendingRefreshToken = 0;
   private reconcileAttemptCount = 0;
   private destroyed = false;
   private ownerCount = 0;
@@ -216,6 +217,21 @@ export class QueryCell<T> {
     return this.pendingRefresh ?? Promise.resolve();
   }
 
+  invalidate(): void {
+    if (this.destroyed) {
+      return;
+    }
+
+    if (this.pendingRefresh) {
+      // Invalidation supersedes stale work. Manual refreshes, by contrast,
+      // are equivalent requests and share the in-flight generation.
+      this.controller?.abort();
+      this.finishPendingRefresh(this.pendingRefreshToken);
+    }
+
+    this.queueStart('invalidate');
+  }
+
   markPendingWrite(): void {
     if (this.destroyed) {
       return;
@@ -243,22 +259,26 @@ export class QueryCell<T> {
     }
 
     this.startQueued = true;
+    const token = ++this.pendingRefreshToken;
     this.pendingRefresh = new Promise<void>((resolve) => {
       this.pendingRefreshResolve = resolve;
       enqueueRuntimeTask(() => {
         this.startQueued = false;
         if (this.destroyed) {
-          this.finishPendingRefresh();
+          this.finishPendingRefresh(token);
           return;
         }
         void this.start(reason).finally(() => {
-          this.finishPendingRefresh();
+          this.finishPendingRefresh(token);
         });
       });
     });
   }
 
-  private finishPendingRefresh(): void {
+  private finishPendingRefresh(token = this.pendingRefreshToken): void {
+    if (token !== this.pendingRefreshToken) {
+      return;
+    }
     const resolve = this.pendingRefreshResolve;
     this.pendingRefresh = null;
     this.pendingRefreshResolve = null;
@@ -360,7 +380,20 @@ export class QueryCell<T> {
       return;
     }
 
-    const isConsistent = this.options.isConsistent?.(nextData) ?? true;
+    let isConsistent: boolean;
+    try {
+      isConsistent = this.options.isConsistent?.(nextData) ?? true;
+    } catch (error) {
+      this.setState({
+        loading: false,
+        refreshing: false,
+        stale: true,
+        consistency: 'stale',
+        error: normalizeAsyncDataError(error, 'Query consistency check failed'),
+        staleReason: 'error',
+      });
+      return;
+    }
     if (!isConsistent) {
       this.setState({
         data: nextData,
@@ -370,7 +403,23 @@ export class QueryCell<T> {
         consistency: 'stale',
         staleReason: 'inconsistent',
       });
-      await this.reconcile(nextData);
+      try {
+        await this.reconcile(nextData);
+      } catch (error) {
+        if (this.generation === generation && this.controller === controller) {
+          this.setState({
+            loading: false,
+            refreshing: false,
+            stale: true,
+            consistency: 'stale',
+            error: normalizeAsyncDataError(
+              error,
+              'Query reconciliation failed'
+            ),
+            staleReason: 'error',
+          });
+        }
+      }
       return;
     }
 
@@ -387,8 +436,9 @@ export class QueryCell<T> {
   }
 
   private async reconcile(data: T): Promise<void> {
-    const shouldRetry =
-      this.options.reconcile?.(data, { key: this.options.key }) ?? false;
+    const shouldRetry = await (this.options.reconcile?.(data, {
+      key: this.options.key,
+    }) ?? false);
 
     if (!shouldRetry || this.destroyed) {
       return;
@@ -411,7 +461,9 @@ export class QueryCell<T> {
       return;
     }
 
-    await this.refresh();
+    // Reconciliation runs inside the current refresh promise. It must replace
+    // that generation rather than coalesce with itself as a manual refresh.
+    this.invalidate();
   }
 }
 

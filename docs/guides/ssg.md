@@ -126,6 +126,9 @@ If you already have the CLI installed, you can also run the direct bin:
 askr-ssg --config ./examples/ssg.config.ts --output ./dist/static
 ```
 
+The installed executable loads `.ts` configs itself; no separate `tsx` command
+or global loader setup is required.
+
 Required args:
 
 - `--config <path>`: `.ts` config file
@@ -146,8 +149,22 @@ export const dataOverrides = {
 };
 
 export const seed = 12345;
-export const concurrency = 10;
+// Omit this for deterministic single-worker generation (the default).
+export const concurrency = 1;
 ```
+
+Set `parallelism: 'auto'` when host CPU-based worker selection is desired. It
+uses the Node 18-compatible CPU-count fallback when `availableParallelism()` is
+not available.
+
+## Output safety
+
+Full generation writes into a sibling staging directory and replaces the prior
+site only after every route, metadata file, and manifest is complete. A failed
+full generation therefore leaves the last complete output untouched.
+
+Incremental route updates use a temporary file and rename it into place, so a
+failed route write also preserves that route's previously published HTML.
 
 ## metadata.json
 

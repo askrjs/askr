@@ -12,6 +12,9 @@ import type {
   SSGOptions,
   SSGResult,
 } from './types';
+import * as fs from 'node:fs/promises';
+import * as pathModule from 'node:path';
+import * as os from 'node:os';
 import type { RouteRegistry } from '../common/router';
 import {
   resolveSsgRouteData,
@@ -94,7 +97,58 @@ function resolveParallelism(requested: number | 'auto' | undefined): number {
     return Math.max(1, maybeNavigator.navigator.hardwareConcurrency);
   }
 
-  return 1;
+  // availableParallelism() is not present in Node 18. Keep that release line
+  // supported by falling back to cpu count when the modern API is unavailable.
+  const availableParallelism = (
+    os as typeof os & {
+      availableParallelism?: () => number;
+    }
+  ).availableParallelism;
+  return Math.max(1, availableParallelism?.() ?? os.cpus().length ?? 1);
+}
+
+async function createStagingDirectory(outputDir: string): Promise<string> {
+  const parent = pathModule.dirname(outputDir);
+  const base = pathModule.basename(outputDir);
+  await fs.mkdir(parent, { recursive: true });
+  return fs.mkdtemp(pathModule.join(parent, `.${base}.askr-staging-`));
+}
+
+type OutputDirectoryFileOperations = Pick<typeof fs, 'rename' | 'rm'>;
+
+export async function replaceOutputDirectory(
+  stagingDir: string,
+  outputDir: string,
+  fileOperations: OutputDirectoryFileOperations = fs
+): Promise<void> {
+  const parent = pathModule.dirname(outputDir);
+  const backupDir = pathModule.join(
+    parent,
+    `.${pathModule.basename(outputDir)}.askr-backup-${Date.now()}`
+  );
+  let backedUp = false;
+
+  try {
+    try {
+      await fileOperations.rename(outputDir, backupDir);
+      backedUp = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+    await fileOperations.rename(stagingDir, outputDir);
+    await fileOperations.rm(backupDir, { recursive: true, force: true });
+  } catch (error) {
+    // A failed replacement must leave the last complete site available.
+    if (backedUp) {
+      await fileOperations.rm(outputDir, { recursive: true, force: true });
+      await fileOperations.rename(backupDir, outputDir);
+    }
+    throw error;
+  } finally {
+    await fileOperations.rm(stagingDir, { recursive: true, force: true });
+  }
 }
 
 /**
@@ -330,13 +384,6 @@ export function createStaticGen<
       }
       routeResults.push(...removedResults);
 
-      // Write HTML files to disk and remove stale output
-      const writeStartTime = performance.now();
-      await writeStaticFiles(routeResults, options.outputDir, {
-        concurrency: resolvedConcurrency,
-      });
-      addPerfDuration('ssgWriteTimeMs', performance.now() - writeStartTime);
-
       // Generate result object
       result = generateSSGResult(routeResults, {
         mode: effectiveMode,
@@ -345,19 +392,49 @@ export function createStaticGen<
         invalidatedRoutes: changedRoutes,
       });
 
-      // Write metadata
-      const metadata = resultToMetadata(result);
-      await writeMetadata(metadata, options.outputDir);
+      // A full build is all-or-nothing. Do not touch the current output until
+      // every route has rendered successfully.
+      if (effectiveMode === 'full' && result.failed > 0) {
+        return result;
+      }
 
-      await writeIncrementalManifest(
-        {
-          schemaVersion: SSG_MANIFEST_SCHEMA_VERSION,
-          seed,
-          mode: effectiveMode,
-          routes: nextManifestRoutes,
-        },
-        options.outputDir
-      );
+      const targetOutputDir =
+        effectiveMode === 'full'
+          ? await createStagingDirectory(options.outputDir)
+          : options.outputDir;
+
+      try {
+        // Write HTML, metadata, and the manifest into the same target. Full
+        // builds use a sibling staging directory; incremental builds retain
+        // their existing per-route behavior.
+        const writeStartTime = performance.now();
+        await writeStaticFiles(routeResults, targetOutputDir, {
+          concurrency: resolvedConcurrency,
+        });
+        addPerfDuration('ssgWriteTimeMs', performance.now() - writeStartTime);
+
+        const metadata = resultToMetadata(result);
+        await writeMetadata(metadata, targetOutputDir);
+
+        await writeIncrementalManifest(
+          {
+            schemaVersion: SSG_MANIFEST_SCHEMA_VERSION,
+            seed,
+            mode: effectiveMode,
+            routes: nextManifestRoutes,
+          },
+          targetOutputDir
+        );
+
+        if (effectiveMode === 'full') {
+          await replaceOutputDirectory(targetOutputDir, options.outputDir);
+        }
+      } catch (error) {
+        if (effectiveMode === 'full') {
+          await fs.rm(targetOutputDir, { recursive: true, force: true });
+        }
+        throw error;
+      }
 
       return result;
     },

@@ -22,13 +22,13 @@
     "type": "git",
     "url": "https://github.com/askrjs/askr.git"
   },
+  "bin": {
+    "askr-ssg": "./dist/bin/askr-ssg.js"
+  },
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
-  "bin": {
-    "askr-ssg": "./dist/bin/askr-ssg.js"
-  },
   "type": "module",
   "sideEffects": [
     "./dist/index.js"
@@ -37,80 +37,80 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./boot": {
-      "import": "./dist/boot/index.js",
-      "types": "./dist/boot/index.d.ts"
+      "types": "./dist/boot/index.d.ts",
+      "import": "./dist/boot/index.js"
     },
     "./components": {
-      "import": "./dist/components/index.js",
-      "types": "./dist/components/index.d.ts"
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js"
     },
     "./control": {
-      "import": "./dist/control/index.js",
-      "types": "./dist/control/index.d.ts"
+      "types": "./dist/control/index.d.ts",
+      "import": "./dist/control/index.js"
     },
     "./foundations": {
-      "import": "./dist/foundations/index.js",
-      "types": "./dist/foundations/index.d.ts"
+      "types": "./dist/foundations/index.d.ts",
+      "import": "./dist/foundations/index.js"
     },
     "./foundations/utilities": {
-      "import": "./dist/foundations/utilities/index.js",
-      "types": "./dist/foundations/utilities/index.d.ts"
+      "types": "./dist/foundations/utilities/index.d.ts",
+      "import": "./dist/foundations/utilities/index.js"
     },
     "./foundations/interactions": {
-      "import": "./dist/foundations/interactions/index.js",
-      "types": "./dist/foundations/interactions/index.d.ts"
+      "types": "./dist/foundations/interactions/index.d.ts",
+      "import": "./dist/foundations/interactions/index.js"
     },
     "./foundations/state": {
-      "import": "./dist/foundations/state/index.js",
-      "types": "./dist/foundations/state/index.d.ts"
+      "types": "./dist/foundations/state/index.d.ts",
+      "import": "./dist/foundations/state/index.js"
     },
     "./foundations/structures": {
-      "import": "./dist/foundations/structures/index.js",
-      "types": "./dist/foundations/structures/index.d.ts"
+      "types": "./dist/foundations/structures/index.d.ts",
+      "import": "./dist/foundations/structures/index.js"
     },
     "./foundations/icon": {
-      "import": "./dist/foundations/icon/index.js",
-      "types": "./dist/foundations/icon/index.d.ts"
+      "types": "./dist/foundations/icon/index.d.ts",
+      "import": "./dist/foundations/icon/index.js"
     },
     "./resources": {
-      "import": "./dist/resources/index.js",
-      "types": "./dist/resources/index.d.ts"
+      "types": "./dist/resources/index.d.ts",
+      "import": "./dist/resources/index.js"
     },
     "./data": {
-      "import": "./dist/data/index.js",
-      "types": "./dist/data/index.d.ts"
+      "types": "./dist/data/index.d.ts",
+      "import": "./dist/data/index.js"
     },
     "./testing": {
-      "import": "./dist/testing/index.js",
-      "types": "./dist/testing/index.d.ts"
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
     },
     "./fx": {
-      "import": "./dist/fx/index.js",
-      "types": "./dist/fx/index.d.ts"
+      "types": "./dist/fx/index.d.ts",
+      "import": "./dist/fx/index.js"
     },
     "./router": {
-      "import": "./dist/router/index.js",
-      "types": "./dist/router/index.d.ts"
+      "types": "./dist/router/index.d.ts",
+      "import": "./dist/router/index.js"
     },
     "./ssr": {
-      "import": "./dist/ssr/index.js",
-      "types": "./dist/ssr/index.d.ts"
+      "types": "./dist/ssr/index.d.ts",
+      "import": "./dist/ssr/index.js"
     },
     "./ssg": {
-      "import": "./dist/ssg/index.js",
-      "types": "./dist/ssg/index.d.ts"
+      "types": "./dist/ssg/index.d.ts",
+      "import": "./dist/ssg/index.js"
     },
     "./jsx-runtime": {
-      "import": "./dist/jsx-runtime.js",
-      "types": "./dist/jsx-runtime.d.ts"
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.js"
     },
     "./jsx-dev-runtime": {
-      "import": "./dist/jsx-dev-runtime.js",
-      "types": "./dist/jsx-dev-runtime.d.ts"
+      "types": "./dist/jsx-dev-runtime.d.ts",
+      "import": "./dist/jsx-dev-runtime.js"
     }
   },
   "publishConfig": {
@@ -128,7 +128,7 @@
     "test:checks": "vp test run -c vitest.test.checks.config.ts",
     "test:jsdom": "vp test run -c vitest.test.jsdom.config.ts",
     "test:types": "vp pack && tsd --files \"tests/types/**/*.test-d.ts\" --files \"tests/types/**/*.test-d.tsx\"",
-    "test:package": "npm run build && node ./scripts/test-package-consumer.mjs",
+    "test:package": "npx rimraf dist && npm run build && node ./scripts/test-package-consumer.mjs",
     "release:verify": "npm run lint && npm run build && npm run test:checks && npm run test:types && npm run test:unit && npm run test:jsdom && npm run test:package && npm run test:browser",
     "test:unit": "vp test run -c vitest.test.unit.config.ts",
     "bench": "npm run bench:tier1 && npm run bench:tier2 && npm run bench:tier3 && npm run bench:tier4",
@@ -139,6 +139,9 @@
     "prepack": "npm run build",
     "prepublishOnly": "npm run release:verify"
   },
+  "dependencies": {
+    "tsx": "^4.23.0"
+  },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@vitest/browser-playwright": "4.1.10",
@@ -146,7 +149,7 @@
     "jsdom": "^29.1.1",
     "playwright": "^1.61.1",
     "tsd": "^0.33.0",
-    "typescript": "^6.0.3",
+    "typescript": "6.0.3",
     "vite-plus": "^0.2.4"
   },
   "tsd": {
@@ -159,7 +162,7 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "npm@11.18.0",
+  "packageManager": "npm@12.0.1",
   "allowScripts": {
     "fsevents@2.3.3": true,
     "fsevents@2.3.2": true

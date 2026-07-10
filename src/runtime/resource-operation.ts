@@ -6,6 +6,7 @@ import { getCurrentContextFrame } from './context';
 import { ResourceCell } from './resource-cell';
 import { state } from './state';
 import { enqueueRuntimeLane } from './access';
+import { registerCommitOperationForInstance } from './component-lifecycle';
 import { brandSnapshotSource } from './snapshot-source';
 import { SSRDataMissingError } from '../common/ssr-errors';
 import {
@@ -170,36 +171,40 @@ export function resource<T>(
         cur.snapshot.error = cell.error;
       }
     } else {
-      // Client: start after render via scheduler (never inline)
+      // Client loaders belong to the successful render transaction. A post
+      // scheduler task can outlive a failed render and start work for DOM that
+      // was rolled back; commit operations are discarded with that render.
       const scheduledGeneration = cell.generation;
-      enqueueRuntimeLane('post', () => {
-        if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
-          return;
-        }
+      registerCommitOperationForInstance(inst, () => {
+        enqueueRuntimeLane('post', () => {
+          if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
+            return;
+          }
 
-        try {
-          cell.start(false, false);
-        } catch (err) {
-          // Non-SSR: reflect synchronous errors into snapshot via manual update
-          const cur = holder();
-          cur.snapshot.value = cell.value;
-          cur.snapshot.pending = cell.pending;
-          cur.snapshot.error = (err as Error) ?? null;
-          holder.set(cur);
-          inst.notifyUpdate?.();
-          return;
-        }
+          try {
+            cell.start(false, false);
+          } catch (err) {
+            // Non-SSR: reflect synchronous errors into snapshot via manual update
+            const cur = holder();
+            cur.snapshot.value = cell.value;
+            cur.snapshot.pending = cell.pending;
+            cur.snapshot.error = (err as Error) ?? null;
+            holder.set(cur);
+            inst.notifyUpdate?.();
+            return;
+          }
 
-        // If the resource completed synchronously, subscribers were not notified.
-        // Force a re-render so the component can observe the value.
-        if (!cell.pending) {
-          const cur = holder();
-          cur.snapshot.value = cell.value;
-          cur.snapshot.pending = cell.pending;
-          cur.snapshot.error = cell.error;
-          holder.set(cur);
-          inst.notifyUpdate?.();
-        }
+          // If the resource completed synchronously, subscribers were not notified.
+          // Force a re-render so the component can observe the value.
+          if (!cell.pending) {
+            const cur = holder();
+            cur.snapshot.value = cell.value;
+            cur.snapshot.pending = cell.pending;
+            cur.snapshot.error = cell.error;
+            holder.set(cur);
+            inst.notifyUpdate?.();
+          }
+        });
       });
     }
   }
@@ -239,20 +244,22 @@ export function resource<T>(
         }
       } else {
         const scheduledGeneration = cell.generation;
-        enqueueRuntimeLane('post', () => {
-          if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
-            return;
-          }
+        registerCommitOperationForInstance(inst, () => {
+          enqueueRuntimeLane('post', () => {
+            if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
+              return;
+            }
 
-          cell.start(false, false);
-          if (!cell.pending) {
-            const cur = holder();
-            cur.snapshot.value = cell.value;
-            cur.snapshot.pending = cell.pending;
-            cur.snapshot.error = cell.error;
-            holder.set(cur);
-            inst.notifyUpdate?.();
-          }
+            cell.start(false, false);
+            if (!cell.pending) {
+              const cur = holder();
+              cur.snapshot.value = cell.value;
+              cur.snapshot.pending = cell.pending;
+              cur.snapshot.error = cell.error;
+              holder.set(cur);
+              inst.notifyUpdate?.();
+            }
+          });
         });
       }
     } catch (err) {

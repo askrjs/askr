@@ -93,6 +93,33 @@ describe('multi-root SPA isolation', () => {
     expect(rootB.textContent).toBe('B next');
   });
 
+  it('should boot concurrent roots from their own route sources', async () => {
+    await Promise.all([
+      createSPA({
+        root: rootA,
+        routes: [
+          {
+            path: '/start',
+            handler: () => <div id={'concurrent-a'}>{'A concurrent'}</div>,
+          },
+        ],
+      }),
+      createSPA({
+        root: rootB,
+        routes: [
+          {
+            path: '/start',
+            handler: () => <div id={'concurrent-b'}>{'B concurrent'}</div>,
+          },
+        ],
+      }),
+    ]);
+    await settleNavigation();
+
+    expect(rootA.textContent).toBe('A concurrent');
+    expect(rootB.textContent).toBe('B concurrent');
+  });
+
   it('should keep both SPAs in sync when browser history triggers popstate', async () => {
     await mountIsolatedSpas(rootA, rootB);
     await settleNavigation();

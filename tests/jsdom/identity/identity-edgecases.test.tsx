@@ -9,8 +9,144 @@ import {
   disableEventDelegation,
   enableEventDelegation,
 } from '../../../src/runtime/events';
+import {
+  keyedElements,
+  populateKeyMapForElement,
+} from '../../../src/renderer/keyed';
+import { For } from '../../../src/control';
 
 describe('identity edge cases', () => {
+  it('should keep numeric and string keys as distinct identities', () => {
+    const { container, cleanup } = createTestContainer();
+    let items: ReturnType<
+      typeof state<Array<{ key: string | number; label: string }>>
+    >;
+
+    const Component = () => {
+      items = state([
+        { key: 1, label: 'number' },
+        { key: '1', label: 'string' },
+      ]);
+      return (
+        <div>
+          {items().map((item) => (
+            <span key={item.key} data-label={item.label}>
+              {item.label}
+            </span>
+          ))}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    const numberNode = container.querySelector('[data-label="number"]');
+    const stringNode = container.querySelector('[data-label="string"]');
+    const keyedParent = container.firstElementChild!;
+    keyedElements.delete(keyedParent);
+    populateKeyMapForElement(keyedParent);
+    const keyedMap = keyedElements.get(keyedParent);
+
+    expect(numberNode).not.toBeNull();
+    expect(stringNode).not.toBeNull();
+    expect(numberNode).not.toBe(stringNode);
+    expect(keyedMap?.get(1)).toBe(numberNode);
+    expect(keyedMap?.get('1')).toBe(stringNode);
+
+    items!.set([
+      { key: '1', label: 'string next' },
+      { key: 1, label: 'number next' },
+    ]);
+    flushScheduler();
+
+    const nextNumberNode = container.querySelector(
+      '[data-label="number next"]'
+    );
+    const nextStringNode = container.querySelector(
+      '[data-label="string next"]'
+    );
+    expect(nextNumberNode).toBe(numberNode);
+    expect(nextStringNode).toBe(stringNode);
+    expect(container.textContent).toBe('string nextnumber next');
+    cleanup();
+  });
+
+  it('should keep numeric and string keys distinct through a large keyed reorder', () => {
+    const { container, cleanup } = createTestContainer();
+    let items: ReturnType<
+      typeof state<Array<{ key: string | number; label: string }>>
+    >;
+    const initial = [
+      { key: 1, label: 'number' },
+      { key: '1', label: 'string' },
+      ...Array.from({ length: 64 }, (_, index) => ({
+        key: `key-${index}`,
+        label: `item-${index}`,
+      })),
+    ];
+
+    const Component = () => {
+      items = state(initial);
+      return (
+        <div>
+          {items().map((item) => (
+            <span key={item.key} data-label={item.label}>
+              {item.label}
+            </span>
+          ))}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    const numberNode = container.querySelector('[data-label="number"]');
+    const stringNode = container.querySelector('[data-label="string"]');
+
+    items!.set([...initial].reverse());
+    flushScheduler();
+
+    expect(container.querySelector('[data-label="number"]')).toBe(numberNode);
+    expect(container.querySelector('[data-label="string"]')).toBe(stringNode);
+    expect(container.firstElementChild?.firstElementChild?.textContent).toBe(
+      'item-63'
+    );
+    cleanup();
+  });
+
+  it('should allow a keyed For to reorder numeric and string keys together', () => {
+    const { container, cleanup } = createTestContainer();
+    let items: ReturnType<typeof state<Array<string | number>>>;
+
+    const Component = () => {
+      items = state<Array<string | number>>([1, '1']);
+      return (
+        <div>
+          <For each={items} by={(item) => item}>
+            {(item) => (
+              <span data-label={`${typeof item}:${String(item)}`}>
+                {String(item)}
+              </span>
+            )}
+          </For>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    expect(container.textContent).toBe('11');
+
+    expect(() => {
+      items!.set(['1', 1]);
+      flushScheduler();
+    }).not.toThrow();
+    expect(
+      container.firstElementChild?.firstElementChild?.getAttribute('data-label')
+    ).toBe('string:1');
+    cleanup();
+  });
+
   it('should deterministically reuse prior DOM nodes for duplicate keys (no ambiguous remounts)', async () => {
     const { container, cleanup } = createTestContainer();
 

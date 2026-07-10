@@ -27,6 +27,7 @@ import { Fragment } from '../common/jsx';
 import {
   createWrappedHandler,
   extractKey,
+  getMaterializedKey,
   getEventListenerKey,
   getEventListenerOptions,
   parseEventProp,
@@ -118,11 +119,9 @@ function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
     child;
     child = child.nextElementSibling
   ) {
-    const k = child.getAttribute('data-key');
-    if (k !== null) {
-      keyMap.set(k, child);
-      const n = Number(k);
-      if (!Number.isNaN(n)) keyMap.set(n, child);
+    const key = getMaterializedKey(child);
+    if (key !== undefined) {
+      keyMap.set(key, child);
     }
   }
   return keyMap;
@@ -377,10 +376,9 @@ function applySmartUpdateElement(
   const domHost = getRendererDOMHost();
 
   if (vnode.key == null && element.hasAttribute('data-key')) {
-    const existingKey = element.getAttribute('data-key');
-    if (existingKey !== null) {
-      const numericKey = Number(existingKey);
-      vnode.key = Number.isNaN(numericKey) ? existingKey : numericKey;
+    const existingKey = getMaterializedKey(element);
+    if (existingKey !== undefined) {
+      vnode.key = existingKey;
     }
   }
 
