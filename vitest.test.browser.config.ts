@@ -5,6 +5,11 @@ import {
   createPackageAliases,
 } from './tooling/askr-tooling';
 
+const browser = (process.env.ASKR_BROWSER ?? 'chromium') as
+  | 'chromium'
+  | 'firefox'
+  | 'webkit';
+
 export default defineConfig({
   define: createNodeEnvDefine('development', { bench: true }),
   oxc: {
@@ -18,7 +23,7 @@ export default defineConfig({
       enabled: true,
       headless: true,
       provider: playwright(),
-      instances: [{ browser: 'chromium' }],
+      instances: [{ browser }],
     },
     globals: true,
     include: ['tests/browser/**/*.test.{ts,tsx}'],

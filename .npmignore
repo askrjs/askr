@@ -1,2 +1,3 @@
-# Exclude source maps from the published package
+# Local builds retain source and declaration maps. The explicit package.json
+# files allowlist publishes only JavaScript and declaration artifacts.
 dist/**/*.map
