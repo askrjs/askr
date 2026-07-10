@@ -18,28 +18,37 @@ Packages are published to npm under the `@askrjs` scope.
 
 The release flow is split across dedicated workflows:
 
-- `.github/workflows/ci.yml`: lint, build, unit/jsdom tests, and browser integration coverage.
-- `.github/workflows/tag.yml`: manual workflow that runs CI and creates a `v<version>` tag from `package.json`.
-- `.github/workflows/release.yml`: creates a GitHub release from an existing tag.
-- `.github/workflows/publish.yml`: publishes an existing release tag to npm.
+- `.github/workflows/ci.yml`: lint, build, architecture checks, public type
+  contracts, unit/jsdom tests, a packed clean-consumer smoke test, and Chromium
+  integration coverage.
+- `.github/workflows/quality.yml`: scheduled replayable lifecycle sequences
+  plus Chromium and Firefox on Linux and WebKit on macOS. Failed runs retain
+  browser reports and seed-trace artifacts.
+- `.github/workflows/publish.yml`: manual release workflow. It runs CI, computes
+  `v<version>` from `package.json`, creates the tag when needed, checks out that
+  exact tag, builds it, and publishes it to npm.
 - `.github/workflows/bench.yml`: manual benchmark runner for stable and browser perf lanes.
-- `prepublishOnly`: release verification gate that runs `npm run build`.
+- `prepack`: always rebuilds package artifacts before npm creates a tarball.
+- `prepublishOnly`: runs `npm run release:verify`; manual npm publishing cannot
+  skip lint, build, checks, public types, test suites, or the packed consumer
+  contract.
+
+The packed consumer contract imports every exported subpath from a fresh ESM
+install, verifies the matching emitted declaration files, runs a minimal
+runtime/SSR render, checks the `askr-ssg` CLI, and rejects source maps in the
+tarball. Local and CI builds retain maps for debugging; npm packages do not.
 
 The intended happy path is:
 
-1. Bump `package.json` to the release version.
-2. Run `tag.yml` manually.
-3. Let the pushed tag trigger `release.yml`.
-4. Let the published GitHub release trigger `publish.yml`.
-
-`release.yml` and `publish.yml` also support `workflow_dispatch` with a required
-`release_tag` input. They check out that exact tag before running.
+1. Bump `package.json` to the release version and merge it to `main`.
+2. Run `publish.yml` manually.
+3. Confirm the workflow’s created-or-reused `v<version>` tag and npm publish.
 
 ## Pre-release checklist
 
-- All tests pass: `npm run test`
-- All lints pass: `npm run lint`
-- Type checks pass: `npm run test:types`
+- Full release gate passes: `npm run release:verify`
+- Tarball inspection passes: `npm pack --dry-run --json` contains no `.map`
+  files and includes JavaScript plus declaration artifacts for every export.
 - CHANGELOG updated when the release needs notes
 - Version bumped in `package.json`
 
@@ -50,18 +59,19 @@ Use the smallest recovery step that matches the failure point.
 ### CI failures
 
 - Fix the code or workflow issue.
-- Rerun `ci.yml`, or rerun `tag.yml` if you are in the middle of a release.
+- Rerun `ci.yml`, or rerun `publish.yml` if you are in the middle of a release.
 
-### Tag or release failures
+### Tag failures
 
-- If tag creation failed before the tag was pushed, rerun `tag.yml`.
-- If the tag already exists but the GitHub release failed, rerun `release.yml` manually with `release_tag` set to that tag.
+- If tag creation failed before the tag was pushed, rerun `publish.yml`.
+- If the tag already exists, `publish.yml` reuses it and checks it out before
+  building and publishing.
 
 ### Publish failures
 
 - First check whether npm already received the version.
-- If the version was not published, rerun the failed publish job or manually run `publish.yml` with `release_tag` set to the release tag.
-- If npm did publish the version, do not retry the same version. npm versions are immutable. Bump `package.json` to a new version and start a new tag -> release -> publish cycle.
+- If the version was not published, rerun the failed publish job.
+- If npm did publish the version, do not retry the same version. npm versions are immutable. Bump `package.json` to a new version and start a new publish cycle.
 
 The main footgun is partial success after npm accepts the version. GitHub can
 report a failed workflow even though npm already owns that version, so check npm

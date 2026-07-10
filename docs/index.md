@@ -51,6 +51,7 @@ package boundaries in the platform.
 | [Repo structure](./development/repo-structure.md)           | Repository layout                 |
 | [Contributing](./development/contributing.md)               | Setup, build, test, lint          |
 | [Release](./development/release.md)                         | Versioning and publish process    |
+| [Quality contracts](./development/quality-contracts.md)     | Runtime invariants and test gates |
 | [Platform versioning](./development/platform-versioning.md) | Release coordination policy       |
 | [Docs style guide](./contributing/docs-style-guide.md)      | Writing conventions               |
 | [Testing guide](./contributing/testing.md)                  | Test patterns                     |

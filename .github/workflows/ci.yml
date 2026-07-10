@@ -69,23 +69,22 @@ jobs:
       - name: Checks tests
         run: npm run test:checks
 
+      - name: Public type contracts
+        run: npm run test:types
+
       - name: Unit tests
         run: npm run test:unit
 
       - name: jsdom tests
         run: npm run test:jsdom
 
+      - name: Packed consumer contract
+        run: npm run test:package
+
   browser:
-    name: Browser Integration (${{ matrix.os }})
+    name: Browser Integration (Chromium)
     needs: ci
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macos-latest
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
@@ -99,8 +98,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install chromium firefox webkit
+      - name: Install Playwright browser
+        run: npx playwright install chromium
 
       - name: Browser integration tests
         run: npm run test:browser
