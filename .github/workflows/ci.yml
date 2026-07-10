@@ -57,18 +57,13 @@ jobs:
   ci:
     name: Release Gate
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [18, 'lts/*']
-
     steps:
       - uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 'lts/*'
           cache: 'npm'
 
       - name: Install dependencies
@@ -94,6 +89,14 @@ jobs:
 
       - name: Packed consumer contract
         run: npm run test:package
+
+      - name: Setup Node 18 consumer runtime
+        uses: actions/setup-node@v6
+        with:
+          node-version: '18'
+
+      - name: Node 18 packed consumer contract
+        run: node ./scripts/test-package-consumer.mjs
 
   browser:
     name: Browser Integration (Chromium)
