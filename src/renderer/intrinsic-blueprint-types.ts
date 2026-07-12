@@ -2,7 +2,12 @@ import type { FineGrainedEffectHandle } from '../runtime';
 import type { ReactiveChildDOMHost } from './reactive-children';
 import type { ReactivePropCleanupEntry } from './cleanup';
 
-export type BlueprintPropKind = 'empty' | 'event' | 'reactive' | 'ref' | 'static';
+export type BlueprintPropKind =
+  | 'empty'
+  | 'event'
+  | 'reactive'
+  | 'ref'
+  | 'static';
 
 export type BlueprintPropShape = {
   kind: BlueprintPropKind;

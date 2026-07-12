@@ -281,11 +281,6 @@ export function mountOrUpdate(
   flushRuntimeScheduler();
 }
 
-export function flushHydrationActivation(rootElement: Element): void {
-  if (!instancesByRoot.has(rootElement)) return;
-  flushRuntimeScheduler();
-}
-
 /** @internal Activate one deferred boundary without rerunning its root. */
 export function activateHydrationBoundary(
   rootElement: Element,

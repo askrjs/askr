@@ -538,11 +538,7 @@ export function syncReactiveScalarChild(
     try {
       getOrCreateElementReactiveCleanupMap(el).set(
         REACTIVE_CHILDREN_KEY,
-        createReactiveScalarChildCleanupEntry(
-          el,
-          reactiveChildSource,
-          host
-        )
+        createReactiveScalarChildCleanupEntry(el, reactiveChildSource, host)
       );
       return true;
     } catch (error) {

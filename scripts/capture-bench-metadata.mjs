@@ -26,7 +26,9 @@ const rawResultPaths = raw
   .map((entry) => entry.trim())
   .filter(Boolean);
 const metadata = {
-  commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  commit: execFileSync('git', ['rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+  }).trim(),
   runnerImage:
     process.env.ImageOS ??
     process.env.RUNNER_IMAGE ??
@@ -52,4 +54,6 @@ await fs.writeFile(
   path.join('bench-results', `metadata-${tier}-repeat-${repeat}.json`),
   `${JSON.stringify(metadata, null, 2)}\n`
 );
-console.log(`[bench:metadata] captured Chromium ${chromiumVersion} for ${tier} repeat ${repeat}`);
+console.log(
+  `[bench:metadata] captured Chromium ${chromiumVersion} for ${tier} repeat ${repeat}`
+);

@@ -24,7 +24,10 @@ test.describe('real browser interaction behavior', () => {
     // WebKit currently advances past the intervening button in this static
     // fixture even after the source control is focused. Keep that provider
     // quirk in the browser regression; runtime focus behavior is unchanged.
-    if (/AppleWebKit/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)) {
+    if (
+      /AppleWebKit/.test(navigator.userAgent) &&
+      !/Chrome/.test(navigator.userAgent)
+    ) {
       page.getByTestId('menu-trigger').element().focus();
     }
     await expect.element(page.getByTestId('menu-trigger')).toHaveFocus();

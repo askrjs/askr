@@ -15,6 +15,13 @@
   transactional, with anchored multi-node ranges and structural SSR hydration.
 - perf(hydration): adopt matching intrinsic SSR trees in place and publish only
   transactional refs and listeners instead of running full reconciliation.
+- fix(hydration): activate deferred boundaries locally with retryable marker and
+  listener rollback semantics, while preserving focus, portals, and cleanup.
+- refactor(renderer): split blueprint, boundary-range, component-host, and
+  lifecycle batch responsibilities behind internal facades with enforced
+  complexity budgets.
+- test(bench): add keyed movement-density and separate full-clear teardown
+  diagnostics without changing movement thresholds or cleanup semantics.
 - fix(router): preserve shared layout identity and roll back multi-root route
   DOM, ownership, metadata, history, and URL publication as one transaction.
 - fix(ssg): publish full builds through staging/backup swap and incremental

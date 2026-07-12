@@ -5,11 +5,7 @@ import {
 } from './prop-bindings';
 import { runRetainedElementUpdate } from './retained-element-rollback';
 import { _isDOMElement, type DOMElement } from './types';
-import {
-  extractKey,
-  parseEventProp,
-  tagNamesEqualIgnoreCase,
-} from './utils';
+import { extractKey, parseEventProp, tagNamesEqualIgnoreCase } from './utils';
 
 let hydrationAdoptionDepth = 0;
 
@@ -51,7 +47,8 @@ function canAdoptMatchingIntrinsicSubtree(
     const value = props[key];
     const eventProp = parseEventProp(key);
     if (eventProp && typeof value !== 'function') return false;
-    if (!eventProp && key !== 'ref' && typeof value === 'function') return false;
+    if (!eventProp && key !== 'ref' && typeof value === 'function')
+      return false;
   }
 
   const children = getDirectVNodeChildren(vnode);

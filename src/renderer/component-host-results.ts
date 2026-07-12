@@ -32,10 +32,7 @@ import {
   setComponentOwnershipIdentity,
   setVNodeComponentInstance,
 } from './component-host-instances';
-import {
-  getRendererDOMHost,
-  type InstanceHostElement,
-} from './dom-host';
+import { getRendererDOMHost, type InstanceHostElement } from './dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 
 export function materializeComponentResultNode(
@@ -208,7 +205,8 @@ export function resolveHostNestedComponentResult(
       depth += 1;
     }
 
-    for (const instance of createdInstances) mountInstanceInline(instance, host);
+    for (const instance of createdInstances)
+      mountInstanceInline(instance, host);
   } catch (error) {
     for (let index = createdVNodeOwners.length - 1; index >= 0; index -= 1) {
       const owner = createdVNodeOwners[index]!;

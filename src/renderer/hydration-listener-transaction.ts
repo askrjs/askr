@@ -25,9 +25,7 @@ export function beginHydrationListenerTransaction(): HydrationListenerTransactio
   return transaction;
 }
 
-export function stageHydrationListener(
-  stage: HydrationListenerStage
-): boolean {
+export function stageHydrationListener(stage: HydrationListenerStage): boolean {
   if (!currentTransaction?.active) {
     return false;
   }

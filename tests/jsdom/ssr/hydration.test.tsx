@@ -11,6 +11,11 @@ import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
 import { For } from '@askrjs/askr/control';
+import {
+  DefaultPortal,
+  Portal,
+  _resetDefaultPortal,
+} from '../../../src/foundations/structures/portal';
 import * as rendererDom from '../../../src/renderer/dom';
 import {
   createTestContainer,
@@ -1115,7 +1120,11 @@ describe('hydration (SSR)', () => {
       let clicks = 0;
       const Failing = () => {
         if (fail) throw new Error('deferred activation failed');
-        return <button id="retry-button" onClick={() => (clicks += 1)}>retry</button>;
+        return (
+          <button id="retry-button" onClick={() => (clicks += 1)}>
+            retry
+          </button>
+        );
       };
       const Component = () => (
         <div class="retry-boundary">
@@ -1219,6 +1228,167 @@ describe('hydration (SSR)', () => {
       } finally {
         Element.prototype.getBoundingClientRect = originalRect;
         cleanup();
+      }
+    });
+
+    it('should activate nested deferred boundaries independently across roots', async () => {
+      const first = createTestContainer();
+      const second = createTestContainer();
+      const originalRect = Element.prototype.getBoundingClientRect;
+      const visibleRoots = new Set<string>();
+      let firstRenders = 0;
+      let secondRenders = 0;
+
+      const createComponent = (rootId: string) => () => {
+        if (rootId === 'first') firstRenders += 1;
+        else secondRenders += 1;
+        return (
+          <main data-root={rootId}>
+            <div class="deferred-parent">
+              <div class="nested-boundary" data-root={rootId}>
+                {rootId} nested
+              </div>
+            </div>
+          </main>
+        );
+      };
+      const firstComponent = createComponent('first');
+      const secondComponent = createComponent('second');
+
+      Element.prototype.getBoundingClientRect = function () {
+        if ((this as Element).className === 'nested-boundary') {
+          return {
+            top: visibleRoots.has(this.getAttribute('data-root') ?? '')
+              ? 0
+              : 1000,
+          } as DOMRect;
+        }
+        return { top: 0 } as DOMRect;
+      };
+
+      try {
+        first.container.innerHTML = renderToString({
+          url: '/',
+          routes: [{ path: '/', handler: firstComponent }],
+        });
+        second.container.innerHTML = renderToString({
+          url: '/',
+          routes: [{ path: '/', handler: secondComponent }],
+        });
+
+        await hydrateSPA({
+          root: first.container,
+          routes: [{ path: '/', handler: firstComponent }],
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        await hydrateSPA({
+          root: second.container,
+          routes: [{ path: '/', handler: secondComponent }],
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+
+        const firstRendersAfterHydration = firstRenders;
+        const secondRendersAfterHydration = secondRenders;
+        expect(
+          first.container
+            .querySelector('.nested-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(true);
+        expect(
+          second.container
+            .querySelector('.nested-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(true);
+
+        visibleRoots.add('first');
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+
+        expect(
+          first.container
+            .querySelector('.nested-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(false);
+        expect(
+          second.container
+            .querySelector('.nested-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(true);
+        expect(firstRenders).toBe(firstRendersAfterHydration);
+        expect(secondRenders).toBe(secondRendersAfterHydration);
+
+        visibleRoots.add('second');
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+        expect(
+          second.container
+            .querySelector('.nested-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(false);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        first.cleanup();
+        second.cleanup();
+      }
+    });
+
+    it('should preserve portal ownership when a deferred boundary is revealed', async () => {
+      const { container, cleanup } = createTestContainer();
+      const originalRect = Element.prototype.getBoundingClientRect;
+      let clicks = 0;
+      _resetDefaultPortal();
+
+      const Component = () => (
+        <main>
+          <div class="portal-boundary">
+            <Portal>
+              <button id="portal-deferred" onClick={() => (clicks += 1)}>
+                portal
+              </button>
+            </Portal>
+          </div>
+          <DefaultPortal />
+        </main>
+      );
+      const routes = [{ path: '/', handler: Component }];
+
+      Element.prototype.getBoundingClientRect = function () {
+        return (this as Element).className === 'portal-boundary'
+          ? ({ top: 1000 } as DOMRect)
+          : ({ top: 0 } as DOMRect);
+      };
+
+      try {
+        container.innerHTML = renderToString({ url: '/', routes });
+        await hydrateSPA({
+          root: container,
+          routes,
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+        expect(
+          container
+            .querySelector('.portal-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(true);
+
+        Element.prototype.getBoundingClientRect = function () {
+          return { top: 0 } as DOMRect;
+        };
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+
+        const portalButton = container.querySelector(
+          '#portal-deferred'
+        ) as HTMLButtonElement;
+        expect(portalButton).not.toBeNull();
+        portalButton.click();
+        expect(clicks).toBe(1);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        cleanup();
+        _resetDefaultPortal();
       }
     });
   });

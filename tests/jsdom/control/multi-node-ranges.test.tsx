@@ -21,11 +21,26 @@ describe('anchored multi-node control ranges', () => {
 
       return (
         <main>
-          <Show when={visible()} fallback={<><i id="show-fallback-a">F</i><i id="show-fallback-b">F</i></>}>
+          <Show
+            when={visible()}
+            fallback={
+              <>
+                <i id="show-fallback-a">F</i>
+                <i id="show-fallback-b">F</i>
+              </>
+            }
+          >
             <span id="show-a">A</span>
             <span id="show-b">B</span>
           </Show>
-          <Case fallback={<><b id="case-fallback-a">F</b><b id="case-fallback-b">F</b></>}>
+          <Case
+            fallback={
+              <>
+                <b id="case-fallback-a">F</b>
+                <b id="case-fallback-b">F</b>
+              </>
+            }
+          >
             <Match when={choice() === 'one'}>
               <em id="case-one-a">1</em>
               <em id="case-one-b">1</em>

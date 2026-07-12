@@ -68,7 +68,7 @@ export interface ControlTransaction {
   removedScopes: ChildScope[];
   shouldClearDomUpdateState: boolean;
   registered: boolean;
-};
+}
 
 function getBranchScopes(state: ShowState | CaseState): ChildScope[] {
   const scopes: ChildScope[] = [];
@@ -89,10 +89,7 @@ function beginControlTransaction(
     return state._transaction;
   }
 
-  const scopeSnapshots = new Map<
-    ChildScope,
-    ChildScopeTransactionSnapshot
-  >();
+  const scopeSnapshots = new Map<ChildScope, ChildScopeTransactionSnapshot>();
   for (const scope of getBranchScopes(state)) {
     scopeSnapshots.set(scope, captureChildScopeTransactionSnapshot(scope));
   }
@@ -389,7 +386,8 @@ export function evaluateCaseState(state: CaseState): VNode[] {
         state.activeScope = null;
       }
 
-      const activeScope = state.activeScope ?? createBranchScope(state, nextKey);
+      const activeScope =
+        state.activeScope ?? createBranchScope(state, nextKey);
       state.activeKey = nextKey;
       state.activeScope = activeScope;
 

@@ -111,7 +111,7 @@ function navigateWithRedirectState(
     return;
   }
 
-    applyNavigationTargets(
+  applyNavigationTargets(
     request.id,
     path,
     options,

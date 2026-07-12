@@ -1,37 +1,15 @@
 import { __FOR_BOUNDARY__ } from '../common/vnode';
-import type { DOMRange } from '../common/dom-range';
-import { Fragment } from '../jsx';
-import { logger } from '../common/logger';
 import { enqueueRuntimeTask } from '../runtime';
-import type { ChildScope } from '../runtime';
 import type { ComponentFunction, ComponentInstance } from '../runtime';
-import {
-  clearCaseDomUpdateState,
-  clearShowDomUpdateState,
-  evaluateCaseState,
-  evaluateShowState,
-  type ControlBoundaryState,
-} from '../runtime';
-import {
-  clearForDomUpdateState,
-  evaluateForState,
-  recordBenchEvent,
-} from '../runtime';
+import { type ControlBoundaryState } from '../runtime';
+import { recordBenchEvent } from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
 import { getRuntimeEnv } from './env';
 import { commitForStateBoundaryChildren } from './for-commit';
 import { keyedElements } from './keyed';
-import { getParentNamespace } from './namespaces';
-import { _isDOMElement, type DOMElement, type VNode } from './types';
-import { tagNamesEqualIgnoreCase } from './utils';
+import { type DOMElement, type VNode } from './types';
+import { configureBoundaryRangeHost } from './boundary-range-adoption';
 import {
-  configureBoundaryRangeHost,
-  materializeChildScopeRange,
-  assignScopeRange,
-  checkVNodeShapeChanged,
-} from './boundary-range-adoption';
-import {
-  syncControlBoundaryInMixedParent,
   syncControlBoundaryScopeDom,
   syncControlBoundaryScopeNode,
 } from './boundary-range-sync';
@@ -42,26 +20,28 @@ export {
   syncControlBoundaryScopeNode,
 } from './boundary-range-sync';
 import {
-  appendRange,
-  createDetachedRange,
-  createEmptyRange,
-  createSingleNodeRange,
   getRangeNodes,
-  findRangeEnd,
   insertRangeBefore,
-  isRangeStart,
   rangeContains,
   removeRange,
-  type DOMRange as RendererDOMRange,
 } from './dom-range';
 import {
   beginLifecycleCommitBatch,
   discardLifecycleCommitBatch,
-  enterDomCommitScope,
   flushLifecycleCommitBatch,
-  registerLifecycleTransaction,
-  restoreDomCommitScope,
 } from '../runtime';
+import {
+  clearControlBoundaryDomUpdateState,
+  evaluateControlBoundaryState,
+  getControlBoundaryCommitChildren,
+  getControlBoundaryState,
+} from './boundary-state';
+export {
+  evaluateControlBoundaryState,
+  getControlBoundaryState,
+  getDirectControlBoundaryVNode,
+} from './boundary-state';
+export { createForBoundary } from './boundary-materialization';
 
 type ElementWithContext = DOMElement & {
   __instance?: ComponentInstance;
@@ -111,95 +91,6 @@ function getBoundaryDOMHost(): BoundaryDOMHost {
   return boundaryDOMHost;
 }
 
-
-export function evaluateControlBoundaryState(
-  controlState: ControlBoundaryState
-): VNode[] {
-  if (controlState.kind === 'for') {
-    return evaluateForState(controlState);
-  }
-  if (controlState.kind === 'show') {
-    return evaluateShowState(controlState);
-  }
-  return evaluateCaseState(controlState);
-}
-
-function clearControlBoundaryDomUpdateState(
-  controlState: ControlBoundaryState
-): void {
-  if (controlState.kind === 'for') {
-    clearForDomUpdateState(controlState);
-    return;
-  }
-  if (controlState.kind === 'show') {
-    clearShowDomUpdateState(controlState);
-    return;
-  }
-  clearCaseDomUpdateState(controlState);
-}
-
-export function getControlBoundaryState(
-  node: DOMElement
-): ControlBoundaryState | null {
-  return (
-    node._controlState ??
-    (node._forState as ControlBoundaryState | undefined) ??
-    null
-  );
-}
-
-export function getDirectControlBoundaryVNode(
-  children: unknown
-): DOMElement | null {
-  if (
-    !Array.isArray(children) &&
-    _isDOMElement(children) &&
-    (children as DOMElement).type === __FOR_BOUNDARY__
-  ) {
-    return children as DOMElement;
-  }
-
-  if (
-    Array.isArray(children) &&
-    children.length === 1 &&
-    _isDOMElement(children[0]) &&
-    (children[0] as DOMElement).type === __FOR_BOUNDARY__
-  ) {
-    return children[0] as DOMElement;
-  }
-
-  return null;
-}
-
-function getControlBoundaryCommitChildren(
-  controlState: ControlBoundaryState
-): VNode[] {
-  if (controlState.kind === 'for' && controlState._needsSourceReconcile) {
-    return evaluateForState(controlState);
-  }
-
-  if (controlState.kind !== 'for') {
-    const activeVNode = controlState.activeScope?.vnode;
-    return activeVNode == null || activeVNode === false ? [] : [activeVNode];
-  }
-
-  if (controlState.orderedKeys.length === 0) {
-    const fallbackVNode = controlState.fallbackScope?.vnode;
-    return fallbackVNode == null || fallbackVNode === false
-      ? []
-      : [fallbackVNode];
-  }
-
-  const childrenVNodes: VNode[] = [];
-  for (let index = 0; index < controlState.orderedKeys.length; index += 1) {
-    const itemKey = controlState.orderedKeys[index];
-    const itemInstance = controlState.items.get(itemKey);
-    childrenVNodes.push((itemInstance?.scope.vnode ?? null) as VNode);
-  }
-
-  return childrenVNodes;
-}
-
 export function clearControlBoundaryCommitOwner(parent: Element): void {
   const owner = controlBoundaryOwners.get(parent) as
     | BoundaryCommitOwnerState
@@ -214,7 +105,6 @@ export function clearControlBoundaryCommitOwner(parent: Element): void {
 
   controlBoundaryOwners.delete(parent);
 }
-
 export function registerControlBoundaryCommitOwner(
   parent: Element,
   controlState: ControlBoundaryState
@@ -268,103 +158,6 @@ export function registerControlBoundaryCommitOwner(
   };
 }
 
-/**
- * Create DOM from For/Show/Case control boundaries.
- *
- * DOM order is reconstructed from the current vnode list on every render.
- * Reusing DOM nodes never implies preserving their position; appending an
- * existing node to the fragment expresses reordering per the DOM spec.
- */
-export function createForBoundary(
-  node: DOMElement,
-  props: Record<string, unknown>,
-  parentNamespace?: string
-): DocumentFragment {
-  void props;
-  const controlState = getControlBoundaryState(node);
-
-  if (!controlState) {
-    if (getRuntimeEnv().NODE_ENV !== 'production') {
-      logger.warn('[Askr] Control boundary missing state');
-    }
-    return document.createDocumentFragment();
-  }
-
-  const childrenVNodes = evaluateControlBoundaryState(controlState);
-  const fragment = document.createDocumentFragment();
-
-  if (controlState.kind !== 'for') {
-    const activeScope = controlState.activeScope;
-    const vnode = childrenVNodes[0];
-    if (activeScope && vnode !== undefined) {
-      const range = materializeChildScopeRange(
-        vnode,
-        parentNamespace,
-        activeScope
-      );
-      assignScopeRange(activeScope, range);
-      activeScope.hydrationPending = false;
-      appendRange(fragment, range);
-    }
-    clearControlBoundaryDomUpdateState(controlState);
-    return fragment;
-  }
-
-  const forState = controlState;
-  if (forState.orderedKeys.length === 0) {
-    const fallbackScope = forState.fallbackScope;
-    const fallbackVNode = childrenVNodes[0];
-    if (fallbackScope && fallbackVNode !== undefined) {
-      const range = materializeChildScopeRange(
-        fallbackVNode,
-        parentNamespace,
-        fallbackScope
-      );
-      assignScopeRange(fallbackScope, range);
-      fallbackScope.hydrationPending = false;
-      appendRange(fragment, range);
-    }
-    clearControlBoundaryDomUpdateState(controlState);
-    return fragment;
-  }
-
-  for (let i = 0; i < childrenVNodes.length; i++) {
-    const childVNode = childrenVNodes[i];
-    const itemKey = forState.orderedKeys[i];
-    const itemInstance = itemKey != null ? forState.items.get(itemKey) : null;
-
-    let range: DOMRange | null = null;
-
-    if (itemInstance && itemInstance.scope.range) {
-      const cachedRange = itemInstance.scope.range;
-      const cachedDom = cachedRange.single ? cachedRange.start : null;
-      if (!cachedDom || !checkVNodeShapeChanged(cachedDom, childVNode)) {
-        range = cachedRange;
-      }
-    }
-
-    if (!range) {
-      const materializedRange = materializeChildScopeRange(
-        childVNode,
-        parentNamespace,
-        itemInstance?.scope
-      );
-      if (itemInstance) {
-        assignScopeRange(itemInstance.scope, materializedRange);
-        itemInstance.scope.hydrationPending = false;
-      }
-      range = materializedRange;
-    }
-
-    appendRange(fragment, range);
-  }
-
-  clearControlBoundaryDomUpdateState(controlState);
-  return fragment;
-}
-
-
-
 export function commitForBoundaryChildren(
   parent: Element,
   controlState: ControlBoundaryState,
@@ -411,7 +204,8 @@ export function commitForBoundaryChildren(
 
     if (nextDom) {
       if (
-        parent.childNodes.length !== (nextDom.single ? 1 : getRangeNodes(nextDom).length + 2) ||
+        parent.childNodes.length !==
+          (nextDom.single ? 1 : getRangeNodes(nextDom).length + 2) ||
         parent.firstChild !== nextDom.start ||
         controlState.lastRemovedNodes.length > 0 ||
         controlState.lastRemovedRanges.length > 0
@@ -493,7 +287,10 @@ export function trySyncControlBoundaryChild(
   }
 
   if (nextDom && nextDom.start.parentNode !== parent) {
-    if (currentNode?.parentNode === parent && !rangeContains(nextDom, currentNode)) {
+    if (
+      currentNode?.parentNode === parent &&
+      !rangeContains(nextDom, currentNode)
+    ) {
       teardownNodeSubtree(currentNode);
       insertRangeBefore(parent, nextDom, currentNode);
       currentNode.parentNode?.removeChild(currentNode);

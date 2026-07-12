@@ -232,6 +232,12 @@ bindings-only retained record per changed element. Existing bindings,
 components, reactive props, keys, or any structural/value mismatch reject the
 fast path before mutation.
 
+Deferred hydration uses boundary-local records rather than root-wide reruns.
+Activation removes one skip marker, stages lifecycle and listener publication,
+and commits the boundary only after its update succeeds. Rollback restores the
+marker and discards provisional listeners, refs, bindings, and ownership so a
+later reveal can retry safely.
+
 Cold intrinsic creation uses an owner- and document-scoped blueprint after the
 first validated result. Subsequent rows clone the retained element shape,
 prepare reactive bindings and delegated listeners off the live tree, then
@@ -281,6 +287,10 @@ flowchart LR
   helpers that need DOM operations without importing the facade.
 - `src/renderer/component-host.ts` owns component host reuse, component
   materialization/synchronization, and nested component resolution.
+- `src/renderer/component-host-replacement.ts` owns component-host replacement
+  transactions, provisional ownership rollback, and retained-host cleanup.
+- `src/renderer/component-host-results.ts` owns nested component result
+  materialization and wrapper-host resolution.
 - `src/renderer/component-host-instances.ts` owns route-root detection,
   cleanup-strict inheritance, vnode component instance storage, component
   instance IDs, component host instance lookup, and component key inheritance.
@@ -320,6 +330,15 @@ flowchart LR
   boundary commit orchestration. It uses an explicit DOM host registered by
   `dom-internal.ts` for DOM operations that would otherwise create an import
   cycle.
+- `src/renderer/boundary-state.ts` owns control-state lookup/evaluation and
+  commit-child selection; `boundary-materialization.ts` owns initial boundary
+  result materialization.
+- `src/renderer/boundary-range-adoption.ts` owns hydrated range adoption and
+  child-scope range materialization, while `boundary-range-sync.ts` owns
+  retained range synchronization and removal.
+- `src/renderer/hydration-boundaries.ts` owns deferred-boundary records and
+  activation state; `hydration-listener-transaction.ts` stages direct and
+  delegated listener publication until activation commits.
 - `src/renderer/keyed-children.ts` owns keyed vnode snapshots and typed DOM
   key-map scans shared by the keyed planner and reconciler. DOM key markers
   preserve whether a key is a string or number, so `1` and `'1'` never share
@@ -338,6 +357,13 @@ flowchart LR
   `for-commit-removal.ts` owns removed boundary-node teardown and bulk clears,
   while `for-commit-reorder.ts` owns move-only reorders.
 - `src/renderer/cleanup.ts` owns listener removal and subtree teardown.
+- `src/renderer/intrinsic-blueprint-analysis.ts`,
+  `intrinsic-blueprint-bindings.ts`, and
+  `intrinsic-blueprint-materialization.ts` keep blueprint analysis, binding
+  publication, and DOM materialization separate behind the small
+  `intrinsic-blueprint.ts` facade.
+- `src/runtime/lifecycle-batch.ts` owns lifecycle batch orchestration, while
+  `lifecycle-operation-settlement.ts` owns operation result settlement.
 - The renderer is deliberately host-shaped so the runtime can stay mostly
   agnostic about DOM details.
 

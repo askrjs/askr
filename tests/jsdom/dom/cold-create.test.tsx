@@ -147,9 +147,10 @@ describe('cold DOM construction', () => {
         '1',
         '2',
       ]);
-      expect(
-        firstButtons.map((button) => button.dataset.askrKeyKind)
-      ).toEqual(['number', 'number']);
+      expect(firstButtons.map((button) => button.dataset.askrKeyKind)).toEqual([
+        'number',
+        'number',
+      ]);
       expect(firstButtons[1]?.className).toBe('active');
       expect(firstButtons.map((button) => button.title)).toEqual([
         'one',
@@ -184,13 +185,7 @@ describe('cold DOM construction', () => {
   });
 
   it('should fall back when a component intrinsic shape or static prop changes', () => {
-    function Variant({
-      article,
-      tone,
-    }: {
-      article: boolean;
-      tone: string;
-    }) {
+    function Variant({ article, tone }: { article: boolean; tone: string }) {
       return article ? (
         <article data-tone={tone}>
           <span>{'article'}</span>

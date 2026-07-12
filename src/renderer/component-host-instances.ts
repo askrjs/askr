@@ -228,7 +228,11 @@ export function findHostInstanceByType(
     ) {
       return instance;
     }
-    if (node === undefined && parent === undefined && wrapperDepth === undefined) {
+    if (
+      node === undefined &&
+      parent === undefined &&
+      wrapperDepth === undefined
+    ) {
       return instance;
     }
   }

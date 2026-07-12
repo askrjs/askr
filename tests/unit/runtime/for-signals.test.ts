@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { createChildScope } from '../../../src/runtime/child-scope';
-import { cleanupComponent, createComponentInstance } from '../../../src/runtime/component';
+import {
+  cleanupComponent,
+  createComponentInstance,
+} from '../../../src/runtime/component';
 import {
   createForIndexSignal,
   createForItemSignal,

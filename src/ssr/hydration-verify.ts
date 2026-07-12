@@ -33,8 +33,7 @@ function isMultiRangeChild(child: unknown): boolean {
   }
   const vnode = child as VNode;
   return (
-    vnode.type === Fragment &&
-    (getRenderableChildren(vnode)?.length ?? 0) !== 1
+    vnode.type === Fragment && (getRenderableChildren(vnode)?.length ?? 0) !== 1
   );
 }
 
@@ -223,8 +222,7 @@ function verifyExpectedNode(
           return true;
         }
 
-        const wrapped =
-          children.length !== 1 || isMultiRangeChild(children[0]);
+        const wrapped = children.length !== 1 || isMultiRangeChild(children[0]);
         if (wrapped) {
           if (
             !state.current ||

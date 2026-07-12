@@ -80,8 +80,7 @@ export function recordReadableRead(source: ReadableSource<unknown>): void {
       let sources =
         currentFineGrainedReadCollector._pendingFineGrainedReadSources;
       if (!sources) {
-        currentFineGrainedReadCollector._pendingFineGrainedReadSources =
-          source;
+        currentFineGrainedReadCollector._pendingFineGrainedReadSources = source;
       } else if (Array.isArray(sources)) {
         if (!sources.includes(source)) {
           sources.push(source);
@@ -146,9 +145,9 @@ export function withFineGrainedReadTracking<T>(
 /** @internal Whether the active grouped effect coalesces item-property reads. */
 export function shouldCoalesceFineGrainedItemReads(): boolean {
   const owner = (
-    currentFineGrainedReadCollector as
-      | { _owner?: { _coalesceForItemReads?: boolean } }
-      | null
+    currentFineGrainedReadCollector as {
+      _owner?: { _coalesceForItemReads?: boolean };
+    } | null
   )?._owner;
   return owner?._coalesceForItemReads === true;
 }

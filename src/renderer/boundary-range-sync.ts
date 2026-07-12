@@ -11,13 +11,7 @@ import {
   type ControlBoundaryState,
 } from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
-import {
-  findRangeEnd,
-  insertRangeBefore,
-  moveRange,
-  rangeContains,
-  removeRange,
-} from './dom-range';
+import { insertRangeBefore, removeRange } from './dom-range';
 import {
   adoptHydratedRange,
   assignScopeRange,
@@ -48,9 +42,10 @@ export function syncControlBoundaryScopeDom(
     const currentRange = getScopeRange(scope);
     const dom = currentRange?.single ? currentRange.start : null;
     const host = getBoundaryRangeHost();
-    const hydratedRange = currentRange || !allowHydrationAdoption
-      ? null
-      : adoptHydratedRange(parent, scope, before, vnode);
+    const hydratedRange =
+      currentRange || !allowHydrationAdoption
+        ? null
+        : adoptHydratedRange(parent, scope, before, vnode);
     if (hydratedRange) return hydratedRange;
     const resolvedRange = hydratedRange ?? currentRange;
     if (resolvedRange && scope.hydrationPending && !resolvedRange.single) {
@@ -67,7 +62,11 @@ export function syncControlBoundaryScopeDom(
         getBoundaryParentNamespace(parent)
       );
       if (synced) {
-        const nextRange: DOMRange = { start: synced, end: synced, single: true };
+        const nextRange: DOMRange = {
+          start: synced,
+          end: synced,
+          single: true,
+        };
         assignScopeRange(scope, nextRange);
         return nextRange;
       }
@@ -173,7 +172,14 @@ export function syncControlBoundaryScopeNode(
   scope: ChildScope,
   vnode: VNode
 ): Node | null {
-  const range = syncControlBoundaryScopeDom(parent, scope, vnode, null, true, false);
+  const range = syncControlBoundaryScopeDom(
+    parent,
+    scope,
+    vnode,
+    null,
+    true,
+    false
+  );
   return range?.single ? range.start : null;
 }
 
@@ -201,7 +207,9 @@ export function syncControlBoundaryInMixedParent(
   before: Node | null
 ): DOMRange[] {
   if (controlState.kind === 'for') {
-    throw new Error('[askr] For ranges require the keyed boundary commit path.');
+    throw new Error(
+      '[askr] For ranges require the keyed boundary commit path.'
+    );
   }
   const activeScope = controlState.activeScope;
   const activeVNode = childrenVNodes[0];

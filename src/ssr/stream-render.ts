@@ -156,7 +156,8 @@ function renderControlBoundaryChildren(
         children[0] !== null &&
         'type' in children[0] &&
         children[0].type === Fragment &&
-        ((children[0].props?.children as unknown[] | undefined)?.length ?? 0) !== 1);
+        ((children[0].props?.children as unknown[] | undefined)?.length ??
+          0) !== 1);
     if (shouldMark) sink.write(RANGE_START);
     renderChildrenDirect(children, sink, ctx);
     if (shouldMark) sink.write(RANGE_END);
@@ -170,7 +171,8 @@ function renderControlBoundaryChildren(
       children[0] !== null &&
       'type' in children[0] &&
       children[0].type === Fragment &&
-      ((children[0].props?.children as unknown[] | undefined)?.length ?? 0) !== 1);
+      ((children[0].props?.children as unknown[] | undefined)?.length ?? 0) !==
+        1);
   if (shouldMark) sink.write(RANGE_START);
   renderChildrenDirect(children, sink, ctx);
   if (shouldMark) sink.write(RANGE_END);
