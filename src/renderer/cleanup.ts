@@ -1,4 +1,5 @@
 import { cleanupComponent, type ComponentInstance } from '../runtime';
+import { registerLifecycleTransaction } from '../runtime';
 import { logger } from '../common/logger';
 import { incDevCounter } from '../runtime';
 import {
@@ -18,6 +19,7 @@ type Ref<T> =
   | undefined;
 
 export const elementRefs = new WeakMap<Element, unknown>();
+const refOwners = new Map<unknown, Element>();
 
 function applyRefValue<T>(ref: unknown, value: T | null): void {
   const resolvedRef = ref as Ref<T>;
@@ -40,6 +42,24 @@ export function updateElementRef<T extends Element>(
   element: T,
   ref: unknown
 ): void {
+  const transactionKey = {};
+  if (
+    registerLifecycleTransaction(
+      transactionKey,
+      () => updateElementRefImmediately(element, ref),
+      () => undefined
+    )
+  ) {
+    return;
+  }
+
+  updateElementRefImmediately(element, ref);
+}
+
+function updateElementRefImmediately<T extends Element>(
+  element: T,
+  ref: unknown
+): void {
   const previousRef = elementRefs.get(element);
 
   if (previousRef === ref) {
@@ -51,8 +71,23 @@ export function updateElementRef<T extends Element>(
   }
 
   if (ref) {
+    const previousOwner = refOwners.get(ref);
+    if (
+      typeof ref === 'function' &&
+      previousOwner &&
+      previousOwner !== element
+    ) {
+      // Keep callback-ref ordering deterministic when a replacement is
+      // staged in the same lifecycle batch: old owner gets null first, then
+      // the callback is reattached to the new owner by its teardown.
+      elementRefs.set(element, ref);
+      refOwners.set(ref, element);
+      return;
+    }
+
     applyRefValue(ref, element);
     elementRefs.set(element, ref);
+    refOwners.set(ref, element);
   } else {
     elementRefs.delete(element);
   }
@@ -65,8 +100,20 @@ export function removeElementRef(element: Element): void {
     return;
   }
 
+  if (typeof ref !== 'function' && refOwners.get(ref) !== element) {
+    elementRefs.delete(element);
+    return;
+  }
+
   applyRefValue(ref, null);
+  const nextOwner = refOwners.get(ref);
+  if (typeof ref === 'function' && nextOwner && nextOwner !== element) {
+    applyRefValue(ref, nextOwner);
+  }
   elementRefs.delete(element);
+  if (refOwners.get(ref) === element) {
+    refOwners.delete(ref);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,18 +125,24 @@ function cleanupSingleInstance(
   errors: unknown[] | null,
   strict: boolean
 ): void {
+  const instanceList = node.__ASKR_INSTANCES;
+  const primaryInstance = node.__ASKR_INSTANCE;
+  if (!instanceList && !primaryInstance) {
+    return;
+  }
+
   const instances = new Set<ComponentInstance>();
 
-  if (Array.isArray(node.__ASKR_INSTANCES)) {
-    for (const instance of node.__ASKR_INSTANCES) {
+  if (Array.isArray(instanceList)) {
+    for (const instance of instanceList) {
       if (instance) {
         instances.add(instance as ComponentInstance);
       }
     }
   }
 
-  if (node.__ASKR_INSTANCE) {
-    instances.add(node.__ASKR_INSTANCE as ComponentInstance);
+  if (primaryInstance) {
+    instances.add(primaryInstance as ComponentInstance);
   }
 
   for (const instance of instances) {
@@ -319,29 +372,103 @@ export function teardownNodeSubtree(
 
 // Track reactive props cleanup functions and their function references
 export interface ReactivePropCleanupEntry {
+  /** @internal Key used while this entry is the element's direct store. */
+  _bindingKey?: string;
   cleanup: () => void;
   fnRef: unknown;
+  /** @internal Blueprint scalar bindings store their compute directly. */
+  groupedScalar?: boolean;
   restoreFn?: (nextValue: unknown) => ReactivePropCleanupEntry;
   updateFn?: (nextValue: unknown) => void;
 }
 
 export const REACTIVE_CHILDREN_KEY = '__askr_reactive_children__';
 
+type ReactivePropCleanupStore =
+  | Map<string, ReactivePropCleanupEntry>
+  | ReactivePropCleanupEntry;
+
 export const elementReactivePropsCleanup = new WeakMap<
   Element,
-  Map<string, ReactivePropCleanupEntry>
+  ReactivePropCleanupStore
 >();
 
+export function getElementReactivePropsCleanupMap(
+  element: Element,
+  create = false
+): Map<string, ReactivePropCleanupEntry> | undefined {
+  const store = elementReactivePropsCleanup.get(element);
+  if (store instanceof Map) {
+    return store;
+  }
+  if (store) {
+    const map = new Map([[store._bindingKey!, store]]);
+    elementReactivePropsCleanup.set(element, map);
+    return map;
+  }
+  if (!create) {
+    return undefined;
+  }
+
+  const map = new Map<string, ReactivePropCleanupEntry>();
+  elementReactivePropsCleanup.set(element, map);
+  return map;
+}
+
+export function setDirectElementReactivePropCleanup(
+  element: Element,
+  bindingKey: string,
+  entry: ReactivePropCleanupEntry
+): void {
+  const store = elementReactivePropsCleanup.get(element);
+  if (!store) {
+    entry._bindingKey = bindingKey;
+    elementReactivePropsCleanup.set(element, entry);
+    return;
+  }
+
+  const map = getElementReactivePropsCleanupMap(element, true)!;
+  map.set(bindingKey, entry);
+}
+
+/** @internal Publish the first reactive binding on a newly created element. */
+export function setFreshElementReactivePropCleanup(
+  element: Element,
+  bindingKey: string,
+  entry: ReactivePropCleanupEntry
+): void {
+  entry._bindingKey = bindingKey;
+  elementReactivePropsCleanup.set(element, entry);
+}
+
+export function getElementReactivePropCleanupSize(element: Element): number {
+  const store = elementReactivePropsCleanup.get(element);
+  return store instanceof Map ? store.size : store ? 1 : 0;
+}
+
+export function forEachElementReactivePropCleanup(
+  element: Element,
+  visit: (entry: ReactivePropCleanupEntry) => void
+): void {
+  const store = elementReactivePropsCleanup.get(element);
+  if (store instanceof Map) {
+    for (const entry of store.values()) {
+      visit(entry);
+    }
+  } else if (store) {
+    visit(store);
+  }
+}
+
 export function removeElementReactiveProps(element: Element): void {
-  const cleanupMap = elementReactivePropsCleanup.get(element);
-  if (cleanupMap) {
-    for (const entry of cleanupMap.values()) {
+  if (elementReactivePropsCleanup.has(element)) {
+    forEachElementReactivePropCleanup(element, (entry) => {
       try {
         entry.cleanup();
       } catch (err) {
         logger.warn('[Askr] reactive prop cleanup failed:', err);
       }
-    }
+    });
     elementReactivePropsCleanup.delete(element);
   }
 }

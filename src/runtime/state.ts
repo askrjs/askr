@@ -93,7 +93,7 @@ export function state<T>(initialValue: T): StateTuple<T> {
   }
 
   const index = claimHookIndex(instance, 'state');
-  const stateValues = instance.stateValues;
+  const stateValues = (instance.stateValues ??= []);
 
   // INVARIANT: Reuse existing state if it exists (fast path on re-renders)
   // This ensures state identity and persistence and enforces ownership stability

@@ -12,6 +12,7 @@ import {
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
+const selectionBatchSize = 100;
 
 function dispatchPrimaryLink(
   query: ReturnType<typeof createCachedElementQuery<HTMLElement>>,
@@ -59,9 +60,11 @@ describe('tier3 system table production select', () => {
   let toggle: BenchToggle<number> | null = null;
 
   bench(
-    'select a row through the DOM click path',
+    'select 100 alternating rows through the DOM click path',
     () => {
-      dispatchPrimaryLink(links!, toggle!.next());
+      for (let index = 0; index < selectionBatchSize; index++) {
+        dispatchPrimaryLink(links!, toggle!.next());
+      }
     },
     {
       ...tier3BenchOptions,

@@ -1,4 +1,6 @@
 import { __FOR_BOUNDARY__ } from '../common/vnode';
+import type { DOMRange } from '../common/dom-range';
+import { Fragment } from '../jsx';
 import { logger } from '../common/logger';
 import { enqueueRuntimeTask } from '../runtime';
 import type { ChildScope } from '../runtime';
@@ -22,6 +24,44 @@ import { keyedElements } from './keyed';
 import { getParentNamespace } from './namespaces';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
+import {
+  configureBoundaryRangeHost,
+  materializeChildScopeRange,
+  assignScopeRange,
+  checkVNodeShapeChanged,
+} from './boundary-range-adoption';
+import {
+  syncControlBoundaryInMixedParent,
+  syncControlBoundaryScopeDom,
+  syncControlBoundaryScopeNode,
+} from './boundary-range-sync';
+export {
+  getControlBoundaryRanges,
+  syncControlBoundaryInMixedParent,
+  syncControlBoundaryScopeDom,
+  syncControlBoundaryScopeNode,
+} from './boundary-range-sync';
+import {
+  appendRange,
+  createDetachedRange,
+  createEmptyRange,
+  createSingleNodeRange,
+  getRangeNodes,
+  findRangeEnd,
+  insertRangeBefore,
+  isRangeStart,
+  rangeContains,
+  removeRange,
+  type DOMRange as RendererDOMRange,
+} from './dom-range';
+import {
+  beginLifecycleCommitBatch,
+  discardLifecycleCommitBatch,
+  enterDomCommitScope,
+  flushLifecycleCommitBatch,
+  registerLifecycleTransaction,
+  restoreDomCommitScope,
+} from '../runtime';
 
 type ElementWithContext = DOMElement & {
   __instance?: ComponentInstance;
@@ -33,6 +73,11 @@ type BoundaryCommitOwnerState = ControlBoundaryState & {
 
 export interface BoundaryDOMHost {
   createDOMNode(vnode: unknown, parentNamespace?: string): Node | null;
+  createResultNodeWithBlueprint(
+    owner: object,
+    vnode: unknown,
+    parentNamespace?: string
+  ): Node | null;
   syncComponentElement(
     currentDom: Node | null,
     node: ElementWithContext,
@@ -56,6 +101,7 @@ const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
 
 export function configureBoundaryDOMHost(host: BoundaryDOMHost): void {
   boundaryDOMHost = host;
+  configureBoundaryRangeHost(host);
 }
 
 function getBoundaryDOMHost(): BoundaryDOMHost {
@@ -65,37 +111,6 @@ function getBoundaryDOMHost(): BoundaryDOMHost {
   return boundaryDOMHost;
 }
 
-function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
-  if (!_isDOMElement(vnode)) return true;
-  if (!(dom instanceof Element)) return true;
-  const vnodeType = (vnode as DOMElement).type;
-  if (typeof vnodeType !== 'string') return true;
-  return dom.tagName.toLowerCase() !== vnodeType.toLowerCase();
-}
-
-function materializeChildScopeDom(
-  vnode: VNode,
-  parentNamespace?: string
-): Node | null {
-  if (vnode === null || vnode === undefined || vnode === false) {
-    return document.createComment('');
-  }
-
-  const dom = getBoundaryDOMHost().createDOMNode(vnode, parentNamespace);
-  if (!(dom instanceof DocumentFragment)) {
-    return dom;
-  }
-
-  const firstChild = dom.firstChild;
-  const secondChild = firstChild?.nextSibling ?? null;
-  if (!firstChild) {
-    return document.createComment('');
-  }
-  if (secondChild) {
-    throw new Error('[askr] Child scopes must render a single DOM root node.');
-  }
-  return firstChild;
-}
 
 export function evaluateControlBoundaryState(
   controlState: ControlBoundaryState
@@ -240,8 +255,15 @@ export function registerControlBoundaryCommitOwner(
         return;
       }
 
-      const childrenVNodes = getControlBoundaryCommitChildren(controlState);
-      commitForBoundaryChildren(parent, controlState, childrenVNodes);
+      const lifecycleBatch = beginLifecycleCommitBatch();
+      try {
+        const childrenVNodes = getControlBoundaryCommitChildren(controlState);
+        commitForBoundaryChildren(parent, controlState, childrenVNodes);
+        flushLifecycleCommitBatch(lifecycleBatch);
+      } catch (error) {
+        discardLifecycleCommitBatch(lifecycleBatch);
+        throw error;
+      }
     });
   };
 }
@@ -275,11 +297,14 @@ export function createForBoundary(
     const activeScope = controlState.activeScope;
     const vnode = childrenVNodes[0];
     if (activeScope && vnode !== undefined) {
-      const dom = materializeChildScopeDom(vnode, parentNamespace);
-      activeScope.dom = dom ?? undefined;
-      if (dom) {
-        fragment.appendChild(dom);
-      }
+      const range = materializeChildScopeRange(
+        vnode,
+        parentNamespace,
+        activeScope
+      );
+      assignScopeRange(activeScope, range);
+      activeScope.hydrationPending = false;
+      appendRange(fragment, range);
     }
     clearControlBoundaryDomUpdateState(controlState);
     return fragment;
@@ -290,11 +315,14 @@ export function createForBoundary(
     const fallbackScope = forState.fallbackScope;
     const fallbackVNode = childrenVNodes[0];
     if (fallbackScope && fallbackVNode !== undefined) {
-      const dom = materializeChildScopeDom(fallbackVNode, parentNamespace);
-      fallbackScope.dom = dom ?? undefined;
-      if (dom) {
-        fragment.appendChild(dom);
-      }
+      const range = materializeChildScopeRange(
+        fallbackVNode,
+        parentNamespace,
+        fallbackScope
+      );
+      assignScopeRange(fallbackScope, range);
+      fallbackScope.hydrationPending = false;
+      appendRange(fragment, range);
     }
     clearControlBoundaryDomUpdateState(controlState);
     return fragment;
@@ -305,104 +333,37 @@ export function createForBoundary(
     const itemKey = forState.orderedKeys[i];
     const itemInstance = itemKey != null ? forState.items.get(itemKey) : null;
 
-    let dom: Node | null = null;
+    let range: DOMRange | null = null;
 
-    if (itemInstance && itemInstance.scope.dom) {
-      const cachedDom = itemInstance.scope.dom;
-      if (!checkVNodeShapeChanged(cachedDom, childVNode)) {
-        dom = cachedDom;
+    if (itemInstance && itemInstance.scope.range) {
+      const cachedRange = itemInstance.scope.range;
+      const cachedDom = cachedRange.single ? cachedRange.start : null;
+      if (!cachedDom || !checkVNodeShapeChanged(cachedDom, childVNode)) {
+        range = cachedRange;
       }
     }
 
-    if (!dom) {
-      dom = materializeChildScopeDom(childVNode, parentNamespace);
+    if (!range) {
+      const materializedRange = materializeChildScopeRange(
+        childVNode,
+        parentNamespace,
+        itemInstance?.scope
+      );
       if (itemInstance) {
-        itemInstance.scope.dom = dom ?? undefined;
+        assignScopeRange(itemInstance.scope, materializedRange);
+        itemInstance.scope.hydrationPending = false;
       }
+      range = materializedRange;
     }
 
-    if (dom) {
-      fragment.appendChild(dom);
-    }
+    appendRange(fragment, range);
   }
 
   clearControlBoundaryDomUpdateState(controlState);
   return fragment;
 }
 
-export function syncControlBoundaryScopeDom(
-  parent: Element,
-  scope: ChildScope,
-  vnode: VNode
-): Node | null {
-  let dom = scope.dom ?? null;
-  const parentNamespace = getParentNamespace(parent);
-  const host = getBoundaryDOMHost();
 
-  if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
-    const syncedComponentDom = host.syncComponentElement(
-      dom,
-      vnode as ElementWithContext,
-      vnode.type as ComponentFunction,
-      ((vnode as DOMElement).props ?? {}) as Record<string, unknown>,
-      parentNamespace
-    );
-    if (syncedComponentDom) {
-      scope.dom = syncedComponentDom ?? undefined;
-      return syncedComponentDom;
-    }
-  }
-
-  if (!dom) {
-    dom = materializeChildScopeDom(vnode, parentNamespace);
-    scope.dom = dom ?? undefined;
-    return dom;
-  }
-
-  if (
-    dom.nodeType === 3 &&
-    (typeof vnode === 'string' || typeof vnode === 'number')
-  ) {
-    (dom as Text).data = String(vnode);
-    return dom;
-  }
-
-  if (
-    dom.nodeType === 8 &&
-    (vnode === null || vnode === undefined || vnode === false)
-  ) {
-    return dom;
-  }
-
-  if (
-    dom instanceof Element &&
-    _isDOMElement(vnode) &&
-    typeof vnode.type === 'string' &&
-    tagNamesEqualIgnoreCase(dom.tagName, vnode.type)
-  ) {
-    host.updateElementFromVnode(dom, vnode, true);
-    return dom;
-  }
-
-  const nextDom = materializeChildScopeDom(vnode, parentNamespace);
-  if (!nextDom) {
-    if (dom.parentNode === parent) {
-      teardownNodeSubtree(dom);
-      dom.parentNode.removeChild(dom);
-    }
-    scope.dom = undefined;
-    return null;
-  }
-
-  if (dom.parentNode === parent) {
-    parent.replaceChild(nextDom, dom);
-  }
-
-  teardownNodeSubtree(dom);
-
-  scope.dom = nextDom;
-  return nextDom;
-}
 
 export function commitForBoundaryChildren(
   parent: Element,
@@ -414,8 +375,28 @@ export function commitForBoundaryChildren(
     const activeVNode = childrenVNodes[0];
     const nextDom =
       activeScope && activeVNode !== undefined
-        ? syncControlBoundaryScopeDom(parent, activeScope, activeVNode)
+        ? syncControlBoundaryScopeDom(
+            parent,
+            activeScope,
+            activeVNode,
+            parent.firstChild,
+            controlState.lastRemovedRanges.length === 0
+          )
         : null;
+
+    for (const removedRange of controlState.lastRemovedRanges) {
+      removeRange(removedRange, (node) => {
+        if (
+          !removedRange.single &&
+          (node === removedRange.start || node === removedRange.end)
+        ) {
+          node.parentNode?.removeChild(node);
+          return;
+        }
+        teardownNodeSubtree(node);
+        node.parentNode?.removeChild(node);
+      });
+    }
 
     for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
       const removedNode = controlState.lastRemovedNodes[i];
@@ -430,11 +411,15 @@ export function commitForBoundaryChildren(
 
     if (nextDom) {
       if (
-        parent.childNodes.length !== 1 ||
-        parent.firstChild !== nextDom ||
-        controlState.lastRemovedNodes.length > 0
+        parent.childNodes.length !== (nextDom.single ? 1 : getRangeNodes(nextDom).length + 2) ||
+        parent.firstChild !== nextDom.start ||
+        controlState.lastRemovedNodes.length > 0 ||
+        controlState.lastRemovedRanges.length > 0
       ) {
-        parent.replaceChildren(nextDom);
+        const nodes = nextDom.single
+          ? [nextDom.start]
+          : [nextDom.start, ...getRangeNodes(nextDom), nextDom.end];
+        parent.replaceChildren(...nodes);
       }
     } else if (parent.firstChild) {
       parent.textContent = '';
@@ -447,7 +432,7 @@ export function commitForBoundaryChildren(
 
   commitForStateBoundaryChildren(parent, controlState, childrenVNodes, {
     isProduction: () => getRuntimeEnv().NODE_ENV === 'production',
-    syncForItemDom: syncControlBoundaryScopeDom,
+    syncForItemDom: syncControlBoundaryScopeNode,
     tryPatchStableForDirtyItem: (scope) =>
       getBoundaryDOMHost().tryPatchStableForDirtyItem(scope),
   });
@@ -475,6 +460,20 @@ export function trySyncControlBoundaryChild(
       ? syncControlBoundaryScopeDom(parent, activeScope, activeVNode)
       : null;
 
+  for (const removedRange of controlState.lastRemovedRanges) {
+    removeRange(removedRange, (node) => {
+      if (
+        !removedRange.single &&
+        (node === removedRange.start || node === removedRange.end)
+      ) {
+        node.parentNode?.removeChild(node);
+        return;
+      }
+      teardownNodeSubtree(node);
+      node.parentNode?.removeChild(node);
+    });
+  }
+
   for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
     const removedNode = controlState.lastRemovedNodes[i];
     if (removedNode.parentNode !== parent) {
@@ -482,19 +481,24 @@ export function trySyncControlBoundaryChild(
     }
 
     teardownNodeSubtree(removedNode);
-    if (nextDom && nextDom !== removedNode && !nextDom.parentNode) {
-      parent.replaceChild(nextDom, removedNode);
+    if (
+      nextDom &&
+      !rangeContains(nextDom, removedNode) &&
+      !nextDom.start.parentNode
+    ) {
+      insertRangeBefore(parent, nextDom, removedNode);
     } else {
       parent.removeChild(removedNode);
     }
   }
 
-  if (nextDom && !nextDom.parentNode) {
-    if (currentNode?.parentNode === parent) {
+  if (nextDom && nextDom.start.parentNode !== parent) {
+    if (currentNode?.parentNode === parent && !rangeContains(nextDom, currentNode)) {
       teardownNodeSubtree(currentNode);
-      parent.replaceChild(nextDom, currentNode);
+      insertRangeBefore(parent, nextDom, currentNode);
+      currentNode.parentNode?.removeChild(currentNode);
     } else {
-      parent.appendChild(nextDom);
+      insertRangeBefore(parent, nextDom);
     }
   } else if (!nextDom && currentNode?.parentNode === parent) {
     teardownNodeSubtree(currentNode);

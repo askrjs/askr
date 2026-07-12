@@ -65,21 +65,24 @@ describe('dev warnings (DEV_ERRORS)', () => {
 
   it('should warn given slow render when in dev mode', async () => {
     allowFrameworkWarnings(/\[askr\] Slow render detected/);
-    const Component = () => {
-      const start = Date.now();
-      while (Date.now() - start < 10) {
-        // busy loop
-      }
-      return <div>{'slow'}</div>;
-    };
+    const now = vi
+      .spyOn(Date, 'now')
+      .mockReturnValueOnce(100)
+      .mockReturnValue(110);
+    const Component = () => <div>{'slow'}</div>;
 
-    createIsland({ root: container, component: Component });
-    flushScheduler();
+    try {
+      createIsland({ root: container, component: Component });
+      flushScheduler();
 
-    // Spec: slow render should warn in dev.
-    expect(getCapturedFrameworkWarnings().join('\n')).toContain(
-      '[askr] Slow render detected'
-    );
+      // Spec: slow render diagnostics sample the clock and warn in dev.
+      expect(now).toHaveBeenCalled();
+      expect(getCapturedFrameworkWarnings().join('\n')).toContain(
+        '[askr] Slow render detected'
+      );
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it('should not warn when children are keyed', async () => {

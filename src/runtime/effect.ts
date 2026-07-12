@@ -1,12 +1,26 @@
 import { incDevCounter } from './dev-namespace';
-import { type ReadableSource, withFineGrainedReadTracking } from './readable';
+import {
+  type FineGrainedReadCollector,
+  type ReadableSource,
+  withFineGrainedReadTracking,
+} from './readable';
 import { enqueueRuntimeLane } from './access';
 import type { SchedulerLane } from './scheduler';
 
-type EffectRegistry = WeakMap<
-  ReadableSource<unknown>,
-  Set<FineGrainedEffect<unknown>>
->;
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
+type RegisteredEffects =
+  | FineGrainedEffect<unknown>
+  | Set<FineGrainedEffect<unknown>>;
+
+type EffectRegistry = WeakMap<ReadableSource<unknown>, RegisteredEffects>;
+
+const SOURCE_EFFECTS = Symbol('askr.source-effects');
+type EffectSource = ReadableSource<unknown> & {
+  [SOURCE_EFFECTS]?: RegisteredEffects;
+};
 
 type EffectFlushSets = Record<SchedulerLane, Set<FineGrainedEffect<unknown>>>;
 
@@ -42,12 +56,73 @@ const LANE_FLUSH_TASKS: Record<SchedulerLane, () => void> = {
   post: () => flushLaneEffects('post'),
 };
 
-export interface FineGrainedEffect<T> {
+type EffectReadSources =
+  | ReadableSource<unknown>
+  | ReadableSource<unknown>[]
+  | Set<ReadableSource<unknown>>
+  | null;
+
+type EffectReadSourceCollection =
+  | ReadableSource<unknown>[]
+  | Set<ReadableSource<unknown>>;
+
+function isEffectReadSourceCollection(
+  sources: EffectReadSources
+): sources is EffectReadSourceCollection {
+  return Array.isArray(sources) || sources instanceof Set;
+}
+
+function effectReadSourceCollectionHas(
+  sources: EffectReadSourceCollection,
+  source: ReadableSource<unknown>
+): boolean {
+  return Array.isArray(sources)
+    ? sources.includes(source)
+    : sources.has(source);
+}
+
+function getRegisteredEffects(
+  source: ReadableSource<unknown>
+): RegisteredEffects | undefined {
+  return (source as EffectSource)[SOURCE_EFFECTS] ?? effectSources.get(source);
+}
+
+function setRegisteredEffects(
+  source: ReadableSource<unknown>,
+  registered: RegisteredEffects
+): void {
+  const effectSource = source as EffectSource;
+  try {
+    effectSource[SOURCE_EFFECTS] = registered;
+    if (effectSource[SOURCE_EFFECTS] === registered) {
+      return;
+    }
+  } catch {
+    // Frozen external readables retain the WeakMap fallback.
+  }
+  effectSources.set(source, registered);
+}
+
+function deleteRegisteredEffects(source: ReadableSource<unknown>): void {
+  const effectSource = source as EffectSource;
+  if (effectSource[SOURCE_EFFECTS] !== undefined) {
+    try {
+      delete effectSource[SOURCE_EFFECTS];
+      return;
+    } catch {
+      // Frozen external readables never receive the symbol fast path.
+    }
+  }
+  effectSources.delete(source);
+}
+
+export interface FineGrainedEffect<T> extends FineGrainedReadCollector {
   lane: SchedulerLane;
   compute(): T;
   commit(value: T, previousValue: T | undefined): void;
   equals(previousValue: T, nextValue: T): boolean;
-  readSources: Set<ReadableSource<unknown>>;
+  readSources: EffectReadSources;
+  readSource2: ReadableSource<unknown> | null;
   isActive: boolean;
   hasValue: boolean;
   lastValue: T | undefined;
@@ -72,92 +147,234 @@ function registerEffectSource(
   source: ReadableSource<unknown>,
   effect: FineGrainedEffect<unknown>
 ): void {
-  let effects = effectSources.get(source);
-  if (!effects) {
-    effects = new Set();
-    effectSources.set(source, effects);
+  const registered = getRegisteredEffects(source);
+  if (!registered) {
+    setRegisteredEffects(source, effect);
+    return;
   }
-  effects.add(effect);
+  if (registered instanceof Set) {
+    registered.add(effect);
+    return;
+  }
+  if (registered === effect) {
+    return;
+  }
+  setRegisteredEffects(source, new Set([registered, effect]));
 }
 
 function unregisterEffectSource(
   source: ReadableSource<unknown>,
   effect: FineGrainedEffect<unknown>
 ): void {
-  effectSources.get(source)?.delete(effect);
+  const registered = getRegisteredEffects(source);
+  if (!registered) {
+    return;
+  }
+  if (!(registered instanceof Set)) {
+    if (registered === effect) {
+      deleteRegisteredEffects(source);
+    }
+    return;
+  }
+
+  registered.delete(effect);
+  if (registered.size === 0) {
+    deleteRegisteredEffects(source);
+  } else if (registered.size === 1) {
+    setRegisteredEffects(source, registered.values().next().value!);
+  }
 }
 
 function clearEffectSubscriptions(effect: FineGrainedEffect<unknown>): void {
-  for (const source of effect.readSources) {
-    unregisterEffectSource(source, effect);
+  const sources = effect.readSources;
+  if (isEffectReadSourceCollection(sources)) {
+    for (const source of sources) {
+      unregisterEffectSource(source, effect);
+    }
+    if (sources instanceof Set) {
+      sources.clear();
+    } else {
+      sources.length = 0;
+    }
+  } else if (sources) {
+    unregisterEffectSource(sources, effect);
   }
-  effect.readSources.clear();
+  if (effect.readSource2) {
+    unregisterEffectSource(effect.readSource2, effect);
+  }
+  effect.readSources = null;
+  effect.readSource2 = null;
 }
 
-function normalizeNextSources(
-  previousSources: Set<ReadableSource<unknown>>,
-  pendingSources: Set<ReadableSource<unknown>>
-): Set<ReadableSource<unknown>> {
-  if (previousSources.size === pendingSources.size) {
-    let same = true;
-    for (const source of previousSources) {
-      if (!pendingSources.has(source)) {
-        same = false;
-        break;
-      }
-    }
+function evaluateAndCommitEffect<T>(effect: FineGrainedEffect<T>): void {
+  effect._pendingFineGrainedReadSource = null;
+  effect._pendingFineGrainedReadSources = null;
 
-    if (same) {
-      return previousSources;
-    }
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    incDevCounter('effectRuns');
   }
-
-  return new Set(pendingSources);
-}
-
-function evaluateEffect<T>(effect: FineGrainedEffect<T>): {
-  value: T;
-  nextSources: Set<ReadableSource<unknown>>;
-} {
-  const pendingSources = new Set<ReadableSource<unknown>>();
-
-  incDevCounter('effectRuns');
-  const value = withFineGrainedReadTracking(pendingSources, () =>
-    effect.compute()
-  );
-  const nextSources = normalizeNextSources(effect.readSources, pendingSources);
-  return { value, nextSources };
+  try {
+    const value = withFineGrainedReadTracking(effect, effect.compute);
+    const pendingAdditionalSources = effect._pendingFineGrainedReadSources;
+    const hasPendingCollection = isEffectReadSourceCollection(
+      pendingAdditionalSources
+    );
+    const nextSources = hasPendingCollection
+      ? pendingAdditionalSources
+      : effect._pendingFineGrainedReadSource;
+    const nextSource2 =
+      pendingAdditionalSources && !hasPendingCollection
+        ? pendingAdditionalSources
+        : null;
+    commitEffectResult(effect, value, nextSources, nextSource2);
+  } finally {
+    effect._pendingFineGrainedReadSource = null;
+    effect._pendingFineGrainedReadSources = null;
+  }
 }
 
 function commitEffectSubscriptions(
   effect: FineGrainedEffect<unknown>,
-  nextSources: Set<ReadableSource<unknown>>
+  nextSources: EffectReadSources,
+  nextSource2: ReadableSource<unknown> | null
 ): void {
   const previousSources = effect.readSources;
+  const previousSource2 = effect.readSource2;
 
-  if (previousSources === nextSources) {
+  if (
+    previousSources === nextSources &&
+    previousSource2 === nextSource2
+  ) {
     return;
   }
 
-  for (const source of previousSources) {
-    if (!nextSources.has(source)) {
-      unregisterEffectSource(source, effect);
+  const previousCollection = isEffectReadSourceCollection(previousSources);
+  const nextCollection = isEffectReadSourceCollection(nextSources);
+  if (!previousCollection && !nextCollection) {
+    if (
+      previousSources &&
+      previousSources !== nextSources &&
+      previousSources !== nextSource2
+    ) {
+      unregisterEffectSource(previousSources, effect);
+    }
+    if (
+      previousSource2 &&
+      previousSource2 !== nextSources &&
+      previousSource2 !== nextSource2
+    ) {
+      unregisterEffectSource(previousSource2, effect);
+    }
+    if (
+      nextSources &&
+      nextSources !== previousSources &&
+      nextSources !== previousSource2
+    ) {
+      registerEffectSource(nextSources, effect);
+    }
+    if (
+      nextSource2 &&
+      nextSource2 !== previousSources &&
+      nextSource2 !== previousSource2
+    ) {
+      registerEffectSource(nextSource2, effect);
+    }
+    effect.readSources = nextSources;
+    effect.readSource2 = nextSource2;
+    return;
+  }
+
+  const stateHas = (
+    sources: EffectReadSources,
+    source2: ReadableSource<unknown> | null,
+    source: ReadableSource<unknown>
+  ): boolean =>
+    isEffectReadSourceCollection(sources)
+      ? effectReadSourceCollectionHas(sources, source)
+      : sources === source || source2 === source;
+
+  const previousSize = previousCollection
+    ? Array.isArray(previousSources)
+      ? previousSources.length
+      : previousSources.size
+    : (previousSources ? 1 : 0) + (previousSource2 ? 1 : 0);
+  const nextSize = nextCollection
+    ? Array.isArray(nextSources)
+      ? nextSources.length
+      : nextSources.size
+    : (nextSources ? 1 : 0) + (nextSource2 ? 1 : 0);
+  if (previousSize === nextSize) {
+    let same = true;
+    if (previousCollection) {
+      for (const source of previousSources) {
+        if (!stateHas(nextSources, nextSource2, source)) {
+          same = false;
+          break;
+        }
+      }
+    } else {
+      same =
+        (!previousSources ||
+          stateHas(nextSources, nextSource2, previousSources)) &&
+        (!previousSource2 ||
+          stateHas(nextSources, nextSource2, previousSource2));
+    }
+    if (same) {
+      return;
     }
   }
 
-  for (const source of nextSources) {
-    if (!previousSources.has(source)) {
-      registerEffectSource(source, effect);
+  if (previousCollection) {
+    for (const source of previousSources) {
+      if (!stateHas(nextSources, nextSource2, source)) {
+        unregisterEffectSource(source, effect);
+      }
+    }
+  } else {
+    if (
+      previousSources &&
+      !stateHas(nextSources, nextSource2, previousSources)
+    ) {
+      unregisterEffectSource(previousSources, effect);
+    }
+    if (
+      previousSource2 &&
+      !stateHas(nextSources, nextSource2, previousSource2)
+    ) {
+      unregisterEffectSource(previousSource2, effect);
+    }
+  }
+
+  if (nextCollection) {
+    for (const source of nextSources) {
+      if (!stateHas(previousSources, previousSource2, source)) {
+        registerEffectSource(source, effect);
+      }
+    }
+  } else {
+    if (
+      nextSources &&
+      !stateHas(previousSources, previousSource2, nextSources)
+    ) {
+      registerEffectSource(nextSources, effect);
+    }
+    if (
+      nextSource2 &&
+      !stateHas(previousSources, previousSource2, nextSource2)
+    ) {
+      registerEffectSource(nextSource2, effect);
     }
   }
 
   effect.readSources = nextSources;
+  effect.readSource2 = nextSource2;
 }
 
 function commitEffectResult<T>(
   effect: FineGrainedEffect<T>,
   value: T,
-  nextSources: Set<ReadableSource<unknown>>
+  nextSources: EffectReadSources,
+  nextSource2: ReadableSource<unknown> | null
 ): void {
   const previousValue = effect.lastValue;
   const shouldCommit =
@@ -167,7 +384,7 @@ function commitEffectResult<T>(
     effect.commit(value, effect.hasValue ? previousValue : undefined);
   }
 
-  commitEffectSubscriptions(effect, nextSources);
+  commitEffectSubscriptions(effect, nextSources, nextSource2);
   effect.lastValue = value;
   effect.hasValue = true;
 }
@@ -208,8 +425,7 @@ function flushLaneEffects(lane: SchedulerLane): void {
     }
 
     try {
-      const { value, nextSources } = evaluateEffect(effect);
-      commitEffectResult(effect, value, nextSources);
+      evaluateAndCommitEffect(effect);
     } catch (error) {
       effect.onError?.(error);
     }
@@ -232,15 +448,14 @@ function unscheduleEffect(effect: FineGrainedEffect<unknown>): void {
 }
 
 function recomputeEffectNow<T>(effect: FineGrainedEffect<T>): void {
-  const { value, nextSources } = evaluateEffect(effect);
-  commitEffectResult(effect, value, nextSources);
+  evaluateAndCommitEffect(effect);
 }
 
 export function markFineGrainedEffectsDirtySource(
   source: ReadableSource<unknown>
 ): void {
-  const effects = effectSources.get(source);
-  if (!effects || effects.size === 0) {
+  const registered = getRegisteredEffects(source);
+  if (!registered) {
     return;
   }
 
@@ -249,13 +464,21 @@ export function markFineGrainedEffectsDirtySource(
   dirtyLaneState.reactive = false;
   dirtyLaneState.post = false;
 
-  for (const effect of effects) {
+  const markDirty = (effect: FineGrainedEffect<unknown>): void => {
     if (!effect.isActive) {
-      continue;
+      return;
     }
     const lane = effect.lane;
     dirtyEffectsByLane[lane].add(effect);
     dirtyLaneState[lane] = true;
+  };
+
+  if (registered instanceof Set) {
+    for (const effect of registered) {
+      markDirty(effect);
+    }
+  } else {
+    markDirty(registered);
   }
 
   if (dirtyLaneState.derived) {
@@ -272,51 +495,114 @@ export function markFineGrainedEffectsDirtySource(
   }
 }
 
+class FineGrainedEffectImpl<T>
+  implements FineGrainedEffect<T>, FineGrainedEffectHandle<T>
+{
+  lane: SchedulerLane;
+  compute: () => T;
+  commit: (value: T, previousValue: T | undefined) => void;
+  equals: (previousValue: T, nextValue: T) => boolean;
+  readSources: EffectReadSources = null;
+  readSource2: ReadableSource<unknown> | null = null;
+  _pendingFineGrainedReadSource: ReadableSource<unknown> | null = null;
+  _pendingFineGrainedReadSources:
+    | ReadableSource<unknown>
+    | ReadableSource<unknown>[]
+    | Set<ReadableSource<unknown>>
+    | null = null;
+  isActive = true;
+  hasValue = false;
+  lastValue: T | undefined = undefined;
+  onError?: (error: unknown) => void;
+  /** @internal Receiver state for allocation-sensitive shared callbacks. */
+  _owner: unknown;
+
+  constructor(
+    lane: SchedulerLane,
+    compute: () => T,
+    commit: (value: T, previousValue: T | undefined) => void,
+    equals: (previousValue: T, nextValue: T) => boolean,
+    onError: ((error: unknown) => void) | undefined,
+    owner: unknown
+  ) {
+    this._owner = owner;
+    this.lane = lane;
+    this.compute = compute;
+    this.commit = commit;
+    this.equals = equals;
+    this.onError = onError;
+  }
+
+  cleanup(): void {
+    if (!this.isActive) {
+      return;
+    }
+
+    this.isActive = false;
+    unscheduleEffect(this);
+    clearEffectSubscriptions(this);
+  }
+
+  updateCompute(nextCompute: () => T): void {
+    if (!this.isActive) {
+      return;
+    }
+
+    this.compute = nextCompute;
+    unscheduleEffect(this);
+    recomputeEffectNow(this);
+  }
+
+  flush(): void {
+    if (!this.isActive) {
+      return;
+    }
+
+    unscheduleEffect(this);
+    recomputeEffectNow(this);
+  }
+}
+
 export function createFineGrainedEffect<T>(
   options: CreateFineGrainedEffectOptions<T>
 ): FineGrainedEffectHandle<T> {
-  const effect: FineGrainedEffect<T> = {
-    lane: options.lane,
-    compute: options.compute,
-    commit: options.commit,
-    equals: options.equals ?? Object.is,
-    readSources: new Set(),
-    isActive: true,
-    hasValue: false,
-    lastValue: undefined,
-    onError: options.onError,
-  };
+  const effect = new FineGrainedEffectImpl(
+    options.lane,
+    options.compute,
+    options.commit,
+    options.equals ?? Object.is,
+    options.onError,
+    (
+      options as CreateFineGrainedEffectOptions<T> & {
+        _owner?: unknown;
+      }
+    )._owner
+  );
 
   recomputeEffectNow(effect);
 
-  return {
-    cleanup(): void {
-      if (!effect.isActive) {
-        return;
-      }
+  return effect;
+}
 
-      effect.isActive = false;
-      unscheduleEffect(effect);
-      clearEffectSubscriptions(effect);
-    },
+/** @internal Allocation-sensitive variant for shared renderer callbacks. */
+export function createOwnedFineGrainedEffect<T>(
+  lane: SchedulerLane,
+  compute: () => T,
+  commit: (value: T, previousValue: T | undefined) => void,
+  equals: (previousValue: T, nextValue: T) => boolean,
+  onError: ((error: unknown) => void) | undefined,
+  owner: unknown
+): FineGrainedEffectHandle<T> {
+  const effect = new FineGrainedEffectImpl(
+    lane,
+    compute,
+    commit,
+    equals,
+    onError,
+    owner
+  );
 
-    updateCompute(nextCompute: () => T): void {
-      if (!effect.isActive) {
-        return;
-      }
+  recomputeEffectNow(effect);
 
-      effect.compute = nextCompute;
-      unscheduleEffect(effect);
-      recomputeEffectNow(effect);
-    },
-
-    flush(): void {
-      if (!effect.isActive) {
-        return;
-      }
-
-      unscheduleEffect(effect);
-      recomputeEffectNow(effect);
-    },
-  };
+  return effect;
 }

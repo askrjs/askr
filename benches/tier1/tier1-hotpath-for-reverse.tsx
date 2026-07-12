@@ -6,6 +6,7 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  extendBenchOptions,
   mountTableBenchmark,
   reverseRows,
   tier1BenchOptions,
@@ -15,6 +16,10 @@ import {
 
 const initialRows = buildRows(1000);
 const reversedRows = reverseRows(initialRows);
+const reverseBenchOptions = extendBenchOptions(tier1BenchOptions, {
+  time: 12_000,
+  iterations: 20,
+});
 
 verifyTier1Invariant('tier1 hotpath for reverse', () => {
   const mounted = mountTableBenchmark(initialRows);
@@ -79,7 +84,7 @@ describe('tier1 hotpath for reverse', () => {
       mounted!.benchmark.setRows(toggle!.next() as RowData[]);
     },
     {
-      ...tier1BenchOptions,
+      ...reverseBenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
         toggle = createRowToggle(initialRows, reversedRows, 'initial');

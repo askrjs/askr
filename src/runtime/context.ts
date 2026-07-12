@@ -48,6 +48,28 @@ export interface ContextFrame {
   values: Map<ContextKey, unknown> | null;
 }
 
+const ROOT_EXECUTION_FRAME: ContextFrame = {
+  parent: null,
+  values: null,
+};
+const executionFramesByParent = new WeakMap<ContextFrame, ContextFrame>();
+
+/** @internal Reuse immutable empty wrappers for the same provider snapshot. */
+export function getExecutionContextFrame(
+  parent: ContextFrame | null
+): ContextFrame {
+  if (!parent) {
+    return ROOT_EXECUTION_FRAME;
+  }
+
+  let frame = executionFramesByParent.get(parent);
+  if (!frame) {
+    frame = { parent, values: null };
+    executionFramesByParent.set(parent, frame);
+  }
+  return frame;
+}
+
 // Symbol to mark vnodes that need frame restoration
 export const CONTEXT_FRAME_SYMBOL = Symbol('__tempoContextFrame__');
 
@@ -210,6 +232,22 @@ export function withContext<T>(frame: ContextFrame | null, fn: () => T): T {
   currentContextFrame = frame;
   try {
     return fn();
+  } finally {
+    currentContextFrame = oldFrame;
+  }
+}
+
+/** @internal Invoke a two-argument function without allocating a wrapper. */
+export function callWithContext<TArgs, TContext, TResult>(
+  frame: ContextFrame | null,
+  fn: (args: TArgs, context: TContext) => TResult,
+  args: TArgs,
+  context: TContext
+): TResult {
+  const oldFrame = currentContextFrame;
+  currentContextFrame = frame;
+  try {
+    return fn(args, context);
   } finally {
     currentContextFrame = oldFrame;
   }

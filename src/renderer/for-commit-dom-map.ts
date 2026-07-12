@@ -56,13 +56,6 @@ export function syncKeyedMapFromForState(
   removedNodes: Node[]
 ): void {
   const existing = keyedElements.get(parent);
-  const ensureMapEntry = (
-    map: Map<string | number, Element>,
-    key: string | number,
-    element: Element
-  ): void => {
-    map.set(key, element);
-  };
 
   if (strategy === 'SWAP') {
     if (existing) {
@@ -109,7 +102,7 @@ export function syncKeyedMapFromForState(
       if (key === null || existing.has(key)) continue;
       const itemInstance = forState.items.get(key);
       if (itemInstance?.scope.dom instanceof Element) {
-        ensureMapEntry(existing, key, itemInstance.scope.dom);
+        existing.set(key, itemInstance.scope.dom);
       }
     }
 
@@ -129,7 +122,7 @@ export function syncKeyedMapFromForState(
     if (key === null) continue;
     const itemInstance = forState.items.get(key);
     if (itemInstance?.scope.dom instanceof Element) {
-      ensureMapEntry(nextMap, key, itemInstance.scope.dom);
+      nextMap.set(key, itemInstance.scope.dom);
     }
   }
 

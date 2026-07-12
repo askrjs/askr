@@ -36,6 +36,15 @@ export interface ParsedEventProp {
   capture: boolean;
 }
 
+const CLICK_EVENT_PROP: ParsedEventProp = {
+  eventName: 'click',
+  capture: false,
+};
+const CLICK_CAPTURE_EVENT_PROP: ParsedEventProp = {
+  eventName: 'click',
+  capture: true,
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Event Handler Utilities
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,6 +63,8 @@ export function parseEventName(propName: string): string | null {
 }
 
 export function parseEventProp(propName: string): ParsedEventProp | null {
+  if (propName === 'onClick') return CLICK_EVENT_PROP;
+  if (propName === 'onClickCapture') return CLICK_CAPTURE_EVENT_PROP;
   if (!propName.startsWith('on') || propName.length <= 2) return null;
   const capture =
     propName.endsWith('Capture') && propName.length > 'onCapture'.length;

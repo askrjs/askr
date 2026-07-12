@@ -260,3 +260,4 @@ describe('cancellation (SPEC 2.6)', () => {
     expect(aborted).toBe(true);
   });
 });
+// @askr-allow-real-timers -- cancellation integration uses real abort timing.

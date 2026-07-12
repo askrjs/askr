@@ -103,8 +103,17 @@ describe('tier2 subsystem hydration below fold activation', () => {
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
   bench(
-    'activate a deferred below-fold subtree after hydration',
-    () => {
+    'hydrate and activate a deferred below-fold subtree',
+    async () => {
+      await fixture!.reset();
+      controller!.restore();
+      controller = stubBelowFoldGeometry();
+      await hydrateSPA({
+        root: fixture!.container,
+        routes: fixture!.routes,
+        hydrate: { deferBelowFold: true, foldThreshold: 100 },
+      });
+      flushScheduler();
       controller!.revealAll();
       window.dispatchEvent(new Event('scroll'));
       flushScheduler();
@@ -115,17 +124,6 @@ describe('tier2 subsystem hydration below fold activation', () => {
         controller = stubBelowFoldGeometry();
         harness = createDeferredBelowFoldHarness();
         fixture = createHydrationFixture({ routes: harness.routes });
-      },
-      beforeEach: async () => {
-        fixture!.reset();
-        controller!.restore();
-        controller = stubBelowFoldGeometry();
-        await hydrateSPA({
-          root: fixture!.container,
-          routes: fixture!.routes,
-          hydrate: { deferBelowFold: true, foldThreshold: 100 },
-        });
-        flushScheduler();
       },
       teardown() {
         controller?.restore();

@@ -1,7 +1,5 @@
-import {
-  isDevelopmentEnvironment,
-  isRuntimeEnvFlagEnabled,
-} from '../common/env';
+declare const __ASKR_BENCH_BUILD__: boolean;
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 type PerfMetrics = {
   selectorInvalidations: number;
@@ -29,7 +27,11 @@ type AskrPerfGlobal = typeof globalThis & {
   __ASKR_PERF__?: PerfMetrics;
 };
 
-const BENCH_BUILD_ENABLED = isRuntimeEnvFlagEnabled('ASKR_BENCH');
+// Resolve build mode once. The hot-path counters below must not rebuild the
+// runtime environment on every increment.
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+const PERF_BUILD_ENABLED = DEVELOPMENT_BUILD_ENABLED || BENCH_BUILD_ENABLED;
 let cachedPerfStore: PerfMetrics | undefined;
 
 function createInitialPerfMetrics(): PerfMetrics {
@@ -54,7 +56,7 @@ function createInitialPerfMetrics(): PerfMetrics {
 }
 
 function shouldCollectPerfMetrics(): boolean {
-  if (isDevelopmentEnvironment()) {
+  if (DEVELOPMENT_BUILD_ENABLED) {
     return true;
   }
   if (!BENCH_BUILD_ENABLED) {
@@ -68,12 +70,12 @@ function shouldCollectPerfMetrics(): boolean {
 }
 
 function getPerfStore(): PerfMetrics | null {
-  if (cachedPerfStore) {
-    return cachedPerfStore;
-  }
-
   if (!shouldCollectPerfMetrics()) {
     return null;
+  }
+
+  if (cachedPerfStore) {
+    return cachedPerfStore;
   }
 
   try {
@@ -88,11 +90,11 @@ function getPerfStore(): PerfMetrics | null {
   }
 }
 
-export function getPerfMetricsStore(): PerfMetrics | null {
+function getPerfMetricsStoreLive(): PerfMetrics | null {
   return getPerfStore();
 }
 
-export function incrementPerfMetric(
+type IncrementPerfMetric = (
   key:
     | 'selectorInvalidations'
     | 'selectorCandidateReads'
@@ -103,23 +105,27 @@ export function incrementPerfMetric(
     | 'hydrationBoundaryActivations'
     | 'ssrTagCacheHits'
     | 'ssgWorkerCount',
-  delta = 1
-): void {
+  delta?: number
+) => void;
+
+const incrementPerfMetricLive: IncrementPerfMetric = (key, delta = 1) => {
   const store = getPerfStore();
   if (!store) return;
   store[key] += delta;
-}
+};
 
-export function addPerfDuration(
+type AddPerfDuration = (
   key: 'ssgRenderTimeMs' | 'ssgWorkerRenderTimeMs' | 'ssgWriteTimeMs',
   deltaMs: number
-): void {
+) => void;
+
+const addPerfDurationLive: AddPerfDuration = (key, deltaMs) => {
   const store = getPerfStore();
   if (!store) return;
   store[key] += deltaMs;
-}
+};
 
-export function recordSchedulerFlushTaskCount(taskCount: number): void {
+function recordSchedulerFlushTaskCountLive(taskCount: number): void {
   const store = getPerfStore();
   if (!store) return;
   store.lastSchedulerTaskCountPerFlush = taskCount;
@@ -131,12 +137,12 @@ export function recordSchedulerFlushTaskCount(taskCount: number): void {
   store.schedulerTaskExecutions += taskCount;
 }
 
-export function getPerfMetrics(): Readonly<PerfMetrics> | undefined {
+function getPerfMetricsLive(): Readonly<PerfMetrics> | undefined {
   const store = getPerfStore();
   return store ? { ...store } : undefined;
 }
 
-export function resetPerfMetrics(): void {
+function resetPerfMetricsLive(): void {
   const store = getPerfStore();
   if (!store) return;
   const next = createInitialPerfMetrics();
@@ -144,3 +150,25 @@ export function resetPerfMetrics(): void {
     store[key] = next[key];
   });
 }
+
+export const getPerfMetricsStore: () => PerfMetrics | null = PERF_BUILD_ENABLED
+  ? getPerfMetricsStoreLive
+  : () => null;
+
+export const incrementPerfMetric: IncrementPerfMetric = PERF_BUILD_ENABLED
+  ? incrementPerfMetricLive
+  : () => {};
+
+export const addPerfDuration: AddPerfDuration = PERF_BUILD_ENABLED
+  ? addPerfDurationLive
+  : () => {};
+
+export const recordSchedulerFlushTaskCount: (taskCount: number) => void =
+  PERF_BUILD_ENABLED ? recordSchedulerFlushTaskCountLive : () => {};
+
+export const getPerfMetrics: () => Readonly<PerfMetrics> | undefined =
+  PERF_BUILD_ENABLED ? getPerfMetricsLive : () => undefined;
+
+export const resetPerfMetrics: () => void = PERF_BUILD_ENABLED
+  ? resetPerfMetricsLive
+  : () => {};

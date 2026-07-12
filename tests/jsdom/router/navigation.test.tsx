@@ -15,6 +15,7 @@ import {
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { registerMountOperation } from '../../../src/runtime/component';
+import { Portal } from '../../../src/foundations/structures/portal';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
 import {
@@ -58,6 +59,35 @@ describe('route navigation (ROUTER)', () => {
       expect(() => navigate('/broken')).toThrow('destination failed');
       expect(window.location.pathname).toBe('/stable');
       expect(container.textContent).toContain('stable route');
+    });
+
+    it('should clear a committed route portal when the next route has none', async () => {
+      window.history.replaceState({}, '', '/portal');
+      route('/portal', () => (
+        <>
+          <Portal>
+            <aside data-route-portal="true">portal content</aside>
+          </Portal>
+          <p>portal route</p>
+        </>
+      ));
+      route('/plain', () => <p>plain route</p>);
+      route('/broken', () => {
+        throw new Error('portal destination failed');
+      });
+
+      await createSPA({ root: container, routes: getRoutes() });
+      flushScheduler();
+      expect(container.querySelector('[data-route-portal]')).not.toBeNull();
+
+      expect(() => navigate('/broken')).toThrow('portal destination failed');
+      expect(container.querySelector('[data-route-portal]')).not.toBeNull();
+
+      navigate('/plain');
+      flushScheduler();
+
+      expect(container.textContent).toContain('plain route');
+      expect(container.querySelector('[data-route-portal]')).toBeNull();
     });
 
     it('should report strict cleanup errors after committing the destination route', async () => {

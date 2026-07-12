@@ -42,17 +42,21 @@ await (async () => {
 
 describe('tier2 subsystem hydration marker lookup', () => {
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
+  let marked = false;
 
   bench(
-    'mark skipped hydration islands on a 1,000-row hydration fixture',
+    'toggle skipped hydration markers on a 1,000-row fixture',
     () => {
       const skipped = fixture!.container.querySelectorAll(
         '.static-footer, .marketing-slot'
       );
 
-      skipped.forEach((element) => {
-        element.setAttribute('data-skip-hydrate', 'true');
-      });
+      marked = !marked;
+      skipped.forEach((element) =>
+        marked
+          ? element.setAttribute('data-skip-hydrate', 'true')
+          : element.removeAttribute('data-skip-hydrate')
+      );
     },
     {
       ...markerLookupBenchOptions,
@@ -63,9 +67,7 @@ describe('tier2 subsystem hydration marker lookup', () => {
             appendSkippedIslands(container);
           },
         });
-      },
-      beforeEach() {
-        fixture!.reset();
+        marked = false;
       },
       teardown() {
         fixture?.cleanup();

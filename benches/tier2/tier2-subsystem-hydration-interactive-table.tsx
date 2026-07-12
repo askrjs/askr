@@ -130,7 +130,7 @@ describe('tier2 subsystem hydration interactive table', () => {
   let selectedRowCursor = 0;
 
   bench(
-    'hydrate a 250-row interactive table and use it immediately',
+    'interact with an already hydrated 250-row interactive table',
     async () => {
       const updateSelected = fixture!.container.querySelector(
         '#update-selected'

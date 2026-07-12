@@ -6,6 +6,7 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  extendBenchOptions,
   mountTableBenchmark,
   replaceAllRows,
   tier1BenchOptions,
@@ -16,6 +17,10 @@ import {
 const rows = buildRows(1000);
 const emptyRows: RowData[] = [];
 const replacementRows = replaceAllRows(rows, 2001);
+const lifecycleBenchOptions = extendBenchOptions(tier1BenchOptions, {
+  time: 12_000,
+  iterations: 20,
+});
 
 verifyTier1Invariant('tier1 hotpath for append', () => {
   const mounted = mountTableBenchmark();
@@ -111,17 +116,15 @@ describe('tier1 hotpath for append', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
 
   bench(
-    'append 1,000 keyed rows from empty',
+    'append then clear 1,000 keyed rows',
     () => {
       mounted!.benchmark.setRows(rows);
+      mounted!.benchmark.setRows(emptyRows);
     },
     {
-      ...tier1BenchOptions,
+      ...lifecycleBenchOptions,
       setup() {
         mounted = mountTableBenchmark();
-      },
-      beforeEach() {
-        mounted!.benchmark.setRows(emptyRows);
       },
       teardown() {
         mounted?.cleanup();

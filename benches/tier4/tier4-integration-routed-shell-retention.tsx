@@ -80,15 +80,6 @@ describe('tier4 integration routed shell retention', () => {
         root = result.container;
         setLocationPath('/dashboard');
       },
-      beforeEach() {
-        if (root!.querySelector('section[aria-label="Askr CRM"]')) {
-          throw new Error('Expected routed shell root to start empty.');
-        }
-
-        root!.innerHTML = '';
-        resetRouterState();
-        setLocationPath('/dashboard');
-      },
       teardown() {
         cleanup?.();
         cleanup = null;

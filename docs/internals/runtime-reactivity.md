@@ -10,6 +10,14 @@ The runtime is intentionally serialized. Writes do not mutate the DOM directly;
 they dirty sources, enqueue work, and let the scheduler flush in a deterministic
 order.
 
+Allocation-sensitive fine-grained effects keep one source in the primary slot
+and the second source in a companion slot. A collection is created only when a
+third distinct source is read. Keyed `For` item proxies use the same shape for
+coalesced property reads, so ordinary two-property rows retain precise item
+invalidation without allocating a property array. Child-scope scheduler tasks
+are also created lazily: a scope that has no readable subscriptions on its
+initial render does not retain a flush closure.
+
 ```mermaid
 sequenceDiagram
   participant Event as Event handler / async callback
@@ -247,7 +255,11 @@ flowchart LR
   owns cleanup, strict cleanup aggregation, and owned child scopes.
   `src/runtime/component-lifecycle.ts` owns lifecycle commit batching, inline
   render snapshots, deferred read subscription commits, mount and commit
-  operation settlement, and commit discard.
+  operation settlement, ownership transactions, and commit discard. Nested
+  batches merge into their parent. At the outer boundary, readable
+  subscriptions settle first, ownership/ref/portal transactions finalize next,
+  and mount/resource/task operations activate last. Discard runs registered
+  rollback participants in reverse order and restores inline render metadata.
 - `src/runtime/for.ts` is the compatibility facade for `For` runtime state.
   `src/runtime/for-internal.ts` owns state storage, hook binding, source effect
   cleanup registration, source evaluation, and DOM update state clearing.

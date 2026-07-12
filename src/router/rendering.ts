@@ -70,7 +70,11 @@ export function createRouteHandler(
     content = applyPageChain(pageChain, params, content, deferComponents);
 
     for (let i = layoutChain.length - 1; i >= 0; i--) {
-      content = layoutChain[i].component({ children: content });
+      const layout = layoutChain[i].component;
+      // Layouts remain part of the route-root render scope. The renderer
+      // reconciles their intrinsic root in place, which preserves the shell
+      // element while keeping route remount state deterministic.
+      content = layout({ children: content });
     }
 
     return content;

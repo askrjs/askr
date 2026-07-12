@@ -8,7 +8,7 @@ describe('async component execution (DEPRECATED)', () => {
     const { container, cleanup } = createTestContainer();
 
     const AsyncComponent = async () => {
-      await new Promise((r) => setTimeout(r, 1));
+      await Promise.resolve();
       return (<div>{'ok'}</div>) as unknown as JSXElement;
     };
 

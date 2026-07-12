@@ -1,11 +1,22 @@
 import type { ChildScope } from '../runtime';
+import type { DOMRange } from '../common/dom-range';
 import {
+  beginForStateTransaction,
+  captureForFallbackTransactionSnapshot,
+  captureForItemTransactionSnapshot,
   clearForDomUpdateState,
+  registerForStateTransaction,
+  rollbackForStateTransaction,
   recordBenchCounter,
   recordBenchEvent,
   recordBenchTiming,
   type ForState,
   withBenchMetricScope,
+} from '../runtime';
+import {
+  beginLifecycleCommitBatch,
+  discardLifecycleCommitBatch,
+  flushLifecycleCommitBatch,
 } from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
 import { keyedElements } from './keyed';
@@ -21,11 +32,145 @@ import {
   replaceChildrenInOrder,
 } from './for-commit-reorder';
 import { removeForBoundaryNodes } from './for-commit-removal';
+import { getRangeNodes, moveRange } from './dom-range';
+import { isFragment } from './evaluate-reconcile';
+
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
+
+function isExactRemovedBoundary(
+  parent: Element,
+  removedNodes: Node[]
+): boolean {
+  if (
+    removedNodes.length === 0 ||
+    removedNodes.length !== parent.childNodes.length
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < removedNodes.length; index++) {
+    if (removedNodes[index] !== parent.childNodes[index]) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export interface ForCommitRuntime {
   isProduction(): boolean;
   syncForItemDom(parent: Element, scope: ChildScope, vnode: VNode): Node | null;
   tryPatchStableForDirtyItem(scope: ChildScope): boolean;
+}
+
+function isMultiNodeVNode(vnode: VNode): boolean {
+  if (vnode === null || vnode === undefined || vnode === false) {
+    return true;
+  }
+  return (
+    Array.isArray(vnode) ||
+    (typeof vnode === 'object' && vnode !== null && isFragment(vnode))
+  );
+}
+
+function getScopeRange(scope: ChildScope, node: Node | null): DOMRange | null {
+  if (scope.range) {
+    return scope.range;
+  }
+  if (!node) {
+    return null;
+  }
+  return { start: node, end: node, single: true };
+}
+
+function detachRange(range: DOMRange): void {
+  const parent = range.start.parentNode;
+  if (!parent) return;
+  const fragment = parent.ownerDocument?.createDocumentFragment();
+  if (fragment) {
+    moveRange(fragment, range);
+  }
+}
+
+function detachRemovedForNodes(
+  parent: Element,
+  forState: ForState<unknown>
+): void {
+  for (const range of forState.lastRemovedRanges) {
+    detachRange(range);
+  }
+  for (const node of forState.lastRemovedNodes) {
+    if (node.parentNode === parent) {
+      node.parentNode.removeChild(node);
+    }
+  }
+}
+
+function commitForStateBoundaryRanges(
+  parent: Element,
+  forState: ForState<unknown>,
+  childrenVNodes: VNode[],
+  runtime: ForCommitRuntime
+): void {
+  const desiredRanges: DOMRange[] = [];
+
+  if (forState.orderedKeys.length === 0) {
+    const fallbackScope = forState.fallbackScope;
+    const fallbackVNode = childrenVNodes[0];
+    if (fallbackScope && fallbackVNode !== undefined) {
+      const node = !fallbackScope.needsDomUpdate
+        ? null
+        : runtime.syncForItemDom(parent, fallbackScope, fallbackVNode);
+      const range = getScopeRange(fallbackScope, node);
+      if (range) desiredRanges.push(range);
+    }
+  } else {
+    for (let index = 0; index < forState.orderedItems.length; index += 1) {
+      const item = forState.orderedItems[index];
+      if (!item) continue;
+      captureItemBeforeRangeCommit(forState, item);
+      const node = !item.scope.needsDomUpdate
+        ? null
+        : runtime.syncForItemDom(parent, item.scope, childrenVNodes[index]);
+      const range = getScopeRange(item.scope, node);
+      if (range) desiredRanges.push(range);
+    }
+  }
+
+  const desiredNodes = new Set<Node>();
+  for (const range of desiredRanges) {
+    desiredNodes.add(range.start);
+    for (const node of getRangeNodes(range)) desiredNodes.add(node);
+    if (!range.single) desiredNodes.add(range.end);
+  }
+
+  detachRemovedForNodes(parent, forState);
+
+  let anchor: Node | null = null;
+  for (let index = desiredRanges.length - 1; index >= 0; index -= 1) {
+    const range = desiredRanges[index]!;
+    moveRange(parent, range, anchor);
+    anchor = range.start;
+  }
+
+  for (const node of Array.from(parent.childNodes)) {
+    if (desiredNodes.has(node)) continue;
+    node.parentNode?.removeChild(node);
+  }
+
+  forState._hasResolvedItemDom = true;
+  clearForDomUpdateState(forState);
+}
+
+function captureItemBeforeRangeCommit(
+  forState: ForState<unknown>,
+  item: (typeof forState.orderedItems)[number]
+): void {
+  if (item.scope.needsDomUpdate || item.scope.hydrationPending) {
+    captureForItemTransactionSnapshot(forState, item);
+  }
 }
 
 export function commitForStateBoundaryChildren(
@@ -34,9 +179,96 @@ export function commitForStateBoundaryChildren(
   childrenVNodes: VNode[],
   runtime: ForCommitRuntime
 ): void {
-  const domCommitStart = performance.now();
+  const previousChildren = Array.from(parent.childNodes);
+  const currentKeyedMap = keyedElements.get(parent);
+  const previousKeyedMap = currentKeyedMap
+    ? new Map(currentKeyedMap)
+    : undefined;
+  const lifecycleBatch = beginLifecycleCommitBatch();
+  // A commit-only transaction does not reconcile collection membership. Keep
+  // the committed collections by reference and snapshot only scopes that the
+  // DOM phase is about to mutate.
+  beginForStateTransaction(forState, 'reuse');
+  registerForStateTransaction(forState);
+  try {
+    commitForStateBoundaryChildrenImpl(
+      parent,
+      forState,
+      childrenVNodes,
+      runtime
+    );
+    flushLifecycleCommitBatch(lifecycleBatch);
+  } catch (error) {
+    discardLifecycleCommitBatch(lifecycleBatch);
+    rollbackForStateTransaction(forState);
+
+    const previousChildrenSet = new Set(previousChildren);
+    for (const node of Array.from(parent.childNodes)) {
+      if (!previousChildrenSet.has(node)) {
+        teardownNodeSubtree(node);
+      }
+    }
+    parent.replaceChildren(...previousChildren);
+    if (previousKeyedMap) {
+      keyedElements.set(parent, new Map(previousKeyedMap));
+    } else {
+      keyedElements.delete(parent);
+    }
+    throw error;
+  }
+}
+
+function commitForStateBoundaryChildrenImpl(
+  parent: Element,
+  forState: ForState<unknown>,
+  childrenVNodes: VNode[],
+  runtime: ForCommitRuntime
+): void {
+  const domCommitStart = BENCH_BUILD_ENABLED ? performance.now() : 0;
+
+  const needsAnchoredRanges =
+    childrenVNodes.some(isMultiNodeVNode) ||
+    forState.orderedItems.some(
+      (item) => item.scope.range && !item.scope.range.single
+    ) ||
+    Boolean(
+      forState.fallbackScope?.range && !forState.fallbackScope.range.single
+    );
+  if (needsAnchoredRanges) {
+    commitForStateBoundaryRanges(parent, forState, childrenVNodes, runtime);
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchTiming('domCommit', performance.now() - domCommitStart);
+    }
+    return;
+  }
+  let removedBoundaryConsumed = false;
+
+  const captureItemBeforeCommit = (
+    item: (typeof forState.orderedItems)[number]
+  ): void => {
+    if (item.scope.needsDomUpdate || item.scope.hydrationPending) {
+      captureForItemTransactionSnapshot(forState, item);
+    }
+  };
+
+  const syncItemDom = (
+    item: (typeof forState.orderedItems)[number],
+    vnode: VNode
+  ): Node | null => {
+    captureItemBeforeCommit(item);
+    return runtime.syncForItemDom(parent, item.scope, vnode);
+  };
 
   const hydrateExistingForDom = (): void => {
+    if (parent.children.length === forState.orderedKeys.length) {
+      for (let index = 0; index < forState.orderedItems.length; index++) {
+        const item = forState.orderedItems[index];
+        if (item) {
+          captureForItemTransactionSnapshot(forState, item);
+        }
+      }
+    }
+
     if (hydrateExistingForDomInOrder(parent, forState)) {
       return;
     }
@@ -58,26 +290,41 @@ export function commitForStateBoundaryChildren(
         continue;
       }
 
+      captureForItemTransactionSnapshot(forState, itemInstance);
       itemInstance.scope.dom = existingDom;
       itemInstance.scope.needsDomUpdate = true;
     }
   };
 
   if (forState.orderedKeys.length === 0) {
-    removeForBoundaryNodes(parent, forState.lastRemovedNodes);
-
     const fallbackScope = forState.fallbackScope;
     const fallbackVNode = childrenVNodes[0];
+    if (
+      fallbackScope &&
+      (fallbackScope.needsDomUpdate || fallbackScope.hydrationPending)
+    ) {
+      captureForFallbackTransactionSnapshot(forState, fallbackScope);
+    }
     const nextDom =
       fallbackScope && fallbackVNode !== undefined
         ? runtime.syncForItemDom(parent, fallbackScope, fallbackVNode)
         : null;
 
+    if (nextDom && isExactRemovedBoundary(parent, forState.lastRemovedNodes)) {
+      recordBenchEvent('domRemove', forState.lastRemovedNodes.length);
+      parent.replaceChildren(nextDom);
+      removedBoundaryConsumed = true;
+    } else {
+      removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
+        teardown: false,
+      });
+    }
+
     if (nextDom) {
       if (
         parent.childNodes.length !== 1 ||
         parent.firstChild !== nextDom ||
-        forState.lastRemovedNodes.length > 0
+        (forState.lastRemovedNodes.length > 0 && !removedBoundaryConsumed)
       ) {
         parent.replaceChildren(nextDom);
       }
@@ -87,7 +334,9 @@ export function commitForStateBoundaryChildren(
 
     keyedElements.delete(parent);
     forState._hasResolvedItemDom = false;
-    recordBenchTiming('domCommit', performance.now() - domCommitStart);
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchTiming('domCommit', performance.now() - domCommitStart);
+    }
     clearForDomUpdateState(forState);
     return;
   }
@@ -143,15 +392,12 @@ export function commitForStateBoundaryChildren(
         continue;
       }
 
+      captureItemBeforeCommit(itemInstance);
       if (runtime.tryPatchStableForDirtyItem(itemInstance.scope)) {
         continue;
       }
 
-      const dom = runtime.syncForItemDom(
-        parent,
-        itemInstance.scope,
-        childrenVNodes[i]
-      );
+      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
       if (!dom) {
         continue;
       }
@@ -173,11 +419,7 @@ export function commitForStateBoundaryChildren(
         continue;
       }
 
-      const dom = runtime.syncForItemDom(
-        parent,
-        itemInstance.scope,
-        childrenVNodes[i]
-      );
+      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
       if (!dom) {
         continue;
       }
@@ -209,11 +451,7 @@ export function commitForStateBoundaryChildren(
           continue;
         }
 
-        const dom = runtime.syncForItemDom(
-          parent,
-          itemInstance.scope,
-          childrenVNodes[i]
-        );
+        const dom = syncItemDom(itemInstance, childrenVNodes[i]);
         if (!dom || dom.parentNode !== parent || dom !== currentNode) {
           exactOrder = false;
         }
@@ -227,44 +465,81 @@ export function commitForStateBoundaryChildren(
       }
     }
 
-    withBenchMetricScope('coldCreate', () => {
-      const fragment = parent.ownerDocument.createDocumentFragment();
-      let hasPendingAppend = false;
+    const appendColdRows = (): void => {
+      const pendingAppend: Node[] = [];
+      const appendStart = forState.pendingAppendStart ?? 0;
+      const hasDetachedSuffix =
+        forState.pendingAppendStart !== null &&
+        parent.childNodes.length === appendStart;
 
-      for (let i = 0; i < forState.orderedKeys.length; i++) {
+      for (let i = appendStart; i < forState.orderedKeys.length; i++) {
         const itemInstance = forState.orderedItems[i];
         if (!itemInstance) {
           continue;
         }
 
         if (
+          !hasDetachedSuffix &&
           itemInstance.scope.dom?.parentNode === parent &&
           !itemInstance.scope.needsDomUpdate
         ) {
           continue;
         }
 
-        const dom = runtime.syncForItemDom(
-          parent,
-          itemInstance.scope,
-          childrenVNodes[i]
-        );
+        const dom = syncItemDom(itemInstance, childrenVNodes[i]);
         if (!dom) {
           continue;
         }
 
-        if (dom.parentNode !== parent) {
-          recordBenchEvent('domInsert');
-          fragment.appendChild(dom);
-          hasPendingAppend = true;
+        if (hasDetachedSuffix || dom.parentNode !== parent) {
+          if (BENCH_BUILD_ENABLED) {
+            recordBenchEvent('domInsert');
+          }
+          pendingAppend.push(dom);
         }
       }
 
-      if (hasPendingAppend) {
+      if (pendingAppend.length > 0) {
+        const fragment = parent.ownerDocument.createDocumentFragment();
+        if (canUseDirectReplaceChildrenSpread(pendingAppend.length)) {
+          fragment.append(...pendingAppend);
+        } else {
+          for (const node of pendingAppend) {
+            fragment.appendChild(node);
+          }
+        }
         parent.appendChild(fragment);
       }
-    });
+    };
 
+    if (BENCH_BUILD_ENABLED) {
+      withBenchMetricScope('coldCreate', appendColdRows);
+    } else {
+      appendColdRows();
+    }
+
+    boundaryChildrenExact = true;
+  };
+
+  const commitInsertOne = (): void => {
+    const index = forState.pendingInsertedIndex;
+    const item = index === null ? undefined : forState.orderedItems[index];
+
+    if (
+      index === null ||
+      !item ||
+      parent.childNodes.length !== forState.orderedKeys.length - 1
+    ) {
+      commitReorder();
+      return;
+    }
+
+    const anchor = parent.childNodes[index] ?? null;
+    const dom = syncItemDom(item, childrenVNodes[index]);
+    if (dom && (dom.parentNode !== parent || dom !== anchor)) {
+      recordBenchEvent('domInsert');
+      parent.insertBefore(dom, anchor);
+    }
     boundaryChildrenExact = true;
   };
 
@@ -293,16 +568,8 @@ export function commitForStateBoundaryChildren(
       return;
     }
 
-    const firstDom = runtime.syncForItemDom(
-      parent,
-      firstItem.scope,
-      childrenVNodes[firstIndex]
-    );
-    const secondDom = runtime.syncForItemDom(
-      parent,
-      secondItem.scope,
-      childrenVNodes[secondIndex]
-    );
+    const firstDom = syncItemDom(firstItem, childrenVNodes[firstIndex]);
+    const secondDom = syncItemDom(secondItem, childrenVNodes[secondIndex]);
 
     if (!firstDom || !secondDom) {
       commitReorder();
@@ -351,7 +618,7 @@ export function commitForStateBoundaryChildren(
         const dom =
           scope.dom && !scope.needsDomUpdate
             ? scope.dom
-            : runtime.syncForItemDom(parent, scope, childrenVNodes[i]);
+            : syncItemDom(itemInstance, childrenVNodes[i]);
 
         if (!dom) {
           return;
@@ -414,25 +681,36 @@ export function commitForStateBoundaryChildren(
     }
 
     if (!hasExistingChild) {
-      withBenchMetricScope('coldCreate', () => {
+      const canConsumeRemovedBoundary = isExactRemovedBoundary(
+        parent,
+        forState.lastRemovedNodes
+      );
+      const replaceColdRows = (): void => {
         const nodes: Node[] = [];
         for (let i = 0; i < count; i++) {
           const itemInstance = items[i];
           if (!itemInstance) continue;
-          const dom = runtime.syncForItemDom(
-            parent,
-            itemInstance.scope,
-            childrenVNodes[i]
-          );
+          const dom = syncItemDom(itemInstance, childrenVNodes[i]);
           if (dom) {
-            recordBenchEvent('domInsert');
+            if (BENCH_BUILD_ENABLED) {
+              recordBenchEvent('domInsert');
+            }
             nodes.push(dom);
           }
         }
-        recordBenchCounter('replaceChildrenCommits');
-        replaceChildrenInOrder(parent, nodes, false);
-      });
+        if (BENCH_BUILD_ENABLED) {
+          recordBenchCounter('replaceChildrenCommits');
+        }
+        replaceChildrenInOrder(parent, nodes, canConsumeRemovedBoundary);
+      };
 
+      if (BENCH_BUILD_ENABLED) {
+        withBenchMetricScope('coldCreate', replaceColdRows);
+      } else {
+        replaceColdRows();
+      }
+
+      removedBoundaryConsumed = canConsumeRemovedBoundary;
       boundaryChildrenExact = true;
       return;
     }
@@ -446,11 +724,7 @@ export function commitForStateBoundaryChildren(
           continue;
         }
 
-        const dom = runtime.syncForItemDom(
-          parent,
-          itemInstance.scope,
-          childrenVNodes[i]
-        );
+        const dom = syncItemDom(itemInstance, childrenVNodes[i]);
         if (!dom) {
           continue;
         }
@@ -470,11 +744,7 @@ export function commitForStateBoundaryChildren(
         continue;
       }
 
-      const dom = runtime.syncForItemDom(
-        parent,
-        itemInstance.scope,
-        childrenVNodes[i]
-      );
+      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
       if (!dom) {
         continue;
       }
@@ -502,7 +772,9 @@ export function commitForStateBoundaryChildren(
     commitDirtyNoReorder(dirtyIndices);
     syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
 
-    recordBenchTiming('domCommit', performance.now() - domCommitStart);
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchTiming('domCommit', performance.now() - domCommitStart);
+    }
     clearForDomUpdateState(forState);
     return;
   }
@@ -517,6 +789,9 @@ export function commitForStateBoundaryChildren(
     case 'APPEND':
       commitAppend();
       break;
+    case 'INSERT_ONE':
+      commitInsertOne();
+      break;
     case 'SWAP':
       commitSwap();
       break;
@@ -526,9 +801,10 @@ export function commitForStateBoundaryChildren(
       break;
   }
 
-  removeForBoundaryNodes(parent, forState.lastRemovedNodes);
-  if (forState.lastRemovedNodes.length > 0) {
-    boundaryChildrenExact = false;
+  if (!removedBoundaryConsumed) {
+    removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
+      teardown: false,
+    });
   }
   syncKeyedMapFromForState(
     parent,
@@ -549,11 +825,7 @@ export function commitForStateBoundaryChildren(
       const dom =
         itemInstance.scope.dom && !itemInstance.scope.needsDomUpdate
           ? itemInstance.scope.dom
-          : runtime.syncForItemDom(
-              parent,
-              itemInstance.scope,
-              childrenVNodes[i]
-            );
+          : syncItemDom(itemInstance, childrenVNodes[i]);
       if (dom) {
         expectedNodes.push(dom);
       }
@@ -588,6 +860,8 @@ export function commitForStateBoundaryChildren(
     syncExactForBoundaryChildren();
   }
   forState._hasResolvedItemDom = true;
-  recordBenchTiming('domCommit', performance.now() - domCommitStart);
+  if (BENCH_BUILD_ENABLED) {
+    recordBenchTiming('domCommit', performance.now() - domCommitStart);
+  }
   clearForDomUpdateState(forState);
 }

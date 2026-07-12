@@ -21,6 +21,8 @@ import {
   installRendererBridge,
   removeAllListeners,
   teardownNodeSubtree,
+  activateHydrationBoundary as activateRendererHydrationBoundary,
+  clearDeferredHydrationBoundaries,
 } from '../renderer';
 import type { BootAppRouteSource } from './types';
 
@@ -112,6 +114,7 @@ function cleanupRootInstance(
   }
 
   runRootCleanupCallbacks(rootElement, errors);
+  clearDeferredHydrationBoundaries(rootElement);
 
   if (!options?.preserveInstance) {
     unregisterAppInstance(instance);
@@ -279,10 +282,45 @@ export function mountOrUpdate(
 }
 
 export function flushHydrationActivation(rootElement: Element): void {
-  const instance = instancesByRoot.get(rootElement);
-  if (!instance) return;
-  instance._enqueueRun?.();
+  if (!instancesByRoot.has(rootElement)) return;
   flushRuntimeScheduler();
+}
+
+/** @internal Activate one deferred boundary without rerunning its root. */
+export function activateHydrationBoundary(
+  rootElement: Element,
+  boundary: Element
+): boolean {
+  if (!instancesByRoot.has(rootElement)) {
+    return false;
+  }
+
+  const activated = activateRendererHydrationBoundary(boundary);
+  if (activated) {
+    flushRuntimeScheduler();
+  }
+  return activated;
+}
+
+/** @internal Move a prepared, off-tree root instance into a mounted root. */
+export function replaceMountedRootInstance(
+  rootElement: Element,
+  previousInstance: ComponentInstance,
+  nextInstance: ComponentInstance
+): void {
+  if (instancesByRoot.get(rootElement) !== previousInstance) {
+    throw new Error('Mounted root changed while navigation was preparing');
+  }
+
+  instancesByRoot.set(rootElement, nextInstance);
+  nextInstance.target = rootElement;
+  nextInstance._placeholder = undefined;
+  nextInstance.isRoot = true;
+  attachCleanupForRoot(rootElement, nextInstance);
+  registerRootCleanupCallback(rootElement, () => {
+    disposeDefaultPortalScope(nextInstance.portalScope ?? nextInstance);
+  });
+  previousInstance.target = null;
 }
 
 export async function registerAppNavigation(

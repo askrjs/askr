@@ -1,6 +1,9 @@
-import { isRuntimeEnvFlagEnabled } from '../common/env';
+declare const __ASKR_BENCH_BUILD__: boolean;
 
-const BENCH_BUILD_ENABLED = isRuntimeEnvFlagEnabled('ASKR_BENCH');
+// This identifier is replaced with a boolean literal by every supported build
+// and test configuration. Keep the gate statically visible so application
+// bundlers can erase the diagnostic implementation and its hot-path calls.
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
 type BenchGlobal = typeof globalThis & {
   __ASKR_BENCH__?: boolean;

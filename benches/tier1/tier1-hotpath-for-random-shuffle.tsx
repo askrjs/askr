@@ -6,6 +6,7 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  extendBenchOptions,
   mountTableBenchmark,
   shuffleRows,
   tier1BenchOptions,
@@ -15,6 +16,10 @@ import {
 
 const initialRows = buildRows(1000);
 const shuffledRows = shuffleRows(initialRows, 0x5eed_1234);
+const shuffleBenchOptions = extendBenchOptions(tier1BenchOptions, {
+  time: 12_000,
+  iterations: 20,
+});
 
 expect(shuffledRows.map((row) => row.id)).not.toEqual(
   initialRows.map((row) => row.id)
@@ -80,7 +85,7 @@ describe('tier1 hotpath for random shuffle', () => {
       mounted!.benchmark.setRows(toggle!.next() as RowData[]);
     },
     {
-      ...tier1BenchOptions,
+      ...shuffleBenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
         toggle = createRowToggle(initialRows, shuffledRows, 'initial');

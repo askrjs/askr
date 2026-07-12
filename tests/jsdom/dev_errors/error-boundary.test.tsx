@@ -6,8 +6,10 @@ import {
   afterEach,
   vi,
 } from 'vite-plus/test';
-import { state } from '../../../src/index';
+import { state, type State } from '../../../src/index';
 import { ErrorBoundary } from '@askrjs/askr/components';
+import { Portal } from '../../../src/foundations/structures/portal';
+import { getSignal, resource, task } from '../../../src/resources';
 import {
   createTestContainer,
   flushScheduler,
@@ -185,5 +187,150 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
 
     expect(container.querySelector('#inner-fallback')).toBeTruthy();
     expect(container.querySelector('#outer-fallback')).toBeFalsy();
+  });
+
+  it('should discard provisional lifecycle work before committing a fallback', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let source!: State<number>;
+    const refValues: Array<Element | null> = [];
+    const loader = vi.fn(async () => 'loaded');
+    const startTask = vi.fn();
+    let renders = 0;
+    let aborts = 0;
+
+    function ProvisionalOwner() {
+      renders += 1;
+      source();
+      getSignal().addEventListener('abort', () => {
+        aborts += 1;
+      });
+      resource(loader, []);
+      task(startTask);
+      Portal({
+        children: <aside data-failed-portal={'true'}>{'failed portal'}</aside>,
+      });
+
+      return (
+        <button
+          data-provisional={'true'}
+          ref={(element) => {
+            refValues.push(element);
+          }}
+        >
+          {'provisional'}
+        </button>
+      );
+    }
+
+    function LaterFailure() {
+      throw new Error('boundary sibling failed');
+    }
+
+    const App = () => {
+      source = state(0);
+      return (
+        <ErrorBoundary
+          fallback={<section data-fallback={'true'}>{'fallback'}</section>}
+        >
+          <ProvisionalOwner key={'provisional'} />
+          <LaterFailure key={'failure'} />
+        </ErrorBoundary>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(container.querySelector('[data-fallback="true"]')).not.toBeNull();
+    expect(container.querySelector('[data-provisional="true"]')).toBeNull();
+    expect(container.querySelector('[data-failed-portal="true"]')).toBeNull();
+    expect(refValues).toEqual([]);
+    expect(loader).not.toHaveBeenCalled();
+    expect(startTask).not.toHaveBeenCalled();
+    expect(aborts).toBe(1);
+    expect(renders).toBe(1);
+
+    source.set(1);
+    flushScheduler();
+    expect(renders).toBe(1);
+
+    errorSpy.mockRestore();
+  });
+
+  it('should discard a failed fallback attempt before an outer boundary recovers', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const refValues: Array<Element | null> = [];
+    const loader = vi.fn(async () => 'loaded');
+    const startTask = vi.fn();
+    let aborts = 0;
+
+    function FallbackProvisionalOwner() {
+      getSignal().addEventListener('abort', () => {
+        aborts += 1;
+      });
+      resource(loader, []);
+      task(startTask);
+      Portal({
+        children: (
+          <aside data-failed-fallback-portal={'true'}>
+            {'failed fallback portal'}
+          </aside>
+        ),
+      });
+      return (
+        <button
+          ref={(element) => {
+            refValues.push(element);
+          }}
+        >
+          {'failed fallback owner'}
+        </button>
+      );
+    }
+
+    function PrimaryFailure() {
+      throw new Error('inner primary failed');
+    }
+
+    function FallbackFailure() {
+      throw new Error('inner fallback failed');
+    }
+
+    const App = () => (
+      <ErrorBoundary
+        fallback={
+          <section data-outer-fallback={'true'}>{'outer fallback'}</section>
+        }
+      >
+        <ErrorBoundary
+          fallback={[
+            <FallbackProvisionalOwner key={'provisional'} />,
+            <FallbackFailure key={'failure'} />,
+          ]}
+        >
+          <PrimaryFailure />
+        </ErrorBoundary>
+      </ErrorBoundary>
+    );
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      container.querySelector('[data-outer-fallback="true"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-failed-fallback-portal="true"]')
+    ).toBeNull();
+    expect(refValues).toEqual([]);
+    expect(loader).not.toHaveBeenCalled();
+    expect(startTask).not.toHaveBeenCalled();
+    expect(aborts).toBe(1);
+
+    errorSpy.mockRestore();
   });
 });

@@ -122,7 +122,9 @@ function resolveStableIntrinsicPatchVNode(
   const host = dom as InstanceHostElement;
   const existingInstance = findHostInstanceByType(
     host,
-    vnode.type as ComponentFunction
+    vnode.type as ComponentFunction,
+    vnode,
+    getCurrentInstance()
   );
   if (
     !existingInstance ||

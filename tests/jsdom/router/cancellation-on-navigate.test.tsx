@@ -5,7 +5,7 @@
  * AbortController signal cancellation during navigation
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
 import { getRoutes, route } from '../../../src/router/route';
@@ -20,12 +20,15 @@ describe('cancellation on navigate (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {
+    vi.useFakeTimers();
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
   });
 
   afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
     cleanup();
     window.history.replaceState({}, '', '/');
   });
@@ -205,14 +208,16 @@ describe('cancellation on navigate (ROUTER)', () => {
       return <div>{'App'}</div>;
     };
 
-    createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, routes: getRoutes() });
     flushScheduler();
 
     navigate('/slow');
     // Immediately navigate away before slow render completes
     setTimeout(() => navigate('/fast'), 50);
 
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    vi.advanceTimersByTime(300);
+    await Promise.resolve();
+    await Promise.resolve();
     flushScheduler();
 
     // Fast page should win, not stale slow page

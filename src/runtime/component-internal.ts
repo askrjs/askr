@@ -9,6 +9,8 @@ import type { Props } from '../common/props';
 import type { ComponentFunction } from '../common/component';
 import {
   // withContext is the sole primitive for context restoration
+  callWithContext,
+  getExecutionContextFrame,
   withContext,
   type ContextFrame,
 } from './context';
@@ -54,6 +56,10 @@ import {
   restoreRenderScopedComponent,
 } from './component-scope';
 
+// Production modules never enter diagnostic render timing. Development/test
+// modules retain the runtime environment check for prod-fallback coverage.
+const PRODUCTION_BUILD_ENABLED = isProductionEnvironment();
+
 export type { ComponentFunction } from '../common/component';
 export { cleanupComponent, registerOwnedChildScope, unregisterOwnedChildScope };
 
@@ -69,7 +75,7 @@ export interface ComponentInstance {
   ssr?: boolean; // Set to true for SSR temporary instances
   // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
   cleanupStrict?: boolean;
-  stateValues: State<unknown>[]; // Persistent state storage across renders
+  stateValues?: State<unknown>[]; // Persistent state storage across renders
   evaluationGeneration: number; // Prevents stale async evaluation completions
   notifyUpdate: (() => void) | null; // Callback for state updates (persisted on instance)
   // Internal: prebound helpers to avoid per-update closures (allocation hot-path)
@@ -77,7 +83,7 @@ export interface ComponentInstance {
   _pendingRunTask?: () => void; // Clears hasPendingUpdate and runs component
   _enqueueRun?: () => void; // Batches run requests and enqueues _pendingRunTask
   stateIndexCheck: number; // Track state indices to catch conditional calls
-  expectedStateIndices: number[]; // Expected sequence of render-scoped hook indices (frozen after first render)
+  expectedStateIndices?: number[]; // Expected sequence of render-scoped hook indices (frozen after first render)
   firstRenderComplete: boolean; // Flag to detect transition from first to subsequent renders
   mountOperations: Array<
     () => void | (() => void) | PromiseLike<void | (() => void)>
@@ -86,12 +92,20 @@ export interface ComponentInstance {
     () => void | (() => void) | PromiseLike<void | (() => void)>
   >; // Operations to run after a successful committed render
   cleanupFns: Array<() => void>; // Cleanup functions to run on unmount
-  lifecycleSlots: unknown[]; // Render-scoped lifecycle primitive storage
+  lifecycleSlots?: unknown[]; // Render-scoped lifecycle primitive storage
   lifecycleGeneration: number; // Invalidates async mount-operation settlement after disposal
   hasPendingUpdate: boolean; // Flag to batch state updates (coalescing)
   ownerFrame: ContextFrame | null; // Provider chain for this component (set by Scope, never overwritten)
   isRoot?: boolean;
   _rootComponentFn?: ComponentFunction;
+
+  // Renderer ownership identity. A host can contain a retained wrapper chain,
+  // so component type alone is not a safe reuse key.
+  _vnodeOwner?: object;
+  _vnodeParent?: ComponentInstance | null;
+  _vnodeKey?: string | number;
+  _vnodePosition?: number;
+  _wrapperDepth?: number;
 
   // Render-tracking for precise subscriptions (internal)
   _currentRenderToken?: number; // Token for the in-progress render (set before render)
@@ -112,6 +126,48 @@ export interface ComponentInstance {
   };
 }
 
+function ensurePendingRunTask(instance: ComponentInstance): () => void {
+  const existing = instance._pendingRunTask;
+  if (existing) {
+    return existing;
+  }
+
+  const task = () => {
+    instance.hasPendingUpdate = false;
+    if (instance.notifyUpdate === null) {
+      return;
+    }
+    runScheduledComponent(instance, {
+      execute: executeComponentSync,
+      finalizeReadSubscriptions,
+      warnUnusedStateReads,
+      commitRenderedComponent,
+    });
+  };
+  instance._pendingRunTask = task;
+  if (!instance._pendingFlushTask) {
+    instance._pendingFlushTask = task;
+  }
+  return task;
+}
+
+function enqueueComponentRun(this: ComponentInstance): void {
+  if (this.hasPendingUpdate) {
+    return;
+  }
+
+  this.hasPendingUpdate = true;
+  enqueueRuntimeTask(ensurePendingRunTask(this));
+}
+
+class ComponentExecutionContext {
+  constructor(private readonly instance: ComponentInstance) {}
+
+  get signal(): AbortSignal {
+    return getSignalForInstance(this.instance);
+  }
+}
+
 export function createComponentInstance(
   id: string,
   fn: ComponentFunction,
@@ -129,20 +185,19 @@ export function createComponentInstance(
     portalScope: portalScope ?? null,
     mounted: false,
     abortController: null,
-    stateValues: [],
+    stateValues: undefined,
     evaluationGeneration: 0,
     notifyUpdate: null,
-    // Prebound helpers (initialized below) to avoid per-update allocations
     _pendingFlushTask: undefined,
     _pendingRunTask: undefined,
     _enqueueRun: undefined,
     stateIndexCheck: -1,
-    expectedStateIndices: [],
+    expectedStateIndices: undefined,
     firstRenderComplete: false,
     mountOperations: [],
     commitOperations: [],
     cleanupFns: [],
-    lifecycleSlots: [],
+    lifecycleSlots: undefined,
     lifecycleGeneration: 0,
     hasPendingUpdate: false,
     ownerFrame: null, // Will be set by renderer when vnode is marked
@@ -159,33 +214,7 @@ export function createComponentInstance(
     devWarningsEmitted: undefined,
   };
 
-  // Initialize prebound helper tasks once per instance to avoid allocations
-  instance._pendingRunTask = () => {
-    // Clear pending flag when the run task executes
-    instance.hasPendingUpdate = false;
-    if (instance.notifyUpdate === null) {
-      return;
-    }
-    // Execute component run (will set up notifyUpdate before render)
-    runScheduledComponent(instance, {
-      execute: executeComponentSync,
-      finalizeReadSubscriptions,
-      warnUnusedStateReads,
-      commitRenderedComponent,
-    });
-  };
-
-  instance._enqueueRun = () => {
-    if (!instance.hasPendingUpdate) {
-      instance.hasPendingUpdate = true;
-      // Enqueue single run task (coalesces multiple writes)
-      enqueueRuntimeTask(instance._pendingRunTask!);
-    }
-  };
-
-  // Default state-driven updates enqueue the run task directly. Specialized
-  // runtimes (for example `For` item instances) can still override this hook.
-  instance._pendingFlushTask = instance._pendingRunTask;
+  instance._enqueueRun = enqueueComponentRun;
 
   return instance;
 }
@@ -223,11 +252,20 @@ export function mountInstanceInline(
         __ASKR_INSTANCE?: ComponentInstance;
         __ASKR_INSTANCES?: ComponentInstance[];
       };
-      const instances = host.__ASKR_INSTANCES ?? [];
-      const nextInstances = instances.filter((entry) => entry !== instance);
-      nextInstances.push(instance);
-      host.__ASKR_INSTANCES = nextInstances;
-      host.__ASKR_INSTANCE = nextInstances[0] ?? instance;
+      const instances = host.__ASKR_INSTANCES;
+      if (!instances) {
+        host.__ASKR_INSTANCES = [instance];
+        host.__ASKR_INSTANCE = instance;
+      } else if (instances[instances.length - 1] !== instance) {
+        const existingIndex = instances.indexOf(instance);
+        const nextInstances =
+          existingIndex === -1
+            ? instances.slice()
+            : instances.filter((entry) => entry !== instance);
+        nextInstances.push(instance);
+        host.__ASKR_INSTANCES = nextInstances;
+        host.__ASKR_INSTANCE = nextInstances[0] ?? instance;
+      }
     }
   } catch (err) {
     void err;
@@ -264,10 +302,7 @@ export function renderScopedComponent<T>(
   let didComplete = false;
 
   try {
-    const executionFrame: ContextFrame = {
-      parent: instance.ownerFrame,
-      values: null,
-    };
+    const executionFrame = getExecutionContextFrame(instance.ownerFrame);
     const result = withContext(executionFrame, render);
     didComplete = true;
     return result;
@@ -327,8 +362,12 @@ export function renderComponentInline(
 }
 
 export function warnUnusedStateReads(instance: ComponentInstance): void {
-  for (let i = 0; i < instance.stateValues.length; i++) {
-    const state = instance.stateValues[i];
+  const stateValues = instance.stateValues;
+  if (!stateValues) {
+    return;
+  }
+  for (let i = 0; i < stateValues.length; i++) {
+    const state = stateValues[i];
     const hasCommittedUsage =
       (state?._readers?.size ?? 0) > 0 ||
       ((state as { _derivedSubscribers?: Set<unknown> } | undefined)
@@ -370,37 +409,35 @@ function executeComponentSync(
   let didComplete = false;
 
   try {
-    // Track render time in dev mode
-    const renderStartTime = isDevelopmentEnvironment() ? Date.now() : 0;
+    const trackRenderTime =
+      !PRODUCTION_BUILD_ENABLED && isDevelopmentEnvironment();
+    const renderStartTime = trackRenderTime ? Date.now() : 0;
 
     // Create context object with abort signal
-    const context = {
-      get signal(): AbortSignal {
-        return getSignalForInstance(instance);
-      },
-    };
+    const context = new ComponentExecutionContext(instance);
 
     // Execute component within its owner frame (provider chain).
     // This ensures all context reads see the correct provider values.
     // We create a new execution frame whose parent is the ownerFrame. The
     // `values` map is lazily allocated to avoid per-render Map allocations
     // for components that do not use context.
-    const executionFrame: ContextFrame = {
-      parent: instance.ownerFrame,
-      values: null,
-    };
-    const result = withContext(executionFrame, () =>
-      instance.fn(instance.props, context)
+    const executionFrame = getExecutionContextFrame(instance.ownerFrame);
+    const result = callWithContext(
+      executionFrame,
+      instance.fn,
+      instance.props,
+      context
     );
 
-    // Check render time
-    const renderTime = Date.now() - renderStartTime;
-    if (renderTime > 5) {
-      warnInstanceOnce(
-        instance,
-        'slow-render',
-        `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
-      );
+    if (trackRenderTime) {
+      const renderTime = Date.now() - renderStartTime;
+      if (renderTime > 5) {
+        warnInstanceOnce(
+          instance,
+          'slow-render',
+          `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
+        );
+      }
     }
 
     // Mark first render complete after successful execution
@@ -433,7 +470,7 @@ export function executeComponent(instance: ComponentInstance): void {
   instance.notifyUpdate = instance._enqueueRun!;
 
   // Enqueue the initial component run
-  enqueueRuntimeTask(instance._pendingRunTask!);
+  enqueueRuntimeTask(ensurePendingRunTask(instance));
 }
 
 /**

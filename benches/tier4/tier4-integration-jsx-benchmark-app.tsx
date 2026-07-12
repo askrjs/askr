@@ -39,6 +39,10 @@ const jsxAppSlowBenchOptions = extendBenchOptions(tier4BenchOptions, {
   warmupIterations: 1,
 });
 
+const jsxAppAppendBenchOptions = extendBenchOptions(tier4BenchOptions, {
+  time: 2500,
+});
+
 function mountJsxBenchmarkApp(initialRows: RowData[]) {
   const { container, cleanup } = createTestContainer();
   let dataState!: State<RowData[]>;
@@ -98,6 +102,7 @@ const updatedRows = updateEveryNthRow(rows1000);
 const swappedRows = swapRows(rows1000, 1, 998);
 const removedRows = removeRowById(rows1000, 500);
 const replacedRows = replaceAllRows(rows1000);
+const selectionBatchSize = 100;
 
 {
   const app = mountJsxBenchmarkApp(emptyRows);
@@ -335,16 +340,20 @@ describe('tier4 integration jsx benchmark app', () => {
   let replaceToggle: BenchToggle<readonly RowData[]> | null = null;
   let selectedSwapToggle: BenchToggle<readonly RowData[]> | null = null;
   let removeToggle: BenchToggle<readonly RowData[]> | null = null;
+  let rowsVisible = false;
+  let appended = false;
 
   bench(
-    'create 1,000 rows in the JSX app',
+    'toggle 1,000 JSX rows between empty and populated',
     () => {
-      app!.setRows(rows1000);
+      rowsVisible = !rowsVisible;
+      app!.setRows(rowsVisible ? rows1000 : emptyRows);
     },
     {
       ...jsxAppBenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(emptyRows);
+        rowsVisible = false;
       },
       teardown() {
         app?.cleanup();
@@ -354,9 +363,11 @@ describe('tier4 integration jsx benchmark app', () => {
   );
 
   bench(
-    'select one row through the JSX app click path',
+    'select 100 alternating rows through the JSX app click path',
     () => {
-      app!.clickRow(selectToggle!.next());
+      for (let index = 0; index < selectionBatchSize; index++) {
+        app!.clickRow(selectToggle!.next());
+      }
     },
     {
       ...jsxAppBenchOptions,
@@ -470,32 +481,16 @@ describe('tier4 integration jsx benchmark app', () => {
   );
 
   bench(
-    'append 1,000 rows in the JSX app',
+    'toggle the JSX app between 1,000 and 2,000 rows',
     () => {
-      app!.setRows(rows2000);
+      appended = !appended;
+      app!.setRows(appended ? rows2000 : rows1000);
     },
     {
-      ...tier4BenchOptions,
+      ...jsxAppAppendBenchOptions,
       setup() {
-        bench(
-          'append 1,000 rows with selection in the JSX app',
-          () => {
-            app!.setRows(rows2000);
-          },
-          {
-            ...tier4BenchOptions,
-            setup() {
-              app = mountJsxBenchmarkApp(rows1000);
-              app.setRows(rows1000);
-              app.clickRow(498);
-            },
-            teardown() {
-              app?.cleanup();
-              app = null;
-            },
-          }
-        );
         app = mountJsxBenchmarkApp(rows1000);
+        appended = false;
       },
       teardown() {
         app?.cleanup();
@@ -505,14 +500,36 @@ describe('tier4 integration jsx benchmark app', () => {
   );
 
   bench(
-    'clear all rows in the JSX app',
+    'toggle 1,000 selected JSX rows between 1,000 and 2,000 rows',
     () => {
-      app!.setRows(emptyRows);
+      appended = !appended;
+      app!.setRows(appended ? rows2000 : rows1000);
+    },
+    {
+      ...jsxAppAppendBenchOptions,
+      setup() {
+        app = mountJsxBenchmarkApp(rows1000);
+        app.clickRow(498);
+        appended = false;
+      },
+      teardown() {
+        app?.cleanup();
+        app = null;
+      },
+    }
+  );
+
+  bench(
+    'toggle all JSX rows between populated and empty',
+    () => {
+      rowsVisible = !rowsVisible;
+      app!.setRows(rowsVisible ? emptyRows : rows1000);
     },
     {
       ...tier4BenchOptions,
       setup() {
         app = mountJsxBenchmarkApp(rows1000);
+        rowsVisible = false;
       },
       teardown() {
         app?.cleanup();

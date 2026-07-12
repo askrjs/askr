@@ -1,6 +1,7 @@
 import type { ChildScope } from '../runtime';
 import { syncControlBoundaryScopeDom } from './boundaries';
 import { teardownNodeSubtree } from './cleanup';
+import { getRangeNodes } from './dom-range';
 import {
   createElementForNamespace,
   getParentNamespace,
@@ -137,6 +138,7 @@ export function commitReactiveChildBoundaryEntryNodes(
     const nextNodes = Array.from(boundaryHost.childNodes);
 
     entry.scope.dom = undefined;
+    entry.scope.range = undefined;
     entry.scope.needsDomUpdate = false;
     entry.nodes = nextNodes;
     return nextNodes;
@@ -146,6 +148,7 @@ export function commitReactiveChildBoundaryEntryNodes(
     disposeReactiveChildBoundaryNodes(entry.nodes);
     entry.nodes = [];
     entry.scope.dom = undefined;
+    entry.scope.range = undefined;
   }
 
   const nextDom = syncControlBoundaryScopeDom(
@@ -159,7 +162,9 @@ export function commitReactiveChildBoundaryEntryNodes(
     return entry.nodes;
   }
 
-  entry.nodes = [nextDom];
+  entry.nodes = nextDom.single
+    ? [nextDom.start]
+    : [nextDom.start, ...getRangeNodes(nextDom), nextDom.end];
   entry.scope.needsDomUpdate = false;
   return entry.nodes;
 }

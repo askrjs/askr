@@ -3,6 +3,7 @@ import { SSR_RENDER_DATA_ATTR, type SSRData } from '../common/ssr';
 import type { ResolvedRoute } from '../common/router';
 import type { ComponentFunction } from '../runtime';
 import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
+import { registerDeferredHydrationBoundary } from '../renderer';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
 
 type MountOrUpdateRoot = (
@@ -22,7 +23,10 @@ export type HydrationRuntimeHooks = {
     rootElement: Element,
     callback: () => void
   ) => () => void;
-  flushHydrationActivation: (rootElement: Element) => void;
+  activateHydrationBoundary: (
+    rootElement: Element,
+    boundary: Element
+  ) => boolean;
 };
 
 export function takeHydrationRenderData(rootElement: Element): SSRData | null {
@@ -87,6 +91,7 @@ function collectDeferredBelowFoldBoundaries(
     const rect = element.getBoundingClientRect();
     if (rect.top >= foldY) {
       element.setAttribute('data-skip-hydrate', 'true');
+      registerDeferredHydrationBoundary(root, element);
       boundaries.push(element);
       continue;
     }
@@ -100,8 +105,10 @@ function collectDeferredBelowFoldBoundaries(
 }
 
 function activateVisibleDeferredBoundaries(
+  root: Element,
   boundaries: Element[],
-  foldY: number
+  foldY: number,
+  activate: HydrationRuntimeHooks['activateHydrationBoundary']
 ): { activated: boolean; remaining: number } {
   let activated = false;
   let remaining = 0;
@@ -113,9 +120,17 @@ function activateVisibleDeferredBoundaries(
 
     const rect = element.getBoundingClientRect();
     if (rect.top < foldY) {
-      element.removeAttribute('data-skip-hydrate');
-      activated = true;
-    } else {
+      try {
+        if (activate(root, element)) {
+          activated = true;
+        }
+      } catch {
+        // The renderer restores the marker and provisional state on failure;
+        // the next reveal event is therefore a safe retry point.
+      }
+    }
+
+    if (element.hasAttribute('data-skip-hydrate')) {
       remaining += 1;
     }
   }
@@ -192,15 +207,15 @@ export async function applySelectiveHydration(
 
     function handleScroll() {
       const { activated, remaining } = activateVisibleDeferredBoundaries(
+        rootElement,
         deferredBoundaries,
-        foldY
+        foldY,
+        hooks.activateHydrationBoundary
       );
 
       if (!activated) {
         return;
       }
-
-      hooks.flushHydrationActivation(rootElement);
 
       if (remaining === 0) {
         releaseSelectiveHydrationResources();
@@ -257,13 +272,12 @@ export async function applySelectiveHydration(
   if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
     await queueIdleWork(() => {
       try {
-        const { activated } = activateVisibleDeferredBoundaries(
+        activateVisibleDeferredBoundaries(
+          rootElement,
           deferredBoundaries,
-          Number.POSITIVE_INFINITY
+          Number.POSITIVE_INFINITY,
+          hooks.activateHydrationBoundary
         );
-        if (activated) {
-          hooks.flushHydrationActivation(rootElement);
-        }
       } finally {
         releaseSelectiveHydrationResources();
       }

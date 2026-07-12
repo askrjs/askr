@@ -1,16 +1,24 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
 import type { RouteRenderResult, RouteRequestResult } from '../common/router';
-import { cleanupInstancesUnder } from '../renderer';
-import { DefaultPortal, clearDefaultPortalForInstance } from '../runtime';
+import {
+  DefaultPortal,
+  clearDefaultPortalForInstance,
+} from '../runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import { logger } from '../common/logger';
 import {
   cleanupComponent,
+  beginLifecycleCommitBatch,
+  discardLifecycleCommitBatch,
+  drainLifecycleCommitErrors,
+  flushLifecycleCommitBatch,
   flushRuntimeScheduler,
   mountComponent,
   type ComponentInstance,
 } from '../runtime';
+import { teardownNodeSubtree } from '../renderer/cleanup';
+import type { InstanceHostElement } from '../renderer/dom-host';
 import {
   applyHistoryScroll,
   applyNavigationScroll,
@@ -153,48 +161,389 @@ function wrapRootRouteHandler(
   return wrappedFn;
 }
 
-function cleanupRouteOwnership(instance: ComponentInstance): void {
-  const cleanupErrors: unknown[] = [];
-  const children = instance.target
-    ? Array.from(instance.target.childNodes)
-    : [];
+function flattenLifecycleErrors(error: unknown, result: unknown[]): void {
+  if (error instanceof AggregateError) {
+    for (const nested of error.errors) {
+      flattenLifecycleErrors(nested, result);
+    }
+    return;
+  }
 
-  for (const child of children) {
-    try {
-      cleanupInstancesUnder(child, { strict: instance.cleanupStrict });
-    } catch (error) {
-      cleanupErrors.push(error);
+  result.push(error);
+}
+
+function reportRouteCleanupErrors(errors: unknown[]): void {
+  for (const error of errors) {
+    const flattened: unknown[] = [];
+    flattenLifecycleErrors(error, flattened);
+    for (const cleanupError of flattened.length > 0 ? flattened : [error]) {
+      logger.error('[Askr] route cleanup failed:', cleanupError);
     }
   }
+}
+
+type DeferredRouteCleanup = {
+  instance: ComponentInstance;
+  previousFn: ComponentInstance['fn'];
+  previousProps: ComponentInstance['props'];
+  previousExpectedStateIndices: ComponentInstance['expectedStateIndices'];
+  previousFirstRenderComplete: boolean;
+  previousStateIndexCheck: number;
+  previousErrorBoundaryState: ComponentInstance['errorBoundaryState'];
+  previousTarget: ComponentInstance['target'];
+  previousDom: RouteDomSnapshot | null;
+  previousStateValues: ComponentInstance['stateValues'];
+  previousCleanupFns: ComponentInstance['cleanupFns'];
+  previousOwnedChildScopes: ComponentInstance['_ownedChildScopes'];
+  previousAbortController: AbortController | null;
+  previousMountOperations: ComponentInstance['mountOperations'];
+  previousCommitOperations: ComponentInstance['commitOperations'];
+  previousLifecycleSlots: ComponentInstance['lifecycleSlots'];
+  previousLifecycleGeneration: number;
+  previousEvaluationGeneration: number;
+  previousHasPendingUpdate: boolean;
+  previousNotifyUpdate: ComponentInstance['notifyUpdate'];
+  previousPlaceholder: ComponentInstance['_placeholder'];
+  previousMounted: boolean;
+  previousCurrentRenderToken: ComponentInstance['_currentRenderToken'];
+  previousLastRenderToken: ComponentInstance['lastRenderToken'];
+  previousPendingReadSources: ComponentInstance['_pendingReadSources'];
+  previousPendingReadSourceVersions: ComponentInstance['_pendingReadSourceVersions'];
+  previousLastReadSources: ComponentInstance['_lastReadSources'];
+  previousInstances: ComponentInstance[];
+};
+
+type RouteDomNodeSnapshot = {
+  node: Node;
+  children: Node[];
+  attributes: Array<[string, string]> | null;
+  nodeValue: string | null;
+};
+
+type RouteDomSnapshot = {
+  root: Element;
+  nodes: RouteDomNodeSnapshot[];
+};
+
+function captureRouteDom(root: Element | null): RouteDomSnapshot | null {
+  if (!root) {
+    return null;
+  }
+
+  const nodes: RouteDomNodeSnapshot[] = [];
+  const visit = (node: Node): void => {
+    nodes.push({
+      node,
+      children: Array.from(node.childNodes),
+      attributes:
+        node instanceof Element
+          ? Array.from(node.attributes).map((attribute) => [
+              attribute.name,
+              attribute.value,
+            ])
+          : null,
+      nodeValue: node.nodeValue,
+    });
+
+    for (const child of Array.from(node.childNodes)) {
+      visit(child);
+    }
+  };
+
+  visit(root);
+  return { root, nodes };
+}
+
+function collectProvisionalRouteNodes(snapshot: RouteDomSnapshot): Node[] {
+  const originalNodes = new Set(snapshot.nodes.map((entry) => entry.node));
+  const provisional: Node[] = [];
+  const visit = (node: Node): void => {
+    if (!originalNodes.has(node)) {
+      provisional.push(node);
+      return;
+    }
+
+    for (const child of Array.from(node.childNodes)) {
+      visit(child);
+    }
+  };
+
+  for (const child of Array.from(snapshot.root.childNodes)) {
+    visit(child);
+  }
+
+  return provisional;
+}
+
+function restoreRouteDom(snapshot: RouteDomSnapshot | null): unknown[] {
+  if (!snapshot) {
+    return [];
+  }
+
+  const errors: unknown[] = [];
+  for (const node of collectProvisionalRouteNodes(snapshot)) {
+    try {
+      teardownNodeSubtree(node, { strict: true });
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  for (const entry of snapshot.nodes) {
+    const { node, attributes } = entry;
+    try {
+      if (attributes && node instanceof Element) {
+        const expected = new Map(attributes);
+        for (const attribute of Array.from(node.attributes)) {
+          if (!expected.has(attribute.name)) {
+            node.removeAttribute(attribute.name);
+          }
+        }
+        for (const [name, value] of attributes) {
+          if (node.getAttribute(name) !== value) {
+            node.setAttribute(name, value);
+          }
+        }
+      } else if (!(node instanceof Element)) {
+        node.nodeValue = entry.nodeValue;
+      }
+
+      if (node instanceof Element || node instanceof DocumentFragment) {
+        node.replaceChildren(...entry.children);
+      }
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  return errors;
+}
+
+function collectHostInstances(root: Element): ComponentInstance[] {
+  const instances: ComponentInstance[] = [];
+  const seen = new Set<ComponentInstance>();
+  const pending: Node[] = [root];
+
+  while (pending.length > 0) {
+    const node = pending.pop()!;
+    if (node instanceof Element) {
+      const host = node as InstanceHostElement;
+      for (const instance of host.__ASKR_INSTANCES ?? []) {
+        if (!seen.has(instance)) {
+          seen.add(instance);
+          instances.push(instance);
+        }
+      }
+      if (host.__ASKR_INSTANCE && !seen.has(host.__ASKR_INSTANCE)) {
+        seen.add(host.__ASKR_INSTANCE);
+        instances.push(host.__ASKR_INSTANCE);
+      }
+    } else {
+      const instance = (
+        node as Node & { __ASKR_INSTANCE?: ComponentInstance }
+      ).__ASKR_INSTANCE;
+      if (instance && !seen.has(instance)) {
+        seen.add(instance);
+        instances.push(instance);
+      }
+    }
+
+    for (let child = node.lastChild; child; child = child.previousSibling) {
+      pending.push(child);
+    }
+  }
+
+  return instances;
+}
+
+function captureDeferredRouteCleanup(
+  instance: ComponentInstance
+): DeferredRouteCleanup {
+  return {
+    instance,
+    previousFn: instance.fn,
+    previousProps: instance.props,
+    previousExpectedStateIndices: instance.expectedStateIndices,
+    previousFirstRenderComplete: instance.firstRenderComplete,
+    previousStateIndexCheck: instance.stateIndexCheck,
+    previousErrorBoundaryState: instance.errorBoundaryState,
+    previousTarget: instance.target,
+    previousDom: captureRouteDom(instance.target),
+    previousStateValues: instance.stateValues,
+    previousCleanupFns: instance.cleanupFns,
+    previousOwnedChildScopes: instance._ownedChildScopes,
+    previousAbortController: instance.abortController,
+    previousMountOperations: instance.mountOperations,
+    previousCommitOperations: instance.commitOperations,
+    previousLifecycleSlots: instance.lifecycleSlots,
+    previousLifecycleGeneration: instance.lifecycleGeneration,
+    previousEvaluationGeneration: instance.evaluationGeneration,
+    previousHasPendingUpdate: instance.hasPendingUpdate,
+    previousNotifyUpdate: instance.notifyUpdate,
+    previousPlaceholder: instance._placeholder,
+    previousMounted: instance.mounted,
+    previousCurrentRenderToken: instance._currentRenderToken,
+    previousLastRenderToken: instance.lastRenderToken,
+    previousPendingReadSources: instance._pendingReadSources,
+    previousPendingReadSourceVersions: instance._pendingReadSourceVersions,
+    previousLastReadSources: instance._lastReadSources,
+    previousInstances: instance.target ? collectHostInstances(instance.target) : [],
+  };
+}
+
+function restoreDeferredRouteInstance(
+  deferred: DeferredRouteCleanup
+): unknown[] {
+  const instance = deferred.instance;
+  const errors = restoreRouteDom(deferred.previousDom);
+
+  instance.fn = deferred.previousFn;
+  instance.props = deferred.previousProps;
+  instance.expectedStateIndices = deferred.previousExpectedStateIndices;
+  instance.firstRenderComplete = deferred.previousFirstRenderComplete;
+  instance.stateIndexCheck = deferred.previousStateIndexCheck;
+  instance.errorBoundaryState = deferred.previousErrorBoundaryState;
+  instance.target = deferred.previousTarget;
+  instance.stateValues = deferred.previousStateValues;
+  instance.cleanupFns = deferred.previousCleanupFns;
+  instance._ownedChildScopes = deferred.previousOwnedChildScopes;
+  instance.abortController = deferred.previousAbortController;
+  instance.mountOperations = deferred.previousMountOperations;
+  instance.commitOperations = deferred.previousCommitOperations;
+  instance.lifecycleSlots = deferred.previousLifecycleSlots;
+  instance.lifecycleGeneration = deferred.previousLifecycleGeneration;
+  instance.evaluationGeneration = deferred.previousEvaluationGeneration;
+  instance.hasPendingUpdate = deferred.previousHasPendingUpdate;
+  instance.notifyUpdate = deferred.previousNotifyUpdate;
+  instance._placeholder = deferred.previousPlaceholder;
+  instance.mounted = deferred.previousMounted;
+  instance._currentRenderToken = deferred.previousCurrentRenderToken;
+  instance.lastRenderToken = deferred.previousLastRenderToken;
+  instance._pendingReadSources = deferred.previousPendingReadSources;
+  instance._pendingReadSourceVersions =
+    deferred.previousPendingReadSourceVersions;
+  instance._lastReadSources = deferred.previousLastReadSources;
+
+  return errors;
+}
+
+function restoreDeferredRouteInstances(
+  deferredCleanups: DeferredRouteCleanup[]
+): void {
+  const errors: unknown[] = [];
+  for (let index = deferredCleanups.length - 1; index >= 0; index -= 1) {
+    errors.push(...restoreDeferredRouteInstance(deferredCleanups[index]!));
+  }
+
+  if (errors.length > 0) {
+    reportRouteCleanupErrors(errors);
+  }
+}
+
+function cleanupDeferredRouteInstance(
+  deferred: DeferredRouteCleanup
+): unknown[] {
+  const errors: unknown[] = [];
+  const instance = deferred.instance;
+  const current = {
+    stateValues: instance.stateValues,
+    cleanupFns: instance.cleanupFns,
+    ownedChildScopes: instance._ownedChildScopes,
+    abortController: instance.abortController,
+    mountOperations: instance.mountOperations,
+    commitOperations: instance.commitOperations,
+    lifecycleSlots: instance.lifecycleSlots,
+    lifecycleGeneration: instance.lifecycleGeneration,
+    evaluationGeneration: instance.evaluationGeneration,
+    hasPendingUpdate: instance.hasPendingUpdate,
+    notifyUpdate: instance.notifyUpdate,
+    placeholder: instance._placeholder,
+    mounted: instance.mounted,
+    currentRenderToken: instance._currentRenderToken,
+    lastRenderToken: instance.lastRenderToken,
+    pendingReadSources: instance._pendingReadSources,
+    pendingReadSourceVersions: instance._pendingReadSourceVersions,
+    lastReadSources: instance._lastReadSources,
+  };
+
+  instance.stateValues = deferred.previousStateValues;
+  instance.cleanupFns = deferred.previousCleanupFns;
+  instance._ownedChildScopes = deferred.previousOwnedChildScopes;
+  instance.abortController = deferred.previousAbortController;
+  instance.mountOperations = deferred.previousMountOperations;
+  instance.commitOperations = deferred.previousCommitOperations;
+  instance.lifecycleSlots = deferred.previousLifecycleSlots;
+  instance.lifecycleGeneration = deferred.previousLifecycleGeneration;
+  instance.evaluationGeneration = deferred.previousEvaluationGeneration;
+  instance.hasPendingUpdate = deferred.previousHasPendingUpdate;
+  instance.notifyUpdate = deferred.previousNotifyUpdate;
+  instance._placeholder = deferred.previousPlaceholder;
+  instance.mounted = deferred.previousMounted;
+  instance._currentRenderToken = deferred.previousCurrentRenderToken;
+  instance.lastRenderToken = deferred.previousLastRenderToken;
+  instance._pendingReadSources = deferred.previousPendingReadSources;
+  instance._pendingReadSourceVersions =
+    deferred.previousPendingReadSourceVersions;
+  instance._lastReadSources = deferred.previousLastReadSources;
 
   try {
     cleanupComponent(instance);
   } catch (error) {
-    cleanupErrors.push(error);
+    errors.push(error);
+  } finally {
+    instance.stateValues = current.stateValues;
+    instance.cleanupFns = current.cleanupFns;
+    instance._ownedChildScopes = current.ownedChildScopes;
+    instance.abortController = current.abortController;
+    instance.mountOperations = current.mountOperations;
+    instance.commitOperations = current.commitOperations;
+    instance.lifecycleSlots = current.lifecycleSlots;
+    instance.lifecycleGeneration = current.lifecycleGeneration;
+    instance.evaluationGeneration = current.evaluationGeneration;
+    instance.hasPendingUpdate = current.hasPendingUpdate;
+    instance.notifyUpdate = current.notifyUpdate;
+    instance._placeholder = current.placeholder;
+    instance.mounted = current.mounted;
+    instance._currentRenderToken = current.currentRenderToken;
+    instance.lastRenderToken = current.lastRenderToken;
+    instance._pendingReadSources = current.pendingReadSources;
+    instance._pendingReadSourceVersions = current.pendingReadSourceVersions;
+    instance._lastReadSources = current.lastReadSources;
   }
 
-  if (cleanupErrors.length > 0) {
-    throw new AggregateError(cleanupErrors, 'Route cleanup failed');
+  const root = instance.target;
+  const liveInstances = root ? new Set(collectHostInstances(root)) : new Set();
+  for (let index = deferred.previousInstances.length - 1; index >= 0; index--) {
+    const previous = deferred.previousInstances[index]!;
+    if (previous === instance || liveInstances.has(previous)) {
+      continue;
+    }
+
+    try {
+      cleanupComponent(previous);
+    } catch (error) {
+      errors.push(error);
+    }
   }
+
+  return errors;
 }
 
 function remountResolvedRoute(
   instance: ComponentInstance,
   resolved: ResolvedRoute,
   pathname: string,
-  href: string
-): unknown | null {
-  let cleanupError: unknown | null = null;
-  try {
-    clearDefaultPortalForInstance(instance);
-    cleanupRouteOwnership(instance);
-  } catch (error) {
-    // Strict cleanup is reported after the next route has committed. The old
-    // ownership has still been invalidated, so it is safe to continue the
-    // replacement rather than strand navigation on teardown diagnostics.
-    cleanupError = error;
-  }
-
+  href: string,
+  existingSnapshot?: DeferredRouteCleanup
+): DeferredRouteCleanup {
+  // Keep the live root and its retained wrapper chain in place while the new
+  // route is evaluated. The renderer can then match shared layout owners and
+  // intrinsic roots against the incoming tree instead of forcing navigation
+  // through a cloned root. Removed descendants are cleaned up by the normal
+  // renderer commit path, after the new tree has been accepted.
+  const deferredCleanup =
+    existingSnapshot ?? captureDeferredRouteCleanup(instance);
+  clearDefaultPortalForInstance(instance);
   instance.fn = wrapRootRouteHandler(bindResolvedRouteHandler(resolved));
   instance.props = {};
 
@@ -208,6 +557,7 @@ function remountResolvedRoute(
   instance.commitOperations = [];
   instance.lifecycleSlots = [];
   instance.cleanupFns = [];
+  instance._ownedChildScopes = new Set();
   instance._placeholder = undefined;
   instance.hasPendingUpdate = false;
   instance._currentRenderToken = undefined;
@@ -219,7 +569,7 @@ function remountResolvedRoute(
 
   mountComponent(instance);
   setCurrentRouteLocation(pathname, href);
-  return cleanupError;
+  return deferredCleanup;
 }
 
 function rerenderResolvedRoute(
@@ -263,6 +613,22 @@ function resolveAppRouteRequest(
     auth: app.auth,
     signal,
   });
+}
+
+function getResolvedRouteHandler(resolved: RouteRequestResult): ResolvedRoute {
+  if (!resolved) {
+    throw new Error('[Askr] cannot prepare an unmatched navigation target');
+  }
+  if (resolved.kind === 'deny') {
+    return createDeniedResolvedRoute(resolved.status);
+  }
+  if (!isRenderResult(resolved)) {
+    throw new Error('[Askr] cannot prepare a redirect as a destination root');
+  }
+  return {
+    handler: resolved.handler,
+    params: resolved.params,
+  };
 }
 
 export function resolveNavigationTargetsForApps(
@@ -318,6 +684,7 @@ export function resolveNavigationTargetsForApps(
 }
 
 export function applyNavigationTargets(
+  requestId: number,
   path: string,
   options: NavigateOptions,
   redirectState: NavigationRedirectState,
@@ -330,9 +697,11 @@ export function applyNavigationTargets(
     redirectState: NavigationRedirectState
   ) => void
 ): void {
+  if (isStaleRouteRequest(requestId)) {
+    return;
+  }
   const previousPathname = getCurrentPathname();
   const previousHref = getCurrentHref();
-  const cleanupErrors: unknown[] = [];
 
   for (const target of targets) {
     const resolved = target.resolved;
@@ -382,6 +751,12 @@ export function applyNavigationTargets(
     return;
   }
 
+  if (isStaleRouteRequest(requestId)) {
+    return;
+  }
+
+  const samePathTargets: AppNavigationTarget[] = [];
+  const rootsToPrepare: AppNavigationTarget[] = [];
   for (const target of matchedTargets) {
     const resolved = target.resolved!;
     if (resolved.kind === 'redirect') {
@@ -389,49 +764,132 @@ export function applyNavigationTargets(
     }
 
     if (pathname === target.app.pathname && isRenderResult(resolved)) {
-      rerenderResolvedRoute(target.app.instance, pathname, href);
-      syncAppRegistrationLocation(target.app, pathname, href);
+      samePathTargets.push(target);
       continue;
     }
-
-    const cleanupError = remountResolvedRoute(
-      target.app.instance,
-      resolved.kind === 'deny'
-        ? createDeniedResolvedRoute(resolved.status)
-        : {
-            handler: resolved.handler,
-            params: resolved.params,
-          },
-      pathname,
-      href
-    );
-    if (cleanupError) cleanupErrors.push(cleanupError);
-    syncAppRegistrationLocation(target.app, pathname, href);
+    rootsToPrepare.push(target);
   }
 
-  // Remounting is scheduler-backed. Flush every staged root before changing
-  // the URL so a destination render failure cannot publish a history entry.
-  flushRuntimeScheduler();
+  const rollbackSnapshots = matchedTargets.map((target) =>
+    captureDeferredRouteCleanup(target.app.instance)
+  );
+  const rollbackSnapshotByInstance = new Map(
+    rollbackSnapshots.map((snapshot) => [snapshot.instance, snapshot])
+  );
+  const deferredCleanups: DeferredRouteCleanup[] = [];
+  const cleanupErrors: unknown[] = [];
+  const previousAppLocations = matchedTargets.map((target) => ({
+    app: target.app,
+    pathname: target.app.pathname,
+    href: target.app.href,
+  }));
+  const restoreOnExit = (): void => {
+    if (!navigationBatchClosed) {
+      discardLifecycleCommitBatch(navigationBatch);
+      navigationBatchClosed = true;
+    }
+    restoreDeferredRouteInstances(rollbackSnapshots);
+    for (const previous of previousAppLocations) {
+      previous.app.pathname = previous.pathname;
+      previous.app.href = previous.href;
+    }
+    setCurrentRouteLocation(previousPathname, previousHref);
+  };
+  const navigationBatch = beginLifecycleCommitBatch();
+  let navigationBatchClosed = false;
+  try {
+    for (const target of rootsToPrepare) {
+      if (isStaleRouteRequest(requestId)) {
+        restoreOnExit();
+        return;
+      }
+      const deferredCleanup = remountResolvedRoute(
+        target.app.instance,
+        getResolvedRouteHandler(target.resolved),
+        pathname,
+        href,
+        rollbackSnapshotByInstance.get(target.app.instance)
+      );
+      deferredCleanups.push(deferredCleanup);
+    }
 
-  saveScrollPosition(previousHref);
-  const historyMethod =
-    getNavigationHistoryMode(options) === 'replace'
-      ? 'replaceState'
-      : 'pushState';
-  window.history[historyMethod]({ path: href }, '', href);
-  syncRegisteredRouteSnapshot();
+    if (isStaleRouteRequest(requestId)) {
+      restoreOnExit();
+      return;
+    }
 
-  if (pathname !== previousPathname) {
-    applyNavigationScroll(options.scroll);
-  }
+    // Route roots remain live during the renderer transaction so retained
+    // layout elements keep their identity. Publication below is still held
+    // until every root has rendered successfully.
+    flushRuntimeScheduler();
+    cleanupErrors.push(...drainLifecycleCommitErrors());
+    if (isStaleRouteRequest(requestId)) {
+      restoreOnExit();
+      return;
+    }
 
-  for (const error of cleanupErrors) {
-    logger.error('[Askr] route cleanup failed:', error);
+    for (const target of samePathTargets) {
+      if (isStaleRouteRequest(requestId)) {
+        restoreOnExit();
+        return;
+      }
+      rerenderResolvedRoute(target.app.instance, pathname, href);
+    }
+
+    flushRuntimeScheduler();
+    cleanupErrors.push(...drainLifecycleCommitErrors());
+
+    if (isStaleRouteRequest(requestId)) {
+      restoreOnExit();
+      return;
+    }
+
+    flushLifecycleCommitBatch(navigationBatch);
+    navigationBatchClosed = true;
+    cleanupErrors.push(...drainLifecycleCommitErrors());
+
+    for (const target of matchedTargets) {
+      if (target.resolved && target.resolved.kind !== 'redirect') {
+        syncAppRegistrationLocation(target.app, pathname, href);
+      }
+    }
+
+    if (isStaleRouteRequest(requestId)) {
+      restoreOnExit();
+      return;
+    }
+
+    saveScrollPosition(previousHref);
+    const historyMethod =
+      getNavigationHistoryMode(options) === 'replace'
+        ? 'replaceState'
+        : 'pushState';
+    window.history[historyMethod]({ path: href }, '', href);
+    setCurrentRouteLocation(pathname, href);
+    syncRegisteredRouteSnapshot();
+
+    if (pathname !== previousPathname) {
+      applyNavigationScroll(options.scroll);
+    }
+
+    for (const deferredCleanup of deferredCleanups) {
+      cleanupErrors.push(...cleanupDeferredRouteInstance(deferredCleanup));
+    }
+
+    for (const error of cleanupErrors) {
+      reportRouteCleanupErrors([error]);
+    }
+  } catch (error) {
+    restoreOnExit();
+    logger.error('[Askr] navigation failed:', error);
+    throw error;
   }
 }
 
 export function applyPopStateNavigationTargets(
   requestId: number,
+  previousHref: string,
+  previousState: unknown,
   pathname: string,
   href: string,
   state: unknown,
@@ -450,7 +908,6 @@ export function applyPopStateNavigationTargets(
     return;
   }
 
-  const cleanupErrors: unknown[] = [];
   for (const target of matchedTargets) {
     const resolved = target.resolved!;
     if (resolved.kind !== 'redirect') {
@@ -463,13 +920,12 @@ export function applyPopStateNavigationTargets(
     return;
   }
 
-  syncRegisteredRouteSnapshot();
-
+  const samePathTargets: AppNavigationTarget[] = [];
+  const rootsToPrepare: AppNavigationTarget[] = [];
   for (const target of matchedTargets) {
     const resolved = target.resolved!;
     if (pathname === target.app.pathname && isRenderResult(resolved)) {
-      rerenderResolvedRoute(target.app.instance, pathname, href);
-      syncAppRegistrationLocation(target.app, pathname, href);
+      samePathTargets.push(target);
       continue;
     }
 
@@ -477,23 +933,107 @@ export function applyPopStateNavigationTargets(
       continue;
     }
 
-    const cleanupError = remountResolvedRoute(
-      target.app.instance,
-      resolved.kind === 'deny'
-        ? createDeniedResolvedRoute(resolved.status)
-        : {
-            handler: resolved.handler,
-            params: resolved.params,
-          },
-      pathname,
-      href
-    );
-    if (cleanupError) cleanupErrors.push(cleanupError);
-    syncAppRegistrationLocation(target.app, pathname, href);
+    rootsToPrepare.push(target);
   }
 
-  applyHistoryScroll(href, state);
-  for (const error of cleanupErrors) {
-    logger.error('[Askr] route cleanup failed:', error);
+  const previousPathname = getCurrentPathname();
+  const rollbackSnapshots = matchedTargets.map((target) =>
+    captureDeferredRouteCleanup(target.app.instance)
+  );
+  const rollbackSnapshotByInstance = new Map(
+    rollbackSnapshots.map((snapshot) => [snapshot.instance, snapshot])
+  );
+  const deferredCleanups: DeferredRouteCleanup[] = [];
+  const cleanupErrors: unknown[] = [];
+  const previousAppLocations = matchedTargets.map((target) => ({
+    app: target.app,
+    pathname: target.app.pathname,
+    href: target.app.href,
+  }));
+  const restoreOnExit = (): void => {
+    if (!navigationBatchClosed) {
+      discardLifecycleCommitBatch(navigationBatch);
+      navigationBatchClosed = true;
+    }
+    restoreDeferredRouteInstances(rollbackSnapshots);
+    for (const previous of previousAppLocations) {
+      previous.app.pathname = previous.pathname;
+      previous.app.href = previous.href;
+    }
+    setCurrentRouteLocation(previousPathname, previousHref);
+  };
+  const navigationBatch = beginLifecycleCommitBatch();
+  let navigationBatchClosed = false;
+  try {
+    for (const target of rootsToPrepare) {
+      if (isStaleRouteRequest(requestId)) {
+        restoreOnExit();
+        return;
+      }
+      const deferredCleanup = remountResolvedRoute(
+        target.app.instance,
+        getResolvedRouteHandler(target.resolved),
+        pathname,
+        href,
+        rollbackSnapshotByInstance.get(target.app.instance)
+      );
+      deferredCleanups.push(deferredCleanup);
+    }
+    if (isStaleRouteRequest(requestId)) {
+      restoreOnExit();
+      return;
+    }
+    flushRuntimeScheduler();
+    cleanupErrors.push(...drainLifecycleCommitErrors());
+    if (isStaleRouteRequest(requestId)) {
+      restoreOnExit();
+      return;
+    }
+
+    for (const target of samePathTargets) {
+      if (isStaleRouteRequest(requestId)) {
+        restoreOnExit();
+        return;
+      }
+      rerenderResolvedRoute(target.app.instance, pathname, href);
+    }
+    flushRuntimeScheduler();
+    cleanupErrors.push(...drainLifecycleCommitErrors());
+    if (isStaleRouteRequest(requestId)) {
+      restoreOnExit();
+      return;
+    }
+
+    flushLifecycleCommitBatch(navigationBatch);
+    navigationBatchClosed = true;
+    cleanupErrors.push(...drainLifecycleCommitErrors());
+
+    for (const target of matchedTargets) {
+      if (target.resolved && target.resolved.kind !== 'redirect') {
+        syncAppRegistrationLocation(target.app, pathname, href);
+      }
+    }
+    if (isStaleRouteRequest(requestId)) {
+      restoreOnExit();
+      return;
+    }
+    setCurrentRouteLocation(pathname, href);
+    syncRegisteredRouteSnapshot();
+    applyHistoryScroll(href, state);
+    for (const deferredCleanup of deferredCleanups) {
+      cleanupErrors.push(...cleanupDeferredRouteInstance(deferredCleanup));
+    }
+    for (const error of cleanupErrors) {
+      reportRouteCleanupErrors([error]);
+    }
+  } catch (error) {
+    restoreOnExit();
+    try {
+      window.history.replaceState(previousState, '', previousHref);
+      syncRegisteredRouteSnapshot();
+    } catch (rollbackError) {
+      logger.error('[Askr] failed to restore URL after popstate failure:', rollbackError);
+    }
+    throw error;
   }
 }

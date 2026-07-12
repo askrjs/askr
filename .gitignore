@@ -121,3 +121,4 @@ playwright-report/
 test-results/
 .vitest-attachments/
 __screenshots__/
+.askr-quality-traces/

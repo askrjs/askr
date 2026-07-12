@@ -1,4 +1,5 @@
 import type { ComponentFunction } from '../runtime';
+import { __FOR_BOUNDARY__ } from '../common/vnode';
 import { clearControlBoundaryCommitOwner } from './boundaries';
 import {
   commitForBoundaryChildren,
@@ -6,6 +7,7 @@ import {
   getControlBoundaryState,
   getDirectControlBoundaryVNode,
   registerControlBoundaryCommitOwner,
+  syncControlBoundaryInMixedParent,
   trySyncControlBoundaryChild,
 } from './boundaries';
 import { isBulkTextFastPathEligible, performBulkTextReplace } from './children';
@@ -23,6 +25,14 @@ import { reconcileKeyedChildren } from './reconcile';
 import { tagsEqualIgnoreCase } from './static-reuse';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { extractKey } from './utils';
+import {
+  createDetachedRange,
+  findRangeEnd,
+  isRangeStart,
+  moveRange,
+  removeRange,
+  type DOMRange,
+} from './dom-range';
 
 export const rendererReactiveChildDOMHost: ReactiveChildDOMHost = {
   createDOMNode: (node, parentNamespace) =>
@@ -105,6 +115,18 @@ export function updateElementChildren(
       return;
     }
 
+    if (
+      normalizedChildren.some(isControlBoundaryVNode) &&
+      normalizedChildren.every((child) => {
+        if (!isControlBoundaryVNode(child)) return true;
+        return getControlBoundaryState(child)?.kind !== 'for';
+      })
+    ) {
+      updateMixedControlChildren(el, normalizedChildren, forceUpdate);
+      keyedElements.delete(el);
+      return;
+    }
+
     if (hasKeyedVNodeChildren(normalizedChildren)) {
       const oldKeyMap = getOrBuildDomKeyMap(el);
       const newKeyMap = reconcileKeyedChildren(
@@ -144,6 +166,159 @@ function hasKeyedVNodeChildren(children: VNode[]): boolean {
     if (extractKey(children[i]) !== undefined) return true;
   }
   return false;
+}
+
+function isControlBoundaryVNode(child: VNode): child is DOMElement {
+  return (
+    _isDOMElement(child) &&
+    child.type === __FOR_BOUNDARY__
+  );
+}
+
+function removeRangeAtCursor(parent: Element, cursor: Node): Node | null {
+  if (!isRangeStart(cursor)) {
+    return cursor;
+  }
+
+  const end = findRangeEnd(cursor);
+  if (!end) {
+    return cursor;
+  }
+
+  const range: DOMRange = { start: cursor, end, single: false };
+  const next = end.nextSibling;
+  removeRange(range, (node) => {
+    if (node === range.start || node === range.end) {
+      node.parentNode?.removeChild(node);
+      return;
+    }
+    teardownNodeSubtree(node);
+    node.parentNode?.removeChild(node);
+  });
+  return next;
+}
+
+function updateMixedControlChildren(
+  parent: Element,
+  children: VNode[],
+  forceUpdate: boolean
+): void {
+  const parentNamespace = getParentNamespace(parent);
+  const domHost = getRendererDOMHost();
+  let cursor: Node | null = parent.firstChild;
+
+  for (const child of children) {
+    if (isControlBoundaryVNode(child)) {
+      const controlState = getControlBoundaryState(child);
+      if (!controlState) {
+        throw new Error(
+          '[updateElementChildren] Control boundary missing internal state'
+        );
+      }
+
+      registerControlBoundaryCommitOwner(parent, controlState);
+      const childVNodes = evaluateControlBoundaryState(controlState);
+      const ranges = syncControlBoundaryInMixedParent(
+        parent,
+        controlState,
+        childVNodes,
+        cursor
+      );
+      for (const range of ranges) {
+        if (range.start.parentNode !== parent) {
+          moveRange(
+            parent,
+            range,
+            cursor?.parentNode === parent ? cursor : null
+          );
+        } else if (cursor?.parentNode === parent) {
+          moveRange(parent, range, cursor);
+        }
+      }
+
+      const last = ranges[ranges.length - 1];
+      if (last) {
+        const cursorWasReplaced =
+          cursor && !ranges.some((range) => range.start === cursor);
+        if (!cursor?.parentNode) {
+          cursor = last.end.nextSibling;
+        } else if (cursorWasReplaced && isRangeStart(cursor)) {
+          const oldEnd = findRangeEnd(cursor);
+          cursor = oldEnd?.nextSibling ?? last.end.nextSibling;
+        } else if (isRangeStart(cursor)) {
+          const oldEnd = findRangeEnd(cursor);
+          cursor = oldEnd?.nextSibling ?? last.end.nextSibling;
+        } else {
+          cursor = last.end.nextSibling;
+        }
+      }
+      continue;
+    }
+
+    if (cursor) {
+      cursor = removeRangeAtCursor(parent, cursor);
+    }
+
+    if (
+      cursor &&
+      (typeof child === 'string' || typeof child === 'number') &&
+      cursor.nodeType === 3
+    ) {
+      (cursor as Text).data = String(child);
+      cursor = cursor.nextSibling;
+      continue;
+    }
+
+    if (
+      cursor instanceof Element &&
+      _isDOMElement(child) &&
+      typeof child.type === 'string' &&
+      tagsEqualIgnoreCase(cursor.tagName, child.type)
+    ) {
+      domHost.updateElementFromVnode(cursor, child, true, forceUpdate);
+      cursor = cursor.nextSibling;
+      continue;
+    }
+
+    if (
+      cursor instanceof Element &&
+      _isDOMElement(child) &&
+      typeof child.type === 'function'
+    ) {
+      const synced = domHost.syncComponentElement(
+        cursor,
+        child as unknown as ElementWithContext,
+        child.type as ComponentFunction,
+        ((child.props ?? {}) as Record<string, unknown>) || {},
+        parentNamespace,
+        forceUpdate
+      );
+      if (synced) {
+        cursor = synced.nextSibling;
+        continue;
+      }
+    }
+
+    const created = domHost.createDOMNode(child, parentNamespace);
+    if (!created) {
+      cursor = cursor?.nextSibling ?? null;
+      continue;
+    }
+
+    const materialized = createDetachedRange(created);
+    const old = cursor;
+    moveRange(parent, materialized.range, old);
+    if (old) {
+      teardownNodeSubtree(old);
+      old.parentNode?.removeChild(old);
+    }
+    cursor = materialized.range.end.nextSibling;
+  }
+
+  while (cursor) {
+    const next = removeRangeAtCursor(parent, cursor);
+    cursor = next === cursor ? cursor.nextSibling : next;
+  }
 }
 
 function isEmptyChild(child: unknown): boolean {
@@ -237,9 +412,7 @@ export function updateUnkeyedChildren(
         }
 
         const synced = trySyncComponentChild(current, next);
-        if (synced && synced !== current) {
-          teardownNodeSubtree(current);
-        } else if (!synced) {
+        if (!synced) {
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(current);
@@ -318,9 +491,7 @@ export function updateUnkeyedChildren(
             }
 
             const synced = trySyncComponentChild(currentEl, next);
-            if (synced && synced !== currentNode) {
-              teardownNodeSubtree(currentEl);
-            } else if (!synced) {
+            if (!synced) {
               const dom = domHost.createDOMNode(next, parentNamespace);
               if (dom) {
                 teardownNodeSubtree(currentEl);
@@ -400,9 +571,7 @@ export function updateUnkeyedChildren(
         }
       } else {
         const synced = trySyncComponentChild(current, next);
-        if (synced && synced !== current) {
-          teardownNodeSubtree(current);
-        } else if (!synced) {
+        if (!synced) {
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(current);

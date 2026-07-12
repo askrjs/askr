@@ -28,8 +28,9 @@ export function captureSnapshot(
   for (const [id, instance] of components) {
     snapshot[id] = {};
     // Read all state values from this component's stateValues array
-    for (let i = 0; i < instance.stateValues.length; i++) {
-      const stateObj = instance.stateValues[i];
+    const stateValues = instance.stateValues ?? [];
+    for (let i = 0; i < stateValues.length; i++) {
+      const stateObj = stateValues[i];
       if (stateObj) {
         // Call the state function to get current value
         snapshot[id][i] = stateObj();
@@ -55,7 +56,7 @@ export function restoreSnapshot(
     // Restore each state value
     for (const [indexStr, value] of Object.entries(stateMap)) {
       const index = parseInt(indexStr, 10);
-      const stateObj = instance.stateValues[index];
+      const stateObj = instance.stateValues?.[index];
       if (stateObj) {
         // Use set to restore the value (bypasses render-time guard since we're outside render)
         stateObj.set(value as never);

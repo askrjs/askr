@@ -1,0 +1,19 @@
+{
+  "seeds": [1, 7, 42, 12648430],
+  "scheduledRange": "0..99",
+  "traceTest": "tests/jsdom/runtime/lifecycle-sequences.test.tsx",
+  "operations": [
+    "mount-update-dispose",
+    "show-case-failure-retry",
+    "keyed-reorder",
+    "navigation-cancel",
+    "popstate",
+    "resource-resolve",
+    "resource-reject",
+    "resource-abort",
+    "portal-teardown",
+    "cleanup-failure",
+    "renderer-rollback",
+    "scheduler-failure-reschedule"
+  ]
+}

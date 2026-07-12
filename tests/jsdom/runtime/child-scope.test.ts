@@ -18,6 +18,19 @@ type ReaderTracked = {
 };
 
 describe('child scope runtime', () => {
+  it('should not materialize an empty committed read set for static scopes', () => {
+    const parent = createComponentInstance('parent', () => null, {}, null);
+    const scope = createChildScope(parent, 'static');
+
+    expect(scope.componentInstance._lastReadSources).toBeUndefined();
+
+    scope.render(() => 'static');
+
+    expect(scope.componentInstance._lastReadSources).toBeUndefined();
+
+    cleanupComponent(parent);
+  });
+
   it('should dispose child scopes with their parent and reject rendering disposed scopes', () => {
     const parent = createComponentInstance('parent', () => null, {}, null);
     let shared!: State<number>;

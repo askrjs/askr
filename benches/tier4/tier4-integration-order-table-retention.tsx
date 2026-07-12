@@ -142,11 +142,6 @@ describe('tier4 integration order table retention', () => {
         vi.resetModules();
         app = await loadBrowserHarness();
       },
-      beforeEach() {
-        app!.mountOrdersScenario();
-        flushScheduler();
-        dirtyOrderTableState();
-      },
       teardown() {
         resetBrowserRoot();
         app = null;

@@ -2,7 +2,7 @@ import { logger } from '../common/logger';
 import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
 import type { ComponentInstance } from '../runtime';
-import { elementListeners } from './cleanup';
+import { elementListeners, updateElementRef } from './cleanup';
 import { keyedElements } from './keyed';
 import { createElementForNamespace, getParentNamespace } from './namespaces';
 import { reconcileKeyedChildren } from './reconcile';
@@ -36,6 +36,7 @@ import {
   writeElementClassName,
 } from './utils';
 import { runRetainedElementUpdate } from './retained-element-rollback';
+import { tryAdoptMatchingIntrinsicSubtree } from './intrinsic-hydration-adoption';
 
 type ComponentHostElement = Element & {
   __ASKR_INSTANCE?: ComponentInstance;
@@ -334,16 +335,7 @@ export function updateElementChildren(
 
   if (hasKeyedChildren(vnodeChildren)) {
     const oldKeyMap = getOrBuildKeyMap(element);
-    try {
-      reconcileKeyed(element, vnodeChildren, oldKeyMap);
-    } catch {
-      const newKeyMap = reconcileKeyedChildren(
-        element,
-        vnodeChildren,
-        oldKeyMap
-      );
-      keyedElements.set(element, newKeyMap);
-    }
+    reconcileKeyed(element, vnodeChildren, oldKeyMap);
   } else {
     reconcileUnkeyed(element, vnodeChildren);
   }
@@ -354,6 +346,10 @@ export function smartUpdateElement(
   vnode: DOMElement,
   cleanupRangeNode: (node: Node) => void
 ): void {
+  if (tryAdoptMatchingIntrinsicSubtree(element, vnode)) {
+    return;
+  }
+
   const hadVNodeKey = Object.prototype.hasOwnProperty.call(vnode, 'key');
   const previousVNodeKey = vnode.key;
 
@@ -423,7 +419,7 @@ function applyPropsToElement(el: Element, props: Props): void {
     if (value === undefined || value === null || value === false) continue;
 
     if (key === 'ref') {
-      applyRef(el, value);
+      updateElementRef(el, value);
       continue;
     }
 
@@ -455,26 +451,6 @@ function applyPropsToElement(el: Element, props: Props): void {
     } else {
       setRenderedAttribute(el, key, String(value));
     }
-  }
-}
-
-type Ref<T> =
-  | ((value: T | null) => void)
-  | { current: T | null }
-  | null
-  | undefined;
-
-function applyRef<T>(el: T, ref: unknown): void {
-  const r = ref as Ref<T>;
-  if (!r) return;
-  if (typeof r === 'function') {
-    r(el);
-    return;
-  }
-  try {
-    (r as { current: T | null }).current = el;
-  } catch {
-    // Ignore write failures.
   }
 }
 

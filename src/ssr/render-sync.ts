@@ -18,11 +18,11 @@ import {
 } from './component-runtime';
 import {
   createErrorBoundaryReset,
-  evaluateControlBoundaryChildren,
   getErrorBoundaryState,
   getRenderableChildren,
   normalizeRenderableChildren,
   resolveErrorBoundaryFallbackNode,
+  withControlBoundaryChildren,
 } from './boundaries';
 import { renderAttrs, renderAttrsDirect } from './attrs';
 import { VOID_ELEMENTS, escapeText } from './escape';
@@ -35,6 +35,52 @@ import type { VNode } from './types';
 const __SSR_DEBUG =
   process.env.NODE_ENV !== 'production' &&
   (process.env.ASKR_SSR_DEBUG === '1' || process.env.ASKR_SSR_DEBUG === 'true');
+
+const RANGE_START = '<!--askr-range-start-->';
+const RANGE_END = '<!--askr-range-end-->';
+
+function isMultiRangeChild(child: unknown): boolean {
+  if (Array.isArray(child)) {
+    return child.length !== 1;
+  }
+  if (!child || typeof child !== 'object' || !('type' in child)) {
+    return false;
+  }
+  const vnode = child as VNode;
+  if (vnode.type !== Fragment) {
+    return false;
+  }
+  return (getRenderableChildren(vnode)?.length ?? 0) !== 1;
+}
+
+function renderControlChildrenSync(
+  node: VNode | JSXElement,
+  ctx: RenderContext
+): string {
+  const controlState = (node as DOMElement)._controlState ??
+    (node as DOMElement)._forState;
+
+  return withControlBoundaryChildren(node, (children) => {
+    const values = children ?? [];
+    if (controlState?.kind === 'for') {
+      return values
+        .map((child) => {
+          const rendered = renderChildSync(child, ctx);
+          return isMultiRangeChild(child)
+            ? `${RANGE_START}${rendered}${RANGE_END}`
+            : rendered;
+        })
+        .join('');
+    }
+
+    const rendered = renderChildrenSync(values, ctx);
+    return values.length === 1 && isMultiRangeChild(values[0])
+      ? `${RANGE_START}${rendered}${RANGE_END}`
+      : values.length !== 1
+        ? `${RANGE_START}${rendered}${RANGE_END}`
+        : rendered;
+  });
+}
 
 export function inheritRenderableKey(
   source: VNode | JSXElement,
@@ -239,7 +285,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
       return renderChildrenSync(childrenArr, ctx);
     }
     if (type === __CONTROL_BOUNDARY__) {
-      return renderChildrenSync(evaluateControlBoundaryChildren(node), ctx);
+      return renderControlChildrenSync(node, ctx);
     }
     if (type === __ERROR_BOUNDARY__) {
       const boundaryState = getErrorBoundaryState(node);
@@ -323,11 +369,8 @@ function renderNodeSyncToSink(
       return;
     }
     if (type === __CONTROL_BOUNDARY__) {
-      renderChildrenSyncToSink(
-        evaluateControlBoundaryChildren(node),
-        sink,
-        ctx
-      );
+      const rendered = renderControlChildrenSync(node, ctx);
+      sink.write(rendered);
       return;
     }
     if (type === __ERROR_BOUNDARY__) {

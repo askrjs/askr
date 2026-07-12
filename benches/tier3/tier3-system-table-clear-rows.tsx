@@ -46,19 +46,19 @@ const emptyRows: RowData[] = [];
 
 describe('tier3 system table clear rows', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
+  let rowsVisible = true;
 
   bench(
-    'clear a 1,000-row table',
+    'toggle a 1,000-row table between populated and empty',
     () => {
-      mounted!.benchmark.setRows(emptyRows);
+      rowsVisible = !rowsVisible;
+      mounted!.benchmark.setRows(rowsVisible ? initialRows : emptyRows);
     },
     {
       ...tableHeavyBenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
-      },
-      beforeEach() {
-        mounted!.benchmark.setRows(initialRows);
+        rowsVisible = true;
       },
       teardown() {
         mounted?.cleanup();

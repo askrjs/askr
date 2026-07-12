@@ -47,7 +47,9 @@ export default defineConfig({
     sourcemap: 'hidden',
     unbundle: true,
     treeshake: false,
-    define: createNodeEnvDefine(isProd ? 'production' : 'development'),
+    // Package artifacts are always production runtime artifacts. Development
+    // behavior is provided by the source-based dev/test configurations above.
+    define: createNodeEnvDefine('production'),
     deps: {
       neverBundle: ['vite', 'esbuild', '@askrjs/vite', ...nodeBuiltins],
     },

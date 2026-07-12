@@ -29,7 +29,7 @@ import {
   takeHydrationRenderData,
 } from './hydration';
 import {
-  flushHydrationActivation,
+  activateHydrationBoundary,
   mountOrUpdate,
   registerAppNavigation,
   registerRootCleanupCallback,
@@ -46,6 +46,7 @@ import type {
   IslandsConfig,
   SPAConfig,
 } from './types';
+import { withIntrinsicHydrationAdoption } from '../renderer';
 
 export { cleanupApp, hasApp } from './root-lifecycle';
 export type {
@@ -314,6 +315,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     resolved.kind === 'deny'
       ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
       : { handler: resolved.handler, params: resolved.params };
+  const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
+    withIntrinsicHydrationAdoption(() => mountOrUpdate(...args));
 
   if (shouldVerifyHydrationMarkup(config)) {
     const legacyRouteTable = hasManifest
@@ -359,10 +362,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           hydrateOptions,
           appRouteSource,
           {
-            mountOrUpdate,
+            mountOrUpdate: mountHydratedRoot,
             registerAppNavigation,
             registerRootCleanupCallback,
-            flushHydrationActivation,
+            activateHydrationBoundary,
           }
         );
       } finally {
@@ -382,7 +385,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     startHydrationRenderPhase(hydrationRenderData);
   }
   try {
-    mountOrUpdate(
+    mountHydratedRoot(
       rootElement,
       resolved.kind === 'deny'
         ? bindDeniedStatus(resolved.status)

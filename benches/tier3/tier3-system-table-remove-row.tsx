@@ -13,6 +13,7 @@ import {
 
 const initialRows = buildRows(100);
 const nextRows = removeRowById(initialRows, 50);
+const mutationBatchSize = 100;
 
 {
   const mounted = mountTableBenchmark(initialRows);
@@ -57,9 +58,11 @@ describe('tier3 system table remove row', () => {
   let toggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
-    'remove one row from the middle of a 100-row table',
+    'toggle one middle row 100 times in a 100-row table',
     () => {
-      mounted!.benchmark.setRows(toggle!.next() as RowData[]);
+      for (let index = 0; index < mutationBatchSize; index++) {
+        mounted!.benchmark.setRows(toggle!.next() as RowData[]);
+      }
     },
     {
       ...tier3BenchOptions,

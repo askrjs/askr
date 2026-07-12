@@ -138,6 +138,15 @@ sequenceDiagram
 The renderer has multiple commit strategies depending on node shape. Keyed
 lists and bulk text updates take specialized paths.
 
+The keyed `For` strategies share one transaction boundary. Evaluation may
+prepare destination nodes off the live tree, but retained-node mutations,
+keyed maps, component hosts, listeners, refs, portals, readable subscriptions,
+resources, and child-scope ownership are provisional until the outer commit
+succeeds. A failure discards lifecycle work and restores the previous DOM plus
+renderer metadata. Bulk replacement and clear paths may publish with one DOM
+operation only when their exact-boundary checks prove that no unrelated node
+can be claimed or removed.
+
 ```mermaid
 flowchart LR
   domNode[element target]
@@ -180,10 +189,73 @@ flowchart LR
   resolved --> commit
 ```
 
+## Anchored DOM ranges
+
+`src/common/dom-range.ts` and `src/renderer/dom-range.ts` provide the single
+internal range abstraction used by `ChildScope`, `Show`, `Case`, fragments, and
+`For`. A one-node result keeps the existing singleton fast path. A result with
+multiple nodes is anchored by deterministic comments:
+
+```html
+<!--askr-range-start-->
+...owned output...
+<!--askr-range-end-->
+```
+
+The anchors are structural ownership boundaries, not user-visible wrappers.
+Range operations move, replace, remove, iterate, and restore the complete
+owned output, so a keyed `For` reorder cannot separate siblings or claim the
+next positional child. Empty ranges retain their anchors for later hydration
+and updates. Client hydration validates the marker structure before adopting
+nodes, and SSR emits the same markers deterministically.
+
+## Renderer transactions
+
+Each render commit has one provisional lifecycle batch. It includes DOM
+structure, range anchors, keyed metadata, component ownership, refs, listeners,
+reactive property bindings, readable subscriptions, portal writes, child
+scopes, and lifecycle operations. Nested batches merge into their parent only
+after a successful child commit. A failed evaluation discards those writes,
+restores the previous branch or range, and then attempts cleanup in independent
+DOM, ownership, listener, ref, reactive-binding, and keyed-metadata phases.
+
+The original render error remains the thrown error. Rollback failures are
+aggregated and reported afterward. Cleanup of an outgoing committed owner is
+also deferred until replacement succeeds, and is performed exactly once.
+Nested component reuse requires vnode owner, parent position, key, and wrapper
+depth; type alone is not an identity contract.
+
+Initial hydration has one additional guarded path. A complete preflight may
+adopt a matching, unkeyed intrinsic subtree without running general-purpose
+reconciliation. The adoption walk publishes only refs and listeners, with one
+bindings-only retained record per changed element. Existing bindings,
+components, reactive props, keys, or any structural/value mismatch reject the
+fast path before mutation.
+
+Cold intrinsic creation uses an owner- and document-scoped blueprint after the
+first validated result. Subsequent rows clone the retained element shape,
+prepare reactive bindings and delegated listeners off the live tree, then
+publish them only after the complete shape check succeeds. Direct intrinsic
+children use a bounded recursive shortcut; fragments and other flattened child
+forms retain the general validator. First bindings on fresh elements publish
+through the fresh-element cleanup path, while later bindings on the same
+element join the existing retained record.
+
+Fine-grained effects keep the first two readable sources inline and widen to a
+collection only for the third distinct source. `For` item property reads use
+the same first/two/3+ representation, preserving precise invalidation while
+avoiding per-row collection allocation in the common case. Singleton ranges
+also use a direct range constructor, but still register ownership metadata.
+
 ## Cleanup model
 
 Cleanup is a first-class concern because listener ownership and component-owned
 subtrees need precise teardown.
+
+Removed-owner disposal is a post-publication phase of a successful transaction.
+Errors from that disposal and from newly activated lifecycle work are collected
+and reported after the coherent commit; they do not trigger a partial rollback
+after outgoing ownership has already been finalized.
 
 ```mermaid
 flowchart LR
@@ -216,6 +288,8 @@ flowchart LR
   and stale host instance pruning.
 - `src/renderer/element-children.ts` owns element child updates, keyed child
   map lookup, empty-child handling, scalar replacement, and unkeyed children.
+- `src/renderer/intrinsic-hydration-adoption.ts` owns the hydration-scoped,
+  preflighted adoption path for matching intrinsic SSR subtrees.
 - `src/renderer/children-fastpath.ts` owns positional keyed bulk text updates,
   tag reuse checks, and keyed DOM map refreshes used by reconciliation and DOM
   evaluation.

@@ -14,6 +14,13 @@ import { logger } from '../common/logger';
 import { incrementPerfMetric } from './perf-metrics';
 import { incDevCounter } from './dev-namespace';
 
+declare const __ASKR_BENCH_BUILD__: boolean;
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+const PERF_BUILD_ENABLED =
+  DEVELOPMENT_BUILD_ENABLED || __ASKR_BENCH_BUILD__;
+
 export interface DelegatedEventMap {
   click: MouseEvent;
   dblclick: MouseEvent;
@@ -65,7 +72,6 @@ const DELEGATED_EVENTS: (keyof DelegatedEventMap)[] = [
 interface DelegatedHandler {
   handler: EventListener;
   original: EventListener;
-  element: Element;
   container: Element;
   eventName: string;
   options?: AddEventListenerOptions;
@@ -73,16 +79,63 @@ interface DelegatedHandler {
 
 type DelegatedHandlerStore = DelegatedHandler | Map<string, DelegatedHandler>;
 
-const delegatedHandlers = new WeakMap<Element, DelegatedHandlerStore>();
+const DELEGATED_HANDLERS = Symbol('askr.delegated-handlers');
+type DelegatedHandlerElement = Element & {
+  [DELEGATED_HANDLERS]?: DelegatedHandlerStore;
+};
+
+const delegatedHandlerFallback = new WeakMap<Element, DelegatedHandlerStore>();
+
+function getDelegatedHandlerStore(
+  element: Element
+): DelegatedHandlerStore | undefined {
+  return (
+    (element as DelegatedHandlerElement)[DELEGATED_HANDLERS] ??
+    delegatedHandlerFallback.get(element)
+  );
+}
+
+function setDelegatedHandlerStore(
+  element: Element,
+  store: DelegatedHandlerStore
+): void {
+  const host = element as DelegatedHandlerElement;
+  try {
+    host[DELEGATED_HANDLERS] = store;
+    if (host[DELEGATED_HANDLERS] === store) {
+      return;
+    }
+  } catch {
+    // Exotic or non-extensible element wrappers retain the WeakMap fallback.
+  }
+  delegatedHandlerFallback.set(element, store);
+}
+
+function deleteDelegatedHandlerStore(element: Element): void {
+  const host = element as DelegatedHandlerElement;
+  if (host[DELEGATED_HANDLERS] !== undefined) {
+    try {
+      delete host[DELEGATED_HANDLERS];
+      return;
+    } catch {
+      // Exotic or non-extensible element wrappers retain the WeakMap fallback.
+    }
+  }
+  delegatedHandlerFallback.delete(element);
+}
+
+interface ContainerDelegatedListener {
+  handler: EventListener;
+  usage: number;
+}
 
 let eventDelegationEnabled = true;
 let defaultContainer: Element | null = null;
 let globalDelegationContainer: Element | null = null;
 const containerDelegatedListeners = new Map<
   Element,
-  Map<string, EventListener>
+  Map<string, ContainerDelegatedListener>
 >();
-const containerDelegatedListenerUsage = new Map<Element, Map<string, number>>();
 
 export function isEventDelegationEnabled(): boolean {
   return eventDelegationEnabled;
@@ -106,51 +159,30 @@ export function setGlobalDelegationContainer(container: Element): void {
 
 function cleanupAllDelegatedListeners(): void {
   for (const [container, listeners] of containerDelegatedListeners) {
-    for (const [eventName, handler] of listeners) {
-      container.removeEventListener(eventName, handler);
+    for (const [eventName, entry] of listeners) {
+      container.removeEventListener(eventName, entry.handler);
     }
   }
   containerDelegatedListeners.clear();
-  containerDelegatedListenerUsage.clear();
-}
-
-function incrementContainerListenerUsage(
-  container: Element,
-  eventName: string
-): void {
-  let usage = containerDelegatedListenerUsage.get(container);
-  if (!usage) {
-    usage = new Map();
-    containerDelegatedListenerUsage.set(container, usage);
-  }
-  usage.set(eventName, (usage.get(eventName) ?? 0) + 1);
 }
 
 function decrementContainerListenerUsage(entry: DelegatedHandler): void {
-  const usage = containerDelegatedListenerUsage.get(entry.container);
-  if (!usage) {
-    return;
-  }
-
-  const nextCount = (usage.get(entry.eventName) ?? 0) - 1;
-  if (nextCount > 0) {
-    usage.set(entry.eventName, nextCount);
-    return;
-  }
-
-  usage.delete(entry.eventName);
   const listeners = containerDelegatedListeners.get(entry.container);
   const listener = listeners?.get(entry.eventName);
-  if (listener) {
-    entry.container.removeEventListener(entry.eventName, listener);
-    listeners?.delete(entry.eventName);
+  if (!listener) {
+    return;
   }
+
+  listener.usage -= 1;
+  if (listener.usage > 0) {
+    return;
+  }
+
+  entry.container.removeEventListener(entry.eventName, listener.handler);
+  listeners?.delete(entry.eventName);
 
   if (listeners?.size === 0) {
     containerDelegatedListeners.delete(entry.container);
-  }
-  if (usage.size === 0) {
-    containerDelegatedListenerUsage.delete(entry.container);
   }
 }
 
@@ -167,16 +199,22 @@ function attachDelegatedListener(
   eventName: string,
   handler: EventListener,
   originalHandler: EventListener,
-  options?: AddEventListenerOptions
+  options?: AddEventListenerOptions,
+  fresh = false
 ): void {
-  const hadHandler = !!getDelegatedHandlerForElement(element, eventName);
+  const existingStore = fresh ? undefined : getDelegatedHandlerStore(element);
+  const hadHandler = existingStore instanceof Map
+    ? existingStore.has(eventName)
+    : existingStore?.eventName === eventName;
 
-  if (!containerDelegatedListeners.has(container)) {
-    containerDelegatedListeners.set(container, new Map());
+  let containerListeners = containerDelegatedListeners.get(container);
+  if (!containerListeners) {
+    containerListeners = new Map();
+    containerDelegatedListeners.set(container, containerListeners);
   }
-  const containerListeners = containerDelegatedListeners.get(container)!;
 
-  if (!containerListeners.has(eventName)) {
+  let containerListener = containerListeners.get(eventName);
+  if (!containerListener) {
     const delegatedHandler = (e: Event) => {
       const target = e.target as Element;
       if (!target) return;
@@ -184,8 +222,10 @@ function attachDelegatedListener(
       runRuntimeHandlerScope(() => {
         let current: Element | null = target;
         while (current && current !== container) {
-          incrementPerfMetric('delegatedAncestorHops');
-          const store = delegatedHandlers.get(current);
+          if (PERF_BUILD_ENABLED) {
+            incrementPerfMetric('delegatedAncestorHops');
+          }
+          const store = getDelegatedHandlerStore(current);
           const entry = !store
             ? undefined
             : store instanceof Map
@@ -214,29 +254,33 @@ function attachDelegatedListener(
     const listenerOptions = passiveOptions ?? options;
 
     container.addEventListener(eventName, delegatedHandler, listenerOptions);
-    containerListeners.set(eventName, delegatedHandler);
+    containerListener = { handler: delegatedHandler, usage: 0 };
+    containerListeners.set(eventName, containerListener);
   }
 
-  setDelegatedHandlerForElement(element, {
-    handler,
-    original: originalHandler,
+  setDelegatedHandlerForElement(
     element,
-    container,
-    eventName,
-    options,
-  });
+    {
+      handler,
+      original: originalHandler,
+      container,
+      eventName,
+      options,
+    },
+    existingStore
+  );
   if (!hadHandler) {
-    incrementContainerListenerUsage(container, eventName);
+    containerListener.usage += 1;
   }
 }
 
 function setDelegatedHandlerForElement(
   element: Element,
-  entry: DelegatedHandler
+  entry: DelegatedHandler,
+  existing = getDelegatedHandlerStore(element)
 ): void {
-  const existing = delegatedHandlers.get(element);
   if (!existing) {
-    delegatedHandlers.set(element, entry);
+    setDelegatedHandlerStore(element, entry);
     return;
   }
 
@@ -246,14 +290,14 @@ function setDelegatedHandlerForElement(
   }
 
   if (existing.eventName === entry.eventName) {
-    delegatedHandlers.set(element, entry);
+    setDelegatedHandlerStore(element, entry);
     return;
   }
 
   const next = new Map<string, DelegatedHandler>();
   next.set(existing.eventName, existing);
   next.set(entry.eventName, entry);
-  delegatedHandlers.set(element, next);
+  setDelegatedHandlerStore(element, next);
 }
 
 function getPassiveOptions(
@@ -281,7 +325,9 @@ export function addDelegatedListener(
   const container = getDelegationContainer();
   if (!container) return;
 
-  incDevCounter('listenerAdds');
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    incDevCounter('listenerAdds');
+  }
 
   attachDelegatedListener(
     container,
@@ -290,6 +336,34 @@ export function addDelegatedListener(
     handler,
     originalHandler,
     options
+  );
+}
+
+/** @internal Attach a delegated handler to a newly cloned element. */
+export function addFreshDelegatedListener(
+  element: Element,
+  eventName: string,
+  handler: EventListener,
+  originalHandler: EventListener,
+  options?: AddEventListenerOptions
+): void {
+  if (!eventDelegationEnabled) return;
+
+  const container = getDelegationContainer();
+  if (!container) return;
+
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    incDevCounter('listenerAdds');
+  }
+
+  attachDelegatedListener(
+    container,
+    element,
+    eventName,
+    handler,
+    originalHandler,
+    options,
+    true
   );
 }
 
@@ -325,32 +399,36 @@ export function removeDelegatedListener(
   element: Element,
   eventName: string
 ): void {
-  const existing = delegatedHandlers.get(element);
+  const existing = getDelegatedHandlerStore(element);
   if (!existing) {
     return;
   }
 
   if (existing instanceof Map) {
     if (existing.has(eventName)) {
-      incDevCounter('listenerRemoves');
+      if (DEVELOPMENT_BUILD_ENABLED) {
+        incDevCounter('listenerRemoves');
+      }
       decrementContainerListenerUsage(existing.get(eventName)!);
     }
     existing.delete(eventName);
     if (existing.size === 0) {
-      delegatedHandlers.delete(element);
+      deleteDelegatedHandlerStore(element);
       return;
     }
     if (existing.size === 1) {
       const only = existing.values().next().value as DelegatedHandler;
-      delegatedHandlers.set(element, only);
+      setDelegatedHandlerStore(element, only);
     }
     return;
   }
 
   if (existing.eventName === eventName) {
-    incDevCounter('listenerRemoves');
+    if (DEVELOPMENT_BUILD_ENABLED) {
+      incDevCounter('listenerRemoves');
+    }
     decrementContainerListenerUsage(existing);
-    delegatedHandlers.delete(element);
+    deleteDelegatedHandlerStore(element);
   }
 }
 
@@ -358,7 +436,7 @@ export function getDelegatedHandlerForElement(
   element: Element,
   eventName: string
 ): DelegatedHandler | undefined {
-  const store = delegatedHandlers.get(element);
+  const store = getDelegatedHandlerStore(element);
   if (!store) return undefined;
   if (store instanceof Map) return store.get(eventName);
   return store.eventName === eventName ? store : undefined;
@@ -367,7 +445,7 @@ export function getDelegatedHandlerForElement(
 export function getDelegatedHandlersForElement(
   element: Element
 ): Map<string, DelegatedHandler> | undefined {
-  const store = delegatedHandlers.get(element);
+  const store = getDelegatedHandlerStore(element);
   if (!store) return undefined;
   if (store instanceof Map) return store;
   return new Map([[store.eventName, store]]);
@@ -381,7 +459,7 @@ export function hasDelegatedHandler(
 }
 
 export function clearDelegatedHandlersForElement(element: Element): void {
-  const existing = delegatedHandlers.get(element);
+  const existing = getDelegatedHandlerStore(element);
   if (existing instanceof Map) {
     for (const entry of existing.values()) {
       decrementContainerListenerUsage(entry);
@@ -389,7 +467,7 @@ export function clearDelegatedHandlersForElement(element: Element): void {
   } else if (existing) {
     decrementContainerListenerUsage(existing);
   }
-  delegatedHandlers.delete(element);
+  deleteDelegatedHandlerStore(element);
 }
 
 export function getDelegatedEventNames(): readonly (keyof DelegatedEventMap)[] {

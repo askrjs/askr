@@ -6,6 +6,7 @@ import type { DOMElement, VNode } from '../common/vnode';
 import { isDevelopmentEnvironment } from '../common/env';
 import type { ComponentInstance } from './component';
 import {
+  captureChildScopeTransactionSnapshot,
   createChildScope,
   disposeChildScope,
   type ChildScope,
@@ -13,28 +14,32 @@ import {
 import {
   canProxyForItem,
   createForIndexSignal,
-  createForItemSignal,
   createReactiveForItem,
   haveSameOwnKeys,
   notifyForSignalReaders,
   readForItemProperty,
   removeForParentReaders,
+  scopeDirectlyReadsSource,
   scopeReadsSource,
   syncForIndexSignal,
   type ForIndexSignal,
   type ForItemPropertySignal,
-  type ForItemSignal,
+  type ReactiveForItemState,
 } from './for-signals';
 import { getRuntimeRenderer } from './access';
 import { recordBenchEvent } from './for-bench';
-import type { ForState } from './for-internal';
+import type { ForItemTransactionSnapshot, ForState } from './for-internal';
+import type { ReadableSource } from './readable';
+
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
 export interface ForItemInstance<T> {
   key: string | number;
   item: T;
   reactiveItem: T;
-  itemSignal: ForItemSignal<T> | null;
-  itemPropertySignals: Map<PropertyKey, ForItemPropertySignal> | null;
+  reactiveItemState: ReactiveForItemState<T> | null;
   indexSignal: ForIndexSignal;
   scope: ChildScope;
 }
@@ -45,17 +50,183 @@ function enqueueForScopeUpdate(parent: ComponentInstance | null): void {
   parent?._enqueueRun?.();
 }
 
+const forStatesByScope = new WeakMap<ChildScope, ForState<unknown>>();
+
+function enqueueForBoundaryScopeCommit(this: ChildScope): void {
+  const forState =
+    (this.blueprintOwner as ForState<unknown> | undefined) ??
+    forStatesByScope.get(this);
+  if (!forState) {
+    return;
+  }
+  if (forState._enqueueBoundaryCommit) {
+    forState._enqueueBoundaryCommit();
+    return;
+  }
+  enqueueForScopeUpdate(forState.parentInstance);
+}
+
+function createForOwnedChildScope<T>(
+  forState: ForState<T>,
+  key: string | number
+): ChildScope {
+  const scope = createChildScope(
+    forState.parentInstance,
+    key,
+    enqueueForBoundaryScopeCommit
+  );
+  return scope;
+}
+
+export function captureForItemTransactionSnapshot<T>(
+  forState: ForState<T>,
+  itemInstance: ForItemInstance<T>
+): void {
+  const transaction = forState._transaction;
+  if (!transaction || transaction.itemSnapshots?.has(itemInstance)) {
+    return;
+  }
+
+  if (
+    transaction.collectionSnapshotMode === 'reset-empty' ||
+    transaction.items.get(itemInstance.key) !== itemInstance
+  ) {
+    return;
+  }
+
+  const itemSnapshots = (transaction.itemSnapshots ??= new Map());
+
+  const propertySignals = itemInstance.reactiveItemState?.propertySignals ?? null;
+  const itemSignal = itemInstance.reactiveItemState?.itemSignal ?? null;
+  const propertySnapshots: ForItemTransactionSnapshot<T>['propertySignals'] =
+    propertySignals && propertySignals.size > 0
+      ? new Map(
+          Array.from(propertySignals, ([property, signal]) => [
+            property,
+            {
+              signal,
+              value: signal.peek(),
+              hasBeenRead: signal._hasBeenRead === true,
+            },
+          ])
+        )
+      : null;
+
+  itemSnapshots.set(itemInstance, {
+    item: itemInstance.item,
+    itemSignalExists: itemSignal !== null,
+    itemSignalValue: itemSignal?.peek(),
+    itemSignalHasBeenRead: itemSignal?._hasBeenRead === true,
+    indexValue: itemInstance.indexSignal.peek(),
+    indexHasBeenRead: itemInstance.indexSignal._hasBeenRead === true,
+    propertySignalStore: propertySignals,
+    propertySignals: propertySnapshots,
+    scope: captureChildScopeTransactionSnapshot(itemInstance.scope),
+  });
+}
+
+export function captureForFallbackTransactionSnapshot<T>(
+  forState: ForState<T>,
+  fallbackScope = forState.fallbackScope
+): void {
+  const transaction = forState._transaction;
+  if (
+    !transaction ||
+    !fallbackScope ||
+    transaction.fallbackScope !== fallbackScope ||
+    transaction.fallbackScopeSnapshot
+  ) {
+    return;
+  }
+
+  transaction.fallbackScopeSnapshot =
+    captureChildScopeTransactionSnapshot(fallbackScope);
+}
+
+function stageForSignalEffect<T>(
+  forState: ForState<T>,
+  source: ReadableSource<unknown>,
+  notify: boolean,
+  skipInstance: ComponentInstance | null = null,
+  skipOwnedBy: ComponentInstance | null = null
+): boolean {
+  const transaction = forState._transaction;
+  if (!transaction) {
+    return false;
+  }
+
+  const effects = (transaction.signalEffects ??= new Map());
+  const existing = effects.get(source);
+  if (existing) {
+    existing.notify ||= notify;
+    if (existing.skipInstance !== skipInstance) {
+      existing.skipInstance = null;
+    }
+    if (existing.skipOwnedBy !== skipOwnedBy) {
+      existing.skipOwnedBy = null;
+    }
+  } else {
+    effects.set(source, {
+      parentInstance: forState.parentInstance,
+      notify,
+      skipInstance,
+      skipOwnedBy,
+    });
+  }
+  return true;
+}
+
 export function syncForItemIndex<T>(
   forState: ForState<T>,
   itemInstance: ForItemInstance<T>,
   nextIndex: number
 ): boolean {
   const indexSignal = itemInstance.indexSignal;
-  if (indexSignal.peek() === nextIndex) {
+  const previousIndex = indexSignal.peek();
+  if (previousIndex === nextIndex) {
     return false;
   }
 
+  if (indexSignal._hasBeenRead !== true) {
+    const transaction = forState._transaction;
+    if (transaction) {
+      const snapshots = (transaction.unreadIndexSnapshots ??= new Map());
+      if (!snapshots.has(indexSignal)) {
+        snapshots.set(indexSignal, previousIndex);
+      }
+    }
+    indexSignal.set(nextIndex, false);
+    return false;
+  }
+
+  captureForItemTransactionSnapshot(forState, itemInstance);
+
   const scopeReadsIndex = scopeReadsSource(itemInstance.scope, indexSignal);
+  const scopeDirectlyReadsIndex = scopeDirectlyReadsSource(
+    itemInstance.scope,
+    indexSignal
+  );
+  if (forState._transaction) {
+    const shouldNotify = indexSignal._hasBeenRead === true;
+    indexSignal.set(nextIndex, false);
+    stageForSignalEffect(
+      forState,
+      indexSignal,
+      shouldNotify,
+      scopeReadsIndex ? itemInstance.scope.componentInstance : null
+    );
+    if (!scopeReadsIndex) {
+      return false;
+    }
+
+    if (scopeDirectlyReadsIndex) {
+      rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+    } else {
+      itemInstance.scope.markDirty();
+    }
+    return true;
+  }
+
   if (!scopeReadsIndex) {
     syncForIndexSignal(indexSignal, nextIndex);
     return false;
@@ -69,7 +240,8 @@ export function syncForItemIndex<T>(
   return true;
 }
 
-function materializeItemVnode(
+function materializeItemVnode<T>(
+  forState: ForState<T>,
   key: string | number,
   vnode: VNode | undefined
 ): void {
@@ -77,7 +249,7 @@ function materializeItemVnode(
     const vn = vnode as DOMElement;
     vn.key = key;
 
-    if (typeof vn.type === 'string') {
+    if (forState.parentInstance?.ssr && typeof vn.type === 'string') {
       if (!vn.props) vn.props = {};
       if (vn.props['data-key'] === undefined) {
         vn.props['data-key'] = String(key);
@@ -96,9 +268,11 @@ function renderItemScope<T>(
   indexSignal: ForIndexSignal,
   key: string | number
 ): VNode {
-  recordBenchEvent('rowFactory');
+  if (BENCH_BUILD_ENABLED) {
+    recordBenchEvent('rowFactory');
+  }
   const vnode = scope.render(() => forState.renderFn(item, indexSignal));
-  materializeItemVnode(key, vnode);
+  materializeItemVnode(forState, key, vnode);
   return vnode;
 }
 
@@ -107,8 +281,23 @@ export function disposeItemInstance<T>(
   itemInstance: ForItemInstance<T>,
   domCleanup: RemovedDomCleanupMode
 ): void {
-  recordBenchEvent('itemRemoved');
+  if (BENCH_BUILD_ENABLED) {
+    recordBenchEvent('itemRemoved');
+  }
   const removedDom = itemInstance.scope.dom;
+  const removedRange = itemInstance.scope.range;
+
+  const transaction = forState._transaction;
+  if (transaction) {
+    (transaction.removedScopes ??= []).push(itemInstance.scope);
+    if (removedDom) {
+      forState.lastRemovedNodes.push(removedDom);
+    }
+    if (removedRange) {
+      forState.lastRemovedRanges.push(removedRange);
+    }
+    return;
+  }
 
   try {
     disposeChildScope(itemInstance.scope);
@@ -129,6 +318,9 @@ export function disposeItemInstance<T>(
   }
 
   forState.lastRemovedNodes.push(removedDom);
+  if (removedRange) {
+    forState.lastRemovedRanges.push(removedRange);
+  }
 }
 
 export function createItemInstance<T>(
@@ -137,36 +329,34 @@ export function createItemInstance<T>(
   index: number,
   forState: ForState<T>
 ): ForItemInstance<T> {
-  recordBenchEvent('itemCreated');
+  if (BENCH_BUILD_ENABLED) {
+    recordBenchEvent('itemCreated');
+  }
 
   // Create index signal manually without going through state() hook
   // to avoid hook order violations (each For item creates its signal dynamically)
   const indexSignal = createForIndexSignal(index);
-  const itemSignal = canProxyForItem(item) ? createForItemSignal(item) : null;
-  const itemPropertySignals = itemSignal
-    ? new Map<PropertyKey, ForItemPropertySignal>()
+  const reactiveItemState = canProxyForItem(item)
+    ? createReactiveForItem(item)
     : null;
-  const reactiveItem =
-    itemSignal && itemPropertySignals
-      ? createReactiveForItem(itemSignal, itemPropertySignals)
-      : item;
-  const scope = createChildScope(forState.parentInstance, key, () => {
-    if (forState._enqueueBoundaryCommit) {
-      forState._enqueueBoundaryCommit();
-      return;
-    }
+  const reactiveItem = reactiveItemState?.proxy ?? item;
+  const scope = createForOwnedChildScope(forState, key);
+  scope.blueprintOwner = forState;
 
-    enqueueForScopeUpdate(forState.parentInstance);
-  });
-
-  renderItemScope(forState, scope, reactiveItem, indexSignal, key);
+  try {
+    renderItemScope(forState, scope, reactiveItem, indexSignal, key);
+  } catch (error) {
+    // createChildScope registers ownership before rendering. A render failure
+    // must not retain a provisional child in the parent owner graph.
+    disposeChildScope(scope);
+    throw error;
+  }
 
   return {
     key,
     item,
     reactiveItem,
-    itemSignal,
-    itemPropertySignals,
+    reactiveItemState,
     indexSignal,
     scope,
   };
@@ -195,18 +385,22 @@ export function updateItemInstance<T>(
     return false;
   }
 
+  captureForItemTransactionSnapshot(forState, itemInstance);
+
   const previousItem = itemInstance.item;
   itemInstance.item = item;
 
   const scope = itemInstance.scope;
   let scopeReadsChangedSignal = false;
-  const itemSignal = itemInstance.itemSignal;
-  if (!itemSignal) {
+  const reactiveItemState = itemInstance.reactiveItemState;
+  if (!reactiveItemState) {
     rerenderItemInstance(forState, itemInstance, item);
     return true;
   }
+  const itemSignal = reactiveItemState.itemSignal;
+  reactiveItemState.currentItem = item;
 
-  const propertySignals = itemInstance.itemPropertySignals;
+  const propertySignals = reactiveItemState.propertySignals;
   const changedPropertySignals: Array<[ForItemPropertySignal, unknown]> = [];
   if (propertySignals && propertySignals.size > 0) {
     for (const [prop, propertySignal] of propertySignals) {
@@ -224,28 +418,97 @@ export function updateItemInstance<T>(
     }
   }
 
-  if (scopeReadsSource(scope, itemSignal)) {
+  if (itemSignal && scopeReadsSource(scope, itemSignal)) {
     scopeReadsChangedSignal = true;
   }
 
+  let coalescedPropertyChanged = false;
+  const coalescedProperties = reactiveItemState.coalescedProperties;
+  if (coalescedProperties !== null) {
+    if (Array.isArray(coalescedProperties)) {
+      for (const property of coalescedProperties) {
+        if (
+          !Object.is(
+            readForItemProperty(previousItem, property),
+            readForItemProperty(item, property)
+          )
+        ) {
+          coalescedPropertyChanged = true;
+          break;
+        }
+      }
+    } else {
+      coalescedPropertyChanged = !Object.is(
+        readForItemProperty(previousItem, coalescedProperties),
+        readForItemProperty(item, coalescedProperties)
+      );
+      const secondProperty = reactiveItemState.coalescedProperty2;
+      if (secondProperty !== null && !coalescedPropertyChanged) {
+        coalescedPropertyChanged = !Object.is(
+          readForItemProperty(previousItem, secondProperty),
+          readForItemProperty(item, secondProperty)
+        );
+      }
+    }
+  }
+  const wholeItemChanged =
+    itemSignal?._hasBeenRead === true &&
+    (reactiveItemState.wholeItemRead || coalescedPropertyChanged);
   const itemShapeChanged =
-    changedPropertySignals.length === 0 && !haveSameOwnKeys(previousItem, item);
+    !wholeItemChanged &&
+    changedPropertySignals.length === 0 &&
+    !haveSameOwnKeys(previousItem, item);
   const notifyReaders =
     !scopeReadsChangedSignal &&
-    (changedPropertySignals.length > 0 || itemShapeChanged);
+    (changedPropertySignals.length > 0 || itemShapeChanged || wholeItemChanged);
   const visibleChange =
     scopeReadsChangedSignal ||
     changedPropertySignals.length > 0 ||
-    itemShapeChanged;
+    itemShapeChanged ||
+    wholeItemChanged;
   for (const [propertySignal, nextValue] of changedPropertySignals) {
-    removeForParentReaders(forState.parentInstance, propertySignal);
-    propertySignal.set(nextValue, notifyReaders);
+    if (
+      stageForSignalEffect(
+        forState,
+        propertySignal,
+        notifyReaders,
+        null,
+        itemInstance.scope.componentInstance
+      )
+    ) {
+      propertySignal.set(nextValue, false);
+    } else {
+      removeForParentReaders(forState.parentInstance, propertySignal);
+      propertySignal.set(nextValue, notifyReaders);
+    }
   }
-  removeForParentReaders(forState.parentInstance, itemSignal);
-  itemSignal.set(item, notifyReaders);
+  if (
+    itemSignal &&
+    stageForSignalEffect(
+      forState,
+      itemSignal,
+      notifyReaders,
+      null,
+      itemInstance.scope.componentInstance
+    )
+  ) {
+    itemSignal.set(item, false);
+  } else if (itemSignal) {
+    removeForParentReaders(forState.parentInstance, itemSignal);
+    itemSignal.set(item, notifyReaders);
+  }
 
   if (scopeReadsChangedSignal) {
-    rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+    const scopeReadsDirectly =
+      (itemSignal !== null && scopeDirectlyReadsSource(scope, itemSignal)) ||
+      changedPropertySignals.some(([propertySignal]) =>
+        scopeDirectlyReadsSource(scope, propertySignal)
+      );
+    if (scopeReadsDirectly) {
+      rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+    } else {
+      scope.markDirty();
+    }
   }
 
   return visibleChange;
@@ -263,7 +526,16 @@ export function disposeFallbackScope<T>(
   }
 
   const removedDom = fallbackScope.dom;
-  disposeChildScope(fallbackScope);
+  const removedRange = fallbackScope.range;
+  const transaction = forState._transaction;
+  if (transaction) {
+    (transaction.removedScopes ??= []).push(fallbackScope);
+    if (removedRange) {
+      forState.lastRemovedRanges.push(removedRange);
+    }
+  } else {
+    disposeChildScope(fallbackScope);
+  }
   forState.fallbackScope = null;
 
   if (!removedDom) {
@@ -277,6 +549,9 @@ export function disposeFallbackScope<T>(
   }
 
   forState.lastRemovedNodes.push(removedDom);
+  if (removedRange) {
+    forState.lastRemovedRanges.push(removedRange);
+  }
 }
 
 export function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
@@ -291,17 +566,18 @@ export function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
 
   const fallbackScope =
     forState.fallbackScope ??
-    createChildScope(forState.parentInstance, FOR_FALLBACK_SCOPE_KEY, () => {
-      if (forState._enqueueBoundaryCommit) {
-        forState._enqueueBoundaryCommit();
-        return;
-      }
-
-      enqueueForScopeUpdate(forState.parentInstance);
-    });
+    createForOwnedChildScope(forState, FOR_FALLBACK_SCOPE_KEY);
+  if (!forState.fallbackScope) {
+    forStatesByScope.set(
+      fallbackScope,
+      forState as ForState<unknown>
+    );
+  }
   forState.fallbackScope = fallbackScope;
 
-  const vnode = fallbackScope.render(() => forState.fallback as VNode);
+  captureForFallbackTransactionSnapshot(forState, fallbackScope);
+  const fallbackVNode = forState.fallback as VNode;
+  const vnode = fallbackScope.render(() => fallbackVNode);
   forState.orderedVNodes = vnode == null || vnode === false ? [] : [vnode];
   forState.orderedItems = [];
   return forState.orderedVNodes;
@@ -312,6 +588,29 @@ export function disposeAllItems<T>(
   domCleanup: RemovedDomCleanupMode
 ): void {
   const { items, orderedKeys } = forState;
+  const preservesCollections =
+    forState._transaction?.collectionSnapshotMode === 'preserve-clear';
+  if (preservesCollections) {
+    const transaction = forState._transaction!;
+    transaction.removeAllItems = true;
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchEvent('itemRemoved', orderedKeys.length);
+    }
+    for (let index = 0; index < forState.orderedItems.length; index++) {
+      const removedDom = forState.orderedItems[index]?.scope.dom;
+      if (removedDom) {
+        forState.lastRemovedNodes.push(removedDom);
+      }
+      const range = forState.orderedItems[index]?.scope.range;
+      if (range) {
+        forState.lastRemovedRanges.push(range);
+      }
+    }
+    forState.items = new Map();
+    forState.orderedKeys = [];
+    return;
+  }
+
   for (let index = 0; index < orderedKeys.length; index += 1) {
     const key = orderedKeys[index];
     const itemInstance = items.get(key);

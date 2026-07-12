@@ -59,6 +59,8 @@ const forbiddenPatterns: Array<{
     message: 'Replace placeholder assertions with observable behavior checks',
   },
 ];
+const TIMER_CALL_PATTERN = /\b(setTimeout|setInterval|sleep)\s*\(/;
+const REAL_TIMER_MARKER = '@askr-allow-real-timers';
 
 describe('Test suite guidelines', () => {
   it('should have no forbidden patterns (TODOs, skipped tests, un-awaited rejects, explicit any)', () => {
@@ -74,6 +76,7 @@ describe('Test suite guidelines', () => {
     for (const file of files) {
       const content = fs.readFileSync(file, 'utf-8');
       const lines = content.split(/\r?\n/);
+      const usesFakeTimers = /\bvi\.useFakeTimers\s*\(/.test(content);
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         for (const pat of forbiddenPatterns) {
@@ -103,23 +106,19 @@ describe('Test suite guidelines', () => {
         }
 
         if (
-          /behavior\.test\.(ts|tsx|js)$/.test(file) &&
-          /\b(setTimeout|sleep)\s*\(/.test(line)
+          TIMER_CALL_PATTERN.test(line) &&
+          !/^\s*\/\//.test(line) &&
+          !content.includes(REAL_TIMER_MARKER) &&
+          !usesFakeTimers
         ) {
-          const usesFakeTimers =
-            /\bvi\.(useFakeTimers|advanceTimers|runAllTimers|runOnlyPendingTimers)/.test(
-              content
-            );
-          if (!usesFakeTimers) {
-            failures.push({
-              file,
-              line: i + 1,
-              snippet: line.trim(),
-              rule: 'fixed sleeps in behavior tests',
-              message:
-                'Behavior tests should use deterministic flushing or fake timers instead of fixed sleeps',
-            });
-          }
+          failures.push({
+            file,
+            line: i + 1,
+            snippet: line.trim(),
+            rule: 'unmarked test timers',
+            message:
+              'Use deferred promises or fake timers; mark real browser integration timers with @askr-allow-real-timers',
+          });
         }
       }
     }

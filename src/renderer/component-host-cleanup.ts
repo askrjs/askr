@@ -1,63 +1,174 @@
-import { cleanupComponent } from '../runtime';
+import {
+  cleanupComponent,
+  clearDelegatedHandlersForElement,
+  incDevCounter,
+  registerLifecycleTransaction,
+  removeDelegatedListener,
+} from '../runtime';
 import type { ComponentInstance } from '../runtime';
-import { removeElementListeners, removeElementReactiveProps } from './cleanup';
+import {
+  elementListeners,
+  elementReactivePropsCleanup,
+  elementRefs,
+  forEachElementReactivePropCleanup,
+  removeElementRef,
+  type ReactivePropCleanupEntry,
+} from './cleanup';
 import type { InstanceHostElement } from './dom-host';
 
 export function cleanupDetachedComponentHost(
   host: InstanceHostElement,
-  retainedInstance: ComponentInstance
+  retainedInstance:
+    | ComponentInstance
+    | Iterable<ComponentInstance>
 ): void {
-  removeElementListeners(host);
-  removeElementReactiveProps(host);
+  const retainedInstances =
+    retainedInstance instanceof Object &&
+    typeof (retainedInstance as Iterable<ComponentInstance>)[Symbol.iterator] ===
+      'function'
+      ? new Set(retainedInstance as Iterable<ComponentInstance>)
+      : new Set([retainedInstance as ComponentInstance]);
+  const cleanupErrors: unknown[] = [];
+  const cleanedInstances = new Set<ComponentInstance>();
+  const elements: InstanceHostElement[] = [host];
 
-  const hostInstances = host.__ASKR_INSTANCES;
-  if (hostInstances && hostInstances.length > 0) {
-    for (const instance of hostInstances) {
-      if (instance === retainedInstance) continue;
-      cleanupComponent(instance);
+  try {
+    const descendants = host.querySelectorAll('*');
+    for (let index = 0; index < descendants.length; index += 1) {
+      elements.push(descendants[index] as InstanceHostElement);
     }
-  } else if (
-    host.__ASKR_INSTANCE &&
-    host.__ASKR_INSTANCE !== retainedInstance
-  ) {
-    cleanupComponent(host.__ASKR_INSTANCE);
+  } catch (error) {
+    cleanupErrors.push(error);
   }
 
-  const descendants = host.querySelectorAll('*');
-  for (let index = 0; index < descendants.length; index += 1) {
-    const descendant = descendants[index] as InstanceHostElement;
-    removeElementListeners(descendant);
-    removeElementReactiveProps(descendant);
+  for (const element of elements) {
+    cleanupElementListeners(element, cleanupErrors);
+    cleanupElementReactiveProps(element, cleanupErrors);
+    cleanupElementRef(element, cleanupErrors);
+    cleanupElementInstances(
+      element,
+      retainedInstances,
+      cleanedInstances,
+      cleanupErrors
+    );
+    clearHostMetadata(element, cleanupErrors);
+  }
 
-    if (descendant.__ASKR_INSTANCES?.length) {
-      for (const instance of descendant.__ASKR_INSTANCES) {
-        if (instance === retainedInstance) continue;
-        cleanupComponent(instance);
-      }
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(
+      cleanupErrors,
+      'Detached component host cleanup failed'
+    );
+  }
+}
+
+function cleanupElementListeners(
+  element: Element,
+  cleanupErrors: unknown[]
+): void {
+  const listenerMap = elementListeners.get(element);
+  if (listenerMap) {
+    // Clear ownership before invoking DOM hooks so a throwing shim cannot make
+    // a later teardown attempt execute the same listener cleanup twice.
+    elementListeners.delete(element);
+    for (const entry of listenerMap.values()) {
       try {
-        delete descendant.__ASKR_INSTANCES;
-      } catch {
-        // Ignore host cleanup failures.
-      }
-    } else if (
-      descendant.__ASKR_INSTANCE &&
-      descendant.__ASKR_INSTANCE !== retainedInstance
-    ) {
-      cleanupComponent(descendant.__ASKR_INSTANCE);
-      try {
-        delete descendant.__ASKR_INSTANCE;
-      } catch {
-        // Ignore host cleanup failures.
+        incDevCounter('listenerRemoves');
+        if (entry.isDelegated) {
+          removeDelegatedListener(element, entry.eventName);
+        } else if (entry.options !== undefined) {
+          element.removeEventListener(
+            entry.eventName,
+            entry.handler,
+            entry.options
+          );
+        } else {
+          element.removeEventListener(entry.eventName, entry.handler);
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
       }
     }
   }
 
   try {
-    delete host.__ASKR_INSTANCE;
-    delete host.__ASKR_INSTANCES;
-    delete host.__ASKR_WRAPPER_HOST;
-  } catch {
-    // Ignore host cleanup failures.
+    clearDelegatedHandlersForElement(element);
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
+}
+
+function cleanupElementReactiveProps(
+  element: Element,
+  cleanupErrors: unknown[]
+): void {
+  if (!elementReactivePropsCleanup.has(element)) {
+    return;
+  }
+
+  const entries: ReactivePropCleanupEntry[] = [];
+  forEachElementReactivePropCleanup(element, (entry) => entries.push(entry));
+  // Delete first for the same exactly-once guarantee as listener cleanup.
+  elementReactivePropsCleanup.delete(element);
+  for (const entry of entries) {
+    try {
+      entry.cleanup();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+}
+
+function cleanupElementRef(element: Element, cleanupErrors: unknown[]): void {
+  try {
+    removeElementRef(element);
+  } catch (error) {
+    // removeElementRef invokes user code before deleting its bookkeeping.
+    // Clear the entry after a failed callback without invoking it a second time.
+    elementRefs.delete(element);
+    cleanupErrors.push(error);
+  }
+}
+
+function cleanupElementInstances(
+  element: InstanceHostElement,
+  retainedInstances: Set<ComponentInstance>,
+  cleanedInstances: Set<ComponentInstance>,
+  cleanupErrors: unknown[]
+): void {
+  const instances = new Set<ComponentInstance>(element.__ASKR_INSTANCES ?? []);
+  if (element.__ASKR_INSTANCE) {
+    instances.add(element.__ASKR_INSTANCE);
+  }
+
+  for (const instance of instances) {
+    if (retainedInstances.has(instance) || cleanedInstances.has(instance)) {
+      continue;
+    }
+
+    cleanedInstances.add(instance);
+    try {
+      cleanupComponent(instance);
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+}
+
+function clearHostMetadata(
+  element: InstanceHostElement,
+  cleanupErrors: unknown[]
+): void {
+  for (const property of [
+    '__ASKR_INSTANCE',
+    '__ASKR_INSTANCES',
+    '__ASKR_WRAPPER_HOST',
+  ] as const) {
+    try {
+      delete element[property];
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
   }
 }
 
@@ -65,43 +176,119 @@ export function pruneComponentHostInstances(
   host: InstanceHostElement,
   retainedInstances: Iterable<ComponentInstance>
 ): void {
-  const retained = new Set(retainedInstances);
-  const nextInstances: ComponentInstance[] = [];
-  const staleInstances = new Set<ComponentInstance>();
+  const hadInstanceList = Object.prototype.hasOwnProperty.call(
+    host,
+    '__ASKR_INSTANCES'
+  );
+  const hadPrimaryInstance = Object.prototype.hasOwnProperty.call(
+    host,
+    '__ASKR_INSTANCE'
+  );
+  const previousInstanceList = host.__ASKR_INSTANCES?.slice();
+  const previousPrimaryInstance = host.__ASKR_INSTANCE;
+  const previousInstances = collectHostInstances(host);
 
-  const retainOrMarkStale = (instance: ComponentInstance | undefined) => {
-    if (!instance) {
-      return;
-    }
+  const commit = (): void => {
+    // Keep the iterable live until commit. Nested component resolution can
+    // register pruning before render, then add every successfully retained
+    // owner before the lifecycle batch is finalized.
+    const retained = new Set(retainedInstances);
+    const currentInstances = collectHostInstances(host);
+    const nextInstances = Array.from(currentInstances).filter((instance) =>
+      retained.has(instance)
+    );
 
-    if (retained.has(instance)) {
-      if (!nextInstances.includes(instance)) {
+    for (const instance of retained) {
+      if (instance.target === host && !nextInstances.includes(instance)) {
         nextInstances.push(instance);
       }
-      return;
     }
 
-    staleInstances.add(instance);
+    writeHostInstances(host, nextInstances);
+    cleanupHostInstances(
+      Array.from(currentInstances).filter(
+        (instance) => !retained.has(instance)
+      ),
+      'Component host pruning failed'
+    );
   };
 
+  const rollback = (): void => {
+    const currentInstances = collectHostInstances(host);
+
+    try {
+      if (hadInstanceList) {
+        host.__ASKR_INSTANCES = previousInstanceList;
+      } else {
+        delete host.__ASKR_INSTANCES;
+      }
+
+      if (hadPrimaryInstance) {
+        host.__ASKR_INSTANCE = previousPrimaryInstance;
+      } else {
+        delete host.__ASKR_INSTANCE;
+      }
+    } catch {
+      // Host metadata restoration is best-effort on readonly DOM shims.
+    }
+
+    cleanupHostInstances(
+      Array.from(currentInstances).filter(
+        (instance) => !previousInstances.has(instance)
+      ),
+      'Provisional component host cleanup failed'
+    );
+  };
+
+  if (!registerLifecycleTransaction({}, commit, rollback)) {
+    commit();
+  }
+}
+
+function collectHostInstances(
+  host: InstanceHostElement
+): Set<ComponentInstance> {
+  const instances = new Set<ComponentInstance>();
   for (const instance of host.__ASKR_INSTANCES ?? []) {
-    retainOrMarkStale(instance);
+    instances.add(instance);
   }
-  retainOrMarkStale(host.__ASKR_INSTANCE);
-
-  for (const instance of staleInstances) {
-    cleanupComponent(instance);
+  if (host.__ASKR_INSTANCE) {
+    instances.add(host.__ASKR_INSTANCE);
   }
+  return instances;
+}
 
+function writeHostInstances(
+  host: InstanceHostElement,
+  instances: ComponentInstance[]
+): void {
   try {
-    if (nextInstances.length > 0) {
-      host.__ASKR_INSTANCES = nextInstances;
-      host.__ASKR_INSTANCE = nextInstances[0];
+    if (instances.length > 0) {
+      host.__ASKR_INSTANCES = instances;
+      host.__ASKR_INSTANCE = instances[0];
     } else {
       delete host.__ASKR_INSTANCES;
       delete host.__ASKR_INSTANCE;
     }
   } catch {
     // Ignore host metadata cleanup failures.
+  }
+}
+
+function cleanupHostInstances(
+  instances: Iterable<ComponentInstance>,
+  message: string
+): void {
+  const cleanupErrors: unknown[] = [];
+  for (const instance of instances) {
+    try {
+      cleanupComponent(instance);
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(cleanupErrors, message);
   }
 }

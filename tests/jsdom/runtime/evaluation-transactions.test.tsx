@@ -17,7 +17,9 @@ import {
   vi,
 } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr/boot';
-import { resource } from '../../../src/resources';
+import { For } from '@askrjs/askr/control';
+import { state, type State } from '../../../src';
+import { resource, task } from '../../../src/resources';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
@@ -114,6 +116,476 @@ describe('evaluation transactions (SPEC 2.1)', () => {
   });
 
   describe('failed render leaves DOM unchanged (rollback)', () => {
+    it('should restore a keyed For boundary and dispose a failed provisional item', () => {
+      let rows!: State<Array<{ id: number; label: string; broken?: boolean }>>;
+      let retainedClicks = 0;
+
+      const Row = (row: { id: number; label: string; broken?: boolean }) => {
+        if (row.broken) {
+          throw new Error('failed provisional row');
+        }
+        return (
+          <button data-row={row.id} onClick={() => retainedClicks++}>
+            {row.label}
+          </button>
+        );
+      };
+
+      const Component = () => {
+        rows = state([{ id: 1, label: 'retained' }]);
+        return (
+          <div>
+            <For each={() => rows()} by={(row) => row.id}>
+              {(row) => <Row {...row} />}
+            </For>
+          </div>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const retained = container.querySelector('[data-row="1"]');
+      const snapshot = container.innerHTML;
+
+      rows.set([
+        { id: 1, label: 'retained' },
+        { id: 2, label: 'broken', broken: true },
+      ]);
+
+      expect(() => flushScheduler()).toThrow('failed provisional row');
+      expect(container.innerHTML).toBe(snapshot);
+      expect(container.querySelector('[data-row="1"]')).toBe(retained);
+
+      (retained as HTMLButtonElement).click();
+      expect(retainedClicks).toBe(1);
+
+      rows.set([
+        { id: 1, label: 'retained' },
+        { id: 2, label: 'recovered' },
+      ]);
+      flushScheduler();
+      expect(container.querySelector('[data-row="2"]')?.textContent).toBe(
+        'recovered'
+      );
+    });
+
+    it('should restore every row when a later replacement row fails', () => {
+      type Row = { id: number; label: string; broken?: boolean };
+      let rows!: State<Row[]>;
+      let retainedClicks = 0;
+      const provisionalRefs: Array<Element | null> = [];
+
+      function RowView({ row }: { row: Row }) {
+        if (row.broken) {
+          throw new Error('later replacement failed');
+        }
+
+        return (
+          <button
+            data-row={row.id}
+            ref={
+              row.id > 2
+                ? (element) => provisionalRefs.push(element)
+                : undefined
+            }
+            onClick={() => {
+              retainedClicks += 1;
+            }}
+          >
+            {row.label}
+          </button>
+        );
+      }
+
+      function Component() {
+        rows = state<Row[]>([
+          { id: 1, label: 'one' },
+          { id: 2, label: 'two' },
+        ]);
+        return (
+          <div>
+            <For each={rows} by={(row) => row.id}>
+              {(row) => <RowView row={row} />}
+            </For>
+          </div>
+        );
+      }
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const first = container.querySelector('[data-row="1"]')!;
+      const second = container.querySelector('[data-row="2"]')!;
+
+      rows.set([
+        { id: 3, label: 'three' },
+        { id: 4, label: 'four', broken: true },
+      ]);
+
+      expect(() => flushScheduler()).toThrow('later replacement failed');
+      expect(container.querySelector('[data-row="1"]')).toBe(first);
+      expect(container.querySelector('[data-row="2"]')).toBe(second);
+      expect(container.querySelector('[data-row="3"]')).toBeNull();
+      expect(provisionalRefs).toEqual([]);
+
+      (first as HTMLButtonElement).click();
+      (second as HTMLButtonElement).click();
+      expect(retainedClicks).toBe(2);
+    });
+
+    it('should restore a same-key component root before a later row fails', () => {
+      type Row = {
+        id: number;
+        label: string;
+        root: 'button' | 'article';
+        broken?: boolean;
+      };
+      let rows!: State<Row[]>;
+      let clicks = 0;
+      const sharedRef: { current: Element | null } = { current: null };
+
+      function RowView({ row }: { row: Row }) {
+        if (row.broken) {
+          throw new Error('same-key later row failed');
+        }
+        if (row.root === 'article') {
+          return <article ref={sharedRef}>{row.label}</article>;
+        }
+        return (
+          <button
+            ref={row.id === 1 ? sharedRef : undefined}
+            onClick={() => clicks++}
+          >
+            {row.label}
+          </button>
+        );
+      }
+
+      function Component() {
+        rows = state<Row[]>([
+          { id: 1, label: 'one', root: 'button' },
+          { id: 2, label: 'two', root: 'button' },
+        ]);
+        return (
+          <div>
+            <For each={rows} by={(row) => row.id}>
+              {(row) => <RowView row={row} />}
+            </For>
+          </div>
+        );
+      }
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      const retainedButton = container.querySelector('button')!;
+      expect(sharedRef.current).toBe(retainedButton);
+
+      rows.set([
+        { id: 1, label: 'changed', root: 'article' },
+        { id: 2, label: 'broken', root: 'button', broken: true },
+      ]);
+
+      expect(() => flushScheduler()).toThrow('same-key later row failed');
+      expect(container.querySelector('button')).toBe(retainedButton);
+      expect(container.querySelector('article')).toBeNull();
+      expect(retainedButton.textContent).toBe('one');
+      expect(sharedRef.current).toBe(retainedButton);
+
+      (retainedButton as HTMLButtonElement).click();
+      expect(clicks).toBe(1);
+      expect(() => flushScheduler()).not.toThrow();
+      expect(container.querySelector('button')).toBe(retainedButton);
+      expect(container.querySelector('article')).toBeNull();
+    });
+
+    it('should restore top-level text before a later row fails', () => {
+      type Row = { id: number; label: string; broken?: boolean };
+      let rows!: State<Row[]>;
+
+      function BrokenRow(): never {
+        throw new Error('text sibling failed');
+      }
+
+      function Component() {
+        rows = state<Row[]>([
+          { id: 1, label: 'one' },
+          { id: 2, label: 'two' },
+        ]);
+        return (
+          <div>
+            <For each={rows} by={(row) => row.id}>
+              {(row) =>
+                row.broken ? (
+                  <BrokenRow />
+                ) : (
+                  (row.label as unknown as JSXElement)
+                )
+              }
+            </For>
+          </div>
+        );
+      }
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      const parent = container.querySelector('div')!;
+      const firstText = parent.firstChild as Text;
+      const secondText = firstText.nextSibling as Text;
+
+      rows.set([
+        { id: 1, label: 'changed' },
+        { id: 2, label: 'broken', broken: true },
+      ]);
+
+      expect(() => flushScheduler()).toThrow('text sibling failed');
+      expect(parent.firstChild).toBe(firstText);
+      expect(firstText.nextSibling).toBe(secondText);
+      expect(firstText.data).toBe('one');
+      expect(secondText.data).toBe('two');
+    });
+
+    it('should detach an old shared ref before attaching its replacement', () => {
+      let rows!: State<Array<{ id: number; label: string }>>;
+      const sharedRef: { current: Element | null } = { current: null };
+
+      function Component() {
+        rows = state([{ id: 1, label: 'one' }]);
+        return (
+          <div>
+            <For each={rows} by={(row) => row.id}>
+              {(row) => <button ref={sharedRef}>{row.label}</button>}
+            </For>
+          </div>
+        );
+      }
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      const previous = sharedRef.current;
+
+      rows.set([{ id: 2, label: 'two' }]);
+      flushScheduler();
+
+      expect(sharedRef.current).toBe(container.querySelector('button'));
+      expect(sharedRef.current).not.toBe(previous);
+    });
+
+    it('should attach shared refs after same-key root replacement teardown', () => {
+      type Row = { id: number; root: 'button' | 'anchor' };
+      let rows!: State<Row[]>;
+      const objectRef: { current: Element | null } = { current: null };
+      const callbackValues: Array<Element | null> = [];
+      const callbackRef = (element: Element | null) => {
+        callbackValues.push(element);
+      };
+
+      const renderObjectRow = (row: Row) =>
+        row.root === 'button' ? (
+          <button data-object-root={'button'} ref={objectRef}>
+            {'button'}
+          </button>
+        ) : (
+          <a data-object-root={'anchor'} ref={objectRef}>
+            {'anchor'}
+          </a>
+        );
+      const renderCallbackRow = (row: Row) =>
+        row.root === 'button' ? (
+          <button data-callback-root={'button'} ref={callbackRef}>
+            {'button'}
+          </button>
+        ) : (
+          <a data-callback-root={'anchor'} ref={callbackRef}>
+            {'anchor'}
+          </a>
+        );
+
+      function Component() {
+        rows = state<Row[]>([{ id: 1, root: 'button' }]);
+        return (
+          <main>
+            <section>
+              <For each={rows} by={(row) => row.id}>
+                {renderObjectRow}
+              </For>
+            </section>
+            <section>
+              <For each={rows} by={(row) => row.id}>
+                {renderCallbackRow}
+              </For>
+            </section>
+          </main>
+        );
+      }
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      const previousObjectRoot = objectRef.current;
+      const previousCallbackRoot = callbackValues.at(-1);
+
+      rows.set([{ id: 1, root: 'anchor' }]);
+      flushScheduler();
+
+      const nextObjectRoot = container.querySelector(
+        '[data-object-root="anchor"]'
+      );
+      const nextCallbackRoot = container.querySelector(
+        '[data-callback-root="anchor"]'
+      );
+      expect(objectRef.current).toBe(nextObjectRoot);
+      expect(objectRef.current).not.toBe(previousObjectRoot);
+      expect(callbackValues.at(-2)).toBeNull();
+      expect(callbackValues.at(-1)).toBe(nextCallbackRoot);
+      expect(callbackValues.at(-1)).not.toBe(previousCallbackRoot);
+    });
+
+    it('should preserve a live fallback when its first row fails', async () => {
+      type Row = { id: number; broken?: boolean };
+      let rows!: State<Row[]>;
+      let fallbackClicks = 0;
+      let fallbackCleanups = 0;
+      let fallbackDetaches = 0;
+
+      function Fallback() {
+        task(() => () => {
+          fallbackCleanups += 1;
+        });
+        return (
+          <button
+            data-fallback={'true'}
+            ref={(element) => {
+              if (!element) {
+                fallbackDetaches += 1;
+              }
+            }}
+            onClick={() => fallbackClicks++}
+          >
+            {'fallback'}
+          </button>
+        );
+      }
+
+      function RowView({ row }: { row: Row }) {
+        if (row.broken) {
+          throw new Error('first row failed');
+        }
+        return <span data-row={row.id}>{String(row.id)}</span>;
+      }
+
+      function Component() {
+        rows = state<Row[]>([]);
+        return (
+          <div>
+            <For each={rows} by={(row) => row.id} fallback={<Fallback />}>
+              {(row) => <RowView row={row} />}
+            </For>
+          </div>
+        );
+      }
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      await Promise.resolve();
+      await Promise.resolve();
+      const fallback = container.querySelector('[data-fallback]')!;
+
+      (fallback as HTMLButtonElement).click();
+      expect(fallbackClicks).toBe(1);
+
+      rows.set([{ id: 1, broken: true }]);
+      expect(() => flushScheduler()).toThrow('first row failed');
+      expect(container.querySelector('[data-fallback]')).toBe(fallback);
+      expect(fallbackCleanups).toBe(0);
+      expect(fallbackDetaches).toBe(0);
+
+      (fallback as HTMLButtonElement).click();
+      expect(fallbackClicks).toBe(2);
+
+      rows.set([{ id: 2 }]);
+      flushScheduler();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(container.querySelector('[data-fallback]')).toBeNull();
+      expect(container.querySelector('[data-row="2"]')).not.toBeNull();
+      expect(fallbackCleanups).toBe(1);
+      expect(fallbackDetaches).toBe(1);
+    });
+
+    it('should preserve a live row owner when fallback materialization fails', async () => {
+      type Row = { id: number };
+      let rows!: State<Row[]>;
+      let failFallback = true;
+      let rowClicks = 0;
+      let rowCleanups = 0;
+      let rowDetaches = 0;
+
+      function RowView({ row }: { row: Row }) {
+        task(() => () => {
+          rowCleanups += 1;
+        });
+        return (
+          <button
+            data-row={String(row.id)}
+            ref={(element) => {
+              if (!element) {
+                rowDetaches += 1;
+              }
+            }}
+            onClick={() => {
+              rowClicks += 1;
+            }}
+          >
+            {String(row.id)}
+          </button>
+        );
+      }
+
+      function Fallback() {
+        if (failFallback) {
+          throw new Error('fallback failed');
+        }
+        return <span data-fallback={'true'}>{'empty'}</span>;
+      }
+
+      function Component() {
+        rows = state<Row[]>([{ id: 1 }]);
+        return (
+          <div>
+            <For each={rows} by={(row) => row.id} fallback={<Fallback />}>
+              {(row) => <RowView row={row} />}
+            </For>
+          </div>
+        );
+      }
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      await Promise.resolve();
+      await Promise.resolve();
+      const row = container.querySelector('[data-row="1"]')!;
+
+      rows.set([]);
+      expect(() => flushScheduler()).toThrow('fallback failed');
+
+      expect(container.querySelector('[data-row="1"]')).toBe(row);
+      expect(container.querySelector('[data-fallback]')).toBeNull();
+      expect(rowCleanups).toBe(0);
+      expect(rowDetaches).toBe(0);
+
+      (row as HTMLButtonElement).click();
+      expect(rowClicks).toBe(1);
+
+      failFallback = false;
+      rows.set([]);
+      flushScheduler();
+
+      expect(container.querySelector('[data-row]')).toBeNull();
+      expect(container.querySelector('[data-fallback]')).not.toBeNull();
+      expect(rowCleanups).toBe(1);
+      expect(rowDetaches).toBe(1);
+    });
+
     it('should not start a resource loader from a rolled-back render', () => {
       const load = vi.fn(async () => 'loaded');
       const BrokenComponent = (): JSXElement => {
@@ -376,3 +848,4 @@ describe('evaluation transactions (SPEC 2.1)', () => {
     });
   });
 });
+// @askr-allow-real-timers -- async transaction integration fixture.

@@ -8,11 +8,16 @@ import { type RenderContext, throwSSRDataMissing } from './context';
 import { VOID_ELEMENTS, escapeText } from './escape';
 import { renderAttrsDirect } from './attrs';
 import {
+  commitForStateTransaction,
   evaluateCaseState,
+  evaluateForState,
   evaluateShowState,
+  rollbackForStateTransaction,
   type ControlBoundaryState,
 } from '../runtime';
-import { evaluateForState } from '../runtime';
+
+const RANGE_START = '<!--askr-range-start-->';
+const RANGE_END = '<!--askr-range-end-->';
 
 // Re-export for backwards compatibility
 export type Component = SSRComponent;
@@ -122,16 +127,53 @@ function renderControlBoundaryChildren(
   }
 
   if (controlState.kind === 'for') {
-    renderChildrenDirect(evaluateForState(controlState), sink, ctx);
+    const children = evaluateForState(controlState);
+    try {
+      for (const child of children) {
+        const shouldMark =
+          typeof child === 'object' &&
+          child !== null &&
+          'type' in child &&
+          child.type === Fragment &&
+          ((child.props?.children as unknown[] | undefined)?.length ?? 0) !== 1;
+        if (shouldMark) sink.write(RANGE_START);
+        renderNodeToSink(child, sink, ctx);
+        if (shouldMark) sink.write(RANGE_END);
+      }
+      commitForStateTransaction(controlState);
+    } catch (error) {
+      rollbackForStateTransaction(controlState);
+      throw error;
+    }
     return;
   }
 
   if (controlState.kind === 'show') {
-    renderChildrenDirect(evaluateShowState(controlState), sink, ctx);
+    const children = evaluateShowState(controlState);
+    const shouldMark =
+      children.length !== 1 ||
+      (typeof children[0] === 'object' &&
+        children[0] !== null &&
+        'type' in children[0] &&
+        children[0].type === Fragment &&
+        ((children[0].props?.children as unknown[] | undefined)?.length ?? 0) !== 1);
+    if (shouldMark) sink.write(RANGE_START);
+    renderChildrenDirect(children, sink, ctx);
+    if (shouldMark) sink.write(RANGE_END);
     return;
   }
 
-  renderChildrenDirect(evaluateCaseState(controlState), sink, ctx);
+  const children = evaluateCaseState(controlState);
+  const shouldMark =
+    children.length !== 1 ||
+    (typeof children[0] === 'object' &&
+      children[0] !== null &&
+      'type' in children[0] &&
+      children[0].type === Fragment &&
+      ((children[0].props?.children as unknown[] | undefined)?.length ?? 0) !== 1);
+  if (shouldMark) sink.write(RANGE_START);
+  renderChildrenDirect(children, sink, ctx);
+  if (shouldMark) sink.write(RANGE_END);
 }
 
 export function renderNodeToSink(

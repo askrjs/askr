@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "workloads": [
+    {
+      "id": "tier1.router.longest-match",
+      "tier": "tier1",
+      "name": "resolve the most specific route from a 512-route dense table",
+      "file": "benches/tier1/tier1-hotpath-router-longest-match.ts"
+    },
+    {
+      "id": "tier1.router.literal-match",
+      "tier": "tier1",
+      "name": "match literal route segments",
+      "file": "benches/tier1/tier1-hotpath-router-match.ts"
+    },
+    {
+      "id": "tier1.for.keyed-reorder",
+      "tier": "tier1",
+      "name": "swap distant keyed rows while preserving DOM identity",
+      "file": "benches/tier1/tier1-hotpath-for-keyed-reorder.tsx"
+    },
+    {
+      "id": "tier2.router.navigation",
+      "tier": "tier2",
+      "name": "navigate between sibling routes with shared layout shape",
+      "file": "benches/tier2/tier2-subsystem-router-navigation.tsx"
+    },
+    {
+      "id": "tier2.ssr.layout-route",
+      "tier": "tier2",
+      "name": "render a nested layout route with params query and hash",
+      "file": "benches/tier2/tier2-subsystem-ssr-layout-route.ts"
+    },
+    {
+      "id": "tier3.table.partial-update",
+      "tier": "tier3",
+      "name": "update every 10th row in a 1,000-row table",
+      "file": "benches/tier3/tier3-system-table-partial-update.tsx"
+    },
+    {
+      "id": "tier3.table.swap-rows",
+      "tier": "tier3",
+      "name": "swap two distant rows in a 1,000-row table",
+      "file": "benches/tier3/tier3-system-table-swap-rows.tsx"
+    },
+    {
+      "id": "tier3.hydration.listener-adoption",
+      "tier": "tier3",
+      "name": "hydrate a listener-heavy intrinsic SSR tree in Chromium",
+      "file": "benches/tier3/tier3-system-hydration-listeners.tsx"
+    },
+    {
+      "id": "tier4.routing.shell-retention",
+      "tier": "tier4",
+      "name": "navigate routed shell layouts in the integration app",
+      "file": "benches/tier4/tier4-integration-routing-layouts.tsx"
+    },
+    {
+      "id": "tier4.ssr.attr-heavy",
+      "tier": "tier4",
+      "name": "render 400 attr-heavy nodes with escaped attributes",
+      "file": "benches/tier4/tier4-integration-ssr-attr-heavy.ts"
+    }
+  ],
+  "guardrails": [
+    "tier1.router.longest-match",
+    "tier1.router.literal-match",
+    "tier1.for.keyed-reorder",
+    "tier2.router.navigation",
+    "tier2.ssr.layout-route",
+    "tier3.table.partial-update",
+    "tier3.table.swap-rows",
+    "tier3.hydration.listener-adoption",
+    "tier4.routing.shell-retention",
+    "tier4.ssr.attr-heavy"
+  ]
+}

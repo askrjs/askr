@@ -404,6 +404,56 @@ test('should keep For keyed behavior correct across append truncate swap and ful
   cleanup();
 });
 
+test('should publish a disjoint keyed replacement with one live DOM write', () => {
+  const { container, cleanup } = createTestContainer();
+  let rowsState!: ReturnType<
+    typeof state<Array<{ id: number; label: string }>>
+  >;
+
+  const Component = () => {
+    rowsState = state([
+      { id: 1, label: 'one' },
+      { id: 2, label: 'two' },
+    ]);
+    return (
+      <section>
+        <For each={rowsState} by={(row) => row.id}>
+          {(row) => <article data-row={String(row.id)}>{row.label}</article>}
+        </For>
+      </section>
+    );
+  };
+
+  createIsland({ root: container, component: Component });
+  flushScheduler();
+
+  const parent = container.querySelector('section')!;
+  const replaceSpy = vi.spyOn(parent, 'replaceChildren');
+  const insertSpy = vi.spyOn(parent, 'insertBefore');
+  const removeSpy = vi.spyOn(parent, 'removeChild');
+
+  rowsState.set([
+    { id: 3, label: 'three' },
+    { id: 4, label: 'four' },
+    { id: 5, label: 'five' },
+  ]);
+  flushScheduler();
+
+  expect(replaceSpy).toHaveBeenCalledTimes(1);
+  expect(replaceSpy.mock.calls[0]).toHaveLength(3);
+  expect(replaceSpy.mock.calls[0][0]).not.toBeInstanceOf(DocumentFragment);
+  expect(insertSpy).not.toHaveBeenCalled();
+  expect(removeSpy).not.toHaveBeenCalled();
+  expect(
+    Array.from(parent.children, (child) => child.getAttribute('data-row'))
+  ).to.deep.equal(['3', '4', '5']);
+
+  replaceSpy.mockRestore();
+  insertSpy.mockRestore();
+  removeSpy.mockRestore();
+  cleanup();
+});
+
 test(
   'should use the fragment path above the For direct spread threshold',
   { timeout: 20000 },

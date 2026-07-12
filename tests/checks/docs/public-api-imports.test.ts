@@ -867,3 +867,4 @@ describe('public docs and examples', () => {
     });
   }, 30000);
 });
+// @askr-allow-real-timers -- compiled documentation snippet fixture.

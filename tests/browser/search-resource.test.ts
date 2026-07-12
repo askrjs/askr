@@ -373,3 +373,4 @@ test.describe('customer search with route-driven resources', () => {
       .toBe(0);
   });
 });
+// @askr-allow-real-timers -- browser integration uses network-style delays.

@@ -13,6 +13,12 @@ export {
 } from './keyed';
 export * from './dom';
 export { evaluate, clearDOMRange } from './evaluate';
+export { withIntrinsicHydrationAdoption } from './intrinsic-hydration-adoption';
+export {
+  clearDeferredHydrationBoundaries,
+  registerDeferredHydrationBoundary,
+} from './hydration-boundaries';
+export { activateHydrationBoundary } from './dom-internal';
 
 import { evaluate as _evaluate } from './evaluate';
 import { cleanupInstancesUnder, teardownNodeSubtree } from './cleanup';

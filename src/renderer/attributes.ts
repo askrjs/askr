@@ -412,10 +412,30 @@ export function materializeKey(
   }
 }
 
-export function hasMatchingStaticProps(
+/** @internal Materialize keyed metadata on a newly created or cloned node. */
+export function materializeFreshKey(
+  el: Element,
+  vnode: { key?: unknown },
+  props: Record<string, unknown>
+): void {
+  const rawKey = vnode.key ?? props.key;
+  if (rawKey === null || rawKey === undefined) {
+    return;
+  }
+
+  const vnodeKey = typeof rawKey === 'symbol' ? String(rawKey) : rawKey;
+  el.setAttribute('data-key', String(vnodeKey));
+  const keyKind = typeof vnodeKey;
+  if (el.getAttribute('data-askr-key-kind') !== keyKind) {
+    el.setAttribute('data-askr-key-kind', keyKind);
+  }
+}
+
+function hasMatchingStaticPropsInternal(
   el: Element,
   props: Record<string, unknown>,
-  vnodeType: string
+  vnodeType: string,
+  ignoreEventProps: boolean
 ): boolean {
   let staticPropCount = 0;
 
@@ -428,7 +448,11 @@ export function hasMatchingStaticProps(
     }
 
     const eventName = parseEventName(key);
-    if (eventName || typeof value === 'function') {
+    if (eventName) {
+      if (ignoreEventProps) continue;
+      return false;
+    }
+    if (typeof value === 'function') {
       return false;
     }
 
@@ -475,4 +499,20 @@ export function hasMatchingStaticProps(
   }
 
   return el.attributes.length === staticPropCount;
+}
+
+export function hasMatchingStaticProps(
+  el: Element,
+  props: Record<string, unknown>,
+  vnodeType: string
+): boolean {
+  return hasMatchingStaticPropsInternal(el, props, vnodeType, false);
+}
+
+export function hasMatchingStaticPropsIgnoringEvents(
+  el: Element,
+  props: Record<string, unknown>,
+  vnodeType: string
+): boolean {
+  return hasMatchingStaticPropsInternal(el, props, vnodeType, true);
 }

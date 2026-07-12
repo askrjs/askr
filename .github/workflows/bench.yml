@@ -9,13 +9,13 @@ permissions:
 jobs:
   bench:
     name: Benchmarks (${{ matrix.name }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: stable
-            command: cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts --outputJson bench-results/tier4.json && node scripts/generate-bench-log.js --verify
+            repeat: 3
 
     steps:
       - name: Checkout repository
@@ -24,11 +24,39 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 'lts/*'
+          node-version: '24.18.0'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate benchmark contract
+        run: npm run test:bench-contract
+
       - name: Run benchmark lane
-        run: ${{ matrix.command }}
+        run: |
+          set -euo pipefail
+          rm -rf bench-results
+          mkdir -p bench-results
+          for repeat in $(seq 1 ${{ matrix.repeat }}); do
+            rm -f bench-results/tier1.json bench-results/tier2.json bench-results/tier3.json bench-results/tier4.json
+            npx cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts --outputJson bench-results/tier1.json
+            npx cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts --outputJson bench-results/tier2.json
+            npx cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts --outputJson bench-results/tier3.json
+            npx cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts --outputJson bench-results/tier4.json
+            node scripts/capture-bench-metadata.mjs --tier=all --repeat=$repeat --raw=bench-results/tier1.json,bench-results/tier2.json,bench-results/tier3.json,bench-results/tier4.json
+            mkdir -p bench-results/repeat-$repeat
+            cp bench-results/tier1.json bench-results/tier2.json bench-results/tier3.json bench-results/tier4.json bench-results/metadata-all-repeat-$repeat.json bench-results/repeat-$repeat/
+          done
+          node scripts/generate-bench-log.js --verify
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results-${{ matrix.name }}
+          path: |
+            bench-results/
+            bench-results.log

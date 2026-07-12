@@ -21,25 +21,44 @@ import {
 } from './types';
 import { markReadableUsage } from '../runtime';
 
-function annotatePropsUsage(props: Record<string, unknown> | null): Props {
-  const normalizedProps = (props ?? {}) as Props;
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
-  for (const value of Object.values(normalizedProps)) {
-    markReadableUsage(value);
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace JSX {
+  export interface Element extends JSXElement {
+    readonly __askrJsxElementBrand?: never;
   }
 
-  return normalizedProps;
+  export interface IntrinsicElements extends KnownIntrinsicElementProps {
+    [elem: string]:
+      | IntrinsicFallbackProps
+      | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];
+  }
+
+  export interface ElementAttributesProperty {
+    props: Props;
+  }
+
+  export interface ElementChildrenAttribute {
+    children: unknown;
+  }
 }
 
-function markStaticChildren(props: Props): Props {
+function annotatePropsUsage(props: Props): void {
+  for (const key in props) {
+    markReadableUsage(props[key]);
+  }
+}
+
+function markStaticChildren(props: Props): void {
   if (Array.isArray(props.children)) {
     Object.defineProperty(props.children, STATIC_CHILDREN, {
       value: true,
       configurable: true,
     });
   }
-
-  return props;
 }
 
 export function jsxDEV(
@@ -78,19 +97,22 @@ export function jsxDEV(
   key?: string | number,
   isStaticChildren = false
 ): JSXElement | unknown {
-  const normalizedProps = annotatePropsUsage(props);
-  const preparedProps = isStaticChildren
-    ? markStaticChildren(normalizedProps)
-    : normalizedProps;
+  const normalizedProps = (props ?? {}) as Props;
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    annotatePropsUsage(normalizedProps);
+    if (isStaticChildren) {
+      markStaticChildren(normalizedProps);
+    }
+  }
 
-  if (isEagerControlPrimitive(type)) {
-    return type(preparedProps);
+  if (typeof type === 'function' && isEagerControlPrimitive(type)) {
+    return type(normalizedProps);
   }
 
   return {
     $$typeof: ELEMENT_TYPE,
     type: type as JSXElementType,
-    props: preparedProps,
+    props: normalizedProps,
     key: key ?? null,
   };
 }
@@ -126,7 +148,21 @@ export function jsx(
   props: Record<string, unknown> | null,
   key?: string | number
 ) {
-  return jsxDEV(type as never, props, key);
+  const normalizedProps = (props ?? {}) as Props;
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    annotatePropsUsage(normalizedProps);
+  }
+
+  if (typeof type === 'function' && isEagerControlPrimitive(type)) {
+    return type(normalizedProps);
+  }
+
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: type as JSXElementType,
+    props: normalizedProps,
+    key: key ?? null,
+  } as JSXElement;
 }
 
 export function jsxs(
@@ -159,9 +195,13 @@ export function jsxs(
   props: Record<string, unknown> | null,
   key?: string | number
 ) {
-  const normalizedProps = markStaticChildren(annotatePropsUsage(props));
+  const normalizedProps = (props ?? {}) as Props;
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    annotatePropsUsage(normalizedProps);
+    markStaticChildren(normalizedProps);
+  }
 
-  if (isEagerControlPrimitive(type)) {
+  if (typeof type === 'function' && isEagerControlPrimitive(type)) {
     return type(normalizedProps);
   }
 

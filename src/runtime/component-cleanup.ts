@@ -44,7 +44,7 @@ export function cleanupComponent(instance: ComponentInstance): void {
       }
     }
 
-    const cleanupFns = instance.cleanupFns;
+    const cleanupFns = instance.cleanupFns ?? [];
     instance.cleanupFns = [];
     for (const cleanup of cleanupFns) {
       try {
@@ -76,7 +76,7 @@ export function cleanupComponent(instance: ComponentInstance): void {
     instance.evaluationGeneration++;
     instance.mountOperations = [];
     instance.commitOperations = [];
-    instance.lifecycleSlots = [];
+    instance.lifecycleSlots = undefined;
     instance.hasPendingUpdate = false;
     instance.notifyUpdate = null;
     instance._placeholder = undefined;

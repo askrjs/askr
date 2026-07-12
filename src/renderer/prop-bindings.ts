@@ -11,6 +11,7 @@ import type { ReadableSource } from '../runtime';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
+  addFreshDelegatedListener,
   getDelegatedHandlerForElement,
   getDelegatedHandlersForElement,
   updateDelegatedListener,
@@ -21,6 +22,9 @@ import { applyScalarPropValue, removeStaleAttributes } from './attributes';
 import {
   elementListeners,
   elementReactivePropsCleanup,
+  elementRefs,
+  getElementReactivePropCleanupSize,
+  getElementReactivePropsCleanupMap,
   REACTIVE_CHILDREN_KEY,
   type ReactivePropCleanupEntry,
   updateElementRef,
@@ -34,6 +38,11 @@ import {
   isSkippedProp,
   parseEventProp,
 } from './utils';
+import { stageHydrationListener } from './hydration-listener-transaction';
+
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
 interface ReactivePropDescriptor {
   el: Element;
@@ -49,15 +58,38 @@ function addTrackedListener(
   el: Element,
   eventName: string,
   handler: EventListener,
-  capture = false
+  capture = false,
+  fresh = false
 ): void {
   const useDelegation =
     !capture && isEventDelegationEnabled() && isDelegatedEvent(eventName);
   const listenerKey = getEventListenerKey(eventName, capture);
 
+  if (
+    stageHydrationListener({
+      kind: useDelegation ? 'delegated' : 'direct',
+      eventName,
+      publish: () =>
+        addTrackedListener(el, eventName, handler, capture, fresh),
+      rollback: () => removeTrackedListener(el, eventName, capture),
+    })
+  ) {
+    return;
+  }
+
   if (useDelegation) {
-    addDelegatedListener(el, eventName, handler, handler, undefined);
-    if (isBenchMetricScopeActive('coldCreate')) {
+    if (fresh) {
+      addFreshDelegatedListener(
+        el,
+        eventName,
+        handler,
+        handler,
+        undefined
+      );
+    } else {
+      addDelegatedListener(el, eventName, handler, handler, undefined);
+    }
+    if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
       recordBenchCounter('listenerBindings');
     }
     return;
@@ -86,8 +118,37 @@ function addTrackedListener(
     updateHandler: mutableHandler?.updateHandler,
   });
 
-  if (isBenchMetricScopeActive('coldCreate')) {
+  if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
     recordBenchCounter('listenerBindings');
+  }
+}
+
+function removeTrackedListener(
+  el: Element,
+  eventName: string,
+  capture: boolean
+): void {
+  if (!capture && getDelegatedHandlerForElement(el, eventName)) {
+    removeDelegatedListener(el, eventName);
+    return;
+  }
+
+  const listenerKey = getEventListenerKey(eventName, capture);
+  const entry = elementListeners.get(el)?.get(listenerKey);
+  if (!entry) {
+    return;
+  }
+
+  if (entry.options !== undefined) {
+    el.removeEventListener(entry.eventName, entry.handler, entry.options);
+  } else {
+    el.removeEventListener(entry.eventName, entry.handler);
+  }
+  incDevCounter('listenerRemoves');
+  const listeners = elementListeners.get(el);
+  listeners?.delete(listenerKey);
+  if (listeners?.size === 0) {
+    elementListeners.delete(el);
   }
 }
 
@@ -142,7 +203,7 @@ function setupReactiveProp(
     },
   });
 
-  if (isBenchMetricScopeActive('coldCreate')) {
+  if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
     recordBenchCounter('reactivePropsMounted');
   }
 
@@ -177,15 +238,11 @@ function setupReactiveProp(
 function getOrCreateReactivePropsCleanupMap(
   el: Element
 ): Map<string, ReactivePropCleanupEntry> {
-  let cleanupMap = elementReactivePropsCleanup.get(el);
-  if (!cleanupMap) {
-    cleanupMap = new Map();
-    elementReactivePropsCleanup.set(el, cleanupMap);
-  }
-  return cleanupMap;
+  return getElementReactivePropsCleanupMap(el, true)!;
 }
 
-function createReactivePropCleanupEntry(
+/** @internal Create a standalone reactive prop entry for rollback restoration. */
+export function createReactivePropCleanupEntry(
   el: Element,
   propName: string,
   propFn: () => unknown,
@@ -211,11 +268,67 @@ function createReactivePropCleanupEntry(
 
 export function hasTrackedElementPropBindings(el: Element): boolean {
   const existingListeners = elementListeners.get(el);
-  const existingReactiveProps = elementReactivePropsCleanup.get(el);
   return (
     (existingListeners !== undefined && existingListeners.size > 0) ||
-    (existingReactiveProps !== undefined && existingReactiveProps.size > 0)
+    getElementReactivePropCleanupSize(el) > 0
   );
+}
+
+export function hasAnyElementBindingState(el: Element): boolean {
+  return (
+    hasTrackedElementPropBindings(el) ||
+    getDelegatedHandlersForElement(el) !== undefined ||
+    elementRefs.has(el)
+  );
+}
+
+export function applyMatchingElementBindings(
+  el: Element,
+  props: Record<string, unknown>
+): void {
+  if (Object.prototype.hasOwnProperty.call(props, 'ref')) {
+    updateElementRef(el, props.ref);
+  }
+
+  for (const key in props) {
+    const eventProp = parseEventProp(key);
+    if (!eventProp) continue;
+    const value = props[key];
+    if (typeof value === 'function') {
+      addTrackedListener(
+        el,
+        eventProp.eventName,
+        value as EventListener,
+        eventProp.capture
+      );
+    }
+  }
+}
+
+/** @internal Attach stateful bindings to a newly cloned blueprint element. */
+export function applyFreshElementBindings(
+  el: Element,
+  props: Record<string, unknown>
+): void {
+  if (Object.prototype.hasOwnProperty.call(props, 'ref')) {
+    updateElementRef(el, props.ref);
+  }
+
+  for (const key in props) {
+    const eventProp = parseEventProp(key);
+    if (eventProp) {
+      const value = props[key];
+      if (typeof value === 'function') {
+        addTrackedListener(
+          el,
+          eventProp.eventName,
+          value as EventListener,
+          eventProp.capture,
+          true
+        );
+      }
+    }
+  }
 }
 
 export function applyPropsToElement(
@@ -260,6 +373,42 @@ export function applyPropsToElement(
   }
 }
 
+/** @internal Attach only stateful bindings to a cloned intrinsic blueprint. */
+export function applyDynamicElementBindings(
+  el: Element,
+  props: Record<string, unknown>,
+  tagName: string
+): void {
+  if (Object.prototype.hasOwnProperty.call(props, 'ref')) {
+    updateElementRef(el, props.ref);
+  }
+
+  for (const key in props) {
+    const value = props[key];
+    if (isSkippedProp(key)) {
+      continue;
+    }
+
+    const eventProp = parseEventProp(key);
+    if (eventProp) {
+      addTrackedListener(
+        el,
+        eventProp.eventName,
+        value as EventListener,
+        eventProp.capture
+      );
+      continue;
+    }
+
+    if (typeof value === 'function') {
+      getOrCreateReactivePropsCleanupMap(el).set(
+        key,
+        createReactivePropCleanupEntry(el, key, value as () => unknown, tagName)
+      );
+    }
+  }
+}
+
 export function syncElementPropBindings(
   el: Element,
   domVNode: DOMElement,
@@ -267,7 +416,7 @@ export function syncElementPropBindings(
   usesReactiveChildren: boolean
 ): void {
   const existingListeners = elementListeners.get(el);
-  const existingReactiveProps = elementReactivePropsCleanup.get(el);
+  const existingReactiveProps = getElementReactivePropsCleanupMap(el);
 
   let desiredListenerKeys: Set<string> | null = null;
   let desiredDelegatedEventNames: Set<string> | null = null;
