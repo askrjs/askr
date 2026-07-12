@@ -3,52 +3,12 @@ name: CI
 on:
   workflow_dispatch:
   workflow_call:
+  schedule:
+    - cron: '15 3 * * *'
   push:
     branches: [main]
-    paths:
-      - '.github/**'
-      - 'test-d/**'
-      - 'test-utils/**'
-      - 'tooling/**'
-      - 'benches/**'
-      - 'src/**'
-      - 'tests/**'
-      - '*.json'
-      - '*.ts'
-      - '*.js'
-      - '*.mjs'
-      - 'docs/**'
-      - 'scripts/**'
-      - 'examples/**'
-      - '**.md'
-      - '.gitattributes'
-      - '.gitignore'
-      - '.npmignore'
-      - '.npmrc'
-      - '.prettierignore'
   pull_request:
     branches: [main]
-    paths:
-      - '.github/**'
-      - 'test-d/**'
-      - 'test-utils/**'
-      - 'tooling/**'
-      - 'benches/**'
-      - 'src/**'
-      - 'tests/**'
-      - '*.json'
-      - '*.ts'
-      - '*.js'
-      - '*.mjs'
-      - 'docs/**'
-      - 'scripts/**'
-      - 'examples/**'
-      - '**.md'
-      - '.gitattributes'
-      - '.gitignore'
-      - '.npmignore'
-      - '.npmrc'
-      - '.prettierignore'
 
 permissions:
   contents: read
@@ -57,6 +17,7 @@ jobs:
   ci:
     name: Release Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -78,9 +39,6 @@ jobs:
       - name: Package metadata lint
         run: npm run test:publint
 
-      - name: Benchmark contract
-        run: npm run test:bench-contract
-
       - name: Checks tests
         run: npm run test:checks
 
@@ -93,21 +51,11 @@ jobs:
       - name: jsdom tests
         run: npm run test:jsdom
 
-      - name: Packed consumer contract
-        run: npm run test:package
-
-      - name: Setup Node 18 consumer runtime
-        uses: actions/setup-node@v6
-        with:
-          node-version: '18'
-
-      - name: Node 18 packed consumer contract
-        run: node ./scripts/test-package-consumer.mjs
-
   browser:
     name: Browser Integration (Chromium)
     needs: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v7

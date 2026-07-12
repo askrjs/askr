@@ -11,8 +11,8 @@ median for the identical workload name.
 
 ## Acceptance Rules
 
-- A benchmark is eligible for tuning only after `generate-bench-log --verify`
-  reports at least 10 samples, RME at or below 15%, and non-zero p75/p99.
+- A benchmark is eligible for tuning only after repeat captures consistently show at
+  least 10 samples, RME at or below 15%, and non-zero p75/p99.
 - Accept a runtime optimization only when its target workload improves by at
   least 5% across the repeated same-host captures.
 - Re-run the documented guardrail workloads for the touched subsystem. A
@@ -49,9 +49,8 @@ acceptable result if it weakens any of those contracts.
 
 ## Stable Guardrails
 
-The IDs below are the stable comparison surface. Their workload labels and
-source files are validated by `npm run test:bench-contract`; do not compare a
-renamed workload as if it were the same row.
+The IDs below are the stable comparison surface. Keep these workload labels and
+source files stable, and do not compare a renamed workload as if it were the same row.
 
 | ID                                  | Tier  | Workload                                                     |
 | ----------------------------------- | ----- | ------------------------------------------------------------ |

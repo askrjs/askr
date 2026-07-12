@@ -19,7 +19,7 @@ jobs:
     name: Publish
     needs: ci
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -33,11 +33,11 @@ jobs:
 
       - name: Compute release tag
         id: version
-        uses: askrjs/actions/actions/compute-release-tag@342228f45100712f78658dd2ef283f0b1acf2b80
+        uses: askrjs/actions/actions/compute-release-tag@main
 
       - name: Check whether tag exists
         id: tag_status
-        uses: askrjs/actions/actions/check-tag-exists@342228f45100712f78658dd2ef283f0b1acf2b80
+        uses: askrjs/actions/actions/check-tag-exists@main
         with:
           tag: ${{ steps.version.outputs.tag }}
 
@@ -60,7 +60,7 @@ jobs:
 
       - name: Create release tag
         if: steps.tag_status.outputs.exists != 'true'
-        uses: askrjs/actions/actions/create-tag@342228f45100712f78658dd2ef283f0b1acf2b80
+        uses: askrjs/actions/actions/create-tag@main
         with:
           tag: ${{ steps.version.outputs.tag }}
 
@@ -72,4 +72,4 @@ jobs:
           git checkout "$tag"
 
       - name: Publish to npm
-        uses: askrjs/actions/actions/publish-package@342228f45100712f78658dd2ef283f0b1acf2b80
+        uses: askrjs/actions/actions/publish-package@main
