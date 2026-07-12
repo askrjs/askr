@@ -35,6 +35,7 @@ export type BlueprintElementShape = {
 export type IntrinsicBlueprint = {
   template: Element;
   shape: BlueprintElementShape;
+  elementCount: number;
 };
 
 export type BlueprintBindingGroup = {

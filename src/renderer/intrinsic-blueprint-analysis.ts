@@ -241,7 +241,29 @@ export function buildBlueprint(
 ): IntrinsicBlueprint | null {
   const template = element.cloneNode(true) as Element;
   const shape = buildElementShape(template, vnode);
-  return shape ? { template, shape } : null;
+  return shape
+    ? {
+        template,
+        shape,
+        elementCount: countBlueprintElements(shape),
+      }
+    : null;
+}
+
+function countBlueprintElements(shape: BlueprintElementShape): number {
+  if (shape.children.kind === 'reactive') {
+    return 1;
+  }
+
+  return (
+    1 +
+    shape.children.slots.reduce(
+      (count, slot) =>
+        count +
+        (slot.kind === 'element' ? countBlueprintElements(slot.shape) : 0),
+      0
+    )
+  );
 }
 
 export function matchPropShape(
