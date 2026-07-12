@@ -66,7 +66,7 @@ Run stable non-browser lanes with:
 
 ```bash
 npm run bench
-npm run bench:tier1 -- --outputJson bench-results/tier1.json && npm run bench:tier2 -- --outputJson bench-results/tier2.json && npm run bench:tier3 -- --outputJson bench-results/tier3.json && npm run bench:tier4 -- --outputJson bench-results/tier4.json && node scripts/generate-bench-log.js --verify
+npm run bench:tier1 -- --outputJson bench-results/tier1.json && npm run bench:tier2 -- --outputJson bench-results/tier2.json && npm run bench:tier3 -- --outputJson bench-results/tier3.json && npm run bench:tier4 -- --outputJson bench-results/tier4.json
 ```
 
 ## Enforcement

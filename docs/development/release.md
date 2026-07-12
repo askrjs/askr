@@ -29,11 +29,8 @@ The release flow is split across dedicated workflows:
   must resolve to that verified commit; only then can the workflow publish it.
 - `.github/workflows/bench.yml`: manual benchmark runner for stable and browser
   perf lanes. It captures three repetitions on one pinned host, raw tier JSON,
-  commit/OS/architecture/CPU/Node data, and the launched Playwright Chromium
-  version and revision. `benchmarks/guardrails.json` is the stable workload
-  manifest; `test:bench-contract` checks that every documented guardrail is a
-  runnable benchmark, and `generate-bench-log.js --verify` checks sample,
-  RME, and percentile resolution.
+  and commit/OS/architecture/CPU/Node context. `benchmarks/guardrails.json` is the
+  stable workload manifest.
 - `prepack`: always rebuilds package artifacts before npm creates a tarball.
 - `prepublishOnly`: runs `npm run release:verify`; manual npm publishing cannot
   skip lint, build, checks, public types, test suites, or the packed consumer

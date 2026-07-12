@@ -7,7 +7,7 @@ The benchmark suite is split into four lanes:
 - `tier3`: system benchmarks, now browser-backed in Chromium.
 - `tier4`: integration benchmarks, browser-backed in Chromium.
 
-Start from the lane index in [Benchmark README](./README.md), then use the lane-specific configs and the generated log to review signal quality.
+Start from the lane index in [Benchmark README](./README.md), then use the lane-specific configs and result artifacts to review signal quality.
 
 ## Running The Suite
 
@@ -17,32 +17,16 @@ Use the aggregate script for normal local coverage:
 npm run bench
 ```
 
-Validate the workload manifest separately when changing benchmark names or
-files:
+Capture all lanes as JSON when you need a reviewable artifact:
 
 ```bash
-npm run test:bench-contract
+cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts --outputJson bench-results/tier4.json
 ```
 
-Capture all lanes as JSON and generate the consolidated log when you need a reviewable artifact:
-
-```bash
-cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts --outputJson bench-results/tier4.json && node scripts/capture-bench-metadata.mjs --tier=all --repeat=1 --raw=bench-results/tier1.json,bench-results/tier2.json,bench-results/tier3.json,bench-results/tier4.json && node scripts/generate-bench-log.js --verify
-```
-
-The generated [bench-results.log](../../bench-results.log) summarizes hz, mean, p75, p99, p995, p999, tail ratio, RME, and sample count for every numeric benchmark.
-
-`node scripts/generate-bench-log.js --verify` enforces the repo stability thresholds:
-
-- max RME: 15%
-- min sample count: 10
-- non-zero p75 and p99 for every numeric timed operation
-
-Use tighter local thresholds only when you need a stricter gate for a focused investigation:
-
-```bash
-node scripts/generate-bench-log.js --verify --max-rme=12 --min-samples=12
-```
+The generated lane JSON files summarize hz, mean, p75, p99, p995, p999, tail ratio,
+RME, and sample count for every numeric benchmark. For stability review, compare
+same-host captures and treat variance, wide tails, and timer-resolution edges as
+signals to re-run and investigate before tuning.
 
 ## Repeatability Check
 

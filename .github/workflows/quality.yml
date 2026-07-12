@@ -2,7 +2,7 @@ name: Extended Quality
 
 on:
   schedule:
-    - cron: '17 3 * * 1'
+    - cron: '35 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -12,6 +12,8 @@ jobs:
   sequence-and-browser:
     name: ${{ matrix.browser }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
     strategy:
       fail-fast: false
       matrix:
@@ -24,23 +26,30 @@ jobs:
             browser: webkit
     steps:
       - uses: actions/checkout@v7
+
       - uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
           cache: npm
+
       - run: npm ci
+
       - run: npx playwright install --with-deps ${{ matrix.browser }}
         if: runner.os == 'Linux'
+
       - run: npx playwright install ${{ matrix.browser }}
         if: runner.os != 'Linux'
+
       - name: Run replayable lifecycle sequences
         env:
           ASKR_QUALITY_SEEDS: 0..99
         run: npm run test:jsdom -- --testNamePattern="lifecycle sequence"
+
       - name: Run browser coverage
         env:
           ASKR_BROWSER: ${{ matrix.browser }}
         run: npm run test:browser
+
       - name: Upload failing seed traces
         if: failure()
         uses: actions/upload-artifact@v4

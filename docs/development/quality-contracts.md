@@ -29,8 +29,8 @@ durable test family that observes it.
   and the extracted seams remain outside the public type snapshot.
 - `tests/checks/public-api-snapshot.test.ts` compares the emitted declaration
   exports for every package subpath with `public-api.snapshot.json`. After an
-  intentional public API change, rebuild and run
-  `node scripts/generate-public-api-snapshot.mjs --write` before review.
+  intentional public API change, regenerate `public-api.snapshot.json` and
+  review it before review.
 - `tests/jsdom/runtime/lifecycle-sequences.test.tsx` replays deterministic
   mount/update/flush/dispose sequences. PR coverage uses seeds `1`, `7`, `42`,
   and `0xc0ffee`; scheduled quality coverage uses `0..99`. Add a regression
