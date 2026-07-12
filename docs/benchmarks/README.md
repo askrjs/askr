@@ -64,4 +64,7 @@ collapsed into one root-wide timing.
 
 The keyed movement-density diagnostic sweeps 10%, 25%, 50%, 75%, and 100%
 movement on a 2,000-row table. Full append/clear teardown is reported
-separately so cleanup cost does not get misattributed to the reorder path.
+separately so cleanup cost does not get misattributed to the reorder path. The
+`tier3-system-keyed-lis-component-boundary.tsx` diagnostic provides a matching
+Chromium workload for the component-boundary keyed reorder subsystem; use it
+before treating a jsdom-only result as a browser optimization target.
