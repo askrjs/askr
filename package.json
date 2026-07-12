@@ -154,7 +154,7 @@
     "playwright": "^1.61.1",
     "publint": "^0.3.21",
     "tsd": "^0.33.0",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vite": "^8.1.4",
     "vite-plus": "^0.2.4"
   },
