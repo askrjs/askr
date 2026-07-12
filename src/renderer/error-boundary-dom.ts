@@ -4,7 +4,13 @@ import {
 } from '../common/error-boundary';
 import { isDevelopmentEnvironment } from '../common/env';
 import { logger } from '../common/logger';
-import { createBoundaryReset, reportBoundaryError } from '../runtime';
+import {
+  beginLifecycleCommitBatch,
+  createBoundaryReset,
+  discardLifecycleCommitBatch,
+  flushLifecycleCommitBatch,
+  reportBoundaryError,
+} from '../runtime';
 import type { ComponentInstance } from '../runtime';
 import { getRendererDOMHost } from './dom-host';
 import type { DOMElement } from './types';
@@ -84,6 +90,32 @@ function resolveErrorBoundaryFallback(
   return fallback ?? createDefaultFallbackNode(error, reset);
 }
 
+function runErrorBoundaryDOMAttempt<T>(attempt: () => T): T {
+  const lifecycleBatch = beginLifecycleCommitBatch();
+  try {
+    const result = attempt();
+    flushLifecycleCommitBatch(lifecycleBatch);
+    return result;
+  } catch (error) {
+    discardLifecycleCommitBatch(lifecycleBatch);
+    throw error;
+  }
+}
+
+function materializeErrorBoundaryValue(
+  value: ErrorBoundaryFallbackValue,
+  parentNamespace?: string
+): Node {
+  if (value instanceof Node) {
+    return value;
+  }
+
+  return (
+    getRendererDOMHost().createDOMNode(value, parentNamespace) ??
+    document.createComment('')
+  );
+}
+
 export function createErrorBoundaryElement(
   node: ErrorBoundaryVNode,
   props: Record<string, unknown>,
@@ -98,21 +130,20 @@ export function createErrorBoundaryElement(
   const domHost = getRendererDOMHost();
 
   if (boundaryState?.error != null) {
-    const fallbackValue = resolveErrorBoundaryFallback(
-      fallback,
-      boundaryState.error,
-      reset
+    return runErrorBoundaryDOMAttempt(() =>
+      materializeErrorBoundaryValue(
+        resolveErrorBoundaryFallback(fallback, boundaryState.error, reset),
+        parentNamespace
+      )
     );
-    if (fallbackValue instanceof Node) {
-      return fallbackValue;
-    }
-    const fallbackDom = domHost.createDOMNode(fallbackValue, parentNamespace);
-    return fallbackDom ?? document.createComment('');
   }
 
   try {
-    const dom = domHost.createDOMNode(children, parentNamespace);
-    return dom ?? document.createComment('');
+    return runErrorBoundaryDOMAttempt(
+      () =>
+        domHost.createDOMNode(children, parentNamespace) ??
+        document.createComment('')
+    );
   } catch (error) {
     if (node.__instance) {
       reportBoundaryError(
@@ -124,11 +155,11 @@ export function createErrorBoundaryElement(
       logger.error('[Askr] ErrorBoundary caught render error:', error);
     }
 
-    const fallbackValue = resolveErrorBoundaryFallback(fallback, error, reset);
-    if (fallbackValue instanceof Node) {
-      return fallbackValue;
-    }
-    const fallbackDom = domHost.createDOMNode(fallbackValue, parentNamespace);
-    return fallbackDom ?? document.createComment('');
+    return runErrorBoundaryDOMAttempt(() =>
+      materializeErrorBoundaryValue(
+        resolveErrorBoundaryFallback(fallback, error, reset),
+        parentNamespace
+      )
+    );
   }
 }

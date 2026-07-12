@@ -5,31 +5,47 @@ import {
 } from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
 
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
+
 export function removeForBoundaryNodes(
   parent: Element,
-  removedNodes: Node[]
+  removedNodes: Node[],
+  options: { teardown?: boolean } = {}
 ): void {
+  const shouldTeardown = options.teardown !== false;
   if (
     removedNodes.length > 0 &&
     removedNodes.length === parent.childNodes.length
   ) {
     let canBulkClear = true;
     for (let i = 0; i < removedNodes.length; i++) {
-      if (removedNodes[i].parentNode !== parent) {
+      if (removedNodes[i] !== parent.childNodes[i]) {
         canBulkClear = false;
         break;
       }
     }
 
     if (canBulkClear) {
-      for (let i = 0; i < removedNodes.length; i++) {
-        recordBenchEvent('domRemove');
-        teardownNodeSubtree(removedNodes[i]);
+      if (shouldTeardown) {
+        for (let i = 0; i < removedNodes.length; i++) {
+          if (BENCH_BUILD_ENABLED) {
+            recordBenchEvent('domRemove');
+          }
+          teardownNodeSubtree(removedNodes[i]);
+        }
+      } else if (BENCH_BUILD_ENABLED) {
+        recordBenchEvent('domRemove', removedNodes.length);
       }
-      withBenchMetricScope('fullClear', () => {
-        recordBenchCounter('bulkClearCommits');
+      if (BENCH_BUILD_ENABLED) {
+        withBenchMetricScope('fullClear', () => {
+          recordBenchCounter('bulkClearCommits');
+          parent.textContent = '';
+        });
+      } else {
         parent.textContent = '';
-      });
+      }
       return;
     }
   }
@@ -37,8 +53,12 @@ export function removeForBoundaryNodes(
   for (let i = 0; i < removedNodes.length; i++) {
     const node = removedNodes[i];
     if (node.parentNode === parent) {
-      recordBenchEvent('domRemove');
-      teardownNodeSubtree(node);
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchEvent('domRemove');
+      }
+      if (shouldTeardown) {
+        teardownNodeSubtree(node);
+      }
       parent.removeChild(node);
     }
   }

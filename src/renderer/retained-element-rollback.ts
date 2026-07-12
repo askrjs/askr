@@ -9,23 +9,17 @@ import {
   elementListeners,
   elementReactivePropsCleanup,
   elementRefs,
+  getElementReactivePropsCleanupMap,
   type ListenerMapEntry,
   type ReactivePropCleanupEntry,
 } from './cleanup';
 import { keyedElements } from './keyed';
-
-interface AttributeSnapshot {
-  element: Element;
-  attributes: Array<[string, string]>;
-}
-
-interface ChildNodesSnapshot {
-  element: Element;
-  childNodes: Node[];
-}
+import {
+  getCurrentLifecycleCommitBatch,
+  registerLifecycleTransaction,
+} from '../runtime';
 
 interface FormControlSnapshot {
-  element: Element;
   value?: string;
   checked?: boolean;
 }
@@ -37,34 +31,14 @@ interface DelegatedListenerEntrySnapshot {
   options?: AddEventListenerOptions;
 }
 
-interface DelegatedListenerSnapshot {
-  element: Element;
-  entries: DelegatedListenerEntrySnapshot[];
-}
-
 interface ListenerEntrySnapshot {
   listenerKey: string;
   entry: ListenerMapEntry;
 }
 
-interface ListenerSnapshot {
-  element: Element;
-  entries: ListenerEntrySnapshot[];
-}
-
-interface RefSnapshot {
-  element: Element;
-  ref: unknown;
-}
-
 interface ReactivePropEntrySnapshot {
   propName: string;
   entry: ReactivePropCleanupEntry;
-}
-
-interface ReactivePropsSnapshot {
-  element: Element;
-  entries: ReactivePropEntrySnapshot[];
 }
 
 interface TextSnapshot {
@@ -73,42 +47,27 @@ interface TextSnapshot {
 }
 
 export interface RetainedElementSnapshot {
-  attributes: AttributeSnapshot[];
-  childNodes: ChildNodesSnapshot[];
-  delegatedListeners: DelegatedListenerSnapshot[];
-  formControls: FormControlSnapshot[];
+  attributes: Array<[string, string]>;
+  childNodes: Node[];
+  delegatedListeners: DelegatedListenerEntrySnapshot[];
+  domCaptured: boolean;
+  formControl: FormControlSnapshot | null;
   keyedMap: Map<string | number, Element> | undefined;
-  listeners: ListenerSnapshot[];
-  reactiveProps: ReactivePropsSnapshot[];
-  refs: RefSnapshot[];
+  listeners: ListenerEntrySnapshot[];
+  reactiveProps: ReactivePropEntrySnapshot[];
+  ref: unknown;
   textNodes: TextSnapshot[];
-}
-
-function collectElementSubtree(root: Element): Element[] {
-  const elements = [root];
-  const descendants = root.querySelectorAll('*');
-  for (let index = 0; index < descendants.length; index += 1) {
-    elements.push(descendants[index]);
-  }
-  return elements;
 }
 
 function collectTextSnapshots(root: Element): TextSnapshot[] {
   const snapshots: TextSnapshot[] = [];
-  const stack = Array.from(root.childNodes).reverse();
-
-  while (stack.length > 0) {
-    const node = stack.pop()!;
+  for (let index = 0; index < root.childNodes.length; index += 1) {
+    const node = root.childNodes[index];
     if (node.nodeType === 3) {
-      snapshots.push({ node: node as Text, data: (node as Text).data });
-      continue;
-    }
-
-    for (let child = node.lastChild; child; child = child.previousSibling) {
-      stack.push(child);
+      const text = node as Text;
+      snapshots.push({ node: text, data: text.data });
     }
   }
-
   return snapshots;
 }
 
@@ -117,7 +76,7 @@ function getFormControlSnapshot(element: Element): FormControlSnapshot | null {
     value?: unknown;
     checked?: unknown;
   };
-  const snapshot: FormControlSnapshot = { element };
+  const snapshot: FormControlSnapshot = {};
 
   if ('value' in control) {
     snapshot.value = String(control.value ?? '');
@@ -149,94 +108,57 @@ function cloneReactivePropEntry(
   return {
     cleanup: entry.cleanup,
     fnRef: entry.fnRef,
+    groupedScalar: entry.groupedScalar,
     restoreFn: entry.restoreFn,
     updateFn: entry.updateFn,
   };
 }
 
 export function snapshotRetainedElement(
-  element: Element
+  element: Element,
+  bindingsOnly = false
 ): RetainedElementSnapshot {
-  const elements = collectElementSubtree(element);
-  const attributes: AttributeSnapshot[] = [];
-  const childNodes: ChildNodesSnapshot[] = [];
-  const delegatedListeners: DelegatedListenerSnapshot[] = [];
-  const formControls: FormControlSnapshot[] = [];
-  const listeners: ListenerSnapshot[] = [];
-  const reactiveProps: ReactivePropsSnapshot[] = [];
-  const refs: RefSnapshot[] = [];
-
-  for (const currentElement of elements) {
-    attributes.push({
-      element: currentElement,
-      attributes: Array.from(currentElement.attributes, (attribute) => [
-        attribute.name,
-        attribute.value,
-      ]),
-    });
-    childNodes.push({
-      element: currentElement,
-      childNodes: Array.from(currentElement.childNodes),
-    });
-
-    const formControl = getFormControlSnapshot(currentElement);
-    if (formControl) {
-      formControls.push(formControl);
-    }
-
-    const listenerMap = elementListeners.get(currentElement);
-    listeners.push({
-      element: currentElement,
-      entries: listenerMap
-        ? Array.from(listenerMap, ([listenerKey, entry]) => ({
-            listenerKey,
-            entry: cloneListenerEntry(entry),
-          }))
-        : [],
-    });
-
-    const delegatedHandlerMap = getDelegatedHandlersForElement(currentElement);
-    delegatedListeners.push({
-      element: currentElement,
-      entries: delegatedHandlerMap
-        ? Array.from(delegatedHandlerMap, ([eventName, entry]) => ({
-            eventName,
-            handler: entry.handler,
-            original: entry.original,
-            options: entry.options,
-          }))
-        : [],
-    });
-
-    const reactivePropMap = elementReactivePropsCleanup.get(currentElement);
-    reactiveProps.push({
-      element: currentElement,
-      entries: reactivePropMap
-        ? Array.from(reactivePropMap, ([propName, entry]) => ({
-            propName,
-            entry: cloneReactivePropEntry(entry),
-          }))
-        : [],
-    });
-
-    refs.push({
-      element: currentElement,
-      ref: elementRefs.get(currentElement),
-    });
-  }
+  // Child updates register their own shallow records. Keeping this record
+  // direct-element-only is what makes a large component-boundary batch cheap.
+  const listenerMap = elementListeners.get(element);
+  const delegatedHandlerMap = getDelegatedHandlersForElement(element);
+  const reactivePropMap = getElementReactivePropsCleanupMap(element);
 
   const keyedMap = keyedElements.get(element);
 
   return {
-    attributes,
-    childNodes,
-    delegatedListeners,
-    formControls,
+    attributes: bindingsOnly
+      ? []
+      : Array.from(element.attributes, (attribute) => [
+          attribute.name,
+          attribute.value,
+        ]),
+    childNodes: bindingsOnly ? [] : Array.from(element.childNodes),
+    delegatedListeners: delegatedHandlerMap
+      ? Array.from(delegatedHandlerMap, ([eventName, entry]) => ({
+          eventName,
+          handler: entry.handler,
+          original: entry.original,
+          options: entry.options,
+        }))
+      : [],
+    domCaptured: !bindingsOnly,
+    formControl: bindingsOnly ? null : getFormControlSnapshot(element),
     keyedMap: keyedMap ? new Map(keyedMap) : undefined,
-    listeners,
-    reactiveProps,
-    refs,
-    textNodes: collectTextSnapshots(element),
+    listeners: listenerMap
+      ? Array.from(listenerMap, ([listenerKey, entry]) => ({
+          listenerKey,
+          entry: cloneListenerEntry(entry),
+        }))
+      : [],
+    reactiveProps: reactivePropMap
+      ? Array.from(reactivePropMap, ([propName, entry]) => ({
+          propName,
+          entry: cloneReactivePropEntry(entry),
+        }))
+      : [],
+    ref: elementRefs.get(element),
+    textNodes: bindingsOnly ? [] : collectTextSnapshots(element),
   };
 }
 
@@ -254,38 +176,42 @@ function sameChildOrder(element: Element, childNodes: Node[]): boolean {
   return true;
 }
 
-function restoreAttributes(snapshot: RetainedElementSnapshot): void {
-  for (const { element, attributes } of snapshot.attributes) {
-    const expectedNames = new Set(attributes.map(([name]) => name));
+function restoreAttributes(
+  element: Element,
+  snapshot: RetainedElementSnapshot
+): void {
+  const expectedNames = new Set(snapshot.attributes.map(([name]) => name));
 
-    for (const attribute of Array.from(element.attributes)) {
-      if (!expectedNames.has(attribute.name)) {
-        element.removeAttribute(attribute.name);
-      }
+  for (const attribute of Array.from(element.attributes)) {
+    if (!expectedNames.has(attribute.name)) {
+      element.removeAttribute(attribute.name);
     }
+  }
 
-    for (const [name, value] of attributes) {
-      if (element.getAttribute(name) !== value) {
-        element.setAttribute(name, value);
-      }
+  for (const [name, value] of snapshot.attributes) {
+    if (element.getAttribute(name) !== value) {
+      element.setAttribute(name, value);
     }
   }
 }
 
-function restoreFormControls(snapshot: RetainedElementSnapshot): void {
-  for (const { element, value, checked } of snapshot.formControls) {
-    const control = element as Element & {
-      value?: string;
-      checked?: boolean;
-    };
+function restoreFormControl(
+  element: Element,
+  snapshot: RetainedElementSnapshot
+): void {
+  if (!snapshot.formControl) return;
+  const { value, checked } = snapshot.formControl;
+  const control = element as Element & {
+    value?: string;
+    checked?: boolean;
+  };
 
-    if (value !== undefined && 'value' in control) {
-      control.value = value;
-    }
+  if (value !== undefined && 'value' in control) {
+    control.value = value;
+  }
 
-    if (checked !== undefined && 'checked' in control) {
-      control.checked = checked;
-    }
+  if (checked !== undefined && 'checked' in control) {
+    control.checked = checked;
   }
 }
 
@@ -308,20 +234,21 @@ function applyRefValue<T>(ref: unknown, value: T | null): void {
   }
 }
 
-function restoreRefs(snapshot: RetainedElementSnapshot): void {
-  for (const { element, ref } of snapshot.refs) {
-    const currentRef = elementRefs.get(element);
+function restoreRef(
+  element: Element,
+  snapshot: RetainedElementSnapshot
+): void {
+  const currentRef = elementRefs.get(element);
 
-    if (currentRef !== ref) {
-      applyRefValue(currentRef, null);
-    }
+  if (currentRef !== snapshot.ref) {
+    applyRefValue(currentRef, null);
+  }
 
-    if (ref) {
-      applyRefValue(ref, element);
-      elementRefs.set(element, ref);
-    } else {
-      elementRefs.delete(element);
-    }
+  if (snapshot.ref) {
+    applyRefValue(snapshot.ref, element);
+    elementRefs.set(element, snapshot.ref);
+  } else {
+    elementRefs.delete(element);
   }
 }
 
@@ -349,43 +276,58 @@ function addDirectListener(element: Element, entry: ListenerMapEntry): void {
   }
 }
 
-function restoreListeners(snapshot: RetainedElementSnapshot): void {
-  for (const { element, entries } of snapshot.listeners) {
-    const expectedKeys = new Set(entries.map(({ listenerKey }) => listenerKey));
-    let currentMap = elementListeners.get(element);
+function restoreListeners(
+  element: Element,
+  snapshot: RetainedElementSnapshot
+): void {
+  const errors: unknown[] = [];
+  const expectedKeys = new Set(
+    snapshot.listeners.map(({ listenerKey }) => listenerKey)
+  );
+  let currentMap = elementListeners.get(element);
 
-    if (currentMap) {
-      for (const [listenerKey, entry] of Array.from(currentMap)) {
-        if (!expectedKeys.has(listenerKey)) {
+  if (currentMap) {
+    for (const [listenerKey, entry] of Array.from(currentMap)) {
+      if (!expectedKeys.has(listenerKey)) {
+        try {
           removeDirectListener(element, entry);
-          currentMap.delete(listenerKey);
+        } catch (error) {
+          errors.push(error);
         }
+        currentMap.delete(listenerKey);
       }
     }
+  }
 
-    if (entries.length === 0) {
-      if (currentMap?.size === 0) {
-        elementListeners.delete(element);
-      }
-      continue;
+  if (snapshot.listeners.length === 0) {
+    if (currentMap?.size === 0) {
+      elementListeners.delete(element);
     }
-
+  } else {
     if (!currentMap) {
       currentMap = new Map();
       elementListeners.set(element, currentMap);
     }
 
-    for (const { listenerKey, entry } of entries) {
+    for (const { listenerKey, entry } of snapshot.listeners) {
       const currentEntry = currentMap.get(listenerKey);
 
       entry.updateHandler?.(entry.original);
 
       if (currentEntry && currentEntry.handler !== entry.handler) {
-        removeDirectListener(element, currentEntry);
+        try {
+          removeDirectListener(element, currentEntry);
+        } catch (error) {
+          errors.push(error);
+        }
       }
 
       if (!currentEntry || currentEntry.handler !== entry.handler) {
-        addDirectListener(element, entry);
+        try {
+          addDirectListener(element, entry);
+        } catch (error) {
+          errors.push(error);
+        }
       } else {
         currentEntry.updateHandler?.(entry.original);
       }
@@ -393,60 +335,89 @@ function restoreListeners(snapshot: RetainedElementSnapshot): void {
       currentMap.set(listenerKey, cloneListenerEntry(entry));
     }
   }
-}
-
-function restoreDelegatedListeners(snapshot: RetainedElementSnapshot): void {
-  for (const { element, entries } of snapshot.delegatedListeners) {
-    const expectedEventNames = new Set(
-      entries.map(({ eventName }) => eventName)
-    );
-    const currentMap = getDelegatedHandlersForElement(element);
-
-    if (currentMap) {
-      for (const eventName of currentMap.keys()) {
-        if (!expectedEventNames.has(eventName)) {
-          removeDelegatedListener(element, eventName);
-        }
-      }
-    }
-
-    for (const { eventName, handler, original, options } of entries) {
-      if (
-        !updateDelegatedListener(element, eventName, handler, original, options)
-      ) {
-        addDelegatedListener(element, eventName, handler, original, options);
-      }
-    }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Listener rollback failed');
   }
 }
 
-function restoreReactiveProps(snapshot: RetainedElementSnapshot): void {
-  for (const { element, entries } of snapshot.reactiveProps) {
-    const expectedPropNames = new Set(entries.map(({ propName }) => propName));
-    let currentMap = elementReactivePropsCleanup.get(element);
+function restoreDelegatedListeners(
+  element: Element,
+  snapshot: RetainedElementSnapshot
+): void {
+  const errors: unknown[] = [];
+  const expectedEventNames = new Set(
+    snapshot.delegatedListeners.map(({ eventName }) => eventName)
+  );
+  const currentMap = getDelegatedHandlersForElement(element);
 
-    if (currentMap) {
-      for (const [propName, entry] of Array.from(currentMap)) {
-        if (!expectedPropNames.has(propName)) {
-          entry.cleanup();
-          currentMap.delete(propName);
+  if (currentMap) {
+    for (const eventName of currentMap.keys()) {
+      if (!expectedEventNames.has(eventName)) {
+        try {
+          removeDelegatedListener(element, eventName);
+        } catch (error) {
+          errors.push(error);
         }
       }
     }
+  }
 
-    if (entries.length === 0) {
-      if (currentMap?.size === 0) {
-        elementReactivePropsCleanup.delete(element);
+  for (const { eventName, handler, original, options } of snapshot.delegatedListeners) {
+    try {
+      if (
+        !updateDelegatedListener(
+          element,
+          eventName,
+          handler,
+          original,
+          options
+        )
+      ) {
+        addDelegatedListener(element, eventName, handler, original, options);
       }
-      continue;
+    } catch (error) {
+      errors.push(error);
     }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Delegated listener rollback failed');
+  }
+}
 
+function restoreReactiveProps(
+  element: Element,
+  snapshot: RetainedElementSnapshot
+): void {
+  const errors: unknown[] = [];
+  const expectedPropNames = new Set(
+    snapshot.reactiveProps.map(({ propName }) => propName)
+  );
+  let currentMap = getElementReactivePropsCleanupMap(element);
+
+  if (currentMap) {
+    for (const [propName, entry] of Array.from(currentMap)) {
+      if (!expectedPropNames.has(propName)) {
+        try {
+          entry.cleanup();
+        } catch (error) {
+          errors.push(error);
+        }
+        currentMap.delete(propName);
+      }
+    }
+  }
+
+  if (snapshot.reactiveProps.length === 0) {
+    if (currentMap?.size === 0) {
+      elementReactivePropsCleanup.delete(element);
+    }
+  } else {
     if (!currentMap) {
       currentMap = new Map();
       elementReactivePropsCleanup.set(element, currentMap);
     }
 
-    for (const { propName, entry } of entries) {
+    for (const { propName, entry } of snapshot.reactiveProps) {
       const currentEntry = currentMap.get(propName);
 
       if (currentEntry) {
@@ -458,30 +429,45 @@ function restoreReactiveProps(snapshot: RetainedElementSnapshot): void {
 
       currentMap.set(
         propName,
-        entry.restoreFn?.(entry.fnRef) ?? cloneReactivePropEntry(entry)
+        (() => {
+          try {
+            return entry.restoreFn?.(entry.fnRef) ?? cloneReactivePropEntry(entry);
+          } catch (error) {
+            errors.push(error);
+            return cloneReactivePropEntry(entry);
+          }
+        })()
       );
     }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Reactive property rollback failed');
   }
 }
 
 function restoreChildNodes(
+  element: Element,
   snapshot: RetainedElementSnapshot,
   cleanupRangeNode: (node: Node) => void
 ): void {
-  for (const { element, childNodes } of snapshot.childNodes) {
-    const expectedChildren = new Set(childNodes);
+  const errors: unknown[] = [];
+  const expectedChildren = new Set(snapshot.childNodes);
 
-    for (const child of Array.from(element.childNodes)) {
-      if (!expectedChildren.has(child)) {
+  for (const child of Array.from(element.childNodes)) {
+    if (!expectedChildren.has(child)) {
+      try {
         cleanupRangeNode(child);
+      } catch (error) {
+        errors.push(error);
       }
     }
   }
 
-  for (const { element, childNodes } of snapshot.childNodes) {
-    if (!sameChildOrder(element, childNodes)) {
-      element.replaceChildren(...childNodes);
-    }
+  if (!sameChildOrder(element, snapshot.childNodes)) {
+    element.replaceChildren(...snapshot.childNodes);
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'DOM range rollback cleanup failed');
   }
 }
 
@@ -509,24 +495,58 @@ export function restoreRetainedElement(
   snapshot: RetainedElementSnapshot,
   cleanupRangeNode: (node: Node) => void
 ): void {
-  restoreChildNodes(snapshot, cleanupRangeNode);
-  restoreReactiveProps(snapshot);
-  restoreAttributes(snapshot);
-  restoreTextNodes(snapshot);
-  restoreFormControls(snapshot);
-  restoreRefs(snapshot);
-  restoreListeners(snapshot);
-  restoreDelegatedListeners(snapshot);
-  restoreKeyedMap(element, snapshot);
+  const errors: unknown[] = [];
+  const phases: Array<() => void> = [
+    ...(snapshot.domCaptured
+      ? [
+          () => restoreChildNodes(element, snapshot, cleanupRangeNode),
+          () => restoreTextNodes(snapshot),
+          () => restoreFormControl(element, snapshot),
+          () => restoreAttributes(element, snapshot),
+        ]
+      : []),
+    () => restoreReactiveProps(element, snapshot),
+    () => restoreRef(element, snapshot),
+    () => restoreListeners(element, snapshot),
+    () => restoreDelegatedListeners(element, snapshot),
+    ...(snapshot.domCaptured
+      ? [() => restoreKeyedMap(element, snapshot)]
+      : []),
+  ];
+  for (const phase of phases) {
+    try {
+      phase();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Retained element rollback failed');
+  }
 }
 
 export function runRetainedElementUpdate(
   element: Element,
   cleanupRangeNode: (node: Node) => void,
   update: () => void,
-  onError?: () => void
+  onError?: () => void,
+  bindingsOnly = false
 ): void {
-  const snapshot = snapshotRetainedElement(element);
+  const batch = getCurrentLifecycleCommitBatch();
+  const existingSnapshot = batch?.retainedElementSnapshots.get(element) as
+    | RetainedElementSnapshot
+    | undefined;
+  const snapshot =
+    existingSnapshot ?? snapshotRetainedElement(element, bindingsOnly);
+  let restored = false;
+  if (batch && !existingSnapshot) {
+    batch.retainedElementSnapshots.set(element, snapshot);
+    registerLifecycleTransaction(element, () => undefined, () => {
+      if (restored) return;
+      restored = true;
+      restoreRetainedElement(element, snapshot, cleanupRangeNode);
+    });
+  }
 
   try {
     update();
@@ -534,9 +554,16 @@ export function runRetainedElementUpdate(
     onError?.();
 
     try {
+      restored = true;
       restoreRetainedElement(element, snapshot, cleanupRangeNode);
     } catch (rollbackError) {
-      logger.warn('[Askr] retained element rollback failed:', rollbackError);
+      logger.warn(
+        '[Askr] retained element rollback failed:',
+        new AggregateError(
+          [err, rollbackError],
+          'Render failed and retained rollback reported errors'
+        )
+      );
     }
 
     throw err;

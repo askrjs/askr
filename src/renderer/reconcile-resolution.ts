@@ -6,7 +6,7 @@ import {
   evaluateShowState,
   type ControlBoundaryState,
 } from '../runtime';
-import { evaluateForState } from '../runtime';
+import { clearForDomUpdateState, evaluateForState } from '../runtime';
 import { getRendererDOMHost, type ElementWithContext } from './dom-host';
 import {
   canReuseIntrinsicElementInNamespace,
@@ -111,40 +111,32 @@ function reconcileKeyedChild(
   const domHost = getRendererDOMHost();
 
   if (el && el.parentElement === parent) {
-    try {
-      const childObj = child as VnodeObj;
+    const childObj = child as VnodeObj;
+    if (
+      childObj &&
+      typeof childObj === 'object' &&
+      typeof childObj.type === 'string'
+    ) {
       if (
-        childObj &&
-        typeof childObj === 'object' &&
-        typeof childObj.type === 'string'
+        canReuseIntrinsicElementInNamespace(el, childObj.type, parentNamespace)
       ) {
-        if (
-          canReuseIntrinsicElementInNamespace(
-            el,
-            childObj.type,
-            parentNamespace
-          )
-        ) {
-          domHost.updateElementFromVnode(el, child);
-          newKeyMap.set(key, el);
-          return el;
-        }
+        domHost.updateElementFromVnode(el, child);
+        newKeyMap.set(key, el);
+        return el;
       }
-      if (isComponentVNode(child)) {
-        const synced = domHost.syncComponentElement(
-          el,
-          child as unknown as ElementWithContext,
-          child.type,
-          ((child.props ?? {}) as Props) || {},
-          parentNamespace
-        );
-        if (synced) {
-          if (synced instanceof Element) newKeyMap.set(key, synced);
-          return synced;
-        }
+    }
+    if (isComponentVNode(child)) {
+      const synced = domHost.syncComponentElement(
+        el,
+        child as unknown as ElementWithContext,
+        child.type,
+        ((child.props ?? {}) as Props) || {},
+        parentNamespace
+      );
+      if (synced) {
+        if (synced instanceof Element) newKeyMap.set(key, synced);
+        return synced;
       }
-    } catch {
-      // Fall through to replacement.
     }
   }
 
@@ -167,49 +159,45 @@ function reconcileUnkeyedChild(
   const parentNamespace = getParentNamespace(parent);
   const domHost = getRendererDOMHost();
 
-  try {
-    const existing = parent.childNodes[index] as Node | undefined;
+  const existing = parent.childNodes[index] as Node | undefined;
 
-    if (typeof child === 'string' || typeof child === 'number') {
-      if (existing && existing.nodeType === 3) {
-        (existing as Text).data = String(child);
-        usedOldEls.add(existing);
-        return existing;
-      }
-      return domHost.createDOMNode(child, parentNamespace);
-    }
-
-    if (existing instanceof Element) {
-      const synced = trySyncComponentChild(
-        existing,
-        child,
-        usedOldEls,
-        parentNamespace
-      );
-      if (synced) return synced;
-    }
-
-    if (
-      existing instanceof Element &&
-      canReuseElement(existing, child, parentNamespace)
-    ) {
-      domHost.updateElementFromVnode(existing, child);
+  if (typeof child === 'string' || typeof child === 'number') {
+    if (existing && existing.nodeType === 3) {
+      (existing as Text).data = String(child);
       usedOldEls.add(existing);
       return existing;
     }
+    return domHost.createDOMNode(child, parentNamespace);
+  }
 
-    const avail = resolveUnkeyedOnce();
-    if (avail) {
-      const reuseResult = tryReuseElement(
-        avail,
-        child,
-        usedOldEls,
-        parentNamespace
-      );
-      if (reuseResult) return reuseResult;
-    }
-  } catch {
-    // Fall through to create new.
+  if (existing instanceof Element) {
+    const synced = trySyncComponentChild(
+      existing,
+      child,
+      usedOldEls,
+      parentNamespace
+    );
+    if (synced) return synced;
+  }
+
+  if (
+    existing instanceof Element &&
+    canReuseElement(existing, child, parentNamespace)
+  ) {
+    domHost.updateElementFromVnode(existing, child);
+    usedOldEls.add(existing);
+    return existing;
+  }
+
+  const avail = resolveUnkeyedOnce();
+  if (avail) {
+    const reuseResult = tryReuseElement(
+      avail,
+      child,
+      usedOldEls,
+      parentNamespace
+    );
+    if (reuseResult) return reuseResult;
   }
 
   return domHost.createDOMNode(child, parentNamespace);
@@ -247,9 +235,11 @@ function prepareControlBoundaryResolution(child: VNode): {
   }
   if (controlState.kind === 'for') {
     const childrenVNodes = evaluateControlBoundaryChildren(controlState);
-    return childrenVNodes.length === 1
-      ? { remount: false, vnode: childrenVNodes[0] ?? null }
-      : null;
+    if (childrenVNodes.length !== 1) {
+      return null;
+    }
+    clearForDomUpdateState(controlState);
+    return { remount: false, vnode: childrenVNodes[0] ?? null };
   }
 
   const previousActiveKey = controlState.activeKey;

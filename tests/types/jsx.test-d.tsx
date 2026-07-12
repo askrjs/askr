@@ -9,16 +9,24 @@ import {
   Fragment,
   jsx,
   jsxs,
+  type JSX as RuntimeJSX,
   type JSXComponent,
   type JSXElement,
   type JSXElementType,
 } from '@askrjs/askr/jsx-runtime';
-import { jsxDEV } from '@askrjs/askr/jsx-dev-runtime';
+import {
+  jsxDEV,
+  type JSX as DevRuntimeJSX,
+} from '@askrjs/askr/jsx-dev-runtime';
 
 expectAssignable<typeof jsx>(rootJsx);
 expectAssignable<typeof jsxs>(rootJsxs);
 expectAssignable<symbol>(RootFragment);
 expectAssignable<symbol>(Fragment);
+expectAssignable<JSXElement>({} as RuntimeJSX.Element);
+expectAssignable<JSXElement>({} as DevRuntimeJSX.Element);
+expectType<Props>({} as RuntimeJSX.ElementAttributesProperty['props']);
+expectType<unknown>({} as RuntimeJSX.ElementChildrenAttribute['children']);
 
 const rootProps: Props = {
   id: 'demo',

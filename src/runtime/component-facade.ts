@@ -21,6 +21,7 @@ export {
 } from './component-internal';
 export {
   claimHookIndex,
+  enterDomCommitScope,
   getCurrentComponentInstance,
   getCurrentInstance,
   getCurrentPortalScope,
@@ -28,6 +29,15 @@ export {
   getNextStateIndex,
   getSignal,
   resetStateIndex,
+  restoreDomCommitScope,
   setCurrentComponentInstance,
   setStateIndex,
 } from './component-scope';
+export {
+  beginLifecycleCommitBatch,
+  discardLifecycleCommitBatch,
+  flushLifecycleCommitBatch,
+  getCurrentLifecycleCommitBatch,
+  registerLifecycleRollback,
+  registerLifecycleTransaction,
+} from './component-lifecycle';

@@ -132,6 +132,20 @@ flowchart LR
   async --> fail
 ```
 
+## Control range markers and hydration
+
+SSR uses the same anchored range contract as the client renderer. A singleton
+control result is serialized as its one node. Multi-node `Show`, `Case`,
+fragment, and keyed `For` output is enclosed by deterministic
+`askr-range-start` and `askr-range-end` comment markers, including empty
+ranges. Hydration consumes markers structurally, validates nesting and
+ownership order, and adopts the nodes between each pair; it does not infer a
+range from adjacent siblings or insert a wrapper element.
+
+This makes SSR, client rendering, keyed reorder/removal, and failed replacement
+use the same range boundaries. A malformed or mismatched marker structure is a
+hydration error rather than a permissive single-root fallback.
+
 ## SSG generation flow
 
 SSG wraps SSR with route expansion, batching, file writes, and metadata.

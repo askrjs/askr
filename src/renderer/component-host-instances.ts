@@ -1,5 +1,6 @@
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { Props } from '../common/props';
+import { isProductionEnvironment } from '../common/env';
 import { getCurrentInstance, type ComponentInstance } from '../runtime';
 import { getDevValue, incDevCounter } from '../runtime';
 import type { InstanceHostElement } from './dom-host';
@@ -48,6 +49,7 @@ export function setVNodeComponentInstance(
   }
 
   const objectNode = node as { __instance?: ComponentInstance };
+  vnodeComponentInstances.delete(objectNode);
 
   if (Object.prototype.hasOwnProperty.call(objectNode, '__instance')) {
     try {
@@ -70,9 +72,43 @@ export function setVNodeComponentInstance(
   vnodeComponentInstances.set(objectNode, instance);
 }
 
+/** @internal Restore component ownership after provisional creation fails. */
+export function restoreVNodeComponentInstance(
+  node: unknown,
+  instance: ComponentInstance | undefined
+): void {
+  if (typeof node !== 'object' || node === null) {
+    return;
+  }
+
+  const objectNode = node as { __instance?: ComponentInstance };
+  vnodeComponentInstances.delete(objectNode);
+
+  if (instance) {
+    setVNodeComponentInstance(objectNode, instance);
+    return;
+  }
+
+  try {
+    delete objectNode.__instance;
+  } catch {
+    try {
+      objectNode.__instance = undefined;
+    } catch {
+      // Frozen/proxied vnodes have no mutable metadata to clear.
+    }
+  }
+}
+
 let fallbackComponentInstanceId = 0;
+const PRODUCTION_BUILD_ENABLED = isProductionEnvironment();
 
 export function nextComponentInstanceId(): string {
+  if (PRODUCTION_BUILD_ENABLED || isProductionEnvironment()) {
+    fallbackComponentInstanceId++;
+    return `comp-${fallbackComponentInstanceId}`;
+  }
+
   const key = '__COMPONENT_INSTANCE_ID';
   try {
     incDevCounter(key);
@@ -113,19 +149,89 @@ export function inheritComponentKey(
   return target;
 }
 
+export function setComponentOwnershipIdentity(
+  instance: ComponentInstance,
+  node: unknown,
+  parent: ComponentInstance | null,
+  wrapperDepth = 0,
+  position?: number
+): void {
+  instance._vnodeOwner =
+    typeof node === 'object' && node !== null ? node : undefined;
+  instance._vnodeParent = parent;
+  const key = extractKey(node as DOMElement);
+  if (key === undefined) {
+    delete instance._vnodeKey;
+  } else {
+    instance._vnodeKey = key;
+  }
+  instance._vnodePosition = position;
+  instance._wrapperDepth = wrapperDepth;
+}
+
 export function findHostInstanceByType(
   host: InstanceHostElement,
-  type: (props: Props) => unknown
+  type: (props: Props) => unknown,
+  node?: unknown,
+  parent?: ComponentInstance | null,
+  wrapperDepth?: number
 ): ComponentInstance | null {
   const instances = host.__ASKR_INSTANCES;
   if (instances && instances.length > 0) {
-    for (let index = instances.length - 1; index >= 0; index -= 1) {
-      const instance = instances[index]!;
-      if (instance.fn === type) {
-        return instance;
+    const vnodeOwner = getVNodeComponentInstance(node);
+    if (
+      vnodeOwner &&
+      vnodeOwner.fn === type &&
+      instances.includes(vnodeOwner)
+    ) {
+      return vnodeOwner;
+    }
+
+    const key = extractKey(node as DOMElement);
+    const identityMatches = instances.filter((instance) => {
+      if (instance.fn !== type) return false;
+      if (parent !== undefined && instance._vnodeParent !== parent) {
+        return false;
       }
+      if (key !== undefined && instance._vnodeKey !== key) return false;
+      if (
+        wrapperDepth !== undefined &&
+        instance._wrapperDepth !== wrapperDepth
+      ) {
+        return false;
+      }
+      return true;
+    });
+    if (identityMatches.length === 1) {
+      return identityMatches[0]!;
+    }
+    if (identityMatches.length > 1 && key !== undefined) {
+      return identityMatches[identityMatches.length - 1]!;
+    }
+
+    // A single unannotated owner is safe for legacy hydration hosts. Do not
+    // fall back to type-only reuse when a wrapper chain has several owners.
+    const sameType = instances.filter((instance) => instance.fn === type);
+    if (sameType.length === 1) {
+      return sameType[0]!;
+    }
+    return null;
+  }
+
+  if (host.__ASKR_INSTANCE?.fn === type) {
+    const instance = host.__ASKR_INSTANCE;
+    const key = extractKey(node as DOMElement);
+    if (
+      (parent === undefined || instance._vnodeParent === parent) &&
+      (key === undefined || instance._vnodeKey === key) &&
+      (wrapperDepth === undefined || instance._wrapperDepth === wrapperDepth)
+    ) {
+      return instance;
+    }
+    if (node === undefined && parent === undefined && wrapperDepth === undefined) {
+      return instance;
     }
   }
 
-  return host.__ASKR_INSTANCE?.fn === type ? host.__ASKR_INSTANCE : null;
+  return null;
 }

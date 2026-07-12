@@ -16,6 +16,13 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 import { clearRoutes } from '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';
+import { nextComponentInstanceId } from '../../../src/renderer/component-host-instances';
+import {
+  deleteDevValue,
+  getDevNamespace,
+  getDevValue,
+  incDevCounter,
+} from '../../../src/runtime/dev-namespace';
 
 describe('prod fallbacks (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();
@@ -62,6 +69,78 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
 
       warn.mockRestore();
     } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  it('should not sample render timing in production mode', () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => {
+      throw new Error('production render sampled the diagnostic clock');
+    });
+
+    try {
+      expect(() => {
+        createIsland({ root: container, component: () => <div /> });
+        flushScheduler();
+      }).not.toThrow();
+      expect(now).not.toHaveBeenCalled();
+    } finally {
+      now.mockRestore();
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  it('should keep dev helpers runtime-switchable in test builds', () => {
+    const prev = process.env.NODE_ENV;
+    const key = '__TEST_RUNTIME_SWITCHABLE_DEV_COUNTER';
+
+    try {
+      process.env.NODE_ENV = 'development';
+      deleteDevValue(key);
+      incDevCounter(key);
+      expect(getDevValue<number>(key)).toBe(1);
+
+      process.env.NODE_ENV = 'production';
+      incDevCounter(key);
+      expect(getDevValue<number>(key)).toBeUndefined();
+
+      process.env.NODE_ENV = 'development';
+      expect(getDevValue<number>(key)).toBe(1);
+      deleteDevValue(key);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  it('should not inspect the dev component counter in production mode', () => {
+    const prev = process.env.NODE_ENV;
+    const key = '__COMPONENT_INSTANCE_ID';
+    process.env.NODE_ENV = 'development';
+    const namespace = getDevNamespace();
+    let reads = 0;
+    let writes = 0;
+
+    Object.defineProperty(namespace, key, {
+      configurable: true,
+      get() {
+        reads++;
+        return 0;
+      },
+      set() {
+        writes++;
+      },
+    });
+
+    try {
+      process.env.NODE_ENV = 'production';
+      expect(nextComponentInstanceId()).toMatch(/^comp-\d+$/);
+      expect(reads).toBe(0);
+      expect(writes).toBe(0);
+    } finally {
+      process.env.NODE_ENV = 'development';
+      deleteDevValue(key);
       process.env.NODE_ENV = prev;
     }
   });

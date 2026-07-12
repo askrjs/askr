@@ -78,3 +78,4 @@ describe('failure modes (RUNTIME)', () => {
     errorSpy.mockRestore();
   });
 });
+// @askr-allow-real-timers -- async failure integration fixture.

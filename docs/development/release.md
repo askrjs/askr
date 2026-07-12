@@ -18,20 +18,29 @@ Packages are published to npm under the `@askrjs` scope.
 
 The release flow is split across dedicated workflows:
 
-- `.github/workflows/ci.yml`: lint, build, architecture checks, public type
-  contracts, unit/jsdom tests, a packed clean-consumer smoke test, and Chromium
-  integration coverage.
+- `.github/workflows/ci.yml`: lint, build, publint, benchmark-contract,
+  architecture checks, public type contracts, unit/jsdom tests, a packed
+  clean-consumer smoke test, and Chromium integration coverage.
 - `.github/workflows/quality.yml`: scheduled replayable lifecycle sequences
   plus Chromium and Firefox on Linux and WebKit on macOS. Failed runs retain
   browser reports and seed-trace artifacts.
 - `.github/workflows/publish.yml`: manual release workflow. It installs Chromium
   and runs the complete release gate before any tag is created. A reused tag
   must resolve to that verified commit; only then can the workflow publish it.
-- `.github/workflows/bench.yml`: manual benchmark runner for stable and browser perf lanes.
+- `.github/workflows/bench.yml`: manual benchmark runner for stable and browser
+  perf lanes. It captures three repetitions on one pinned host, raw tier JSON,
+  commit/OS/architecture/CPU/Node data, and the launched Playwright Chromium
+  version and revision. `benchmarks/guardrails.json` is the stable workload
+  manifest; `test:bench-contract` checks that every documented guardrail is a
+  runnable benchmark, and `generate-bench-log.js --verify` checks sample,
+  RME, and percentile resolution.
 - `prepack`: always rebuilds package artifacts before npm creates a tarball.
 - `prepublishOnly`: runs `npm run release:verify`; manual npm publishing cannot
   skip lint, build, checks, public types, test suites, or the packed consumer
   contract. The Chromium browser integration suite is part of that gate.
+- The packed consumer is also executed under Node 18 after the fresh build.
+  Development checks use the current LTS toolchain; Node 18 is a post-build
+  compatibility check.
 
 The packed consumer contract imports every exported subpath from a fresh ESM
 install, verifies the matching emitted declaration files, runs a minimal
@@ -54,6 +63,7 @@ The intended happy path is:
   files and includes JavaScript plus declaration artifacts for every export.
 - CHANGELOG updated when the release needs notes
 - Version bumped in `package.json`
+- Do not create a tag or publish until every local and workflow gate is green.
 
 ## Failure recovery
 

@@ -5,6 +5,7 @@ import {
   markReadableDerivedSubscribersDirty,
   notifyReadableReaders,
   recordReadableRead,
+  shouldCoalesceFineGrainedItemReads,
   type ReadableSource,
 } from './readable';
 
@@ -29,39 +30,70 @@ export type ForIndexSignal = ReadableSource<number> &
     ): void;
   };
 
+type MutableForSignal<T> = ReadableSource<T> & {
+  _value: T;
+};
+
+function peekForSignal<T>(this: MutableForSignal<T>): T {
+  return this._value;
+}
+
+function setForValueSignal<T>(
+  this: MutableForSignal<T>,
+  newValue: T,
+  notifyReaders = true
+): void {
+  if (Object.is(this._value, newValue)) {
+    return;
+  }
+
+  this._value = newValue;
+  if (notifyReaders) {
+    notifyForSignalReaders(this);
+  }
+}
+
+function setForIndexValue(
+  this: MutableForSignal<number>,
+  newValue: number | ((prev: number) => number),
+  notifyReaders = true
+): void {
+  const nextValue =
+    typeof newValue === 'function' ? newValue(this._value) : newValue;
+  if (nextValue === this._value) {
+    return;
+  }
+
+  this._value = nextValue;
+  if (notifyReaders) {
+    notifyForSignalReaders(this);
+  }
+}
+
 export function notifyForSignalReaders(
   source: ReadableSource<unknown>,
-  skipInstance?: ComponentInstance | null
+  skipInstance?: ComponentInstance | null,
+  skipOwnedBy?: ComponentInstance | null
 ): void {
   markReadableDerivedSubscribersDirty(source);
   markReactivePropsDirtySource(source);
-  notifyReadableReaders(source, skipInstance);
+  notifyReadableReaders(source, skipInstance, skipOwnedBy);
 }
 
 export function createForIndexSignal(initialIndex: number): ForIndexSignal {
-  let indexValue = initialIndex;
-  const readers = new Map<ComponentInstance, number>();
+  function readIndexSignal(): number {
+    const signal = readIndexSignal as ForIndexSignal &
+      MutableForSignal<number>;
+    signal._hasBeenRead = true;
+    recordReadableRead(signal);
+    return signal._value;
+  }
 
-  const indexSignal = (() => {
-    indexSignal._hasBeenRead = true;
-    recordReadableRead(indexSignal);
-    return indexValue;
-  }) as ForIndexSignal;
-  indexSignal._readers = readers;
-  indexSignal.peek = () => indexValue;
-  indexSignal.set = (
-    newValue: number | ((prev: number) => number),
-    notifyReaders = true
-  ) => {
-    const nextValue =
-      typeof newValue === 'function' ? newValue(indexValue) : newValue;
-    if (nextValue !== indexValue) {
-      indexValue = nextValue;
-      if (notifyReaders) {
-        notifyForSignalReaders(indexSignal);
-      }
-    }
-  };
+  const indexSignal = readIndexSignal as ForIndexSignal &
+    MutableForSignal<number>;
+  indexSignal._value = initialIndex;
+  indexSignal.peek = peekForSignal;
+  indexSignal.set = setForIndexValue;
   indexSignal._hasBeenRead = false;
 
   return indexSignal;
@@ -80,27 +112,17 @@ export function syncForIndexSignal(
 }
 
 export function createForItemSignal<T>(initialItem: T): ForItemSignal<T> {
-  let itemValue = initialItem;
-  const readers = new Map<ComponentInstance, number>();
+  function readItemSignal(): T {
+    const signal = readItemSignal as ForItemSignal<T> & MutableForSignal<T>;
+    signal._hasBeenRead = true;
+    recordReadableRead(signal);
+    return signal._value;
+  }
 
-  const itemSignal = (() => {
-    itemSignal._hasBeenRead = true;
-    recordReadableRead(itemSignal);
-    return itemValue;
-  }) as ForItemSignal<T>;
-
-  itemSignal._readers = readers;
-  itemSignal.peek = () => itemValue;
-  itemSignal.set = (newValue: T, notifyReaders = true) => {
-    if (Object.is(itemValue, newValue)) {
-      return;
-    }
-
-    itemValue = newValue;
-    if (notifyReaders) {
-      notifyForSignalReaders(itemSignal);
-    }
-  };
+  const itemSignal = readItemSignal as ForItemSignal<T> & MutableForSignal<T>;
+  itemSignal._value = initialItem;
+  itemSignal.peek = peekForSignal;
+  itemSignal.set = setForValueSignal;
   itemSignal._hasBeenRead = false;
 
   return itemSignal;
@@ -109,27 +131,19 @@ export function createForItemSignal<T>(initialItem: T): ForItemSignal<T> {
 function createForItemPropertySignal(
   initialValue: unknown
 ): ForItemPropertySignal {
-  let propertyValue = initialValue;
-  const readers = new Map<ComponentInstance, number>();
+  function readPropertySignal(): unknown {
+    const signal = readPropertySignal as ForItemPropertySignal &
+      MutableForSignal<unknown>;
+    signal._hasBeenRead = true;
+    recordReadableRead(signal);
+    return signal._value;
+  }
 
-  const propertySignal = (() => {
-    propertySignal._hasBeenRead = true;
-    recordReadableRead(propertySignal);
-    return propertyValue;
-  }) as ForItemPropertySignal;
-
-  propertySignal._readers = readers;
-  propertySignal.peek = () => propertyValue;
-  propertySignal.set = (newValue: unknown, notifyReaders = true) => {
-    if (Object.is(propertyValue, newValue)) {
-      return;
-    }
-
-    propertyValue = newValue;
-    if (notifyReaders) {
-      notifyForSignalReaders(propertySignal);
-    }
-  };
+  const propertySignal = readPropertySignal as ForItemPropertySignal &
+    MutableForSignal<unknown>;
+  propertySignal._value = initialValue;
+  propertySignal.peek = peekForSignal;
+  propertySignal.set = setForValueSignal;
   propertySignal._hasBeenRead = false;
 
   return propertySignal;
@@ -160,6 +174,27 @@ export function haveSameOwnKeys(
 }
 
 export function scopeReadsSource(
+  scope: ChildScope,
+  source: ReadableSource<unknown>
+): boolean {
+  const readers = source._readers;
+  if (!readers || readers.size === 0) {
+    return false;
+  }
+
+  for (const reader of readers.keys()) {
+    let current: ComponentInstance | null = reader;
+    while (current) {
+      if (current === scope.componentInstance) {
+        return true;
+      }
+      current = current.parentInstance;
+    }
+  }
+  return false;
+}
+
+export function scopeDirectlyReadsSource(
   scope: ChildScope,
   source: ReadableSource<unknown>
 ): boolean {
@@ -199,10 +234,13 @@ export function removeForParentReaders(
 }
 
 function getOrCreateForItemPropertySignal<T>(
-  item: T,
-  propertySignals: Map<PropertyKey, ForItemPropertySignal>,
+  state: ReactiveForItemState<T>,
   prop: PropertyKey
 ): ForItemPropertySignal {
+  const item = state.currentItem;
+  const propertySignals =
+    state.propertySignals ??
+    (state.propertySignals = new Map<PropertyKey, ForItemPropertySignal>());
   const existingSignal = propertySignals.get(prop);
   if (existingSignal) {
     return existingSignal;
@@ -222,57 +260,153 @@ export function canProxyForItem(item: unknown): item is object {
   );
 }
 
-export function createReactiveForItem<T>(
-  itemSignal: ForItemSignal<T>,
-  propertySignals: Map<PropertyKey, ForItemPropertySignal>
-): T {
-  const target = Object.create(null) as Record<string | symbol, unknown>;
+export interface ReactiveForItemState<T> {
+  currentItem: T;
+  itemSignal: ForItemSignal<T> | null;
+  propertySignals: Map<PropertyKey, ForItemPropertySignal> | null;
+  coalescedProperties: PropertyKey | PropertyKey[] | null;
+  coalescedProperty2: PropertyKey | null;
+  wholeItemRead: boolean;
+  proxy: T;
+}
 
-  return new Proxy(target, {
-    get(target, prop, receiver) {
-      const ownDescriptor = Reflect.getOwnPropertyDescriptor(target, prop);
-      if (ownDescriptor) {
-        return Reflect.get(target, prop, receiver);
+export function createReactiveForItem<T>(item: T): ReactiveForItemState<T> {
+  const target = Object.create(null) as ReactiveForItemTarget;
+  const state = {
+    currentItem: item,
+    itemSignal: null,
+    propertySignals: null,
+    coalescedProperties: null,
+    coalescedProperty2: null,
+    wholeItemRead: false,
+    proxy: undefined as T,
+  } satisfies ReactiveForItemState<T>;
+  target[REACTIVE_FOR_ITEM_STATE] =
+    state as ReactiveForItemState<unknown>;
+  state.proxy = new Proxy(target, REACTIVE_FOR_ITEM_PROXY_HANDLER) as T;
+  return state;
+}
+
+const REACTIVE_FOR_ITEM_STATE = Symbol('askr.reactive-for-item-state');
+type ReactiveForItemTarget = Record<string | symbol, unknown> & {
+  [REACTIVE_FOR_ITEM_STATE]: ReactiveForItemState<unknown>;
+};
+
+function getReactiveForItemState(
+  target: ReactiveForItemTarget
+): ReactiveForItemState<unknown> {
+  return target[REACTIVE_FOR_ITEM_STATE];
+}
+
+function getWholeItemSignal(
+  state: ReactiveForItemState<unknown>
+): ForItemSignal<unknown> {
+  let signal = state.itemSignal;
+  if (!signal) {
+    signal = createForItemSignal(state.currentItem);
+    state.itemSignal = signal;
+  }
+  return signal;
+}
+
+const REACTIVE_FOR_ITEM_PROXY_HANDLER: ProxyHandler<
+  ReactiveForItemTarget
+> = {
+  get(target, prop, receiver) {
+    if (prop !== REACTIVE_FOR_ITEM_STATE && prop in target) {
+      return Reflect.get(target, prop, receiver);
+    }
+
+    const metadata = getReactiveForItemState(target);
+    const currentItem = metadata.currentItem;
+    if (typeof prop !== 'symbol') {
+      if (shouldCoalesceFineGrainedItemReads()) {
+        const properties = metadata.coalescedProperties;
+        if (properties === null) {
+          metadata.coalescedProperties = prop;
+        } else if (Array.isArray(properties)) {
+          if (!properties.includes(prop)) {
+            properties.push(prop);
+          }
+        } else if (
+          properties !== prop &&
+          metadata.coalescedProperty2 !== prop
+        ) {
+          if (metadata.coalescedProperty2 === null) {
+            metadata.coalescedProperty2 = prop;
+          } else {
+            metadata.coalescedProperties = [
+              properties,
+              metadata.coalescedProperty2,
+              prop,
+            ];
+            metadata.coalescedProperty2 = null;
+          }
+        }
+
+        let itemSignal = metadata.itemSignal;
+        if (!itemSignal) {
+          itemSignal = createForItemSignal(currentItem);
+          metadata.itemSignal = itemSignal;
+        }
+        itemSignal();
+        return readForItemProperty(currentItem, prop);
       }
+      return getOrCreateForItemPropertySignal(
+        metadata,
+        prop
+      )();
+    }
 
-      const currentItem = itemSignal.peek();
-
-      if (typeof prop !== 'symbol') {
-        return getOrCreateForItemPropertySignal(
-          currentItem,
-          propertySignals,
-          prop
-        )();
-      }
-
-      recordReadableRead(itemSignal);
-      return Reflect.get(Object(currentItem), prop, receiver);
-    },
-    has(target, prop) {
-      recordReadableRead(itemSignal);
-      return prop in target || prop in Object(itemSignal.peek());
-    },
-    ownKeys(target) {
-      recordReadableRead(itemSignal);
-      const keys = new Set<string | symbol>(Reflect.ownKeys(target));
-      for (const key of Reflect.ownKeys(Object(itemSignal.peek()))) {
+    metadata.wholeItemRead = true;
+    recordReadableRead(getWholeItemSignal(metadata));
+    return Reflect.get(Object(currentItem), prop, receiver);
+  },
+  has(target, prop) {
+    if (prop === REACTIVE_FOR_ITEM_STATE) {
+      return false;
+    }
+    const metadata = getReactiveForItemState(target);
+    metadata.wholeItemRead = true;
+    const itemSignal = getWholeItemSignal(metadata);
+    recordReadableRead(itemSignal);
+    return prop in target || prop in Object(metadata.currentItem);
+  },
+  ownKeys(target) {
+    const metadata = getReactiveForItemState(target);
+    metadata.wholeItemRead = true;
+    const itemSignal = getWholeItemSignal(metadata);
+    recordReadableRead(itemSignal);
+    const keys = new Set<string | symbol>();
+    for (const key of Reflect.ownKeys(target)) {
+      if (key !== REACTIVE_FOR_ITEM_STATE) {
         keys.add(key);
       }
-
-      return Array.from(keys);
-    },
-    getOwnPropertyDescriptor(target, prop) {
-      recordReadableRead(itemSignal);
-      const ownDescriptor = Reflect.getOwnPropertyDescriptor(target, prop);
-      if (ownDescriptor) {
-        return ownDescriptor;
-      }
-
-      return Object.getOwnPropertyDescriptor(Object(itemSignal.peek()), prop);
-    },
-    getPrototypeOf() {
-      recordReadableRead(itemSignal);
-      return Object.getPrototypeOf(Object(itemSignal.peek()));
-    },
-  }) as T;
-}
+    }
+    for (const key of Reflect.ownKeys(Object(metadata.currentItem))) {
+      keys.add(key);
+    }
+    return Array.from(keys);
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    if (prop === REACTIVE_FOR_ITEM_STATE) {
+      return undefined;
+    }
+    const metadata = getReactiveForItemState(target);
+    metadata.wholeItemRead = true;
+    const itemSignal = getWholeItemSignal(metadata);
+    recordReadableRead(itemSignal);
+    const ownDescriptor = Reflect.getOwnPropertyDescriptor(target, prop);
+    if (ownDescriptor) {
+      return ownDescriptor;
+    }
+    return Object.getOwnPropertyDescriptor(Object(metadata.currentItem), prop);
+  },
+  getPrototypeOf(target) {
+    const metadata = getReactiveForItemState(target);
+    metadata.wholeItemRead = true;
+    const itemSignal = getWholeItemSignal(metadata);
+    recordReadableRead(itemSignal);
+    return Object.getPrototypeOf(Object(metadata.currentItem));
+  },
+};

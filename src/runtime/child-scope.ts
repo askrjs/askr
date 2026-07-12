@@ -3,14 +3,22 @@ import { _isDOMElement } from '../common/vnode';
 import {
   cleanupComponent,
   createComponentInstance,
-  finalizeReadSubscriptions,
+  getCurrentInstance,
   getCurrentStateIndex,
   registerOwnedChildScope,
   renderScopedComponent,
   unregisterOwnedChildScope,
   type ComponentInstance,
 } from './component';
+import { finalizeInlineReadSubscriptions } from './component-lifecycle';
+import { clearRenderTracking } from './component-scope';
 import { isDevelopmentEnvironment } from '../common/env';
+import type { DOMRange } from '../common/dom-range';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+const EMPTY_CHILD_SCOPE_PROPS = {};
 
 export interface ChildScope {
   key: string | number;
@@ -18,11 +26,27 @@ export interface ChildScope {
   previousVnode: VNode | undefined;
   vnode: VNode | undefined;
   dom?: Node;
+  /** @internal Fast singleton node plus an anchor-backed multi-node range. */
+  range?: DOMRange;
   needsDomUpdate: boolean;
   hydrationPending: boolean;
+  /** @internal Stable owner for validated intrinsic blueprints in list items. */
+  blueprintOwner?: object;
   render(renderFn: () => VNode): VNode;
   markDirty(): void;
   dispose(): void;
+}
+
+/** @internal Snapshot used to restore a child scope after a failed commit. */
+export interface ChildScopeTransactionSnapshot {
+  previousVnode: VNode | undefined;
+  vnode: VNode | undefined;
+  dom: Node | undefined;
+  range: DOMRange | undefined;
+  domTextData: string | undefined;
+  needsDomUpdate: boolean;
+  hydrationPending: boolean;
+  renderFn: (() => VNode) | undefined;
 }
 
 interface MutableChildScope extends ChildScope {
@@ -31,6 +55,108 @@ interface MutableChildScope extends ChildScope {
   _onDirty?: (() => void) | undefined;
   _parent?: ComponentInstance | null;
   _disposed: boolean;
+}
+
+const childScopesByInstance = new WeakMap<
+  ComponentInstance,
+  MutableChildScope
+>();
+
+function executeChildScopeComponent(): VNode {
+  const instance = getCurrentInstance();
+  const scope = instance ? childScopesByInstance.get(instance) : undefined;
+  if (!scope?._renderFn) {
+    return null;
+  }
+  return scope._renderFn();
+}
+
+function ensureChildScopeFlushTask(scope: MutableChildScope): void {
+  const instance = scope.componentInstance;
+  if (instance._pendingFlushTask) {
+    return;
+  }
+
+  instance._pendingFlushTask = () => {
+    instance.hasPendingUpdate = false;
+    if (instance.notifyUpdate === null || scope._disposed) {
+      return;
+    }
+    renderScope(scope);
+    scope._onDirty?.();
+  };
+}
+
+class ChildScopeImpl implements MutableChildScope {
+  key: string | number;
+  componentInstance: ComponentInstance;
+  previousVnode: VNode | undefined = undefined;
+  vnode: VNode | undefined = undefined;
+  dom: Node | undefined = undefined;
+  range: DOMRange | undefined = undefined;
+  needsDomUpdate = true;
+  hydrationPending = true;
+  blueprintOwner: object | undefined = undefined;
+  _startStateIndex: number;
+  _renderFn: (() => VNode) | undefined = undefined;
+  _onDirty: (() => void) | undefined;
+  _parent: ComponentInstance | null;
+  _disposed = false;
+
+  constructor(
+    parent: ComponentInstance | null,
+    key: string | number,
+    onDirty?: () => void
+  ) {
+    this.key = key;
+    this._parent = parent;
+    this._onDirty = onDirty;
+    this._startStateIndex = getCurrentStateIndex();
+    this.componentInstance = createComponentInstance(
+      DEVELOPMENT_BUILD_ENABLED ? `child-scope-${String(key)}` : 'child-scope',
+      executeChildScopeComponent,
+      EMPTY_CHILD_SCOPE_PROPS,
+      null
+    );
+    childScopesByInstance.set(this.componentInstance, this);
+
+    if (parent) {
+      this.componentInstance.parentInstance = parent;
+      this.componentInstance.ownerFrame = parent.ownerFrame;
+      this.componentInstance.portalScope = parent.portalScope;
+      registerOwnedChildScope(parent, this);
+    }
+  }
+
+  markDirty(): void {
+    this.needsDomUpdate = true;
+  }
+
+  render(renderFn: () => VNode): VNode {
+    this._renderFn = renderFn;
+    return renderScope(this) as VNode;
+  }
+
+  dispose(): void {
+    if (this._disposed) {
+      return;
+    }
+    this._disposed = true;
+    if (this._parent) {
+      unregisterOwnedChildScope(this._parent, this);
+    }
+    childScopesByInstance.delete(this.componentInstance);
+    cleanupComponent(this.componentInstance);
+    this._renderFn = undefined;
+    this.previousVnode = undefined;
+    this.vnode = undefined;
+    this.dom = undefined;
+    this.range = undefined;
+    this.needsDomUpdate = false;
+    this.hydrationPending = false;
+    this.blueprintOwner = undefined;
+    this.componentInstance.hasPendingUpdate = false;
+  }
 }
 
 function renderScope(scope: MutableChildScope): VNode | undefined {
@@ -79,7 +205,16 @@ function renderScope(scope: MutableChildScope): VNode | undefined {
     scope.previousVnode = previousVNode;
     scope.vnode = nextVNode;
     scope.markDirty();
-    finalizeReadSubscriptions(componentInstance);
+    if ((componentInstance._pendingReadSources?.size ?? 0) > 0) {
+      ensureChildScopeFlushTask(scope);
+    }
+    finalizeInlineReadSubscriptions(
+      componentInstance,
+      componentInstance._currentRenderToken!,
+      componentInstance._pendingReadSources,
+      componentInstance._pendingReadSourceVersions
+    );
+    clearRenderTracking(componentInstance);
     return scope.vnode;
   } catch (error) {
     componentInstance.hasPendingUpdate = false;
@@ -91,6 +226,42 @@ export function rerenderChildScope(scope: ChildScope): VNode | undefined {
   return renderScope(scope as MutableChildScope);
 }
 
+/** @internal */
+export function captureChildScopeTransactionSnapshot(
+  scope: ChildScope
+): ChildScopeTransactionSnapshot {
+  const mutableScope = scope as MutableChildScope;
+  return {
+    previousVnode: scope.previousVnode,
+    vnode: scope.vnode,
+    dom: scope.dom,
+    range: scope.range,
+    domTextData:
+      scope.dom?.nodeType === 3 ? (scope.dom as Text).data : undefined,
+    needsDomUpdate: scope.needsDomUpdate,
+    hydrationPending: scope.hydrationPending,
+    renderFn: mutableScope._renderFn,
+  };
+}
+
+/** @internal */
+export function restoreChildScopeTransactionSnapshot(
+  scope: ChildScope,
+  snapshot: ChildScopeTransactionSnapshot
+): void {
+  const mutableScope = scope as MutableChildScope;
+  scope.previousVnode = snapshot.previousVnode;
+  scope.vnode = snapshot.vnode;
+  scope.dom = snapshot.dom;
+  scope.range = snapshot.range;
+  if (snapshot.domTextData !== undefined && snapshot.dom?.nodeType === 3) {
+    (snapshot.dom as Text).data = snapshot.domTextData;
+  }
+  scope.needsDomUpdate = snapshot.needsDomUpdate;
+  scope.hydrationPending = snapshot.hydrationPending;
+  mutableScope._renderFn = snapshot.renderFn;
+}
+
 export function disposeChildScope(scope: ChildScope): void {
   scope.dispose();
 }
@@ -100,70 +271,5 @@ export function createChildScope(
   key: string | number,
   onDirty?: () => void
 ): ChildScope {
-  const scope = {} as MutableChildScope;
-
-  const componentInstance = createComponentInstance(
-    `child-scope-${String(key)}`,
-    () => scope._renderFn?.() ?? null,
-    {},
-    null
-  );
-
-  if (parent) {
-    componentInstance.parentInstance = parent;
-    componentInstance.ownerFrame = parent.ownerFrame;
-    componentInstance.portalScope = parent.portalScope;
-  }
-
-  scope.key = key;
-  scope.componentInstance = componentInstance;
-  scope.previousVnode = undefined;
-  scope.vnode = undefined;
-  scope.dom = undefined;
-  scope.needsDomUpdate = true;
-  scope.hydrationPending = true;
-  scope._startStateIndex = getCurrentStateIndex();
-  scope._renderFn = undefined;
-  scope._onDirty = onDirty;
-  scope._parent = parent;
-  scope._disposed = false;
-  scope.markDirty = () => {
-    scope.needsDomUpdate = true;
-  };
-  scope.render = (renderFn: () => VNode) => {
-    scope._renderFn = renderFn;
-    return renderScope(scope) as VNode;
-  };
-  scope.dispose = () => {
-    if (scope._disposed) {
-      return;
-    }
-    scope._disposed = true;
-    if (scope._parent) {
-      unregisterOwnedChildScope(scope._parent, scope);
-    }
-    cleanupComponent(componentInstance);
-    scope._renderFn = undefined;
-    scope.previousVnode = undefined;
-    scope.vnode = undefined;
-    scope.dom = undefined;
-    scope.needsDomUpdate = false;
-    scope.hydrationPending = false;
-    componentInstance.hasPendingUpdate = false;
-  };
-
-  componentInstance._pendingFlushTask = () => {
-    componentInstance.hasPendingUpdate = false;
-    if (componentInstance.notifyUpdate === null || scope._disposed) {
-      return;
-    }
-    renderScope(scope);
-    scope._onDirty?.();
-  };
-
-  if (parent) {
-    registerOwnedChildScope(parent, scope);
-  }
-
-  return scope;
+  return new ChildScopeImpl(parent, key, onDirty);
 }

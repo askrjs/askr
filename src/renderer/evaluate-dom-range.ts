@@ -5,6 +5,7 @@ import {
   tagNamesEqualIgnoreCase,
 } from './evaluate-reconcile';
 import { _isDOMElement } from './types';
+import { RANGE_END_MARKER, RANGE_START_MARKER } from './dom-range';
 
 interface DOMRange {
   start: Node;
@@ -22,8 +23,8 @@ export function createDOMRange(
   context: object,
   node: unknown
 ): void {
-  const start = document.createComment('component-start');
-  const end = document.createComment('component-end');
+  const start = document.createComment(RANGE_START_MARKER);
+  const end = document.createComment(RANGE_END_MARKER);
   target.appendChild(start);
   target.appendChild(end);
   domRanges.set(context, { start, end });

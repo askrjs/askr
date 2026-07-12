@@ -46,19 +46,19 @@ const appendedRows = buildRows(2000);
 
 describe('tier3 system table append rows', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
+  let appended = false;
 
   bench(
-    'append 1,000 rows to an existing 1,000-row table',
+    'toggle between 1,000 and 2,000 table rows',
     () => {
-      mounted!.benchmark.setRows(appendedRows);
+      appended = !appended;
+      mounted!.benchmark.setRows(appended ? appendedRows : initialRows);
     },
     {
       ...tableHeavyBenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
-      },
-      beforeEach() {
-        mounted!.benchmark.setRows(initialRows);
+        appended = false;
       },
       teardown() {
         mounted?.cleanup();

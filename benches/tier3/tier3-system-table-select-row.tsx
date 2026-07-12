@@ -10,6 +10,7 @@ import {
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
+const selectionBatchSize = 100;
 
 {
   const mounted = mountTableBenchmark(initialRows);
@@ -42,9 +43,11 @@ describe('tier3 system table select row', () => {
   let toggle: BenchToggle<number> | null = null;
 
   bench(
-    'select one row in a 1,000-row table',
+    'select 100 alternating rows in a 1,000-row table',
     () => {
-      mounted!.benchmark.setSelected(toggle!.next());
+      for (let index = 0; index < selectionBatchSize; index++) {
+        mounted!.benchmark.setSelected(toggle!.next());
+      }
     },
     {
       ...tier3BenchOptions,

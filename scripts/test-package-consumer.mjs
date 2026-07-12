@@ -151,8 +151,21 @@ try {
   );
 
   fs.writeFileSync(
-    path.join(consumerDir, 'index.ts'),
-    `import { state } from '${packageJson.name}';\nconst count = state(0);\ncount.set(1);\n`
+    path.join(consumerDir, 'index.tsx'),
+    `import { For, state } from '${packageJson.name}';
+import { createIsland } from '${packageJson.name}/boot';
+
+const [rows] = state([{ id: 1, label: 'one' }]);
+const App = () => (
+  <main>
+    <For each={rows} by={(row) => row.id}>
+      {(row) => <span key={row.id}>{row.label}</span>}
+    </For>
+  </main>
+);
+
+createIsland({ root: 'main', component: App });
+`
   );
   fs.writeFileSync(
     path.join(consumerDir, 'tsconfig.json'),
@@ -162,6 +175,8 @@ try {
         moduleResolution: 'NodeNext',
         noEmit: true,
         strict: true,
+        jsx: 'react-jsx',
+        jsxImportSource: packageJson.name,
       },
     })
   );

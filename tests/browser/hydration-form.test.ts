@@ -123,3 +123,4 @@ test.describe('hydrated signup form workflow', () => {
     ]);
   });
 });
+// @askr-allow-real-timers -- browser integration uses network-style delays.

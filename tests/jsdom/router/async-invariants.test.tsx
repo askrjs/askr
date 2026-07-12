@@ -125,7 +125,9 @@ describe('router async invariants', () => {
 
       await createSPA({ root: container, manifest: getManifest() });
       navigate('/private');
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
 
       expect(consoleError).toHaveBeenCalledWith(
         '[Askr] navigation failed:',
@@ -153,7 +155,9 @@ describe('router async invariants', () => {
       await createSPA({ root: container, manifest: getManifest() });
 
       expect(() => navigate('/a')).not.toThrow();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
 
       expect(consoleError).toHaveBeenCalledWith(
         '[Askr] navigation failed:',

@@ -13,6 +13,7 @@ import {
 } from '../runtime';
 import {
   elementReactivePropsCleanup,
+  getElementReactivePropsCleanupMap,
   REACTIVE_CHILDREN_KEY,
   teardownNodeSubtree,
   type ReactivePropCleanupEntry,
@@ -53,13 +54,7 @@ let reactiveChildScopeId = 0;
 function getOrCreateElementReactiveCleanupMap(
   el: Element
 ): Map<string, ReactivePropCleanupEntry> {
-  let cleanupMap = elementReactivePropsCleanup.get(el);
-  if (!cleanupMap) {
-    cleanupMap = new Map();
-    elementReactivePropsCleanup.set(el, cleanupMap);
-  }
-
-  return cleanupMap;
+  return getElementReactivePropsCleanupMap(el, true)!;
 }
 
 export function trySyncScalarChildSequenceInPlace(
@@ -126,6 +121,12 @@ function setupReactiveScalarChild(
               el,
               value as unknown as VNode | VNode[] | undefined
             );
+            return;
+          }
+
+          if (!ownedTextNode && el.childNodes.length === 0) {
+            ownedTextNode = el.ownerDocument.createTextNode(normalized);
+            el.appendChild(ownedTextNode);
             return;
           }
 
@@ -267,6 +268,28 @@ function setupReactiveScalarChild(
         )
       );
     },
+  };
+}
+
+/** @internal Create a standalone scalar-child binding for rollback restoration. */
+export function createReactiveScalarChildCleanupEntry(
+  el: Element,
+  source: ReactiveScalarChildSource,
+  host: ReactiveChildDOMHost
+): ReactivePropCleanupEntry {
+  const reactive = setupReactiveScalarChild(el, source, host);
+  return {
+    cleanup: reactive.cleanup,
+    updateFn: (nextValue) => {
+      reactive.updateFn(nextValue as ReactiveScalarChildSource);
+    },
+    restoreFn: (nextValue) =>
+      createReactiveScalarChildCleanupEntry(
+        el,
+        nextValue as ReactiveScalarChildSource,
+        host
+      ),
+    fnRef: source,
   };
 }
 
@@ -458,9 +481,8 @@ export function syncReactiveScalarChild(
   const reactiveChildBoundary = getSingleReactiveChildBoundarySource(children);
   const reactiveChildBoundarySequence =
     getReactiveChildBoundarySequenceSource(children);
-  const existingReactiveEntry = elementReactivePropsCleanup
-    .get(el)
-    ?.get(REACTIVE_CHILDREN_KEY);
+  const cleanupMap = getElementReactivePropsCleanupMap(el);
+  const existingReactiveEntry = cleanupMap?.get(REACTIVE_CHILDREN_KEY);
 
   if (
     !reactiveChildSource &&
@@ -469,7 +491,6 @@ export function syncReactiveScalarChild(
   ) {
     if (existingReactiveEntry) {
       existingReactiveEntry.cleanup();
-      const cleanupMap = elementReactivePropsCleanup.get(el);
       cleanupMap?.delete(REACTIVE_CHILDREN_KEY);
       if (cleanupMap && cleanupMap.size === 0) {
         elementReactivePropsCleanup.delete(el);
@@ -480,6 +501,18 @@ export function syncReactiveScalarChild(
   }
 
   if (reactiveChildSource && !reactiveChildBoundarySequence) {
+    if (
+      existingReactiveEntry?.groupedScalar &&
+      existingReactiveEntry.updateFn &&
+      reactiveChildSource.length === 1 &&
+      reactiveChildSource[0]?.kind === 'dynamic'
+    ) {
+      const nextCompute = reactiveChildSource[0].compute;
+      existingReactiveEntry.updateFn(nextCompute);
+      existingReactiveEntry.fnRef = nextCompute;
+      return true;
+    }
+
     if (
       existingReactiveEntry &&
       Array.isArray(existingReactiveEntry.fnRef) &&
@@ -503,14 +536,14 @@ export function syncReactiveScalarChild(
     existingReactiveEntry?.cleanup();
 
     try {
-      const reactive = setupReactiveScalarChild(el, reactiveChildSource, host);
-      getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
-        cleanup: reactive.cleanup,
-        updateFn: (nextValue) => {
-          reactive.updateFn(nextValue as ReactiveScalarChildSource);
-        },
-        fnRef: reactiveChildSource,
-      });
+      getOrCreateElementReactiveCleanupMap(el).set(
+        REACTIVE_CHILDREN_KEY,
+        createReactiveScalarChildCleanupEntry(
+          el,
+          reactiveChildSource,
+          host
+        )
+      );
       return true;
     } catch (error) {
       if (!reactiveChildBoundary && !reactiveChildBoundarySequence) {

@@ -1,10 +1,18 @@
 import { logger } from '../common/logger';
 import { Fragment } from '../jsx/jsx-runtime';
-import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime';
+import {
+  beginLifecycleCommitBatch,
+  discardLifecycleCommitBatch,
+  flushLifecycleCommitBatch,
+  getCurrentInstance,
+  isBenchMetricScopeActive,
+  recordBenchCounter,
+} from '../runtime';
 import { __ERROR_BOUNDARY__, __FOR_BOUNDARY__ } from '../common/vnode';
 import {
   applyStaticScalarPropsToElement,
   hasMatchingStaticProps,
+  materializeFreshKey,
   materializeKey,
 } from './attributes';
 import {
@@ -52,6 +60,25 @@ import { runRetainedElementUpdate } from './retained-element-rollback';
 import { canReuseStaticSubtree } from './static-reuse';
 import { tryPatchStableForDirtyItem } from './stable-patch';
 import {
+  tryAdoptMatchingIntrinsicSubtree,
+  withIntrinsicHydrationAdoption,
+} from './intrinsic-hydration-adoption';
+import {
+  beginDeferredHydrationActivation,
+  commitDeferredHydrationActivation,
+  rememberDeferredHydrationVNode,
+  rollbackDeferredHydrationActivation,
+} from './hydration-boundaries';
+import {
+  beginHydrationListenerTransaction,
+  commitHydrationListenerTransaction,
+  discardHydrationListenerTransaction,
+} from './hydration-listener-transaction';
+import {
+  createComponentResultNodeWithBlueprint,
+  createResultNodeWithBlueprint,
+} from './intrinsic-blueprint';
+import {
   _isDOMElement,
   type DOMElement,
   type JSXComponent,
@@ -74,6 +101,20 @@ export {
 };
 
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
+
+function cleanupFailedDOMConstruction(root: Node): void {
+  const nodes =
+    root instanceof DocumentFragment ? Array.from(root.childNodes) : [root];
+
+  for (const node of nodes) {
+    try {
+      teardownNodeSubtree(node);
+    } catch {
+      // Preserve the construction failure. Teardown remains best-effort, but
+      // every reachable provisional subtree still receives an attempt.
+    }
+  }
+}
 
 function getHydrationSkipBoundary(el: Element): Element | null {
   return el.closest('[data-skip-hydrate="true"]');
@@ -127,11 +168,16 @@ export function createDOMNode(
   if (Array.isArray(node)) {
     maybeWarnMissingKeys(node);
     const fragment = document.createDocumentFragment();
-    for (const child of node) {
-      const dom = createDOMNode(child, parentNamespace);
-      if (dom) fragment.appendChild(dom);
+    try {
+      for (const child of node) {
+        const dom = createDOMNode(child, parentNamespace);
+        if (dom) fragment.appendChild(dom);
+      }
+      return fragment;
+    } catch (error) {
+      cleanupFailedDOMConstruction(fragment);
+      throw error;
     }
-    return fragment;
   }
 
   if (typeof node === 'object' && node !== null && 'type' in node) {
@@ -179,6 +225,34 @@ export function createDOMNode(
   return null;
 }
 
+function createComponentResultNode(
+  component: import('../runtime').ComponentFunction,
+  node: unknown,
+  parentNamespace?: string
+): Node | null {
+  return createComponentResultNodeWithBlueprint(
+    component,
+    node,
+    parentNamespace,
+    () => createDOMNode(node, parentNamespace),
+    rendererReactiveChildDOMHost
+  );
+}
+
+function createOwnedResultNodeWithBlueprint(
+  owner: object,
+  node: unknown,
+  parentNamespace?: string
+): Node | null {
+  return createResultNodeWithBlueprint(
+    owner,
+    node,
+    parentNamespace,
+    () => createDOMNode(node, parentNamespace),
+    rendererReactiveChildDOMHost
+  );
+}
+
 function createIntrinsicElement(
   node: DOMElement,
   type: string,
@@ -189,62 +263,68 @@ function createIntrinsicElement(
   const elementNamespace = resolveChildNamespace(type, parentNamespace);
   const el = createElementForNamespace(type, parentNamespace);
 
-  if (isBenchMetricScopeActive('coldCreate')) {
-    recordBenchCounter('domNodesCreated');
-  }
-
-  materializeKey(el, node, props);
-
-  const staticCreateFastPath = tryGetStaticCreateFastPathShape(props, children);
-
-  if (staticCreateFastPath) {
-    applyStaticScalarPropsToElement(el, props, type);
-    if (staticCreateFastPath.textContent !== null) {
-      el.textContent = staticCreateFastPath.textContent;
-      if (isBenchMetricScopeActive('coldCreate')) {
-        recordBenchCounter('domNodesCreated');
-      }
-    }
-    return el;
-  }
-
-  applyPropsToElement(el, props, type, isHydrationSkipped);
-
-  if (children !== null && children !== undefined) {
-    const controlBoundaryVNode = getDirectControlBoundaryVNode(children);
-    if (controlBoundaryVNode) {
-      const controlState = getControlBoundaryState(controlBoundaryVNode);
-      if (!controlState) {
-        throw new Error(
-          '[createIntrinsicElement] Control boundary missing internal state'
-        );
-      }
-      registerControlBoundaryCommitOwner(el, controlState);
+  try {
+    if (isBenchMetricScopeActive('coldCreate')) {
+      recordBenchCounter('domNodesCreated');
     }
 
-    if (syncReactiveScalarChild(el, children, rendererReactiveChildDOMHost)) {
+    materializeFreshKey(el, node, props);
+
+    const staticCreateFastPath = tryGetStaticCreateFastPathShape(
+      props,
+      children
+    );
+
+    if (staticCreateFastPath) {
+      applyStaticScalarPropsToElement(el, props, type);
+      if (staticCreateFastPath.textContent !== null) {
+        el.textContent = staticCreateFastPath.textContent;
+        if (isBenchMetricScopeActive('coldCreate')) {
+          recordBenchCounter('domNodesCreated');
+        }
+      }
       return el;
     }
 
-    if (Array.isArray(children)) {
-      maybeWarnMissingKeys(children);
-      if (children.length > 1) {
-        const childFrag = document.createDocumentFragment();
-        for (const child of children) {
-          const dom = createDOMNode(child, elementNamespace);
-          if (dom) childFrag.appendChild(dom);
+    applyPropsToElement(el, props, type, isHydrationSkipped);
+
+    if (children !== null && children !== undefined) {
+      const controlBoundaryVNode = getDirectControlBoundaryVNode(children);
+      if (controlBoundaryVNode) {
+        const controlState = getControlBoundaryState(controlBoundaryVNode);
+        if (!controlState) {
+          throw new Error(
+            '[createIntrinsicElement] Control boundary missing internal state'
+          );
         }
-        el.appendChild(childFrag);
-      } else if (children.length === 1) {
-        const dom = createDOMNode(children[0], elementNamespace);
+        registerControlBoundaryCommitOwner(el, controlState);
+      }
+
+      if (syncReactiveScalarChild(el, children, rendererReactiveChildDOMHost)) {
+        return el;
+      }
+
+      if (Array.isArray(children)) {
+        maybeWarnMissingKeys(children);
+        if (children.length > 1) {
+          for (const child of children) {
+            const dom = createDOMNode(child, elementNamespace);
+            if (dom) el.appendChild(dom);
+          }
+        } else if (children.length === 1) {
+          const dom = createDOMNode(children[0], elementNamespace);
+          if (dom) el.appendChild(dom);
+        }
+      } else {
+        const dom = createDOMNode(children, elementNamespace);
         if (dom) el.appendChild(dom);
       }
-    } else {
-      const dom = createDOMNode(children, elementNamespace);
-      if (dom) el.appendChild(dom);
     }
+    return el;
+  } catch (error) {
+    cleanupFailedDOMConstruction(el);
+    throw error;
   }
-  return el;
 }
 
 function createFragmentElement(
@@ -254,19 +334,24 @@ function createFragmentElement(
 ): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const children = props.children ?? node.children;
-  if (children) {
-    if (Array.isArray(children)) {
-      maybeWarnMissingKeys(children);
-      for (const child of children) {
-        const dom = createDOMNode(child, parentNamespace);
+  try {
+    if (children) {
+      if (Array.isArray(children)) {
+        maybeWarnMissingKeys(children);
+        for (const child of children) {
+          const dom = createDOMNode(child, parentNamespace);
+          if (dom) fragment.appendChild(dom);
+        }
+      } else {
+        const dom = createDOMNode(children, parentNamespace);
         if (dom) fragment.appendChild(dom);
       }
-    } else {
-      const dom = createDOMNode(children, parentNamespace);
-      if (dom) fragment.appendChild(dom);
     }
+    return fragment;
+  } catch (error) {
+    cleanupFailedDOMConstruction(fragment);
+    throw error;
   }
-  return fragment;
 }
 
 export function updateElementFromVnode(
@@ -275,6 +360,14 @@ export function updateElementFromVnode(
   updateChildren = true,
   forceChildrenUpdate = false
 ): void {
+  if (
+    updateChildren &&
+    !forceChildrenUpdate &&
+    _isDOMElement(vnode) &&
+    tryAdoptMatchingIntrinsicSubtree(el, vnode as DOMElement)
+  ) {
+    return;
+  }
   runRetainedElementUpdate(el, teardownNodeSubtree, () => {
     applyElementUpdateFromVnode(el, vnode, updateChildren, forceChildrenUpdate);
   });
@@ -294,6 +387,12 @@ function applyElementUpdateFromVnode(
   const domVNode = vnode as DOMElement;
 
   if (isHydrationSkipped(el)) {
+    rememberDeferredHydrationVNode(
+      el,
+      vnode,
+      getCurrentInstance(),
+      getCurrentInstance()?.ownerFrame ?? null
+    );
     clearHydrationDeferredSubtree(el);
     return;
   }
@@ -336,8 +435,36 @@ function applyElementUpdateFromVnode(
   }
 }
 
+/** @internal Activate one recorded deferred hydration boundary in place. */
+export function activateHydrationBoundary(element: Element): boolean {
+  const record = beginDeferredHydrationActivation(element);
+  if (!record?.vnode) {
+    return false;
+  }
+
+  const lifecycleBatch = beginLifecycleCommitBatch();
+  const listenerTransaction = beginHydrationListenerTransaction();
+  try {
+    element.removeAttribute('data-skip-hydrate');
+    withIntrinsicHydrationAdoption(() => {
+      updateElementFromVnode(element, record.vnode!, true, true);
+    });
+    commitHydrationListenerTransaction(listenerTransaction);
+    flushLifecycleCommitBatch(lifecycleBatch);
+    commitDeferredHydrationActivation(record);
+    return true;
+  } catch (error) {
+    discardHydrationListenerTransaction(listenerTransaction);
+    discardLifecycleCommitBatch(lifecycleBatch);
+    element.setAttribute('data-skip-hydrate', 'true');
+    rollbackDeferredHydrationActivation(record);
+    throw error;
+  }
+}
+
 configureRendererDOMHost({
   createDOMNode,
+  createComponentResultNode,
   syncComponentElement,
   updateElementFromVnode,
   updateElementChildren,
@@ -346,6 +473,7 @@ configureRendererDOMHost({
 
 configureBoundaryDOMHost({
   createDOMNode,
+  createResultNodeWithBlueprint: createOwnedResultNodeWithBlueprint,
   syncComponentElement,
   updateElementFromVnode,
   tryPatchStableForDirtyItem,

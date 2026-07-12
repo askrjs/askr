@@ -24,6 +24,16 @@ Dedicated contract tests live under `tests/types/`. Repository-level public-surf
 | Public entrypoints | every `package.json` export path                                           | `tests/types/public-entrypoints.test-d.ts`                                                                                                       | documented import paths, boundary negatives, accidental exports, root-vs-subpath separation                                                                                |
 | Repo checks        | all public export paths plus docs                                          | `tests/checks/public-api-type-coverage.test.ts`, `tests/checks/docs/public-api-snippets.test.ts`, `tests/checks/docs/public-api-imports.test.ts` | export coverage, docs snippet compilation, `typescript` fence aliases, user-facing docs syntax and HTML validation, docs specifier validation, clean-checkout dist probing |
 
+## Intentional JSX namespace export
+
+The exported `JSX` namespace in `@askrjs/askr/jsx-runtime` and
+`@askrjs/askr/jsx-dev-runtime` is an intentional public TypeScript exception.
+It provides the JSX compiler contract (`Element`, `IntrinsicElements`,
+`ElementAttributesProperty`, and `ElementChildrenAttribute`) for consumers
+using Askr's automatic JSX runtime. It is covered by
+`tests/types/jsx.test-d.tsx` and the public API snapshot; it must not be
+removed as an accidental internal namespace export.
+
 ## Missing Type Contracts
 
 No uncovered export symbols remain under the current `package.json` export map. `tests/checks/public-api-type-coverage.test.ts` fails if any public export is not referenced directly in `tests/types/`.

@@ -141,7 +141,7 @@ export function ensureQueryCleanup(
   }
 
   runtimeState.queryCleanupRegistered.add(instance);
-  instance.cleanupFns.push(() => {
+  (instance.cleanupFns ??= []).push(() => {
     const slots = runtimeState.querySlotsByInstance.get(instance);
     if (!slots) {
       runtimeState.queryCleanupRegistered.delete(instance);
@@ -167,7 +167,7 @@ export function ensureMutationCleanup(
   }
 
   runtimeState.mutationCleanupRegistered.add(instance);
-  instance.cleanupFns.push(() => {
+  (instance.cleanupFns ??= []).push(() => {
     const slots = runtimeState.mutationSlotsByInstance.get(instance);
     if (!slots) {
       runtimeState.mutationCleanupRegistered.delete(instance);

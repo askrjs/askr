@@ -16,8 +16,9 @@ clearRoutes();
 
 describe('tier2 router registration', () => {
   bench(
-    'register a 250-route table',
+    'clear and register a 250-route table',
     () => {
+      clearRoutes();
       for (const entry of routeEntries) {
         route(entry.path, entry.handler);
       }

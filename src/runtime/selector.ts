@@ -21,6 +21,12 @@ import {
   takeDirtySelectorRecords,
 } from './selector-store';
 
+declare const __ASKR_BENCH_BUILD__: boolean;
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const PERF_BUILD_ENABLED =
+  __ASKR_DEVELOPMENT_BUILD__ || __ASKR_BENCH_BUILD__;
+
 type PrimitiveKey =
   | string
   | number
@@ -122,9 +128,10 @@ function isDefaultSelectorEquals<T>(equals: SelectorEquals<T>): boolean {
 }
 
 function createCandidateSource<T>(candidate: T): SelectorCandidateSource<T> {
-  const source = (() => false) as SelectorCandidateSource<T>;
-  source._candidate = candidate;
-  return source;
+  // Candidate sources are identity/subscription records; unlike public
+  // readables they are never invoked. Avoid allocating a closure per distinct
+  // selector candidate (large keyed tables commonly create thousands).
+  return { _candidate: candidate } as unknown as SelectorCandidateSource<T>;
 }
 
 function getCandidateSource<T>(
@@ -251,7 +258,9 @@ function createSelectorLane<T>(
 }
 
 function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
-  incrementPerfMetric('selectorInvalidations');
+  if (PERF_BUILD_ENABLED) {
+    incrementPerfMetric('selectorInvalidations');
+  }
   markReadableDerivedSubscribersDirty(source);
   markReactivePropsDirtySource(source);
   notifyReadableReaders(source);
@@ -423,7 +432,8 @@ function createSelectorHook<T>(
 ): SelectorHook<T> {
   const hook = function selectorPredicate(candidate: T): boolean {
     const selectorHook = hook as SelectorHook<T>;
-    const record = ensureSelectorHookBinding(selectorHook);
+    const record =
+      selectorHook._record ?? ensureSelectorHookBinding(selectorHook);
     const lane = selectorHook._lane;
     if (!lane) {
       throw new Error('selector() binding could not be established.');
@@ -432,9 +442,11 @@ function createSelectorHook<T>(
     const sourceRef = getCandidateSource(lane, candidate);
     recordReadableRead(sourceRef);
 
-    const perfMetricsStore = getPerfMetricsStore();
-    if (perfMetricsStore) {
-      perfMetricsStore.selectorCandidateReads += 1;
+    if (PERF_BUILD_ENABLED) {
+      const perfMetricsStore = getPerfMetricsStore();
+      if (perfMetricsStore) {
+        perfMetricsStore.selectorCandidateReads += 1;
+      }
     }
 
     const current =

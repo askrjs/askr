@@ -109,7 +109,6 @@ export function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
 
   let lisCursor = lisIndices.length - 1;
   let anchor: Node | null = null;
-
   for (let i = nodes.length - 1; i >= 0; i -= 1) {
     const node = nodes[i];
     if (lisCursor >= 0 && i === lisIndices[lisCursor]) {

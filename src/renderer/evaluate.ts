@@ -23,6 +23,12 @@ import {
 } from './evaluate-reconcile';
 import { _isDOMElement, type DOMElement } from './types';
 import { __FOR_BOUNDARY__ } from '../common/vnode';
+import {
+  beginLifecycleCommitBatch,
+  discardLifecycleCommitBatch,
+  flushLifecycleCommitBatch,
+  getCurrentLifecycleCommitBatch,
+} from '../runtime';
 
 export { clearDOMRange } from './evaluate-dom-range';
 
@@ -45,6 +51,25 @@ export function evaluate(
     }
     return;
   }
+
+  const ownsBatch = !getCurrentLifecycleCommitBatch();
+  const batch = ownsBatch ? beginLifecycleCommitBatch() : null;
+  try {
+    evaluateInLifecycleBatch(node, target, context, retainedOwner);
+    if (batch) flushLifecycleCommitBatch(batch);
+  } catch (error) {
+    if (batch) discardLifecycleCommitBatch(batch);
+    throw error;
+  }
+}
+
+function evaluateInLifecycleBatch(
+  node: unknown,
+  target: Element | null,
+  context?: object,
+  retainedOwner?: ComponentInstance
+): void {
+  if (!target) return;
 
   if (context && hasDOMRange(context)) {
     const normalizedChildren =

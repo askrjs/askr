@@ -6,7 +6,7 @@ import {
   beginLifecycleCommitBatch,
   discardCommitOperations,
   discardLifecycleCommitBatch,
-  executeCommittedLifecycleOperations,
+  commitLifecycleForInstance,
   flushLifecycleCommitBatch,
 } from './component-lifecycle';
 import {
@@ -14,8 +14,7 @@ import {
   enterDomCommitScope,
   restoreDomCommitScope,
 } from './component-scope';
-import type { ContextFrame } from './context';
-import { withContext } from './context';
+import { getExecutionContextFrame, withContext } from './context';
 import { incDevCounter, setDevValue } from './dev-namespace';
 import { tryRuntimeFastLaneSync } from './fastlane';
 import type { ComponentInstance } from './component-internal';
@@ -33,8 +32,6 @@ export function runScheduledComponent(
 ): void {
   instance.notifyUpdate = instance._enqueueRun!;
   beginRenderTracking(instance);
-  const domSnapshot = instance.target ? instance.target.innerHTML : '';
-
   let result: unknown | Promise<unknown>;
   try {
     result = host.execute(instance);
@@ -66,7 +63,7 @@ export function runScheduledComponent(
     }
 
     if (instance.target) {
-      commitToTarget(instance, result, domSnapshot, host);
+      commitToTarget(instance, result, host);
     }
   });
 }
@@ -92,10 +89,7 @@ function commitPlaceholderReplacement(
 
   const renderer = getRuntimeRenderer();
   const hostElement = document.createElement('div');
-  const executionFrame: ContextFrame = {
-    parent: instance.ownerFrame,
-    values: null,
-  };
+  const executionFrame = getExecutionContextFrame(instance.ownerFrame);
 
   const oldInstance = enterDomCommitScope(instance);
   const lifecycleBatch = beginLifecycleCommitBatch();
@@ -104,24 +98,39 @@ function commitPlaceholderReplacement(
       withContext(executionFrame, () => {
         renderer.evaluate(result, hostElement);
       });
-      parent.replaceChild(hostElement, placeholder);
+      const onlyChild =
+        hostElement.childNodes.length === 1 ? hostElement.firstChild : null;
+      const replacement =
+        onlyChild instanceof Element ? onlyChild : hostElement;
+      if (replacement === hostElement) {
+        (
+          hostElement as Element & { __ASKR_WRAPPER_HOST?: boolean }
+        ).__ASKR_WRAPPER_HOST = true;
+      }
+      parent.replaceChild(replacement, placeholder);
+
+      instance.target = replacement;
+      const instanceHost = replacement as Element & {
+        __ASKR_INSTANCE?: ComponentInstance;
+        __ASKR_INSTANCES?: ComponentInstance[];
+      };
+      const instances = instanceHost.__ASKR_INSTANCES ?? [];
+      if (!instances.includes(instance)) {
+        instances.push(instance);
+      }
+      instanceHost.__ASKR_INSTANCES = instances;
+      instanceHost.__ASKR_INSTANCE = instances[0] ?? instance;
     } catch (err) {
       discardLifecycleCommitBatch(lifecycleBatch);
       throw err;
     }
 
-    instance.target = hostElement;
     instance._placeholder = undefined;
-    (
-      hostElement as Element & {
-        __ASKR_INSTANCE?: ComponentInstance;
-      }
-    ).__ASKR_INSTANCE = instance;
 
-    flushLifecycleCommitBatch(lifecycleBatch);
     host.finalizeReadSubscriptions(instance);
     host.warnUnusedStateReads(instance);
     host.commitRenderedComponent(instance);
+    flushLifecycleCommitBatch(lifecycleBatch);
   } finally {
     restoreDomCommitScope(oldInstance);
   }
@@ -130,7 +139,6 @@ function commitPlaceholderReplacement(
 function commitToTarget(
   instance: ComponentInstance,
   result: unknown,
-  domSnapshot: string,
   host: ScheduledComponentCommitHost
 ): void {
   const renderer = getRuntimeRenderer();
@@ -141,10 +149,7 @@ function commitToTarget(
   try {
     const wasFirstMount = !instance.mounted;
     const oldInstance = enterDomCommitScope(instance);
-    const executionFrame: ContextFrame = {
-      parent: instance.ownerFrame,
-      values: null,
-    };
+    const executionFrame = getExecutionContextFrame(instance.ownerFrame);
     oldChildren = Array.from(target.childNodes);
 
     const lifecycleBatch = beginLifecycleCommitBatch();
@@ -175,15 +180,16 @@ function commitToTarget(
       restoreDomCommitScope(oldInstance);
     }
 
-    flushLifecycleCommitBatch(lifecycleBatch);
     host.finalizeReadSubscriptions(instance);
     host.warnUnusedStateReads(instance);
     instance.mounted = true;
-    executeCommittedLifecycleOperations(instance, wasFirstMount);
+    commitLifecycleForInstance(instance, wasFirstMount);
+    flushLifecycleCommitBatch(lifecycleBatch);
   } catch (renderError) {
     discardCommitOperations(instance);
     cleanupRollbackChildren(renderer, target, oldChildren, restoredOldChildren);
 
+    const rollbackErrors: unknown[] = [];
     try {
       incDevCounter('__DOM_REPLACE_COUNT');
       setDevValue(
@@ -191,8 +197,15 @@ function commitToTarget(
         new Error().stack
       );
       target.replaceChildren(...oldChildren);
-    } catch {
-      target.innerHTML = domSnapshot;
+    } catch (rollbackError) {
+      rollbackErrors.push(rollbackError);
+    }
+
+    if (rollbackErrors.length > 0) {
+      logger.error(
+        '[Askr] component rollback failed after render error:',
+        new AggregateError(rollbackErrors, 'Component rollback failed')
+      );
     }
 
     throw renderError;

@@ -181,6 +181,44 @@ function findCycles(): string[] {
 }
 
 describe('architecture boundaries', () => {
+  const extractedModuleBudgets = [
+    'src/renderer/intrinsic-blueprint-analysis.ts',
+    'src/renderer/intrinsic-blueprint-bindings.ts',
+    'src/renderer/intrinsic-blueprint-materialization.ts',
+    'src/renderer/intrinsic-blueprint-types.ts',
+    'src/renderer/hydration-boundaries.ts',
+    'src/renderer/hydration-listener-transaction.ts',
+    'src/runtime/lifecycle-operation-settlement.ts',
+  ] as const;
+
+  it('should keep extracted renderer implementations below the complexity budget', () => {
+    const overBudget = extractedModuleBudgets.filter((relativePath) => {
+      const text = fs.readFileSync(path.join(rootDir, relativePath), 'utf8');
+      return text.split(/\r?\n/).length - 1 >= 400;
+    });
+    expect(overBudget).toEqual([]);
+  });
+
+  it('should keep the intrinsic blueprint facade below its pre-extraction size', () => {
+    const facade = fs.readFileSync(
+      path.join(rootDir, 'src/renderer/intrinsic-blueprint.ts'),
+      'utf8'
+    );
+    // The dirty checkpoint contained the combined 994-line implementation;
+    // the facade is intentionally held to 65% of that source size or less.
+    expect(facade.split(/\r?\n/).length - 1).toBeLessThanOrEqual(646);
+  });
+
+  it('should keep the extraction internal to the public API and type snapshot', () => {
+    const publicSnapshot = fs.readFileSync(
+      path.join(rootDir, 'tests/checks/public-api.snapshot.json'),
+      'utf8'
+    );
+    for (const relativePath of extractedModuleBudgets) {
+      expect(publicSnapshot).not.toContain(relativePath);
+    }
+  });
+
   it('should keep governed paths free of .mts sources', () => {
     const paths = [
       'src',

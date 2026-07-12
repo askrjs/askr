@@ -15,6 +15,11 @@ export type InstanceHostElement = Element & {
 
 export interface RendererDOMHost {
   createDOMNode(node: unknown, parentNamespace?: string): Node | null;
+  createComponentResultNode(
+    component: ComponentFunction,
+    node: unknown,
+    parentNamespace?: string
+  ): Node | null;
   syncComponentElement(
     currentDom: Node | null,
     node: ElementWithContext,

@@ -128,6 +128,38 @@ describe('for bench metrics', () => {
     expect(metrics.domMoves).toBe(0);
   });
 
+  it('should retain existing DOM and use INSERT_ONE for a middle insertion', () => {
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
+
+    const first = { id: 1, label: 'One' };
+    const third = { id: 3, label: 'Three' };
+
+    const Component = () => {
+      rowsState = state([first, third]);
+      return (
+        <div>
+          <For each={() => rowsState!()} by={(row) => row.id}>
+            {(row) => <button data-row={row.id}>{row.label}</button>}
+          </For>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    const retained = container.querySelector('[data-row="3"]');
+
+    rowsState!.set([first, { id: 2, label: 'Two' }, third]);
+    flushScheduler();
+
+    const metrics = getBenchMetrics();
+    expect(metrics.fastLaneName).toBe('INSERT_ONE');
+    expect(container.querySelector('[data-row="3"]')).toBe(retained);
+    expect(container.textContent).toBe('OneTwoThree');
+  });
+
   it('should record removal and move metrics for middle-row deletion', () => {
     let rowsState: ReturnType<
       typeof state<Array<{ id: number; label: string }>>

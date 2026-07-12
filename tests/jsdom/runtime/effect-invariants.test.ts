@@ -60,6 +60,57 @@ describe('fine-grained effect invariants', () => {
     nested.cleanup();
   });
 
+  it('should update subscriptions while moving between one, two, and three sources', () => {
+    const first = createSource(1);
+    const second = createSource(10);
+    const third = createSource(100);
+    let sourceCount = 2;
+    let runs = 0;
+
+    const effect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => {
+        runs += 1;
+        let value = first.read();
+        if (sourceCount >= 2) value += second.read();
+        if (sourceCount >= 3) value += third.read();
+        return value;
+      },
+      commit: () => {},
+    });
+
+    second.set(11);
+    globalScheduler.flush();
+    expect(runs).toBe(2);
+
+    sourceCount = 1;
+    effect.flush();
+    expect(runs).toBe(3);
+    second.set(12);
+    globalScheduler.flush();
+    expect(runs).toBe(3);
+
+    sourceCount = 3;
+    effect.flush();
+    expect(runs).toBe(4);
+    third.set(101);
+    globalScheduler.flush();
+    expect(runs).toBe(5);
+
+    sourceCount = 2;
+    effect.flush();
+    expect(runs).toBe(6);
+    third.set(102);
+    globalScheduler.flush();
+    expect(runs).toBe(6);
+
+    effect.cleanup();
+    first.set(2);
+    second.set(13);
+    globalScheduler.flush();
+    expect(runs).toBe(6);
+  });
+
   it('should report a bounded failure for self-invalidating effects', () => {
     const source = createSource(0);
     let cycleError: unknown = null;

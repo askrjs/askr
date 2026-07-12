@@ -2,15 +2,15 @@ import { getPublicAttributeName } from '../common/attr-names';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
-import { __ERROR_BOUNDARY__ } from '../common/vnode';
+import { __ERROR_BOUNDARY__, type DOMElement } from '../common/vnode';
 import { Fragment } from '../jsx';
 import {
   createErrorBoundaryReset,
-  evaluateControlBoundaryChildren,
   getErrorBoundaryState,
   getRenderableChildren,
   normalizeRenderableChildren,
   resolveErrorBoundaryFallbackNode,
+  withControlBoundaryChildren,
 } from './boundaries';
 import { executeComponentSync, type Component } from './component-runtime';
 import type { RenderContext } from './context';
@@ -22,6 +22,52 @@ type VerifyState = {
   current: ChildNode | null;
   pendingText: string;
 };
+
+const RANGE_START = 'askr-range-start';
+const RANGE_END = 'askr-range-end';
+
+function isMultiRangeChild(child: unknown): boolean {
+  if (Array.isArray(child)) return child.length !== 1;
+  if (!child || typeof child !== 'object' || !('type' in child)) {
+    return false;
+  }
+  const vnode = child as VNode;
+  return (
+    vnode.type === Fragment &&
+    (getRenderableChildren(vnode)?.length ?? 0) !== 1
+  );
+}
+
+function verifyExpectedRangeChild(
+  child: unknown,
+  state: VerifyState,
+  ctx: RenderContext
+): boolean {
+  if (!isMultiRangeChild(child)) {
+    return verifyExpectedNode(child, state, ctx);
+  }
+
+  if (
+    !state.current ||
+    state.current.nodeType !== Node.COMMENT_NODE ||
+    (state.current as Comment).data !== RANGE_START
+  ) {
+    return false;
+  }
+  state.current = state.current.nextSibling;
+  if (!verifyExpectedNode(child, state, ctx)) {
+    return false;
+  }
+  if (
+    !state.current ||
+    state.current.nodeType !== Node.COMMENT_NODE ||
+    (state.current as Comment).data !== RANGE_END
+  ) {
+    return false;
+  }
+  state.current = state.current.nextSibling;
+  return true;
+}
 
 function isSSRAttrEventHandler(key: string): boolean {
   return (
@@ -163,16 +209,47 @@ function verifyExpectedNode(
 
   if (typeof type === 'symbol') {
     if (type === __CONTROL_BOUNDARY__) {
-      const children = evaluateControlBoundaryChildren(vnode);
-      if (!children || children.length === 0) {
-        return true;
-      }
-      for (let index = 0; index < children.length; index += 1) {
-        if (!verifyExpectedNode(children[index], state, ctx)) {
-          return false;
+      return withControlBoundaryChildren(vnode, (children) => {
+        if (!children || children.length === 0) {
+          return true;
         }
-      }
-      return true;
+        const controlState =
+          (vnode as DOMElement)._controlState ??
+          (vnode as DOMElement)._forState;
+        if (controlState?.kind === 'for') {
+          for (const child of children) {
+            if (!verifyExpectedRangeChild(child, state, ctx)) return false;
+          }
+          return true;
+        }
+
+        const wrapped =
+          children.length !== 1 || isMultiRangeChild(children[0]);
+        if (wrapped) {
+          if (
+            !state.current ||
+            state.current.nodeType !== Node.COMMENT_NODE ||
+            (state.current as Comment).data !== RANGE_START
+          ) {
+            return false;
+          }
+          state.current = state.current.nextSibling;
+        }
+        for (const child of children) {
+          if (!verifyExpectedNode(child, state, ctx)) return false;
+        }
+        if (wrapped) {
+          if (
+            !state.current ||
+            state.current.nodeType !== Node.COMMENT_NODE ||
+            (state.current as Comment).data !== RANGE_END
+          ) {
+            return false;
+          }
+          state.current = state.current.nextSibling;
+        }
+        return true;
+      });
     }
     if (type === __ERROR_BOUNDARY__) {
       const boundaryState = getErrorBoundaryState(vnode);

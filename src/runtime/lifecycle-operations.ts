@@ -44,7 +44,8 @@ function getLifecycleSlot<TSlot extends LifecycleSlot>(
   kind: TSlot['kind'],
   create: () => TSlot
 ): TSlot {
-  const existing = instance.lifecycleSlots[index];
+  const lifecycleSlots = (instance.lifecycleSlots ??= []);
+  const existing = lifecycleSlots[index];
 
   if (existing) {
     const slot = existing as LifecycleSlot;
@@ -59,7 +60,7 @@ function getLifecycleSlot<TSlot extends LifecycleSlot>(
   }
 
   const slot = create();
-  instance.lifecycleSlots[index] = slot;
+  lifecycleSlots[index] = slot;
   return slot;
 }
 
@@ -177,7 +178,7 @@ function commitListenerSlot(
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    instance.cleanupFns.push(() => {
+    (instance.cleanupFns ??= []).push(() => {
       detachListenerSlot(slot);
       slot.cleanupRegistered = false;
     });
@@ -275,7 +276,7 @@ function commitTimerSlot(instance: ComponentInstance, slot: TimerSlot): void {
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    instance.cleanupFns.push(() => {
+    (instance.cleanupFns ??= []).push(() => {
       stopTimerSlot(slot);
       slot.cleanupRegistered = false;
     });

@@ -11,10 +11,16 @@
   normalize async failures, and retain mutation callbacks for an execution.
 - fix(router): isolate initial route sources per root and keep history/route
   cleanup coherent when destination rendering or teardown fails.
+- fix(renderer): make control, keyed, portal, ownership, and lifecycle writes
+  transactional, with anchored multi-node ranges and structural SSR hydration.
+- perf(hydration): adopt matching intrinsic SSR trees in place and publish only
+  transactional refs and listeners instead of running full reconciliation.
+- fix(router): preserve shared layout identity and roll back multi-root route
+  DOM, ownership, metadata, history, and URL publication as one transaction.
 - fix(ssg): publish full builds through staging/backup swap and incremental
   routes through temp-file replacement.
-- test(quality): add declaration snapshots, dependency-edge coverage, and
-  replayable lifecycle seed ranges.
+- test(quality): add replayable lifecycle traces, deterministic seed fixtures,
+  timer-policy enforcement, benchmark guardrails, and package release gates.
 
 ## 0.0.51
 

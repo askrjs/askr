@@ -28,6 +28,10 @@ let currentInstance: ComponentInstance | null = null;
 let currentPortalScope: object | null = null;
 let stateIndex = 0;
 let globalRenderCounter = 0;
+let renderScopedDepth = 0;
+let outerRenderScopedInstance: ComponentInstance | null = null;
+let outerRenderScopedPortalScope: object | null = null;
+let outerRenderScopedStateIndex = 0;
 
 function ensureAbortController(instance: ComponentInstance): AbortController {
   let controller = instance.abortController;
@@ -107,7 +111,7 @@ export function getSignal(): AbortSignal {
 export function resetRenderState(instance: ComponentInstance): void {
   instance.stateIndexCheck = -1;
 
-  for (const state of instance.stateValues) {
+  for (const state of instance.stateValues ?? []) {
     if (state) {
       state._hasBeenRead = false;
     }
@@ -151,18 +155,41 @@ export function restoreInlineRenderTracking(
 export function enterRenderScopedComponent(
   instance: ComponentInstance,
   startStateIndex: number
-): ComponentScopeSnapshot {
-  const savedScope = captureScope();
+): ComponentScopeSnapshot | null {
+  let savedScope: ComponentScopeSnapshot | null = null;
+  if (renderScopedDepth === 0) {
+    outerRenderScopedInstance = currentInstance;
+    outerRenderScopedPortalScope = currentPortalScope;
+    outerRenderScopedStateIndex = stateIndex;
+  } else {
+    savedScope = captureScope();
+  }
+  renderScopedDepth += 1;
   currentInstance = instance;
-  currentPortalScope = instance.portalScope ?? savedScope.portalScope;
+  currentPortalScope =
+    instance.portalScope ??
+    (savedScope
+      ? savedScope.portalScope
+      : outerRenderScopedPortalScope);
   stateIndex = startStateIndex;
   return savedScope;
 }
 
 export function restoreRenderScopedComponent(
-  snapshot: ComponentScopeSnapshot
+  snapshot: ComponentScopeSnapshot | null
 ): void {
-  restoreScope(snapshot);
+  renderScopedDepth -= 1;
+  if (snapshot) {
+    restoreScope(snapshot);
+    return;
+  }
+
+  currentInstance = outerRenderScopedInstance;
+  currentPortalScope = outerRenderScopedPortalScope;
+  stateIndex = outerRenderScopedStateIndex;
+  outerRenderScopedInstance = null;
+  outerRenderScopedPortalScope = null;
+  outerRenderScopedStateIndex = 0;
 }
 
 export function captureInlineComponentScope(): InstancePortalScopeSnapshot {
@@ -242,17 +269,19 @@ export function claimHookIndex(
 
   instance.stateIndexCheck = index;
 
+  const expectedStateIndices = (instance.expectedStateIndices ??= []);
+
   if (instance.firstRenderComplete) {
-    if (instance.expectedStateIndices[index] !== index) {
+    if (expectedStateIndices[index] !== index) {
       throw new Error(
         `Hook order violation: ${hookName}() called at index ${index}, ` +
-          `but this index was not in the first render's sequence [${instance.expectedStateIndices.join(', ')}]. ` +
+          `but this index was not in the first render's sequence [${expectedStateIndices.join(', ')}]. ` +
           `This usually means ${hookName}() is inside a conditional or loop. ` +
           `Move all render-scoped hooks to the top level of your component function.`
       );
     }
   } else {
-    instance.expectedStateIndices.push(index);
+    expectedStateIndices.push(index);
   }
 
   return index;

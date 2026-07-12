@@ -1,5 +1,4 @@
 import { isDevelopmentEnvironment } from '../common/env';
-import { isPromiseLike } from '../common/promise';
 import type { Props } from '../common/props';
 import { logger } from '../common/logger';
 import type { ContextFrame } from './context';
@@ -9,6 +8,15 @@ import {
   type ReadableSource,
   finalizeReadableSubscriptionsFromSnapshot,
 } from './readable';
+import {
+  discardCommitOperations,
+  executeCommittedLifecycleOperations,
+} from './lifecycle-operation-settlement';
+
+export {
+  discardCommitOperations,
+  executeCommittedLifecycleOperations,
+} from './lifecycle-operation-settlement';
 
 export type LifecycleOperation = () =>
   | void
@@ -36,6 +44,16 @@ type InlineRenderSnapshot = {
   isRoot: boolean | undefined;
 };
 
+export type LifecycleTransaction = {
+  key: object;
+  commit(): void;
+  rollback(): void;
+  merge?(parentTransaction: LifecycleTransaction): void;
+};
+
+type LifecycleRollback = () => void;
+type LifecycleTransactionEntry = LifecycleTransaction | LifecycleRollback;
+
 export type LifecycleCommitBatch = {
   parent: LifecycleCommitBatch | null;
   entries: LifecycleCommitBatchEntry[];
@@ -44,10 +62,23 @@ export type LifecycleCommitBatch = {
   readCommitsByInstance: Map<ComponentInstance, ReadSubscriptionCommit>;
   renderSnapshots: InlineRenderSnapshot[];
   renderSnapshotsByInstance: Map<ComponentInstance, InlineRenderSnapshot>;
+  transactions: LifecycleTransactionEntry[];
+  transactionsByKey: Map<object, LifecycleTransaction>;
+  retainedElementSnapshots: Map<Element, unknown>;
   active: boolean;
 };
 
 let currentLifecycleCommitBatch: LifecycleCommitBatch | null = null;
+const pendingLifecycleCommitErrors: unknown[] = [];
+
+/** @internal Drain commit-time cleanup errors for transaction owners such as the router. */
+export function drainLifecycleCommitErrors(): unknown[] {
+  if (pendingLifecycleCommitErrors.length === 0) {
+    return [];
+  }
+
+  return pendingLifecycleCommitErrors.splice(0);
+}
 
 export function beginLifecycleCommitBatch(): LifecycleCommitBatch {
   const batch: LifecycleCommitBatch = {
@@ -58,10 +89,61 @@ export function beginLifecycleCommitBatch(): LifecycleCommitBatch {
     readCommitsByInstance: new Map(),
     renderSnapshots: [],
     renderSnapshotsByInstance: new Map(),
+    transactions: [],
+    transactionsByKey: new Map(),
+    retainedElementSnapshots: new Map(),
     active: true,
   };
   currentLifecycleCommitBatch = batch;
   return batch;
+}
+
+export function getCurrentLifecycleCommitBatch(): LifecycleCommitBatch | null {
+  return currentLifecycleCommitBatch?.active
+    ? currentLifecycleCommitBatch
+    : null;
+}
+
+function enqueueLifecycleTransaction(
+  batch: LifecycleCommitBatch,
+  transaction: LifecycleTransaction
+): void {
+  if (batch.transactionsByKey.has(transaction.key)) {
+    return;
+  }
+
+  batch.transactionsByKey.set(transaction.key, transaction);
+  batch.transactions.push(transaction);
+}
+
+export function registerLifecycleTransaction(
+  key: object,
+  commit: () => void,
+  rollback: () => void,
+  merge?: (parentTransaction: LifecycleTransaction) => void
+): boolean {
+  if (!currentLifecycleCommitBatch?.active) {
+    return false;
+  }
+
+  enqueueLifecycleTransaction(currentLifecycleCommitBatch, {
+    key,
+    commit,
+    rollback,
+    merge,
+  });
+  return true;
+}
+
+export function registerLifecycleRollback(
+  rollback: LifecycleRollback
+): boolean {
+  if (!currentLifecycleCommitBatch?.active) {
+    return false;
+  }
+
+  currentLifecycleCommitBatch.transactions.push(rollback);
+  return true;
 }
 
 function closeLifecycleCommitBatch(batch: LifecycleCommitBatch): boolean {
@@ -152,6 +234,13 @@ export function finalizeInlineReadSubscriptions(
   pendingReadSources: Set<ReadableSource<unknown>> | undefined,
   pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined
 ): void {
+  if (
+    (!pendingReadSources || pendingReadSources.size === 0) &&
+    (!instance._lastReadSources || instance._lastReadSources.size === 0)
+  ) {
+    return;
+  }
+
   if (currentLifecycleCommitBatch?.active) {
     enqueueReadSubscriptionCommit(
       currentLifecycleCommitBatch,
@@ -177,6 +266,23 @@ export function flushLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
   }
 
   if (batch.parent?.active) {
+    for (const [element, snapshot] of batch.retainedElementSnapshots) {
+      if (!batch.parent.retainedElementSnapshots.has(element)) {
+        batch.parent.retainedElementSnapshots.set(element, snapshot);
+      }
+    }
+    for (const entry of batch.transactions) {
+      if (typeof entry === 'function') {
+        batch.parent.transactions.push(entry);
+      } else {
+        const existing = batch.parent.transactionsByKey.get(entry.key);
+        if (existing && entry.merge) {
+          entry.merge(existing);
+        } else {
+          enqueueLifecycleTransaction(batch.parent, entry);
+        }
+      }
+    }
     for (const snapshot of batch.renderSnapshots) {
       enqueueInlineRenderSnapshot(batch.parent, snapshot);
     }
@@ -195,23 +301,70 @@ export function flushLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
     return;
   }
 
+  const commitErrors: unknown[] = [];
+
   for (const commit of batch.readCommits) {
-    finalizeReadableSubscriptionsFromSnapshot(
-      commit.instance,
-      commit.token,
-      commit.pendingReadSources,
-      commit.pendingReadSourceVersions
-    );
+    try {
+      finalizeReadableSubscriptionsFromSnapshot(
+        commit.instance,
+        commit.token,
+        commit.pendingReadSources,
+        commit.pendingReadSourceVersions
+      );
+    } catch (error) {
+      commitErrors.push(error);
+    }
+  }
+
+  // Ownership transactions register before materialization. Finalize them
+  // before activating new refs, portals, resources, and tasks so shared
+  // handles cannot be detached by the outgoing owner after attachment.
+  for (const transaction of batch.transactions) {
+    if (typeof transaction === 'function') {
+      continue;
+    }
+    try {
+      transaction.commit();
+    } catch (error) {
+      commitErrors.push(error);
+    }
   }
 
   for (const entry of batch.entries) {
-    executeCommittedLifecycleOperations(entry.instance, entry.wasFirstMount);
+    try {
+      executeCommittedLifecycleOperations(entry.instance, entry.wasFirstMount);
+    } catch (error) {
+      commitErrors.push(error);
+    }
+  }
+
+  if (commitErrors.length > 0) {
+    pendingLifecycleCommitErrors.push(...commitErrors);
+    logger.error(
+      '[Askr] committed lifecycle work failed:',
+      new AggregateError(commitErrors, 'Committed lifecycle work failed')
+    );
   }
 }
 
 export function discardLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
   if (!closeLifecycleCommitBatch(batch)) {
     return;
+  }
+
+  for (let index = batch.transactions.length - 1; index >= 0; index -= 1) {
+    try {
+      const transaction = batch.transactions[index]!;
+      if (typeof transaction === 'function') {
+        transaction();
+      } else {
+        transaction.rollback();
+      }
+    } catch (error) {
+      // Preserve the original evaluation/commit error. Rollback is best-effort
+      // but every registered participant must still receive its callback.
+      logger.error('[Askr] transaction rollback failed:', error);
+    }
   }
 
   for (let index = batch.renderSnapshots.length - 1; index >= 0; index -= 1) {
@@ -268,88 +421,17 @@ export function registerCommitOperationForInstance(
   }
 }
 
-function settleLifecycleOperationResult(
-  instance: ComponentInstance,
-  lifecycleGeneration: number,
-  result: void | (() => void) | PromiseLike<void | (() => void)>
-): void {
-  if (isPromiseLike(result)) {
-    Promise.resolve(result).then(
-      (cleanup) => {
-        if (typeof cleanup === 'function') {
-          if (
-            instance.lifecycleGeneration === lifecycleGeneration &&
-            instance.mounted
-          ) {
-            instance.cleanupFns.push(cleanup);
-            return;
-          }
-
-          try {
-            cleanup();
-          } catch (err) {
-            logger.error('[Askr] async mount cleanup failed:', err);
-          }
-        }
-      },
-      (err) => {
-        logger.error('[Askr] async mount operation failed:', err);
-      }
-    );
-  } else if (typeof result === 'function') {
-    instance.cleanupFns.push(result);
-  }
-}
-
-function executeMountOperations(instance: ComponentInstance): void {
-  const mountOperations = instance.mountOperations;
-  if (mountOperations.length === 0) {
-    return;
-  }
-
-  const lifecycleGeneration = instance.lifecycleGeneration;
-
-  for (const operation of mountOperations) {
-    settleLifecycleOperationResult(instance, lifecycleGeneration, operation());
-  }
-  // Clear the operations array so they don't run again on subsequent renders
-  instance.mountOperations = [];
-}
-
-function executeCommitOperations(instance: ComponentInstance): void {
-  const commitOperations = instance.commitOperations;
-  if (commitOperations.length === 0) {
-    return;
-  }
-
-  instance.commitOperations = [];
-  const lifecycleGeneration = instance.lifecycleGeneration;
-
-  for (const operation of commitOperations) {
-    settleLifecycleOperationResult(instance, lifecycleGeneration, operation());
-  }
-}
-
-export function discardCommitOperations(instance: ComponentInstance): void {
-  instance.commitOperations = [];
-}
-
-export function executeCommittedLifecycleOperations(
-  instance: ComponentInstance,
-  wasFirstMount: boolean
-): void {
-  if (wasFirstMount && instance.mountOperations.length > 0) {
-    executeMountOperations(instance);
-  }
-  if (instance.commitOperations.length > 0) {
-    executeCommitOperations(instance);
-  }
-}
-
 export function commitLifecycleForInstance(
   instance: ComponentInstance,
   wasFirstMount: boolean
 ): void {
+  if (
+    (instance.mountOperations?.length ?? 0) === 0 &&
+    (instance.commitOperations?.length ?? 0) === 0
+  ) {
+    return;
+  }
+
   if (currentLifecycleCommitBatch) {
     enqueueLifecycleCommit(
       currentLifecycleCommitBatch,
@@ -363,7 +445,7 @@ export function commitLifecycleForInstance(
 }
 
 export function commitRenderedComponent(instance: ComponentInstance): void {
-  if (instance.mounted && instance.commitOperations.length > 0) {
+  if (instance.mounted && (instance.commitOperations?.length ?? 0) > 0) {
     commitLifecycleForInstance(instance, false);
   }
 }

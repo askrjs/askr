@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vite-plus/test';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import { resource } from '../../../src/resources';
 import {
   createTestContainer,
@@ -18,6 +18,7 @@ declare global {
 
 describe('resource() stale result handling', () => {
   it('should discard stale async results (generation check)', async () => {
+    vi.useFakeTimers();
     // slow resolves after fast
     function delayed<T>(value: T, ms: number) {
       return new Promise<T>((resolve) => setTimeout(() => resolve(value), ms));
@@ -63,7 +64,8 @@ describe('resource() stale result handling', () => {
       (container.firstChild as HTMLElement).click();
 
       // Wait enough for both to resolve
-      await new Promise((resolve) => setTimeout(resolve, 70));
+      vi.advanceTimersByTime(70);
+      await Promise.resolve();
       await waitForNextEvaluation();
       flushScheduler();
 
@@ -71,6 +73,7 @@ describe('resource() stale result handling', () => {
       expect(container.textContent).toBe('fast');
     } finally {
       cleanup();
+      vi.useRealTimers();
     }
   });
 });

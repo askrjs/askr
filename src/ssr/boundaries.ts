@@ -12,7 +12,11 @@ import {
   evaluateCaseState,
   evaluateShowState,
 } from '../runtime';
-import { evaluateForState } from '../runtime';
+import {
+  commitForStateTransaction,
+  evaluateForState,
+  rollbackForStateTransaction,
+} from '../runtime';
 import type { VNode } from './types';
 
 type ErrorBoundaryState = NonNullable<ComponentInstance['errorBoundaryState']>;
@@ -191,4 +195,24 @@ export function evaluateControlBoundaryChildren(
     return evaluateShowState(controlState);
   }
   return evaluateCaseState(controlState);
+}
+
+export function withControlBoundaryChildren<T>(
+  node: VNode | JSXElement,
+  render: (children: unknown[] | undefined) => T
+): T {
+  const controlState = getControlBoundaryState(node);
+  if (!controlState || controlState.kind !== 'for') {
+    return render(evaluateControlBoundaryChildren(node));
+  }
+
+  const children = evaluateForState(controlState);
+  try {
+    const result = render(children);
+    commitForStateTransaction(controlState);
+    return result;
+  } catch (error) {
+    rollbackForStateTransaction(controlState);
+    throw error;
+  }
 }

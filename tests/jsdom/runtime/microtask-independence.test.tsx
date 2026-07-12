@@ -33,3 +33,4 @@ describe('microtask_independence (runtime)', () => {
     cleanup();
   });
 });
+// @askr-allow-real-timers -- timer/microtask ordering integration fixture.

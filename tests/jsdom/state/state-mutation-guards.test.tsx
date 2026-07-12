@@ -116,12 +116,8 @@ describe('state mutation guards (STATE)', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    await new Promise<void>((resolve) => {
-      setTimeout(() => {
-        expect(() => count!.set(2)).not.toThrow();
-        resolve();
-      }, 0);
-    });
+    await Promise.resolve();
+    expect(() => count!.set(2)).not.toThrow();
     flushScheduler();
 
     expect(container.textContent).toBe('2');

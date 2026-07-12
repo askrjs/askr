@@ -94,6 +94,13 @@ function createStabilityReport(benchmarks, thresholds) {
     .filter((benchmark) => benchmark.sampleCount < thresholds.minSamples)
     .sort((left, right) => left.sampleCount - right.sampleCount);
 
+  const zeroResolution = numeric.filter(
+    (benchmark) =>
+      benchmark.meanMs > 0 &&
+      ((isFiniteNumber(benchmark.p75Ms) && benchmark.p75Ms === 0) ||
+        (isFiniteNumber(benchmark.p99Ms) && benchmark.p99Ms === 0))
+  );
+
   const mostVariable = [...numeric]
     .sort((left, right) => right.rme - left.rme)
     .slice(0, HOTSPOT_LIMIT);
@@ -109,7 +116,9 @@ function createStabilityReport(benchmarks, thresholds) {
     lowSamples,
     mostVariable,
     mostStable,
-    failed: highRme.length > 0 || lowSamples.length > 0,
+    zeroResolution,
+    failed:
+      highRme.length > 0 || lowSamples.length > 0 || zeroResolution.length > 0,
   };
 }
 
@@ -127,6 +136,9 @@ function renderStabilitySection(report, thresholds) {
   );
   lines.push(
     `- Low sample violations: ${formatNumber(report.lowSamples.length, 0)}`
+  );
+  lines.push(
+    `- Zero-resolution percentile violations: ${formatNumber(report.zeroResolution.length, 0)}`
   );
   lines.push('');
 
@@ -209,6 +221,15 @@ function renderStabilitySection(report, thresholds) {
           benchmark.sampleCount,
           0
         )}, rme +/-${formatNumber(benchmark.rme)}%`
+      );
+    }
+  }
+
+  if (report.zeroResolution.length > 0) {
+    lines.push('- zero-valued p75 or p99 (batch the operation before timing):');
+    for (const benchmark of report.zeroResolution) {
+      lines.push(
+        `  - [${benchmark.lane}] ${benchmark.name}: p75 ${formatNumber(benchmark.p75Ms, 4)} ms, p99 ${formatNumber(benchmark.p99Ms, 4)} ms`
       );
     }
   }
@@ -392,7 +413,7 @@ async function main() {
 
   if (options.verify && stability.failed) {
     console.error(
-      `[bench:verify] Stability thresholds failed: ${stability.highRme.length} high-RME, ${stability.lowSamples.length} low-sample benchmarks.`
+      `[bench:verify] Stability thresholds failed: ${stability.highRme.length} high-RME, ${stability.lowSamples.length} low-sample, ${stability.zeroResolution.length} zero-resolution benchmarks.`
     );
     process.exitCode = 1;
   }

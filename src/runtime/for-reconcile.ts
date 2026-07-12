@@ -84,6 +84,7 @@ export function reconcileForItems<T>(
   const oldLen = orderedKeys.length;
   const newLen = newArray.length;
   forState.lastRemovedNodes = [];
+  forState.lastRemovedRanges = [];
 
   if (newLen === 0) {
     if (oldLen > 0) {
@@ -107,20 +108,101 @@ export function reconcileForItems<T>(
     disposeFallbackScope(forState, 'none');
   }
 
+  // A single insertion can retain every existing DOM node when no shifted row
+  // reads its index. All other shapes deliberately use the general keyed path.
+  if (newLen === oldLen + 1) {
+    let oldIndex = 0;
+    let insertedIndex = -1;
+    let insertedKey: string | number | null = null;
+
+    for (let newIndex = 0; newIndex < newLen; newIndex++) {
+      const item = newArray[newIndex];
+      const key = byFn(item, newIndex);
+      const expectedKey = orderedKeys[oldIndex];
+
+      if (oldIndex < oldLen && key === expectedKey) {
+        const existing = items.get(key);
+        if (
+          !existing ||
+          existing.item !== item ||
+          existing.scope.needsDomUpdate ||
+          (oldIndex !== newIndex && existing.indexSignal._hasBeenRead)
+        ) {
+          insertedIndex = -2;
+          break;
+        }
+        oldIndex++;
+      } else if (insertedIndex === -1 && !items.has(key)) {
+        insertedIndex = newIndex;
+        insertedKey = key;
+      } else {
+        insertedIndex = -2;
+        break;
+      }
+    }
+
+    if (insertedIndex >= 0 && oldIndex === oldLen && insertedKey !== null) {
+      const insertedItem = createItemInstance(
+        insertedKey,
+        newArray[insertedIndex],
+        insertedIndex,
+        forState
+      );
+      const resultVNodes = forState.orderedVNodes.slice();
+      const resultItems = forState.orderedItems.slice();
+      const resultKeys = orderedKeys.slice();
+
+      resultVNodes.splice(insertedIndex, 0, insertedItem.scope.vnode as VNode);
+      resultItems.splice(insertedIndex, 0, insertedItem);
+      resultKeys.splice(insertedIndex, 0, insertedKey);
+      items.set(insertedKey, insertedItem);
+
+      recordBenchFastLane('INSERT_ONE');
+      recordBenchEvent('itemReused', oldLen);
+      forState.lastCommitStrategy = 'INSERT_ONE';
+      forState.orderedKeys = resultKeys;
+      forState.orderedItems = resultItems;
+      forState.orderedVNodes = resultVNodes;
+      forState.pendingDirtyIndices = null;
+      forState.pendingSwapIndices = null;
+      forState.pendingMoveOnly = false;
+      forState.pendingInsertedIndex = insertedIndex;
+
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchTiming('reconcile', performance.now() - reconcileStartMs);
+        flushBenchMetrics();
+      }
+      return resultVNodes;
+    }
+  }
+
   // FAST PATH A: APPEND
   // Guard: oldLen <= newLen && all old keys match new keys at same indices
   if (oldLen < newLen) {
     let canUseAppendPath = true;
+    let canSkipCommittedPrefix = true;
     for (let i = 0; i < oldLen; i++) {
       const key = byFn(newArray[i], i);
       if (key !== orderedKeys[i]) {
         canUseAppendPath = false;
         break;
       }
+
+      const existing = forState.orderedItems[i] ?? items.get(key);
+      if (
+        !existing ||
+        existing.item !== newArray[i] ||
+        existing.scope.needsDomUpdate ||
+        existing.scope.hydrationPending
+      ) {
+        canSkipCommittedPrefix = false;
+      }
     }
 
     if (canUseAppendPath) {
-      recordBenchFastLane('APPEND');
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchFastLane('APPEND');
+      }
       forState.lastCommitStrategy = 'APPEND';
       const resultVNodes = forState.orderedVNodes;
       const resultItems = forState.orderedItems;
@@ -128,18 +210,22 @@ export function reconcileForItems<T>(
       resultItems.length = newLen;
 
       // Update existing rows in-place
-      for (let i = 0; i < oldLen; i++) {
-        const item = newArray[i];
-        const key = orderedKeys[i];
-        const existing = resultItems[i] ?? items.get(key)!;
+      if (!canSkipCommittedPrefix) {
+        for (let i = 0; i < oldLen; i++) {
+          const item = newArray[i];
+          const key = orderedKeys[i];
+          const existing = resultItems[i] ?? items.get(key)!;
 
-        updateItemInstance(forState, existing, item);
+          updateItemInstance(forState, existing, item);
 
-        resultItems[i] = existing;
-        resultVNodes[i] = existing.scope.vnode as VNode;
+          resultItems[i] = existing;
+          resultVNodes[i] = existing.scope.vnode as VNode;
+        }
       }
 
-      recordBenchEvent('itemReused', oldLen);
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchEvent('itemReused', oldLen);
+      }
 
       // Create and append new rows
       for (let i = oldLen; i < newLen; i++) {
@@ -161,6 +247,7 @@ export function reconcileForItems<T>(
       forState.pendingDirtyIndices = null;
       forState.pendingSwapIndices = null;
       forState.pendingMoveOnly = false;
+      forState.pendingAppendStart = canSkipCommittedPrefix ? oldLen : 0;
 
       return resultVNodes;
     }
@@ -191,7 +278,9 @@ export function reconcileForItems<T>(
         }
 
         if (canUseRemoveOnePath) {
-          recordBenchFastLane('REMOVE_ONE');
+          if (BENCH_BUILD_ENABLED) {
+            recordBenchFastLane('REMOVE_ONE');
+          }
           forState.lastCommitStrategy = 'NO_REORDER';
 
           const previousOrderedItems = forState.orderedItems.slice();
@@ -227,7 +316,9 @@ export function reconcileForItems<T>(
             resultVNodes[i] = existing.scope.vnode as VNode;
           }
 
-          recordBenchEvent('itemReused', newLen);
+          if (BENCH_BUILD_ENABLED) {
+            recordBenchEvent('itemReused', newLen);
+          }
 
           const removedKey = orderedKeys[removedIndex];
           const removedItem = items.get(removedKey);
@@ -357,7 +448,7 @@ export function reconcileForItems<T>(
           updateItemInstance(forState, existing, item);
         }
 
-        if (!itemChanged && existing.scope.needsDomUpdate) {
+        if (existing.scope.needsDomUpdate) {
           dirtyIndices.push(i);
         }
 
@@ -442,7 +533,9 @@ export function reconcileForItems<T>(
       nextOrderedItems[firstMismatch] = secondExisting;
       nextOrderedItems[secondMismatch] = firstExisting;
 
-      recordBenchEvent('itemReused');
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchEvent('itemReused');
+      }
       recordBenchEvent('itemReused');
 
       if (firstExisting.item !== firstItem) {
@@ -501,7 +594,9 @@ export function reconcileForItems<T>(
     }
 
     if (canUseMoveOnlyPath) {
-      recordBenchFastLane('FULL_KEYED');
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchFastLane('FULL_KEYED');
+      }
       forState.lastCommitStrategy = 'FULL_KEYED';
 
       for (let i = 0; i < moveOnlyItems.length; i++) {
@@ -528,7 +623,9 @@ export function reconcileForItems<T>(
 
   // FULL KEYED RECONCILIATION (slow path for complex reorders)
   // Avoid allocating newKeyMap: iterate directly and track removals
-  recordBenchFastLane('FULL_KEYED');
+  if (BENCH_BUILD_ENABLED) {
+    recordBenchFastLane('FULL_KEYED');
+  }
   forState.lastCommitStrategy = 'FULL_KEYED';
 
   const toRemove = new Set(orderedKeys);
@@ -541,13 +638,17 @@ export function reconcileForItems<T>(
   for (let i = 0; i < newArray.length; i++) {
     const item = newArray[i];
     const key = byFn(item, i);
-    recordBenchEvent('keyLookup');
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchEvent('keyLookup');
+    }
 
     toRemove.delete(key);
     newOrderedKeys.push(key);
 
     const existing = items.get(key);
-    recordBenchEvent(existing ? 'keyHit' : 'keyMiss');
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchEvent(existing ? 'keyHit' : 'keyMiss');
+    }
 
     if (!existing) {
       // Added: create new item instance
@@ -557,7 +658,9 @@ export function reconcileForItems<T>(
       resultVNodes.push(itemInstance.scope.vnode as VNode);
     } else {
       // Exists: check if item changed (by identity)
-      recordBenchEvent('itemReused');
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchEvent('itemReused');
+      }
       const itemChanged = existing.item !== item;
       const indexChanged = existing.indexSignal.peek() !== i;
 

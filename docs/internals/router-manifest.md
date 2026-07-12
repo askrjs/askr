@@ -152,6 +152,22 @@ handler. The renderer handler has the layout chain baked in, but defers matched
 page-shell and leaf component execution until their layout context is active.
 `navigate.ts` does not need to know about layouts.
 
+Navigation application is an atomic transaction across registered app roots:
+
+1. Resolve all targets and recursively follow redirects.
+2. Recheck request freshness, then render changed route segments against the
+   live roots while retaining the common layout owner prefix.
+3. Commit all DOM, owner, portal, range, and cleanup work before publishing
+   route metadata, app locations, history, URL, or scroll state.
+4. Report outgoing cleanup errors only after publication succeeds.
+
+The retained layout element and owner chain are transferred by identity; a
+shared layout is not replaced by a clone. A stale or failed request restores
+the exact prior route-root state, DOM nodes, app registrations, route snapshot,
+and internal location. Popstate failures additionally restore the prior
+history entry and URL. This is why a failure in one root cannot publish a
+partial multi-root navigation.
+
 `RouteRecord.handler` remains the eager low-level handler used by
 `resolveRoute()`, manifest inspection, and flat route tables. Keeping that
 contract separate from renderer composition preserves direct handler behavior

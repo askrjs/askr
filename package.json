@@ -20,7 +20,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/askrjs/askr.git"
+    "url": "git+https://github.com/askrjs/askr.git"
   },
   "bin": {
     "askr-ssg": "./dist/bin/askr-ssg.js"
@@ -125,13 +125,17 @@
     "typecheck": "tsc --noEmit --pretty false",
     "test": "npm run test:unit && npm run test:checks && npm run test:jsdom && npm run test:browser",
     "test:browser": "vp test run -c vitest.test.browser.config.ts tests/browser",
+    "test:bench-contract": "node scripts/check-bench-contract.mjs",
+    "test:bench-verify": "node scripts/generate-bench-log.js --verify",
     "test:checks": "vp test run -c vitest.test.checks.config.ts",
     "test:jsdom": "vp test run -c vitest.test.jsdom.config.ts",
     "test:types": "vp pack && tsd --files \"tests/types/**/*.test-d.ts\" --files \"tests/types/**/*.test-d.tsx\"",
-    "test:package": "npx rimraf dist && npm run build && node ./scripts/test-package-consumer.mjs",
-    "release:verify": "npm run lint && npm run build && npm run test:checks && npm run test:types && npm run test:unit && npm run test:jsdom && npm run test:package && npm run test:browser",
+    "test:production-bundle": "node scripts/check-production-bundle.mjs",
+    "test:publint": "publint",
+    "test:package": "npx rimraf dist && npm run build && npm run test:production-bundle && node ./scripts/test-package-consumer.mjs",
+    "release:verify": "npm run lint && npm run build && npm run test:publint && npm run test:checks && npm run test:types && npm run test:unit && npm run test:jsdom && npm run test:package && npm run test:bench-contract && npm run test:browser",
     "test:unit": "vp test run -c vitest.test.unit.config.ts",
-    "bench": "npm run bench:tier1 && npm run bench:tier2 && npm run bench:tier3 && npm run bench:tier4",
+    "bench": "npm run test:bench-contract && npm run bench:tier1 && npm run bench:tier2 && npm run bench:tier3 && npm run bench:tier4",
     "bench:tier1": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts",
     "bench:tier2": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts",
     "bench:tier3": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts",
@@ -148,8 +152,10 @@
     "cross-env": "^10.1.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.61.1",
+    "publint": "^0.3.21",
     "tsd": "^0.33.0",
     "typescript": "6.0.3",
+    "vite": "^8.1.4",
     "vite-plus": "^0.2.4"
   },
   "tsd": {

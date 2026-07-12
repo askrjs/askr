@@ -11,7 +11,7 @@ import { globalScheduler } from '../../../src/runtime/scheduler';
 
 async function settleResourceWork(): Promise<void> {
   await Promise.resolve();
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await Promise.resolve();
   flushScheduler();
 }
 

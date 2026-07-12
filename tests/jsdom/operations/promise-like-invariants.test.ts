@@ -21,7 +21,10 @@ describe('resource promise-like invariants', () => {
     expect(cell.pending).toBe(true);
     expect(cell.value).toBeNull();
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(cell.pending).toBe(false);
     expect(cell.value).toBe('ready');

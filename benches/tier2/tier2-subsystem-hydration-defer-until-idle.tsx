@@ -3,12 +3,18 @@ import { hydrateSPA } from '../../src/boot';
 import {
   buildWideSsrTree,
   createHydrationFixture,
+  extendBenchOptions,
   tier2BenchOptions,
 } from '../shared/_shared';
 import {
   fireEvent,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
+
+const deferredIdleHydrationBenchOptions = extendBenchOptions(
+  tier2BenchOptions,
+  { iterations: 10 }
+);
 
 function createDeferredIdleHydrationHarness() {
   const state = {
@@ -83,7 +89,7 @@ describe('tier2 subsystem hydration defer until idle', () => {
       flushScheduler();
     },
     {
-      ...tier2BenchOptions,
+      ...deferredIdleHydrationBenchOptions,
       setup() {
         harness = createDeferredIdleHydrationHarness();
         fixture = createHydrationFixture({ routes: harness.routes });

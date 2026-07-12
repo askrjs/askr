@@ -439,3 +439,4 @@ describe('scheduler (SPEC 2.2)', () => {
     });
   });
 });
+// @askr-allow-real-timers -- scheduler timing integration fixture.

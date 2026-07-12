@@ -79,6 +79,8 @@ export function createNodeEnvDefine(
   mode: 'development' | 'production',
   options?: { bench?: boolean }
 ): Record<
+  | '__ASKR_BENCH_BUILD__'
+  | '__ASKR_DEVELOPMENT_BUILD__'
   | 'process.env.NODE_ENV'
   | 'process.env.ASKR_BENCH'
   | 'process.env.ASKR_PACKAGE_NAME'
@@ -87,6 +89,8 @@ export function createNodeEnvDefine(
   string
 > {
   return {
+    __ASKR_BENCH_BUILD__: JSON.stringify(options?.bench === true),
+    __ASKR_DEVELOPMENT_BUILD__: JSON.stringify(mode === 'development'),
     'process.env.NODE_ENV': JSON.stringify(mode),
     'process.env.ASKR_BENCH': JSON.stringify(options?.bench ? '1' : '0'),
     'process.env.ASKR_PACKAGE_NAME': JSON.stringify(localPackageMetadata.name),

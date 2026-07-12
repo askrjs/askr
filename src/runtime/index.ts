@@ -2,6 +2,12 @@ export * from './access';
 export * from './child-scope';
 export * from './component';
 export * from './context';
+export {
+  beginLifecycleCommitBatch,
+  discardLifecycleCommitBatch,
+  drainLifecycleCommitErrors,
+  flushLifecycleCommitBatch,
+} from './component-lifecycle';
 export * from './control';
 export * from './dev-namespace';
 export * from './derive';

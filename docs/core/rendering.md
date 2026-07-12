@@ -8,6 +8,13 @@ HTML files (SSG). The same component code works in all three modes.
 The default mode. Components are rendered into the DOM via
 `createSPA({ root, registry })` or `createIsland({ root, component })`.
 
+Keyed `For` updates publish through one renderer transaction. If evaluation or
+DOM commit fails, Askr restores the previously committed DOM and ownership
+state; provisional listeners, refs, portals, resources, subscriptions, and
+child owners do not become live. Cleanup belonging to a successful commit runs
+only after the coherent DOM update. Cleanup failures are reported together and
+do not roll back an already successful render.
+
 See [Runtime](./runtime.md) for boot APIs.
 
 ## Server-Side Rendering (SSR)
@@ -76,6 +83,13 @@ const registry = createRouteRegistry(() => {
 
 await hydrateSPA({ root: 'app', registry });
 ```
+
+When a server-rendered subtree is entirely intrinsic and its tags, attributes,
+form state, text, and child shape already match, hydration adopts those nodes
+in place and publishes only refs and event bindings. The adoption is scoped to
+the synchronous hydration mount and remains transactional. Keyed trees,
+components, reactive props, and any mismatch use the normal reconciliation
+path.
 
 ## Static Site Generation (SSG)
 

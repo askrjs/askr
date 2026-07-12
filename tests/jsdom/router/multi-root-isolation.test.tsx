@@ -93,6 +93,45 @@ describe('multi-root SPA isolation', () => {
     expect(rootB.textContent).toBe('B next');
   });
 
+  it('should roll back every root when one destination fails', async () => {
+    await createSPA({
+      root: rootA,
+      routes: [
+        {
+          path: '/start',
+          handler: () => <div id={'app-a'}>{'A start'}</div>,
+        },
+        {
+          path: '/next',
+          handler: () => <div id={'app-a'}>{'A next'}</div>,
+        },
+      ],
+    });
+
+    await createSPA({
+      root: rootB,
+      routes: [
+        {
+          path: '/start',
+          handler: () => <div id={'app-b'}>{'B start'}</div>,
+        },
+        {
+          path: '/next',
+          handler: () => {
+            throw new Error('B destination failed');
+          },
+        },
+      ],
+    });
+
+    await settleNavigation();
+
+    expect(() => navigate('/next')).toThrow('B destination failed');
+    expect(rootA.textContent).toBe('A start');
+    expect(rootB.textContent).toBe('B start');
+    expect(window.location.pathname).toBe('/start');
+  });
+
   it('should boot concurrent roots from their own route sources', async () => {
     await Promise.all([
       createSPA({

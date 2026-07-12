@@ -4,6 +4,10 @@ import {
 } from './access';
 import { getCurrentInstance, type ComponentInstance } from './component';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
 export interface DerivedSubscriber {
   _markDirty(): void;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
@@ -18,6 +22,15 @@ export interface ReadableSource<T = unknown> {
   _version?: number;
 }
 
+export interface FineGrainedReadCollector {
+  _pendingFineGrainedReadSource: ReadableSource<unknown> | null;
+  _pendingFineGrainedReadSources:
+    | ReadableSource<unknown>
+    | ReadableSource<unknown>[]
+    | Set<ReadableSource<unknown>>
+    | null;
+}
+
 export function markReadableUsage(source: unknown): void {
   if (
     source &&
@@ -26,13 +39,15 @@ export function markReadableUsage(source: unknown): void {
   ) {
     const readable = source as ReadableSource<unknown>;
     readable._hasBeenRead = true;
-    readable._hasEverBeenRead = true;
+    if (DEVELOPMENT_BUILD_ENABLED) {
+      readable._hasEverBeenRead = true;
+    }
   }
 }
 
 let currentDerivedSubscriber: DerivedSubscriber | null = null;
 let suppressComponentReadTrackingDepth = 0;
-let currentFineGrainedReadSources: Set<ReadableSource<unknown>> | null = null;
+let currentFineGrainedReadCollector: FineGrainedReadCollector | null = null;
 
 function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
   if (instance.hasPendingUpdate) {
@@ -53,10 +68,34 @@ function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
 }
 
 export function recordReadableRead(source: ReadableSource<unknown>): void {
-  source._hasEverBeenRead = true;
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    source._hasEverBeenRead = true;
+  }
 
-  if (currentFineGrainedReadSources) {
-    currentFineGrainedReadSources.add(source);
+  if (currentFineGrainedReadCollector) {
+    const first = currentFineGrainedReadCollector._pendingFineGrainedReadSource;
+    if (!first) {
+      currentFineGrainedReadCollector._pendingFineGrainedReadSource = source;
+    } else if (first !== source) {
+      let sources =
+        currentFineGrainedReadCollector._pendingFineGrainedReadSources;
+      if (!sources) {
+        currentFineGrainedReadCollector._pendingFineGrainedReadSources =
+          source;
+      } else if (Array.isArray(sources)) {
+        if (!sources.includes(source)) {
+          sources.push(source);
+        }
+      } else if (sources instanceof Set) {
+        sources.add(source);
+      } else if (sources !== source) {
+        currentFineGrainedReadCollector._pendingFineGrainedReadSources = [
+          first,
+          sources,
+          source,
+        ];
+      }
+    }
     return;
   }
 
@@ -91,17 +130,27 @@ export function recordReadableRead(source: ReadableSource<unknown>): void {
 }
 
 export function withFineGrainedReadTracking<T>(
-  pendingSources: Set<ReadableSource<unknown>>,
+  collector: FineGrainedReadCollector,
   fn: () => T
 ): T {
-  const previousPendingSources = currentFineGrainedReadSources;
-  currentFineGrainedReadSources = pendingSources;
+  const previousCollector = currentFineGrainedReadCollector;
+  currentFineGrainedReadCollector = collector;
 
   try {
-    return fn();
+    return fn.call(collector);
   } finally {
-    currentFineGrainedReadSources = previousPendingSources;
+    currentFineGrainedReadCollector = previousCollector;
   }
+}
+
+/** @internal Whether the active grouped effect coalesces item-property reads. */
+export function shouldCoalesceFineGrainedItemReads(): boolean {
+  const owner = (
+    currentFineGrainedReadCollector as
+      | { _owner?: { _coalesceForItemReads?: boolean } }
+      | null
+  )?._owner;
+  return owner?._coalesceForItemReads === true;
 }
 
 export function finalizeReadableSubscriptions(
@@ -170,7 +219,7 @@ export function finalizeReadableSubscriptionsFromSnapshot(
     }
   }
 
-  instance._lastReadSources = newSet ?? new Set();
+  instance._lastReadSources = newSet?.size ? newSet : undefined;
 
   if (needsFollowUpUpdate) {
     scheduleReadableInstanceUpdate(instance);
@@ -190,7 +239,7 @@ export function cleanupReadableSubscriptions(
   for (const source of sources) {
     source._readers?.delete(instance);
   }
-  instance._lastReadSources = new Set();
+  instance._lastReadSources = undefined;
   instance._pendingReadSources = undefined;
   instance._pendingReadSourceVersions = undefined;
 }
@@ -267,7 +316,8 @@ export function markReactivePropsDirtySource(
 
 export function notifyReadableReaders(
   source: ReadableSource<unknown>,
-  skipInstance?: ComponentInstance | null
+  skipInstance?: ComponentInstance | null,
+  skipOwnedBy?: ComponentInstance | null
 ): boolean {
   source._version = (source._version ?? 0) + 1;
   const readers = source._readers;
@@ -280,6 +330,20 @@ export function notifyReadableReaders(
   for (const [instance, token] of readers) {
     if (skipInstance && instance === skipInstance) {
       continue;
+    }
+    if (skipOwnedBy) {
+      let owner: ComponentInstance | null = instance;
+      let isOwned = false;
+      while (owner) {
+        if (owner === skipOwnedBy) {
+          isOwned = true;
+          break;
+        }
+        owner = owner.parentInstance;
+      }
+      if (isOwned) {
+        continue;
+      }
     }
     if (instance.lastRenderToken !== token) {
       continue;

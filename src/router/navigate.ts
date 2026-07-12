@@ -4,7 +4,6 @@
 
 import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
-import { saveScrollPosition } from './navigation-scroll';
 import {
   configureNavigationRegistryHost,
   getCurrentHref,
@@ -92,6 +91,7 @@ function navigateWithRedirectState(
 
         try {
           applyNavigationTargets(
+            request.id,
             path,
             options,
             redirectState,
@@ -111,7 +111,8 @@ function navigateWithRedirectState(
     return;
   }
 
-  applyNavigationTargets(
+    applyNavigationTargets(
+    request.id,
     path,
     options,
     redirectState,
@@ -128,8 +129,6 @@ function handlePopState(event: PopStateEvent): void {
   const pathname = window.location.pathname;
   const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
-  saveScrollPosition(previousHref);
-
   if (!hasRegisteredApps()) {
     return;
   }
@@ -138,6 +137,8 @@ function handlePopState(event: PopStateEvent): void {
     try {
       applyPopStateNavigationTargets(
         request.id,
+        previousHref,
+        { path: previousHref },
         pathname,
         href,
         event.state,

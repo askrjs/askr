@@ -456,6 +456,98 @@ describe('hydration (SSR)', () => {
       expect(clicks).toBe(1);
     });
 
+    it('should adopt a matching intrinsic listener tree without replacing nodes', async () => {
+      let clicks = 0;
+      let inputs = 0;
+      const buttonRef = { current: null as HTMLButtonElement | null };
+      const Component = () => (
+        <main id="listener-root">
+          <section>
+            <button
+              id="listener-button"
+              ref={buttonRef}
+              onClick={() => (clicks += 1)}
+            >
+              click
+            </button>
+            <input
+              id="listener-input"
+              value="seed"
+              onInput={() => (inputs += 1)}
+            />
+          </section>
+        </main>
+      );
+
+      const routes = [{ path: '/', handler: Component }];
+      container.innerHTML = renderToString({ url: '/', routes });
+      const rootBefore = container.querySelector('#listener-root');
+      const buttonBefore = container.querySelector('#listener-button');
+      const inputBefore = container.querySelector('#listener-input');
+
+      await hydrateSPA({ root: container, routes });
+      flushScheduler();
+
+      expect(container.querySelector('#listener-root')).toBe(rootBefore);
+      expect(container.querySelector('#listener-button')).toBe(buttonBefore);
+      expect(container.querySelector('#listener-input')).toBe(inputBefore);
+      expect(buttonRef.current).toBe(buttonBefore);
+
+      fireEvent.click(buttonBefore as HTMLElement);
+      fireEvent.input(inputBefore as HTMLInputElement, 'next');
+      flushScheduler();
+      expect({ clicks, inputs }).toEqual({ clicks: 1, inputs: 1 });
+    });
+
+    it('should roll back provisional intrinsic listeners and allow retry', async () => {
+      let clicks = 0;
+      let inputs = 0;
+      const Component = () => (
+        <div>
+          <button id="rollback-button" onClick={() => (clicks += 1)}>
+            click
+          </button>
+          <input id="rollback-input" onInput={() => (inputs += 1)} />
+        </div>
+      );
+      const routes = [{ path: '/', handler: Component }];
+      container.innerHTML = renderToString({ url: '/', routes });
+      const originalAddEventListener = EventTarget.prototype.addEventListener;
+      let failInputBinding = true;
+      const addEventListenerSpy = vi
+        .spyOn(EventTarget.prototype, 'addEventListener')
+        .mockImplementation(function (type, listener, options) {
+          if (failInputBinding && type === 'input') {
+            failInputBinding = false;
+            throw new Error('intrinsic listener publication failed');
+          }
+          return originalAddEventListener.call(this, type, listener, options);
+        });
+
+      await expect(hydrateSPA({ root: container, routes })).rejects.toThrow(
+        'intrinsic listener publication failed'
+      );
+      fireEvent.click(
+        container.querySelector('#rollback-button') as HTMLElement
+      );
+      expect(clicks).toBe(0);
+
+      await expect(
+        hydrateSPA({ root: container, routes })
+      ).resolves.not.toThrow();
+      flushScheduler();
+      fireEvent.click(
+        container.querySelector('#rollback-button') as HTMLElement
+      );
+      fireEvent.input(
+        container.querySelector('#rollback-input') as HTMLInputElement,
+        'next'
+      );
+      flushScheduler();
+      expect({ clicks, inputs }).toEqual({ clicks: 1, inputs: 1 });
+      addEventListenerSpy.mockRestore();
+    });
+
     it('should accept input when component is hydrated', async () => {
       let value: ReturnType<typeof state<string>> | null = null;
       const Component = () => {
@@ -942,6 +1034,191 @@ describe('hydration (SSR)', () => {
         addEventListenerSpy.mockRestore();
         removeEventListenerSpy.mockRestore();
         setStaticChildSlotsCacheEnabledSpy.mockRestore();
+      }
+    });
+  });
+
+  describe('boundary-local deferred hydration', () => {
+    it('should activate one boundary without rerunning the root and preserve focus', async () => {
+      const { container, cleanup } = createTestContainer();
+      const originalRect = Element.prototype.getBoundingClientRect;
+      let rootRenders = 0;
+      let belowRenders = 0;
+      let clicks = 0;
+
+      const Below = () => {
+        belowRenders += 1;
+        return (
+          <button id="deferred-button" onClick={() => (clicks += 1)}>
+            deferred
+          </button>
+        );
+      };
+      const Component = () => {
+        rootRenders += 1;
+        return (
+          <main>
+            <div class="deferred-boundary">
+              <Below />
+            </div>
+          </main>
+        );
+      };
+      const routes = [{ path: '/', handler: Component }];
+
+      Element.prototype.getBoundingClientRect = function () {
+        if ((this as Element).className === 'deferred-boundary') {
+          return { top: 1000 } as DOMRect;
+        }
+        return { top: 0 } as DOMRect;
+      };
+
+      try {
+        container.innerHTML = renderToString({ url: '/', routes });
+        rootRenders = 0;
+        belowRenders = 0;
+
+        await hydrateSPA({
+          root: container,
+          routes,
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+
+        const rootRendersAfterHydration = rootRenders;
+        const button = container.querySelector(
+          '#deferred-button'
+        ) as HTMLButtonElement;
+        button.focus();
+
+        Element.prototype.getBoundingClientRect = function () {
+          return { top: 0 } as DOMRect;
+        };
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+
+        expect(rootRenders).toBe(rootRendersAfterHydration);
+        expect(belowRenders).toBeGreaterThan(0);
+        expect(document.activeElement).toBe(button);
+        button.click();
+        expect(clicks).toBe(1);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        cleanup();
+      }
+    });
+
+    it('should restore a failed boundary marker and retry activation', async () => {
+      const { container, cleanup } = createTestContainer();
+      const originalRect = Element.prototype.getBoundingClientRect;
+      let fail = false;
+      let clicks = 0;
+      const Failing = () => {
+        if (fail) throw new Error('deferred activation failed');
+        return <button id="retry-button" onClick={() => (clicks += 1)}>retry</button>;
+      };
+      const Component = () => (
+        <div class="retry-boundary">
+          <Failing />
+        </div>
+      );
+      const routes = [{ path: '/', handler: Component }];
+
+      Element.prototype.getBoundingClientRect = function () {
+        return (this as Element).className === 'retry-boundary'
+          ? ({ top: 1000 } as DOMRect)
+          : ({ top: 0 } as DOMRect);
+      };
+
+      try {
+        container.innerHTML = renderToString({ url: '/', routes });
+        await hydrateSPA({
+          root: container,
+          routes,
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+
+        fail = true;
+        Element.prototype.getBoundingClientRect = function () {
+          return { top: 0 } as DOMRect;
+        };
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+        expect(
+          container
+            .querySelector('.retry-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(true);
+
+        fail = false;
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+        expect(
+          container
+            .querySelector('.retry-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(false);
+        (container.querySelector('#retry-button') as HTMLButtonElement).click();
+        expect(clicks).toBe(1);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        cleanup();
+      }
+    });
+
+    it('should stage delegated, capture, and custom listeners until boundary commit', async () => {
+      const { container, cleanup } = createTestContainer();
+      const originalRect = Element.prototype.getBoundingClientRect;
+      const events: string[] = [];
+      const Component = () => (
+        <div
+          class="listener-boundary"
+          onClickCapture={() => events.push('capture')}
+          onMagic={() => events.push('custom')}
+        >
+          <button onClick={() => events.push('delegated')}>listener</button>
+        </div>
+      );
+      const routes = [{ path: '/', handler: Component }];
+
+      Element.prototype.getBoundingClientRect = function () {
+        return (this as Element).className === 'listener-boundary'
+          ? ({ top: 1000 } as DOMRect)
+          : ({ top: 0 } as DOMRect);
+      };
+
+      try {
+        container.innerHTML = renderToString({ url: '/', routes });
+        await hydrateSPA({
+          root: container,
+          routes,
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+
+        const button = container.querySelector('button') as HTMLButtonElement;
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        button.dispatchEvent(new Event('magic', { bubbles: true }));
+        expect(events).toEqual([]);
+
+        Element.prototype.getBoundingClientRect = function () {
+          return { top: 0 } as DOMRect;
+        };
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        button.dispatchEvent(new Event('magic', { bubbles: true }));
+        expect(events).toEqual(['capture', 'delegated', 'custom']);
+
+        cleanup();
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        button.dispatchEvent(new Event('magic', { bubbles: true }));
+        expect(events).toEqual(['capture', 'delegated', 'custom']);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        cleanup();
       }
     });
   });

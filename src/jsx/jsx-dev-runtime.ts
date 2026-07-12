@@ -20,18 +20,45 @@ import {
 } from './types';
 import { markReadableUsage } from '../runtime';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace JSX {
+  export interface Element extends JSXElement {
+    readonly __askrJsxElementBrand?: never;
+  }
+
+  export interface IntrinsicElements extends KnownIntrinsicElementProps {
+    [elem: string]:
+      | IntrinsicFallbackProps
+      | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];
+  }
+
+  export interface ElementAttributesProperty {
+    props: Props;
+  }
+
+  export interface ElementChildrenAttribute {
+    children: unknown;
+  }
+}
+
 function annotatePropsUsage(props: Record<string, unknown> | null): Props {
   const normalizedProps = (props ?? {}) as Props;
 
-  for (const value of Object.values(normalizedProps)) {
-    markReadableUsage(value);
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    for (const key in normalizedProps) {
+      markReadableUsage(normalizedProps[key]);
+    }
   }
 
   return normalizedProps;
 }
 
 function markStaticChildren(props: Props): Props {
-  if (Array.isArray(props.children)) {
+  if (DEVELOPMENT_BUILD_ENABLED && Array.isArray(props.children)) {
     Object.defineProperty(props.children, STATIC_CHILDREN, {
       value: true,
       configurable: true,

@@ -31,11 +31,17 @@ durable test family that observes it.
 - `tests/jsdom/runtime/lifecycle-sequences.test.tsx` replays deterministic
   mount/update/flush/dispose sequences. PR coverage uses seeds `1`, `7`, `42`,
   and `0xc0ffee`; scheduled quality coverage uses `0..99`. Add a regression
-  seed to `ASKR_QUALITY_SEEDS` when fixing a sequence failure.
+  seed to `ASKR_QUALITY_SEEDS` when fixing a sequence failure. The trace covers
+  controls, keyed ranges, navigation cancellation/popstate, resources, portals,
+  cleanup errors, renderer rollback, and scheduler recovery. A failure writes
+  the seed, environment, operation prefix, expected model, observed state, and
+  replay data to the ignored `.askr-quality-traces/` directory; durable
+  seed/operation fixtures belong under `tests/quality-fixtures/`.
 - jsdom and browser flow suites cover hydration, navigation/resource races,
   mixed control boundaries, portals, and nested layout teardown. Use deferred
   promises or fake timers for scheduler/router/resource tests; real time is
-  reserved for browser integration behavior that requires it.
+  reserved for explicitly marked browser integration behavior that requires it.
+  The repository guideline scans every test file for unmarked real timers.
 - SSG tests cover route planning, parameter expansion, incremental cleanup,
   and failed generation behavior.
 
