@@ -22,6 +22,8 @@
   complexity budgets.
 - test(bench): add keyed movement-density and separate full-clear teardown
   diagnostics without changing movement thresholds or cleanup semantics.
+- test(bench): add a Chromium component-boundary keyed reorder diagnostic and
+  document browser authority for jsdom-only hotspot investigations.
 - fix(router): preserve shared layout identity and roll back multi-root route
   DOM, ownership, metadata, history, and URL publication as one transaction.
 - fix(ssg): publish full builds through staging/backup swap and incremental

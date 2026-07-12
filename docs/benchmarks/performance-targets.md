@@ -37,6 +37,12 @@ DOM key-map construction, range moves, and dense replacement separately before
 changing the movement strategy. Full-clear teardown is a separate diagnostic;
 do not combine its cleanup cost with append or reorder measurements.
 
+The component-boundary reorder diagnostic is
+`tier3-system-keyed-lis-component-boundary.tsx`. Use its Chromium result as
+the authority for the corresponding jsdom subsystem workload; do not tune the
+runtime from a jsdom-only hotspot when the browser workload is materially
+different.
+
 Every candidate must retain keyed DOM identity, lifecycle ownership, rollback
 behavior, and SSR/hydration semantics. A lower benchmark number is not an
 acceptable result if it weakens any of those contracts.
