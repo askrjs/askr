@@ -26,6 +26,9 @@ tests/checks/ - repository validation helpers
 3. Do not modify unrelated files.
 4. Keep docs aligned with behavior changes.
 5. Prefer ASCII unless a file already requires Unicode.
+6. Avoid new or restored `scripts/*` automation in this repository. Prefer real tests (`tests/checks`, `tests/unit`, `tests/jsdom`, `tests/browser`) for validation and guardrails, and encode behavior contracts in test assets instead of one-off scripts.
+7. Avoid introducing workflow steps that execute `node`/`tsx` script files as ad-hoc policy, release, or benchmarking gates; prefer existing npm scripts and test assertions.
+8. Keep workflows intentionally simple: prefer explicit, readable steps using existing scripts, and avoid complex inline bash orchestration unless it materially reduces risk or duplication.
 
 ## Required Validation
 
