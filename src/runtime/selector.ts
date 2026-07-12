@@ -24,8 +24,7 @@ import {
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
-const PERF_BUILD_ENABLED =
-  __ASKR_DEVELOPMENT_BUILD__ || __ASKR_BENCH_BUILD__;
+const PERF_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__ || __ASKR_BENCH_BUILD__;
 
 type PrimitiveKey =
   | string

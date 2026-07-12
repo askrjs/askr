@@ -91,6 +91,13 @@ the synchronous hydration mount and remains transactional. Keyed trees,
 components, reactive props, and any mismatch use the normal reconciliation
 path.
 
+When `hydrate.deferBelowFold` is enabled, each deferred marker owns a local
+hydration record. Revealing one boundary activates only that boundary inside a
+single lifecycle transaction; it does not rerun the application root. Refs,
+listeners, reactive bindings, and ownership are published at commit. A failed
+activation restores the marker and remains retryable, while root cleanup drops
+unrevealed records. Permanent `skipSelectors` remain skipped.
+
 ## Static Site Generation (SSG)
 
 SSG pre-renders Askr routes into `.html` files at build time.

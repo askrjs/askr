@@ -5,7 +5,6 @@ import {
   restoreDomCommitScope,
   type ChildScope,
   type ComponentFunction,
-  type ComponentInstance,
 } from '../runtime';
 import {
   createDetachedRange,
@@ -42,9 +41,7 @@ export type BoundaryRangeDOMHost = {
 
 let boundaryRangeHost: BoundaryRangeDOMHost | null = null;
 
-export function configureBoundaryRangeHost(
-  host: BoundaryRangeDOMHost
-): void {
+export function configureBoundaryRangeHost(host: BoundaryRangeDOMHost): void {
   boundaryRangeHost = host;
 }
 
@@ -113,9 +110,10 @@ export function materializeChildScopeRange(
   scope?: ChildScope,
   scopeAlreadyActive = false
 ): DOMRange {
-  const previousInstance = scope && !scopeAlreadyActive
-    ? enterDomCommitScope(scope.componentInstance)
-    : null;
+  const previousInstance =
+    scope && !scopeAlreadyActive
+      ? enterDomCommitScope(scope.componentInstance)
+      : null;
   let dom: Node | null;
   try {
     const host = getBoundaryRangeHost();
@@ -123,16 +121,23 @@ export function materializeChildScopeRange(
       scope?.blueprintOwner &&
       _isDOMElement(vnode) &&
       typeof vnode.type === 'string'
-        ? host.createResultNodeWithBlueprint(scope.blueprintOwner, vnode, parentNamespace)
+        ? host.createResultNodeWithBlueprint(
+            scope.blueprintOwner,
+            vnode,
+            parentNamespace
+          )
         : host.createDOMNode(vnode, parentNamespace);
   } finally {
     if (scope && !scopeAlreadyActive) restoreDomCommitScope(previousInstance);
   }
   if (!dom) return createEmptyRange(document, scope).range;
-  if (!(dom instanceof DocumentFragment)) return createSingleNodeRange(dom, scope);
+  if (!(dom instanceof DocumentFragment))
+    return createSingleNodeRange(dom, scope);
   return createDetachedRange(dom, scope).range;
 }
 
-export function getBoundaryParentNamespace(parent: Element): string | undefined {
+export function getBoundaryParentNamespace(
+  parent: Element
+): string | undefined {
   return getParentNamespace(parent);
 }

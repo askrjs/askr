@@ -234,10 +234,7 @@ function applyRefValue<T>(ref: unknown, value: T | null): void {
   }
 }
 
-function restoreRef(
-  element: Element,
-  snapshot: RetainedElementSnapshot
-): void {
+function restoreRef(element: Element, snapshot: RetainedElementSnapshot): void {
   const currentRef = elementRefs.get(element);
 
   if (currentRef !== snapshot.ref) {
@@ -362,16 +359,15 @@ function restoreDelegatedListeners(
     }
   }
 
-  for (const { eventName, handler, original, options } of snapshot.delegatedListeners) {
+  for (const {
+    eventName,
+    handler,
+    original,
+    options,
+  } of snapshot.delegatedListeners) {
     try {
       if (
-        !updateDelegatedListener(
-          element,
-          eventName,
-          handler,
-          original,
-          options
-        )
+        !updateDelegatedListener(element, eventName, handler, original, options)
       ) {
         addDelegatedListener(element, eventName, handler, original, options);
       }
@@ -431,7 +427,9 @@ function restoreReactiveProps(
         propName,
         (() => {
           try {
-            return entry.restoreFn?.(entry.fnRef) ?? cloneReactivePropEntry(entry);
+            return (
+              entry.restoreFn?.(entry.fnRef) ?? cloneReactivePropEntry(entry)
+            );
           } catch (error) {
             errors.push(error);
             return cloneReactivePropEntry(entry);
@@ -509,9 +507,7 @@ export function restoreRetainedElement(
     () => restoreRef(element, snapshot),
     () => restoreListeners(element, snapshot),
     () => restoreDelegatedListeners(element, snapshot),
-    ...(snapshot.domCaptured
-      ? [() => restoreKeyedMap(element, snapshot)]
-      : []),
+    ...(snapshot.domCaptured ? [() => restoreKeyedMap(element, snapshot)] : []),
   ];
   for (const phase of phases) {
     try {
@@ -541,11 +537,15 @@ export function runRetainedElementUpdate(
   let restored = false;
   if (batch && !existingSnapshot) {
     batch.retainedElementSnapshots.set(element, snapshot);
-    registerLifecycleTransaction(element, () => undefined, () => {
-      if (restored) return;
-      restored = true;
-      restoreRetainedElement(element, snapshot, cleanupRangeNode);
-    });
+    registerLifecycleTransaction(
+      element,
+      () => undefined,
+      () => {
+        if (restored) return;
+        restored = true;
+        restoreRetainedElement(element, snapshot, cleanupRangeNode);
+      }
+    );
   }
 
   try {

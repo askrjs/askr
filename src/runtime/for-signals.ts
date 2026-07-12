@@ -82,8 +82,7 @@ export function notifyForSignalReaders(
 
 export function createForIndexSignal(initialIndex: number): ForIndexSignal {
   function readIndexSignal(): number {
-    const signal = readIndexSignal as ForIndexSignal &
-      MutableForSignal<number>;
+    const signal = readIndexSignal as ForIndexSignal & MutableForSignal<number>;
     signal._hasBeenRead = true;
     recordReadableRead(signal);
     return signal._value;
@@ -281,8 +280,7 @@ export function createReactiveForItem<T>(item: T): ReactiveForItemState<T> {
     wholeItemRead: false,
     proxy: undefined as T,
   } satisfies ReactiveForItemState<T>;
-  target[REACTIVE_FOR_ITEM_STATE] =
-    state as ReactiveForItemState<unknown>;
+  target[REACTIVE_FOR_ITEM_STATE] = state as ReactiveForItemState<unknown>;
   state.proxy = new Proxy(target, REACTIVE_FOR_ITEM_PROXY_HANDLER) as T;
   return state;
 }
@@ -309,9 +307,7 @@ function getWholeItemSignal(
   return signal;
 }
 
-const REACTIVE_FOR_ITEM_PROXY_HANDLER: ProxyHandler<
-  ReactiveForItemTarget
-> = {
+const REACTIVE_FOR_ITEM_PROXY_HANDLER: ProxyHandler<ReactiveForItemTarget> = {
   get(target, prop, receiver) {
     if (prop !== REACTIVE_FOR_ITEM_STATE && prop in target) {
       return Reflect.get(target, prop, receiver);
@@ -352,10 +348,7 @@ const REACTIVE_FOR_ITEM_PROXY_HANDLER: ProxyHandler<
         itemSignal();
         return readForItemProperty(currentItem, prop);
       }
-      return getOrCreateForItemPropertySignal(
-        metadata,
-        prop
-      )();
+      return getOrCreateForItemPropertySignal(metadata, prop)();
     }
 
     metadata.wholeItemRead = true;

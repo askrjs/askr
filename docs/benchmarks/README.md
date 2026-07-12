@@ -61,3 +61,7 @@ identical. Report total duration, measured script time, and paint time as
 separate columns; a faster script phase does not imply a faster end-to-end row.
 Hydration/adoption and deferred activation are separate phases and must not be
 collapsed into one root-wide timing.
+
+The keyed movement-density diagnostic sweeps 10%, 25%, 50%, 75%, and 100%
+movement on a 2,000-row table. Full append/clear teardown is reported
+separately so cleanup cost does not get misattributed to the reorder path.

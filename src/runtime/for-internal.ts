@@ -354,7 +354,10 @@ function finalizeForStateRemovals<T>(transaction: ForTransaction<T>): void {
       }
     }
     if (removedRange && !removedRange.single) {
-      for (let node = removedRange.start.nextSibling; node && node !== removedRange.end; ) {
+      for (
+        let node = removedRange.start.nextSibling;
+        node && node !== removedRange.end;
+      ) {
         const next = node.nextSibling;
         if (typeof Element !== 'undefined' && node instanceof Element) {
           try {

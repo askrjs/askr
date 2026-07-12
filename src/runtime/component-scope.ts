@@ -168,9 +168,7 @@ export function enterRenderScopedComponent(
   currentInstance = instance;
   currentPortalScope =
     instance.portalScope ??
-    (savedScope
-      ? savedScope.portalScope
-      : outerRenderScopedPortalScope);
+    (savedScope ? savedScope.portalScope : outerRenderScopedPortalScope);
   stateIndex = startStateIndex;
   return savedScope;
 }

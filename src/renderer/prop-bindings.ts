@@ -69,8 +69,7 @@ function addTrackedListener(
     stageHydrationListener({
       kind: useDelegation ? 'delegated' : 'direct',
       eventName,
-      publish: () =>
-        addTrackedListener(el, eventName, handler, capture, fresh),
+      publish: () => addTrackedListener(el, eventName, handler, capture, fresh),
       rollback: () => removeTrackedListener(el, eventName, capture),
     })
   ) {
@@ -79,13 +78,7 @@ function addTrackedListener(
 
   if (useDelegation) {
     if (fresh) {
-      addFreshDelegatedListener(
-        el,
-        eventName,
-        handler,
-        handler,
-        undefined
-      );
+      addFreshDelegatedListener(el, eventName, handler, handler, undefined);
     } else {
       addDelegatedListener(el, eventName, handler, handler, undefined);
     }

@@ -1,7 +1,7 @@
 import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
 import type { ComponentInstance } from './component-internal';
-import type { LifecycleOperation } from './component-lifecycle';
+import type { LifecycleOperation } from './lifecycle-batch';
 
 function settleLifecycleOperationResult(
   instance: ComponentInstance,

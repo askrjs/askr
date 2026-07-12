@@ -18,14 +18,13 @@ import type { InstanceHostElement } from './dom-host';
 
 export function cleanupDetachedComponentHost(
   host: InstanceHostElement,
-  retainedInstance:
-    | ComponentInstance
-    | Iterable<ComponentInstance>
+  retainedInstance: ComponentInstance | Iterable<ComponentInstance>
 ): void {
   const retainedInstances =
     retainedInstance instanceof Object &&
-    typeof (retainedInstance as Iterable<ComponentInstance>)[Symbol.iterator] ===
-      'function'
+    typeof (retainedInstance as Iterable<ComponentInstance>)[
+      Symbol.iterator
+    ] === 'function'
       ? new Set(retainedInstance as Iterable<ComponentInstance>)
       : new Set([retainedInstance as ComponentInstance]);
   const cleanupErrors: unknown[] = [];

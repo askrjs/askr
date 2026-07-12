@@ -241,10 +241,7 @@ function commitEffectSubscriptions(
   const previousSources = effect.readSources;
   const previousSource2 = effect.readSource2;
 
-  if (
-    previousSources === nextSources &&
-    previousSource2 === nextSource2
-  ) {
+  if (previousSources === nextSources && previousSource2 === nextSource2) {
     return;
   }
 

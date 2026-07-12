@@ -24,6 +24,9 @@ durable test family that observes it.
   singleton access, server/browser separation, lifecycle ownership, and the
   reconciliation commit boundary. Its dependency matrix follows value imports,
   type-only imports, re-exports, and literal dynamic imports.
+  It also enforces the renderer extraction budgets: targeted original modules
+  must shrink by at least 35%, extracted implementations stay below 400 lines,
+  and the extracted seams remain outside the public type snapshot.
 - `tests/checks/public-api-snapshot.test.ts` compares the emitted declaration
   exports for every package subpath with `public-api.snapshot.json`. After an
   intentional public API change, rebuild and run
@@ -42,6 +45,11 @@ durable test family that observes it.
   promises or fake timers for scheduler/router/resource tests; real time is
   reserved for explicitly marked browser integration behavior that requires it.
   The repository guideline scans every test file for unmarked real timers.
+  The interaction regression explicitly focuses the settings control before
+  sending `Tab`: WebKit's test driver can leave focus on the search input after
+  `locator.click()` even though raw WebKit preserves the static fixture's
+  focus behavior. This is a test-driver compatibility guard, not a runtime
+  focus change.
 - SSG tests cover route planning, parameter expansion, incremental cleanup,
   and failed generation behavior.
 

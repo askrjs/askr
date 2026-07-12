@@ -22,10 +22,7 @@ function createListenerRoutes() {
         <div class="listener-heavy-root">
           <section class="listener-buttons">
             {Array.from({ length: 250 }, (_, index) => (
-              <button
-                id={`listener-button-${index}`}
-                onClick={() => undefined}
-              >
+              <button id={`listener-button-${index}`} onClick={() => undefined}>
                 Button {index}
               </button>
             ))}

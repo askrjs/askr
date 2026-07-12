@@ -30,6 +30,13 @@ After a clean baseline exists, profile these paths before changing code:
 3. Keyed movement density crossover in Chromium.
 4. Development-only hydration verification.
 
+The movement-density diagnostic is
+`tier3-system-table-keyed-movement-density.tsx`; it compares 10%, 25%, 50%,
+75%, and 100% keyed movement in the same 2,000-row table. Profile LIS work,
+DOM key-map construction, range moves, and dense replacement separately before
+changing the movement strategy. Full-clear teardown is a separate diagnostic;
+do not combine its cleanup cost with append or reorder measurements.
+
 Every candidate must retain keyed DOM identity, lifecycle ownership, rollback
 behavior, and SSR/hydration semantics. A lower benchmark number is not an
 acceptable result if it weakens any of those contracts.
@@ -40,15 +47,20 @@ The IDs below are the stable comparison surface. Their workload labels and
 source files are validated by `npm run test:bench-contract`; do not compare a
 renamed workload as if it were the same row.
 
-| ID | Tier | Workload |
-| --- | --- | --- |
-| `tier1.router.longest-match` | tier1 | resolve the most specific route from a 512-route dense table |
-| `tier1.router.literal-match` | tier1 | match literal route segments |
-| `tier1.for.keyed-reorder` | tier1 | swap distant keyed rows while preserving DOM identity |
-| `tier2.router.navigation` | tier2 | navigate between sibling routes with shared layout shape |
-| `tier2.ssr.layout-route` | tier2 | render a nested layout route with params query and hash |
-| `tier3.table.partial-update` | tier3 | update every 10th row in a 1,000-row table |
-| `tier3.table.swap-rows` | tier3 | swap two distant rows in a 1,000-row table |
-| `tier3.hydration.listener-adoption` | tier3 | hydrate a listener-heavy intrinsic SSR tree in Chromium |
-| `tier4.routing.shell-retention` | tier4 | navigate routed shell layouts in the integration app |
-| `tier4.ssr.attr-heavy` | tier4 | render 400 attr-heavy nodes with escaped attributes |
+| ID                                  | Tier  | Workload                                                     |
+| ----------------------------------- | ----- | ------------------------------------------------------------ |
+| `tier1.router.longest-match`        | tier1 | resolve the most specific route from a 512-route dense table |
+| `tier1.router.literal-match`        | tier1 | match literal route segments                                 |
+| `tier1.for.keyed-reorder`           | tier1 | swap distant keyed rows while preserving DOM identity        |
+| `tier2.router.navigation`           | tier2 | navigate between sibling routes with shared layout shape     |
+| `tier2.ssr.layout-route`            | tier2 | render a nested layout route with params query and hash      |
+| `tier3.table.partial-update`        | tier3 | update every 10th row in a 1,000-row table                   |
+| `tier3.table.swap-rows`             | tier3 | swap two distant rows in a 1,000-row table                   |
+| `tier3.hydration.listener-adoption` | tier3 | hydrate a listener-heavy intrinsic SSR tree in Chromium      |
+| `tier4.routing.shell-retention`     | tier4 | navigate routed shell layouts in the integration app         |
+| `tier4.ssr.attr-heavy`              | tier4 | render 400 attr-heavy nodes with escaped attributes          |
+
+Movement thresholds and teardown traversal changes require at least 5%
+improvement across three same-host captures, with touched guardrails within 5%
+of their baseline. Until that evidence exists, the current sparse/interleaved
+move path and exactly-once cleanup traversal remain the reference behavior.

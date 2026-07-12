@@ -89,9 +89,7 @@ for (const file of await collectFiles(benchesRoot)) {
 
 try {
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
-  const workloads = Array.isArray(manifest.workloads)
-    ? manifest.workloads
-    : [];
+  const workloads = Array.isArray(manifest.workloads) ? manifest.workloads : [];
   const guardrails = Array.isArray(manifest.guardrails)
     ? manifest.guardrails
     : [];
@@ -110,7 +108,9 @@ try {
       typeof workload.name !== 'string' ||
       typeof workload.file !== 'string'
     ) {
-      failures.push('Every benchmark guardrail workload needs id, tier, name, and file.');
+      failures.push(
+        'Every benchmark guardrail workload needs id, tier, name, and file.'
+      );
       continue;
     }
     if (workloadIds.has(workload.id)) {
@@ -122,40 +122,56 @@ try {
     const absoluteFile = path.join(process.cwd(), workload.file);
     const names = benchDeclarations.get(absoluteFile);
     if (!names) {
-      failures.push(`${workload.id} does not point to a runnable benchmark file: ${workload.file}`);
+      failures.push(
+        `${workload.id} does not point to a runnable benchmark file: ${workload.file}`
+      );
       continue;
     }
     if (!workload.file.includes(`/${workload.tier}/`)) {
-      failures.push(`${workload.id} tier ${workload.tier} does not match ${workload.file}`);
+      failures.push(
+        `${workload.id} tier ${workload.tier} does not match ${workload.file}`
+      );
     }
     if (!names.has(workload.name)) {
-      failures.push(`${workload.id} is not declared by ${workload.file}: ${workload.name}`);
+      failures.push(
+        `${workload.id} is not declared by ${workload.file}: ${workload.name}`
+      );
     }
   }
 
   for (const id of guardrails) {
     if (typeof id !== 'string' || !workloadById.has(id)) {
-      failures.push(`Documented benchmark guardrail is missing from workloads: ${String(id)}`);
+      failures.push(
+        `Documented benchmark guardrail is missing from workloads: ${String(id)}`
+      );
     }
   }
 
   const targetsDoc = await fs.readFile(targetsDocPath, 'utf8');
   const documentedIds = new Set();
-  for (const match of targetsDoc.matchAll(/\|\s*`(tier[1-4]\.[a-z0-9.-]+)`\s*\|/g)) {
+  for (const match of targetsDoc.matchAll(
+    /\|\s*`(tier[1-4]\.[a-z0-9.-]+)`\s*\|/g
+  )) {
     documentedIds.add(match[1]);
   }
   for (const id of documentedIds) {
     if (!workloadById.has(id)) {
-      failures.push(`Documentation names a benchmark guardrail absent from the manifest: ${id}`);
+      failures.push(
+        `Documentation names a benchmark guardrail absent from the manifest: ${id}`
+      );
     }
   }
   for (const id of guardrails) {
     if (!documentedIds.has(id)) {
-      failures.push(`Manifest guardrail is not documented in performance-targets.md: ${id}`);
+      failures.push(
+        `Manifest guardrail is not documented in performance-targets.md: ${id}`
+      );
     }
   }
 } catch (error) {
-  failures.push(`Unable to validate benchmarks/guardrails.json: ${error instanceof Error ? error.message : String(error)}`);
+  failures.push(
+    `Unable to validate benchmarks/guardrails.json: ${error instanceof Error ? error.message : String(error)}`
+  );
 }
 
 if (failures.length > 0) {

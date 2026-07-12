@@ -5,7 +5,14 @@
  * AbortController signal cancellation during navigation
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
 import { getRoutes, route } from '../../../src/router/route';

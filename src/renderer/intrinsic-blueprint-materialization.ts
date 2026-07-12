@@ -81,7 +81,14 @@ export function prepareElementBlueprint(
       const textNode = element.firstChild;
       if (compute) {
         bindings.push(
-          new BlueprintBinding('text', element, compute, null, null, textNode as Text)
+          new BlueprintBinding(
+            'text',
+            element,
+            compute,
+            null,
+            null,
+            textNode as Text
+          )
         );
         return true;
       }
@@ -98,7 +105,9 @@ export function prepareElementBlueprint(
 
   if (
     shape.children.slots.length === 0 &&
-    (children === null || children === undefined || typeof children === 'boolean')
+    (children === null ||
+      children === undefined ||
+      typeof children === 'boolean')
   ) {
     return true;
   }
@@ -203,7 +212,10 @@ function publishPreparedBlueprint(
     const element = deferred[index + 1] as Element;
     const value = deferred[index + 2];
     if (operation === BLUEPRINT_PUBLISH_BINDINGS) {
-      publishPreparedBlueprintBindings(element, value as Record<string, unknown>);
+      publishPreparedBlueprintBindings(
+        element,
+        value as Record<string, unknown>
+      );
     } else if (!syncPreparedBlueprintChild(element, value, host)) {
       throw new Error('[askr] Component blueprint reactive shape changed.');
     }
@@ -218,7 +230,15 @@ export function instantiateBlueprint(
   const element = blueprint.template.cloneNode(true) as Element;
   const bindings: BlueprintBinding[] = [];
   const deferred: unknown[] = [];
-  if (!prepareElementBlueprint(element, vnode, blueprint.shape, bindings, deferred)) {
+  if (
+    !prepareElementBlueprint(
+      element,
+      vnode,
+      blueprint.shape,
+      bindings,
+      deferred
+    )
+  ) {
     return null;
   }
 

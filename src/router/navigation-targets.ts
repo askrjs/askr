@@ -1,10 +1,7 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
 import type { RouteRenderResult, RouteRequestResult } from '../common/router';
-import {
-  DefaultPortal,
-  clearDefaultPortalForInstance,
-} from '../runtime';
+import { DefaultPortal, clearDefaultPortalForInstance } from '../runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import { logger } from '../common/logger';
 import {
@@ -339,9 +336,8 @@ function collectHostInstances(root: Element): ComponentInstance[] {
         instances.push(host.__ASKR_INSTANCE);
       }
     } else {
-      const instance = (
-        node as Node & { __ASKR_INSTANCE?: ComponentInstance }
-      ).__ASKR_INSTANCE;
+      const instance = (node as Node & { __ASKR_INSTANCE?: ComponentInstance })
+        .__ASKR_INSTANCE;
       if (instance && !seen.has(instance)) {
         seen.add(instance);
         instances.push(instance);
@@ -387,7 +383,9 @@ function captureDeferredRouteCleanup(
     previousPendingReadSources: instance._pendingReadSources,
     previousPendingReadSourceVersions: instance._pendingReadSourceVersions,
     previousLastReadSources: instance._lastReadSources,
-    previousInstances: instance.target ? collectHostInstances(instance.target) : [],
+    previousInstances: instance.target
+      ? collectHostInstances(instance.target)
+      : [],
   };
 }
 
@@ -1032,7 +1030,10 @@ export function applyPopStateNavigationTargets(
       window.history.replaceState(previousState, '', previousHref);
       syncRegisteredRouteSnapshot();
     } catch (rollbackError) {
-      logger.error('[Askr] failed to restore URL after popstate failure:', rollbackError);
+      logger.error(
+        '[Askr] failed to restore URL after popstate failure:',
+        rollbackError
+      );
     }
     throw error;
   }

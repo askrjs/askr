@@ -155,7 +155,9 @@ function createTrace(seed: number): QualityOperation[] {
   const operations = [...REQUIRED_TRACE_OPERATIONS];
   const randomOperationCount = 24;
   for (let index = 0; index < randomOperationCount; index += 1) {
-    operations.push(RANDOM_TRACE_OPERATIONS[next() % RANDOM_TRACE_OPERATIONS.length]!);
+    operations.push(
+      RANDOM_TRACE_OPERATIONS[next() % RANDOM_TRACE_OPERATIONS.length]!
+    );
   }
   return operations;
 }
@@ -181,11 +183,14 @@ function observeQualityState(
       container.querySelectorAll<HTMLElement>('[data-quality-row]'),
       (node) => Number(node.dataset.qualityRow)
     ),
-    showBranch: container.querySelector('[data-quality-show]')?.textContent ?? null,
-    caseBranch: container.querySelector('[data-quality-case]')?.textContent ?? null,
+    showBranch:
+      container.querySelector('[data-quality-show]')?.textContent ?? null,
+    caseBranch:
+      container.querySelector('[data-quality-case]')?.textContent ?? null,
     tracked: container.querySelector('[data-quality-tracked]') !== null,
     portal: container.querySelector('[data-quality-portal]') !== null,
-    resource: container.querySelector('[data-quality-resource]')?.textContent ?? null,
+    resource:
+      container.querySelector('[data-quality-resource]')?.textContent ?? null,
     route: navigationContainer.textContent ?? '',
     scheduler: getSchedulerState(),
   };
@@ -206,7 +211,8 @@ function writeQualityTrace(
     environment: {
       node: process.version,
       platform: process.platform,
-      userAgent: typeof navigator === 'undefined' ? 'node' : navigator.userAgent,
+      userAgent:
+        typeof navigator === 'undefined' ? 'node' : navigator.userAgent,
     },
     operations,
     executedOperations,
@@ -310,7 +316,11 @@ describe('lifecycle sequence invariants', () => {
               </Show>
             </section>
             <section data-quality-case-host>
-              <Case fallback={<p data-quality-case={'fallback'}>{'case-fallback'}</p>}>
+              <Case
+                fallback={
+                  <p data-quality-case={'fallback'}>{'case-fallback'}</p>
+                }
+              >
                 <Match when={mode() === 'a'} key={'a'}>
                   {() => (
                     <>
@@ -349,7 +359,7 @@ describe('lifecycle sequence invariants', () => {
             <output data-quality-resource>
               {currentResource.error
                 ? 'error'
-                : currentResource.value ?? 'pending'}
+                : (currentResource.value ?? 'pending')}
             </output>
           </main>
         );
@@ -371,8 +381,12 @@ describe('lifecycle sequence invariants', () => {
         route('/quality/a', () => <QualityApp />);
       });
       const navigationRegistry = createRouteRegistry(() => {
-        route('/quality/a', () => <div data-quality-route={'a'}>{'route-a'}</div>);
-        route('/quality/b', () => <div data-quality-route={'b'}>{'route-b'}</div>);
+        route('/quality/a', () => (
+          <div data-quality-route={'a'}>{'route-a'}</div>
+        ));
+        route('/quality/b', () => (
+          <div data-quality-route={'b'}>{'route-b'}</div>
+        ));
         route(
           '/quality/slow',
           () => <div data-quality-route={'slow'}>{'route-slow'}</div>,
@@ -391,7 +405,9 @@ describe('lifecycle sequence invariants', () => {
       });
       flushScheduler();
 
-      const runOperation = async (operation: QualityOperation): Promise<void> => {
+      const runOperation = async (
+        operation: QualityOperation
+      ): Promise<void> => {
         switch (operation) {
           case 'mount-update-dispose': {
             mounted.set(!mounted());
@@ -416,9 +432,10 @@ describe('lifecycle sequence invariants', () => {
             break;
           }
           case 'keyed-reorder': {
-            const nextRows = model.rows.length === 3
-              ? [model.rows[2]!, model.rows[0]!, model.rows[1]!]
-              : [1, 2, 3];
+            const nextRows =
+              model.rows.length === 3
+                ? [model.rows[2]!, model.rows[0]!, model.rows[1]!]
+                : [1, 2, 3];
             const next = nextRows.map((id) => ({ id, label: `row-${id}` }));
             rows.set(next);
             model.rows = nextRows;
@@ -445,7 +462,9 @@ describe('lifecycle sequence invariants', () => {
           }
           case 'popstate': {
             window.history.pushState({ path: '/quality/a' }, '', '/quality/a');
-            window.dispatchEvent(new PopStateEvent('popstate', { state: { path: '/quality/a' } }));
+            window.dispatchEvent(
+              new PopStateEvent('popstate', { state: { path: '/quality/a' } })
+            );
             model.route = '/quality/a';
             flushScheduler();
             expect(window.location.pathname).toBe('/quality/a');
@@ -459,18 +478,24 @@ describe('lifecycle sequence invariants', () => {
             await Promise.resolve();
             await Promise.resolve();
             flushScheduler();
-            expect(container.querySelector('[data-quality-resource]')?.textContent).toContain('ready');
+            expect(
+              container.querySelector('[data-quality-resource]')?.textContent
+            ).toContain('ready');
             break;
           }
           case 'resource-reject': {
             const nextEpoch = resourceEpoch() + 1;
             resourceEpoch.set(nextEpoch);
             flushScheduler();
-            getResourceDeferred(nextEpoch).reject(new Error(`reject-${nextEpoch}`));
+            getResourceDeferred(nextEpoch).reject(
+              new Error(`reject-${nextEpoch}`)
+            );
             await Promise.resolve();
             await Promise.resolve();
             flushScheduler();
-            expect(container.querySelector('[data-quality-resource]')?.textContent).toBe('error');
+            expect(
+              container.querySelector('[data-quality-resource]')?.textContent
+            ).toBe('error');
             break;
           }
           case 'resource-abort': {
@@ -485,11 +510,18 @@ describe('lifecycle sequence invariants', () => {
             portalVisible.set(!portalVisible());
             model.portal = !model.portal;
             flushScheduler();
-            expect(container.querySelector('[data-quality-portal]') !== null).toBe(model.portal);
+            expect(
+              container.querySelector('[data-quality-portal]') !== null
+            ).toBe(model.portal);
             break;
           }
           case 'cleanup-failure': {
-            const instance = createComponentInstance('quality-cleanup', () => null, {}, null);
+            const instance = createComponentInstance(
+              'quality-cleanup',
+              () => null,
+              {},
+              null
+            );
             instance.cleanupStrict = true;
             instance.cleanupFns.push(() => {
               throw new Error('quality cleanup failure');
@@ -515,7 +547,9 @@ describe('lifecycle sequence invariants', () => {
             expect(() => flushScheduler()).toThrow(/quality branch failure/);
             branchFailure.set(false);
             flushScheduler();
-            expect(container.querySelector('[data-quality-show="start"]')).not.toBeNull();
+            expect(
+              container.querySelector('[data-quality-show="start"]')
+            ).not.toBeNull();
             break;
           }
           case 'scheduler-failure-reschedule': {
@@ -524,7 +558,9 @@ describe('lifecycle sequence invariants', () => {
               failed = true;
               throw new Error('quality scheduler lane failure');
             });
-            expect(() => flushScheduler()).toThrow(/quality scheduler lane failure/);
+            expect(() => flushScheduler()).toThrow(
+              /quality scheduler lane failure/
+            );
             expect(failed).toBe(true);
             let rescheduled = false;
             enqueueRuntimeLane('post', () => {
@@ -539,7 +575,11 @@ describe('lifecycle sequence invariants', () => {
       };
 
       try {
-        for (operationIndex = 0; operationIndex < operations.length; operationIndex += 1) {
+        for (
+          operationIndex = 0;
+          operationIndex < operations.length;
+          operationIndex += 1
+        ) {
           await runOperation(operations[operationIndex]!);
         }
         expectSchedulerQuiescent();

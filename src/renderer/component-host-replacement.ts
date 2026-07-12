@@ -5,9 +5,7 @@ import {
   registerLifecycleTransaction,
 } from '../runtime';
 import { elementRefs, removeElementRef, updateElementRef } from './cleanup';
-import {
-  cleanupDetachedComponentHost,
-} from './component-host-cleanup';
+import { cleanupDetachedComponentHost } from './component-host-cleanup';
 import type { InstanceHostElement } from './dom-host';
 import { restoreVNodeComponentInstance } from './component-host-instances';
 

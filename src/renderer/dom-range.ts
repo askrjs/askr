@@ -17,7 +17,9 @@ function normalizeNodes(node: Node | DocumentFragment | null): Node[] {
     return [];
   }
 
-  return node instanceof DocumentFragment ? Array.from(node.childNodes) : [node];
+  return node instanceof DocumentFragment
+    ? Array.from(node.childNodes)
+    : [node];
 }
 
 export function getRangeNodes(range: DOMRange): Node[] {
@@ -95,10 +97,7 @@ export function createEmptyRange(
   ownerDocument: Document = document,
   owner?: object
 ): { range: DOMRange; fragment: DocumentFragment | null } {
-  return createDetachedRange(
-    ownerDocument.createDocumentFragment(),
-    owner
-  );
+  return createDetachedRange(ownerDocument.createDocumentFragment(), owner);
 }
 
 export function registerRange(range: DOMRange, owner?: object): void {
@@ -203,7 +202,8 @@ export function forEachRangeNode(
 
 export function removeRange(
   range: DOMRange,
-  removeNode: (node: Node) => void = (node) => node.parentNode?.removeChild(node)
+  removeNode: (node: Node) => void = (node) =>
+    node.parentNode?.removeChild(node)
 ): void {
   if (range.single) {
     removeNode(range.start);
@@ -260,7 +260,11 @@ export function isRangeEnd(node: Node): boolean {
 export function findRangeEnd(start: Node): Node | null {
   if (!isRangeStart(start)) return null;
   let depth = 0;
-  for (let current: Node | null = start; current; current = current.nextSibling) {
+  for (
+    let current: Node | null = start;
+    current;
+    current = current.nextSibling
+  ) {
     if (isRangeStart(current)) depth++;
     if (isRangeEnd(current)) {
       depth--;
@@ -276,7 +280,11 @@ export function findRangeAtNode(node: Node): DOMRange | null {
     return getOwnedRange(owner) ?? null;
   }
 
-  for (let current: Node | null = node; current; current = current.previousSibling) {
+  for (
+    let current: Node | null = node;
+    current;
+    current = current.previousSibling
+  ) {
     if (!isRangeStart(current)) continue;
     const end = findRangeEnd(current);
     if (end && rangeContains({ start: current, end, single: false }, node)) {

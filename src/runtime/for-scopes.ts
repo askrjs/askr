@@ -96,7 +96,8 @@ export function captureForItemTransactionSnapshot<T>(
 
   const itemSnapshots = (transaction.itemSnapshots ??= new Map());
 
-  const propertySignals = itemInstance.reactiveItemState?.propertySignals ?? null;
+  const propertySignals =
+    itemInstance.reactiveItemState?.propertySignals ?? null;
   const itemSignal = itemInstance.reactiveItemState?.itemSignal ?? null;
   const propertySnapshots: ForItemTransactionSnapshot<T>['propertySignals'] =
     propertySignals && propertySignals.size > 0
@@ -568,10 +569,7 @@ export function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
     forState.fallbackScope ??
     createForOwnedChildScope(forState, FOR_FALLBACK_SCOPE_KEY);
   if (!forState.fallbackScope) {
-    forStatesByScope.set(
-      fallbackScope,
-      forState as ForState<unknown>
-    );
+    forStatesByScope.set(fallbackScope, forState as ForState<unknown>);
   }
   forState.fallbackScope = fallbackScope;
 

@@ -18,8 +18,7 @@ declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
-const PERF_BUILD_ENABLED =
-  DEVELOPMENT_BUILD_ENABLED || __ASKR_BENCH_BUILD__;
+const PERF_BUILD_ENABLED = DEVELOPMENT_BUILD_ENABLED || __ASKR_BENCH_BUILD__;
 
 export interface DelegatedEventMap {
   click: MouseEvent;
@@ -203,9 +202,10 @@ function attachDelegatedListener(
   fresh = false
 ): void {
   const existingStore = fresh ? undefined : getDelegatedHandlerStore(element);
-  const hadHandler = existingStore instanceof Map
-    ? existingStore.has(eventName)
-    : existingStore?.eventName === eventName;
+  const hadHandler =
+    existingStore instanceof Map
+      ? existingStore.has(eventName)
+      : existingStore?.eventName === eventName;
 
   let containerListeners = containerDelegatedListeners.get(container);
   if (!containerListeners) {

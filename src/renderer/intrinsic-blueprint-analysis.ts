@@ -74,9 +74,7 @@ export function cacheBlueprint(
 }
 
 export function isBlueprintKeyProp(key: string): boolean {
-  return (
-    key === 'key' || key === 'data-key' || key === 'data-askr-key-kind'
-  );
+  return key === 'key' || key === 'data-key' || key === 'data-askr-key-kind';
 }
 
 function classifyProp(value: unknown, key: string): BlueprintPropShape | null {
@@ -255,9 +253,13 @@ export function matchPropShape(
     case 'ref':
       return key === 'ref';
     case 'event':
-      return key.startsWith('on') && key.length > 2 && typeof value === 'function';
+      return (
+        key.startsWith('on') && key.length > 2 && typeof value === 'function'
+      );
     case 'reactive':
-      return !(key.startsWith('on') && key.length > 2) && typeof value === 'function';
+      return (
+        !(key.startsWith('on') && key.length > 2) && typeof value === 'function'
+      );
     case 'empty':
       return value === undefined || value === null || value === false;
     case 'static':
@@ -278,10 +280,12 @@ export function matchReactiveSlots(
     }
     return index;
   }
-  if (value === null || value === undefined || value === false) return startIndex;
+  if (value === null || value === undefined || value === false)
+    return startIndex;
   const slot = slots[startIndex];
   if (!slot) return -1;
-  if (typeof value === 'function') return slot.kind === 'dynamic' ? startIndex + 1 : -1;
+  if (typeof value === 'function')
+    return slot.kind === 'dynamic' ? startIndex + 1 : -1;
   if (typeof value === 'string' || typeof value === 'number') {
     return slot.kind === 'static' && slot.value === String(value)
       ? startIndex + 1
