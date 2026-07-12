@@ -1,5 +1,6 @@
 import { materializeFreshKey } from './attributes';
 import { isFragmentVNode } from './child-shape';
+import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime';
 import {
   getDirectReactiveCompute,
   getVNodeChildren,
@@ -245,6 +246,16 @@ export function instantiateBlueprint(
   try {
     publishPreparedBlueprint(deferred, host);
     mountBlueprintBindingGroup(bindings, host);
+    if (isBenchMetricScopeActive('coldCreate')) {
+      recordBenchCounter('domNodesCreated', blueprint.elementCount);
+      recordBenchCounter(
+        'reactivePropsMounted',
+        bindings.reduce(
+          (count, binding) => count + (binding.kind === 'prop' ? 1 : 0),
+          0
+        )
+      );
+    }
     return element;
   } catch (error) {
     try {
