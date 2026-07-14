@@ -49,6 +49,7 @@ import type {
 import { withIntrinsicHydrationAdoption } from '../renderer';
 import { hydrateDataRuntime } from '../data/query-registry';
 import { getDefaultDataRuntime } from '../data/data-runtime';
+import { resolveRootElement } from './root-element';
 
 export { cleanupApp, hasApp } from './root-lifecycle';
 export type {
@@ -70,10 +71,7 @@ export function createIsland(config: IslandConfig): void {
     throw new Error('createIsland: component must be a function');
   }
 
-  const rootElement =
-    typeof config.root === 'string'
-      ? document.getElementById(config.root)
-      : config.root;
+  const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
   // Islands must not initialize router or routes
@@ -147,10 +145,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     );
   }
 
-  const rootElement =
-    typeof config.root === 'string'
-      ? document.getElementById(config.root)
-      : config.root;
+  const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
   const pendingLazyAtBoot = [
@@ -256,10 +251,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     );
   }
 
-  const rootElement =
-    typeof config.root === 'string'
-      ? document.getElementById(config.root)
-      : config.root;
+  const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
   const hydrationRenderData = takeHydrationRenderData(rootElement);
   const hydrationQueryCache = hydrationRenderData && typeof hydrationRenderData === 'object'
@@ -268,8 +260,13 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   if (hydrationQueryCache) {
     hydrateDataRuntime(config.dataRuntime ?? getDefaultDataRuntime(), hydrationQueryCache);
   }
-  const hydrationRenderDataForApp = hydrationRenderData && typeof hydrationRenderData === 'object' && '__askr_query_cache' in hydrationRenderData
-    ? Object.fromEntries(Object.entries(hydrationRenderData).filter(([key]) => key !== '__askr_query_cache'))
+  const hydrationRenderDataEntries = hydrationRenderData && typeof hydrationRenderData === 'object' && '__askr_query_cache' in hydrationRenderData
+    ? Object.entries(hydrationRenderData).filter(([key]) => key !== '__askr_query_cache')
+    : null;
+  const hydrationRenderDataForApp = hydrationRenderDataEntries
+    ? hydrationRenderDataEntries.length > 0
+      ? Object.fromEntries(hydrationRenderDataEntries)
+      : null
     : hydrationRenderData;
 
   const pendingLazyAtHydrationBoot = [
@@ -349,6 +346,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         resolved: hydrationResolved,
         options: {
           data: hydrationRenderDataForApp ?? undefined,
+          dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
         },
       })
     ) {

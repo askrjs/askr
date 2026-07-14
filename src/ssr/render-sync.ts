@@ -4,6 +4,7 @@ import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { Fragment } from '../jsx';
 import { logger } from '../common/logger';
+import { getVNodeContextFrame } from '../runtime';
 import {
   createRenderContext,
   withRenderContext,
@@ -267,7 +268,12 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   }
 
   if (typeof type === 'function') {
-    const result = executeComponentSync(type as Component, props, ctx);
+    const result = executeComponentSync(
+      type as Component,
+      props,
+      ctx,
+      getVNodeContextFrame(node) ?? null
+    );
     return renderRenderableSync(inheritRenderableKey(node, result), ctx);
   }
 
@@ -357,7 +363,12 @@ function renderNodeSyncToSink(
   const { type, props } = node;
 
   if (typeof type === 'function') {
-    const result = executeComponentSync(type as Component, props, ctx);
+    const result = executeComponentSync(
+      type as Component,
+      props,
+      ctx,
+      getVNodeContextFrame(node) ?? null
+    );
     renderRenderableSyncToSink(inheritRenderableKey(node, result), sink, ctx);
     return;
   }

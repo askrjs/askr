@@ -8,13 +8,17 @@ import type { ComponentFunction } from '../common/component';
 import { isPromiseLike } from '../common/promise';
 import { Fragment, ELEMENT_TYPE } from '../jsx';
 import {
+  callWithContext,
   cleanupComponent,
   createComponentInstance,
   DefaultPortal,
   disposeDefaultPortalScope,
+  getExecutionContextFrame,
   getCurrentComponentInstance,
+  markVNodeTreeWithContextFrame,
   setCurrentComponentInstance,
 } from '../runtime';
+import type { ContextFrame } from '../runtime';
 import { throwSSRDataMissing, type RenderContext } from './context';
 import type { SSRComponent, VNode } from './types';
 
@@ -54,7 +58,8 @@ function popSSRStrictPurityGuard() {
 export function executeComponentSync(
   component: Component,
   props: Record<string, unknown> | undefined,
-  ctx: RenderContext
+  ctx: RenderContext,
+  ownerFrame: ContextFrame | null = null
 ): VNode | JSXElement {
   try {
     if (process.env.NODE_ENV !== 'production') {
@@ -68,6 +73,7 @@ export function executeComponentSync(
       null
     );
     temp.ssr = true;
+    temp.ownerFrame = ownerFrame;
     temp.portalScope = temp;
     ctx.ssrCleanupFns.push(() => {
       let cleanupError: unknown = null;
@@ -96,7 +102,13 @@ export function executeComponentSync(
     });
     setCurrentComponentInstance(temp);
     try {
-      const result = component((props || {}) as Props, { ssr: ctx });
+      const executionFrame = getExecutionContextFrame(ownerFrame);
+      const result = callWithContext(
+        executionFrame,
+        component,
+        (props || {}) as Props,
+        { ssr: ctx }
+      );
       if (isPromiseLike(result)) {
         throwSSRDataMissing();
       }
@@ -117,7 +129,10 @@ export function executeComponentSync(
           props: { children: inner ? [inner] : [] },
         } as unknown as VNode | JSXElement;
       }
-      return result as VNode | JSXElement;
+      return markVNodeTreeWithContextFrame(
+        result,
+        ownerFrame
+      ) as VNode | JSXElement;
     } finally {
       setCurrentComponentInstance(prev);
     }

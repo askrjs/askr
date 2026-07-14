@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { For } from '../../../src/control';
-import { defineContext } from '../../../src/runtime/context';
+import { defineContext, readContext } from '../../../src/runtime/context';
 import {
   clearRoutes,
   fallback,
@@ -195,6 +195,36 @@ describe('SSR child normalization', () => {
         })
       )
     ).toBe(`<div>${expected}</div>`);
+  });
+
+  it('should restore provider context for nested SSR components', () => {
+    const ThemeContext = defineContext('light');
+    const Consumer = () => <span>{readContext(ThemeContext)}</span>;
+    const Wrapper = (props: { children?: unknown }) => (
+      <section>{props.children}</section>
+    );
+    const Provider = (props: { children?: unknown }) => (
+      <ThemeContext.Scope value="dark">
+        <div>
+          <Wrapper>{props.children}</Wrapper>
+        </div>
+      </ThemeContext.Scope>
+    );
+
+    expect(() =>
+      renderToStringSync(() => (
+        <Provider>
+          <Consumer />
+        </Provider>
+      ))
+    ).not.toThrow();
+    expect(
+      renderToStringSync(() => (
+        <Provider>
+          <Consumer />
+        </Provider>
+      ))
+    ).toBe('<div><section><span>dark</span></section></div>');
   });
 
   it('should preserve Context.Scope sibling children through route-based SSR', () => {

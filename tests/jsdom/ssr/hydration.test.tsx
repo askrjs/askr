@@ -10,6 +10,8 @@ import type { JSXElement } from '../../../src/jsx/types';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
+import { createDataRuntime } from '../../../src/data';
+import { resource } from '../../../src/resources';
 import { For } from '@askrjs/askr/control';
 import {
   DefaultPortal,
@@ -99,6 +101,29 @@ describe('hydration (SSR)', () => {
         // After hydration a click should work
         const btn = container.querySelector('#btn') as HTMLButtonElement;
         btn.click();
+        expect(clicks).toBe(1);
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('should not treat a query-only hydration payload as resource render data', async () => {
+      const { container, cleanup } = createTestContainer();
+      try {
+        let clicks = 0;
+        const Component = () => {
+          resource(() => null);
+          return <button onClick={() => (clicks += 1)}>Ready</button>;
+        };
+        const routes = [{ path: '/', handler: Component }];
+        const dataRuntime = createDataRuntime();
+        dataRuntime.queryData.set('prefetched', { ready: true });
+        container.innerHTML = renderToString({ url: '/', routes, dataRuntime });
+
+        await expect(
+          hydrateSPA({ root: container, routes, dataRuntime })
+        ).resolves.not.toThrow();
+        (container.querySelector('button') as HTMLButtonElement).click();
         expect(clicks).toBe(1);
       } finally {
         cleanup();

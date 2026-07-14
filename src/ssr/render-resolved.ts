@@ -1,4 +1,5 @@
 import type { RouteHandler } from '../common/router';
+import type { DataRuntime } from '../data/types';
 import * as RouteModule from '../router/route';
 import type { SSRData } from './context';
 import { renderToString, type SSRRoute } from './index';
@@ -35,7 +36,7 @@ export function renderResolvedToStringSync(opts: {
   }>;
   handler: RouteHandler;
   params?: Record<string, string>;
-  options?: { seed?: number; data?: SSRData };
+  options?: { seed?: number; data?: SSRData; dataRuntime?: DataRuntime };
 }): string {
   const { url, routes, handler, params, options } = opts;
   const requestUrl = new URL(url, 'http://localhost');
@@ -67,5 +68,6 @@ export function renderResolvedToStringSync(opts: {
     routes: effectiveRoutes as SSRRoute[],
     seed: options?.seed,
     data: options?.data,
+    dataRuntime: options?.dataRuntime,
   });
 }
