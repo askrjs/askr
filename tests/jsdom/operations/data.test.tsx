@@ -75,6 +75,25 @@ function setDocumentHasFocus(value: boolean): () => void {
 }
 
 describe('data layer', () => {
+  it('should evict matching prefetched query data after a successful mutation', async () => {
+    const runtime = createDataRuntime();
+    runtime.queryData.set('users', [{ id: '1', name: 'Ada' }]);
+    runtime.queryData.set('users:1', { id: '1', name: 'Ada' });
+    runtime.queryData.set('policies:1', { id: '1' });
+    const mutation = createMutation({
+      runtime,
+      action: async () => ({ id: '1', name: 'Grace' }),
+      affects: () => ['users'],
+      afterSuccess: 'invalidate',
+    });
+
+    await mutation.execute(undefined);
+
+    expect(runtime.queryData.has('users')).toBe(false);
+    expect(runtime.queryData.has('users:1')).toBe(false);
+    expect(runtime.queryData.get('policies:1')).toEqual({ id: '1' });
+  });
+
   it('should build canonical scoped query keys and prefixes', () => {
     const admin = queryScope('admin');
 

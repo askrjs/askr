@@ -25,6 +25,7 @@ import {
   clearDeferredHydrationBoundaries,
 } from '../renderer';
 import type { BootAppRouteSource } from './types';
+import { resolveRootElement } from './root-element';
 
 installRendererBridge();
 
@@ -331,8 +332,7 @@ export async function registerAppNavigation(
 }
 
 export function cleanupApp(root: Element | string): void {
-  const rootElement =
-    typeof root === 'string' ? document.getElementById(root) : root;
+  const rootElement = resolveRootElement(root);
 
   if (!rootElement) return;
 
@@ -357,8 +357,7 @@ export function cleanupApp(root: Element | string): void {
 }
 
 export function hasApp(root: Element | string): boolean {
-  const rootElement =
-    typeof root === 'string' ? document.getElementById(root) : root;
+  const rootElement = resolveRootElement(root);
 
   if (!rootElement) return false;
   return instancesByRoot.has(rootElement);

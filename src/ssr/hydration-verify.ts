@@ -4,6 +4,7 @@ import type { JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
 import { __ERROR_BOUNDARY__, type DOMElement } from '../common/vnode';
 import { Fragment } from '../jsx';
+import { getVNodeContextFrame } from '../runtime';
 import {
   createErrorBoundaryReset,
   getErrorBoundaryState,
@@ -199,7 +200,12 @@ function verifyExpectedNode(
     return verifyRenderableNode(
       inheritRenderableKey(
         vnode,
-        executeComponentSync(type as Component, props, ctx)
+        executeComponentSync(
+          type as Component,
+          props,
+          ctx,
+          getVNodeContextFrame(vnode) ?? null
+        )
       ),
       state,
       ctx

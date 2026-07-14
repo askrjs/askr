@@ -12,6 +12,7 @@ export type QuerySlot = {
 
 export type DataRuntimeState = {
   queryCache: Map<string, QueryCell<unknown>>;
+  queryData: Map<string, unknown>;
   querySlotsByInstance: WeakMap<ComponentInstance, Map<number, QuerySlot>>;
   mutationSlotsByInstance: WeakMap<
     ComponentInstance,
@@ -28,10 +29,12 @@ const dataRuntimeByQueryCache = new WeakMap<
 >();
 
 function createDataRuntimeState(
-  queryCache: Map<string, unknown>
+  queryCache: Map<string, unknown>,
+  queryData: Map<string, unknown>
 ): DataRuntimeState {
   return {
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
+    queryData,
     querySlotsByInstance: new WeakMap(),
     mutationSlotsByInstance: new WeakMap(),
     queryCleanupRegistered: new WeakSet(),
@@ -46,7 +49,10 @@ export function createDataRuntime(
     queryCache: options.queryCache ?? new Map<string, unknown>(),
     queryData: options.queryData ?? new Map<string, unknown>(),
   });
-  dataRuntimeStates.set(runtime, createDataRuntimeState(runtime.queryCache));
+  dataRuntimeStates.set(
+    runtime,
+    createDataRuntimeState(runtime.queryCache, runtime.queryData)
+  );
   dataRuntimeByQueryCache.set(runtime.queryCache, runtime);
   return runtime;
 }
@@ -191,6 +197,12 @@ export function invalidateQueriesForRuntime(
   markPendingWrite: boolean
 ): void {
   emitInvalidation({ prefix, markPendingWrite });
+
+  for (const key of runtimeState.queryData.keys()) {
+    if (key.startsWith(prefix)) {
+      runtimeState.queryData.delete(key);
+    }
+  }
 
   const cache = runtimeState.queryCache;
 
