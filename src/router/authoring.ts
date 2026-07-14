@@ -8,31 +8,27 @@ import type {
   RouteParams,
   RoutePathParams,
 } from '../common/router';
+import { allOf } from '@askrjs/auth';
+import type { AuthRequirement } from '@askrjs/auth';
 import { getCurrentComponentInstance } from '../runtime';
 import { getExecutionModel } from '../runtime';
 import { computeRank, normalizeRouteSegmentName, parseSegments } from './match';
-import {
-  compileNodePolicies,
-  nextAccessScopeState,
-  validateAccessMetadata,
-} from './access';
+import { compileNodePolicies } from './access';
 import type { AnyRouteComponent, InternalRouteRecord } from './internal-types';
 import { createRouteHandler } from './rendering';
 import {
   addRouteToStores,
   assertRouteRegistrationUnlocked,
-  getCurrentAccessScopeState,
+  getCurrentInheritedAuthRequirements,
   getCurrentInheritedPolicies,
   getCurrentLayoutChain,
   getCurrentPageChain,
   getCurrentPageScope,
   getCurrentPathPrefix,
-  getCurrentRegistrationSession,
   getCurrentScopeKind,
   hasActivePageScope,
   insertRecordSorted,
   pushRegistrationScope,
-  pushRegistrationSession,
   setDefaultRouteAuthOptions,
 } from './store';
 
@@ -215,11 +211,6 @@ function pushGroupScope(
   options: GroupHelperOptions,
   fn: RouteDefinition
 ): void {
-  const session = getCurrentRegistrationSession();
-  validateAccessMetadata(options, {
-    authConfigured: session.authConfigured,
-    state: getCurrentAccessScopeState(),
-  });
   const policies = compileNodePolicies(options);
 
   pushRegistrationScope(
@@ -227,8 +218,8 @@ function pushGroupScope(
       kind: 'group',
       pathPrefix: getCurrentPathPrefix(),
       layout: options.layout,
+      auth: options.auth,
       policies,
-      state: nextAccessScopeState(options, getCurrentAccessScopeState()),
     },
     fn
   );
@@ -247,12 +238,6 @@ function pushPageScope(
     );
   }
 
-  const session = getCurrentRegistrationSession();
-  validateAccessMetadata(options, {
-    authConfigured: session.authConfigured,
-    state: getCurrentAccessScopeState(),
-  });
-
   const policies = compileNodePolicies(options);
 
   pushRegistrationScope(
@@ -261,8 +246,8 @@ function pushPageScope(
       pathPrefix: resolvePageScopePath(path),
       page: Component,
       hasIndex: false,
+      auth: options.auth,
       policies,
-      state: nextAccessScopeState(options, getCurrentAccessScopeState()),
     },
     fn
   );
@@ -276,27 +261,26 @@ function normalizeRouteOptions(
   }
 
   const loader = options.loader;
+  const preload = options.preload;
   const policies = compileNodePolicies(options);
 
   if (
     !loader &&
+    !preload &&
     !options.entries &&
     policies.length === 0 &&
     !options.title &&
     !options.namespace &&
-    options.auth === undefined &&
-    !options.role &&
-    !options.permission
+    options.auth === undefined
   ) {
     return undefined;
   }
 
   return {
     ...(loader ? { loader } : {}),
+    ...(preload ? { preload } : {}),
     ...(options.entries ? { entries: options.entries } : {}),
     ...(options.auth !== undefined ? { auth: options.auth } : {}),
-    ...(options.role ? { role: options.role } : {}),
-    ...(options.permission ? { permission: options.permission } : {}),
     ...(policies.length > 0 ? { policies } : {}),
     ...(options.title ? { title: options.title } : {}),
     ...(options.namespace ? { namespace: options.namespace } : {}),
@@ -314,11 +298,6 @@ function registerRouteAtResolvedPath(
 ): void {
   validateRoutePath(path);
 
-  validateAccessMetadata(options ?? {}, {
-    authConfigured: getCurrentRegistrationSession().authConfigured,
-    state: getCurrentAccessScopeState(),
-  });
-
   const chain = getCurrentLayoutChain();
   const pageChain = getCurrentPageChain();
   const segments = parseSegments(path);
@@ -330,6 +309,15 @@ function registerRouteAtResolvedPath(
     ...getCurrentInheritedPolicies(),
     ...(normalizedOptions?.policies ?? []),
   ];
+  const authRequirements = [
+    ...getCurrentInheritedAuthRequirements(),
+    ...(normalizedOptions?.auth ? [normalizedOptions.auth] : []),
+  ];
+  const auth: AuthRequirement | undefined = authRequirements.length === 0
+    ? undefined
+    : authRequirements.length === 1
+      ? authRequirements[0]
+      : allOf(...authRequirements);
 
   const handler = createRouteHandler(comp, pageChain, chain);
   const renderHandler = createRouteHandler(comp, pageChain, chain, true);
@@ -344,10 +332,13 @@ function registerRouteAtResolvedPath(
     options: normalizedOptions
       ? {
           ...normalizedOptions,
+          ...(auth ? { auth } : {}),
           ...(policies.length > 0 ? { policies } : {}),
         }
       : policies.length > 0
-        ? { policies }
+        ? { policies, ...(auth ? { auth } : {}) }
+        : auth
+          ? { auth }
         : {},
     isFallback,
     handler,
@@ -458,8 +449,7 @@ export function fallback(Component: RouteComponent): void {
 
   const allowsRootFallback =
     getCurrentInheritedPolicies().length === 0 &&
-    !getCurrentAccessScopeState().guestOnly &&
-    !getCurrentAccessScopeState().authenticated;
+    getCurrentInheritedAuthRequirements().length === 0;
 
   if (!allowsRootFallback) {
     throw new Error(
@@ -479,12 +469,7 @@ export function registerRoutes(
   options: RegisterRoutesOptions = {}
 ): void {
   setDefaultRouteAuthOptions(options.auth);
-  pushRegistrationSession(
-    {
-      authConfigured: !!options.auth?.resolve,
-    },
-    definition
-  );
+  definition();
 }
 
 export function route<const TPath extends string>(

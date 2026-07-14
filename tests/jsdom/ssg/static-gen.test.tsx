@@ -24,7 +24,7 @@ import {
   fallback,
   route,
 } from '../../../src/router/route';
-import { requireGuest } from '../../../src/router/policy';
+import { requireAnonymous, requireUser } from '@askrjs/auth';
 
 // Test utilities
 function createTempDir(): string {
@@ -526,7 +526,7 @@ describe('Static Site Generation', () => {
       const ssg = createStaticGen({
         routes: [
           { path: '/', component: Home },
-          { path: '/dashboard', component: About, auth: true },
+          { path: '/dashboard', component: About, auth: requireUser() },
           {
             path: '/billing',
             component: About,
@@ -557,28 +557,28 @@ describe('Static Site Generation', () => {
       );
     });
 
-    it('should keep guest routes prerenderable during SSG', async () => {
+    it('should keep anonymous-only routes runtime-only during SSG', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/login', component: About, auth: 'guest' }],
+        routes: [{ path: '/login', component: About, auth: requireAnonymous() }],
         outputDir: tempDir,
       });
 
       const result = await ssg.generate();
 
-      expect(result.successful).toBe(1);
-      expect(result.skipped).toBe(0);
+      expect(result.successful).toBe(0);
+      expect(result.skipped).toBe(1);
       expect(fs.existsSync(path.join(tempDir, 'login', 'index.html'))).toBe(
-        true
+        false
       );
     });
 
-    it('should keep raw guest policy routes prerenderable during SSG', async () => {
+    it('should keep direct auth requirement routes runtime-only during SSG', async () => {
       const ssg = createStaticGen({
         routes: [
           {
             path: '/login',
             component: About,
-            policies: [requireGuest()],
+            auth: requireAnonymous(),
           },
         ],
         outputDir: tempDir,
@@ -586,23 +586,23 @@ describe('Static Site Generation', () => {
 
       const result = await ssg.generate();
 
-      expect(result.successful).toBe(1);
-      expect(result.skipped).toBe(0);
+      expect(result.successful).toBe(0);
+      expect(result.skipped).toBe(1);
       expect(fs.existsSync(path.join(tempDir, 'login', 'index.html'))).toBe(
-        true
+        false
       );
     });
 
-    it('should keep registry guest routes prerenderable during SSG', async () => {
+    it('should keep registry auth requirements runtime-only during SSG', async () => {
       const registry = createRouteRegistry(
         () => {
           route('/login', () => <main>{'Registry Login'}</main>, {
-            auth: 'guest',
+            auth: requireAnonymous(),
           });
         },
         {
           auth: {
-            resolve: () => ({ session: null, user: null }),
+            resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
           },
         }
       );
@@ -613,11 +613,11 @@ describe('Static Site Generation', () => {
 
       const result = await ssg.generate();
 
-      expect(result.successful).toBe(1);
-      expect(result.skipped).toBe(0);
+      expect(result.successful).toBe(0);
+      expect(result.skipped).toBe(1);
       expect(result.routes[0].path).toBe('/login');
       expect(fs.existsSync(path.join(tempDir, 'login', 'index.html'))).toBe(
-        true
+        false
       );
     });
 
@@ -626,7 +626,7 @@ describe('Static Site Generation', () => {
         () => {
           route('/', () => <main>{'Registry Home'}</main>);
           route('/dashboard', () => <main>{'Dashboard'}</main>, {
-            auth: true,
+            auth: requireUser(),
           });
           route('/billing', () => <main>{'Billing'}</main>, {
             policies: [() => ({ kind: 'allow' as const })],
@@ -634,7 +634,7 @@ describe('Static Site Generation', () => {
         },
         {
           auth: {
-            resolve: () => ({ session: null, user: null }),
+            resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
           },
         }
       );
@@ -668,12 +668,12 @@ describe('Static Site Generation', () => {
       const registry = createRouteRegistry(
         () => {
           route('/account/{id}', ({ id }) => <main>{id}</main>, {
-            auth: true,
+            auth: requireUser(),
           });
         },
         {
           auth: {
-            resolve: () => ({ session: null, user: null }),
+            resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
           },
         }
       );

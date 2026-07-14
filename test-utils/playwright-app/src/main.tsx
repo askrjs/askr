@@ -1,6 +1,12 @@
 /** @jsxImportSource @askrjs/askr */
 
 import { state } from '@askrjs/askr';
+import {
+  requireAnonymous,
+  requirePermission,
+  requireRole,
+  requireUser,
+} from '@askrjs/auth';
 import { ErrorBoundary } from '@askrjs/askr/components';
 import { For } from '@askrjs/askr/control';
 import {
@@ -853,9 +859,11 @@ async function mountGuardedRouterScenario(): Promise<void> {
 
   type FixtureSession = {
     id: string;
+    subject: string;
   };
 
   type FixtureUser = {
+    id: string;
     name: string;
     roles: string[];
     permissions: string[];
@@ -868,8 +876,9 @@ async function mountGuardedRouterScenario(): Promise<void> {
   const lazyShouldFail = currentUrl.searchParams.get('lazy') === 'fail';
 
   const setViewerSession = () => {
-    session = { id: 'viewer-session' };
+    session = { id: 'viewer-session', subject: 'viewer' };
     user = {
+      id: 'viewer',
       name: 'Viewer',
       roles: ['viewer'],
       permissions: ['reports:view'],
@@ -877,8 +886,9 @@ async function mountGuardedRouterScenario(): Promise<void> {
   };
 
   const setAdminSession = () => {
-    session = { id: 'admin-session' };
+    session = { id: 'admin-session', subject: 'admin' };
     user = {
+      id: 'admin',
       name: 'Admin',
       roles: ['admin'],
       permissions: ['reports:view', 'billing:write'],
@@ -891,13 +901,14 @@ async function mountGuardedRouterScenario(): Promise<void> {
   };
 
   const auth = {
-    resolve: async () => ({ session, user }),
+    resolve: async () => ({
+      authenticated: session !== null && user !== null,
+      principal: user,
+      session,
+      tenant: null,
+    }),
     loginPath: '/login',
-    guestRedirectTo: '/private',
-    hasRole: (candidate: FixtureUser, role: string) =>
-      candidate.roles.includes(role),
-    hasPermission: (candidate: FixtureUser, permission: string) =>
-      candidate.permissions.includes(permission),
+    authenticatedRedirectTo: '/private',
   };
 
   const knownPaths = new Set([
@@ -1095,21 +1106,23 @@ async function mountGuardedRouterScenario(): Promise<void> {
       group({ layout: GuardedShell }, () => {
         route('/', HomePage);
         route('/login', LoginPage);
-        route('/private', PrivatePage, { auth: true });
-        route('/welcome', WelcomePage, { auth: 'guest' });
-        route('/billing', BillingPage, { permission: 'billing:write' });
+        route('/private', PrivatePage, { auth: requireUser() });
+        route('/welcome', WelcomePage, { auth: requireAnonymous() });
+        route('/billing', BillingPage, {
+          auth: requirePermission('billing:write'),
+        });
         route(
           '/lazy-success',
           lazy(() => Promise.resolve(LazySuccessPage)),
           {
-            auth: true,
+            auth: requireUser(),
           }
         );
-        route('/lazy-flaky', lazyFlakyRoute, { auth: true });
+        route('/lazy-flaky', lazyFlakyRoute, { auth: requireUser() });
 
-        group({ auth: true }, () => {
+        group({ auth: requireUser() }, () => {
           route('/reports', ReportsPage);
-          group({ role: 'admin' }, () => {
+          group({ auth: requireRole('admin') }, () => {
             route('/reports/finance', FinanceReportPage);
           });
         });

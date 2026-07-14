@@ -13,6 +13,7 @@ import {
   afterEach,
   vi,
 } from 'vite-plus/test';
+import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { createSPA } from '@askrjs/askr/boot';
 import { state } from '../../../src/index';
 import { task } from '../../../src/runtime/operations';
@@ -294,14 +295,14 @@ describe('history integration (ROUTER)', () => {
       const registry = createRouteRegistry(
         () => {
           route('/', () => <div>{'public'}</div>);
-          route('/login', () => <div>{'login'}</div>, { auth: 'guest' });
+          route('/login', () => <div>{'login'}</div>, { auth: requireAnonymous() });
           route('/dashboard', () => <div>{'protected'}</div>, {
-            auth: true,
+            auth: requireUser(),
           });
         },
         {
           auth: {
-            resolve: () => ({ session: null, user: null }),
+            resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
             loginPath: '/login',
           },
         }

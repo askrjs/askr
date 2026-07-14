@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vite-plus/test';
+import { requireAnonymous, requireRole, requireUser } from '@askrjs/auth';
 import {
   getManifest,
   clearRoutes,
@@ -22,12 +23,12 @@ describe('SSR request resolution', () => {
   it('should redirect protected requests before render', async () => {
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login'}</div>, { auth: 'guest' });
-        route('/dashboard', () => <div>{'dashboard'}</div>, { auth: true });
+        route('/login', () => <div>{'login'}</div>, { auth: requireAnonymous() });
+        route('/dashboard', () => <div>{'dashboard'}</div>, { auth: requireUser() });
       },
       {
         auth: {
-          resolve: () => ({ session: null, user: null }),
+          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
           loginPath: '/login',
         },
       }
@@ -48,14 +49,11 @@ describe('SSR request resolution', () => {
   it('should deny role-gated requests before render', async () => {
     registerRoutes(
       () => {
-        route('/admin', () => <div>{'admin'}</div>, { role: 'admin' });
+        route('/admin', () => <div>{'admin'}</div>, { auth: requireRole('admin') });
       },
       {
         auth: {
-          resolve: () => ({
-            session: { id: 'session_1' },
-            user: { roles: ['member'] },
-          }),
+          resolve: () => ({ authenticated: true, principal: { id: 'user-1', roles: ['member'] }, session: null, tenant: null }),
         },
       }
     );
@@ -99,19 +97,19 @@ describe('SSR request resolution', () => {
 
     const registry = createRouteRegistry(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: 'guest' });
+        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
         route(
           '/dashboard',
           () => {
             renderedDashboard = true;
             return <div>{'dashboard-page'}</div>;
           },
-          { auth: true }
+          { auth: requireUser() }
         );
       },
       {
         auth: {
-          resolve: () => ({ session: null, user: null }),
+          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
           loginPath: '/login',
         },
       }
@@ -231,7 +229,11 @@ describe('SSR request resolution', () => {
     });
 
     expect(loader).toHaveBeenCalledTimes(1);
-    expect(loader).toHaveBeenCalledWith({ params: { slug: 'intro' } });
+    expect(loader).toHaveBeenCalledWith(expect.objectContaining({
+      params: { slug: 'intro' },
+      auth: expect.objectContaining({ authenticated: false }),
+      mode: 'ssr',
+    }));
     expect(html).toContain('intro');
   });
 

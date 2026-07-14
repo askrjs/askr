@@ -140,6 +140,7 @@
     "prepublishOnly": "npm run release:verify"
   },
   "dependencies": {
+    "@askrjs/auth": ">=0.0.1 <0.1.0",
     "tsx": "^4.23.0"
   },
   "devDependencies": {

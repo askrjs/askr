@@ -55,13 +55,15 @@ pass that registry to `createSPA()` or `hydrateSPA()`.
 paths and inherit layout and access metadata.
 
 ```ts
+import { requireRole, requireUser } from '@askrjs/auth';
+
 group({ layout: RootLayout }, () => {
   route('/', HomePage);
 
-  group({ auth: true }, () => {
+  group({ auth: requireUser() }, () => {
     route('/dashboard', DashboardPage);
 
-    group({ role: 'admin', layout: AdminShell }, () => {
+    group({ auth: requireRole('admin'), layout: AdminShell }, () => {
       route('/admin/users', AdminUsersPage);
       route('/admin/settings', AdminSettingsPage);
     });
@@ -127,7 +129,7 @@ behavior for a subset of child leaves with `group()`:
 page('/docs/components', ComponentsPage, () => {
   index(ComponentsOverview);
 
-  group({ auth: true }, () => {
+  group({ auth: requireUser() }, () => {
     route('tokens', ComponentsTokensPage);
     route('patterns', ComponentsPatternsPage);
   });
@@ -163,22 +165,32 @@ In this example:
 - `/somewhere-else` renders `AppNotFoundPage`.
 - `group()` can still wrap either fallback with inherited layout or access behavior, but it does not define fallback scope by itself.
 
-## Common access metadata
+## Authentication requirements
 
-Use route metadata for the common case:
+Use the requirement factories from `@askrjs/auth`. The same requirements run
+during SPA navigation and server rendering:
 
 ```ts
-route('/login', LoginPage, { auth: 'guest' });
-route('/dashboard', DashboardPage, { auth: true });
-route('/admin', AdminPage, { role: 'admin' });
-route('/billing', BillingPage, { permission: 'billing:read' });
+import {
+  requireAnonymous,
+  requirePermission,
+  requireRole,
+  requireUser,
+} from '@askrjs/auth';
+
+route('/login', LoginPage, { auth: requireAnonymous() });
+route('/dashboard', DashboardPage, { auth: requireUser() });
+route('/admin', AdminPage, { auth: requireRole('admin') });
+route('/billing', BillingPage, {
+  auth: requirePermission('billing:read'),
+});
 ```
 
 Use `policies` only for advanced access checks:
 
 ```ts
 route('/settings', SettingsPage, {
-  auth: true,
+  auth: requireUser(),
   policies: [requireVerifiedEmail()],
 });
 ```
@@ -202,7 +214,7 @@ function PostPage() {
 
 ```ts
 route('/posts/{slug}', PostPage, {
-  auth: true,
+  auth: requireUser(),
   loader: ({ params }) => fetchPost(params.slug),
   entries: async () =>
     getPosts().map((post: { slug: string }) => ({ slug: post.slug })),
@@ -213,8 +225,7 @@ route('/posts/{slug}', PostPage, {
 Notes:
 
 - `loader` is the canonical name
-- guest routes are prerenderable in SSG
-- authenticated or policy-controlled routes are skipped as runtime-only in SSG by default
+- auth- or policy-controlled routes are skipped as runtime-only in SSG by default
 
 ## Path syntax
 

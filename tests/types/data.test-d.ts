@@ -3,10 +3,17 @@ import {
   createDataRuntime,
   createMutation,
   createQuery,
+  createQueryPrefetchContext,
+  createServerQueryRegistry,
+  defineQuery,
+  dehydrateDataRuntime,
   getDefaultDataRuntime,
   invalidate,
   invalidateOnInterval,
+  hydrateDataRuntime,
+  prefetchQuery,
   queryScope,
+  ServerQueryRegistry,
   type DataRuntime,
   type DataRuntimeOptions,
   type InvalidateOnIntervalOptions,
@@ -14,20 +21,60 @@ import {
   type Mutation,
   type Query,
   type QueryConsistency,
+  type QueryDefinition,
   type QueryKeyPart,
+  type QueryPrefetchContext,
   type QueryScope,
   type QueryStaleReason,
+  type ServerQueryHandler,
 } from '@askrjs/askr/data';
 
 const dataRuntime = createDataRuntime();
 expectType<DataRuntime>(dataRuntime);
 expectType<Map<string, unknown>>(dataRuntime.queryCache);
+expectType<Map<string, unknown>>(dataRuntime.queryData);
 expectType<DataRuntime>(getDefaultDataRuntime());
 expectType<DataRuntime>(createDataRuntime({ queryCache: new Map() }));
 const dataRuntimeOptions: DataRuntimeOptions = {
   queryCache: new Map<string, unknown>(),
+  queryData: new Map<string, unknown>(),
 };
 expectType<DataRuntimeOptions>(dataRuntimeOptions);
+
+const userDefinition = defineQuery({
+  key: (input: { id: string }) => `user:${input.id}`,
+  fetch: async ({ id, signal }) => {
+    expectType<AbortSignal>(signal);
+    return { id };
+  },
+});
+expectType<QueryDefinition<{ id: string }, { id: string }>>(userDefinition);
+
+const userHandler: ServerQueryHandler<{ id: string }, { id: string }> = ({
+  input,
+  signal,
+}) => {
+  expectType<AbortSignal>(signal);
+  return { id: input.id };
+};
+const serverRegistry = createServerQueryRegistry();
+expectType<ServerQueryRegistry>(serverRegistry);
+expectType<ServerQueryRegistry>(
+  serverRegistry.register(userDefinition, userHandler)
+);
+expectType<typeof userHandler | undefined>(serverRegistry.get(userDefinition));
+
+const prefetchContext = createQueryPrefetchContext({
+  runtime: dataRuntime,
+  registry: serverRegistry,
+  mode: 'ssr',
+});
+expectType<QueryPrefetchContext>(prefetchContext);
+expectType<Promise<boolean>>(
+  prefetchQuery(prefetchContext, userDefinition, { id: '123' })
+);
+expectType<Record<string, unknown>>(dehydrateDataRuntime(dataRuntime));
+expectType<void>(hydrateDataRuntime(dataRuntime, { 'user:123': { id: '123' } }));
 
 const query = createQuery({
   key: 'user:123',

@@ -1,5 +1,12 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
+  requirePermission,
+  requireRole,
+  requireUser,
+  type AuthContext,
+  type AuthRequirement,
+} from '@askrjs/auth';
+import {
   Link,
   Outlet,
   allow,
@@ -18,9 +25,6 @@ import {
   page,
   redirect,
   registerRoutes,
-  requireAuth,
-  requirePermission,
-  requireRole,
   route,
   unauthorized,
   updateRouteQuery,
@@ -45,13 +49,11 @@ import {
   type RouteMatch,
   type RouteMode,
   type RouteOptions,
-  type RouteAuthMode,
+  type RoutePolicy,
   type RouteAuthOptions,
   type RouteAuthResolver,
-  type RouteAuthState,
   type RouteParams,
   type RoutePathParams,
-  type RoutePolicy,
   type RouteQuery,
   type RouteRecord,
   type RouteRegistry,
@@ -201,11 +203,11 @@ expectType<PageScopeRecord[]>(routeRecord.pageChain);
 expectType<RouteRecord['pageChain']>(routeRecord.pageChain);
 expectType<ReturnType<typeof getRoutes>>(getRoutes());
 
-const pageHelperOptions: PageHelperOptions = { auth: true };
+const pageHelperOptions: PageHelperOptions = { auth: requireUser() };
 expectAssignable<PageHelperOptions>(pageHelperOptions);
 const groupHelperOptions: GroupHelperOptions = {
   layout: ({ children }) => <div>{children}</div>,
-  auth: 'guest',
+  auth: requireRole('admin'),
 };
 expectAssignable<GroupHelperOptions>(groupHelperOptions);
 
@@ -224,9 +226,6 @@ expectAssignable<RouteDefinition>(routeDefinition);
 const routeMode: RouteMode = 'ssr';
 expectAssignable<RouteMode>(routeMode);
 
-const routeAuthMode: RouteAuthMode = 'guest';
-expectAssignable<RouteAuthMode>(routeAuthMode);
-
 const routeParams: RouteParams = { id: '123' };
 expectAssignable<RouteParams>(routeParams);
 
@@ -237,21 +236,27 @@ const routeContext: RouteContext = {
   search: '?tab=profile',
   hash: '#details',
   href: '/users/123?tab=profile#details',
-  session: null,
-  user: null,
+  auth: {
+    authenticated: false,
+    principal: null,
+    session: null,
+    tenant: null,
+  },
   signal: new AbortController().signal,
 };
 expectAssignable<RouteContext>(routeContext);
 
-const routeAuthState: RouteAuthState = {
+const anonymousAuthContext: AuthContext = {
+  authenticated: false,
+  principal: null,
   session: null,
-  user: null,
+  tenant: null,
 };
-expectAssignable<RouteAuthState>(routeAuthState);
+expectAssignable<AuthContext>(anonymousAuthContext);
 
 const routeAuthResolver: RouteAuthResolver = (context) => {
   expectType<string>(context.pathname);
-  return routeAuthState;
+  return anonymousAuthContext;
 };
 expectAssignable<RouteAuthResolver>(routeAuthResolver);
 
@@ -270,18 +275,22 @@ const routeRequestOptions: RouteRequestOptions = {
   manifest,
   mode: routeMode,
   auth: routeAuthOptions,
+  authContext: anonymousAuthContext,
   signal: new AbortController().signal,
 };
 expectAssignable<RouteRequestOptions>(routeRequestOptions);
 
 const routeOptions: RouteOptions<{ id: string }> = {
-  auth: routeAuthMode,
+  auth: requirePermission('users:read'),
   loader: ({ params }) => params.id,
   entries: () => [{ id: '123' }],
   title: 'User',
   namespace: 'users',
 };
 expectAssignable<RouteOptions<{ id: string }>>(routeOptions);
+expectAssignable<AuthRequirement>(requireUser());
+const routePolicy: RoutePolicy = () => allow();
+expectAssignable<RoutePolicy>(routePolicy);
 
 const parsedSegment: ParsedSegment = {
   kind: 'param',
@@ -329,12 +338,15 @@ expectType<401 | 403 | 404>(denyDecision.status);
 expectAssignable<AccessDecision>(unauthorized());
 expectAssignable<AccessDecision>(forbidden());
 expectAssignable<AccessDecision>(notFound());
-expectAssignable<RoutePolicy>(requireAuth());
-expectAssignable<RoutePolicy>(requireRole('admin'));
-expectAssignable<RoutePolicy>(requirePermission('write:users'));
 expectType<void>(clearRoutes());
 
 expectError(navigate('/home', { history: 'invalid' }));
+expectError(route('/legacy-auth', () => null, { auth: true }));
+expectError(route('/legacy-guest', () => null, { auth: 'guest' }));
+expectError(route('/legacy-role', () => null, { role: 'admin' }));
+expectError(
+  route('/legacy-permission', () => null, { permission: 'users:read' })
+);
 expectError(route('/bad', 'not-a-component'));
 expectError(route('/bad-dom', () => document.createElement('div')));
 expectError(

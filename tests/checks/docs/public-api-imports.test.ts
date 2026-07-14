@@ -197,6 +197,30 @@ function probeDistExports(): unknown {
 
     try {
       fs.cpSync(distDir, snapshotDir, { recursive: true, force: true });
+      const authPackage = path.join(
+        rootDir,
+        'node_modules',
+        '@askrjs',
+        'auth'
+      );
+      const authSnapshot = path.join(
+        snapshotDir,
+        'node_modules',
+        '@askrjs',
+        'auth'
+      );
+      fs.mkdirSync(path.dirname(authSnapshot), { recursive: true });
+      const authSource = fs.realpathSync(authPackage);
+      fs.mkdirSync(authSnapshot, { recursive: true });
+      fs.copyFileSync(
+        path.join(authSource, 'package.json'),
+        path.join(authSnapshot, 'package.json')
+      );
+      fs.cpSync(
+        path.join(authSource, 'dist'),
+        path.join(authSnapshot, 'dist'),
+        { recursive: true }
+      );
       const rootModuleHref = pathToFileURL(
         path.join(snapshotDir, 'index.js')
       ).href;
@@ -710,7 +734,7 @@ describe('public docs and examples', () => {
         hasRoute: false,
         hasNavigate: false,
         hasResource: false,
-        hasCreateQuery: false,
+        hasCreateQuery: true,
         hasCreateMutation: false,
         hasInvalidate: false,
         hasLink: false,

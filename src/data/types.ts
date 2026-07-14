@@ -8,11 +8,34 @@ export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
 
 export interface DataRuntime {
   readonly queryCache: Map<string, unknown>;
+  readonly queryData: Map<string, unknown>;
 }
 
 export interface DataRuntimeOptions {
   queryCache?: Map<string, unknown>;
+  queryData?: Map<string, unknown>;
 }
+
+export interface QueryDefinition<TInput, TResult extends {}> {
+  readonly key: (input: TInput) => string;
+  readonly fetch: (context: TInput & { signal: AbortSignal }) => Promise<TResult>;
+  readonly isConsistent?: (data: TResult) => boolean;
+  readonly reconcile?: (data: TResult, context: { key: string }) => Promise<boolean> | boolean;
+}
+
+export interface QueryPrefetchContext {
+  readonly runtime: DataRuntime;
+  readonly request?: Request;
+  readonly signal: AbortSignal;
+  readonly mode: 'ssr' | 'spa';
+  prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;
+}
+
+export type ServerQueryHandler<TInput, TResult extends {}> = (context: {
+  input: TInput;
+  request?: Request;
+  signal: AbortSignal;
+}) => Promise<TResult> | TResult;
 
 export interface InvalidateOptions {
   markPendingWrite?: boolean;
@@ -175,6 +198,8 @@ export type QueryOptions<T> = {
   isConsistent?: (data: T) => boolean;
   reconcile?: (data: T, ctx: { key: string }) => Promise<boolean> | boolean;
   runtime?: DataRuntime;
+  initialData?: T;
+  skipInitialFetch?: boolean;
 };
 
 export type MutationOptions<TInput, TResult> = {

@@ -1,13 +1,20 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   SSRDataMissingError,
+  createRenderContext,
+  getRenderContext,
+  renderRouteRequestToString,
   renderToStream,
   renderToString,
   renderToStringSync,
   resolveRequest,
+  withRenderContext,
+  withRenderContextAsync,
   type DocumentRenderArgs,
   type DocumentRenderContext,
   type DocumentRenderer,
+  type RenderRouteRequestOptions,
+  type RenderRouteRequestResult,
   type SSRComponent,
   type SSRRoute,
   type VNode,
@@ -20,6 +27,14 @@ import type {
 
 declare const manifest: RouteManifest;
 declare const registry: RouteRegistry;
+
+const renderContext = createRenderContext(42, { url: '/users/42' });
+expectType<ReturnType<typeof createRenderContext>>(renderContext);
+expectType<ReturnType<typeof createRenderContext> | null>(getRenderContext());
+expectType<string>(withRenderContext(renderContext, () => 'rendered'));
+expectType<Promise<string>>(
+  withRenderContextAsync(renderContext, async () => 'rendered')
+);
 
 const routes: SSRRoute[] = [
   {
@@ -94,6 +109,13 @@ expectType<void>(
 
 expectType<Promise<RouteRequestResult>>(
   resolveRequest({ url: '/users/42', manifest })
+);
+const renderRouteRequestOptions: RenderRouteRequestOptions = {
+  url: '/users/42',
+  registry,
+};
+expectType<Promise<RenderRouteRequestResult>>(
+  renderRouteRequestToString(renderRouteRequestOptions)
 );
 expectType<Promise<RouteRequestResult>>(
   resolveRequest({ url: '/users/42', registry })

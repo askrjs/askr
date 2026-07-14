@@ -44,6 +44,7 @@ export function createDataRuntime(
 ): DataRuntime {
   const runtime: DataRuntime = Object.freeze({
     queryCache: options.queryCache ?? new Map<string, unknown>(),
+    queryData: options.queryData ?? new Map<string, unknown>(),
   });
   dataRuntimeStates.set(runtime, createDataRuntimeState(runtime.queryCache));
   dataRuntimeByQueryCache.set(runtime.queryCache, runtime);

@@ -39,3 +39,5 @@ export { jsx, jsxs, Fragment } from './jsx-runtime';
 
 // Public types
 export type { Props } from './common/props';
+export { createQuery, defineQuery, createServerQueryRegistry, prefetchQuery, dehydrateDataRuntime, hydrateDataRuntime } from './data';
+export type { QueryDefinition, QueryPrefetchContext, ServerQueryHandler, DataRuntime } from './data';

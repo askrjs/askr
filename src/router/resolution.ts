@@ -1,7 +1,9 @@
+import type { AuthContext, AuthDecision } from '@askrjs/auth';
 import type {
+  AccessDecision,
+  RouteAuthOptions,
   RouteContext,
   RouteHandler,
-  RouteOptions,
   RoutePolicy,
   RouteRecord,
   RouteRenderResult,
@@ -10,8 +12,8 @@ import type {
 } from '../common/router';
 import { isPromiseLike } from '../common/promise';
 import { getActiveRenderContext } from '../common/render-context';
+import { createQueryPrefetchContext } from '../data/query-registry';
 import { buildRouteContext, buildRouteContextBase } from './route-context';
-import { compileNodePolicies } from './access';
 import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
 import { getActiveRouteAuthOptions, getRouteRecords } from './store';
@@ -25,26 +27,15 @@ export {
   resolveRouteFromRoutes,
 } from './route-matching';
 
-function getRoutePolicies(
-  options: RouteOptions | undefined
-): readonly RoutePolicy[] {
-  if (!options) {
-    return [];
-  }
-
-  if (options.policies?.length) {
-    return options.policies;
-  }
-
-  return compileNodePolicies(options);
-}
+const anonymous = (): AuthContext => ({
+  authenticated: false,
+  principal: null,
+  session: null,
+  tenant: null,
+});
 
 function getDefaultRouteMode(): RouteContext['mode'] {
-  if (typeof window !== 'undefined') {
-    return 'spa';
-  }
-
-  return 'ssr';
+  return typeof window !== 'undefined' ? 'spa' : 'ssr';
 }
 
 function createRenderDataAwareHandler(
@@ -54,12 +45,8 @@ function createRenderDataAwareHandler(
   return (params, context) => {
     const renderContext = getActiveRenderContext();
     if (renderContext) {
-      renderContext.renderData = (data ?? null) as Record<
-        string,
-        unknown
-      > | null;
+      renderContext.renderData = (data ?? null) as Record<string, unknown> | null;
     }
-
     return handler(params, context);
   };
 }
@@ -67,119 +54,141 @@ function createRenderDataAwareHandler(
 function buildRenderResult(
   record: RouteRecord,
   params: Record<string, string>,
-  mode: RouteContext['mode']
+  context: RouteContext,
+  request: Request | undefined,
 ): RouteRequestResult | Promise<RouteRequestResult> {
   const renderHandler = getRenderHandler(record);
-  const loader = mode === 'ssr' ? record.options?.loader : undefined;
+  const loader = context.mode === 'ssr' ? record.options?.loader : undefined;
+  const preload = record.options?.preload;
+  const active = getActiveRenderContext();
+  const prefetch = active?.queryPrefetch ?? createQueryPrefetchContext({
+    mode: context.mode === 'ssg' ? 'ssr' : context.mode,
+    request,
+    signal: context.signal,
+    runtime: active?.dataRuntime as import('../data/types').DataRuntime | undefined,
+  });
+  const runPreload = preload
+    ? Promise.resolve(preload({ ...context, params, request, data: prefetch })).then(() => undefined)
+    : undefined;
   if (loader) {
-    const loaded = loader({ params });
+    const loaded = runPreload
+      ? runPreload.then(() => loader({ ...context, params, request }))
+      : loader({ ...context, params, request });
     const finalize = (data: unknown): RouteRenderResult => ({
       kind: 'render',
       handler: createRenderDataAwareHandler(renderHandler, data),
       params,
     });
-
-    if (isPromiseLike(loaded)) {
-      return Promise.resolve(loaded).then((data) => finalize(data));
-    }
-
-    return finalize(loaded);
+    return isPromiseLike(loaded)
+      ? Promise.resolve(loaded).then(finalize)
+      : finalize(loaded);
   }
-
-  return {
-    kind: 'render',
-    handler: renderHandler,
-    params,
-  };
+  if (runPreload) {
+    return runPreload.then(() => ({ kind: 'render', handler: renderHandler, params }));
+  }
+  return { kind: 'render', handler: renderHandler, params };
 }
 
-function continueRoutePolicies(
+function runPolicies(
   policies: readonly RoutePolicy[],
   context: RouteContext,
   record: RouteRecord,
   params: Record<string, string>,
-  startIndex = 0
+  request: Request | undefined,
+  start = 0
 ): RouteRequestResult | Promise<RouteRequestResult> {
-  for (let index = startIndex; index < policies.length; index += 1) {
-    const policyResult = policies[index](context);
-
-    if (isPromiseLike(policyResult)) {
-      return Promise.resolve(policyResult).then((next) => {
-        if (next.kind !== 'allow') {
-          return next;
-        }
-
-        return continueRoutePolicies(
-          policies,
-          context,
-          record,
-          params,
-          index + 1
-        );
-      });
+  for (let index = start; index < policies.length; index += 1) {
+    const result = policies[index](context);
+    if (isPromiseLike(result)) {
+      return Promise.resolve(result).then((decision) =>
+        decision.kind === 'allow'
+          ? runPolicies(policies, context, record, params, request, index + 1)
+          : decision);
     }
-
-    if (policyResult.kind !== 'allow') {
-      return policyResult;
-    }
+    if (result.kind !== 'allow') return result;
   }
+  return buildRenderResult(record, params, context, request);
+}
 
-  return buildRenderResult(record, params, context.mode);
+type PathSetting = string | ((context: RouteContext) => string | PromiseLike<string>);
+
+function resolvePath(value: PathSetting | undefined, fallback: string, context: RouteContext) {
+  return typeof value === 'function' ? value(context) : value ?? fallback;
+}
+
+function appendNext(path: string, href: string): string {
+  const target = new URL(path, 'http://localhost');
+  target.searchParams.set('next', href);
+  return `${target.pathname}${target.search}${target.hash}`;
+}
+
+function mapAuthDecision(
+  decision: AuthDecision,
+  context: RouteContext,
+  options: RouteAuthOptions | undefined
+): AccessDecision | Promise<AccessDecision> {
+  if (decision.allowed) return { kind: 'allow' };
+  if (decision.reason === 'forbidden') return { kind: 'deny', status: 403 };
+  const setting = decision.reason === 'unauthenticated'
+    ? options?.loginPath
+    : options?.authenticatedRedirectTo;
+  const target = resolvePath(setting, decision.reason === 'unauthenticated' ? '/login' : '/', context);
+  const finalize = (path: string): AccessDecision => ({
+    kind: 'redirect',
+    to: decision.reason === 'unauthenticated' ? appendNext(path, context.href) : path,
+    replace: decision.reason === 'unauthenticated' ? context.mode === 'spa' : true,
+  });
+  return isPromiseLike(target) ? Promise.resolve(target).then(finalize) : finalize(target);
+}
+
+function resolveMatchedRoute(
+  record: RouteRecord,
+  params: Record<string, string>,
+  context: RouteContext,
+  authOptions: RouteAuthOptions | undefined,
+  request: Request | undefined
+): RouteRequestResult | Promise<RouteRequestResult> {
+  const continueResolution = (decision?: AuthDecision) => {
+    if (decision) {
+      const access = mapAuthDecision(decision, context, authOptions);
+      if (isPromiseLike(access)) {
+        return Promise.resolve(access).then((next) => next.kind === 'allow'
+          ? runPolicies(record.options.policies ?? [], context, record, params, request)
+          : next);
+      }
+      if (access.kind !== 'allow') return access;
+    }
+    return runPolicies(record.options.policies ?? [], context, record, params, request);
+  };
+  if (!record.options.auth) return continueResolution();
+  const decision = record.options.auth(context.auth);
+  return isPromiseLike(decision)
+    ? Promise.resolve(decision).then(continueResolution)
+    : continueResolution(decision);
 }
 
 export function resolveRouteRequest(
   target: string,
   options: RouteRequestOptions = {}
 ): RouteRequestResult | Promise<RouteRequestResult> {
-  const routeRecords = options.manifest?.records ?? getRouteRecords();
-  const match = getMatchingRouteRecord(target, routeRecords);
-
-  if (!match) {
-    return null;
-  }
-
-  const { record, params } = match;
-  const policies = getRoutePolicies(record.options);
+  const records = options.manifest?.records ?? getRouteRecords();
+  const match = getMatchingRouteRecord(target, records);
+  if (!match) return null;
   const mode = options.mode ?? getDefaultRouteMode();
-
-  if (policies.length === 0) {
-    return buildRenderResult(record, params, mode);
-  }
-
-  const signal =
-    options.signal ??
-    getActiveRenderContext()?.signal ??
-    new AbortController().signal;
-  const auth = getActiveRouteAuthOptions(
-    options.auth ?? options.manifest?.auth
+  const signal = options.signal ?? getActiveRenderContext()?.signal ?? new AbortController().signal;
+  const authOptions = getActiveRouteAuthOptions(options.auth ?? options.manifest?.auth);
+  const base = buildRouteContextBase(target, match.params, { mode, signal });
+  const finalize = (authContext: AuthContext) => resolveMatchedRoute(
+    match.record,
+    match.params,
+    buildRouteContext(target, match.params, { mode, signal, authContext }),
+    authOptions,
+    options.request,
   );
-  const baseContext = buildRouteContextBase(target, params, {
-    mode,
-    signal,
-  });
-
-  const finalize = (authState: { session: unknown; user: unknown }) =>
-    continueRoutePolicies(
-      policies,
-      buildRouteContext(target, params, {
-        mode,
-        signal,
-        auth,
-        session: authState.session,
-        user: authState.user,
-      }),
-      record,
-      params
-    );
-
-  if (!auth?.resolve) {
-    return finalize({ session: null, user: null });
-  }
-
-  const authState = auth.resolve(baseContext);
-  if (isPromiseLike(authState)) {
-    return Promise.resolve(authState).then((next) => finalize(next));
-  }
-
-  return finalize(authState);
+  if (options.authContext) return finalize(options.authContext);
+  if (!authOptions?.resolve) return finalize(anonymous());
+  const resolved = authOptions.resolve(base);
+  return isPromiseLike(resolved)
+    ? Promise.resolve(resolved).then(finalize)
+    : finalize(resolved);
 }

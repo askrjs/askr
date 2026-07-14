@@ -6,6 +6,7 @@ import type {
   RoutePolicy,
   RouteRecord,
 } from '../common/router';
+import type { AuthRequirement } from '@askrjs/auth';
 import type { RenderableChild } from '../common/vnode';
 
 export type AnyRouteComponent = (...args: any[]) => RenderableChild;
@@ -19,21 +20,12 @@ export type InternalRouteRecord = RouteRecord & {
   renderHandler?: RouteHandler;
 };
 
-export type AccessScopeState = {
-  guestOnly: boolean;
-  authenticated: boolean;
-};
-
 export type RegistrationScope = {
   kind: 'group' | 'page';
   pathPrefix: string;
   layout?: LayoutScopeRecord['component'];
   page?: PageScopeRecord['component'];
   hasIndex?: boolean;
+  auth?: AuthRequirement;
   policies: readonly RoutePolicy[];
-  state: AccessScopeState;
-};
-
-export type RegistrationSession = {
-  authConfigured: boolean;
 };

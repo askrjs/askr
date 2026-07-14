@@ -11,6 +11,8 @@ export interface ActiveRenderContext {
   signal?: AbortSignal;
   dataRuntime?: unknown;
   queryCache?: Map<string, unknown>;
+  mode?: 'ssr' | 'spa';
+  queryPrefetch?: import('../data/types').QueryPrefetchContext;
   keyCounter: number;
   renderData: Record<string, unknown> | null;
 }

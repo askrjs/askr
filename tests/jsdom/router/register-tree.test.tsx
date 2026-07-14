@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
 import { allow } from '../../../src/router/policy';
@@ -49,7 +50,7 @@ describe('callback route registration', () => {
         group({ layout: Root }, () => {
           route('/', () => <div>{'home'}</div>);
 
-          group({ layout: Workspace, auth: true }, () => {
+          group({ layout: Workspace, auth: requireUser() }, () => {
             route('/dashboard', () => <div>{'dashboard'}</div>);
           });
 
@@ -58,10 +59,7 @@ describe('callback route registration', () => {
       },
       {
         auth: {
-          resolve: () => ({
-            session: { id: 'session_1' },
-            user: { id: 'user_1' },
-          }),
+          resolve: () => ({ authenticated: true, principal: { id: 'user_1' }, session: null, tenant: null }),
         },
       }
     );
@@ -86,16 +84,13 @@ describe('callback route registration', () => {
     expect(() =>
       registerRoutes(
         () => {
-          group({ auth: true }, () => {
+          group({ auth: requireUser() }, () => {
             fallback(() => <div>{'missing'}</div>);
           });
         },
         {
           auth: {
-            resolve: () => ({
-              session: { id: 'session_1' },
-              user: { id: 'user_1' },
-            }),
+            resolve: () => ({ authenticated: true, principal: { id: 'user_1' }, session: null, tenant: null }),
           },
         }
       )
@@ -152,41 +147,13 @@ describe('callback route registration', () => {
     ]);
   });
 
-  it('should require auth configuration for built-in auth metadata', () => {
-    expect(() =>
-      registerRoutes(() => {
-        route('/admin', () => <div>{'admin'}</div>, { role: 'admin' });
-      })
-    ).toThrow(/auth\.resolve/i);
-  });
-
-  it('should reject guest-only routes inside authenticated scopes', () => {
-    expect(() =>
-      registerRoutes(
-        () => {
-          group({ auth: true }, () => {
-            route('/login', () => <div>{'login'}</div>, { auth: 'guest' });
-          });
-        },
-        {
-          auth: {
-            resolve: () => ({
-              session: { id: 'session_1' },
-              user: { id: 'user_1' },
-            }),
-          },
-        }
-      )
-    ).toThrow(/guest-only routes cannot be combined/i);
-  });
-
   it('should redirect before protected content renders on initial boot', async () => {
     let renderedDashboard = false;
 
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: 'guest' });
-        group({ auth: true }, () => {
+        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        group({ auth: requireUser() }, () => {
           route('/dashboard', () => {
             renderedDashboard = true;
             return <div>{'dashboard-page'}</div>;
@@ -195,7 +162,7 @@ describe('callback route registration', () => {
       },
       {
         auth: {
-          resolve: () => ({ session: null, user: null }),
+          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
           loginPath: '/login',
         },
       }
@@ -218,8 +185,8 @@ describe('callback route registration', () => {
 
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: 'guest' });
-        group({ auth: true }, () => {
+        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        group({ auth: requireUser() }, () => {
           route('/dashboard', () => {
             renderedDashboard = true;
             return <div>{'dashboard-page'}</div>;
@@ -228,7 +195,7 @@ describe('callback route registration', () => {
       },
       {
         auth: {
-          resolve: () => ({ session: null, user: null }),
+          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
           loginPath: '/login',
         },
       }
@@ -250,18 +217,15 @@ describe('callback route registration', () => {
   it('should redirect authenticated users away from guest-only routes', async () => {
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: 'guest' });
-        group({ auth: true }, () => {
+        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        group({ auth: requireUser() }, () => {
           route('/dashboard', () => <div>{'dashboard-page'}</div>);
         });
       },
       {
         auth: {
-          resolve: () => ({
-            session: { id: 'session_1' },
-            user: { id: 'user_1' },
-          }),
-          guestRedirectTo: ({ search }) =>
+          resolve: () => ({ authenticated: true, principal: { id: 'user_1' }, session: null, tenant: null }),
+          authenticatedRedirectTo: ({ search }) =>
             new URLSearchParams(search).get('next') ?? '/dashboard',
         },
       }

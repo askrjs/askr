@@ -93,8 +93,7 @@ expectType<never>(rootSurface.route);
 expectType<never>(rootSurface.resource);
 // @ts-expect-error root package does not expose component helpers
 expectType<never>(rootSurface.ErrorBoundary);
-// @ts-expect-error root package does not expose data helpers
-expectType<never>(rootSurface.createQuery);
+expectType<typeof dataSurface.createQuery>(rootSurface.createQuery);
 // @ts-expect-error root package does not expose data helpers
 expectType<never>(rootSurface.queryScope);
 // @ts-expect-error root package does not expose foundations helpers
