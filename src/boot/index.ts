@@ -47,6 +47,8 @@ import type {
   SPAConfig,
 } from './types';
 import { withIntrinsicHydrationAdoption } from '../renderer';
+import { hydrateDataRuntime } from '../data/query-registry';
+import { getDefaultDataRuntime } from '../data/data-runtime';
 
 export { cleanupApp, hasApp } from './root-lifecycle';
 export type {
@@ -260,6 +262,15 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       : config.root;
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
   const hydrationRenderData = takeHydrationRenderData(rootElement);
+  const hydrationQueryCache = hydrationRenderData && typeof hydrationRenderData === 'object'
+    ? (hydrationRenderData as Record<string, unknown>).__askr_query_cache
+    : undefined;
+  if (hydrationQueryCache) {
+    hydrateDataRuntime(config.dataRuntime ?? getDefaultDataRuntime(), hydrationQueryCache);
+  }
+  const hydrationRenderDataForApp = hydrationRenderData && typeof hydrationRenderData === 'object' && '__askr_query_cache' in hydrationRenderData
+    ? Object.fromEntries(Object.entries(hydrationRenderData).filter(([key]) => key !== '__askr_query_cache'))
+    : hydrationRenderData;
 
   const pendingLazyAtHydrationBoot = [
     ..._snapshotLazy(),
@@ -337,7 +348,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         routes: legacyRouteTable,
         resolved: hydrationResolved,
         options: {
-          data: hydrationRenderData ?? undefined,
+          data: hydrationRenderDataForApp ?? undefined,
         },
       })
     ) {
@@ -350,8 +361,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   const hydrateOptions = config.hydrate;
   if (hydrateOptions) {
     if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
-      if (hydrationRenderData) {
-        startHydrationRenderPhase(hydrationRenderData);
+      if (hydrationRenderDataForApp) {
+        startHydrationRenderPhase(hydrationRenderDataForApp);
       }
       try {
         await applySelectiveHydration(
@@ -369,7 +380,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           }
         );
       } finally {
-        if (hydrationRenderData) {
+        if (hydrationRenderDataForApp) {
           stopHydrationRenderPhase();
         }
       }
@@ -381,8 +392,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }
   }
 
-  if (hydrationRenderData) {
-    startHydrationRenderPhase(hydrationRenderData);
+  if (hydrationRenderDataForApp) {
+    startHydrationRenderPhase(hydrationRenderDataForApp);
   }
   try {
     mountHydratedRoot(
@@ -395,7 +406,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       }
     );
   } finally {
-    if (hydrationRenderData) {
+    if (hydrationRenderDataForApp) {
       stopHydrationRenderPhase();
     }
   }

@@ -1,4 +1,6 @@
 import type { RenderableChild } from './vnode';
+import type { QueryPrefetchContext } from '../data/types';
+import type { AuthContext, AuthRequirement } from '@askrjs/auth';
 
 /**
  * Common call contracts: Router types
@@ -70,7 +72,6 @@ export type RouteComponent<TParams extends RouteParams = RouteParams> = (
 ) => RenderableChild;
 
 export type RouteMode = 'spa' | 'ssr' | 'ssg';
-export type RouteAuthMode = true | 'guest';
 export type AccessRedirectStatus = 301 | 302 | 303 | 307 | 308;
 export type AccessDenyStatus = 401 | 403 | 404;
 
@@ -95,19 +96,14 @@ export type AccessDecision =
   | AccessRedirectDecision
   | AccessDenyDecision;
 
-export interface RouteContext<
-  Session = unknown,
-  User = unknown,
-  TParams extends RouteParams = RouteParams,
-> {
+export interface RouteContext<TParams extends RouteParams = RouteParams> {
   mode: RouteMode;
   params: TParams;
   pathname: string;
   search: string;
   hash: string;
   href: string;
-  session: Session | null;
-  user: User | null;
+  auth: AuthContext;
   signal: AbortSignal;
 }
 
@@ -115,39 +111,22 @@ export type RoutePolicy = (
   context: RouteContext
 ) => AccessDecision | PromiseLike<AccessDecision>;
 
-export interface RouteAuthState<Session = unknown, User = unknown> {
-  session: Session | null;
-  user: User | null;
-}
+export type RouteAuthResolver = (
+  context: Omit<RouteContext, 'auth'>
+) => AuthContext | PromiseLike<AuthContext>;
 
-export type RouteAuthResolver<Session = unknown, User = unknown> = (
-  context: Omit<RouteContext<Session, User>, 'session' | 'user'>
-) => RouteAuthState<Session, User> | PromiseLike<RouteAuthState<Session, User>>;
-
-export interface RouteAuthOptions<Session = unknown, User = unknown> {
-  resolve: RouteAuthResolver<Session, User>;
+export interface RouteAuthOptions {
+  resolve: RouteAuthResolver;
   loginPath?:
     | string
-    | ((context: RouteContext<Session, User>) => string | PromiseLike<string>);
-  guestRedirectTo?:
+    | ((context: RouteContext) => string | PromiseLike<string>);
+  authenticatedRedirectTo?:
     | string
-    | ((context: RouteContext<Session, User>) => string | PromiseLike<string>);
-  hasRole?: (
-    user: User,
-    role: string,
-    context: RouteContext<Session, User>
-  ) => boolean | PromiseLike<boolean>;
-  hasPermission?: (
-    user: User,
-    permission: string,
-    context: RouteContext<Session, User>
-  ) => boolean | PromiseLike<boolean>;
+    | ((context: RouteContext) => string | PromiseLike<string>);
 }
 
 export interface CommonAccessOptions {
-  auth?: RouteAuthMode;
-  role?: string;
-  permission?: string;
+  auth?: AuthRequirement;
   policies?: readonly RoutePolicy[];
 }
 
@@ -162,13 +141,16 @@ export interface CommonAccessOptions {
 export interface RouteOptions<
   TParams extends RouteParams = RouteParams,
 > extends CommonAccessOptions {
-  loader?: (context: { params: TParams }) => unknown;
+  loader?: (context: RouteContext<TParams> & { request?: Request }) => unknown;
+  preload?: (context: RouteContext<TParams> & { request?: Request; data: QueryPrefetchContext }) => unknown;
   entries?: () => Array<TParams> | Promise<Array<TParams>>;
   title?: string;
   namespace?: string;
 }
 
-export interface PageHelperOptions extends CommonAccessOptions {}
+export interface PageHelperOptions extends CommonAccessOptions {
+  preload?: (context: RouteContext & { request?: Request; data: QueryPrefetchContext }) => unknown;
+}
 
 /**
  * A single parsed segment from a route path.
@@ -205,7 +187,9 @@ export interface RouteRequestOptions {
   manifest?: RouteManifest;
   mode?: RouteMode;
   auth?: RouteAuthOptions;
+  authContext?: AuthContext;
   signal?: AbortSignal;
+  request?: Request;
 }
 
 export interface RouteRenderResult<TParams extends RouteParams = RouteParams> {

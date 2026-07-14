@@ -508,7 +508,7 @@ export function renderToStringSync(
       }
       const sink = new StringSink();
       renderNodeSyncToSink(node, sink, ctx);
-      sink.write(serializeHydrationRenderData(options?.data));
+      sink.write(serializeHydrationRenderData(options?.data, ctx.dataRuntime as import('../data/types').DataRuntime | undefined));
       sink.end();
       return sink.toString();
     } finally {
@@ -533,7 +533,7 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
         ctx
       );
       renderRenderableSyncToSink(app, sink, ctx);
-      sink.write(serializeHydrationRenderData(data));
+      sink.write(serializeHydrationRenderData(data, ctx.dataRuntime as import('../data/types').DataRuntime | undefined));
     } finally {
       try {
         stopRenderPhase();

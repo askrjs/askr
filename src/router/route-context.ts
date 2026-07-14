@@ -1,10 +1,5 @@
-import { withRouteAuthOptions } from './policy';
-
-import type {
-  RouteAuthOptions,
-  RouteContext,
-  RouteQuery,
-} from '../common/router';
+import type { AuthContext } from '@askrjs/auth';
+import type { RouteContext, RouteQuery } from '../common/router';
 
 export function parseLocation(url: string): {
   pathname: string;
@@ -81,7 +76,7 @@ export function buildRouteContextBase(
     mode: RouteContext['mode'];
     signal: AbortSignal;
   }
-): Omit<RouteContext, 'session' | 'user'> {
+): Omit<RouteContext, 'auth'> {
   const parsed = parseLocation(target);
   const href = `${parsed.pathname}${parsed.search}${parsed.hash}`;
 
@@ -102,16 +97,11 @@ export function buildRouteContext(
   options: {
     mode: RouteContext['mode'];
     signal: AbortSignal;
-    auth?: RouteAuthOptions;
-    session?: unknown;
-    user?: unknown;
+    authContext: AuthContext;
   }
 ): RouteContext {
-  const context: RouteContext = {
+  return {
     ...buildRouteContextBase(target, params, options),
-    session: options.session ?? null,
-    user: options.user ?? null,
+    auth: options.authContext,
   };
-
-  return withRouteAuthOptions(context, options.auth);
 }

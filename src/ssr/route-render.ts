@@ -12,6 +12,7 @@ import type {
   RouteRequestResult,
 } from '../common/router';
 import * as RouteModule from '../router/route';
+import type { AuthContext } from '@askrjs/auth';
 import {
   createRenderContext,
   type RenderContext,
@@ -41,6 +42,9 @@ export type RouteRenderOptions = SSRRouteSource & {
   seed?: number;
   data?: SSRData;
   document?: DocumentRenderer;
+  request?: Request;
+  dataRuntime?: import('../data/types').DataRuntime;
+  queryPrefetch?: import('../data/types').QueryPrefetchContext;
 };
 
 export type RouteStreamOptions = RouteRenderOptions & {
@@ -83,6 +87,8 @@ export async function resolveRequest(
           namespace?: string;
         }>;
         auth?: RouteAuthOptions;
+        authContext?: AuthContext;
+        request?: Request;
         signal?: AbortSignal;
       }
     | {
@@ -95,6 +101,8 @@ export async function resolveRequest(
           namespace?: string;
         }>;
         auth?: RouteAuthOptions;
+        authContext?: AuthContext;
+        request?: Request;
         signal?: AbortSignal;
       }
     | {
@@ -107,10 +115,12 @@ export async function resolveRequest(
           namespace?: string;
         }>;
         auth?: RouteAuthOptions;
+        authContext?: AuthContext;
+        request?: Request;
         signal?: AbortSignal;
       }
 ): Promise<RouteRequestResult> {
-  const { url, auth, signal } = opts;
+  const { url, auth, authContext, request, signal } = opts;
   const manifest = opts.manifest ?? opts.registry?.manifest;
   const routes = opts.routes ?? opts.registry?.routes;
 
@@ -119,6 +129,8 @@ export async function resolveRequest(
       manifest,
       mode: 'ssr',
       auth,
+      authContext,
+      request,
       signal,
     });
   }
@@ -171,6 +183,8 @@ function resolveSSRRouteRender(
     data,
     params: resolvedRoute.params,
     routes: routeTable,
+    dataRuntime: opts.dataRuntime,
+    queryPrefetch: opts.queryPrefetch,
   });
 
   return {

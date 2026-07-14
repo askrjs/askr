@@ -6,12 +6,12 @@ import type { ComponentFunction } from '../common/component';
 import type { DocumentRenderer } from '../common/ssr';
 import type { RenderableChild } from '../common/vnode';
 import type {
-  RouteAuthMode,
   RouteHandler,
   RoutePathParams,
   RoutePolicy,
   RouteRegistry,
 } from '../common/router';
+import type { AuthRequirement } from '@askrjs/auth';
 
 export type SSGMode = 'full' | 'incremental';
 
@@ -56,12 +56,8 @@ export interface RouteConfig<Path extends string = string> {
   props?: Record<string, unknown>;
   /** Optional namespace for router compatibility */
   namespace?: string;
-  /** Guest routes remain prerenderable; authenticated routes are runtime-only by default */
-  auth?: RouteAuthMode;
-  /** Role-gated routes are runtime-only by default */
-  role?: string;
-  /** Permission-gated routes are runtime-only by default */
-  permission?: string;
+  /** Routes with request-auth requirements are runtime-only by default. */
+  auth?: AuthRequirement;
   /** Advanced runtime access checks disable prerendering by default */
   policies?: readonly RoutePolicy[];
   /** Optional path parameter map for template paths like "/blog/{slug}" */

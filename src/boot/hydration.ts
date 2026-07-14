@@ -42,7 +42,8 @@ export function takeHydrationRenderData(rootElement: Element): SSRData | null {
       }
 
       try {
-        return JSON.parse(raw) as SSRData;
+        const parsed = JSON.parse(raw) as SSRData & { __askr_query_cache?: unknown };
+        return parsed;
       } catch (err) {
         const error = new Error(
           '[Askr] Failed to parse embedded SSR render data during hydration.'

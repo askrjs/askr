@@ -24,9 +24,6 @@ export {
   unauthorized,
   forbidden,
   notFound,
-  requireAuth,
-  requireRole,
-  requirePermission,
 } from './policy';
 export type {
   AccessDecision,
@@ -37,10 +34,8 @@ export type {
   RegisterRoutesOptions,
   RouteDefinition,
   Route,
-  RouteAuthMode,
   RouteAuthOptions,
   RouteAuthResolver,
-  RouteAuthState,
   RouteHandler,
   RouteMode,
   RouteContext,
@@ -62,6 +57,7 @@ export type {
   RouteRegistry,
   PageScopeRecord,
 } from '../common/router';
+export type { AuthContext, AuthRequirement } from '@askrjs/auth';
 
 export { navigate, updateRouteQuery } from './navigate';
 export type {

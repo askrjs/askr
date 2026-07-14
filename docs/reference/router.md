@@ -32,12 +32,13 @@ Router layouts return normal renderable content. Imperative DOM `Node` values ar
 not a supported public contract there.
 
 ```ts
+import { requireUser } from '@askrjs/auth';
 import { fallback, group, route } from '@askrjs/askr/router';
 
 group({ layout: AppLayout }, () => {
   route('/', HomePage);
 
-  group({ auth: true, layout: WorkspaceLayout }, () => {
+  group({ auth: requireUser(), layout: WorkspaceLayout }, () => {
     route('/dashboard', DashboardPage);
     route('/settings', SettingsPage);
   });
@@ -50,8 +51,6 @@ Supported group options:
 
 - `layout`
 - `auth`
-- `role`
-- `permission`
 - `policies`
 
 ## `page(path, Component, fn)`
@@ -93,8 +92,6 @@ page host provides shell structure; it is not itself the default leaf.
 Supported page options:
 
 - `auth`
-- `role`
-- `permission`
 - `policies`
 
 Child `route()` declarations inside `page()` must use relative paths.
@@ -105,7 +102,7 @@ inherited behavior inside a page subtree and `route()` for child leaves.
 page('/docs/components', ComponentsPage, () => {
   index(ComponentsOverview);
 
-  group({ auth: true }, () => {
+  group({ auth: requireUser() }, () => {
     route('tokens', ComponentsTokensPage);
     route('patterns', ComponentsPatternsPage);
   });
@@ -138,9 +135,7 @@ Registers a route declaration. Call it during route registration.
 - `path`: route template using `{name}` for params and `/*` for catch-all. Inside `page()`, child routes must use relative paths like `tabs`.
 - `Component`: page component function; receives URL params as props and returns normal renderable content
 - `options`
-  - `auth`: `true` for authenticated routes, `"guest"` for signed-out-only routes
-  - `role`: role-gated route; implies `auth: true`
-  - `permission`: permission-gated route; implies `auth: true`
+  - `auth`: an `AuthRequirement` such as `requireUser()` or `requireRole('admin')`
   - `policies`: ordered access checks
   - `loader`: route loader `({ params }) => unknown`
   - `entries`: SSG entry generator
@@ -151,7 +146,7 @@ Registers a route declaration. Call it during route registration.
 route('/posts/{slug}', PostPage, {
   loader: ({ params }) => fetchPost(params.slug),
   entries: async () => getPosts().map((post) => ({ slug: post.slug })),
-  auth: true,
+  auth: requireUser(),
   title: 'Post',
 });
 ```
@@ -165,9 +160,9 @@ Path syntax rules:
 
 Specificity order: static > param > wildcard > catch-all.
 
-Auth resolvers, access policies, redirect path resolvers, and role or permission
-checks may return native promises or compatible promise-like values. Policy
-decisions are awaited in declaration order.
+Auth requirements, auth resolvers, access policies, and redirect path resolvers
+may return native promises or compatible promise-like values. Decisions are
+awaited in declaration order.
 
 ## `fallback(Component)`
 

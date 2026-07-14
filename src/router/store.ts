@@ -6,14 +6,9 @@ import type {
   RouteDefinition,
   RoutePolicy,
 } from '../common/router';
+import type { AuthRequirement } from '@askrjs/auth';
 import { getActiveRenderContext } from '../common/render-context';
-import type {
-  AccessScopeState,
-  InternalRoute,
-  InternalRouteRecord,
-  RegistrationScope,
-  RegistrationSession,
-} from './internal-types';
+import type { InternalRoute, InternalRouteRecord, RegistrationScope } from './internal-types';
 
 const routes: InternalRoute[] = [];
 const records: InternalRouteRecord[] = [];
@@ -21,7 +16,6 @@ const namespaces = new Set<string>();
 const routesByDepth = new Map<number, Route[]>();
 
 const registrationScopeStack: RegistrationScope[] = [];
-const registrationSessionStack: RegistrationSession[] = [];
 
 let registrationLocked = false;
 let defaultRouteAuthOptions: RouteAuthOptions | undefined;
@@ -36,7 +30,6 @@ type RouteStateSnapshot = {
   activeClientRouteAuthOptions: RouteAuthOptions | undefined;
   routesByDepth: Array<[number, Route[]]>;
   registrationScopeStack: RegistrationScope[];
-  registrationSessionStack: RegistrationSession[];
 };
 
 function getDepth(path: string): number {
@@ -116,23 +109,6 @@ export function setDefaultRouteAuthOptions(
   defaultRouteAuthOptions = auth;
 }
 
-export function getCurrentRegistrationSession(): RegistrationSession {
-  return (
-    registrationSessionStack[registrationSessionStack.length - 1] ?? {
-      authConfigured: !!defaultRouteAuthOptions?.resolve,
-    }
-  );
-}
-
-export function getCurrentAccessScopeState(): AccessScopeState {
-  return (
-    registrationScopeStack[registrationScopeStack.length - 1]?.state ?? {
-      guestOnly: false,
-      authenticated: false,
-    }
-  );
-}
-
 export function getCurrentLayoutChain(): LayoutScopeRecord[] {
   const layoutChain: LayoutScopeRecord[] = [];
 
@@ -196,6 +172,10 @@ export function getCurrentInheritedPolicies(): RoutePolicy[] {
   return policies;
 }
 
+export function getCurrentInheritedAuthRequirements(): AuthRequirement[] {
+  return registrationScopeStack.flatMap((scope) => scope.auth ? [scope.auth] : []);
+}
+
 export function pushRegistrationScope(
   scope: RegistrationScope,
   fn: RouteDefinition
@@ -205,18 +185,6 @@ export function pushRegistrationScope(
     fn();
   } finally {
     registrationScopeStack.pop();
-  }
-}
-
-export function pushRegistrationSession(
-  session: RegistrationSession,
-  fn: RouteDefinition
-): void {
-  registrationSessionStack.push(session);
-  try {
-    fn();
-  } finally {
-    registrationSessionStack.pop();
   }
 }
 
@@ -290,7 +258,6 @@ export function clearRouteState(): void {
   namespaces.clear();
   routesByDepth.clear();
   registrationScopeStack.length = 0;
-  registrationSessionStack.length = 0;
   registrationLocked = false;
   defaultRouteAuthOptions = undefined;
   activeClientRouteAuthOptions = undefined;
@@ -309,7 +276,6 @@ export function snapshotRouteState(): RouteStateSnapshot {
       [...depthRoutes],
     ]),
     registrationScopeStack: [...registrationScopeStack],
-    registrationSessionStack: [...registrationSessionStack],
   };
 }
 
@@ -332,9 +298,6 @@ export function restoreRouteState(snapshot: RouteStateSnapshot): void {
 
   registrationScopeStack.length = 0;
   registrationScopeStack.push(...snapshot.registrationScopeStack);
-
-  registrationSessionStack.length = 0;
-  registrationSessionStack.push(...snapshot.registrationSessionStack);
 
   registrationLocked = snapshot.registrationLocked;
   defaultRouteAuthOptions = snapshot.defaultRouteAuthOptions;

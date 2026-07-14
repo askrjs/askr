@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { cleanupApp, hydrateSPA } from '../../../src/boot';
 import { deny } from '../../../src/router/policy';
 import { renderToStringSync } from '../../../src/ssr';
@@ -56,8 +57,8 @@ describe('hydration route policy invariants', () => {
 
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: 'guest' });
-        group({ auth: true }, () => {
+        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        group({ auth: requireUser() }, () => {
           route('/dashboard', () => {
             renderedDashboard = true;
             return <div>{'dashboard-page'}</div>;
@@ -66,7 +67,7 @@ describe('hydration route policy invariants', () => {
       },
       {
         auth: {
-          resolve: () => ({ session: null, user: null }),
+          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
           loginPath: '/login',
         },
       }

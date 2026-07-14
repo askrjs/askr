@@ -10,6 +10,7 @@ import { SSRDataMissingError } from './errors';
 import { clearEscapeCache } from './escape';
 import { isPromiseLike } from '../common/promise';
 import { configureRenderContextProvider } from '../common/render-context';
+import { createDataRuntime } from '../data/data-runtime';
 
 export type { SSRData } from '../common/ssr';
 import type { SSRData } from '../common/ssr';
@@ -18,7 +19,6 @@ import type { Route, RouteAuthOptions } from '../common/router';
 const FALLBACK_ASYNC_CONTEXT_ERROR =
   '[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage.';
 
-// Unified per-render context combining SSRContext and RenderContext
 export interface RenderContext {
   url: string;
   seed: number;
@@ -29,14 +29,13 @@ export interface RenderContext {
   signal?: AbortSignal;
   dataRuntime?: unknown;
   queryCache?: Map<string, unknown>;
+  mode?: 'ssr' | 'spa';
+  queryPrefetch?: import('../data/types').QueryPrefetchContext;
   ssrCleanupFns: Array<() => void>;
   // Per-render key state (moved from render-keys.ts globals)
   keyCounter: number;
   renderData: Record<string, unknown> | null;
 }
-
-// Legacy alias for compatibility
-export type SSRContext = RenderContext;
 
 type RenderContextAccessor = {
   getStore(): RenderContext | undefined;
@@ -49,6 +48,7 @@ type AsyncHooksModule = {
 
 let renderContextAccessor: RenderContextAccessor | null = null;
 let renderContextAccessorInitialized = false;
+let asyncRenderContextAccessor: Promise<RenderContextAccessor | null> | null = null;
 
 // Fallback stack for non-Node environments
 let fallbackStack: RenderContext | null = null;
@@ -98,9 +98,12 @@ export function createRenderContext(
     routeAuth?: RouteAuthOptions;
     signal?: AbortSignal;
     dataRuntime?: unknown;
+    mode?: 'ssr' | 'spa';
+    queryPrefetch?: import('../data/types').QueryPrefetchContext;
   } = {}
 ): RenderContext {
   clearEscapeCache();
+  const queryCache = new Map<string, unknown>();
 
   return {
     url: opts.url ?? '',
@@ -110,8 +113,10 @@ export function createRenderContext(
     routes: opts.routes,
     routeAuth: opts.routeAuth,
     signal: opts.signal,
-    dataRuntime: opts.dataRuntime,
-    queryCache: new Map<string, unknown>(),
+    dataRuntime: opts.dataRuntime ?? createDataRuntime({ queryCache }),
+    mode: opts.mode ?? 'ssr',
+    queryPrefetch: opts.queryPrefetch,
+    queryCache,
     ssrCleanupFns: [],
     keyCounter: 0,
     renderData: null,
@@ -141,6 +146,43 @@ export function withRenderContext<T>(ctx: RenderContext, fn: () => T): T {
   }
 }
 
+async function getAsyncRenderContextAccessor(): Promise<RenderContextAccessor | null> {
+  ensureRenderContextAccessor();
+  if (renderContextAccessor) return renderContextAccessor;
+  if (typeof process === 'undefined' || !process.versions?.node) return null;
+  asyncRenderContextAccessor ??= (async () => {
+    try {
+      const specifier = 'node:async_hooks';
+      const module = await import(/* @vite-ignore */ specifier) as AsyncHooksModule;
+      if (!module.AsyncLocalStorage) return null;
+      const storage = new module.AsyncLocalStorage();
+      renderContextAccessor = {
+        getStore: () => storage.getStore(),
+        run: <R>(store: RenderContext, fn: () => R) => storage.run(store, fn),
+      };
+      return renderContextAccessor;
+    } catch {
+      return null;
+    }
+  })();
+  return asyncRenderContextAccessor;
+}
+
+export async function withRenderContextAsync<T>(
+  ctx: RenderContext,
+  fn: () => T | PromiseLike<T>
+): Promise<T> {
+  const accessor = await getAsyncRenderContextAccessor();
+  if (accessor) return accessor.run(ctx, () => Promise.resolve(fn()));
+  const previous = fallbackStack;
+  fallbackStack = ctx;
+  try {
+    return await fn();
+  } finally {
+    fallbackStack = previous;
+  }
+}
+
 /**
  * Get the current render context.
  * Returns null if not inside a render.
@@ -156,16 +198,6 @@ export function getRenderContext(): RenderContext | null {
 configureRenderContextProvider({
   getRenderContext,
 });
-
-// Legacy API aliases (deprecated, for backwards compatibility)
-export const getSSRContext = getRenderContext;
-export const withSSRContext = withRenderContext;
-export const getCurrentSSRContext = getRenderContext;
-
-export function runWithSSRContext<T>(ctx: RenderContext, fn: () => T): T {
-  // This was a separate path for sync detection; now unified
-  return withRenderContext(ctx, fn);
-}
 
 /**
  * Centralized SSR enforcement helper — throws a consistent error when async

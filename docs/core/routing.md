@@ -12,6 +12,7 @@ The Askr router uses one route model across SPA, SSR, and SSG:
 ## Register routes
 
 ```ts
+import { requireAnonymous, requireRole, requireUser } from '@askrjs/auth';
 import {
   createRouteRegistry,
   fallback,
@@ -39,11 +40,11 @@ export const registry = createRouteRegistry(() => {
       route('pills', DocsComponentsPills);
     });
 
-    group({ layout: AuthLayout, auth: 'guest' }, () => {
+    group({ layout: AuthLayout, auth: requireAnonymous() }, () => {
       route('/login', Login);
     });
 
-    group({ auth: true }, () => {
+    group({ auth: requireUser() }, () => {
       route('/dashboard', Dashboard);
     });
 
@@ -97,7 +98,7 @@ function PostPage() {
 
 ```ts
 route('/posts/{slug}', PostPage, {
-  auth: true,
+  auth: requireUser(),
   loader: ({ params }) => fetchPost(params.slug),
   entries: async () => getPosts().map((post) => ({ slug: post.slug })),
   policies: [requireVerifiedEmail()],
@@ -113,10 +114,10 @@ Groups are pathless scopes. Child routes keep absolute paths.
 group({ layout: RootLayout }, () => {
   route('/', HomePage);
 
-  group({ auth: true }, () => {
+  group({ auth: requireUser() }, () => {
     route('/dashboard', DashboardPage);
 
-    group({ layout: AdminPanel, role: 'admin' }, () => {
+    group({ layout: AdminPanel, auth: requireRole('admin') }, () => {
       route('/admin/users', AdminUsersPage);
       route('/admin/settings', AdminSettingsPage);
     });

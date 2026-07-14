@@ -55,6 +55,7 @@ export type SPAConfig = BootRouteSource & {
 
 export type HydrateSPAConfig = BootRouteSource & {
   root: Element | string;
+  dataRuntime?: import('../data/types').DataRuntime;
   /** Preferred route input - see `SPAConfig`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
