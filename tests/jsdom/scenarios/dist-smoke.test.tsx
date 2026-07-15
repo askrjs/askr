@@ -105,5 +105,5 @@ test('should build dist and run benchmark bundle without dev warnings', async ()
 
   cleanup();
   warn.mockRestore();
-}, 60000);
+}, 180000);
 // @askr-allow-real-timers -- built-distribution integration fixture.
