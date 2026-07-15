@@ -7,6 +7,7 @@
 import type {
   RouteConfig,
   RouteRenderResult,
+  SSGAssetSource,
   SSGGenerateOptions,
   SSGMode,
   SSGOptions,
@@ -112,6 +113,42 @@ async function createStagingDirectory(outputDir: string): Promise<string> {
   const base = pathModule.basename(outputDir);
   await fs.mkdir(parent, { recursive: true });
   return fs.mkdtemp(pathModule.join(parent, `.${base}.askr-staging-`));
+}
+
+function resolveAssetDestination(
+  outputDir: string,
+  source: SSGAssetSource
+): string {
+  const relativeDestination = source.to ?? pathModule.basename(source.from);
+  const destination = pathModule.resolve(outputDir, relativeDestination);
+  const relative = pathModule.relative(
+    pathModule.resolve(outputDir),
+    destination
+  );
+
+  if (relative.startsWith('..') || pathModule.isAbsolute(relative)) {
+    throw new Error(
+      `SSG asset destination must stay inside outputDir: ${relativeDestination}`
+    );
+  }
+
+  return destination;
+}
+
+async function copyStaticAssets(
+  assets: readonly SSGAssetSource[] | undefined,
+  outputDir: string
+): Promise<void> {
+  for (const source of assets ?? []) {
+    if (!source.from || source.from.trim().length === 0) {
+      throw new Error('SSG asset source requires a non-empty from path');
+    }
+
+    const from = pathModule.resolve(source.from);
+    const to = resolveAssetDestination(outputDir, source);
+    await fs.mkdir(pathModule.dirname(to), { recursive: true });
+    await fs.cp(from, to, { recursive: true, force: true });
+  }
 }
 
 type OutputDirectoryFileOperations = Pick<typeof fs, 'rename' | 'rm'>;
@@ -426,6 +463,8 @@ export function createStaticGen<
           targetOutputDir
         );
 
+        await copyStaticAssets(options.assets, targetOutputDir);
+
         if (effectiveMode === 'full') {
           await replaceOutputDirectory(targetOutputDir, options.outputDir);
         }
@@ -450,6 +489,7 @@ export function createStaticGen<
         concurrency: resolvedConcurrency,
         parallelism: resolvedParallelism,
         hasDataOverrides: !!options.dataOverrides,
+        assetCount: options.assets?.length ?? 0,
       };
     },
 

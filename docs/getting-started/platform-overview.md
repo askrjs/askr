@@ -1,98 +1,67 @@
 # Platform Overview
 
-Askr is organized in layers. Each layer depends on the one below it. You can stop at any layer
-depending on what your application needs.
+Askr is a set of independently published packages with one composition model.
+Applications take only the layers they need; the full-stack stage combines the
+same route graph across browser navigation, SSR, page actions, APIs, and SSG.
 
 ## Platform layers
 
+```text
+Application and composition root
+  @askrjs/cli                         project creation and generators
+  @askrjs/node + @askrjs/vite         production transport and document owner
+  @askrjs/server + @askrjs/auth       APIs, page actions, policies, protection
+  @askrjs/schema                      executable input and OpenAPI contracts
+  @askrjs/i18n + @askrjs/otel         application-owned locale and telemetry
+  @askrjs/themes + ui packages        optional visual and interaction layers
+  @askrjs/askr                        runtime, routes, data, SSR, and SSG
 ```
-Your Application
-      ^
-  askr-cli          - generators, scaffolding, SSG runner
-      ^
-  askr-themes       - optional tokens and base styles
-      ^
-  askr-ui           - headless UI primitives
-      ^
-  askr              - core runtime: rendering, routing, data
-```
 
-## Layer breakdown
+`@askrjs/askr` is the only required runtime package. Server, transport,
+localization, telemetry, and UI packages remain explicit application choices.
 
-### askr - Core runtime
+## Core application model
 
-The foundation of every Askr application.
+- `route()` returns a typed route reference. `to()` constructs and validates a
+  destination before `Link` renders it.
+- `routeData()` reads critical loader data. Explicit `defer()` values render
+  through `Resolve` and can stream after the document shell.
+- `defineAction()` creates a browser-safe descriptor. A matched route must
+  authorize it, while the server composition root registers its handler once.
+- `defineScope()` and `readScope()` provide lexical ownership without a global
+  singleton or React-shaped hook vocabulary.
+- Functions, closures, and structural interfaces are preferred over classes.
 
-Responsibilities:
+## Server and document ownership
 
-- Component rendering (DOM and string)
-- Application lifecycle (`createIsland`, `createSPA`, `hydrateSPA`)
-- Routing: `createRouteRegistry()`, `group()`, `route()`, `currentRoute()`, `navigate()`, `Link`
-- Reactivity: `state()`, `derive()`, `selector()`
-- Async data: `resource()`, `on()`, `timer()`, `task()`
-- SSR and SSG output
+`@askrjs/server` owns request handling, executable API operations, action
+authorization, CSRF, policies, and rate limiting. `ctx.bind()` remains the
+explicit escape hatch for unvalidated server input; declared operations read
+and validate params, query, headers, and body separately.
 
-The runtime is the only required package. Every other package is optional.
+Vite is the sole HTML document owner. An application template contains exactly
+one `<!--askr-head-->` marker and one `<!--askr-app-->` marker. Askr injects only
+its owned metadata and streamed app output, preserving all other static head
+content.
 
-### askr-ui - Headless UI primitives
+## Application-owned services
 
-Provides interaction behavior and accessibility patterns without imposing visual styling.
+`createI18n(sourceLocale, catalogs)` returns a typed locale service whose `Scope` establishes
+locale and direction. Applications still decide whether locale comes from a
+path prefix, host, cookie, or user profile.
 
-Responsibilities:
+`createTelemetry()` connects framework spans to an application-installed
+OpenTelemetry provider. It installs no SDK, exporter, backend, or processor and
+accepts only redaction-safe structured fields.
 
-- Interaction primitives (button, input, select, dialog, etc.)
-- Keyboard navigation and ARIA patterns
-- Composable behavior hooks
-- No styling opinions - pair with `askr-themes` or your own CSS
+## Intentional exclusions
 
-### askr-themes - Optional styling layer
-
-Provides visual defaults you can use as-is or override.
-
-Responsibilities:
-
-- Design tokens (color, spacing, type scale, radius)
-- Base component styles
-- Layout utility classes
-
-Not required. Omit this layer when you have your own design system.
-
-### askr-lucide - Icon wrappers
-
-Thin Askr-native wrappers around the Lucide icon set.
-
-Responsibilities:
-
-- Consistent icon API (size, color, accessibility)
-- Tree-shakeable per-icon imports
-- Integrates with `askr-ui` sizing conventions
-
-### askr-cli - Developer workflow tooling
-
-Provides project creation, code generation, and the SSG runner.
-
-Responsibilities:
-
-- `askr-cli create` - scaffold a new project from a template
-- `askr-cli ssg` - run static site generation
-- Feature generators (coming: `askr-cli add page`, `askr-cli add crud`)
-
-Generated code has no runtime dependency on the CLI. Once scaffolded, the CLI
-is a dev-time tool only.
-
-## What the platform does not cover
-
-Askr focuses on frontend application structure. The following are intentionally out of scope:
-
-- Server-side business logic
-- Authentication and session state
-- API routing or middleware
-- Database access
-- Deployment infrastructure
+Askr does not own developer tools, databases or ORMs, identity providers,
+vendor deployment adapters, WebSockets, or proprietary telemetry backends.
 
 ## Next steps
 
 - [Installation](./installation.md)
 - [Quick start](./quick-start.md)
-- [CLI overview](https://github.com/askrjs/askr-cli/tree/main/docs/overview.md)
 - [Package map](../reference/package-map.md)
+- [CLI overview](https://github.com/askrjs/askr-cli/tree/main/docs/overview.md)

@@ -18,9 +18,14 @@ export interface DataRuntimeOptions {
 
 export interface QueryDefinition<TInput, TResult extends {}> {
   readonly key: (input: TInput) => string;
-  readonly fetch: (context: TInput & { signal: AbortSignal }) => Promise<TResult>;
+  readonly fetch: (
+    context: TInput & { signal: AbortSignal }
+  ) => Promise<TResult>;
   readonly isConsistent?: (data: TResult) => boolean;
-  readonly reconcile?: (data: TResult, context: { key: string }) => Promise<boolean> | boolean;
+  readonly reconcile?: (
+    data: TResult,
+    context: { key: string }
+  ) => Promise<boolean> | boolean;
 }
 
 export interface QueryPrefetchContext {
@@ -28,7 +33,10 @@ export interface QueryPrefetchContext {
   readonly request?: Request;
   readonly signal: AbortSignal;
   readonly mode: 'ssr' | 'spa';
-  prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;
+  prefetch<TInput, TResult extends {}>(
+    query: QueryDefinition<TInput, TResult>,
+    input: TInput
+  ): Promise<boolean>;
 }
 
 export type ServerQueryHandler<TInput, TResult extends {}> = (context: {

@@ -1,6 +1,7 @@
 # SSR Guide
 
-Askr's current SSR APIs render UI to HTML strings for server output.
+Askr preserves synchronous string rendering for ordinary routes and exposes a
+Web stream only when a route contains an explicitly deferred value.
 
 ## High-level workflow
 
@@ -11,14 +12,45 @@ Askr's current SSR APIs render UI to HTML strings for server output.
 
 ## Current status
 
-- The shipped SSR render phase is synchronous and best suited to static or preloaded data.
+- The component render phase remains synchronous. `defer()` marks the promises
+  that may settle after fallback HTML is flushed.
 - Async components, async `resource()` loaders, and async document renderers are rejected during SSR instead of awaited.
 - Use deterministic inputs for stable hydration output.
 - URL-based SSR helpers keep route tables in per-render context instead of mutating the client router registry.
 
-If you need request-time async data loading, resolve it before calling the SSR
-renderer and pass the result as synchronous render data. Streaming helpers
-preserve the same synchronous component render boundary.
+Critical loader data is awaited before rendering. Wrap only non-critical
+promises with `defer()` and render them through `Resolve`.
+
+## Deferred route responses
+
+Server adapters should call `renderRouteRequest()`. A route without pending
+deferred values returns its complete `html` and no `stream`. A deferred route
+also returns `stream`; use `result.stream ?? result.html` as the response body.
+The stream emits fallback markup first, then ordered boundary templates and
+settled hydration data. Request abort and response cancellation stop unresolved
+boundary work.
+
+```tsx
+import { defer, Resolve, route, routeData } from '@askrjs/askr/router';
+
+type Summary = { total: number };
+
+route('/report', Report, {
+  loader: () => ({ summary: defer(loadSummary()) }),
+});
+
+function Report() {
+  const data = routeData<{ summary: ReturnType<typeof defer<Summary>> }>();
+  return Resolve({
+    value: data.summary,
+    pending: <p>Loading summary…</p>,
+    children: (summary) => <SummaryView summary={summary} />,
+  });
+}
+```
+
+Hydration revives settled deferred data and adopts the streamed DOM; it does
+not rerun the server loader.
 
 ## URL-based rendering
 

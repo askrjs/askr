@@ -74,7 +74,9 @@ expectType<Promise<boolean>>(
   prefetchQuery(prefetchContext, userDefinition, { id: '123' })
 );
 expectType<Record<string, unknown>>(dehydrateDataRuntime(dataRuntime));
-expectType<void>(hydrateDataRuntime(dataRuntime, { 'user:123': { id: '123' } }));
+expectType<void>(
+  hydrateDataRuntime(dataRuntime, { 'user:123': { id: '123' } })
+);
 
 const query = createQuery({
   key: 'user:123',

@@ -49,8 +49,12 @@ export function resource<T>(
 
   if (!instance) {
     // If we're in a synchronous SSR render that has resolved data, use it.
-    const renderData = getCurrentRenderData();
-    if (renderData) {
+    const renderData = getCurrentRenderData()?.resources;
+    if (
+      renderData &&
+      (getActiveRenderContext()?.resourceDataProvided ||
+        Object.keys(renderData).some((key) => key.startsWith('r:')))
+    ) {
       const key = getNextRenderKey();
       if (!(key in renderData)) {
         throwSSRDataMissing();
@@ -83,8 +87,12 @@ export function resource<T>(
   // (See ./resource-cell.ts)
 
   // If we're in a synchronous SSR render that was supplied resolved data, use it
-  const renderData = getCurrentRenderData();
-  if (renderData) {
+  const renderData = getCurrentRenderData()?.resources;
+  if (
+    renderData &&
+    (getActiveRenderContext()?.resourceDataProvided ||
+      Object.keys(renderData).some((key) => key.startsWith('r:')))
+  ) {
     // Deterministic key generation: the collection step and render step use
     // the same incremental key generation to align resources.
     const key = getNextRenderKey();

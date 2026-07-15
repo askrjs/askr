@@ -404,25 +404,25 @@ that owns the work; optional `when` checks let you skip ticks when the route is 
 the document is hidden, or another app condition is false. Rerenders keep the latest callback
 and checks; the interval is recreated only when `intervalMs` changes.
 
-## Context
+## Scope
 
 Share values across a component tree without prop-drilling.
 
 ```tsx
-import { defineContext, readContext } from '@askrjs/askr';
+import { defineScope, readScope } from '@askrjs/askr';
 
-const ThemeContext = defineContext<'light' | 'dark'>('light');
+const ThemeScope = defineScope<'light' | 'dark'>('light');
 
 function Panel() {
-  const theme = readContext(ThemeContext);
+  const theme = readScope(ThemeScope);
   return <div>{theme}</div>;
 }
 
 function App() {
   return (
-    <ThemeContext.Scope value="dark">
+    <ThemeScope value="dark">
       <Panel />
-    </ThemeContext.Scope>
+    </ThemeScope>
   );
 }
 ```

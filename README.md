@@ -24,8 +24,12 @@ createIsland({ root: document.body, component: Counter });
 ### Runtime
 
 `@askrjs/askr` exports the core runtime primitives: `state()`, `derive()`,
-`selector()`, `defineContext()`, `readContext()`, `getSignal()`, and the JSX
+`selector()`, `defineScope()`, `readScope()`, `getSignal()`, and the JSX
 runtime exports.
+
+Public APIs prefer functions and closures over classes. Lexical ownership uses
+`defineScope()` and `readScope()`; there are no compatibility aliases for the
+clean-break vocabulary.
 
 App startup, routing, async resources, data helpers, and error boundaries live
 on their own subpaths.

@@ -4,6 +4,7 @@
 
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteRegistry } from '../common/router';
+import { getRenderHandler } from '../router/rendering';
 import { expandRoutes } from './resolve-ssg-data';
 import {
   getOutputFilePath,
@@ -125,11 +126,12 @@ function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
 
     routeConfigs.push({
       path: record.path,
-      handler: record.handler,
+      handler: getRenderHandler(record),
       namespace: record.options.namespace,
       auth: record.options.auth,
       policies: record.options.policies,
       entries: record.options.entries,
+      loader: record.options.loader,
     });
   }
 

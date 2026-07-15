@@ -50,6 +50,12 @@ export type {
   RoutePathParams,
   RouteComponent,
   RouteOptions,
+  RouteRef,
+  RouteDestination,
+  RouteSearch,
+  RouteSearchValue,
+  RouteMeta,
+  RouteMetaSource,
   ParsedSegment,
   LayoutScopeRecord,
   RouteRecord,
@@ -57,6 +63,21 @@ export type {
   RouteRegistry,
   PageScopeRecord,
 } from '../common/router';
+export { to } from './destination';
+export {
+  reconcileRouteMeta,
+  resolveRouteMeta,
+  serializeRouteMeta,
+} from './metadata';
+export { resolveRouteRequest } from './resolution';
+export {
+  defer,
+  isDeferred,
+  resolveDeferredValues,
+  routeData,
+  Resolve,
+} from './deferred';
+export type { Deferred, DeferredState, ResolveProps } from './deferred';
 export type { AuthContext, AuthRequirement } from '@askrjs/auth';
 
 export { navigate, updateRouteQuery } from './navigate';

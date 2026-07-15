@@ -13,7 +13,7 @@
  * - Debuggability
  *
  * INVARIANTS:
- * - readContext() only works during component render (has currentContextFrame)
+ * - readScope() only works during component render (has currentContextFrame)
  * - Each render captures a context snapshot
  * - Async continuations see the snapshot from render start (frozen)
  * - Provider (Scope) creates a new frame that shadows parent
@@ -26,20 +26,17 @@ import type { Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
 import { getCurrentComponentInstance } from './component';
 import type { ComponentInstance } from './component';
+import { markEagerControlPrimitive } from '../common/control';
 
 export type ContextKey = symbol;
 
 type Renderable = RenderableChild;
 type ContextScopeChildren = Renderable | (() => Renderable);
 
-export interface Context<T> {
+export interface Scope<T> {
+  (props: { value: T; children?: ContextScopeChildren }): JSXElement;
   readonly key: ContextKey;
   readonly defaultValue: T;
-  // A Scope is a JSX-style element factory returning a JSXElement (component invocation)
-  readonly Scope: (props: {
-    value: T;
-    children?: ContextScopeChildren;
-  }) => JSXElement;
 }
 
 export interface ContextFrame {
@@ -277,26 +274,19 @@ export function withAsyncResourceContext<T>(
   }
 }
 
-export function defineContext<T>(defaultValue: T): Context<T> {
+export function defineScope<T>(defaultValue: T): Scope<T> {
   const key = Symbol('AskrContext');
-
-  return {
-    key,
-    defaultValue,
-    Scope: (props: {
-      value: T;
-      children?: ContextScopeChildren;
-    }): JSXElement => {
-      const value = props.value;
-      // Scope component: creates a new frame and renders children within it
-      return {
+  const scope = markEagerControlPrimitive(
+    (props: { value: T; children?: ContextScopeChildren }): JSXElement =>
+      ({
         $$typeof: ELEMENT_TYPE,
         type: ContextScopeComponent,
-        props: { key, value, children: props.children },
+        props: { key, value: props.value, children: props.children },
         key: null,
-      } as JSXElement;
-    },
-  };
+      }) as JSXElement
+  );
+
+  return Object.assign(scope, { key, defaultValue });
 }
 
 function preserveStaticChildrenMarker(
@@ -326,13 +316,13 @@ function isPresentRenderable(
   return value !== null && value !== undefined && value !== false;
 }
 
-export function readContext<T>(context: Context<T>): T {
+export function readScope<T>(context: Scope<T>): T {
   // Check render frame first (components), then async resource frame (resources)
   const frame = currentContextFrame || currentAsyncResourceFrame;
 
   if (!frame) {
     throw new Error(
-      'readContext() can only be called during component render or async resource execution. ' +
+      'readScope() can only be called during component render or async resource execution. ' +
         'Ensure you are calling this from inside your component or resource function.'
     );
   }
@@ -351,7 +341,7 @@ export function readContext<T>(context: Context<T>): T {
 
 /**
  * Internal component that manages context frame
- * Used by Context.Scope to provide shadowed value to children
+ * Used by a scope component to provide a shadowed value to its children.
  */
 function ContextScopeComponent(props: Props): Renderable {
   // Extract expected properties (we accept a loose shape so this can be used as a component type)

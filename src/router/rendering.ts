@@ -8,16 +8,16 @@ import type {
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { RenderableChild } from '../common/vnode';
-import { defineContext, readContext } from '../runtime';
+import { defineScope, readScope } from '../runtime';
 import type { InternalRouteRecord } from './internal-types';
 
-const outletContext = defineContext<RenderableChild>(null);
+const outletScope = defineScope<RenderableChild>(null);
 
 export function Outlet(): JSXElement {
   return {
     $$typeof: ELEMENT_TYPE,
     type: Fragment,
-    props: { children: readContext(outletContext) },
+    props: { children: readScope(outletScope) },
     key: null,
   };
 }
@@ -31,7 +31,7 @@ function applyPageChain(
   let nextContent = content;
 
   for (let i = pageChain.length - 1; i >= 0; i--) {
-    nextContent = outletContext.Scope({
+    nextContent = outletScope({
       value: nextContent,
       children: deferComponents
         ? createRouteComponentVNode(pageChain[i].component, params)

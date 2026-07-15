@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { defineContext, readContext } from '../../../src/runtime/context';
+import { defineScope, readScope } from '../../../src/runtime/context';
 import { resource } from '../../../src/resources';
 import {
   createTestContainer,
@@ -16,24 +16,24 @@ import { createIsland } from '../../../test-utils/render/create-island';
  * is created and remain stable through async continuations.
  *
  * Key invariants:
- * 1. readContext() only works BEFORE the first await
+ * 1. readScope() only works BEFORE the first await
  * 2. Captured values remain stable through async continuations
  * 3. Context updates require re-render and do NOT affect in-flight async work
  * 4. Re-renders create NEW resource instances with NEW snapshots
  */
 describe('context snapshot semantics (CONTEXT_SPEC)', () => {
   it('should capture context at render time and keep it stable across await (snapshot semantics)', async () => {
-    const Theme = defineContext('DEFAULT');
+    const Theme = defineScope('DEFAULT');
 
     const Child = () => {
       const r = resource(async () => {
         // SNAPSHOT SEMANTIC: Capture context BEFORE awaiting.
         // This is the frozen snapshot that will remain stable.
-        const themeAtStart = readContext(Theme);
+        const themeAtStart = readScope(Theme);
 
         await waitForNextEvaluation();
 
-        // After await, use the captured value (cannot call readContext again).
+        // After await, use the captured value (cannot call readScope again).
         // The snapshot remains stable - this is the core invariant.
         const themeAfterAwait = themeAtStart;
         return `${themeAtStart}->${themeAfterAwait}`;
@@ -44,9 +44,9 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
 
     const App = () => {
       return (
-        <Theme.Scope value="A">
+        <Theme value="A">
           <Child />
-        </Theme.Scope>
+        </Theme>
       );
     };
 
@@ -70,12 +70,12 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
   });
 
   it('should give each render its own snapshot (re-renders do not affect in-flight resources)', async () => {
-    const Theme = defineContext('DEFAULT');
+    const Theme = defineScope('DEFAULT');
 
     const Child = () => {
       const r = resource(async () => {
         // Capture snapshot at this render
-        const theme = readContext(Theme);
+        const theme = readScope(Theme);
         const beforeAwait = theme;
         await waitForNextEvaluation();
         // Snapshot remains stable - use captured value
@@ -88,9 +88,9 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
 
     const App = () => {
       return (
-        <Theme.Scope value="A">
+        <Theme value="A">
           <Child />
-        </Theme.Scope>
+        </Theme>
       );
     };
 
@@ -111,21 +111,21 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
   });
 
   it('should isolate context between parent and child', () => {
-    const ParentCtx = defineContext('parent');
-    const ChildCtx = defineContext('child');
+    const ParentScope = defineScope('parent');
+    const ChildScope = defineScope('child');
 
     const Child = () => {
-      const parentVal = readContext(ParentCtx);
-      const childVal = readContext(ChildCtx);
+      const parentVal = readScope(ParentScope);
+      const childVal = readScope(ChildScope);
       return <div>{`${parentVal}-${childVal}`}</div>;
     };
 
     const App = () => (
-      <ParentCtx.Scope value="P">
-        <ChildCtx.Scope value="C">
+      <ParentScope value="P">
+        <ChildScope value="C">
           <Child />
-        </ChildCtx.Scope>
-      </ParentCtx.Scope>
+        </ChildScope>
+      </ParentScope>
     );
 
     const { container, cleanup } = createTestContainer();
@@ -141,13 +141,13 @@ describe('context snapshot semantics (CONTEXT_SPEC)', () => {
   });
 
   it('should make context snapshot immutable during render', () => {
-    const Theme = defineContext({ color: 'blue' });
+    const Theme = defineScope({ color: 'blue' });
 
     const App = () => {
-      const ctx = readContext(Theme) as Record<string, unknown>;
+      const ctx = readScope(Theme) as Record<string, unknown>;
       // Attempt to mutate (should not affect future reads)
       ctx.color = 'red';
-      const ctx2 = readContext(Theme) as Record<string, unknown>;
+      const ctx2 = readScope(Theme) as Record<string, unknown>;
       return <div>{String(ctx2.color)}</div>;
     };
 

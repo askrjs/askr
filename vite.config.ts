@@ -11,7 +11,7 @@ import {
 const isProd =
   process.env.NODE_ENV === 'production' || process.env.BUILD === 'production';
 const isBenchBuild = process.env.BUILD === 'bench';
-const input = createBuildInput({ includeCli: !isBenchBuild });
+const input = createBuildInput();
 
 export default defineConfig({
   define: createNodeEnvDefine(isProd ? 'production' : 'development', {

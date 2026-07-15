@@ -17,6 +17,7 @@ import {
   type ComponentFunction,
   type ComponentInstance,
 } from '../runtime';
+import type { AppRenderRuntime } from '../common/app-render-runtime';
 import {
   installRendererBridge,
   removeAllListeners,
@@ -180,7 +181,7 @@ function attachCleanupForRoot(
 export function mountOrUpdate(
   rootElement: Element,
   componentFn: ComponentFunction,
-  options?: { cleanupStrict?: boolean }
+  options?: { cleanupStrict?: boolean; appRuntime?: AppRenderRuntime }
 ) {
   const wrappedFn: ComponentFunction = (props, ctx) => {
     const out = componentFn(props, ctx);
@@ -240,6 +241,7 @@ export function mountOrUpdate(
     instance.firstRenderComplete = false;
     instance.isRoot = true;
     instance.portalScope = instance;
+    instance._appRenderRuntime = options?.appRuntime;
 
     if (shouldResetHookState) {
       instance.stateValues = [];
@@ -269,6 +271,7 @@ export function mountOrUpdate(
     instance.isRoot = true;
     instance._rootComponentFn = componentFn;
     instance.portalScope = instance;
+    instance._appRenderRuntime = options?.appRuntime;
     if (options && typeof options.cleanupStrict === 'boolean') {
       instance.cleanupStrict = options.cleanupStrict;
     }

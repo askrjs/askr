@@ -23,6 +23,7 @@ export {
   claimHookIndex,
   enterDomCommitScope,
   getCurrentComponentInstance,
+  getCurrentAppRenderRuntime,
   getCurrentInstance,
   getCurrentPortalScope,
   getCurrentStateIndex,

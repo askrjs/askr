@@ -30,14 +30,26 @@ export type {
 export { Case, For, Match, Show } from './control';
 export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
 
-// Context
-export { defineContext, readContext } from './runtime';
-export type { Context } from './runtime';
+// Lexical scopes
+export { defineScope, readScope } from './runtime';
+export type { Scope } from './runtime';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
 export { jsx, jsxs, Fragment } from './jsx-runtime';
 
 // Public types
 export type { Props } from './common/props';
-export { createQuery, defineQuery, createServerQueryRegistry, prefetchQuery, dehydrateDataRuntime, hydrateDataRuntime } from './data';
-export type { QueryDefinition, QueryPrefetchContext, ServerQueryHandler, DataRuntime } from './data';
+export {
+  createQuery,
+  defineQuery,
+  createServerQueryRegistry,
+  prefetchQuery,
+  dehydrateDataRuntime,
+  hydrateDataRuntime,
+} from './data';
+export type {
+  QueryDefinition,
+  QueryPrefetchContext,
+  ServerQueryHandler,
+  DataRuntime,
+} from './data';

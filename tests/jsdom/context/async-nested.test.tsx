@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { defineContext, readContext } from '../../../src/runtime/context';
+import { defineScope, readScope } from '../../../src/runtime/context';
 import { resource } from '../../../src/resources';
 import {
   createTestContainer,
@@ -16,26 +16,26 @@ import { createIsland } from '../../../test-utils/render/create-island';
  * captured at render time. Context values are "frozen" when the resource
  * is created and remain stable through async continuations.
  *
- * Key invariant: readContext() only works BEFORE the first await.
+ * Key invariant: readScope() only works BEFORE the first await.
  * After await, user code must use the captured value.
  */
 describe('nested context continuations preserve captured snapshot', () => {
   it('should preserve captured context snapshot across await (snapshot semantics)', async () => {
-    const ParentCtx = defineContext('parent');
-    const ChildCtx = defineContext('child');
+    const ParentScope = defineScope('parent');
+    const ChildScope = defineScope('child');
 
     const Inner = () => {
       const r = resource(async () => {
         // SNAPSHOT SEMANTIC: Capture context values BEFORE awaiting.
         // These values are the "render-time snapshot" and will remain
         // stable through the entire async operation.
-        const parent = readContext(ParentCtx);
-        const child = readContext(ChildCtx);
+        const parent = readScope(ParentScope);
+        const child = readScope(ChildScope);
         const beforeAwait = `${parent}:${child}`;
 
         await waitForNextEvaluation();
 
-        // After await, use the captured values (cannot call readContext again).
+        // After await, use the captured values (cannot call readScope again).
         // The snapshot remains stable - this is the core invariant.
         const afterAwait = `${parent}:${child}`;
         return `${beforeAwait}->${afterAwait}`;
@@ -45,14 +45,14 @@ describe('nested context continuations preserve captured snapshot', () => {
     };
 
     const Outer = () => {
-      return <ChildCtx.Scope value={'C'}>{() => Inner()}</ChildCtx.Scope>;
+      return <ChildScope value={'C'}>{() => Inner()}</ChildScope>;
     };
 
     const App = () => {
       return (
-        <ParentCtx.Scope value={'P'}>
+        <ParentScope value={'P'}>
           <Outer />
-        </ParentCtx.Scope>
+        </ParentScope>
       );
     };
 
@@ -80,12 +80,12 @@ describe('nested context continuations preserve captured snapshot', () => {
   });
 
   it('should give each render its own snapshot (re-renders create new resources)', async () => {
-    const Theme = defineContext('default');
+    const Theme = defineScope('default');
 
     const Child = () => {
       const r = resource(async () => {
         // Capture snapshot at render time
-        const theme = readContext(Theme);
+        const theme = readScope(Theme);
         const beforeAwait = theme;
         await waitForNextEvaluation();
         // Snapshot remains stable - use captured value
@@ -98,9 +98,9 @@ describe('nested context continuations preserve captured snapshot', () => {
 
     const App = () => {
       return (
-        <Theme.Scope value="A">
+        <Theme value="A">
           <Child />
-        </Theme.Scope>
+        </Theme>
       );
     };
 

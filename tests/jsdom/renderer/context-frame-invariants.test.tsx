@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import {
-  defineContext,
+  defineScope,
   markVNodeTreeWithContextFrame,
-  readContext,
+  readScope,
 } from '../../../src/runtime/context';
 import { state } from '../../../src/index';
 import { Portal, Slot } from '@askrjs/askr/foundations';
@@ -29,17 +29,17 @@ describe('renderer context frame invariants', () => {
   });
 
   it('should render context consumers from frozen scoped children', () => {
-    const ThemeContext = defineContext('light');
+    const ThemeScope = defineScope('light');
 
     const Reader = () => {
-      const theme = readContext(ThemeContext);
+      const theme = readScope(ThemeScope);
       return <span id={'theme-value'}>{theme}</span>;
     };
 
     const App = () => {
       const child = Object.freeze(<Reader />) as JSXElement;
 
-      return <ThemeContext.Scope value={'dark'}>{child}</ThemeContext.Scope>;
+      return <ThemeScope value={'dark'}>{child}</ThemeScope>;
     };
 
     createIsland({ root: container, component: App });
@@ -49,10 +49,10 @@ describe('renderer context frame invariants', () => {
   });
 
   it('should preserve context for frozen portal children rendered later', () => {
-    const MenuContext = defineContext('none');
+    const MenuScope = defineScope('none');
 
     const PortalReader = () => {
-      const menu = readContext(MenuContext);
+      const menu = readScope(MenuScope);
       return <p id={'portal-context'}>{menu}</p>;
     };
 
@@ -62,9 +62,9 @@ describe('renderer context frame invariants', () => {
     };
 
     const App = () => (
-      <MenuContext.Scope value={'file'}>
+      <MenuScope value={'file'}>
         <PortalWriter />
-      </MenuContext.Scope>
+      </MenuScope>
     );
 
     createIsland({ root: container, component: App });
@@ -76,10 +76,10 @@ describe('renderer context frame invariants', () => {
   });
 
   it('should preserve context when Slot clones frozen asChild children', () => {
-    const ThemeContext = defineContext('light');
+    const ThemeScope = defineScope('light');
 
     const Reader = (props: { id: string; 'data-slot-prop'?: string }) => {
-      const theme = readContext(ThemeContext);
+      const theme = readScope(ThemeScope);
       return (
         <a id={props.id} data-slot-prop={props['data-slot-prop']}>
           {theme}
@@ -99,9 +99,9 @@ describe('renderer context frame invariants', () => {
     };
 
     const App = () => (
-      <ThemeContext.Scope value={'dark'}>
+      <ThemeScope value={'dark'}>
         <SlottedReader />
-      </ThemeContext.Scope>
+      </ThemeScope>
     );
 
     createIsland({ root: container, component: App });
@@ -113,10 +113,10 @@ describe('renderer context frame invariants', () => {
   });
 
   it('should preserve context when scoped children are cloned with object spread', () => {
-    const ThemeContext = defineContext('light');
+    const ThemeScope = defineScope('light');
 
     const Reader = () => {
-      const theme = readContext(ThemeContext);
+      const theme = readScope(ThemeScope);
       return <span id={'spread-cloned-theme'}>{theme}</span>;
     };
 
@@ -130,11 +130,11 @@ describe('renderer context frame invariants', () => {
     };
 
     const App = () => (
-      <ThemeContext.Scope value={'dark'}>
+      <ThemeScope value={'dark'}>
         <SpreadCloneView>
           <Reader />
         </SpreadCloneView>
-      </ThemeContext.Scope>
+      </ThemeScope>
     );
 
     createIsland({ root: container, component: App });
@@ -146,10 +146,10 @@ describe('renderer context frame invariants', () => {
   });
 
   it('should override stale frames on vnode props inside a provider', () => {
-    const ThemeContext = defineContext('light');
+    const ThemeScope = defineScope('light');
 
     const Reader = () => {
-      const theme = readContext(ThemeContext);
+      const theme = readScope(ThemeScope);
       return <span id={'prop-node-theme'}>{theme}</span>;
     };
 
@@ -161,15 +161,15 @@ describe('renderer context frame invariants', () => {
         node,
         {
           parent: null,
-          values: new Map([[ThemeContext.key, 'outer']]),
+          values: new Map([[ThemeScope.key, 'outer']]),
         },
         true
       );
 
       return (
-        <ThemeContext.Scope value={'inner'}>
+        <ThemeScope value={'inner'}>
           <NodeView node={node} />
-        </ThemeContext.Scope>
+        </ThemeScope>
       );
     };
 

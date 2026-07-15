@@ -18,10 +18,12 @@ import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
 import type { DocumentRenderContext } from '../../../src/common/ssr';
 import { resource } from '../../../src/resources';
-import { defineContext } from '../../../src/runtime/context';
+import { defineScope } from '../../../src/runtime/context';
+import { state } from '../../../src/runtime/state';
 import {
   createRouteRegistry,
   fallback,
+  group,
   route,
 } from '../../../src/router/route';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
@@ -179,6 +181,37 @@ describe('Static Site Generation', () => {
       expect(result.routes[0].html).toBe('<main>Registry Home</main>');
     });
 
+    it('should render stateful registry routes inside their layout render scope', async () => {
+      const StatefulChild = () => {
+        const [count] = state(2);
+        return <span>{count()}</span>;
+      };
+      const registry = createRouteRegistry(() => {
+        group(
+          { layout: ({ children }) => <section>{children}</section> },
+          () => {
+            route('/', () => {
+              const [count] = state(1);
+              return (
+                <button>
+                  {count()}
+                  <StatefulChild />
+                </button>
+              );
+            });
+          }
+        );
+      });
+      const ssg = createStaticGen({ registry, outputDir: tempDir });
+
+      const result = await ssg.generate();
+
+      expect(result.failed).toBe(0);
+      expect(result.routes[0].html).toBe(
+        '<section><button>1<span>2</span></button></section>'
+      );
+    });
+
     it('should not generate registry fallback records as concrete pages', async () => {
       const registry = createRouteRegistry(() => {
         route('/', () => <main>{'Registry Home'}</main>);
@@ -196,12 +229,12 @@ describe('Static Site Generation', () => {
       expect(fs.existsSync(path.join(tempDir, '*', 'index.html'))).toBe(false);
     });
 
-    it('should preserve Context.Scope sibling children in generated HTML', async () => {
-      const ThemeContext = defineContext('default');
+    it('should preserve Context sibling children in generated HTML', async () => {
+      const ThemeScope = defineScope('default');
       const ScopedSiblings = (): JSXElement => (
-        <ThemeContext.Scope value={'scoped'}>
+        <ThemeScope value={'scoped'}>
           {[<span>{'a'}</span>, <main>{'b'}</main>]}
-        </ThemeContext.Scope>
+        </ThemeScope>
       );
 
       const ssg = createStaticGen({
@@ -385,6 +418,39 @@ describe('Static Site Generation', () => {
       expect(result.routes[0].html).toContain('first-post');
     });
 
+    it('should publish static assets in the same full-build replacement', async () => {
+      const sourceDir = path.join(tempDir, 'client-assets');
+      fs.mkdirSync(sourceDir, { recursive: true });
+      fs.writeFileSync(path.join(sourceDir, 'app.js'), 'console.log("app");');
+
+      const result = await createStaticGen({
+        routes: [{ path: '/', component: Home }],
+        outputDir: tempDir,
+        assets: [{ from: sourceDir, to: 'assets' }],
+      }).generate();
+
+      expect(result.failed).toBe(0);
+      expect(
+        fs.readFileSync(path.join(tempDir, 'assets', 'app.js'), 'utf8')
+      ).toBe('console.log("app");');
+      expect(fs.existsSync(path.join(tempDir, 'index.html'))).toBe(true);
+    });
+
+    it('should reject asset destinations outside outputDir', async () => {
+      const sourcePath = path.join(tempDir, 'app.js');
+      const escapedPath = path.resolve(tempDir, '..', 'escaped-app.js');
+      fs.writeFileSync(sourcePath, 'console.log("app");');
+
+      await expect(
+        createStaticGen({
+          routes: [{ path: '/', component: Home }],
+          outputDir: tempDir,
+          assets: [{ from: sourcePath, to: '../escaped-app.js' }],
+        }).generate()
+      ).rejects.toThrow('must stay inside outputDir');
+      expect(fs.existsSync(escapedPath)).toBe(false);
+    });
+
     it('should report a clear error when the document renderer returns a non-string', async () => {
       const ssg = createStaticGen({
         routes: [{ path: '/', component: Home }],
@@ -559,7 +625,9 @@ describe('Static Site Generation', () => {
 
     it('should keep anonymous-only routes runtime-only during SSG', async () => {
       const ssg = createStaticGen({
-        routes: [{ path: '/login', component: About, auth: requireAnonymous() }],
+        routes: [
+          { path: '/login', component: About, auth: requireAnonymous() },
+        ],
         outputDir: tempDir,
       });
 
@@ -602,7 +670,12 @@ describe('Static Site Generation', () => {
         },
         {
           auth: {
-            resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+            resolve: () => ({
+              authenticated: false,
+              principal: null,
+              session: null,
+              tenant: null,
+            }),
           },
         }
       );
@@ -634,7 +707,12 @@ describe('Static Site Generation', () => {
         },
         {
           auth: {
-            resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+            resolve: () => ({
+              authenticated: false,
+              principal: null,
+              session: null,
+              tenant: null,
+            }),
           },
         }
       );
@@ -673,7 +751,12 @@ describe('Static Site Generation', () => {
         },
         {
           auth: {
-            resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+            resolve: () => ({
+              authenticated: false,
+              principal: null,
+              session: null,
+              tenant: null,
+            }),
           },
         }
       );

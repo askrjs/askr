@@ -18,8 +18,10 @@ import { registerMountOperation } from '../../../src/runtime/component';
 import { Portal } from '../../../src/foundations/structures/portal';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
+import { routeData } from '../../../src/router/deferred';
 import {
   clearRoutes,
+  createRouteRegistry,
   currentRoute,
   getRoutes,
   route,
@@ -46,6 +48,131 @@ describe('route navigation (ROUTER)', () => {
   });
 
   describe('basic navigation', () => {
+    it('should expose loader data during client navigation rendering', async () => {
+      window.history.replaceState({}, '', '/plain');
+      const registry = createRouteRegistry(() => {
+        route('/plain', () => <p>plain</p>);
+        route(
+          '/loaded',
+          () => {
+            const data = routeData<{ message: string }>();
+            return <p>{data.message}</p>;
+          },
+          {
+            loader: () => ({ message: 'client loader data' }),
+          }
+        );
+      });
+
+      await createSPA({ root: container, registry });
+      navigate('/loaded');
+      await vi.waitFor(() => {
+        expect(container.textContent).toContain('client loader data');
+      });
+    });
+
+    it('should replace same-path loader data without remounting local state', async () => {
+      window.history.replaceState({}, '', '/loaded-search?q=one');
+      const registry = createRouteRegistry(() => {
+        route(
+          '/loaded-search',
+          () => {
+            const loaded = routeData<string>();
+            const [draft, setDraft] = state('clean');
+            return (
+              <section data-testid="loaded-search">
+                <p>{loaded}</p>
+                <button onClick={() => setDraft('dirty')}>{draft()}</button>
+              </section>
+            );
+          },
+          {
+            loader: ({ search }) =>
+              new URLSearchParams(search).get('q') ?? 'missing',
+          }
+        );
+      });
+
+      await createSPA({ root: container, registry });
+      const page = container.querySelector('[data-testid="loaded-search"]');
+      (container.querySelector('button') as HTMLButtonElement).click();
+      navigate('/loaded-search?q=two');
+
+      await vi.waitFor(() => expect(container.textContent).toContain('two'));
+      expect(container.querySelector('[data-testid="loaded-search"]')).toBe(
+        page
+      );
+      expect(container.querySelector('button')?.textContent).toBe('dirty');
+    });
+
+    it('should reconcile only Askr-owned metadata after a successful navigation', async () => {
+      window.history.replaceState({}, '', '/meta-a');
+      const staticMeta = document.createElement('meta');
+      staticMeta.setAttribute('name', 'static-shell');
+      document.head.append(staticMeta);
+      const stale = document.createElement('meta');
+      stale.setAttribute('data-askr-head', '');
+      stale.setAttribute('name', 'stale');
+      document.head.append(stale);
+      const registry = createRouteRegistry(() => {
+        route('/meta-a', () => <p>first</p>, {
+          meta: { title: 'First page', description: 'initial' },
+        });
+        route('/meta-b', () => <p>second</p>, {
+          meta: {
+            title: 'Second page',
+            description: 'fresh',
+            canonical: '/meta-b',
+            jsonLd: { page: 'second' },
+            html: { lang: 'fr', dir: 'ltr' },
+          },
+        });
+      });
+
+      try {
+        await createSPA({ root: container, registry });
+        expect(document.title).toBe('First page');
+        expect(document.head.querySelector('[name="stale"]')).toBeNull();
+        expect(
+          document.head
+            .querySelector('[name="description"]')
+            ?.getAttribute('content')
+        ).toBe('initial');
+        navigate('/meta-b');
+        await vi.waitFor(() => expect(document.title).toBe('Second page'));
+
+        expect(document.head.contains(staticMeta)).toBe(true);
+        expect(document.head.querySelector('[name="stale"]')).toBeNull();
+        expect(
+          document.head
+            .querySelector('[name="description"]')
+            ?.getAttribute('content')
+        ).toBe('fresh');
+        expect(
+          document.head
+            .querySelector('link[rel="canonical"]')
+            ?.getAttribute('href')
+        ).toBe('/meta-b');
+        expect(
+          document.head.querySelector('script[type="application/ld+json"]')
+            ?.textContent
+        ).toContain('second');
+        expect(document.documentElement.getAttribute('lang')).toBe('fr');
+        expect(document.documentElement.getAttribute('dir')).toBe('ltr');
+        expect(
+          document.documentElement.attributes.getNamedItem('lang')
+        ).not.toBeNull();
+      } finally {
+        staticMeta.remove();
+        for (const node of Array.from(
+          document.head.querySelectorAll('[data-askr-head]')
+        ))
+          node.remove();
+        document.documentElement.removeAttribute('lang');
+        document.documentElement.removeAttribute('dir');
+      }
+    });
+
     it('should not commit history when the destination route fails to render', async () => {
       window.history.replaceState({}, '', '/stable');
       route('/stable', () => <p>stable route</p>);

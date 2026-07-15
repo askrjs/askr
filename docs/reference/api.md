@@ -11,8 +11,8 @@ Common runtime exports:
 - `state()`
 - `derive()`
 - `selector()`
-- `defineContext()`
-- `readContext()`
+- `defineScope()`
+- `readScope()`
 - `getSignal()`
 - JSX runtime exports: `jsx`, `jsxs`, and `Fragment`
 
@@ -23,7 +23,7 @@ Public types:
 - `StateTuple`
 - `Derived`
 - `Selector`
-- `Context`
+- `Scope`
 - `Props`
   The shared runtime props bag stays intentionally generic. Intrinsic JSX elements layer
   common DOM-style contracts such as `class`, `style`, `ref`, and high-use event handlers on top
@@ -44,13 +44,14 @@ Public types:
 
 - `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, and `hasApp`
 - `@askrjs/askr/components` - `ErrorBoundary`
+- `@askrjs/askr/actions` - browser-safe `defineAction`, reactive `action`, and native-first `ActionForm`
 - `@askrjs/askr/control` - JSX control-flow helpers
 - `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - test helpers such as `mockQuery`, `queryState`, and `createInvalidationRecorder`
 - `@askrjs/askr/resources` - async resource helpers such as `resource`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`, plus the current placeholder `stream` surface
-- `@askrjs/askr/router` - route registration, routing state, and navigation helpers
+- `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, metadata, critical `routeData`, and deferred `Resolve` boundaries
 - `@askrjs/askr/fx` - timing and scheduling helpers
-- `@askrjs/askr/ssr` - server-side rendering helpers
+- `@askrjs/askr/ssr` - synchronous rendering plus `renderRouteRequest()` for explicitly deferred Web streams
 - `@askrjs/askr/ssg` - static-site generation helpers
 - `@askrjs/askr/foundations` - structural primitives such as `layout`, `Slot`, `Presence`, plus runtime-backed portal helpers like `definePortal`, `DefaultPortal`, and `Portal`
 - `@askrjs/askr/foundations/structures` - structural registries and layering helpers such as `createCollection` and `createLayer`
@@ -99,7 +100,7 @@ await createSPA({ root: document.body, registry });
 
 - `For`, `Show`, `Case`, and `Match` are available from `@askrjs/askr/control`.
 - `Show` render-function children receive the resolved truthy value, and literal falsey branches are excluded from that callback type when TypeScript can see them.
-- `Context.Scope` accepts normal renderable children or a zero-argument render callback. Imperative DOM `Node` children are not part of that public contract.
+- A `Scope` component accepts normal renderable children or a zero-argument render callback. Imperative DOM `Node` children are not part of that public contract.
 - `ErrorBoundary` fallbacks accept normal JSX boundary content, and the client runtime also allows an imperative DOM `Node` fallback when you need one.
 - `Link`, `layout`, `Slot`, `Presence`, and the default portal surfaces accept normal renderable child content. Imperative DOM `Node` children are not part of that public contract.
 - Router page components, `lazy()` route components, and router layout functions also return normal renderable content rather than imperative DOM `Node` values.

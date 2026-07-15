@@ -59,7 +59,12 @@ describe('callback route registration', () => {
       },
       {
         auth: {
-          resolve: () => ({ authenticated: true, principal: { id: 'user_1' }, session: null, tenant: null }),
+          resolve: () => ({
+            authenticated: true,
+            principal: { id: 'user_1' },
+            session: null,
+            tenant: null,
+          }),
         },
       }
     );
@@ -90,7 +95,12 @@ describe('callback route registration', () => {
         },
         {
           auth: {
-            resolve: () => ({ authenticated: true, principal: { id: 'user_1' }, session: null, tenant: null }),
+            resolve: () => ({
+              authenticated: true,
+              principal: { id: 'user_1' },
+              session: null,
+              tenant: null,
+            }),
           },
         }
       )
@@ -152,7 +162,9 @@ describe('callback route registration', () => {
 
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        route('/login', () => <div>{'login-page'}</div>, {
+          auth: requireAnonymous(),
+        });
         group({ auth: requireUser() }, () => {
           route('/dashboard', () => {
             renderedDashboard = true;
@@ -162,7 +174,12 @@ describe('callback route registration', () => {
       },
       {
         auth: {
-          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+          resolve: () => ({
+            authenticated: false,
+            principal: null,
+            session: null,
+            tenant: null,
+          }),
           loginPath: '/login',
         },
       }
@@ -185,7 +202,9 @@ describe('callback route registration', () => {
 
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        route('/login', () => <div>{'login-page'}</div>, {
+          auth: requireAnonymous(),
+        });
         group({ auth: requireUser() }, () => {
           route('/dashboard', () => {
             renderedDashboard = true;
@@ -195,7 +214,12 @@ describe('callback route registration', () => {
       },
       {
         auth: {
-          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+          resolve: () => ({
+            authenticated: false,
+            principal: null,
+            session: null,
+            tenant: null,
+          }),
           loginPath: '/login',
         },
       }
@@ -217,14 +241,21 @@ describe('callback route registration', () => {
   it('should redirect authenticated users away from guest-only routes', async () => {
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        route('/login', () => <div>{'login-page'}</div>, {
+          auth: requireAnonymous(),
+        });
         group({ auth: requireUser() }, () => {
           route('/dashboard', () => <div>{'dashboard-page'}</div>);
         });
       },
       {
         auth: {
-          resolve: () => ({ authenticated: true, principal: { id: 'user_1' }, session: null, tenant: null }),
+          resolve: () => ({
+            authenticated: true,
+            principal: { id: 'user_1' },
+            session: null,
+            tenant: null,
+          }),
           authenticatedRedirectTo: ({ search }) =>
             new URLSearchParams(search).get('next') ?? '/dashboard',
         },

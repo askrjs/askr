@@ -1,11 +1,9 @@
 # Migration from React
 
-Askr and React both use component composition, but state reading differs.
+Askr keeps JSX component composition while using explicit getter functions,
+lexical scopes, and framework-owned route primitives.
 
-## Key mental model shift
-
-- React: read state as values.
-- Askr: read state by calling getter functions.
+## State and derived values
 
 ```ts
 // React
@@ -17,14 +15,43 @@ const [count, setCount] = state(0);
 console.log(count());
 ```
 
-## Practical migration steps
+Prefer functions and closures for stateful services. Use structural interfaces
+for dependencies instead of introducing service classes.
 
-1. Replace `useState` with `state`.
-2. Update state reads to getter calls (`value()` instead of `value`).
-3. Keep updates in handlers and async workflows.
-4. Move router-specific logic to `@askrjs/askr/router` where needed.
+## Public vocabulary
+
+Use the clean-break Askr APIs directly:
+
+- `defineScope()` and `readScope()` for lexical runtime scope
+- `ThemeScope` and `theme()` for theme ownership and access
+- `ToastHost` for the mounted toast region
+- `SidebarScope` for sidebar state ownership
+- `routeData()` for critical loader data
+- `action()` and `ActionForm` for declared page actions
+- `Resolve` for an explicit deferred value
+
+Do not add compatibility wrappers for an earlier Askr vocabulary. Server-domain
+names such as `ServerContext`, `RouteContext`, `AuthContext`, and
+`JwksProvider` remain accurate and are not UI scope conventions.
+
+## Routes and destinations
+
+Declare routes once, retain the returned route reference, and construct typed
+destinations with `to()`. Pass that destination to `Link`; use raw `href` only
+when the destination is intentionally untyped.
+
+## Data and forms
+
+Critical loader data is read with `routeData()`. Mark only intentionally
+deferred promises with `defer()` and render them with `Resolve`.
+
+Define a browser-safe action descriptor beside its schema. Register the server
+handler in the composition root, authorize the descriptor on the matched
+route, and render `ActionForm` so native and enhanced submissions share the
+same validation and protection behavior.
 
 ## Next
 
 - [Quick Start](../getting-started/quick-start.md)
-- [State Guide](../guides/state.md)
+- [Routing](../core/routing.md)
+- [Data](../core/data.md)

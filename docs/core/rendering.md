@@ -23,11 +23,11 @@ Askr renders components to an HTML string on the server. The client hydrates the
 
 ### Current status
 
-The shipped SSR render phase is synchronous and best suited to static or
-preloaded data. It does not await async components, async `resource()` loaders,
-or async document renderers; those paths throw so hydration output remains
-deterministic. Resolve request-time async work before rendering and pass the
-result through route loaders, `data`, or other synchronous inputs.
+The component render phase is synchronous. Critical route-loader data is
+awaited before rendering. Explicit `defer()` values render a `Resolve` fallback
+immediately and make the route-request result streamable; async components,
+async `resource()` loaders, and async document renderers still throw so output
+remains deterministic.
 
 ### URL-based rendering
 
@@ -68,8 +68,10 @@ const html = renderToString({
 });
 ```
 
-When `document` is used with `renderToStream()`, Askr buffers the app HTML
-before emitting the wrapped document output.
+The lower-level `renderToStream()` document callback buffers app HTML before
+wrapping it. Full-stack applications instead return the route-request Web
+stream to `@askrjs/vite/server`, which composes template prefix, app chunks,
+and suffix without buffering the complete response.
 
 ### Client hydration
 
@@ -137,7 +139,7 @@ const ssg = createStaticGen({
 ### CLI SSG
 
 ```bash
-askr-cli ssg --config ./ssg.config.ts --output ./dist/static
+askr ssg --config ./ssg.config.ts --output ./dist/static
 ```
 
 ### What SSG generates
@@ -159,8 +161,9 @@ const ssg = createStaticGen({
 });
 ```
 
-SSG may await route expansion work such as `entries()`, but each generated page
-is rendered through the same synchronous SSR engine.
+SSG awaits route expansion and recursively settles every explicitly deferred
+loader value before rendering. A rejected deferred value fails that route, and
+staged output prevents a partial site from replacing the last complete build.
 
 ## See also
 

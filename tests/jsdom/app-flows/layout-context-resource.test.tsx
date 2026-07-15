@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
-import { defineContext, readContext } from '../../../src/runtime/context';
+import { defineScope, readScope } from '../../../src/runtime/context';
 import { resource } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
 import {
@@ -37,22 +37,22 @@ describe('layout context resource app flow', () => {
   it('should preserve shared shells while isolating context-backed sibling resources', async () => {
     const overviewRequest = createControlledDeferred<string>();
     const activityRequest = createControlledDeferred<string>();
-    const Tenant = defineContext('missing-tenant');
+    const Tenant = defineScope('missing-tenant');
     let overviewSignal: AbortSignal | undefined;
     let activitySignal: AbortSignal | undefined;
 
     function TenantHeader() {
-      return <header>{readContext(Tenant)}</header>;
+      return <header>{readScope(Tenant)}</header>;
     }
 
     function TenantLayout({ children }: { children?: unknown }) {
       return (
-        <Tenant.Scope value="tenant:northwind">
+        <Tenant value="tenant:northwind">
           <main aria-label="Tenant layout">
             <TenantHeader />
             {children as never}
           </main>
-        </Tenant.Scope>
+        </Tenant>
       );
     }
 
@@ -68,7 +68,7 @@ describe('layout context resource app flow', () => {
     function OverviewPage() {
       const overview = resource<string>(({ signal }) => {
         overviewSignal = signal;
-        const tenant = readContext(Tenant);
+        const tenant = readScope(Tenant);
         return overviewRequest.promise.then((value) => `${tenant}:${value}`);
       });
 
@@ -82,7 +82,7 @@ describe('layout context resource app flow', () => {
     function ActivityPage() {
       const activity = resource<string>(({ signal }) => {
         activitySignal = signal;
-        const tenant = readContext(Tenant);
+        const tenant = readScope(Tenant);
         return activityRequest.promise.then((value) => `${tenant}:${value}`);
       });
 

@@ -27,13 +27,18 @@ describe('route auth requirements', () => {
     let policyContext: unknown;
     const registry = createRouteRegistry(() => {
       route('/account', () => 'account', {
-        policies: [(context) => {
-          policyContext = context;
-          return { kind: 'allow' };
-        }],
+        policies: [
+          (context) => {
+            policyContext = context;
+            return { kind: 'allow' };
+          },
+        ],
       });
     });
-    await resolveRouteRequest('/account', { manifest: registry.manifest, authContext: user });
+    await resolveRouteRequest('/account', {
+      manifest: registry.manifest,
+      authContext: user,
+    });
     expect((policyContext as { auth: AuthContext }).auth).toBe(user);
     expect(policyContext).not.toHaveProperty('session');
     expect(policyContext).not.toHaveProperty('user');
@@ -43,7 +48,7 @@ describe('route auth requirements', () => {
     let resolutions = 0;
     const registry = createRouteRegistry(
       () => route('/account', () => 'account', { auth: requireUser() }),
-      { auth: { resolve: () => ((resolutions += 1), anonymous) } },
+      { auth: { resolve: () => ((resolutions += 1), anonymous) } }
     );
     const result = await resolveRouteRequest('/account', {
       manifest: registry.manifest,
@@ -58,27 +63,39 @@ describe('route auth requirements', () => {
     const registry = createRouteRegistry(() => {
       route('/admin', () => 'admin', { auth: requirement });
     });
-    await expect(Promise.resolve(resolveRouteRequest('/admin', {
-      manifest: registry.manifest,
-      mode: 'spa',
-      authContext: user,
-    }))).resolves.toEqual({ kind: 'deny', status: 403 });
-    await expect(Promise.resolve(resolveRouteRequest('/admin', {
-      manifest: registry.manifest,
-      mode: 'ssr',
-      authContext: user,
-    }))).resolves.toEqual({ kind: 'deny', status: 403 });
+    await expect(
+      Promise.resolve(
+        resolveRouteRequest('/admin', {
+          manifest: registry.manifest,
+          mode: 'spa',
+          authContext: user,
+        })
+      )
+    ).resolves.toEqual({ kind: 'deny', status: 403 });
+    await expect(
+      Promise.resolve(
+        resolveRouteRequest('/admin', {
+          manifest: registry.manifest,
+          mode: 'ssr',
+          authContext: user,
+        })
+      )
+    ).resolves.toEqual({ kind: 'deny', status: 403 });
   });
 
   it('should redirect unauthenticated navigation with the original target', async () => {
     const registry = createRouteRegistry(
       () => route('/account', () => 'account', { auth: requireUser() }),
-      { auth: { resolve: () => anonymous, loginPath: '/sign-in' } },
+      { auth: { resolve: () => anonymous, loginPath: '/sign-in' } }
     );
-    await expect(Promise.resolve(resolveRouteRequest('/account?tab=billing', {
-      manifest: registry.manifest,
-      mode: 'spa',
-    }))).resolves.toEqual({
+    await expect(
+      Promise.resolve(
+        resolveRouteRequest('/account?tab=billing', {
+          manifest: registry.manifest,
+          mode: 'spa',
+        })
+      )
+    ).resolves.toEqual({
       kind: 'redirect',
       to: '/sign-in?next=%2Faccount%3Ftab%3Dbilling',
       replace: true,
@@ -88,9 +105,13 @@ describe('route auth requirements', () => {
   it('should redirect an already authenticated user away from an anonymous route', async () => {
     const registry = createRouteRegistry(
       () => route('/sign-in', () => 'sign in', { auth: requireAnonymous() }),
-      { auth: { resolve: () => user, authenticatedRedirectTo: '/account' } },
+      { auth: { resolve: () => user, authenticatedRedirectTo: '/account' } }
     );
-    await expect(Promise.resolve(resolveRouteRequest('/sign-in', { manifest: registry.manifest }))).resolves.toEqual({
+    await expect(
+      Promise.resolve(
+        resolveRouteRequest('/sign-in', { manifest: registry.manifest })
+      )
+    ).resolves.toEqual({
       kind: 'redirect',
       to: '/account',
       replace: true,
@@ -101,22 +122,53 @@ describe('route auth requirements', () => {
     const registry = createRouteRegistry(() => {
       route('/admin', () => 'admin', { auth: requireRole('admin') });
     });
-    await expect(Promise.resolve(resolveRouteRequest('/admin', {
-      manifest: registry.manifest,
-      authContext: user,
-    }))).resolves.toEqual({ kind: 'deny', status: 403 });
+    await expect(
+      Promise.resolve(
+        resolveRouteRequest('/admin', {
+          manifest: registry.manifest,
+          authContext: user,
+        })
+      )
+    ).resolves.toEqual({ kind: 'deny', status: 403 });
   });
 
   it('should decide authorization before loader preload and query execution', async () => {
     const calls: string[] = [];
     const registry = createRouteRegistry(() => {
       route('/admin', () => 'admin', {
-        auth: () => ((calls.push('auth')), { allowed: false, reason: 'forbidden' }),
+        auth: () => (
+          calls.push('auth'),
+          { allowed: false, reason: 'forbidden' }
+        ),
         preload: () => calls.push('preload'),
         loader: () => calls.push('loader'),
       });
     });
-    await resolveRouteRequest('/admin', { manifest: registry.manifest, authContext: user });
+    await resolveRouteRequest('/admin', {
+      manifest: registry.manifest,
+      authContext: user,
+    });
     expect(calls).toEqual(['auth']);
+  });
+
+  it('should run loaders for client navigation and skip them during hydration adoption', async () => {
+    let loads = 0;
+    const registry = createRouteRegistry(() => {
+      route('/deferred', () => 'deferred', {
+        loader: () => ({ value: ++loads }),
+      });
+    });
+
+    await resolveRouteRequest('/deferred', {
+      manifest: registry.manifest,
+      mode: 'spa',
+    });
+    await resolveRouteRequest('/deferred', {
+      manifest: registry.manifest,
+      mode: 'spa',
+      load: false,
+    });
+
+    expect(loads).toBe(1);
   });
 });

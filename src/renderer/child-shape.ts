@@ -44,13 +44,13 @@ export function normalizeComponentChildren(result: unknown): unknown[] {
 function warnMissingKeys(children: unknown[]): void {
   if (getRuntimeEnv().NODE_ENV === 'production') return;
 
-  let hasElements = false;
+  let elementCount = 0;
   let hasKeys = false;
 
   for (const item of children) {
     if (typeof item === 'object' && item !== null && 'type' in item) {
       if ((item as DOMElement).type === __FOR_BOUNDARY__) continue;
-      hasElements = true;
+      elementCount += 1;
       const rawKey =
         (item as DOMElement).key ??
         ((item as DOMElement).props as Record<string, unknown> | undefined)
@@ -62,7 +62,7 @@ function warnMissingKeys(children: unknown[]): void {
     }
   }
 
-  if (hasElements && !hasKeys) {
+  if (elementCount > 1 && !hasKeys) {
     const inst = getCurrentInstance();
     const warnings = inst ? (inst.devWarningsEmitted ??= new Set()) : null;
     if (warnings?.has('missing-keys')) return;

@@ -57,7 +57,9 @@ describe('hydration route policy invariants', () => {
 
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        route('/login', () => <div>{'login-page'}</div>, {
+          auth: requireAnonymous(),
+        });
         group({ auth: requireUser() }, () => {
           route('/dashboard', () => {
             renderedDashboard = true;
@@ -67,7 +69,12 @@ describe('hydration route policy invariants', () => {
       },
       {
         auth: {
-          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+          resolve: () => ({
+            authenticated: false,
+            principal: null,
+            session: null,
+            tenant: null,
+          }),
           loginPath: '/login',
         },
       }

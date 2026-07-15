@@ -7,9 +7,12 @@ import type {
   RouteOptions,
   RouteParams,
   RoutePathParams,
+  RouteRef,
+  RouteRefSearch,
 } from '../common/router';
 import { allOf } from '@askrjs/auth';
 import type { AuthRequirement } from '@askrjs/auth';
+import type { ObjectSchema } from '@askrjs/schema';
 import { getCurrentComponentInstance } from '../runtime';
 import { getExecutionModel } from '../runtime';
 import { computeRank, normalizeRouteSegmentName, parseSegments } from './match';
@@ -20,6 +23,7 @@ import {
   addRouteToStores,
   assertRouteRegistrationUnlocked,
   getCurrentInheritedAuthRequirements,
+  getCurrentInheritedMeta,
   getCurrentInheritedPolicies,
   getCurrentLayoutChain,
   getCurrentPageChain,
@@ -68,12 +72,17 @@ type CompatibleRouteComponent<
 type RouteOptionsForComponent<
   Path extends string,
   TComponent extends AnyRouteComponent,
+  TSearchSchema extends
+    | ObjectSchema<import('../common/router').RouteSearch>
+    | undefined =
+    | ObjectSchema<import('../common/router').RouteSearch>
+    | undefined,
 > =
   Parameters<TComponent> extends []
-    ? RouteOptions<RoutePathParams<Path>>
+    ? RouteOptions<RoutePathParams<Path>, TSearchSchema>
     : RouteComponentParam<TComponent> extends RouteParams
-      ? RouteOptions<RouteComponentParam<TComponent>>
-      : RouteOptions<RoutePathParams<Path>>;
+      ? RouteOptions<RouteComponentParam<TComponent>, TSearchSchema>
+      : RouteOptions<RoutePathParams<Path>, TSearchSchema>;
 
 function validateRoutePath(path: string): void {
   if (!path.startsWith('/')) {
@@ -220,6 +229,7 @@ function pushGroupScope(
       layout: options.layout,
       auth: options.auth,
       policies,
+      meta: options.meta,
     },
     fn
   );
@@ -248,6 +258,7 @@ function pushPageScope(
       hasIndex: false,
       auth: options.auth,
       policies,
+      meta: options.meta,
     },
     fn
   );
@@ -271,6 +282,9 @@ function normalizeRouteOptions(
     policies.length === 0 &&
     !options.title &&
     !options.namespace &&
+    !options.search &&
+    !options.meta &&
+    !options.actions &&
     options.auth === undefined
   ) {
     return undefined;
@@ -284,6 +298,9 @@ function normalizeRouteOptions(
     ...(policies.length > 0 ? { policies } : {}),
     ...(options.title ? { title: options.title } : {}),
     ...(options.namespace ? { namespace: options.namespace } : {}),
+    ...(options.search ? { search: options.search } : {}),
+    ...(options.meta ? { meta: options.meta } : {}),
+    ...(options.actions ? { actions: options.actions } : {}),
   };
 }
 
@@ -313,11 +330,16 @@ function registerRouteAtResolvedPath(
     ...getCurrentInheritedAuthRequirements(),
     ...(normalizedOptions?.auth ? [normalizedOptions.auth] : []),
   ];
-  const auth: AuthRequirement | undefined = authRequirements.length === 0
-    ? undefined
-    : authRequirements.length === 1
-      ? authRequirements[0]
-      : allOf(...authRequirements);
+  const auth: AuthRequirement | undefined =
+    authRequirements.length === 0
+      ? undefined
+      : authRequirements.length === 1
+        ? authRequirements[0]
+        : allOf(...authRequirements);
+  const metaChain = [
+    ...getCurrentInheritedMeta(),
+    ...(normalizedOptions?.meta ? [normalizedOptions.meta] : []),
+  ];
 
   const handler = createRouteHandler(comp, pageChain, chain);
   const renderHandler = createRouteHandler(comp, pageChain, chain, true);
@@ -339,7 +361,8 @@ function registerRouteAtResolvedPath(
         ? { policies, ...(auth ? { auth } : {}) }
         : auth
           ? { auth }
-        : {},
+          : {},
+    ...(metaChain.length > 0 ? { metaChain } : {}),
     isFallback,
     handler,
     renderHandler,
@@ -472,24 +495,32 @@ export function registerRoutes(
   definition();
 }
 
-export function route<const TPath extends string>(
+export function route<
+  const TPath extends string,
+  const TSearchSchema extends
+    | ObjectSchema<import('../common/router').RouteSearch>
+    | undefined = undefined,
+>(
   path: TPath,
   Component: RouteComponent<RoutePathParams<TPath>>,
-  options?: RouteOptions<RoutePathParams<TPath>>
-): void;
+  options?: RouteOptions<RoutePathParams<TPath>, TSearchSchema>
+): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;
 export function route<
   const TPath extends string,
   TComponent extends AnyRouteComponent,
+  const TSearchSchema extends
+    | ObjectSchema<import('../common/router').RouteSearch>
+    | undefined = undefined,
 >(
   path: TPath,
   Component: CompatibleRouteComponent<TPath, TComponent>,
-  options?: RouteOptionsForComponent<TPath, TComponent>
-): void;
+  options?: RouteOptionsForComponent<TPath, TComponent, TSearchSchema>
+): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;
 export function route(
   path: string,
   Component: RouteComponent,
   options?: RouteOptions
-): void {
+): RouteRef<RouteParams, unknown> {
   if (typeof path === 'undefined') {
     throw new Error(
       'route() is only for route registration. Use currentRoute() inside components.'
@@ -518,9 +549,17 @@ export function route(
     );
   }
 
+  if (options?.search && options.search.kind !== 'object') {
+    throw new Error('route search must be an object schema.');
+  }
+
   registerRouteAtResolvedPath(
     resolveRouteRegistrationPath(path),
     Component,
     options
   );
+  return Object.freeze({
+    path: resolveRouteRegistrationPath(path),
+    ...(options?.search ? { searchSchema: options.search } : {}),
+  });
 }

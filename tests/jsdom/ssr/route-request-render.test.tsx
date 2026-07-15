@@ -15,22 +15,30 @@ describe('single-pass route request rendering', () => {
     let requirements = 0;
     let renders = 0;
     const registry = createRouteRegistry(() => {
-      route('/account/{id}', ({ id }) => {
-        renders += 1;
-        return <div>{id}</div>;
-      }, {
-        auth: (context) => {
-          requirements += 1;
-          return requireUser()(context);
+      route(
+        '/account/{id}',
+        ({ id }) => {
+          renders += 1;
+          return <div>{id}</div>;
         },
-      });
+        {
+          auth: (context) => {
+            requirements += 1;
+            return requireUser()(context);
+          },
+        }
+      );
     });
     const result = await renderRouteRequestToString({
       url: '/account/42',
       registry,
       authContext: user,
     });
-    expect(result).toEqual({ kind: 'render', html: '<div>42</div>', params: { id: '42' } });
+    expect(result).toEqual({
+      kind: 'render',
+      html: '<div>42</div>',
+      params: { id: '42' },
+    });
     expect(requirements).toBe(1);
     expect(renders).toBe(1);
   });
@@ -49,7 +57,11 @@ describe('single-pass route request rendering', () => {
         },
       });
     });
-    await renderRouteRequestToString({ url: '/account', registry, authContext: user });
+    await renderRouteRequestToString({
+      url: '/account',
+      registry,
+      authContext: user,
+    });
     expect(requirementAuth).toBe(user);
     expect(preloadAuth).toBe(user);
   });
@@ -58,13 +70,25 @@ describe('single-pass route request rendering', () => {
     const registry = createRouteRegistry(() => {
       route('/account', () => <div>{'account'}</div>, { auth: requireUser() });
     });
-    const anonymous: AuthContext = { authenticated: false, principal: null, session: null, tenant: null };
-    await expect(renderRouteRequestToString({
-      url: '/account',
-      registry,
-      authContext: anonymous,
-    })).resolves.toMatchObject({ kind: 'redirect' });
-    await expect(renderRouteRequestToString({ url: '/missing', registry, authContext: user }))
-      .resolves.toEqual({ kind: 'no-match' });
+    const anonymous: AuthContext = {
+      authenticated: false,
+      principal: null,
+      session: null,
+      tenant: null,
+    };
+    await expect(
+      renderRouteRequestToString({
+        url: '/account',
+        registry,
+        authContext: anonymous,
+      })
+    ).resolves.toMatchObject({ kind: 'redirect' });
+    await expect(
+      renderRouteRequestToString({
+        url: '/missing',
+        registry,
+        authContext: user,
+      })
+    ).resolves.toEqual({ kind: 'no-match' });
   });
 });

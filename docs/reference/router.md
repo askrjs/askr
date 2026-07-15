@@ -20,8 +20,8 @@ export const registry = createRouteRegistry(registerAppRoutes, {
 
 ## `registerRoutes(definition, options)`
 
-Legacy compatibility helper that runs a route definition against the module-level
-route store. Prefer `createRouteRegistry()` for new code.
+Runs a route definition against the module-level route store. Prefer
+`createRouteRegistry()` for application composition.
 
 ## `group(options, fn)`
 
@@ -130,7 +130,8 @@ Renders the active child route inside the current `page()` host.
 
 ## `route(path, Component, options)`
 
-Registers a route declaration. Call it during route registration.
+Registers a route declaration, returns a typed `RouteRef`, and must be called
+during route registration.
 
 - `path`: route template using `{name}` for params and `/*` for catch-all. Inside `page()`, child routes must use relative paths like `tabs`.
 - `Component`: page component function; receives URL params as props and returns normal renderable content
@@ -138,8 +139,11 @@ Registers a route declaration. Call it during route registration.
   - `auth`: an `AuthRequirement` such as `requireUser()` or `requireRole('admin')`
   - `policies`: ordered access checks
   - `loader`: route loader `({ params }) => unknown`
+  - `preload`: query prefetch work for SSR and hydration
   - `entries`: SSG entry generator
-  - `title`: page title hint
+  - `search`: executable schema used by typed destinations
+  - `meta`: title, meta, canonical/link, JSON-LD, language, and direction metadata
+  - `actions`: browser-safe action descriptors authorized for this matched page
   - `namespace`: namespace key
 
 ```ts
@@ -147,8 +151,52 @@ route('/posts/{slug}', PostPage, {
   loader: ({ params }) => fetchPost(params.slug),
   entries: async () => getPosts().map((post) => ({ slug: post.slug })),
   auth: requireUser(),
-  title: 'Post',
+  search: PostSearch,
+  meta: { title: 'Post' },
+  actions: [updatePostAction],
 });
+```
+
+Group, page, and leaf metadata compose in declaration order. The deepest scalar
+value wins; Open Graph maps merge, while link and JSON-LD entries append in a
+deterministic order.
+
+## `to(ref, params, search)`
+
+Builds an immutable typed destination. Missing path params throw, and a
+route's executable search schema rejects invalid values before navigation.
+
+```tsx
+const postRoute = route('/posts/{slug}', PostPage, { search: PostSearch });
+const destination = to(postRoute, { slug: 'release' }, { view: 'summary' });
+<Link to={destination}>Release post</Link>;
+```
+
+`Link href="..."` remains available for a raw destination.
+
+## `routeData()`, `defer()`, and `Resolve`
+
+`routeData<T>()` reads loader output while the matched route renders. Critical
+loader work is awaited. Wrap only non-critical promises in `defer()` and render
+them through `Resolve`, which owns pending, fulfilled, and rejected output.
+
+```tsx
+const reportRoute = route('/report', ReportPage, {
+  loader: () => ({ summary: defer(loadSummary()) }),
+});
+
+function ReportPage() {
+  const data = routeData<{ summary: ReturnType<typeof defer<Summary>> }>();
+  return (
+    <Resolve
+      value={data.summary}
+      pending={<p>Loading…</p>}
+      rejected={<p>Failed.</p>}
+    >
+      {(summary) => <SummaryView summary={summary} />}
+    </Resolve>
+  );
+}
 ```
 
 Path syntax rules:
@@ -232,10 +280,13 @@ import { Link } from '@askrjs/askr/router';
 
 ## Types
 
-| Type             | Description                              |
-| ---------------- | ---------------------------------------- |
-| `RouteComponent` | Page component signature                 |
-| `RouteOptions`   | Options accepted by `route()`            |
-| `RouteRecord`    | Normalized route record                  |
-| `RouteManifest`  | Full route graph                         |
-| `RouteSnapshot`  | Read-only snapshot from `currentRoute()` |
+| Type               | Description                                         |
+| ------------------ | --------------------------------------------------- |
+| `RouteComponent`   | Page component signature                            |
+| `RouteOptions`     | Options accepted by `route()`                       |
+| `RouteRecord`      | Normalized route record                             |
+| `RouteManifest`    | Full route graph                                    |
+| `RouteSnapshot`    | Read-only snapshot from `currentRoute()`            |
+| `RouteRef`         | Typed path/search declaration returned by `route()` |
+| `RouteDestination` | Immutable destination returned by `to()`            |
+| `RouteMeta`        | Normalized document metadata contract               |

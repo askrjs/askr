@@ -7,6 +7,8 @@ import type {
   RouteManifest,
 } from '../common/router';
 import { resolveRouteFromRoutes, resolveRouteRequest } from '../router/route';
+import { reconcileRouteMeta, resolveRouteMeta } from '../router/metadata';
+import { getRouteRenderContext } from '../router/resolution';
 import type { ComponentFunction } from '../runtime';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
@@ -36,9 +38,28 @@ export function bindDeniedRouteHandler(status: number): RouteHandler {
   return () => createDeniedStatusNode(status);
 }
 
+export async function reconcileInitialRouteMetadata(
+  resolved: RouteRequestResult
+): Promise<void> {
+  if (resolved?.kind !== 'render' || !resolved.record) return;
+  if (
+    !resolved.record.options.title &&
+    !resolved.record.options.meta &&
+    !resolved.record.metaChain?.length
+  )
+    return;
+  const context = getRouteRenderContext(resolved);
+  if (!context) return;
+  reconcileRouteMeta(await resolveRouteMeta(resolved.record, context));
+}
+
 export async function resolveInitialRoute(
   auth?: RouteAuthOptions,
-  source?: { manifest?: RouteManifest; routes?: readonly Route[] }
+  source?: {
+    manifest?: RouteManifest;
+    routes?: readonly Route[];
+    load?: boolean;
+  }
 ): Promise<{ path: string; href: string; resolved: RouteRequestResult }> {
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
   let href =
@@ -58,7 +79,11 @@ export async function resolveInitialRoute(
     visited.add(href);
 
     const resolved = source?.manifest
-      ? await resolveRouteRequest(href, { manifest: source.manifest, auth })
+      ? await resolveRouteRequest(href, {
+          manifest: source.manifest,
+          auth,
+          load: source.load,
+        })
       : source?.routes
         ? (() => {
             const match = resolveRouteFromRoutes(path, source.routes!);

@@ -10,6 +10,7 @@ import {
 } from '../runtime';
 import { __ERROR_BOUNDARY__, __FOR_BOUNDARY__ } from '../common/vnode';
 import {
+  applyFormControlProp,
   applyStaticScalarPropsToElement,
   hasMatchingStaticProps,
   materializeFreshKey,
@@ -320,6 +321,9 @@ function createIntrinsicElement(
         if (dom) el.appendChild(dom);
       }
     }
+    if (el.tagName === 'SELECT' && props.value != null) {
+      applyFormControlProp(el, 'value', props.value, type);
+    }
     return el;
   } catch (error) {
     cleanupFailedDOMConstruction(el);
@@ -432,6 +436,9 @@ function applyElementUpdateFromVnode(
       return;
     }
     updateElementChildren(el, children, forceChildrenUpdate);
+    if (el.tagName === 'SELECT' && props.value != null) {
+      applyFormControlProp(el, 'value', props.value, vnode.type as string);
+    }
   }
 }
 
