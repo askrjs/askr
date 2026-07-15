@@ -5,6 +5,7 @@ import type {
   RouteHandler,
   RoutePolicy,
   RouteRecord,
+  RouteMetaSource,
 } from '../common/router';
 import type { AuthRequirement } from '@askrjs/auth';
 import type { RenderableChild } from '../common/vnode';
@@ -28,4 +29,5 @@ export type RegistrationScope = {
   hasIndex?: boolean;
   auth?: AuthRequirement;
   policies: readonly RoutePolicy[];
+  meta?: RouteMetaSource;
 };

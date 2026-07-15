@@ -43,8 +43,8 @@ await createSPA({ root: 'app', registry });
 
 Create the route registry before `createSPA()` is called.
 
-Internally, `createSPA()` also accepts a manifest or flat route table for
-compatibility, but `createRouteRegistry()` is the preferred authoring boundary
+Internally, `createSPA()` also accepts a manifest or flat route table, but
+`createRouteRegistry()` is the preferred authoring boundary
 because it keeps the normalized manifest and legacy route table together.
 
 ## SSR + SPA hydration
@@ -64,14 +64,14 @@ import { hydrateSPA } from '@askrjs/askr/boot';
 await hydrateSPA({ root: 'app', registry });
 ```
 
-SSR rendering is synchronous. Resolve async data before rendering and pass it as
-deterministic inputs; async components or async `resource()` work during SSR
-throw instead of being awaited.
+The component render phase remains synchronous. Critical route-loader data is
+awaited first; `defer()` explicitly marks non-critical promises that may stream
+after fallback HTML. Async components and async `resource()` work during SSR
+still throw instead of being awaited.
 
 ## Runtime boundary
 
-The public runtime keeps compatibility exports such as `createRuntime()`,
-`getDefaultRuntime()`, and `globalScheduler`. Core implementation modules route
+The public runtime exposes `createRuntime()` and `getDefaultRuntime()`. Core implementation modules route
 default scheduler and renderer access through the internal runtime access
 boundary so hot paths do not import singleton globals directly.
 

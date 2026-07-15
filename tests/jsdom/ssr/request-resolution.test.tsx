@@ -23,12 +23,21 @@ describe('SSR request resolution', () => {
   it('should redirect protected requests before render', async () => {
     registerRoutes(
       () => {
-        route('/login', () => <div>{'login'}</div>, { auth: requireAnonymous() });
-        route('/dashboard', () => <div>{'dashboard'}</div>, { auth: requireUser() });
+        route('/login', () => <div>{'login'}</div>, {
+          auth: requireAnonymous(),
+        });
+        route('/dashboard', () => <div>{'dashboard'}</div>, {
+          auth: requireUser(),
+        });
       },
       {
         auth: {
-          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+          resolve: () => ({
+            authenticated: false,
+            principal: null,
+            session: null,
+            tenant: null,
+          }),
           loginPath: '/login',
         },
       }
@@ -49,11 +58,18 @@ describe('SSR request resolution', () => {
   it('should deny role-gated requests before render', async () => {
     registerRoutes(
       () => {
-        route('/admin', () => <div>{'admin'}</div>, { auth: requireRole('admin') });
+        route('/admin', () => <div>{'admin'}</div>, {
+          auth: requireRole('admin'),
+        });
       },
       {
         auth: {
-          resolve: () => ({ authenticated: true, principal: { id: 'user-1', roles: ['member'] }, session: null, tenant: null }),
+          resolve: () => ({
+            authenticated: true,
+            principal: { id: 'user-1', roles: ['member'] },
+            session: null,
+            tenant: null,
+          }),
         },
       }
     );
@@ -97,7 +113,9 @@ describe('SSR request resolution', () => {
 
     const registry = createRouteRegistry(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, { auth: requireAnonymous() });
+        route('/login', () => <div>{'login-page'}</div>, {
+          auth: requireAnonymous(),
+        });
         route(
           '/dashboard',
           () => {
@@ -109,7 +127,12 @@ describe('SSR request resolution', () => {
       },
       {
         auth: {
-          resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+          resolve: () => ({
+            authenticated: false,
+            principal: null,
+            session: null,
+            tenant: null,
+          }),
           loginPath: '/login',
         },
       }
@@ -229,11 +252,13 @@ describe('SSR request resolution', () => {
     });
 
     expect(loader).toHaveBeenCalledTimes(1);
-    expect(loader).toHaveBeenCalledWith(expect.objectContaining({
-      params: { slug: 'intro' },
-      auth: expect.objectContaining({ authenticated: false }),
-      mode: 'ssr',
-    }));
+    expect(loader).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: { slug: 'intro' },
+        auth: expect.objectContaining({ authenticated: false }),
+        mode: 'ssr',
+      })
+    );
     expect(html).toContain('intro');
   });
 

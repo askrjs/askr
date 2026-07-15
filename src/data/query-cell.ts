@@ -65,7 +65,15 @@ export class QueryCell<T> {
     this.key = key;
     this.cache = cache;
     if (options.initialData !== undefined) {
-      this.state = { data: options.initialData, error: null, loading: false, refreshing: false, stale: false, consistency: 'fresh', staleReason: null };
+      this.state = {
+        data: options.initialData,
+        error: null,
+        loading: false,
+        refreshing: false,
+        stale: false,
+        consistency: 'fresh',
+        staleReason: null,
+      };
     }
   }
 
@@ -201,8 +209,8 @@ export class QueryCell<T> {
       this.destroyed ||
       this.state.data !== null ||
       this.pendingRefresh ||
-      this.startQueued
-      || this.options.skipInitialFetch
+      this.startQueued ||
+      this.options.skipInitialFetch
     ) {
       return;
     }
@@ -526,9 +534,14 @@ export function createDefinedQuery<TInput, TResult extends {}>(
   options: Omit<QueryOptions<TResult>, 'key' | 'fetch'> = {}
 ): Query<TResult> {
   const runtime = options.runtime;
-  const context = (getActiveRenderContext() as { mode?: 'ssr' | 'spa' } | null);
+  const context = getActiveRenderContext() as { mode?: 'ssr' | 'spa' } | null;
   const key = definition.key(input);
-  const dataRuntime = runtime ?? (getActiveRenderContext()?.dataRuntime as import('./types').DataRuntime | undefined) ?? getDefaultDataRuntime();
+  const dataRuntime =
+    runtime ??
+    (getActiveRenderContext()?.dataRuntime as
+      | import('./types').DataRuntime
+      | undefined) ??
+    getDefaultDataRuntime();
   const initialData = dataRuntime?.queryData.get(key) as TResult | undefined;
   return createLegacyQuery({
     ...options,
@@ -537,7 +550,9 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     isConsistent: definition.isConsistent,
     reconcile: definition.reconcile,
     initialData,
-    skipInitialFetch: context?.mode === 'ssr' || (context?.mode === undefined && typeof window === 'undefined'),
+    skipInitialFetch:
+      context?.mode === 'ssr' ||
+      (context?.mode === undefined && typeof window === 'undefined'),
     runtime: dataRuntime ?? options.runtime,
   });
 }
@@ -549,12 +564,22 @@ export function createQuery<TInput, TResult extends {}>(
   options?: Omit<QueryOptions<TResult>, 'key' | 'fetch'>
 ): Query<TResult>;
 export function createQuery<T extends {}, TInput, TResult extends {}>(
-  optionsOrDefinition: QueryOptions<T> | import('./types').QueryDefinition<TInput, TResult>,
+  optionsOrDefinition:
+    | QueryOptions<T>
+    | import('./types').QueryDefinition<TInput, TResult>,
   input?: TInput,
   options?: Omit<QueryOptions<TResult>, 'key' | 'fetch'>
 ): Query<T> | Query<TResult> {
-  if (typeof optionsOrDefinition === 'object' && 'key' in optionsOrDefinition && typeof optionsOrDefinition.key === 'function') {
-    return createDefinedQuery(optionsOrDefinition as import('./types').QueryDefinition<TInput, TResult>, input as TInput, options);
+  if (
+    typeof optionsOrDefinition === 'object' &&
+    'key' in optionsOrDefinition &&
+    typeof optionsOrDefinition.key === 'function'
+  ) {
+    return createDefinedQuery(
+      optionsOrDefinition as import('./types').QueryDefinition<TInput, TResult>,
+      input as TInput,
+      options
+    );
   }
   return createLegacyQuery(optionsOrDefinition as QueryOptions<T>);
 }

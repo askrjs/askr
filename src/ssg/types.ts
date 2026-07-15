@@ -7,6 +7,7 @@ import type { DocumentRenderer } from '../common/ssr';
 import type { RenderableChild } from '../common/vnode';
 import type {
   RouteHandler,
+  RouteOptions,
   RoutePathParams,
   RoutePolicy,
   RouteRegistry,
@@ -64,6 +65,8 @@ export interface RouteConfig<Path extends string = string> {
   params?: RouteConfigParams<Path>;
   /** Optional explicit invalidation keys for incremental generation */
   invalidationKeys?: string[];
+  /** Route loader resolved completely before static HTML is rendered. */
+  loader?: RouteOptions['loader'];
   /**
    * SSG entry generator for parameterized routes.
    *
@@ -90,10 +93,19 @@ interface SSGBaseOptions {
   dataOverrides?: Record<string, unknown>;
   /** Optional document wrapper for full HTML output */
   document?: DocumentRenderer;
+  /** Static files or directories published with the generated routes. */
+  assets?: readonly SSGAssetSource[];
   /** Optional concurrency limit for rendering (default: 1) */
   concurrency?: number;
   /** Preferred render parallelism. `'auto'` resolves from the host machine. */
   parallelism?: number | 'auto';
+}
+
+export interface SSGAssetSource {
+  /** Source file or directory. Relative paths resolve from the current working directory. */
+  from: string;
+  /** Destination relative to outputDir. Defaults to the source basename. */
+  to?: string;
 }
 
 /** Options for createStaticGen */

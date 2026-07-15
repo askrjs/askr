@@ -12,14 +12,15 @@ shared operating model is documented in [Platform charter](./development/platfor
 
 Askr is a **platform**, not just a framework.
 
-| Package       | Responsibility                     |
-| ------------- | ---------------------------------- |
-| `askr`        | Core runtime and rendering system  |
-| `askr-ui`     | Headless UI primitives             |
-| `askr-themes` | Optional styling layer             |
-| `askr-lucide` | Lucide icon wrappers for Askr      |
-| `askr-cli`    | Project lifecycle and generators   |
-| `askr-vite`   | Vite integration for Askr projects |
+| Package                     | Responsibility                                     |
+| --------------------------- | -------------------------------------------------- |
+| `askr`                      | Runtime, typed routes, actions, data, SSR, and SSG |
+| `askr-schema`               | Executable validation and OpenAPI schemas          |
+| `askr-auth` / `askr-server` | Auth contracts, APIs, actions, and protection      |
+| `askr-node` / `askr-vite`   | Production transport and document composition      |
+| `askr-i18n` / `askr-otel`   | Application-owned locale and telemetry services    |
+| `askr-ui` / `askr-themes`   | Headless interaction and optional styling          |
+| `askr-cli`                  | Project lifecycle and generators                   |
 
 Every package is optional except `askr`. You add the others as your application needs them.
 
@@ -48,10 +49,12 @@ Askr is designed to make these application types straightforward:
 
 Askr focuses on frontend application structure and developer workflow. It is not:
 
-- A backend framework
-- A deployment platform
-- An authentication provider
-- A database layer
+- A developer-tools suite
+- A database or ORM
+- An identity provider
+- A vendor deployment platform
+- A WebSocket stack
+- A proprietary telemetry backend
 
 ## Documentation map
 

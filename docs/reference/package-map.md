@@ -1,131 +1,58 @@
 # Package Map
 
-This reference describes the published package boundaries for the Askr platform.
-Use the owning package repository for package-specific implementation details.
+This reference defines the published package boundaries for the Askr platform.
+Package-specific details belong to the owning sibling repository.
 
-## `@askrjs/askr`
-
-Core runtime package.
-
-Responsibilities:
-
-- Component rendering and lifecycle
-- App startup via `@askrjs/askr/boot`
-- Routing via `@askrjs/askr/router`
-- Reactivity via `state()`, `derive()`, and `selector()`
-- Async resources via `@askrjs/askr/resources`
-- Query and mutation state via `@askrjs/askr/data`
-- Test fixtures via `@askrjs/askr/testing`
-- UI error boundaries via `@askrjs/askr/components`
-- Timing helpers via `@askrjs/askr/fx`
-- JSX control flow via `@askrjs/askr/control`
-- Structural foundations via `@askrjs/askr/foundations`
-- Lower-level foundations via `@askrjs/askr/foundations/*`
-- SSR via `@askrjs/askr/ssr`
-- SSG via `@askrjs/askr/ssg`
-
-Does not include:
-
-- Visual themes or tokens
-- CLI scaffolding
-- Package-specific UI styling layers
-
-## `@askrjs/ui`
-
-Headless UI primitives.
-
-Responsibilities:
-
-- Behavior primitives for common controls
-- Keyboard navigation and ARIA behavior
-- Composition helpers from `@askrjs/ui/foundations`
-
-Does not include:
-
-- Visual styling
-- Application runtime behavior
-- Business logic
-
-## `@askrjs/themes`
-
-Styling layer for Askr applications.
-
-Responsibilities:
-
-- Theme tokens
-- Base component styles
-- Layout utilities
-
-Does not include:
-
-- Runtime behavior
-- Component logic
-- CLI tooling
-
-## `@askrjs/lucide`
-
-Lucide icon wrappers.
-
-Responsibilities:
-
-- Thin icon wrappers
-- Tree-shakeable icon imports
-
-Does not include:
-
-- Icon authoring tools
-- Non-Lucide icon sets
-
-## `@askrjs/vite`
-
-Vite integration for Askr.
-
-Responsibilities:
-
-- JSX transform wiring
-- Template optimization hooks
-- Vite config defaults
-
-Does not include:
-
-- Runtime APIs
-- UI components
-- CLI tooling
-
-## `@askrjs/cli`
-
-Developer workflow tooling.
-
-Responsibilities:
-
-- Project creation
-- Static-site generation tooling
-
-Does not include:
-
-- Runtime code
-- UI primitives
-- Application-specific business logic
+| Package          | Responsibility                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| `@askrjs/askr`   | Runtime, reactivity, typed routes, actions descriptors, query state, SSR, streaming boundaries, and SSG |
+| `@askrjs/schema` | The platform's executable `safeParse()` schema language and deterministic OpenAPI projection            |
+| `@askrjs/auth`   | Structural principal/claim contracts, authentication resolution, and route policy composition           |
+| `@askrjs/server` | Request contexts, API operations, page action handlers, CSRF, rate limiting, probes, and middleware     |
+| `@askrjs/node`   | Node HTTP transport with Web-stream backpressure, repeated headers, and cancellation                    |
+| `@askrjs/vite`   | Askr JSX integration and Vite-owned document composition                                                |
+| `@askrjs/i18n`   | Typed, application-owned catalogs, locale scopes, and hydration snapshots                               |
+| `@askrjs/otel`   | Optional-peer OpenTelemetry spans and redaction-safe structured logging                                 |
+| `@askrjs/ui`     | Headless, accessible interaction components                                                             |
+| `@askrjs/themes` | Optional theme scopes, styled components, tokens, and templates                                         |
+| `@askrjs/lucide` | Tree-shakeable Askr-native Lucide icon wrappers                                                         |
+| `@askrjs/charts` | Askr-native chart components                                                                            |
+| `@askrjs/monaco` | Askr-native Monaco editor integration                                                                   |
+| `@askrjs/cli`    | Project creation, action generation, OpenAPI drift checks, skills, and SSG commands                     |
 
 ## Import guidance
 
-Prefer the package that owns the feature. Use subpaths for feature-focused imports.
+Prefer the package and subpath that owns the feature.
 
 ```ts
-import { state } from '@askrjs/askr';
-import { createIsland } from '@askrjs/askr/boot';
-import { ErrorBoundary } from '@askrjs/askr/components';
-import { createQuery, invalidateOnInterval } from '@askrjs/askr/data';
-import { queryState } from '@askrjs/askr/testing';
-import { route } from '@askrjs/askr/router';
-import { resource } from '@askrjs/askr/resources';
-import { debounce } from '@askrjs/askr/fx';
-import { For, Show } from '@askrjs/askr/control';
-import { layout, Slot } from '@askrjs/askr/foundations';
+import { defineScope, readScope, state } from '@askrjs/askr';
+import { ActionForm, action, defineAction } from '@askrjs/askr/actions';
+import { createSPA } from '@askrjs/askr/boot';
+import { createQuery } from '@askrjs/askr/data';
 import {
-  createCollection,
-  createLayer,
-} from '@askrjs/askr/foundations/structures';
+  defer,
+  Link,
+  Resolve,
+  route,
+  routeData,
+  to,
+} from '@askrjs/askr/router';
 import { renderToString } from '@askrjs/askr/ssr';
 import { createStaticGen } from '@askrjs/askr/ssg';
 ```
+
+Import `schema`, `createI18n`, and `createTelemetry` from their owning sibling
+packages when those packages are installed.
+
+Action descriptors and schemas may enter the browser graph. Registered action
+handlers, secrets, stores, and server dependencies may not.
+
+## Deliberate boundaries
+
+- Vite owns the document; server packages return app responses and metadata.
+- Executable schemas are the only declared validation contract. `ctx.bind()` is
+  available only when an application intentionally accepts unvalidated input.
+- i18n locale selection and telemetry exporters stay application-owned.
+- Databases, ORMs, identity providers, developer tools, vendor deployment
+  adapters, WebSockets, and proprietary telemetry backends stay outside the
+  platform.

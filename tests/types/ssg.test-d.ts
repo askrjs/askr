@@ -10,6 +10,7 @@ import {
   type RouteRenderResult,
   type RouteRenderStatus,
   type SSGGenerateOptions,
+  type SSGAssetSource,
   type SSGMetadata,
   type SSGMode,
   type SSGOptions,
@@ -93,6 +94,12 @@ const options: SSGOptions = {
   parallelism: 'auto',
 };
 expectAssignable<SSGOptions>(options);
+
+const assetSource: SSGAssetSource = {
+  from: './public',
+  to: '.',
+};
+expectAssignable<SSGAssetSource>(assetSource);
 
 const ssg = createStaticGen(options);
 expectType<Promise<SSGResult>>(ssg.generate());

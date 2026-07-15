@@ -20,6 +20,9 @@ import {
 } from './context';
 import { resolvePolicyAwareSSRRoute } from './route-policy-resolution';
 import { StringSink, StreamSink, type RenderSink } from './sink';
+import type { CoreTelemetry } from '../common/telemetry';
+import { withTelemetry } from '../common/telemetry';
+import type { PageRenderEnvelope } from '../common/page-render-envelope';
 
 export type SSRRoute = {
   path: string;
@@ -45,6 +48,9 @@ export type RouteRenderOptions = SSRRouteSource & {
   request?: Request;
   dataRuntime?: import('../data/types').DataRuntime;
   queryPrefetch?: import('../data/types').QueryPrefetchContext;
+  telemetry?: Pick<CoreTelemetry, 'ssrRender'>;
+  /** @internal Precomposed page state used by hydration verification. */
+  envelope?: PageRenderEnvelope;
 };
 
 export type RouteStreamOptions = RouteRenderOptions & {
@@ -185,6 +191,7 @@ function resolveSSRRouteRender(
     routes: routeTable,
     dataRuntime: opts.dataRuntime,
     queryPrefetch: opts.queryPrefetch,
+    envelope: opts.envelope,
   });
 
   return {
@@ -243,23 +250,25 @@ function renderToSinkInternal(
   host: RouteRenderHost
 ) {
   const { sink, ...renderOptions } = opts;
-  const resolved = resolveSSRRouteRender(renderOptions);
+  return withTelemetry(renderOptions.telemetry?.ssrRender, {}, () => {
+    const resolved = resolveSSRRouteRender(renderOptions);
 
-  if (!resolved.document) {
-    renderResolvedRouteAppToSink(resolved, sink, host);
-    return;
-  }
+    if (!resolved.document) {
+      renderResolvedRouteAppToSink(resolved, sink, host);
+      return;
+    }
 
-  const appSink = new StringSink();
-  renderResolvedRouteAppToSink(resolved, appSink, host);
-  appSink.end();
-  sink.write(
-    renderDocument(
-      resolved.document,
-      buildDocumentRenderArgs(resolved, appSink.toString()),
-      'renderToString()/renderToStream()'
-    )
-  );
+    const appSink = new StringSink();
+    renderResolvedRouteAppToSink(resolved, appSink, host);
+    appSink.end();
+    sink.write(
+      renderDocument(
+        resolved.document,
+        buildDocumentRenderArgs(resolved, appSink.toString()),
+        'renderToString()/renderToStream()'
+      )
+    );
+  });
 }
 
 export function renderRouteToString(

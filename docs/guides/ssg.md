@@ -120,13 +120,7 @@ The unified CLI expects a TypeScript config file for SSG generation.
 npx @askrjs/cli ssg --config ./examples/ssg.config.ts --output ./dist/static
 ```
 
-If you already have the CLI installed, you can also run the direct bin:
-
-```bash
-askr-ssg --config ./examples/ssg.config.ts --output ./dist/static
-```
-
-The installed executable loads `.ts` configs itself; no separate `tsx` command
+The installed Askr CLI loads `.ts` configs itself; no separate `tsx` command
 or global loader setup is required.
 
 Required args:

@@ -6,6 +6,7 @@
 
 import type { ReadableSource } from './readable';
 import type { ComponentInstance } from './component-internal';
+import type { AppRenderRuntime } from '../common/app-render-runtime';
 
 type ComponentScopeSnapshot = {
   instance: ComponentInstance | null;
@@ -73,6 +74,15 @@ export function getCurrentComponentInstance(): ComponentInstance | null {
 
 export function getCurrentInstance(): ComponentInstance | null {
   return currentInstance;
+}
+
+export function getCurrentAppRenderRuntime(): AppRenderRuntime | undefined {
+  let instance = currentInstance;
+  while (instance) {
+    if (instance._appRenderRuntime) return instance._appRenderRuntime;
+    instance = instance.parentInstance;
+  }
+  return undefined;
 }
 
 export function setCurrentComponentInstance(

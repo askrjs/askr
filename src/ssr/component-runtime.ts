@@ -129,10 +129,9 @@ export function executeComponentSync(
           props: { children: inner ? [inner] : [] },
         } as unknown as VNode | JSXElement;
       }
-      return markVNodeTreeWithContextFrame(
-        result,
-        ownerFrame
-      ) as VNode | JSXElement;
+      return markVNodeTreeWithContextFrame(result, ownerFrame) as
+        | VNode
+        | JSXElement;
     } finally {
       setCurrentComponentInstance(prev);
     }

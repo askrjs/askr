@@ -197,12 +197,7 @@ function probeDistExports(): unknown {
 
     try {
       fs.cpSync(distDir, snapshotDir, { recursive: true, force: true });
-      const authPackage = path.join(
-        rootDir,
-        'node_modules',
-        '@askrjs',
-        'auth'
-      );
+      const authPackage = path.join(rootDir, 'node_modules', '@askrjs', 'auth');
       const authSnapshot = path.join(
         snapshotDir,
         'node_modules',
@@ -320,8 +315,8 @@ function probeDistExports(): unknown {
                 derive: typeof rootModule.derive,
                 getSignal: typeof rootModule.getSignal,
                 selector: typeof rootModule.selector,
-                defineContext: typeof rootModule.defineContext,
-                readContext: typeof rootModule.readContext,
+                defineScope: typeof rootModule.defineScope,
+                readScope: typeof rootModule.readScope,
                 jsx: typeof rootModule.jsx,
                 jsxs: typeof rootModule.jsxs,
                 Fragment: typeof rootModule.Fragment,
@@ -720,8 +715,8 @@ describe('public docs and examples', () => {
         derive: 'function',
         getSignal: 'function',
         selector: 'function',
-        defineContext: 'function',
-        readContext: 'function',
+        defineScope: 'function',
+        readScope: 'function',
         jsx: 'function',
         jsxs: 'function',
         Fragment: 'symbol',

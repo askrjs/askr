@@ -41,7 +41,9 @@ export function notFound(): AccessDenyDecision {
   return deny(404);
 }
 
-export function normalizeAccessDecision(result: AccessDecision): AccessDecision {
+export function normalizeAccessDecision(
+  result: AccessDecision
+): AccessDecision {
   return result;
 }
 

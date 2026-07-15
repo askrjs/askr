@@ -37,4 +37,5 @@ export type {
   RouteRenderResult,
   RouteRenderStatus,
   DiscoveredResources,
+  SSGAssetSource,
 } from './types';

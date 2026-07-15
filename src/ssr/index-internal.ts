@@ -20,7 +20,10 @@ export type {
 export type { SSRRoute } from './route-render';
 export type { VNode, SSRComponent } from './types';
 export { renderResolvedToStringSync } from './render-resolved';
-export { renderRouteRequestToString } from './route-request-render';
+export {
+  renderRouteRequest,
+  renderRouteRequestToString,
+} from './route-request-render';
 export type {
   RenderRouteRequestOptions,
   RenderRouteRequestResult,

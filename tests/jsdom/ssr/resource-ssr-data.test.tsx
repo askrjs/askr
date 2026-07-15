@@ -115,7 +115,7 @@ describe('SSR resource() with preloaded data', () => {
     });
 
     expect(html).toBe(
-      '<main>42:Ada:profile</main><script type="application/json" data-askr-render-data="true">{"r:0":"Ada","r:1":"profile"}</script>'
+      '<main>42:Ada:profile</main><script type="application/json" data-askr-render-data="true">{"version":1,"resources":{"r:0":"Ada","r:1":"profile"},"framework":{}}</script>'
     );
     expect(nameLoader).not.toHaveBeenCalled();
     expect(tabLoader).not.toHaveBeenCalled();

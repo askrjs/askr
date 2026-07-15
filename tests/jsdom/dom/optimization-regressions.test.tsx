@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { For } from '../../../src/control';
-import { defineContext, readContext, state } from '../../../src/index';
+import { defineScope, readScope, state } from '../../../src/index';
 import {
   Portal,
   _resetDefaultPortal,
@@ -25,14 +25,14 @@ describe('optimization regressions (DOM)', () => {
   });
 
   it('should update context-scoped selection attributes and hidden input after click', () => {
-    const SelectionContext = defineContext<string | null>(null);
+    const SelectionScope = defineScope<string | null>(null);
 
     const SelectionItem = (props: {
       value: string;
       label: string;
       onSelect: (value: string) => void;
     }) => {
-      const selected = readContext(SelectionContext);
+      const selected = readScope(SelectionScope);
 
       return (
         <button
@@ -50,9 +50,9 @@ describe('optimization regressions (DOM)', () => {
       selected: string;
       children?: unknown;
     }) => (
-      <SelectionContext.Scope value={props.selected}>
+      <SelectionScope value={props.selected}>
         <section data-shell={'selection'}>{props.children}</section>
-      </SelectionContext.Scope>
+      </SelectionScope>
     );
 
     const App = () => {
@@ -114,7 +114,7 @@ describe('optimization regressions (DOM)', () => {
   });
 
   it('should keep keyed table rows and sibling summary in sync inside a scoped shell', () => {
-    const FilterContext = defineContext('');
+    const FilterScope = defineScope('');
     const rows = [
       { id: 'charlie', label: 'Charlie' },
       { id: 'alice', label: 'Alice' },
@@ -132,7 +132,7 @@ describe('optimization regressions (DOM)', () => {
     }
 
     const FilteredRows = () => {
-      const query = readContext(FilterContext);
+      const query = readScope(FilterScope);
       const filteredRows = getFilteredRows(query);
 
       return (
@@ -147,16 +147,16 @@ describe('optimization regressions (DOM)', () => {
     };
 
     const Summary = () => {
-      const query = readContext(FilterContext);
+      const query = readScope(FilterScope);
       return (
         <p id={'row-summary'}>{`count:${getFilteredRows(query).length}`}</p>
       );
     };
 
     const FilterShell = (props: { query: string; children?: unknown }) => (
-      <FilterContext.Scope value={props.query}>
+      <FilterScope value={props.query}>
         <section data-shell={'table'}>{props.children}</section>
-      </FilterContext.Scope>
+      </FilterScope>
     );
 
     const App = () => {
@@ -206,10 +206,10 @@ describe('optimization regressions (DOM)', () => {
   });
 
   it('should clear portal content when scoped children are removed', () => {
-    const MenuContext = defineContext<string | null>(null);
+    const MenuScope = defineScope<string | null>(null);
 
     const PortalPreview = () => {
-      const menu = readContext(MenuContext);
+      const menu = readScope(MenuScope);
       return <p id={'portal-context'}>{menu}</p>;
     };
 
@@ -217,12 +217,12 @@ describe('optimization regressions (DOM)', () => {
       const open = state(false);
 
       return (
-        <MenuContext.Scope value={'file'}>
+        <MenuScope value={'file'}>
           <button id={'toggle-menu'} onClick={() => open.set(!open())}>
             {'File'}
           </button>
           <Portal>{open() ? <PortalPreview /> : null}</Portal>
-        </MenuContext.Scope>
+        </MenuScope>
       );
     };
 
@@ -247,12 +247,12 @@ describe('optimization regressions (DOM)', () => {
   });
 
   it('should preserve portal context after close and reopen', () => {
-    const MenuContext = defineContext<string | null>(null);
-    const SubmenuContext = defineContext<string | null>(null);
+    const MenuScope = defineScope<string | null>(null);
+    const SubmenuScope = defineScope<string | null>(null);
 
     const PortalPreview = () => {
-      const menu = readContext(MenuContext);
-      const submenu = readContext(SubmenuContext);
+      const menu = readScope(MenuScope);
+      const submenu = readScope(SubmenuScope);
 
       return <p id={'portal-context'}>{`${menu}:${submenu}`}</p>;
     };
@@ -266,9 +266,9 @@ describe('optimization regressions (DOM)', () => {
           {'Share'}
         </button>
         {props.submenuOpen ? (
-          <SubmenuContext.Scope value={'share'}>
+          <SubmenuScope value={'share'}>
             <PortalPreview />
-          </SubmenuContext.Scope>
+          </SubmenuScope>
         ) : null}
       </div>
     );
@@ -288,7 +288,7 @@ describe('optimization regressions (DOM)', () => {
       };
 
       return (
-        <MenuContext.Scope value={'file'}>
+        <MenuScope value={'file'}>
           <button id={'toggle-menu'} onClick={toggleMenu}>
             {'File'}
           </button>
@@ -300,7 +300,7 @@ describe('optimization regressions (DOM)', () => {
               />
             ) : null}
           </Portal>
-        </MenuContext.Scope>
+        </MenuScope>
       );
     };
 

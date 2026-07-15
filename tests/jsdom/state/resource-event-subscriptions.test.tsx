@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
-import { defineContext, state } from '../../../src';
+import { defineScope, state } from '../../../src';
 import { createIsland } from '../../../src/boot';
 import { resource } from '../../../src/resources';
 import {
@@ -146,7 +146,7 @@ describe('resource and event state subscriptions', () => {
   });
 
   it('should keep context-wrapped parent state live after a resource rerender', () => {
-    const LayoutContext = defineContext('default');
+    const LayoutScope = defineScope('default');
     const Child = (props: { onOpen: () => void }) => (
       <button type="button" onClick={props.onOpen}>
         Open
@@ -162,7 +162,7 @@ describe('resource and event state subscriptions', () => {
       }, []);
 
       return (
-        <LayoutContext.Scope value={compact() ? 'compact' : 'wide'}>
+        <LayoutScope value={compact() ? 'compact' : 'wide'}>
           <section
             data-compact={compact() ? 'true' : 'false'}
             data-open={open() ? 'true' : 'false'}
@@ -173,7 +173,7 @@ describe('resource and event state subscriptions', () => {
               }}
             />
           </section>
-        </LayoutContext.Scope>
+        </LayoutScope>
       );
     };
 

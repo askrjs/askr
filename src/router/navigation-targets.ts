@@ -1,6 +1,10 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
-import type { RouteRenderResult, RouteRequestResult } from '../common/router';
+import type {
+  RouteMeta,
+  RouteRenderResult,
+  RouteRequestResult,
+} from '../common/router';
 import { DefaultPortal, clearDefaultPortalForInstance } from '../runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import { logger } from '../common/logger';
@@ -37,6 +41,13 @@ import {
   resolveRouteRequest,
   type ResolvedRoute,
 } from './route';
+import {
+  getRouteRenderContext,
+  getRouteRenderData,
+  hasRouteRenderData,
+} from './resolution';
+import { reconcileRouteMeta, resolveRouteMeta } from './metadata';
+import { createAppRenderRuntime } from '../common/app-render-runtime';
 
 export type NavigateOptions = {
   history?: 'push' | 'replace';
@@ -52,6 +63,7 @@ export type NavigationRedirectState = {
 export type AppNavigationTarget = {
   app: AppRegistration;
   resolved: RouteRequestResult;
+  metadata?: Readonly<RouteMeta>;
 };
 
 const MAX_NAVIGATION_REDIRECTS = 20;
@@ -84,6 +96,38 @@ function isRenderResult(
   result: RouteRequestResult
 ): result is RouteRenderResult {
   return result !== null && result.kind === 'render';
+}
+
+function createNavigationTarget(
+  app: AppRegistration,
+  resolved: RouteRequestResult
+): AppNavigationTarget | Promise<AppNavigationTarget> {
+  if (!isRenderResult(resolved) || !resolved.record) return { app, resolved };
+  const hasMetadata = Boolean(
+    resolved.record.options.title ||
+    resolved.record.options.meta ||
+    resolved.record.metaChain?.length
+  );
+  if (!hasMetadata) return { app, resolved };
+  const context = getRouteRenderContext(resolved);
+  if (!context) return { app, resolved };
+  return resolveRouteMeta(resolved.record, context).then((metadata) => ({
+    app,
+    resolved,
+    metadata,
+  }));
+}
+
+function reconcileNavigationMetadata(
+  targets: readonly AppNavigationTarget[]
+): void {
+  for (let index = targets.length - 1; index >= 0; index -= 1) {
+    const metadata = targets[index]?.metadata;
+    if (metadata) {
+      reconcileRouteMeta(metadata);
+      return;
+    }
+  }
 }
 
 export function getRedirectHistoryMode(
@@ -207,6 +251,7 @@ type DeferredRouteCleanup = {
   previousPendingReadSources: ComponentInstance['_pendingReadSources'];
   previousPendingReadSourceVersions: ComponentInstance['_pendingReadSourceVersions'];
   previousLastReadSources: ComponentInstance['_lastReadSources'];
+  previousAppRenderRuntime: ComponentInstance['_appRenderRuntime'];
   previousInstances: ComponentInstance[];
 };
 
@@ -383,6 +428,7 @@ function captureDeferredRouteCleanup(
     previousPendingReadSources: instance._pendingReadSources,
     previousPendingReadSourceVersions: instance._pendingReadSourceVersions,
     previousLastReadSources: instance._lastReadSources,
+    previousAppRenderRuntime: instance._appRenderRuntime,
     previousInstances: instance.target
       ? collectHostInstances(instance.target)
       : [],
@@ -421,6 +467,7 @@ function restoreDeferredRouteInstance(
   instance._pendingReadSourceVersions =
     deferred.previousPendingReadSourceVersions;
   instance._lastReadSources = deferred.previousLastReadSources;
+  instance._appRenderRuntime = deferred.previousAppRenderRuntime;
 
   return errors;
 }
@@ -629,6 +676,19 @@ function getResolvedRouteHandler(resolved: RouteRequestResult): ResolvedRoute {
   };
 }
 
+function updateRouteRuntime(
+  instance: ComponentInstance,
+  resolved: RouteRequestResult
+): void {
+  const current = instance._appRenderRuntime;
+  instance._appRenderRuntime = createAppRenderRuntime({
+    framework: current?.framework,
+    route:
+      resolved?.kind === 'render' ? getRouteRenderData(resolved) : undefined,
+    hasRoute: resolved?.kind === 'render' && hasRouteRenderData(resolved),
+  });
+}
+
 export function resolveNavigationTargetsForApps(
   pathname: string,
   href: string,
@@ -640,20 +700,17 @@ export function resolveNavigationTargetsForApps(
     const app = apps[0]!;
     const resolved = resolveAppRouteRequest(app, pathname, href, signal);
     if (isPromiseLike<RouteRequestResult>(resolved)) {
-      return Promise.resolve(resolved).then((next) => [
-        {
-          app,
-          resolved: next,
-        },
-      ]);
+      return Promise.resolve(resolved).then((next) => {
+        const target = createNavigationTarget(app, next);
+        return isPromiseLike(target)
+          ? Promise.resolve(target).then((ready) => [ready])
+          : [target];
+      });
     }
-
-    return [
-      {
-        app,
-        resolved,
-      },
-    ];
+    const target = createNavigationTarget(app, resolved);
+    return isPromiseLike(target)
+      ? Promise.resolve(target).then((next) => [next])
+      : [target];
   }
 
   const syncTargets: AppNavigationTarget[] = [];
@@ -663,12 +720,15 @@ export function resolveNavigationTargetsForApps(
     const resolved = resolveAppRouteRequest(app, pathname, href, signal);
     if (isPromiseLike<RouteRequestResult>(resolved)) {
       pendingTargets.push(
-        Promise.resolve(resolved).then((next) => ({ app, resolved: next }))
+        Promise.resolve(resolved).then((next) =>
+          createNavigationTarget(app, next)
+        )
       );
       continue;
     }
-
-    syncTargets.push({ app, resolved });
+    const target = createNavigationTarget(app, resolved);
+    if (isPromiseLike(target)) pendingTargets.push(Promise.resolve(target));
+    else syncTargets.push(target);
   }
 
   if (pendingTargets.length === 0) {
@@ -801,6 +861,7 @@ export function applyNavigationTargets(
         restoreOnExit();
         return;
       }
+      updateRouteRuntime(target.app.instance, target.resolved);
       const deferredCleanup = remountResolvedRoute(
         target.app.instance,
         getResolvedRouteHandler(target.resolved),
@@ -831,6 +892,7 @@ export function applyNavigationTargets(
         restoreOnExit();
         return;
       }
+      updateRouteRuntime(target.app.instance, target.resolved);
       rerenderResolvedRoute(target.app.instance, pathname, href);
     }
 
@@ -865,6 +927,7 @@ export function applyNavigationTargets(
     window.history[historyMethod]({ path: href }, '', href);
     setCurrentRouteLocation(pathname, href);
     syncRegisteredRouteSnapshot();
+    reconcileNavigationMetadata(matchedTargets);
 
     if (pathname !== previousPathname) {
       applyNavigationScroll(options.scroll);
@@ -881,6 +944,8 @@ export function applyNavigationTargets(
     restoreOnExit();
     logger.error('[Askr] navigation failed:', error);
     throw error;
+  } finally {
+    // Route loader state is owned by each resolved handler's lexical scope.
   }
 }
 
@@ -968,6 +1033,7 @@ export function applyPopStateNavigationTargets(
         restoreOnExit();
         return;
       }
+      updateRouteRuntime(target.app.instance, target.resolved);
       const deferredCleanup = remountResolvedRoute(
         target.app.instance,
         getResolvedRouteHandler(target.resolved),
@@ -993,6 +1059,7 @@ export function applyPopStateNavigationTargets(
         restoreOnExit();
         return;
       }
+      updateRouteRuntime(target.app.instance, target.resolved);
       rerenderResolvedRoute(target.app.instance, pathname, href);
     }
     flushRuntimeScheduler();
@@ -1017,6 +1084,7 @@ export function applyPopStateNavigationTargets(
     }
     setCurrentRouteLocation(pathname, href);
     syncRegisteredRouteSnapshot();
+    reconcileNavigationMetadata(matchedTargets);
     applyHistoryScroll(href, state);
     for (const deferredCleanup of deferredCleanups) {
       cleanupErrors.push(...cleanupDeferredRouteInstance(deferredCleanup));
@@ -1036,5 +1104,7 @@ export function applyPopStateNavigationTargets(
       );
     }
     throw error;
+  } finally {
+    // Route loader state is owned by each resolved handler's lexical scope.
   }
 }

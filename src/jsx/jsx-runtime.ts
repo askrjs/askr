@@ -100,9 +100,9 @@ export function jsxDEV(
   const normalizedProps = (props ?? {}) as Props;
   if (DEVELOPMENT_BUILD_ENABLED) {
     annotatePropsUsage(normalizedProps);
-    if (isStaticChildren) {
-      markStaticChildren(normalizedProps);
-    }
+  }
+  if (isStaticChildren) {
+    markStaticChildren(normalizedProps);
   }
 
   if (typeof type === 'function' && isEagerControlPrimitive(type)) {
@@ -198,8 +198,8 @@ export function jsxs(
   const normalizedProps = (props ?? {}) as Props;
   if (DEVELOPMENT_BUILD_ENABLED) {
     annotatePropsUsage(normalizedProps);
-    markStaticChildren(normalizedProps);
   }
+  markStaticChildren(normalizedProps);
 
   if (typeof type === 'function' && isEagerControlPrimitive(type)) {
     return type(normalizedProps);

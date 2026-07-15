@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { defineContext, readContext } from '../../../src/runtime/context';
+import { defineScope, readScope } from '../../../src/runtime/context';
 import {
   createTestContainer,
   flushScheduler,
@@ -8,21 +8,32 @@ import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('context (CONTEXT_SPEC) — gaps', () => {
+  it('should create a renderer-transparent vnode given a callable scope', () => {
+    const Theme = defineScope('light');
+    const element = (
+      <Theme value="dark">
+        <span>child</span>
+      </Theme>
+    );
+
+    expect(element.type).not.toBe(Theme);
+  });
+
   it('should allow child to read parent-provided context value', () => {
-    const Theme = defineContext('light');
+    const Theme = defineScope('light');
 
     let observed: string | null = null;
 
     function Child(): JSXElement {
-      observed = readContext(Theme);
+      observed = readScope(Theme);
       return <div>{'child'}</div>;
     }
 
     function App(): JSXElement {
       return (
-        <Theme.Scope value={'dark'}>
+        <Theme value={'dark'}>
           <Child />
-        </Theme.Scope>
+        </Theme>
       );
     }
 
@@ -37,22 +48,22 @@ describe('context (CONTEXT_SPEC) — gaps', () => {
   });
 
   it('should allow child to read parent-provided context through an intrinsic wrapper', () => {
-    const Theme = defineContext('light');
+    const Theme = defineScope('light');
 
     let observed: string | null = null;
 
     function Child(): JSXElement {
-      observed = readContext(Theme);
+      observed = readScope(Theme);
       return <div>{'child'}</div>;
     }
 
     function App(): JSXElement {
       return (
-        <Theme.Scope value={'dark'}>
+        <Theme value={'dark'}>
           <div class={'shell'}>
             <Child />
           </div>
-        </Theme.Scope>
+        </Theme>
       );
     }
 
@@ -67,15 +78,13 @@ describe('context (CONTEXT_SPEC) — gaps', () => {
   });
 
   it('should preserve scalar provider children and function-child output', () => {
-    const Theme = defineContext('light');
+    const Theme = defineScope('light');
 
     function App(): JSXElement {
       return (
         <div>
-          <Theme.Scope value={'dark'}>{0}</Theme.Scope>
-          <Theme.Scope value={'dark'}>
-            {() => `${readContext(Theme)}:0`}
-          </Theme.Scope>
+          <Theme value={'dark'}>{0}</Theme>
+          <Theme value={'dark'}>{() => `${readScope(Theme)}:0`}</Theme>
         </div>
       );
     }
@@ -91,16 +100,14 @@ describe('context (CONTEXT_SPEC) — gaps', () => {
   });
 
   it('should ignore imperative DOM node children', () => {
-    const Theme = defineContext('light');
+    const Theme = defineScope('light');
     const imperativeChild = document.createElement('span');
     imperativeChild.id = 'imperative-context-child';
     imperativeChild.textContent = 'Imperative child';
 
     function App(): JSXElement {
       return (
-        <Theme.Scope value={'dark'}>
-          {imperativeChild as unknown as string}
-        </Theme.Scope>
+        <Theme value={'dark'}>{imperativeChild as unknown as string}</Theme>
       );
     }
 
@@ -115,8 +122,8 @@ describe('context (CONTEXT_SPEC) — gaps', () => {
     }
   });
 
-  it('should throw error when readContext() is called outside render', () => {
-    const Ctx = defineContext(123);
-    expect(() => readContext(Ctx)).toThrow();
+  it('should throw error when readScope() is called outside render', () => {
+    const ScopeValue = defineScope(123);
+    expect(() => readScope(ScopeValue)).toThrow();
   });
 });

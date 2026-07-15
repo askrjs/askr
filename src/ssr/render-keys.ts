@@ -15,6 +15,11 @@ import {
   stopHydrationRenderPhase as stopCommonHydrationRenderPhase,
   stopRenderPhase as stopCommonRenderPhase,
 } from '../common/render-context';
+import {
+  createPageRenderEnvelope,
+  isPageRenderEnvelope,
+  type PageRenderEnvelope,
+} from '../common/page-render-envelope';
 
 export type ResourceDescriptor = {
   key: string;
@@ -28,7 +33,7 @@ export type ResourcePlan = {
 };
 
 export function getCurrentRenderData(): Record<string, unknown> | null {
-  return getCommonCurrentRenderData();
+  return getCommonCurrentRenderData()?.resources ?? null;
 }
 
 export function resetKeyCounter() {
@@ -39,16 +44,30 @@ export function getNextKey(): string {
   return getNextRenderKey();
 }
 
-export function startHydrationRenderPhase(data: Record<string, unknown>) {
-  startCommonHydrationRenderPhase(data);
+export function startHydrationRenderPhase(
+  data: Record<string, unknown> | PageRenderEnvelope
+) {
+  startCommonHydrationRenderPhase(
+    isPageRenderEnvelope(data)
+      ? data
+      : createPageRenderEnvelope({ resources: data })
+  );
 }
 
 export function stopHydrationRenderPhase() {
   stopCommonHydrationRenderPhase();
 }
 
-export function startRenderPhase(data: Record<string, unknown> | null) {
-  startCommonRenderPhase(data);
+export function startRenderPhase(
+  data: Record<string, unknown> | PageRenderEnvelope | null
+) {
+  startCommonRenderPhase(
+    data === null
+      ? null
+      : isPageRenderEnvelope(data)
+        ? data
+        : createPageRenderEnvelope({ resources: data })
+  );
 }
 
 export function stopRenderPhase() {

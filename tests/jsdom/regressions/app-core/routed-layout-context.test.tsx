@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../../src/boot';
-import { defineContext, readContext } from '../../../../src/runtime/context';
+import { defineScope, readScope } from '../../../../src/runtime/context';
 import {
   clearRoutes,
   getManifest,
@@ -30,14 +30,14 @@ describe('routed layout context regression', () => {
   });
 
   it('should execute a routed leaf inside its layout context provider', async () => {
-    const Tenant = defineContext('missing-tenant');
+    const Tenant = defineScope('missing-tenant');
 
     function TenantLayout({ children }: { children?: unknown }) {
-      return <Tenant.Scope value="tenant:northwind">{children}</Tenant.Scope>;
+      return <Tenant value="tenant:northwind">{children}</Tenant>;
     }
 
     function ReportsPage() {
-      return <p>{readContext(Tenant)}</p>;
+      return <p>{readScope(Tenant)}</p>;
     }
 
     group({ layout: TenantLayout }, () => {

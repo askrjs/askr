@@ -15,6 +15,8 @@ import { createDataRuntime } from '../data/data-runtime';
 export type { SSRData } from '../common/ssr';
 import type { SSRData } from '../common/ssr';
 import type { Route, RouteAuthOptions } from '../common/router';
+import { createPageRenderEnvelope } from '../common/page-render-envelope';
+import type { PageRenderEnvelope } from '../common/page-render-envelope';
 
 const FALLBACK_ASYNC_CONTEXT_ERROR =
   '[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage.';
@@ -29,12 +31,15 @@ export interface RenderContext {
   signal?: AbortSignal;
   dataRuntime?: unknown;
   queryCache?: Map<string, unknown>;
+  resourceDataProvided: boolean;
   mode?: 'ssr' | 'spa';
   queryPrefetch?: import('../data/types').QueryPrefetchContext;
   ssrCleanupFns: Array<() => void>;
   // Per-render key state (moved from render-keys.ts globals)
   keyCounter: number;
-  renderData: Record<string, unknown> | null;
+  renderData: PageRenderEnvelope | null;
+  hydrationData: PageRenderEnvelope | null;
+  deferredBoundaries: import('../common/render-context').DeferredBoundaryRegistration[];
 }
 
 type RenderContextAccessor = {
@@ -48,7 +53,8 @@ type AsyncHooksModule = {
 
 let renderContextAccessor: RenderContextAccessor | null = null;
 let renderContextAccessorInitialized = false;
-let asyncRenderContextAccessor: Promise<RenderContextAccessor | null> | null = null;
+let asyncRenderContextAccessor: Promise<RenderContextAccessor | null> | null =
+  null;
 
 // Fallback stack for non-Node environments
 let fallbackStack: RenderContext | null = null;
@@ -100,11 +106,19 @@ export function createRenderContext(
     dataRuntime?: unknown;
     mode?: 'ssr' | 'spa';
     queryPrefetch?: import('../data/types').QueryPrefetchContext;
+    framework?: Readonly<Record<string, unknown>>;
+    envelope?: PageRenderEnvelope;
   } = {}
 ): RenderContext {
   clearEscapeCache();
   const queryCache = new Map<string, unknown>();
 
+  const envelope =
+    opts.envelope ??
+    createPageRenderEnvelope({
+      resources: opts.data,
+      framework: opts.framework,
+    });
   return {
     url: opts.url ?? '',
     seed,
@@ -117,9 +131,14 @@ export function createRenderContext(
     mode: opts.mode ?? 'ssr',
     queryPrefetch: opts.queryPrefetch,
     queryCache,
+    resourceDataProvided: opts.envelope
+      ? Object.keys(envelope.resources).some((key) => key.startsWith('r:'))
+      : opts.data !== undefined,
     ssrCleanupFns: [],
     keyCounter: 0,
-    renderData: null,
+    renderData: envelope,
+    hydrationData: envelope,
+    deferredBoundaries: [],
   };
 }
 
@@ -153,7 +172,9 @@ async function getAsyncRenderContextAccessor(): Promise<RenderContextAccessor | 
   asyncRenderContextAccessor ??= (async () => {
     try {
       const specifier = 'node:async_hooks';
-      const module = await import(/* @vite-ignore */ specifier) as AsyncHooksModule;
+      const module = (await import(
+        /* @vite-ignore */ specifier
+      )) as AsyncHooksModule;
       if (!module.AsyncLocalStorage) return null;
       const storage = new module.AsyncLocalStorage();
       renderContextAccessor = {

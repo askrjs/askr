@@ -3,6 +3,7 @@ import type { DataRuntime } from '../data/types';
 import * as RouteModule from '../router/route';
 import type { SSRData } from './context';
 import { renderToString, type SSRRoute } from './index';
+import type { PageRenderEnvelope } from '../common/page-render-envelope';
 
 function sameRouteParams(
   left: Record<string, string> | undefined,
@@ -36,7 +37,12 @@ export function renderResolvedToStringSync(opts: {
   }>;
   handler: RouteHandler;
   params?: Record<string, string>;
-  options?: { seed?: number; data?: SSRData; dataRuntime?: DataRuntime };
+  options?: {
+    seed?: number;
+    data?: SSRData;
+    dataRuntime?: DataRuntime;
+    envelope?: PageRenderEnvelope;
+  };
 }): string {
   const { url, routes, handler, params, options } = opts;
   const requestUrl = new URL(url, 'http://localhost');
@@ -69,5 +75,6 @@ export function renderResolvedToStringSync(opts: {
     seed: options?.seed,
     data: options?.data,
     dataRuntime: options?.dataRuntime,
+    envelope: options?.envelope,
   });
 }

@@ -32,6 +32,7 @@ import { startRenderPhase, stopRenderPhase } from './render-keys';
 import type { RouteAppRenderInput } from './route-render';
 import { StringSink } from './sink';
 import type { VNode } from './types';
+import { DEFERRED_BOUNDARY } from '../router/deferred';
 
 const __SSR_DEBUG =
   process.env.NODE_ENV !== 'production' &&
@@ -39,6 +40,15 @@ const __SSR_DEBUG =
 
 const RANGE_START = '<!--askr-range-start-->';
 const RANGE_END = '<!--askr-range-end-->';
+
+function renderDeferredBoundarySync(
+  node: VNode | JSXElement,
+  ctx: RenderContext
+): string {
+  const id = String(node.props?.['id'] ?? '');
+  const pending = node.props?.['pending'];
+  return `<askr-resolve data-askr-deferred="${id}">${renderRenderableSync(pending, ctx)}</askr-resolve>`;
+}
 
 function isMultiRangeChild(child: unknown): boolean {
   if (Array.isArray(child)) {
@@ -293,6 +303,9 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     if (type === __CONTROL_BOUNDARY__) {
       return renderControlChildrenSync(node, ctx);
     }
+    if (type === DEFERRED_BOUNDARY) {
+      return renderDeferredBoundarySync(node, ctx);
+    }
     if (type === __ERROR_BOUNDARY__) {
       const boundaryState = getErrorBoundaryState(node);
       const fallback = props?.fallback;
@@ -382,6 +395,10 @@ function renderNodeSyncToSink(
     if (type === __CONTROL_BOUNDARY__) {
       const rendered = renderControlChildrenSync(node, ctx);
       sink.write(rendered);
+      return;
+    }
+    if (type === DEFERRED_BOUNDARY) {
+      sink.write(renderDeferredBoundarySync(node, ctx));
       return;
     }
     if (type === __ERROR_BOUNDARY__) {
@@ -501,13 +518,21 @@ export function renderToStringSync(
     props?: Record<string, unknown>
   ) => VNode | JSXElement | string | number | boolean | null | undefined,
   props?: Record<string, unknown>,
-  options?: { seed?: number; data?: SSRData }
+  options?: {
+    seed?: number;
+    data?: SSRData;
+    /** @internal A composed page render envelope. */
+    envelope?: import('../common/page-render-envelope').PageRenderEnvelope;
+  }
 ): string {
   const seed = options?.seed ?? 12345;
-  const ctx = createRenderContext(seed, { data: options?.data });
+  const ctx = createRenderContext(seed, {
+    data: options?.data,
+    envelope: options?.envelope,
+  });
 
   return withRenderContext(ctx, () => {
-    startRenderPhase(options?.data ?? null);
+    startRenderPhase(ctx.renderData);
     try {
       const node = renderSyncComponentRoot(
         component as unknown as Component,
@@ -519,7 +544,12 @@ export function renderToStringSync(
       }
       const sink = new StringSink();
       renderNodeSyncToSink(node, sink, ctx);
-      sink.write(serializeHydrationRenderData(options?.data, ctx.dataRuntime as import('../data/types').DataRuntime | undefined));
+      sink.write(
+        serializeHydrationRenderData(
+          ctx.hydrationData ?? undefined,
+          ctx.dataRuntime as import('../data/types').DataRuntime | undefined
+        )
+      );
       sink.end();
       return sink.toString();
     } finally {
@@ -536,7 +566,7 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
   const { ctx, data, route, params, sink } = input;
 
   withRenderContext(ctx, () => {
-    startRenderPhase(data || null);
+    startRenderPhase(ctx.renderData);
     try {
       const app = executeComponentSync(
         route.handler as unknown as Component,
@@ -544,7 +574,14 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
         ctx
       );
       renderRenderableSyncToSink(app, sink, ctx);
-      sink.write(serializeHydrationRenderData(data, ctx.dataRuntime as import('../data/types').DataRuntime | undefined));
+      if (ctx.deferredBoundaries.length === 0) {
+        sink.write(
+          serializeHydrationRenderData(
+            ctx.hydrationData ?? data,
+            ctx.dataRuntime as import('../data/types').DataRuntime | undefined
+          )
+        );
+      }
     } finally {
       try {
         stopRenderPhase();

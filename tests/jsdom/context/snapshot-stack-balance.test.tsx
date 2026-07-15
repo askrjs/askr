@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { defineContext, readContext } from '../../../src/runtime/context';
+import { defineScope, readScope } from '../../../src/runtime/context';
 import { resource } from '../../../src/resources';
 import {
   createTestContainer,
@@ -25,12 +25,12 @@ describe('context snapshot stack balance (REGRESSION)', () => {
     'should capture snapshot at mount time regardless of prior render history (snapshot semantics)',
     { timeout: 15000 },
     async () => {
-      const Theme = defineContext('DEFAULT');
+      const Theme = defineScope('DEFAULT');
 
       const Child = () => {
         const r = resource(async () => {
           // SNAPSHOT SEMANTIC: Capture context at render time.
-          const themeAtStart = readContext(Theme);
+          const themeAtStart = readScope(Theme);
           await waitForNextEvaluation();
           // Snapshot remains stable through await - use captured value.
           const themeAfterAwait = themeAtStart;
@@ -48,9 +48,9 @@ describe('context snapshot stack balance (REGRESSION)', () => {
         showChildState = state(false);
 
         return (
-          <Theme.Scope value={themeState()}>
+          <Theme value={themeState()}>
             {showChildState() ? () => Child() : null}
-          </Theme.Scope>
+          </Theme>
         );
       };
 

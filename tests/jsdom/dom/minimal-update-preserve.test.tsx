@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { defineContext, readContext, state } from '../../../src/index';
+import { defineScope, readScope, state } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -346,22 +346,22 @@ describe('minimal update preserves siblings', () => {
   it('should preserve nested scope context during sibling input updates', () => {
     const { container, cleanup } = createTestContainer();
 
-    const OuterContext = defineContext<string | null>(null);
-    const InnerContext = defineContext<string | null>(null);
+    const OuterScope = defineScope<string | null>(null);
+    const InnerScope = defineScope<string | null>(null);
 
     const ContextConsumer = () => {
-      const outer = readContext(OuterContext);
-      const inner = readContext(InnerContext);
+      const outer = readScope(OuterScope);
+      const inner = readScope(InnerScope);
 
       return <p id={'context-preview'}>{`${outer}:${inner}`}</p>;
     };
 
     const NestedScopes = ({ children }: { children?: unknown }) => (
-      <OuterContext.Scope value={'outer'}>
-        <InnerContext.Scope value={'inner'}>
+      <OuterScope value={'outer'}>
+        <InnerScope value={'inner'}>
           <section class={'scoped-shell'}>{children}</section>
-        </InnerContext.Scope>
-      </OuterContext.Scope>
+        </InnerScope>
+      </OuterScope>
     );
 
     const App = () => {

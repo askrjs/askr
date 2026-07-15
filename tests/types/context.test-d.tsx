@@ -1,53 +1,45 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
-import { defineContext, readContext, type Context } from '@askrjs/askr';
+import { defineScope, readScope, type Scope } from '@askrjs/askr';
 import type { JSXElement } from '@askrjs/askr/foundations';
 
-const ThemeContext = defineContext('light');
-expectType<Context<string>>(ThemeContext);
-expectType<string>(readContext(ThemeContext));
+const ThemeScope = defineScope('light');
+expectType<Scope<string>>(ThemeScope);
+expectType<string>(readScope(ThemeScope));
 
-const ColorContext = defineContext<'light' | 'dark'>('light');
-expectAssignable<Context<'light' | 'dark'>>(ColorContext);
-expectType<'light' | 'dark'>(readContext(ColorContext));
+const ColorScope = defineScope<'light' | 'dark'>('light');
+expectAssignable<Scope<'light' | 'dark'>>(ColorScope);
+expectType<'light' | 'dark'>(readScope(ColorScope));
 
 expectAssignable<JSXElement>(
-  <ColorContext.Scope value="dark">
+  <ColorScope value="dark">
     <span>dark</span>
-  </ColorContext.Scope>
+  </ColorScope>
 );
 
 expectAssignable<JSXElement>(
-  <ColorContext.Scope value="dark">
-    {() => <span>dark</span>}
-  </ColorContext.Scope>
+  <ColorScope value="dark">{() => <span>dark</span>}</ColorScope>
 );
 
-expectAssignable<JSXElement>(
-  <ColorContext.Scope value="dark">{() => 0}</ColorContext.Scope>
-);
+expectAssignable<JSXElement>(<ColorScope value="dark">{() => 0}</ColorScope>);
 
-expectAssignable<JSXElement>(<ThemeContext.Scope value="dark" />);
+expectAssignable<JSXElement>(<ThemeScope value="dark" />);
 
 expectError(
-  <ColorContext.Scope value="blue">
+  <ColorScope value="blue">
     <span>bad</span>
-  </ColorContext.Scope>
+  </ColorScope>
 );
 
 expectError(
-  <ColorContext.Scope value="dark">
-    {document.createElement('div')}
-  </ColorContext.Scope>
+  <ColorScope value="dark">{document.createElement('div')}</ColorScope>
 );
 
 expectError(
-  <ColorContext.Scope value="dark">
-    {() => document.createElement('div')}
-  </ColorContext.Scope>
+  <ColorScope value="dark">{() => document.createElement('div')}</ColorScope>
 );
 
-const NumberContext = defineContext(123);
-expectType<Context<number>>(NumberContext);
-expectType<number>(readContext(NumberContext));
+const NumberScope = defineScope(123);
+expectType<Scope<number>>(NumberScope);
+expectType<number>(readScope(NumberScope));
 
-expectError(readContext({ defaultValue: 'light' }));
+expectError(readScope({ defaultValue: 'light' }));

@@ -41,8 +41,7 @@ The release flow is split across dedicated workflows:
 
 The packed consumer contract imports every exported subpath from a fresh ESM
 install, verifies the matching emitted declaration files, runs a minimal
-runtime/SSR render, executes the `askr-ssg` CLI against a TypeScript config,
-and rejects source maps in the
+runtime/SSR render and rejects source maps in the
 tarball. It removes `dist` before rebuilding, so the check cannot pass against
 stale artifacts. Local and CI builds retain maps for debugging; npm packages do
 not.

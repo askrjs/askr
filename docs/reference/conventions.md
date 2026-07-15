@@ -40,7 +40,7 @@ src/components/
 
 ### Feature folders
 
-Group components, hooks, and utilities for a single domain feature:
+Group components, state helpers, and utilities for a single domain feature:
 
 ```
 src/features/
@@ -113,7 +113,7 @@ Local component state uses `state()` from `@askrjs/askr`:
 const [open, setOpen] = state(false);
 ```
 
-Shared state that crosses component boundaries uses `defineContext()` / `readContext()`.
+Shared state that crosses component boundaries uses `defineScope()` / `readScope()`.
 
 ## Async data
 
@@ -134,7 +134,7 @@ pending state, and error boundaries automatically.
 Runtime TS/JS should not hardcode Askr token names like `--ak-*`.
 
 - Keep token declarations and semantic mappings in theme CSS.
-- Use component state hooks and slot/state attributes for runtime behavior.
+- Use component state helpers and slot/state attributes for runtime behavior.
 - If a dynamic style is needed, route through a semantic class or data attribute,
   then resolve it in CSS.
 

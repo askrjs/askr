@@ -6,10 +6,13 @@ import { renderToString } from '../ssr';
 import { renderDocument, type DocumentRenderer } from '../common/ssr';
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
+import type { RouteContext } from '../common/router';
 import type { ComponentFunction } from '../common/component';
 import type { SSRData } from '../common/ssr';
 import { resolveSsgRouteData } from './resolve-ssg-data';
 import { getOutputFilePath, interpolateRoutePath } from './route-utils';
+import { resolveDeferredValues } from '../router/deferred';
+import { bindResolvedRouteData } from '../router/resolution';
 
 interface BatchRenderOptions {
   seed?: number;
@@ -52,9 +55,39 @@ export async function batchRenderRoutes(
         };
 
     try {
+      let routeData: unknown;
+      let hasRouteData = false;
+      if (route.loader) {
+        const controller = new AbortController();
+        const loadContext: RouteContext = {
+          mode: 'ssg',
+          params: route.params ?? {},
+          pathname: requestUrl.pathname,
+          search: requestUrl.search,
+          hash: requestUrl.hash,
+          href: `${requestUrl.pathname}${requestUrl.search}${requestUrl.hash}`,
+          auth: {
+            authenticated: false,
+            principal: null,
+            session: null,
+            tenant: null,
+          },
+          signal: controller.signal,
+        };
+        const loaded = await route.loader({
+          ...loadContext,
+          request: new Request(requestUrl),
+        });
+        await resolveDeferredValues(loaded, controller.signal);
+        routeData = loaded;
+        hasRouteData = true;
+      }
+
       const routeEntry = {
         path: route.path,
-        handler: mergedHandler,
+        handler: hasRouteData
+          ? bindResolvedRouteData(mergedHandler, routeData)
+          : mergedHandler,
         namespace: route.namespace,
       };
 

@@ -6,6 +6,7 @@ import {
   type AuthContext,
   type AuthRequirement,
 } from '@askrjs/auth';
+import { schema } from '@askrjs/schema';
 import {
   Link,
   Outlet,
@@ -24,8 +25,12 @@ import {
   notFound,
   page,
   redirect,
+  reconcileRouteMeta,
   registerRoutes,
+  resolveRouteMeta,
   route,
+  serializeRouteMeta,
+  to,
   unauthorized,
   updateRouteQuery,
   type AccessDecision,
@@ -44,9 +49,12 @@ import {
   type RouteComponent,
   type RouteContext,
   type RouteDefinition,
+  type RouteDestination,
   type RouteHandler,
   type RouteManifest,
   type RouteMatch,
+  type RouteMeta,
+  type RouteMetaSource,
   type RouteMode,
   type RouteOptions,
   type RoutePolicy,
@@ -58,6 +66,9 @@ import {
   type RouteRecord,
   type RouteRegistry,
   type RouteRequestOptions,
+  type RouteRef,
+  type RouteSearch,
+  type RouteSearchValue,
   type ScrollRestorationOptions,
   type RouteSnapshot,
   type RouteQueryParamInput,
@@ -66,6 +77,28 @@ import {
   type RouteQueryUpdates,
   type UpdateRouteQueryOptions,
 } from '@askrjs/askr/router';
+
+const typedUserRoute = route('/typed-users/{id}', (params) => params.id, {
+  search: schema.object({
+    tab: schema.enum(['profile', 'security'] as const),
+    page: schema.optional(schema.integer()),
+  }),
+});
+expectError(route('/scalar-search', () => null, { search: schema.string() }));
+expectAssignable<
+  RouteRef<{ id: string }, { tab: 'profile' | 'security'; page?: number }>
+>(typedUserRoute);
+const typedUserDestination = to(
+  typedUserRoute,
+  { id: 'a/b' },
+  { tab: 'profile', page: 2 }
+);
+expectType<RouteDestination>(typedUserDestination);
+expectType<string>(typedUserDestination.href);
+expectError(to(typedUserRoute, {}, { tab: 'profile' }));
+expectError(to(typedUserRoute, { id: '1' }, { tab: 'other' }));
+expectAssignable<RouteSearch>({ q: 'askr', tags: ['runtime', 'router'] });
+expectAssignable<RouteSearchValue>(['runtime', 'router']);
 
 expectType<void>(
   registerRoutes(() => {
@@ -245,6 +278,19 @@ const routeContext: RouteContext = {
   signal: new AbortController().signal,
 };
 expectAssignable<RouteContext>(routeContext);
+const routeMeta: RouteMeta = {
+  title: 'User',
+  html: { lang: 'en', dir: 'ltr' },
+};
+expectAssignable<RouteMeta>(routeMeta);
+const routeMetaSource: RouteMetaSource = (context) => ({
+  title: context.pathname,
+});
+expectAssignable<RouteMetaSource>(routeMetaSource);
+expectType<string>(serializeRouteMeta(routeMeta));
+expectType<Promise<Readonly<RouteMeta>>>(
+  resolveRouteMeta(routeRecord, routeContext)
+);
 
 const anonymousAuthContext: AuthContext = {
   authenticated: false,
@@ -314,6 +360,9 @@ const linkProps: LinkProps = {
 };
 expectAssignable<LinkProps>(linkProps);
 Link(linkProps);
+Link({ to: typedUserDestination, children: 'Profile' });
+expectError(Link({ to: typedUserRoute, children: 'Profile' }));
+expectError(Link({ href: '/about', to: typedUserDestination }));
 expectAssignable<JSX.Element>(<Outlet />);
 expectAssignable<JSX.Element>(Outlet());
 expectError(Link({ href: '/about', children: document.createElement('span') }));
@@ -383,6 +432,10 @@ expectError(
   })
 );
 expectError(lazy(async () => ({ nope: () => null })));
+reconcileRouteMeta({
+  title: 'Typed metadata',
+  html: { lang: 'en', dir: 'ltr' },
+});
 expectError(
   lazy(async () => ({ default: () => document.createElement('div') }))
 );

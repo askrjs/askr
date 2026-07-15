@@ -1,6 +1,15 @@
 import type { SSRData } from './ssr';
 import type { Route, RouteAuthOptions } from './router';
 import { SSRDataMissingError } from './ssr-errors';
+import type { RenderableChild } from './vnode';
+import type { PageRenderEnvelope } from './page-render-envelope';
+
+export interface DeferredBoundaryRegistration {
+  id: string;
+  promise: Promise<unknown>;
+  fulfilled(value: unknown): RenderableChild;
+  rejected(error: unknown): RenderableChild;
+}
 
 export interface ActiveRenderContext {
   url: string;
@@ -11,10 +20,13 @@ export interface ActiveRenderContext {
   signal?: AbortSignal;
   dataRuntime?: unknown;
   queryCache?: Map<string, unknown>;
+  resourceDataProvided: boolean;
   mode?: 'ssr' | 'spa';
   queryPrefetch?: import('../data/types').QueryPrefetchContext;
   keyCounter: number;
-  renderData: Record<string, unknown> | null;
+  renderData: PageRenderEnvelope | null;
+  hydrationData: PageRenderEnvelope | null;
+  deferredBoundaries: DeferredBoundaryRegistration[];
 }
 
 export interface RenderContextProvider {
@@ -26,7 +38,7 @@ let provider: RenderContextProvider = {
     return null;
   },
 };
-let hydrationRenderData: Record<string, unknown> | null = null;
+let hydrationRenderData: PageRenderEnvelope | null = null;
 let hydrationKeyCounter = 0;
 
 export function configureRenderContextProvider(
@@ -39,7 +51,7 @@ export function getActiveRenderContext(): ActiveRenderContext | null {
   return provider.getRenderContext();
 }
 
-export function getCurrentRenderData(): Record<string, unknown> | null {
+export function getCurrentRenderData(): PageRenderEnvelope | null {
   const ctx = getActiveRenderContext();
   return ctx?.renderData ?? hydrationRenderData;
 }
@@ -64,7 +76,7 @@ export function getNextRenderKey(): string {
   return 'r:0';
 }
 
-export function startHydrationRenderPhase(data: Record<string, unknown>): void {
+export function startHydrationRenderPhase(data: PageRenderEnvelope): void {
   hydrationRenderData = data;
   hydrationKeyCounter = 0;
 }
@@ -74,7 +86,7 @@ export function stopHydrationRenderPhase(): void {
   hydrationKeyCounter = 0;
 }
 
-export function startRenderPhase(data: Record<string, unknown> | null): void {
+export function startRenderPhase(data: PageRenderEnvelope | null): void {
   const ctx = getActiveRenderContext();
   if (ctx) {
     ctx.renderData = data ?? null;

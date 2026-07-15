@@ -55,6 +55,7 @@ import {
   restoreInlineRenderTracking,
   restoreRenderScopedComponent,
 } from './component-scope';
+import type { AppRenderRuntime } from '../common/app-render-runtime';
 
 // Production modules never enter diagnostic render timing. Development/test
 // modules retain the runtime environment check for prod-fallback coverage.
@@ -98,6 +99,8 @@ export interface ComponentInstance {
   ownerFrame: ContextFrame | null; // Provider chain for this component (set by Scope, never overwritten)
   isRoot?: boolean;
   _rootComponentFn?: ComponentFunction;
+  /** @internal Browser-owned hydration and route state for this app root. */
+  _appRenderRuntime?: AppRenderRuntime;
 
   // Renderer ownership identity. A host can contain a retained wrapper chain,
   // so component type alone is not a safe reuse key.

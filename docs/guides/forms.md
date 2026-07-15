@@ -49,6 +49,41 @@ export function SettingsForm() {
 - Store field-level errors close to the form that renders them.
 - Use `role="alert"` for submit-blocking errors that need announcement.
 
+## Declared page actions
+
+Use a browser-safe action descriptor for forms that must work with and without
+JavaScript. The server composition root registers the handler; the matched
+route authorizes the descriptor.
+
+```tsx
+import { ActionForm, action, defineAction } from '@askrjs/askr/actions';
+import { schema } from '@askrjs/schema';
+
+export const renameProject = defineAction({
+  id: 'rename-project',
+  input: schema.object({ name: schema.string({ minLength: 2 }) }),
+  invalidates: ['projects'],
+});
+
+function RenameProjectForm() {
+  const rename = action(renameProject);
+  return (
+    <ActionForm action={renameProject}>
+      <label htmlFor="project-name">Project name</label>
+      <input id="project-name" name="name" />
+      <button type="submit" disabled={rename.state().pending}>
+        Save
+      </button>
+    </ActionForm>
+  );
+}
+```
+
+`ActionForm` emits native POST fields for action identity and the page's CSRF
+token. Native validation failures re-render submitted values and field errors
+at 422; enhanced submissions expose the same result through `action()` and
+invalidate declared query prefixes without navigation.
+
 ## Common Pitfalls
 
 - Do not fetch directly from generic input or field components.

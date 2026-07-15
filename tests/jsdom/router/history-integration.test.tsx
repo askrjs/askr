@@ -295,14 +295,21 @@ describe('history integration (ROUTER)', () => {
       const registry = createRouteRegistry(
         () => {
           route('/', () => <div>{'public'}</div>);
-          route('/login', () => <div>{'login'}</div>, { auth: requireAnonymous() });
+          route('/login', () => <div>{'login'}</div>, {
+            auth: requireAnonymous(),
+          });
           route('/dashboard', () => <div>{'protected'}</div>, {
             auth: requireUser(),
           });
         },
         {
           auth: {
-            resolve: () => ({ authenticated: false, principal: null, session: null, tenant: null }),
+            resolve: () => ({
+              authenticated: false,
+              principal: null,
+              session: null,
+              tenant: null,
+            }),
             loginPath: '/login',
           },
         }

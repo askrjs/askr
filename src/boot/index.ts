@@ -18,12 +18,15 @@ import {
   setServerLocation,
 } from '../router/route';
 import { assertExecutionModel } from '../runtime';
+import { getRouteRenderData, hasRouteRenderData } from '../router/resolution';
+import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
   startHydrationRenderPhase,
   stopHydrationRenderPhase,
 } from '../common/render-context';
 import {
   applySelectiveHydration,
+  applyDeferredStreamPatches,
   markSkippedElements,
   shouldVerifyHydrationMarkup,
   takeHydrationRenderData,
@@ -38,6 +41,7 @@ import {
   bindDeniedRouteHandler,
   bindDeniedStatus,
   bindResolvedRouteHandler,
+  reconcileInitialRouteMetadata,
   resolveInitialRoute,
 } from './route-startup';
 import type {
@@ -187,10 +191,16 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     manifest: activeManifest,
     routes: hasManifest ? undefined : routeTable,
   });
+  const appRuntime = createAppRenderRuntime(
+    resolved?.kind === 'render' && hasRouteRenderData(resolved)
+      ? { route: getRouteRenderData(resolved), hasRoute: true }
+      : {}
+  );
 
   if (!resolved) {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
       cleanupStrict: config.cleanupStrict,
+      appRuntime,
     });
 
     await registerAppNavigation(rootElement, path, {
@@ -202,6 +212,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (resolved.kind === 'redirect') {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
       cleanupStrict: config.cleanupStrict,
+      appRuntime,
     });
 
     await registerAppNavigation(rootElement, path, {
@@ -209,6 +220,8 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     });
     return;
   }
+
+  await reconcileInitialRouteMetadata(resolved);
 
   mountOrUpdate(
     rootElement,
@@ -220,6 +233,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
         }),
     {
       cleanupStrict: config.cleanupStrict,
+      appRuntime,
     }
   );
 
@@ -253,21 +267,16 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
   const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
+  applyDeferredStreamPatches(rootElement);
   const hydrationRenderData = takeHydrationRenderData(rootElement);
-  const hydrationQueryCache = hydrationRenderData && typeof hydrationRenderData === 'object'
-    ? (hydrationRenderData as Record<string, unknown>).__askr_query_cache
-    : undefined;
+  const hydrationQueryCache = hydrationRenderData?.resources;
   if (hydrationQueryCache) {
-    hydrateDataRuntime(config.dataRuntime ?? getDefaultDataRuntime(), hydrationQueryCache);
+    hydrateDataRuntime(
+      config.dataRuntime ?? getDefaultDataRuntime(),
+      hydrationQueryCache
+    );
   }
-  const hydrationRenderDataEntries = hydrationRenderData && typeof hydrationRenderData === 'object' && '__askr_query_cache' in hydrationRenderData
-    ? Object.entries(hydrationRenderData).filter(([key]) => key !== '__askr_query_cache')
-    : null;
-  const hydrationRenderDataForApp = hydrationRenderDataEntries
-    ? hydrationRenderDataEntries.length > 0
-      ? Object.fromEntries(hydrationRenderDataEntries)
-      : null
-    : hydrationRenderData;
+  const hydrationRenderDataForApp = hydrationRenderData;
 
   const pendingLazyAtHydrationBoot = [
     ..._snapshotLazy(),
@@ -292,6 +301,11 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     manifest: activeManifest,
     routes: hasManifest ? undefined : routeTable,
     auth: routeAuth,
+    runtime: createAppRenderRuntime({
+      framework: hydrationRenderData?.framework,
+      route: hydrationRenderData?.route,
+      hasRoute: hydrationRenderData !== null,
+    }),
   };
   _setActiveRouteAuthOptions(routeAuth);
 
@@ -305,6 +319,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   } = await resolveInitialRoute(routeAuth, {
     manifest: activeManifest,
     routes: hasManifest ? undefined : routeTable,
+    load: false,
   });
   setServerLocation(currentUrl);
   if (isProductionEnvironment()) lockRouteRegistration();
@@ -319,10 +334,13 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     );
   }
 
-  const hydrationResolved: ResolvedRoute =
+  await reconcileInitialRouteMetadata(resolved);
+
+  const hydrationResolvedBase: ResolvedRoute =
     resolved.kind === 'deny'
       ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
       : { handler: resolved.handler, params: resolved.params };
+  const hydrationResolved: ResolvedRoute = hydrationResolvedBase;
   const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
     withIntrinsicHydrationAdoption(() => mountOrUpdate(...args));
 
@@ -345,8 +363,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         routes: legacyRouteTable,
         resolved: hydrationResolved,
         options: {
-          data: hydrationRenderDataForApp ?? undefined,
+          data: hydrationRenderDataForApp?.resources,
           dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
+          envelope: hydrationRenderDataForApp ?? undefined,
         },
       })
     ) {
@@ -401,6 +420,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         : bindResolvedRouteHandler(hydrationResolved),
       {
         cleanupStrict: config.cleanupStrict,
+        appRuntime: appRouteSource.runtime,
       }
     );
   } finally {

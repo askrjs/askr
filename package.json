@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.52",
+  "version": "0.0.53",
   "description": "Actor-backed deterministic UI framework",
   "keywords": [
     "askr",
@@ -21,9 +21,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/askrjs/askr.git"
-  },
-  "bin": {
-    "askr-ssg": "./dist/bin/askr-ssg.js"
   },
   "files": [
     "dist/**/*.js",
@@ -96,6 +93,10 @@
       "types": "./dist/router/index.d.ts",
       "import": "./dist/router/index.js"
     },
+    "./actions": {
+      "types": "./dist/actions/index.d.ts",
+      "import": "./dist/actions/index.js"
+    },
     "./ssr": {
       "types": "./dist/ssr/index.d.ts",
       "import": "./dist/ssr/index.js"
@@ -111,7 +112,8 @@
     "./jsx-dev-runtime": {
       "types": "./dist/jsx-dev-runtime.d.ts",
       "import": "./dist/jsx-dev-runtime.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
@@ -130,6 +132,8 @@
     "test:types": "vp pack && tsd --files \"tests/types/**/*.test-d.ts\" --files \"tests/types/**/*.test-d.tsx\"",
     "test:publint": "publint",
     "release:verify": "npm run lint && npm run build && npm run test:publint && npm run test:checks && npm run test:types && npm run test:unit && npm run test:jsdom && npm run test:browser",
+    "pack:check": "npm pack --ignore-scripts --dry-run --json",
+    "check": "npm run release:verify && npm run pack:check",
     "test:unit": "vp test run -c vitest.test.unit.config.ts",
     "bench": "npm run bench:tier1 && npm run bench:tier2 && npm run bench:tier3 && npm run bench:tier4",
     "bench:tier1": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts",
@@ -137,11 +141,11 @@
     "bench:tier3": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts",
     "bench:tier4": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run release:verify"
+    "prepublishOnly": "npm run check"
   },
   "dependencies": {
     "@askrjs/auth": ">=0.0.1 <0.1.0",
-    "tsx": "^4.23.0"
+    "@askrjs/schema": ">=0.0.1 <0.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

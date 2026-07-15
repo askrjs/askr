@@ -110,6 +110,17 @@ describe('dev warnings (DEV_ERRORS)', () => {
     warn.mockRestore();
   });
 
+  it('should not warn given one renderable child and an empty conditional slot', () => {
+    const Component = () => <div>{[<span>only</span>, null]}</div>;
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    expect(getCapturedFrameworkWarnings().join('\n')).not.toContain(
+      'Missing keys on dynamic lists'
+    );
+  });
+
   it('should include component name in missing-keys warning', async () => {
     allowFrameworkWarnings(/Missing keys on dynamic lists in FancyList/);
     let items: ReturnType<typeof state<string[]>> | null = null;

@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { renderToString, type SSRRoute } from '../../../src/ssr';
-import {
-  createDataRuntime,
-  createQuery,
-  defineQuery,
-} from '../../../src/data';
+import { createDataRuntime, createQuery, defineQuery } from '../../../src/data';
 import { verifyHydrationSyncForUrl } from '../../../src/ssr/verify-hydration';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
@@ -46,7 +42,10 @@ describe('verifyHydrationSyncForUrl', () => {
     const { container, cleanup } = createTestContainer();
 
     try {
-      const greetingQuery = defineQuery<Record<string, never>, { message: string }>({
+      const greetingQuery = defineQuery<
+        Record<string, never>,
+        { message: string }
+      >({
         key: () => 'greeting',
         fetch: async () => ({ message: 'loaded later' }),
       });

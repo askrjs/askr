@@ -1,6 +1,9 @@
 import type { RenderableChild } from './vnode';
 import type { QueryPrefetchContext } from '../data/types';
 import type { AuthContext, AuthRequirement } from '@askrjs/auth';
+import type { InferSchema, ObjectSchema } from '@askrjs/schema';
+import type { ActionDescriptor } from '../actions';
+import type { CoreTelemetry } from './telemetry';
 
 /**
  * Common call contracts: Router types
@@ -130,6 +133,10 @@ export interface CommonAccessOptions {
   policies?: readonly RoutePolicy[];
 }
 
+export type RouteMetaSource<TParams extends RouteParams = RouteParams> =
+  | RouteMeta
+  | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);
+
 /**
  * Options for `route()` declarations.
  *
@@ -140,16 +147,74 @@ export interface CommonAccessOptions {
  */
 export interface RouteOptions<
   TParams extends RouteParams = RouteParams,
+  TSearchSchema extends ObjectSchema<RouteSearch> | undefined =
+    | ObjectSchema<RouteSearch>
+    | undefined,
 > extends CommonAccessOptions {
   loader?: (context: RouteContext<TParams> & { request?: Request }) => unknown;
-  preload?: (context: RouteContext<TParams> & { request?: Request; data: QueryPrefetchContext }) => unknown;
+  preload?: (
+    context: RouteContext<TParams> & {
+      request?: Request;
+      data: QueryPrefetchContext;
+    }
+  ) => unknown;
   entries?: () => Array<TParams> | Promise<Array<TParams>>;
   title?: string;
   namespace?: string;
+  search?: TSearchSchema;
+  meta?: RouteMetaSource<TParams>;
+  actions?: readonly ActionDescriptor[];
+}
+
+export interface RouteMeta {
+  title?: string;
+  description?: string;
+  canonical?: string;
+  robots?: string;
+  openGraph?: Record<string, string>;
+  links?: readonly { rel: string; href: string; [key: string]: string }[];
+  jsonLd?: unknown | readonly unknown[];
+  html?: { lang?: string; dir?: 'ltr' | 'rtl' | 'auto' };
+}
+
+/** A stable, typed reference returned by route() for destination construction. */
+export type RouteSearchValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly (string | number | boolean | null)[];
+
+export type RouteSearch = Record<string, RouteSearchValue>;
+
+export interface RouteRef<
+  TParams extends RouteParams = RouteParams,
+  TSearch = RouteSearch,
+> {
+  readonly path: string;
+  /** @internal Executable schema retained for destination validation. */
+  readonly searchSchema?: ObjectSchema<TSearch & RouteSearch>;
+  readonly __params?: TParams;
+  readonly __search?: TSearch;
+}
+
+export type RouteRefSearch<
+  TSchema extends ObjectSchema<RouteSearch> | undefined,
+> =
+  TSchema extends ObjectSchema<RouteSearch>
+    ? InferSchema<TSchema>
+    : RouteSearch;
+
+export interface RouteDestination {
+  readonly href: string;
 }
 
 export interface PageHelperOptions extends CommonAccessOptions {
-  preload?: (context: RouteContext & { request?: Request; data: QueryPrefetchContext }) => unknown;
+  preload?: (
+    context: RouteContext & { request?: Request; data: QueryPrefetchContext }
+  ) => unknown;
+  meta?: RouteMetaSource;
 }
 
 /**
@@ -186,16 +251,20 @@ export type RouteDefinition = () => void;
 export interface RouteRequestOptions {
   manifest?: RouteManifest;
   mode?: RouteMode;
+  /** @internal Hydration adopts server loader data instead of rerunning it. */
+  load?: boolean;
   auth?: RouteAuthOptions;
   authContext?: AuthContext;
   signal?: AbortSignal;
   request?: Request;
+  telemetry?: CoreTelemetry;
 }
 
 export interface RouteRenderResult<TParams extends RouteParams = RouteParams> {
   kind: 'render';
   handler: RouteHandler<TParams>;
   params: TParams;
+  record?: RouteRecord;
 }
 
 export type RouteRequestResult<TParams extends RouteParams = RouteParams> =
@@ -206,6 +275,7 @@ export type RouteRequestResult<TParams extends RouteParams = RouteParams> =
 
 export interface GroupHelperOptions extends CommonAccessOptions {
   layout?: (props: { children?: RenderableChild }) => RenderableChild;
+  meta?: RouteMetaSource;
 }
 
 /**
@@ -231,6 +301,8 @@ export interface RouteRecord {
   pageChain: PageScopeRecord[];
   /** Route metadata: loader, entries, policies, title, namespace */
   options: RouteOptions;
+  /** Metadata sources ordered from outermost group/page to the route leaf. */
+  metaChain?: readonly RouteMetaSource[];
   /** True when this is the `/*` catch-all fallback route */
   isFallback: boolean;
   /**

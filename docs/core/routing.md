@@ -6,7 +6,7 @@ The Askr router uses one route model across SPA, SSR, and SSG:
 - `group()` defines inherited layout and access behavior
 - `page()` defines a renderable route shell with nested child routes
 - `index()` defines the default child route inside a page host
-- `route()` defines pages
+- `route()` defines pages and returns a typed `RouteRef`
 - `fallback()` defines the nearest pathful miss route
 
 ## Register routes
@@ -102,7 +102,9 @@ route('/posts/{slug}', PostPage, {
   loader: ({ params }) => fetchPost(params.slug),
   entries: async () => getPosts().map((post) => ({ slug: post.slug })),
   policies: [requireVerifiedEmail()],
-  title: 'Post',
+  search: PostSearch,
+  meta: { title: 'Post', description: 'A published post.' },
+  actions: [updatePostAction],
 });
 ```
 
@@ -138,9 +140,18 @@ Always use `{name}` for params.
 
 ## Navigation
 
-```ts
-import { navigate } from '@askrjs/askr/router';
+Construct application-owned links from route references. Required params and
+schema-backed search values are validated before a destination is returned.
+
+```tsx
+import { Link, navigate, to } from '@askrjs/askr/router';
+import { postRoute } from './routes';
 
 navigate('/dashboard');
 navigate('/users/42', { replace: true });
+
+const destination = to(postRoute, { slug: 'release' }, { view: 'summary' });
+<Link to={destination}>Release post</Link>;
 ```
+
+Raw `href` remains available for intentionally untyped or external links.

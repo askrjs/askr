@@ -1,15 +1,66 @@
 import { isProductionEnvironment } from '../common/env';
-import { SSR_RENDER_DATA_ATTR, type SSRData } from '../common/ssr';
+import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
+import {
+  pageRenderEnvelope,
+  type PageRenderEnvelope,
+} from '../common/page-render-envelope';
 import type { ResolvedRoute } from '../common/router';
 import type { ComponentFunction } from '../runtime';
 import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
 import { registerDeferredHydrationBoundary } from '../renderer';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
+import { reviveDeferredValue } from '../router/deferred';
+import type { AppRenderRuntime } from '../common/app-render-runtime';
+
+const DEFERRED_PAYLOAD = '__askr_deferred__';
+
+export function applyDeferredStreamPatches(rootElement: Element): void {
+  const patches = Array.from(
+    rootElement.querySelectorAll<HTMLTemplateElement>(
+      'template[data-askr-deferred-patch]'
+    )
+  );
+  for (const template of patches) {
+    const id = template.getAttribute('data-askr-deferred-patch');
+    if (!id) continue;
+    const boundary = Array.from(
+      rootElement.querySelectorAll<HTMLElement>(
+        'askr-resolve[data-askr-deferred]'
+      )
+    ).find((candidate) => candidate.getAttribute('data-askr-deferred') === id);
+    if (boundary) boundary.replaceWith(template.content.cloneNode(true));
+    template.remove();
+    for (const script of Array.from(
+      rootElement.querySelectorAll<HTMLScriptElement>(
+        'script[data-askr-deferred-apply]'
+      )
+    )) {
+      if (script.getAttribute('data-askr-deferred-apply') === id)
+        script.remove();
+    }
+  }
+}
+
+function hydrationReviver(_key: string, value: unknown): unknown {
+  if (!value || typeof value !== 'object') return value;
+  const payload = value as {
+    [DEFERRED_PAYLOAD]?: string;
+    value?: unknown;
+    error?: unknown;
+  };
+  if (payload[DEFERRED_PAYLOAD] === 'fulfilled') {
+    return reviveDeferredValue('fulfilled', payload.value, undefined);
+  }
+  if (payload[DEFERRED_PAYLOAD] === 'rejected') {
+    return reviveDeferredValue('rejected', undefined, payload.error);
+  }
+  return value;
+}
 
 type MountOrUpdateRoot = (
   rootElement: Element,
   componentFn: ComponentFunction,
-  options?: { cleanupStrict?: boolean }
+  options?: { cleanupStrict?: boolean; appRuntime?: AppRenderRuntime }
 ) => void;
 
 export type HydrationRuntimeHooks = {
@@ -29,7 +80,9 @@ export type HydrationRuntimeHooks = {
   ) => boolean;
 };
 
-export function takeHydrationRenderData(rootElement: Element): SSRData | null {
+export function takeHydrationRenderData(
+  rootElement: Element
+): PageRenderEnvelope | null {
   for (const child of Array.from(rootElement.children)) {
     if (
       child instanceof HTMLScriptElement &&
@@ -38,12 +91,11 @@ export function takeHydrationRenderData(rootElement: Element): SSRData | null {
       const raw = child.textContent ?? '';
       child.remove();
       if (!raw) {
-        return {};
+        return pageRenderEnvelope(undefined);
       }
 
       try {
-        const parsed = JSON.parse(raw) as SSRData & { __askr_query_cache?: unknown };
-        return parsed;
+        return pageRenderEnvelope(JSON.parse(raw, hydrationReviver));
       } catch (err) {
         const error = new Error(
           '[Askr] Failed to parse embedded SSR render data during hydration.'
@@ -249,6 +301,7 @@ export async function applySelectiveHydration(
         (() => resolved.handler(resolved.params)) as ComponentFunction,
         {
           cleanupStrict,
+          appRuntime: source?.runtime,
         }
       );
     });
@@ -262,6 +315,7 @@ export async function applySelectiveHydration(
       (() => resolved.handler(resolved.params)) as ComponentFunction,
       {
         cleanupStrict,
+        appRuntime: source?.runtime,
       }
     );
     await hooks.registerAppNavigation(rootElement, path, source);

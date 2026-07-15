@@ -7,10 +7,11 @@ import type { JSXElement } from '../common/jsx';
 import type { AnchorIntrinsicProps, Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
 import { navigate } from '../router/navigate';
+import type { RouteDestination } from '../common/router';
 import { applyInteractionPolicy } from '../foundations/interactions';
 import { mergeProps } from '../foundations/utilities';
 
-export type LinkProps = Omit<
+type LinkBaseProps = Omit<
   Props,
   | 'children'
   | 'href'
@@ -20,7 +21,6 @@ export type LinkProps = Omit<
   | 'aria-current'
   | 'aria-label'
 > & {
-  href: string;
   class?: string;
   children?: RenderableChild;
   /**
@@ -50,6 +50,9 @@ export type LinkProps = Omit<
    */
   'aria-label'?: string;
 };
+
+export type LinkProps = LinkBaseProps &
+  ({ href: string; to?: never } | { href?: never; to: RouteDestination });
 
 function isSameOriginNavigableHref(href: string): boolean {
   if (typeof window === 'undefined') {
@@ -95,7 +98,8 @@ function isSameOriginNavigableHref(href: string): boolean {
  * - Composable via mergeProps
  */
 export function Link({
-  href,
+  href: suppliedHref,
+  to,
   class: className,
   children,
   rel,
@@ -104,6 +108,8 @@ export function Link({
   'aria-label': ariaLabel,
   ...rest
 }: LinkProps): JSXElement {
+  const href = to?.href ?? suppliedHref;
+  if (!href) throw new Error('Link requires href or to.');
   const interaction = applyInteractionPolicy({
     isNative: true,
     disabled: false,

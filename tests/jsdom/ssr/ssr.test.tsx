@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { For } from '../../../src/control';
-import { defineContext, readContext } from '../../../src/runtime/context';
+import { defineScope, readScope } from '../../../src/runtime/context';
 import {
   clearRoutes,
   fallback,
@@ -155,25 +155,25 @@ describe('SSR child normalization', () => {
     ).toBe('<main>hello</main>');
   });
 
-  it('should preserve single Context.Scope children', () => {
-    const ThemeContext = defineContext('default');
+  it('should preserve single Context children', () => {
+    const ThemeScope = defineScope('default');
 
     const App = () => (
-      <ThemeContext.Scope value={'scoped'}>
+      <ThemeScope value={'scoped'}>
         <main>{'one'}</main>
-      </ThemeContext.Scope>
+      </ThemeScope>
     );
 
     expect(renderToStringSync(App)).toBe('<main>one</main>');
   });
 
-  it('should render multiple Context.Scope children as siblings', () => {
-    const ThemeContext = defineContext('default');
+  it('should render multiple Context children as siblings', () => {
+    const ThemeScope = defineScope('default');
 
     const App = () => (
-      <ThemeContext.Scope value={'scoped'}>
+      <ThemeScope value={'scoped'}>
         {[<span>{'a'}</span>, <main>{'b'}</main>]}
-      </ThemeContext.Scope>
+      </ThemeScope>
     );
 
     expect(renderToStringSync(App)).toBe('<span>a</span><main>b</main>');
@@ -198,17 +198,17 @@ describe('SSR child normalization', () => {
   });
 
   it('should restore provider context for nested SSR components', () => {
-    const ThemeContext = defineContext('light');
-    const Consumer = () => <span>{readContext(ThemeContext)}</span>;
+    const ThemeScope = defineScope('light');
+    const Consumer = () => <span>{readScope(ThemeScope)}</span>;
     const Wrapper = (props: { children?: unknown }) => (
       <section>{props.children}</section>
     );
     const Provider = (props: { children?: unknown }) => (
-      <ThemeContext.Scope value="dark">
+      <ThemeScope value="dark">
         <div>
           <Wrapper>{props.children}</Wrapper>
         </div>
-      </ThemeContext.Scope>
+      </ThemeScope>
     );
 
     expect(() =>
@@ -227,15 +227,15 @@ describe('SSR child normalization', () => {
     ).toBe('<div><section><span>dark</span></section></div>');
   });
 
-  it('should preserve Context.Scope sibling children through route-based SSR', () => {
-    const ThemeContext = defineContext('default');
+  it('should preserve Context sibling children through route-based SSR', () => {
+    const ThemeScope = defineScope('default');
     const routes = [
       {
         path: '/',
         handler: () => (
-          <ThemeContext.Scope value={'scoped'}>
+          <ThemeScope value={'scoped'}>
             {[<span>{'a'}</span>, <main>{'b'}</main>]}
-          </ThemeContext.Scope>
+          </ThemeScope>
         ),
       },
     ];

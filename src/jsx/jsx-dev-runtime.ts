@@ -58,7 +58,7 @@ function annotatePropsUsage(props: Record<string, unknown> | null): Props {
 }
 
 function markStaticChildren(props: Props): Props {
-  if (DEVELOPMENT_BUILD_ENABLED && Array.isArray(props.children)) {
+  if (Array.isArray(props.children)) {
     Object.defineProperty(props.children, STATIC_CHILDREN, {
       value: true,
       configurable: true,

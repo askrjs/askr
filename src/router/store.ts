@@ -5,10 +5,15 @@ import type {
   RouteAuthOptions,
   RouteDefinition,
   RoutePolicy,
+  RouteMetaSource,
 } from '../common/router';
 import type { AuthRequirement } from '@askrjs/auth';
 import { getActiveRenderContext } from '../common/render-context';
-import type { InternalRoute, InternalRouteRecord, RegistrationScope } from './internal-types';
+import type {
+  InternalRoute,
+  InternalRouteRecord,
+  RegistrationScope,
+} from './internal-types';
 
 const routes: InternalRoute[] = [];
 const records: InternalRouteRecord[] = [];
@@ -173,7 +178,15 @@ export function getCurrentInheritedPolicies(): RoutePolicy[] {
 }
 
 export function getCurrentInheritedAuthRequirements(): AuthRequirement[] {
-  return registrationScopeStack.flatMap((scope) => scope.auth ? [scope.auth] : []);
+  return registrationScopeStack.flatMap((scope) =>
+    scope.auth ? [scope.auth] : []
+  );
+}
+
+export function getCurrentInheritedMeta(): RouteMetaSource[] {
+  return registrationScopeStack.flatMap((scope) =>
+    scope.meta ? [scope.meta] : []
+  );
 }
 
 export function pushRegistrationScope(

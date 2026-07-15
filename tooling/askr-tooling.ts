@@ -113,19 +113,11 @@ export function createPackageAliases(): {
   }));
 }
 
-export function createBuildInput(options?: {
-  includeCli?: boolean;
-}): Record<string, string> {
-  const input = Object.fromEntries(
+export function createBuildInput(): Record<string, string> {
+  return Object.fromEntries(
     buildInputEntries.map(([entryName, sourcePath]) => [
       entryName,
       resolveRepoPath(sourcePath),
     ])
   );
-
-  if (options?.includeCli ?? true) {
-    input['bin/askr-ssg'] = resolveRepoPath('src/bin/askr-ssg.ts');
-  }
-
-  return input;
 }

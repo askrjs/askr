@@ -6,6 +6,7 @@ import type {
   RouteRegistry,
 } from '../common/router';
 import type { ScrollRestorationOptions } from '../router/navigate';
+import type { AppRenderRuntime } from '../common/app-render-runtime';
 
 export type IslandConfig = {
   root: Element | string;
@@ -73,4 +74,6 @@ export type BootAppRouteSource = {
   manifest?: RouteManifest;
   routes?: readonly Route[];
   auth?: RouteAuthOptions;
+  /** @internal Browser render state owned by this application root. */
+  runtime?: AppRenderRuntime;
 };
