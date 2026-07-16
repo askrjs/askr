@@ -329,8 +329,18 @@ function loadCompilerOptions(): ts.CompilerOptions {
     );
   }
 
+  const publishedPaths = Object.fromEntries(
+    Object.entries(parsed.options.paths ?? {}).map(([specifier, targets]) => [
+      specifier,
+      targets.map((target) =>
+        target.replace(/\.\/\.\/src\/(.*)\.(?:tsx?|jsx?)$/, './dist/$1.d.ts')
+      ),
+    ])
+  );
+
   return {
     ...parsed.options,
+    paths: publishedPaths,
     allowJs: true,
     checkJs: true,
     composite: false,
@@ -373,38 +383,49 @@ function isMissingRelativeModuleDiagnostic(diagnostic: ts.Diagnostic): boolean {
   return /Cannot find module '(\.\/|\.\.\/)/.test(message);
 }
 
-function compileSnippet(
-  snippet: Snippet,
+function compileSnippets(
+  snippets: Snippet[],
   options: ts.CompilerOptions,
   publicExportNames: Set<string>
-): string[] {
-  const virtualExtension = getSnippetVirtualExtension(snippet);
-  const snippetPath = normalizeVirtualPath(
-    path.join(
-      rootDir,
-      '__snippet_checks__',
-      `${path.basename(snippet.filePath).replace(/[^\w.-]/g, '_')}.${snippet.index}.${virtualExtension}`
-    )
-  );
-  const ambientPath = `${snippetPath}.globals.d.ts`;
-  const sourceFiles = new Map<string, string>();
-  const stubbedNames = new Set<string>();
+): Map<string, string[]> {
+  const entries = snippets.map((snippet) => {
+    const virtualExtension = getSnippetVirtualExtension(snippet);
+    const snippetPath = normalizeVirtualPath(
+      path.join(
+        rootDir,
+        '__snippet_checks__',
+        `${path.basename(snippet.filePath).replace(/[^\w.-]/g, '_')}.${snippet.index}.${virtualExtension}`
+      )
+    );
 
-  const buildAmbientFile = () =>
-    [
-      'type __AskrSnippetStub = any;',
-      '',
-      ...[...stubbedNames]
-        .sort()
-        .map(
-          (name) =>
-            `type ${name} = __AskrSnippetStub;\ndeclare const ${name}: __AskrSnippetStub;\n`
-        ),
-    ].join('\n');
+    return {
+      snippet,
+      snippetPath,
+      ambientPath: `${snippetPath}.globals.d.ts`,
+      stubbedNames: new Set<string>(),
+    };
+  });
+  const sourceFiles = new Map<string, string>();
+  const results = new Map<string, string[]>();
 
   for (let pass = 0; pass < 5; pass += 1) {
-    sourceFiles.set(snippetPath, `${snippet.code}\n`);
-    sourceFiles.set(ambientPath, buildAmbientFile());
+    sourceFiles.clear();
+    for (const entry of entries) {
+      sourceFiles.set(entry.snippetPath, `${entry.snippet.code}\n`);
+      sourceFiles.set(
+        entry.ambientPath,
+        [
+          'type __AskrSnippetStub = any;',
+          '',
+          ...[...entry.stubbedNames]
+            .sort()
+            .map(
+              (name) =>
+                `type ${name} = __AskrSnippetStub;\ndeclare const ${name}: __AskrSnippetStub;\n`
+            ),
+        ].join('\n')
+      );
+    }
 
     const host = ts.createCompilerHost(options, true);
     const originalGetSourceFile = host.getSourceFile.bind(host);
@@ -456,42 +477,55 @@ function compileSnippet(
     };
 
     const program = ts.createProgram({
-      rootNames: [snippetPath, ambientPath],
+      rootNames: entries.flatMap(({ snippetPath, ambientPath }) => [
+        snippetPath,
+        ambientPath,
+      ]),
       options,
       host,
     });
     const diagnostics = ts
       .getPreEmitDiagnostics(program)
       .filter((diagnostic) => !isMissingRelativeModuleDiagnostic(diagnostic))
-      .filter(
+      .filter((diagnostic) => diagnostic.file !== undefined);
+
+    let addedStub = false;
+    for (const entry of entries) {
+      const snippetDiagnostics = diagnostics.filter(
         (diagnostic) =>
-          diagnostic.file &&
-          normalizeVirtualPath(diagnostic.file.fileName) === snippetPath
+          normalizeVirtualPath(diagnostic.file!.fileName) === entry.snippetPath
       );
+      results.set(entry.snippetPath, snippetDiagnostics.map(formatDiagnostic));
 
-    const newlyStubbed: string[] = [];
-    for (const diagnostic of diagnostics) {
-      const missingName = getMissingName(diagnostic);
-      if (!missingName || stubbedNames.has(missingName)) {
-        continue;
+      for (const diagnostic of snippetDiagnostics) {
+        const missingName = getMissingName(diagnostic);
+        if (
+          !missingName ||
+          entry.stubbedNames.has(missingName) ||
+          publicExportNames.has(missingName)
+        ) {
+          continue;
+        }
+
+        entry.stubbedNames.add(missingName);
+        addedStub = true;
       }
-
-      if (publicExportNames.has(missingName)) {
-        continue;
-      }
-
-      stubbedNames.add(missingName);
-      newlyStubbed.push(missingName);
     }
 
-    if (newlyStubbed.length === 0) {
-      return diagnostics.map(formatDiagnostic);
+    if (!addedStub) {
+      return results;
     }
   }
 
-  return [
-    `${path.relative(rootDir, snippet.filePath)}#${snippet.index} exceeded missing-name stub passes.`,
-  ];
+  for (const entry of entries) {
+    if (entry.stubbedNames.size > 0) {
+      results.set(entry.snippetPath, [
+        `${path.relative(rootDir, entry.snippet.filePath)}#${entry.snippet.index} exceeded missing-name stub passes.`,
+      ]);
+    }
+  }
+
+  return results;
 }
 
 function syntaxCheckSnippet(snippet: Snippet): string[] {
@@ -560,13 +594,21 @@ describe('public docs snippets', () => {
     const compilerOptions = loadCompilerOptions();
     const publicExportNames = collectPublicExportNames();
     const failures: string[] = [];
+    const diagnosticsBySnippet = compileSnippets(
+      snippets,
+      compilerOptions,
+      publicExportNames
+    );
 
     for (const snippet of snippets) {
-      const diagnostics = compileSnippet(
-        snippet,
-        compilerOptions,
-        publicExportNames
+      const snippetPath = normalizeVirtualPath(
+        path.join(
+          rootDir,
+          '__snippet_checks__',
+          `${path.basename(snippet.filePath).replace(/[^\w.-]/g, '_')}.${snippet.index}.${getSnippetVirtualExtension(snippet)}`
+        )
       );
+      const diagnostics = diagnosticsBySnippet.get(snippetPath) ?? [];
 
       if (diagnostics.length === 0) {
         continue;
