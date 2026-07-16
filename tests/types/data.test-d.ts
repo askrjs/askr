@@ -4,7 +4,7 @@ import {
   createMutation,
   createQuery,
   createQueryPrefetchContext,
-  createServerQueryRegistry,
+  defineServerQueries,
   defineQuery,
   dehydrateDataRuntime,
   getDefaultDataRuntime,
@@ -13,7 +13,9 @@ import {
   hydrateDataRuntime,
   prefetchQuery,
   queryScope,
-  ServerQueryRegistry,
+  serveQuery,
+  type ServerQueryEntry,
+  type ServerQueryRegistry,
   type DataRuntime,
   type DataRuntimeOptions,
   type InvalidateOnIntervalOptions,
@@ -57,11 +59,9 @@ const userHandler: ServerQueryHandler<{ id: string }, { id: string }> = ({
   expectType<AbortSignal>(signal);
   return { id: input.id };
 };
-const serverRegistry = createServerQueryRegistry();
+const serverRegistry = defineServerQueries(serveQuery(userDefinition, userHandler));
+expectType<ServerQueryEntry<{ id: string }, { id: string }>>(serveQuery(userDefinition, userHandler));
 expectType<ServerQueryRegistry>(serverRegistry);
-expectType<ServerQueryRegistry>(
-  serverRegistry.register(userDefinition, userHandler)
-);
 expectType<typeof userHandler | undefined>(serverRegistry.get(userDefinition));
 
 const prefetchContext = createQueryPrefetchContext({

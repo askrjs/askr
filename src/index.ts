@@ -42,7 +42,8 @@ export type { Props } from './common/props';
 export {
   createQuery,
   defineQuery,
-  createServerQueryRegistry,
+  serveQuery,
+  defineServerQueries,
   prefetchQuery,
   dehydrateDataRuntime,
   hydrateDataRuntime,
