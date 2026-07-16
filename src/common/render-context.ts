@@ -3,6 +3,7 @@ import type { Route, RouteAuthOptions } from './router';
 import { SSRDataMissingError } from './ssr-errors';
 import type { RenderableChild } from './vnode';
 import type { PageRenderEnvelope } from './page-render-envelope';
+import type { AuthContext } from '@askrjs/auth';
 
 export interface DeferredBoundaryRegistration {
   id: string;
@@ -17,6 +18,7 @@ export interface ActiveRenderContext {
   params?: Record<string, string>;
   routes?: readonly Route[];
   routeAuth?: RouteAuthOptions;
+  authContext?: AuthContext;
   signal?: AbortSignal;
   dataRuntime?: unknown;
   queryCache?: Map<string, unknown>;

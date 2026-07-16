@@ -13,6 +13,7 @@ import {
   allow,
   clearRoutes,
   currentRoute,
+  currentAuth,
   deny,
   forbidden,
   createRouteRegistry,
@@ -206,6 +207,7 @@ expectAssignable<RouteQueryUpdater>((searchParams) => {
 expectAssignable<RouteQueryUpdates>({ q: 'northwind', page: 2 });
 
 const snapshot = currentRoute();
+expectType<AuthContext>(currentAuth());
 expectType<RouteSnapshot>(snapshot);
 expectType<string>(snapshot.path);
 expectType<string | null>(snapshot.query.get('q'));

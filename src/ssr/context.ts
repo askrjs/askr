@@ -17,6 +17,7 @@ import type { SSRData } from '../common/ssr';
 import type { Route, RouteAuthOptions } from '../common/router';
 import { createPageRenderEnvelope } from '../common/page-render-envelope';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
+import type { AuthContext } from '@askrjs/auth';
 
 const FALLBACK_ASYNC_CONTEXT_ERROR =
   '[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage.';
@@ -28,6 +29,7 @@ export interface RenderContext {
   params?: Record<string, string>;
   routes?: readonly Route[];
   routeAuth?: RouteAuthOptions;
+  authContext?: AuthContext;
   signal?: AbortSignal;
   dataRuntime?: unknown;
   queryCache?: Map<string, unknown>;

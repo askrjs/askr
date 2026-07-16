@@ -59,8 +59,12 @@ const userHandler: ServerQueryHandler<{ id: string }, { id: string }> = ({
   expectType<AbortSignal>(signal);
   return { id: input.id };
 };
-const serverRegistry = defineServerQueries(serveQuery(userDefinition, userHandler));
-expectType<ServerQueryEntry<{ id: string }, { id: string }>>(serveQuery(userDefinition, userHandler));
+const serverRegistry = defineServerQueries(
+  serveQuery(userDefinition, userHandler)
+);
+expectType<ServerQueryEntry<{ id: string }, { id: string }>>(
+  serveQuery(userDefinition, userHandler)
+);
 expectType<ServerQueryRegistry>(serverRegistry);
 expectType<typeof userHandler | undefined>(serverRegistry.get(userDefinition));
 
