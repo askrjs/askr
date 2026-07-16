@@ -9,6 +9,7 @@ export {
   index,
   Outlet,
   currentRoute,
+  currentAuth,
   group,
   fallback,
   lazy,

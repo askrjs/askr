@@ -20,6 +20,7 @@ import { buildRouteContext, buildRouteContextBase } from './route-context';
 import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
 import { getActiveRouteAuthOptions, getRouteRecords } from './store';
+import { setCurrentAuth } from './auth';
 
 export {
   _resolveRouteMatchFromRoutes,
@@ -290,8 +291,9 @@ export function resolveRouteRequest(
       options.auth ?? options.manifest?.auth
     );
     const base = buildRouteContextBase(target, match.params, { mode, signal });
-    const finalize = (authContext: AuthContext) =>
-      resolveMatchedRoute(
+    const finalize = (authContext: AuthContext) => {
+      setCurrentAuth(authContext);
+      return resolveMatchedRoute(
         match.record,
         match.params,
         buildRouteContext(target, match.params, { mode, signal, authContext }),
@@ -300,6 +302,7 @@ export function resolveRouteRequest(
         options.telemetry,
         options.load !== false
       );
+    };
     if (options.authContext) return finalize(options.authContext);
     if (!authOptions?.resolve) return finalize(anonymous());
     const resolved = authOptions.resolve(base);

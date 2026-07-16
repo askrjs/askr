@@ -30,12 +30,18 @@ export function serveQuery<TInput, TResult extends {}>(
 export function defineServerQueries(
   ...entries: readonly ServerQueryEntry<any, any>[]
 ): ServerQueryRegistry {
-  const frozenEntries = Object.freeze([...entries]) as readonly ServerQueryEntry<unknown, {}>[];
-  const handlers = new Map(entries.map((entry) => [entry.query, entry.handler]));
+  const frozenEntries = Object.freeze([
+    ...entries,
+  ]) as readonly ServerQueryEntry<unknown, {}>[];
+  const handlers = new Map(
+    entries.map((entry) => [entry.query, entry.handler])
+  );
   return Object.freeze({
     entries: frozenEntries,
     get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>) {
-      return handlers.get(query) as ServerQueryHandler<TInput, TResult> | undefined;
+      return handlers.get(query) as
+        | ServerQueryHandler<TInput, TResult>
+        | undefined;
     },
   });
 }

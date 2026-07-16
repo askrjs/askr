@@ -305,6 +305,7 @@
     "allow",
     "clearRoutes",
     "createRouteRegistry",
+    "currentAuth",
     "currentRoute",
     "defer",
     "deny",

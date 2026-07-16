@@ -20,6 +20,7 @@ export {
   setServerLocation,
   syncCurrentRouteSnapshot,
 } from './activity';
+export { currentAuth } from './auth';
 export {
   computeRouteActivityMatches,
   resolveRoute,
