@@ -6,8 +6,9 @@ import type {
 } from '../../../src/common/telemetry';
 import {
   createQueryPrefetchContext,
-  createServerQueryRegistry,
+  defineServerQueries,
   defineQuery,
+  serveQuery,
 } from '../../../src/data/query-registry';
 import { createRouteRegistry, route } from '../../../src/router/route';
 import { renderRouteRequestToString } from '../../../src/ssr';
@@ -65,9 +66,8 @@ describe('SSR telemetry integration', () => {
       key: () => 'catalog',
       fetch: async () => ({ title: 'catalog' }),
     });
-    const queryRegistry = createServerQueryRegistry().register(
-      query,
-      async () => ({ title: 'catalog' })
+    const queryRegistry = defineServerQueries(
+      serveQuery(query, async () => ({ title: 'catalog' }))
     );
     const registry = createRouteRegistry(() => {
       route('/catalog/{id}', ({ id }) => <main>{id}</main>, {

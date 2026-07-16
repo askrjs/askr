@@ -20,10 +20,11 @@ export { createMutation } from './mutation-cell';
 export { createQuery } from './query-cell';
 export {
   defineQuery,
-  createServerQueryRegistry,
+  serveQuery,
+  defineServerQueries,
   prefetchQuery,
   dehydrateDataRuntime,
   hydrateDataRuntime,
   createQueryPrefetchContext,
-  ServerQueryRegistry,
 } from './query-registry';
+export type { ServerQueryEntry, ServerQueryRegistry } from './query-registry';

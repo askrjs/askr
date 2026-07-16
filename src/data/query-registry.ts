@@ -8,34 +8,36 @@ import { createDataRuntime, getDefaultDataRuntime } from './data-runtime';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 
-export class ServerQueryRegistry {
-  private readonly handlers = new Map<
-    QueryDefinition<unknown, {}>,
-    ServerQueryHandler<unknown, {}>
-  >();
-
-  register<TInput, TResult extends {}>(
-    query: QueryDefinition<TInput, TResult>,
-    handler: ServerQueryHandler<TInput, TResult>
-  ): this {
-    this.handlers.set(
-      query as unknown as QueryDefinition<unknown, {}>,
-      handler as unknown as ServerQueryHandler<unknown, {}>
-    );
-    return this;
-  }
-
+export interface ServerQueryRegistry {
+  readonly entries: readonly ServerQueryEntry<unknown, {}>[];
   get<TInput, TResult extends {}>(
     query: QueryDefinition<TInput, TResult>
-  ): ServerQueryHandler<TInput, TResult> | undefined {
-    return this.handlers.get(
-      query as unknown as QueryDefinition<unknown, {}>
-    ) as unknown as ServerQueryHandler<TInput, TResult> | undefined;
-  }
+  ): ServerQueryHandler<TInput, TResult> | undefined;
 }
 
-export function createServerQueryRegistry(): ServerQueryRegistry {
-  return new ServerQueryRegistry();
+export interface ServerQueryEntry<TInput, TResult extends {}> {
+  readonly query: QueryDefinition<TInput, TResult>;
+  readonly handler: ServerQueryHandler<TInput, TResult>;
+}
+
+export function serveQuery<TInput, TResult extends {}>(
+  query: QueryDefinition<TInput, TResult>,
+  handler: ServerQueryHandler<TInput, TResult>
+): ServerQueryEntry<TInput, TResult> {
+  return Object.freeze({ query, handler });
+}
+
+export function defineServerQueries(
+  ...entries: readonly ServerQueryEntry<any, any>[]
+): ServerQueryRegistry {
+  const frozenEntries = Object.freeze([...entries]) as readonly ServerQueryEntry<unknown, {}>[];
+  const handlers = new Map(entries.map((entry) => [entry.query, entry.handler]));
+  return Object.freeze({
+    entries: frozenEntries,
+    get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>) {
+      return handlers.get(query) as ServerQueryHandler<TInput, TResult> | undefined;
+    },
+  });
 }
 
 export function defineQuery<TInput, TResult extends {}>(
