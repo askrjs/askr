@@ -13,13 +13,13 @@ export type QuerySlot = {
 export type DataRuntimeState = {
   queryCache: Map<string, QueryCell<unknown>>;
   queryData: Map<string, unknown>;
-  querySlotsByInstance: WeakMap<ComponentInstance, Map<number, QuerySlot>>;
-  mutationSlotsByInstance: WeakMap<
-    ComponentInstance,
+  querySlotsByGeneration: WeakMap<object, Map<number, QuerySlot>>;
+  mutationSlotsByGeneration: WeakMap<
+    object,
     Map<number, MutationCell<unknown, unknown>>
   >;
-  queryCleanupRegistered: WeakSet<ComponentInstance>;
-  mutationCleanupRegistered: WeakSet<ComponentInstance>;
+  queryCleanupRegistered: WeakSet<object>;
+  mutationCleanupRegistered: WeakSet<object>;
 };
 
 const dataRuntimeStates = new WeakMap<DataRuntime, DataRuntimeState>();
@@ -35,8 +35,8 @@ function createDataRuntimeState(
   return {
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
     queryData,
-    querySlotsByInstance: new WeakMap(),
-    mutationSlotsByInstance: new WeakMap(),
+    querySlotsByGeneration: new WeakMap(),
+    mutationSlotsByGeneration: new WeakMap(),
     queryCleanupRegistered: new WeakSet(),
     mutationCleanupRegistered: new WeakSet(),
   };
@@ -119,10 +119,11 @@ export function getQuerySlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, QuerySlot> {
-  let store = runtimeState.querySlotsByInstance.get(instance);
+  const generation = instance._ownershipGeneration;
+  let store = runtimeState.querySlotsByGeneration.get(generation);
   if (!store) {
     store = new Map();
-    runtimeState.querySlotsByInstance.set(instance, store);
+    runtimeState.querySlotsByGeneration.set(generation, store);
   }
   return store;
 }
@@ -131,10 +132,11 @@ export function getMutationSlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, MutationCell<unknown, unknown>> {
-  let store = runtimeState.mutationSlotsByInstance.get(instance);
+  const generation = instance._ownershipGeneration;
+  let store = runtimeState.mutationSlotsByGeneration.get(generation);
   if (!store) {
     store = new Map();
-    runtimeState.mutationSlotsByInstance.set(instance, store);
+    runtimeState.mutationSlotsByGeneration.set(generation, store);
   }
   return store;
 }
@@ -143,25 +145,21 @@ export function ensureQueryCleanup(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): void {
-  if (runtimeState.queryCleanupRegistered.has(instance)) {
+  const generation = instance._ownershipGeneration;
+  if (runtimeState.queryCleanupRegistered.has(generation)) {
     return;
   }
 
-  runtimeState.queryCleanupRegistered.add(instance);
+  runtimeState.queryCleanupRegistered.add(generation);
+  const slots = getQuerySlotStore(runtimeState, instance);
   (instance.cleanupFns ??= []).push(() => {
-    const slots = runtimeState.querySlotsByInstance.get(instance);
-    if (!slots) {
-      runtimeState.queryCleanupRegistered.delete(instance);
-      return;
-    }
-
     for (const [hookIndex, slot] of slots) {
-      slot.cell.detach(instance, hookIndex);
+      slot.cell.detach(generation, hookIndex);
     }
 
     slots.clear();
-    runtimeState.querySlotsByInstance.delete(instance);
-    runtimeState.queryCleanupRegistered.delete(instance);
+    runtimeState.querySlotsByGeneration.delete(generation);
+    runtimeState.queryCleanupRegistered.delete(generation);
   });
 }
 
@@ -169,25 +167,21 @@ export function ensureMutationCleanup(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): void {
-  if (runtimeState.mutationCleanupRegistered.has(instance)) {
+  const generation = instance._ownershipGeneration;
+  if (runtimeState.mutationCleanupRegistered.has(generation)) {
     return;
   }
 
-  runtimeState.mutationCleanupRegistered.add(instance);
+  runtimeState.mutationCleanupRegistered.add(generation);
+  const slots = getMutationSlotStore(runtimeState, instance);
   (instance.cleanupFns ??= []).push(() => {
-    const slots = runtimeState.mutationSlotsByInstance.get(instance);
-    if (!slots) {
-      runtimeState.mutationCleanupRegistered.delete(instance);
-      return;
-    }
-
     for (const cell of slots.values()) {
       cell.abort();
     }
 
     slots.clear();
-    runtimeState.mutationSlotsByInstance.delete(instance);
-    runtimeState.mutationCleanupRegistered.delete(instance);
+    runtimeState.mutationSlotsByGeneration.delete(generation);
+    runtimeState.mutationCleanupRegistered.delete(generation);
   });
 }
 

@@ -10,6 +10,12 @@ import { isBulkCommitActive, markFastPathApplied } from '../runtime';
 import { canUseDirectReplaceChildrenSpread, getMaterializedKey } from './utils';
 import type { KeyedVnode } from './keyed-children';
 
+declare const __ASKR_BENCH_BUILD__: boolean;
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
 export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
 // Apply the "renderer" fast-path: build final node list reusing existing
@@ -28,7 +34,7 @@ export function applyRendererFastPath(
   if (totalKeyed === 0) return null;
 
   // Dev invariant: ensure we are executing inside the scheduler/commit flush
-  if (!isRuntimeSchedulerExecuting()) {
+  if (DEVELOPMENT_BUILD_ENABLED && !isRuntimeSchedulerExecuting()) {
     logger.warn(
       '[Askr][FASTPATH][DEV] Fast-path reconciliation invoked outside scheduler execution'
     );
@@ -152,9 +158,11 @@ export function applyRendererFastPath(
     } else {
       parent.replaceChildren(fragment!);
     }
-    recordBenchEvent('domMove', reusedCount);
-    recordBenchEvent('domInsert', createdNodes);
-    recordBenchCounter('replaceChildrenCommits');
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchEvent('domMove', reusedCount);
+      recordBenchEvent('domInsert', createdNodes);
+      recordBenchCounter('replaceChildrenCommits');
+    }
 
     // Record that we performed exactly one DOM commit.
     try {
@@ -179,37 +187,39 @@ export function applyRendererFastPath(
     }
 
     // Dev tracing
-    try {
-      const stats = {
-        n: totalKeyed,
-        moves: 0,
-        lisLen: 0,
-        t_lookup: 0,
-        t_fragment: Date.now() - tCommitStart,
-        t_commit: 0,
-        t_bookkeeping: 0,
-        fragmentAppendCount,
-        mapLookups,
-        createdNodes,
-        reusedCount,
-      } as const;
-      if (typeof globalThis !== 'undefined') {
-        setDevValue('__LAST_FASTPATH_STATS', stats);
-        setDevValue('__LAST_FASTPATH_REUSED', reusedCount > 0);
-        incDevCounter('fastpathHistoryPush');
+    if (DEVELOPMENT_BUILD_ENABLED) {
+      try {
+        const stats = {
+          n: totalKeyed,
+          moves: 0,
+          lisLen: 0,
+          t_lookup: 0,
+          t_fragment: Date.now() - tCommitStart,
+          t_commit: 0,
+          t_bookkeeping: 0,
+          fragmentAppendCount,
+          mapLookups,
+          createdNodes,
+          reusedCount,
+        } as const;
+        if (typeof globalThis !== 'undefined') {
+          setDevValue('__LAST_FASTPATH_STATS', stats);
+          setDevValue('__LAST_FASTPATH_REUSED', reusedCount > 0);
+          incDevCounter('fastpathHistoryPush');
+        }
+        const env = getRuntimeEnv();
+        if (
+          env.ASKR_FASTPATH_DEBUG === '1' ||
+          env.ASKR_FASTPATH_DEBUG === 'true'
+        ) {
+          logger.warn(
+            '[Askr][FASTPATH]',
+            JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })
+          );
+        }
+      } catch (e) {
+        void e;
       }
-      const env = getRuntimeEnv();
-      if (
-        env.ASKR_FASTPATH_DEBUG === '1' ||
-        env.ASKR_FASTPATH_DEBUG === 'true'
-      ) {
-        logger.warn(
-          '[Askr][FASTPATH]',
-          JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })
-        );
-      }
-    } catch (e) {
-      void e;
     }
 
     // Record that reconciler recorded stats for this parent in this pass

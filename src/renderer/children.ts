@@ -7,6 +7,10 @@ import { tagsEqualIgnoreCase } from './children-fastpath';
 import type { DOMElement, VNode } from './types';
 import { now, recordDOMReplace } from './utils';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
 export { performBulkPositionalKeyedTextUpdate } from './children-fastpath';
 
 export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
@@ -240,6 +244,9 @@ function isSimpleElement(dom: DOMElement): boolean {
 }
 
 function recordBulkDiag(data: Record<string, unknown>): void {
+  if (!DEVELOPMENT_BUILD_ENABLED) {
+    return;
+  }
   const env = getRuntimeEnv();
   if (env.NODE_ENV !== 'production' || env.ASKR_FASTPATH_DEBUG === '1') {
     try {

@@ -7,7 +7,14 @@ import {
   vi,
 } from 'vite-plus/test';
 import { For } from '../../../src/control';
+import { beginComponentHostReplacement } from '../../../src/renderer/component-host-replacement';
+import type { InstanceHostElement } from '../../../src/renderer/dom-host';
 import { getSignal, resource, task } from '../../../src/resources';
+import {
+  beginLifecycleCommitBatch,
+  createComponentInstance,
+  flushLifecycleCommitBatch,
+} from '../../../src/runtime';
 import { state, type State } from '../../../src/runtime/state';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
@@ -30,6 +37,58 @@ describe('component host transactions', () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('should retarget every retained wrapper owner only after replacement commit', () => {
+    const existingHost = document.createElement('div') as InstanceHostElement;
+    const nextHost = document.createElement('section') as InstanceHostElement;
+    container.appendChild(existingHost);
+
+    const owner = createComponentInstance(
+      'replacement-owner',
+      () => null,
+      {},
+      existingHost
+    );
+    const wrapper = createComponentInstance(
+      'retained-wrapper',
+      () => null,
+      {},
+      existingHost
+    );
+    owner.mounted = true;
+    wrapper.mounted = true;
+    existingHost.__ASKR_INSTANCE = owner;
+    existingHost.__ASKR_INSTANCES = [owner, wrapper];
+
+    const batch = beginLifecycleCommitBatch();
+    const replacement = beginComponentHostReplacement(
+      existingHost,
+      owner,
+      existingHost,
+      [owner, wrapper]
+    );
+    replacement.replace(
+      () => nextHost,
+      () => {
+        // Component materialization retargets the primary owner immediately;
+        // retained wrapper owners must remain rollback-safe until commit.
+        owner.target = nextHost;
+        nextHost.__ASKR_INSTANCE = owner;
+        nextHost.__ASKR_INSTANCES = [owner, wrapper];
+      }
+    );
+
+    expect(owner.target).toBe(nextHost);
+    expect(wrapper.target).toBe(existingHost);
+    expect(existingHost.isConnected).toBe(false);
+    expect(nextHost.isConnected).toBe(true);
+
+    flushLifecycleCommitBatch(batch);
+
+    expect(wrapper.target).toBe(nextHost);
+    expect(existingHost.__ASKR_INSTANCE).toBeUndefined();
+    expect(existingHost.__ASKR_INSTANCES).toBeUndefined();
   });
 
   it('should preserve a same-host owner on sibling failure and clean it once on recovery', async () => {

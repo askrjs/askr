@@ -23,6 +23,10 @@ import type {
 import { _isDOMElement, type DOMElement } from './types';
 import type { ReactiveChildDOMHost } from './reactive-children';
 
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
+
 const BLUEPRINT_PUBLISH_BINDINGS = 0;
 const BLUEPRINT_SYNC_REACTIVE_CHILD = 1;
 
@@ -246,7 +250,7 @@ export function instantiateBlueprint(
   try {
     publishPreparedBlueprint(deferred, host);
     mountBlueprintBindingGroup(bindings, host);
-    if (isBenchMetricScopeActive('coldCreate')) {
+    if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
       recordBenchCounter('domNodesCreated', blueprint.elementCount);
       recordBenchCounter(
         'reactivePropsMounted',

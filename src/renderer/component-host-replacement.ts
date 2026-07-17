@@ -79,7 +79,15 @@ export function beginComponentHostReplacement(
     if (finished) return;
     finished = true;
     if (replacementAttempted && didReplace) {
-      cleanupDetachedComponentHost(existingHost, retainedInstances);
+      const retained = Array.from(retainedInstances);
+      if (nextDom instanceof Element) {
+        for (const instance of retained) {
+          if (instance.target === existingHost) {
+            instance.target = nextDom;
+          }
+        }
+      }
+      cleanupDetachedComponentHost(existingHost, retained);
     }
   };
 

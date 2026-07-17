@@ -16,6 +16,9 @@ import {
   withDerivedReadTracking,
 } from './readable';
 import { isSnapshotSource, type SnapshotSourceBrand } from './snapshot-source';
+import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export interface Derived<T> extends ReadableSource<T> {
   (): T;
@@ -42,20 +45,18 @@ type SnapshotSource<T> = {
   error?: Error | null;
 } & SnapshotSourceBrand;
 
-const deriveCells = new WeakMap<
-  ComponentInstance,
-  Map<number, DerivedCell<unknown>>
->();
+const deriveCells = new WeakMap<object, Map<number, DerivedCell<unknown>>>();
 const dirtyDerivedCells = new Set<DerivedCell<unknown>>();
 let hasPendingDerivedFlush = false;
 
 function getDeriveStore(
   instance: ComponentInstance
 ): Map<number, DerivedCell<unknown>> {
-  let store = deriveCells.get(instance);
+  const generation = instance._ownershipGeneration;
+  let store = deriveCells.get(generation);
   if (!store) {
     store = new Map();
-    deriveCells.set(instance, store);
+    deriveCells.set(generation, store);
   }
   return store;
 }
@@ -148,6 +149,8 @@ function recomputeDerivedCell<T>(
 
 function createDerivedCell<T>(
   instance: ComponentInstance,
+  generation: object,
+  store: Map<number, DerivedCell<unknown>>,
   hookIndex: number,
   compute: () => T
 ): DerivedCell<T> {
@@ -179,12 +182,19 @@ function createDerivedCell<T>(
     dirtyDerivedCells.delete(cell);
     clearDerivedDependencySubscriptions(cell, cell._sources);
     cell._derivedSubscribers?.clear();
+    const readerCount = cell._readers?.size ?? 0;
     cell._readers?.clear();
+    if (__ASKR_DEVELOPMENT_BUILD__ && readerCount > 0) {
+      adjustOwnershipDiagnostic('readableReaders', -readerCount);
+    }
   };
 
   (instance.cleanupFns ??= []).push(() => {
     cell._cleanup();
-    deriveCells.get(instance)?.delete(hookIndex);
+    store.delete(hookIndex);
+    if (store.size === 0 && deriveCells.get(generation) === store) {
+      deriveCells.delete(generation);
+    }
   });
 
   return cell;
@@ -205,7 +215,13 @@ function getOrCreateDerivedCell<T>(
     return existing;
   }
 
-  const created = createDerivedCell(instance, hookIndex, compute);
+  const created = createDerivedCell(
+    instance,
+    instance._ownershipGeneration,
+    store,
+    hookIndex,
+    compute
+  );
   store.set(hookIndex, created as DerivedCell<unknown>);
   return created;
 }

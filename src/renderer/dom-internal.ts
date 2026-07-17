@@ -23,6 +23,10 @@ import {
   getDirectControlBoundaryVNode,
   registerControlBoundaryCommitOwner,
 } from './boundaries';
+
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 import {
   isBulkTextFastPathEligible,
   performBulkPositionalKeyedTextUpdate,
@@ -150,13 +154,13 @@ export function createDOMNode(
   }
 
   if (typeof node === 'string') {
-    if (isBenchMetricScopeActive('coldCreate')) {
+    if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
       recordBenchCounter('domNodesCreated');
     }
     return document.createTextNode(node);
   }
   if (typeof node === 'number') {
-    if (isBenchMetricScopeActive('coldCreate')) {
+    if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
       recordBenchCounter('domNodesCreated');
     }
     return document.createTextNode(String(node));
@@ -265,7 +269,7 @@ function createIntrinsicElement(
   const el = createElementForNamespace(type, parentNamespace);
 
   try {
-    if (isBenchMetricScopeActive('coldCreate')) {
+    if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
       recordBenchCounter('domNodesCreated');
     }
 
@@ -280,7 +284,7 @@ function createIntrinsicElement(
       applyStaticScalarPropsToElement(el, props, type);
       if (staticCreateFastPath.textContent !== null) {
         el.textContent = staticCreateFastPath.textContent;
-        if (isBenchMetricScopeActive('coldCreate')) {
+        if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
           recordBenchCounter('domNodesCreated');
         }
       }

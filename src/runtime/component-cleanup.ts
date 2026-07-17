@@ -9,12 +9,112 @@ import {
   clearCurrentComponentScope,
   restoreCurrentComponentScope,
 } from './component-scope';
-import { cleanupReadableSubscriptions } from './readable';
+import {
+  cleanupReadableSubscriptions,
+  cleanupReadableSubscriptionSources,
+  type ReadableSource,
+} from './readable';
+import { untrackRouteGeneration } from './ownership-diagnostics';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export type OwnedChildScope = {
   key: string | number;
   dispose(): void;
 };
+
+export type ComponentGenerationCleanup = {
+  ownershipGeneration: object;
+  cleanupFns: ComponentInstance['cleanupFns'];
+  ownedChildScopes: ComponentInstance['_ownedChildScopes'];
+  abortController: AbortController | null;
+  readSources: Set<ReadableSource<unknown>> | undefined;
+};
+
+/**
+ * Dispose an inactive ownership generation without swapping it back onto the
+ * component instance that now represents a different live route.
+ */
+export function cleanupComponentGeneration(
+  instance: ComponentInstance,
+  generation: ComponentGenerationCleanup
+): void {
+  const savedScope = clearCurrentComponentScope();
+
+  try {
+    const cleanupErrors: unknown[] | undefined = instance.cleanupStrict
+      ? []
+      : undefined;
+    const recordCleanupError = (message: string, err: unknown): void => {
+      if (cleanupErrors) {
+        cleanupErrors.push(err);
+      } else if (isDevelopmentEnvironment()) {
+        logger.warn(message, err);
+      }
+    };
+
+    const ownedChildScopes = generation.ownedChildScopes;
+    if (ownedChildScopes && ownedChildScopes.size > 0) {
+      for (const scope of ownedChildScopes) {
+        try {
+          scope.dispose();
+        } catch (err) {
+          recordCleanupError('[Askr] child scope cleanup threw:', err);
+        }
+      }
+      ownedChildScopes.clear();
+    }
+
+    // Detach the inactive read set before user cleanup runs. A cleanup that
+    // updates departed state must not enqueue work onto the live generation.
+    try {
+      cleanupReadableSubscriptionSources(
+        instance,
+        generation.readSources,
+        generation.ownershipGeneration
+      );
+    } catch (err) {
+      recordCleanupError('[Askr] readable subscription cleanup threw:', err);
+    }
+
+    const cleanupFns = generation.cleanupFns;
+    generation.cleanupFns = undefined;
+    if (cleanupFns) {
+      for (const cleanup of cleanupFns) {
+        try {
+          cleanup();
+        } catch (err) {
+          recordCleanupError('[Askr] cleanup function threw:', err);
+        }
+      }
+    }
+
+    try {
+      if (
+        generation.abortController &&
+        !generation.abortController.signal.aborted
+      ) {
+        generation.abortController.abort();
+      }
+    } catch (err) {
+      recordCleanupError('[Askr] abort controller cleanup threw:', err);
+    }
+    generation.abortController = null;
+
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      untrackRouteGeneration(generation.ownershipGeneration);
+    }
+
+    if (cleanupErrors && cleanupErrors.length > 0) {
+      throw new AggregateError(
+        cleanupErrors,
+        `Cleanup failed for component ${instance.id}`
+      );
+    }
+  } finally {
+    restoreCurrentComponentScope(savedScope);
+  }
+}
 
 /**
  * Clean up component resources on unmount or route changes.
@@ -85,6 +185,10 @@ export function cleanupComponent(instance: ComponentInstance): void {
     instance.notifyUpdate = null;
     instance._placeholder = undefined;
     instance.mounted = false;
+
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      untrackRouteGeneration(instance._ownershipGeneration);
+    }
 
     if (cleanupErrors && cleanupErrors.length > 0) {
       throw new AggregateError(

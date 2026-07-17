@@ -20,6 +20,7 @@ import {
   markDirtySelectorRecord,
   takeDirtySelectorRecords,
 } from './selector-store';
+import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -80,10 +81,7 @@ interface SelectorHook<T> extends Selector<T> {
   _cleanup(): void;
 }
 
-const selectorCells = new WeakMap<
-  ComponentInstance,
-  Map<number, SelectorHook<unknown>>
->();
+const selectorCells = new WeakMap<object, Map<number, SelectorHook<unknown>>>();
 const selectorRecords = new WeakMap<
   ReadableSource<unknown>,
   SelectorSourceRecord<unknown>
@@ -92,10 +90,11 @@ const selectorRecords = new WeakMap<
 function getSelectorStore(
   instance: ComponentInstance
 ): Map<number, SelectorHook<unknown>> {
-  let store = selectorCells.get(instance);
+  const generation = instance._ownershipGeneration;
+  let store = selectorCells.get(generation);
   if (!store) {
     store = new Map();
-    selectorCells.set(instance, store);
+    selectorCells.set(generation, store);
   }
   return store;
 }
@@ -240,11 +239,19 @@ function createSelectorLane<T>(
     _objectCandidateSources: new Set(),
     _cleanup: () => {
       for (const sourceRef of lane._primitiveCandidates.values()) {
+        const readerCount = sourceRef._readers?.size ?? 0;
         sourceRef._readers?.clear();
+        if (__ASKR_DEVELOPMENT_BUILD__ && readerCount > 0) {
+          adjustOwnershipDiagnostic('readableReaders', -readerCount);
+        }
         sourceRef._derivedSubscribers?.clear();
       }
       for (const sourceRef of lane._objectCandidateSources) {
+        const readerCount = sourceRef._readers?.size ?? 0;
         sourceRef._readers?.clear();
+        if (__ASKR_DEVELOPMENT_BUILD__ && readerCount > 0) {
+          adjustOwnershipDiagnostic('readableReaders', -readerCount);
+        }
         sourceRef._derivedSubscribers?.clear();
       }
       lane._primitiveCandidates.clear();
@@ -425,6 +432,8 @@ function ensureSelectorHookBinding<T>(
 
 function createSelectorHook<T>(
   instance: ComponentInstance,
+  generation: object,
+  store: Map<number, SelectorHook<unknown>>,
   hookIndex: number,
   source: () => T,
   equals: SelectorEquals<T>
@@ -470,7 +479,10 @@ function createSelectorHook<T>(
 
   (instance.cleanupFns ??= []).push(() => {
     hook._cleanup();
-    selectorCells.get(instance)?.delete(hookIndex);
+    store.delete(hookIndex);
+    if (store.size === 0 && selectorCells.get(generation) === store) {
+      selectorCells.delete(generation);
+    }
   });
 
   return hook;
@@ -494,7 +506,14 @@ function getOrCreateSelectorHook<T>(
     return existing;
   }
 
-  const created = createSelectorHook(instance, hookIndex, source, equals);
+  const created = createSelectorHook(
+    instance,
+    instance._ownershipGeneration,
+    store,
+    hookIndex,
+    source,
+    equals
+  );
   store.set(hookIndex, created as unknown as SelectorHook<unknown>);
   return created;
 }

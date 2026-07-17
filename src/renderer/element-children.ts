@@ -466,6 +466,7 @@ export function updateUnkeyedChildren(
           (currentNode as Text).data = String(next);
         } else {
           const textNode = document.createTextNode(String(next));
+          teardownNodeSubtree(currentNode);
           parent.replaceChild(textNode, currentNode);
         }
       } else if (_isDOMElement(next)) {
@@ -506,7 +507,10 @@ export function updateUnkeyedChildren(
           }
         } else {
           const dom = domHost.createDOMNode(next, parentNamespace);
-          if (dom) parent.replaceChild(dom, currentNode);
+          if (dom) {
+            teardownNodeSubtree(currentNode);
+            parent.replaceChild(dom, currentNode);
+          }
         }
       }
     }

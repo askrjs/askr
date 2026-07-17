@@ -187,6 +187,7 @@ describe('architecture boundaries', () => {
     'src/renderer/intrinsic-blueprint-materialization.ts',
     'src/renderer/intrinsic-blueprint-types.ts',
     'src/renderer/boundary-materialization.ts',
+    'src/renderer/boundary-commit-owner.ts',
     'src/renderer/boundary-range-adoption.ts',
     'src/renderer/boundary-range-sync.ts',
     'src/renderer/boundary-state.ts',

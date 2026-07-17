@@ -4,6 +4,8 @@ export interface AppRenderRuntime {
   hasRoute: boolean;
 }
 
+const stagedRouteLocations = new WeakMap<AppRenderRuntime, string>();
+
 export function createAppRenderRuntime(
   input: Partial<AppRenderRuntime> = {}
 ): AppRenderRuntime {
@@ -12,4 +14,23 @@ export function createAppRenderRuntime(
     route: input.route,
     hasRoute: input.hasRoute ?? false,
   };
+}
+
+export function stageAppRenderRouteLocation(
+  runtime: AppRenderRuntime,
+  href: string
+): void {
+  stagedRouteLocations.set(runtime, href);
+}
+
+export function getStagedAppRenderRouteLocation(
+  runtime: AppRenderRuntime | undefined
+): string | undefined {
+  return runtime ? stagedRouteLocations.get(runtime) : undefined;
+}
+
+export function clearStagedAppRenderRouteLocation(
+  runtime: AppRenderRuntime | undefined
+): void {
+  if (runtime) stagedRouteLocations.delete(runtime);
 }

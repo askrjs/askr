@@ -8,6 +8,7 @@ import {
 } from 'vite-plus/test';
 import { logger } from '../../../src/common/logger';
 import { For } from '../../../src/control';
+import { definePortal } from '../../../src/runtime/portal';
 import { getSignal, resource, task } from '../../../src/resources';
 import {
   elementListeners,
@@ -308,5 +309,91 @@ describe('component host cleanup failure isolation', () => {
     expect(nestedAborts).toBe(1);
 
     errorSpy.mockRestore();
+  });
+
+  it('should dispose a nested null portal host during element host replacement', () => {
+    type PortalHostInstance = {
+      fn: unknown;
+      mounted: boolean;
+      evaluationGeneration: number;
+      cleanupFns?: Array<() => void>;
+    };
+    type CommentHost = Comment & {
+      __ASKR_INSTANCE?: PortalHostInstance;
+      __ASKR_INSTANCES?: PortalHostInstance[];
+    };
+
+    const OverlayPortal = definePortal();
+    let rows!: State<Row[]>;
+    let portalCleanups = 0;
+
+    function OldOwner() {
+      return (
+        <section data-owner={'old'}>
+          <OverlayPortal />
+        </section>
+      );
+    }
+
+    function NewOwner() {
+      return <article data-owner={'new'}>{'new'}</article>;
+    }
+
+    function App() {
+      rows = state<Row[]>([{ id: 1, kind: 'old' }]);
+      return (
+        <For each={rows} by={(row) => row.id}>
+          {(row) => (row.kind === 'old' ? <OldOwner /> : <NewOwner />)}
+        </For>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const oldRoot = container.querySelector('[data-owner="old"]')!;
+    const walker = document.createTreeWalker(oldRoot, 128);
+    const commentHosts: CommentHost[] = [];
+    let current = walker.nextNode();
+    while (current) {
+      const host = current as CommentHost;
+      if (host.__ASKR_INSTANCE || host.__ASKR_INSTANCES) {
+        commentHosts.push(host);
+      }
+      current = walker.nextNode();
+    }
+
+    const portalHost = commentHosts.find((host) =>
+      [host.__ASKR_INSTANCE, ...(host.__ASKR_INSTANCES ?? [])].some(
+        (instance) => instance?.fn === OverlayPortal
+      )
+    );
+    const portalInstance = [
+      portalHost?.__ASKR_INSTANCE,
+      ...(portalHost?.__ASKR_INSTANCES ?? []),
+    ].find((instance) => instance?.fn === OverlayPortal)!;
+    expect(portalHost).toBeDefined();
+    expect(portalInstance.mounted).toBe(true);
+    (portalInstance.cleanupFns ??= []).push(() => {
+      portalCleanups += 1;
+    });
+
+    rows.set([{ id: 1, kind: 'new' }]);
+    flushScheduler();
+
+    expect(container.querySelector('[data-owner="new"]')).not.toBeNull();
+    expect(portalHost?.__ASKR_INSTANCE).toBeUndefined();
+    expect(portalHost?.__ASKR_INSTANCES).toBeUndefined();
+    expect(portalInstance.mounted).toBe(false);
+    expect(portalCleanups).toBe(1);
+
+    const disposedGeneration = portalInstance.evaluationGeneration;
+    OverlayPortal.render({ children: <strong>{'stale'}</strong> });
+    flushScheduler();
+    expect(portalInstance.evaluationGeneration).toBe(disposedGeneration);
+
+    rows.set([{ id: 1, kind: 'new' }]);
+    flushScheduler();
+    expect(portalCleanups).toBe(1);
   });
 });

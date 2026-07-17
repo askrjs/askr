@@ -132,7 +132,10 @@ function createStateCell<T>(
   let value = initialValue;
 
   // Per-state reader map: component -> last-committed render token
-  const readers = new Map<ComponentInstance, number>();
+  const readers = new Map<
+    ComponentInstance,
+    { token: number; generation: object }
+  >();
 
   // Use a function as the state object (callable directly)
   function read(): T {

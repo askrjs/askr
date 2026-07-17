@@ -1,11 +1,12 @@
 import type { Route, RouteAuthOptions, RouteManifest } from '../common/router';
 import { isProductionEnvironment } from '../common/env';
-import type { ComponentInstance } from '../runtime';
+import { trackRouteGeneration, type ComponentInstance } from '../runtime';
 import {
   computeRouteActivityMatches,
   lockRouteRegistration,
   syncCurrentRouteSnapshot,
 } from './route';
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export type AppNavigationSource = {
   manifest?: RouteManifest;
@@ -148,6 +149,10 @@ export function registerAppInstance(
     registeredApps[existingIndex] = registration;
   } else {
     registeredApps.push(registration);
+  }
+
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    trackRouteGeneration(instance._ownershipGeneration);
   }
 
   currentInstance = instance;

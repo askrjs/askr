@@ -1,6 +1,10 @@
 import { recordBenchCounter, recordBenchEvent } from '../runtime';
 import { canUseDirectReplaceChildrenSpread } from './utils';
 
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
+
 const DENSE_MOVE_MINIMUM = 64;
 const DENSE_MOVE_RATIO = 0.75;
 
@@ -101,8 +105,10 @@ export function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
   );
 
   if (moveCount >= denseMoveThreshold) {
-    recordBenchEvent('domMove', moveCount);
-    recordBenchCounter('replaceChildrenCommits');
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchEvent('domMove', moveCount);
+      recordBenchCounter('replaceChildrenCommits');
+    }
     replaceChildrenInOrder(parent, nodes, false);
     return true;
   }
@@ -118,7 +124,9 @@ export function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
     }
 
     if (node.nextSibling !== anchor) {
-      recordBenchEvent('domMove');
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchEvent('domMove');
+      }
       parent.insertBefore(node, anchor);
     }
 

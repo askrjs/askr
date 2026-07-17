@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, createSPA, cleanupApp, hasApp } from '@askrjs/askr/boot';
-import { state } from '../../../src';
+import { state, type State } from '../../../src';
+import { getSignal } from '../../../src/resources';
+import { getCurrentInstance } from '../../../src/runtime';
 import { navigate } from '../../../src/router/navigate';
 import {
   createTestContainer,
@@ -94,16 +96,39 @@ describe('multi-root SPA isolation', () => {
   });
 
   it('should roll back every root when one destination fails', async () => {
+    let shared: State<number> | undefined;
+    let candidateAborts = 0;
+    let candidateCleanups = 0;
+    let restoredRenders = 0;
     await createSPA({
       root: rootA,
       routes: [
         {
           path: '/start',
-          handler: () => <div id={'app-a'}>{'A start'}</div>,
+          handler: () => {
+            restoredRenders += 1;
+            shared ??= state(0);
+            return <div id={'app-a'}>{`A start ${shared()}`}</div>;
+          },
         },
         {
           path: '/next',
-          handler: () => <div id={'app-a'}>{'A next'}</div>,
+          handler: () => {
+            const candidateState = state(0);
+            getSignal().addEventListener('abort', () => {
+              candidateAborts += 1;
+            });
+            const instance = getCurrentInstance()!;
+            (instance.cleanupFns ??= []).push(() => {
+              candidateCleanups += 1;
+              candidateState.set(1);
+            });
+            return (
+              <div id={'app-a'}>
+                {`A next ${shared!()} ${candidateState()}`}
+              </div>
+            );
+          },
         },
       ],
     });
@@ -127,9 +152,19 @@ describe('multi-root SPA isolation', () => {
     await settleNavigation();
 
     expect(() => navigate('/next')).toThrow('B destination failed');
-    expect(rootA.textContent).toBe('A start');
+    expect(rootA.textContent).toBe('A start 0');
     expect(rootB.textContent).toBe('B start');
     expect(window.location.pathname).toBe('/start');
+    expect(candidateAborts).toBe(1);
+    expect(candidateCleanups).toBe(1);
+
+    flushScheduler();
+    expect(restoredRenders).toBe(1);
+
+    shared!.set(1);
+    flushScheduler();
+
+    expect(rootA.textContent).toBe('A start 1');
   });
 
   it('should boot concurrent roots from their own route sources', async () => {

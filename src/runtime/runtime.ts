@@ -21,7 +21,7 @@ export interface RuntimeRendererHost {
     retainedOwner?: ComponentInstance
   ): void;
   cleanupInstancesUnder(node: Node): void;
-  teardownNodeSubtree(root: Element): void;
+  teardownNodeSubtree(root: Node): void;
   populateKeyMapForElement(parent: Element): void;
   getKeyMapForElement(
     parent: Element

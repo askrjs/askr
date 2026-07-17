@@ -5,6 +5,9 @@ import {
   type ComponentInstance,
 } from './component';
 import { isRouteActivityActive } from '../common/route-activity';
+import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export type ActivityPredicate = () => boolean;
 
@@ -252,6 +255,9 @@ function stopTimerSlot(slot: TimerSlot): void {
 
   clearInterval(slot.id);
   slot.id = null;
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    adjustOwnershipDiagnostic('timers', -1);
+  }
 }
 
 function startTimerSlot(slot: TimerSlot): void {
@@ -260,6 +266,9 @@ function startTimerSlot(slot: TimerSlot): void {
       slot.callback();
     }
   }, slot.intervalMs ?? slot.pendingIntervalMs);
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    adjustOwnershipDiagnostic('timers', 1);
+  }
 }
 
 function commitTimerSlot(instance: ComponentInstance, slot: TimerSlot): void {

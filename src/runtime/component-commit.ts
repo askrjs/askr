@@ -30,6 +30,8 @@ export function runScheduledComponent(
   instance: ComponentInstance,
   host: ScheduledComponentCommitHost
 ): void {
+  const ownershipGeneration = instance._ownershipGeneration;
+  const evaluationGeneration = instance.evaluationGeneration;
   instance.notifyUpdate = instance._enqueueRun!;
   beginRenderTracking(instance);
   let result: unknown | Promise<unknown>;
@@ -57,6 +59,13 @@ export function runScheduledComponent(
   }
 
   enqueueRuntimeTask(() => {
+    if (
+      instance._ownershipGeneration !== ownershipGeneration ||
+      instance.evaluationGeneration !== evaluationGeneration
+    ) {
+      return;
+    }
+
     if (!instance.target && instance._placeholder) {
       commitPlaceholderReplacement(instance, result, host);
       return;

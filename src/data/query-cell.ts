@@ -1,11 +1,7 @@
 import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
-import { enqueueRuntimeTask } from '../runtime';
-import {
-  claimHookIndex,
-  getCurrentComponentInstance,
-  type ComponentInstance,
-} from '../runtime';
+import { adjustOwnershipDiagnostic, enqueueRuntimeTask } from '../runtime';
+import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
 import { recordReadableRead } from '../runtime';
 import {
   ensureQueryCleanup,
@@ -25,6 +21,7 @@ import type {
   QueryOptions,
   QueryState,
 } from './types';
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
@@ -43,7 +40,7 @@ export class QueryCell<T> {
   private reconcileAttemptCount = 0;
   private destroyed = false;
   private ownerCount = 0;
-  private readonly owners = new Map<ComponentInstance, Set<number>>();
+  private readonly owners = new Map<object, Set<number>>();
   private readonly warnedDefinitionConflictKeys = new Set<string>();
 
   private state: QueryState<T> = {
@@ -64,6 +61,9 @@ export class QueryCell<T> {
     this.options = options;
     this.key = key;
     this.cache = cache;
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('queryCells', 1);
+    }
     if (options.initialData !== undefined) {
       this.state = {
         data: options.initialData,
@@ -77,11 +77,11 @@ export class QueryCell<T> {
     }
   }
 
-  attach(instance: ComponentInstance, hookIndex: number): void {
-    let hooks = this.owners.get(instance);
+  attach(generation: object, hookIndex: number): void {
+    let hooks = this.owners.get(generation);
     if (!hooks) {
       hooks = new Set();
-      this.owners.set(instance, hooks);
+      this.owners.set(generation, hooks);
     }
 
     if (hooks.has(hookIndex)) {
@@ -90,17 +90,23 @@ export class QueryCell<T> {
 
     hooks.add(hookIndex);
     this.ownerCount += 1;
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('queryOwners', 1);
+    }
   }
 
-  detach(instance: ComponentInstance, hookIndex: number): void {
-    const hooks = this.owners.get(instance);
+  detach(generation: object, hookIndex: number): void {
+    const hooks = this.owners.get(generation);
     if (!hooks || !hooks.delete(hookIndex)) {
       return;
     }
 
     this.ownerCount -= 1;
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('queryOwners', -1);
+    }
     if (hooks.size === 0) {
-      this.owners.delete(instance);
+      this.owners.delete(generation);
     }
 
     if (this.ownerCount <= 0) {
@@ -139,6 +145,9 @@ export class QueryCell<T> {
     }
 
     this.destroyed = true;
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('queryCells', -1);
+    }
     this.controller?.abort();
     this.controller = null;
     this.startQueued = false;
@@ -508,7 +517,7 @@ function createLegacyQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
   }
 
   if (existingSlot) {
-    existingSlot.cell.detach(instance, hookIndex);
+    existingSlot.cell.detach(instance._ownershipGeneration, hookIndex);
   }
 
   let cell = cache.get(options.key) as QueryCell<T> | undefined;
@@ -524,7 +533,7 @@ function createLegacyQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
     key: options.key,
     cell: cell as QueryCell<unknown>,
   });
-  cell.attach(instance, hookIndex);
+  cell.attach(instance._ownershipGeneration, hookIndex);
   return cell as unknown as Query<T>;
 }
 

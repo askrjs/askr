@@ -11,6 +11,10 @@ import {
   tagNamesEqualIgnoreCase,
 } from './utils';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
 function upperCommonTagName(tag: string): string | null {
   switch (tag) {
     case 'div':
@@ -56,9 +60,14 @@ export function performBulkPositionalKeyedTextUpdate(
   let reused = 0;
   let updatedKeys = 0;
   const start = now();
-  const env = getRuntimeEnv();
-  const debugFastPath =
-    env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true';
+  const debugFastPath = DEVELOPMENT_BUILD_ENABLED
+    ? (() => {
+        const env = getRuntimeEnv();
+        return (
+          env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true'
+        );
+      })()
+    : false;
 
   for (let index = 0; index < total; index += 1) {
     const { key, vnode } = keyedVnodes[index];
