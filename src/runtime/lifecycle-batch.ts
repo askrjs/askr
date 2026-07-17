@@ -35,6 +35,7 @@ type InlineRenderSnapshot = {
   portalScope: object | null;
   parentInstance: ComponentInstance | null;
   isRoot: boolean | undefined;
+  vnodeParentGeneration: object | undefined;
 };
 
 export type LifecycleTransaction = {
@@ -229,6 +230,7 @@ export function captureInlineRenderSnapshot(instance: ComponentInstance): void {
     portalScope: instance.portalScope,
     parentInstance: instance.parentInstance,
     isRoot: instance.isRoot,
+    vnodeParentGeneration: instance._vnodeParentGeneration,
   });
 }
 
@@ -378,6 +380,7 @@ export function discardLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
     snapshot.instance.portalScope = snapshot.portalScope;
     snapshot.instance.parentInstance = snapshot.parentInstance;
     snapshot.instance.isRoot = snapshot.isRoot;
+    snapshot.instance._vnodeParentGeneration = snapshot.vnodeParentGeneration;
   }
 
   for (const entry of batch.entries) {

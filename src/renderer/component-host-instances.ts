@@ -3,7 +3,7 @@ import type { Props } from '../common/props';
 import { isProductionEnvironment } from '../common/env';
 import { getCurrentInstance, type ComponentInstance } from '../runtime';
 import { getDevValue, incDevCounter } from '../runtime';
-import type { InstanceHostElement } from './dom-host';
+import type { InstanceHostNode } from './dom-host';
 import type { DOMElement } from './types';
 import { extractKey } from './utils';
 
@@ -161,6 +161,7 @@ export function setComponentOwnershipIdentity(
   instance._vnodeOwner =
     typeof node === 'object' && node !== null ? node : undefined;
   instance._vnodeParent = parent;
+  instance._vnodeParentGeneration = parent?._ownershipGeneration;
   const key = extractKey(node as DOMElement);
   if (key === undefined) {
     delete instance._vnodeKey;
@@ -172,7 +173,7 @@ export function setComponentOwnershipIdentity(
 }
 
 export function findHostInstanceByType(
-  host: InstanceHostElement,
+  host: InstanceHostNode,
   type: (props: Props) => unknown,
   node?: unknown,
   parent?: ComponentInstance | null,
@@ -240,4 +241,45 @@ export function findHostInstanceByType(
   }
 
   return null;
+}
+
+/**
+ * Resolve an instance on a comment host only when the vnode carries durable
+ * identity. Fresh unkeyed null components intentionally supersede the old
+ * generation instead of falling back to type-only reuse.
+ */
+export function findStableHostInstanceByType(
+  host: InstanceHostNode,
+  type: (props: Props) => unknown,
+  node: unknown,
+  parent: ComponentInstance | null,
+  wrapperDepth: number
+): ComponentInstance | null {
+  const instances = new Set(host.__ASKR_INSTANCES ?? []);
+  if (host.__ASKR_INSTANCE) instances.add(host.__ASKR_INSTANCE);
+
+  const parentGeneration = parent?._ownershipGeneration;
+
+  const vnodeOwner = getVNodeComponentInstance(node);
+  if (
+    vnodeOwner?.fn === type &&
+    instances.has(vnodeOwner) &&
+    vnodeOwner._vnodeParent === parent &&
+    vnodeOwner._vnodeParentGeneration === parentGeneration
+  ) {
+    return vnodeOwner;
+  }
+
+  const key = extractKey(node as DOMElement);
+  if (key === undefined) return null;
+
+  const matches = Array.from(instances).filter(
+    (instance) =>
+      instance.fn === type &&
+      instance._vnodeParent === parent &&
+      instance._vnodeParentGeneration === parentGeneration &&
+      instance._vnodeKey === key &&
+      instance._wrapperDepth === wrapperDepth
+  );
+  return matches.length > 0 ? matches[matches.length - 1]! : null;
 }

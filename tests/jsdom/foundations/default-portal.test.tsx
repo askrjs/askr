@@ -6,10 +6,26 @@ import {
 } from '../../../src/foundations/structures/portal';
 import { state } from '../../../src/index';
 import {
+  beginLifecycleCommitBatch,
+  discardLifecycleCommitBatch,
+  flushLifecycleCommitBatch,
+} from '../../../src/runtime/component-lifecycle';
+import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
+
+function writePortalInNestedBatch(children: string): void {
+  const batch = beginLifecycleCommitBatch();
+  try {
+    Portal({ children });
+    flushLifecycleCommitBatch(batch);
+  } catch (error) {
+    discardLifecycleCommitBatch(batch);
+    throw error;
+  }
+}
 
 describe('DefaultPortal', () => {
   let container: HTMLElement;
@@ -73,11 +89,79 @@ describe('DefaultPortal', () => {
     flushScheduler();
 
     expect(container.textContent).toContain('Toast');
+    const initialPortalHost = Array.from(container.children).find(
+      (element) => element.textContent === 'Toast'
+    );
+    expect(initialPortalHost).toBeDefined();
 
     (container.querySelector('button') as HTMLButtonElement).click();
     flushScheduler();
 
     expect(container.textContent).not.toContain('Toast');
     expect(container.textContent).toContain('Updated');
+    expect(initialPortalHost?.isConnected).toBe(false);
+    expect(container.textContent?.match(/Updated/g)).toHaveLength(1);
+  });
+
+  it('should preserve a replacement portal write adopted from a nested batch', () => {
+    function NestedPortalWriter(props: { children: string }) {
+      writePortalInNestedBatch(`${props.children} pending`);
+      writePortalInNestedBatch(props.children);
+      return null;
+    }
+
+    function App() {
+      const label = state('Toast');
+      return (
+        <>
+          <button onClick={() => label.set('Updated')}>{'update'}</button>
+          <NestedPortalWriter>{label()}</NestedPortalWriter>
+        </>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.textContent?.match(/Toast/g)).toHaveLength(1);
+
+    (container.querySelector('button') as HTMLButtonElement).click();
+    flushScheduler();
+
+    expect(container.textContent).not.toContain('Toast');
+    expect(container.textContent).not.toContain('pending');
+    expect(container.textContent?.match(/Updated/g)).toHaveLength(1);
+  });
+
+  it('should roll back sequential nested portal writes with their parent batch', () => {
+    createIsland({
+      root: container,
+      component: () => <main>{'content'}</main>,
+    });
+    flushScheduler();
+
+    DefaultPortal.render({ children: 'Stable' });
+    flushScheduler();
+    expect(container.textContent?.match(/Stable/g)).toHaveLength(1);
+
+    const rolledBackParent = beginLifecycleCommitBatch();
+    writePortalInNestedBatch('Broken pending');
+    writePortalInNestedBatch('Broken');
+    discardLifecycleCommitBatch(rolledBackParent);
+    flushScheduler();
+
+    expect(container.textContent?.match(/Stable/g)).toHaveLength(1);
+    expect(container.textContent).not.toContain('Broken');
+    expect(container.textContent).not.toContain('pending');
+
+    const committedParent = beginLifecycleCommitBatch();
+    writePortalInNestedBatch('Recovered pending');
+    writePortalInNestedBatch('Recovered');
+    flushLifecycleCommitBatch(committedParent);
+    flushScheduler();
+
+    expect(container.textContent).not.toContain('Stable');
+    expect(container.textContent).not.toContain('pending');
+    expect(container.textContent?.match(/Recovered/g)).toHaveLength(1);
   });
 });

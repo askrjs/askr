@@ -108,6 +108,7 @@ export interface ComponentInstance {
   // so component type alone is not a safe reuse key.
   _vnodeOwner?: object;
   _vnodeParent?: ComponentInstance | null;
+  _vnodeParentGeneration?: object;
   _vnodeKey?: string | number;
   _vnodePosition?: number;
   _wrapperDepth?: number;

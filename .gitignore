@@ -60,6 +60,7 @@ Thumbs.db
 
 # Benching/benchmark results
 bench-results/
+target/
 
 # NextJS/Vite build outputs
 .next

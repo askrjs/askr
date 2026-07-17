@@ -3,7 +3,8 @@
  *
  * 1. DOM order derives only from current vnode order.
  * 2. VNode identity is not vnode stability.
- * 3. Keyed reconciliation is element-only.
+ * 3. Intrinsic keyed reconciliation is element-only; component comments use
+ *    their retained owner metadata.
  * 4. Primitive children map to text nodes.
  * 5. Fast paths must prove eligibility and fall back cleanly.
  * 6. Cleanup is position-independent.

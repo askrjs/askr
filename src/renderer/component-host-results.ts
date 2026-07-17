@@ -32,7 +32,11 @@ import {
   setComponentOwnershipIdentity,
   setVNodeComponentInstance,
 } from './component-host-instances';
-import { getRendererDOMHost, type InstanceHostElement } from './dom-host';
+import {
+  getRendererDOMHost,
+  type InstanceHostElement,
+  type InstanceHostNode,
+} from './dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 
 export function materializeComponentResultNode(
@@ -52,9 +56,9 @@ export function materializeComponentResultNode(
   if (!dom) {
     const placeholder = document.createComment('');
     try {
-      (
-        placeholder as Comment & { __ASKR_INSTANCE?: ComponentInstance }
-      ).__ASKR_INSTANCE = childInstance;
+      const host = placeholder as InstanceHostNode;
+      host.__ASKR_INSTANCE = childInstance;
+      host.__ASKR_INSTANCES = [childInstance];
     } catch {
       // Ignore placeholder metadata failures.
     }
@@ -120,7 +124,7 @@ export function resolveNestedComponentResult(
 }
 
 export function resolveHostNestedComponentResult(
-  host: InstanceHostElement,
+  host: InstanceHostNode,
   retainedInstance: ComponentInstance,
   result: unknown,
   snapshot: ContextFrame | null,
@@ -205,8 +209,15 @@ export function resolveHostNestedComponentResult(
       depth += 1;
     }
 
-    for (const instance of createdInstances)
-      mountInstanceInline(instance, host);
+    for (const instance of createdInstances) {
+      if (host instanceof Element) {
+        instance._placeholder = undefined;
+        mountInstanceInline(instance, host);
+      } else {
+        mountInstanceInline(instance, null);
+        instance._placeholder = host as Comment;
+      }
+    }
   } catch (error) {
     for (let index = createdVNodeOwners.length - 1; index >= 0; index -= 1) {
       const owner = createdVNodeOwners[index]!;

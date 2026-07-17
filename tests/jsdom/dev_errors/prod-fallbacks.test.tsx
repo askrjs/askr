@@ -262,8 +262,26 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
         return performance.now() - start;
       };
 
-      const devDuration = runBatch('development');
-      const prodDuration = runBatch('production');
+      const durations = {
+        development: [] as number[],
+        production: [] as number[],
+      };
+      for (let sample = 0; sample < 5; sample += 1) {
+        const order: Array<'development' | 'production'> =
+          sample % 2 === 0
+            ? ['development', 'production']
+            : ['production', 'development'];
+        for (const env of order) {
+          durations[env].push(runBatch(env, 40));
+        }
+      }
+
+      const median = (values: number[]): number => {
+        const ordered = [...values].sort((a, b) => a - b);
+        return ordered[Math.floor(ordered.length / 2)]!;
+      };
+      const devDuration = median(durations.development);
+      const prodDuration = median(durations.production);
 
       // Production should not be materially slower than development on the same machine.
       expect(prodDuration).toBeLessThan(devDuration * 1.5);

@@ -15,16 +15,10 @@ import {
   replaceElementRefBookkeeping,
   type ReactivePropCleanupEntry,
 } from './cleanup';
-import type { InstanceHostElement } from './dom-host';
-
-type InstanceHostNode = Node & {
-  __ASKR_INSTANCE?: ComponentInstance;
-  __ASKR_INSTANCES?: ComponentInstance[];
-  __ASKR_WRAPPER_HOST?: boolean;
-};
+import type { InstanceHostNode } from './dom-host';
 
 export function cleanupDetachedComponentHost(
-  host: InstanceHostElement,
+  host: InstanceHostNode,
   retainedInstance: ComponentInstance | Iterable<ComponentInstance>
 ): void {
   const retainedInstances =
@@ -180,7 +174,7 @@ function clearHostMetadata(
 }
 
 export function pruneComponentHostInstances(
-  host: InstanceHostElement,
+  host: InstanceHostNode,
   retainedInstances: Iterable<ComponentInstance>
 ): void {
   const hadInstanceList = Object.prototype.hasOwnProperty.call(
@@ -206,7 +200,10 @@ export function pruneComponentHostInstances(
     );
 
     for (const instance of retained) {
-      if (instance.target === host && !nextInstances.includes(instance)) {
+      if (
+        (instance.target === host || instance._placeholder === host) &&
+        !nextInstances.includes(instance)
+      ) {
         nextInstances.push(instance);
       }
     }
@@ -252,9 +249,7 @@ export function pruneComponentHostInstances(
   }
 }
 
-function collectHostInstances(
-  host: InstanceHostElement
-): Set<ComponentInstance> {
+function collectHostInstances(host: InstanceHostNode): Set<ComponentInstance> {
   const instances = new Set<ComponentInstance>();
   for (const instance of host.__ASKR_INSTANCES ?? []) {
     instances.add(instance);
@@ -266,7 +261,7 @@ function collectHostInstances(
 }
 
 function writeHostInstances(
-  host: InstanceHostElement,
+  host: InstanceHostNode,
   instances: ComponentInstance[]
 ): void {
   try {

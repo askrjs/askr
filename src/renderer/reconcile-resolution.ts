@@ -7,7 +7,11 @@ import {
   type ControlBoundaryState,
 } from '../runtime';
 import { clearForDomUpdateState, evaluateForState } from '../runtime';
-import { getRendererDOMHost, type ElementWithContext } from './dom-host';
+import {
+  getRendererDOMHost,
+  type ElementWithContext,
+  type InstanceHostNode,
+} from './dom-host';
 import {
   canReuseIntrinsicElementInNamespace,
   getParentNamespace,
@@ -87,7 +91,14 @@ export function reconcileSingleChild(
   const key = extractKey(child);
 
   if (key !== undefined) {
-    return reconcileKeyedChild(child, key, parent, resolveOldElOnce, newKeyMap);
+    return reconcileKeyedChild(
+      child,
+      key,
+      parent,
+      resolveOldElOnce,
+      usedOldEls,
+      newKeyMap
+    );
   }
 
   return reconcileUnkeyedChild(
@@ -104,6 +115,7 @@ function reconcileKeyedChild(
   key: string | number,
   parent: Element,
   resolveOldElOnce: (k: string | number) => Element | undefined,
+  usedOldEls: WeakSet<Node>,
   newKeyMap: Map<string | number, Element>
 ): Node | null {
   const el = resolveOldElOnce(key);
@@ -140,6 +152,24 @@ function reconcileKeyedChild(
     }
   }
 
+  if (isComponentVNode(child)) {
+    const componentHost = findKeyedComponentHost(parent, key, usedOldEls);
+    if (componentHost) {
+      const synced = domHost.syncComponentElement(
+        componentHost,
+        child as unknown as ElementWithContext,
+        child.type,
+        ((child.props ?? {}) as Props) || {},
+        parentNamespace
+      );
+      if (synced) {
+        usedOldEls.add(synced);
+        if (synced instanceof Element) newKeyMap.set(key, synced);
+        return synced;
+      }
+    }
+  }
+
   const dom = domHost.createDOMNode(child, parentNamespace);
   if (dom) {
     if (dom instanceof Element) newKeyMap.set(key, dom);
@@ -147,6 +177,24 @@ function reconcileKeyedChild(
   }
 
   return null;
+}
+
+function findKeyedComponentHost(
+  parent: Element,
+  key: string | number,
+  usedOldEls: WeakSet<Node>
+): Node | undefined {
+  for (const node of parent.childNodes) {
+    if (usedOldEls.has(node)) continue;
+    const host = node as InstanceHostNode;
+    const instances = new Set(host.__ASKR_INSTANCES ?? []);
+    if (host.__ASKR_INSTANCE) instances.add(host.__ASKR_INSTANCE);
+    if (Array.from(instances).some((instance) => instance._vnodeKey === key)) {
+      usedOldEls.add(node);
+      return node;
+    }
+  }
+  return undefined;
 }
 
 function reconcileUnkeyedChild(
@@ -170,7 +218,7 @@ function reconcileUnkeyedChild(
     return domHost.createDOMNode(child, parentNamespace);
   }
 
-  if (existing instanceof Element) {
+  if (existing) {
     const synced = trySyncComponentChild(
       existing,
       child,
@@ -268,7 +316,7 @@ function evaluateControlBoundaryChildren(
 }
 
 function trySyncComponentChild(
-  existing: Element,
+  existing: Node,
   child: VNode,
   usedOldEls: WeakSet<Node>,
   parentNamespace: string | undefined
