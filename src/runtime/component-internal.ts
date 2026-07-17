@@ -86,13 +86,13 @@ export interface ComponentInstance {
   stateIndexCheck: number; // Track state indices to catch conditional calls
   expectedStateIndices?: number[]; // Expected sequence of render-scoped hook indices (frozen after first render)
   firstRenderComplete: boolean; // Flag to detect transition from first to subsequent renders
-  mountOperations: Array<
+  mountOperations?: Array<
     () => void | (() => void) | PromiseLike<void | (() => void)>
   >; // Operations to run when component mounts
-  commitOperations: Array<
+  commitOperations?: Array<
     () => void | (() => void) | PromiseLike<void | (() => void)>
   >; // Operations to run after a successful committed render
-  cleanupFns: Array<() => void>; // Cleanup functions to run on unmount
+  cleanupFns?: Array<() => void>; // Cleanup functions to run on unmount
   lifecycleSlots?: unknown[]; // Render-scoped lifecycle primitive storage
   lifecycleGeneration: number; // Invalidates async mount-operation settlement after disposal
   hasPendingUpdate: boolean; // Flag to batch state updates (coalescing)
@@ -197,9 +197,8 @@ export function createComponentInstance(
     stateIndexCheck: -1,
     expectedStateIndices: undefined,
     firstRenderComplete: false,
-    mountOperations: [],
-    commitOperations: [],
-    cleanupFns: [],
+    mountOperations: undefined,
+    commitOperations: undefined,
     lifecycleSlots: undefined,
     lifecycleGeneration: 0,
     hasPendingUpdate: false,

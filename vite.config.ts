@@ -10,12 +10,13 @@ import {
 
 const isProd =
   process.env.NODE_ENV === 'production' || process.env.BUILD === 'production';
-const isBenchBuild = process.env.BUILD === 'bench';
 const input = createBuildInput();
 
 export default defineConfig({
   define: createNodeEnvDefine(isProd ? 'production' : 'development', {
-    bench: isBenchBuild,
+    // Package and application builds never carry benchmark instrumentation.
+    // Vitest benchmark configs opt into it explicitly.
+    bench: false,
   }),
   lint: {
     ignorePatterns: ['dist/**', 'node_modules/**', 'coverage/**'],
@@ -45,8 +46,8 @@ export default defineConfig({
     // Keep maps for diagnostics without publishing dangling sourceMappingURL
     // comments or map files in the package tarball.
     sourcemap: 'hidden',
-    unbundle: true,
-    treeshake: false,
+    unbundle: false,
+    treeshake: true,
     // Package artifacts are always production runtime artifacts. Development
     // behavior is provided by the source-based dev/test configurations above.
     define: createNodeEnvDefine('production'),

@@ -31,6 +31,24 @@ test.describe('browser performance smoke checks', () => {
     );
     expect(profile.operations.swap1k.benchMetrics.fastLaneName).toBe('SWAP');
     expect(profile.operations.swap1k.benchMetrics.domMoves).toBe(2);
+    expect(profile.operations.remove1.benchMetrics.fastLaneName).toBe(
+      'REMOVE_ONE'
+    );
+    expect(profile.operations.remove1.benchMetrics.itemsRemoved).toBe(1);
+    expect(
+      profile.operations.remove1.benchMetrics.shiftedItemsVisited
+    ).toBeGreaterThan(0);
+    expect(
+      profile.operations.remove1.benchMetrics.removeValidationMs
+    ).toBeGreaterThan(0);
+    expect(profile.operations.clear1k.benchMetrics.fastLaneName).toBe(
+      'TRUNCATE'
+    );
+    expect(profile.operations.clear1k.benchMetrics.itemsRemoved).toBe(1000);
+    expect(profile.operations.clear1k.benchMetrics.scopesDisposed).toBe(1000);
+    expect(
+      profile.operations.clear1k.benchMetrics.physicalDomRemovalMs
+    ).toBeGreaterThan(0);
     expect(profile.operations.select.perfMetrics).not.toBeNull();
     expect(
       profile.operations.select.perfMetrics?.reactivePropReevaluations ?? 0

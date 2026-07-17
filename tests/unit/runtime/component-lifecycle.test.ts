@@ -13,6 +13,15 @@ import {
 } from '../../../src/runtime/component-lifecycle';
 
 describe('committed lifecycle operation isolation', () => {
+  it('should leave lifecycle containers unallocated until used', () => {
+    const instance = createComponentInstance('lazy', () => null, {}, null);
+
+    expect(instance.mountOperations).toBeUndefined();
+    expect(instance.commitOperations).toBeUndefined();
+    expect(instance.cleanupFns).toBeUndefined();
+    expect(instance.lifecycleSlots).toBeUndefined();
+  });
+
   it('should settle later mount and commit operations after earlier failures', () => {
     const instance = createComponentInstance(
       'lifecycle-isolation',
@@ -52,8 +61,8 @@ describe('committed lifecycle operation isolation', () => {
       'commit-failed',
       'commit-settled',
     ]);
-    expect(instance.mountOperations).toEqual([]);
-    expect(instance.commitOperations).toEqual([]);
+    expect(instance.mountOperations).toBeUndefined();
+    expect(instance.commitOperations).toBeUndefined();
     expect(instance.cleanupFns).toEqual([mountCleanup, commitCleanup]);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0]?.[1]).toBeInstanceOf(AggregateError);

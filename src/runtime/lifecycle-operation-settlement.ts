@@ -63,7 +63,7 @@ function executeOperations(
 }
 
 export function discardCommitOperations(instance: ComponentInstance): void {
-  instance.commitOperations = [];
+  instance.commitOperations = undefined;
 }
 
 export function executeCommittedLifecycleOperations(
@@ -72,13 +72,13 @@ export function executeCommittedLifecycleOperations(
 ): void {
   const errors: unknown[] = [];
   if (wasFirstMount && (instance.mountOperations?.length ?? 0) > 0) {
-    const operations = instance.mountOperations;
-    instance.mountOperations = [];
+    const operations = instance.mountOperations!;
+    instance.mountOperations = undefined;
     errors.push(...executeOperations(instance, operations));
   }
   if ((instance.commitOperations?.length ?? 0) > 0) {
-    const operations = instance.commitOperations;
-    instance.commitOperations = [];
+    const operations = instance.commitOperations!;
+    instance.commitOperations = undefined;
     errors.push(...executeOperations(instance, operations));
   }
 

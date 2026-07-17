@@ -413,7 +413,11 @@ export function updateUnkeyedChildren(
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(current);
-            parent.replaceChild(dom, current);
+            if (current.parentNode === parent) {
+              parent.replaceChild(dom, current);
+            } else if (dom.parentNode !== parent) {
+              parent.insertBefore(dom, parent.children[i] ?? null);
+            }
           }
         }
       } else {
@@ -479,7 +483,11 @@ export function updateUnkeyedChildren(
               const dom = domHost.createDOMNode(next, parentNamespace);
               if (dom) {
                 teardownNodeSubtree(currentEl);
-                parent.replaceChild(dom, currentNode);
+                if (currentNode.parentNode === parent) {
+                  parent.replaceChild(dom, currentNode);
+                } else if (dom.parentNode !== parent) {
+                  parent.insertBefore(dom, parent.childNodes[i] ?? null);
+                }
               }
             }
           } else {
@@ -572,7 +580,11 @@ export function updateUnkeyedChildren(
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(current);
-            parent.replaceChild(dom, current);
+            if (current.parentNode === parent) {
+              parent.replaceChild(dom, current);
+            } else if (dom.parentNode !== parent) {
+              parent.insertBefore(dom, parent.children[i] ?? null);
+            }
           }
         }
       }

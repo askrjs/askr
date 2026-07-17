@@ -43,7 +43,7 @@ export function registerMountOperationForInstance(
       }
       return;
     }
-    instance.mountOperations.push(operation);
+    (instance.mountOperations ??= []).push(operation);
   }
 }
 
@@ -60,7 +60,7 @@ export function registerCommitOperationForInstance(
       }
       return;
     }
-    instance.commitOperations.push(operation);
+    (instance.commitOperations ??= []).push(operation);
   }
 }
 

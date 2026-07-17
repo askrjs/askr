@@ -22,6 +22,8 @@ import {
   type ForItemPropertySignal,
 } from './for-signals';
 import type { ReadableSource } from './readable';
+import type { ChildScopeOwnership } from './child-scope';
+import { registerOwnedChildScope } from './component';
 import type { FineGrainedEffectHandle } from './effect';
 import type { ForEachSource, ForKeySelector, ForRenderItem } from './for-types';
 import { reconcileForItems } from './for-reconcile';
@@ -29,6 +31,10 @@ import { registerLifecycleTransaction } from './component-lifecycle';
 import { getRuntimeRenderer } from './access';
 import { logger } from '../common/logger';
 import type { DOMRange } from '../common/dom-range';
+import { recordBenchCounter, recordBenchTiming } from './for-bench';
+
+declare const __ASKR_BENCH_BUILD__: boolean;
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
 export {
   getBenchMetrics,
@@ -45,6 +51,7 @@ export { reconcileForItems };
 export type ForCommitStrategy =
   | 'APPEND'
   | 'INSERT_ONE'
+  | 'REMOVE_ONE'
   | 'TRUNCATE'
   | 'NO_REORDER'
   | 'SWAP'
@@ -71,6 +78,7 @@ export interface ForState<T> {
   pendingSwapIndices: [number, number] | null;
   pendingMoveOnly: boolean;
   pendingInsertedIndex: number | null;
+  pendingRemovedKey: string | number | null;
   pendingAppendStart: number | null;
   _hasResolvedItemDom: boolean;
   _needsSourceReconcile: boolean;
@@ -80,6 +88,7 @@ export interface ForState<T> {
   _hasPendingBoundaryCommit?: boolean;
   devKeyKinds?: Map<string | number, 'number' | 'string'>;
   _transaction?: ForTransaction<T> | null;
+  _scopeOwnership: ChildScopeOwnership;
 }
 
 export interface ForItemTransactionSnapshot<T> {
@@ -116,6 +125,7 @@ export interface ForTransaction<T> {
   pendingSwapIndices: [number, number] | null;
   pendingMoveOnly: boolean;
   pendingInsertedIndex: number | null;
+  pendingRemovedKey: string | number | null;
   pendingAppendStart: number | null;
   hasResolvedItemDom: boolean;
   needsSourceReconcile: boolean;
@@ -160,6 +170,41 @@ export function createForState<T>(
   fallback: VNode | null
 ): ForState<T> {
   const parentInstance = getCurrentInstance();
+  const ownedScopes = new Set<ChildScope>();
+  let bulkDisposing = false;
+  const scopeOwnership: ChildScopeOwnership = {
+    add: (scope) => ownedScopes.add(scope),
+    delete: (scope) => (bulkDisposing ? false : ownedScopes.delete(scope)),
+    bulkDispose(run) {
+      bulkDisposing = true;
+      try {
+        run();
+      } finally {
+        bulkDisposing = false;
+        ownedScopes.clear();
+      }
+    },
+  };
+  if (parentInstance) {
+    registerOwnedChildScope(parentInstance, {
+      key: 'for-boundary',
+      dispose() {
+        scopeOwnership.bulkDispose(() => {
+          const errors: unknown[] = [];
+          for (const scope of ownedScopes) {
+            try {
+              scope.dispose();
+            } catch (error) {
+              errors.push(error);
+            }
+          }
+          if (errors.length > 0) {
+            throw new AggregateError(errors, 'For scope cleanup failed');
+          }
+        });
+      },
+    });
+  }
 
   return {
     kind: 'for',
@@ -182,12 +227,14 @@ export function createForState<T>(
     pendingSwapIndices: null,
     pendingMoveOnly: false,
     pendingInsertedIndex: null,
+    pendingRemovedKey: null,
     pendingAppendStart: null,
     _hasResolvedItemDom: false,
     _needsSourceReconcile: false,
     _sourceEffect: null,
     _suspendSourceCommit: false,
     _enqueueBoundaryCommit: null,
+    _scopeOwnership: scopeOwnership,
     _hasPendingBoundaryCommit: false,
     _transaction: null,
   };
@@ -299,6 +346,7 @@ export function beginForStateTransaction<T>(
     pendingSwapIndices: forState.pendingSwapIndices,
     pendingMoveOnly: forState.pendingMoveOnly,
     pendingInsertedIndex: forState.pendingInsertedIndex,
+    pendingRemovedKey: forState.pendingRemovedKey,
     pendingAppendStart: forState.pendingAppendStart,
     hasResolvedItemDom: forState._hasResolvedItemDom,
     needsSourceReconcile: forState._needsSourceReconcile,
@@ -330,27 +378,47 @@ export function registerForStateTransaction<T>(
   );
 }
 
-function finalizeForStateRemovals<T>(transaction: ForTransaction<T>): void {
+function finalizeForStateRemovals<T>(
+  forState: ForState<T>,
+  transaction: ForTransaction<T>
+): void {
   const removedScopes = transaction.removedScopes;
   if (!transaction.removeAllItems && !removedScopes) {
     return;
   }
 
+  const lifecycleStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
   const cleanupErrors: unknown[] = [];
   const finalizeScope = (scope: ChildScope): void => {
     const removedDom = scope.dom;
     const removedRange = scope.range;
+    const disposalStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
     try {
       disposeChildScope(scope);
     } catch (error) {
       cleanupErrors.push(error);
     }
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchCounter('scopesDisposed');
+      recordBenchTiming(
+        'childScopeDisposal',
+        performance.now() - disposalStartMs
+      );
+    }
 
     if (typeof Element !== 'undefined' && removedDom instanceof Element) {
+      const teardownStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
       try {
         getRuntimeRenderer().teardownNodeSubtree(removedDom);
+        if (BENCH_BUILD_ENABLED) recordBenchCounter('subtreeTeardowns');
       } catch (error) {
         cleanupErrors.push(error);
+      }
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchTiming(
+          'domMetadataTeardown',
+          performance.now() - teardownStartMs
+        );
       }
     }
     if (removedRange && !removedRange.single) {
@@ -362,6 +430,7 @@ function finalizeForStateRemovals<T>(transaction: ForTransaction<T>): void {
         if (typeof Element !== 'undefined' && node instanceof Element) {
           try {
             getRuntimeRenderer().teardownNodeSubtree(node);
+            if (BENCH_BUILD_ENABLED) recordBenchCounter('subtreeTeardowns');
           } catch (error) {
             cleanupErrors.push(error);
           }
@@ -372,12 +441,14 @@ function finalizeForStateRemovals<T>(transaction: ForTransaction<T>): void {
   };
 
   if (transaction.removeAllItems) {
-    for (let index = 0; index < transaction.orderedItems.length; index++) {
-      const item = transaction.orderedItems[index];
-      if (item) {
-        finalizeScope(item.scope);
+    forState._scopeOwnership.bulkDispose(() => {
+      for (let index = 0; index < transaction.orderedItems.length; index++) {
+        const item = transaction.orderedItems[index];
+        if (item) {
+          finalizeScope(item.scope);
+        }
       }
-    }
+    });
   }
 
   for (const scope of removedScopes ?? []) {
@@ -388,6 +459,12 @@ function finalizeForStateRemovals<T>(transaction: ForTransaction<T>): void {
     removedScopes.length = 0;
   }
   transaction.removeAllItems = false;
+  if (BENCH_BUILD_ENABLED) {
+    recordBenchTiming(
+      'lifecycleFinalization',
+      performance.now() - lifecycleStartMs
+    );
+  }
   if (cleanupErrors.length > 0) {
     logger.error(
       '[Askr] For removal cleanup failed:',
@@ -427,8 +504,9 @@ export function commitForStateTransaction<T>(
   transaction = forState._transaction
 ): void {
   if (!transaction || forState._transaction !== transaction) return;
+  const finalizationStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
   try {
-    finalizeForStateRemovals(transaction);
+    finalizeForStateRemovals(forState, transaction);
     finalizeForSignalEffects(transaction);
     if (transaction.shouldClearDomUpdateState) {
       finalizeForDomUpdateFlags(forState);
@@ -439,6 +517,12 @@ export function commitForStateTransaction<T>(
     transaction.fallbackScopeSnapshot = null;
     forState._committedItems = forState.currentItems;
     forState._transaction = null;
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchTiming(
+        'transactionFinalization',
+        performance.now() - finalizationStartMs
+      );
+    }
   }
 }
 
@@ -557,6 +641,7 @@ export function rollbackForStateTransaction<T>(
   forState.pendingSwapIndices = transaction.pendingSwapIndices;
   forState.pendingMoveOnly = transaction.pendingMoveOnly;
   forState.pendingInsertedIndex = transaction.pendingInsertedIndex;
+  forState.pendingRemovedKey = transaction.pendingRemovedKey;
   forState.pendingAppendStart = transaction.pendingAppendStart;
   forState._hasResolvedItemDom = transaction.hasResolvedItemDom;
   forState._needsSourceReconcile = transaction.needsSourceReconcile;
@@ -591,6 +676,7 @@ export function clearForDomUpdateState<T>(forState: ForState<T>): void {
   forState.pendingSwapIndices = null;
   forState.pendingMoveOnly = false;
   forState.pendingInsertedIndex = null;
+  forState.pendingRemovedKey = null;
   forState.pendingAppendStart = null;
   forState._needsSourceReconcile = false;
   forState._hasResolvedItemDom = forState.orderedKeys.length > 0;

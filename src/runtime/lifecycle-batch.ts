@@ -382,7 +382,7 @@ export function discardLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
 
   for (const entry of batch.entries) {
     if (entry.wasFirstMount) {
-      entry.instance.mountOperations = [];
+      entry.instance.mountOperations = undefined;
     }
     discardCommitOperations(entry.instance);
   }

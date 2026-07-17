@@ -37,6 +37,12 @@ export interface ChildScope {
   dispose(): void;
 }
 
+export interface ChildScopeOwnership {
+  add(scope: ChildScope): void;
+  delete(scope: ChildScope): void;
+  bulkDispose(run: () => void): void;
+}
+
 /** @internal Snapshot used to restore a child scope after a failed commit. */
 export interface ChildScopeTransactionSnapshot {
   previousVnode: VNode | undefined;
@@ -101,16 +107,19 @@ class ChildScopeImpl implements MutableChildScope {
   _renderFn: (() => VNode) | undefined = undefined;
   _onDirty: (() => void) | undefined;
   _parent: ComponentInstance | null;
+  _ownership?: ChildScopeOwnership;
   _disposed = false;
 
   constructor(
     parent: ComponentInstance | null,
     key: string | number,
-    onDirty?: () => void
+    onDirty?: () => void,
+    ownership?: ChildScopeOwnership
   ) {
     this.key = key;
     this._parent = parent;
     this._onDirty = onDirty;
+    this._ownership = ownership;
     this._startStateIndex = getCurrentStateIndex();
     this.componentInstance = createComponentInstance(
       DEVELOPMENT_BUILD_ENABLED ? `child-scope-${String(key)}` : 'child-scope',
@@ -124,7 +133,8 @@ class ChildScopeImpl implements MutableChildScope {
       this.componentInstance.parentInstance = parent;
       this.componentInstance.ownerFrame = parent.ownerFrame;
       this.componentInstance.portalScope = parent.portalScope;
-      registerOwnedChildScope(parent, this);
+      if (ownership) ownership.add(this);
+      else registerOwnedChildScope(parent, this);
     }
   }
 
@@ -143,7 +153,8 @@ class ChildScopeImpl implements MutableChildScope {
     }
     this._disposed = true;
     if (this._parent) {
-      unregisterOwnedChildScope(this._parent, this);
+      if (this._ownership) this._ownership.delete(this);
+      else unregisterOwnedChildScope(this._parent, this);
     }
     childScopesByInstance.delete(this.componentInstance);
     cleanupComponent(this.componentInstance);
@@ -269,7 +280,8 @@ export function disposeChildScope(scope: ChildScope): void {
 export function createChildScope(
   parent: ComponentInstance | null,
   key: string | number,
-  onDirty?: () => void
+  onDirty?: () => void,
+  ownership?: ChildScopeOwnership
 ): ChildScope {
-  return new ChildScopeImpl(parent, key, onDirty);
+  return new ChildScopeImpl(parent, key, onDirty, ownership);
 }

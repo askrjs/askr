@@ -431,7 +431,7 @@ describe('component-scoped lifecycle and polling checks', () => {
       | (HTMLButtonElement & { __ASKR_INSTANCE?: ComponentInstance })
       | null;
 
-    expect(host?.__ASKR_INSTANCE?.mountOperations).toHaveLength(0);
+    expect(host?.__ASKR_INSTANCE?.mountOperations).toBeUndefined();
 
     vi.advanceTimersByTime(110);
 

@@ -248,10 +248,10 @@ export function mountOrUpdate(
       instance.hasPendingUpdate = false;
       instance.notifyUpdate = null;
       instance.stateIndexCheck = -1;
-      instance.mountOperations = [];
-      instance.commitOperations = [];
-      instance.lifecycleSlots = [];
-      instance.cleanupFns = [];
+      instance.mountOperations = undefined;
+      instance.commitOperations = undefined;
+      instance.lifecycleSlots = undefined;
+      instance.cleanupFns = undefined;
       instance._currentRenderToken = undefined;
       instance.lastRenderToken = 0;
       instance._pendingReadSources = undefined;

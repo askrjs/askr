@@ -373,7 +373,10 @@ function commitForStateBoundaryChildrenImpl(
   };
 
   const dirtyIndices =
-    forState.lastCommitStrategy === 'NO_REORDER' ? ensureDirtyIndices() : [];
+    forState.lastCommitStrategy === 'NO_REORDER' ||
+    forState.lastCommitStrategy === 'REMOVE_ONE'
+      ? ensureDirtyIndices()
+      : [];
   let boundaryChildrenExact = false;
 
   const commitDirtyNoReorder = (dirtyIndices: number[]): void => {
@@ -781,6 +784,9 @@ function commitForStateBoundaryChildrenImpl(
 
   switch (forState.lastCommitStrategy) {
     case 'NO_REORDER':
+      commitDirtyNoReorder(dirtyIndices);
+      break;
+    case 'REMOVE_ONE':
       commitDirtyNoReorder(dirtyIndices);
       break;
     case 'TRUNCATE':
