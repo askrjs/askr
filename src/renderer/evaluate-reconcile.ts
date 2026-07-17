@@ -38,6 +38,10 @@ import {
 import { runRetainedElementUpdate } from './retained-element-rollback';
 import { tryAdoptMatchingIntrinsicSubtree } from './intrinsic-hydration-adoption';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
 type ComponentHostElement = Element & {
   __ASKR_INSTANCE?: ComponentInstance;
   __ASKR_INSTANCES?: ComponentInstance[];
@@ -202,29 +206,33 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
       return false;
     }
 
-    const fastPathEnv = getRuntimeEnv();
-    if (
-      fastPathEnv.ASKR_FASTPATH_DEBUG === '1' ||
-      fastPathEnv.ASKR_FASTPATH_DEBUG === 'true'
-    ) {
-      logger.warn(
-        '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
-      );
+    if (DEVELOPMENT_BUILD_ENABLED) {
+      const fastPathEnv = getRuntimeEnv();
+      if (
+        fastPathEnv.ASKR_FASTPATH_DEBUG === '1' ||
+        fastPathEnv.ASKR_FASTPATH_DEBUG === 'true'
+      ) {
+        logger.warn(
+          '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
+        );
+      }
     }
 
     const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
 
-    const statsEnv = getRuntimeEnv();
-    if (
-      statsEnv.NODE_ENV !== 'production' ||
-      statsEnv.ASKR_FASTPATH_DEBUG === '1'
-    ) {
-      try {
-        setDevValue('__LAST_FASTPATH_STATS', stats);
-        setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
-        incDevCounter('bulkKeyedPositionalForced');
-      } catch {
-        // ignore
+    if (DEVELOPMENT_BUILD_ENABLED) {
+      const statsEnv = getRuntimeEnv();
+      if (
+        statsEnv.NODE_ENV !== 'production' ||
+        statsEnv.ASKR_FASTPATH_DEBUG === '1'
+      ) {
+        try {
+          setDevValue('__LAST_FASTPATH_STATS', stats);
+          setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
+          incDevCounter('bulkKeyedPositionalForced');
+        } catch {
+          // ignore
+        }
       }
     }
 
@@ -232,15 +240,17 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
     keyedElements.set(parent, newMap);
     return true;
   } catch (err) {
-    const fallbackEnv = getRuntimeEnv();
-    if (
-      fallbackEnv.ASKR_FASTPATH_DEBUG === '1' ||
-      fallbackEnv.ASKR_FASTPATH_DEBUG === 'true'
-    ) {
-      logger.warn(
-        '[Askr][FASTPATH] forced bulk path failed, falling back',
-        err
-      );
+    if (DEVELOPMENT_BUILD_ENABLED) {
+      const fallbackEnv = getRuntimeEnv();
+      if (
+        fallbackEnv.ASKR_FASTPATH_DEBUG === '1' ||
+        fallbackEnv.ASKR_FASTPATH_DEBUG === 'true'
+      ) {
+        logger.warn(
+          '[Askr][FASTPATH] forced bulk path failed, falling back',
+          err
+        );
+      }
     }
     return false;
   }

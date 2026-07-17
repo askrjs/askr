@@ -8,6 +8,9 @@ import {
   shouldCoalesceFineGrainedItemReads,
   type ReadableSource,
 } from './readable';
+import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export type ForItemSignal<T> = ReadableSource<T> &
   (() => T) & {
@@ -227,7 +230,9 @@ export function removeForParentReaders(
 
   for (const reader of readers.keys()) {
     if (isForParentReader(parentInstance, reader)) {
-      readers.delete(reader);
+      if (readers.delete(reader) && __ASKR_DEVELOPMENT_BUILD__) {
+        adjustOwnershipDiagnostic('readableReaders', -1);
+      }
     }
   }
 }

@@ -16,10 +16,14 @@ import {
   flushLifecycleCommitBatch,
   flushRuntimeScheduler,
   mountComponent,
+  cleanupComponentGeneration,
+  cleanupReadableSubscriptionSources,
+  adjustOwnershipDiagnostic,
+  trackRouteGeneration,
+  type ReadableSource,
   type ComponentInstance,
 } from '../runtime';
 import { teardownNodeSubtree } from '../renderer/cleanup';
-import type { InstanceHostElement } from '../renderer/dom-host';
 import {
   applyHistoryScroll,
   applyNavigationScroll,
@@ -47,7 +51,13 @@ import {
   hasRouteRenderData,
 } from './resolution';
 import { reconcileRouteMeta, resolveRouteMeta } from './metadata';
-import { createAppRenderRuntime } from '../common/app-render-runtime';
+import {
+  clearStagedAppRenderRouteLocation,
+  createAppRenderRuntime,
+  stageAppRenderRouteLocation,
+} from '../common/app-render-runtime';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export type NavigateOptions = {
   history?: 'push' | 'replace';
@@ -225,6 +235,7 @@ function reportRouteCleanupErrors(errors: unknown[]): void {
 
 type DeferredRouteCleanup = {
   instance: ComponentInstance;
+  previousOwnershipGeneration: object;
   previousFn: ComponentInstance['fn'];
   previousProps: ComponentInstance['props'];
   previousExpectedStateIndices: ComponentInstance['expectedStateIndices'];
@@ -251,8 +262,13 @@ type DeferredRouteCleanup = {
   previousPendingReadSources: ComponentInstance['_pendingReadSources'];
   previousPendingReadSourceVersions: ComponentInstance['_pendingReadSourceVersions'];
   previousLastReadSources: ComponentInstance['_lastReadSources'];
+  previousReaderEntries: Array<{
+    source: ReadableSource<unknown>;
+    reader: { token: number; generation: object } | undefined;
+  }>;
   previousAppRenderRuntime: ComponentInstance['_appRenderRuntime'];
   previousInstances: ComponentInstance[];
+  previousDisposed: boolean;
 };
 
 type RouteDomNodeSnapshot = {
@@ -368,25 +384,19 @@ function collectHostInstances(root: Element): ComponentInstance[] {
 
   while (pending.length > 0) {
     const node = pending.pop()!;
-    if (node instanceof Element) {
-      const host = node as InstanceHostElement;
-      for (const instance of host.__ASKR_INSTANCES ?? []) {
-        if (!seen.has(instance)) {
-          seen.add(instance);
-          instances.push(instance);
-        }
-      }
-      if (host.__ASKR_INSTANCE && !seen.has(host.__ASKR_INSTANCE)) {
-        seen.add(host.__ASKR_INSTANCE);
-        instances.push(host.__ASKR_INSTANCE);
-      }
-    } else {
-      const instance = (node as Node & { __ASKR_INSTANCE?: ComponentInstance })
-        .__ASKR_INSTANCE;
-      if (instance && !seen.has(instance)) {
+    const host = node as Node & {
+      __ASKR_INSTANCE?: ComponentInstance;
+      __ASKR_INSTANCES?: ComponentInstance[];
+    };
+    for (const instance of host.__ASKR_INSTANCES ?? []) {
+      if (!seen.has(instance)) {
         seen.add(instance);
         instances.push(instance);
       }
+    }
+    if (host.__ASKR_INSTANCE && !seen.has(host.__ASKR_INSTANCE)) {
+      seen.add(host.__ASKR_INSTANCE);
+      instances.push(host.__ASKR_INSTANCE);
     }
 
     for (let child = node.lastChild; child; child = child.previousSibling) {
@@ -402,6 +412,7 @@ function captureDeferredRouteCleanup(
 ): DeferredRouteCleanup {
   return {
     instance,
+    previousOwnershipGeneration: instance._ownershipGeneration,
     previousFn: instance.fn,
     previousProps: instance.props,
     previousExpectedStateIndices: instance.expectedStateIndices,
@@ -428,10 +439,17 @@ function captureDeferredRouteCleanup(
     previousPendingReadSources: instance._pendingReadSources,
     previousPendingReadSourceVersions: instance._pendingReadSourceVersions,
     previousLastReadSources: instance._lastReadSources,
+    previousReaderEntries: Array.from(instance._lastReadSources ?? []).map(
+      (source) => ({
+        source,
+        reader: source._readers?.get(instance),
+      })
+    ),
     previousAppRenderRuntime: instance._appRenderRuntime,
     previousInstances: instance.target
       ? collectHostInstances(instance.target)
       : [],
+    previousDisposed: false,
   };
 }
 
@@ -439,9 +457,32 @@ function restoreDeferredRouteInstance(
   deferred: DeferredRouteCleanup
 ): unknown[] {
   const instance = deferred.instance;
-  const errors = restoreRouteDom(deferred.previousDom);
+  const errors: unknown[] = [];
+  const activeGeneration = instance._ownershipGeneration;
+  const activeReadSources = instance._lastReadSources;
+
+  if (activeGeneration !== deferred.previousOwnershipGeneration) {
+    try {
+      cleanupReadableSubscriptionSources(
+        instance,
+        activeReadSources,
+        activeGeneration
+      );
+    } catch (error) {
+      errors.push(error);
+    }
+    instance._lastReadSources = undefined;
+    try {
+      cleanupComponent(instance);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  errors.push(...restoreRouteDom(deferred.previousDom));
 
   instance.fn = deferred.previousFn;
+  instance._ownershipGeneration = deferred.previousOwnershipGeneration;
   instance.props = deferred.previousProps;
   instance.expectedStateIndices = deferred.previousExpectedStateIndices;
   instance.firstRenderComplete = deferred.previousFirstRenderComplete;
@@ -469,6 +510,41 @@ function restoreDeferredRouteInstance(
   instance._lastReadSources = deferred.previousLastReadSources;
   instance._appRenderRuntime = deferred.previousAppRenderRuntime;
 
+  const previousSources = new Set(
+    deferred.previousReaderEntries.map(({ source }) => source)
+  );
+  for (const source of activeReadSources ?? []) {
+    if (previousSources.has(source)) {
+      continue;
+    }
+
+    const reader = source._readers?.get(instance);
+    if (reader?.generation === activeGeneration) {
+      if (source._readers?.delete(instance) && __ASKR_DEVELOPMENT_BUILD__) {
+        adjustOwnershipDiagnostic('readableReaders', -1);
+      }
+    }
+  }
+  for (const { source, reader } of deferred.previousReaderEntries) {
+    if (!reader) {
+      if (source._readers?.delete(instance) && __ASKR_DEVELOPMENT_BUILD__) {
+        adjustOwnershipDiagnostic('readableReaders', -1);
+      }
+      continue;
+    }
+
+    let readers = source._readers;
+    if (!readers) {
+      readers = new Map();
+      source._readers = readers;
+    }
+    const hadReader = readers.has(instance);
+    readers.set(instance, reader);
+    if (!hadReader && __ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('readableReaders', 1);
+    }
+  }
+
   return errors;
 }
 
@@ -490,70 +566,19 @@ function cleanupDeferredRouteInstance(
 ): unknown[] {
   const errors: unknown[] = [];
   const instance = deferred.instance;
-  const current = {
-    stateValues: instance.stateValues,
-    cleanupFns: instance.cleanupFns,
-    ownedChildScopes: instance._ownedChildScopes,
-    abortController: instance.abortController,
-    mountOperations: instance.mountOperations,
-    commitOperations: instance.commitOperations,
-    lifecycleSlots: instance.lifecycleSlots,
-    lifecycleGeneration: instance.lifecycleGeneration,
-    evaluationGeneration: instance.evaluationGeneration,
-    hasPendingUpdate: instance.hasPendingUpdate,
-    notifyUpdate: instance.notifyUpdate,
-    placeholder: instance._placeholder,
-    mounted: instance.mounted,
-    currentRenderToken: instance._currentRenderToken,
-    lastRenderToken: instance.lastRenderToken,
-    pendingReadSources: instance._pendingReadSources,
-    pendingReadSourceVersions: instance._pendingReadSourceVersions,
-    lastReadSources: instance._lastReadSources,
-  };
-
-  instance.stateValues = deferred.previousStateValues;
-  instance.cleanupFns = deferred.previousCleanupFns;
-  instance._ownedChildScopes = deferred.previousOwnedChildScopes;
-  instance.abortController = deferred.previousAbortController;
-  instance.mountOperations = deferred.previousMountOperations;
-  instance.commitOperations = deferred.previousCommitOperations;
-  instance.lifecycleSlots = deferred.previousLifecycleSlots;
-  instance.lifecycleGeneration = deferred.previousLifecycleGeneration;
-  instance.evaluationGeneration = deferred.previousEvaluationGeneration;
-  instance.hasPendingUpdate = deferred.previousHasPendingUpdate;
-  instance.notifyUpdate = deferred.previousNotifyUpdate;
-  instance._placeholder = deferred.previousPlaceholder;
-  instance.mounted = deferred.previousMounted;
-  instance._currentRenderToken = deferred.previousCurrentRenderToken;
-  instance.lastRenderToken = deferred.previousLastRenderToken;
-  instance._pendingReadSources = deferred.previousPendingReadSources;
-  instance._pendingReadSourceVersions =
-    deferred.previousPendingReadSourceVersions;
-  instance._lastReadSources = deferred.previousLastReadSources;
-
-  try {
-    cleanupComponent(instance);
-  } catch (error) {
-    errors.push(error);
-  } finally {
-    instance.stateValues = current.stateValues;
-    instance.cleanupFns = current.cleanupFns;
-    instance._ownedChildScopes = current.ownedChildScopes;
-    instance.abortController = current.abortController;
-    instance.mountOperations = current.mountOperations;
-    instance.commitOperations = current.commitOperations;
-    instance.lifecycleSlots = current.lifecycleSlots;
-    instance.lifecycleGeneration = current.lifecycleGeneration;
-    instance.evaluationGeneration = current.evaluationGeneration;
-    instance.hasPendingUpdate = current.hasPendingUpdate;
-    instance.notifyUpdate = current.notifyUpdate;
-    instance._placeholder = current.placeholder;
-    instance.mounted = current.mounted;
-    instance._currentRenderToken = current.currentRenderToken;
-    instance.lastRenderToken = current.lastRenderToken;
-    instance._pendingReadSources = current.pendingReadSources;
-    instance._pendingReadSourceVersions = current.pendingReadSourceVersions;
-    instance._lastReadSources = current.lastReadSources;
+  if (!deferred.previousDisposed) {
+    deferred.previousDisposed = true;
+    try {
+      cleanupComponentGeneration(instance, {
+        ownershipGeneration: deferred.previousOwnershipGeneration,
+        cleanupFns: deferred.previousCleanupFns,
+        ownedChildScopes: deferred.previousOwnedChildScopes,
+        abortController: deferred.previousAbortController,
+        readSources: deferred.previousLastReadSources,
+      });
+    } catch (error) {
+      errors.push(error);
+    }
   }
 
   const root = instance.target;
@@ -591,12 +616,17 @@ function remountResolvedRoute(
   clearDefaultPortalForInstance(instance);
   instance.fn = wrapRootRouteHandler(bindResolvedRouteHandler(resolved));
   instance.props = {};
+  instance._ownershipGeneration = {};
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    trackRouteGeneration(instance._ownershipGeneration);
+  }
 
   instance.stateValues = [];
   instance.expectedStateIndices = [];
   instance.firstRenderComplete = false;
   instance.stateIndexCheck = -1;
   instance.evaluationGeneration++;
+  instance.lifecycleGeneration++;
   instance.notifyUpdate = null;
   instance.mountOperations = [];
   instance.commitOperations = [];
@@ -678,15 +708,26 @@ function getResolvedRouteHandler(resolved: RouteRequestResult): ResolvedRoute {
 
 function updateRouteRuntime(
   instance: ComponentInstance,
-  resolved: RouteRequestResult
+  resolved: RouteRequestResult,
+  href: string
 ): void {
   const current = instance._appRenderRuntime;
-  instance._appRenderRuntime = createAppRenderRuntime({
+  const runtime = createAppRenderRuntime({
     framework: current?.framework,
     route:
       resolved?.kind === 'render' ? getRouteRenderData(resolved) : undefined,
     hasRoute: resolved?.kind === 'render' && hasRouteRenderData(resolved),
   });
+  stageAppRenderRouteLocation(runtime, href);
+  instance._appRenderRuntime = runtime;
+}
+
+function clearStagedRouteLocations(
+  targets: readonly AppNavigationTarget[]
+): void {
+  for (const target of targets) {
+    clearStagedAppRenderRouteLocation(target.app.instance._appRenderRuntime);
+  }
 }
 
 export function resolveNavigationTargetsForApps(
@@ -861,7 +902,7 @@ export function applyNavigationTargets(
         restoreOnExit();
         return;
       }
-      updateRouteRuntime(target.app.instance, target.resolved);
+      updateRouteRuntime(target.app.instance, target.resolved, href);
       const deferredCleanup = remountResolvedRoute(
         target.app.instance,
         getResolvedRouteHandler(target.resolved),
@@ -892,7 +933,7 @@ export function applyNavigationTargets(
         restoreOnExit();
         return;
       }
-      updateRouteRuntime(target.app.instance, target.resolved);
+      updateRouteRuntime(target.app.instance, target.resolved, href);
       rerenderResolvedRoute(target.app.instance, pathname, href);
     }
 
@@ -926,6 +967,7 @@ export function applyNavigationTargets(
         : 'pushState';
     window.history[historyMethod]({ path: href }, '', href);
     setCurrentRouteLocation(pathname, href);
+    clearStagedRouteLocations(matchedTargets);
     syncRegisteredRouteSnapshot();
     reconcileNavigationMetadata(matchedTargets);
 
@@ -1033,7 +1075,7 @@ export function applyPopStateNavigationTargets(
         restoreOnExit();
         return;
       }
-      updateRouteRuntime(target.app.instance, target.resolved);
+      updateRouteRuntime(target.app.instance, target.resolved, href);
       const deferredCleanup = remountResolvedRoute(
         target.app.instance,
         getResolvedRouteHandler(target.resolved),
@@ -1059,7 +1101,7 @@ export function applyPopStateNavigationTargets(
         restoreOnExit();
         return;
       }
-      updateRouteRuntime(target.app.instance, target.resolved);
+      updateRouteRuntime(target.app.instance, target.resolved, href);
       rerenderResolvedRoute(target.app.instance, pathname, href);
     }
     flushRuntimeScheduler();
@@ -1083,6 +1125,7 @@ export function applyPopStateNavigationTargets(
       return;
     }
     setCurrentRouteLocation(pathname, href);
+    clearStagedRouteLocations(matchedTargets);
     syncRegisteredRouteSnapshot();
     reconcileNavigationMetadata(matchedTargets);
     applyHistoryScroll(href, state);

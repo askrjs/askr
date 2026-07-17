@@ -6,6 +6,10 @@ import {
 import { keyedElements } from './keyed';
 import { getMaterializedKey } from './utils';
 
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
+
 export function getOrBuildDomKeyMap(
   parent: Element
 ): Map<string | number, Element> | undefined {
@@ -95,7 +99,9 @@ export function syncKeyedMapFromForState(
   if (strategy === 'REMOVE_ONE') {
     if (existing && forState.pendingRemovedKey !== null) {
       if (existing.delete(forState.pendingRemovedKey)) {
-        recordBenchCounter('keyedMapEntriesDeleted');
+        if (BENCH_BUILD_ENABLED) {
+          recordBenchCounter('keyedMapEntriesDeleted');
+        }
       }
       if (existing.size === 0) keyedElements.delete(parent);
     }

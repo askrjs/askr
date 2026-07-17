@@ -6,6 +6,9 @@ import {
 } from './snapshot-source';
 import { isPromiseLike } from '../common/promise';
 import { throwSSRDataMissing } from '../common/render-context';
+import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 /**
  * Pure, component-agnostic ResourceCell state machine.
@@ -46,6 +49,9 @@ export class ResourceCell<U> {
     this.fn = fn;
     this.deps = deps ? deps.slice() : null;
     this.resourceFrame = resourceFrame;
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('resources', 1);
+    }
     this.snapshot = brandSnapshotSource({
       value: null,
       pending: true,
@@ -177,6 +183,9 @@ export class ResourceCell<U> {
     }
 
     this.disposed = true;
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('resources', -1);
+    }
     this.controller?.abort();
     this.subscribers.clear();
   }

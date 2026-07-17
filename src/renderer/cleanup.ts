@@ -19,7 +19,38 @@ type Ref<T> =
   | undefined;
 
 export const elementRefs = new WeakMap<Element, unknown>();
-const refOwners = new Map<unknown, Element>();
+// Ref ownership is lookup-only. Keeping it weak prevents an obsolete inline
+// callback ref from becoming a permanent strong root for its former element.
+const refOwners = new WeakMap<object, Element>();
+
+function isRefOwnerKey(ref: unknown): ref is object {
+  return typeof ref === 'function' || (typeof ref === 'object' && ref !== null);
+}
+
+/** @internal Return the current exact owner for ref reconciliation. */
+export function getElementRefOwner(ref: unknown): Element | undefined {
+  return isRefOwnerKey(ref) ? refOwners.get(ref) : undefined;
+}
+
+/** @internal Synchronize ref registries without invoking user callbacks. */
+export function replaceElementRefBookkeeping(
+  element: Element,
+  ref: unknown
+): void {
+  const previousRef = elementRefs.get(element);
+  if (isRefOwnerKey(previousRef) && refOwners.get(previousRef) === element) {
+    refOwners.delete(previousRef);
+  }
+
+  if (ref) {
+    elementRefs.set(element, ref);
+    if (isRefOwnerKey(ref)) {
+      refOwners.set(ref, element);
+    }
+  } else {
+    elementRefs.delete(element);
+  }
+}
 
 function applyRefValue<T>(ref: unknown, value: T | null): void {
   const resolvedRef = ref as Ref<T>;
@@ -68,10 +99,13 @@ function updateElementRefImmediately<T extends Element>(
 
   if (previousRef) {
     applyRefValue(previousRef, null);
+    if (getElementRefOwner(previousRef) === element) {
+      refOwners.delete(previousRef as object);
+    }
   }
 
   if (ref) {
-    const previousOwner = refOwners.get(ref);
+    const previousOwner = getElementRefOwner(ref);
     if (
       typeof ref === 'function' &&
       previousOwner &&
@@ -87,7 +121,9 @@ function updateElementRefImmediately<T extends Element>(
 
     applyRefValue(ref, element);
     elementRefs.set(element, ref);
-    refOwners.set(ref, element);
+    if (isRefOwnerKey(ref)) {
+      refOwners.set(ref, element);
+    }
   } else {
     elementRefs.delete(element);
   }
@@ -100,20 +136,17 @@ export function removeElementRef(element: Element): void {
     return;
   }
 
-  if (typeof ref !== 'function' && refOwners.get(ref) !== element) {
+  if (typeof ref !== 'function' && getElementRefOwner(ref) !== element) {
     elementRefs.delete(element);
     return;
   }
 
   applyRefValue(ref, null);
-  const nextOwner = refOwners.get(ref);
+  const nextOwner = getElementRefOwner(ref);
   if (typeof ref === 'function' && nextOwner && nextOwner !== element) {
     applyRefValue(ref, nextOwner);
   }
-  elementRefs.delete(element);
-  if (refOwners.get(ref) === element) {
-    refOwners.delete(ref);
-  }
+  replaceElementRefBookkeeping(element, undefined);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -224,7 +257,8 @@ function forEachDescendantElement(root: Element, visit: (el: Element) => void) {
   }
 }
 
-function forEachDescendantNode(root: Node, visit: (node: Node) => void) {
+/** @internal Walk every descendant node, including component-host comments. */
+export function forEachDescendantNode(root: Node, visit: (node: Node) => void) {
   try {
     const doc = root.ownerDocument;
     const createTreeWalker = doc?.createTreeWalker;

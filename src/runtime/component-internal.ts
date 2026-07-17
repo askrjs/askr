@@ -76,6 +76,8 @@ export interface ComponentInstance {
   ssr?: boolean; // Set to true for SSR temporary instances
   // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
   cleanupStrict?: boolean;
+  /** @internal Private resource-ownership identity for the active mount. */
+  _ownershipGeneration: object;
   stateValues?: State<unknown>[]; // Persistent state storage across renders
   evaluationGeneration: number; // Prevents stale async evaluation completions
   notifyUpdate: (() => void) | null; // Callback for state updates (persisted on instance)
@@ -205,6 +207,7 @@ export function createComponentInstance(
     ownerFrame: null, // Will be set by renderer when vnode is marked
     ssr: false,
     cleanupStrict: false,
+    _ownershipGeneration: {},
     isRoot: false,
 
     // Render-tracking (for precise state subscriptions)

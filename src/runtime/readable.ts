@@ -3,6 +3,7 @@ import {
   markRuntimeReactivePropsDirtySource,
 } from './access';
 import { getCurrentInstance, type ComponentInstance } from './component';
+import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -17,7 +18,7 @@ export interface ReadableSource<T = unknown> {
   (): T;
   _hasBeenRead?: boolean;
   _hasEverBeenRead?: boolean;
-  _readers?: Map<ComponentInstance, number>;
+  _readers?: Map<ComponentInstance, { token: number; generation: object }>;
   _derivedSubscribers?: Set<DerivedSubscriber>;
   _version?: number;
 }
@@ -189,7 +190,12 @@ export function finalizeReadableSubscriptionsFromSnapshot(
   if (oldSet) {
     for (const source of oldSet) {
       if (!newSet?.has(source)) {
-        source._readers?.delete(instance);
+        const reader = source._readers?.get(instance);
+        if (reader?.generation === instance._ownershipGeneration) {
+          if (source._readers?.delete(instance) && DEVELOPMENT_BUILD_ENABLED) {
+            adjustOwnershipDiagnostic('readableReaders', -1);
+          }
+        }
       }
     }
   }
@@ -214,7 +220,14 @@ export function finalizeReadableSubscriptionsFromSnapshot(
         readers = new Map();
         source._readers = readers;
       }
-      readers.set(instance, instance.lastRenderToken ?? 0);
+      const hadReader = readers.has(instance);
+      readers.set(instance, {
+        token: instance.lastRenderToken ?? 0,
+        generation: instance._ownershipGeneration,
+      });
+      if (!hadReader && DEVELOPMENT_BUILD_ENABLED) {
+        adjustOwnershipDiagnostic('readableReaders', 1);
+      }
     }
   }
 
@@ -226,7 +239,8 @@ export function finalizeReadableSubscriptionsFromSnapshot(
 }
 
 export function cleanupReadableSubscriptions(
-  instance: ComponentInstance
+  instance: ComponentInstance,
+  generation: object = instance._ownershipGeneration
 ): void {
   const sources = instance._lastReadSources;
   if (!sources || sources.size === 0) {
@@ -235,12 +249,30 @@ export function cleanupReadableSubscriptions(
     return;
   }
 
-  for (const source of sources) {
-    source._readers?.delete(instance);
-  }
+  cleanupReadableSubscriptionSources(instance, sources, generation);
   instance._lastReadSources = undefined;
   instance._pendingReadSources = undefined;
   instance._pendingReadSourceVersions = undefined;
+}
+
+/** @internal Detach an exact committed read set without mutating another live generation. */
+export function cleanupReadableSubscriptionSources(
+  instance: ComponentInstance,
+  sources: Iterable<ReadableSource<unknown>> | undefined,
+  generation: object
+): void {
+  if (!sources) {
+    return;
+  }
+
+  for (const source of sources) {
+    const reader = source._readers?.get(instance);
+    if (reader?.generation === generation) {
+      if (source._readers?.delete(instance) && DEVELOPMENT_BUILD_ENABLED) {
+        adjustOwnershipDiagnostic('readableReaders', -1);
+      }
+    }
+  }
 }
 
 export function withDerivedReadTracking<T>(
@@ -326,7 +358,7 @@ export function notifyReadableReaders(
     return false;
   }
 
-  for (const [instance, token] of readers) {
+  for (const [instance, reader] of readers) {
     if (skipInstance && instance === skipInstance) {
       continue;
     }
@@ -344,7 +376,10 @@ export function notifyReadableReaders(
         continue;
       }
     }
-    if (instance.lastRenderToken !== token) {
+    if (
+      instance._ownershipGeneration !== reader.generation ||
+      instance.lastRenderToken !== reader.token
+    ) {
       continue;
     }
     if (instance.hasPendingUpdate) {

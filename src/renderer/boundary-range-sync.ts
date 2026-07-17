@@ -159,10 +159,10 @@ export function syncControlBoundaryScopeDom(
 }
 
 function teardownBoundaryRangeNode(node: Node): void {
-  if (node.nodeType === 8) {
-    node.parentNode?.removeChild(node);
-    return;
-  }
+  // Range anchors are metadata-free comments, but an interior comment can be
+  // the host for a null component. Teardown is cheap for anchors and required
+  // for component-host comments, so every removed range node follows the same
+  // ownership path.
   teardownNodeSubtree(node);
   node.parentNode?.removeChild(node);
 }

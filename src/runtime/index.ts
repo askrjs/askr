@@ -1,6 +1,7 @@
 export * from './access';
 export * from './child-scope';
 export * from './component';
+export { cleanupComponentGeneration } from './component-cleanup';
 export * from './context';
 export {
   beginLifecycleCommitBatch,
@@ -19,6 +20,10 @@ export * from './fastlane';
 export * from './for';
 export type { ForEachSource, ForKeySelector, ForRenderItem } from './for-types';
 export * from './operations';
+export {
+  adjustOwnershipDiagnostic,
+  trackRouteGeneration,
+} from './ownership-diagnostics';
 export * from './perf-metrics';
 export * from './portal';
 export * from './readable';

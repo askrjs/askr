@@ -12,12 +12,18 @@ import {
   getCurrentPortalScope,
   type ComponentInstance,
 } from './component';
-import { enqueueRuntimeTask, getRuntimeRenderer } from './access';
+import { getRuntimeRenderer } from './access';
+import {
+  adjustPortalRegistrations,
+  clearPortalRegistrations,
+} from './ownership-diagnostics';
 import {
   getCurrentLifecycleCommitBatch,
   registerLifecycleTransaction,
   type LifecycleCommitBatch,
 } from './component-lifecycle';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export interface Portal<T extends RenderableChild = RenderableChild> {
   (): unknown;
@@ -95,17 +101,22 @@ export function definePortal<
 
 type DefaultPortalState = {
   portal: Portal<RenderableChild>;
-  owner: ComponentInstance | null;
-  host: ComponentInstance | null;
-  cleanupOwners: WeakSet<ComponentInstance>;
-  explicitHostOwners: Set<ComponentInstance>;
-  explicitHostCleanupOwners: WeakSet<ComponentInstance>;
+  owner: PortalOwner | null;
+  host: PortalOwner | null;
+  cleanupOwners: WeakSet<object>;
+  explicitHostOwners: Map<object, ComponentInstance>;
+  explicitHostCleanupOwners: WeakSet<object>;
   explicitHostSource: ReadableSource<number>;
+};
+
+type PortalOwner = {
+  instance: ComponentInstance;
+  generation: object;
 };
 
 type PendingDefaultPortalWrite = {
   state: DefaultPortalState;
-  owner: ComponentInstance | null;
+  owner: PortalOwner | null;
   children: RenderableChild | undefined;
   batch?: LifecycleCommitBatch;
 };
@@ -154,9 +165,9 @@ function createDefaultPortalState(): DefaultPortalState {
     portal: definePortal<RenderableChild>(),
     owner: null,
     host: null,
-    cleanupOwners: new WeakSet<ComponentInstance>(),
-    explicitHostOwners: new Set<ComponentInstance>(),
-    explicitHostCleanupOwners: new WeakSet<ComponentInstance>(),
+    cleanupOwners: new WeakSet<object>(),
+    explicitHostOwners: new Map<object, ComponentInstance>(),
+    explicitHostCleanupOwners: new WeakSet<object>(),
     explicitHostSource: (() => 0) as ReadableSource<number>,
   };
 
@@ -166,19 +177,12 @@ function createDefaultPortalState(): DefaultPortalState {
   return state;
 }
 
-function isExplicitHostOwnerConnected(owner: ComponentInstance): boolean {
-  if (owner.target) {
-    return owner.target.isConnected;
-  }
-
-  if (owner._placeholder) {
-    return owner._placeholder.isConnected;
-  }
-
-  return owner.mounted;
-}
-
 export function _resetDefaultPortal(): void {
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    for (const state of _defaultPortalStates.values()) {
+      clearPortalRegistrations(state);
+    }
+  }
   _defaultPortalStates = new Map<object, DefaultPortalState>();
   _hasPendingDefaultPortalValue = false;
   _pendingDefaultPortalValue = undefined;
@@ -193,6 +197,9 @@ export function disposeDefaultPortalScope(scope: object | null): void {
   const state = _defaultPortalStates.get(scope);
   if (state) {
     state.portal.render({ children: undefined });
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      clearPortalRegistrations(state);
+    }
   }
 
   _defaultPortalStates.delete(scope);
@@ -217,7 +224,7 @@ function isEmptyPortalValue(value: RenderableChild | undefined): boolean {
 }
 
 function detachDefaultPortalHostOutput(state: DefaultPortalState): void {
-  const host = state.host;
+  const host = state.host?.instance;
   const target = host?.target;
   const parent = target?.parentNode;
   if (!host || !target || !parent) {
@@ -260,7 +267,7 @@ function detachDefaultPortalHostOutput(state: DefaultPortalState): void {
 function applyDefaultPortalWrite(
   state: DefaultPortalState,
   children: RenderableChild | undefined,
-  owner: ComponentInstance | null
+  owner: PortalOwner | null
 ): void {
   state.portal.render({ children });
   state.owner = owner;
@@ -338,6 +345,9 @@ function writeDefaultPortal(
   }
 
   const state = getDefaultPortalState(scope);
+  const capturedOwner = owner
+    ? { instance: owner, generation: owner._ownershipGeneration }
+    : null;
   const batch = getCurrentLifecycleCommitBatch();
   if (batch) {
     let writes = _batchPortalWrites.get(batch);
@@ -348,14 +358,14 @@ function writeDefaultPortal(
 
     const existing = writes.get(state);
     if (existing) {
-      existing.owner = owner;
+      existing.owner = capturedOwner;
       existing.children = props.children;
       return;
     }
 
     const transaction: PendingDefaultPortalWrite = {
       state,
-      owner,
+      owner: capturedOwner,
       children: props.children,
       batch,
     };
@@ -393,14 +403,14 @@ function writeDefaultPortal(
 
   const pending = _pendingDefaultPortalWrites.get(state);
   if (pending) {
-    pending.owner = owner;
+    pending.owner = capturedOwner;
     pending.children = props.children;
     return;
   }
 
   const transaction: PendingDefaultPortalWrite = {
     state,
-    owner,
+    owner: capturedOwner,
     children: props.children,
   };
   if (
@@ -429,7 +439,7 @@ function writeDefaultPortal(
 
   _hasPendingDefaultPortalValue = false;
   _pendingDefaultPortalValue = undefined;
-  applyDefaultPortalWrite(state, props.children, owner);
+  applyDefaultPortalWrite(state, props.children, capturedOwner);
 }
 
 function applyPendingDefaultPortalValue(scope: object): void {
@@ -451,21 +461,32 @@ function registerDefaultPortalOwner(owner: ComponentInstance): void {
   }
 
   const state = getDefaultPortalState(scope);
-  if (state.cleanupOwners.has(owner)) {
+  const generation = owner._ownershipGeneration;
+  if (state.cleanupOwners.has(generation)) {
     return;
   }
 
-  state.cleanupOwners.add(owner);
+  state.cleanupOwners.add(generation);
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    adjustPortalRegistrations(state, 1);
+  }
   (owner.cleanupFns ??= []).push(() => {
     const currentState = _defaultPortalStates.get(scope);
     if (!currentState) {
       return;
     }
 
-    if (currentState.owner === owner) {
+    if (
+      currentState.owner?.instance === owner &&
+      currentState.owner.generation === generation
+    ) {
       applyDefaultPortalWrite(currentState, undefined, null);
     }
-    currentState.cleanupOwners.delete(owner);
+    if (currentState.cleanupOwners.delete(generation)) {
+      if (__ASKR_DEVELOPMENT_BUILD__) {
+        adjustPortalRegistrations(currentState, -1);
+      }
+    }
   });
 }
 
@@ -478,32 +499,32 @@ function registerExplicitDefaultPortalHost(
     return;
   }
 
-  if (!state.explicitHostOwners.has(owner)) {
-    state.explicitHostOwners.add(owner);
+  const generation = owner._ownershipGeneration;
+  if (!state.explicitHostOwners.has(generation)) {
+    state.explicitHostOwners.set(generation, owner);
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustPortalRegistrations(state, 1);
+    }
     notifyExplicitDefaultPortalHostReaders(state);
   }
 
-  if (!state.explicitHostCleanupOwners.has(owner)) {
-    state.explicitHostCleanupOwners.add(owner);
+  if (!state.explicitHostCleanupOwners.has(generation)) {
+    state.explicitHostCleanupOwners.add(generation);
     (owner.cleanupFns ??= []).push(() => {
       if (_defaultPortalStates.get(scope) !== state) {
         return;
       }
 
-      state.explicitHostCleanupOwners.delete(owner);
-      enqueueRuntimeTask(() => {
-        if (_defaultPortalStates.get(scope) !== state) {
-          return;
+      state.explicitHostCleanupOwners.delete(generation);
+      if (
+        state.explicitHostOwners.get(generation) === owner &&
+        state.explicitHostOwners.delete(generation)
+      ) {
+        if (__ASKR_DEVELOPMENT_BUILD__) {
+          adjustPortalRegistrations(state, -1);
         }
-
-        if (isExplicitHostOwnerConnected(owner)) {
-          return;
-        }
-
-        if (state.explicitHostOwners.delete(owner)) {
-          notifyExplicitDefaultPortalHostReaders(state);
-        }
-      });
+        notifyExplicitDefaultPortalHostReaders(state);
+      }
     });
   }
 }
@@ -537,7 +558,9 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
     }
 
     const state = getDefaultPortalState(scope);
-    state.host = owner;
+    state.host = owner
+      ? { instance: owner, generation: owner._ownershipGeneration }
+      : null;
     const isAutomaticFallback = props?.__askrAutoDefaultPortal === true;
     if (!isAutomaticFallback) {
       registerExplicitDefaultPortalHost(scope, state, owner);

@@ -10,6 +10,10 @@ import { finalizeReadableSubscriptions } from './readable';
 import { Fragment } from '../common/jsx';
 import { setDevValue, getDevValue, getDevNamespace } from './dev-namespace';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
 let _bulkCommitActive = false;
 let _appliedParents: WeakSet<Element> | null = null;
 
@@ -171,9 +175,10 @@ export function commitReorderOnly(
   // Performs the minimal, synchronous reorder-only commit.
   const renderer = getRuntimeRenderer();
 
-  const schedBefore = isDevelopmentEnvironment()
-    ? getRuntimeSchedulerState()
-    : null;
+  const schedBefore =
+    DEVELOPMENT_BUILD_ENABLED && isDevelopmentEnvironment()
+      ? getRuntimeSchedulerState()
+      : null;
 
   enterBulkCommit();
 
@@ -192,7 +197,7 @@ export function commitReorderOnly(
     setDevValue('__FASTLANE_CLEARED_AFTER', 0);
 
     // Dev-only invariant checks
-    if (isDevelopmentEnvironment()) {
+    if (DEVELOPMENT_BUILD_ENABLED && isDevelopmentEnvironment()) {
       validateFastLaneInvariants(instance, schedBefore);
     }
 

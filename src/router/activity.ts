@@ -1,7 +1,11 @@
 import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
+import { getStagedAppRenderRouteLocation } from '../common/app-render-runtime';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
 import { getActiveRenderContext } from '../common/render-context';
-import { getCurrentComponentInstance } from '../runtime';
+import {
+  getCurrentAppRenderRuntime,
+  getCurrentComponentInstance,
+} from '../runtime';
 import {
   markReadableDerivedSubscribersDirty,
   markReactivePropsDirtySource,
@@ -92,6 +96,13 @@ function readCurrentRouteLocation(): {
   const renderContext = getActiveRenderContext();
   if (renderContext?.url) {
     return parseLocation(renderContext.url);
+  }
+
+  const stagedRouteLocation = getStagedAppRenderRouteLocation(
+    getCurrentAppRenderRuntime()
+  );
+  if (stagedRouteLocation) {
+    return parseLocation(stagedRouteLocation);
   }
 
   if (typeof window !== 'undefined' && window.location) {

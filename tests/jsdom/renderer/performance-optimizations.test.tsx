@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
+import { getElementRefOwner } from '../../../src/renderer/cleanup';
 import {
   createTestContainer,
   flushScheduler,
@@ -261,6 +262,32 @@ describe('performance optimizations (RENDERER)', () => {
         'empty:detach',
         'restored:attach',
       ]);
+    });
+
+    it('should release superseded inline callback-ref owners', () => {
+      const refs: Array<(element: Element | null) => void> = [];
+      let increment!: () => void;
+
+      const Component = () => {
+        const count = state(0);
+        increment = () => count.set((value) => value + 1);
+        const ref = (_element: Element | null) => undefined;
+        refs.push(ref);
+        return <div ref={ref}>{String(count())}</div>;
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      const host = container.firstElementChild;
+
+      for (let update = 0; update < 10; update += 1) {
+        increment();
+        flushScheduler();
+        expect(container.firstElementChild).toBe(host);
+        expect(getElementRefOwner(refs.at(-2))).toBeUndefined();
+      }
+
+      expect(getElementRefOwner(refs.at(-1))).toBe(host);
     });
 
     it('should detach callback refs removed from reused host elements', () => {

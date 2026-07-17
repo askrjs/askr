@@ -13,6 +13,9 @@ import { isDevelopmentEnvironment } from '../common/env';
 import { assertSchedulingPrecondition, invariant } from '../common/invariant';
 import { logger } from '../common/logger';
 import { recordSchedulerFlushTaskCount } from './perf-metrics';
+import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 const MAX_FLUSH_DEPTH = 50;
 
@@ -173,6 +176,9 @@ export class Scheduler {
     // Enqueue task and account counts
     this.lanes[lane].tasks.push(task);
     this.taskCount++;
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('queuedSchedulerWork', 1);
+    }
 
     this.scheduleFlushKick();
   }
@@ -209,6 +215,9 @@ export class Scheduler {
 
           while (laneQueue.head < laneQueue.tasks.length) {
             const task = laneQueue.tasks[laneQueue.head++];
+            if (__ASKR_DEVELOPMENT_BUILD__) {
+              adjustOwnershipDiagnostic('queuedSchedulerWork', -1);
+            }
             if (executionsByTask) {
               const taskExecutions = (executionsByTask.get(task) ?? 0) + 1;
               executionsByTask.set(task, taskExecutions);
@@ -320,19 +329,22 @@ export class Scheduler {
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        const ns =
-          (
-            globalThis as unknown as Record<string, unknown> & {
-              __ASKR__?: Record<string, unknown>;
-            }
-          ).__ASKR__ || {};
         const diag = {
           flushVersion: this.flushVersion,
           queueLen: this.getPendingTaskCount(),
           running: this.running,
           inHandler: this.inHandler,
           bulk: this.isBulkCommitActive(),
-          namespace: ns,
+          ...(__ASKR_DEVELOPMENT_BUILD__
+            ? {
+                namespace:
+                  (
+                    globalThis as unknown as Record<string, unknown> & {
+                      __ASKR__?: Record<string, unknown>;
+                    }
+                  ).__ASKR__ || {},
+              }
+            : {}),
         };
         reject(
           new Error(
@@ -422,6 +434,9 @@ export class Scheduler {
         queue.tasks.length = queue.head;
       }
       this.taskCount = Math.max(0, this.taskCount - remaining);
+      if (__ASKR_DEVELOPMENT_BUILD__) {
+        adjustOwnershipDiagnostic('queuedSchedulerWork', -remaining);
+      }
       queueMicrotask(() => {
         try {
           this.flushVersion++;
@@ -439,6 +454,9 @@ export class Scheduler {
       queue.head = 0;
     }
     this.taskCount = Math.max(0, this.taskCount - remaining);
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustOwnershipDiagnostic('queuedSchedulerWork', -remaining);
+    }
     this.flushVersion++;
     this.resolveWaiters();
     return remaining;

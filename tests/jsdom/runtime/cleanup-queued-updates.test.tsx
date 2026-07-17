@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src';
+import {
+  getCurrentComponentInstance,
+  type ComponentInstance,
+} from '../../../src/runtime/component';
+import { definePortal } from '../../../src/runtime/portal';
+import type { ReadableSource } from '../../../src/runtime/readable';
+import { globalScheduler } from '../../../src/runtime/scheduler';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -78,6 +85,73 @@ describe('cleanup with queued updates', () => {
 
     expect(() => flushScheduler()).not.toThrow();
     expect(childRenders).toBe(1);
+    expect(getSchedulerState().queueLength).toBe(0);
+  });
+
+  it('should not commit a rendered result after cleanup runs before its DOM commit', () => {
+    type InstanceHost = Node & {
+      __ASKR_INSTANCE?: ComponentInstance;
+      __ASKR_INSTANCES?: ComponentInstance[];
+    };
+
+    const OverlayPortal = definePortal();
+    let owner!: ComponentInstance;
+    let update!: () => void;
+
+    function PortalWriter({ label }: { label: string }) {
+      return OverlayPortal.render({
+        children: <strong data-overlay={'true'}>{label}</strong>,
+      }) as null;
+    }
+
+    function App() {
+      owner = getCurrentComponentInstance()!;
+      const version = state(0);
+      update = () => version.set((value) => value + 1);
+      const label = `overlay:${version()}`;
+      return (
+        <section data-owner={'queued-commit'}>
+          <OverlayPortal />
+          <PortalWriter label={label} />
+        </section>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const instances = new Set<ComponentInstance>();
+    const walker = document.createTreeWalker(container, 0xffffffff);
+    let node: Node | null = walker.currentNode;
+    while (node) {
+      const host = node as InstanceHost;
+      if (host.__ASKR_INSTANCE) instances.add(host.__ASKR_INSTANCE);
+      for (const instance of host.__ASKR_INSTANCES ?? []) {
+        instances.add(instance);
+      }
+      node = walker.nextNode();
+    }
+
+    const portalInstance = Array.from(instances).find(
+      (instance) => instance.fn === OverlayPortal
+    );
+    const portalSource = portalInstance?._lastReadSources?.values().next()
+      .value as ReadableSource<unknown> | undefined;
+
+    expect(portalInstance).toBeDefined();
+    expect(portalSource?._readers?.size).toBe(1);
+    expect(container.textContent).toContain('overlay:0');
+
+    update();
+    globalScheduler.enqueue(() => cleanup());
+    flushScheduler();
+
+    expect(owner.mounted).toBe(false);
+    expect(owner.target?.isConnected).toBe(false);
+    expect(portalInstance?.mounted).toBe(false);
+    expect(portalSource?._readers?.has(portalInstance!)).toBe(false);
+    expect(portalSource?._readers?.size ?? 0).toBe(0);
+    expect(container.textContent).not.toContain('overlay:1');
     expect(getSchedulerState().queueLength).toBe(0);
   });
 });

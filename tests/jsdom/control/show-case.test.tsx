@@ -17,6 +17,51 @@ type ReaderTracked = {
 };
 
 describe('Show primitive', () => {
+  it('should dispose a removed comment-host component subscription', () => {
+    const { container, cleanup } = createTestContainer();
+    let visible!: ReturnType<typeof state<boolean>>;
+    let shared!: ReturnType<typeof state<number>>;
+    let childRenders = 0;
+
+    const EmptyReader = () => {
+      childRenders += 1;
+      shared();
+      return null;
+    };
+
+    const App = () => {
+      visible = state(true);
+      shared = state(0);
+      return (
+        <Show when={visible}>
+          <EmptyReader />
+        </Show>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const readers = (shared as ReaderTracked)._readers!;
+    const [departedInstance] = readers.keys() as IterableIterator<{
+      mounted: boolean;
+    }>;
+    expect(readers.size).toBe(1);
+    expect(departedInstance?.mounted).toBe(true);
+
+    visible.set(false);
+    flushScheduler();
+
+    expect(readers.has(departedInstance)).toBe(false);
+    expect(departedInstance?.mounted).toBe(false);
+
+    shared.set(1);
+    flushScheduler();
+    expect(childRenders).toBe(1);
+
+    cleanup();
+  });
+
   it('should render static children when the condition is truthy', () => {
     const { container, cleanup } = createTestContainer();
 

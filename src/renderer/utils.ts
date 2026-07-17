@@ -9,6 +9,10 @@ import { getPublicAttributeName } from '../common/attr-names';
 import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
+
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 // Keep direct replaceChildren(...nodes) commits below a conservative argument
@@ -436,6 +440,9 @@ export function logFastPathDebug(
   indexOrData?: number | unknown,
   data?: unknown
 ): void {
+  if (!DEVELOPMENT_BUILD_ENABLED) {
+    return;
+  }
   const env = getRuntimeEnv();
   if (env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true') {
     if (data !== undefined) {

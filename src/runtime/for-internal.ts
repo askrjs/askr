@@ -134,6 +134,7 @@ export interface ForTransaction<T> {
   unreadIndexSnapshots: Map<ForIndexSignal, number> | null;
   fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;
   removedScopes: ChildScope[] | null;
+  removedScopeNodes: Node[] | null;
   removeAllItems: boolean;
   signalEffects: Map<
     ReadableSource<unknown>,
@@ -147,18 +148,16 @@ export interface ForTransaction<T> {
   shouldClearDomUpdateState: boolean;
 }
 
-const forStates = new WeakMap<
-  ComponentInstance,
-  Map<number, ForState<unknown>>
->();
+const forStates = new WeakMap<object, Map<number, ForState<unknown>>>();
 
 function getForStore(
   instance: ComponentInstance
 ): Map<number, ForState<unknown>> {
-  let store = forStates.get(instance);
+  const generation = instance._ownershipGeneration;
+  let store = forStates.get(generation);
   if (!store) {
     store = new Map();
-    forStates.set(instance, store);
+    forStates.set(generation, store);
   }
   return store;
 }
@@ -254,6 +253,7 @@ export function useForState<T>(
   }
 
   const hookIndex = claimHookIndex(instance, 'For');
+  const generation = instance._ownershipGeneration;
   const store = getForStore(instance);
   const existing = store.get(hookIndex) as ForState<T> | undefined;
 
@@ -272,6 +272,9 @@ export function useForState<T>(
     created._sourceEffect?.cleanup();
     created._sourceEffect = null;
     store.delete(hookIndex);
+    if (store.size === 0 && forStates.get(generation) === store) {
+      forStates.delete(generation);
+    }
   });
 
   return created;
@@ -355,6 +358,7 @@ export function beginForStateTransaction<T>(
     unreadIndexSnapshots: null,
     fallbackScopeSnapshot: null,
     removedScopes: null,
+    removedScopeNodes: null,
     removeAllItems: false,
     signalEffects: null,
     shouldClearDomUpdateState: false,
@@ -406,6 +410,10 @@ function finalizeForStateRemovals<T>(
       );
     }
 
+    if (transaction.removedScopeNodes) {
+      return;
+    }
+
     if (typeof Element !== 'undefined' && removedDom instanceof Element) {
       const teardownStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
       try {
@@ -427,13 +435,14 @@ function finalizeForStateRemovals<T>(
         node && node !== removedRange.end;
       ) {
         const next = node.nextSibling;
-        if (typeof Element !== 'undefined' && node instanceof Element) {
-          try {
-            getRuntimeRenderer().teardownNodeSubtree(node);
-            if (BENCH_BUILD_ENABLED) recordBenchCounter('subtreeTeardowns');
-          } catch (error) {
-            cleanupErrors.push(error);
-          }
+        try {
+          // A component may commit to a comment or text host. The keyed DOM
+          // phase detaches ranges without teardown so rollback can restore
+          // them; once commit succeeds, every interior host must be finalized.
+          getRuntimeRenderer().teardownNodeSubtree(node);
+          if (BENCH_BUILD_ENABLED) recordBenchCounter('subtreeTeardowns');
+        } catch (error) {
+          cleanupErrors.push(error);
         }
         node = next;
       }
@@ -455,8 +464,30 @@ function finalizeForStateRemovals<T>(
     finalizeScope(scope);
   }
 
+  const removedScopeNodes = transaction.removedScopeNodes;
+  if (removedScopeNodes) {
+    const teardownStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
+    for (const node of removedScopeNodes) {
+      try {
+        getRuntimeRenderer().teardownNodeSubtree(node);
+        if (BENCH_BUILD_ENABLED) recordBenchCounter('subtreeTeardowns');
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchTiming(
+        'domMetadataTeardown',
+        performance.now() - teardownStartMs
+      );
+    }
+  }
+
   if (removedScopes) {
     removedScopes.length = 0;
+  }
+  if (removedScopeNodes) {
+    removedScopeNodes.length = 0;
   }
   transaction.removeAllItems = false;
   if (BENCH_BUILD_ENABLED) {

@@ -1,5 +1,4 @@
 import { __FOR_BOUNDARY__ } from '../common/vnode';
-import { enqueueRuntimeTask } from '../runtime';
 import type { ComponentFunction, ComponentInstance } from '../runtime';
 import { type ControlBoundaryState } from '../runtime';
 import { recordBenchEvent } from '../runtime';
@@ -13,6 +12,11 @@ import {
   syncControlBoundaryScopeDom,
   syncControlBoundaryScopeNode,
 } from './boundary-range-sync';
+import { configureBoundaryCommitOwnerHost } from './boundary-commit-owner';
+export {
+  clearControlBoundaryCommitOwner,
+  registerControlBoundaryCommitOwner,
+} from './boundary-commit-owner';
 export {
   getControlBoundaryRanges,
   syncControlBoundaryInMixedParent,
@@ -26,14 +30,8 @@ import {
   removeRange,
 } from './dom-range';
 import {
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
-} from '../runtime';
-import {
   clearControlBoundaryDomUpdateState,
   evaluateControlBoundaryState,
-  getControlBoundaryCommitChildren,
   getControlBoundaryState,
 } from './boundary-state';
 export {
@@ -45,10 +43,6 @@ export { createForBoundary } from './boundary-materialization';
 
 type ElementWithContext = DOMElement & {
   __instance?: ComponentInstance;
-};
-
-type BoundaryCommitOwnerState = ControlBoundaryState & {
-  _commitOwner?: Element | null;
 };
 
 export interface BoundaryDOMHost {
@@ -77,11 +71,11 @@ export interface BoundaryDOMHost {
 }
 
 let boundaryDOMHost: BoundaryDOMHost | null = null;
-const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
 
 export function configureBoundaryDOMHost(host: BoundaryDOMHost): void {
   boundaryDOMHost = host;
   configureBoundaryRangeHost(host);
+  configureBoundaryCommitOwnerHost(commitForBoundaryChildren);
 }
 
 function getBoundaryDOMHost(): BoundaryDOMHost {
@@ -89,73 +83,6 @@ function getBoundaryDOMHost(): BoundaryDOMHost {
     throw new Error('[askr] Control boundary DOM host is not configured.');
   }
   return boundaryDOMHost;
-}
-
-export function clearControlBoundaryCommitOwner(parent: Element): void {
-  const owner = controlBoundaryOwners.get(parent) as
-    | BoundaryCommitOwnerState
-    | undefined;
-  if (owner) {
-    owner._enqueueBoundaryCommit = null;
-    owner._hasPendingBoundaryCommit = false;
-    if (owner._commitOwner === parent) {
-      owner._commitOwner = null;
-    }
-  }
-
-  controlBoundaryOwners.delete(parent);
-}
-export function registerControlBoundaryCommitOwner(
-  parent: Element,
-  controlState: ControlBoundaryState
-): void {
-  const ownerState = controlState as BoundaryCommitOwnerState;
-  const previousParent = ownerState._commitOwner;
-  if (
-    previousParent &&
-    previousParent !== parent &&
-    controlBoundaryOwners.get(previousParent) === controlState
-  ) {
-    controlBoundaryOwners.delete(previousParent);
-  }
-
-  const previousOwner = controlBoundaryOwners.get(parent) as
-    | BoundaryCommitOwnerState
-    | undefined;
-  if (previousOwner && previousOwner !== controlState) {
-    previousOwner._enqueueBoundaryCommit = null;
-    previousOwner._hasPendingBoundaryCommit = false;
-    if (previousOwner._commitOwner === parent) {
-      previousOwner._commitOwner = null;
-    }
-  }
-
-  controlBoundaryOwners.set(parent, controlState);
-  ownerState._commitOwner = parent;
-  controlState._enqueueBoundaryCommit = () => {
-    if (controlState._hasPendingBoundaryCommit) {
-      return;
-    }
-
-    controlState._hasPendingBoundaryCommit = true;
-    enqueueRuntimeTask(() => {
-      controlState._hasPendingBoundaryCommit = false;
-
-      if (controlBoundaryOwners.get(parent) !== controlState) {
-        return;
-      }
-
-      const lifecycleBatch = beginLifecycleCommitBatch();
-      try {
-        const childrenVNodes = getControlBoundaryCommitChildren(controlState);
-        commitForBoundaryChildren(parent, controlState, childrenVNodes);
-        flushLifecycleCommitBatch(lifecycleBatch);
-      } catch (error) {
-        discardLifecycleCommitBatch(lifecycleBatch);
-        throw error;
-      }
-    });
-  };
 }
 
 export function commitForBoundaryChildren(
@@ -193,9 +120,10 @@ export function commitForBoundaryChildren(
 
     for (let i = 0; i < controlState.lastRemovedNodes.length; i++) {
       const removedNode = controlState.lastRemovedNodes[i];
-      if (removedNode instanceof Element) {
-        teardownNodeSubtree(removedNode);
-      }
+      // Empty components are represented by comment hosts carrying their
+      // component instance. Teardown handles both element and comment hosts,
+      // so every removed boundary node must pass through it.
+      teardownNodeSubtree(removedNode);
       if (removedNode.parentNode === parent) {
         recordBenchEvent('domRemove');
         parent.removeChild(removedNode);

@@ -7,6 +7,8 @@ import type { InstanceHostElement } from './dom-host';
 import type { DOMElement } from './types';
 import { extractKey } from './utils';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
 export function isRouteRootComponentVNode(node: unknown): boolean {
   return (
     typeof node === 'object' &&
@@ -101,7 +103,7 @@ export function restoreVNodeComponentInstance(
 }
 
 let fallbackComponentInstanceId = 0;
-const PRODUCTION_BUILD_ENABLED = isProductionEnvironment();
+const PRODUCTION_BUILD_ENABLED = !__ASKR_DEVELOPMENT_BUILD__;
 
 export function nextComponentInstanceId(): string {
   if (PRODUCTION_BUILD_ENABLED || isProductionEnvironment()) {

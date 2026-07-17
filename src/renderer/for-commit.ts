@@ -17,6 +17,7 @@ import {
   beginLifecycleCommitBatch,
   discardLifecycleCommitBatch,
   flushLifecycleCommitBatch,
+  registerLifecycleTransaction,
 } from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
 import { keyedElements } from './keyed';
@@ -108,6 +109,44 @@ function detachRemovedForNodes(
   }
 }
 
+function deferBoundaryNodeFinalization(
+  nodes: Node[],
+  forState: ForState<unknown>
+): void {
+  if (nodes.length === 0) {
+    return;
+  }
+
+  // Normal list removals are already finalized by the For transaction. This
+  // path owns only predecessor DOM displaced by a fresh boundary generation.
+  if (
+    forState.lastRemovedNodes.length > 0 ||
+    forState.lastRemovedRanges.length > 0
+  ) {
+    return;
+  }
+  const pending = nodes.slice();
+
+  const finalize = (): void => {
+    const errors: unknown[] = [];
+    for (const node of pending) {
+      try {
+        teardownNodeSubtree(node);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    pending.length = 0;
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'For boundary handoff cleanup failed');
+    }
+  };
+
+  if (!registerLifecycleTransaction(pending, finalize, () => undefined)) {
+    finalize();
+  }
+}
+
 function commitForStateBoundaryRanges(
   parent: Element,
   forState: ForState<unknown>,
@@ -158,6 +197,7 @@ function commitForStateBoundaryRanges(
   for (const node of Array.from(parent.childNodes)) {
     if (desiredNodes.has(node)) continue;
     node.parentNode?.removeChild(node);
+    deferBoundaryNodeFinalization([node], forState);
   }
 
   forState._hasResolvedItemDom = true;
@@ -297,6 +337,7 @@ function commitForStateBoundaryChildrenImpl(
   };
 
   if (forState.orderedKeys.length === 0) {
+    const previousBoundaryNodes = Array.from(parent.childNodes);
     const fallbackScope = forState.fallbackScope;
     const fallbackVNode = childrenVNodes[0];
     if (
@@ -331,6 +372,12 @@ function commitForStateBoundaryChildrenImpl(
     } else if (parent.firstChild) {
       parent.textContent = '';
     }
+
+    const retainedBoundaryNodes = new Set(parent.childNodes);
+    deferBoundaryNodeFinalization(
+      previousBoundaryNodes.filter((node) => !retainedBoundaryNodes.has(node)),
+      forState
+    );
 
     keyedElements.delete(parent);
     forState._hasResolvedItemDom = false;
@@ -521,7 +568,8 @@ function commitForStateBoundaryChildrenImpl(
       appendColdRows();
     }
 
-    boundaryChildrenExact = true;
+    boundaryChildrenExact =
+      parent.childNodes.length === forState.orderedKeys.length;
   };
 
   const commitInsertOne = (): void => {
@@ -846,20 +894,21 @@ function commitForStateBoundaryChildrenImpl(
     }
 
     const expectedNodeSet = new Set(expectedNodes);
+    const displacedNodes: Node[] = [];
     for (const currentNode of currentNodes) {
       if (expectedNodeSet.has(currentNode)) {
         continue;
       }
 
-      teardownNodeSubtree(currentNode);
-
       if (currentNode.parentNode === parent) {
         recordBenchEvent('domRemove');
         currentNode.remove();
       }
+      displacedNodes.push(currentNode);
     }
 
     replaceChildrenInOrder(parent, expectedNodes, true);
+    deferBoundaryNodeFinalization(displacedNodes, forState);
   };
 
   if (!boundaryChildrenExact) {

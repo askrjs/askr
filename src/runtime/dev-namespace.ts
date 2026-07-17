@@ -7,12 +7,14 @@
 
 import { isProductionEnvironment } from '../common/env';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
 type DevNamespace = Record<string, unknown>;
 
 // Resolve the build's default mode once. Production bundles bind the helpers
 // below directly to no-op implementations, while development/test builds keep
 // the runtime environment check used by tests that exercise prod fallbacks.
-const PRODUCTION_BUILD_ENABLED = isProductionEnvironment();
+const PRODUCTION_BUILD_ENABLED = !__ASKR_DEVELOPMENT_BUILD__;
 const EMPTY_DEV_NAMESPACE: DevNamespace = {};
 
 function getOrCreateDevNamespace(): DevNamespace {

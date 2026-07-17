@@ -10,6 +10,7 @@ import {
   elementReactivePropsCleanup,
   elementRefs,
   getElementReactivePropsCleanupMap,
+  replaceElementRefBookkeeping,
   type ListenerMapEntry,
   type ReactivePropCleanupEntry,
 } from './cleanup';
@@ -243,9 +244,9 @@ function restoreRef(element: Element, snapshot: RetainedElementSnapshot): void {
 
   if (snapshot.ref) {
     applyRefValue(snapshot.ref, element);
-    elementRefs.set(element, snapshot.ref);
+    replaceElementRefBookkeeping(element, snapshot.ref);
   } else {
-    elementRefs.delete(element);
+    replaceElementRefBookkeeping(element, undefined);
   }
 }
 

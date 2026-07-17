@@ -9,12 +9,19 @@ import type { ComponentInstance } from '../runtime';
 import {
   elementListeners,
   elementReactivePropsCleanup,
-  elementRefs,
+  forEachDescendantNode,
   forEachElementReactivePropCleanup,
   removeElementRef,
+  replaceElementRefBookkeeping,
   type ReactivePropCleanupEntry,
 } from './cleanup';
 import type { InstanceHostElement } from './dom-host';
+
+type InstanceHostNode = Node & {
+  __ASKR_INSTANCE?: ComponentInstance;
+  __ASKR_INSTANCES?: ComponentInstance[];
+  __ASKR_WRAPPER_HOST?: boolean;
+};
 
 export function cleanupDetachedComponentHost(
   host: InstanceHostElement,
@@ -29,28 +36,29 @@ export function cleanupDetachedComponentHost(
       : new Set([retainedInstance as ComponentInstance]);
   const cleanupErrors: unknown[] = [];
   const cleanedInstances = new Set<ComponentInstance>();
-  const elements: InstanceHostElement[] = [host];
+  const nodes: InstanceHostNode[] = [host];
 
   try {
-    const descendants = host.querySelectorAll('*');
-    for (let index = 0; index < descendants.length; index += 1) {
-      elements.push(descendants[index] as InstanceHostElement);
-    }
+    forEachDescendantNode(host, (node) => {
+      nodes.push(node as InstanceHostNode);
+    });
   } catch (error) {
     cleanupErrors.push(error);
   }
 
-  for (const element of elements) {
-    cleanupElementListeners(element, cleanupErrors);
-    cleanupElementReactiveProps(element, cleanupErrors);
-    cleanupElementRef(element, cleanupErrors);
-    cleanupElementInstances(
-      element,
+  for (const node of nodes) {
+    if (node instanceof Element) {
+      cleanupElementListeners(node, cleanupErrors);
+      cleanupElementReactiveProps(node, cleanupErrors);
+      cleanupElementRef(node, cleanupErrors);
+    }
+    cleanupNodeInstances(
+      node,
       retainedInstances,
       cleanedInstances,
       cleanupErrors
     );
-    clearHostMetadata(element, cleanupErrors);
+    clearHostMetadata(node, cleanupErrors);
   }
 
   if (cleanupErrors.length > 0) {
@@ -124,20 +132,20 @@ function cleanupElementRef(element: Element, cleanupErrors: unknown[]): void {
   } catch (error) {
     // removeElementRef invokes user code before deleting its bookkeeping.
     // Clear the entry after a failed callback without invoking it a second time.
-    elementRefs.delete(element);
+    replaceElementRefBookkeeping(element, undefined);
     cleanupErrors.push(error);
   }
 }
 
-function cleanupElementInstances(
-  element: InstanceHostElement,
+function cleanupNodeInstances(
+  node: InstanceHostNode,
   retainedInstances: Set<ComponentInstance>,
   cleanedInstances: Set<ComponentInstance>,
   cleanupErrors: unknown[]
 ): void {
-  const instances = new Set<ComponentInstance>(element.__ASKR_INSTANCES ?? []);
-  if (element.__ASKR_INSTANCE) {
-    instances.add(element.__ASKR_INSTANCE);
+  const instances = new Set<ComponentInstance>(node.__ASKR_INSTANCES ?? []);
+  if (node.__ASKR_INSTANCE) {
+    instances.add(node.__ASKR_INSTANCE);
   }
 
   for (const instance of instances) {
@@ -155,7 +163,7 @@ function cleanupElementInstances(
 }
 
 function clearHostMetadata(
-  element: InstanceHostElement,
+  node: InstanceHostNode,
   cleanupErrors: unknown[]
 ): void {
   for (const property of [
@@ -164,7 +172,7 @@ function clearHostMetadata(
     '__ASKR_WRAPPER_HOST',
   ] as const) {
     try {
-      delete element[property];
+      delete node[property];
     } catch (error) {
       cleanupErrors.push(error);
     }
