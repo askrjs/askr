@@ -133,6 +133,38 @@ const _batchPortalWrites = new WeakMap<
   Map<DefaultPortalState, PendingDefaultPortalWrite>
 >();
 
+function trackBatchPortalWrite(
+  batch: LifecycleCommitBatch,
+  state: DefaultPortalState,
+  transaction: PendingDefaultPortalWrite
+): void {
+  let current: LifecycleCommitBatch | null = batch;
+  while (current) {
+    let writes = _batchPortalWrites.get(current);
+    if (!writes) {
+      writes = new Map();
+      _batchPortalWrites.set(current, writes);
+    }
+    if (!writes.has(state)) {
+      writes.set(state, transaction);
+    }
+    current = current.parent;
+  }
+}
+
+function clearTrackedBatchPortalWrite(
+  transaction: PendingDefaultPortalWrite
+): void {
+  let batch = transaction.batch ?? null;
+  while (batch) {
+    const writes = _batchPortalWrites.get(batch);
+    if (writes?.get(transaction.state) === transaction) {
+      writes.delete(transaction.state);
+    }
+    batch = batch.parent;
+  }
+}
+
 type DefaultPortalHostProps = {
   __askrAutoDefaultPortal?: boolean;
 };
@@ -375,28 +407,26 @@ function writeDefaultPortal(
         if (_batchPortalWrites.get(batch)?.get(state) !== transaction) {
           return;
         }
-        _batchPortalWrites.get(batch)?.delete(state);
+        clearTrackedBatchPortalWrite(transaction);
         applyDefaultPortalWrite(state, transaction.children, transaction.owner);
       },
       () => {
-        if (_batchPortalWrites.get(batch)?.get(state) === transaction) {
-          _batchPortalWrites.get(batch)?.delete(state);
-        }
+        clearTrackedBatchPortalWrite(transaction);
       },
       () => {
         const parentBatch = batch.parent;
         const parentWrite = parentBatch
           ? _batchPortalWrites.get(parentBatch)?.get(state)
           : undefined;
-        if (parentWrite) {
+        if (parentWrite && parentWrite !== transaction) {
           parentWrite.owner = transaction.owner;
           parentWrite.children = transaction.children;
         }
-        _batchPortalWrites.get(batch)?.delete(state);
+        clearTrackedBatchPortalWrite(transaction);
       }
     );
     if (registered) {
-      writes.set(state, transaction);
+      trackBatchPortalWrite(batch, state, transaction);
       return;
     }
   }
@@ -454,6 +484,33 @@ function applyPendingDefaultPortalValue(scope: object): void {
   _pendingDefaultPortalValue = undefined;
 }
 
+function getPendingDefaultPortalWrite(
+  state: DefaultPortalState
+): PendingDefaultPortalWrite | undefined {
+  let batch = getCurrentLifecycleCommitBatch();
+  while (batch) {
+    const pending = _batchPortalWrites.get(batch)?.get(state);
+    if (pending) {
+      return pending;
+    }
+    batch = batch.parent;
+  }
+
+  return _pendingDefaultPortalWrites.get(state);
+}
+
+function hasPendingReplacementPortalOwner(
+  state: DefaultPortalState,
+  owner: ComponentInstance,
+  generation: object
+): boolean {
+  const pendingOwner = getPendingDefaultPortalWrite(state)?.owner;
+  return Boolean(
+    pendingOwner &&
+    (pendingOwner.instance !== owner || pendingOwner.generation !== generation)
+  );
+}
+
 function registerDefaultPortalOwner(owner: ComponentInstance): void {
   const scope = resolveDefaultPortalScope(owner);
   if (!scope) {
@@ -478,7 +535,8 @@ function registerDefaultPortalOwner(owner: ComponentInstance): void {
 
     if (
       currentState.owner?.instance === owner &&
-      currentState.owner.generation === generation
+      currentState.owner.generation === generation &&
+      !hasPendingReplacementPortalOwner(currentState, owner, generation)
     ) {
       applyDefaultPortalWrite(currentState, undefined, null);
     }

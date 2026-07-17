@@ -6,7 +6,7 @@ import {
 } from '../runtime';
 import { elementRefs, removeElementRef, updateElementRef } from './cleanup';
 import { cleanupDetachedComponentHost } from './component-host-cleanup';
-import type { InstanceHostElement } from './dom-host';
+import type { InstanceHostNode } from './dom-host';
 import { restoreVNodeComponentInstance } from './component-host-instances';
 
 export interface ComponentHostReplacement {
@@ -45,32 +45,29 @@ export function createRetainedHostInstanceSet(
 
 function cleanupReplacementNode(
   node: Node,
-  retainedInstance: ComponentInstance
+  retainedInstances: Iterable<ComponentInstance>
 ): void {
-  if (node instanceof Element) {
-    cleanupDetachedComponentHost(node as InstanceHostElement, retainedInstance);
-    return;
-  }
+  cleanupDetachedComponentHost(node as InstanceHostNode, retainedInstances);
+}
 
-  try {
-    delete (node as Node & { __ASKR_INSTANCE?: ComponentInstance })
-      .__ASKR_INSTANCE;
-  } catch {
-    // Ignore metadata cleanup failures on DOM shims.
-  }
+interface HostBinding {
+  target: Element | null;
+  placeholder: Comment | undefined;
 }
 
 export function beginComponentHostReplacement(
-  existingHost: InstanceHostElement,
+  existingHost: InstanceHostNode,
   retainedInstance: ComponentInstance,
   previousTarget: Element | null,
   retainedInstances: Iterable<ComponentInstance> = [retainedInstance],
   disposeOnRollback = false
 ): ComponentHostReplacement {
   const parent = existingHost.parentNode;
-  const previousRef = elementRefs.get(existingHost);
+  const previousRef =
+    existingHost instanceof Element ? elementRefs.get(existingHost) : undefined;
   let previousRefDetached = false;
   let nextDom: Node | null = null;
+  let previousBindings = new Map<ComponentInstance, HostBinding>();
   let didReplace = false;
   let replacementAttempted = false;
   let finished = false;
@@ -80,10 +77,20 @@ export function beginComponentHostReplacement(
     finished = true;
     if (replacementAttempted && didReplace) {
       const retained = Array.from(retainedInstances);
-      if (nextDom instanceof Element) {
-        for (const instance of retained) {
-          if (instance.target === existingHost) {
+      if (nextDom) {
+        for (const [instance, binding] of previousBindings) {
+          if (
+            binding.target !== existingHost &&
+            binding.placeholder !== existingHost
+          ) {
+            continue;
+          }
+          if (nextDom instanceof Element) {
             instance.target = nextDom;
+            instance._placeholder = undefined;
+          } else if (nextDom instanceof Comment) {
+            instance.target = null;
+            instance._placeholder = nextDom;
           }
         }
       }
@@ -97,20 +104,28 @@ export function beginComponentHostReplacement(
     if (!replacementAttempted) return;
 
     const rollbackErrors: unknown[] = [];
+    const retained = Array.from(retainedInstances);
     if (nextDom && nextDom !== existingHost) {
       try {
-        cleanupReplacementNode(nextDom, retainedInstance);
+        cleanupReplacementNode(nextDom, retained);
       } catch (error) {
         rollbackErrors.push(error);
       }
     }
     try {
       if (disposeOnRollback) cleanupComponent(retainedInstance);
-      else retainedInstance.target = previousTarget;
+      for (const [instance, binding] of previousBindings) {
+        if (disposeOnRollback && instance === retainedInstance) continue;
+        instance.target = binding.target;
+        instance._placeholder = binding.placeholder;
+      }
+      if (!previousBindings.has(retainedInstance) && !disposeOnRollback) {
+        retainedInstance.target = previousTarget;
+      }
     } catch (error) {
       rollbackErrors.push(error);
     }
-    if (previousRefDetached && previousRef) {
+    if (previousRefDetached && previousRef && existingHost instanceof Element) {
       try {
         updateElementRef(existingHost, previousRef);
       } catch (error) {
@@ -131,12 +146,21 @@ export function beginComponentHostReplacement(
     prepareNextDom: (replacement: Node) => void
   ): Node => {
     replacementAttempted = true;
-    if (!staged && previousRef) {
+    if (!staged && previousRef && existingHost instanceof Element) {
       removeElementRef(existingHost);
       previousRefDetached = true;
     }
 
     try {
+      previousBindings = new Map(
+        Array.from(retainedInstances, (instance) => [
+          instance,
+          {
+            target: instance.target,
+            placeholder: instance._placeholder,
+          },
+        ])
+      );
       nextDom = materialize();
       prepareNextDom(nextDom);
       if (parent && nextDom !== existingHost) {

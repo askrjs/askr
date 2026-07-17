@@ -139,13 +139,15 @@ function evaluateInLifecycleBatch(
           retainedHostInstances
         );
 
-        if (syncedDom instanceof Element) {
-          retainHostOwnerChain(
-            syncedDom,
-            targetInstance,
-            retainedHostInstances
-          );
-          targetInstance.target = syncedDom;
+        if (syncedDom) {
+          if (syncedDom instanceof Element) {
+            retainHostOwnerChain(
+              syncedDom,
+              targetInstance,
+              retainedHostInstances
+            );
+            targetInstance.target = syncedDom;
+          }
           return;
         }
       }

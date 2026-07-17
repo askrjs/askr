@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { state } from '../../../src';
-import { task } from '../../../src/runtime/operations';
+import { resource, task } from '../../../src/runtime/operations';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -11,6 +11,10 @@ type ReaderInstance = { mounted: boolean };
 type ReaderTracked = { _readers?: Map<ReaderInstance, unknown> };
 
 describe('comment host cleanup', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('should dispose each superseded null component reader exactly once', async () => {
     const { container, cleanup } = createTestContainer();
     let version!: ReturnType<typeof state<number>>;
@@ -96,6 +100,71 @@ describe('comment host cleanup', () => {
     expect(readers.size).toBe(0);
     expect(departedReader.mounted).toBe(false);
     expect(cleanupCount).toBe(1);
+
+    cleanup();
+  });
+
+  it('should retain a closed component generation across a parent rerender', async () => {
+    vi.useFakeTimers();
+    const { container, cleanup } = createTestContainer();
+    let rerenderParent!: () => void;
+    let childRenderCount = 0;
+    let timerCount = 0;
+
+    const PresenceChild = ({ open }: { open: boolean }) =>
+      open ? <span data-open={'true'}>{'open'}</span> : null;
+
+    const TimedChild = () => {
+      const open = state(true);
+      childRenderCount += 1;
+
+      resource(
+        ({ signal }) => {
+          if (!open()) return null;
+
+          timerCount += 1;
+          const timeoutId = setTimeout(() => open.set(false), 10);
+          signal.addEventListener('abort', () => clearTimeout(timeoutId), {
+            once: true,
+          });
+          return null;
+        },
+        [open()]
+      );
+
+      return <PresenceChild open={open()} />;
+    };
+
+    const App = () => {
+      const version = state(0);
+      rerenderParent = () => version.set((value) => value + 1);
+      return (
+        <main>
+          <TimedChild key={'timed'} />
+          <span>{String(version())}</span>
+        </main>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(container.querySelector('[data-open="true"]')).not.toBeNull();
+    expect(timerCount).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(10);
+    flushScheduler();
+    expect(container.querySelector('[data-open="true"]')).toBeNull();
+
+    const rendersBeforeParentUpdate = childRenderCount;
+    rerenderParent();
+    flushScheduler();
+
+    expect(container.querySelector('[data-open="true"]')).toBeNull();
+    expect(timerCount).toBe(1);
+    expect(childRenderCount).toBe(rendersBeforeParentUpdate + 1);
 
     cleanup();
   });

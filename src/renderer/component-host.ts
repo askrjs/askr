@@ -23,9 +23,11 @@ import {
   getRendererDOMHost,
   type ElementWithContext,
   type InstanceHostElement,
+  type InstanceHostNode,
 } from './dom-host';
 import {
   findHostInstanceByType,
+  findStableHostInstanceByType,
   getVNodeComponentInstance,
   inheritComponentCleanupStrict,
   inheritComponentKey,
@@ -74,9 +76,25 @@ export function syncComponentElement(
   retainedHostInstances?: Iterable<ComponentInstance>
 ): Node | null {
   const existingHost =
-    currentDom instanceof Element ? (currentDom as InstanceHostElement) : null;
+    currentDom instanceof Element || currentDom instanceof Comment
+      ? (currentDom as InstanceHostNode)
+      : null;
   const existingInstance = existingHost
-    ? findHostInstanceByType(existingHost, type, node, getCurrentInstance(), 0)
+    ? existingHost instanceof Comment
+      ? findStableHostInstanceByType(
+          existingHost,
+          type,
+          node,
+          getCurrentInstance(),
+          0
+        )
+      : findHostInstanceByType(
+          existingHost,
+          type,
+          node,
+          getCurrentInstance(),
+          0
+        )
     : null;
   if (!existingHost) {
     return null;
@@ -85,6 +103,7 @@ export function syncComponentElement(
   const domHost = getRendererDOMHost();
 
   if (!existingInstance || existingInstance.fn !== type) {
+    if (!(existingHost instanceof Element)) return null;
     const snapshot =
       getVNodeContextFrame(node) || getCurrentContextFrame() || null;
     const hydrationInstance = createComponentInstance(
@@ -206,12 +225,12 @@ export function syncComponentElement(
         (replacement) => {
           if (replacement instanceof Element) {
             materializeKey(replacement, node, props);
-            retainReplacementOwnerChain(
-              replacement,
-              hydrationInstance,
-              liveRetainedInstances
-            );
           }
+          retainReplacementOwnerChain(
+            replacement,
+            hydrationInstance,
+            liveRetainedInstances
+          );
         }
       );
 
@@ -269,7 +288,10 @@ export function syncComponentElement(
   }
   const scopedResult = markVNodeTreeWithContextFrame(result, snapshot ?? null);
 
-  if (existingHost.__ASKR_WRAPPER_HOST) {
+  if (
+    existingHost instanceof Element &&
+    (existingHost as InstanceHostElement).__ASKR_WRAPPER_HOST
+  ) {
     const wrapperResult = resolveWrapperHostResult(
       existingHost,
       scopedResult,
@@ -285,6 +307,7 @@ export function syncComponentElement(
   }
 
   if (
+    existingHost instanceof Element &&
     scopedResult &&
     typeof scopedResult === 'object' &&
     'type' in (scopedResult as DOMElement) &&
@@ -315,6 +338,27 @@ export function syncComponentElement(
     liveRetainedInstances
   );
   if (
+    existingHost instanceof Comment &&
+    (resolvedResult === null ||
+      resolvedResult === undefined ||
+      resolvedResult === false)
+  ) {
+    retainReplacementOwnerChain(
+      existingHost,
+      existingInstance,
+      liveRetainedInstances
+    );
+    for (const instance of liveRetainedInstances) {
+      if (instance.target === null || instance._placeholder === existingHost) {
+        instance.target = null;
+        instance._placeholder = existingHost;
+      }
+    }
+    warnUnusedStateReads(existingInstance);
+    return existingHost;
+  }
+  if (
+    existingHost instanceof Element &&
     _isDOMElement(resolvedResult) &&
     typeof resolvedResult.type === 'string' &&
     tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.type)
@@ -342,12 +386,12 @@ export function syncComponentElement(
     (replacement) => {
       if (replacement instanceof Element) {
         materializeKey(replacement, node, props);
-        retainReplacementOwnerChain(
-          replacement,
-          existingInstance,
-          liveRetainedInstances
-        );
       }
+      retainReplacementOwnerChain(
+        replacement,
+        existingInstance,
+        liveRetainedInstances
+      );
     }
   );
 
@@ -356,11 +400,11 @@ export function syncComponentElement(
 }
 
 function retainReplacementOwnerChain(
-  host: Element,
+  host: Node,
   owner: ComponentInstance,
   retainedInstances: Iterable<ComponentInstance>
 ): void {
-  const componentHost = host as InstanceHostElement;
+  const componentHost = host as InstanceHostNode;
   const current = componentHost.__ASKR_INSTANCES ?? [];
   const next = [...current];
   for (const instance of retainedInstances) {

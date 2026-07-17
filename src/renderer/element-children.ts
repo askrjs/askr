@@ -277,11 +277,7 @@ function updateMixedControlChildren(
       continue;
     }
 
-    if (
-      cursor instanceof Element &&
-      _isDOMElement(child) &&
-      typeof child.type === 'function'
-    ) {
+    if (cursor && _isDOMElement(child) && typeof child.type === 'function') {
       const synced = domHost.syncComponentElement(
         cursor,
         child as unknown as ElementWithContext,
@@ -352,7 +348,7 @@ export function updateUnkeyedChildren(
   const domHost = getRendererDOMHost();
 
   const trySyncComponentChild = (
-    currentDom: Element,
+    currentDom: Node,
     next: DOMElement
   ): Node | null => {
     if (typeof next.type !== 'function') {
@@ -506,6 +502,12 @@ export function updateUnkeyedChildren(
             }
           }
         } else {
+          if (
+            typeof next.type === 'function' &&
+            trySyncComponentChild(currentNode, next)
+          ) {
+            continue;
+          }
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
             teardownNodeSubtree(currentNode);
