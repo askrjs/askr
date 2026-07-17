@@ -12,6 +12,24 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('For JSX primitive', () => {
+  it('should register one parent ownership boundary for all keyed rows', () => {
+    const { container, cleanup } = createTestContainer();
+    let appInstance: ReturnType<typeof getCurrentComponentInstance> = null;
+
+    const App = () => {
+      appInstance = getCurrentComponentInstance();
+      return (
+        <For each={Array.from({ length: 1000 }, (_, id) => id)} by={(id) => id}>
+          {(id) => <span>{id}</span>}
+        </For>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    expect(appInstance?._ownedChildScopes?.size).toBe(1);
+    cleanup();
+  });
+
   it('should update index accessors after keyed reorder', () => {
     const { container, cleanup } = createTestContainer();
 
@@ -190,7 +208,7 @@ describe('For JSX primitive', () => {
 
       const local = state(0);
       localSetters.set(id, local.set);
-      instance.cleanupFns.push(() => {
+      (instance.cleanupFns ??= []).push(() => {
         cleanupCounts.set(id, (cleanupCounts.get(id) ?? 0) + 1);
       });
 
@@ -335,7 +353,7 @@ describe('For JSX primitive', () => {
       if (!instance) {
         throw new Error('expected details component instance');
       }
-      instance.cleanupFns.push(() => {
+      (instance.cleanupFns ??= []).push(() => {
         detailCleanups.set(id, (detailCleanups.get(id) ?? 0) + 1);
       });
 
@@ -347,7 +365,7 @@ describe('For JSX primitive', () => {
       if (!instance) {
         throw new Error('expected row component instance');
       }
-      instance.cleanupFns.push(() => {
+      (instance.cleanupFns ??= []).push(() => {
         rowCleanups.set(item.id, (rowCleanups.get(item.id) ?? 0) + 1);
       });
 

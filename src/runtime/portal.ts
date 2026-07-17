@@ -199,7 +199,11 @@ export function disposeDefaultPortalScope(scope: object | null): void {
 }
 
 function isComponentPortalScope(scope: object): scope is ComponentInstance {
-  return Array.isArray((scope as ComponentInstance).cleanupFns);
+  return (
+    'lifecycleGeneration' in scope &&
+    'evaluationGeneration' in scope &&
+    'parentInstance' in scope
+  );
 }
 
 type PortalHostNode = Element & {

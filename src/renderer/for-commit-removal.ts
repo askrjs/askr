@@ -1,6 +1,7 @@
 import {
   recordBenchCounter,
   recordBenchEvent,
+  recordBenchTiming,
   withBenchMetricScope,
 } from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
@@ -14,6 +15,7 @@ export function removeForBoundaryNodes(
   removedNodes: Node[],
   options: { teardown?: boolean } = {}
 ): void {
+  const removalStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
   const shouldTeardown = options.teardown !== false;
   if (
     removedNodes.length > 0 &&
@@ -46,6 +48,12 @@ export function removeForBoundaryNodes(
       } else {
         parent.textContent = '';
       }
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchTiming(
+          'physicalDomRemoval',
+          performance.now() - removalStartMs
+        );
+      }
       return;
     }
   }
@@ -61,5 +69,8 @@ export function removeForBoundaryNodes(
       }
       parent.removeChild(node);
     }
+  }
+  if (BENCH_BUILD_ENABLED && removedNodes.length > 0) {
+    recordBenchTiming('physicalDomRemoval', performance.now() - removalStartMs);
   }
 }

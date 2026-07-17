@@ -101,6 +101,7 @@ type BrowserDevCounters = {
   textNodeWrites: number;
 };
 
+
 type BrowserBenchDefinition = {
   name: BrowserBenchName;
   scenario: string;

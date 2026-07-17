@@ -23,9 +23,11 @@ export function cleanupComponent(instance: ComponentInstance): void {
   const savedScope = clearCurrentComponentScope();
 
   try {
-    const cleanupErrors: unknown[] = [];
+    const cleanupErrors: unknown[] | undefined = instance.cleanupStrict
+      ? []
+      : undefined;
     const recordCleanupError = (message: string, err: unknown): void => {
-      if (instance.cleanupStrict) {
+      if (cleanupErrors) {
         cleanupErrors.push(err);
       } else if (isDevelopmentEnvironment()) {
         logger.warn(message, err);
@@ -44,13 +46,15 @@ export function cleanupComponent(instance: ComponentInstance): void {
       }
     }
 
-    const cleanupFns = instance.cleanupFns ?? [];
-    instance.cleanupFns = [];
-    for (const cleanup of cleanupFns) {
-      try {
-        cleanup();
-      } catch (err) {
-        recordCleanupError('[Askr] cleanup function threw:', err);
+    const cleanupFns = instance.cleanupFns;
+    instance.cleanupFns = undefined;
+    if (cleanupFns) {
+      for (const cleanup of cleanupFns) {
+        try {
+          cleanup();
+        } catch (err) {
+          recordCleanupError('[Askr] cleanup function threw:', err);
+        }
       }
     }
 
@@ -74,15 +78,15 @@ export function cleanupComponent(instance: ComponentInstance): void {
 
     instance.lifecycleGeneration++;
     instance.evaluationGeneration++;
-    instance.mountOperations = [];
-    instance.commitOperations = [];
+    instance.mountOperations = undefined;
+    instance.commitOperations = undefined;
     instance.lifecycleSlots = undefined;
     instance.hasPendingUpdate = false;
     instance.notifyUpdate = null;
     instance._placeholder = undefined;
     instance.mounted = false;
 
-    if (cleanupErrors.length > 0) {
+    if (cleanupErrors && cleanupErrors.length > 0) {
       throw new AggregateError(
         cleanupErrors,
         `Cleanup failed for component ${instance.id}`

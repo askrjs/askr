@@ -31,6 +31,20 @@ export interface BenchMetrics {
   bulkClearCommits: number;
   reconcilePhaseMs: number;
   domCommitPhaseMs: number;
+  removeValidationMs: number;
+  shiftedSuffixSyncMs: number;
+  collectionMutationMs: number;
+  childScopeDisposalMs: number;
+  lifecycleFinalizationMs: number;
+  domMetadataTeardownMs: number;
+  physicalDomRemovalMs: number;
+  transactionFinalizationMs: number;
+  shiftedItemsVisited: number;
+  indexSignalsUpdated: number;
+  scopesDisposed: number;
+  subtreeTeardowns: number;
+  removedBoundariesRecorded: number;
+  keyedMapEntriesDeleted: number;
   fastLaneName: string | null;
 }
 
@@ -71,18 +85,49 @@ function createInitialBenchMetrics(): BenchMetrics {
     bulkClearCommits: 0,
     reconcilePhaseMs: 0,
     domCommitPhaseMs: 0,
+    removeValidationMs: 0,
+    shiftedSuffixSyncMs: 0,
+    collectionMutationMs: 0,
+    childScopeDisposalMs: 0,
+    lifecycleFinalizationMs: 0,
+    domMetadataTeardownMs: 0,
+    physicalDomRemovalMs: 0,
+    transactionFinalizationMs: 0,
+    shiftedItemsVisited: 0,
+    indexSignalsUpdated: 0,
+    scopesDisposed: 0,
+    subtreeTeardowns: 0,
+    removedBoundariesRecorded: 0,
+    keyedMapEntriesDeleted: 0,
     fastLaneName: null,
   };
 }
 
 const emptyBenchMetrics = createInitialBenchMetrics();
-type BenchMetricScope = 'coldCreate' | 'fullClear';
+type BenchMetricScope = 'coldCreate' | 'singleRemove' | 'fullClear';
 type BenchCounter =
   | 'domNodesCreated'
   | 'listenerBindings'
   | 'reactivePropsMounted'
   | 'replaceChildrenCommits'
-  | 'bulkClearCommits';
+  | 'bulkClearCommits'
+  | 'shiftedItemsVisited'
+  | 'indexSignalsUpdated'
+  | 'scopesDisposed'
+  | 'subtreeTeardowns'
+  | 'removedBoundariesRecorded'
+  | 'keyedMapEntriesDeleted';
+type BenchTiming =
+  | 'reconcile'
+  | 'domCommit'
+  | 'removeValidation'
+  | 'shiftedSuffixSync'
+  | 'collectionMutation'
+  | 'childScopeDisposal'
+  | 'lifecycleFinalization'
+  | 'domMetadataTeardown'
+  | 'physicalDomRemoval'
+  | 'transactionFinalization';
 let activeBenchMetricScope: BenchMetricScope | null = null;
 
 function isBenchRuntimeEnabled(): boolean {
@@ -134,6 +179,20 @@ function resetBenchMetricsLive(metrics: BenchMetrics): void {
   metrics.bulkClearCommits = 0;
   metrics.reconcilePhaseMs = 0;
   metrics.domCommitPhaseMs = 0;
+  metrics.removeValidationMs = 0;
+  metrics.shiftedSuffixSyncMs = 0;
+  metrics.collectionMutationMs = 0;
+  metrics.childScopeDisposalMs = 0;
+  metrics.lifecycleFinalizationMs = 0;
+  metrics.domMetadataTeardownMs = 0;
+  metrics.physicalDomRemovalMs = 0;
+  metrics.transactionFinalizationMs = 0;
+  metrics.shiftedItemsVisited = 0;
+  metrics.indexSignalsUpdated = 0;
+  metrics.scopesDisposed = 0;
+  metrics.subtreeTeardowns = 0;
+  metrics.removedBoundariesRecorded = 0;
+  metrics.keyedMapEntriesDeleted = 0;
   metrics.fastLaneName = null;
   publishBenchMetrics(metrics);
 }
@@ -221,6 +280,9 @@ const recordBenchCounterLive = (counter: BenchCounter, delta = 1): void => {
     case 'bulkClearCommits':
       benchMetrics.bulkClearCommits += delta;
       break;
+    default:
+      benchMetrics[counter] += delta;
+      break;
   }
 };
 
@@ -242,18 +304,20 @@ function withBenchMetricScopeLive<T>(scope: BenchMetricScope, run: () => T): T {
 const isBenchMetricScopeActiveLive = (scope: BenchMetricScope): boolean =>
   isBenchRuntimeEnabled() && activeBenchMetricScope === scope;
 
-const recordBenchTimingLive = (
-  phase: 'reconcile' | 'domCommit',
-  ms: number
-): void => {
+const recordBenchTimingLive = (phase: BenchTiming, ms: number): void => {
   if (!isBenchRuntimeEnabled() || !benchMetrics) {
     return;
   }
 
-  if (phase === 'reconcile') {
-    benchMetrics.reconcilePhaseMs = ms;
-  } else {
-    benchMetrics.domCommitPhaseMs = ms;
+  const field =
+    phase === 'reconcile'
+      ? 'reconcilePhaseMs'
+      : phase === 'domCommit'
+        ? 'domCommitPhaseMs'
+        : (`${phase}Ms` as keyof BenchMetrics);
+  const current = benchMetrics[field];
+  if (typeof current === 'number') {
+    (benchMetrics[field] as number) = current + Math.max(ms, Number.EPSILON);
   }
 };
 
@@ -280,7 +344,7 @@ export const recordBenchFastLane = BENCH_BUILD_ENABLED
 
 export const recordBenchTiming = BENCH_BUILD_ENABLED
   ? recordBenchTimingLive
-  : (_phase: 'reconcile' | 'domCommit', _ms: number): void => {};
+  : (_phase: BenchTiming, _ms: number): void => {};
 
 export const recordBenchCounter = BENCH_BUILD_ENABLED
   ? recordBenchCounterLive

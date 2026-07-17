@@ -16,15 +16,17 @@ import {
 } from './for-scopes';
 import {
   flushBenchMetrics,
-  isBenchBuildEnabled,
   recordBenchEvent,
+  recordBenchCounter,
   recordBenchFastLane,
   recordBenchTiming,
   resetBenchMetrics,
 } from './for-bench';
 import type { ForState } from './for-internal';
 
-const BENCH_BUILD_ENABLED = isBenchBuildEnabled();
+declare const __ASKR_BENCH_BUILD__: boolean;
+
+const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
 function failForValidation(message: string): never {
   throw new Error(message);
@@ -85,6 +87,7 @@ export function reconcileForItems<T>(
   const newLen = newArray.length;
   forState.lastRemovedNodes = [];
   forState.lastRemovedRanges = [];
+  forState.pendingRemovedKey = null;
 
   if (newLen === 0) {
     if (oldLen > 0) {
@@ -257,6 +260,9 @@ export function reconcileForItems<T>(
   // Guard: newLen <= oldLen && all new keys match old keys at same indices
   if (newLen < oldLen) {
     if (oldLen === newLen + 1) {
+      const removeValidationStartMs = BENCH_BUILD_ENABLED
+        ? performance.now()
+        : 0;
       let removedIndex = -1;
 
       for (let i = 0; i < newLen; i++) {
@@ -279,26 +285,48 @@ export function reconcileForItems<T>(
 
         if (canUseRemoveOnePath) {
           if (BENCH_BUILD_ENABLED) {
+            recordBenchTiming(
+              'removeValidation',
+              performance.now() - removeValidationStartMs
+            );
+          }
+          if (BENCH_BUILD_ENABLED) {
             recordBenchFastLane('REMOVE_ONE');
           }
-          forState.lastCommitStrategy = 'NO_REORDER';
+          forState.lastCommitStrategy = 'REMOVE_ONE';
 
-          const previousOrderedItems = forState.orderedItems.slice();
           const resultVNodes = forState.orderedVNodes;
           const resultItems = forState.orderedItems;
-          resultVNodes.length = newLen;
+          const removedKey = orderedKeys[removedIndex];
+          const removedItem =
+            resultItems[removedIndex] ?? items.get(removedKey);
+
+          const collectionMutationStartMs = BENCH_BUILD_ENABLED
+            ? performance.now()
+            : 0;
+          orderedKeys.copyWithin(removedIndex, removedIndex + 1);
+          resultItems.copyWithin(removedIndex, removedIndex + 1);
+          resultVNodes.copyWithin(removedIndex, removedIndex + 1);
+          orderedKeys.length = newLen;
           resultItems.length = newLen;
+          resultVNodes.length = newLen;
+          if (BENCH_BUILD_ENABLED) {
+            recordBenchTiming(
+              'collectionMutation',
+              performance.now() - collectionMutationStartMs
+            );
+          }
           const dirtyIndices: number[] = [];
+          const suffixSyncStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
 
           for (let i = 0; i < newLen; i++) {
             const item = newArray[i];
-            const key = i < removedIndex ? orderedKeys[i] : orderedKeys[i + 1];
-            const existing = items.get(key)!;
+            const existing = resultItems[i];
             const scopeNeedsDomUpdate = existing.scope.needsDomUpdate;
 
             const itemChanged = existing.item !== item;
             const indexSignal = existing.indexSignal;
-            const indexChanged = indexSignal.peek() !== i;
+            const indexChanged = i >= removedIndex && indexSignal.peek() !== i;
 
             if (itemChanged) {
               updateItemInstance(forState, existing, item);
@@ -307,34 +335,33 @@ export function reconcileForItems<T>(
             const indexVisibleChange = indexChanged
               ? syncForItemIndex(forState, existing, i)
               : false;
+            if (BENCH_BUILD_ENABLED && i >= removedIndex) {
+              recordBenchCounter('shiftedItemsVisited');
+              if (indexChanged) recordBenchCounter('indexSignalsUpdated');
+            }
 
             if (itemChanged || indexVisibleChange || scopeNeedsDomUpdate) {
               dirtyIndices.push(i);
             }
 
-            resultItems[i] = existing;
             resultVNodes[i] = existing.scope.vnode as VNode;
+          }
+          if (BENCH_BUILD_ENABLED) {
+            recordBenchTiming(
+              'shiftedSuffixSync',
+              performance.now() - suffixSyncStartMs
+            );
           }
 
           if (BENCH_BUILD_ENABLED) {
             recordBenchEvent('itemReused', newLen);
           }
 
-          const removedKey = orderedKeys[removedIndex];
-          const removedItem = items.get(removedKey);
           if (removedItem) {
             disposeItemInstance(forState, removedItem, 'teardown');
             items.delete(removedKey);
           }
-
-          const nextOrderedKeys = orderedKeys.slice(0, newLen);
-          const nextOrderedItems = previousOrderedItems.slice(0, newLen);
-          for (let i = removedIndex; i < newLen; i++) {
-            nextOrderedKeys[i] = orderedKeys[i + 1];
-            nextOrderedItems[i] = previousOrderedItems[i + 1];
-          }
-          forState.orderedKeys = nextOrderedKeys;
-          forState.orderedItems = nextOrderedItems;
+          forState.pendingRemovedKey = removedKey;
 
           if (BENCH_BUILD_ENABLED) {
             recordBenchTiming(

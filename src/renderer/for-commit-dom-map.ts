@@ -1,4 +1,8 @@
-import type { ForCommitStrategy, ForState } from '../runtime';
+import {
+  recordBenchCounter,
+  type ForCommitStrategy,
+  type ForState,
+} from '../runtime';
 import { keyedElements } from './keyed';
 import { getMaterializedKey } from './utils';
 
@@ -86,6 +90,16 @@ export function syncKeyedMapFromForState(
       }
       return;
     }
+  }
+
+  if (strategy === 'REMOVE_ONE') {
+    if (existing && forState.pendingRemovedKey !== null) {
+      if (existing.delete(forState.pendingRemovedKey)) {
+        recordBenchCounter('keyedMapEntriesDeleted');
+      }
+      if (existing.size === 0) keyedElements.delete(parent);
+    }
+    return;
   }
 
   if (strategy === 'TRUNCATE' && forState.orderedKeys.length === 0) {

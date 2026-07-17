@@ -3,6 +3,7 @@
  */
 
 import type { DOMElement, VNode } from '../common/vnode';
+import type { DOMRange } from '../common/dom-range';
 import { isDevelopmentEnvironment } from '../common/env';
 import type { ComponentInstance } from './component';
 import {
@@ -27,7 +28,7 @@ import {
   type ReactiveForItemState,
 } from './for-signals';
 import { getRuntimeRenderer } from './access';
-import { recordBenchEvent } from './for-bench';
+import { recordBenchCounter, recordBenchEvent } from './for-bench';
 import type { ForItemTransactionSnapshot, ForState } from './for-internal';
 import type { ReadableSource } from './readable';
 
@@ -45,6 +46,21 @@ export interface ForItemInstance<T> {
 }
 
 export type RemovedDomCleanupMode = 'none' | 'teardown' | 'full-clear';
+
+function recordRemovedBoundary<T>(
+  forState: ForState<T>,
+  dom: Node | undefined,
+  range: DOMRange | undefined
+): void {
+  if (BENCH_BUILD_ENABLED && (dom || range)) {
+    recordBenchCounter('removedBoundariesRecorded');
+  }
+  if (range && !range.single) {
+    forState.lastRemovedRanges.push(range);
+  } else if (dom) {
+    forState.lastRemovedNodes.push(dom);
+  }
+}
 
 function enqueueForScopeUpdate(parent: ComponentInstance | null): void {
   parent?._enqueueRun?.();
@@ -73,7 +89,8 @@ function createForOwnedChildScope<T>(
   const scope = createChildScope(
     forState.parentInstance,
     key,
-    enqueueForBoundaryScopeCommit
+    enqueueForBoundaryScopeCommit,
+    forState._scopeOwnership
   );
   return scope;
 }
@@ -291,12 +308,7 @@ export function disposeItemInstance<T>(
   const transaction = forState._transaction;
   if (transaction) {
     (transaction.removedScopes ??= []).push(itemInstance.scope);
-    if (removedDom) {
-      forState.lastRemovedNodes.push(removedDom);
-    }
-    if (removedRange) {
-      forState.lastRemovedRanges.push(removedRange);
-    }
+    recordRemovedBoundary(forState, removedDom, removedRange);
     return;
   }
 
@@ -318,10 +330,7 @@ export function disposeItemInstance<T>(
     }
   }
 
-  forState.lastRemovedNodes.push(removedDom);
-  if (removedRange) {
-    forState.lastRemovedRanges.push(removedRange);
-  }
+  recordRemovedBoundary(forState, removedDom, removedRange);
 }
 
 export function createItemInstance<T>(
@@ -531,9 +540,6 @@ export function disposeFallbackScope<T>(
   const transaction = forState._transaction;
   if (transaction) {
     (transaction.removedScopes ??= []).push(fallbackScope);
-    if (removedRange) {
-      forState.lastRemovedRanges.push(removedRange);
-    }
   } else {
     disposeChildScope(fallbackScope);
   }
@@ -549,10 +555,7 @@ export function disposeFallbackScope<T>(
     }
   }
 
-  forState.lastRemovedNodes.push(removedDom);
-  if (removedRange) {
-    forState.lastRemovedRanges.push(removedRange);
-  }
+  recordRemovedBoundary(forState, removedDom, removedRange);
 }
 
 export function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
@@ -596,13 +599,8 @@ export function disposeAllItems<T>(
     }
     for (let index = 0; index < forState.orderedItems.length; index++) {
       const removedDom = forState.orderedItems[index]?.scope.dom;
-      if (removedDom) {
-        forState.lastRemovedNodes.push(removedDom);
-      }
       const range = forState.orderedItems[index]?.scope.range;
-      if (range) {
-        forState.lastRemovedRanges.push(range);
-      }
+      recordRemovedBoundary(forState, removedDom, range);
     }
     forState.items = new Map();
     forState.orderedKeys = [];

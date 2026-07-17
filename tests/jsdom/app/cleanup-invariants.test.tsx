@@ -26,7 +26,7 @@ describe('cleanup invariants', () => {
     instance.cleanupStrict = true;
     instance.mounted = true;
     instance.notifyUpdate = () => {};
-    instance.cleanupFns.push(() => {
+    (instance.cleanupFns ??= []).push(() => {
       throw new Error('cleanup failed');
     });
 

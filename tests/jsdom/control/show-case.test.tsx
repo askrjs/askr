@@ -350,7 +350,7 @@ describe('Show primitive', () => {
         },
       });
 
-      instance.cleanupFns.push(() => {
+      (instance.cleanupFns ??= []).push(() => {
         effectCleanups += 1;
         effect.cleanup();
       });
