@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "declarationMap": false,
     "jsx": "react-jsx",
     "jsxImportSource": "@askrjs/askr",
     "paths": {
