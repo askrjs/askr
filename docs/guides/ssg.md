@@ -12,6 +12,7 @@ loaders, and async document renderers are rejected during the page render.
 
 - Route HTML files: `/` -> `index.html`, `/about` -> `about/index.html`
 - Build metadata: `metadata.json` with per-route status, file sizes, and render durations
+- When built through `askr ssg`, a canonical `sitemap.xml`
 
 ## Programmatic API
 
@@ -143,9 +144,29 @@ export const dataOverrides = {
 };
 
 export const seed = 12345;
+export const siteUrl = 'https://example.com';
+export const sitemap = {
+  defaults: { changeFrequency: 'weekly' as const },
+  routes: {
+    '/404': false,
+    '/about': {
+      lastModified: '2026-07-18',
+      priority: 0.8,
+      alternates: { en: '/about', fr: '/fr/a-propos' },
+    },
+  },
+};
 // Omit this for deterministic single-worker generation (the default).
 export const concurrency = 1;
 ```
+
+The CLI requires an absolute HTTP(S) `siteUrl` so sitemap locations are valid.
+It includes successful routes and routes skipped as unchanged by incremental
+generation, while omitting failed routes and wildcard templates. Sitemap route
+entries can override the canonical URL, `lastModified`, `changeFrequency`,
+`priority`, and `hreflang` alternates. Set an entry to `false`, or return
+`false` from `sitemap.resolve(route)`, to exclude a non-indexable route. Set
+`sitemap: false` to explicitly disable sitemap generation.
 
 Set `parallelism: 'auto'` when host CPU-based worker selection is desired. It
 uses the Node 18-compatible CPU-count fallback when `availableParallelism()` is
