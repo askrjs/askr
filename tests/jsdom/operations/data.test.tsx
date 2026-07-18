@@ -5,6 +5,7 @@ import {
   createDataRuntime,
   createQuery,
   createMutation,
+  defineQuery,
   invalidate,
   invalidateOnInterval,
   queryScope,
@@ -27,6 +28,13 @@ async function settle(): Promise<void> {
 }
 
 const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
+const rerenderedUserQuery = defineQuery({
+  key: ({ id }: { id: string }) => `users:${id}`,
+  fetch: async ({ signal }: { id: string; signal: AbortSignal }) => {
+    signal.throwIfAborted();
+    return { name: 'Ada' };
+  },
+});
 
 function resetExecutionModel(): void {
   delete (globalThis as unknown as Record<string | symbol, unknown>)[
@@ -559,6 +567,79 @@ describe('data layer', () => {
       await settle();
 
       expect(container.textContent).toBe('from-firstfrom-first');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should not warn given the same defined query when its reader rerenders', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let rerender: (() => void) | undefined;
+
+    const App = (): JSXElement => {
+      const renderCount = state(0);
+      rerender = () => renderCount.set(renderCount() + 1);
+      const query = createQuery(rerenderedUserQuery, { id: 'defined' });
+
+      return (
+        <div data-render={renderCount()}>{query.data?.name ?? 'loading'}</div>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('Ada');
+
+      rerender?.();
+      flushScheduler();
+      await settle();
+
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "users:defined"'
+        )
+      );
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should warn given different defined queries when they share a key', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const firstQuery = defineQuery({
+      key: () => 'users:defined-conflict',
+      fetch: async () => 'first',
+    });
+    const secondQuery = defineQuery({
+      key: () => 'users:defined-conflict',
+      fetch: async () => 'second',
+    });
+
+    const App = (): JSXElement => {
+      const first = createQuery(firstQuery, undefined);
+      const second = createQuery(secondQuery, undefined);
+
+      return <div>{first.data ?? second.data ?? 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "users:defined-conflict"'
+        )
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('`fetch`'));
     } finally {
       warnSpy.mockRestore();
       cleanup();

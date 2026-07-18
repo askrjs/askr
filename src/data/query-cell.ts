@@ -26,11 +26,15 @@ declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
 
+type QueryCellOptions<T> = QueryOptions<T> & {
+  readonly definitionIdentity?: object;
+};
+
 export class QueryCell<T> {
   private readonly source = createReadableSource();
   private readonly key: string;
   private readonly cache: Map<string, QueryCell<unknown>>;
-  private options: QueryOptions<T>;
+  private options: QueryCellOptions<T>;
   private controller: AbortController | null = null;
   private generation = 0;
   private startQueued = false;
@@ -54,7 +58,7 @@ export class QueryCell<T> {
   };
 
   constructor(
-    options: QueryOptions<T>,
+    options: QueryCellOptions<T>,
     key: string,
     cache: Map<string, QueryCell<unknown>>
   ) {
@@ -114,7 +118,7 @@ export class QueryCell<T> {
     }
   }
 
-  warnOnConflictingDefinition(options: QueryOptions<T>): void {
+  warnOnConflictingDefinition(options: QueryCellOptions<T>): void {
     const conflicts = this.getDefinitionConflicts(options);
     if (conflicts.length === 0) {
       return;
@@ -159,11 +163,14 @@ export class QueryCell<T> {
   }
 
   private getDefinitionConflicts(
-    options: QueryOptions<T>
+    options: QueryCellOptions<T>
   ): QueryDefinitionField[] {
     const conflicts: QueryDefinitionField[] = [];
 
-    if (this.options.fetch !== options.fetch) {
+    const currentFetchIdentity =
+      this.options.definitionIdentity ?? this.options.fetch;
+    const nextFetchIdentity = options.definitionIdentity ?? options.fetch;
+    if (currentFetchIdentity !== nextFetchIdentity) {
       conflicts.push('fetch');
     }
 
@@ -490,7 +497,9 @@ export class QueryCell<T> {
   }
 }
 
-function createLegacyQuery<T extends {}>(options: QueryOptions<T>): Query<T> {
+function createLegacyQuery<T extends {}>(
+  options: QueryCellOptions<T>
+): Query<T> {
   const instance = getCurrentComponentInstance();
   const runtimeState = resolveDataRuntimeState(options.runtime);
   const cache = runtimeState.queryCache;
@@ -555,6 +564,7 @@ export function createDefinedQuery<TInput, TResult extends {}>(
   return createLegacyQuery({
     ...options,
     key,
+    definitionIdentity: definition,
     fetch: ({ signal }) => definition.fetch({ ...input, signal }),
     isConsistent: definition.isConsistent,
     reconcile: definition.reconcile,
