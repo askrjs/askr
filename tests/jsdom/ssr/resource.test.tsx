@@ -36,4 +36,4 @@ describe('SSR resource behavior', () => {
   });
 });
 
-// SSR prepass/collection tests removed — SSR is strictly synchronous and prepass collection is not supported.
+// SSR is strictly synchronous; resource reads use render data supplied by the caller.

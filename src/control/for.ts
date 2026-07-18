@@ -102,7 +102,6 @@ function createForBoundary<T>(props: ForProps<T>): DOMElement {
   return {
     type: __CONTROL_BOUNDARY__,
     _controlState: forState as unknown as ForState<unknown>,
-    _forState: forState as unknown as ForState<unknown>,
   };
 }
 

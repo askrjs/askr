@@ -7,13 +7,9 @@ import { keyedElements } from './keyed';
 import { createElementForNamespace, getParentNamespace } from './namespaces';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
-import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import { evaluateForState } from '../runtime';
-import {
-  evaluateCaseState,
-  evaluateShowState,
-  type ControlBoundaryState,
-} from '../runtime';
+import { evaluateCaseState, evaluateShowState } from '../runtime';
 import { commitForBoundaryChildren } from './boundaries';
 import {
   isBulkTextFastPathEligible,
@@ -271,9 +267,7 @@ export function updateForBoundaryChildren(
   element: Element,
   forVnode: DOMElement
 ): void {
-  const controlState =
-    forVnode._controlState ??
-    (forVnode._forState as ControlBoundaryState | undefined);
+  const controlState = forVnode._controlState;
   if (!controlState) return;
 
   const childrenVNodes =
@@ -306,7 +300,7 @@ export function updateElementChildren(
   if (
     !Array.isArray(vnodeChildren) &&
     _isDOMElement(vnodeChildren) &&
-    (vnodeChildren as DOMElement).type === __FOR_BOUNDARY__
+    (vnodeChildren as DOMElement).type === __CONTROL_BOUNDARY__
   ) {
     updateForBoundaryChildren(element, vnodeChildren as DOMElement);
     return;
@@ -337,7 +331,7 @@ export function updateElementChildren(
   if (
     vnodeChildren.length === 1 &&
     _isDOMElement(vnodeChildren[0]) &&
-    (vnodeChildren[0] as DOMElement).type === __FOR_BOUNDARY__
+    (vnodeChildren[0] as DOMElement).type === __CONTROL_BOUNDARY__
   ) {
     updateForBoundaryChildren(element, vnodeChildren[0] as DOMElement);
     return;
@@ -393,7 +387,7 @@ function applySmartUpdateElement(
   if (
     vnodeChildren &&
     _isDOMElement(vnodeChildren) &&
-    (vnodeChildren as DOMElement).type === __FOR_BOUNDARY__
+    (vnodeChildren as DOMElement).type === __CONTROL_BOUNDARY__
   ) {
     updateElementChildren(element, vnodeChildren, cleanupRangeNode);
     domHost.updateElementFromVnode(element, vnode, false);

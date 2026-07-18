@@ -15,7 +15,7 @@ import {
   drainLifecycleCommitErrors,
   flushLifecycleCommitBatch,
   flushRuntimeScheduler,
-  mountComponent,
+  executeComponent,
   cleanupComponentGeneration,
   cleanupReadableSubscriptionSources,
   adjustOwnershipDiagnostic,
@@ -642,7 +642,7 @@ function remountResolvedRoute(
 
   instance.abortController = null;
 
-  mountComponent(instance);
+  executeComponent(instance);
   setCurrentRouteLocation(pathname, href);
   return deferredCleanup;
 }

@@ -1,4 +1,4 @@
-import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import {
   clearCaseDomUpdateState,
   clearForDomUpdateState,
@@ -35,11 +35,7 @@ export function clearControlBoundaryDomUpdateState(
 export function getControlBoundaryState(
   node: DOMElement
 ): ControlBoundaryState | null {
-  return (
-    node._controlState ??
-    (node._forState as ControlBoundaryState | undefined) ??
-    null
-  );
+  return node._controlState ?? null;
 }
 
 export function getDirectControlBoundaryVNode(
@@ -48,7 +44,7 @@ export function getDirectControlBoundaryVNode(
   if (
     !Array.isArray(children) &&
     _isDOMElement(children) &&
-    (children as DOMElement).type === __FOR_BOUNDARY__
+    (children as DOMElement).type === __CONTROL_BOUNDARY__
   ) {
     return children as DOMElement;
   }
@@ -57,7 +53,7 @@ export function getDirectControlBoundaryVNode(
     Array.isArray(children) &&
     children.length === 1 &&
     _isDOMElement(children[0]) &&
-    (children[0] as DOMElement).type === __FOR_BOUNDARY__
+    (children[0] as DOMElement).type === __CONTROL_BOUNDARY__
   ) {
     return children[0] as DOMElement;
   }

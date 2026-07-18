@@ -17,7 +17,6 @@ or review older commits.
 | `docs/ssr-events.md`                 | `docs/guides/ssr-events.md`                    | Guide location       |
 | `docs/for-primitive-design.md`       | `docs/internals/for-primitive-design.md`       | Internal design note |
 | `docs/foundations-pit-of-success.md` | `docs/internals/foundations-pit-of-success.md` | Internal design note |
-| `docs/foundations-audit-report.md`   | `docs/internals/foundations-audit-report.md`   | Internal audit note  |
 
 ## Current Information Architecture
 

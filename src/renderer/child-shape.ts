@@ -1,5 +1,5 @@
 import { STATIC_CHILDREN } from '../common/jsx';
-import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
 import { Fragment } from '../jsx/jsx-runtime';
 import { getCurrentInstance } from '../runtime';
@@ -49,7 +49,7 @@ function warnMissingKeys(children: unknown[]): void {
 
   for (const item of children) {
     if (typeof item === 'object' && item !== null && 'type' in item) {
-      if ((item as DOMElement).type === __FOR_BOUNDARY__) continue;
+      if ((item as DOMElement).type === __CONTROL_BOUNDARY__) continue;
       elementCount += 1;
       const rawKey =
         (item as DOMElement).key ??

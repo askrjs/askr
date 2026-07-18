@@ -1,4 +1,4 @@
-import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import type { ComponentFunction, ComponentInstance } from '../runtime';
 import { type ControlBoundaryState } from '../runtime';
 import { recordBenchEvent } from '../runtime';
@@ -165,7 +165,7 @@ export function trySyncControlBoundaryChild(
   currentNode: Node | null,
   next: DOMElement
 ): boolean {
-  if (next.type !== __FOR_BOUNDARY__) {
+  if (next.type !== __CONTROL_BOUNDARY__) {
     return false;
   }
 

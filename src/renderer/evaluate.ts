@@ -22,7 +22,7 @@ import {
   updateForBoundaryChildren,
 } from './evaluate-reconcile';
 import { _isDOMElement, type DOMElement } from './types';
-import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import {
   beginLifecycleCommitBatch,
   discardLifecycleCommitBatch,
@@ -103,7 +103,7 @@ function evaluateInLifecycleBatch(
 
     if (
       _isDOMElement(vnode) &&
-      (vnode as DOMElement).type === __FOR_BOUNDARY__
+      (vnode as DOMElement).type === __CONTROL_BOUNDARY__
     ) {
       updateForBoundaryChildren(target, vnode as DOMElement);
       return;

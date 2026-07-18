@@ -53,6 +53,35 @@ durable test family that observes it.
 - SSG tests cover route planning, parameter expansion, incremental cleanup,
   and failed generation behavior.
 
+## Feature composition coverage
+
+App-shaped regressions belong in `tests/jsdom/app-flows/` when deterministic
+DOM, lifecycle, and async probes can observe the contract. Browser-only focus,
+history, hydration, and event-loop behavior belongs in
+`tests/browser/app-flows/`. A confirmed framework bug should also leave the
+smallest durable regression under `tests/jsdom/regressions/app-core/`.
+
+Standing composition coverage protects these workflows:
+
+| Workflow                                             | Protected invariant                                                    |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| Routed resource plus `Show` during navigation        | A stale resource cannot update an unmounted route branch.              |
+| Param-driven keyed table with out-of-order responses | Old keyed rows cannot commit under a new route parameter.              |
+| Editable sorted and filtered rows                    | Retained keys preserve local identity and removed keys dispose it.     |
+| Routed portal left open during navigation            | Overlay DOM, listeners, and reactive ownership leave with the route.   |
+| Async form submission during navigation              | Late settlement cannot mutate an unmounted form.                       |
+| Shared layout context across sibling outlets         | Layout identity survives while page resources remain isolated.         |
+| Immediate resource interaction after hydration       | Hydration attaches one handler and starts one request per interaction. |
+| Error recovery into keyed results                    | Error ownership retires before the successful branch mounts.           |
+| Back/forward navigation with a pending route         | Only the current history entry may commit resource UI.                 |
+| Portal owned by a removed keyed row                  | Removing the row also disposes its overlay and handlers.               |
+
+Use controlled deferred promises and explicit microtask settlement rather than
+sleeps. Higher-level `askr-ui` and `askr-themes` failures should add an Askr
+regression when a minimal runtime case reproduces stale handlers, render-time
+ref mutation, portal or route cleanup leaks, hydration duplication, or public
+entrypoint incompatibility.
+
 Before simplifying internals, first add a characterization test for the
 observable invariant. Remove the superseded ownership or rollback path in the
 same change; do not leave compatibility wrappers or parallel cleanup paths.

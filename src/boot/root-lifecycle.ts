@@ -13,7 +13,7 @@ import {
   cleanupComponent,
   createComponentInstance,
   flushRuntimeScheduler,
-  mountComponent,
+  executeComponent,
   type ComponentFunction,
   type ComponentInstance,
 } from '../runtime';
@@ -281,7 +281,7 @@ export function mountOrUpdate(
   registerRootCleanupCallback(rootElement, () => {
     disposeDefaultPortalScope(instance.portalScope ?? instance);
   });
-  mountComponent(instance);
+  executeComponent(instance);
   flushRuntimeScheduler();
 }
 
