@@ -218,9 +218,7 @@ function verifyExpectedNode(
         if (!children || children.length === 0) {
           return true;
         }
-        const controlState =
-          (vnode as DOMElement)._controlState ??
-          (vnode as DOMElement)._forState;
+        const controlState = (vnode as DOMElement)._controlState;
         if (controlState?.kind === 'for') {
           for (const child of children) {
             if (!verifyExpectedRangeChild(child, state, ctx)) return false;

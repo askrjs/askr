@@ -1,4 +1,4 @@
-import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import type { Props } from '../common/props';
 import type { ComponentFunction } from '../runtime';
 import {
@@ -265,7 +265,7 @@ function isControlBoundaryVNode(child: VNode): child is DOMElement {
     typeof child === 'object' &&
     child !== null &&
     'type' in child &&
-    (child as VnodeObj).type === __FOR_BOUNDARY__
+    (child as VnodeObj).type === __CONTROL_BOUNDARY__
   );
 }
 
@@ -277,7 +277,7 @@ function prepareControlBoundaryResolution(child: VNode): {
     return null;
   }
 
-  const controlState = child._controlState ?? child._forState;
+  const controlState = child._controlState;
   if (!controlState) {
     return null;
   }

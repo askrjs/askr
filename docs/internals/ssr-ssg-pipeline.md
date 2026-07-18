@@ -223,7 +223,6 @@ flowchart LR
   `renderToStream()`, route source normalization, route match resolution,
   `resolveRequest()`, document render argument construction, and string/stream
   sink orchestration.
-- `src/ssr/create-ssr.ts` wraps that path into a request-oriented API.
 - `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator for
   generation config, render batching, file writes, metadata, and manifest
   assembly. `static-routes.ts` owns route-source normalization, `entries()`

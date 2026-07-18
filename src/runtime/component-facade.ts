@@ -9,7 +9,6 @@ export {
   createComponentInstance,
   executeComponent,
   finalizeReadSubscriptions,
-  mountComponent,
   mountInstanceInline,
   registerCommitOperation,
   registerMountOperation,

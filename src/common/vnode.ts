@@ -5,9 +5,7 @@
 import type { Props } from './props';
 import type { JSXElement, JSXElementType } from './jsx';
 import type { ControlBoundaryState } from '../runtime';
-import type { ForState } from '../runtime';
 export { __CONTROL_BOUNDARY__ } from './control';
-import { __CONTROL_BOUNDARY__ } from './control';
 
 export const __ERROR_BOUNDARY__ = Symbol.for('askr.error-boundary');
 
@@ -21,16 +19,11 @@ export interface DOMElement {
   key?: string | number | null;
   [Symbol.iterator]?: never;
   _controlState?: ControlBoundaryState; // Internal: control boundary state
-  _forState?: ForState<unknown>; // Deprecated internal alias during migration
 }
 
 // Type for virtual DOM nodes
 export type VNode = DOMElement | string | number | boolean | null | undefined;
 export type RenderableChild = VNode | JSXElement | readonly RenderableChild[];
-
-// Backward-compatible internal alias while renderer/runtime migrates away from
-// the old For-only boundary naming.
-export const __FOR_BOUNDARY__ = __CONTROL_BOUNDARY__;
 
 export function _isDOMElement(node: unknown): node is DOMElement {
   return typeof node === 'object' && node !== null && 'type' in node;

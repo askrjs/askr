@@ -1,5 +1,5 @@
 import type { ComponentFunction } from '../runtime';
-import { __FOR_BOUNDARY__ } from '../common/vnode';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import { clearControlBoundaryCommitOwner } from './boundaries';
 import {
   commitForBoundaryChildren,
@@ -169,7 +169,7 @@ function hasKeyedVNodeChildren(children: VNode[]): boolean {
 }
 
 function isControlBoundaryVNode(child: VNode): child is DOMElement {
-  return _isDOMElement(child) && child.type === __FOR_BOUNDARY__;
+  return _isDOMElement(child) && child.type === __CONTROL_BOUNDARY__;
 }
 
 function removeRangeAtCursor(parent: Element, cursor: Node): Node | null {

@@ -19,7 +19,7 @@ flowchart TB
 
   subgraph engine[Core engine]
     boot[Boot orchestration<br/>index.ts, hydration.ts, types.ts]
-    runtime[Runtime core<br/>runtime/index.ts facade, component.ts facade, component-facade.ts, component-contracts.ts, portal.ts, selector-store.ts, state.ts, derive.ts, context.ts]
+    runtime[Runtime core<br/>runtime/index.ts facade, component.ts facade, component-facade.ts, portal.ts, selector-store.ts, state.ts, derive.ts, context.ts]
     componentCore[Component implementation<br/>component-internal.ts<br/>component-cleanup.ts<br/>component-scope.ts<br/>component-lifecycle.ts]
     forCore[For runtime implementation<br/>for-internal.ts<br/>for-reconcile.ts<br/>for-scopes.ts]
     runtimeAccess[Runtime access boundary<br/>access.ts]
@@ -73,7 +73,6 @@ flowchart TB
     derive[derive.ts]
     context[context.ts]
     componentFacade[component.ts facade]
-    componentContracts[component-contracts.ts contracts]
     componentInternalFacade[component-facade.ts internal facade]
     componentCore[component-internal.ts]
     componentCleanup[component-cleanup.ts]
@@ -195,7 +194,6 @@ flowchart TB
   derive --> readable
   componentFacade --> componentCore
   componentFacade --> componentInternalFacade
-  componentInternalFacade --> componentContracts
   componentInternalFacade --> componentCore
   componentCore --> componentCleanup
   componentFacade --> componentScope

@@ -68,8 +68,7 @@ function renderControlChildrenSync(
   node: VNode | JSXElement,
   ctx: RenderContext
 ): string {
-  const controlState =
-    (node as DOMElement)._controlState ?? (node as DOMElement)._forState;
+  const controlState = (node as DOMElement)._controlState;
 
   return withControlBoundaryChildren(node, (children) => {
     const values = children ?? [];

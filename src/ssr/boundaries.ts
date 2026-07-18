@@ -169,11 +169,7 @@ export function getControlBoundaryState(
 ): ControlBoundaryState | null {
   const boundaryNode = node as DOMElement;
 
-  return (
-    boundaryNode._controlState ??
-    (boundaryNode._forState as ControlBoundaryState | undefined) ??
-    null
-  );
+  return boundaryNode._controlState ?? null;
 }
 
 export function evaluateControlBoundaryChildren(

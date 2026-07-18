@@ -8,7 +8,7 @@ import {
   isBenchMetricScopeActive,
   recordBenchCounter,
 } from '../runtime';
-import { __ERROR_BOUNDARY__, __FOR_BOUNDARY__ } from '../common/vnode';
+import { __CONTROL_BOUNDARY__, __ERROR_BOUNDARY__ } from '../common/vnode';
 import {
   applyFormControlProp,
   applyStaticScalarPropsToElement,
@@ -207,7 +207,7 @@ export function createDOMNode(
       );
     }
 
-    if (type === __FOR_BOUNDARY__) {
+    if (type === __CONTROL_BOUNDARY__) {
       return createForBoundary(node as DOMElement, props, parentNamespace);
     }
 

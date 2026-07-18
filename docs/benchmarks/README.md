@@ -28,9 +28,10 @@ npm run bench:tier3
 npm run bench:tier4
 ```
 
-The stable comparison surface is declared in
-[`benchmarks/guardrails.json`](../../benchmarks/guardrails.json). Keep
-documented workload IDs and labels aligned with implemented benchmark files.
+The maintained comparison contract is documented in
+[performance targets](./performance-targets.md) and implemented by the tracked
+benchmark files selected by the four `vitest.bench.tier*.config.ts` files. Keep
+documented workload IDs and labels aligned with those implementations.
 
 For release-style review, capture JSON and inspect lane artifacts:
 

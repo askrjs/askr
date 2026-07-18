@@ -83,7 +83,6 @@ when the implementation is split further.
 flowchart TB
   componentFacade[component.ts facade]
   componentInternalFacade[component-facade.ts]
-  componentContracts[component-contracts.ts]
   componentCore[component-internal.ts]
   componentCleanup[component-cleanup.ts]
   componentScope[component-scope.ts]
@@ -109,7 +108,6 @@ flowchart TB
 
   componentFacade --> componentCore
   componentFacade --> componentInternalFacade
-  componentInternalFacade --> componentContracts
   componentInternalFacade --> componentCore
   componentFacade --> componentScope
   componentCore --> componentScope
@@ -136,7 +134,7 @@ flowchart TB
 
 `runtime/index.ts` is now the stable internal facade for non-runtime areas.
 `component.ts` remains the narrow component-facing entrypoint, while
-`component-facade.ts` and `component-contracts.ts` hold the stable helper
+`component-facade.ts` holds the stable helper
 surface used by renderer and SSR code. `portal.ts` owns the default portal
 inventory that foundations re-export publicly. `selector-store.ts` owns the
 dirty-selector flush queue used by `selector.ts`.

@@ -491,15 +491,6 @@ export function finalizeReadSubscriptions(instance: ComponentInstance): void {
   finalizeReadableSubscriptions(instance);
 }
 
-/**
- * Mount a component instance.
- * This is just an alias to executeComponent() to maintain API compatibility.
- * All lifecycle logic is unified in executeComponent().
- */
-export function mountComponent(instance: ComponentInstance): void {
-  executeComponent(instance);
-}
-
 function warnInstanceOnce(
   instance: ComponentInstance,
   key: string,
