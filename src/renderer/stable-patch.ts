@@ -3,7 +3,6 @@ import {
   captureInlineRenderSnapshot,
   getCurrentInstance,
   renderComponentInline,
-  warnUnusedStateReads,
   type ComponentFunction,
 } from '../runtime';
 import {
@@ -196,11 +195,6 @@ export function tryPatchStableForDirtyItem(scope: {
   }
 
   const didPatch = patchStableIntrinsicElement(scope.dom, nextIntrinsic);
-
-  const existingInstance = (scope.dom as InstanceHostElement).__ASKR_INSTANCE;
-  if (didPatch && existingInstance) {
-    warnUnusedStateReads(existingInstance);
-  }
 
   if (didPatch) {
     incDevCounter('stableForPatchHit');

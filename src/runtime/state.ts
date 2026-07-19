@@ -16,6 +16,7 @@ import {
   getCurrentInstance,
   type ComponentInstance,
 } from './component';
+import { isProductionEnvironment } from '../common/env';
 import { isBulkCommitActive } from './fastlane';
 import {
   recordReadableRead,
@@ -147,6 +148,9 @@ function createStateCell<T>(
 
   // Attach the readers map to the callable so other runtime parts can access it
   (read as State<T>)._readers = readers;
+  (
+    read as State<T> & { _unusedStateDiagnosticEligible?: boolean }
+  )._unusedStateDiagnosticEligible = !isProductionEnvironment();
 
   // Record explicit ownership of this state cell. Ownership is the component
   // instance that created the state cell and must never change for the life

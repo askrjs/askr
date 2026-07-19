@@ -22,7 +22,6 @@ import type { ComponentInstance } from './component-internal';
 export interface ScheduledComponentCommitHost {
   execute(instance: ComponentInstance): unknown | Promise<unknown>;
   finalizeReadSubscriptions(instance: ComponentInstance): void;
-  warnUnusedStateReads(instance: ComponentInstance): void;
   commitRenderedComponent(instance: ComponentInstance): void;
 }
 
@@ -51,7 +50,6 @@ export function runScheduledComponent(
   try {
     const used = tryRuntimeFastLaneSync(instance, result);
     if (used) {
-      host.warnUnusedStateReads(instance);
       return;
     }
   } catch (err) {
@@ -84,7 +82,6 @@ function commitPlaceholderReplacement(
 ): void {
   if (result === null || result === undefined) {
     host.finalizeReadSubscriptions(instance);
-    host.warnUnusedStateReads(instance);
     host.commitRenderedComponent(instance);
     return;
   }
@@ -137,7 +134,6 @@ function commitPlaceholderReplacement(
     instance._placeholder = undefined;
 
     host.finalizeReadSubscriptions(instance);
-    host.warnUnusedStateReads(instance);
     host.commitRenderedComponent(instance);
     flushLifecycleCommitBatch(lifecycleBatch);
   } finally {
@@ -190,7 +186,6 @@ function commitToTarget(
     }
 
     host.finalizeReadSubscriptions(instance);
-    host.warnUnusedStateReads(instance);
     instance.mounted = true;
     commitLifecycleForInstance(instance, wasFirstMount);
     flushLifecycleCommitBatch(lifecycleBatch);
