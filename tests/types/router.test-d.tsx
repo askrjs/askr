@@ -176,9 +176,7 @@ const lazyRoute = lazy(async () => ({
   default: (params: { id: string }) => params.id,
 }));
 expectAssignable<RouteComponent<{ id: string }>>(lazyRoute);
-expectAssignable<LazyRouteComponent<RouteComponent<{ id: string }>>>(
-  lazyRoute
-);
+expectAssignable<LazyRouteComponent<RouteComponent<{ id: string }>>>(lazyRoute);
 expectType<Promise<void>>(lazyRoute.preload());
 route('/users/{id}', lazyRoute);
 
