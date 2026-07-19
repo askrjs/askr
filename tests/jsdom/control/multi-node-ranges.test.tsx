@@ -127,4 +127,86 @@ describe('anchored multi-node control ranges', () => {
       cleanup();
     }
   });
+
+  it('should insert a newly shown sibling after the preceding boundary is removed', () => {
+    const { container, cleanup } = createTestContainer();
+    let setFirstVisible: (value: boolean) => void = () => {};
+    let setSecondVisible: (value: boolean) => void = () => {};
+
+    const App = () => {
+      const firstVisible = state(true);
+      const secondVisible = state(false);
+      setFirstVisible = (value) => firstVisible.set(value);
+      setSecondVisible = (value) => secondVisible.set(value);
+
+      return (
+        <main>
+          <Show when={firstVisible()}>
+            <span id="first-boundary">first</span>
+          </Show>
+          <Show when={secondVisible()}>
+            <span id="second-boundary">second</span>
+          </Show>
+          <span id="tail">tail</span>
+        </main>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      setFirstVisible(false);
+      setSecondVisible(true);
+      flushScheduler();
+
+      expect(container.querySelector('#first-boundary')).toBeNull();
+      expect(container.querySelector('#second-boundary')?.textContent).toBe(
+        'second'
+      );
+      expect(container.querySelector('main')?.textContent).toBe('secondtail');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should preserve sibling order when replacing adjacent multi-node boundaries', () => {
+    const { container, cleanup } = createTestContainer();
+    let setFirstVisible: (value: boolean) => void = () => {};
+    let setSecondVisible: (value: boolean) => void = () => {};
+
+    const App = () => {
+      const firstVisible = state(true);
+      const secondVisible = state(false);
+      setFirstVisible = (value) => firstVisible.set(value);
+      setSecondVisible = (value) => secondVisible.set(value);
+
+      return (
+        <main>
+          <Show when={firstVisible()}>
+            <span>first-a</span>
+            <span>first-b</span>
+          </Show>
+          <Show when={secondVisible()}>
+            <span>second-a</span>
+            <span>second-b</span>
+          </Show>
+          <span>tail</span>
+        </main>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+
+      setFirstVisible(false);
+      setSecondVisible(true);
+      flushScheduler();
+
+      expect(container.querySelector('main')?.textContent).toBe(
+        'second-asecond-btail'
+      );
+    } finally {
+      cleanup();
+    }
+  });
 });

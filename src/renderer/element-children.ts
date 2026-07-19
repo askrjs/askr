@@ -215,6 +215,11 @@ function updateMixedControlChildren(
 
       registerControlBoundaryCommitOwner(parent, controlState);
       const childVNodes = evaluateControlBoundaryState(controlState);
+      const cursorAfterBoundary = cursor
+        ? isRangeStart(cursor)
+          ? (findRangeEnd(cursor)?.nextSibling ?? cursor.nextSibling)
+          : cursor.nextSibling
+        : null;
       const ranges = syncControlBoundaryInMixedParent(
         parent,
         controlState,
@@ -248,6 +253,11 @@ function updateMixedControlChildren(
         } else {
           cursor = last.end.nextSibling;
         }
+      } else if (cursor?.parentNode !== parent) {
+        cursor =
+          cursorAfterBoundary?.parentNode === parent
+            ? cursorAfterBoundary
+            : null;
       }
       continue;
     }
