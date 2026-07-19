@@ -23,6 +23,7 @@ import { StringSink, StreamSink, type RenderSink } from './sink';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
+import { _preloadRouteHandler } from '../router/lazy';
 
 export type SSRRoute = {
   path: string;
@@ -154,6 +155,8 @@ export async function resolveRequest(
   if (!resolved) {
     return null;
   }
+
+  await _preloadRouteHandler(resolved.handler);
 
   return {
     kind: 'render',

@@ -45,12 +45,7 @@ export {
   _setActiveRouteAuthOptions,
   _unlockRouteRegistrationForTests,
 } from './store';
-export {
-  _drainLazy,
-  _snapshotLazy,
-  _snapshotRouteSourceLazy,
-  lazy,
-} from './lazy';
+export { _drainLazy, _snapshotLazy, lazy } from './lazy';
 export { Outlet } from './rendering';
 
 export type {
@@ -84,3 +79,4 @@ export type {
   RouteManifest,
   RouteRegistry,
 } from '../common/router';
+export type { LazyRouteComponent } from './lazy';

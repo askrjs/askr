@@ -17,12 +17,6 @@ import {
   snapshotRouteState,
 } from './store';
 import type { InternalRouteRecord } from './internal-types';
-import {
-  _snapshotLazy,
-  associateRouteSourceLazy,
-  clearPendingLazy,
-  restorePendingLazy,
-} from './lazy';
 
 export function getManifest(): RouteManifest {
   const auth = getDefaultRouteAuthOptions();
@@ -52,7 +46,6 @@ export function _applyManifest(manifest: RouteManifest): void {
 
 export function clearRoutes(): void {
   clearRouteState();
-  clearPendingLazy();
 }
 
 export function createRouteRegistry(
@@ -60,7 +53,6 @@ export function createRouteRegistry(
   options: RegisterRoutesOptions = {}
 ): RouteRegistry {
   const previous = snapshotRouteState();
-  const previousLazy = _snapshotLazy();
   clearRoutes();
 
   try {
@@ -70,12 +62,8 @@ export function createRouteRegistry(
       manifest,
       routes: getRoutes(),
     });
-    const lazyImports = _snapshotLazy();
-    associateRouteSourceLazy(registry, manifest, lazyImports);
-
     return registry;
   } finally {
     restoreRouteState(previous);
-    restorePendingLazy(previousLazy);
   }
 }

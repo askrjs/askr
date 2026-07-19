@@ -10,6 +10,7 @@ import { resolveRouteFromRoutes, resolveRouteRequest } from '../router/route';
 import { reconcileRouteMeta, resolveRouteMeta } from '../router/metadata';
 import { getRouteRenderContext } from '../router/resolution';
 import type { ComponentFunction } from '../runtime';
+import { _preloadRouteHandler } from '../router/lazy';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
 
@@ -85,15 +86,16 @@ export async function resolveInitialRoute(
           load: source.load,
         })
       : source?.routes
-        ? (() => {
+        ? await (() => {
             const match = resolveRouteFromRoutes(path, source.routes!);
-            return match
-              ? {
-                  kind: 'render' as const,
-                  handler: match.handler,
-                  params: match.params,
-                }
-              : null;
+            if (!match) return null;
+            const lazyImport = _preloadRouteHandler(match.handler);
+            const result = {
+              kind: 'render' as const,
+              handler: match.handler,
+              params: match.params,
+            };
+            return lazyImport ? lazyImport.then(() => result) : result;
           })()
         : await resolveRouteRequest(href, { auth });
     if (

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { createSPA } from '@askrjs/askr/boot';
+import { createSPA, hydrateSPA } from '@askrjs/askr/boot';
 import {
   lazy,
   route,
@@ -36,16 +36,98 @@ afterEach(() => {
 });
 
 describe('lazy()', () => {
+  it('should preserve an unmatched route factory during SPA creation', async () => {
+    const { container, cleanup } = createTestContainer();
+    let imports = 0;
+
+    try {
+      route('/', () => <div>home</div>);
+      route(
+        '/docs',
+        lazy(() => {
+          imports += 1;
+          return Promise.resolve({ default: () => <div>docs</div> });
+        })
+      );
+      setGlobalWindow('/');
+
+      expect(imports).toBe(0);
+      await createSPA({ root: container, manifest: getManifest() });
+      flushScheduler();
+
+      expect(imports).toBe(0);
+      expect(container.textContent).toBe('home');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should preserve an unmatched route factory during hydration', async () => {
+    const { container, cleanup } = createTestContainer();
+    let imports = 0;
+
+    try {
+      route('/', () => <div>home</div>);
+      route(
+        '/docs',
+        lazy(() => {
+          imports += 1;
+          return Promise.resolve({ default: () => <div>docs</div> });
+        })
+      );
+      container.innerHTML = '<div>home</div>';
+      setGlobalWindow('/');
+
+      await hydrateSPA({ root: container, manifest: getManifest() });
+
+      expect(imports).toBe(0);
+      expect(container.textContent).toBe('home');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should invoke only the matched lazy route factory', async () => {
+    const { container, cleanup } = createTestContainer();
+    const imports: string[] = [];
+
+    try {
+      route(
+        '/docs',
+        lazy(() => {
+          imports.push('docs');
+          return Promise.resolve({ default: () => <div>docs</div> });
+        })
+      );
+      route(
+        '/api',
+        lazy(() => {
+          imports.push('api');
+          return Promise.resolve({ default: () => <div>api</div> });
+        })
+      );
+      setGlobalWindow('/docs');
+
+      await createSPA({ root: container, manifest: getManifest() });
+      flushScheduler();
+
+      expect(imports).toEqual(['docs']);
+      expect(container.textContent).toBe('docs');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should return a synchronous RouteComponent stub', () => {
     const stub = lazy(() => Promise.resolve({ default: () => 'page' }));
     expect(typeof stub).toBe('function');
   });
 
-  it('should resolve to the default export and render after drain', async () => {
+  it('should resolve to the default export after explicit preload', async () => {
     const Page = () => 'hello';
     const stub = lazy(() => Promise.resolve({ default: Page }));
 
-    await _drainLazy();
+    await stub.preload();
 
     expect(stub({})).toBe('hello');
   });
@@ -56,7 +138,7 @@ describe('lazy()', () => {
       Promise.resolve(Page as unknown as { default: () => string })
     );
 
-    await _drainLazy();
+    await stub.preload();
 
     expect(stub({})).toBe('direct');
   });
@@ -69,14 +151,13 @@ describe('lazy()', () => {
     };
     const stub = lazy(() => Promise.resolve({ default: Page }));
 
-    await _drainLazy();
+    await stub.preload();
 
     stub({ id: '42' });
     expect(received).toEqual({ id: '42' });
   });
 
-  it('should throw before drain if the stub is called while still pending', () => {
-    // Don't await — stub should still be pending
+  it('should throw before a lazy component is matched or preloaded', () => {
     const stub = lazy(() => new Promise(() => {})); // never resolves
 
     expect(() => stub({})).toThrow(
@@ -88,12 +169,12 @@ describe('lazy()', () => {
     const boom = new Error('chunk load failed');
     const stub = lazy(() => Promise.reject(boom));
 
-    await _drainLazy();
+    await stub.preload();
 
     expect(() => stub({})).toThrow('chunk load failed');
   });
 
-  it('should drain multiple concurrent lazy imports', async () => {
+  it('should preload multiple lazy imports concurrently', async () => {
     const A = () => 'a';
     const B = () => 'b';
     const C = () => 'c';
@@ -102,7 +183,7 @@ describe('lazy()', () => {
     const stubB = lazy(() => Promise.resolve({ default: B }));
     const stubC = lazy(() => Promise.resolve({ default: C }));
 
-    await _drainLazy();
+    await Promise.all([stubA.preload(), stubB.preload(), stubC.preload()]);
 
     expect(stubA({})).toBe('a');
     expect(stubB({})).toBe('b');
@@ -115,12 +196,10 @@ describe('lazy()', () => {
 
   it('should work transparently when used with route()', async () => {
     const Page = (p: Record<string, string>) => `post:${p.slug}`;
-    route(
-      '/posts/{slug}',
-      lazy(() => Promise.resolve({ default: Page }))
-    );
+    const component = lazy(() => Promise.resolve({ default: Page }));
+    route('/posts/{slug}', component);
 
-    await _drainLazy();
+    await component.preload();
 
     const { records } = getManifest();
     const record = records.find((r) => r.path === '/posts/{slug}')!;
@@ -138,14 +217,12 @@ describe('lazy()', () => {
       return 'content';
     };
 
+    const component = lazy(() => Promise.resolve({ default: Page }));
     group({ layout: Layout }, () => {
-      route(
-        '/wrapped',
-        lazy(() => Promise.resolve({ default: Page }))
-      );
+      route('/wrapped', component);
     });
 
-    await _drainLazy();
+    await component.preload();
 
     const { records } = getManifest();
     const record = records.find((r) => r.path === '/wrapped')!;
