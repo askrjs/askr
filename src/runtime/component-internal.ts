@@ -146,7 +146,6 @@ function ensurePendingRunTask(instance: ComponentInstance): () => void {
     runScheduledComponent(instance, {
       execute: executeComponentSync,
       finalizeReadSubscriptions,
-      warnUnusedStateReads,
       commitRenderedComponent,
     });
   };
@@ -367,41 +366,7 @@ export function renderComponentInline(
   }
 }
 
-export function warnUnusedStateReads(instance: ComponentInstance): void {
-  const stateValues = instance.stateValues;
-  if (!stateValues) {
-    return;
-  }
-  for (let i = 0; i < stateValues.length; i++) {
-    const state = stateValues[i];
-    const hasCommittedUsage =
-      (state?._readers?.size ?? 0) > 0 ||
-      ((state as { _derivedSubscribers?: Set<unknown> } | undefined)
-        ?._derivedSubscribers?.size ?? 0) > 0;
-
-    if (
-      state &&
-      !state._hasBeenRead &&
-      !state._hasEverBeenRead &&
-      !hasCommittedUsage
-    ) {
-      try {
-        const name = instance.fn?.name || '<anonymous>';
-        warnInstanceOnce(
-          instance,
-          `unused-state:${i}`,
-          `[askr] Unused state variable detected in ${name} at index ${i}. State should be read during render or removed.`
-        );
-      } catch {
-        warnInstanceOnce(
-          instance,
-          `unused-state:${i}`,
-          `[askr] Unused state variable detected. State should be read during render or removed.`
-        );
-      }
-    }
-  }
-}
+export { warnUnusedStateReads } from './state-diagnostics';
 
 function executeComponentSync(
   instance: ComponentInstance

@@ -56,8 +56,10 @@ describe('dev warnings (DEV_ERRORS)', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
+    cleanup();
+    cleanup = () => {};
 
-    // Spec: unused state should warn in dev.
+    // A runtime detector can prove lifetime-wide non-use only at unmount.
     expect(getCapturedFrameworkWarnings().join('\n')).toContain(
       '[askr] Unused state variable detected'
     );

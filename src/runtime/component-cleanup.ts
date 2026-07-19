@@ -15,6 +15,7 @@ import {
   type ReadableSource,
 } from './readable';
 import { untrackRouteGeneration } from './ownership-diagnostics';
+import { warnUnusedStateReads } from './state-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -123,6 +124,8 @@ export function cleanupComponent(instance: ComponentInstance): void {
   const savedScope = clearCurrentComponentScope();
 
   try {
+    warnUnusedStateReads(instance);
+
     const cleanupErrors: unknown[] | undefined = instance.cleanupStrict
       ? []
       : undefined;

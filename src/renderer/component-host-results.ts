@@ -7,7 +7,6 @@ import {
   getCurrentInstance,
   mountInstanceInline,
   renderComponentInline,
-  warnUnusedStateReads,
   type ComponentFunction,
   type ComponentInstance,
 } from '../runtime';
@@ -200,7 +199,6 @@ export function resolveHostNestedComponentResult(
       }
 
       retainedInstances.add(nestedInstance);
-      warnUnusedStateReads(nestedInstance);
       activeSnapshot = nestedSnapshot ?? null;
       currentResult = markVNodeTreeWithContextFrame(
         nextResult,
@@ -279,7 +277,6 @@ export function resolveWrapperHostResult(
       );
     }
     retainedInstances.add(nestedInstance);
-    warnUnusedStateReads(nestedInstance);
     activeSnapshot = nestedSnapshot ?? null;
     currentResult = nextResult;
     depth += 1;

@@ -6,7 +6,6 @@ import {
   getCurrentInstance,
   mountInstanceInline,
   renderComponentInline,
-  warnUnusedStateReads,
   type ComponentFunction,
   type ComponentInstance,
 } from '../runtime';
@@ -184,7 +183,6 @@ export function syncComponentElement(
         });
         mountInstanceInline(hydrationInstance, existingHost);
         itemInstanceHydrationComplete(existingHost);
-        warnUnusedStateReads(hydrationInstance);
         return existingHost;
       }
 
@@ -211,7 +209,6 @@ export function syncComponentElement(
         });
         mountInstanceInline(hydrationInstance, existingHost);
         itemInstanceHydrationComplete(existingHost);
-        warnUnusedStateReads(hydrationInstance);
         return existingHost;
       }
 
@@ -234,7 +231,6 @@ export function syncComponentElement(
         }
       );
 
-      warnUnusedStateReads(hydrationInstance);
       return nextDom;
     } catch (error) {
       restoreVNodeComponentInstance(node, previousVNodeInstance);
@@ -302,7 +298,6 @@ export function syncComponentElement(
       existingHost,
       normalizeComponentChildren(wrapperResult) as VNode[]
     );
-    warnUnusedStateReads(existingInstance);
     return existingHost;
   }
 
@@ -326,7 +321,6 @@ export function syncComponentElement(
       );
       materializeKey(existingHost, node, props);
     });
-    warnUnusedStateReads(existingInstance);
     return existingHost;
   }
 
@@ -354,7 +348,6 @@ export function syncComponentElement(
         instance._placeholder = existingHost;
       }
     }
-    warnUnusedStateReads(existingInstance);
     return existingHost;
   }
   if (
@@ -372,7 +365,6 @@ export function syncComponentElement(
       );
       materializeKey(existingHost, node, props);
     });
-    warnUnusedStateReads(existingInstance);
     return existingHost;
   }
 
@@ -395,7 +387,6 @@ export function syncComponentElement(
     }
   );
 
-  warnUnusedStateReads(existingInstance);
   return nextDom;
 }
 
@@ -509,8 +500,6 @@ export function createComponentElement(
           scopedResult,
           parentNamespace
         );
-
-    warnUnusedStateReads(childInstance);
 
     if (dom instanceof Element) {
       materializeFreshKey(dom, node, props);
