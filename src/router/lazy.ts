@@ -1,72 +1,111 @@
 import type {
-  RouteManifest,
   RouteParams,
-  RouteRegistry,
   RouteComponent,
+  RouteHandler,
+  RouteRecord,
 } from '../common/router';
 import type { AnyRouteComponent } from './internal-types';
 
 const pendingLazy = new Set<Promise<unknown>>();
-const registryLazyImports = new WeakMap<RouteRegistry, Promise<unknown>[]>();
-const manifestLazyImports = new WeakMap<RouteManifest, Promise<unknown>[]>();
+type LazyState<TComponent extends AnyRouteComponent> = {
+  factory: () => Promise<{ default: TComponent } | TComponent>;
+  promise: Promise<void> | null;
+  resolved: TComponent | null;
+  loadError: unknown;
+};
+export type LazyRouteComponent<TComponent extends AnyRouteComponent> =
+  TComponent & { preload(): Promise<void> };
+const lazyStates = new WeakMap<
+  AnyRouteComponent,
+  LazyState<AnyRouteComponent>
+>();
+const handlerLazyComponents = new WeakMap<RouteHandler, AnyRouteComponent[]>();
+
+function startLazyLoad(state: LazyState<AnyRouteComponent>): Promise<void> {
+  if (state.promise) return state.promise;
+
+  let promise: Promise<void>;
+  promise = Promise.resolve()
+    .then(state.factory)
+    .then(
+      (mod) => {
+        state.resolved =
+          typeof mod === 'function'
+            ? mod
+            : (mod as { default: AnyRouteComponent }).default;
+      },
+      (err: unknown) => {
+        state.loadError = err;
+      }
+    )
+    .finally(() => {
+      pendingLazy.delete(promise);
+    });
+  state.promise = promise;
+  pendingLazy.add(promise);
+  return promise;
+}
 
 export function lazy<TComponent extends AnyRouteComponent>(
   factory: () => Promise<{ default: TComponent } | TComponent>
-): TComponent {
-  let resolved: TComponent | null = null;
-  let loadError: unknown = null;
-
-  const promise = factory().then(
-    (mod) => {
-      resolved =
-        typeof mod === 'function'
-          ? mod
-          : (mod as { default: TComponent }).default;
-      pendingLazy.delete(promise);
-    },
-    (err: unknown) => {
-      loadError = err;
-      pendingLazy.delete(promise);
-    }
-  );
-  pendingLazy.add(promise);
-
-  return ((params: RouteParams) => {
-    if (loadError) throw loadError as Error;
-    if (!resolved) {
+): LazyRouteComponent<TComponent> {
+  const state: LazyState<TComponent> = {
+    factory,
+    promise: null,
+    resolved: null,
+    loadError: null,
+  };
+  const component = ((params: RouteParams) => {
+    if (state.loadError) throw state.loadError as Error;
+    if (!state.resolved) {
       throw new Error(
         'lazy() component used before it was resolved. ' +
-          'Await createSPA() / hydrateSPA() to ensure all chunks load first.'
+          'Matched routes load automatically; call component.preload() for explicit preloading.'
       );
     }
-    return (resolved as RouteComponent<RouteParams>)(params);
-  }) as TComponent;
+    return (state.resolved as RouteComponent<RouteParams>)(params);
+  }) as LazyRouteComponent<TComponent>;
+  Object.defineProperty(component, 'preload', {
+    value: () => startLazyLoad(state as LazyState<AnyRouteComponent>),
+  });
+  lazyStates.set(component, state as LazyState<AnyRouteComponent>);
+  return component;
+}
+
+export function _preloadRouteRecord(record: RouteRecord): Promise<void> | null {
+  const components = [
+    record.component,
+    ...record.pageChain.map((scope) => scope.component),
+    ...record.layoutChain.map((scope) => scope.component),
+  ];
+  const imports = components.flatMap((component) => {
+    const state = lazyStates.get(component);
+    return state ? [startLazyLoad(state)] : [];
+  });
+  return imports.length > 0 ? Promise.all(imports).then(() => undefined) : null;
+}
+
+export function _associateLazyHandler(
+  handler: RouteHandler,
+  components: AnyRouteComponent[]
+): void {
+  handlerLazyComponents.set(handler, components);
+}
+
+export function _preloadRouteHandler(
+  handler: RouteHandler
+): Promise<void> | null {
+  const imports = (handlerLazyComponents.get(handler) ?? []).flatMap(
+    (component) => {
+      const state = lazyStates.get(component);
+      return state ? [startLazyLoad(state)] : [];
+    }
+  );
+  return imports.length > 0 ? Promise.all(imports).then(() => undefined) : null;
 }
 
 export function _snapshotLazy(): Promise<unknown>[] {
   return [...pendingLazy];
-}
-
-export function _snapshotRouteSourceLazy(source: {
-  registry?: RouteRegistry;
-  manifest?: RouteManifest;
-}): Promise<unknown>[] {
-  const imports = new Set<Promise<unknown>>();
-
-  if (source.registry) {
-    for (const lazyImport of registryLazyImports.get(source.registry) ?? []) {
-      imports.add(lazyImport);
-    }
-  }
-
-  const manifest = source.manifest ?? source.registry?.manifest;
-  if (manifest) {
-    for (const lazyImport of manifestLazyImports.get(manifest) ?? []) {
-      imports.add(lazyImport);
-    }
-  }
-
-  return [...imports];
 }
 
 export function _drainLazy(
@@ -78,28 +117,4 @@ export function _drainLazy(
   ]);
   if (combined.size === 0) return Promise.resolve();
   return Promise.allSettled(combined).then(() => undefined);
-}
-
-export function associateRouteSourceLazy(
-  registry: RouteRegistry,
-  manifest: RouteManifest,
-  lazyImports: Promise<unknown>[]
-): void {
-  if (lazyImports.length === 0) {
-    return;
-  }
-
-  registryLazyImports.set(registry, lazyImports);
-  manifestLazyImports.set(manifest, lazyImports);
-}
-
-export function clearPendingLazy(): void {
-  pendingLazy.clear();
-}
-
-export function restorePendingLazy(lazyImports: readonly Promise<unknown>[]) {
-  pendingLazy.clear();
-  for (const lazyImport of lazyImports) {
-    pendingLazy.add(lazyImport);
-  }
 }

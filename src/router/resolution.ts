@@ -21,6 +21,7 @@ import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
 import { getActiveRouteAuthOptions, getRouteRecords } from './store';
 import { setCurrentAuth } from './auth';
+import { _preloadRouteRecord } from './lazy';
 
 export {
   _resolveRouteMatchFromRoutes,
@@ -91,6 +92,30 @@ export function hasRouteRenderData(result: RouteRenderResult): boolean {
 }
 
 function buildRenderResult(
+  record: RouteRecord,
+  params: Record<string, string>,
+  context: RouteContext,
+  request: Request | undefined,
+  telemetry: CoreTelemetry | undefined,
+  load: boolean
+): RouteRequestResult | Promise<RouteRequestResult> {
+  const lazyImport = _preloadRouteRecord(record);
+  if (lazyImport) {
+    return lazyImport.then(() =>
+      buildLoadedRenderResult(record, params, context, request, telemetry, load)
+    );
+  }
+  return buildLoadedRenderResult(
+    record,
+    params,
+    context,
+    request,
+    telemetry,
+    load
+  );
+}
+
+function buildLoadedRenderResult(
   record: RouteRecord,
   params: Record<string, string>,
   context: RouteContext,

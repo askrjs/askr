@@ -7,10 +7,7 @@ import type { ResolvedRoute } from '../common/router';
 import { configureScrollRestoration } from '../router/navigate';
 import {
   _applyManifest,
-  _drainLazy,
   _setActiveRouteAuthOptions,
-  _snapshotRouteSourceLazy,
-  _snapshotLazy,
   clearRoutes,
   hasRegisteredRoutes,
   lockRouteRegistration,
@@ -152,11 +149,6 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
-  const pendingLazyAtBoot = [
-    ..._snapshotLazy(),
-    ..._snapshotRouteSourceLazy({ registry: config.registry, manifest }),
-  ];
-
   configureScrollRestoration(config.scrollRestoration);
 
   clearRoutes();
@@ -179,9 +171,6 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     auth: routeAuth,
   };
   _setActiveRouteAuthOptions(routeAuth);
-
-  // Drain any lazy() imports so all split chunks are ready before mounting
-  await _drainLazy(pendingLazyAtBoot);
 
   // Lock registration in production to prevent late registration surprises
   if (isProductionEnvironment()) lockRouteRegistration();
@@ -278,11 +267,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   }
   const hydrationRenderDataForApp = hydrationRenderData;
 
-  const pendingLazyAtHydrationBoot = [
-    ..._snapshotLazy(),
-    ..._snapshotRouteSourceLazy({ registry: config.registry, manifest }),
-  ];
-
   configureScrollRestoration(config.scrollRestoration);
 
   clearRoutes();
@@ -308,9 +292,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     }),
   };
   _setActiveRouteAuthOptions(routeAuth);
-
-  // Drain any lazy() imports so all split chunks are ready before mounting
-  await _drainLazy(pendingLazyAtHydrationBoot);
 
   const {
     path,

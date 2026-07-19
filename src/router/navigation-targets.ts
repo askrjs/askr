@@ -56,6 +56,7 @@ import {
   createAppRenderRuntime,
   stageAppRenderRouteLocation,
 } from '../common/app-render-runtime';
+import { _preloadRouteHandler } from './lazy';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -677,11 +678,13 @@ function resolveAppRouteRequest(
       return null;
     }
 
-    return {
+    const result = {
       kind: 'render',
       handler: resolved.handler,
       params: resolved.params,
-    };
+    } as const;
+    const lazyImport = _preloadRouteHandler(resolved.handler);
+    return lazyImport ? lazyImport.then(() => result) : result;
   }
 
   return resolveRouteRequest(href, {

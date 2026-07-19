@@ -40,6 +40,7 @@ import {
   type GroupHelperOptions,
   type HistoryScrollBehavior,
   type LayoutScopeRecord,
+  type LazyRouteComponent,
   type LinkProps,
   type NavigateOptions,
   type NavigationScrollBehavior,
@@ -175,6 +176,10 @@ const lazyRoute = lazy(async () => ({
   default: (params: { id: string }) => params.id,
 }));
 expectAssignable<RouteComponent<{ id: string }>>(lazyRoute);
+expectAssignable<LazyRouteComponent<RouteComponent<{ id: string }>>>(
+  lazyRoute
+);
+expectType<Promise<void>>(lazyRoute.preload());
 route('/users/{id}', lazyRoute);
 
 expectType<void>(navigate('/home'));

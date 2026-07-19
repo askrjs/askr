@@ -64,6 +64,7 @@ export type {
   RouteRegistry,
   PageScopeRecord,
 } from '../common/router';
+export type { LazyRouteComponent } from './lazy';
 export { to } from './destination';
 export {
   reconcileRouteMeta,

@@ -10,6 +10,7 @@ import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { RenderableChild } from '../common/vnode';
 import { defineScope, readScope } from '../runtime';
 import type { InternalRouteRecord } from './internal-types';
+import { _associateLazyHandler } from './lazy';
 
 const outletScope = defineScope<RenderableChild>(null);
 
@@ -62,7 +63,7 @@ export function createRouteHandler(
   layoutChain: readonly LayoutScopeRecord[],
   deferComponents = false
 ): RouteHandler {
-  return (params) => {
+  const handler: RouteHandler = (params) => {
     let content = deferComponents
       ? createRouteComponentVNode(component, params, true)
       : component(params);
@@ -79,6 +80,12 @@ export function createRouteHandler(
 
     return content;
   };
+  _associateLazyHandler(handler, [
+    component,
+    ...pageChain.map((scope) => scope.component),
+    ...layoutChain.map((scope) => scope.component),
+  ]);
+  return handler;
 }
 
 export function getRenderHandler(record: RouteRecord): RouteHandler {
