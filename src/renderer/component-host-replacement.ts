@@ -10,6 +10,7 @@ import type { InstanceHostNode } from './dom-host';
 import { restoreVNodeComponentInstance } from './component-host-instances';
 import {
   getOwnedRange,
+  createSingleNodeRange,
   registerRange,
   removeRange,
   type DOMRange,
@@ -188,11 +189,18 @@ export function beginComponentHostReplacement(
         ])
       );
       nextDom = materialize();
-      nextRange = getOwnedRange(retainedInstance);
+      const registeredRange = getOwnedRange(retainedInstance);
+      nextRange =
+        registeredRange && registeredRange !== previousRange
+          ? registeredRange
+          : undefined;
       nextHost =
         nextDom instanceof DocumentFragment ? nextDom.firstChild : nextDom;
       if (!nextHost) {
         throw new Error('[askr] Component replacement produced no host node.');
+      }
+      if (!nextRange) {
+        nextRange = createSingleNodeRange(nextHost, retainedInstance);
       }
       prepareNextDom(nextHost);
       if (parent && nextHost !== existingHost) {

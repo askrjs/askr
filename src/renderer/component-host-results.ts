@@ -77,7 +77,7 @@ export function materializeComponentResultNode(
     mountInstanceInline(childInstance, host);
     return host;
   }
-  const materialized = createDetachedRange(dom, childInstance);
+  const materialized = createDetachedRange(dom, childInstance, true);
   const host = materialized.range.start as InstanceHostNode;
   host.__ASKR_INSTANCE = childInstance;
   host.__ASKR_INSTANCES = [childInstance];

@@ -96,4 +96,75 @@ describe('component fragment structure', () => {
       )
     ).toEqual(['OPTION', 'OPTION']);
   });
+
+  it('should keep a single-item control boundary transparent across updates', () => {
+    let append!: () => void;
+
+    function Rows() {
+      const rows = state([{ id: 1, name: 'Alice' }]);
+      append = () => rows.set([...rows(), { id: 2, name: 'Bob' }]);
+      return (
+        <For each={rows} by={(row) => row.id}>
+          {(row) => <tr data-row={row.id}>{row.name}</tr>}
+        </For>
+      );
+    }
+
+    root = document.createElement('div');
+    document.body.appendChild(root);
+    createIsland({
+      root,
+      component: () => (
+        <table>
+          <tbody>
+            <Rows />
+          </tbody>
+        </table>
+      ),
+    });
+
+    const tbody = root.querySelector('tbody')!;
+    expect(Array.from(tbody.children, (child) => child.tagName)).toEqual([
+      'TR',
+    ]);
+    append();
+    flushScheduler();
+    expect(Array.from(tbody.children, (child) => child.tagName)).toEqual([
+      'TR',
+      'TR',
+    ]);
+  });
+
+  it('should replace an owned control range with a single element host', () => {
+    let replace!: () => void;
+
+    function Content() {
+      const showRows = state(true);
+      replace = () => showRows.set(false);
+      return showRows() ? (
+        <For each={[1, 2]} by={(value) => value}>
+          {(value) => <span data-row={value}>{value}</span>}
+        </For>
+      ) : (
+        <strong>Done</strong>
+      );
+    }
+
+    root = document.createElement('div');
+    document.body.appendChild(root);
+    createIsland({
+      root,
+      component: () => (
+        <section>
+          <Content />
+        </section>
+      ),
+    });
+
+    replace();
+    flushScheduler();
+    const section = root.querySelector('section')!;
+    expect(section.querySelectorAll(':scope > span')).toHaveLength(0);
+    expect(section.querySelector(':scope > strong')?.textContent).toBe('Done');
+  });
 });
