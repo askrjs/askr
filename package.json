@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.60",
+  "version": "0.0.61",
   "description": "Actor-backed deterministic UI framework",
   "keywords": [
     "askr",
@@ -132,7 +132,7 @@
     "test:types": "vp pack && tsd --files \"tests/types/**/*.test-d.ts\" --files \"tests/types/**/*.test-d.tsx\"",
     "test:installed": "node tests/installed-types.js",
     "test:publint": "publint",
-    "release:verify": "npm run lint && npm run build && npm run test:publint && npm run test:checks && npm run test:types && npm run test:installed && npm run test:unit && npm run test:jsdom && npm run test:browser",
+    "release:verify": "npm run lint && npm run build && npm run test:publint && npm run test:checks && npm run test:types && npm run test:installed && npm run test:unit && npm run test:jsdom && npm run test:browser && npm run build",
     "pack:check": "node tests/package-artifacts.js",
     "check": "npm run release:verify && npm run pack:check",
     "test:unit": "vp test run -c vitest.test.unit.config.ts",
