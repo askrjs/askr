@@ -94,6 +94,23 @@ function commitPlaceholderReplacement(
   }
 
   const renderer = getRuntimeRenderer();
+  const rangeReplacement = renderer.replaceComponentRange(
+    instance,
+    result,
+    placeholder
+  );
+  if (rangeReplacement) {
+    if (rangeReplacement instanceof Element) {
+      instance.target = rangeReplacement;
+      instance._placeholder = undefined;
+    } else {
+      instance.target = null;
+      instance._placeholder = rangeReplacement as Comment;
+    }
+    host.finalizeReadSubscriptions(instance);
+    host.commitRenderedComponent(instance);
+    return;
+  }
   const hostElement = document.createElement('div');
   const executionFrame = getExecutionContextFrame(instance.ownerFrame);
 

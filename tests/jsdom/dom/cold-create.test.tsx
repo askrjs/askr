@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { For } from '../../../src/control';
 import { createDOMNode } from '../../../src/renderer/dom';
-import { createDetachedRange } from '../../../src/renderer/dom-range';
+import {
+  createDetachedRange,
+  getOwnedRange,
+} from '../../../src/renderer/dom-range';
 import { state, type State } from '../../../src/runtime/state';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
@@ -24,6 +27,24 @@ describe('cold DOM construction', () => {
     expect(materialized.fragment).toBeNull();
     expect(node.parentNode).toBeNull();
     expect(createFragment).not.toHaveBeenCalled();
+    createFragment.mockRestore();
+  });
+
+  it('should transfer an adopted detached range without retaining the previous owner', () => {
+    const firstOwner = {};
+    const nextOwner = {};
+    const input = document.createDocumentFragment();
+    input.append(
+      document.createElement('span'),
+      document.createElement('span')
+    );
+    const first = createDetachedRange(input, firstOwner);
+
+    const adopted = createDetachedRange(first.fragment!, nextOwner);
+
+    expect(adopted.range).toBe(first.range);
+    expect(getOwnedRange(firstOwner)).toBeUndefined();
+    expect(getOwnedRange(nextOwner)).toBe(first.range);
   });
 
   it('should append multiple children directly into a detached intrinsic', () => {
