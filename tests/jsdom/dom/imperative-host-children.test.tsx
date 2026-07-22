@@ -84,4 +84,21 @@ describe('imperative host children', () => {
       ))
     ).toBe('<div data-testid="widget-host"></div>');
   });
+
+  it('should not materialize the ownership marker on a keyed first render', () => {
+    function App() {
+      return (
+        <div imperativeChildren data-testid="widget-host">
+          {[<span key="first">one</span>, <span key="second">two</span>]}
+        </div>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    const host = container.querySelector('[data-testid="widget-host"]')!;
+    expect(host.hasAttribute('imperativechildren')).toBe(false);
+    expect(host.textContent).toBe('onetwo');
+  });
 });
