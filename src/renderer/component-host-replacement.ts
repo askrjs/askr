@@ -8,6 +8,12 @@ import { elementRefs, removeElementRef, updateElementRef } from './cleanup';
 import { cleanupDetachedComponentHost } from './component-host-cleanup';
 import type { InstanceHostNode } from './dom-host';
 import { restoreVNodeComponentInstance } from './component-host-instances';
+import {
+  getOwnedRange,
+  registerRange,
+  removeRange,
+  type DOMRange,
+} from './dom-range';
 
 export interface ComponentHostReplacement {
   replace(
@@ -63,10 +69,13 @@ export function beginComponentHostReplacement(
   disposeOnRollback = false
 ): ComponentHostReplacement {
   const parent = existingHost.parentNode;
+  const previousRange = getOwnedRange(retainedInstance);
   const previousRef =
     existingHost instanceof Element ? elementRefs.get(existingHost) : undefined;
   let previousRefDetached = false;
   let nextDom: Node | null = null;
+  let nextHost: Node | null = null;
+  let nextRange: DOMRange | undefined;
   let previousBindings = new Map<ComponentInstance, HostBinding>();
   let didReplace = false;
   let replacementAttempted = false;
@@ -77,7 +86,7 @@ export function beginComponentHostReplacement(
     finished = true;
     if (replacementAttempted && didReplace) {
       const retained = Array.from(retainedInstances);
-      if (nextDom) {
+      if (nextHost) {
         for (const [instance, binding] of previousBindings) {
           if (
             binding.target !== existingHost &&
@@ -85,16 +94,24 @@ export function beginComponentHostReplacement(
           ) {
             continue;
           }
-          if (nextDom instanceof Element) {
-            instance.target = nextDom;
+          if (nextHost instanceof Element) {
+            instance.target = nextHost;
             instance._placeholder = undefined;
-          } else if (nextDom instanceof Comment) {
+          } else if (nextHost instanceof Comment) {
             instance.target = null;
-            instance._placeholder = nextDom;
+            instance._placeholder = nextHost;
           }
         }
       }
-      cleanupDetachedComponentHost(existingHost, retained);
+      if (previousRange && !previousRange.single) {
+        removeRange(previousRange, (node) => {
+          cleanupDetachedComponentHost(node as InstanceHostNode, retained);
+          node.parentNode?.removeChild(node);
+        });
+        if (nextRange) registerRange(nextRange, retainedInstance);
+      } else {
+        cleanupDetachedComponentHost(existingHost, retained);
+      }
     }
   };
 
@@ -105,9 +122,17 @@ export function beginComponentHostReplacement(
 
     const rollbackErrors: unknown[] = [];
     const retained = Array.from(retainedInstances);
-    if (nextDom && nextDom !== existingHost) {
+    if (nextHost && nextHost !== existingHost) {
       try {
-        cleanupReplacementNode(nextDom, retained);
+        if (nextRange && !nextRange.single) {
+          removeRange(nextRange, (node) => {
+            cleanupReplacementNode(node, retained);
+            node.parentNode?.removeChild(node);
+          });
+        } else {
+          cleanupReplacementNode(nextHost, retained);
+          nextHost.parentNode?.removeChild(nextHost);
+        }
       } catch (error) {
         rollbackErrors.push(error);
       }
@@ -122,6 +147,7 @@ export function beginComponentHostReplacement(
       if (!previousBindings.has(retainedInstance) && !disposeOnRollback) {
         retainedInstance.target = previousTarget;
       }
+      if (previousRange) registerRange(previousRange, retainedInstance);
     } catch (error) {
       rollbackErrors.push(error);
     }
@@ -162,9 +188,19 @@ export function beginComponentHostReplacement(
         ])
       );
       nextDom = materialize();
-      prepareNextDom(nextDom);
-      if (parent && nextDom !== existingHost) {
-        parent.replaceChild(nextDom, existingHost);
+      nextRange = getOwnedRange(retainedInstance);
+      nextHost =
+        nextDom instanceof DocumentFragment ? nextDom.firstChild : nextDom;
+      if (!nextHost) {
+        throw new Error('[askr] Component replacement produced no host node.');
+      }
+      prepareNextDom(nextHost);
+      if (parent && nextHost !== existingHost) {
+        if (previousRange && !previousRange.single) {
+          parent.insertBefore(nextDom, previousRange.start);
+        } else {
+          parent.replaceChild(nextDom, existingHost);
+        }
         didReplace = true;
       }
     } catch (error) {
@@ -179,7 +215,7 @@ export function beginComponentHostReplacement(
     }
 
     if (!staged) commit();
-    return nextDom;
+    return nextHost;
   };
 
   return { replace };

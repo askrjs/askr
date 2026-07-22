@@ -56,6 +56,24 @@ export function createDetachedRange(
   nodes: Node | DocumentFragment | null,
   owner?: object
 ): { range: DOMRange; fragment: DocumentFragment | null } {
+  if (nodes instanceof DocumentFragment) {
+    const first = nodes.firstChild;
+    const last = nodes.lastChild;
+    const existingOwner = first ? getRangeOwner(first) : undefined;
+    const existingRange = existingOwner
+      ? getOwnedRange(existingOwner)
+      : undefined;
+    if (
+      existingRange &&
+      !existingRange.single &&
+      existingRange.start === first &&
+      existingRange.end === last
+    ) {
+      if (owner) registerRange(existingRange, owner);
+      return { range: existingRange, fragment: nodes };
+    }
+  }
+
   if (nodes && !(nodes instanceof DocumentFragment)) {
     return { range: createSingleNodeRange(nodes, owner), fragment: null };
   }

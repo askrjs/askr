@@ -1,5 +1,6 @@
 import { isPromiseLike } from '../common/promise';
 import type { Props } from '../common/props';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import {
   captureInlineRenderSnapshot,
   cleanupComponent,
@@ -36,6 +37,7 @@ import {
   type InstanceHostElement,
   type InstanceHostNode,
 } from './dom-host';
+import { createDetachedRange } from './dom-range';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 
 export function materializeComponentResultNode(
@@ -65,11 +67,23 @@ export function materializeComponentResultNode(
     mountInstanceInline(childInstance, null);
     return placeholder;
   }
-  const host = document.createElement('div') as InstanceHostElement;
-  host.appendChild(dom);
-  host.__ASKR_WRAPPER_HOST = true;
-  mountInstanceInline(childInstance, host);
-  return host;
+  if (
+    !_isDOMElement(result) ||
+    (result as DOMElement).type !== __CONTROL_BOUNDARY__
+  ) {
+    const host = document.createElement('div') as InstanceHostElement;
+    host.appendChild(dom);
+    host.__ASKR_WRAPPER_HOST = true;
+    mountInstanceInline(childInstance, host);
+    return host;
+  }
+  const materialized = createDetachedRange(dom, childInstance);
+  const host = materialized.range.start as InstanceHostNode;
+  host.__ASKR_INSTANCE = childInstance;
+  host.__ASKR_INSTANCES = [childInstance];
+  childInstance._placeholder = host as Comment;
+  mountInstanceInline(childInstance, null);
+  return materialized.fragment ?? host;
 }
 
 export function resolveNestedComponentResult(
