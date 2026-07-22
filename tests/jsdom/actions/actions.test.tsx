@@ -77,6 +77,8 @@ describe('actions', () => {
           )
       )
     );
+    const assign = vi.fn();
+    vi.stubGlobal('location', { href: 'http://example.test/items', assign });
     let command!: ReturnType<
       typeof action<{ name: string }, { saved: boolean }>
     >;
@@ -97,6 +99,53 @@ describe('actions', () => {
         pending: false,
         result: { saved: true },
       });
+      expect(assign).not.toHaveBeenCalled();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should navigate only after enhanced result state and invalidations are processed', async () => {
+    getDefaultDataRuntime().queryData.set('items:one', { id: 'one' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          version: 1,
+          ok: true,
+          result: { saved: true },
+          invalidates: ['items:'],
+          redirect: '/signed-in',
+        })
+      )
+    );
+    let command!: ReturnType<
+      typeof action<{ name: string }, { saved: boolean }>
+    >;
+    const assign = vi.fn(() => {
+      expect(getDefaultDataRuntime().queryData.has('items:one')).toBe(false);
+      expect(command.state()).toEqual({
+        pending: false,
+        result: { saved: true },
+      });
+    });
+    vi.stubGlobal('location', {
+      href: 'http://example.test/items',
+      assign,
+    });
+    const App = () => {
+      command = action<{ name: string }, { saved: boolean }>(save);
+      return <div>{command.state().pending ? 'pending' : 'idle'}</div>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await expect(command.submit({ name: 'Ada' })).resolves.toEqual({
+        saved: true,
+      });
+      expect(assign).toHaveBeenCalledOnce();
+      expect(assign).toHaveBeenCalledWith('/signed-in');
     } finally {
       cleanup();
     }
@@ -122,6 +171,8 @@ describe('actions', () => {
           })
       )
     );
+    const assign = vi.fn();
+    vi.stubGlobal('location', { href: 'http://example.test/items', assign });
     let command!: ReturnType<typeof action<{ name: string }>>;
     const App = () => {
       command = action(save);
@@ -142,6 +193,7 @@ describe('actions', () => {
         values: { name: 'x' },
         fieldErrors: { name: ['Too short.'] },
       });
+      expect(assign).not.toHaveBeenCalled();
     } finally {
       cleanup();
     }

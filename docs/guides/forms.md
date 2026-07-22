@@ -79,10 +79,22 @@ function RenameProjectForm() {
 }
 ```
 
-`ActionForm` emits native POST fields for action identity and the page's CSRF
-token. Native validation failures re-render submitted values and field errors
-at 422; enhanced submissions expose the same result through `action()` and
-invalidate declared query prefixes without navigation.
+`ActionForm` is native and server-driven: it emits POST fields for action
+identity and the page's CSRF token, succeeds through a validated 303 redirect,
+and re-renders validation failures with submitted values and field errors at
+422. It is not intercepted automatically.
+
+Call `action().submit(input)` when the interaction is deliberately
+client-driven. It uses the same descriptor, handler, validation, cookies, and
+redirects, then processes the result and declared query invalidations. When the
+outcome includes a redirect, it performs full-document navigation so cookies,
+authentication, loaders, and SSR state all refresh together.
+
+The default CSRF session comes from authenticated session state. Login and
+other pre-authentication forms need a custom server-side CSRF `sessionId`
+strategy. Protocol callbacks such as a SAML ACS should remain protocol routes,
+because an identity provider posts a protocol response rather than an Askr
+action submission.
 
 ## Common Pitfalls
 

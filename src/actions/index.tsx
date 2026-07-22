@@ -118,6 +118,7 @@ export function action<
           result?: TResult;
           error?: unknown;
           invalidates?: unknown;
+          redirect?: unknown;
           kind?: unknown;
           action?: unknown;
           values?: unknown;
@@ -139,6 +140,8 @@ export function action<
         for (const prefix of invalidates)
           invalidateQueriesForRuntime(runtime, prefix, true);
         setValue({ pending: false, result: envelope.result });
+        if (typeof envelope.redirect === 'string')
+          location.assign(envelope.redirect);
         return envelope.result as TResult;
       } catch (error) {
         setValue({ pending: false, error });

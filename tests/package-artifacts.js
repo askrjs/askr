@@ -14,6 +14,16 @@ if (result.length !== 1) {
 }
 
 const packedFiles = new Set(result[0].files.map(({ path }) => normalize(path)));
+const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+for (const [subpath, target] of Object.entries(packageJson.exports)) {
+  if (!target || typeof target !== 'object' || !('types' in target)) continue;
+  const declaration = normalize(target.types.replace(/^\.\//, ''));
+  if (!packedFiles.has(declaration)) {
+    throw new Error(
+      `Packed artifact is missing ${declaration} for export ${subpath}`
+    );
+  }
+}
 const sourceMappingPattern = /[#@]\s*sourceMappingURL=([^\s*]+)/gu;
 
 for (const file of result[0].files) {
