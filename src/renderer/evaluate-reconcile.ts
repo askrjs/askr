@@ -26,6 +26,7 @@ import {
   getMaterializedKey,
   getEventListenerKey,
   getEventListenerOptions,
+  isSkippedProp,
   parseEventProp,
   setRenderedAttribute,
   tagNamesEqualIgnoreCase as sharedTagNamesEqualIgnoreCase,
@@ -419,13 +420,13 @@ export function processFragmentChildren(
 
 function applyPropsToElement(el: Element, props: Props): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key === 'children' || key === 'key') continue;
-    if (value === undefined || value === null || value === false) continue;
-
     if (key === 'ref') {
       updateElementRef(el, value);
       continue;
     }
+
+    if (isSkippedProp(key)) continue;
+    if (value === undefined || value === null || value === false) continue;
 
     const eventProp = parseEventProp(key);
     if (eventProp) {

@@ -15,6 +15,22 @@ child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
 
+### Imperative widget hosts
+
+Use `imperativeChildren` when a third-party widget owns all descendants of an
+intrinsic host. Askr will keep updating the host's attributes, event handlers,
+and ref, but it will not reconcile or detach the widget-owned DOM after mount.
+
+```tsx
+function EmbeddedWidget() {
+  return <div ref={mountWidget} imperativeChildren />;
+}
+```
+
+The marker is renderer-only and is not emitted as an HTML attribute. Leave it
+off for normal declarative elements so removing JSX children continues to clear
+their DOM and lifecycle ownership normally.
+
 See [Runtime](./runtime.md) for boot APIs.
 
 ## Server-Side Rendering (SSR)
