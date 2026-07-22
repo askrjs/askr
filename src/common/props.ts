@@ -90,6 +90,11 @@ interface IntrinsicEventProps {
 export interface IntrinsicProps extends IntrinsicEventProps {
   key?: string | number | symbol;
   children?: unknown;
+  /**
+   * Leaves descendant DOM ownership to an imperative widget after mount.
+   * Askr will continue updating the host element's props, events, and ref.
+   */
+  imperativeChildren?: boolean;
   class?: ReactiveProp<IntrinsicClassValue>;
   className?: ReactiveProp<IntrinsicClassValue>;
   style?: ReactiveProp<IntrinsicStyleValue>;
