@@ -81,8 +81,7 @@ function RenameProjectForm() {
 
 `ActionForm` is native and server-driven: it emits POST fields for action
 identity and the page's CSRF token, succeeds through a validated 303 redirect,
-and re-renders validation failures with submitted values and field errors at
-422. It is not intercepted automatically.
+and re-renders validation failures with submitted values and field errors at 422. It is not intercepted automatically.
 
 Call `action().submit(input)` when the interaction is deliberately
 client-driven. It uses the same descriptor, handler, validation, cookies, and
