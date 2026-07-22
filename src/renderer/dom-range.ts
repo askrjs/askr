@@ -54,8 +54,27 @@ export function getRangeBeforeNode(range: DOMRange): Node | null {
 
 export function createDetachedRange(
   nodes: Node | DocumentFragment | null,
-  owner?: object
+  owner?: object,
+  forceAnchors = false
 ): { range: DOMRange; fragment: DocumentFragment | null } {
+  if (nodes instanceof DocumentFragment) {
+    const first = nodes.firstChild;
+    const last = nodes.lastChild;
+    const existingOwner = first ? getRangeOwner(first) : undefined;
+    const existingRange = existingOwner
+      ? getOwnedRange(existingOwner)
+      : undefined;
+    if (
+      existingRange &&
+      !existingRange.single &&
+      existingRange.start === first &&
+      existingRange.end === last
+    ) {
+      if (owner) registerRange(existingRange, owner);
+      return { range: existingRange, fragment: nodes };
+    }
+  }
+
   if (nodes && !(nodes instanceof DocumentFragment)) {
     return { range: createSingleNodeRange(nodes, owner), fragment: null };
   }
@@ -68,7 +87,7 @@ export function createDetachedRange(
     throw new Error('[askr] Cannot create a DOM range without a document.');
   }
 
-  if (normalized.length === 1) {
+  if (normalized.length === 1 && !forceAnchors) {
     const single = normalized[0]!;
     return { range: createSingleNodeRange(single, owner), fragment: null };
   }
@@ -103,6 +122,18 @@ export function createEmptyRange(
 export function registerRange(range: DOMRange, owner?: object): void {
   if (!owner) {
     return;
+  }
+
+  const previousStartOwner = ownersByAnchor.get(range.start);
+  const previousEndOwner = ownersByAnchor.get(range.end);
+  for (const previousOwner of [previousStartOwner, previousEndOwner]) {
+    if (
+      previousOwner &&
+      previousOwner !== owner &&
+      rangesByOwner.get(previousOwner) === range
+    ) {
+      rangesByOwner.delete(previousOwner);
+    }
   }
 
   rangesByOwner.set(owner, range);

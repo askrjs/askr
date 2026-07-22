@@ -25,6 +25,7 @@ import { cleanupInstancesUnder, teardownNodeSubtree } from './cleanup';
 import { isKeyedReorderFastPathEligible, getKeyMapForElement } from './keyed';
 import { populateKeyMapForElement } from './keyed';
 import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
+import { replaceComponentRange } from './component-range-commit';
 import { getDefaultRuntimeInstance } from '../runtime';
 import {
   configureRuntimeRenderer,
@@ -36,6 +37,7 @@ export function createRendererHost(): RuntimeRendererHost {
   return {
     evaluate: _evaluate,
     cleanupInstancesUnder,
+    replaceComponentRange,
     teardownNodeSubtree,
     populateKeyMapForElement,
     getKeyMapForElement,

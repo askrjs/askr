@@ -21,6 +21,11 @@ export interface RuntimeRendererHost {
     retainedOwner?: ComponentInstance
   ): void;
   cleanupInstancesUnder(node: Node): void;
+  replaceComponentRange(
+    instance: ComponentInstance,
+    result: unknown,
+    placeholder: Comment
+  ): Node | null;
   teardownNodeSubtree(root: Node): void;
   populateKeyMapForElement(parent: Element): void;
   getKeyMapForElement(
@@ -52,6 +57,9 @@ function createMissingRendererHost(): RuntimeRendererHost {
     },
     cleanupInstancesUnder() {
       missing('cleanupInstancesUnder');
+    },
+    replaceComponentRange() {
+      return missing('replaceComponentRange');
     },
     teardownNodeSubtree() {
       missing('teardownNodeSubtree');
