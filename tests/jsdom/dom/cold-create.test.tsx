@@ -34,7 +34,10 @@ describe('cold DOM construction', () => {
     const firstOwner = {};
     const nextOwner = {};
     const input = document.createDocumentFragment();
-    input.append(document.createElement('span'), document.createElement('span'));
+    input.append(
+      document.createElement('span'),
+      document.createElement('span')
+    );
     const first = createDetachedRange(input, firstOwner);
 
     const adopted = createDetachedRange(first.fragment!, nextOwner);
