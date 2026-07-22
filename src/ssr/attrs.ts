@@ -65,6 +65,7 @@ export function renderAttrsDirect(
     // Skip special props
     if (
       key === 'children' ||
+      key === 'imperativeChildren' ||
       key === 'key' ||
       key === 'ref' ||
       key === 'dangerouslySetInnerHTML'
@@ -143,7 +144,7 @@ export function renderAttrs(
     const value = propsObj[key];
 
     // Skip children in attrs
-    if (key === 'children') continue;
+    if (key === 'children' || key === 'imperativeChildren') continue;
 
     // Skip internal identity refs (framework-only)
     if (key === 'key' || key === 'ref') continue;

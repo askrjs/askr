@@ -393,6 +393,8 @@ function applyElementUpdateFromVnode(
 
   const props = (vnode.props || {}) as Record<string, unknown>;
   const domVNode = vnode as DOMElement;
+  const shouldUpdateChildren =
+    updateChildren && props.imperativeChildren !== true;
 
   if (isHydrationSkipped(el)) {
     rememberDeferredHydrationVNode(
@@ -413,7 +415,7 @@ function applyElementUpdateFromVnode(
       !forceChildrenUpdate &&
       hasMatchingStaticProps(el, props, vnode.type as string)
     ) {
-      if (updateChildren) {
+      if (shouldUpdateChildren) {
         const children =
           (props.children as VNode | VNode[] | undefined) ?? vnode.children;
         if (!forceChildrenUpdate && canReuseStaticSubtree(el, domVNode)) {
@@ -426,14 +428,12 @@ function applyElementUpdateFromVnode(
   }
 
   const nextChildren = props.children ?? domVNode.children;
-  const usesReactiveChildren = syncReactiveScalarChild(
-    el,
-    nextChildren,
-    rendererReactiveChildDOMHost
-  );
+  const usesReactiveChildren = shouldUpdateChildren
+    ? syncReactiveScalarChild(el, nextChildren, rendererReactiveChildDOMHost)
+    : false;
   syncElementPropBindings(el, domVNode, props, usesReactiveChildren);
 
-  if (updateChildren) {
+  if (shouldUpdateChildren) {
     const children =
       (props.children as VNode | VNode[] | undefined) ?? vnode.children;
     if (usesReactiveChildren) {

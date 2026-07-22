@@ -114,6 +114,7 @@ function verifyRenderedAttrs(
 
     if (
       key === 'children' ||
+      key === 'imperativeChildren' ||
       key === 'key' ||
       key === 'ref' ||
       key === 'dangerouslySetInnerHTML'
