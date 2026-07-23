@@ -7,6 +7,7 @@ import type {
 } from '../common/router';
 import { DefaultPortal, clearDefaultPortalForInstance } from '../runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
+import { CspNonceScope } from '../csp-nonce';
 import { logger } from '../common/logger';
 import {
   cleanupComponent,
@@ -178,7 +179,8 @@ function bindResolvedRouteHandler(
 }
 
 function wrapRootRouteHandler(
-  componentFn: ComponentInstance['fn']
+  componentFn: ComponentInstance['fn'],
+  cspNonce?: string
 ): ComponentInstance['fn'] {
   const wrappedFn: ComponentInstance['fn'] = (props, ctx) => {
     const out = componentFn(props, ctx);
@@ -194,7 +196,7 @@ function wrapRootRouteHandler(
       key: '__default_portal',
     } as unknown;
 
-    return {
+    const root = {
       $$typeof: ELEMENT_TYPE,
       type: Fragment,
       props: {
@@ -204,6 +206,9 @@ function wrapRootRouteHandler(
             : [out, portalVNode],
       },
     } as ReturnType<ComponentInstance['fn']>;
+    return cspNonce === undefined
+      ? root
+      : CspNonceScope({ value: cspNonce, children: root });
   };
 
   Object.defineProperty(wrappedFn, 'name', {
@@ -615,7 +620,10 @@ function remountResolvedRoute(
   const deferredCleanup =
     existingSnapshot ?? captureDeferredRouteCleanup(instance);
   clearDefaultPortalForInstance(instance);
-  instance.fn = wrapRootRouteHandler(bindResolvedRouteHandler(resolved));
+  instance.fn = wrapRootRouteHandler(
+    bindResolvedRouteHandler(resolved),
+    instance._cspNonce
+  );
   instance.props = {};
   instance._ownershipGeneration = {};
   if (__ASKR_DEVELOPMENT_BUILD__) {

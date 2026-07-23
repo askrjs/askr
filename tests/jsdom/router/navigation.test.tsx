@@ -123,6 +123,14 @@ describe('route navigation (ROUTER)', () => {
             title: 'Second page',
             description: 'fresh',
             canonical: '/meta-b',
+            links: [
+              {
+                rel: 'preload',
+                href: '/safe.js',
+                onclick: 'document.body.dataset.pwned = "true"',
+                'x><img src=x onerror': 'alert(1)',
+              },
+            ],
             jsonLd: { page: 'second' },
             html: { lang: 'fr', dir: 'ltr' },
           },
@@ -157,6 +165,8 @@ describe('route navigation (ROUTER)', () => {
           document.head.querySelector('script[type="application/ld+json"]')
             ?.textContent
         ).toContain('second');
+        expect(document.head.querySelector('link[onclick]')).toBeNull();
+        expect(document.head.querySelector('img')).toBeNull();
         expect(document.documentElement.getAttribute('lang')).toBe('fr');
         expect(document.documentElement.getAttribute('dir')).toBe('ltr');
         expect(

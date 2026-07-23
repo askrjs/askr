@@ -42,6 +42,7 @@ export function renderResolvedToStringSync(opts: {
     data?: SSRData;
     dataRuntime?: DataRuntime;
     envelope?: PageRenderEnvelope;
+    cspNonce?: string;
   };
 }): string {
   const { url, routes, handler, params, options } = opts;
@@ -76,5 +77,6 @@ export function renderResolvedToStringSync(opts: {
     data: options?.data,
     dataRuntime: options?.dataRuntime,
     envelope: options?.envelope,
+    cspNonce: options?.cspNonce,
   });
 }
