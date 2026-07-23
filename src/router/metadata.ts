@@ -91,13 +91,77 @@ export function reconcileRouteMeta(
   )) {
     node.remove();
   }
-  const template = target.createElement('template');
-  template.innerHTML = serializeRouteMeta(meta);
-  target.head.append(template.content);
+  const own = (element: HTMLElement): HTMLElement => {
+    element.setAttribute('data-askr-head', '');
+    return element;
+  };
+  const appendMeta = (
+    attribute: 'name' | 'property',
+    name: string,
+    content: string
+  ) => {
+    const element = own(target.createElement('meta'));
+    element.setAttribute(attribute, name);
+    element.setAttribute('content', content);
+    target.head.append(element);
+  };
+  if (meta.title !== undefined) {
+    const element = own(target.createElement('title'));
+    element.textContent = meta.title;
+    target.head.append(element);
+  }
+  if (meta.description !== undefined)
+    appendMeta('name', 'description', meta.description);
+  if (meta.canonical !== undefined) {
+    const element = own(target.createElement('link'));
+    element.setAttribute('rel', 'canonical');
+    element.setAttribute('href', meta.canonical);
+    target.head.append(element);
+  }
+  if (meta.robots !== undefined) appendMeta('name', 'robots', meta.robots);
+  for (const [property, content] of Object.entries(meta.openGraph ?? {})) {
+    appendMeta(
+      'property',
+      property.startsWith('og:') ? property : `og:${property}`,
+      content
+    );
+  }
+  for (const link of meta.links ?? []) {
+    const element = own(target.createElement('link'));
+    for (const [name, value] of Object.entries(link)) {
+      if (LINK_ATTRIBUTES.has(name.toLowerCase()))
+        element.setAttribute(name.toLowerCase(), value);
+    }
+    target.head.append(element);
+  }
+  if (meta.jsonLd !== undefined) {
+    const values = Array.isArray(meta.jsonLd) ? meta.jsonLd : [meta.jsonLd];
+    for (const value of values) {
+      const element = own(target.createElement('script'));
+      element.setAttribute('type', 'application/ld+json');
+      element.textContent = JSON.stringify(value);
+      target.head.append(element);
+    }
+  }
   if (meta.html?.lang)
     target.documentElement.setAttribute('lang', meta.html.lang);
   if (meta.html?.dir) target.documentElement.setAttribute('dir', meta.html.dir);
 }
+
+const LINK_ATTRIBUTES = new Set([
+  'rel',
+  'href',
+  'as',
+  'crossorigin',
+  'fetchpriority',
+  'hreflang',
+  'imagesizes',
+  'imagesrcset',
+  'media',
+  'referrerpolicy',
+  'sizes',
+  'type',
+]);
 
 function escapeAttribute(value: string): string {
   return value
@@ -121,7 +185,8 @@ function ownedAttribute(): string {
 
 function serializeLink(link: Readonly<Record<string, string>>): string {
   const entries = Object.entries(link)
-    .filter(([name]) => /^[a-zA-Z][a-zA-Z0-9:_-]*$/.test(name))
+    .map(([name, value]) => [name.toLowerCase(), value] as const)
+    .filter(([name]) => LINK_ATTRIBUTES.has(name))
     .sort(([left], [right]) => {
       const order = (name: string) =>
         name === 'rel' ? 0 : name === 'href' ? 1 : 2;

@@ -11,6 +11,7 @@ import type { AppRenderRuntime } from '../common/app-render-runtime';
 export type IslandConfig = {
   root: Element | string;
   component: ComponentFunction;
+  cspNonce?: string;
   // Optional: surface cleanup errors during teardown for this island.
   cleanupStrict?: boolean;
   // Explicitly disallow routes on islands at type level.
@@ -19,6 +20,7 @@ export type IslandConfig = {
 
 export type IslandsConfig = {
   islands: IslandConfig[];
+  cspNonce?: string;
 };
 
 type BootRouteSource =
@@ -40,6 +42,7 @@ type BootRouteSource =
 
 export type SPAConfig = BootRouteSource & {
   root: Element | string;
+  cspNonce?: string;
   /**
    * Preferred: pass a route registry built via `createRouteRegistry(() => { ... })`.
    * ```ts
@@ -56,6 +59,7 @@ export type SPAConfig = BootRouteSource & {
 
 export type HydrateSPAConfig = BootRouteSource & {
   root: Element | string;
+  cspNonce?: string;
   dataRuntime?: import('../data/types').DataRuntime;
   /** Preferred route input - see `SPAConfig`. */
   auth?: RouteAuthOptions;

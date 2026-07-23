@@ -19,6 +19,7 @@ export interface DocumentRenderContext {
   data?: SSRData;
   seed: number;
   route: DocumentRenderRoute;
+  cspNonce?: string;
 }
 
 export interface DocumentRenderArgs {

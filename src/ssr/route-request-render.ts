@@ -24,6 +24,7 @@ import { withTelemetry } from '../common/telemetry';
 import type { DeferredBoundaryRegistration } from '../common/render-context';
 import { serializeHydrationRenderData } from './hydration-data';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
+import { validateCspNonce } from '../csp-nonce';
 
 export interface RenderRouteRequestOptions {
   url: string;
@@ -41,6 +42,7 @@ export interface RenderRouteRequestOptions {
   queryPrefetch?: QueryPrefetchContext;
   queryRegistry?: ServerQueryRegistry;
   telemetry?: CoreTelemetry;
+  cspNonce?: string;
 }
 
 export type RenderRouteRequestResult =
@@ -94,7 +96,8 @@ function renderBoundary(
   state: 'fulfilled' | 'rejected',
   payload: unknown,
   seed: number | undefined,
-  data: PageRenderEnvelope | null
+  data: PageRenderEnvelope | null,
+  cspNonce: string | undefined
 ): string {
   return stripHydrationPayload(
     renderToStringSync(
@@ -103,16 +106,20 @@ function renderBoundary(
           ? boundary.fulfilled(payload)
           : boundary.rejected(payload)) as unknown as import('./types').VNode,
       {},
-      { seed, envelope: data ?? undefined }
+      { seed, envelope: data ?? undefined, cspNonce }
     )
   );
 }
 
-function patchChunk(id: string, html: string): string {
+function patchChunk(
+  id: string,
+  html: string,
+  cspNonce: string | undefined
+): string {
   const selector = `askr-resolve[data-askr-deferred=${JSON.stringify(id)}]`;
   return (
     `<template data-askr-deferred-patch="${id}">${html}</template>` +
-    `<script data-askr-deferred-apply="${id}">(function(s){var t=s.previousElementSibling;var b=document.querySelector(${JSON.stringify(selector)});if(b&&t){b.replaceWith(t.content.cloneNode(true));}if(t)t.remove();s.remove();})(document.currentScript)</script>`
+    `<script${cspNonce ? ` nonce="${cspNonce}"` : ''} data-askr-deferred-apply="${id}">(function(s){var t=s.previousElementSibling;var b=document.querySelector(${JSON.stringify(selector)});if(b&&t){b.replaceWith(t.content.cloneNode(true));}if(t)t.remove();s.remove();})(document.currentScript)</script>`
   );
 }
 
@@ -122,7 +129,8 @@ function createDeferredRenderStream(
   signal: AbortSignal,
   seed: number | undefined,
   data: PageRenderEnvelope | null,
-  runtime: DataRuntime
+  runtime: DataRuntime,
+  cspNonce: string | undefined
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const local = new AbortController();
@@ -165,7 +173,15 @@ function createDeferredRenderStream(
               encoder.encode(
                 patchChunk(
                   boundary.id,
-                  renderBoundary(boundary, 'fulfilled', value, seed, data)
+                  renderBoundary(
+                    boundary,
+                    'fulfilled',
+                    value,
+                    seed,
+                    data,
+                    cspNonce
+                  ),
+                  cspNonce
                 )
               )
             );
@@ -180,7 +196,15 @@ function createDeferredRenderStream(
               encoder.encode(
                 patchChunk(
                   boundary.id,
-                  renderBoundary(boundary, 'rejected', error, seed, data)
+                  renderBoundary(
+                    boundary,
+                    'rejected',
+                    error,
+                    seed,
+                    data,
+                    cspNonce
+                  ),
+                  cspNonce
                 )
               )
             );
@@ -224,6 +248,7 @@ export async function renderRouteRequestToString(
 async function renderRouteRequestInternal(
   options: RenderRouteRequestOptions
 ): Promise<RenderRouteRequestResult> {
+  const cspNonce = validateCspNonce(options.cspNonce);
   const manifest = options.manifest ?? options.registry?.manifest;
   if (!manifest)
     throw new Error(
@@ -252,6 +277,7 @@ async function renderRouteRequestInternal(
     dataRuntime: runtime,
     queryPrefetch: prefetch,
     mode: 'ssr',
+    cspNonce,
   });
   return withTelemetry(options.telemetry?.ssrRender, {}, () =>
     withRenderContextAsync(context, async () => {
@@ -288,7 +314,8 @@ async function renderRouteRequestInternal(
                 signal,
                 options.seed,
                 context.hydrationData,
-                runtime
+                runtime,
+                cspNonce
               ),
             }
           : {}),

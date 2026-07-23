@@ -103,6 +103,8 @@ export interface ComponentInstance {
   _rootComponentFn?: ComponentFunction;
   /** @internal Browser-owned hydration and route state for this app root. */
   _appRenderRuntime?: AppRenderRuntime;
+  /** @internal CSP nonce retained across browser route navigation. */
+  _cspNonce?: string;
 
   // Renderer ownership identity. A host can contain a retained wrapper chain,
   // so component type alone is not a safe reuse key.

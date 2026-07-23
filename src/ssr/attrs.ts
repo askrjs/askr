@@ -16,15 +16,14 @@ export type AttrsResult = {
 const ESCAPED_ATTR_VALUE_CACHE_LIMIT = 512;
 const escapedAttrValueCache = new Map<string, string>();
 
-// Fast check for event handler pattern (on + uppercase letter)
 function isEventHandler(key: string): boolean {
-  return (
-    key.length >= 3 &&
-    key.charCodeAt(0) === 111 && // 'o'
-    key.charCodeAt(1) === 110 && // 'n'
-    key.charCodeAt(2) >= 65 &&
-    key.charCodeAt(2) <= 90 // 'A'-'Z'
-  );
+  return key.length >= 2 && key.slice(0, 2).toLowerCase() === 'on';
+}
+
+function assertAttributeName(name: string): void {
+  if (!/^[A-Za-z_:][A-Za-z0-9_.:-]*$/.test(name)) {
+    throw new TypeError(`Invalid SSR attribute name: ${JSON.stringify(name)}`);
+  }
 }
 
 function getEscapedAttrValue(value: string): string {
@@ -80,6 +79,7 @@ export function renderAttrsDirect(
 
     // Normalize public JSX prop names to their rendered HTML attribute names.
     const attrName = getPublicAttributeName(key);
+    assertAttributeName(attrName);
 
     // Handle style objects
     if (attrName === 'style') {
@@ -165,6 +165,7 @@ export function renderAttrs(
 
     // Normalize public JSX prop names to their rendered HTML attribute names.
     const attrName = key === 'class' ? 'class' : getPublicAttributeName(key);
+    assertAttributeName(attrName);
 
     // Handle style objects
     if (attrName === 'style') {

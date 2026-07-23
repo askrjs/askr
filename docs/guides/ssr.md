@@ -100,7 +100,14 @@ const html = renderToString({
 ```
 
 The `document` callback receives the rendered app HTML plus route context such as
-`pathname`, `params`, `search`, `hash`, `data`, and the matched route template.
+`pathname`, `params`, `search`, `hash`, `data`, `cspNonce`, and the matched route
+template. Pass the same request nonce as `cspNonce` to SSR and browser
+boot/hydration. Askr validates it before rendering, exposes it through
+`cspNonce()` during component render, and applies it to deferred-patch scripts.
+
+Do not put a nonce in static-generation options. A build-time nonce is reusable;
+SSG deployments should use external styles, CSP hashes, or per-response edge
+injection.
 
 When you pass `document` to `renderToStream()`, Askr buffers the app HTML first,
 applies the callback, then emits the wrapped document output.

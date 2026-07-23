@@ -51,6 +51,7 @@ import { withIntrinsicHydrationAdoption } from '../renderer';
 import { hydrateDataRuntime } from '../data/query-registry';
 import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
+import { validateCspNonce } from '../csp-nonce';
 
 export { cleanupApp, hasApp } from './root-lifecycle';
 export type {
@@ -71,6 +72,7 @@ export function createIsland(config: IslandConfig): void {
   if (typeof config.component !== 'function') {
     throw new Error('createIsland: component must be a function');
   }
+  validateCspNonce(config.cspNonce);
 
   const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
@@ -93,6 +95,7 @@ export function createIsland(config: IslandConfig): void {
 
   mountOrUpdate(rootElement, config.component, {
     cleanupStrict: config.cleanupStrict,
+    cspNonce: config.cspNonce,
   });
 }
 
@@ -105,11 +108,15 @@ export function createIslands(config: IslandsConfig): void {
   if (!config || typeof config !== 'object') {
     throw new Error('createIslands requires a config object');
   }
+  validateCspNonce(config.cspNonce);
   if (!Array.isArray(config.islands) || config.islands.length === 0) {
     throw new Error('createIslands requires a non-empty islands array');
   }
   for (const island of config.islands) {
-    createIsland(island);
+    createIsland({
+      ...island,
+      cspNonce: island.cspNonce ?? config.cspNonce,
+    });
   }
 }
 
@@ -132,6 +139,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (!config || typeof config !== 'object') {
     throw new Error('createSPA requires a config object');
   }
+  validateCspNonce(config.cspNonce);
 
   const manifest = config.manifest ?? config.registry?.manifest;
   const routeTable = config.routes ?? config.registry?.routes;
@@ -190,6 +198,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
       cleanupStrict: config.cleanupStrict,
       appRuntime,
+      cspNonce: config.cspNonce,
     });
 
     await registerAppNavigation(rootElement, path, {
@@ -202,6 +211,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
       cleanupStrict: config.cleanupStrict,
       appRuntime,
+      cspNonce: config.cspNonce,
     });
 
     await registerAppNavigation(rootElement, path, {
@@ -223,6 +233,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     {
       cleanupStrict: config.cleanupStrict,
       appRuntime,
+      cspNonce: config.cspNonce,
     }
   );
 
@@ -240,6 +251,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   if (!config || typeof config !== 'object') {
     throw new Error('hydrateSPA requires a config object');
   }
+  validateCspNonce(config.cspNonce);
 
   const manifest = config.manifest ?? config.registry?.manifest;
   const routeTable = config.routes ?? config.registry?.routes;
@@ -323,7 +335,12 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       : { handler: resolved.handler, params: resolved.params };
   const hydrationResolved: ResolvedRoute = hydrationResolvedBase;
   const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
-    withIntrinsicHydrationAdoption(() => mountOrUpdate(...args));
+    withIntrinsicHydrationAdoption(() =>
+      mountOrUpdate(args[0], args[1], {
+        ...args[2],
+        cspNonce: config.cspNonce,
+      })
+    );
 
   if (shouldVerifyHydrationMarkup(config)) {
     const legacyRouteTable = hasManifest
@@ -347,6 +364,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           data: hydrationRenderDataForApp?.resources,
           dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
           envelope: hydrationRenderDataForApp ?? undefined,
+          cspNonce: config.cspNonce,
         },
       })
     ) {

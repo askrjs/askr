@@ -33,6 +33,7 @@ import type { RouteAppRenderInput } from './route-render';
 import { StringSink } from './sink';
 import type { VNode } from './types';
 import { DEFERRED_BOUNDARY } from '../router/deferred';
+import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 
 const __SSR_DEBUG =
   process.env.NODE_ENV !== 'production' &&
@@ -339,6 +340,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   }
 
   const typeStr = type as string;
+  assertElementName(typeStr);
   if (VOID_ELEMENTS.has(typeStr)) {
     const attrs = renderAttrs(props);
     return `<${typeStr}${attrs} />`;
@@ -444,6 +446,7 @@ function renderNodeSyncToSink(
   }
 
   const typeStr = type as string;
+  assertElementName(typeStr);
   if (VOID_ELEMENTS.has(typeStr)) {
     sinkWrite2(sink, '<', typeStr);
     renderAttrsDirect(props, sink);
@@ -522,9 +525,11 @@ export function renderToStringSync(
     data?: SSRData;
     /** @internal A composed page render envelope. */
     envelope?: import('../common/page-render-envelope').PageRenderEnvelope;
+    cspNonce?: string;
   }
 ): string {
   const seed = options?.seed ?? 12345;
+  const nonce = validateCspNonce(options?.cspNonce);
   const ctx = createRenderContext(seed, {
     data: options?.data,
     envelope: options?.envelope,
@@ -533,8 +538,16 @@ export function renderToStringSync(
   return withRenderContext(ctx, () => {
     startRenderPhase(ctx.renderData);
     try {
+      const renderComponent =
+        nonce === undefined
+          ? component
+          : () =>
+              CspNonceScope({
+                value: nonce,
+                children: () => component(props) as never,
+              });
       const node = renderSyncComponentRoot(
-        component as unknown as Component,
+        renderComponent as unknown as Component,
         props || {},
         ctx
       );
@@ -567,8 +580,16 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
   withRenderContext(ctx, () => {
     startRenderPhase(ctx.renderData);
     try {
+      const renderHandler =
+        ctx.cspNonce === undefined
+          ? route.handler
+          : () =>
+              CspNonceScope({
+                value: ctx.cspNonce,
+                children: () => route.handler(params),
+              });
       const app = executeComponentSync(
-        route.handler as unknown as Component,
+        renderHandler as unknown as Component,
         params,
         ctx
       );
@@ -589,4 +610,9 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
       }
     }
   });
+}
+function assertElementName(name: string): void {
+  if (!/^[A-Za-z][A-Za-z0-9._:-]*$/.test(name)) {
+    throw new TypeError(`Invalid SSR element name: ${JSON.stringify(name)}`);
+  }
 }

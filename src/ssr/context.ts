@@ -42,6 +42,7 @@ export interface RenderContext {
   renderData: PageRenderEnvelope | null;
   hydrationData: PageRenderEnvelope | null;
   deferredBoundaries: import('../common/render-context').DeferredBoundaryRegistration[];
+  cspNonce?: string;
 }
 
 type RenderContextAccessor = {
@@ -110,6 +111,7 @@ export function createRenderContext(
     queryPrefetch?: import('../data/types').QueryPrefetchContext;
     framework?: Readonly<Record<string, unknown>>;
     envelope?: PageRenderEnvelope;
+    cspNonce?: string;
   } = {}
 ): RenderContext {
   clearEscapeCache();
@@ -141,6 +143,7 @@ export function createRenderContext(
     renderData: envelope,
     hydrationData: envelope,
     deferredBoundaries: [],
+    cspNonce: opts.cspNonce,
   };
 }
 
