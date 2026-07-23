@@ -1,7 +1,8 @@
 import { defineScope, readScope, type Scope } from './runtime';
 
-export const CspNonceScope: Scope<string | undefined> =
-  defineScope<string | undefined>(undefined);
+export const CspNonceScope: Scope<string | undefined> = defineScope<
+  string | undefined
+>(undefined);
 
 export function cspNonce(): string | undefined {
   try {
@@ -19,7 +20,9 @@ export function cspNonce(): string | undefined {
   }
 }
 
-export function validateCspNonce(value: string | undefined): string | undefined {
+export function validateCspNonce(
+  value: string | undefined
+): string | undefined {
   if (value === undefined) return undefined;
   const invalid = (): never => {
     throw new TypeError(

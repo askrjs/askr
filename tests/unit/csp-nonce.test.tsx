@@ -27,9 +27,11 @@ describe('CSP nonce scope', () => {
   it('should isolate separate render scopes', () => {
     const first = 'MDEyMzQ1Njc4OWFiY2RlZg';
     const second = 'ZmVkY2JhOTg3NjU0MzIxMA';
-    expect(renderToStringSync(() => cspNonce() ?? '', {}, { cspNonce: first }))
-      .toContain(first);
-    expect(renderToStringSync(() => cspNonce() ?? '', {}, { cspNonce: second }))
-      .toContain(second);
+    expect(
+      renderToStringSync(() => cspNonce() ?? '', {}, { cspNonce: first })
+    ).toContain(first);
+    expect(
+      renderToStringSync(() => cspNonce() ?? '', {}, { cspNonce: second })
+    ).toContain(second);
   });
 });

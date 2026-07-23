@@ -115,9 +115,7 @@ describe('SSR event handling', () => {
       expect(() =>
         renderToString({
           url: '/',
-          routes: [
-            { path: '/', handler: () => jsx('div><script', {}) },
-          ],
+          routes: [{ path: '/', handler: () => jsx('div><script', {}) }],
         })
       ).toThrow('Invalid SSR element name');
       expect(() =>

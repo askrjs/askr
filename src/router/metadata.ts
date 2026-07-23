@@ -95,7 +95,11 @@ export function reconcileRouteMeta(
     element.setAttribute('data-askr-head', '');
     return element;
   };
-  const appendMeta = (attribute: 'name' | 'property', name: string, content: string) => {
+  const appendMeta = (
+    attribute: 'name' | 'property',
+    name: string,
+    content: string
+  ) => {
     const element = own(target.createElement('meta'));
     element.setAttribute(attribute, name);
     element.setAttribute('content', content);
@@ -106,7 +110,8 @@ export function reconcileRouteMeta(
     element.textContent = meta.title;
     target.head.append(element);
   }
-  if (meta.description !== undefined) appendMeta('name', 'description', meta.description);
+  if (meta.description !== undefined)
+    appendMeta('name', 'description', meta.description);
   if (meta.canonical !== undefined) {
     const element = own(target.createElement('link'));
     element.setAttribute('rel', 'canonical');
@@ -115,12 +120,17 @@ export function reconcileRouteMeta(
   }
   if (meta.robots !== undefined) appendMeta('name', 'robots', meta.robots);
   for (const [property, content] of Object.entries(meta.openGraph ?? {})) {
-    appendMeta('property', property.startsWith('og:') ? property : `og:${property}`, content);
+    appendMeta(
+      'property',
+      property.startsWith('og:') ? property : `og:${property}`,
+      content
+    );
   }
   for (const link of meta.links ?? []) {
     const element = own(target.createElement('link'));
     for (const [name, value] of Object.entries(link)) {
-      if (LINK_ATTRIBUTES.has(name.toLowerCase())) element.setAttribute(name.toLowerCase(), value);
+      if (LINK_ATTRIBUTES.has(name.toLowerCase()))
+        element.setAttribute(name.toLowerCase(), value);
     }
     target.head.append(element);
   }
