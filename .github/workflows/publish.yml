@@ -16,21 +16,21 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 'lts/*'
           cache: npm
 
       - name: Compute release tag
         id: version
-        uses: askrjs/actions/actions/compute-release-tag@main
+        uses: askrjs/actions/actions/compute-release-tag@cfbfac63066d778fa1fa99247f6af43515155e4f
 
       - name: Check whether tag exists
         id: tag_status
-        uses: askrjs/actions/actions/check-tag-exists@main
+        uses: askrjs/actions/actions/check-tag-exists@cfbfac63066d778fa1fa99247f6af43515155e4f
         with:
           tag: ${{ steps.version.outputs.tag }}
 
@@ -53,7 +53,7 @@ jobs:
 
       - name: Create release tag
         if: steps.tag_status.outputs.exists != 'true'
-        uses: askrjs/actions/actions/create-tag@main
+        uses: askrjs/actions/actions/create-tag@cfbfac63066d778fa1fa99247f6af43515155e4f
         with:
           tag: ${{ steps.version.outputs.tag }}
 
@@ -65,4 +65,4 @@ jobs:
           git checkout "$tag"
 
       - name: Publish to npm
-        uses: askrjs/actions/actions/publish-package@main
+        uses: askrjs/actions/actions/publish-package@cfbfac63066d778fa1fa99247f6af43515155e4f

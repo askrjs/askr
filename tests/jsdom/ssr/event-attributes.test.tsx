@@ -14,6 +14,7 @@ import {
 import { hydrateSPA } from '../../../src/boot';
 import { renderToString } from '../../../src/ssr';
 import { state } from '../../../src/runtime/state';
+import { jsx } from '../../../src/jsx-runtime';
 
 describe('SSR event handling', () => {
   let container: HTMLElement;
@@ -97,6 +98,37 @@ describe('SSR event handling', () => {
       expect(html).toContain('data-test="value"');
       // Event handler should not be
       expect(html).not.toContain('onclick');
+    });
+
+    it('should reject invalid element and attribute names and every on* casing', () => {
+      const events = {
+        onclick: 'alert(1)',
+        ONLOAD: 'alert(2)',
+        oNerror: 'alert(3)',
+      } as Record<string, unknown>;
+      const html = renderToString({
+        url: '/',
+        routes: [{ path: '/', handler: () => jsx('div', events) }],
+      });
+      expect(html).not.toMatch(/\son(?:click|load|error)=/i);
+
+      expect(() =>
+        renderToString({
+          url: '/',
+          routes: [{ path: '/', handler: () => jsx('div><script', {}) }],
+        })
+      ).toThrow('Invalid SSR element name');
+      expect(() =>
+        renderToString({
+          url: '/',
+          routes: [
+            {
+              path: '/',
+              handler: () => jsx('div', { 'bad name': 'value' }),
+            },
+          ],
+        })
+      ).toThrow('Invalid SSR attribute name');
     });
   });
   /* eslint-enable no-console */

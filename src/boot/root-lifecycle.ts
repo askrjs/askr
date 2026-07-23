@@ -27,6 +27,7 @@ import {
 } from '../renderer';
 import type { BootAppRouteSource } from './types';
 import { resolveRootElement } from './root-element';
+import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 
 installRendererBridge();
 
@@ -181,8 +182,13 @@ function attachCleanupForRoot(
 export function mountOrUpdate(
   rootElement: Element,
   componentFn: ComponentFunction,
-  options?: { cleanupStrict?: boolean; appRuntime?: AppRenderRuntime }
+  options?: {
+    cleanupStrict?: boolean;
+    appRuntime?: AppRenderRuntime;
+    cspNonce?: string;
+  }
 ) {
+  const nonce = validateCspNonce(options?.cspNonce);
   const wrappedFn: ComponentFunction = (props, ctx) => {
     const out = componentFn(props, ctx);
     if (isPromiseLike(out)) {
@@ -196,7 +202,7 @@ export function mountOrUpdate(
       props: { __askrAutoDefaultPortal: true },
       key: '__default_portal',
     } as unknown;
-    return {
+    const root = {
       $$typeof: ELEMENT_TYPE,
       type: Fragment,
       props: {
@@ -206,6 +212,9 @@ export function mountOrUpdate(
             : [out, portalVNode],
       },
     } as unknown as ReturnType<ComponentFunction>;
+    return nonce === undefined
+      ? root
+      : CspNonceScope({ value: nonce, children: root });
   };
   Object.defineProperty(wrappedFn, 'name', {
     value: componentFn.name || 'Component',
@@ -242,6 +251,7 @@ export function mountOrUpdate(
     instance.isRoot = true;
     instance.portalScope = instance;
     instance._appRenderRuntime = options?.appRuntime;
+    instance._cspNonce = nonce;
 
     if (shouldResetHookState) {
       instance.stateValues = [];
@@ -272,6 +282,7 @@ export function mountOrUpdate(
     instance._rootComponentFn = componentFn;
     instance.portalScope = instance;
     instance._appRenderRuntime = options?.appRuntime;
+    instance._cspNonce = nonce;
     if (options && typeof options.cleanupStrict === 'boolean') {
       instance.cleanupStrict = options.cleanupStrict;
     }

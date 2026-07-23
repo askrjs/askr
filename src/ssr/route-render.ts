@@ -24,6 +24,7 @@ import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import { _preloadRouteHandler } from '../router/lazy';
+import { validateCspNonce } from '../csp-nonce';
 
 export type SSRRoute = {
   path: string;
@@ -52,6 +53,7 @@ export type RouteRenderOptions = SSRRouteSource & {
   telemetry?: Pick<CoreTelemetry, 'ssrRender'>;
   /** @internal Precomposed page state used by hydration verification. */
   envelope?: PageRenderEnvelope;
+  cspNonce?: string;
 };
 
 export type RouteStreamOptions = RouteRenderOptions & {
@@ -68,6 +70,7 @@ type ResolvedSSRRouteRender = {
   data?: SSRData;
   ctx: RenderContext;
   document?: DocumentRenderer;
+  cspNonce?: string;
 };
 
 export type RouteAppRenderInput = {
@@ -183,6 +186,7 @@ function resolveSSRRouteRender(
   opts: RouteRenderOptions
 ): ResolvedSSRRouteRender {
   const { seed = 12345, data, document } = opts;
+  const cspNonce = validateCspNonce(opts.cspNonce);
   const routeTable = resolveSSRRouteSource(opts);
   const resolvedRoute = resolvePolicyAwareSSRRoute(opts, routeTable);
   const requestUrl = new URL(resolvedRoute.url, 'http://localhost');
@@ -195,6 +199,7 @@ function resolveSSRRouteRender(
     dataRuntime: opts.dataRuntime,
     queryPrefetch: opts.queryPrefetch,
     envelope: opts.envelope,
+    cspNonce,
   });
 
   return {
@@ -206,6 +211,7 @@ function resolveSSRRouteRender(
     data,
     ctx,
     document,
+    cspNonce,
   };
 }
 
@@ -226,6 +232,7 @@ function buildDocumentRenderArgs(
       path: resolved.route.path,
       namespace: resolved.route.namespace,
     },
+    cspNonce: resolved.cspNonce,
   };
 
   return {

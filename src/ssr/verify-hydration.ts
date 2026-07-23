@@ -27,6 +27,7 @@ export function verifyHydrationSyncForUrl(opts: {
     data?: SSRData;
     dataRuntime?: DataRuntime;
     envelope?: PageRenderEnvelope;
+    cspNonce?: string;
   };
 }): boolean {
   const { root, url, routes, resolved, options } = opts;

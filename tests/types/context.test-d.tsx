@@ -1,10 +1,18 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
-import { defineScope, readScope, type Scope } from '@askrjs/askr';
+import {
+  CspNonceScope,
+  cspNonce,
+  defineScope,
+  readScope,
+  type Scope,
+} from '@askrjs/askr';
 import type { JSXElement } from '@askrjs/askr/foundations';
 
 const ThemeScope = defineScope('light');
 expectType<Scope<string>>(ThemeScope);
 expectType<string>(readScope(ThemeScope));
+expectType<Scope<string | undefined>>(CspNonceScope);
+expectType<string | undefined>(cspNonce());
 
 const ColorScope = defineScope<'light' | 'dark'>('light');
 expectAssignable<Scope<'light' | 'dark'>>(ColorScope);
