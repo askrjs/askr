@@ -22,7 +22,8 @@ Fix: use `createSPA` for routed applications.
 
 Cause: current URL does not match any registered route.
 
-Fix: ensure route registration exists for startup path and pass `getRoutes()` to `createSPA`.
+Fix: ensure route registration exists for startup path and pass the registry returned by
+`createRouteRegistry()` to `createSPA`.
 
 ## Async route handlers
 
