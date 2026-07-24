@@ -151,7 +151,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (!hasManifest && !hasRoutes) {
     throw new Error(
       'createSPA requires a route manifest or route table. ' +
-        'Pass `manifest: getManifest()` or `routes: getRoutes()`. ' +
+        'Pass a `registry` from `createRouteRegistry()`; `manifest` and `routes` are legacy inputs. ' +
         'If you are enhancing existing HTML, use createIsland instead.'
     );
   }
@@ -263,7 +263,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   if (!hasManifest && !hasRoutes) {
     throw new Error(
       'hydrateSPA requires a route manifest or route table. ' +
-        'Pass `manifest: getManifest()` or `routes: getRoutes()`. ' +
+        'Pass a `registry` from `createRouteRegistry()`; `manifest` and `routes` are legacy inputs. ' +
         'If you are enhancing existing HTML, use createIsland instead.'
     );
   }

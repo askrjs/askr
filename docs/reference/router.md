@@ -230,12 +230,12 @@ Inside a component, call `currentRoute()` to read the current route snapshot.
 ## `getManifest()`
 
 Returns the manifest from the module-level route store. Prefer
-`createRouteRegistry().manifest` for new code. This accessor is deprecated.
+`createRouteRegistry(() => { ... }).manifest` for new code. This accessor is deprecated.
 
 ## `getRoutes()`
 
 Returns the flat route array from the module-level route store. Prefer
-`createRouteRegistry().routes` for new code. This accessor is deprecated.
+`createRouteRegistry(() => { ... }).routes` for new code. This accessor is deprecated.
 
 ## `clearRoutes()`
 

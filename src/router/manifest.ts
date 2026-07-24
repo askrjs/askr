@@ -19,7 +19,7 @@ import {
 import type { InternalRouteRecord } from './internal-types';
 
 /**
- * @deprecated Use `createRouteRegistry().manifest` for application composition.
+ * @deprecated Use `createRouteRegistry(() => { ... }).manifest` for application composition.
  * This accessor reads the module-level ambient route store.
  */
 export function getManifest(): RouteManifest {
@@ -61,7 +61,7 @@ export function createRouteRegistry(
   options: RegisterRoutesOptions = {}
 ): RouteRegistry {
   const previous = snapshotRouteState();
-  clearRoutes();
+  clearRouteState();
 
   try {
     registerRoutes(definition, options);
