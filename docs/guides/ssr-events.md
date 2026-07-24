@@ -35,10 +35,8 @@ const html = renderToStringSync(() => <Button />);
 // Output: <button>Click</button>
 
 // Client: Attaches event listener during hydration
-import { hydrateSPA } from '@askrjs/askr/boot';
-import { createRouteRegistry } from '@askrjs/askr/router';
-const registry = createRouteRegistry(() => {});
-await hydrateSPA({ root: container, registry });
+import { createIsland } from '@askrjs/askr/boot';
+await createIsland({ root: container, component: Button });
 // Now the button is interactive
 ```
 
