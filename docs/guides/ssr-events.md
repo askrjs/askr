@@ -192,12 +192,11 @@ Browser downloads and displays the HTML. The page is visible but **not interacti
 ### 4. Hydration Runs
 
 ```typescript
-import { hydrateSPA } from '@askrjs/askr/boot';
-import { createRouteRegistry } from '@askrjs/askr/router';
+import { createIsland } from '@askrjs/askr/boot';
 
-await hydrateSPA({
+await createIsland({
   root: document.getElementById('app')!,
-  registry: createRouteRegistry(() => {}),
+  component: App,
 });
 ```
 
@@ -492,10 +491,9 @@ const html = renderToStringSync(() => <Component />);
 expect(html).toContain('expected content');
 
 // Hydration test
-import { hydrateSPA } from '@askrjs/askr/boot';
-import { createRouteRegistry } from '@askrjs/askr/router';
+import { createIsland } from '@askrjs/askr/boot';
 container.innerHTML = html;
-await hydrateSPA({ root: container, registry: createRouteRegistry(() => {}) });
+await createIsland({ root: container, component: Component });
 expect(container.querySelector('button')).toBeDefined();
 ```
 

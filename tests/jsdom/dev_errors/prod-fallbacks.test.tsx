@@ -21,7 +21,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
-import {} from '../../../src/router/route';
+import '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';
 import { nextComponentInstanceId } from '../../../src/renderer/component-host-instances';
 import {
