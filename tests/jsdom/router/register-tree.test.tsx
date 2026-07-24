@@ -1,18 +1,22 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
 import { allow } from '../../../src/router/policy';
 import {
-  clearRoutes,
   fallback,
-  getManifest,
-  getRoutes,
   group,
   index,
   Outlet,
   page,
-  registerRoutes,
+  createRouteRegistry,
   resolveRouteRequest,
   route,
 } from '../../../src/router/route';
@@ -29,7 +33,7 @@ describe('callback route registration', () => {
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
@@ -45,7 +49,7 @@ describe('callback route registration', () => {
       <section data-layout="workspace">{children}</section>
     );
 
-    registerRoutes(
+    const registry = createRouteRegistry(
       () => {
         group({ layout: Root }, () => {
           route('/', () => <div>{'home'}</div>);
@@ -69,13 +73,11 @@ describe('callback route registration', () => {
       }
     );
 
-    expect(
-      getRoutes()
-        .map((item) => item.path)
-        .sort()
-    ).toEqual(['/', '/dashboard', '/*'].sort());
+    expect(registry.routes.map((item) => item.path).sort()).toEqual(
+      ['/', '/dashboard', '/*'].sort()
+    );
 
-    const manifest = getManifest();
+    const manifest = registry.manifest;
     expect(
       manifest.records.find((record) => record.path === '/dashboard')
         ?.layoutChain
@@ -87,7 +89,7 @@ describe('callback route registration', () => {
 
   it('should reject nested fallback registrations inside restricted groups', () => {
     expect(() =>
-      registerRoutes(
+      createRouteRegistry(
         () => {
           group({ auth: requireUser() }, () => {
             fallback(() => <div>{'missing'}</div>);
@@ -110,7 +112,7 @@ describe('callback route registration', () => {
   it('should run group access policies outer-to-inner before route policies', async () => {
     const calls: string[] = [];
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group(
         {
           policies: [
@@ -146,7 +148,8 @@ describe('callback route registration', () => {
     });
 
     const resolved = await resolveRouteRequest(
-      '/accounts/acc_42?tab=team#members'
+      '/accounts/acc_42?tab=team#members',
+      registry
     );
 
     expect(resolved?.kind).toBe('render');
@@ -160,7 +163,7 @@ describe('callback route registration', () => {
   it('should redirect before protected content renders on initial boot', async () => {
     let renderedDashboard = false;
 
-    registerRoutes(
+    const registry = createRouteRegistry(
       () => {
         route('/login', () => <div>{'login-page'}</div>, {
           auth: requireAnonymous(),
@@ -186,7 +189,7 @@ describe('callback route registration', () => {
     );
 
     window.history.replaceState({}, '', '/dashboard?tab=usage#today');
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry });
     await flushScheduler();
 
     expect(renderedDashboard).toBe(false);
@@ -200,7 +203,7 @@ describe('callback route registration', () => {
   it('should redirect before protected content renders on navigation', async () => {
     let renderedDashboard = false;
 
-    registerRoutes(
+    const registry = createRouteRegistry(
       () => {
         route('/login', () => <div>{'login-page'}</div>, {
           auth: requireAnonymous(),
@@ -225,7 +228,7 @@ describe('callback route registration', () => {
       }
     );
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry });
     await flushScheduler();
 
     navigate('/dashboard?tab=usage#today');
@@ -239,7 +242,7 @@ describe('callback route registration', () => {
   });
 
   it('should redirect authenticated users away from guest-only routes', async () => {
-    registerRoutes(
+    const registry = createRouteRegistry(
       () => {
         route('/login', () => <div>{'login-page'}</div>, {
           auth: requireAnonymous(),
@@ -262,7 +265,10 @@ describe('callback route registration', () => {
       }
     );
 
-    const resolved = await resolveRouteRequest('/login?next=%2Fdashboard');
+    const resolved = await resolveRouteRequest(
+      '/login?next=%2Fdashboard',
+      registry
+    );
 
     expect(resolved).toEqual({
       kind: 'redirect',
@@ -272,7 +278,7 @@ describe('callback route registration', () => {
   });
 
   it('should prefer exact leaf, then page-local fallback, then root fallback in request resolution', async () => {
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       page(
         '/docs/components',
         () => <Outlet />,
@@ -286,11 +292,12 @@ describe('callback route registration', () => {
       fallback(() => <div>{'root-missing'}</div>);
     });
 
-    const exact = await resolveRouteRequest('/docs/components/tabs');
+    const exact = await resolveRouteRequest('/docs/components/tabs', registry);
     const pageMiss = await resolveRouteRequest(
-      '/docs/components/unknown/deeper'
+      '/docs/components/unknown/deeper',
+      registry
     );
-    const rootMiss = await resolveRouteRequest('/outside');
+    const rootMiss = await resolveRouteRequest('/outside', registry);
 
     expect(exact?.kind).toBe('render');
     expect(pageMiss?.kind).toBe('render');

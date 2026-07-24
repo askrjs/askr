@@ -16,10 +16,13 @@ Hydration makes server-rendered HTML interactive by attaching event listeners an
 
 ```typescript
 import { hydrateSPA } from '@askrjs/askr/boot';
+import { createRouteRegistry } from '@askrjs/askr/router';
+
+const registry = createRouteRegistry(() => {});
 
 await hydrateSPA({
   root: document.getElementById('app')!,
-  routes: [],
+  registry,
   hydrate: {
     // Defer below-fold content
     deferBelowFold: true,

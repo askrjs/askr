@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import { createDataRuntime, createQuery } from '../../../src/data';
@@ -6,7 +13,7 @@ import { resource } from '../../../src/runtime/resource-operation';
 import { timer } from '../../../src/runtime/lifecycle-operations';
 import { getOwnershipDiagnostics } from '../../../src/runtime/ownership-diagnostics';
 import { navigate } from '../../../src/router/navigate';
-import { clearRoutes, getRoutes, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -18,13 +25,13 @@ describe('ownership diagnostics', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
   });
 
   afterEach(() => {
     cleanupApp(container);
     cleanup();
-    clearRoutes();
+    resetRouteState();
   });
 
   it('should return route-owned resources to their development plateaus', async () => {
@@ -56,7 +63,7 @@ describe('ownership diagnostics', () => {
     window.history.replaceState({}, '', '/instrumented');
     await createSPA({
       root: container,
-      routes: getRoutes(),
+      registry: currentRouteRegistry(),
       dataRuntime,
     });
     flushScheduler();

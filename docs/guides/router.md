@@ -45,9 +45,8 @@ const registry = createRouteRegistry(registerAppRoutes);
 await createSPA({ root: '#app', registry });
 ```
 
-`registerRoutes()` and `getManifest()` remain as legacy wrappers for apps that
-still use the module-level route store. New code should prefer a registry and
-pass that registry to `createSPA()` or `hydrateSPA()`.
+Route composition uses an explicit registry. Pass the registry returned by
+`createRouteRegistry()` to `createSPA()` or `hydrateSPA()`.
 
 ## Group inheritance
 

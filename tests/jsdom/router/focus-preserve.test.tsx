@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createSPA } from '@askrjs/askr/boot';
@@ -5,12 +12,7 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import {
-  clearRoutes,
-  getManifest,
-  group,
-  route,
-} from '../../../src/router/route';
+import { group, route } from '../../../src/router/route';
 
 describe('routed shell focus preservation', () => {
   let container: HTMLElement;
@@ -20,7 +22,7 @@ describe('routed shell focus preservation', () => {
     const testContainer = createTestContainer();
     container = testContainer.container;
     cleanup = testContainer.cleanup;
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/example');
   });
 
@@ -101,7 +103,7 @@ describe('routed shell focus preservation', () => {
       route('/example', ExamplePage);
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const shell = container.querySelector('.app-shell') as HTMLElement | null;

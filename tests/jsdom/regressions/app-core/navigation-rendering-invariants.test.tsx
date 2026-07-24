@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import { cleanupApp, createSPA } from '../../../../src/boot';
@@ -6,10 +13,8 @@ import { state } from '../../../../src/runtime/state';
 import { navigate } from '../../../../src/router/navigate';
 import { allow } from '../../../../src/router/policy';
 import {
-  clearRoutes,
   currentRoute,
   fallback,
-  getManifest,
   group,
   index,
   Outlet,
@@ -42,14 +47,14 @@ describe('navigation rendering invariants regression coverage', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
   afterEach(() => {
     cleanupApp(container);
     cleanup();
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
@@ -117,7 +122,7 @@ describe('navigation rendering invariants regression coverage', () => {
     });
 
     window.history.replaceState({}, '', '/docs/components');
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const pageHost = container.querySelector('[data-testid="components-page"]');
@@ -195,7 +200,7 @@ describe('navigation rendering invariants regression coverage', () => {
     route('/search', SearchPage);
 
     window.history.replaceState({}, '', '/search?q=one#top');
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const pageHost = container.querySelector('[data-testid="search-page"]');
@@ -293,7 +298,7 @@ describe('navigation rendering invariants regression coverage', () => {
     });
 
     window.history.replaceState({}, '', '/alpha');
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const shell = container.querySelector('[data-testid="routed-shell"]');
@@ -408,7 +413,7 @@ describe('navigation rendering invariants regression coverage', () => {
       route('/fast', FastPage);
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/slow');
@@ -491,7 +496,7 @@ describe('navigation rendering invariants regression coverage', () => {
     });
 
     window.history.replaceState({}, '', '/reports');
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const shell = container.querySelector('[data-testid="resource-shell"]');

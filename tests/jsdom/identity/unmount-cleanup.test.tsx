@@ -1,9 +1,16 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 // tests/identity/unmount_cleanup.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
-import { clearRoutes, getRoutes, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -13,7 +20,7 @@ describe('unmount cleanup (IDENTITY)', () => {
   let { container, cleanup } = createTestContainer();
   beforeEach(() => ({ container, cleanup } = createTestContainer()));
   afterEach(() => {
-    clearRoutes();
+    resetRouteState();
     cleanup();
   });
 
@@ -31,7 +38,7 @@ describe('unmount cleanup (IDENTITY)', () => {
     route('/b', () => <div>{'b'}</div>);
 
     window.history.pushState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     navigate('/a');
     flushScheduler();
 
@@ -71,7 +78,7 @@ describe('unmount cleanup (IDENTITY)', () => {
     });
 
     window.history.pushState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
 
     navigate('/a');
     flushScheduler();

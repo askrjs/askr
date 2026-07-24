@@ -1,10 +1,13 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, vi } from 'vite-plus/test';
 import { requireAnonymous, requireRole, requireUser } from '@askrjs/auth';
 import {
-  getManifest,
-  clearRoutes,
-  registerRoutes,
-  getRoutes,
   createRouteRegistry,
   fallback,
   page,
@@ -17,11 +20,11 @@ import { getCurrentRenderData } from '../../../src/ssr/render-keys';
 
 describe('SSR request resolution', () => {
   beforeEach(() => {
-    clearRoutes();
+    resetRouteState();
   });
 
   it('should redirect protected requests before render', async () => {
-    registerRoutes(
+    const registry = createRouteRegistry(
       () => {
         route('/login', () => <div>{'login'}</div>, {
           auth: requireAnonymous(),
@@ -45,7 +48,7 @@ describe('SSR request resolution', () => {
 
     const result = await resolveRequest({
       url: '/dashboard?tab=usage',
-      manifest: getManifest(),
+      registry,
     });
 
     expect(result).toEqual({
@@ -56,7 +59,7 @@ describe('SSR request resolution', () => {
   });
 
   it('should deny role-gated requests before render', async () => {
-    registerRoutes(
+    const registry = createRouteRegistry(
       () => {
         route('/admin', () => <div>{'admin'}</div>, {
           auth: requireRole('admin'),
@@ -76,7 +79,7 @@ describe('SSR request resolution', () => {
 
     const result = await resolveRequest({
       url: '/admin',
-      manifest: getManifest(),
+      registry,
     });
 
     expect(result).toEqual({
@@ -180,26 +183,26 @@ describe('SSR request resolution', () => {
   });
 
   it('should not match duplicate-slash request URLs against normalized routes', async () => {
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       route('/docs/tabs', () => <div>{'tabs'}</div>);
     });
 
     const result = await resolveRequest({
       url: '/docs//tabs',
-      manifest: getManifest(),
+      registry,
     });
 
     expect(result).toBeNull();
   });
 
   it('should preserve malformed percent-encoded params during SSR request resolution', async () => {
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       route('/posts/{slug}', () => <div>{'post'}</div>);
     });
 
     const result = await resolveRequest({
       url: '/posts/%E0%A4%A',
-      manifest: getManifest(),
+      registry,
     });
 
     expect(result).toEqual({
@@ -214,7 +217,7 @@ describe('SSR request resolution', () => {
       slug: params.slug,
     }));
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       route(
         '/posts/{slug}',
         () => {
@@ -229,7 +232,7 @@ describe('SSR request resolution', () => {
 
     const result = await resolveRequest({
       url: '/posts/intro',
-      manifest: getManifest(),
+      registry,
     });
 
     expect(result).toEqual({
@@ -246,7 +249,8 @@ describe('SSR request resolution', () => {
 
     const html = renderResolvedToStringSync({
       url: '/posts/intro',
-      routes: getRoutes(),
+      routes: registry.routes,
+      registry,
       handler: result.handler,
       params: result.params,
     });
@@ -262,23 +266,25 @@ describe('SSR request resolution', () => {
     expect(html).toContain('intro');
   });
 
-  it('should preserve scoped fallback params when rendering getRoutes()', () => {
+  it('should preserve scoped fallback params when rendering currentRouteList()', () => {
     let receivedCatchAll: string | undefined;
 
-    page(
-      '/docs',
-      () => <section>{'docs'}</section>,
-      () => {
-        fallback((params) => {
-          receivedCatchAll = params['*'];
-          return <div>{'missing'}</div>;
-        });
-      }
-    );
+    const registry = createRouteRegistry(() => {
+      page(
+        '/docs',
+        () => <section>{'docs'}</section>,
+        () => {
+          fallback((params) => {
+            receivedCatchAll = params['*'];
+            return <div>{'missing'}</div>;
+          });
+        }
+      );
+    });
 
     renderToString({
       url: '/docs/a/b',
-      routes: getRoutes(),
+      registry,
     });
 
     expect(receivedCatchAll).toBe('/a/b');

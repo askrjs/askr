@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { derive, state } from '../../../src/index';
@@ -328,7 +335,7 @@ describe('derive reactivity', () => {
     container.innerHTML = html;
     await hydrateSPA({
       root: container,
-      routes: [{ path: '/', handler: Component }],
+      registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
     });
 
     (container.querySelector('#subject') as HTMLButtonElement).click();

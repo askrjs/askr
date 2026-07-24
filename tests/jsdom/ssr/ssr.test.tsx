@@ -1,13 +1,15 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { For } from '../../../src/control';
 import { defineScope, readScope } from '../../../src/runtime/context';
-import {
-  clearRoutes,
-  fallback,
-  getRoutes,
-  route,
-} from '../../../src/router/route';
+import { fallback, route } from '../../../src/router/route';
 import { Fragment, jsx, jsxs } from '../../../src/jsx/jsx-runtime';
 import {
   renderToStringSync,
@@ -56,7 +58,7 @@ describe('snapshot restore (SSR)', () => {
     await expect(
       hydrateSPA({
         root: container,
-        routes: [{ path: '/', handler: Component }],
+        registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
       })
     ).resolves.not.toThrow();
     flushScheduler();
@@ -326,7 +328,7 @@ describe('SSR document boundary', () => {
   });
 
   it('should preserve fallback matching for shared route tables', () => {
-    clearRoutes();
+    resetRouteState();
     try {
       route('/home', () => <div>{'home'}</div>);
       fallback((params: Record<string, string>) => (
@@ -335,13 +337,13 @@ describe('SSR document boundary', () => {
 
       const html = renderToString({
         url: '/outside/deeper',
-        routes: getRoutes(),
+        registry: currentRouteRegistry(),
       });
 
       expect(html).toContain('root-missing:/outside/deeper');
       expect(html).not.toContain('home');
     } finally {
-      clearRoutes();
+      resetRouteState();
     }
   });
 

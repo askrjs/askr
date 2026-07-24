@@ -50,7 +50,7 @@ await (async () => {
   try {
     const hydration = hydrateSPA({
       root: fixture.container,
-      routes: fixture.routes,
+      registry: fixture!.registry,
       hydrate: { deferUntilIdle: true },
     });
 
@@ -83,7 +83,7 @@ describe('tier2 subsystem hydration defer until idle', () => {
       fixture!.reset();
       await hydrateSPA({
         root: fixture!.container,
-        routes: fixture!.routes,
+        registry: fixture!.registry,
         hydrate: { deferUntilIdle: true },
       });
       flushScheduler();

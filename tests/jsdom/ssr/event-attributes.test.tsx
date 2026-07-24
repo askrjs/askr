@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 /**
  * SSR Event Handling Tests
  *
@@ -150,7 +157,10 @@ describe('SSR event handling', () => {
       const btnBefore = container.querySelector('#btn') as HTMLButtonElement;
       expect(btnBefore.onclick).toBeNull();
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       // Click should work after hydration
@@ -173,7 +183,10 @@ describe('SSR event handling', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       fireEvent.input(
@@ -201,7 +214,10 @@ describe('SSR event handling', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       const btn = container.querySelector('#btn') as HTMLButtonElement;
@@ -234,7 +250,10 @@ describe('SSR event handling', () => {
       // Verify server-rendered HTML contains initial state
       expect(container.querySelector('#count')?.textContent).toBe('0');
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       // Should preserve server state after hydration
@@ -262,7 +281,10 @@ describe('SSR event handling', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       const btn = container.querySelector('#btn') as HTMLElement;
@@ -297,7 +319,10 @@ describe('SSR event handling', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       fireEvent.click(container.querySelector('#child1') as HTMLElement);

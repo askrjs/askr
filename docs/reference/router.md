@@ -18,12 +18,6 @@ export const registry = createRouteRegistry(registerAppRoutes, {
 });
 ```
 
-## `registerRoutes(definition, options)`
-
-Runs a route definition against the module-level route store. Prefer
-`createRouteRegistry()` for application composition. `registerRoutes()` is
-deprecated for new code because it relies on ambient module-level state.
-
 ## `group(options, fn)`
 
 Establishes a pathless scope for nested routes. Child routes keep absolute paths,
@@ -226,21 +220,6 @@ Registers a pathful miss route.
 ## `currentRoute()`
 
 Inside a component, call `currentRoute()` to read the current route snapshot.
-
-## `getManifest()`
-
-Returns the manifest from the module-level route store. Prefer
-`createRouteRegistry(() => { ... }).manifest` for new code. This accessor is deprecated.
-
-## `getRoutes()`
-
-Returns the flat route array from the module-level route store. Prefer
-`createRouteRegistry(() => { ... }).routes` for new code. This accessor is deprecated.
-
-## `clearRoutes()`
-
-Clears all route registrations. This ambient reset is deprecated; use a fresh
-route registry instead. It remains available for legacy tests and integrations.
 
 ## `navigate(path)`
 

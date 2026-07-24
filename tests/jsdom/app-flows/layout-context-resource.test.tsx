@@ -1,16 +1,16 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { defineScope, readScope } from '../../../src/runtime/context';
 import { resource } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getManifest,
-  group,
-  Outlet,
-  page,
-  route,
-} from '../../../src/router/route';
+import { group, Outlet, page, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -23,14 +23,14 @@ describe('layout context resource app flow', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/workspace/overview');
   });
 
   afterEach(() => {
     cleanupApp(container);
     cleanup();
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
@@ -100,7 +100,7 @@ describe('layout context resource app flow', () => {
       });
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const layout = container.querySelector('[aria-label="Tenant layout"]');

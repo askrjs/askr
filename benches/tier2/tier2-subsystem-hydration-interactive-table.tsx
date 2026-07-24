@@ -98,7 +98,7 @@ await (async () => {
 
   try {
     await expect(
-      hydrateSPA({ root: fixture.container, routes: fixture.routes })
+      hydrateSPA({ root: fixture.container, registry: fixture!.registry })
     ).resolves.not.toThrow();
     flushScheduler();
     await waitForNextEvaluation();
@@ -149,7 +149,10 @@ describe('tier2 subsystem hydration interactive table', () => {
         const harness = createInteractiveTableHarness();
         fixture = createHydrationFixture({ routes: harness.routes });
 
-        await hydrateSPA({ root: fixture.container, routes: fixture.routes });
+        await hydrateSPA({
+          root: fixture.container,
+          registry: fixture!.registry,
+        });
         flushScheduler();
         await waitForNextEvaluation();
         rowLinks = createRowLinkQuery(fixture.container);

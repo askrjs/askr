@@ -2,8 +2,17 @@ import type { Options } from 'tinybench';
 import type { JSXElement } from '../../src/jsx/types';
 import { cleanupApp } from '../../src/boot';
 import { mountBenchmark } from '../../src/bench/benchmark-entry';
-import type { Route, RouteHandler } from '../../src/router/route';
-import { clearRoutes, currentRoute, route } from '../../src/router/route';
+import type {
+  Route,
+  RouteHandler,
+  RouteRegistry,
+} from '../../src/router/route';
+import {
+  createRouteRegistry,
+  currentRoute,
+  route,
+} from '../../src/router/route';
+import { clearRouteState } from '../../src/router/store';
 import { cleanupNavigation } from '../../src/router/navigate';
 import { getBenchMetrics } from '../../src/runtime/for';
 import { renderToString } from '../../src/ssr';
@@ -43,6 +52,7 @@ export interface MountedBenchmark {
 export interface HydrationFixture {
   container: HTMLDivElement;
   routes: Route[];
+  registry: RouteRegistry;
   reset: () => void;
   cleanup: () => void;
 }
@@ -554,6 +564,15 @@ export function createHydrationFixture({
   return {
     container,
     routes,
+    registry: createRouteRegistry(() => {
+      for (const entry of routes) {
+        route(
+          entry.path,
+          entry.handler,
+          entry.namespace ? { namespace: entry.namespace } : undefined
+        );
+      }
+    }),
     reset,
     cleanup() {
       cleanupApp(container);
@@ -729,19 +748,19 @@ export function setLocationPath(path: string): void {
 }
 
 export function resetRouterState(): void {
-  clearRoutes();
+  clearRouteState();
   cleanupNavigation();
   setLocationPath('/');
 }
 
-export function registerRoutes(
+export function registerBenchRoutes(
   entries: Array<{
     path: string;
     handler: () => unknown;
     namespace?: string;
   }>
 ): void {
-  clearRoutes();
+  clearRouteState();
   for (const entry of entries) {
     route(
       entry.path,

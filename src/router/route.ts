@@ -6,14 +6,7 @@
  * focused implementation modules.
  */
 
-export {
-  group,
-  page,
-  index,
-  fallback,
-  registerRoutes,
-  route,
-} from './authoring';
+export { group, page, index, fallback, route } from './authoring';
 export {
   currentRoute,
   isRoutePathActive,
@@ -28,16 +21,10 @@ export {
   resolveRouteRequest,
   _resolveRouteMatchFromRoutes,
 } from './resolution';
-export {
-  _applyManifest,
-  clearRoutes,
-  createRouteRegistry,
-  getManifest,
-} from './manifest';
+export { _applyManifest, createRouteRegistry } from './manifest';
 export {
   getLoadedNamespaces,
   getNamespaceRoutes,
-  getRoutes,
   hasRegisteredRoutes,
   lockRouteRegistration,
   unloadNamespace,
@@ -54,7 +41,7 @@ export type {
   AccessRedirectDecision,
   GroupHelperOptions,
   PageHelperOptions,
-  RegisterRoutesOptions,
+  RouteRegistryOptions,
   RouteDefinition,
   RouteAuthOptions,
   RouteHandler,
