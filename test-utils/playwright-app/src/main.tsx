@@ -334,6 +334,9 @@ async function mountHydratedBenchmarkTableScenario(
   const routes = [
     { path: '/benchmark-hydrate', handler: HydrationBenchmarkPage },
   ];
+  const registry = createRouteRegistry(() => {
+    route('/benchmark-hydrate', HydrationBenchmarkPage);
+  });
 
   if (window.location.pathname !== '/benchmark-hydrate') {
     window.history.replaceState({}, '', '/benchmark-hydrate');
@@ -344,7 +347,7 @@ async function mountHydratedBenchmarkTableScenario(
     routes,
   });
 
-  await hydrateSPA({ root, routes });
+  await hydrateSPA({ root, registry });
   globalScheduler.flush();
 }
 
