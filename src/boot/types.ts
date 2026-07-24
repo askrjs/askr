@@ -26,17 +26,23 @@ export type IslandsConfig = {
 type BootRouteSource =
   | {
       registry: RouteRegistry;
+      /** @deprecated Use `registry` for new applications. */
       manifest?: RouteManifest;
+      /** @deprecated Use `registry` for new applications. */
       routes?: Route[];
     }
   | {
+      /** @deprecated Use `registry` for new applications. */
       manifest: RouteManifest;
       registry?: RouteRegistry;
+      /** @deprecated Use `registry` for new applications. */
       routes?: Route[];
     }
   | {
+      /** @deprecated Use `registry` for new applications. */
       manifest?: RouteManifest;
       registry?: RouteRegistry;
+      /** @deprecated Use `registry` for new applications. */
       routes: Route[];
     };
 
@@ -50,6 +56,7 @@ export type SPAConfig = BootRouteSource & {
    * const registry = createRouteRegistry(() => { ... });
    * await createSPA({ root: '#app', registry });
    * ```
+   * Deprecated: pass `manifest` or `routes` only for legacy code.
    */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
@@ -61,7 +68,7 @@ export type HydrateSPAConfig = BootRouteSource & {
   root: Element | string;
   cspNonce?: string;
   dataRuntime?: import('../data/types').DataRuntime;
-  /** Preferred route input - see `SPAConfig`. */
+  /** Preferred: pass `registry`; `manifest` and `routes` are deprecated legacy inputs. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;

@@ -54,16 +54,16 @@ Startup belongs in `@askrjs/askr/boot`. Routing helpers live in
 
 ```ts
 import { createSPA } from '@askrjs/askr/boot';
-import { getManifest, registerRoutes, route } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
-registerRoutes(() => {
-  route('/', () => <Home />);
-  route('/about', () => <About />);
+const registry = createRouteRegistry(() => {
+  route('/', Home);
+  route('/about', About);
 });
 
 createSPA({
   root: document.body,
-  manifest: getManifest(),
+  registry,
 });
 ```
 

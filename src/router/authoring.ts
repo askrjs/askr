@@ -487,6 +487,10 @@ export function fallback(Component: RouteComponent): void {
   });
 }
 
+/**
+ * @deprecated Use `createRouteRegistry()` so route state stays scoped to the
+ * returned application registry instead of the module-level ambient store.
+ */
 export function registerRoutes(
   definition: RouteDefinition,
   options: RegisterRoutesOptions = {}
