@@ -18,6 +18,10 @@ import {
 } from './store';
 import type { InternalRouteRecord } from './internal-types';
 
+/**
+ * @deprecated Use `createRouteRegistry(() => { ... }).manifest` for application composition.
+ * This accessor reads the module-level ambient route store.
+ */
 export function getManifest(): RouteManifest {
   const auth = getDefaultRouteAuthOptions();
   return {
@@ -44,6 +48,10 @@ export function _applyManifest(manifest: RouteManifest): void {
   }
 }
 
+/**
+ * @deprecated Prefer a route registry scoped to the application. Keep this
+ * only for legacy ambient-registry tests and integrations.
+ */
 export function clearRoutes(): void {
   clearRouteState();
 }
@@ -53,7 +61,7 @@ export function createRouteRegistry(
   options: RegisterRoutesOptions = {}
 ): RouteRegistry {
   const previous = snapshotRouteState();
-  clearRoutes();
+  clearRouteState();
 
   try {
     registerRoutes(definition, options);

@@ -222,6 +222,10 @@ export function assertRouteRegistrationUnlocked(): void {
   }
 }
 
+/**
+ * @deprecated Use `createRouteRegistry(() => { ... }).routes` for application composition.
+ * This accessor reads the module-level ambient route store.
+ */
 export function getRoutes(): Route[] {
   return [...routes];
 }
