@@ -39,7 +39,9 @@ describe('router public contract documentation', () => {
     expect(boot).toMatch(/Preferred usage with registry/);
     expect(boot).not.toMatch(/Preferred usage with manifest/);
     expect(types).toMatch(/Preferred: pass a route registry/);
-    expect(types).toMatch(/Deprecated: pass `manifest` or `routes` only for legacy code/);
+    expect(types).toMatch(
+      /Deprecated: pass `manifest` or `routes` only for legacy code/
+    );
   });
 
   it('should direct the router reference to the explicit registry API', () => {
