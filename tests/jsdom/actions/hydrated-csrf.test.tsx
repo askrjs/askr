@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { action, defineAction } from '../../../src/actions';
 import { cleanupApp, hydrateSPA } from '../../../src/boot';
@@ -57,7 +64,10 @@ describe('hydrated action CSRF', () => {
           }),
         }
       );
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       navigate('/action');
       flushScheduler();
       await command.submit({ name: 'Ada' });

@@ -139,7 +139,7 @@ await (async () => {
 
   try {
     await expect(
-      hydrateSPA({ root: fixture.container, routes: fixture.routes })
+      hydrateSPA({ root: fixture.container, registry: fixture!.registry })
     ).resolves.not.toThrow();
     flushScheduler();
 
@@ -172,7 +172,10 @@ describe('tier2 subsystem hydration form', () => {
     'hydrate a 60-field interactive form',
     async () => {
       fixture!.reset();
-      await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      await hydrateSPA({
+        root: fixture!.container,
+        registry: fixture!.registry,
+      });
       flushScheduler();
     },
     {

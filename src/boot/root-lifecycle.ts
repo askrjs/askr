@@ -8,7 +8,7 @@ import {
   registerAppInstance,
   unregisterAppInstance,
 } from '../router/navigate';
-import { clearRoutes } from '../router/route';
+import { clearRouteState } from '../router/store';
 import {
   cleanupComponent,
   createComponentInstance,
@@ -336,7 +336,7 @@ export function replaceMountedRootInstance(
 export async function registerAppNavigation(
   rootElement: Element,
   path: string,
-  source?: BootAppRouteSource
+  source: BootAppRouteSource
 ) {
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
@@ -360,7 +360,7 @@ export function cleanupApp(root: Element | string): void {
     instancesByRoot.delete(rootElement);
     clearRootCleanupCallbacks(rootElement);
     if (wasRoutedRoot && routedRoots.size === 0) {
-      clearRoutes();
+      clearRouteState();
     }
     try {
       delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];

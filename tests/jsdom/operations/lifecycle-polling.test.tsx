@@ -1,4 +1,11 @@
 import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
+import {
   afterEach,
   beforeEach,
   describe,
@@ -16,12 +23,7 @@ import {
 } from '@askrjs/askr/resources';
 import { state } from '../../../src/runtime/state';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getManifest,
-  group,
-  route,
-} from '../../../src/router/route';
+import { group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -55,7 +57,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
     vi.useFakeTimers();
   });
@@ -63,7 +65,7 @@ describe('component-scoped lifecycle and polling checks', () => {
   afterEach(() => {
     cleanupApp(container);
     cleanup();
-    clearRoutes();
+    resetRouteState();
     vi.useRealTimers();
     window.history.replaceState({}, '', '/');
   });
@@ -96,7 +98,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', App);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     expect(runCount).toBe(1);
@@ -134,7 +136,7 @@ describe('component-scoped lifecycle and polling checks', () => {
     route('/public', () => <p>{'public'}</p>);
 
     window.history.replaceState({}, '', '/admin');
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     vi.advanceTimersByTime(160);
@@ -158,7 +160,7 @@ describe('component-scoped lifecycle and polling checks', () => {
     route('/other', () => <p>{'other'}</p>);
 
     window.history.replaceState({}, '', '/listen');
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     target.dispatchEvent(new Event('ping'));
@@ -187,7 +189,7 @@ describe('component-scoped lifecycle and polling checks', () => {
     route('/', () => <BrokenChild />);
 
     await expect(
-      createSPA({ root: container, manifest: getManifest() })
+      createSPA({ root: container, registry: currentRouteRegistry() })
     ).rejects.toThrow('render failed');
 
     target.dispatchEvent(new Event('ping'));
@@ -212,7 +214,7 @@ describe('component-scoped lifecycle and polling checks', () => {
     route('/admin', Poller);
     route('/settings', Poller);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     vi.advanceTimersByTime(110);
@@ -239,7 +241,7 @@ describe('component-scoped lifecycle and polling checks', () => {
         return <p>{'visible'}</p>;
       });
 
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       vi.advanceTimersByTime(110);
@@ -273,7 +275,7 @@ describe('component-scoped lifecycle and polling checks', () => {
     route('/', Poller);
     route('/other', Poller);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     vi.advanceTimersByTime(110);
@@ -295,7 +297,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     await createSPA({
       root: container,
-      routes: [
+      registry: routeRegistryFromTable([
         {
           path: '/users/{id}',
           handler: () => {
@@ -310,7 +312,7 @@ describe('component-scoped lifecycle and polling checks', () => {
             return <p>{'settings'}</p>;
           },
         },
-      ],
+      ]),
     });
     flushScheduler();
 
@@ -339,8 +341,11 @@ describe('component-scoped lifecycle and polling checks', () => {
       return <p>{'settings'}</p>;
     });
 
-    const manifest = getManifest();
-    await createSPA({ root: container, manifest });
+    const manifest = currentRouteManifest();
+    await createSPA({
+      root: container,
+      registry: currentRouteRegistry(manifest),
+    });
     flushScheduler();
 
     navigate('/users/123');
@@ -368,8 +373,9 @@ describe('component-scoped lifecycle and polling checks', () => {
       });
       return <p>{'admin'}</p>;
     });
-    const adminManifest = getManifest();
-    clearRoutes();
+    const adminManifest = currentRouteManifest();
+    const adminRoutes = currentRouteList();
+    resetRouteState();
 
     route('/reports/{id}', () => {
       timer(50, reportTick, {
@@ -377,13 +383,20 @@ describe('component-scoped lifecycle and polling checks', () => {
       });
       return <p>{'report'}</p>;
     });
-    const reportManifest = getManifest();
-    clearRoutes();
+    const reportManifest = currentRouteManifest();
+    const reportRoutes = currentRouteList();
+    resetRouteState();
 
     try {
       window.history.replaceState({}, '', '/admin/users');
-      await createSPA({ root: first.container, manifest: adminManifest });
-      await createSPA({ root: second.container, manifest: reportManifest });
+      await createSPA({
+        root: first.container,
+        registry: currentRouteRegistry(adminManifest, adminRoutes),
+      });
+      await createSPA({
+        root: second.container,
+        registry: currentRouteRegistry(reportManifest, reportRoutes),
+      });
       flushScheduler();
 
       vi.advanceTimersByTime(110);
@@ -419,7 +432,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', Poller);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     setLabel('second');
@@ -451,7 +464,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', Poller);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     vi.advanceTimersByTime(110);
@@ -497,7 +510,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', App);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     vi.advanceTimersByTime(110);
@@ -535,7 +548,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', Listener);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     setLabel('second');
@@ -563,7 +576,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', Listener);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     firstTarget.dispatchEvent(new Event('ping'));
@@ -613,7 +626,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', App);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     firstTarget.dispatchEvent(new Event('ping'));
@@ -673,7 +686,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', App);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     setMounted(true);
@@ -725,7 +738,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', App);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     expect(run).toHaveBeenCalledTimes(1);
@@ -794,7 +807,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', App);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     setMounted(true);
@@ -844,7 +857,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     route('/', App);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     setLabel('second');

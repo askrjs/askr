@@ -66,7 +66,7 @@ await (async () => {
     await expect(
       hydrateSPA({
         root: fixture.container,
-        routes: fixture.routes,
+        registry: fixture!.registry,
         hydrate: { deferBelowFold: true, foldThreshold: 100 },
       })
     ).resolves.not.toThrow();
@@ -107,7 +107,7 @@ describe('tier2 subsystem hydration deferred', () => {
       fixture!.reset();
       await hydrateSPA({
         root: fixture!.container,
-        routes: fixture!.routes,
+        registry: fixture!.registry,
         hydrate: { deferBelowFold: true, foldThreshold: 100 },
       });
       flushScheduler();

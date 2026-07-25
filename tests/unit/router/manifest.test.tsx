@@ -9,11 +9,8 @@ import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import {
   route,
   fallback,
-  getRoutes,
   group,
   index,
-  getManifest,
-  clearRoutes,
   createRouteRegistry,
   page,
   resolveRoute,
@@ -21,14 +18,21 @@ import {
   _applyManifest,
 } from '../../../src/router/route';
 import { parseSegments, computeRank } from '../../../src/router/match';
+import {
+  clearRouteState,
+  getRouteList,
+  getRouteRecords,
+} from '../../../src/router/store';
+
+const currentManifest = () => ({ records: [...getRouteRecords()] });
+
+beforeEach(() => {
+  clearRouteState();
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-beforeEach(() => {
-  clearRoutes();
-});
 
 // ---------------------------------------------------------------------------
 // parseSegments()
@@ -106,8 +110,8 @@ describe('createRouteRegistry()', () => {
     expect(registry.manifest.records.map((record) => record.path)).toEqual([
       '/registry',
     ]);
-    expect(getRoutes().map((entry) => entry.path)).toEqual(['/legacy']);
-    expect(getManifest().records.map((record) => record.path)).toEqual([
+    expect(getRouteList().map((entry) => entry.path)).toEqual(['/legacy']);
+    expect(currentManifest().records.map((record) => record.path)).toEqual([
       '/legacy',
     ]);
   });
@@ -325,7 +329,7 @@ describe('manifest shape', () => {
     route('/about', () => null);
     route('/posts/{slug}', () => null);
 
-    const { records } = getManifest();
+    const { records } = currentManifest();
     expect(records.map((r) => r.path).sort()).toEqual(
       ['/', '/about', '/posts/{slug}'].sort()
     );
@@ -334,7 +338,7 @@ describe('manifest shape', () => {
   it('should include pre-parsed segments on each record', () => {
     route('/posts/{slug}', () => null);
 
-    const record = getManifest().records.find(
+    const record = currentManifest().records.find(
       (r) => r.path === '/posts/{slug}'
     )!;
     expect(record.segments).toEqual([
@@ -347,7 +351,7 @@ describe('manifest shape', () => {
     route('/posts/{slug}', () => null); // 3 + 2 = 5
     route('/*', () => null); // 0
 
-    const m = getManifest();
+    const m = currentManifest();
     const slugRecord = m.records.find((r) => r.path === '/posts/{slug}')!;
     const fallback = m.records.find((r) => r.path === '/*')!;
 
@@ -362,7 +366,7 @@ describe('manifest shape', () => {
     }
     route('/blog', BlogPage);
 
-    const record = getManifest().records.find((r) => r.path === '/blog')!;
+    const record = currentManifest().records.find((r) => r.path === '/blog')!;
     expect(record.component).toBe(BlogPage);
   });
 
@@ -378,7 +382,9 @@ describe('manifest shape', () => {
       namespace: 'items-ns',
     });
 
-    const record = getManifest().records.find((r) => r.path === '/items/{id}')!;
+    const record = currentManifest().records.find(
+      (r) => r.path === '/items/{id}'
+    )!;
     expect(record.options.loader).toBe(loader);
     expect(record.options.policies).toEqual([policy]);
     expect(record.options.title).toBe('Item detail');
@@ -389,7 +395,7 @@ describe('manifest shape', () => {
     const entries = async () => [{ slug: 'hello' }, { slug: 'world' }];
     route('/posts/{slug}', () => null, { entries });
 
-    const record = getManifest().records.find(
+    const record = currentManifest().records.find(
       (r) => r.path === '/posts/{slug}'
     )!;
     expect(record.options.entries).toBe(entries);
@@ -398,7 +404,7 @@ describe('manifest shape', () => {
   it('should record empty layoutChain when registered outside any layout group', () => {
     route('/bare', () => null);
 
-    const record = getManifest().records.find((r) => r.path === '/bare')!;
+    const record = currentManifest().records.find((r) => r.path === '/bare')!;
     expect(record.layoutChain).toHaveLength(0);
   });
 
@@ -410,7 +416,7 @@ describe('manifest shape', () => {
       route('/scoped', Page);
     });
 
-    const record = getManifest().records.find((r) => r.path === '/scoped')!;
+    const record = currentManifest().records.find((r) => r.path === '/scoped')!;
     expect(record.layoutChain).toHaveLength(1);
     expect(record.layoutChain[0].component).toBe(L1);
   });
@@ -426,7 +432,7 @@ describe('manifest shape', () => {
       });
     });
 
-    const record = getManifest().records.find((r) => r.path === '/deep')!;
+    const record = currentManifest().records.find((r) => r.path === '/deep')!;
     expect(record.layoutChain).toHaveLength(2);
     expect(record.layoutChain[0].component).toBe(Outer);
     expect(record.layoutChain[1].component).toBe(Inner);
@@ -442,7 +448,7 @@ describe('manifest shape', () => {
       route('tabs', Tabs);
     });
 
-    const manifest = getManifest();
+    const manifest = currentManifest();
     const overviewRecord = manifest.records.find(
       (r) => r.path === '/docs/components'
     )!;
@@ -468,7 +474,7 @@ describe('manifest shape', () => {
       route('/b', () => null);
     });
 
-    const m = getManifest();
+    const m = currentManifest();
     const a = m.records.find((r) => r.path === '/a')!;
     const b = m.records.find((r) => r.path === '/b')!;
 
@@ -540,10 +546,10 @@ describe('_applyManifest cross-mode parity', () => {
     route('/posts/{slug}', (p) => `post:${p.slug}`);
     route('/*', () => 'fallback');
 
-    const manifest = getManifest();
+    const manifest = currentManifest();
 
     // Simulate what boot does: clear then apply
-    clearRoutes();
+    clearRouteState();
     _applyManifest(manifest);
 
     const root = resolveRoute('/');
@@ -572,11 +578,11 @@ describe('_applyManifest cross-mode parity', () => {
 
     fallback(RootMissing);
 
-    const manifest = getManifest();
+    const manifest = currentManifest();
     const freshScopedMiss = resolveRoute('/docs/components/unknown/deeper');
     const freshScopedOutput = freshScopedMiss!.handler(freshScopedMiss!.params);
 
-    clearRoutes();
+    clearRouteState();
     _applyManifest(manifest);
 
     const scopedMiss = resolveRoute('/docs/components/unknown/deeper');
@@ -600,18 +606,18 @@ describe('_applyManifest cross-mode parity', () => {
 
     fallback(() => 'root-missing');
 
-    const manifest = getManifest();
-    const freshRoutes = getRoutes();
+    const manifest = currentManifest();
+    const freshRoutes = getRouteList();
     const freshScopedMiss = resolveRouteFromRoutes(
       '/docs/components/unknown/deeper',
       freshRoutes
     );
     const freshRootMiss = resolveRouteFromRoutes('/outside', freshRoutes);
 
-    clearRoutes();
+    clearRouteState();
     _applyManifest(manifest);
 
-    const replayedRoutes = getRoutes();
+    const replayedRoutes = getRouteList();
     const scopedMiss = resolveRouteFromRoutes(
       '/docs/components/unknown/deeper',
       replayedRoutes
@@ -631,7 +637,7 @@ describe('_applyManifest cross-mode parity', () => {
   it('should return identical params from SSR resolveRouteFromRoutes and SPA resolveRoute', () => {
     route('/users/{id}/posts/{pid}', (p) => `${p.id}:${p.pid}`);
 
-    const manifest = getManifest();
+    const manifest = currentManifest();
     const ssrRoutes = manifest.records.map((r) => ({
       path: r.path,
       handler: r.handler,
@@ -649,9 +655,9 @@ describe('_applyManifest cross-mode parity', () => {
     route('/a/{x}', () => 'first');
     route('/a/{y}', () => 'second');
 
-    const manifest = getManifest();
+    const manifest = currentManifest();
 
-    clearRoutes();
+    clearRouteState();
     _applyManifest(manifest);
 
     const replayed = resolveRoute('/a/value');
@@ -722,18 +728,18 @@ describe('route precedence', () => {
       return `${params.bucket}:${params.path}`;
     });
 
-    const manifest = getManifest();
-    const freshRoutes = getRoutes();
+    const manifest = currentManifest();
+    const freshRoutes = getRouteList();
     const freshResolved = resolveRouteFromRoutes(
       '/admin/buckets/main/files/a/b',
       freshRoutes
     );
 
-    clearRoutes();
+    clearRouteState();
     _applyManifest(manifest);
 
     const replayed = resolveRoute('/admin/buckets/main/files/a/b');
-    const replayedRoutes = getRoutes();
+    const replayedRoutes = getRouteList();
     const flatResolved = resolveRouteFromRoutes(
       '/admin/buckets/main/files/a/b',
       replayedRoutes

@@ -1,5 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { clearRoutes, getRoutes, route } from '../../src/router/route';
+import { createRouteRegistry, route } from '../../src/router/route';
+import { clearRouteState } from '../../src/router/store';
 import { tier2BenchOptions } from '../shared/_shared';
 
 const routeEntries = Array.from({ length: 250 }, (_, index) => ({
@@ -7,18 +8,16 @@ const routeEntries = Array.from({ length: 250 }, (_, index) => ({
   handler: () => <div>{`Route ${index}`}</div>,
 }));
 
-clearRoutes();
-for (const entry of routeEntries) {
-  route(entry.path, entry.handler);
-}
-expect(getRoutes()).toHaveLength(routeEntries.length);
-clearRoutes();
+const registry = createRouteRegistry(() => {
+  for (const entry of routeEntries) route(entry.path, entry.handler);
+});
+expect(registry.routes).toHaveLength(routeEntries.length);
 
 describe('tier2 router registration', () => {
   bench(
     'clear and register a 250-route table',
     () => {
-      clearRoutes();
+      clearRouteState();
       for (const entry of routeEntries) {
         route(entry.path, entry.handler);
       }
@@ -26,10 +25,10 @@ describe('tier2 router registration', () => {
     {
       ...tier2BenchOptions,
       setup() {
-        clearRoutes();
+        clearRouteState();
       },
       teardown() {
-        clearRoutes();
+        clearRouteState();
       },
     }
   );

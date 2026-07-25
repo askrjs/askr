@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect } from 'vite-plus/test';
 import { createSPA } from '../../../src/boot';
 import { navigate } from '../../../src/router/navigate';
@@ -24,7 +31,9 @@ describe('nested component in SPA', () => {
 
     await createSPA({
       root: container,
-      routes: [{ path: '/counter', handler: () => <Counter /> }],
+      registry: routeRegistryFromTable([
+        { path: '/counter', handler: () => <Counter /> },
+      ]),
     });
     flushScheduler();
 

@@ -38,7 +38,7 @@ await (async () => {
 
   try {
     await expect(
-      hydrateSPA({ root: fixture.container, routes: fixture.routes })
+      hydrateSPA({ root: fixture.container, registry: fixture!.registry })
     ).resolves.not.toThrow();
     flushScheduler();
 
@@ -64,7 +64,10 @@ describe('tier2 subsystem hydration to navigation', () => {
     'hydrate and immediately navigate to a sibling route',
     async () => {
       fixture!.reset();
-      await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      await hydrateSPA({
+        root: fixture!.container,
+        registry: fixture!.registry,
+      });
       flushScheduler();
       navigate('/reports/42');
       flushScheduler();

@@ -1,7 +1,14 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createSPA } from '@askrjs/askr/boot';
-import { route, getRoutes, clearRoutes } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -14,7 +21,7 @@ describe('state reactivity with createSPA', () => {
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
-    clearRoutes();
+    resetRouteState();
   });
 
   afterEach(() => cleanup());
@@ -45,7 +52,7 @@ describe('state reactivity with createSPA', () => {
 
     route('/', () => <Counter />);
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     // Initial state

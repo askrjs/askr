@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vite-plus/test';
@@ -397,11 +404,11 @@ describe('lifecycle sequence invariants', () => {
       window.history.replaceState({}, '', '/quality/a');
       await createSPA({
         root: container,
-        manifest: qualityRegistry.manifest,
+        registry: qualityRegistry,
       });
       await createSPA({
         root: navigation.container,
-        manifest: navigationRegistry.manifest,
+        registry: navigationRegistry,
       });
       flushScheduler();
 

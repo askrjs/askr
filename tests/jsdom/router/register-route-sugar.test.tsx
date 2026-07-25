@@ -1,9 +1,16 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach } from 'vite-plus/test';
-import { clearRoutes, getRoutes, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 
 describe('registerRoute sugar API', () => {
   beforeEach(() => {
-    clearRoutes();
+    resetRouteState();
   });
 
   it('should support flat registrations with JSX-like handlers', () => {
@@ -12,7 +19,7 @@ describe('registerRoute sugar API', () => {
     route('/pages', () => <div>{'list'}</div>);
     route('/pages/{id}', () => <div>{'detail'}</div>);
 
-    const flat = getRoutes()
+    const flat = currentRouteList()
       .map((r) => r.path)
       .sort();
 
@@ -25,7 +32,7 @@ describe('registerRoute sugar API', () => {
     route('/pages', () => <div>{'list'}</div>);
     route('/pages/{id}', () => <div>{'detail'}</div>);
 
-    const registered = getRoutes()
+    const registered = currentRouteList()
       .map((r) => r.path)
       .sort();
     expect(registered).toEqual(['/', '/pages', '/pages/{id}'].sort());

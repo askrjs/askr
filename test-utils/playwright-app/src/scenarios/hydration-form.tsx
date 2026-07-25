@@ -2,6 +2,7 @@
 
 import { state } from '@askrjs/askr';
 import { hydrateSPA } from '@askrjs/askr/boot';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 import { renderToString } from '@askrjs/askr/ssr';
 
 type SignupResponse = {
@@ -110,6 +111,9 @@ export async function mountHydrationFormScenario(
   root: HTMLElement
 ): Promise<void> {
   const routes = [{ path: '/signup', handler: SignupForm }];
+  const registry = createRouteRegistry(() => {
+    route('/signup', SignupForm);
+  });
 
   if (window.location.pathname !== '/signup') {
     window.history.replaceState({}, '', '/signup');
@@ -120,5 +124,5 @@ export async function mountHydrationFormScenario(
     routes,
   });
 
-  await hydrateSPA({ root, routes });
+  await hydrateSPA({ root, registry });
 }

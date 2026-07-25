@@ -3,9 +3,8 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { createSPA } from '../../src/boot';
 import {
-  clearRoutes,
   currentRoute,
-  getManifest,
+  createRouteRegistry,
   group,
   navigate,
   route,
@@ -152,16 +151,17 @@ function ensureDashboardPath(): void {
   }
 }
 
-clearRoutes();
 ensureDashboardPath();
 
-group({ layout: AppShell }, () => {
-  route('/dashboard', DashboardPage);
-  route('/customers/search', CustomerSearchPage);
-  route('/settings', AccountSettingsForm);
-  route('/orders/{id}', OrderDetailPage);
-  route('/route-artifacts-a', RouteArtifactsAPage);
-  route('/route-artifacts-b', RouteArtifactsBPage);
+const registry = createRouteRegistry(() => {
+  group({ layout: AppShell }, () => {
+    route('/dashboard', DashboardPage);
+    route('/customers/search', CustomerSearchPage);
+    route('/settings', AccountSettingsForm);
+    route('/orders/{id}', OrderDetailPage);
+    route('/route-artifacts-a', RouteArtifactsAPage);
+    route('/route-artifacts-b', RouteArtifactsBPage);
+  });
 });
 
 await (async () => {
@@ -169,7 +169,7 @@ await (async () => {
 
   try {
     ensureDashboardPath();
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry });
     flushScheduler();
 
     expect(
@@ -205,7 +205,7 @@ describe('tier4 integration routing layouts', () => {
         ensureDashboardPath();
         const result = createTestContainer();
         cleanup = result.cleanup;
-        await createSPA({ root: result.container, manifest: getManifest() });
+        await createSPA({ root: result.container, registry });
         flushScheduler();
         routeToArtifactsA = true;
       },

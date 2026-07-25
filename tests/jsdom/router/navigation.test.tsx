@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 /**
  * tests/router/navigation.test.ts
  *
@@ -20,10 +27,8 @@ import { createSPA } from '@askrjs/askr/boot';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
 import { routeData } from '../../../src/router/deferred';
 import {
-  clearRoutes,
   createRouteRegistry,
   currentRoute,
-  getRoutes,
   route,
 } from '../../../src/router/route';
 import {
@@ -39,7 +44,7 @@ describe('route navigation (ROUTER)', () => {
     container = result.container;
     cleanup = result.cleanup;
     // Clear routes from previous tests
-    clearRoutes();
+    resetRouteState();
     vi.clearAllMocks();
   });
 
@@ -190,7 +195,7 @@ describe('route navigation (ROUTER)', () => {
         throw new Error('destination failed');
       });
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       expect(() => navigate('/broken')).toThrow('destination failed');
@@ -213,7 +218,7 @@ describe('route navigation (ROUTER)', () => {
         throw new Error('portal destination failed');
       });
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
       expect(container.querySelector('[data-route-portal]')).not.toBeNull();
 
@@ -243,7 +248,7 @@ describe('route navigation (ROUTER)', () => {
       try {
         await createSPA({
           root: container,
-          routes: getRoutes(),
+          registry: currentRouteRegistry(),
           cleanupStrict: true,
         });
         flushScheduler();
@@ -287,7 +292,7 @@ describe('route navigation (ROUTER)', () => {
         );
       };
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       expect(currentPath).toBeNull(); // Not navigated yet
@@ -299,7 +304,7 @@ describe('route navigation (ROUTER)', () => {
       // createSPA requires a non-empty route table.
       route('/', (_params) => <div>Root</div>);
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/nonexistent');
@@ -319,7 +324,7 @@ describe('route navigation (ROUTER)', () => {
 
       route('/imperative', () => imperativeNode as unknown as string);
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/imperative');
       flushScheduler();
 
@@ -341,7 +346,7 @@ describe('route navigation (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/users/123');
       flushScheduler();
 
@@ -360,7 +365,7 @@ describe('route navigation (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/users/42/posts/789');
       flushScheduler();
 
@@ -394,7 +399,7 @@ describe('route navigation (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/admin');
       flushScheduler();
 
@@ -414,7 +419,7 @@ describe('route navigation (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/page');
       flushScheduler();
 
@@ -434,7 +439,7 @@ describe('route navigation (ROUTER)', () => {
         return <div>Page</div>;
       });
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/page?tab=details', { history: 'replace' });
       flushScheduler();
 
@@ -455,7 +460,7 @@ describe('route navigation (ROUTER)', () => {
         return <div>Page</div>;
       });
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/page?tab=details', { replace: true } as Parameters<
         typeof navigate
       >[1]);
@@ -499,7 +504,7 @@ describe('route navigation (ROUTER)', () => {
       });
 
       window.history.replaceState({}, '', '/accounts');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       const input = container.querySelector('#search') as HTMLInputElement;
@@ -540,7 +545,7 @@ describe('route navigation (ROUTER)', () => {
       });
 
       window.history.replaceState({}, '', '/accounts?q=old#one');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       const routeHost = container.querySelector('#account-route');
@@ -583,7 +588,7 @@ describe('route navigation (ROUTER)', () => {
       });
 
       window.history.replaceState({}, '', '/accounts');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       const button = container.querySelector('#inc') as HTMLButtonElement;
@@ -617,7 +622,7 @@ describe('route navigation (ROUTER)', () => {
       route('/accounts', () => <div>Accounts</div>);
 
       window.history.replaceState({}, '', '/accounts?q=old&keep=yes');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       updateRouteQuery(
@@ -644,7 +649,7 @@ describe('route navigation (ROUTER)', () => {
       route('/accounts', () => <div>Accounts</div>);
 
       window.history.replaceState({}, '', '/accounts?keep=yes&q=old');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       updateRouteQuery({
@@ -674,7 +679,7 @@ describe('route navigation (ROUTER)', () => {
       });
 
       window.history.replaceState({}, '', '/accounts?tag=ops#activity');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       updateRouteQuery((searchParams) => {
@@ -705,7 +710,7 @@ describe('route navigation (ROUTER)', () => {
       });
 
       window.history.replaceState({}, '', '/accounts?q=northwind');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
       historyPushSpy.mockClear();
       historyReplaceSpy.mockClear();
@@ -732,7 +737,7 @@ describe('route navigation (ROUTER)', () => {
       route('/accounts', () => <div>Accounts</div>);
 
       window.history.replaceState({}, '', '/accounts');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
       historyPushSpy.mockClear();
       historyReplaceSpy.mockClear();
@@ -779,7 +784,7 @@ describe('route navigation (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/users/123');
       flushScheduler();
 
@@ -803,7 +808,7 @@ describe('route navigation (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/anything/goes/here');
       flushScheduler();
 

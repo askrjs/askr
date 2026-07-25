@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createSPA } from '@askrjs/askr/boot';
@@ -7,14 +14,12 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { navigate } from '../../../src/router/navigate';
 import {
-  clearRoutes,
   fallback,
   group,
   index,
   Outlet,
   page,
   route,
-  getManifest,
 } from '../../../src/router/route';
 
 describe('layout scoping (ROUTER)', () => {
@@ -25,7 +30,7 @@ describe('layout scoping (ROUTER)', () => {
     const t = createTestContainer();
     container = t.container;
     cleanup = t.cleanup;
-    clearRoutes();
+    resetRouteState();
   });
 
   afterEach(() => {
@@ -42,7 +47,7 @@ describe('layout scoping (ROUTER)', () => {
       route('/home', HomePage);
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     navigate('/home');
     await flushScheduler();
 
@@ -63,7 +68,7 @@ describe('layout scoping (ROUTER)', () => {
       route('/wrapped', () => <div class="inner">inner</div>);
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     navigate('/bare');
     await flushScheduler();
 
@@ -86,7 +91,7 @@ describe('layout scoping (ROUTER)', () => {
       });
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     navigate('/nested');
     await flushScheduler();
 
@@ -110,7 +115,7 @@ describe('layout scoping (ROUTER)', () => {
       route('/page', Page);
     });
 
-    const manifest = getManifest();
+    const manifest = currentRouteManifest();
     const record = manifest.records.find((r) => r.path === '/page');
 
     expect(record).not.toBeUndefined();
@@ -131,7 +136,7 @@ describe('layout scoping (ROUTER)', () => {
       route('/layout-imperative', Page);
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     navigate('/layout-imperative');
     await flushScheduler();
 
@@ -152,7 +157,7 @@ describe('layout scoping (ROUTER)', () => {
       route('/layout/b', PageB);
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
 
     navigate('/layout/a');
     await flushScheduler();
@@ -201,7 +206,7 @@ describe('layout scoping (ROUTER)', () => {
     });
 
     window.history.replaceState({}, '', '/example');
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const input = container.querySelector('#name') as HTMLInputElement;
@@ -235,7 +240,7 @@ describe('layout scoping (ROUTER)', () => {
       route('tabs', Tabs);
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
 
     navigate('/docs/components');
     await flushScheduler();
@@ -276,7 +281,7 @@ describe('layout scoping (ROUTER)', () => {
 
     fallback(() => <p class="root-missing">root missing</p>);
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
 
     navigate('/docs/components/unknown/deeper');
     await flushScheduler();

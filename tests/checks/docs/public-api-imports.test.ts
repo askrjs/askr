@@ -442,11 +442,6 @@ function probeDistExports(): unknown {
                 Link: typeof routerModule.Link,
                 group: typeof routerModule.group,
                 fallback: typeof routerModule.fallback,
-                registerRoutes: typeof routerModule.registerRoutes,
-                hasRegisterRoute: Object.prototype.hasOwnProperty.call(
-                  routerModule,
-                  'registerRoute'
-                ),
               },
               resources: {
                 resource: typeof resourcesModule.resource,
@@ -758,8 +753,6 @@ describe('public docs and examples', () => {
         Link: 'function',
         group: 'function',
         fallback: 'function',
-        registerRoutes: 'function',
-        hasRegisterRoute: false,
       },
       resources: {
         resource: 'function',

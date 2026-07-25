@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA, hasApp } from '../../../src/boot';
 import { createRouteRegistry, route } from '../../../src/router';

@@ -68,7 +68,7 @@ export type HydrationRuntimeHooks = {
   registerAppNavigation: (
     rootElement: Element,
     path: string,
-    source?: BootAppRouteSource
+    source: BootAppRouteSource
   ) => Promise<void>;
   registerRootCleanupCallback: (
     rootElement: Element,
@@ -226,7 +226,7 @@ export async function applySelectiveHydration(
   path: string,
   cleanupStrict: boolean | undefined,
   hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>,
-  source: BootAppRouteSource | undefined,
+  source: BootAppRouteSource,
   hooks: HydrationRuntimeHooks
 ): Promise<void> {
   const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;

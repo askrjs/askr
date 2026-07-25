@@ -16,14 +16,12 @@ import {
   hydrateSPA,
 } from '@askrjs/askr/boot';
 import {
-  clearRoutes,
   currentRoute,
-  getManifest,
+  createRouteRegistry,
   Link,
   group,
   lazy,
   navigate,
-  registerRoutes,
   route,
 } from '@askrjs/askr/router';
 import { renderToString } from '@askrjs/askr/ssr';
@@ -336,6 +334,9 @@ async function mountHydratedBenchmarkTableScenario(
   const routes = [
     { path: '/benchmark-hydrate', handler: HydrationBenchmarkPage },
   ];
+  const registry = createRouteRegistry(() => {
+    route('/benchmark-hydrate', HydrationBenchmarkPage);
+  });
 
   if (window.location.pathname !== '/benchmark-hydrate') {
     window.history.replaceState({}, '', '/benchmark-hydrate');
@@ -346,7 +347,7 @@ async function mountHydratedBenchmarkTableScenario(
     routes,
   });
 
-  await hydrateSPA({ root, routes });
+  await hydrateSPA({ root, registry });
   globalScheduler.flush();
 }
 
@@ -758,8 +759,6 @@ function mountInteractionScenario(): void {
 
 async function mountNavLinkForScenario(): Promise<void> {
   resetRoot();
-  clearRoutes();
-
   const navItems = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/customers/search', label: 'Customers' },
@@ -796,17 +795,19 @@ async function mountNavLinkForScenario(): Promise<void> {
     );
   };
 
-  group({ layout: App }, () => {
-    route('/dashboard', () => <></>);
-    route('/customers/search', () => <></>);
-    route('/settings', () => <></>);
+  const registry = createRouteRegistry(() => {
+    group({ layout: App }, () => {
+      route('/dashboard', () => <></>);
+      route('/customers/search', () => <></>);
+      route('/settings', () => <></>);
+    });
   });
 
   if (window.location.pathname !== '/dashboard') {
     window.history.replaceState({}, '', '/dashboard');
   }
 
-  await createSPA({ root, manifest: getManifest() });
+  await createSPA({ root, registry });
 }
 
 function mountErrorBoundaryScenario(): void {
@@ -855,7 +856,6 @@ function mountErrorBoundaryScenario(): void {
 
 async function mountGuardedRouterScenario(): Promise<void> {
   resetRoot();
-  clearRoutes();
 
   type FixtureSession = {
     id: string;
@@ -1101,7 +1101,7 @@ async function mountGuardedRouterScenario(): Promise<void> {
     ));
   });
 
-  registerRoutes(
+  const registry = createRouteRegistry(
     () => {
       group({ layout: GuardedShell }, () => {
         route('/', HomePage);
@@ -1135,7 +1135,7 @@ async function mountGuardedRouterScenario(): Promise<void> {
     window.history.replaceState({}, '', `/${window.location.search}`);
   }
 
-  await createSPA({ root, manifest: getManifest(), auth });
+  await createSPA({ root, registry, auth });
 }
 
 async function mountRoutedShellScenario(): Promise<void> {

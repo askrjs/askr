@@ -1,14 +1,13 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA, hydrateSPA } from '@askrjs/askr/boot';
-import {
-  lazy,
-  route,
-  group,
-  getManifest,
-  getRoutes,
-  clearRoutes,
-  _drainLazy,
-} from '../../../src/router/route';
+import { lazy, route, group, _drainLazy } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -24,7 +23,7 @@ function setGlobalWindow(path: string) {
 }
 
 beforeEach(() => {
-  clearRoutes();
+  resetRouteState();
 });
 
 afterEach(() => {
@@ -52,7 +51,7 @@ describe('lazy()', () => {
       setGlobalWindow('/');
 
       expect(imports).toBe(0);
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       expect(imports).toBe(0);
@@ -78,7 +77,7 @@ describe('lazy()', () => {
       container.innerHTML = '<div>home</div>';
       setGlobalWindow('/');
 
-      await hydrateSPA({ root: container, manifest: getManifest() });
+      await hydrateSPA({ root: container, registry: currentRouteRegistry() });
 
       expect(imports).toBe(0);
       expect(container.textContent).toBe('home');
@@ -108,7 +107,7 @@ describe('lazy()', () => {
       );
       setGlobalWindow('/docs');
 
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       expect(imports).toEqual(['docs']);
@@ -201,7 +200,7 @@ describe('lazy()', () => {
 
     await component.preload();
 
-    const { records } = getManifest();
+    const { records } = currentRouteManifest();
     const record = records.find((r) => r.path === '/posts/{slug}')!;
     expect(record.handler({ slug: 'hello' })).toBe('post:hello');
   });
@@ -224,7 +223,7 @@ describe('lazy()', () => {
 
     await component.preload();
 
-    const { records } = getManifest();
+    const { records } = currentRouteManifest();
     const record = records.find((r) => r.path === '/wrapped')!;
     calls.length = 0;
     const output = record.handler({}) as { type: string; children: unknown };
@@ -251,10 +250,13 @@ describe('lazy()', () => {
         )
       );
 
-      const manifest = getManifest();
+      const manifest = currentRouteManifest();
       setGlobalWindow('/lazy-manifest');
 
-      const startup = createSPA({ root: container, manifest });
+      const startup = createSPA({
+        root: container,
+        registry: currentRouteRegistry(manifest),
+      });
 
       let settled = false;
       startup.then(() => {
@@ -298,10 +300,13 @@ describe('lazy()', () => {
         )
       );
 
-      const routes = getRoutes();
+      const registry = currentRouteRegistry();
       setGlobalWindow('/lazy-routes');
 
-      const startup = createSPA({ root: container, routes });
+      const startup = createSPA({
+        root: container,
+        registry,
+      });
 
       let settled = false;
       startup.then(() => {

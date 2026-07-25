@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
@@ -11,7 +18,7 @@ describe('startup API guards', () => {
         (createSPA as unknown as (cfg: unknown) => Promise<void>)({
           root: container,
         })
-      ).rejects.toThrow(/createSPA requires a route manifest or route table/i);
+      ).rejects.toThrow(/createSPA requires a route registry/i);
     } finally {
       cleanup();
     }

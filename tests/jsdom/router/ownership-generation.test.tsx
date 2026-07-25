@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { createDataRuntime, createQuery } from '../../../src/data';
@@ -14,13 +21,7 @@ import {
 } from '../../../src/runtime';
 import { currentRoute } from '../../../src/router/activity';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getRoutes,
-  group,
-  registerRoutes,
-  route,
-} from '../../../src/router/route';
+import { createRouteRegistry, group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -71,7 +72,7 @@ describe('route ownership generations', () => {
     const testContainer = createTestContainer();
     container = testContainer.container;
     cleanup = testContainer.cleanup;
-    clearRoutes();
+    resetRouteState();
   });
 
   afterEach(() => cleanup());
@@ -98,7 +99,7 @@ describe('route ownership generations', () => {
     window.history.replaceState({}, '', '/a');
     await createSPA({
       root: container,
-      routes: getRoutes(),
+      registry: currentRouteRegistry(),
       dataRuntime: runtime,
     });
     flushScheduler();
@@ -187,14 +188,14 @@ describe('route ownership generations', () => {
     const SharedLayout = ({ children }: { children?: unknown }) => (
       <main data-generation-layout="shared">{children as never}</main>
     );
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group({ layout: SharedLayout }, () => {
         route('/a', createPage('a'));
         route('/b', createPage('b'));
       });
     });
     window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry });
     flushScheduler();
     await Promise.resolve();
     await Promise.resolve();
@@ -308,14 +309,14 @@ describe('route ownership generations', () => {
       <main data-same-handler-layout="shared">{children as never}</main>
     );
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group({ layout: SharedLayout }, () => {
         route('/same/a', SamePage);
         route('/same/b', SamePage);
       });
     });
     window.history.replaceState({}, '', '/same/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry });
     flushScheduler();
 
     expect(collectMountedHostMismatches(container)).toEqual([]);
@@ -448,7 +449,7 @@ describe('route ownership generations', () => {
       </MenuScope>
     );
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group({ layout: SharedLayout }, () => {
         route('/app', () => <main>app</main>);
         route('/metrics', () => <main>metrics</main>);
@@ -463,8 +464,11 @@ describe('route ownership generations', () => {
       });
     });
     window.history.replaceState({}, '', '/logs');
-    const routes = getRoutes();
-    await createSPA({ root: container, routes });
+    const routes = registry.routes;
+    await createSPA({
+      root: container,
+      registry: routeRegistryFromTable(routes),
+    });
     flushScheduler();
 
     expect(collectMountedHostMismatches(container)).toEqual([]);
@@ -550,7 +554,7 @@ describe('route ownership generations', () => {
     route('/a', page('a', 10));
     route('/b', page('b', 20));
     window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     let departed = controls.get('a')!;
@@ -647,7 +651,7 @@ describe('route ownership generations', () => {
     route('/a', page('a'));
     route('/b', page('b'));
     window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const keyedNodes = Array.from(
@@ -764,7 +768,7 @@ describe('route ownership generations', () => {
     });
 
     window.history.replaceState({}, '', '/stable');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
     const stableList = container.querySelector('[data-for-rollback-list]')!;
     const stableRow = stableList.firstElementChild;
@@ -801,7 +805,7 @@ describe('route ownership generations', () => {
     });
 
     window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
     navigate('/b');
     flushScheduler();
@@ -829,7 +833,7 @@ describe('route ownership generations', () => {
     });
 
     window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
     navigate('/b');
     flushScheduler();
@@ -854,7 +858,7 @@ describe('route ownership generations', () => {
     route('/b', () => <p>destination</p>);
 
     window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/b');
@@ -888,7 +892,7 @@ describe('route ownership generations', () => {
     route('/a', () => <p>route a</p>);
     route('/b', () => <p>route b</p>);
     window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     for (let cycle = 0; cycle < 4; cycle += 1) {
@@ -923,7 +927,7 @@ describe('route ownership generations', () => {
     route('/a', page('a'));
     route('/b', page('b'));
     window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     expect(container.querySelector('[data-route-portal="a"]')).not.toBeNull();

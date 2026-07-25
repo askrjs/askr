@@ -3,14 +3,12 @@ import type {
   RouteAuthOptions,
   RouteHandler,
   RouteRequestResult,
-  Route,
-  RouteManifest,
+  RouteRegistry,
 } from '../common/router';
-import { resolveRouteFromRoutes, resolveRouteRequest } from '../router/route';
+import { resolveRouteRequest } from '../router/route';
 import { reconcileRouteMeta, resolveRouteMeta } from '../router/metadata';
 import { getRouteRenderContext } from '../router/resolution';
 import type { ComponentFunction } from '../runtime';
-import { _preloadRouteHandler } from '../router/lazy';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
 
@@ -56,11 +54,7 @@ export async function reconcileInitialRouteMetadata(
 
 export async function resolveInitialRoute(
   auth?: RouteAuthOptions,
-  source?: {
-    manifest?: RouteManifest;
-    routes?: readonly Route[];
-    load?: boolean;
-  }
+  source?: { registry: RouteRegistry; load?: boolean }
 ): Promise<{ path: string; href: string; resolved: RouteRequestResult }> {
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
   let href =
@@ -79,25 +73,13 @@ export async function resolveInitialRoute(
     }
     visited.add(href);
 
-    const resolved = source?.manifest
+    const resolved = source?.registry
       ? await resolveRouteRequest(href, {
-          manifest: source.manifest,
+          manifest: source.registry.manifest,
           auth,
           load: source.load,
         })
-      : source?.routes
-        ? await (() => {
-            const match = resolveRouteFromRoutes(path, source.routes!);
-            if (!match) return null;
-            const lazyImport = _preloadRouteHandler(match.handler);
-            const result = {
-              kind: 'render' as const,
-              handler: match.handler,
-              params: match.params,
-            };
-            return lazyImport ? lazyImport.then(() => result) : result;
-          })()
-        : await resolveRouteRequest(href, { auth });
+      : await resolveRouteRequest(href, { auth });
     if (
       typeof window === 'undefined' ||
       !resolved ||

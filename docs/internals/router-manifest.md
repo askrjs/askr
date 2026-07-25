@@ -180,7 +180,7 @@ matching and keeps request state in render context. Flat route tables are still
 supported for compatibility:
 
 ```ts
-routes: getManifest().records.map((r) => ({
+routes: registry.manifest.records.map((r) => ({
   path: r.path,
   handler: r.handler,
   namespace: r.options.namespace,
@@ -197,7 +197,7 @@ The SSG pipeline walks `RouteManifest.records`. Records with `options.entries` a
 
 - Route records are always produced in **declaration order** (insertion order within scope).
 - Equal-rank routes are resolved by insertion order (first declared wins).
-- `clearRoutes()` resets the flat routes, records, namespace set, auth defaults,
+- The internal route-state reset clears the flat routes, records, namespace set, auth defaults,
   registration stacks, lazy import tracking, and registration lock.
 - Registration is locked after `createSPA` / `hydrateSPA` in production (not in tests).
 - The manifest is statically representable: it contains no closures that reference dynamic

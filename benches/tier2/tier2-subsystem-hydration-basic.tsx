@@ -21,7 +21,7 @@ await (async () => {
 
   try {
     await expect(
-      hydrateSPA({ root: fixture.container, routes: fixture.routes })
+      hydrateSPA({ root: fixture.container, registry: fixture!.registry })
     ).resolves.not.toThrow();
     flushScheduler();
     expect(fixture.container.querySelectorAll('tr')).toHaveLength(1000);
@@ -37,7 +37,10 @@ describe('tier2 subsystem hydration basic', () => {
     'hydrate a 1,000-row server-rendered table',
     async () => {
       fixture!.reset();
-      await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      await hydrateSPA({
+        root: fixture!.container,
+        registry: fixture!.registry,
+      });
       flushScheduler();
     },
     {

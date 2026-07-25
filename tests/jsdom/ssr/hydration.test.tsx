@@ -1,4 +1,11 @@
 import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
+import {
   describe,
   it,
   expect,
@@ -38,7 +45,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes: [{ path: '/', handler: Component }],
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
         })
       ).rejects.toThrow(/Hydration mismatch/i);
     });
@@ -50,7 +57,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes: [{ path: '/', handler: Component }],
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
         })
       ).rejects.toThrow(/Hydration mismatch/i);
     });
@@ -62,7 +69,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes: [{ path: '/', handler: Component }],
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
         })
       ).rejects.toThrow(/Hydration mismatch/i);
     });
@@ -91,7 +98,9 @@ describe('hydration (SSR)', () => {
         await expect(
           hydrateSPA({
             root: container,
-            routes: [{ path: '/', handler: Component }],
+            registry: routeRegistryFromTable([
+              { path: '/', handler: Component },
+            ]),
           })
         ).resolves.not.toThrow();
 
@@ -118,10 +127,18 @@ describe('hydration (SSR)', () => {
         const routes = [{ path: '/', handler: Component }];
         const dataRuntime = createDataRuntime();
         dataRuntime.queryData.set('prefetched', { ready: true });
-        container.innerHTML = renderToString({ url: '/', routes, dataRuntime });
+        container.innerHTML = renderToString({
+          url: '/',
+          registry: routeRegistryFromTable(routes),
+          dataRuntime,
+        });
 
         await expect(
-          hydrateSPA({ root: container, routes, dataRuntime })
+          hydrateSPA({
+            root: container,
+            registry: routeRegistryFromTable(routes),
+            dataRuntime,
+          })
         ).resolves.not.toThrow();
         (container.querySelector('button') as HTMLButtonElement).click();
         expect(clicks).toBe(1);
@@ -158,7 +175,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes: [{ path: '/', handler: Component }],
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
         })
       ).resolves.not.toThrow();
 
@@ -183,7 +200,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes: [{ path: '/', handler: Component }],
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
         })
       ).rejects.toThrow();
     });
@@ -209,7 +226,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes: [{ path: '/', handler: Component }],
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
         })
       ).resolves.not.toThrow();
 
@@ -308,7 +325,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
         })
       ).resolves.not.toThrow();
       flushScheduler();
@@ -373,7 +390,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
         })
       ).resolves.not.toThrow();
       flushScheduler();
@@ -437,7 +454,7 @@ describe('hydration (SSR)', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
         })
       ).resolves.not.toThrow();
       flushScheduler();
@@ -476,7 +493,10 @@ describe('hydration (SSR)', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       const btn = container.querySelector('#btn') as HTMLButtonElement;
@@ -515,7 +535,10 @@ describe('hydration (SSR)', () => {
       const buttonBefore = container.querySelector('#listener-button');
       const inputBefore = container.querySelector('#listener-input');
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       expect(container.querySelector('#listener-root')).toBe(rootBefore);
@@ -554,16 +577,22 @@ describe('hydration (SSR)', () => {
           return originalAddEventListener.call(this, type, listener, options);
         });
 
-      await expect(hydrateSPA({ root: container, routes })).rejects.toThrow(
-        'intrinsic listener publication failed'
-      );
+      await expect(
+        hydrateSPA({
+          root: container,
+          registry: routeRegistryFromTable(routes),
+        })
+      ).rejects.toThrow('intrinsic listener publication failed');
       fireEvent.click(
         container.querySelector('#rollback-button') as HTMLElement
       );
       expect(clicks).toBe(0);
 
       await expect(
-        hydrateSPA({ root: container, routes })
+        hydrateSPA({
+          root: container,
+          registry: routeRegistryFromTable(routes),
+        })
       ).resolves.not.toThrow();
       flushScheduler();
       fireEvent.click(
@@ -597,7 +626,10 @@ describe('hydration (SSR)', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       const input = container.querySelector('#input') as HTMLInputElement;
@@ -616,7 +648,10 @@ describe('hydration (SSR)', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       expect(container.textContent).toBe('server');
@@ -629,7 +664,10 @@ describe('hydration (SSR)', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       expect(container.textContent).toBe('async hydrated');
@@ -651,7 +689,10 @@ describe('hydration (SSR)', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       expect(hydrated).toBe(true);
@@ -675,7 +716,10 @@ describe('hydration (SSR)', () => {
       const html = renderToString({ url: '/', routes });
       container.innerHTML = html;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       const btn = container.querySelector('#btn') as HTMLButtonElement;
@@ -708,7 +752,7 @@ describe('hydration (SSR)', () => {
 
       const hydration = hydrateSPA({
         root: container,
-        routes,
+        registry: routeRegistryFromTable(routes),
         hydrate: { deferUntilIdle: true },
       });
 
@@ -780,7 +824,7 @@ describe('hydration (SSR)', () => {
 
         await hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
           hydrate: {
             deferBelowFold: true,
             deferUntilIdle: true,
@@ -826,7 +870,7 @@ describe('hydration (SSR)', () => {
 
       await hydrateSPA({
         root: container,
-        routes,
+        registry: routeRegistryFromTable(routes),
         hydrate: { skipSelectors: ['.static-footer'] },
       });
       flushScheduler();
@@ -869,7 +913,7 @@ describe('hydration (SSR)', () => {
 
       await hydrateSPA({
         root: container,
-        routes,
+        registry: routeRegistryFromTable(routes),
         hydrate: { skipSelectors: ['.static-footer', '.marketing-slot'] },
       });
       flushScheduler();
@@ -946,7 +990,7 @@ describe('hydration (SSR)', () => {
 
         await hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
           hydrate: { deferBelowFold: true, foldThreshold: 100 },
         });
         flushScheduler();
@@ -1034,7 +1078,7 @@ describe('hydration (SSR)', () => {
 
         await hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
           hydrate: { deferBelowFold: true, foldThreshold: 100 },
         });
         flushScheduler();
@@ -1110,7 +1154,7 @@ describe('hydration (SSR)', () => {
 
         await hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
           hydrate: { deferBelowFold: true, foldThreshold: 100 },
         });
         flushScheduler();
@@ -1168,7 +1212,7 @@ describe('hydration (SSR)', () => {
         container.innerHTML = renderToString({ url: '/', routes });
         await hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
           hydrate: { deferBelowFold: true, foldThreshold: 100 },
         });
         flushScheduler();
@@ -1226,7 +1270,7 @@ describe('hydration (SSR)', () => {
         container.innerHTML = renderToString({ url: '/', routes });
         await hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
           hydrate: { deferBelowFold: true, foldThreshold: 100 },
         });
         flushScheduler();
@@ -1303,12 +1347,16 @@ describe('hydration (SSR)', () => {
 
         await hydrateSPA({
           root: first.container,
-          routes: [{ path: '/', handler: firstComponent }],
+          registry: routeRegistryFromTable([
+            { path: '/', handler: firstComponent },
+          ]),
           hydrate: { deferBelowFold: true, foldThreshold: 100 },
         });
         await hydrateSPA({
           root: second.container,
-          routes: [{ path: '/', handler: secondComponent }],
+          registry: routeRegistryFromTable([
+            { path: '/', handler: secondComponent },
+          ]),
           hydrate: { deferBelowFold: true, foldThreshold: 100 },
         });
         flushScheduler();
@@ -1388,7 +1436,7 @@ describe('hydration (SSR)', () => {
         container.innerHTML = renderToString({ url: '/', routes });
         await hydrateSPA({
           root: container,
-          routes,
+          registry: routeRegistryFromTable(routes),
           hydrate: { deferBelowFold: true, foldThreshold: 100 },
         });
         flushScheduler();

@@ -1,4 +1,11 @@
 import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
+import {
   describe,
   it,
   expect,
@@ -12,7 +19,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { navigate } from '../../../src/router/navigate';
-import { getRoutes, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 
 // Minimal testing window helper
 function setGlobalWindow(path: string) {
@@ -72,7 +79,10 @@ describe('Minimal router story (authoritative)', () => {
 
     // initial window
     setGlobalWindow('/');
-    await createSPA({ root: container, routes });
+    await createSPA({
+      root: container,
+      registry: routeRegistryFromTable(routes),
+    });
 
     // navigate to the deeper path
     navigate('/parent/child');
@@ -89,7 +99,7 @@ describe('Minimal router story (authoritative)', () => {
     setGlobalWindow('/startup');
     await createSPA({
       root: container,
-      routes: [
+      registry: routeRegistryFromTable([
         {
           path: '/startup',
           handler: () => {
@@ -97,7 +107,7 @@ describe('Minimal router story (authoritative)', () => {
             return <div>startup</div>;
           },
         },
-      ],
+      ]),
     });
 
     await flushScheduler();
@@ -113,7 +123,7 @@ describe('Minimal router story (authoritative)', () => {
     setGlobalWindow('/missing');
     await createSPA({
       root: container,
-      routes: [
+      registry: routeRegistryFromTable([
         {
           path: '/ready',
           handler: () => {
@@ -121,7 +131,7 @@ describe('Minimal router story (authoritative)', () => {
             return <div>ready</div>;
           },
         },
-      ],
+      ]),
     });
 
     await flushScheduler();
@@ -158,7 +168,7 @@ describe('Minimal router story (authoritative)', () => {
     ));
 
     setGlobalWindow('/layout/a');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
 
     navigate('/layout/a');
     await flushScheduler();

@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * tests/router/history_integration.test.ts
@@ -18,14 +25,7 @@ import { createSPA } from '@askrjs/askr/boot';
 import { state } from '../../../src/index';
 import { task } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  createRouteRegistry,
-  getManifest,
-  getRoutes,
-  lazy,
-  route,
-} from '../../../src/router/route';
+import { createRouteRegistry, lazy, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -46,7 +46,7 @@ describe('history integration (ROUTER)', () => {
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
     // Clear history for test isolation
     vi.clearAllMocks();
@@ -77,7 +77,7 @@ describe('history integration (ROUTER)', () => {
       route('/page1', () => <div>Page 1</div>);
 
       window.history.replaceState({}, '', '/');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/page1');
@@ -100,7 +100,10 @@ describe('history integration (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes });
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       navigate('/page1');
@@ -129,7 +132,10 @@ describe('history integration (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes });
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       // History push would update location in real browser
@@ -151,7 +157,7 @@ describe('history integration (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/page1');
@@ -176,7 +182,7 @@ describe('history integration (ROUTER)', () => {
       route('/page2', () => <div>Page 2</div>);
 
       window.history.replaceState({ path: '/page1' }, '', '/page1');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       window.scrollY = 240;
@@ -204,7 +210,7 @@ describe('history integration (ROUTER)', () => {
         return <div>Page</div>;
       });
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/page1');
@@ -229,7 +235,7 @@ describe('history integration (ROUTER)', () => {
         return <div>Page</div>;
       });
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/page1');
@@ -267,7 +273,7 @@ describe('history integration (ROUTER)', () => {
       route('/fast', () => <div>{'fast'}</div>);
 
       window.history.replaceState({ path: '/home' }, '', '/home');
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       window.history.pushState({ path: '/slow' }, '', '/slow');
@@ -378,7 +384,7 @@ describe('history integration (ROUTER)', () => {
         window.history.replaceState({ path: '/home' }, '', '/home');
         await createSPA({
           root: container,
-          manifest: getManifest(),
+          registry: currentRouteRegistry(),
           cleanupStrict: true,
         });
         flushScheduler();
@@ -422,7 +428,7 @@ describe('history integration (ROUTER)', () => {
       });
 
       window.history.replaceState({}, '', '/accounts');
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       const increment = container.querySelector(
@@ -449,7 +455,7 @@ describe('history integration (ROUTER)', () => {
       window.history.replaceState({}, '', '/');
       await createSPA({
         root: container,
-        routes: getRoutes(),
+        registry: currentRouteRegistry(),
         scrollRestoration: false,
       });
       flushScheduler();
@@ -469,7 +475,10 @@ describe('history integration (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes });
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       navigate('/test');
@@ -499,7 +508,10 @@ describe('history integration (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes });
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       navigate('/page/123');
@@ -531,7 +543,10 @@ describe('history integration (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes });
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       navigate('/search/hello%20world');
@@ -551,7 +566,10 @@ describe('history integration (ROUTER)', () => {
         return <div>App</div>;
       };
 
-      await createSPA({ root: container, routes });
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       // Rapid navigations
@@ -580,7 +598,10 @@ describe('history integration (ROUTER)', () => {
       };
 
       window.history.replaceState({ path: '/page1' }, '', '/page1');
-      await createSPA({ root: container, routes });
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
       flushScheduler();
 
       navigate('/');
@@ -604,7 +625,7 @@ describe('history integration (ROUTER)', () => {
         return <div>Page</div>;
       });
 
-      await createSPA({ root: container, routes: getRoutes() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/page1');

@@ -1,4 +1,11 @@
 import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
+import {
   afterEach,
   beforeEach,
   describe,
@@ -10,13 +17,7 @@ import { state } from '../../../src';
 import { createSPA } from '@askrjs/askr/boot';
 import { For } from '../../../src/control';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getRoutes,
-  group,
-  registerRoutes,
-  route,
-} from '../../../src/router/route';
+import { createRouteRegistry, group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -126,7 +127,7 @@ describe('fragment route cleanup', () => {
 
   beforeEach(() => {
     result = createTestContainer();
-    clearRoutes();
+    resetRouteState();
     vi.clearAllMocks();
     Object.defineProperty(window, 'scrollTo', {
       value: vi.fn(),
@@ -137,11 +138,11 @@ describe('fragment route cleanup', () => {
 
   afterEach(() => {
     result.cleanup();
-    clearRoutes();
+    resetRouteState();
   });
 
   it('should not retain previous route fragment siblings across repeated navigations', async () => {
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group({ layout: AppLayout }, () => {
         route('/charts', ChartsPage);
         route('/components', ComponentsPage);
@@ -149,7 +150,10 @@ describe('fragment route cleanup', () => {
     });
 
     window.history.replaceState({}, '', '/charts');
-    await createSPA({ root: result.container, routes: getRoutes() });
+    await createSPA({
+      root: result.container,
+      registry,
+    });
     flushScheduler();
 
     for (let index = 0; index < 8; index += 1) {
@@ -217,7 +221,7 @@ describe('fragment route cleanup', () => {
       );
     }
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group({ layout: AppLayout }, () => {
         route('/charts', ChartsPageWithGrid);
         route('/components', ComponentsPageWithGrid);
@@ -225,7 +229,10 @@ describe('fragment route cleanup', () => {
     });
 
     window.history.replaceState({}, '', '/charts');
-    await createSPA({ root: result.container, routes: getRoutes() });
+    await createSPA({
+      root: result.container,
+      registry,
+    });
     flushScheduler();
 
     expect(
@@ -282,7 +289,7 @@ describe('fragment route cleanup', () => {
       );
     }
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group({ layout: AppLayout }, () => {
         route('/charts', ChartsPageWithGridLike);
         route('/components', ComponentsPageWithGridLike);
@@ -290,7 +297,10 @@ describe('fragment route cleanup', () => {
     });
 
     window.history.replaceState({}, '', '/charts');
-    await createSPA({ root: result.container, routes: getRoutes() });
+    await createSPA({
+      root: result.container,
+      registry,
+    });
     flushScheduler();
 
     expect(

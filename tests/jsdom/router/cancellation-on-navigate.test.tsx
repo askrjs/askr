@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * tests/router/cancellation_on_navigate.test.ts
@@ -15,7 +22,7 @@ import {
 } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
-import { getRoutes, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 import { resource } from '../../../src/runtime/operations';
 import { getSignal } from '../../../src/runtime/component';
 import {
@@ -86,7 +93,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       );
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     // Navigate away while async operation pending
@@ -117,7 +124,7 @@ describe('cancellation on navigate (ROUTER)', () => {
     };
 
     window.history.replaceState({}, '', '/async');
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     // Navigate triggers cleanup which aborts signal
@@ -144,7 +151,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       return <div>{'App'}</div>;
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/first');
@@ -179,7 +186,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       return <div>{'App'}</div>;
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     // Rapid navigations
@@ -215,7 +222,7 @@ describe('cancellation on navigate (ROUTER)', () => {
       return <div>{'App'}</div>;
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/slow');

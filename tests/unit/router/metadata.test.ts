@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { RouteContext } from '../../../src/common/router';
 import {
-  clearRoutes,
   createRouteRegistry,
   group,
   page,
@@ -28,7 +27,6 @@ const context: RouteContext = {
 
 describe('route metadata', () => {
   it('should compose group page and route metadata from outermost to leaf', async () => {
-    clearRoutes();
     const registry = createRouteRegistry(() => {
       group(
         {

@@ -242,7 +242,7 @@ export interface PageScopeRecord {
   component: RouteComponent;
 }
 
-export interface RegisterRoutesOptions {
+export interface RouteRegistryOptions {
   auth?: RouteAuthOptions;
 }
 
@@ -319,8 +319,9 @@ export interface RouteRecord {
  * instead of assembling plain `Route[]` arrays.
  *
  * ```ts
- * import { getManifest } from '@askrjs/askr/router';
- * await createSPA({ root: '#app', manifest: getManifest() });
+ * import { createRouteRegistry } from '@askrjs/askr/router';
+ * const registry = createRouteRegistry(() => { ... });
+ * await createSPA({ root: '#app', registry });
  * ```
  */
 export interface RouteManifest {

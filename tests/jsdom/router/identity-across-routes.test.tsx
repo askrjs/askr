@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * tests/router/identity_across_routes.test.ts
@@ -9,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
-import { clearRoutes, getRoutes, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -22,7 +29,7 @@ describe('identity across routes (ROUTER)', () => {
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
-    clearRoutes();
+    resetRouteState();
   });
 
   afterEach(() => {
@@ -55,7 +62,7 @@ describe('identity across routes (ROUTER)', () => {
       );
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/page1');
@@ -88,7 +95,7 @@ describe('identity across routes (ROUTER)', () => {
       return <div>App</div>;
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/counter1');
@@ -115,7 +122,7 @@ describe('identity across routes (ROUTER)', () => {
       return <div>App</div>;
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/page1');
@@ -143,7 +150,7 @@ describe('identity across routes (ROUTER)', () => {
       return <div>App</div>;
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/page');
@@ -171,7 +178,7 @@ describe('identity across routes (ROUTER)', () => {
       return <div>App</div>;
     };
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     navigate('/user/1');

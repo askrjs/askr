@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 // tests/stress/mount_unmount_cycles.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
@@ -5,7 +12,7 @@ import { cleanupApp, createIsland, createSPA } from '@askrjs/askr/boot';
 import { Show } from '../../../src/control';
 import { getCurrentComponentInstance } from '../../../src/runtime/component';
 import { navigate } from '../../../src/router/navigate';
-import { clearRoutes, getManifest, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -105,7 +112,7 @@ describe('mount unmount cycles (STRESS)', () => {
     resetExecutionModel();
 
     for (let cycle = 0; cycle < 5; cycle += 1) {
-      clearRoutes();
+      resetRouteState();
       window.history.replaceState({}, '', '/dashboard');
       const { container: local, cleanup: localCleanup } = createTestContainer();
       let detailCleanups = 0;
@@ -142,7 +149,7 @@ describe('mount unmount cycles (STRESS)', () => {
       route('/settings', () => <section id={'settings'}>{'settings'}</section>);
 
       try {
-        await createSPA({ root: local, manifest: getManifest() });
+        await createSPA({ root: local, registry: currentRouteRegistry() });
         flushScheduler();
 
         expect(local.querySelector('#details')?.textContent).toBe(
@@ -174,7 +181,7 @@ describe('mount unmount cycles (STRESS)', () => {
       }
     }
 
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
     resetExecutionModel();
     expect(getSchedulerState()).toMatchObject({

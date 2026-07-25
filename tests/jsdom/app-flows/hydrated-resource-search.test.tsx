@@ -1,4 +1,11 @@
 import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
+import {
   afterEach,
   beforeEach,
   describe,
@@ -91,7 +98,10 @@ describe('hydrated resource search app flow', () => {
       '[aria-label="Search customers"]'
     ) as HTMLInputElement;
 
-    await hydrateSPA({ root: container, routes });
+    await hydrateSPA({
+      root: container,
+      registry: routeRegistryFromTable(routes),
+    });
 
     serverInput.value = 'ada';
     serverInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -203,7 +213,10 @@ describe('hydrated resource search app flow', () => {
         '[aria-label="Search customers"]'
       ) as HTMLInputElement;
 
-      await hydrateSPA({ root: container, routes });
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
 
       serverInput.value = 'ada';
       serverInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -299,7 +312,10 @@ describe('hydrated resource search app flow', () => {
       '[aria-label="Search customers"]'
     ) as HTMLInputElement;
 
-    await hydrateSPA({ root: container, routes });
+    await hydrateSPA({
+      root: container,
+      registry: routeRegistryFromTable(routes),
+    });
 
     expect(container.querySelector('[aria-label="Search customers"]')).toBe(
       serverInput

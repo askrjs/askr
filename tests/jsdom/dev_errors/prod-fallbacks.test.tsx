@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 // tests/dev_errors/prod_fallbacks.test.ts
 import {
   describe,
@@ -14,7 +21,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
-import { clearRoutes } from '../../../src/router/route';
+import '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';
 import { nextComponentInstanceId } from '../../../src/renderer/component-host-instances';
 import {
@@ -60,7 +67,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       // Ensure no routes are registered and we have an active instance.
-      clearRoutes();
+      resetRouteState();
       createIsland({ root: container, component: () => <div /> });
 
       // Spec: missing-route warning should be suppressed in production.

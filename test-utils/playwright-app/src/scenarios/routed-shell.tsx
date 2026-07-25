@@ -2,9 +2,8 @@
 
 import { createSPA } from '@askrjs/askr/boot';
 import {
-  clearRoutes,
+  createRouteRegistry,
   currentRoute,
-  getManifest,
   group,
   navigate,
   route,
@@ -158,22 +157,22 @@ function RouteArtifactsBPage() {
 export async function mountRoutedShellScenario(
   root: HTMLElement
 ): Promise<void> {
-  clearRoutes();
-
-  group({ layout: AppShell }, () => {
-    route('/dashboard', DashboardPage);
-    route('/customers/search', CustomerSearchPage);
-    route('/settings', SettingsPage);
-    route('/orders/{id}', OrderDetailPage);
-    route('/route-artifacts-a', RouteArtifactsAPage);
-    route('/route-artifacts-b', RouteArtifactsBPage);
+  const registry = createRouteRegistry(() => {
+    group({ layout: AppShell }, () => {
+      route('/dashboard', DashboardPage);
+      route('/customers/search', CustomerSearchPage);
+      route('/settings', SettingsPage);
+      route('/orders/{id}', OrderDetailPage);
+      route('/route-artifacts-a', RouteArtifactsAPage);
+      route('/route-artifacts-b', RouteArtifactsBPage);
+    });
   });
 
   if (!isRoutedShellPath(window.location.pathname)) {
     window.history.replaceState({}, '', '/dashboard');
   }
 
-  await createSPA({ root, manifest: getManifest() });
+  await createSPA({ root, registry });
 }
 
 export function shouldMountRoutedShellFromPath(pathname: string): boolean {

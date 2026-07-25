@@ -1,10 +1,8 @@
 import { schema } from '@askrjs/schema';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
-import { clearRoutes, route, to } from '../../../src/router';
+import { describe, expect, it } from 'vite-plus/test';
+import { route, to } from '../../../src/router';
 
 describe('typed route destinations', () => {
-  beforeEach(() => clearRoutes());
-
   it('should construct an encoded destination given typed params and search', () => {
     const ref = route('/users/{id}', () => null, {
       search: schema.object({

@@ -1,14 +1,13 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { createSPA } from '../../../src/boot';
-import {
-  allow,
-  clearRoutes,
-  getManifest,
-  redirect,
-  deny,
-  navigate,
-  route,
-} from '../../../src/router';
+import { allow, redirect, deny, navigate, route } from '../../../src/router';
 import {
   createTestContainer,
   flushScheduler,
@@ -23,7 +22,7 @@ async function settleNavigation(): Promise<void> {
 
 describe('guarded router navigation coverage', () => {
   beforeEach(() => {
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
@@ -35,7 +34,7 @@ describe('guarded router navigation coverage', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/admin');
@@ -68,7 +67,7 @@ describe('guarded router navigation coverage', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/private');
@@ -92,7 +91,7 @@ describe('guarded router navigation coverage', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       const pushStateSpy = vi.spyOn(window.history, 'pushState');
@@ -137,7 +136,7 @@ describe('guarded router navigation coverage', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/slow');
@@ -196,7 +195,7 @@ describe('guarded router navigation coverage', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/first');
@@ -244,7 +243,7 @@ describe('guarded router navigation coverage', () => {
 
     const { container, cleanup } = createTestContainer();
     try {
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       navigate('/slow');

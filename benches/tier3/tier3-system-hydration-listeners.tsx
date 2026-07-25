@@ -61,7 +61,10 @@ describe('tier3 system hydration listeners', () => {
     'hydrate a listener-heavy intrinsic SSR tree in Chromium',
     async () => {
       fixture!.reset();
-      await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      await hydrateSPA({
+        root: fixture!.container,
+        registry: fixture!.registry,
+      });
       flushScheduler();
     },
     {

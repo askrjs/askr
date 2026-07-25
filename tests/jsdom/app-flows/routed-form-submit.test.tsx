@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { Show } from '../../../src/control';
@@ -5,12 +12,7 @@ import { derive } from '../../../src/runtime/derive';
 import { resource } from '../../../src/runtime/operations';
 import { state, type StateSetter } from '../../../src/runtime/state';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getManifest,
-  group,
-  route,
-} from '../../../src/router/route';
+import { group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -32,14 +34,14 @@ describe('routed account form submit app flow', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/accounts/new');
   });
 
   afterEach(() => {
     cleanupApp(container);
     cleanup();
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
@@ -124,7 +126,7 @@ describe('routed account form submit app flow', () => {
       });
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     expect(container.innerHTML).toContain('Account name');

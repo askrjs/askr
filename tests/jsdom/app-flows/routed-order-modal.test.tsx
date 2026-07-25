@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { For } from '../../../src/control';
@@ -7,12 +14,7 @@ import {
 } from '../../../src/foundations/structures/portal';
 import { state } from '../../../src/runtime/state';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getManifest,
-  group,
-  route,
-} from '../../../src/router/route';
+import { group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -29,7 +31,7 @@ describe('routed order modal app flow', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
     _resetDefaultPortal();
     window.history.replaceState({}, '', '/orders');
   });
@@ -37,7 +39,7 @@ describe('routed order modal app flow', () => {
   afterEach(() => {
     cleanupApp(container);
     cleanup();
-    clearRoutes();
+    resetRouteState();
     _resetDefaultPortal();
     window.history.replaceState({}, '', '/');
   });
@@ -114,7 +116,7 @@ describe('routed order modal app flow', () => {
       ));
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const shell = container.querySelector('main');

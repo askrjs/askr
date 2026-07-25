@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { state } from '../../../src';
@@ -14,7 +21,7 @@ import {
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import { createInvalidationRecorder } from '../../../src/testing';
 import { navigate } from '../../../src/router/navigate';
-import { clearRoutes, getManifest, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -267,12 +274,12 @@ describe('data layer', () => {
 
     try {
       resetExecutionModel();
-      clearRoutes();
+      resetRouteState();
       window.history.replaceState({}, '', '/poller');
       route('/poller', Poller);
       route('/other', Poller);
 
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       vi.advanceTimersByTime(110);
@@ -296,7 +303,7 @@ describe('data layer', () => {
       recorder.stop();
       cleanupApp(container);
       cleanup();
-      clearRoutes();
+      resetRouteState();
       window.history.replaceState({}, '', '/');
       resetExecutionModel();
       vi.useRealTimers();
@@ -401,12 +408,12 @@ describe('data layer', () => {
 
     try {
       resetExecutionModel();
-      clearRoutes();
+      resetRouteState();
       window.history.replaceState({}, '', '/poller');
       route('/poller', Poller);
       route('/other', () => <div>{'other'}</div>);
 
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
       vi.advanceTimersByTime(110);
@@ -420,7 +427,7 @@ describe('data layer', () => {
       recorder.stop();
       cleanupApp(container);
       cleanup();
-      clearRoutes();
+      resetRouteState();
       window.history.replaceState({}, '', '/');
       resetExecutionModel();
       vi.useRealTimers();

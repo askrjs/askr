@@ -1,14 +1,16 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { cleanupApp, hydrateSPA } from '../../../src/boot';
 import { deny } from '../../../src/router/policy';
 import { renderToStringSync } from '../../../src/ssr';
-import {
-  getManifest,
-  group,
-  registerRoutes,
-  route,
-} from '../../../src/router/route';
+import { createRouteRegistry, group, route } from '../../../src/router/route';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 describe('hydration route policy invariants', () => {
@@ -27,7 +29,7 @@ describe('hydration route policy invariants', () => {
   it('should render denied status instead of hydrating protected content', async () => {
     let renderedProtectedContent = false;
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       route(
         '/private',
         () => {
@@ -44,7 +46,7 @@ describe('hydration route policy invariants', () => {
     ));
     await hydrateSPA({
       root: container,
-      manifest: getManifest(),
+      registry,
       hydrate: { verifyMarkup: true },
     });
 
@@ -55,7 +57,7 @@ describe('hydration route policy invariants', () => {
   it('should follow protected-route redirects before hydrating content', async () => {
     let renderedDashboard = false;
 
-    registerRoutes(
+    const registry = createRouteRegistry(
       () => {
         route('/login', () => <div>{'login-page'}</div>, {
           auth: requireAnonymous(),
@@ -84,7 +86,7 @@ describe('hydration route policy invariants', () => {
     container.innerHTML = renderToStringSync(() => <div>{'login-page'}</div>);
     await hydrateSPA({
       root: container,
-      manifest: getManifest(),
+      registry,
       hydrate: { verifyMarkup: true },
     });
 

@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { renderToStringSync } from '../../../src/ssr';
@@ -7,10 +14,8 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { navigate } from '../../../src/router/navigate';
 import {
-  clearRoutes,
   currentRoute,
   fallback,
-  getManifest,
   index,
   Outlet,
   page,
@@ -56,7 +61,7 @@ describe('route accessor (public)', () => {
 
   afterEach(() => {
     cleanup();
-    clearRoutes();
+    resetRouteState();
     setServerLocation(null);
   });
 
@@ -89,7 +94,10 @@ describe('route accessor (public)', () => {
       addEventListener() {},
       removeEventListener() {},
     });
-    await createSPA({ root: container, routes });
+    await createSPA({
+      root: container,
+      registry: routeRegistryFromTable(routes),
+    });
 
     // navigate to user 42
     updateGlobalPath('/users/42');
@@ -132,7 +140,10 @@ describe('route accessor (public)', () => {
       removeEventListener() {},
     });
 
-    await createSPA({ root: container, routes });
+    await createSPA({
+      root: container,
+      registry: routeRegistryFromTable(routes),
+    });
 
     navigate('/home');
     await flushScheduler();
@@ -177,14 +188,14 @@ describe('route accessor (public)', () => {
 
     await createSPA({
       root: container,
-      routes: [
+      registry: routeRegistryFromTable([
         {
           path: '/items/{id}',
           handler: (params: Record<string, string>) => (
             <div>{`${params.id}|${currentRoute().query.get('q') || ''}|${currentRoute().hash || ''}`}</div>
           ),
         },
-      ],
+      ]),
     });
 
     // Mount route handler by navigating to the path
@@ -217,7 +228,7 @@ describe('route accessor (public)', () => {
 
     fallback(() => <div>{'root-missing'}</div>);
 
-    const manifest = getManifest();
+    const manifest = currentRouteManifest();
     const resolved = await resolveRouteRequest(
       '/docs/components/unknown/deeper',
       {
@@ -232,7 +243,10 @@ describe('route accessor (public)', () => {
       removeEventListener() {},
     });
 
-    await createSPA({ root: container, manifest });
+    await createSPA({
+      root: container,
+      registry: currentRouteRegistry(manifest),
+    });
 
     updateGlobalPath('/docs/components/unknown/deeper');
     navigate('/docs/components/unknown/deeper');
@@ -272,7 +286,7 @@ describe('route accessor (public)', () => {
 
     fallback(() => <div>{'root-missing'}</div>);
 
-    const manifest = getManifest();
+    const manifest = currentRouteManifest();
     const resolved = await resolveRouteRequest('/docs/components/tabs', {
       manifest,
     });
@@ -284,7 +298,10 @@ describe('route accessor (public)', () => {
       removeEventListener() {},
     });
 
-    await createSPA({ root: container, manifest });
+    await createSPA({
+      root: container,
+      registry: currentRouteRegistry(manifest),
+    });
 
     updateGlobalPath('/docs/components/tabs');
     navigate('/docs/components/tabs');
@@ -330,7 +347,7 @@ describe('route accessor (public)', () => {
       removeEventListener() {},
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
 
     updateGlobalPath('/docs/components');
     navigate('/docs/components');
@@ -355,7 +372,7 @@ describe('route accessor (public)', () => {
       return <div>{`root-missing:${currentRoute().params['*']}`}</div>;
     });
 
-    const manifest = getManifest();
+    const manifest = currentRouteManifest();
     const resolved = await resolveRouteRequest('/outside/deeper', { manifest });
 
     setGlobalWindow({
@@ -365,7 +382,10 @@ describe('route accessor (public)', () => {
       removeEventListener() {},
     });
 
-    await createSPA({ root: container, manifest });
+    await createSPA({
+      root: container,
+      registry: currentRouteRegistry(manifest),
+    });
 
     updateGlobalPath('/outside/deeper');
     navigate('/outside/deeper');

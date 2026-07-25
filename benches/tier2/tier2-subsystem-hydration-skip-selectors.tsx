@@ -60,7 +60,7 @@ await (async () => {
     await expect(
       hydrateSPA({
         root: fixture.container,
-        routes: fixture.routes,
+        registry: fixture!.registry,
         hydrate: {
           skipSelectors: ['.static-footer', '.marketing-slot'],
         },
@@ -105,7 +105,7 @@ describe('tier2 subsystem hydration skip selectors', () => {
       fixture!.reset();
       await hydrateSPA({
         root: fixture!.container,
-        routes: fixture!.routes,
+        registry: fixture!.registry,
         hydrate: {
           skipSelectors: ['.static-footer', '.marketing-slot'],
         },

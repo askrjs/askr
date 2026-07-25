@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { resource, task } from '../../../src/runtime/operations';
@@ -28,7 +35,7 @@ describe('router lifecycle invariants', () => {
 
     await createSPA({
       root: container,
-      routes: [
+      registry: routeRegistryFromTable([
         {
           path: '/first',
           handler: () => {
@@ -42,7 +49,7 @@ describe('router lifecycle invariants', () => {
           },
         },
         { path: '/other', handler: () => <div>{'other'}</div> },
-      ],
+      ]),
     });
     flushScheduler();
 
@@ -68,7 +75,7 @@ describe('router lifecycle invariants', () => {
 
     await createSPA({
       root: container,
-      routes: [
+      registry: routeRegistryFromTable([
         {
           path: '/first',
           handler: () => {
@@ -86,7 +93,7 @@ describe('router lifecycle invariants', () => {
             return <div>{'other'}</div>;
           },
         },
-      ],
+      ]),
     });
     flushScheduler();
 

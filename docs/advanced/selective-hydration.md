@@ -16,10 +16,15 @@ Hydration makes server-rendered HTML interactive by attaching event listeners an
 
 ```typescript
 import { hydrateSPA } from '@askrjs/askr/boot';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
+
+const registry = createRouteRegistry(() => {
+  route('/', () => null);
+});
 
 await hydrateSPA({
   root: document.getElementById('app')!,
-  routes: [],
+  registry,
   hydrate: {
     // Defer below-fold content
     deferBelowFold: true,
@@ -49,7 +54,7 @@ Hydrate above-the-fold content immediately and leave below-fold subtrees inert u
 ```typescript
 hydrateSPA({
   root: document.getElementById('app'),
-  routes: routes,
+  registry,
   hydrate: {
     deferBelowFold: true,
     foldThreshold: window.innerHeight, // Customize fold line
@@ -72,7 +77,7 @@ Wait for browser idle time before hydrating the app:
 ```typescript
 hydrateSPA({
   root: document.getElementById('app'),
-  routes: routes,
+  registry,
   hydrate: {
     deferUntilIdle: true,
   },
@@ -95,7 +100,7 @@ Completely skip hydration for matched static sections:
 ```typescript
 hydrateSPA({
   root: document.getElementById('app'),
-  routes: routes,
+  registry,
   hydrate: {
     skipSelectors: ['.footer', '.sidebar', '[data-static="true"]'],
   },
@@ -117,7 +122,7 @@ Combine multiple strategies for maximum optimization:
 ```typescript
 hydrateSPA({
   root: document.getElementById('app'),
-  routes: routes,
+  registry,
   hydrate: {
     deferBelowFold: true,
     deferUntilIdle: true,
@@ -316,7 +321,7 @@ If content flickers during hydration:
 // Testimonials + footer defer
 hydrateSPA({
   root: document.getElementById('app'),
-  routes: routes,
+  registry,
   hydrate: {
     deferBelowFold: true,
     foldThreshold: 900,
@@ -332,7 +337,7 @@ hydrateSPA({
 // Sidebar navigation defers
 hydrateSPA({
   root: document.getElementById('app'),
-  routes: routes,
+  registry,
   hydrate: {
     deferUntilIdle: true,
     skipSelectors: ['.sidebar-nav', '.table-of-contents'],
@@ -347,7 +352,7 @@ hydrateSPA({
 // Reviews + Related products defer
 hydrateSPA({
   root: document.getElementById('app'),
-  routes: routes,
+  registry,
   hydrate: {
     deferBelowFold: true,
     foldThreshold: 800,

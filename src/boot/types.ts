@@ -1,10 +1,5 @@
 import type { ComponentFunction } from '../runtime';
-import type {
-  Route,
-  RouteAuthOptions,
-  RouteManifest,
-  RouteRegistry,
-} from '../common/router';
+import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import type { ScrollRestorationOptions } from '../router/navigate';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 
@@ -23,41 +18,12 @@ export type IslandsConfig = {
   cspNonce?: string;
 };
 
-type BootRouteSource =
-  | {
-      registry: RouteRegistry;
-      /** @deprecated Use `registry` for new applications. */
-      manifest?: RouteManifest;
-      /** @deprecated Use `registry` for new applications. */
-      routes?: Route[];
-    }
-  | {
-      /** @deprecated Use `registry` for new applications. */
-      manifest: RouteManifest;
-      registry?: RouteRegistry;
-      /** @deprecated Use `registry` for new applications. */
-      routes?: Route[];
-    }
-  | {
-      /** @deprecated Use `registry` for new applications. */
-      manifest?: RouteManifest;
-      registry?: RouteRegistry;
-      /** @deprecated Use `registry` for new applications. */
-      routes: Route[];
-    };
+type BootRouteSource = { registry: RouteRegistry };
 
 export type SPAConfig = BootRouteSource & {
   root: Element | string;
   cspNonce?: string;
-  /**
-   * Preferred: pass a route registry built via `createRouteRegistry(() => { ... })`.
-   * ```ts
-   * import { createRouteRegistry } from '@askrjs/askr/router';
-   * const registry = createRouteRegistry(() => { ... });
-   * await createSPA({ root: '#app', registry });
-   * ```
-   * Deprecated: pass `manifest` or `routes` only for legacy code.
-   */
+  /** Pass a route registry built via `createRouteRegistry(() => { ... })`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;
@@ -68,7 +34,7 @@ export type HydrateSPAConfig = BootRouteSource & {
   root: Element | string;
   cspNonce?: string;
   dataRuntime?: import('../data/types').DataRuntime;
-  /** Preferred: pass `registry`; `manifest` and `routes` are deprecated legacy inputs. */
+  /** Pass the same explicit route registry used for the server render. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;
@@ -82,8 +48,7 @@ export type HydrateSPAConfig = BootRouteSource & {
 };
 
 export type BootAppRouteSource = {
-  manifest?: RouteManifest;
-  routes?: readonly Route[];
+  registry: RouteRegistry;
   auth?: RouteAuthOptions;
   /** @internal Browser render state owned by this application root. */
   runtime?: AppRenderRuntime;

@@ -7,14 +7,15 @@ import {
   mockQuery,
   queryState,
 } from '@askrjs/askr/testing';
-import { clearRoutes, getManifest, route } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
 describe('testing public API', () => {
   it('should expose public route matching helpers', () => {
-    clearRoutes();
-    try {
+    const registry = createRouteRegistry(() => {
       route('/admin/buckets/{bucket}/files/{*path}', () => 'folder');
-      const manifest = getManifest();
+    });
+    {
+      const manifest = registry.manifest;
 
       expect(matchRoute('/admin/buckets/main/files/a/b', { manifest })).toEqual(
         {
@@ -24,51 +25,41 @@ describe('testing public API', () => {
         }
       );
       expect(matchRoute('/missing', { manifest })).toBeNull();
-    } finally {
-      clearRoutes();
     }
   });
 
   it('should expose deterministic route pattern warnings', () => {
-    clearRoutes();
-    try {
+    const registry = createRouteRegistry(() => {
       route('/admin/buckets/{bucket}/files/{*path}', () => 'folder', {
         namespace: 'admin-files',
       });
       route('/admin/buckets/{bucket}/files/blob/{id}', () => 'blob', {
         namespace: 'admin-files',
       });
-
-      expect(getRouteWarnings({ manifest: getManifest() })).toEqual([
-        {
-          kind: 'route-collision',
-          path: '/admin/buckets/{bucket}/files/{*path}',
-          conflictingPath: '/admin/buckets/{bucket}/files/blob/{id}',
-          segment: 'blob',
-          namespace: 'admin-files',
-          message:
-            'Route "/admin/buckets/{bucket}/files/blob/{id}" reserves segment "blob" under named splat route "/admin/buckets/{bucket}/files/{*path}".',
-        },
-      ]);
-    } finally {
-      clearRoutes();
-    }
+    });
+    expect(getRouteWarnings({ manifest: registry.manifest })).toEqual([
+      {
+        kind: 'route-collision',
+        path: '/admin/buckets/{bucket}/files/{*path}',
+        conflictingPath: '/admin/buckets/{bucket}/files/blob/{id}',
+        segment: 'blob',
+        namespace: 'admin-files',
+        message:
+          'Route "/admin/buckets/{bucket}/files/blob/{id}" reserves segment "blob" under named splat route "/admin/buckets/{bucket}/files/{*path}".',
+      },
+    ]);
   });
 
   it('should keep route pattern warnings scoped by namespace', () => {
-    clearRoutes();
-    try {
+    const registry = createRouteRegistry(() => {
       route('/admin/buckets/{bucket}/files/{*path}', () => 'folder', {
         namespace: 'folders',
       });
       route('/admin/buckets/{bucket}/files/blob/{id}', () => 'blob', {
         namespace: 'blobs',
       });
-
-      expect(getRouteWarnings({ manifest: getManifest() })).toEqual([]);
-    } finally {
-      clearRoutes();
-    }
+    });
+    expect(getRouteWarnings({ manifest: registry.manifest })).toEqual([]);
   });
 
   it('should create a fresh query mock with stable defaults', async () => {

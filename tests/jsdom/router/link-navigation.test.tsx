@@ -1,4 +1,11 @@
 import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
+import {
   describe,
   it,
   expect,
@@ -7,13 +14,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
-import {
-  route,
-  getRoutes,
-  clearRoutes,
-  Link,
-  navigate,
-} from '../../../src/router';
+import { route, Link, navigate } from '../../../src/router';
 import {
   createTestContainer,
   flushScheduler,
@@ -26,7 +27,7 @@ describe('Link component navigation', () => {
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
-    clearRoutes();
+    resetRouteState();
     // Reset URL to root for each test
     window.history.pushState({}, '', '/');
   });
@@ -48,7 +49,7 @@ describe('Link component navigation', () => {
       </div>
     ));
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     // Verify initial state
@@ -90,7 +91,7 @@ describe('Link component navigation', () => {
       </div>
     ));
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const link = container.querySelector('a') as HTMLAnchorElement | null;
@@ -111,7 +112,7 @@ describe('Link component navigation', () => {
       </div>
     ));
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const link = container.querySelector('a');
@@ -136,7 +137,7 @@ describe('Link component navigation', () => {
       </div>
     ));
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     // Verify initial state
@@ -169,7 +170,7 @@ describe('Link component navigation', () => {
       </div>
     ));
 
-    await createSPA({ root: container, routes: getRoutes() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const link = container.querySelector('a');

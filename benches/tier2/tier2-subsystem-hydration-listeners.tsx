@@ -85,7 +85,7 @@ await (async () => {
     expect(serverHtml).not.toContain('onchange');
 
     await expect(
-      hydrateSPA({ root: fixture.container, routes: fixture.routes })
+      hydrateSPA({ root: fixture.container, registry: fixture!.registry })
     ).resolves.not.toThrow();
     flushScheduler();
 
@@ -120,7 +120,10 @@ describe('tier2 subsystem hydration listeners', () => {
     'hydrate a listener-heavy interactive tree',
     async () => {
       fixture!.reset();
-      await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      await hydrateSPA({
+        root: fixture!.container,
+        registry: fixture!.registry,
+      });
       flushScheduler();
     },
     {
