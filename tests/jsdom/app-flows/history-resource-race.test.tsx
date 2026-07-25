@@ -1,13 +1,15 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { resource } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getManifest,
-  group,
-  route,
-} from '../../../src/router/route';
+import { group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -20,14 +22,14 @@ describe('history resource race app flow', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({ path: '/a' }, '', '/a');
   });
 
   afterEach(() => {
     cleanupApp(container);
     cleanup();
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
@@ -73,7 +75,7 @@ describe('history resource race app flow', () => {
       route('/b', makePage('b'));
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const shell = container.querySelector('[aria-label="History shell"]');

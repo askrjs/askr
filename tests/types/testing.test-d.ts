@@ -12,10 +12,13 @@ import {
   type MockRefresh,
 } from '@askrjs/askr/testing';
 import type { Query } from '@askrjs/askr/data';
-import { getManifest } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 import type { RouteMatch } from '@askrjs/askr/router';
 
 const refresh: MockRefresh = async () => {};
+const registry = createRouteRegistry(() => {
+  route('/users/{id}', () => null);
+});
 const options: MockQueryOptions = { refresh };
 expectAssignable<MockQueryOptions>(options);
 
@@ -73,11 +76,11 @@ expectType<void>(recorder.clear());
 expectType<void>(recorder.stop());
 
 const routeMatch = matchRoute('/admin/buckets/main/files/a/b', {
-  manifest: getManifest(),
+  manifest: registry.manifest,
 });
 expectType<RouteMatch | null>(routeMatch);
 
-const routeWarnings = getRouteWarnings({ manifest: getManifest() });
+const routeWarnings = getRouteWarnings({ manifest: registry.manifest });
 expectType<RoutePatternWarning[]>(routeWarnings);
 const routeWarning: RoutePatternWarning = {
   kind: 'route-collision',

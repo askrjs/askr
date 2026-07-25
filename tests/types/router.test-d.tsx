@@ -11,14 +11,11 @@ import {
   Link,
   Outlet,
   allow,
-  clearRoutes,
   currentRoute,
   currentAuth,
   deny,
   forbidden,
   createRouteRegistry,
-  getManifest,
-  getRoutes,
   group,
   index,
   lazy,
@@ -27,7 +24,6 @@ import {
   page,
   redirect,
   reconcileRouteMeta,
-  registerRoutes,
   resolveRouteMeta,
   route,
   serializeRouteMeta,
@@ -47,13 +43,14 @@ import {
   type PageHelperOptions,
   type PageScopeRecord,
   type ParsedSegment,
-  type RegisterRoutesOptions,
+  type RouteRegistryOptions,
   type RouteComponent,
   type RouteContext,
   type RouteDefinition,
   type RouteDestination,
   type RouteHandler,
   type RouteManifest,
+  type Route,
   type RouteMatch,
   type RouteMeta,
   type RouteMetaSource,
@@ -102,8 +99,8 @@ expectError(to(typedUserRoute, { id: '1' }, { tab: 'other' }));
 expectAssignable<RouteSearch>({ q: 'askr', tags: ['runtime', 'router'] });
 expectAssignable<RouteSearchValue>(['runtime', 'router']);
 
-expectType<void>(
-  registerRoutes(() => {
+expectType<RouteRegistry>(
+  createRouteRegistry(() => {
     group({}, () => {
       route('/users/{id}', (params) => {
         expectType<{ id: string }>(params);
@@ -234,12 +231,12 @@ route('/files/{* path }', (params) => {
   return params.path;
 });
 
-const manifest = getManifest();
+const manifest = registry.manifest;
 expectType<RouteManifest>(manifest);
 const routeRecord = manifest.records[0] as RouteRecord;
 expectType<PageScopeRecord[]>(routeRecord.pageChain);
 expectType<RouteRecord['pageChain']>(routeRecord.pageChain);
-expectType<ReturnType<typeof getRoutes>>(getRoutes());
+expectType<readonly Route[]>(registry.routes);
 
 const pageHelperOptions: PageHelperOptions = { auth: requireUser() };
 expectAssignable<PageHelperOptions>(pageHelperOptions);
@@ -317,10 +314,10 @@ const routeAuthOptions: RouteAuthOptions = {
 };
 expectAssignable<RouteAuthOptions>(routeAuthOptions);
 
-const registerRoutesOptions: RegisterRoutesOptions = {
+const routeRegistryOptions: RouteRegistryOptions = {
   auth: routeAuthOptions,
 };
-expectAssignable<RegisterRoutesOptions>(registerRoutesOptions);
+expectAssignable<RouteRegistryOptions>(routeRegistryOptions);
 
 const routeRequestOptions: RouteRequestOptions = {
   manifest,
@@ -392,7 +389,6 @@ expectType<401 | 403 | 404>(denyDecision.status);
 expectAssignable<AccessDecision>(unauthorized());
 expectAssignable<AccessDecision>(forbidden());
 expectAssignable<AccessDecision>(notFound());
-expectType<void>(clearRoutes());
 
 expectError(navigate('/home', { history: 'invalid' }));
 expectError(route('/legacy-auth', () => null, { auth: true }));
@@ -418,7 +414,7 @@ expectError(
   })
 );
 expectError(
-  registerRoutes(() => {
+  createRouteRegistry(() => {
     page(
       '/teams/{teamId}',
       () => null,

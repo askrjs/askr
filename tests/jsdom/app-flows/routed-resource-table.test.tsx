@@ -1,14 +1,16 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { For } from '../../../src/control';
 import { resource } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getManifest,
-  group,
-  route,
-} from '../../../src/router/route';
+import { group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -30,14 +32,14 @@ describe('routed resource table app flow', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/teams/alpha');
   });
 
   afterEach(() => {
     cleanupApp(container);
     cleanup();
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
@@ -93,7 +95,7 @@ describe('routed resource table app flow', () => {
       route('/teams/{teamId}', TeamPage);
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
     const shell = container.querySelector('main');

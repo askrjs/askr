@@ -1,7 +1,13 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import {
   route,
-  clearRoutes,
   resolveRoute,
   _unlockRouteRegistrationForTests,
   lockRouteRegistration,
@@ -10,7 +16,7 @@ import { registerAppInstance } from '../../../src/router/navigate';
 
 describe('route registration constraints', () => {
   beforeEach(() => {
-    clearRoutes();
+    resetRouteState();
     try {
       _unlockRouteRegistrationForTests();
     } catch {
@@ -39,7 +45,8 @@ describe('route registration constraints', () => {
 
     registerAppInstance(
       {} as unknown as Parameters<typeof registerAppInstance>[0],
-      '/'
+      '/',
+      { registry: currentRouteRegistry() }
     );
 
     lockRouteRegistration();

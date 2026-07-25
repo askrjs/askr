@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { definePortal } from '../../../src/runtime/portal';
@@ -5,13 +12,7 @@ import { state } from '../../../src/runtime/state';
 import type { ComponentInstance } from '../../../src/runtime/component';
 import type { ReadableSource } from '../../../src/runtime/readable';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getRoutes,
-  group,
-  registerRoutes,
-  route,
-} from '../../../src/router/route';
+import { createRouteRegistry, group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -40,12 +41,12 @@ describe('portal route cleanup', () => {
 
   beforeEach(() => {
     result = createTestContainer();
-    clearRoutes();
+    resetRouteState();
   });
 
   afterEach(() => {
     result.cleanup();
-    clearRoutes();
+    resetRouteState();
   });
 
   it('should detach persistent portal readers from departed shared-layout routes', async () => {
@@ -82,7 +83,7 @@ describe('portal route cleanup', () => {
       return <main data-layout={'shared'}>{children as never}</main>;
     }
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group({ layout: Layout }, () => {
         route('/portal', PortalPage);
         route('/plain', PlainPage);
@@ -90,7 +91,10 @@ describe('portal route cleanup', () => {
     });
 
     window.history.replaceState({}, '', '/portal');
-    await createSPA({ root: result.container, routes: getRoutes() });
+    await createSPA({
+      root: result.container,
+      registry,
+    });
     flushScheduler();
     flushScheduler();
 

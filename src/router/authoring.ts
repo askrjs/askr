@@ -1,7 +1,6 @@
 import type {
   GroupHelperOptions,
   PageHelperOptions,
-  RegisterRoutesOptions,
   RouteComponent,
   RouteDefinition,
   RouteOptions,
@@ -33,7 +32,6 @@ import {
   hasActivePageScope,
   insertRecordSorted,
   pushRegistrationScope,
-  setDefaultRouteAuthOptions,
 } from './store';
 
 type RouteComponentParam<TComponent extends AnyRouteComponent> =
@@ -485,18 +483,6 @@ export function fallback(Component: RouteComponent): void {
     isFallback: true,
     fallbackPrefix: '/',
   });
-}
-
-/**
- * @deprecated Use `createRouteRegistry()` so route state stays scoped to the
- * returned application registry instead of the module-level ambient store.
- */
-export function registerRoutes(
-  definition: RouteDefinition,
-  options: RegisterRoutesOptions = {}
-): void {
-  setDefaultRouteAuthOptions(options.auth);
-  definition();
 }
 
 export function route<

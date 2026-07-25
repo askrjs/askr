@@ -1,4 +1,4 @@
-import type { Route, RouteAuthOptions, RouteManifest } from '../common/router';
+import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import { isProductionEnvironment } from '../common/env';
 import { trackRouteGeneration, type ComponentInstance } from '../runtime';
 import {
@@ -9,8 +9,7 @@ import {
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export type AppNavigationSource = {
-  manifest?: RouteManifest;
-  routes?: readonly Route[];
+  registry: RouteRegistry;
   auth?: RouteAuthOptions;
 };
 
@@ -101,8 +100,8 @@ function collectRouteActivityMatches(
 
   for (const app of apps) {
     const appMatches = computeRouteActivityMatches(pathname, {
-      manifest: app.manifest,
-      routes: app.routes,
+      manifest: app.registry.manifest,
+      routes: app.registry.routes,
     });
 
     for (const match of appMatches) {
@@ -134,7 +133,7 @@ export function syncRegisteredRouteSnapshot(): void {
 export function registerAppInstance(
   instance: ComponentInstance,
   path: string,
-  source: AppNavigationSource = {}
+  source: AppNavigationSource
 ): void {
   const existingIndex = registeredApps.findIndex(
     (app) => app.instance === instance

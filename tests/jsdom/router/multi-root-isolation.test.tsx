@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, createSPA, cleanupApp, hasApp } from '@askrjs/askr/boot';
 import { state, type State } from '../../../src';
@@ -24,7 +31,7 @@ async function mountIsolatedSpas(
 ): Promise<void> {
   await createSPA({
     root: rootA,
-    routes: [
+    registry: routeRegistryFromTable([
       {
         path: '/start',
         handler: () => <div id={'app-a'}>{'A start'}</div>,
@@ -33,12 +40,12 @@ async function mountIsolatedSpas(
         path: '/next',
         handler: () => <div id={'app-a'}>{'A next'}</div>,
       },
-    ],
+    ]),
   });
 
   await createSPA({
     root: rootB,
-    routes: [
+    registry: routeRegistryFromTable([
       {
         path: '/start',
         handler: () => <div id={'app-b'}>{'B start'}</div>,
@@ -47,7 +54,7 @@ async function mountIsolatedSpas(
         path: '/next',
         handler: () => <div id={'app-b'}>{'B next'}</div>,
       },
-    ],
+    ]),
   });
 }
 
@@ -102,7 +109,7 @@ describe('multi-root SPA isolation', () => {
     let restoredRenders = 0;
     await createSPA({
       root: rootA,
-      routes: [
+      registry: routeRegistryFromTable([
         {
           path: '/start',
           handler: () => {
@@ -130,12 +137,12 @@ describe('multi-root SPA isolation', () => {
             );
           },
         },
-      ],
+      ]),
     });
 
     await createSPA({
       root: rootB,
-      routes: [
+      registry: routeRegistryFromTable([
         {
           path: '/start',
           handler: () => <div id={'app-b'}>{'B start'}</div>,
@@ -146,7 +153,7 @@ describe('multi-root SPA isolation', () => {
             throw new Error('B destination failed');
           },
         },
-      ],
+      ]),
     });
 
     await settleNavigation();
@@ -171,21 +178,21 @@ describe('multi-root SPA isolation', () => {
     await Promise.all([
       createSPA({
         root: rootA,
-        routes: [
+        registry: routeRegistryFromTable([
           {
             path: '/start',
             handler: () => <div id={'concurrent-a'}>{'A concurrent'}</div>,
           },
-        ],
+        ]),
       }),
       createSPA({
         root: rootB,
-        routes: [
+        registry: routeRegistryFromTable([
           {
             path: '/start',
             handler: () => <div id={'concurrent-b'}>{'B concurrent'}</div>,
           },
-        ],
+        ]),
       }),
     ]);
     await settleNavigation();

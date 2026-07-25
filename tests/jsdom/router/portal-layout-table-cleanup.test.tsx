@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { definePortal, type Portal } from '../../../src/runtime/portal';
@@ -5,13 +12,7 @@ import type { ComponentInstance } from '../../../src/runtime/component';
 import type { ReadableSource } from '../../../src/runtime/readable';
 import { currentRoute } from '../../../src/router/activity';
 import { navigate } from '../../../src/router/navigate';
-import {
-  clearRoutes,
-  getRoutes,
-  group,
-  registerRoutes,
-  route,
-} from '../../../src/router/route';
+import { createRouteRegistry, group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -50,12 +51,12 @@ describe('portal cleanup in routed layout and keyed table children', () => {
 
   beforeEach(() => {
     result = createTestContainer();
-    clearRoutes();
+    resetRouteState();
   });
 
   afterEach(() => {
     result.cleanup();
-    clearRoutes();
+    resetRouteState();
   });
 
   it('should use destination route context and keep portal readers stable given a shared layout when navigating repeatedly', async () => {
@@ -128,7 +129,7 @@ describe('portal cleanup in routed layout and keyed table children', () => {
       );
     }
 
-    registerRoutes(() => {
+    const registry = createRouteRegistry(() => {
       group({ layout: Layout }, () => {
         route('/table', TablePage);
         route('/plain', PlainPage);
@@ -136,7 +137,10 @@ describe('portal cleanup in routed layout and keyed table children', () => {
     });
 
     window.history.replaceState({}, '', '/plain');
-    await createSPA({ root: result.container, routes: getRoutes() });
+    await createSPA({
+      root: result.container,
+      registry,
+    });
     flushScheduler();
     flushScheduler();
 

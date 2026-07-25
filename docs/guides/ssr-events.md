@@ -35,7 +35,8 @@ const html = renderToStringSync(() => <Button />);
 // Output: <button>Click</button>
 
 // Client: Attaches event listener during hydration
-await hydrateSPA({ root: container, routes });
+import { createIsland } from '@askrjs/askr/boot';
+await createIsland({ root: container, component: Button });
 // Now the button is interactive
 ```
 
@@ -189,11 +190,11 @@ Browser downloads and displays the HTML. The page is visible but **not interacti
 ### 4. Hydration Runs
 
 ```typescript
-import { hydrateSPA } from '@askrjs/askr/boot';
+import { createIsland } from '@askrjs/askr/boot';
 
-await hydrateSPA({
+await createIsland({
   root: document.getElementById('app')!,
-  routes: routes,
+  component: App,
 });
 ```
 
@@ -488,8 +489,9 @@ const html = renderToStringSync(() => <Component />);
 expect(html).toContain('expected content');
 
 // Hydration test
+import { createIsland } from '@askrjs/askr/boot';
 container.innerHTML = html;
-await hydrateSPA({ root: container, routes });
+await createIsland({ root: container, component: Component });
 expect(container.querySelector('button')).toBeDefined();
 ```
 

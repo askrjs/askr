@@ -8,12 +8,11 @@ import { configureScrollRestoration } from '../router/navigate';
 import {
   _applyManifest,
   _setActiveRouteAuthOptions,
-  clearRoutes,
   hasRegisteredRoutes,
   lockRouteRegistration,
-  route as registerRoute,
   setServerLocation,
 } from '../router/route';
+import { clearRouteState } from '../router/store';
 import { assertExecutionModel } from '../runtime';
 import { getRouteRenderData, hasRouteRenderData } from '../router/resolution';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
@@ -122,19 +121,12 @@ export function createIslands(config: IslandsConfig): void {
 
 /**
  * createSPA: Initializes the router and mounts the app with an explicit route registry.
- *
- * Preferred usage with registry:
  * ```ts
  * import { createRouteRegistry } from '@askrjs/askr/router';
  * const registry = createRouteRegistry(() => { ... });
  * await createSPA({ root: '#app', registry });
  * ```
  *
- * Deprecated legacy usage with a manifest or plain routes array (still supported):
- * ```ts
- * await createSPA({ root: '#app', manifest: legacyManifest });
- * await createSPA({ root: '#app', routes: legacyRoutes });
- * ```
  */
 export async function createSPA(config: SPAConfig): Promise<void> {
   assertExecutionModel('spa');
@@ -143,15 +135,13 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   }
   validateCspNonce(config.cspNonce);
 
-  const manifest = config.manifest ?? config.registry?.manifest;
-  const routeTable = config.routes ?? config.registry?.routes;
-  const hasManifest = manifest != null && manifest.records.length > 0;
-  const hasRoutes = Array.isArray(routeTable) && routeTable.length > 0;
-
-  if (!hasManifest && !hasRoutes) {
+  if (!config.registry) {
+    throw new Error('createSPA requires a route registry.');
+  }
+  const { manifest } = config.registry;
+  if (manifest.records.length === 0) {
     throw new Error(
-      'createSPA requires a route manifest or route table. ' +
-        'Pass a `registry` from `createRouteRegistry()`; `manifest` and `routes` are legacy inputs. ' +
+      'createSPA requires a route registry with at least one route. ' +
         'If you are enhancing existing HTML, use createIsland instead.'
     );
   }
@@ -161,23 +151,12 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
   configureScrollRestoration(config.scrollRestoration);
 
-  clearRoutes();
+  clearRouteState();
+  _applyManifest(manifest);
 
-  if (hasManifest) {
-    // Preferred path: apply pre-built manifest records directly
-    _applyManifest(manifest!);
-  } else {
-    // Legacy path: register plain Route objects (no layout metadata)
-    for (const r of routeTable!) {
-      registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
-    }
-  }
-
-  const routeAuth = config.auth ?? manifest?.auth;
-  const activeManifest = hasManifest ? manifest : undefined;
+  const routeAuth = config.auth ?? manifest.auth;
   const appRouteSource = {
-    manifest: activeManifest,
-    routes: hasManifest ? undefined : routeTable,
+    registry: config.registry,
     auth: routeAuth,
   };
   _setActiveRouteAuthOptions(routeAuth);
@@ -187,8 +166,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
   // Mount the currently-resolved route handler (if any)
   const { path, resolved } = await resolveInitialRoute(routeAuth, {
-    manifest: activeManifest,
-    routes: hasManifest ? undefined : routeTable,
+    registry: config.registry,
   });
   const appRuntime = createAppRenderRuntime(
     resolved?.kind === 'render' && hasRouteRenderData(resolved)
@@ -246,7 +224,6 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
 /**
  * hydrateSPA: Hydrate server-rendered HTML with an explicit route registry.
- * Deprecated `manifest` and `routes` inputs remain supported for legacy code.
  */
 export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   assertExecutionModel('spa');
@@ -255,15 +232,13 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   }
   validateCspNonce(config.cspNonce);
 
-  const manifest = config.manifest ?? config.registry?.manifest;
-  const routeTable = config.routes ?? config.registry?.routes;
-  const hasManifest = manifest != null && manifest.records.length > 0;
-  const hasRoutes = Array.isArray(routeTable) && routeTable.length > 0;
-
-  if (!hasManifest && !hasRoutes) {
+  if (!config.registry) {
+    throw new Error('hydrateSPA requires a route registry.');
+  }
+  const { manifest } = config.registry;
+  if (manifest.records.length === 0) {
     throw new Error(
-      'hydrateSPA requires a route manifest or route table. ' +
-        'Pass a `registry` from `createRouteRegistry()`; `manifest` and `routes` are legacy inputs. ' +
+      'hydrateSPA requires a route registry with at least one route. ' +
         'If you are enhancing existing HTML, use createIsland instead.'
     );
   }
@@ -283,21 +258,12 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
   configureScrollRestoration(config.scrollRestoration);
 
-  clearRoutes();
+  clearRouteState();
+  _applyManifest(manifest);
 
-  if (hasManifest) {
-    _applyManifest(manifest!);
-  } else {
-    for (const r of routeTable!) {
-      registerRoute(r.path, r.handler as Parameters<typeof registerRoute>[1]);
-    }
-  }
-
-  const routeAuth = config.auth ?? manifest?.auth;
-  const activeManifest = hasManifest ? manifest : undefined;
+  const routeAuth = config.auth ?? manifest.auth;
   const appRouteSource = {
-    manifest: activeManifest,
-    routes: hasManifest ? undefined : routeTable,
+    registry: config.registry,
     auth: routeAuth,
     runtime: createAppRenderRuntime({
       framework: hydrationRenderData?.framework,
@@ -312,8 +278,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     href: currentUrl,
     resolved,
   } = await resolveInitialRoute(routeAuth, {
-    manifest: activeManifest,
-    routes: hasManifest ? undefined : routeTable,
+    registry: config.registry,
     load: false,
   });
   setServerLocation(currentUrl);
@@ -345,14 +310,12 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     );
 
   if (shouldVerifyHydrationMarkup(config)) {
-    const legacyRouteTable = hasManifest
-      ? manifest!.records.map((r) => ({
-          ...r,
-          path: r.path,
-          handler: r.handler,
-          namespace: r.options.namespace,
-        }))
-      : routeTable!;
+    const routeTableForHydration = manifest.records.map((r) => ({
+      ...r,
+      path: r.path,
+      handler: r.handler,
+      namespace: r.options.namespace,
+    }));
 
     const { verifyHydrationSyncForUrl } =
       await import('../ssr/verify-hydration');
@@ -360,7 +323,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       !verifyHydrationSyncForUrl({
         root: rootElement,
         url: currentUrl,
-        routes: legacyRouteTable,
+        routes: routeTableForHydration,
         resolved: hydrationResolved,
         options: {
           data: hydrationRenderDataForApp?.resources,

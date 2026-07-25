@@ -1,4 +1,11 @@
 import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
+import {
   afterEach,
   beforeEach,
   describe,
@@ -8,12 +15,7 @@ import {
 } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { allow, redirect } from '../../../src/router/policy';
-import {
-  clearRoutes,
-  getManifest,
-  resolveRouteRequest,
-  route,
-} from '../../../src/router/route';
+import { resolveRouteRequest, route } from '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';
 import {
   createTestContainer,
@@ -25,7 +27,7 @@ describe('router async invariants', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    clearRoutes();
+    resetRouteState();
     window.history.replaceState({}, '', '/');
   });
 
@@ -55,7 +57,7 @@ describe('router async invariants', () => {
       ],
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
     navigate('/slow');
     cleanupApp(container);
     await Promise.resolve();
@@ -74,7 +76,7 @@ describe('router async invariants', () => {
     window.history.replaceState({}, '', '/a');
 
     await expect(
-      createSPA({ root: container, manifest: getManifest() })
+      createSPA({ root: container, registry: currentRouteRegistry() })
     ).rejects.toThrow(/redirect cycle/i);
   });
 
@@ -87,7 +89,7 @@ describe('router async invariants', () => {
       policies: [() => redirect('/a')],
     });
 
-    await createSPA({ root: container, manifest: getManifest() });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
 
     expect(() => navigate('/a')).toThrow(/redirect cycle/i);
   });
@@ -123,7 +125,7 @@ describe('router async invariants', () => {
         policies: [() => Promise.reject(policyError)],
       });
 
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
       navigate('/private');
       await Promise.resolve();
       await Promise.resolve();
@@ -152,7 +154,7 @@ describe('router async invariants', () => {
         policies: [() => redirect('/a')],
       });
 
-      await createSPA({ root: container, manifest: getManifest() });
+      await createSPA({ root: container, registry: currentRouteRegistry() });
 
       expect(() => navigate('/a')).not.toThrow();
       await Promise.resolve();

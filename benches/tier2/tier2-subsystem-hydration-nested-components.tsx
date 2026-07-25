@@ -84,7 +84,7 @@ await (async () => {
 
   try {
     await expect(
-      hydrateSPA({ root: fixture.container, routes: fixture.routes })
+      hydrateSPA({ root: fixture.container, registry: fixture!.registry })
     ).resolves.not.toThrow();
     flushScheduler();
 
@@ -116,7 +116,10 @@ describe('tier2 subsystem hydration nested components', () => {
     'hydrate a nested dashboard component tree',
     async () => {
       fixture!.reset();
-      await hydrateSPA({ root: fixture!.container, routes: fixture!.routes });
+      await hydrateSPA({
+        root: fixture!.container,
+        registry: fixture!.registry,
+      });
       flushScheduler();
     },
     {

@@ -1,3 +1,10 @@
+import {
+  resetRouteState,
+  currentRouteManifest,
+  currentRouteList,
+  currentRouteRegistry,
+  routeRegistryFromTable,
+} from '../../router-test-utils';
 import { describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
@@ -26,7 +33,7 @@ describe('SSR anchored range markers', () => {
       await expect(
         hydrateSPA({
           root: container,
-          routes: [{ path: '/', handler: Component }],
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
         })
       ).resolves.not.toThrow();
 

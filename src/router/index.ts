@@ -3,7 +3,6 @@
  */
 
 export {
-  registerRoutes,
   route,
   page,
   index,
@@ -14,9 +13,6 @@ export {
   fallback,
   lazy,
   createRouteRegistry,
-  getManifest,
-  getRoutes,
-  clearRoutes,
 } from './route';
 export {
   allow,
@@ -32,7 +28,7 @@ export type {
   AccessRedirectDecision,
   GroupHelperOptions,
   PageHelperOptions,
-  RegisterRoutesOptions,
+  RouteRegistryOptions,
   RouteDefinition,
   Route,
   RouteAuthOptions,

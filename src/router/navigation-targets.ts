@@ -41,11 +41,7 @@ import {
   syncRegisteredRouteSnapshot,
   type AppRegistration,
 } from './navigation-registry';
-import {
-  resolveRouteFromRoutes,
-  resolveRouteRequest,
-  type ResolvedRoute,
-} from './route';
+import { resolveRouteRequest, type ResolvedRoute } from './route';
 import {
   getRouteRenderContext,
   getRouteRenderData,
@@ -57,7 +53,6 @@ import {
   createAppRenderRuntime,
   stageAppRenderRouteLocation,
 } from '../common/app-render-runtime';
-import { _preloadRouteHandler } from './lazy';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -672,30 +667,8 @@ function resolveAppRouteRequest(
   href: string,
   signal: AbortSignal
 ): RouteRequestResult | Promise<RouteRequestResult> {
-  if (app.manifest) {
-    return resolveRouteRequest(href, {
-      manifest: app.manifest,
-      auth: app.auth,
-      signal,
-    });
-  }
-
-  if (app.routes) {
-    const resolved = resolveRouteFromRoutes(pathname, app.routes);
-    if (!resolved) {
-      return null;
-    }
-
-    const result = {
-      kind: 'render',
-      handler: resolved.handler,
-      params: resolved.params,
-    } as const;
-    const lazyImport = _preloadRouteHandler(resolved.handler);
-    return lazyImport ? lazyImport.then(() => result) : result;
-  }
-
   return resolveRouteRequest(href, {
+    manifest: app.registry.manifest,
     auth: app.auth,
     signal,
   });

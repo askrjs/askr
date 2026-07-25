@@ -1,16 +1,15 @@
 import type {
-  RegisterRoutesOptions,
+  RouteRegistryOptions,
   RouteManifest,
   RouteRegistry,
   RouteDefinition,
 } from '../common/router';
-import { registerRoutes } from './authoring';
 import {
   addRouteToStores,
   clearRouteState,
   getDefaultRouteAuthOptions,
   getRouteRecords,
-  getRoutes,
+  getRouteList,
   insertRecordSorted,
   restoreRouteState,
   setDefaultRouteAuthOptions,
@@ -18,11 +17,7 @@ import {
 } from './store';
 import type { InternalRouteRecord } from './internal-types';
 
-/**
- * @deprecated Use `createRouteRegistry(() => { ... }).manifest` for application composition.
- * This accessor reads the module-level ambient route store.
- */
-export function getManifest(): RouteManifest {
+function createRouteManifest(): RouteManifest {
   const auth = getDefaultRouteAuthOptions();
   return {
     records: [...getRouteRecords()],
@@ -48,27 +43,20 @@ export function _applyManifest(manifest: RouteManifest): void {
   }
 }
 
-/**
- * @deprecated Prefer a route registry scoped to the application. Keep this
- * only for legacy ambient-registry tests and integrations.
- */
-export function clearRoutes(): void {
-  clearRouteState();
-}
-
 export function createRouteRegistry(
   definition: RouteDefinition,
-  options: RegisterRoutesOptions = {}
+  options: RouteRegistryOptions = {}
 ): RouteRegistry {
   const previous = snapshotRouteState();
   clearRouteState();
 
   try {
-    registerRoutes(definition, options);
-    const manifest = getManifest();
+    setDefaultRouteAuthOptions(options.auth);
+    definition();
+    const manifest = createRouteManifest();
     const registry = Object.freeze({
       manifest,
-      routes: getRoutes(),
+      routes: getRouteList(),
     });
     return registry;
   } finally {
