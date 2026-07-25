@@ -23,6 +23,17 @@ const user: AuthContext = {
 };
 
 describe('route auth requirements', () => {
+  it('should reject route resolution without an explicit registry', () => {
+    expect(() => resolveRouteRequest('/account', undefined as never)).toThrow(
+      'resolveRouteRequest requires options.registry.'
+    );
+    expect(() =>
+      resolveRouteRequest('/account', {
+        manifest: {} as never,
+      } as never)
+    ).toThrow('resolveRouteRequest requires options.registry.');
+  });
+
   it('should expose AuthContext as the only route identity value', async () => {
     let policyContext: unknown;
     const registry = createRouteRegistry(() => {
@@ -36,7 +47,7 @@ describe('route auth requirements', () => {
       });
     });
     await resolveRouteRequest('/account', {
-      manifest: registry.manifest,
+      registry: registry,
       authContext: user,
     });
     expect((policyContext as { auth: AuthContext }).auth).toBe(user);
@@ -51,7 +62,7 @@ describe('route auth requirements', () => {
       { auth: { resolve: () => ((resolutions += 1), anonymous) } }
     );
     const result = await resolveRouteRequest('/account', {
-      manifest: registry.manifest,
+      registry: registry,
       authContext: user,
     });
     expect(result?.kind).toBe('render');
@@ -66,7 +77,7 @@ describe('route auth requirements', () => {
     await expect(
       Promise.resolve(
         resolveRouteRequest('/admin', {
-          manifest: registry.manifest,
+          registry: registry,
           mode: 'spa',
           authContext: user,
         })
@@ -75,7 +86,7 @@ describe('route auth requirements', () => {
     await expect(
       Promise.resolve(
         resolveRouteRequest('/admin', {
-          manifest: registry.manifest,
+          registry: registry,
           mode: 'ssr',
           authContext: user,
         })
@@ -91,7 +102,7 @@ describe('route auth requirements', () => {
     await expect(
       Promise.resolve(
         resolveRouteRequest('/account?tab=billing', {
-          manifest: registry.manifest,
+          registry: registry,
           mode: 'spa',
         })
       )
@@ -108,9 +119,7 @@ describe('route auth requirements', () => {
       { auth: { resolve: () => user, authenticatedRedirectTo: '/account' } }
     );
     await expect(
-      Promise.resolve(
-        resolveRouteRequest('/sign-in', { manifest: registry.manifest })
-      )
+      Promise.resolve(resolveRouteRequest('/sign-in', { registry: registry }))
     ).resolves.toEqual({
       kind: 'redirect',
       to: '/account',
@@ -125,7 +134,7 @@ describe('route auth requirements', () => {
     await expect(
       Promise.resolve(
         resolveRouteRequest('/admin', {
-          manifest: registry.manifest,
+          registry: registry,
           authContext: user,
         })
       )
@@ -145,7 +154,7 @@ describe('route auth requirements', () => {
       });
     });
     await resolveRouteRequest('/admin', {
-      manifest: registry.manifest,
+      registry: registry,
       authContext: user,
     });
     expect(calls).toEqual(['auth']);
@@ -160,11 +169,11 @@ describe('route auth requirements', () => {
     });
 
     await resolveRouteRequest('/deferred', {
-      manifest: registry.manifest,
+      registry: registry,
       mode: 'spa',
     });
     await resolveRouteRequest('/deferred', {
-      manifest: registry.manifest,
+      registry: registry,
       mode: 'spa',
       load: false,
     });

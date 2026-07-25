@@ -1,6 +1,6 @@
 import type { RouteHandler, RouteRegistry } from '../common/router';
 import type { DataRuntime } from '../data/types';
-import * as RouteModule from '../router/route';
+import { resolveRouteFromRoutes } from '../router/route-matching';
 import { createRouteRegistry, route as defineRoute } from '../router/route';
 import type { SSRData } from './context';
 import { renderToString } from './index';
@@ -47,9 +47,7 @@ export function renderResolvedToStringSync(opts: {
   const requestUrl = new URL(url, 'http://localhost');
 
   const matchedIndex = routes.findIndex((route) => {
-    const resolved = RouteModule.resolveRouteFromRoutes(requestUrl.pathname, [
-      route,
-    ]);
+    const resolved = resolveRouteFromRoutes(requestUrl.pathname, [route]);
 
     return (
       resolved !== null &&

@@ -320,13 +320,15 @@ const routeRegistryOptions: RouteRegistryOptions = {
 expectAssignable<RouteRegistryOptions>(routeRegistryOptions);
 
 const routeRequestOptions: RouteRequestOptions = {
-  manifest,
+  registry,
   mode: routeMode,
   auth: routeAuthOptions,
   authContext: anonymousAuthContext,
   signal: new AbortController().signal,
 };
 expectAssignable<RouteRequestOptions>(routeRequestOptions);
+expectError<RouteRequestOptions>({ manifest });
+expectError<RouteRequestOptions>({ routes: registry.routes });
 
 const routeOptions: RouteOptions<{ id: string }> = {
   auth: requirePermission('users:read'),

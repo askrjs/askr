@@ -251,7 +251,8 @@ export interface RouteRegistryOptions {
 export type RouteDefinition = () => void;
 
 export interface RouteRequestOptions {
-  manifest?: RouteManifest;
+  /** Explicit route source shared by the application renderers. */
+  registry: RouteRegistry;
   mode?: RouteMode;
   /** @internal Hydration adopts server loader data instead of rerunning it. */
   load?: boolean;

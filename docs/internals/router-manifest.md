@@ -150,8 +150,8 @@ The registry's manifest and route records remain private implementation data
 used by request resolution, metadata, layouts, and navigation.
 
 When `navigate(path)` fires, `navigation-targets.ts` starts a route request,
-uses `resolveRouteRequest()` to find the best record, and returns its renderer
-handler. The renderer handler has the layout chain baked in, but defers matched
+uses `resolveRouteRequest(path, { registry })` to find the best record, and returns
+its renderer handler. The renderer handler has the layout chain baked in, but defers matched
 page-shell and leaf component execution until their layout context is active.
 `navigate.ts` does not need to know about layouts.
 

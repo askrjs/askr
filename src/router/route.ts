@@ -14,13 +14,7 @@ export {
   syncCurrentRouteSnapshot,
 } from './activity';
 export { currentAuth } from './auth';
-export {
-  computeRouteActivityMatches,
-  resolveRoute,
-  resolveRouteFromRoutes,
-  resolveRouteRequest,
-  _resolveRouteMatchFromRoutes,
-} from './resolution';
+export { resolveRoute, resolveRouteRequest } from './resolution';
 export { _applyManifest, createRouteRegistry } from './manifest';
 export {
   getLoadedNamespaces,
