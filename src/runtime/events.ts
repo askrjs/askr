@@ -94,6 +94,16 @@ function getDelegatedHandlerStore(
   );
 }
 
+function isElementNode(node: EventTarget | null): node is Element {
+  if (!node || typeof node !== 'object') {
+    return false;
+  }
+  if (typeof Element !== 'undefined') {
+    return node instanceof Element;
+  }
+  return (node as Node).nodeType === 1;
+}
+
 function setDelegatedHandlerStore(
   element: Element,
   store: DelegatedHandlerStore
@@ -216,16 +226,29 @@ function attachDelegatedListener(
   let containerListener = containerListeners.get(eventName);
   if (!containerListener) {
     const delegatedHandler = (e: Event) => {
-      const target = e.target as Element;
-      if (!target) return;
-
       runRuntimeHandlerScope(() => {
-        let current: Element | null = target;
-        while (current && current !== container) {
+        const path: EventTarget[] = [];
+        if (typeof e.composedPath === 'function') {
+          path.push(...e.composedPath());
+        } else {
+          let node = e.target;
+          while (node) {
+            path.push(node);
+            if (node === container) {
+              break;
+            }
+            node = isElementNode(node)
+              ? node.parentNode
+              : (node as Node).parentNode;
+          }
+        }
+        for (const node of path) {
+          if (node === container) break;
+          if (!isElementNode(node)) continue;
           if (PERF_BUILD_ENABLED) {
             incrementPerfMetric('delegatedAncestorHops');
           }
-          const store = getDelegatedHandlerStore(current);
+          const store = getDelegatedHandlerStore(node);
           const entry = !store
             ? undefined
             : store instanceof Map
@@ -244,8 +267,6 @@ function attachDelegatedListener(
           if (e.cancelBubble) {
             break;
           }
-
-          current = current.parentElement;
         }
       }, 'sync');
     };
