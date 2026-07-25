@@ -210,7 +210,7 @@ function setupReactiveScalarChild(
         collectReactiveChildValuesAsVNodes(values, nextChildren);
 
         const boundaryHost = createReactiveChildBoundaryHost(el);
-        for (let node = el.firstChild; node; ) {
+        for (let node = el.firstChild; node;) {
           const next = node.nextSibling;
           boundaryHost.appendChild(node);
           node = next;

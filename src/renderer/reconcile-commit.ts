@@ -8,7 +8,7 @@ export function commitReconciliation(
   try {
     const finalSet = new Set<Node>(finalNodes);
 
-    for (let n = parent.firstChild; n; ) {
+    for (let n = parent.firstChild; n;) {
       const next = n.nextSibling;
       if (!finalSet.has(n)) {
         teardownNodeSubtree(n);
@@ -31,7 +31,7 @@ export function commitReconciliation(
     }
 
     try {
-      for (let n = parent.firstChild; n; ) {
+      for (let n = parent.firstChild; n;) {
         const next = n.nextSibling;
         teardownNodeSubtree(n);
         n = next;
