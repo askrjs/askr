@@ -16,16 +16,10 @@ import {
   type RenderRouteRequestOptions,
   type RenderRouteRequestResult,
   type SSRComponent,
-  type SSRRoute,
   type VNode,
 } from '@askrjs/askr/ssr';
-import type {
-  RouteManifest,
-  RouteRegistry,
-  RouteRequestResult,
-} from '@askrjs/askr/router';
+import type { RouteRegistry, RouteRequestResult } from '@askrjs/askr/router';
 
-declare const manifest: RouteManifest;
 declare const registry: RouteRegistry;
 
 const renderContext = createRenderContext(42, { url: '/users/42' });
@@ -35,13 +29,6 @@ expectType<string>(withRenderContext(renderContext, () => 'rendered'));
 expectType<Promise<string>>(
   withRenderContextAsync(renderContext, async () => 'rendered')
 );
-
-const routes: SSRRoute[] = [
-  {
-    path: '/users/{id}',
-    handler: (params) => params.id,
-  },
-];
 
 const component: SSRComponent = (_props, context) => {
   expectType<AbortSignal | undefined>(context?.signal);
@@ -80,15 +67,11 @@ expectType<string>(documentRenderer(documentArgs));
 
 expectType<string>(renderToStringSync(() => 'ok'));
 expectType<string>(renderToString(() => 'ok'));
-expectType<string>(renderToString({ url: '/users/42', routes }));
 expectType<string>(renderToString({ url: '/users/42', registry }));
-expectType<string>(
-  renderToString({ url: '/users/42', routes, document: documentRenderer })
-);
 expectType<void>(
   renderToStream({
     url: '/users/42',
-    routes,
+    registry,
     document: documentRenderer,
     onChunk: (html) => {
       expectType<string>(html);
@@ -100,16 +83,11 @@ expectType<void>(
   renderToStream({
     url: '/users/42',
     registry,
-    onChunk: (html) => {
-      expectType<string>(html);
-    },
+    onChunk: (html) => expectType<string>(html),
     onComplete: () => {},
   })
 );
 
-expectType<Promise<RouteRequestResult>>(
-  resolveRequest({ url: '/users/42', manifest })
-);
 const renderRouteRequestOptions: RenderRouteRequestOptions = {
   url: '/users/42',
   registry,
@@ -120,9 +98,7 @@ expectType<Promise<RenderRouteRequestResult>>(
 expectType<Promise<RouteRequestResult>>(
   resolveRequest({ url: '/users/42', registry })
 );
-expectType<Promise<RouteRequestResult>>(
-  resolveRequest({ url: '/users/42', routes })
-);
+expectError(resolveRequest({ url: '/users/42', routes: [] }));
 expectType<typeof SSRDataMissingError>(SSRDataMissingError);
 
 expectError(resolveRequest({ url: '/users/42' }));

@@ -2,9 +2,7 @@
  * Type definitions for Static Site Generation.
  */
 
-import type { ComponentFunction } from '../common/component';
 import type { DocumentRenderer } from '../common/ssr';
-import type { RenderableChild } from '../common/vnode';
 import type {
   RouteHandler,
   RouteOptions,
@@ -32,27 +30,16 @@ type RouteConfigParams<Path extends string> = string extends Path
   ? Record<string, string>
   : RoutePathParams<Path>;
 
-type RouteComponentProps<Path extends string> = RouteConfigParams<Path> &
-  Record<string, unknown>;
-
-type StaticRouteComponent<Path extends string> = (
-  props: RouteComponentProps<Path>,
-  context?: Parameters<ComponentFunction>[1]
-) => RenderableChild;
-
 /**
  * Route config accepted by SSG.
  *
- * `handler` is preferred and matches router/SSR naming.
- * `component` is kept for compatibility and is normalized to `handler`.
+ * The handler is defined by the route registry and matches router/SSR naming.
  */
 export interface RouteConfig<Path extends string = string> {
   /** URL path to generate (e.g., "/blog/post-1", "/") */
   path: Path;
   /** Route handler compatible with router/SSR */
-  handler?: RouteHandler;
-  /** Backward-compatible alias for handler */
-  component?: StaticRouteComponent<Path>;
+  handler: RouteHandler;
   /** Optional base props merged with route params during render */
   props?: Record<string, unknown>;
   /** Optional namespace for router compatibility */
@@ -110,19 +97,10 @@ export interface SSGAssetSource {
 
 /** Options for createStaticGen */
 export type SSGOptions<TRoutes extends readonly RouteConfig[] = RouteConfig[]> =
-  SSGBaseOptions &
-    (
-      | {
-          /** Routes to generate. Prefer `registry` when routes are already defined through the router DSL. */
-          routes: TRoutes;
-          registry?: never;
-        }
-      | {
-          /** Explicit route registry captured with `createRouteRegistry()`. */
-          registry: RouteRegistry;
-          routes?: never;
-        }
-    );
+  SSGBaseOptions & {
+    /** Explicit route registry captured with `createRouteRegistry()`. */
+    registry: RouteRegistry;
+  };
 
 /** Options for a single generation run */
 export interface SSGGenerateOptions {

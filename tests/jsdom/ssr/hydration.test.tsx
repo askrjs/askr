@@ -311,7 +311,10 @@ describe('hydration (SSR)', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
       rowRenders = 0;
 
@@ -377,7 +380,10 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       const firstRowBefore = container.querySelector(
@@ -441,7 +447,10 @@ describe('hydration (SSR)', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       const firstRowBefore = container.querySelector(
@@ -490,7 +499,10 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -530,7 +542,10 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      container.innerHTML = renderToString({ url: '/', routes });
+      container.innerHTML = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       const rootBefore = container.querySelector('#listener-root');
       const buttonBefore = container.querySelector('#listener-button');
       const inputBefore = container.querySelector('#listener-input');
@@ -564,7 +579,10 @@ describe('hydration (SSR)', () => {
         </div>
       );
       const routes = [{ path: '/', handler: Component }];
-      container.innerHTML = renderToString({ url: '/', routes });
+      container.innerHTML = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       const originalAddEventListener = EventTarget.prototype.addEventListener;
       let failInputBinding = true;
       const addEventListenerSpy = vi
@@ -623,7 +641,10 @@ describe('hydration (SSR)', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -645,7 +666,10 @@ describe('hydration (SSR)', () => {
     it('should preserve server state after hydration', async () => {
       const Component = () => <div>server</div>;
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -661,7 +685,10 @@ describe('hydration (SSR)', () => {
       const Component = () => <div>async hydrated</div>;
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -686,7 +713,10 @@ describe('hydration (SSR)', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -713,7 +743,10 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -748,7 +781,10 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      container.innerHTML = renderToString({ url: '/', routes });
+      container.innerHTML = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
 
       const hydration = hydrateSPA({
         root: container,
@@ -820,7 +856,10 @@ describe('hydration (SSR)', () => {
         );
 
         const routes = [{ path: '/', handler: Component }];
-        container.innerHTML = renderToString({ url: '/', routes });
+        container.innerHTML = renderToString({
+          url: '/',
+          registry: routeRegistryFromTable(routes),
+        });
 
         await hydrateSPA({
           root: container,
@@ -866,7 +905,10 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      container.innerHTML = renderToString({ url: '/', routes });
+      container.innerHTML = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
 
       await hydrateSPA({
         root: container,
@@ -909,7 +951,10 @@ describe('hydration (SSR)', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      container.innerHTML = renderToString({ url: '/', routes });
+      container.innerHTML = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
 
       await hydrateSPA({
         root: container,
@@ -986,7 +1031,10 @@ describe('hydration (SSR)', () => {
         );
 
         const routes = [{ path: '/', handler: Component }];
-        container.innerHTML = renderToString({ url: '/', routes });
+        container.innerHTML = renderToString({
+          url: '/',
+          registry: routeRegistryFromTable(routes),
+        });
 
         await hydrateSPA({
           root: container,
@@ -1074,7 +1122,10 @@ describe('hydration (SSR)', () => {
         );
 
         const routes = [{ path: '/', handler: Component }];
-        container.innerHTML = renderToString({ url: '/', routes });
+        container.innerHTML = renderToString({
+          url: '/',
+          registry: routeRegistryFromTable(routes),
+        });
 
         await hydrateSPA({
           root: container,
@@ -1148,7 +1199,10 @@ describe('hydration (SSR)', () => {
       };
 
       try {
-        container.innerHTML = renderToString({ url: '/', routes });
+        container.innerHTML = renderToString({
+          url: '/',
+          registry: routeRegistryFromTable(routes),
+        });
         rootRenders = 0;
         belowRenders = 0;
 
@@ -1209,7 +1263,10 @@ describe('hydration (SSR)', () => {
       };
 
       try {
-        container.innerHTML = renderToString({ url: '/', routes });
+        container.innerHTML = renderToString({
+          url: '/',
+          registry: routeRegistryFromTable(routes),
+        });
         await hydrateSPA({
           root: container,
           registry: routeRegistryFromTable(routes),
@@ -1267,7 +1324,10 @@ describe('hydration (SSR)', () => {
       };
 
       try {
-        container.innerHTML = renderToString({ url: '/', routes });
+        container.innerHTML = renderToString({
+          url: '/',
+          registry: routeRegistryFromTable(routes),
+        });
         await hydrateSPA({
           root: container,
           registry: routeRegistryFromTable(routes),
@@ -1338,11 +1398,15 @@ describe('hydration (SSR)', () => {
       try {
         first.container.innerHTML = renderToString({
           url: '/',
-          routes: [{ path: '/', handler: firstComponent }],
+          registry: routeRegistryFromTable([
+            { path: '/', handler: firstComponent },
+          ]),
         });
         second.container.innerHTML = renderToString({
           url: '/',
-          routes: [{ path: '/', handler: secondComponent }],
+          registry: routeRegistryFromTable([
+            { path: '/', handler: secondComponent },
+          ]),
         });
 
         await hydrateSPA({
@@ -1433,7 +1497,10 @@ describe('hydration (SSR)', () => {
       };
 
       try {
-        container.innerHTML = renderToString({ url: '/', routes });
+        container.innerHTML = renderToString({
+          url: '/',
+          registry: routeRegistryFromTable(routes),
+        });
         await hydrateSPA({
           root: container,
           registry: routeRegistryFromTable(routes),

@@ -150,19 +150,15 @@ describe('SSR request resolution', () => {
     expect(html).toBe('<div>login-page</div>');
   });
 
-  it('should render plain route tables when no manifest is provided', async () => {
+  it('should reject plain route tables without a registry', async () => {
     const handler = () => <div>{'home'}</div>;
 
-    const result = await resolveRequest({
-      url: '/',
-      routes: [{ path: '/', handler }],
-    });
-
-    expect(result).toEqual({
-      kind: 'render',
-      handler,
-      params: {},
-    });
+    await expect(
+      resolveRequest({
+        url: '/',
+        routes: [{ path: '/', handler }],
+      } as never)
+    ).rejects.toThrow();
   });
 
   it('should resolve requests from an explicit route registry', async () => {

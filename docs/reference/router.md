@@ -4,9 +4,10 @@ Import router-specific APIs from `@askrjs/askr/router`.
 
 ## `createRouteRegistry(definition, options)`
 
-Runs a callback-based route definition and returns an explicit route registry
-with both `manifest` and `routes` fields. Pass the registry to browser boot,
-SSR, or SSG composition instead of relying on module-level route state.
+Runs a callback-based route definition and returns an explicit `RouteRegistry`.
+Pass that registry to browser boot, SSR, SSG, and testing composition. Its
+normalized manifest and route records are implementation data; callers should
+not construct or pass those structures separately.
 
 ```ts
 import { createRouteRegistry } from '@askrjs/askr/router';
