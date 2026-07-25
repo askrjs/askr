@@ -38,7 +38,10 @@ import {
   isSkippedProp,
   parseEventProp,
 } from './utils';
-import { stageHydrationListener } from './hydration-listener-transaction';
+import {
+  getCurrentHydrationListenerTransaction,
+  stageHydrationListener,
+} from './hydration-listener-transaction';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 
@@ -59,17 +62,26 @@ function addTrackedListener(
   eventName: string,
   handler: EventListener,
   capture = false,
-  fresh = false
+  fresh = false,
+  forceDirect = false
 ): void {
   const useDelegation =
-    !capture && isEventDelegationEnabled() && isDelegatedEvent(eventName);
+    !forceDirect &&
+    !capture &&
+    isEventDelegationEnabled() &&
+    isDelegatedEvent(eventName);
   const listenerKey = getEventListenerKey(eventName, capture);
 
   if (
+    !forceDirect &&
     stageHydrationListener({
-      kind: useDelegation ? 'delegated' : 'direct',
+      // Hydrated listeners publish as direct listeners. This keeps the
+      // initial SSR-to-client handoff independent of delegated-container
+      // event propagation, which is not consistent across browser hosts.
+      kind: 'direct',
       eventName,
-      publish: () => addTrackedListener(el, eventName, handler, capture, fresh),
+      publish: () =>
+        addTrackedListener(el, eventName, handler, capture, fresh, true),
       rollback: () => removeTrackedListener(el, eventName, capture),
     })
   ) {
@@ -503,6 +515,27 @@ export function syncElementPropBindings(
     if (eventProp && listenerKey) {
       const eventName = eventProp.eventName;
       const eventCapture = eventProp.capture;
+      if (
+        getCurrentHydrationListenerTransaction() &&
+        !existingListeners?.has(listenerKey) &&
+        !getDelegatedHandlerForElement(el, eventName)
+      ) {
+        stageHydrationListener({
+          kind: 'direct',
+          eventName,
+          publish: () =>
+            addTrackedListener(
+              el,
+              eventName,
+              value as EventListener,
+              eventCapture,
+              false,
+              true
+            ),
+          rollback: () => removeTrackedListener(el, eventName, eventCapture),
+        });
+        continue;
+      }
       const useDelegation =
         !eventCapture &&
         isEventDelegationEnabled() &&

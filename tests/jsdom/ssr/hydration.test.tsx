@@ -19,6 +19,7 @@ import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
 import { createDataRuntime } from '../../../src/data';
 import { resource } from '../../../src/resources';
+import { getDelegatedHandlerForElement } from '../../../src/runtime/events';
 import { For } from '@askrjs/askr/control';
 import {
   DefaultPortal,
@@ -1228,6 +1229,7 @@ describe('hydration (SSR)', () => {
         expect(rootRenders).toBe(rootRendersAfterHydration);
         expect(belowRenders).toBeGreaterThan(0);
         expect(document.activeElement).toBe(button);
+        expect(getDelegatedHandlerForElement(button, 'click')).toBeUndefined();
         button.click();
         expect(clicks).toBe(1);
       } finally {
