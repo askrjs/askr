@@ -94,6 +94,16 @@ function getDelegatedHandlerStore(
   );
 }
 
+function isElementNode(node: EventTarget | null): node is Element {
+  if (!node || typeof node !== 'object') {
+    return false;
+  }
+  if (typeof Element !== 'undefined') {
+    return node instanceof Element;
+  }
+  return (node as Node).nodeType === 1;
+}
+
 function setDelegatedHandlerStore(
   element: Element,
   store: DelegatedHandlerStore
@@ -217,11 +227,24 @@ function attachDelegatedListener(
   if (!containerListener) {
     const delegatedHandler = (e: Event) => {
       runRuntimeHandlerScope(() => {
-        const path =
-          typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
+        const path: EventTarget[] = [];
+        if (typeof e.composedPath === 'function') {
+          path.push(...e.composedPath());
+        } else {
+          let node = e.target;
+          while (node) {
+            path.push(node);
+            if (node === container) {
+              break;
+            }
+            node = isElementNode(node)
+              ? node.parentNode
+              : (node as Node).parentNode;
+          }
+        }
         for (const node of path) {
           if (node === container) break;
-          if (!(node instanceof Element)) continue;
+          if (!isElementNode(node)) continue;
           if (PERF_BUILD_ENABLED) {
             incrementPerfMetric('delegatedAncestorHops');
           }
