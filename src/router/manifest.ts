@@ -57,7 +57,7 @@ export function createRouteRegistry(
     const registry = Object.freeze({
       manifest,
       routes: getRouteList(),
-    });
+    }) as unknown as RouteRegistry;
     return registry;
   } finally {
     restoreRouteState(previous);

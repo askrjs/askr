@@ -332,6 +332,8 @@ export interface RouteManifest {
   auth?: RouteAuthOptions;
 }
 
+declare const routeRegistryBrand: unique symbol;
+
 export interface RouteHandler<TParams extends RouteParams = RouteParams> {
   (params: TParams, context?: { signal: AbortSignal }): RenderableChild;
 }
@@ -343,6 +345,8 @@ export interface Route<TParams extends RouteParams = RouteParams> {
 }
 
 export interface RouteRegistry {
+  /** Internal brand: registries must come from createRouteRegistry(). */
+  readonly [routeRegistryBrand]: true;
   manifest: RouteManifest;
   routes: readonly Route[];
 }
