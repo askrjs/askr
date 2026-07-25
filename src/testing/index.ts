@@ -211,6 +211,10 @@ export function matchRoute(
   path: string,
   options: MatchRouteOptions
 ): RouteMatch | null {
+  if (!options?.registry) {
+    throw new TypeError('matchRoute requires options.registry.');
+  }
+
   return (
     computeRouteActivityMatches(path, {
       manifest: options.registry.manifest,
@@ -227,15 +231,15 @@ type RoutePatternRecord = {
 function getRoutePatternRecords(
   options: MatchRouteOptions
 ): RoutePatternRecord[] {
-  if (options.registry) {
-    return options.registry.manifest.records.map((record: RouteRecord) => ({
-      path: record.path,
-      segments: record.segments,
-      namespace: record.options.namespace,
-    }));
+  if (!options?.registry) {
+    throw new TypeError('getRouteWarnings requires options.registry.');
   }
 
-  return [];
+  return options.registry.manifest.records.map((record: RouteRecord) => ({
+    path: record.path,
+    segments: record.segments,
+    namespace: record.options.namespace,
+  }));
 }
 
 function routePrefixMatches(

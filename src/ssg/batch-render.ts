@@ -34,6 +34,17 @@ export async function batchRenderRoutes(
   const results: RouteRenderResult[] = [];
   results.length = routes.length;
   let nextIndex = 0;
+  const hasUniquePaths =
+    new Set(routes.map((route) => route.path)).size === routes.length;
+  const sharedRegistry = hasUniquePaths
+    ? createRouteRegistry(() => {
+        for (const route of routes) {
+          defineRoute(route.path, route.handler, {
+            namespace: route.namespace,
+          });
+        }
+      })
+    : undefined;
 
   const renderOne = async (route: RouteConfig): Promise<RouteRenderResult> => {
     const startTime = performance.now();
@@ -78,11 +89,14 @@ export async function batchRenderRoutes(
       const renderedHandler = hasRouteData
         ? bindResolvedRouteData(mergedHandler, routeData)
         : mergedHandler;
-      const registry = createRouteRegistry(() => {
-        defineRoute(route.path, renderedHandler, {
-          namespace: route.namespace,
-        });
-      });
+      const registry =
+        hasRouteData || !sharedRegistry
+          ? createRouteRegistry(() => {
+              defineRoute(route.path, renderedHandler, {
+                namespace: route.namespace,
+              });
+            })
+          : sharedRegistry;
 
       const html = renderToString({
         url,

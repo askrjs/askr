@@ -83,6 +83,10 @@ export async function resolveRequest(opts: {
   request?: Request;
   signal?: AbortSignal;
 }): Promise<RouteRequestResult> {
+  if (!opts?.registry) {
+    throw new TypeError('resolveRequest requires opts.registry.');
+  }
+
   const { url, auth, authContext, request, signal } = opts;
   return await RouteModule.resolveRouteRequest(url, {
     manifest: opts.registry.manifest,

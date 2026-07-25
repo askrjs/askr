@@ -246,12 +246,12 @@ export async function renderRouteRequestToString(
 async function renderRouteRequestInternal(
   options: RenderRouteRequestOptions
 ): Promise<RenderRouteRequestResult> {
+  if (!options?.registry) {
+    throw new TypeError('renderRouteRequest requires options.registry.');
+  }
+
   const cspNonce = validateCspNonce(options.cspNonce);
   const manifest = options.registry.manifest;
-  if (!manifest)
-    throw new Error(
-      'renderRouteRequestToString requires a route manifest or registry.'
-    );
   const signal =
     options.signal ?? options.request?.signal ?? new AbortController().signal;
   const request =
