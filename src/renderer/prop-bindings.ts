@@ -38,7 +38,10 @@ import {
   isSkippedProp,
   parseEventProp,
 } from './utils';
-import { stageHydrationListener } from './hydration-listener-transaction';
+import {
+  getCurrentHydrationListenerTransaction,
+  stageHydrationListener,
+} from './hydration-listener-transaction';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 
@@ -512,6 +515,27 @@ export function syncElementPropBindings(
     if (eventProp && listenerKey) {
       const eventName = eventProp.eventName;
       const eventCapture = eventProp.capture;
+      if (
+        getCurrentHydrationListenerTransaction() &&
+        !existingListeners?.has(listenerKey) &&
+        !getDelegatedHandlerForElement(el, eventName)
+      ) {
+        stageHydrationListener({
+          kind: 'direct',
+          eventName,
+          publish: () =>
+            addTrackedListener(
+              el,
+              eventName,
+              value as EventListener,
+              eventCapture,
+              false,
+              true
+            ),
+          rollback: () => removeTrackedListener(el, eventName, eventCapture),
+        });
+        continue;
+      }
       const useDelegation =
         !eventCapture &&
         isEventDelegationEnabled() &&
