@@ -1,6 +1,5 @@
-import type { SSRRoute } from './index';
 import type { SSRData } from './context';
-import type { ResolvedRoute } from '../common/router';
+import type { ResolvedRoute, RouteRegistry } from '../common/router';
 import type { DataRuntime } from '../data/types';
 import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
 import { renderResolvedToStringSync } from './render-resolved';
@@ -20,7 +19,7 @@ function normalizeHydrationHtml(html: string): string {
 export function verifyHydrationSyncForUrl(opts: {
   root: Element;
   url: string;
-  routes: readonly SSRRoute[];
+  registry: RouteRegistry;
   resolved: ResolvedRoute;
   options?: {
     seed?: number;
@@ -30,10 +29,10 @@ export function verifyHydrationSyncForUrl(opts: {
     cspNonce?: string;
   };
 }): boolean {
-  const { root, url, routes, resolved, options } = opts;
+  const { root, url, registry, resolved, options } = opts;
   const expected = renderResolvedToStringSync({
     url,
-    routes,
+    registry,
     handler: resolved.handler,
     params: resolved.params,
     options,

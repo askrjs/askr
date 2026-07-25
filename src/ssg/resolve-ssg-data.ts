@@ -112,8 +112,7 @@ function validateRouteShape(route: RouteConfig): void {
     );
   }
 
-  const handler = route.handler ?? route.component;
-  if (typeof handler !== 'function') {
+  if (typeof route.handler !== 'function') {
     throw new Error(
       `route handler must be a function for path "${route.path}"`
     );

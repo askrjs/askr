@@ -67,14 +67,8 @@ parameterized routes can share one app route table across SPA, SSR, and SSG.
 ## Route config
 
 When you pass a registry, SSG reads path, handler, access metadata, and
-`entries()` from route records. You can still pass raw route entries for
-one-off generation. Each raw route entry supports:
-
-- `path`: route path (supports params like `/blog/{slug}` and final named splats like `/admin/files/{*path}`; splat names are trimmed, must be non-empty, and `*` is reserved)
-- `component` or `handler`: render function
-- `params`: values for path placeholders
-- `entries`: async build-time param expansion for generating many concrete pages from one template
-- `props`: optional base props merged into rendered params
+`entries()` from route records. Route definitions are shared with SPA and SSR;
+there is no separate raw SSG route array.
 
 ## Parameterized routes
 
@@ -82,16 +76,16 @@ Use `entries()` when one route template should expand into many concrete pages:
 
 ```ts
 import { createStaticGen } from '@askrjs/askr/ssg';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
+const registry = createRouteRegistry(() => {
+  route('/blog/{slug}', BlogPostPage, {
+    entries: async () =>
+      getPosts().map((post: { slug: string }) => ({ slug: post.slug })),
+  });
+});
 const ssg = createStaticGen({
-  routes: [
-    {
-      path: '/blog/{slug}',
-      component: BlogPostPage,
-      entries: async () =>
-        getPosts().map((post: { slug: string }) => ({ slug: post.slug })),
-    },
-  ],
+  registry,
   outputDir: './dist/static',
 });
 ```
@@ -102,7 +96,7 @@ Provide route-keyed SSR data when components need pre-supplied values:
 
 ```ts
 const ssg = createStaticGen({
-  routes,
+  registry,
   outputDir: './dist/static',
   dataOverrides: {
     '/': { appName: 'askr' },
@@ -132,12 +126,12 @@ Required args:
 ## Config file shape
 
 ```ts
-import type { RouteConfig } from '@askrjs/askr/ssg';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
-export const routes: RouteConfig[] = [
-  { path: '/', component: HomePage },
-  { path: '/about', component: AboutPage },
-];
+export const registry = createRouteRegistry(() => {
+  route('/', HomePage);
+  route('/about', AboutPage);
+});
 
 export const dataOverrides = {
   '/': { appName: 'askr' },

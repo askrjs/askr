@@ -1,8 +1,7 @@
 import type { Query, QueryStaleReason } from '../data';
 import type {
   ParsedSegment,
-  Route,
-  RouteManifest,
+  RouteRegistry,
   RouteMatch,
   RouteRecord,
 } from '../common/router';
@@ -10,7 +9,7 @@ import {
   type InvalidationEvent,
   addInvalidationListener,
 } from '../data/testing';
-import { computeRouteActivityMatches, parseSegments } from '../router/testing';
+import { computeRouteActivityMatches } from '../router/testing';
 
 export type MockRefresh = () => void | Promise<void>;
 
@@ -31,8 +30,7 @@ export interface InvalidationRecorder {
 }
 
 interface MatchRouteOptions {
-  manifest?: RouteManifest;
-  routes?: readonly Route[];
+  registry: RouteRegistry;
 }
 
 export interface RoutePatternWarning {
@@ -211,9 +209,17 @@ export function createInvalidationRecorder(): InvalidationRecorder {
 
 export function matchRoute(
   path: string,
-  options: MatchRouteOptions = {}
+  options: MatchRouteOptions
 ): RouteMatch | null {
-  return computeRouteActivityMatches(path, options)[0] ?? null;
+  if (!options?.registry) {
+    throw new TypeError('matchRoute requires options.registry.');
+  }
+
+  return (
+    computeRouteActivityMatches(path, {
+      registry: options.registry,
+    })[0] ?? null
+  );
 }
 
 type RoutePatternRecord = {
@@ -225,18 +231,14 @@ type RoutePatternRecord = {
 function getRoutePatternRecords(
   options: MatchRouteOptions
 ): RoutePatternRecord[] {
-  if (options.manifest) {
-    return options.manifest.records.map((record: RouteRecord) => ({
-      path: record.path,
-      segments: record.segments,
-      namespace: record.options.namespace,
-    }));
+  if (!options?.registry) {
+    throw new TypeError('getRouteWarnings requires options.registry.');
   }
 
-  return (options.routes ?? []).map((route) => ({
-    path: route.path,
-    segments: parseSegments(route.path),
-    namespace: route.namespace,
+  return options.registry.manifest.records.map((record: RouteRecord) => ({
+    path: record.path,
+    segments: record.segments,
+    namespace: record.options.namespace,
   }));
 }
 
@@ -265,7 +267,7 @@ function routePrefixMatches(
 }
 
 export function getRouteWarnings(
-  options: MatchRouteOptions = {}
+  options: MatchRouteOptions
 ): RoutePatternWarning[] {
   const records = getRoutePatternRecords(options);
   const warnings: RoutePatternWarning[] = [];

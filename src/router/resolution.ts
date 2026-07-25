@@ -19,18 +19,11 @@ import { createQueryPrefetchContext } from '../data/query-registry';
 import { buildRouteContext, buildRouteContextBase } from './route-context';
 import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
-import { getActiveRouteAuthOptions, getRouteRecords } from './store';
+import { getActiveRouteAuthOptions } from './store';
 import { setCurrentAuth } from './auth';
 import { _preloadRouteRecord } from './lazy';
 
-export {
-  _resolveRouteMatchFromRoutes,
-  computeMatchesFromRouteRecords,
-  computeMatchesFromRoutes,
-  computeRouteActivityMatches,
-  resolveRoute,
-  resolveRouteFromRoutes,
-} from './route-matching';
+export { resolveRoute } from './route-matching';
 
 const anonymous = (): AuthContext => ({
   authenticated: false,
@@ -301,10 +294,13 @@ function resolveMatchedRoute(
 
 export function resolveRouteRequest(
   target: string,
-  options: RouteRequestOptions = {}
+  options: RouteRequestOptions
 ): RouteRequestResult | Promise<RouteRequestResult> {
+  if (!options?.registry) {
+    throw new TypeError('resolveRouteRequest requires options.registry.');
+  }
   return withTelemetry(options.telemetry?.routeMatch, {}, () => {
-    const records = options.manifest?.records ?? getRouteRecords();
+    const records = options.registry.manifest.records;
     const match = getMatchingRouteRecord(target, records);
     if (!match) return null;
     const mode = options.mode ?? getDefaultRouteMode();
@@ -313,7 +309,7 @@ export function resolveRouteRequest(
       getActiveRenderContext()?.signal ??
       new AbortController().signal;
     const authOptions = getActiveRouteAuthOptions(
-      options.auth ?? options.manifest?.auth
+      options.auth ?? options.registry.manifest.auth
     );
     const base = buildRouteContextBase(target, match.params, { mode, signal });
     const finalize = (authContext: AuthContext) => {

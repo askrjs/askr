@@ -47,7 +47,10 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
 
       // Event handlers should NOT be in the HTML
       expect(html).not.toContain('onclick');
@@ -62,7 +65,10 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
 
       expect(html).not.toContain('oninput');
       expect(html).not.toContain('onInput');
@@ -77,7 +83,10 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
 
       expect(html).not.toContain('onchange');
       expect(html).not.toContain('onChange');
@@ -97,7 +106,10 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
 
       // Non-event attributes should be preserved
       expect(html).toContain('id="btn"');
@@ -115,25 +127,29 @@ describe('SSR event handling', () => {
       } as Record<string, unknown>;
       const html = renderToString({
         url: '/',
-        routes: [{ path: '/', handler: () => jsx('div', events) }],
+        registry: routeRegistryFromTable([
+          { path: '/', handler: () => jsx('div', events) },
+        ]),
       });
       expect(html).not.toMatch(/\son(?:click|load|error)=/i);
 
       expect(() =>
         renderToString({
           url: '/',
-          routes: [{ path: '/', handler: () => jsx('div><script', {}) }],
+          registry: routeRegistryFromTable([
+            { path: '/', handler: () => jsx('div><script', {}) },
+          ]),
         })
       ).toThrow('Invalid SSR element name');
       expect(() =>
         renderToString({
           url: '/',
-          routes: [
+          registry: routeRegistryFromTable([
             {
               path: '/',
               handler: () => jsx('div', { 'bad name': 'value' }),
             },
-          ],
+          ]),
         })
       ).toThrow('Invalid SSR attribute name');
     });
@@ -150,7 +166,10 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       // Verify no inline handler in HTML
@@ -180,7 +199,10 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -211,7 +233,10 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -244,7 +269,10 @@ describe('SSR event handling', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       // Verify server-rendered HTML contains initial state
@@ -278,7 +306,10 @@ describe('SSR event handling', () => {
       };
 
       const routes = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({
@@ -316,7 +347,10 @@ describe('SSR event handling', () => {
       );
 
       const routes = [{ path: '/', handler: Parent }];
-      const html = renderToString({ url: '/', routes });
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
       container.innerHTML = html;
 
       await hydrateSPA({

@@ -3,7 +3,6 @@ import type {
   AccessDenyDecision,
   AccessRedirectDecision,
   RouteAuthOptions,
-  RouteManifest,
   RouteRegistry,
 } from '../common/router';
 import { createDataRuntime } from '../data/data-runtime';
@@ -28,8 +27,7 @@ import { validateCspNonce } from '../csp-nonce';
 
 export interface RenderRouteRequestOptions {
   url: string;
-  manifest?: RouteManifest;
-  registry?: RouteRegistry;
+  registry: RouteRegistry;
   auth?: RouteAuthOptions;
   authContext?: AuthContext;
   request?: Request;
@@ -248,12 +246,12 @@ export async function renderRouteRequestToString(
 async function renderRouteRequestInternal(
   options: RenderRouteRequestOptions
 ): Promise<RenderRouteRequestResult> {
+  if (!options?.registry) {
+    throw new TypeError('renderRouteRequest requires options.registry.');
+  }
+
   const cspNonce = validateCspNonce(options.cspNonce);
-  const manifest = options.manifest ?? options.registry?.manifest;
-  if (!manifest)
-    throw new Error(
-      'renderRouteRequestToString requires a route manifest or registry.'
-    );
+  const manifest = options.registry.manifest;
   const signal =
     options.signal ?? options.request?.signal ?? new AbortController().signal;
   const request =
@@ -282,7 +280,7 @@ async function renderRouteRequestInternal(
   return withTelemetry(options.telemetry?.ssrRender, {}, () =>
     withRenderContextAsync(context, async () => {
       const resolved = await resolveRouteRequest(options.url, {
-        manifest,
+        registry: options.registry,
         mode: 'ssr',
         auth: options.auth ?? manifest.auth,
         authContext: options.authContext,

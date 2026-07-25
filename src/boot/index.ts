@@ -310,20 +310,13 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     );
 
   if (shouldVerifyHydrationMarkup(config)) {
-    const routeTableForHydration = manifest.records.map((r) => ({
-      ...r,
-      path: r.path,
-      handler: r.handler,
-      namespace: r.options.namespace,
-    }));
-
     const { verifyHydrationSyncForUrl } =
       await import('../ssr/verify-hydration');
     if (
       !verifyHydrationSyncForUrl({
         root: rootElement,
         url: currentUrl,
-        routes: routeTableForHydration,
+        registry: config.registry,
         resolved: hydrationResolved,
         options: {
           data: hydrationRenderDataForApp?.resources,

@@ -6,6 +6,14 @@ import {
   renderToStringSync,
   SSRDataMissingError,
 } from '../../../src/ssr';
+import { routeRegistryFromTable } from '../../router-test-utils';
+
+const asyncRouteRegistry = routeRegistryFromTable([
+  {
+    path: '/',
+    handler: (async () => <main>{'async'}</main>) as never,
+  },
+]);
 
 function createNeverThenable(): PromiseLike<unknown> {
   return {
@@ -40,12 +48,7 @@ describe('component promise-like invariants', () => {
     expect(() =>
       renderToString({
         url: '/',
-        routes: [
-          {
-            path: '/',
-            handler: (async () => <main>{'async'}</main>) as never,
-          },
-        ],
+        registry: asyncRouteRegistry,
       })
     ).toThrow(SSRDataMissingError);
   });

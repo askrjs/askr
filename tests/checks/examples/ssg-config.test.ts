@@ -2,16 +2,14 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   concurrency,
   dataOverrides,
-  routes,
+  registry,
   seed,
 } from '../../../examples/ssg.config';
 
 describe('examples/ssg.config.ts', () => {
   it('should load through the public SSG API and provide a valid minimal config', () => {
-    expect(routes).toHaveLength(2);
-    expect(routes.map((route) => route.path)).toEqual(['/', '/about']);
-    expect(routes.every((route) => typeof route.component === 'function')).toBe(
-      true
+    expect(registry.manifest.records.map((route) => route.path).sort()).toEqual(
+      ['/', '/about']
     );
     expect(dataOverrides['/']).toEqual({ appName: 'askr' });
     expect(dataOverrides['/about']).toEqual({ section: 'about' });

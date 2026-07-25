@@ -10,18 +10,25 @@ consumes this manifest.
 
 ## How the manifest is built
 
-Route declarations run as side effects when the routes module is imported:
+Route declarations are captured in an explicit registry:
 
 ```ts
 // routes.ts
-import { fallback, group, route } from '@askrjs/askr/router';
+import {
+  createRouteRegistry,
+  fallback,
+  group,
+  route,
+} from '@askrjs/askr/router';
 
-group({ layout: AppLayout }, () => {
-  route('/posts/{slug}', PostPage, {
-    entries: async () =>
-      getPosts().map((p: { slug: string }) => ({ slug: p.slug })),
+export const registry = createRouteRegistry(() => {
+  group({ layout: AppLayout }, () => {
+    route('/posts/{slug}', PostPage, {
+      entries: async () =>
+        getPosts().map((p: { slug: string }) => ({ slug: p.slug })),
+    });
+    fallback(NotFound);
   });
-  fallback(NotFound);
 });
 ```
 
@@ -55,9 +62,9 @@ The authoring flow is:
    - Computes a deterministic `rank` (specificity score) via `computeRank()`
    - Snapshots the current layout scope stack as the route's `layoutChain`
    - Auto-composes a `RouteHandler` that renders the page inside the layout chain
-   - Appends a `RouteRecord` to the `store.ts` record list and also registers
-     the handler in the legacy flat route list for backward-compatible
-     resolution
+
+- Appends a `RouteRecord` to the registry's private record list and derives
+  the handler data used by the runtime
 
 ## Module ownership
 
@@ -138,17 +145,13 @@ Sum of segment scores = route rank. Higher rank wins when multiple routes match 
 
 ### SPA navigation
 
-`createSPA({ registry })` uses the registry manifest and flat routes together.
-When only a manifest is passed, `_applyManifest()` populates the two runtime
-stores:
-
-- flat routes - legacy handler list used by direct route-table resolution
-- records - parsed records used by request resolution, metadata, layouts, and
-  future manifest extensions
+`createSPA({ registry })` uses the registry as its only public route source.
+The registry's manifest and route records remain private implementation data
+used by request resolution, metadata, layouts, and navigation.
 
 When `navigate(path)` fires, `navigation-targets.ts` starts a route request,
-uses `resolveRouteRequest()` to find the best record, and returns its renderer
-handler. The renderer handler has the layout chain baked in, but defers matched
+uses `resolveRouteRequest(path, { registry })` to find the best record, and returns
+its renderer handler. The renderer handler has the layout chain baked in, but defers matched
 page-shell and leaf component execution until their layout context is active.
 `navigate.ts` does not need to know about layouts.
 
@@ -175,17 +178,9 @@ without executing routed leaves before layout providers render.
 
 ### SSR request resolution
 
-`renderToString({ url, registry })` uses the registry route table for route
-matching and keeps request state in render context. Flat route tables are still
-supported for compatibility:
-
-```ts
-routes: registry.manifest.records.map((r) => ({
-  path: r.path,
-  handler: r.handler,
-  namespace: r.options.namespace,
-}));
-```
+`renderToString({ url, registry })` uses the registry for route matching and
+keeps request state in render context. Callers do not provide a separate
+manifest or flat route table.
 
 ### SSG expansion
 

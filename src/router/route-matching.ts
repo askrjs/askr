@@ -1,8 +1,8 @@
 import type {
   Route,
-  RouteManifest,
   RouteMatch,
   RouteRecord,
+  RouteRegistry,
   ResolvedRoute,
 } from '../common/router';
 import { deepFreeze, parseLocation } from './route-context';
@@ -13,7 +13,7 @@ import {
   splitPathSegments,
 } from './match';
 import type { InternalRoute, InternalRouteRecord } from './internal-types';
-import { getActiveRoutes, getRouteRecords, isRouteStoreRoutes } from './store';
+import { getRouteRecords, isRouteStoreRoutes } from './store';
 
 const routeSegsCache = new WeakMap<Route, ReturnType<typeof parseSegments>>();
 const routeRankCache = new WeakMap<Route, number>();
@@ -272,20 +272,12 @@ export function computeMatchesFromRouteRecords(
 
 export function computeRouteActivityMatches(
   pathname: string,
-  options: {
-    manifest?: RouteManifest;
-    routes?: readonly Route[];
-  } = {}
+  options: { registry: RouteRegistry }
 ): RouteMatch[] {
-  if (options.manifest) {
-    return computeMatchesFromRouteRecords(pathname, options.manifest.records);
-  }
-
-  if (options.routes) {
-    return computeMatchesFromRoutes(pathname, options.routes);
-  }
-
-  return computeMatchesFromRoutes(pathname, getActiveRoutes());
+  return computeMatchesFromRouteRecords(
+    pathname,
+    options.registry.manifest.records
+  );
 }
 
 export function resolveRoute(pathname: string): ResolvedRoute | null {

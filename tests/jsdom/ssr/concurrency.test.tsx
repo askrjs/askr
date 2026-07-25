@@ -17,6 +17,7 @@ import {
   isRoutePathActive,
   route,
 } from '../../../src/router/route';
+import { routeRegistryFromTable } from '../../router-test-utils';
 
 describe('SSR concurrency isolation', () => {
   it('should isolate render context between concurrent renders', async () => {
@@ -204,7 +205,7 @@ describe('SSR concurrency isolation', () => {
       Promise.resolve().then(() =>
         renderToString({
           url: '/users/1?q=alpha#one',
-          routes: [
+          registry: routeRegistryFromTable([
             {
               path: '/users/{id}',
               handler: () => {
@@ -217,13 +218,13 @@ describe('SSR concurrency isolation', () => {
                 );
               },
             },
-          ],
+          ]),
         })
       ),
       Promise.resolve().then(() =>
         renderToString({
           url: '/posts/2?q=beta#two',
-          routes: [
+          registry: routeRegistryFromTable([
             {
               path: '/posts/{id}',
               handler: () => {
@@ -236,7 +237,7 @@ describe('SSR concurrency isolation', () => {
                 );
               },
             },
-          ],
+          ]),
         })
       ),
     ]);
@@ -250,7 +251,7 @@ describe('SSR concurrency isolation', () => {
       Promise.resolve().then(() =>
         renderToString({
           url: '/users/1',
-          routes: [
+          registry: routeRegistryFromTable([
             {
               path: '/users/{id}',
               handler: () => (
@@ -260,13 +261,13 @@ describe('SSR concurrency isolation', () => {
                 </div>
               ),
             },
-          ],
+          ]),
         })
       ),
       Promise.resolve().then(() =>
         renderToString({
           url: '/posts/2',
-          routes: [
+          registry: routeRegistryFromTable([
             {
               path: '/posts/{id}',
               handler: () => (
@@ -276,7 +277,7 @@ describe('SSR concurrency isolation', () => {
                 </div>
               ),
             },
-          ],
+          ]),
         })
       ),
     ]);
@@ -332,7 +333,7 @@ describe('SSR concurrency isolation', () => {
       Promise.resolve().then(() =>
         renderToString({
           url: '/account/7',
-          routes: [
+          registry: routeRegistryFromTable([
             {
               path: '/account/{id}',
               handler: () => {
@@ -344,13 +345,13 @@ describe('SSR concurrency isolation', () => {
                 );
               },
             },
-          ],
+          ]),
         })
       ),
       Promise.resolve().then(() =>
         renderToString({
           url: '/settings/profile',
-          routes: [
+          registry: routeRegistryFromTable([
             {
               path: '/settings/profile',
               handler: () => {
@@ -362,7 +363,7 @@ describe('SSR concurrency isolation', () => {
                 );
               },
             },
-          ],
+          ]),
         })
       ),
     ]);

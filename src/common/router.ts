@@ -159,6 +159,8 @@ export interface RouteOptions<
     }
   ) => unknown;
   entries?: () => Array<TParams> | Promise<Array<TParams>>;
+  /** Optional invalidation keys used by incremental SSG generation. */
+  invalidationKeys?: readonly string[];
   title?: string;
   namespace?: string;
   search?: TSearchSchema;
@@ -249,7 +251,8 @@ export interface RouteRegistryOptions {
 export type RouteDefinition = () => void;
 
 export interface RouteRequestOptions {
-  manifest?: RouteManifest;
+  /** Explicit route source shared by the application renderers. */
+  registry: RouteRegistry;
   mode?: RouteMode;
   /** @internal Hydration adopts server loader data instead of rerunning it. */
   load?: boolean;
@@ -329,6 +332,8 @@ export interface RouteManifest {
   auth?: RouteAuthOptions;
 }
 
+declare const routeRegistryBrand: unique symbol;
+
 export interface RouteHandler<TParams extends RouteParams = RouteParams> {
   (params: TParams, context?: { signal: AbortSignal }): RenderableChild;
 }
@@ -340,6 +345,8 @@ export interface Route<TParams extends RouteParams = RouteParams> {
 }
 
 export interface RouteRegistry {
+  /** Internal brand: registries must come from createRouteRegistry(). */
+  readonly [routeRegistryBrand]: true;
   manifest: RouteManifest;
   routes: readonly Route[];
 }

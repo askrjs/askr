@@ -73,13 +73,14 @@ export async function resolveInitialRoute(
     }
     visited.add(href);
 
-    const resolved = source?.registry
-      ? await resolveRouteRequest(href, {
-          manifest: source.registry.manifest,
-          auth,
-          load: source.load,
-        })
-      : await resolveRouteRequest(href, { auth });
+    if (!source?.registry) {
+      throw new TypeError('resolveInitialRoute requires a route registry.');
+    }
+    const resolved = await resolveRouteRequest(href, {
+      registry: source.registry,
+      auth,
+      load: source.load,
+    });
     if (
       typeof window === 'undefined' ||
       !resolved ||

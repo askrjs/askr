@@ -141,6 +141,10 @@ const registry = createRouteRegistry(() => {
 expectType<RouteRegistry>(registry);
 expectType<RouteManifest>(registry.manifest);
 expectType<readonly import('@askrjs/askr/router').Route[]>(registry.routes);
+expectError<RouteRegistry>({
+  manifest: registry.manifest,
+  routes: registry.routes,
+});
 
 route('/users/{id}', (params: Record<string, string>) => params.id);
 route('/users/{id}', (params) => params.id, {
@@ -320,13 +324,15 @@ const routeRegistryOptions: RouteRegistryOptions = {
 expectAssignable<RouteRegistryOptions>(routeRegistryOptions);
 
 const routeRequestOptions: RouteRequestOptions = {
-  manifest,
+  registry,
   mode: routeMode,
   auth: routeAuthOptions,
   authContext: anonymousAuthContext,
   signal: new AbortController().signal,
 };
 expectAssignable<RouteRequestOptions>(routeRequestOptions);
+expectError<RouteRequestOptions>({ manifest });
+expectError<RouteRequestOptions>({ routes: registry.routes });
 
 const routeOptions: RouteOptions<{ id: string }> = {
   auth: requirePermission('users:read'),
