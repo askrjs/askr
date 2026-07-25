@@ -8,10 +8,9 @@ import {
 
 describe('examples/ssg.config.ts', () => {
   it('should load through the public SSG API and provide a valid minimal config', () => {
-    expect(registry.manifest.records.map((route) => route.path).sort()).toEqual([
-      '/',
-      '/about',
-    ]);
+    expect(registry.manifest.records.map((route) => route.path).sort()).toEqual(
+      ['/', '/about']
+    );
     expect(dataOverrides['/']).toEqual({ appName: 'askr' });
     expect(dataOverrides['/about']).toEqual({ section: 'about' });
     expect(seed).toBe(12345);
