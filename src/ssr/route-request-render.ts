@@ -3,7 +3,6 @@ import type {
   AccessDenyDecision,
   AccessRedirectDecision,
   RouteAuthOptions,
-  RouteManifest,
   RouteRegistry,
 } from '../common/router';
 import { createDataRuntime } from '../data/data-runtime';
@@ -28,8 +27,7 @@ import { validateCspNonce } from '../csp-nonce';
 
 export interface RenderRouteRequestOptions {
   url: string;
-  manifest?: RouteManifest;
-  registry?: RouteRegistry;
+  registry: RouteRegistry;
   auth?: RouteAuthOptions;
   authContext?: AuthContext;
   request?: Request;
@@ -249,7 +247,7 @@ async function renderRouteRequestInternal(
   options: RenderRouteRequestOptions
 ): Promise<RenderRouteRequestResult> {
   const cspNonce = validateCspNonce(options.cspNonce);
-  const manifest = options.manifest ?? options.registry?.manifest;
+  const manifest = options.registry.manifest;
   if (!manifest)
     throw new Error(
       'renderRouteRequestToString requires a route manifest or registry.'

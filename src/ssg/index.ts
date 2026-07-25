@@ -7,11 +7,12 @@
  * ```ts
  * import { createStaticGen } from '@askrjs/askr/ssg';
  *
+ * const registry = createRouteRegistry(() => {
+ *   route('/', HomePage);
+ *   route('/about', AboutPage);
+ * });
  * const ssg = createStaticGen({
- *   routes: [
- *     { path: '/', component: HomePage },
- *     { path: '/about', component: AboutPage },
- *   ],
+ *   registry,
  *   outputDir: './dist',
  * });
  *

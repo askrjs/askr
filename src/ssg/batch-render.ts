@@ -7,7 +7,7 @@ import { renderDocument, type DocumentRenderer } from '../common/ssr';
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
 import type { RouteContext } from '../common/router';
-import type { ComponentFunction } from '../common/component';
+import { createRouteRegistry, route as defineRoute } from '../router/route';
 import type { SSRData } from '../common/ssr';
 import { resolveSsgRouteData } from './resolve-ssg-data';
 import { getOutputFilePath, interpolateRoutePath } from './route-utils';
@@ -44,15 +44,7 @@ export async function batchRenderRoutes(
     const resourceCount =
       resolvedData.hasData && baseData ? Object.keys(baseData).length : 0;
 
-    const mergedHandler: RouteHandler = route.handler
-      ? route.handler
-      : (params, ctx?: unknown) => {
-          const component = route.component as ComponentFunction;
-          return component(
-            { ...route.props, ...params },
-            ctx as Parameters<ComponentFunction>[1]
-          );
-        };
+    const mergedHandler: RouteHandler = route.handler;
 
     try {
       let routeData: unknown;
@@ -83,17 +75,18 @@ export async function batchRenderRoutes(
         hasRouteData = true;
       }
 
-      const routeEntry = {
-        path: route.path,
-        handler: hasRouteData
-          ? bindResolvedRouteData(mergedHandler, routeData)
-          : mergedHandler,
-        namespace: route.namespace,
-      };
+      const renderedHandler = hasRouteData
+        ? bindResolvedRouteData(mergedHandler, routeData)
+        : mergedHandler;
+      const registry = createRouteRegistry(() => {
+        defineRoute(route.path, renderedHandler, {
+          namespace: route.namespace,
+        });
+      });
 
       const html = renderToString({
         url,
-        routes: [routeEntry],
+        registry,
         seed,
         data: baseData,
         document:

@@ -7,7 +7,6 @@ import {
 import type {
   RouteAuthOptions,
   RouteHandler,
-  RouteManifest,
   RouteRegistry,
   RouteRequestResult,
 } from '../common/router';
@@ -23,7 +22,6 @@ import { StringSink, StreamSink, type RenderSink } from './sink';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
-import { _preloadRouteHandler } from '../router/lazy';
 import { validateCspNonce } from '../csp-nonce';
 
 export type SSRRoute = {
@@ -32,15 +30,7 @@ export type SSRRoute = {
   namespace?: string;
 };
 
-type SSRRouteSource =
-  | {
-      registry: RouteRegistry;
-      routes?: readonly SSRRoute[];
-    }
-  | {
-      registry?: RouteRegistry;
-      routes: readonly SSRRoute[];
-    };
+type SSRRouteSource = { registry: RouteRegistry };
 
 export type RouteRenderOptions = SSRRouteSource & {
   url: string;
@@ -85,96 +75,31 @@ export interface RouteRenderHost {
   renderAppToSink(input: RouteAppRenderInput): void;
 }
 
-export async function resolveRequest(
-  opts:
-    | {
-        url: string;
-        registry: RouteRegistry;
-        manifest?: RouteManifest;
-        routes?: Array<{
-          path: string;
-          handler: RouteHandler;
-          namespace?: string;
-        }>;
-        auth?: RouteAuthOptions;
-        authContext?: AuthContext;
-        request?: Request;
-        signal?: AbortSignal;
-      }
-    | {
-        url: string;
-        manifest: RouteManifest;
-        registry?: RouteRegistry;
-        routes?: Array<{
-          path: string;
-          handler: RouteHandler;
-          namespace?: string;
-        }>;
-        auth?: RouteAuthOptions;
-        authContext?: AuthContext;
-        request?: Request;
-        signal?: AbortSignal;
-      }
-    | {
-        url: string;
-        manifest?: RouteManifest;
-        registry?: RouteRegistry;
-        routes: Array<{
-          path: string;
-          handler: RouteHandler;
-          namespace?: string;
-        }>;
-        auth?: RouteAuthOptions;
-        authContext?: AuthContext;
-        request?: Request;
-        signal?: AbortSignal;
-      }
-): Promise<RouteRequestResult> {
+export async function resolveRequest(opts: {
+  url: string;
+  registry: RouteRegistry;
+  auth?: RouteAuthOptions;
+  authContext?: AuthContext;
+  request?: Request;
+  signal?: AbortSignal;
+}): Promise<RouteRequestResult> {
   const { url, auth, authContext, request, signal } = opts;
-  const manifest = opts.manifest ?? opts.registry?.manifest;
-  const routes = opts.routes ?? opts.registry?.routes;
-
-  if (manifest) {
-    return await RouteModule.resolveRouteRequest(url, {
-      manifest,
-      mode: 'ssr',
-      auth,
-      authContext,
-      request,
-      signal,
-    });
-  }
-
-  if (!routes) {
-    throw new Error('resolveRequest requires a route manifest or route table.');
-  }
-
-  const requestUrl = new URL(url, 'http://localhost');
-  const resolved = RouteModule.resolveRouteFromRoutes(
-    requestUrl.pathname,
-    routes
-  );
-
-  if (!resolved) {
-    return null;
-  }
-
-  await _preloadRouteHandler(resolved.handler);
-
-  return {
-    kind: 'render',
-    handler: resolved.handler,
-    params: resolved.params,
-  };
+  return await RouteModule.resolveRouteRequest(url, {
+    manifest: opts.registry.manifest,
+    mode: 'ssr',
+    auth,
+    authContext,
+    request,
+    signal,
+  });
 }
 
 function resolveSSRRouteSource(source: SSRRouteSource): SSRRoute[] {
-  const routes = source.routes ?? source.registry?.routes;
-  if (!routes || routes.length === 0) {
-    throw new Error('SSR requires a route registry or route table.');
+  if (source.registry.routes.length === 0) {
+    throw new Error('SSR requires a non-empty route registry.');
   }
 
-  return routes.map((route) => ({
+  return source.registry.routes.map((route) => ({
     ...route,
     path: route.path,
     handler: route.handler,

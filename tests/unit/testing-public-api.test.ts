@@ -15,16 +15,14 @@ describe('testing public API', () => {
       route('/admin/buckets/{bucket}/files/{*path}', () => 'folder');
     });
     {
-      const manifest = registry.manifest;
-
-      expect(matchRoute('/admin/buckets/main/files/a/b', { manifest })).toEqual(
+      expect(matchRoute('/admin/buckets/main/files/a/b', { registry })).toEqual(
         {
           path: '/admin/buckets/{bucket}/files/{*path}',
           params: { bucket: 'main', path: 'a/b' },
           namespace: undefined,
         }
       );
-      expect(matchRoute('/missing', { manifest })).toBeNull();
+      expect(matchRoute('/missing', { registry })).toBeNull();
     }
   });
 
@@ -37,7 +35,7 @@ describe('testing public API', () => {
         namespace: 'admin-files',
       });
     });
-    expect(getRouteWarnings({ manifest: registry.manifest })).toEqual([
+    expect(getRouteWarnings({ registry })).toEqual([
       {
         kind: 'route-collision',
         path: '/admin/buckets/{bucket}/files/{*path}',
@@ -59,7 +57,7 @@ describe('testing public API', () => {
         namespace: 'blobs',
       });
     });
-    expect(getRouteWarnings({ manifest: registry.manifest })).toEqual([]);
+    expect(getRouteWarnings({ registry })).toEqual([]);
   });
 
   it('should create a fresh query mock with stable defaults', async () => {

@@ -7,6 +7,7 @@ import {
 import { resource } from '../../../src/resources';
 import { createRouteRegistry, route } from '../../../src/router';
 import type { JSXElement } from '../../../src/jsx/types';
+import { routeRegistryFromTable } from '../../router-test-utils';
 
 function UsesSyncResource(): JSXElement {
   const result = resource<string>(() => 'loaded', []);
@@ -81,15 +82,21 @@ describe('SSR resource() with preloaded data', () => {
   it('should render route-based SSR with a synchronous resource when no render data is provided', () => {
     const routes = [{ path: '/', handler: UsesSyncResource }];
 
-    expect(renderToString({ url: '/', routes })).toBe('<main>loaded</main>');
+    expect(
+      renderToString({ url: '/', registry: routeRegistryFromTable(routes) })
+    ).toBe('<main>loaded</main>');
   });
 
   it('should throw when route-based SSR is given an explicit empty render-data object', () => {
     const routes = [{ path: '/', handler: UsesSyncResource }];
 
-    expect(() => renderToString({ url: '/', routes, data: {} })).toThrowError(
-      SSRDataMissingError
-    );
+    expect(() =>
+      renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+        data: {},
+      })
+    ).toThrowError(SSRDataMissingError);
   });
 
   it('should render URL-based registry SSR with preloaded resource data deterministically', () => {

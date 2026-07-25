@@ -12,10 +12,7 @@ import {
   resolveRouteDescriptor,
 } from './route-utils';
 
-type StaticRouteSource = {
-  registry?: RouteRegistry;
-  routes?: readonly RouteConfig[];
-};
+type StaticRouteSource = { registry: RouteRegistry };
 
 export type RuntimeOnlyRoute = {
   routeId: string;
@@ -109,11 +106,7 @@ export async function splitStaticRoutes(
 export function normalizeStaticRoutes(
   options: StaticRouteSource
 ): RouteConfig[] {
-  if (options.registry) {
-    return routeRegistryToRouteConfigs(options.registry);
-  }
-
-  return [...(options.routes ?? [])];
+  return routeRegistryToRouteConfigs(options.registry);
 }
 
 function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
