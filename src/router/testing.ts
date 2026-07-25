@@ -1,2 +1,2 @@
 export { parseSegments } from './match';
-export { computeRouteActivityMatches } from './route';
+export { computeRouteActivityMatches } from './route-matching';
