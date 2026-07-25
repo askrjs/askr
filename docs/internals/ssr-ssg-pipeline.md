@@ -9,7 +9,7 @@ main difference is the sink and the orchestration around the render.
 
 ```mermaid
 flowchart TB
-  routes[Route registry or flat routes]
+  registry[Route registry]
   components[Component tree]
   routeResolve[Route resolution]
   ssrRender[SSR render pipeline]
@@ -17,7 +17,7 @@ flowchart TB
   ssgBatch[SSG batch orchestration]
   files[static files and metadata]
 
-  routes --> routeResolve
+  registry --> routeResolve
   components --> ssrRender
   routeResolve --> ssrRender
   ssrRender --> html
@@ -154,7 +154,7 @@ still renders through the synchronous SSR engine.
 
 ```mermaid
 flowchart LR
-  registry[Route registry or route configs]
+  registry[Route registry]
   normalize[normalize static route configs]
   expand[entries expansion and path interpolation]
   filter[skip runtime-only routes]
