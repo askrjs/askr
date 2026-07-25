@@ -116,7 +116,7 @@ function commitBulkReplace(parent: Element, nodes: Node[]): number {
   }
 
   try {
-    for (let node = parent.firstChild; node; ) {
+    for (let node = parent.firstChild; node;) {
       const next = node.nextSibling;
       teardownNodeSubtree(node);
       node = next;
