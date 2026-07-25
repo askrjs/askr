@@ -90,7 +90,7 @@ describe('hydrated resource search app flow', () => {
     const routes = [{ path: '/', handler: SearchPage }];
     container.innerHTML = renderToString({
       url: '/',
-      routes,
+      registry: routeRegistryFromTable(routes),
       data: { 'r:0': [] },
     });
 
@@ -205,7 +205,7 @@ describe('hydrated resource search app flow', () => {
       const routes = [{ path: '/', handler: SearchPage }];
       container.innerHTML = renderToString({
         url: '/',
-        routes,
+        registry: routeRegistryFromTable(routes),
         data: { 'r:0': [] },
       });
 
@@ -300,7 +300,7 @@ describe('hydrated resource search app flow', () => {
     const routes = [{ path: '/', handler: SearchPage }];
     container.innerHTML = renderToString({
       url: '/',
-      routes,
+      registry: routeRegistryFromTable(routes),
       data: {
         'r:0': [{ id: 'customer-1', name: 'Ada Lovelace' }],
       },

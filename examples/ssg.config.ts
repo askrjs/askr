@@ -1,12 +1,12 @@
-import type { RouteConfig } from '@askrjs/askr/ssg';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
 
 const HomePage = () => 'Home';
 const AboutPage = () => 'About';
 
-export const routes = [
-  { path: '/', component: HomePage },
-  { path: '/about', component: AboutPage },
-] satisfies RouteConfig[];
+export const registry = createRouteRegistry(() => {
+  route('/', HomePage);
+  route('/about', AboutPage);
+});
 
 export const dataOverrides = {
   '/': { appName: 'askr' },
@@ -17,7 +17,7 @@ export const seed = 12345;
 export const concurrency = 1;
 
 const config = {
-  routes,
+  registry,
   dataOverrides,
   seed,
   concurrency,

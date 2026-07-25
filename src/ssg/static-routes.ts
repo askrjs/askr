@@ -120,6 +120,9 @@ function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
     routeConfigs.push({
       path: record.path,
       handler: getRenderHandler(record),
+      params: (record.options as RouteConfig).params,
+      props: (record.options as RouteConfig).props,
+      invalidationKeys: (record.options as RouteConfig).invalidationKeys,
       namespace: record.options.namespace,
       auth: record.options.auth,
       policies: record.options.policies,
