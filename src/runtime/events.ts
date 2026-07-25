@@ -216,16 +216,16 @@ function attachDelegatedListener(
   let containerListener = containerListeners.get(eventName);
   if (!containerListener) {
     const delegatedHandler = (e: Event) => {
-      const target = e.target as Element;
-      if (!target) return;
-
       runRuntimeHandlerScope(() => {
-        let current: Element | null = target;
-        while (current && current !== container) {
+        const path =
+          typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
+        for (const node of path) {
+          if (node === container) break;
+          if (!(node instanceof Element)) continue;
           if (PERF_BUILD_ENABLED) {
             incrementPerfMetric('delegatedAncestorHops');
           }
-          const store = getDelegatedHandlerStore(current);
+          const store = getDelegatedHandlerStore(node);
           const entry = !store
             ? undefined
             : store instanceof Map
@@ -244,8 +244,6 @@ function attachDelegatedListener(
           if (e.cancelBubble) {
             break;
           }
-
-          current = current.parentElement;
         }
       }, 'sync');
     };

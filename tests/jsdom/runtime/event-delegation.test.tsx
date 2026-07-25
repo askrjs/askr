@@ -94,6 +94,24 @@ describe('event delegation', () => {
       expect(clicks).toBe(1);
     });
 
+    it('should resolve delegated handlers when the event path starts at a text node', () => {
+      let clicks = 0;
+      const Component = () => (
+        <button id="text-target" onClick={() => (clicks += 1)}>
+          Click me
+        </button>
+      );
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const text = container.querySelector('#text-target')!.firstChild!;
+      text.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      flushScheduler();
+
+      expect(clicks).toBe(1);
+    });
+
     it('should update delegated handlers in place across rerenders', () => {
       let mode: ReturnType<typeof state<'a' | 'b'>> | null = null;
       const calls: string[] = [];
