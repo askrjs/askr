@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
+import { routeRegistryFromTable } from '../../router-test-utils';
 import { renderToString, renderToStream } from '../../../src/ssr';
 
 describe('SSR streaming: parity and chunk boundaries', () => {
@@ -27,13 +28,16 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     const chunks: string[] = [];
     renderToStream({
       url: '/',
-      routes,
+      registry: routeRegistryFromTable(routes),
       onChunk: (c) => chunks.push(c),
       onComplete: () => {},
     });
 
     // Parity check: concatenated chunks must match renderToString exactly
-    const expected = renderToString({ url: '/', routes });
+    const expected = renderToString({
+      url: '/',
+      registry: routeRegistryFromTable(routes),
+    });
     expect(chunks.join('')).toBe(expected);
 
     // Verify we got multiple chunks (streaming is working)
@@ -58,7 +62,7 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     const chunks: string[] = [];
     renderToStream({
       url: '/',
-      routes,
+      registry: routeRegistryFromTable(routes),
       onChunk: (c) => chunks.push(c),
       onComplete: () => {},
     });
@@ -82,13 +86,13 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     let seenContext: Record<string, unknown> | null = null;
     const expectedAppHtml = renderToString({
       url: '/users/42?view=full#summary',
-      routes,
+      registry: routeRegistryFromTable(routes),
     });
     const chunks: string[] = [];
 
     renderToStream({
       url: '/users/42?view=full#summary',
-      routes,
+      registry: routeRegistryFromTable(routes),
       document: ({
         appHtml,
         context,

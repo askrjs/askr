@@ -159,6 +159,8 @@ export interface RouteOptions<
     }
   ) => unknown;
   entries?: () => Array<TParams> | Promise<Array<TParams>>;
+  /** Optional invalidation keys used by incremental SSG generation. */
+  invalidationKeys?: readonly string[];
   title?: string;
   namespace?: string;
   search?: TSearchSchema;

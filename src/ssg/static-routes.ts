@@ -3,7 +3,7 @@
  */
 
 import type { RouteConfig, RouteRenderResult } from './types';
-import type { RouteRegistry } from '../common/router';
+import type { RouteOptions, RouteRegistry } from '../common/router';
 import { getRenderHandler } from '../router/rendering';
 import { expandRoutes } from './resolve-ssg-data';
 import {
@@ -12,10 +12,9 @@ import {
   resolveRouteDescriptor,
 } from './route-utils';
 
-type StaticRouteSource = {
-  registry?: RouteRegistry;
-  routes?: readonly RouteConfig[];
-};
+type StaticRouteSource = { registry: RouteRegistry };
+type RegistryRouteOptions = RouteOptions &
+  Pick<RouteConfig, 'params' | 'props' | 'invalidationKeys'>;
 
 export type RuntimeOnlyRoute = {
   routeId: string;
@@ -109,11 +108,7 @@ export async function splitStaticRoutes(
 export function normalizeStaticRoutes(
   options: StaticRouteSource
 ): RouteConfig[] {
-  if (options.registry) {
-    return routeRegistryToRouteConfigs(options.registry);
-  }
-
-  return [...(options.routes ?? [])];
+  return routeRegistryToRouteConfigs(options.registry);
 }
 
 function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
@@ -124,14 +119,20 @@ function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
       continue;
     }
 
+    const options = record.options as RegistryRouteOptions;
     routeConfigs.push({
       path: record.path,
       handler: getRenderHandler(record),
-      namespace: record.options.namespace,
-      auth: record.options.auth,
-      policies: record.options.policies,
-      entries: record.options.entries,
-      loader: record.options.loader,
+      params: options.params,
+      props: options.props,
+      invalidationKeys: options.invalidationKeys
+        ? [...options.invalidationKeys]
+        : undefined,
+      namespace: options.namespace,
+      auth: options.auth,
+      policies: options.policies,
+      entries: options.entries,
+      loader: options.loader,
     });
   }
 

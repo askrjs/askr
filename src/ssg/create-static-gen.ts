@@ -16,7 +16,6 @@ import type {
 import * as fs from 'node:fs/promises';
 import * as pathModule from 'node:path';
 import * as os from 'node:os';
-import type { RouteRegistry } from '../common/router';
 import {
   resolveSsgRouteData,
   resolveSsgData,
@@ -48,32 +47,6 @@ import {
 } from './generation-plan';
 import { normalizeStaticRoutes, splitStaticRoutes } from './static-routes';
 import { addPerfDuration, incrementPerfMetric } from '../runtime';
-
-type AnyRouteConfig = RouteConfig<string>;
-
-type StrictRouteConfig<TRoute extends AnyRouteConfig> = Omit<
-  TRoute,
-  'params' | 'entries'
-> & {
-  params?: RouteConfig<TRoute['path']>['params'];
-  entries?: RouteConfig<TRoute['path']>['entries'];
-};
-
-type StrictRouteConfigs<TRoutes extends readonly AnyRouteConfig[]> = {
-  [TIndex in keyof TRoutes]: TRoutes[TIndex] extends AnyRouteConfig
-    ? StrictRouteConfig<TRoutes[TIndex]>
-    : never;
-};
-
-type StaticGenRouteSource<TRoutes extends readonly AnyRouteConfig[]> =
-  | {
-      routes: TRoutes & StrictRouteConfigs<TRoutes>;
-      registry?: never;
-    }
-  | {
-      registry: RouteRegistry;
-      routes?: never;
-    };
 
 function resolveParallelism(requested: number | 'auto' | undefined): number {
   if (requested !== 'auto') {
@@ -194,10 +167,7 @@ export async function replaceOutputDirectory(
  * Usage:
  * ```ts
  * const ssg = createStaticGen({
- *   routes: [
- *     { path: '/', component: HomePage },
- *     { path: '/about', component: AboutPage },
- *   ],
+ *   registry,
  *   outputDir: './dist',
  *   dataOverrides: {
  *     '/api/posts': { posts: [...] }
@@ -208,13 +178,11 @@ export async function replaceOutputDirectory(
  * console.log(`Generated ${result.successful}/${result.totalRoutes} routes`);
  * ```
  */
-export function createStaticGen<
-  const TRoutes extends readonly AnyRouteConfig[],
->(
-  options: Omit<SSGOptions<TRoutes>, 'routes' | 'registry'> &
-    StaticGenRouteSource<TRoutes>
-) {
+export function createStaticGen(options: SSGOptions) {
   let result: SSGResult | null = null;
+  if (!options || !('registry' in options) || !options.registry) {
+    throw new Error('route registry is required');
+  }
   const configuredRoutes = normalizeStaticRoutes(options);
   const seed = options.seed ?? 12345;
   const resolvedParallelism = resolveParallelism(options.parallelism);
@@ -224,7 +192,7 @@ export function createStaticGen<
   );
 
   if (configuredRoutes.length === 0) {
-    throw new Error('routes array or route registry is required');
+    throw new Error('route registry is required');
   }
 
   if (!options.outputDir || options.outputDir.trim().length === 0) {

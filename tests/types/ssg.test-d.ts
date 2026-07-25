@@ -1,4 +1,4 @@
-import { expectAssignable, expectType } from 'tsd';
+import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   createStaticGen,
   type DocumentRenderArgs,
@@ -62,33 +62,8 @@ const documentArgs: DocumentRenderArgs = {
 };
 expectType<string>(documentRenderer(documentArgs));
 
-createStaticGen({
-  routes: [
-    {
-      path: '/posts/{slug}',
-      handler,
-      entries: async () => [{ slug: 'generated-post' }],
-    },
-  ],
-  outputDir: './dist',
-  document: documentRenderer,
-});
-
-createStaticGen({
-  routes: [
-    {
-      path: '/posts/{slug}',
-      component: (props: { slug?: string }, context) => {
-        expectType<Record<string, unknown> | undefined>(context?.ssr?.data);
-        return props.slug ?? 'missing';
-      },
-    },
-  ],
-  outputDir: './dist',
-});
-
 const options: SSGOptions = {
-  routes: [{ path: '/', handler: () => 'home' }, routeConfig],
+  registry,
   outputDir: './dist',
   document: documentRenderer,
   parallelism: 'auto',
@@ -187,14 +162,4 @@ void ({
   entries: async () => [{ id: 'wrong-key' }],
 } satisfies RouteConfig<'/posts/{slug}'>);
 
-createStaticGen({
-  routes: [
-    {
-      path: '/posts/{slug}',
-      handler,
-      // @ts-expect-error entries key must match route path placeholders
-      entries: async () => [{ id: 'wrong-key' }],
-    },
-  ],
-  outputDir: './dist',
-});
+expectError(createStaticGen({ routes: [], outputDir: './dist' }));

@@ -43,9 +43,9 @@ await createSPA({ root: 'app', registry });
 
 Create the route registry before `createSPA()` is called.
 
-Internally, `createSPA()` also accepts a manifest or flat route table, but
-`createRouteRegistry()` is the preferred authoring boundary
-because it keeps the normalized manifest and legacy route table together.
+`createRouteRegistry()` is the public authoring boundary. The registry owns the
+normalized route data used internally; callers should pass that same registry
+to the boot, SSR, SSG, and testing APIs.
 
 ## SSR + SPA hydration
 

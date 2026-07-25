@@ -9,7 +9,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-  createStaticGen,
+  createStaticGen as createRegistryStaticGen,
   replaceOutputDirectory,
 } from '../../../src/ssg/create-static-gen';
 import { writeStaticFiles } from '../../../src/ssg/write-static-files';
@@ -27,6 +27,71 @@ import {
   route,
 } from '../../../src/router/route';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
+
+/** Convert the historical fixture shorthand into the explicit registry API. */
+function createStaticGen(
+  options: unknown
+): ReturnType<typeof createRegistryStaticGen> {
+  const legacyOptions = options as {
+    routes?: readonly Record<string, unknown>[];
+    [key: string]: unknown;
+  };
+  if (!legacyOptions || !Array.isArray(legacyOptions.routes)) {
+    return createRegistryStaticGen(options as never);
+  }
+
+  const registry = createRouteRegistry(() => {
+    for (const config of legacyOptions.routes ?? []) {
+      const component = config.component as
+        | ((props: Record<string, unknown>, context: unknown) => unknown)
+        | undefined;
+      const handler =
+        (config.handler as
+          | ((params: Record<string, string>, context: unknown) => unknown)
+          | undefined) ??
+        ((params: Record<string, string>, context: unknown) =>
+          component?.(
+            {
+              ...(config.props as Record<string, unknown> | undefined),
+              ...params,
+            },
+            context
+          ));
+      route(
+        config.path as string,
+        handler as never,
+        {
+          ...config,
+          component: undefined,
+          handler: undefined,
+        } as never
+      );
+    }
+  });
+
+  const recordsByPath = new Map<string, typeof registry.manifest.records>();
+  for (const record of registry.manifest.records) {
+    const records = recordsByPath.get(record.path) ?? [];
+    records.push(record);
+    recordsByPath.set(record.path, records);
+  }
+  for (const config of legacyOptions.routes ?? []) {
+    const records = recordsByPath.get(config.path as string) ?? [];
+    const record = records.shift();
+    if (!record) continue;
+    Object.assign(record.options, {
+      params: config.params,
+      props: config.props,
+      invalidationKeys: config.invalidationKeys,
+    });
+  }
+
+  return createRegistryStaticGen({
+    ...legacyOptions,
+    registry,
+    routes: undefined,
+  } as never);
+}
 
 // Test utilities
 function createTempDir(): string {
@@ -99,7 +164,7 @@ describe('Static Site Generation', () => {
           routes: [],
           outputDir: tempDir,
         })
-      ).toThrow('routes array or route registry is required');
+      ).toThrow('route registry is required');
     });
 
     it('should throw if no outputDir provided', () => {

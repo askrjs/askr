@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { renderToString, type SSRRoute } from '../../../src/ssr';
+import { renderToString } from '../../../src/ssr';
+import { routeRegistryFromTable } from '../../router-test-utils';
 import { createDataRuntime, createQuery, defineQuery } from '../../../src/data';
 import { verifyHydrationSyncForUrl } from '../../../src/ssr/verify-hydration';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
@@ -14,8 +15,9 @@ describe('verifyHydrationSyncForUrl', () => {
           <span>ready</span>
         </div>
       );
-      const routes: SSRRoute[] = [{ path: '/', handler: Component }];
-      const html = renderToString({ url: '/', routes });
+      const routes = [{ path: '/', handler: Component }];
+      const registry = routeRegistryFromTable(routes);
+      const html = renderToString({ url: '/', registry });
 
       container.innerHTML = html.replace(
         '<span>',
@@ -26,7 +28,7 @@ describe('verifyHydrationSyncForUrl', () => {
         verifyHydrationSyncForUrl({
           root: container,
           url: '/',
-          routes,
+          registry,
           resolved: {
             handler: Component,
             params: {},
@@ -53,12 +55,13 @@ describe('verifyHydrationSyncForUrl', () => {
         const greeting = createQuery(greetingQuery, {});
         return <p>{greeting.data?.message ?? 'loading'}</p>;
       };
-      const routes: SSRRoute[] = [{ path: '/', handler: Component }];
+      const routes = [{ path: '/', handler: Component }];
+      const registry = routeRegistryFromTable(routes);
       const dataRuntime = createDataRuntime();
       dataRuntime.queryData.set('greeting', { message: 'ready' });
       container.innerHTML = renderToString({
         url: '/',
-        routes,
+        registry,
         dataRuntime,
       });
 
@@ -66,7 +69,7 @@ describe('verifyHydrationSyncForUrl', () => {
         verifyHydrationSyncForUrl({
           root: container,
           url: '/',
-          routes,
+          registry,
           resolved: { handler: Component, params: {} },
           options: { dataRuntime },
         })

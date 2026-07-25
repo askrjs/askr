@@ -242,9 +242,9 @@ describe('SSR child normalization', () => {
       },
     ];
 
-    expect(renderToString({ url: '/', routes })).toBe(
-      '<span>a</span><main>b</main>'
-    );
+    expect(
+      renderToString({ url: '/', registry: routeRegistryFromTable(routes) })
+    ).toBe('<span>a</span><main>b</main>');
   });
 
   it('should preserve direct route handler sibling arrays through route-based SSR', () => {
@@ -255,9 +255,9 @@ describe('SSR child normalization', () => {
       },
     ];
 
-    expect(renderToString({ url: '/', routes })).toBe(
-      '<span>a</span><main>b</main>'
-    );
+    expect(
+      renderToString({ url: '/', registry: routeRegistryFromTable(routes) })
+    ).toBe('<span>a</span><main>b</main>');
   });
 });
 
@@ -270,9 +270,12 @@ describe('SSR document boundary', () => {
       },
     ];
 
-    expect(renderToString({ url: '/users/42', routes })).toBe(
-      '<main>User 42</main>'
-    );
+    expect(
+      renderToString({
+        url: '/users/42',
+        registry: routeRegistryFromTable(routes),
+      })
+    ).toBe('<main>User 42</main>');
   });
 
   it('should wrap route-based HTML with document context when provided', () => {
@@ -298,12 +301,12 @@ describe('SSR document boundary', () => {
 
     const appHtml = renderToString({
       url: '/users/42?tab=activity#top',
-      routes,
+      registry: routeRegistryFromTable(routes),
       data,
     });
     const wrappedHtml = renderToString({
       url: '/users/42?tab=activity#top',
-      routes,
+      registry: routeRegistryFromTable(routes),
       data,
       document,
     });
@@ -353,7 +356,7 @@ describe('SSR document boundary', () => {
     expect(() =>
       renderToString({
         url: '/',
-        routes,
+        registry: routeRegistryFromTable(routes),
         document: (() =>
           Promise.resolve('<html><body>Hello</body></html>')) as never,
       })
@@ -368,11 +371,13 @@ describe('SSR streaming parity', () => {
     let out = '';
     renderToStream({
       url: '/',
-      routes,
+      registry: routeRegistryFromTable(routes),
       onChunk: (c) => (out += c),
       onComplete: () => {},
     });
 
-    expect(out).toBe(renderToString({ url: '/', routes }));
+    expect(out).toBe(
+      renderToString({ url: '/', registry: routeRegistryFromTable(routes) })
+    );
   });
 });

@@ -1,8 +1,9 @@
-import type { RouteHandler } from '../common/router';
+import type { RouteHandler, RouteRegistry } from '../common/router';
 import type { DataRuntime } from '../data/types';
 import * as RouteModule from '../router/route';
+import { createRouteRegistry, route as defineRoute } from '../router/route';
 import type { SSRData } from './context';
-import { renderToString, type SSRRoute } from './index';
+import { renderToString } from './index';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
 
 function sameRouteParams(
@@ -30,11 +31,7 @@ function sameRouteParams(
 
 export function renderResolvedToStringSync(opts: {
   url: string;
-  routes: ReadonlyArray<{
-    path: string;
-    handler: RouteHandler;
-    namespace?: string;
-  }>;
+  registry: RouteRegistry;
   handler: RouteHandler;
   params?: Record<string, string>;
   options?: {
@@ -45,7 +42,8 @@ export function renderResolvedToStringSync(opts: {
     cspNonce?: string;
   };
 }): string {
-  const { url, routes, handler, params, options } = opts;
+  const { url, registry, handler, params, options } = opts;
+  const routes = registry.routes;
   const requestUrl = new URL(url, 'http://localhost');
 
   const matchedIndex = routes.findIndex((route) => {
@@ -69,10 +67,15 @@ export function renderResolvedToStringSync(opts: {
   const effectiveRoutes = routes.map((route, index) =>
     index === matchedIndex ? { ...route, handler } : route
   );
+  const effectiveRegistry = createRouteRegistry(() => {
+    for (const route of effectiveRoutes) {
+      defineRoute(route.path, route.handler, { namespace: route.namespace });
+    }
+  });
 
   return renderToString({
     url,
-    routes: effectiveRoutes as SSRRoute[],
+    registry: effectiveRegistry,
     seed: options?.seed,
     data: options?.data,
     dataRuntime: options?.dataRuntime,

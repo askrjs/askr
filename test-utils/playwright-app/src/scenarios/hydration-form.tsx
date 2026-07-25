@@ -110,7 +110,6 @@ export function SignupForm() {
 export async function mountHydrationFormScenario(
   root: HTMLElement
 ): Promise<void> {
-  const routes = [{ path: '/signup', handler: SignupForm }];
   const registry = createRouteRegistry(() => {
     route('/signup', SignupForm);
   });
@@ -121,7 +120,7 @@ export async function mountHydrationFormScenario(
 
   root.innerHTML = renderToString({
     url: `${window.location.pathname}${window.location.search}`,
-    routes,
+    registry,
   });
 
   await hydrateSPA({ root, registry });

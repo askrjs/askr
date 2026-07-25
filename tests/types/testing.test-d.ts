@@ -76,11 +76,11 @@ expectType<void>(recorder.clear());
 expectType<void>(recorder.stop());
 
 const routeMatch = matchRoute('/admin/buckets/main/files/a/b', {
-  manifest: registry.manifest,
+  registry,
 });
 expectType<RouteMatch | null>(routeMatch);
 
-const routeWarnings = getRouteWarnings({ manifest: registry.manifest });
+const routeWarnings = getRouteWarnings({ registry });
 expectType<RoutePatternWarning[]>(routeWarnings);
 const routeWarning: RoutePatternWarning = {
   kind: 'route-collision',
