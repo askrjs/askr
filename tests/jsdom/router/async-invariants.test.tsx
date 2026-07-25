@@ -108,9 +108,9 @@ describe('router async invariants', () => {
       ],
     });
 
-    await expect(resolveRouteRequest('/private')).resolves.toEqual(
-      redirect('/login')
-    );
+    await expect(
+      resolveRouteRequest('/private', { registry: currentRouteRegistry() })
+    ).resolves.toEqual(redirect('/login'));
   });
 
   it('should handle rejected async navigation policies without an unhandled rejection', async () => {

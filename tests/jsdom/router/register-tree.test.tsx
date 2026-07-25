@@ -149,7 +149,7 @@ describe('callback route registration', () => {
 
     const resolved = await resolveRouteRequest(
       '/accounts/acc_42?tab=team#members',
-      registry
+      { registry }
     );
 
     expect(resolved?.kind).toBe('render');
@@ -265,10 +265,9 @@ describe('callback route registration', () => {
       }
     );
 
-    const resolved = await resolveRouteRequest(
-      '/login?next=%2Fdashboard',
-      registry
-    );
+    const resolved = await resolveRouteRequest('/login?next=%2Fdashboard', {
+      registry,
+    });
 
     expect(resolved).toEqual({
       kind: 'redirect',
@@ -292,12 +291,14 @@ describe('callback route registration', () => {
       fallback(() => <div>{'root-missing'}</div>);
     });
 
-    const exact = await resolveRouteRequest('/docs/components/tabs', registry);
+    const exact = await resolveRouteRequest('/docs/components/tabs', {
+      registry,
+    });
     const pageMiss = await resolveRouteRequest(
       '/docs/components/unknown/deeper',
-      registry
+      { registry }
     );
-    const rootMiss = await resolveRouteRequest('/outside', registry);
+    const rootMiss = await resolveRouteRequest('/outside', { registry });
 
     expect(exact?.kind).toBe('render');
     expect(pageMiss?.kind).toBe('render');

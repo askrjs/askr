@@ -668,7 +668,7 @@ function resolveAppRouteRequest(
   signal: AbortSignal
 ): RouteRequestResult | Promise<RouteRequestResult> {
   return resolveRouteRequest(href, {
-    manifest: app.registry.manifest,
+    registry: app.registry,
     auth: app.auth,
     signal,
   });

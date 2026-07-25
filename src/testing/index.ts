@@ -217,7 +217,7 @@ export function matchRoute(
 
   return (
     computeRouteActivityMatches(path, {
-      manifest: options.registry.manifest,
+      registry: options.registry,
     })[0] ?? null
   );
 }

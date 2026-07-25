@@ -14,7 +14,7 @@ import {
   type ReadableSource,
 } from '../runtime';
 import { deepFreeze, makeQuery, parseLocation } from './route-context';
-import { computeMatchesFromRoutes } from './resolution';
+import { computeMatchesFromRoutes } from './route-matching';
 import { getActiveRoutes } from './store';
 
 let currentRouteSnapshot = buildRouteSnapshot('/', '', '');

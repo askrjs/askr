@@ -46,6 +46,10 @@ describe('router public contract documentation', () => {
     );
     expect(types).toMatch(/Pass a route registry/);
     expect(types).not.toMatch(/manifest\?|Deprecated|legacy/);
+
+    const routerTypes = read('src/common/router.ts');
+    expect(routerTypes).toMatch(/registry: RouteRegistry/);
+    expect(routerTypes).not.toMatch(/manifest\?: RouteManifest/);
   });
 
   it('should direct the router reference to the explicit registry API', () => {

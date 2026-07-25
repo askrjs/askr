@@ -89,7 +89,7 @@ export async function resolveRequest(opts: {
 
   const { url, auth, authContext, request, signal } = opts;
   return await RouteModule.resolveRouteRequest(url, {
-    manifest: opts.registry.manifest,
+    registry: opts.registry,
     mode: 'ssr',
     auth,
     authContext,

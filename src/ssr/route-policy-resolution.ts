@@ -5,6 +5,7 @@ import type {
   RouteRequestResult,
 } from '../common/router';
 import * as RouteModule from '../router/route';
+import { _resolveRouteMatchFromRoutes } from '../router/route-matching';
 import { throwSSRDataMissing } from './context';
 import type { RouteRenderOptions, SSRRoute } from './route-render';
 
@@ -59,31 +60,14 @@ export function resolvePolicyAwareSSRRoute(
   opts: RouteRenderOptions,
   routeTable: SSRRoute[]
 ): ResolvedPolicyAwareSSRRoute {
-  const manifest = opts.registry?.manifest;
-
-  if (!manifest) {
-    const requestUrl = new URL(opts.url, 'http://localhost');
-    const matched = RouteModule._resolveRouteMatchFromRoutes(
-      requestUrl.pathname,
-      routeTable
-    );
-    if (!matched) {
-      throw new Error(`SSR: no route found for url: ${opts.url}`);
-    }
-
-    return {
-      url: opts.url,
-      route: matched.route,
-      params: matched.params,
-    };
-  }
+  const manifest = opts.registry.manifest;
 
   let href = opts.url;
   const visited = new Set<string>();
 
   for (let redirects = 0; redirects <= MAX_SSR_REDIRECTS; redirects += 1) {
     const requestUrl = new URL(href, 'http://localhost');
-    const matched = RouteModule._resolveRouteMatchFromRoutes(
+    const matched = _resolveRouteMatchFromRoutes(
       requestUrl.pathname,
       routeTable
     );
@@ -94,7 +78,7 @@ export function resolvePolicyAwareSSRRoute(
 
     const resolved = getRouteRequestResultSync(
       RouteModule.resolveRouteRequest(href, {
-        manifest,
+        registry: opts.registry,
         mode: 'ssr',
       })
     );

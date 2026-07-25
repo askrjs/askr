@@ -280,7 +280,7 @@ async function renderRouteRequestInternal(
   return withTelemetry(options.telemetry?.ssrRender, {}, () =>
     withRenderContextAsync(context, async () => {
       const resolved = await resolveRouteRequest(options.url, {
-        manifest,
+        registry: options.registry,
         mode: 'ssr',
         auth: options.auth ?? manifest.auth,
         authContext: options.authContext,

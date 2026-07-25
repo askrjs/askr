@@ -14,9 +14,9 @@ import {
   createRouteRegistry,
   page,
   resolveRoute,
-  resolveRouteFromRoutes,
   _applyManifest,
 } from '../../../src/router/route';
+import { resolveRouteFromRoutes } from '../../../src/router/route-matching';
 import { parseSegments, computeRank } from '../../../src/router/match';
 import {
   clearRouteState,

@@ -232,7 +232,7 @@ describe('route accessor (public)', () => {
     const resolved = await resolveRouteRequest(
       '/docs/components/unknown/deeper',
       {
-        manifest,
+        registry: currentRouteRegistry(manifest),
       }
     );
 
@@ -288,7 +288,7 @@ describe('route accessor (public)', () => {
 
     const manifest = currentRouteManifest();
     const resolved = await resolveRouteRequest('/docs/components/tabs', {
-      manifest,
+      registry: currentRouteRegistry(manifest),
     });
 
     setGlobalWindow({
@@ -373,7 +373,9 @@ describe('route accessor (public)', () => {
     });
 
     const manifest = currentRouteManifest();
-    const resolved = await resolveRouteRequest('/outside/deeper', { manifest });
+    const resolved = await resolveRouteRequest('/outside/deeper', {
+      registry: currentRouteRegistry(manifest),
+    });
 
     setGlobalWindow({
       location: { pathname: '/', search: '', hash: '' },
