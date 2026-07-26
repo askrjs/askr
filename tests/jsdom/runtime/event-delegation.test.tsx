@@ -493,6 +493,27 @@ describe('event delegation', () => {
   });
 
   describe('event bubbling', () => {
+    it('should keep currentTarget bound to each registered element', () => {
+      let currentTarget: EventTarget | null = null;
+      const Component = () => (
+        <button
+          id="current-target"
+          onClick={(event) => {
+            currentTarget = event.currentTarget;
+          }}
+        >
+          Button
+        </button>
+      );
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      const button = container.querySelector('#current-target')!;
+      fireEvent.click(button);
+
+      expect(currentTarget).toBe(button);
+    });
+
     it('should handle events that bubble through delegation', () => {
       const clicks: string[] = [];
       const Component = () => (
@@ -539,6 +560,33 @@ describe('event delegation', () => {
 
       // Should only execute inner handler
       expect(clicks).toEqual(['inner']);
+    });
+
+    it('should snapshot ancestor handlers before synchronous child teardown', () => {
+      const calls: string[] = [];
+      let show: ReturnType<typeof state<boolean>>;
+      const Component = () =>
+        (show = state(true)) && show() ? (
+          <div id="ancestor" onClick={() => calls.push('ancestor')}>
+            <button
+              onClick={() => {
+                calls.push('child');
+                show.set(false);
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <span>{'gone'}</span>
+        );
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      fireEvent.click(container.querySelector('button')!);
+
+      expect(calls).toEqual(['child', 'ancestor']);
+      expect(container.querySelector('#ancestor')).toBeNull();
     });
   });
 });
