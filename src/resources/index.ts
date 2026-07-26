@@ -5,6 +5,11 @@
  */
 
 export { resource } from '../runtime';
+export { onRouteChange } from '../router/activity';
+export type {
+  RouteChangeCleanup,
+  RouteChangeOptions,
+} from '../router/activity';
 export {
   documentVisible,
   on,
