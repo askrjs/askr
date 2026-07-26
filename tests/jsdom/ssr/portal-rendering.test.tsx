@@ -63,6 +63,19 @@ describe('SSR portal rendering', () => {
     expect(html).toBe('<main></main><div class="overlay">Portalled</div>');
   });
 
+  it('should insert portal HTML containing replacement tokens verbatim', () => {
+    const html = renderToStringSync(() => (
+      <main>
+        <Portal>
+          <div>{"cash $& $1 $$ $` $'"}</div>
+        </Portal>
+        <DefaultPortal />
+      </main>
+    ));
+
+    expect(html).toBe("<main><div>cash $&amp; $1 $$ $` $'</div></main>");
+  });
+
   it('should render a defined portal independent of host evaluation order', () => {
     const EarlyHost = definePortal();
     const LateHost = definePortal();

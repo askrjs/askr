@@ -164,7 +164,7 @@ function resolveSSRPortals(html: string, ctx: RenderContext): string {
           activeHosts.has(host.token) && slot.hasValue
             ? renderRenderableSync(slot.value, ctx)
             : '';
-        resolved = resolved.replace(host.token, content);
+        resolved = resolved.replace(host.token, () => content);
         renderedHosts.add(host.token);
       }
     }
