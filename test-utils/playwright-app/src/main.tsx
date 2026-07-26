@@ -331,9 +331,6 @@ async function mountHydratedBenchmarkTableScenario(
   hydrationRowsState = null;
   hydrationSelectedState = null;
 
-  const routes = [
-    { path: '/benchmark-hydrate', handler: HydrationBenchmarkPage },
-  ];
   const registry = createRouteRegistry(() => {
     route('/benchmark-hydrate', HydrationBenchmarkPage);
   });
