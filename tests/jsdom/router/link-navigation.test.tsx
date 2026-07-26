@@ -80,7 +80,11 @@ describe('Link component navigation', () => {
   it('should run consumer onPress then onClick before internal navigation', async () => {
     const calls: string[] = [];
     route('/', () => (
-      <Link href="/about" onPress={() => calls.push('press')} onClick={() => calls.push('click')}>
+      <Link
+        href="/about"
+        onPress={() => calls.push('press')}
+        onClick={() => calls.push('click')}
+      >
         About
       </Link>
     ));

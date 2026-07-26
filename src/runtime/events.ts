@@ -76,7 +76,10 @@ interface DelegatedHandler {
   options?: AddEventListenerOptions;
 }
 
-function createDelegatedEventFacade(event: Event, currentTarget: Element): Event {
+function createDelegatedEventFacade(
+  event: Event,
+  currentTarget: Element
+): Event {
   return new Proxy(event, {
     get(target, property, receiver) {
       if (property === 'currentTarget') {
