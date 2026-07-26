@@ -9,6 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import * as pathModule from 'node:path';
 import type { RouteRenderResult } from './types';
+import { resolveSsgOutputPath } from './output-path';
 
 interface WriteStaticFilesOptions {
   concurrency?: number;
@@ -36,7 +37,7 @@ export async function writeStaticFiles(
       continue;
     }
 
-    const fullPath = pathModule.join(outputDir, result.filePath);
+    const fullPath = resolveSsgOutputPath(outputDir, result.filePath);
     if (fsSync.existsSync(fullPath)) {
       await fileOperations.rm(fullPath, { force: true });
       await pruneEmptyDirs(
@@ -67,7 +68,9 @@ export async function writeStaticFiles(
   const directories: string[] = [];
   const seenDirectories = new Set<string>();
   for (const result of pendingWrites) {
-    const dir = pathModule.dirname(pathModule.join(outputDir, result.filePath));
+    const dir = pathModule.dirname(
+      resolveSsgOutputPath(outputDir, result.filePath)
+    );
     if (!seenDirectories.has(dir)) {
       seenDirectories.add(dir);
       directories.push(dir);
@@ -93,7 +96,7 @@ export async function writeStaticFiles(
       }
 
       const result = pendingWrites[current];
-      const fullPath = pathModule.join(outputDir, result.filePath);
+      const fullPath = resolveSsgOutputPath(outputDir, result.filePath);
       // Incremental output is observable while a generation is running. Write
       // the complete replacement beside the live file, then publish it with
       // rename so a failed write cannot truncate the prior route HTML.
