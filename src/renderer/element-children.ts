@@ -64,7 +64,7 @@ export function updateElementChildren(
   clearControlBoundaryCommitOwner(el);
 
   if (children === null || children === undefined) {
-    for (let n = el.firstChild; n;) {
+    for (let n = el.firstChild; n; ) {
       const next = n.nextSibling;
       teardownNodeSubtree(n);
       n = next;
@@ -91,7 +91,7 @@ export function updateElementChildren(
       const t = el.firstChild as Text;
       if (t.data !== s) t.data = s;
     } else {
-      for (let n = el.firstChild; n;) {
+      for (let n = el.firstChild; n; ) {
         const next = n.nextSibling;
         teardownNodeSubtree(n);
         n = next;
@@ -115,13 +115,7 @@ export function updateElementChildren(
       return;
     }
 
-    if (
-      normalizedChildren.some(isControlBoundaryVNode) &&
-      normalizedChildren.every((child) => {
-        if (!isControlBoundaryVNode(child)) return true;
-        return getControlBoundaryState(child)?.kind !== 'for';
-      })
-    ) {
+    if (normalizedChildren.some(isControlBoundaryVNode)) {
       updateMixedControlChildren(el, normalizedChildren, forceUpdate);
       keyedElements.delete(el);
       return;
@@ -151,7 +145,7 @@ export function updateElementChildren(
     return;
   }
 
-  for (let n = el.firstChild; n;) {
+  for (let n = el.firstChild; n; ) {
     const next = n.nextSibling;
     teardownNodeSubtree(n);
     n = next;
@@ -195,11 +189,12 @@ function removeRangeAtCursor(parent: Element, cursor: Node): Node | null {
   return next;
 }
 
-function updateMixedControlChildren(
+export function updateMixedControlChildren(
   parent: Element,
   children: VNode[],
   forceUpdate: boolean
 ): void {
+  clearControlBoundaryCommitOwner(parent);
   const parentNamespace = getParentNamespace(parent);
   const domHost = getRendererDOMHost();
   let cursor: Node | null = parent.firstChild;
@@ -213,7 +208,6 @@ function updateMixedControlChildren(
         );
       }
 
-      registerControlBoundaryCommitOwner(parent, controlState);
       const childVNodes = evaluateControlBoundaryState(controlState);
       const cursorAfterBoundary = cursor
         ? isRangeStart(cursor)
@@ -226,6 +220,17 @@ function updateMixedControlChildren(
         childVNodes,
         cursor
       );
+      if (controlState.kind === 'for') {
+        const last = ranges[ranges.length - 1];
+        cursor = last
+          ? last.end.nextSibling
+          : cursorAfterBoundary?.parentNode === parent
+            ? cursorAfterBoundary
+            : cursor?.parentNode === parent
+              ? cursor
+              : null;
+        continue;
+      }
       for (const range of ranges) {
         if (range.start.parentNode !== parent) {
           moveRange(
@@ -547,7 +552,7 @@ export function updateUnkeyedChildren(
   }
 
   if (existing.length === 0 && parent.childNodes.length > 0) {
-    for (let n = parent.firstChild; n;) {
+    for (let n = parent.firstChild; n; ) {
       const next = n.nextSibling;
       teardownNodeSubtree(n);
       n = next;
