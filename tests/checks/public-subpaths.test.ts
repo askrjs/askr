@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
 describe('published subpath map', () => {
-  test('matches package exports exactly', async () => {
+  test('should match package exports exactly', async () => {
     const pkg = JSON.parse(await readFile(`${root}/package.json`, 'utf8')) as {
       exports: Record<string, unknown>;
     };
