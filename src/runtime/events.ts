@@ -232,9 +232,11 @@ function attachDelegatedListener(
         // ancestors (notably across document/container boundaries). Always
         // supplement it with the native target ancestry so delegated
         // handlers remain reliable after navigation and hydration.
+        const seenPathNodes = new Set<EventTarget>();
         let node = e.target;
         while (node) {
-          if (!path.includes(node)) {
+          if (!seenPathNodes.has(node)) {
+            seenPathNodes.add(node);
             path.push(node);
           }
           if (node === container) {
@@ -246,7 +248,8 @@ function attachDelegatedListener(
         }
         if (typeof e.composedPath === 'function') {
           for (const composedNode of e.composedPath()) {
-            if (!path.includes(composedNode)) {
+            if (!seenPathNodes.has(composedNode)) {
+              seenPathNodes.add(composedNode);
               path.push(composedNode);
             }
           }
