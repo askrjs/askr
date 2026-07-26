@@ -35,7 +35,10 @@ export function hashHtml(html: string): string {
 }
 
 export function getIncrementalManifestPath(outputDir: string): string {
-  return pathModule.join(outputDir, MANIFEST_DIR, MANIFEST_FILE);
+  return resolveSsgOutputPath(
+    outputDir,
+    pathModule.join(MANIFEST_DIR, MANIFEST_FILE)
+  );
 }
 
 export function readIncrementalManifest(
@@ -65,6 +68,7 @@ export function readIncrementalManifest(
         typeof entry.routeId === 'string' &&
         typeof entry.path === 'string' &&
         typeof entry.filePath === 'string' &&
+        isContainedManifestFilePath(outputDir, entry.filePath) &&
         Array.isArray(entry.invalidationKeys) &&
         (entry.htmlHash === null || typeof entry.htmlHash === 'string') &&
         (entry.lastStatus === 'success' || entry.lastStatus === 'error')
@@ -85,10 +89,29 @@ export function readIncrementalManifest(
   }
 }
 
+function isContainedManifestFilePath(
+  outputDir: string,
+  filePath: string
+): boolean {
+  try {
+    resolveSsgOutputPath(outputDir, filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function writeIncrementalManifest(
   manifest: IncrementalManifest,
   outputDir: string
 ): Promise<void> {
+  if (
+    !manifest.routes.every((entry) =>
+      isContainedManifestFilePath(outputDir, entry.filePath)
+    )
+  ) {
+    throw new Error('SSG manifest contains a path outside outputDir.');
+  }
   const manifestPath = getIncrementalManifestPath(outputDir);
   await fsPromises.mkdir(pathModule.dirname(manifestPath), { recursive: true });
   await fsPromises.writeFile(
