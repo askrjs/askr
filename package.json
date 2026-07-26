@@ -23,6 +23,7 @@
     "url": "git+https://github.com/askrjs/askr.git"
   },
   "files": [
+    "capabilities.json",
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
