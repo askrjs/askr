@@ -8,7 +8,7 @@ import {
 const fixture = buildSsrLayoutRouteFixture();
 const html = renderToString({
   url: fixture.url,
-  routes: fixture.routes,
+  registry: fixture.registry,
 });
 
 expect(html).toContain(fixture.shellMarker);
@@ -20,7 +20,7 @@ describe('tier2 ssr layout route', () => {
     () => {
       renderToString({
         url: fixture.url,
-        routes: fixture.routes,
+        registry: fixture.registry,
       });
     },
     tier2BenchOptions

@@ -1,5 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { createSPA } from '../../src/boot';
+import { createRouteRegistry, route } from '../../src/router';
 import { navigate } from '../../src/router/navigate';
 import {
   createTestContainer,
@@ -35,7 +36,10 @@ await (async () => {
 
   try {
     setLocationPath('/alpha');
-    await createSPA({ root: container, routes });
+    const registry = createRouteRegistry(() => {
+      for (const entry of routes) route(entry.path, entry.handler);
+    });
+    await createSPA({ root: container, registry });
     flushScheduler();
     const layout = container.querySelector('.layout');
     navigate('/beta');
@@ -63,27 +67,19 @@ describe('tier2 router navigation', () => {
         const result = createTestContainer();
         cleanup = result.cleanup;
         setLocationPath('/alpha');
-        await createSPA({
-          root: result.container,
-          routes: [
-            {
-              path: '/alpha',
-              handler: () => (
-                <div class="layout">
-                  <div class="page">Alpha</div>
-                </div>
-              ),
-            },
-            {
-              path: '/beta',
-              handler: () => (
-                <div class="layout">
-                  <div class="page">Beta</div>
-                </div>
-              ),
-            },
-          ],
+        const registry = createRouteRegistry(() => {
+          route('/alpha', () => (
+            <div class="layout">
+              <div class="page">Alpha</div>
+            </div>
+          ));
+          route('/beta', () => (
+            <div class="layout">
+              <div class="page">Beta</div>
+            </div>
+          ));
         });
+        await createSPA({ root: result.container, registry });
         flushScheduler();
       },
       teardown() {

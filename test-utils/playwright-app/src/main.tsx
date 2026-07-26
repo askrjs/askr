@@ -331,9 +331,6 @@ async function mountHydratedBenchmarkTableScenario(
   hydrationRowsState = null;
   hydrationSelectedState = null;
 
-  const routes = [
-    { path: '/benchmark-hydrate', handler: HydrationBenchmarkPage },
-  ];
   const registry = createRouteRegistry(() => {
     route('/benchmark-hydrate', HydrationBenchmarkPage);
   });
@@ -344,7 +341,7 @@ async function mountHydratedBenchmarkTableScenario(
 
   root.innerHTML = renderToString({
     url: `${window.location.pathname}${window.location.search}`,
-    routes,
+    registry,
   });
 
   await hydrateSPA({ root, registry });

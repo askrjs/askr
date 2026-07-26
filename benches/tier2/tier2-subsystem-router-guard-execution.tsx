@@ -1,5 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { createRouteRegistry, requireRole, route } from '../../src/router';
+import { requireRole } from '@askrjs/auth';
+import { createRouteRegistry, route } from '../../src/router';
 import { resolveRequest } from '../../src/ssr';
 import {
   tier2BenchOptions,
@@ -16,11 +17,13 @@ const guardModeState = {
 const auth = {
   resolve() {
     return {
-      session: { id: 'session-1' },
-      user:
+      authenticated: true,
+      principal:
         guardModeState.current === 'admin'
           ? { roles: ['admin'] }
           : { roles: ['member'] },
+      session: { id: 'session-1' },
+      tenant: null,
     };
   },
 };
@@ -28,7 +31,7 @@ const auth = {
 const registry = createRouteRegistry(
   () => {
     route('/admin/{id}', ({ id }) => id, {
-      policies: [requireRole('admin')],
+      auth: requireRole('admin'),
     });
   },
   { auth }
@@ -38,7 +41,7 @@ describe('tier2 subsystem router guard execution', () => {
   let guardToggle: BenchToggle<GuardMode> | null = null;
 
   const resolveGuardedRoute = () =>
-    resolveRequest({ url: '/admin/123', manifest: registry.manifest });
+    resolveRequest({ url: '/admin/123', registry });
 
   bench(
     'evaluate a role-guarded route request',
