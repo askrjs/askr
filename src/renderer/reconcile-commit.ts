@@ -1,14 +1,11 @@
-import { teardownNodeSubtree } from './cleanup';
-import { recordDOMReplace } from './utils';
+import { teardownNodeSubtree } from "./cleanup";
+import { recordDOMReplace } from "./utils";
 
-export function commitReconciliation(
-  parent: Element,
-  finalNodes: Node[]
-): void {
+export function commitReconciliation(parent: Element, finalNodes: Node[]): void {
   try {
     const finalSet = new Set<Node>(finalNodes);
 
-    for (let n = parent.firstChild; n; ) {
+    for (let n = parent.firstChild; n;) {
       const next = n.nextSibling;
       if (!finalSet.has(n)) {
         teardownNodeSubtree(n);
@@ -31,7 +28,7 @@ export function commitReconciliation(
     }
 
     try {
-      for (let n = parent.firstChild; n; ) {
+      for (let n = parent.firstChild; n;) {
         const next = n.nextSibling;
         teardownNodeSubtree(n);
         n = next;
@@ -40,7 +37,7 @@ export function commitReconciliation(
       // Ignore fallback cleanup failures.
     }
 
-    recordDOMReplace('reconcile');
+    recordDOMReplace("reconcile");
     parent.replaceChildren(fragment);
     return;
   }

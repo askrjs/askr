@@ -1,25 +1,25 @@
-import { logger } from '../common/logger';
-import { getRuntimeEnv } from './env';
-import type { Props } from '../common/props';
-import type { ComponentInstance } from '../runtime';
-import { elementListeners, updateElementRef } from './cleanup';
-import { keyedElements } from './keyed';
-import { createElementForNamespace, getParentNamespace } from './namespaces';
-import { reconcileKeyedChildren } from './reconcile';
-import { _isDOMElement, type DOMElement, type VNode } from './types';
-import { __CONTROL_BOUNDARY__ } from '../common/vnode';
-import { evaluateForState } from '../runtime';
-import { evaluateCaseState, evaluateShowState } from '../runtime';
-import { commitForBoundaryChildren } from './boundaries';
+import { logger } from "../common/logger";
+import { getRuntimeEnv } from "./env";
+import type { Props } from "../common/props";
+import type { ComponentInstance } from "../runtime";
+import { elementListeners, updateElementRef } from "./cleanup";
+import { keyedElements } from "./keyed";
+import { createElementForNamespace, getParentNamespace } from "./namespaces";
+import { reconcileKeyedChildren } from "./reconcile";
+import { _isDOMElement, type DOMElement, type VNode } from "./types";
+import { __CONTROL_BOUNDARY__ } from "../common/vnode";
+import { evaluateForState } from "../runtime";
+import { evaluateCaseState, evaluateShowState } from "../runtime";
+import { commitForBoundaryChildren } from "./boundaries";
 import {
   isBulkTextFastPathEligible,
   performBulkPositionalKeyedTextUpdate,
   performBulkTextReplace,
-} from './children';
-import { getRendererDOMHost } from './dom-host';
-import { updateUnkeyedChildren } from './element-children';
-import { setDevValue, incDevCounter } from '../runtime';
-import { Fragment } from '../common/jsx';
+} from "./children";
+import { getRendererDOMHost } from "./dom-host";
+import { updateUnkeyedChildren } from "./element-children";
+import { setDevValue, incDevCounter } from "../runtime";
+import { Fragment } from "../common/jsx";
 import {
   createWrappedHandler,
   extractKey,
@@ -31,9 +31,9 @@ import {
   setRenderedAttribute,
   tagNamesEqualIgnoreCase as sharedTagNamesEqualIgnoreCase,
   writeElementClassName,
-} from './utils';
-import { runRetainedElementUpdate } from './retained-element-rollback';
-import { tryAdoptMatchingIntrinsicSubtree } from './intrinsic-hydration-adoption';
+} from "./utils";
+import { runRetainedElementUpdate } from "./retained-element-rollback";
+import { tryAdoptMatchingIntrinsicSubtree } from "./intrinsic-hydration-adoption";
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -46,7 +46,7 @@ type ComponentHostElement = Element & {
 
 export function getRetainedHostOwnerChain(
   host: ComponentHostElement,
-  owner: ComponentInstance
+  owner: ComponentInstance,
 ): ComponentInstance[] {
   const instances = host.__ASKR_INSTANCES ?? [];
   const ownerIndex = instances.indexOf(owner);
@@ -57,7 +57,7 @@ export function getRetainedHostOwnerChain(
 export function retainHostOwnerChain(
   host: Element,
   owner: ComponentInstance,
-  retainedInstances: ComponentInstance[]
+  retainedInstances: ComponentInstance[],
 ): void {
   const componentHost = host as ComponentHostElement;
   const existing = componentHost.__ASKR_INSTANCES ?? [];
@@ -91,15 +91,12 @@ export function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
 
 function checkSimpleText(vnodeChildren: unknown): TextCheckResult {
   if (!Array.isArray(vnodeChildren)) {
-    if (
-      typeof vnodeChildren === 'string' ||
-      typeof vnodeChildren === 'number'
-    ) {
+    if (typeof vnodeChildren === "string" || typeof vnodeChildren === "number") {
       return { isSimple: true, text: String(vnodeChildren) };
     }
   } else if (vnodeChildren.length === 1) {
     const child = vnodeChildren[0];
-    if (typeof child === 'string' || typeof child === 'number') {
+    if (typeof child === "string" || typeof child === "number") {
       return { isSimple: true, text: String(child) };
     }
   }
@@ -116,11 +113,7 @@ function tryUpdateTextInPlace(element: Element, text: string): boolean {
 
 function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
   const keyMap = new Map<string | number, Element>();
-  for (
-    let child = parent.firstElementChild;
-    child;
-    child = child.nextElementSibling
-  ) {
+  for (let child = parent.firstElementChild; child; child = child.nextElementSibling) {
     const key = getMaterializedKey(child);
     if (key !== undefined) {
       keyMap.set(key, child);
@@ -129,9 +122,7 @@ function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
   return keyMap;
 }
 
-function getOrBuildKeyMap(
-  parent: Element
-): Map<string | number, Element> | undefined {
+function getOrBuildKeyMap(parent: Element): Map<string | number, Element> | undefined {
   let keyMap = keyedElements.get(parent);
   if (!keyMap) {
     keyMap = buildKeyMapFromDOM(parent);
@@ -149,13 +140,11 @@ function hasKeyedChildren(children: unknown[]): boolean {
   return false;
 }
 
-function trackBulkTextStats(
-  stats: ReturnType<typeof performBulkTextReplace>
-): void {
-  if (getRuntimeEnv().NODE_ENV !== 'production') {
+function trackBulkTextStats(stats: ReturnType<typeof performBulkTextReplace>): void {
+  if (getRuntimeEnv().NODE_ENV !== "production") {
     try {
-      setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
-      incDevCounter('bulkTextHits');
+      setDevValue("__LAST_BULK_TEXT_FASTPATH_STATS", stats);
+      incDevCounter("bulkTextHits");
     } catch {
       // ignore
     }
@@ -163,9 +152,9 @@ function trackBulkTextStats(
 }
 
 function trackBulkTextMiss(): void {
-  if (getRuntimeEnv().NODE_ENV !== 'production') {
+  if (getRuntimeEnv().NODE_ENV !== "production") {
     try {
-      incDevCounter('bulkTextMisses');
+      incDevCounter("bulkTextMisses");
     } catch {
       // ignore
     }
@@ -175,9 +164,9 @@ function trackBulkTextMiss(): void {
 function reconcileKeyed(
   parent: Element,
   children: VNode[],
-  oldKeyMap: Map<string | number, Element> | undefined
+  oldKeyMap: Map<string | number, Element> | undefined,
 ): void {
-  if (getRuntimeEnv().ASKR_FORCE_BULK_POSREUSE === '1') {
+  if (getRuntimeEnv().ASKR_FORCE_BULK_POSREUSE === "1") {
     const result = tryForcedBulkKeyedPath(parent, children);
     if (result) return;
   }
@@ -205,13 +194,8 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
 
     if (DEVELOPMENT_BUILD_ENABLED) {
       const fastPathEnv = getRuntimeEnv();
-      if (
-        fastPathEnv.ASKR_FASTPATH_DEBUG === '1' ||
-        fastPathEnv.ASKR_FASTPATH_DEBUG === 'true'
-      ) {
-        logger.warn(
-          '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
-        );
+      if (fastPathEnv.ASKR_FASTPATH_DEBUG === "1" || fastPathEnv.ASKR_FASTPATH_DEBUG === "true") {
+        logger.warn("[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)");
       }
     }
 
@@ -219,14 +203,11 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
 
     if (DEVELOPMENT_BUILD_ENABLED) {
       const statsEnv = getRuntimeEnv();
-      if (
-        statsEnv.NODE_ENV !== 'production' ||
-        statsEnv.ASKR_FASTPATH_DEBUG === '1'
-      ) {
+      if (statsEnv.NODE_ENV !== "production" || statsEnv.ASKR_FASTPATH_DEBUG === "1") {
         try {
-          setDevValue('__LAST_FASTPATH_STATS', stats);
-          setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
-          incDevCounter('bulkKeyedPositionalForced');
+          setDevValue("__LAST_FASTPATH_STATS", stats);
+          setDevValue("__LAST_FASTPATH_COMMIT_COUNT", 1);
+          incDevCounter("bulkKeyedPositionalForced");
         } catch {
           // ignore
         }
@@ -239,14 +220,8 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
   } catch (err) {
     if (DEVELOPMENT_BUILD_ENABLED) {
       const fallbackEnv = getRuntimeEnv();
-      if (
-        fallbackEnv.ASKR_FASTPATH_DEBUG === '1' ||
-        fallbackEnv.ASKR_FASTPATH_DEBUG === 'true'
-      ) {
-        logger.warn(
-          '[Askr][FASTPATH] forced bulk path failed, falling back',
-          err
-        );
+      if (fallbackEnv.ASKR_FASTPATH_DEBUG === "1" || fallbackEnv.ASKR_FASTPATH_DEBUG === "true") {
+        logger.warn("[Askr][FASTPATH] forced bulk path failed, falling back", err);
       }
     }
     return false;
@@ -264,17 +239,14 @@ function reconcileUnkeyed(parent: Element, children: VNode[]): void {
   keyedElements.delete(parent);
 }
 
-export function updateForBoundaryChildren(
-  element: Element,
-  forVnode: DOMElement
-): void {
+export function updateForBoundaryChildren(element: Element, forVnode: DOMElement): void {
   const controlState = forVnode._controlState;
   if (!controlState) return;
 
   const childrenVNodes =
-    controlState.kind === 'for'
+    controlState.kind === "for"
       ? evaluateForState(controlState)
-      : controlState.kind === 'show'
+      : controlState.kind === "show"
         ? evaluateShowState(controlState)
         : evaluateCaseState(controlState);
   commitForBoundaryChildren(element, controlState, childrenVNodes);
@@ -283,17 +255,17 @@ export function updateForBoundaryChildren(
 export function updateElementChildren(
   element: Element,
   vnodeChildren: unknown,
-  cleanupRangeNode: (node: Node) => void
+  cleanupRangeNode: (node: Node) => void,
 ): void {
   const domHost = getRendererDOMHost();
 
   if (vnodeChildren === null || vnodeChildren === undefined) {
-    for (let n = element.firstChild; n; ) {
+    for (let n = element.firstChild; n;) {
       const next = n.nextSibling;
       cleanupRangeNode(n);
       n = next;
     }
-    element.textContent = '';
+    element.textContent = "";
     keyedElements.delete(element);
     return;
   }
@@ -308,21 +280,17 @@ export function updateElementChildren(
   }
 
   if (!Array.isArray(vnodeChildren) && isFragment(vnodeChildren)) {
-    updateElementChildren(
-      element,
-      getFragmentChildren(vnodeChildren),
-      cleanupRangeNode
-    );
+    updateElementChildren(element, getFragmentChildren(vnodeChildren), cleanupRangeNode);
     return;
   }
 
   if (!Array.isArray(vnodeChildren)) {
-    for (let n = element.firstChild; n; ) {
+    for (let n = element.firstChild; n;) {
       const next = n.nextSibling;
       cleanupRangeNode(n);
       n = next;
     }
-    element.textContent = '';
+    element.textContent = "";
     const dom = domHost.createDOMNode(vnodeChildren);
     if (dom) element.appendChild(dom);
     keyedElements.delete(element);
@@ -349,13 +317,13 @@ export function updateElementChildren(
 export function smartUpdateElement(
   element: Element,
   vnode: DOMElement,
-  cleanupRangeNode: (node: Node) => void
+  cleanupRangeNode: (node: Node) => void,
 ): void {
   if (tryAdoptMatchingIntrinsicSubtree(element, vnode)) {
     return;
   }
 
-  const hadVNodeKey = Object.prototype.hasOwnProperty.call(vnode, 'key');
+  const hadVNodeKey = Object.prototype.hasOwnProperty.call(vnode, "key");
   const previousVNodeKey = vnode.key;
 
   runRetainedElementUpdate(
@@ -365,18 +333,18 @@ export function smartUpdateElement(
     () => {
       if (hadVNodeKey) vnode.key = previousVNodeKey;
       else delete vnode.key;
-    }
+    },
   );
 }
 
 function applySmartUpdateElement(
   element: Element,
   vnode: DOMElement,
-  cleanupRangeNode: (node: Node) => void
+  cleanupRangeNode: (node: Node) => void,
 ): void {
   const domHost = getRendererDOMHost();
 
-  if (vnode.key == null && element.hasAttribute('data-key')) {
+  if (vnode.key == null && element.hasAttribute("data-key")) {
     const existingKey = getMaterializedKey(element);
     if (existingKey !== undefined) {
       vnode.key = existingKey;
@@ -413,14 +381,14 @@ function applySmartUpdateElement(
 export function processFragmentChildren(
   target: Element,
   childArray: unknown[],
-  cleanupRangeNode: (node: Node) => void
+  cleanupRangeNode: (node: Node) => void,
 ): void {
   updateElementChildren(target, childArray, cleanupRangeNode);
 }
 
 function applyPropsToElement(el: Element, props: Props): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key === 'ref') {
+    if (key === "ref") {
       updateElementRef(el, value);
       continue;
     }
@@ -435,8 +403,7 @@ function applyPropsToElement(el: Element, props: Props): void {
       const options = getEventListenerOptions(eventName, capture);
       const listenerKey = getEventListenerKey(eventName, capture);
 
-      if (options !== undefined)
-        el.addEventListener(eventName, wrappedHandler, options);
+      if (options !== undefined) el.addEventListener(eventName, wrappedHandler, options);
       else el.addEventListener(eventName, wrappedHandler);
 
       if (!elementListeners.has(el)) elementListeners.set(el, new Map());
@@ -449,9 +416,9 @@ function applyPropsToElement(el: Element, props: Props): void {
       continue;
     }
 
-    if (key === 'class' || key === 'className') {
+    if (key === "class" || key === "className") {
       writeElementClassName(el, String(value));
-    } else if (key === 'value' || key === 'checked') {
+    } else if (key === "value" || key === "checked") {
       (el as HTMLElement & Props)[key] = value;
     } else {
       setRenderedAttribute(el, key, String(value));
@@ -459,19 +426,13 @@ function applyPropsToElement(el: Element, props: Props): void {
   }
 }
 
-export function tryFirstRenderKeyedChildren(
-  target: Element,
-  vnode: DOMElement
-): boolean {
+export function tryFirstRenderKeyedChildren(target: Element, vnode: DOMElement): boolean {
   const children = vnode.children;
   if (!Array.isArray(children) || !hasKeyedChildren(children)) {
     return false;
   }
 
-  const el = createElementForNamespace(
-    vnode.type as string,
-    getParentNamespace(target)
-  );
+  const el = createElementForNamespace(vnode.type as string, getParentNamespace(target));
   target.appendChild(el);
 
   applyPropsToElement(el, vnode.props || {});
@@ -484,15 +445,13 @@ export function tryFirstRenderKeyedChildren(
 export function isFragment(vnode: unknown): vnode is DOMElement {
   return (
     _isDOMElement(vnode) &&
-    typeof (vnode as DOMElement).type === 'symbol' &&
+    typeof (vnode as DOMElement).type === "symbol" &&
     ((vnode as DOMElement).type === Fragment ||
-      String((vnode as DOMElement).type) === 'Symbol(askr.fragment)')
+      String((vnode as DOMElement).type) === "Symbol(askr.fragment)")
   );
 }
 
 export function getFragmentChildren(vnode: DOMElement): unknown[] {
   const fragmentChildren = vnode.props?.children ?? vnode.children ?? [];
-  return Array.isArray(fragmentChildren)
-    ? fragmentChildren
-    : [fragmentChildren];
+  return Array.isArray(fragmentChildren) ? fragmentChildren : [fragmentChildren];
 }
