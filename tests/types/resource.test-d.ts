@@ -61,8 +61,8 @@ expectType<ActivityPredicate>(windowFocused());
 expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
 expectType<void>(onRouteChange(() => {}));
-expectType<RouteChangeCleanup>(() => {});
-expectType<RouterRouteChangeCleanup>(() => {});
+const routeCleanup: RouteChangeCleanup = () => {};
+const routerRouteCleanup: RouterRouteChangeCleanup = routeCleanup;
 expectType<void>(
   onRouteChange(
     (current, previous) => {
