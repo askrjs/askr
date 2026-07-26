@@ -71,7 +71,7 @@ when positional identity is intentional.
 
 ## Testing the contract
 
-The published test harness can mount this component in Vitest/jsdom. Keep the
+This repository's Vitest/jsdom test harness can mount this component. Keep the
 state update and the row assertion in the same test so a stale closure cannot
 pass unnoticed:
 
@@ -86,3 +86,6 @@ document.querySelector('button')?.dispatchEvent(new MouseEvent('click'));
 await waitForNextEvaluation();
 expect(active()).toEqual(['c']);
 ```
+
+`waitForNextEvaluation()` is provided by the repository test setup; it is not
+part of the published `@askrjs/askr` package.
