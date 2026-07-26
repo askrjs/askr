@@ -88,6 +88,18 @@ function initialStatus<TResult>(actionId: string): ActionStatus<TResult> {
   return replay ? { pending: false, error: replay } : { pending: false };
 }
 
+function normalizeActionRedirect(value: string): string {
+  const current = new URL(location.href);
+  const target = new URL(value, current);
+  if (
+    (target.protocol !== 'http:' && target.protocol !== 'https:') ||
+    target.origin !== current.origin
+  ) {
+    throw new TypeError('Action redirects must stay on the current origin.');
+  }
+  return `${target.pathname}${target.search}${target.hash}`;
+}
+
 /** Returns a command handle, rather than a hook. */
 export function action<
   TInput extends Record<string, unknown>,
@@ -132,6 +144,10 @@ export function action<
             new Error(`Action failed (${response.status}).`)
           );
         }
+        const redirect =
+          typeof envelope.redirect === 'string'
+            ? normalizeActionRedirect(envelope.redirect)
+            : undefined;
         const invalidates = Array.isArray(envelope.invalidates)
           ? envelope.invalidates.filter(
               (prefix): prefix is string => typeof prefix === 'string'
@@ -140,8 +156,7 @@ export function action<
         for (const prefix of invalidates)
           invalidateQueriesForRuntime(runtime, prefix, true);
         setValue({ pending: false, result: envelope.result });
-        if (typeof envelope.redirect === 'string')
-          location.assign(envelope.redirect);
+        if (redirect) location.assign(redirect);
         return envelope.result as TResult;
       } catch (error) {
         setValue({ pending: false, error });

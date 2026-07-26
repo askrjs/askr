@@ -151,6 +151,86 @@ describe('actions', () => {
     }
   });
 
+  it('should normalize same-origin absolute action redirects', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          version: 1,
+          ok: true,
+          result: { saved: true },
+          redirect: 'https://example.test/signed-in?next=%2Fitems#notice',
+        })
+      )
+    );
+    const assign = vi.fn();
+    vi.stubGlobal('location', {
+      href: 'https://example.test/items',
+      assign,
+    });
+    let command!: ReturnType<
+      typeof action<{ name: string }, { saved: boolean }>
+    >;
+    const App = () => {
+      command = action<{ name: string }, { saved: boolean }>(save);
+      return <div>{command.state().pending ? 'pending' : 'idle'}</div>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await expect(command.submit({ name: 'Ada' })).resolves.toEqual({
+        saved: true,
+      });
+      expect(assign).toHaveBeenCalledWith('/signed-in?next=%2Fitems#notice');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it.each([
+    'https://attacker.test/phish',
+    '//attacker.test/phish',
+    'javascript:alert(1)',
+    'data:text/html,phish',
+  ])('should reject unsafe enhanced action redirect %s', async (redirect) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          version: 1,
+          ok: true,
+          result: { saved: true },
+          redirect,
+        })
+      )
+    );
+    const assign = vi.fn();
+    vi.stubGlobal('location', {
+      href: 'http://example.test/items',
+      assign,
+    });
+    let command!: ReturnType<
+      typeof action<{ name: string }, { saved: boolean }>
+    >;
+    const App = () => {
+      command = action<{ name: string }, { saved: boolean }>(save);
+      return <div />;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await expect(command.submit({ name: 'Ada' })).rejects.toThrow(
+        'must stay on the current origin'
+      );
+      expect(assign).not.toHaveBeenCalled();
+      expect(command.state().error).toBeInstanceOf(TypeError);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should put enhanced 422 field errors into reactive error state', async () => {
     const failure = {
       version: 1,
