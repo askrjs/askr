@@ -45,6 +45,7 @@ import {
   mountRoutedShellScenario as mountRealRoutedShellScenario,
   shouldMountRoutedShellFromPath,
 } from './scenarios/routed-shell';
+import { mountAdjacentForBoundariesScenario as mountAdjacentForBoundariesFixture } from './scenarios/adjacent-for-boundaries';
 
 type RowData = {
   id: number;
@@ -1167,6 +1168,11 @@ async function mountSignupHydrationScenario(): Promise<void> {
   await mountHydrationFormScenario(root);
 }
 
+function mountAdjacentForBoundariesScenario(): void {
+  resetRoot();
+  mountAdjacentForBoundariesFixture(root);
+}
+
 async function runBrowserPerf(): Promise<Record<string, number>> {
   const rows = Array.from({ length: 1000 }, (_, index) => ({
     id: index + 1,
@@ -1305,6 +1311,7 @@ Object.assign(window, {
     mountGuardedRouterScenario,
     mountRoutedShellScenario,
     mountNavLinkForScenario,
+    mountAdjacentForBoundariesScenario,
     profileBenchmarkOperations,
     runBrowserBench,
     runBrowserBenchSuite,
@@ -1330,6 +1337,7 @@ export {
   mountHydratedBenchmarkTableScenario,
   mountInteractionScenario,
   mountNavLinkForScenario,
+  mountAdjacentForBoundariesScenario,
   mountOrdersScenario,
   mountRoutedShellScenario,
   mountSignupHydrationScenario,

@@ -115,13 +115,7 @@ export function updateElementChildren(
       return;
     }
 
-    if (
-      normalizedChildren.some(isControlBoundaryVNode) &&
-      normalizedChildren.every((child) => {
-        if (!isControlBoundaryVNode(child)) return true;
-        return getControlBoundaryState(child)?.kind !== 'for';
-      })
-    ) {
+    if (normalizedChildren.some(isControlBoundaryVNode)) {
       updateMixedControlChildren(el, normalizedChildren, forceUpdate);
       keyedElements.delete(el);
       return;
@@ -195,11 +189,12 @@ function removeRangeAtCursor(parent: Element, cursor: Node): Node | null {
   return next;
 }
 
-function updateMixedControlChildren(
+export function updateMixedControlChildren(
   parent: Element,
   children: VNode[],
   forceUpdate: boolean
 ): void {
+  clearControlBoundaryCommitOwner(parent);
   const parentNamespace = getParentNamespace(parent);
   const domHost = getRendererDOMHost();
   let cursor: Node | null = parent.firstChild;
@@ -213,7 +208,6 @@ function updateMixedControlChildren(
         );
       }
 
-      registerControlBoundaryCommitOwner(parent, controlState);
       const childVNodes = evaluateControlBoundaryState(controlState);
       const cursorAfterBoundary = cursor
         ? isRangeStart(cursor)
@@ -226,6 +220,17 @@ function updateMixedControlChildren(
         childVNodes,
         cursor
       );
+      if (controlState.kind === 'for') {
+        const last = ranges[ranges.length - 1];
+        cursor = last
+          ? last.end.nextSibling
+          : cursorAfterBoundary?.parentNode === parent
+            ? cursorAfterBoundary
+            : cursor?.parentNode === parent
+              ? cursor
+              : null;
+        continue;
+      }
       for (const range of ranges) {
         if (range.start.parentNode !== parent) {
           moveRange(
