@@ -30,7 +30,7 @@ import {
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export interface Portal<T extends RenderableChild = RenderableChild> {
-  (): JSXElement | null;
+  (): T | JSXElement | null | undefined;
   render(props: { children?: T }): unknown;
 }
 
