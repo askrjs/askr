@@ -66,6 +66,7 @@ Askr focuses on frontend application structure and developer workflow. It is not
 | [Styling](https://github.com/askrjs/askr-themes/tree/main/docs/README.md) | askr-themes docs owned by the package repo            |
 | [CLI](https://github.com/askrjs/askr-cli/tree/main/docs/README.md)        | askr-cli docs owned by the package repo               |
 | [Guides](./guides/)                                                       | Real-app walkthroughs by use case                     |
+| [Platform recipes](./guides/platform-recipes.md)                          | Verified routing, data, lifecycle, and error patterns |
 | [Reference](./reference/)                                                 | Package map, project structure, conventions, glossary |
 | [Development](./development/)                                             | Platform charter, monorepo layout, release process    |
 
