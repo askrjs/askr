@@ -136,6 +136,10 @@ export interface RouteRenderResult {
   written: boolean;
   /** Error message if rendering failed */
   error?: string;
+  /** Original exception preserved for programmatic diagnostics. */
+  errorCause?: unknown;
+  /** Route and phase context for the original exception. */
+  errorContext?: { route: string; phase: 'load' | 'render' | 'write' };
 }
 
 /** Overall result from SSG generation */

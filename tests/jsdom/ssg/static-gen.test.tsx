@@ -1060,11 +1060,37 @@ describe('Static Site Generation', () => {
 
         expect(failedRoute.status).toBe('error');
         expect(failedRoute.error).toContain('Test error message');
+        expect(failedRoute.errorCause).toBeInstanceOf(Error);
+        expect(failedRoute.errorContext).toEqual({
+          route: '/broken',
+          phase: 'render',
+        });
         expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
         expect(warn).not.toHaveBeenCalled();
       } finally {
         warn.mockRestore();
       }
+    });
+
+    it('should report render phase when a loader succeeds before component failure', async () => {
+      const BrokenComponent = (): JSXElement => {
+        throw new Error('render failure');
+      };
+      const result = await createStaticGen({
+        routes: [
+          {
+            path: '/loaded-broken',
+            component: BrokenComponent,
+            loader: async () => ({ ok: true }),
+          },
+        ],
+        outputDir: tempDir,
+      }).generate();
+
+      expect(result.routes[0].errorContext).toEqual({
+        route: '/loaded-broken',
+        phase: 'render',
+      });
     });
 
     it('should write metadata JSON with proper formatting', async () => {
