@@ -128,7 +128,7 @@ import { DefaultPortal, Portal } from '@askrjs/askr/foundations';
 
 const Page = () => (
   <main>
-    {DefaultPortal()}
+    <DefaultPortal />
     <Portal>
       <div class="overlay">Open overlay</div>
     </Portal>

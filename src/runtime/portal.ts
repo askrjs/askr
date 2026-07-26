@@ -29,7 +29,7 @@ import {
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export interface Portal<T extends RenderableChild = RenderableChild> {
-  (): unknown;
+  (): JSXElement | null;
   render(props: { children?: T }): unknown;
 }
 
@@ -91,7 +91,7 @@ function writeSSRPortal(
 }
 
 function createPortalSlot<T>(): {
-  read(): unknown;
+  read(): T | undefined;
   write(value: T | undefined): void;
 } {
   let currentValue: T | undefined;
@@ -674,18 +674,6 @@ export function clearDefaultPortalForInstance(
 
 export const DefaultPortal: Portal<RenderableChild> = (() => {
   function Host(props?: DefaultPortalHostProps) {
-    const serverSlot = getSSRPortalSlot(DEFAULT_SSR_PORTAL_KEY);
-    if (
-      serverSlot &&
-      !serverSlot.slot.hasValue &&
-      _hasPendingDefaultPortalValue
-    ) {
-      serverSlot.slot.hasValue = true;
-      serverSlot.slot.value = _pendingDefaultPortalValue;
-      _hasPendingDefaultPortalValue = false;
-      _pendingDefaultPortalValue = undefined;
-    }
-
     const serverHost = createSSRPortalHost(
       DEFAULT_SSR_PORTAL_KEY,
       props?.__askrAutoDefaultPortal === true
