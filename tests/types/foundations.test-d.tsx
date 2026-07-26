@@ -101,8 +101,10 @@ expectAssignable<PortalProps>({
 
 const portal = definePortal<string>();
 const defaultPortal = definePortal();
-expectType<unknown>(portal());
-expectType<unknown>(DefaultPortal());
+const StringPortal = portal;
+expectType<string | JSXElement | null | undefined>(portal());
+expectAssignable<JSXElement>(<StringPortal />);
+expectAssignable<JSXElement>(<DefaultPortal />);
 expectType<unknown>(DefaultPortal.render({ children: 'toast' }));
 expectType<typeof Portal>(Portal);
 layout(layoutComponent)('body', { title: 'page' });
