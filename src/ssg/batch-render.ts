@@ -155,6 +155,8 @@ export async function batchRenderRoutes(
         reason: 'full',
         written: false,
         error: error instanceof Error ? error.message : String(error),
+        errorCause: error,
+        errorContext: { route: url, phase: route.loader ? 'load' : 'render' },
       };
     }
   };
