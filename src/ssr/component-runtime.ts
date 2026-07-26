@@ -107,7 +107,9 @@ export function executeComponentSync(
         executionFrame,
         component,
         (props || {}) as Props,
-        { ssr: ctx }
+        {
+          ssr: ctx,
+        }
       );
       if (isPromiseLike(result)) {
         throwSSRDataMissing();
@@ -165,7 +167,7 @@ export function disposeSSRTemporaryOwners(ctx: RenderContext): void {
   }
 }
 
-function wrapWithDefaultPortal(out: unknown): VNode | JSXElement {
+export function wrapWithDefaultPortal(out: unknown): VNode | JSXElement {
   if (isPromiseLike(out)) {
     throwSSRDataMissing();
   }

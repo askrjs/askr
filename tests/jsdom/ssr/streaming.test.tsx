@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import { renderToString, renderToStream } from '../../../src/ssr';
+import {
+  DefaultPortal,
+  Portal,
+} from '../../../src/foundations/structures/portal';
 
 describe('SSR streaming: parity and chunk boundaries', () => {
   it('should stream output equal renderToString (byte-for-byte)', () => {
@@ -73,6 +77,39 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     expect(html).toContain('<h1>Hello</h1>');
     expect(html).toContain('<p>World</p>');
     expect(html).toContain('</article>');
+  });
+
+  it('should stream content before an explicit portal host and backfill the host', () => {
+    const routes = [
+      {
+        path: '/',
+        handler: () => (
+          <main>
+            <header>{'before portal'}</header>
+            <DefaultPortal />
+            <footer>{'after portal'}</footer>
+            <Portal>
+              <aside>{'overlay'}</aside>
+            </Portal>
+          </main>
+        ),
+      },
+    ];
+    const registry = routeRegistryFromTable(routes);
+    const chunks: string[] = [];
+
+    renderToStream({
+      url: '/',
+      registry,
+      onChunk: (chunk) => chunks.push(chunk),
+      onComplete: () => {},
+    });
+
+    expect(chunks.slice(0, -1).join('')).toContain(
+      '<header>before portal</header>'
+    );
+    expect(chunks.at(-1)).toContain('<aside>overlay</aside>');
+    expect(chunks.join('')).toBe(renderToString({ url: '/', registry }));
   });
 
   it('should buffer app HTML before applying a document renderer', () => {

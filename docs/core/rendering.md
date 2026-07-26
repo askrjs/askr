@@ -116,6 +116,36 @@ listeners, reactive bindings, and ownership are published at commit. A failed
 activation restores the marker and remains retryable, while root cleanup drops
 unrevealed records. Permanent `skipSelectors` remain skipped.
 
+### Portals on the server
+
+`Portal`, `DefaultPortal`, and portals created by `definePortal()` render in
+SSR and SSG output. Host and writer evaluation order does not affect the
+result: Askr collects portal writes for the current render root, then places
+the final value at its host position.
+
+```tsx
+import { DefaultPortal, Portal } from '@askrjs/askr/foundations';
+
+const Page = () => (
+  <main>
+    <DefaultPortal />
+    <Portal>
+      <div class="overlay">Open overlay</div>
+    </Portal>
+  </main>
+);
+```
+
+An explicit `DefaultPortal` is preferred over the automatic host appended by
+the SSR and SSG runtimes. Without an explicit host, the automatic host renders
+the content after the application root. Multiple writes to the same portal use
+the final value, matching the client runtime.
+
+Portal values are scoped to one server render root. A portal created with
+`definePortal()` can be reused by application code without carrying content
+between routes or requests. Hydration adopts the server-rendered portal
+content and attaches its normal bindings.
+
 ## Static Site Generation (SSG)
 
 SSG pre-renders Askr routes into `.html` files at build time.

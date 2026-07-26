@@ -21,6 +21,10 @@ import { resource } from '../../../src/resources';
 import { defineScope } from '../../../src/runtime/context';
 import { state } from '../../../src/runtime/state';
 import {
+  DefaultPortal,
+  Portal,
+} from '../../../src/foundations/structures/portal';
+import {
   createRouteRegistry,
   fallback,
   group,
@@ -332,6 +336,37 @@ describe('Static Site Generation', () => {
 
       expect(result.routes[0].html).toBe('<span>a</span><main>b</main>');
       expect(content).toBe('<span>a</span><main>b</main>');
+    });
+
+    it('should generate portal content at explicit and automatic hosts', async () => {
+      const registry = createRouteRegistry(() => {
+        route('/explicit', () => (
+          <main>
+            <DefaultPortal />
+            <Portal>
+              <strong>{'explicit portal'}</strong>
+            </Portal>
+          </main>
+        ));
+        route('/automatic', () => (
+          <main>
+            <Portal>
+              <strong>{'automatic portal'}</strong>
+            </Portal>
+          </main>
+        ));
+      });
+      const ssg = createStaticGen({ registry, outputDir: tempDir });
+
+      const result = await ssg.generate();
+
+      expect(result.failed).toBe(0);
+      expect(
+        fs.readFileSync(path.join(tempDir, 'explicit', 'index.html'), 'utf8')
+      ).toBe('<main><strong>explicit portal</strong></main>');
+      expect(
+        fs.readFileSync(path.join(tempDir, 'automatic', 'index.html'), 'utf8')
+      ).toBe('<main></main><strong>automatic portal</strong>');
     });
 
     it('should generate HTML files in correct directory structure', async () => {

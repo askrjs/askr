@@ -26,6 +26,8 @@ const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace JSX {
+  export type ElementType = string | symbol | ((props: never) => unknown);
+
   export interface Element extends JSXElement {
     readonly __askrJsxElementBrand?: never;
   }

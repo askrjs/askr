@@ -42,6 +42,7 @@ export interface RenderContext {
   renderData: PageRenderEnvelope | null;
   hydrationData: PageRenderEnvelope | null;
   deferredBoundaries: import('../common/render-context').DeferredBoundaryRegistration[];
+  ssrPortals: import('../common/render-context').SSRPortalState;
   cspNonce?: string;
 }
 
@@ -143,6 +144,10 @@ export function createRenderContext(
     renderData: envelope,
     hydrationData: envelope,
     deferredBoundaries: [],
+    ssrPortals: {
+      slots: new Map(),
+      nextHostId: 0,
+    },
     cspNonce: opts.cspNonce,
   };
 }

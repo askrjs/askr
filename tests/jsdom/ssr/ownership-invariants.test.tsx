@@ -89,6 +89,6 @@ describe('SSR ownership invariants', () => {
 
     const html = renderToStringSync(() => <div>{'next'}</div>);
 
-    expect(html).toContain('Early');
+    expect(html).toBe('<div>next</div>');
   });
 });

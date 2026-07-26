@@ -5,6 +5,7 @@ import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { Fragment } from '../jsx';
 import { logger } from '../common/logger';
 import { getVNodeContextFrame } from '../runtime';
+import { SSR_PORTAL_HOST } from '../common/portal';
 import {
   createRenderContext,
   withRenderContext,
@@ -15,6 +16,7 @@ import {
   disposeSSRTemporaryOwners,
   executeComponentSync,
   renderSyncComponentRoot,
+  wrapWithDefaultPortal,
   type Component,
 } from './component-runtime';
 import {
@@ -136,6 +138,74 @@ function renderRenderableSync(value: unknown, ctx: RenderContext): string {
     return renderNodeSync(value as VNode, ctx);
   }
   return '';
+}
+
+function resolveSSRPortals(html: string, ctx: RenderContext): string {
+  let resolved = html;
+  const renderedHosts = new Set<string>();
+
+  for (;;) {
+    let foundHost = false;
+
+    for (const slot of ctx.ssrPortals.slots.values()) {
+      const explicitHosts = slot.hosts.filter((host) => !host.automatic);
+      const activeHosts =
+        explicitHosts.length > 0
+          ? new Set(explicitHosts.map((host) => host.token))
+          : new Set(slot.hosts.map((host) => host.token));
+
+      for (const host of slot.hosts) {
+        if (renderedHosts.has(host.token)) {
+          continue;
+        }
+
+        foundHost = true;
+        const content =
+          activeHosts.has(host.token) && slot.hasValue
+            ? renderRenderableSync(slot.value, ctx)
+            : '';
+        resolved = resolved.replace(host.token, () => content);
+        renderedHosts.add(host.token);
+      }
+    }
+
+    if (!foundHost) {
+      return resolved;
+    }
+  }
+}
+
+class SSRPortalSink {
+  private bufferedChunks: string[] | null = null;
+
+  constructor(
+    private readonly sink: {
+      write(html: string): void;
+    }
+  ) {}
+
+  write(html: string): void {
+    if (!html) {
+      return;
+    }
+    if (this.bufferedChunks) {
+      this.bufferedChunks.push(html);
+      return;
+    }
+    this.sink.write(html);
+  }
+
+  writePortalHost(token: string): void {
+    this.bufferedChunks ??= [];
+    this.bufferedChunks.push(token);
+  }
+
+  flush(ctx: RenderContext): void {
+    if (!this.bufferedChunks) {
+      return;
+    }
+    this.sink.write(resolveSSRPortals(this.bufferedChunks.join(''), ctx));
+  }
 }
 
 function renderChildSync(child: unknown, ctx: RenderContext): string {
@@ -288,6 +358,9 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
   }
 
   if (typeof type === 'symbol') {
+    if (type === SSR_PORTAL_HOST) {
+      return String(props?.token ?? '');
+    }
     if (type === Fragment) {
       const childrenArr = getRenderableChildren(node);
       /* istanbul ignore if - dev-only debug */
@@ -388,6 +461,18 @@ function renderNodeSyncToSink(
   }
 
   if (typeof type === 'symbol') {
+    if (type === SSR_PORTAL_HOST) {
+      const token = String(props?.token ?? '');
+      const portalSink = sink as typeof sink & {
+        writePortalHost?(token: string): void;
+      };
+      if (portalSink.writePortalHost) {
+        portalSink.writePortalHost(token);
+      } else {
+        sink.write(token);
+      }
+      return;
+    }
     if (type === Fragment) {
       const childrenArr = getRenderableChildren(node);
       renderChildrenSyncToSink(childrenArr, sink, ctx);
@@ -556,14 +641,14 @@ export function renderToStringSync(
       }
       const sink = new StringSink();
       renderNodeSyncToSink(node, sink, ctx);
-      sink.write(
+      sink.end();
+      return (
+        resolveSSRPortals(sink.toString(), ctx) +
         serializeHydrationRenderData(
           ctx.hydrationData ?? undefined,
           ctx.dataRuntime as import('../data/types').DataRuntime | undefined
         )
       );
-      sink.end();
-      return sink.toString();
     } finally {
       try {
         stopRenderPhase();
@@ -593,7 +678,9 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
         params,
         ctx
       );
-      renderRenderableSyncToSink(app, sink, ctx);
+      const appSink = new SSRPortalSink(sink);
+      renderRenderableSyncToSink(wrapWithDefaultPortal(app), appSink, ctx);
+      appSink.flush(ctx);
       if (ctx.deferredBoundaries.length === 0) {
         sink.write(
           serializeHydrationRenderData(
