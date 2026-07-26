@@ -31,7 +31,10 @@ type RouteChangeSlot = LifecycleSlot & {
   cleanup: (() => void) | null;
   cleanupRegistered: boolean;
   initialized: boolean;
-  callback: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup;
+  callback: (
+    current: RouteSnapshot,
+    previous: RouteSnapshot | null
+  ) => RouteChangeCleanup;
   immediate: boolean;
 };
 
@@ -412,7 +415,10 @@ export function task(
  * for route-aware work instead of re-running task().
  */
 export function onRouteChange(
-  fn: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup,
+  fn: (
+    current: RouteSnapshot,
+    previous: RouteSnapshot | null
+  ) => RouteChangeCleanup,
   options: RouteChangeOptions = {}
 ): void {
   const instance = getCurrentComponentInstance();
@@ -466,7 +472,11 @@ export function onRouteChange(
   const previous = slot.previous;
   if (!previous || routeSignature(previous) === routeSignature(route)) return;
   registerCommitOperation(() => {
-    if (slot.previous && routeSignature(slot.previous) === routeSignature(route)) return;
+    if (
+      slot.previous &&
+      routeSignature(slot.previous) === routeSignature(route)
+    )
+      return;
     slot.cleanup?.();
     slot.cleanup = null;
     slot.cleanup = slot.callback(route, previous) ?? null;

@@ -59,11 +59,16 @@ expectType<ActivityPredicate>(windowFocused());
 expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
 expectType<void>(onRouteChange(() => {}));
-expectType<void>(onRouteChange((current, previous) => {
-  current.path;
-  previous?.path;
-  return () => {};
-}, { immediate: true } satisfies RouteChangeOptions));
+expectType<void>(
+  onRouteChange(
+    (current, previous) => {
+      current.path;
+      previous?.path;
+      return () => {};
+    },
+    { immediate: true } satisfies RouteChangeOptions
+  )
+);
 
 const snapshot = capture(() => 123);
 expectType<() => number>(snapshot);

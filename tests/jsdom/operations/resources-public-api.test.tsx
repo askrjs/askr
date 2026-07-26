@@ -7,7 +7,14 @@ import {
   vi,
 } from 'vite-plus/test';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
-import { capture, on, onRouteChange, stream, task, timer } from '@askrjs/askr/resources';
+import {
+  capture,
+  on,
+  onRouteChange,
+  stream,
+  task,
+  timer,
+} from '@askrjs/askr/resources';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 beforeEach(() => {
@@ -97,10 +104,13 @@ describe('resources public API', () => {
     const run = vi.fn();
     const dispose = vi.fn();
     const App = () => {
-      onRouteChange((current, previous) => {
-        run(current.path, previous?.path);
-        return dispose;
-      }, { immediate: true });
+      onRouteChange(
+        (current, previous) => {
+          run(current.path, previous?.path);
+          return dispose;
+        },
+        { immediate: true }
+      );
       return <div data-testid="app">ready</div>;
     };
 
