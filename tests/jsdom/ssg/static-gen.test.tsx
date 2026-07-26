@@ -447,6 +447,25 @@ describe('Static Site Generation', () => {
       expect(result.routes[1].html).toContain('second-post');
     });
 
+    it('should reject route params that escape the output directory', async () => {
+      const escapedFile = path.resolve(tempDir, '..', 'escaped', 'index.html');
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/{slug}',
+            component: BlogPost,
+            params: { slug: '../../escaped' },
+          },
+        ],
+        outputDir: tempDir,
+      });
+
+      await expect(ssg.generate()).rejects.toThrow(
+        'without dot segments or backslashes'
+      );
+      expect(fs.existsSync(escapedFile)).toBe(false);
+    });
+
     it('should pass concrete paths and template paths to the SSG document renderer', async () => {
       const contexts: DocumentRenderContext[] = [];
       const ssg = createStaticGen({
@@ -1041,6 +1060,46 @@ describe('Static Site Generation', () => {
       expect(
         fs.readdirSync(routeDir).some((file) => file.endsWith('.tmp'))
       ).toBe(false);
+    });
+
+    it('should reject direct static writes outside outputDir', async () => {
+      const escapedFile = path.resolve(tempDir, '..', 'escaped.html');
+      await expect(
+        writeStaticFiles(
+          [
+            {
+              path: '/escaped',
+              filePath: '../escaped.html',
+              html: 'escaped',
+              fileSize: 7,
+              renderDuration: 0,
+              resourceCount: 0,
+              status: 'success',
+              written: true,
+            },
+          ],
+          tempDir
+        )
+      ).rejects.toThrow('must stay inside outputDir');
+      expect(fs.existsSync(escapedFile)).toBe(false);
+
+      await expect(
+        writeStaticFiles(
+          [
+            {
+              path: '/escaped',
+              filePath: '../escaped.html',
+              html: '',
+              fileSize: 0,
+              renderDuration: 0,
+              resourceCount: 0,
+              status: 'removed',
+              written: false,
+            },
+          ],
+          tempDir
+        )
+      ).rejects.toThrow('must stay inside outputDir');
     });
 
     it('should return failed route errors without publishing partial metadata', async () => {
