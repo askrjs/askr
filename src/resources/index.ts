@@ -24,6 +24,9 @@ export type { ResourceResult } from '../runtime';
 export type {
   ActivityPredicate,
   ListenerTarget,
+  StreamOptions,
+  StreamResult,
+  StreamStatus,
   TimerOptions,
 } from '../runtime';
 
