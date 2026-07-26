@@ -518,6 +518,7 @@ function getOrCreateSelectorHook<T>(
   return created;
 }
 
+/** Creates a render-scoped predicate that tracks a readable source. */
 export function selector<T>(
   source: () => T,
   equals: SelectorEquals<T> = Object.is

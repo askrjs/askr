@@ -61,6 +61,7 @@ function createBoundaryVNode(
   };
 }
 
+/** Renders fallback content when a descendant throws during rendering or commit. */
 export function ErrorBoundary(props: ErrorBoundaryProps): JSXElement {
   const instance = getCurrentComponentInstance();
   if (!instance) {

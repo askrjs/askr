@@ -345,6 +345,7 @@ export function stream<T>(
   return { value: null, pending: true, error: null };
 }
 
+/** Runs an owned async or synchronous task after the component commits. */
 export function task(
   fn: () => void | (() => void) | PromiseLike<void | (() => void)>
 ): void {

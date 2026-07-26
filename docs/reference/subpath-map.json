@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "subpaths": [
+    ".",
+    "./boot",
+    "./components",
+    "./control",
+    "./foundations",
+    "./foundations/utilities",
+    "./foundations/interactions",
+    "./foundations/state",
+    "./foundations/structures",
+    "./foundations/icon",
+    "./resources",
+    "./data",
+    "./testing",
+    "./fx",
+    "./router",
+    "./actions",
+    "./ssr",
+    "./ssg",
+    "./jsx-runtime",
+    "./jsx-dev-runtime",
+    "./package.json"
+  ]
+}
