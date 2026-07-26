@@ -14,6 +14,8 @@ export {
   lazy,
   createRouteRegistry,
 } from './route';
+export { onRouteChange } from './activity';
+export type { RouteChangeCleanup, RouteChangeOptions } from './activity';
 export {
   allow,
   redirect,

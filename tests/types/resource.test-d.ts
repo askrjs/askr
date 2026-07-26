@@ -4,6 +4,7 @@ import {
   documentVisible,
   getSignal,
   on,
+  onRouteChange,
   resource,
   routeActive,
   stream,
@@ -13,11 +14,14 @@ import {
   type ActivityPredicate,
   type ListenerTarget,
   type ResourceResult,
+  type RouteChangeCleanup,
+  type RouteChangeOptions,
   type StreamResult,
   type StreamOptions,
   type StreamStatus,
   type TimerOptions,
 } from '@askrjs/askr/resources';
+import type { RouteChangeCleanup as RouterRouteChangeCleanup } from '@askrjs/askr/router';
 
 declare const eventSource: EventTarget;
 declare const transformer: () => void;
@@ -64,6 +68,19 @@ expectType<ActivityPredicate>(documentVisible());
 expectType<ActivityPredicate>(windowFocused());
 expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
+expectType<void>(onRouteChange(() => {}));
+const routeCleanup: RouteChangeCleanup = () => {};
+const routerRouteCleanup: RouterRouteChangeCleanup = routeCleanup;
+expectType<void>(
+  onRouteChange(
+    (current, previous) => {
+      current.path;
+      previous?.path;
+      return () => {};
+    },
+    { immediate: true } satisfies RouteChangeOptions
+  )
+);
 
 const snapshot = capture(() => 123);
 expectType<() => number>(snapshot);

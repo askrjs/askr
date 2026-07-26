@@ -5,6 +5,8 @@ import { getActiveRenderContext } from '../common/render-context';
 import {
   getCurrentAppRenderRuntime,
   getCurrentComponentInstance,
+  claimHookIndex,
+  registerCommitOperation,
 } from '../runtime';
 import {
   markReadableDerivedSubscribersDirty,
@@ -17,6 +19,26 @@ import { deepFreeze, makeQuery, parseLocation } from './route-context';
 import { computeMatchesFromRoutes } from './route-matching';
 import { getActiveRoutes } from './store';
 
+export interface RouteChangeOptions {
+  immediate?: boolean;
+}
+export type RouteChangeCleanup = void | (() => void);
+type RouteChangeSlot = {
+  kind: 'route-change';
+  previous: RouteSnapshot | null;
+  pending: RouteSnapshot | null;
+  cleanup: (() => void) | null;
+  cleanupRegistered: boolean;
+  callback: (
+    current: RouteSnapshot,
+    previous: RouteSnapshot | null
+  ) => RouteChangeCleanup;
+  immediate: boolean;
+};
+function routeSignature(route: RouteSnapshot): string {
+  return `${route.path}\u0000${JSON.stringify(route.query.toJSON())}\u0000${route.hash ?? ''}`;
+}
+
 let currentRouteSnapshot = buildRouteSnapshot('/', '', '');
 
 const currentRouteSource = (() =>
@@ -24,6 +46,71 @@ const currentRouteSource = (() =>
   (() => RouteSnapshot);
 
 currentRouteSource._readers = new Map();
+
+export function onRouteChange(
+  fn: (
+    current: RouteSnapshot,
+    previous: RouteSnapshot | null
+  ) => RouteChangeCleanup,
+  options: RouteChangeOptions = {}
+): void {
+  const instance = getCurrentComponentInstance();
+  if (!instance) return;
+  const route = currentRoute();
+  const index = claimHookIndex(instance, 'route-change');
+  const slots = (instance.lifecycleSlots ??= []);
+  const existing = slots[index] as { kind: string } | undefined;
+  if (existing && existing.kind !== 'route-change') {
+    throw new Error(
+      `onRouteChange() lifecycle order violation: slot ${index} already belongs to ${existing.kind}(). ` +
+        'Keep lifecycle primitives in a stable top-level order.'
+    );
+  }
+  const slot = (existing ?? {
+    kind: 'route-change',
+    previous: null,
+    pending: null,
+    cleanup: null,
+    cleanupRegistered: false,
+    callback: fn,
+    immediate: options.immediate === true,
+  }) as RouteChangeSlot;
+  slots[index] = slot as never;
+  slot.pending = route;
+  slot.callback = fn;
+  slot.immediate = options.immediate === true;
+  if (!slot.cleanupRegistered) {
+    instance.cleanupFns ??= [];
+    instance.cleanupFns.push(() => {
+      slot.cleanup?.();
+      slot.cleanup = null;
+    });
+    slot.cleanupRegistered = true;
+  }
+  if (!slot.previous) {
+    registerCommitOperation(() => {
+      const committed = slot.pending;
+      if (!committed) return;
+      if (slot.immediate) slot.cleanup = slot.callback(committed, null) ?? null;
+      slot.previous = committed;
+    });
+    return;
+  }
+  if (routeSignature(slot.previous) === routeSignature(route)) return;
+  registerCommitOperation(() => {
+    const previous = slot.previous;
+    const committed = slot.pending;
+    if (
+      !previous ||
+      !committed ||
+      routeSignature(previous) === routeSignature(committed)
+    )
+      return;
+    slot.cleanup?.();
+    slot.cleanup = slot.callback(committed, previous) ?? null;
+    slot.previous = committed;
+  });
+}
 
 let serverLocation: string | null = null;
 
