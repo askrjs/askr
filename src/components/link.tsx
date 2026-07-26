@@ -8,7 +8,6 @@ import type { AnchorIntrinsicProps, Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
 import { navigate } from '../router/navigate';
 import type { RouteDestination } from '../common/router';
-import { applyInteractionPolicy } from '../foundations/interactions';
 import { mergeProps } from '../foundations/utilities';
 
 type LinkBaseProps = Omit<
@@ -49,6 +48,8 @@ type LinkBaseProps = Omit<
    * Optional aria-label for accessibility when link text isn't descriptive enough.
    */
   'aria-label'?: string;
+  onPress?: (event: Event) => void;
+  onClick?: (event: MouseEvent) => void;
 };
 
 export type LinkProps = LinkBaseProps &
@@ -106,41 +107,44 @@ export function Link({
   target,
   'aria-current': ariaCurrent,
   'aria-label': ariaLabel,
+  onPress,
+  onClick,
   ...rest
 }: LinkProps): JSXElement {
   const href = to?.href ?? suppliedHref;
   if (!href) throw new Error('Link requires href or to.');
-  const interaction = applyInteractionPolicy({
-    isNative: true,
-    disabled: false,
-    onPress: (e: Event) => {
-      const event = e as MouseEvent;
+  const handleActivation = (e: Event) => {
+    onPress?.(e);
+    onClick?.(e as MouseEvent);
+    if (e.defaultPrevented) {
+      return;
+    }
 
-      // Only intercept left-click without modifiers
-      // Default button to 0 if undefined (for mock events in tests)
-      const button = event.button ?? 0;
-      if (
-        button !== 0 || // not left-click
-        event.ctrlKey || // Ctrl/Cmd+click
-        event.metaKey || // Cmd on Mac
-        event.shiftKey || // Shift+click
-        event.altKey // Alt+click
-      ) {
-        return; // Let browser handle it (new tab, etc.)
-      }
+    const event = e as MouseEvent;
 
-      // Don't intercept external links or explicit target.
-      if (target || !isSameOriginNavigableHref(href)) {
-        return; // Let browser handle it
-      }
+    // Only intercept left-click without modifiers. Default button to 0 for
+    // keyboard-generated click events and test doubles.
+    const button = event.button ?? 0;
+    if (
+      button !== 0 ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
 
-      event.preventDefault();
-      navigate(href);
-    },
-  });
+    if (target || !isSameOriginNavigableHref(href)) {
+      return;
+    }
+
+    event.preventDefault();
+    navigate(href);
+  };
 
   const props = mergeProps(rest, {
-    ...interaction,
+    onClick: handleActivation,
     href,
     class: className,
     rel,

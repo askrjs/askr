@@ -77,6 +77,40 @@ describe('Link component navigation', () => {
     expect(newTitle?.textContent).toBe('About');
   });
 
+  it('should run consumer onPress then onClick before internal navigation', async () => {
+    const calls: string[] = [];
+    route('/', () => (
+      <Link href="/about" onPress={() => calls.push('press')} onClick={() => calls.push('click')}>
+        About
+      </Link>
+    ));
+    route('/about', () => <div>{'About'}</div>);
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+
+    (container.querySelector('a') as HTMLAnchorElement).click();
+    await Promise.resolve();
+
+    expect(calls).toEqual(['press', 'click']);
+    expect(window.location.pathname).toBe('/about');
+  });
+
+  it('should let a consumer activation handler cancel navigation', async () => {
+    route('/', () => (
+      <Link href="/about" onClick={(event) => event.preventDefault()}>
+        About
+      </Link>
+    ));
+    route('/about', () => <div>{'About'}</div>);
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+
+    (container.querySelector('a') as HTMLAnchorElement).click();
+    await Promise.resolve();
+
+    expect(window.location.pathname).toBe('/');
+  });
+
   it('should preserve custom anchor attributes', async () => {
     route('/', () => (
       <div>
