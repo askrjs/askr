@@ -280,6 +280,33 @@ describe('reactive props issues validation', () => {
     cleanup();
   });
 
+  test('should reject unsafe values from client style objects', () => {
+    const { container, cleanup } = createTestContainer();
+
+    const Component = () => (
+      <div
+        id="subject"
+        style={{
+          color: 'red',
+          backgroundImage: 'url(https://attacker.test/tracker.png)',
+          width: 'expression(alert(1))',
+        }}
+      />
+    );
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const subject = container.querySelector('#subject') as HTMLDivElement;
+    expect(subject.style.color).toBe('red');
+    expect(subject.style.backgroundImage).toBe('');
+    expect(subject.style.width).toBe('');
+    expect(subject.getAttribute('style')).not.toContain('attacker.test');
+    expect(subject.getAttribute('style')).not.toContain('expression');
+
+    cleanup();
+  });
+
   test('should update a reactive class prop without rerunning the parent component', () => {
     const { container, cleanup } = createTestContainer();
 
