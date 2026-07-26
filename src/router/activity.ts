@@ -98,7 +98,11 @@ export function onRouteChange(
   registerCommitOperation(() => {
     const previous = slot.previous;
     const committed = slot.pending;
-    if (!previous || !committed || routeSignature(previous) === routeSignature(committed))
+    if (
+      !previous ||
+      !committed ||
+      routeSignature(previous) === routeSignature(committed)
+    )
       return;
     slot.cleanup?.();
     slot.cleanup = slot.callback(committed, previous) ?? null;
