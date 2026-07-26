@@ -337,6 +337,7 @@ export function timer(
   });
 }
 
+/** Runs an owned task after commit. */
 export function task(
   fn: () => void | (() => void) | PromiseLike<void | (() => void)>
 ): void {
