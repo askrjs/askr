@@ -325,14 +325,6 @@ export function timer(
   });
 }
 
-export function stream<T>(
-  _source: unknown,
-  _options?: Record<string, unknown>
-): { value: T | null; pending: boolean; error: Error | null } {
-  // Stub implementation: no-op.
-  return { value: null, pending: true, error: null };
-}
-
 export function task(
   fn: () => void | (() => void) | PromiseLike<void | (() => void)>
 ): void {

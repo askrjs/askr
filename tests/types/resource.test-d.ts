@@ -12,6 +12,8 @@ import {
   windowFocused,
   type ActivityPredicate,
   type ResourceResult,
+  type StreamResult,
+  type StreamStatus,
   type TimerOptions,
 } from '@askrjs/askr/resources';
 
@@ -56,11 +58,24 @@ expectType<void>(task(async () => {}));
 const snapshot = capture(() => 123);
 expectType<() => number>(snapshot);
 
-const pendingStream = stream<string>('source');
+const pendingStream = stream<string>(
+  async function* ({ signal }) {
+    expectType<AbortSignal>(signal);
+    yield 'value';
+  },
+  { deps: readonlyDeps, initialValue: 'cached' }
+);
+expectType<StreamResult<string>>(pendingStream);
 expectType<string | null>(pendingStream.value);
+expectType<StreamStatus>(pendingStream.status);
 expectType<boolean>(pendingStream.pending);
+expectType<boolean>(pendingStream.stale);
 expectType<Error | null>(pendingStream.error);
+expectType<void>(pendingStream.restart());
+expectType<void>(pendingStream.close());
 
 expectError(on(eventSource, transformer));
 expectError(timer(1000));
 expectError(timer(1000, () => {}, { when: [123] }));
+expectError(stream('source'));
+expectError(stream(() => Promise.resolve('not iterable')));
