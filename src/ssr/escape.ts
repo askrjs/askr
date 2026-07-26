@@ -154,11 +154,7 @@ export function escapeAttr(value: string): string {
 }
 
 /**
- * Escape CSS value to prevent injection attacks.
- * Removes characters that could break out of CSS context.
- */
-/**
- * Convert style object to CSS string with value escaping
+ * Convert a style object to a CSS string, omitting unsafe values.
  * Optimized to avoid Object.entries allocation
  */
 export function styleObjToCss(value: unknown): string | null {
