@@ -1,35 +1,31 @@
-import type { ChildScope } from '../runtime';
-import { syncControlBoundaryScopeDom } from './boundaries';
-import { teardownNodeSubtree } from './cleanup';
-import { getRangeNodes } from './dom-range';
-import {
-  createElementForNamespace,
-  getParentNamespace,
-  SVG_NAMESPACE,
-} from './namespaces';
+import type { ChildScope } from "../runtime";
+import { syncControlBoundaryScopeDom } from "./boundaries";
+import { teardownNodeSubtree } from "./cleanup";
+import { getRangeNodes } from "./dom-range";
+import { createElementForNamespace, getParentNamespace, SVG_NAMESPACE } from "./namespaces";
 import {
   collectReactiveChildBoundaryVNodes,
   isSingleRootReactiveChildBoundaryValue,
-} from './reactive-child-sources';
-import type { VNode } from './types';
+} from "./reactive-child-sources";
+import type { VNode } from "./types";
 
 export interface ReactiveChildDOMHost {
   createDOMNode(node: unknown, parentNamespace?: string): Node | null;
   updateElementChildren(
     el: Element,
     children: VNode | VNode[] | undefined,
-    forceUpdate?: boolean
+    forceUpdate?: boolean,
   ): void;
 }
 
 export type ReactiveChildBoundarySequenceEntry =
-  | { kind: 'static'; nodes: Node[] }
-  | { kind: 'dynamic'; scope: ChildScope; nodes: Node[] };
+  | { kind: "static"; nodes: Node[] }
+  | { kind: "dynamic"; scope: ChildScope; nodes: Node[] };
 
 export function materializeReactiveChildBoundaryNodes(
   value: unknown,
   parentNamespace: string | undefined,
-  host: ReactiveChildDOMHost
+  host: ReactiveChildDOMHost,
 ): Node[] {
   const nodes: Node[] = [];
   const dom = host.createDOMNode(value, parentNamespace);
@@ -53,8 +49,8 @@ export function createReactiveChildBoundaryHost(el: Element): Element {
   const ownerDocument = el.ownerDocument;
   const parentNamespace = getParentNamespace(el);
   return parentNamespace === SVG_NAMESPACE
-    ? createElementForNamespace('g', parentNamespace, ownerDocument)
-    : createElementForNamespace('div', parentNamespace, ownerDocument);
+    ? createElementForNamespace("g", parentNamespace, ownerDocument)
+    : createElementForNamespace("div", parentNamespace, ownerDocument);
 }
 
 export function disposeReactiveChildBoundaryNodes(nodes: Node[]): void {
@@ -67,13 +63,10 @@ export function disposeReactiveChildBoundaryNodes(nodes: Node[]): void {
   }
 }
 
-export function syncReactiveChildExpectedNodes(
-  el: Element,
-  expectedNodes: Node[]
-): void {
+export function syncReactiveChildExpectedNodes(el: Element, expectedNodes: Node[]): void {
   const expectedNodeSet = new Set(expectedNodes);
 
-  for (let node = el.firstChild; node; ) {
+  for (let node = el.firstChild; node;) {
     const next = node.nextSibling;
     if (!expectedNodeSet.has(node)) {
       teardownNodeSubtree(node);
@@ -97,7 +90,7 @@ export function syncReactiveChildExpectedNodes(
 export function commitReactiveChildBoundaryEntryNodes(
   el: Element,
   entry: { scope: ChildScope; nodes: Node[] },
-  host: ReactiveChildDOMHost
+  host: ReactiveChildDOMHost,
 ): Node[] {
   if (!entry.scope.needsDomUpdate) {
     return entry.nodes;
@@ -151,11 +144,7 @@ export function commitReactiveChildBoundaryEntryNodes(
     entry.scope.range = undefined;
   }
 
-  const nextDom = syncControlBoundaryScopeDom(
-    el,
-    entry.scope,
-    entry.scope.vnode ?? null
-  );
+  const nextDom = syncControlBoundaryScopeDom(el, entry.scope, entry.scope.vnode ?? null);
   if (!nextDom) {
     entry.nodes = [];
     entry.scope.needsDomUpdate = false;
@@ -172,19 +161,17 @@ export function commitReactiveChildBoundaryEntryNodes(
 export function syncReactiveChildSequenceNodes(
   el: Element,
   entries: ReactiveChildBoundarySequenceEntry[],
-  host: ReactiveChildDOMHost
+  host: ReactiveChildDOMHost,
 ): void {
   const expectedNodes: Node[] = [];
 
   for (const entry of entries) {
-    if (entry.kind === 'static') {
+    if (entry.kind === "static") {
       expectedNodes.push(...entry.nodes);
       continue;
     }
 
-    expectedNodes.push(
-      ...commitReactiveChildBoundaryEntryNodes(el, entry, host)
-    );
+    expectedNodes.push(...commitReactiveChildBoundaryEntryNodes(el, entry, host));
   }
 
   syncReactiveChildExpectedNodes(el, expectedNodes);
@@ -194,7 +181,7 @@ export function syncReactiveScalarTextNodes(
   el: Element,
   slotValues: unknown[],
   values: string[],
-  host: ReactiveChildDOMHost
+  host: ReactiveChildDOMHost,
 ): void {
   const childNodes = el.childNodes;
   const canPatchInPlace = childNodes.length === values.length;
@@ -220,7 +207,7 @@ export function syncReactiveScalarTextNodes(
   }
 
   const boundaryHost = createReactiveChildBoundaryHost(el);
-  for (let node = el.firstChild; node; ) {
+  for (let node = el.firstChild; node;) {
     const next = node.nextSibling;
     boundaryHost.appendChild(node);
     node = next;

@@ -1,14 +1,14 @@
-import { createDOMNode, updateElementFromVnode } from './dom';
-import { _reconcilerRecordedParents } from './keyed';
-import { logger } from '../common/logger';
-import { getRuntimeEnv } from './env';
-import { cleanupInstanceIfPresent, removeAllListeners } from './cleanup';
-import { recordBenchCounter, recordBenchEvent } from '../runtime';
-import { setDevValue, incDevCounter } from '../runtime';
-import { isRuntimeSchedulerExecuting } from '../runtime';
-import { isBulkCommitActive, markFastPathApplied } from '../runtime';
-import { canUseDirectReplaceChildrenSpread, getMaterializedKey } from './utils';
-import type { KeyedVnode } from './keyed-children';
+import { createDOMNode, updateElementFromVnode } from "./dom";
+import { _reconcilerRecordedParents } from "./keyed";
+import { logger } from "../common/logger";
+import { getRuntimeEnv } from "./env";
+import { cleanupInstanceIfPresent, removeAllListeners } from "./cleanup";
+import { recordBenchCounter, recordBenchEvent } from "../runtime";
+import { setDevValue, incDevCounter } from "../runtime";
+import { isRuntimeSchedulerExecuting } from "../runtime";
+import { isBulkCommitActive, markFastPathApplied } from "../runtime";
+import { canUseDirectReplaceChildrenSpread, getMaterializedKey } from "./utils";
+import type { KeyedVnode } from "./keyed-children";
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -16,7 +16,7 @@ declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
 
-export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
+export const IS_DOM_AVAILABLE = typeof document !== "undefined";
 
 // Apply the "renderer" fast-path: build final node list reusing existing
 // elements by key when possible, then perform a single atomic replaceChildren
@@ -25,10 +25,10 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 export function applyRendererFastPath(
   parent: Element,
   keyedVnodes: KeyedVnode[],
-  oldKeyMap?: Map<string | number, Element>
+  oldKeyMap?: Map<string | number, Element>,
 ): Map<string | number, Element> | null {
   // SSR guard: fast-path is DOM-specific
-  if (typeof document === 'undefined') return null;
+  if (typeof document === "undefined") return null;
 
   const totalKeyed = keyedVnodes.length;
   if (totalKeyed === 0) return null;
@@ -36,7 +36,7 @@ export function applyRendererFastPath(
   // Dev invariant: ensure we are executing inside the scheduler/commit flush
   if (DEVELOPMENT_BUILD_ENABLED && !isRuntimeSchedulerExecuting()) {
     logger.warn(
-      '[Askr][FASTPATH][DEV] Fast-path reconciliation invoked outside scheduler execution'
+      "[Askr][FASTPATH][DEV] Fast-path reconciliation invoked outside scheduler execution",
     );
   }
 
@@ -47,10 +47,7 @@ export function applyRendererFastPath(
   if (totalKeyed <= 20) {
     // Small lists: use array scan (faster than Map overhead for ≤20 items)
     try {
-      parentChildrenArr = Array.from(
-        parent.children,
-        (child) => child as Element
-      );
+      parentChildrenArr = Array.from(parent.children, (child) => child as Element);
     } catch (e) {
       parentChildrenArr = undefined;
       void e;
@@ -112,13 +109,9 @@ export function applyRendererFastPath(
   try {
     const tCommitStart = Date.now();
     const fragmentAppendCount = finalNodes.length;
-    const useDirectReplace = canUseDirectReplaceChildrenSpread(
-      finalNodes.length
-    );
+    const useDirectReplace = canUseDirectReplaceChildrenSpread(finalNodes.length);
     const finalNodeSet = useDirectReplace ? new Set<Node>(finalNodes) : null;
-    const fragment = useDirectReplace
-      ? null
-      : parent.ownerDocument.createDocumentFragment();
+    const fragment = useDirectReplace ? null : parent.ownerDocument.createDocumentFragment();
 
     if (fragment) {
       for (let i = 0; i < finalNodes.length; i++) {
@@ -130,7 +123,7 @@ export function applyRendererFastPath(
     try {
       // Keep reused nodes alive, but clean up anything still attached to the
       // parent that will be removed by replaceChildren.
-      for (let n = parent.firstChild; n; ) {
+      for (let n = parent.firstChild; n;) {
         const next = n.nextSibling;
         if (finalNodeSet?.has(n)) {
           n = next;
@@ -145,8 +138,8 @@ export function applyRendererFastPath(
     }
 
     try {
-      incDevCounter('__DOM_REPLACE_COUNT');
-      setDevValue('__LAST_DOM_REPLACE_STACK_FASTPATH', new Error().stack);
+      incDevCounter("__DOM_REPLACE_COUNT");
+      setDevValue("__LAST_DOM_REPLACE_STACK_FASTPATH", new Error().stack);
     } catch (e) {
       void e;
     }
@@ -159,14 +152,14 @@ export function applyRendererFastPath(
       parent.replaceChildren(fragment!);
     }
     if (BENCH_BUILD_ENABLED) {
-      recordBenchEvent('domMove', reusedCount);
-      recordBenchEvent('domInsert', createdNodes);
-      recordBenchCounter('replaceChildrenCommits');
+      recordBenchEvent("domMove", reusedCount);
+      recordBenchEvent("domInsert", createdNodes);
+      recordBenchCounter("replaceChildrenCommits");
     }
 
     // Record that we performed exactly one DOM commit.
     try {
-      setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
+      setDevValue("__LAST_FASTPATH_COMMIT_COUNT", 1);
     } catch (e) {
       void e;
     }
@@ -202,19 +195,16 @@ export function applyRendererFastPath(
           createdNodes,
           reusedCount,
         } as const;
-        if (typeof globalThis !== 'undefined') {
-          setDevValue('__LAST_FASTPATH_STATS', stats);
-          setDevValue('__LAST_FASTPATH_REUSED', reusedCount > 0);
-          incDevCounter('fastpathHistoryPush');
+        if (typeof globalThis !== "undefined") {
+          setDevValue("__LAST_FASTPATH_STATS", stats);
+          setDevValue("__LAST_FASTPATH_REUSED", reusedCount > 0);
+          incDevCounter("fastpathHistoryPush");
         }
         const env = getRuntimeEnv();
-        if (
-          env.ASKR_FASTPATH_DEBUG === '1' ||
-          env.ASKR_FASTPATH_DEBUG === 'true'
-        ) {
+        if (env.ASKR_FASTPATH_DEBUG === "1" || env.ASKR_FASTPATH_DEBUG === "true") {
           logger.warn(
-            '[Askr][FASTPATH]',
-            JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })
+            "[Askr][FASTPATH]",
+            JSON.stringify({ n: totalKeyed, createdNodes, reusedCount }),
           );
         }
       } catch (e) {

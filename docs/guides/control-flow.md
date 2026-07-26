@@ -10,22 +10,20 @@ Use `selector()` for a keyed membership test. Only rows whose membership
 changes need to update:
 
 ```tsx
-import { selector, state } from '@askrjs/askr';
-import { For } from '@askrjs/askr/control';
+import { selector, state } from "@askrjs/askr";
+import { For } from "@askrjs/askr/control";
 
-const ITEMS = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+const ITEMS = [{ id: "a" }, { id: "b" }, { id: "c" }];
 
 export function Navigation() {
-  const [selected, setSelected] = state('a');
+  const [selected, setSelected] = state("a");
   const isSelected = selector(() => selected());
 
   return (
     <>
-      <button onClick={() => setSelected('c')}>Choose C</button>
+      <button onClick={() => setSelected("c")}>Choose C</button>
       <For each={ITEMS} by={(item) => item.id}>
-        {(item) => (
-          <a data-active={isSelected(item.id) ? 'true' : 'false'}>{item.id}</a>
-        )}
+        {(item) => <a data-active={isSelected(item.id) ? "true" : "false"}>{item.id}</a>}
       </For>
     </>
   );
@@ -42,11 +40,7 @@ thunk). The renderer reevaluates the property when its reactive source changes:
 
 ```tsx
 <For each={ITEMS} by={(item) => item.id}>
-  {(item) => (
-    <li data-active={() => (selected() === item.id ? 'true' : 'false')}>
-      {item.id}
-    </li>
-  )}
+  {(item) => <li data-active={() => (selected() === item.id ? "true" : "false")}>{item.id}</li>}
 </For>
 ```
 
@@ -58,7 +52,7 @@ This looks natural but freezes the initial value for an existing row:
 const current = selected();
 
 <For each={ITEMS} by={(item) => item.id}>
-  {(item) => <li data-active={item.id === current ? 'true' : 'false'} />}
+  {(item) => <li data-active={item.id === current ? "true" : "false"} />}
 </For>;
 ```
 
