@@ -345,7 +345,7 @@ function commitSlot<T>(
 
   slot.owner = instance;
   slot.source = slot.pendingSource;
-  slot.deps = slot.pendingDeps.slice();
+  slot.deps = slot.pendingDeps;
 
   if (firstCommit) {
     slot.activated = true;
