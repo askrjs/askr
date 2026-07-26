@@ -56,7 +56,6 @@ describe('layout scoping (ROUTER)', () => {
     expect(container.querySelector('.home')?.textContent).toBe('Home');
   });
 
-
   it('should not apply layout to routes declared outside the scope', async () => {
     const AppLayout = ({ children }: { children?: unknown }) => (
       <div class="shell">{children as never}</div>
