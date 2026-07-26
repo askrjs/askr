@@ -110,4 +110,18 @@ describe('testing render harness', () => {
     vi.stubGlobal('document', currentDocument);
     vi.unstubAllGlobals();
   });
+
+  it('should reject invalid JavaScript container and event arguments', () => {
+    expect(() =>
+      render(() => null, {
+        container: {} as HTMLElement,
+      })
+    ).toThrow(
+      '@askrjs/askr/testing render options.container must be an HTMLElement'
+    );
+
+    expect(() => dispatch(document.body, 123 as unknown as Event)).toThrow(
+      '@askrjs/askr/testing dispatch requires an Event instance or event type string'
+    );
+  });
 });

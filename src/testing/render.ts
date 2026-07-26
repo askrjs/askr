@@ -79,7 +79,21 @@ function prepareContainer(options?: RenderOptions): {
 } {
   const currentDocument = requireDocument();
   const managed = options?.container === undefined;
-  const container = options?.container ?? currentDocument.createElement('div');
+  const providedContainer = options?.container;
+
+  if (
+    providedContainer !== undefined &&
+    (!providedContainer ||
+      providedContainer.nodeType !== 1 ||
+      typeof providedContainer.querySelector !== 'function' ||
+      typeof providedContainer.replaceChildren !== 'function')
+  ) {
+    throw new TypeError(
+      '@askrjs/askr/testing render options.container must be an HTMLElement.'
+    );
+  }
+
+  const container = providedContainer ?? currentDocument.createElement('div');
 
   if (renderStates.get(container)?.active) {
     throw new Error(
@@ -104,6 +118,15 @@ function getEventConstructor(target: EventTarget): typeof Event {
   return Event;
 }
 
+function isEventForTarget(target: EventTarget, value: unknown): value is Event {
+  const TargetEvent = getEventConstructor(target);
+  if (value instanceof TargetEvent) {
+    return true;
+  }
+
+  return typeof Event !== 'undefined' && value instanceof Event;
+}
+
 export function flush(): void {
   flushRuntimeScheduler();
 }
@@ -116,6 +139,11 @@ export function dispatch(
   if (!target || typeof target.dispatchEvent !== 'function') {
     throw new TypeError(
       '@askrjs/askr/testing dispatch requires an EventTarget.'
+    );
+  }
+  if (typeof event !== 'string' && !isEventForTarget(target, event)) {
+    throw new TypeError(
+      '@askrjs/askr/testing dispatch requires an Event instance or event type string.'
     );
   }
 
