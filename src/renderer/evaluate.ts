@@ -38,7 +38,7 @@ export function evaluate(
   node: unknown,
   target: Element | null,
   context?: object,
-  retainedOwner?: ComponentInstance
+  retainedOwner?: ComponentInstance,
 ): void {
   if (!target) return;
   if (typeof document === 'undefined') {
@@ -67,7 +67,7 @@ function evaluateInLifecycleBatch(
   node: unknown,
   target: Element | null,
   context?: object,
-  retainedOwner?: ComponentInstance
+  retainedOwner?: ComponentInstance,
 ): void {
   if (!target) return;
 
@@ -101,10 +101,7 @@ function evaluateInLifecycleBatch(
       }
     }
 
-    if (
-      _isDOMElement(vnode) &&
-      (vnode as DOMElement).type === __CONTROL_BOUNDARY__
-    ) {
+    if (_isDOMElement(vnode) && (vnode as DOMElement).type === __CONTROL_BOUNDARY__) {
       updateForBoundaryChildren(target, vnode as DOMElement);
       return;
     }
@@ -118,34 +115,24 @@ function evaluateInLifecycleBatch(
       __ASKR_INSTANCE?: ComponentInstance;
     };
     const targetInstance =
-      retainedOwner?.target === target
-        ? retainedOwner
-        : targetWithInstance.__ASKR_INSTANCE;
+      retainedOwner?.target === target ? retainedOwner : targetWithInstance.__ASKR_INSTANCE;
     if (targetInstance && targetInstance.target === target) {
-      const retainedHostInstances = getRetainedHostOwnerChain(
-        targetWithInstance,
-        targetInstance
-      );
+      const retainedHostInstances = getRetainedHostOwnerChain(targetWithInstance, targetInstance);
 
       if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
         const syncedDom = syncComponentElement(
           target,
           vnode as unknown as ElementWithContext,
           vnode.type as ComponentFunction,
-          (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) ||
-            {},
+          (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {},
           undefined,
           false,
-          retainedHostInstances
+          retainedHostInstances,
         );
 
         if (syncedDom) {
           if (syncedDom instanceof Element) {
-            retainHostOwnerChain(
-              syncedDom,
-              targetInstance,
-              retainedHostInstances
-            );
+            retainHostOwnerChain(syncedDom, targetInstance, retainedHostInstances);
             targetInstance.target = syncedDom;
           }
           return;
@@ -164,9 +151,8 @@ function evaluateInLifecycleBatch(
       const newDom = createDOMNode(vnode);
       if (newDom && target.parentNode) {
         if (newDom instanceof Element) {
-          (
-            newDom as Element & { __ASKR_INSTANCE?: ComponentInstance }
-          ).__ASKR_INSTANCE = targetInstance;
+          (newDom as Element & { __ASKR_INSTANCE?: ComponentInstance }).__ASKR_INSTANCE =
+            targetInstance;
           targetInstance.target = newDom as Element;
         }
         removeAllListeners(target);
@@ -185,7 +171,7 @@ function evaluateInLifecycleBatch(
     ) {
       smartUpdateElement(firstChild, vnode as DOMElement, cleanupRangeNode);
     } else {
-      for (let node = target.firstChild; node; ) {
+      for (let node = target.firstChild; node;) {
         const next = node.nextSibling;
         cleanupRangeNode(node);
         node = next;

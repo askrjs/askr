@@ -21,11 +21,7 @@ export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
   let created = 0;
 
   for (let index = 0; index < newChildren.length; index += 1) {
-    const result = processChildNode(
-      newChildren[index],
-      existing[index],
-      finalNodes
-    );
+    const result = processChildNode(newChildren[index], existing[index], finalNodes);
     if (result === 'reused') reused += 1;
     else if (result === 'created') created += 1;
   }
@@ -50,7 +46,7 @@ export function performBulkTextReplace(parent: Element, newChildren: VNode[]) {
 function processChildNode(
   vnode: VNode,
   existingNode: ChildNode | undefined,
-  finalNodes: Node[]
+  finalNodes: Node[],
 ): 'reused' | 'created' | 'skipped' {
   if (typeof vnode === 'string' || typeof vnode === 'number') {
     return processTextVnode(String(vnode), existingNode, finalNodes);
@@ -66,7 +62,7 @@ function processChildNode(
 function processTextVnode(
   text: string,
   existingNode: ChildNode | undefined,
-  finalNodes: Node[]
+  finalNodes: Node[],
 ): 'reused' | 'created' {
   if (existingNode && existingNode.nodeType === 3) {
     (existingNode as Text).data = text;
@@ -81,7 +77,7 @@ function processTextVnode(
 function processElementVnode(
   vnode: VNode,
   existingNode: ChildNode | undefined,
-  finalNodes: Node[]
+  finalNodes: Node[],
 ): 'reused' | 'created' | 'skipped' {
   const vnodeObj = vnode as unknown as { type?: unknown };
 
@@ -116,7 +112,7 @@ function commitBulkReplace(parent: Element, nodes: Node[]): number {
   }
 
   try {
-    for (let node = parent.firstChild; node; ) {
+    for (let node = parent.firstChild; node;) {
       const next = node.nextSibling;
       teardownNodeSubtree(node);
       node = next;
@@ -147,10 +143,7 @@ function recordBulkTextStats(stats: {
   }
 }
 
-export function isBulkTextFastPathEligible(
-  parent: Element,
-  newChildren: VNode[]
-) {
+export function isBulkTextFastPathEligible(parent: Element, newChildren: VNode[]) {
   const env = getRuntimeEnv();
   const threshold = Number(env.ASKR_BULK_TEXT_THRESHOLD) || 1024;
   const requiredFraction = 0.8;
@@ -178,8 +171,7 @@ export function isBulkTextFastPathEligible(
   }
 
   const fraction = result.simple / total;
-  const eligible =
-    fraction >= requiredFraction && parent.childNodes.length >= total;
+  const eligible = fraction >= requiredFraction && parent.childNodes.length >= total;
 
   recordBulkDiag({
     phase: 'bulk-unkeyed-eligible',
