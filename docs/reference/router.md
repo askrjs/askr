@@ -260,6 +260,10 @@ import { Link } from '@askrjs/askr/router';
 
 `Link` accepts normal renderable child content. Imperative DOM `Node` children are not a supported public contract.
 
+Raw `href` values may be relative URLs or use `http`, `https`, `mailto`,
+`sms`, or `tel`. `Link` rejects other explicit schemes, including executable
+and local-file URLs.
+
 ## Types
 
 | Type               | Description                                         |
