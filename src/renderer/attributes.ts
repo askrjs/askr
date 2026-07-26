@@ -1,4 +1,5 @@
 import type { Props } from '../common/props';
+import { sanitizeCssValue } from '../common/css';
 import { incrementPerfMetric } from '../runtime';
 import {
   extractKey,
@@ -115,7 +116,10 @@ function normalizeStyleEntries(value: unknown): StyleEntries | null {
       continue;
     }
 
-    entries.set(normalizeStylePropertyName(key), String(entryValue));
+    const safeValue = sanitizeCssValue(String(entryValue));
+    if (safeValue) {
+      entries.set(normalizeStylePropertyName(key), safeValue);
+    }
   }
 
   return entries;
