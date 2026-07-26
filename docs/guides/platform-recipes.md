@@ -102,7 +102,7 @@ function SearchControls() {
       const keyboardEvent = event as KeyboardEvent;
       if (
         (keyboardEvent.metaKey || keyboardEvent.ctrlKey) &&
-        keyboardEvent.key === 'k'
+        keyboardEvent.key.toLowerCase() === 'k'
       ) {
         keyboardEvent.preventDefault();
       }
