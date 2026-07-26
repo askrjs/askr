@@ -10,6 +10,7 @@ import { navigate } from '../router/navigate';
 import type { RouteDestination } from '../common/router';
 import { applyInteractionPolicy } from '../foundations/interactions';
 import { mergeProps } from '../foundations/utilities';
+import { isSafeHref } from '../common/url';
 
 type LinkBaseProps = Omit<
   Props,
@@ -114,6 +115,9 @@ export function Link({
 }: LinkProps): JSXElement {
   const href = to?.href ?? suppliedHref;
   if (!href) throw new Error('Link requires href or to.');
+  if (!isSafeHref(href)) {
+    throw new TypeError('Link href uses an unsafe URL scheme.');
+  }
   const handleNavigation = (e: Event) => {
     if (e.defaultPrevented) {
       return;
