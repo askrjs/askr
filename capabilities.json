@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "package": "@askrjs/askr",
+  "capabilities": [
+    {
+      "intent": "reactive state and derived views",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr",
+      "exports": ["state", "derive", "selector", "For"],
+      "constraints": ["component render scope", "stable call order"],
+      "stability": "stable",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/state.md",
+      "docsPath": "docs/guides/state.md"
+    },
+    {
+      "intent": "routing and navigation",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/router",
+      "exports": ["route", "Link", "navigate", "createRouteRegistry"],
+      "constraints": ["route registry owns navigation"],
+      "stability": "stable",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/router.md",
+      "docsPath": "docs/guides/router.md"
+    },
+    {
+      "intent": "server rendering",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/ssr",
+      "exports": ["renderToString"],
+      "constraints": ["browser globals require lazy client targets"],
+      "stability": "stable",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/ssr.md",
+      "docsPath": "docs/guides/ssr.md"
+    },
+    {
+      "intent": "static generation",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/ssg",
+      "exports": ["createStaticGen"],
+      "constraints": ["routes must be deterministic"],
+      "stability": "stable",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/ssg.md",
+      "docsPath": "docs/guides/ssg.md"
+    },
+    {
+      "intent": "error boundaries",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/components",
+      "exports": ["ErrorBoundary"],
+      "constraints": ["portal hosts are finalized during render"],
+      "stability": "stable",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/reference/api.md",
+      "docsPath": "docs/reference/api.md"
+    },
+    {
+      "intent": "portals",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/foundations/structures",
+      "exports": ["Portal", "DefaultPortal"],
+      "constraints": ["portal hosts are finalized during render"],
+      "stability": "stable",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/reference/api.md",
+      "docsPath": "docs/reference/api.md"
+    }
+  ]
+}
