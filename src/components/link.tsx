@@ -49,6 +49,8 @@ type LinkBaseProps = Omit<
    * Optional aria-label for accessibility when link text isn't descriptive enough.
    */
   'aria-label'?: string;
+  onPress?: (event: Event) => void;
+  onClick?: (event: MouseEvent) => void;
 };
 
 export type LinkProps = LinkBaseProps &
@@ -106,41 +108,53 @@ export function Link({
   target,
   'aria-current': ariaCurrent,
   'aria-label': ariaLabel,
+  onPress,
+  onClick,
   ...rest
 }: LinkProps): JSXElement {
   const href = to?.href ?? suppliedHref;
   if (!href) throw new Error('Link requires href or to.');
+  const handleNavigation = (e: Event) => {
+    if (e.defaultPrevented) {
+      return;
+    }
+
+    const event = e as MouseEvent;
+
+    // Only intercept left-click without modifiers. Default button to 0 for
+    // keyboard-generated click events and test doubles.
+    const button = event.button ?? 0;
+    if (
+      button !== 0 ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    if (target || !isSameOriginNavigableHref(href)) {
+      return;
+    }
+
+    event.preventDefault();
+    navigate(href);
+  };
+
   const interaction = applyInteractionPolicy({
     isNative: true,
     disabled: false,
-    onPress: (e: Event) => {
-      const event = e as MouseEvent;
-
-      // Only intercept left-click without modifiers
-      // Default button to 0 if undefined (for mock events in tests)
-      const button = event.button ?? 0;
-      if (
-        button !== 0 || // not left-click
-        event.ctrlKey || // Ctrl/Cmd+click
-        event.metaKey || // Cmd on Mac
-        event.shiftKey || // Shift+click
-        event.altKey // Alt+click
-      ) {
-        return; // Let browser handle it (new tab, etc.)
-      }
-
-      // Don't intercept external links or explicit target.
-      if (target || !isSameOriginNavigableHref(href)) {
-        return; // Let browser handle it
-      }
-
-      event.preventDefault();
-      navigate(href);
-    },
+    onPress: handleNavigation,
   });
+  const consumerActivation = (e: Event) => {
+    onPress?.(e);
+    onClick?.(e as MouseEvent);
+  };
 
-  const props = mergeProps(rest, {
-    ...interaction,
+  const props = mergeProps(interaction, {
+    ...rest,
+    onClick: consumerActivation,
     href,
     class: className,
     rel,
