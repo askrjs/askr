@@ -375,7 +375,7 @@ const handleFocus = () => {
   // respond to the focus event
 };
 
-on(window, 'focus', handleFocus);
+on(() => window, 'focus', handleFocus);
 ```
 
 `on()` registers the listener during mount and removes it during cleanup. Rerenders keep

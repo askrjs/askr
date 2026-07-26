@@ -1,4 +1,4 @@
-import { expectError, expectType } from 'tsd';
+import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   capture,
   documentVisible,
@@ -11,12 +11,15 @@ import {
   timer,
   windowFocused,
   type ActivityPredicate,
+  type ListenerTarget,
   type ResourceResult,
   type TimerOptions,
 } from '@askrjs/askr/resources';
 
 declare const eventSource: EventTarget;
 declare const transformer: () => void;
+declare const resolveEventSource: () => EventTarget | null;
+expectAssignable<ListenerTarget>(resolveEventSource);
 
 const readonlyDeps = ['user', 1] as const;
 const timerOptions: TimerOptions = { when: [documentVisible()] };
@@ -43,6 +46,7 @@ expectType<number | null>(syncResource.value);
 
 expectType<AbortSignal>(getSignal());
 expectType<void>(on(eventSource, 'focus', () => {}));
+expectType<void>(on(resolveEventSource, 'focus', () => {}));
 expectType<void>(on(eventSource, 'focus', () => {}, { passive: true }));
 expectType<void>(timer(1000, () => {}));
 expectType<void>(timer(1000, () => {}, { when: [routeActive('/dashboard')] }));

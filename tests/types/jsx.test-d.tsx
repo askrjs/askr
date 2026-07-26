@@ -1,10 +1,15 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   Fragment as RootFragment,
+  createRef,
   type Props,
+  type Ref,
   jsx as rootJsx,
   jsxs as rootJsxs,
 } from '@askrjs/askr';
+
+const buttonRef = createRef<HTMLButtonElement>();
+expectType<Ref<HTMLButtonElement>>(buttonRef);
 import {
   Fragment,
   jsx,

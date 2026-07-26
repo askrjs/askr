@@ -85,6 +85,10 @@ export function windowFocused(): ActivityPredicate {
     document.hasFocus();
 }
 
+export type ListenerTarget =
+  | EventTarget
+  | (() => EventTarget | null | undefined);
+
 type ListenerOptions = boolean | AddEventListenerOptions | undefined;
 
 type NormalizedListenerOptions =
@@ -104,7 +108,7 @@ interface ListenerSlot extends LifecycleSlot {
   handler: EventListener;
   listener: EventListener;
   options: NormalizedListenerOptions;
-  pendingTarget: EventTarget;
+  pendingTarget: ListenerTarget;
   pendingEvent: string;
   pendingHandler: EventListener;
   pendingOptions: NormalizedListenerOptions;
@@ -163,20 +167,28 @@ function commitListenerSlot(
   slot: ListenerSlot
 ): void {
   slot.handler = slot.pendingHandler;
+  const resolvedTarget =
+    typeof slot.pendingTarget === 'function'
+      ? typeof window === 'undefined'
+        ? null
+        : (slot.pendingTarget() ?? null)
+      : slot.pendingTarget;
 
   const shouldReattach =
     !slot.attached ||
-    slot.target !== slot.pendingTarget ||
+    slot.target !== resolvedTarget ||
     slot.event !== slot.pendingEvent ||
     !listenerOptionsEqual(slot.options, slot.pendingOptions);
 
   if (shouldReattach) {
     detachListenerSlot(slot);
-    slot.target = slot.pendingTarget;
+    slot.target = resolvedTarget;
     slot.event = slot.pendingEvent;
     slot.options = slot.pendingOptions;
-    slot.target.addEventListener(slot.event, slot.listener, slot.options);
-    slot.attached = true;
+    if (slot.target) {
+      slot.target.addEventListener(slot.event, slot.listener, slot.options);
+      slot.attached = true;
+    }
   }
 
   if (!slot.cleanupRegistered) {
@@ -189,7 +201,7 @@ function commitListenerSlot(
 }
 
 export function on(
-  target: EventTarget,
+  target: ListenerTarget,
   event: string,
   handler: EventListener,
   options?: ListenerOptions

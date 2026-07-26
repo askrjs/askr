@@ -7,7 +7,8 @@ import {
   afterEach,
   vi,
 } from 'vite-plus/test';
-import { state } from '../../../src/index';
+import { createRef, state } from '../../../src/index';
+import { on } from '../../../src/resources';
 import {
   createTestContainer,
   flushScheduler,
@@ -117,6 +118,48 @@ describe('listener lifecycle (DOM)', () => {
     flushScheduler();
     expect(aClicks).toBe(1);
     expect(bClicks).toBe(1);
+  });
+
+  it('should resolve lazy listener targets during client commit', () => {
+    const target = new EventTarget();
+    let resolveCalls = 0;
+    let calls = 0;
+
+    const Component = () => {
+      on(
+        () => {
+          resolveCalls += 1;
+          return target;
+        },
+        'ready',
+        () => {
+          calls += 1;
+        }
+      );
+      return <div>{'ready'}</div>;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    expect(resolveCalls).toBeGreaterThan(0);
+    target.dispatchEvent(new Event('ready'));
+    expect(calls).toBe(1);
+  });
+
+  it('should provide stable refs and clear them on unmount', () => {
+    const ref = createRef<HTMLButtonElement>();
+
+    createIsland({
+      root: container,
+      component: () => <button ref={ref}>{'button'}</button>,
+    });
+    flushScheduler();
+
+    expect(ref.current).toBe(container.querySelector('button'));
+    createIsland({ root: container, component: () => <div>{'gone'}</div> });
+    flushScheduler();
+    expect(ref.current).toBeNull();
   });
 
   it('should update direct listeners in place when delegation is disabled', async () => {
