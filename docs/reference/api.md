@@ -47,7 +47,7 @@ Public types:
 - `@askrjs/askr/actions` - browser-safe `defineAction`, reactive `action`, and native-first `ActionForm`
 - `@askrjs/askr/control` - JSX control-flow helpers
 - `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createMutation`, `invalidate`, and `invalidateOnInterval`
-- `@askrjs/askr/testing` - test helpers such as `mockQuery`, `queryState`, and `createInvalidationRecorder`
+- `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
 - `@askrjs/askr/resources` - async resource helpers such as `resource`, `stream`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`
 - `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, metadata, critical `routeData`, and deferred `Resolve` boundaries
 - `@askrjs/askr/fx` - timing and scheduling helpers

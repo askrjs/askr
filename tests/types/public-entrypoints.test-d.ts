@@ -80,6 +80,12 @@ expectType<typeof testingSurface.matchRoute>(testingSurface.matchRoute);
 expectType<typeof testingSurface.getRouteWarnings>(
   testingSurface.getRouteWarnings
 );
+expectType<typeof testingSurface.render>(testingSurface.render);
+expectType<typeof testingSurface.mount>(testingSurface.mount);
+expectType<typeof testingSurface.renderRoute>(testingSurface.renderRoute);
+expectType<typeof testingSurface.dispatch>(testingSurface.dispatch);
+expectType<typeof testingSurface.flush>(testingSurface.flush);
+expectType<typeof testingSurface.cleanup>(testingSurface.cleanup);
 // @ts-expect-error jsx runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-runtime')).ELEMENT_TYPE;
 // @ts-expect-error jsx dev runtime entrypoint no longer exposes element brand
@@ -102,6 +108,8 @@ expectType<never>(rootSurface.Portal);
 expectType<never>(rootSurface.mockQuery);
 // @ts-expect-error root package does not expose testing helpers
 expectType<never>(rootSurface.matchRoute);
+// @ts-expect-error root package does not expose testing helpers
+expectType<never>(rootSurface.render);
 
 // @ts-expect-error resources subpath no longer re-exports data helpers
 expectType<never>(resourcesSurface.createQuery);

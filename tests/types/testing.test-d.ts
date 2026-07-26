@@ -1,12 +1,21 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
+  cleanup,
   createInvalidationRecorder,
+  dispatch,
+  flush,
   getRouteWarnings,
   matchRoute,
+  mount,
   mockQuery,
   queryState,
+  render,
+  renderRoute,
   type InvalidationRecord,
   type InvalidationRecorder,
+  type RenderOptions,
+  type RenderResult,
+  type RouteRenderOptions,
   type RoutePatternWarning,
   type MockQueryOptions,
   type MockRefresh,
@@ -97,3 +106,31 @@ expectError(mockQuery(null));
 expectError(mockQuery.loading(123));
 expectError(mockQuery.stale({ id: '123' }, 'error'));
 expectError(queryState.fresh(null));
+
+const component = () => null;
+const renderOptions: RenderOptions = {
+  container: document.createElement('main'),
+};
+expectAssignable<RenderOptions>(renderOptions);
+const rendered = render(component, renderOptions);
+expectType<RenderResult>(rendered);
+expectType<RenderResult>(mount(component));
+expectType<HTMLElement>(rendered.container);
+expectType<HTMLElement>(rendered.root);
+expectType<void>(rendered.flush());
+expectType<boolean>(rendered.dispatch(rendered.root, 'click'));
+expectType<void>(rendered.unmount());
+expectType<void>(rendered.cleanup());
+expectType<void>(flush());
+expectType<boolean>(dispatch(rendered.root, new Event('click')));
+expectType<void>(cleanup(rendered));
+expectType<void>(cleanup(rendered.root));
+
+const routeRenderOptions: RouteRenderOptions = {
+  registry,
+  url: '/users/123',
+};
+expectAssignable<RouteRenderOptions>(routeRenderOptions);
+expectType<Promise<RenderResult>>(renderRoute(routeRenderOptions));
+expectError(render(component, { container: document.createTextNode('root') }));
+expectError(dispatch(rendered.root, 123));
