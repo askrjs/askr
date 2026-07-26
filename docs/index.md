@@ -43,6 +43,12 @@ package boundaries in the platform.
 | [Determinism](./concepts/determinism.md)                 | Event ordering and update behavior |
 | [Runtime enforcement](./concepts/runtime-enforcement.md) | Hook-order and structural checks   |
 
+## Recipes
+
+| Page                                                      | Description                                      |
+| --------------------------------------------------------- | ------------------------------------------------ |
+| [Verified platform recipes](./guides/platform-recipes.md) | Routing, browser lifecycle, data, errors, search |
+
 ## Development
 
 | Page                                                        | Description                       |
