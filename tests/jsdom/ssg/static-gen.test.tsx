@@ -1072,6 +1072,27 @@ describe('Static Site Generation', () => {
       }
     });
 
+    it('should report render phase when a loader succeeds before component failure', async () => {
+      const BrokenComponent = (): JSXElement => {
+        throw new Error('render failure');
+      };
+      const result = await createStaticGen({
+        routes: [
+          {
+            path: '/loaded-broken',
+            component: BrokenComponent,
+            loader: async () => ({ ok: true }),
+          },
+        ],
+        outputDir: tempDir,
+      }).generate();
+
+      expect(result.routes[0].errorContext).toEqual({
+        route: '/loaded-broken',
+        phase: 'render',
+      });
+    });
+
     it('should write metadata JSON with proper formatting', async () => {
       const ssg = createStaticGen({
         routes: [{ path: '/', component: Home }],

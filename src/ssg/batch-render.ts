@@ -57,6 +57,7 @@ export async function batchRenderRoutes(
 
     const mergedHandler: RouteHandler = route.handler;
 
+    let phase: 'load' | 'render' = route.loader ? 'load' : 'render';
     try {
       let routeData: unknown;
       let hasRouteData = false;
@@ -98,6 +99,7 @@ export async function batchRenderRoutes(
             })
           : sharedRegistry;
 
+      phase = 'render';
       const html = renderToString({
         url,
         registry,
@@ -156,7 +158,7 @@ export async function batchRenderRoutes(
         written: false,
         error: error instanceof Error ? error.message : String(error),
         errorCause: error,
-        errorContext: { route: url, phase: route.loader ? 'load' : 'render' },
+        errorContext: { route: url, phase },
       };
     }
   };
