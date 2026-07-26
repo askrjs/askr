@@ -51,10 +51,7 @@ describe('unsafe href schemes', () => {
       flushScheduler();
       expect(container.querySelector('a')?.hasAttribute('href')).toBe(false);
 
-      const html = renderToStringSync(
-        () => <a {...unsafeProps}>unsafe</a>,
-        {}
-      );
+      const html = renderToStringSync(() => <a {...unsafeProps}>unsafe</a>, {});
       expect(html).toBe('<a>unsafe</a>');
     } finally {
       cleanup();
