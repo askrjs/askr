@@ -108,7 +108,9 @@ function returnIterator<T>(generation: StreamGeneration<T>): void {
   }
 
   try {
-    void Promise.resolve(returnMethod.call(generation.iterator)).catch(() => {});
+    void Promise.resolve(returnMethod.call(generation.iterator)).catch(
+      () => {}
+    );
   } catch {
     // Cleanup is best-effort and must not replace the stream's terminal state.
   }
@@ -335,10 +337,7 @@ function disposeSlot<T>(slot: StreamSlot<T>): void {
   slot.activated = false;
 }
 
-function commitSlot<T>(
-  instance: ComponentInstance,
-  slot: StreamSlot<T>
-): void {
+function commitSlot<T>(instance: ComponentInstance, slot: StreamSlot<T>): void {
   const depsChanged = !depsEqual(slot.deps, slot.pendingDeps);
   const firstCommit = !slot.activated;
   const wasRunning = slot.current !== null;
@@ -359,10 +358,7 @@ function commitSlot<T>(
     (instance.cleanupFns ??= []).push(() => disposeSlot(slot));
   }
 
-  if (
-    !slot.explicitlyClosed &&
-    (firstCommit || (depsChanged && wasRunning))
-  ) {
+  if (!slot.explicitlyClosed && (firstCommit || (depsChanged && wasRunning))) {
     queueStart(slot);
   }
 }

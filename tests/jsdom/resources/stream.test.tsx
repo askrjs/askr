@@ -178,7 +178,9 @@ describe('stream()', () => {
         root: container,
         component: () => {
           current = stream(() => source, { initialValue: null });
-          return <p>{`${current.status}:${current.pending}:${current.stale}`}</p>;
+          return (
+            <p>{`${current.status}:${current.pending}:${current.stale}`}</p>
+          );
         },
       });
       flushScheduler();
@@ -279,9 +281,7 @@ describe('stream()', () => {
           sourceVersion = state(0);
           dependency = state(0);
           const selected =
-            sourceVersion() === 0
-              ? () => sources[calls++]!
-              : () => replacement;
+            sourceVersion() === 0 ? () => sources[calls++]! : () => replacement;
           const result = stream(selected, { deps: [dependency()] });
           return <p>{result.status}</p>;
         },
