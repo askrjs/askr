@@ -2,7 +2,9 @@ export type HydrationListenerStageKind = 'direct' | 'delegated';
 
 export interface HydrationListenerStage {
   kind: HydrationListenerStageKind;
+  target: Element;
   eventName: string;
+  capture: boolean;
   publish: () => void;
   rollback: () => void;
 }
@@ -32,6 +34,19 @@ export function stageHydrationListener(stage: HydrationListenerStage): boolean {
 
   currentTransaction.stages.push(stage);
   return true;
+}
+
+export function hasStagedHydrationListener(
+  target: Element,
+  eventName: string,
+  capture: boolean
+): boolean {
+  return !!currentTransaction?.stages.some(
+    (stage) =>
+      stage.target === target &&
+      stage.eventName === eventName &&
+      stage.capture === capture
+  );
 }
 
 function closeTransaction(transaction: HydrationListenerTransaction): boolean {
