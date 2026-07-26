@@ -1,6 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { verifyHydrationSyncForUrl } from '../../src/ssr/verify-hydration';
-import { resolveRouteFromRoutes } from '../../src/router/route';
+import { resolveRouteFromRoutes } from '../../src/router/route-matching';
 import {
   buildRows,
   buildTableHydrationRoutes,
@@ -31,7 +31,7 @@ await (async () => {
       verifyHydrationSyncForUrl({
         root: fixture.container,
         url: '/',
-        routes: fixture.routes,
+        registry: fixture.registry,
         resolved,
       })
     ).toBe(true);
@@ -55,7 +55,7 @@ describe('tier2 subsystem hydration verify markup', () => {
       verifyHydrationSyncForUrl({
         root: fixture!.container,
         url: '/',
-        routes: fixture!.routes,
+        registry: fixture!.registry,
         resolved,
       });
     },

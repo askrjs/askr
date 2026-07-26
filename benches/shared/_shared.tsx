@@ -67,6 +67,7 @@ export interface DenseRouteTableFixture {
 export interface SsrLayoutRouteFixture {
   url: string;
   routes: Route[];
+  registry: RouteRegistry;
   expectedMarker: string;
   shellMarker: string;
 }
@@ -74,6 +75,7 @@ export interface SsrLayoutRouteFixture {
 export interface ConcurrentSsrRequestFixture {
   url: string;
   routes: Route[];
+  registry: RouteRegistry;
   options: {
     data: Record<string, unknown>;
   };
@@ -543,10 +545,19 @@ export function createHydrationFixture({
   mutateServerHtml?: (container: HTMLDivElement) => void;
 }): HydrationFixture {
   const { container, cleanup } = createTestContainer();
+  const registry = createRouteRegistry(() => {
+    for (const entry of routes) {
+      route(
+        entry.path,
+        entry.handler,
+        entry.namespace ? { namespace: entry.namespace } : undefined
+      );
+    }
+  });
 
   const renderServerHtml = () => {
     setLocationPath(url);
-    container.innerHTML = renderToString({ url, routes });
+    container.innerHTML = renderToString({ url, registry });
     mutateServerHtml?.(container);
     return container.innerHTML;
   };
@@ -564,15 +575,7 @@ export function createHydrationFixture({
   return {
     container,
     routes,
-    registry: createRouteRegistry(() => {
-      for (const entry of routes) {
-        route(
-          entry.path,
-          entry.handler,
-          entry.namespace ? { namespace: entry.namespace } : undefined
-        );
-      }
-    }),
+    registry,
     reset,
     cleanup() {
       cleanupApp(container);
@@ -600,25 +603,30 @@ export function buildSsrLayoutRouteFixture(): SsrLayoutRouteFixture {
     </div>
   );
 
+  const routes: Route[] = [
+    {
+      path: '/dashboard/reports/{id}',
+      handler: () => {
+        const snapshot = currentRoute();
+        return ShellLayout(
+          SectionLayout(
+            <article
+              class={'report-page'}
+            >{`${snapshot.params.id}|${snapshot.query.get('tab') || ''}|${snapshot.hash || ''}`}</article>
+          )
+        );
+      },
+    },
+  ];
+
   return {
     url,
     shellMarker,
     expectedMarker,
-    routes: [
-      {
-        path: '/dashboard/reports/{id}',
-        handler: () => {
-          const snapshot = currentRoute();
-          return ShellLayout(
-            SectionLayout(
-              <article
-                class={'report-page'}
-              >{`${snapshot.params.id}|${snapshot.query.get('tab') || ''}|${snapshot.hash || ''}`}</article>
-            )
-          );
-        },
-      },
-    ],
+    routes,
+    registry: createRouteRegistry(() => {
+      for (const entry of routes) route(entry.path, entry.handler);
+    }),
   };
 }
 
@@ -630,34 +638,39 @@ export function buildConcurrentSsrRequests(
     const dataLabel = `data-${index}`;
     const url = `/requests/${index}?slot=${index}#frag-${index}`;
 
+    const routes: Route[] = [
+      {
+        path: '/requests/{id}',
+        handler: () => {
+          const snapshot = currentRoute();
+          const renderData = getCurrentRenderData() as {
+            requestLabel?: string;
+          } | null;
+          const keys = [getNextKey(), getNextKey(), getNextKey()];
+
+          return (
+            <div
+              class={'concurrent-request'}
+              data-request={requestLabel}
+            >{`${requestLabel}|${snapshot.path}|${snapshot.params.id}|${
+              snapshot.query.get('slot') || ''
+            }|${snapshot.hash || ''}|${
+              renderData?.requestLabel || ''
+            }|${keys.join(',')}`}</div>
+          );
+        },
+      },
+    ];
+
     return {
       url,
       options: {
         data: { requestLabel: dataLabel },
       },
-      routes: [
-        {
-          path: '/requests/{id}',
-          handler: () => {
-            const snapshot = currentRoute();
-            const renderData = getCurrentRenderData() as {
-              requestLabel?: string;
-            } | null;
-            const keys = [getNextKey(), getNextKey(), getNextKey()];
-
-            return (
-              <div
-                class={'concurrent-request'}
-                data-request={requestLabel}
-              >{`${requestLabel}|${snapshot.path}|${snapshot.params.id}|${
-                snapshot.query.get('slot') || ''
-              }|${snapshot.hash || ''}|${
-                renderData?.requestLabel || ''
-              }|${keys.join(',')}`}</div>
-            );
-          },
-        },
-      ],
+      routes,
+      registry: createRouteRegistry(() => {
+        for (const entry of routes) route(entry.path, entry.handler);
+      }),
       expectedMarker: `${requestLabel}|/requests/${index}|${index}|${index}|#frag-${index}|${dataLabel}|r:0,r:1,r:2`,
     };
   });
@@ -667,14 +680,14 @@ export function buildStaticBatchRoutes(routeCount = 64): RouteConfig[] {
   const routes: RouteConfig[] = [
     {
       path: '/',
-      component: () => <div id="ssg-home">Static Home</div>,
+      handler: () => <div id="ssg-home">Static Home</div>,
     },
   ];
 
   for (let index = 0; index < routeCount - 33; index += 1) {
     routes.push({
       path: `/docs/guides/section-${Math.floor(index / 5)}/page-${index}`,
-      component: () => (
+      handler: () => (
         <article class="docs-page">
           <h1>Docs Page {index}</h1>
           <p>Static docs payload {index}</p>
@@ -685,11 +698,10 @@ export function buildStaticBatchRoutes(routeCount = 64): RouteConfig[] {
 
   for (let index = 0; routes.length < routeCount; index += 1) {
     routes.push({
-      path: '/blog/{slug}',
-      params: { slug: `post-${index}` },
-      component: (props?: Record<string, unknown>) => (
+      path: `/blog/post-${index}`,
+      handler: () => (
         <article class="blog-post">
-          <h1>Blog {String(props?.slug)}</h1>
+          <h1>Blog post-{index}</h1>
           <p>Generated post {index}</p>
         </article>
       ),

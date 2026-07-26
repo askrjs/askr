@@ -13,7 +13,7 @@ await (async () => {
       Promise.resolve().then(() =>
         renderResolvedToStringSync({
           url: request.url,
-          routes: request.routes,
+          registry: request.registry,
           handler: request.routes[0].handler,
           params: { id: request.url.split('/')[2].split('?')[0] },
           options: request.options,
@@ -36,7 +36,7 @@ describe('tier2 ssr concurrent isolation', () => {
           Promise.resolve().then(() =>
             renderResolvedToStringSync({
               url: request.url,
-              routes: request.routes,
+              registry: request.registry,
               handler: request.routes[0].handler,
               params: { id: request.url.split('/')[2].split('?')[0] },
               options: request.options,

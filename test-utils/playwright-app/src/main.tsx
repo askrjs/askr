@@ -344,7 +344,7 @@ async function mountHydratedBenchmarkTableScenario(
 
   root.innerHTML = renderToString({
     url: `${window.location.pathname}${window.location.search}`,
-    routes,
+    registry,
   });
 
   await hydrateSPA({ root, registry });
