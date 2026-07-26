@@ -23,7 +23,7 @@ export interface ResourceResult<T> {
   refresh(): void;
 }
 
-/** Creates a route/component-scoped async resource with cancellation and refresh. */
+/** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
 export function resource<T, const TDeps extends readonly unknown[]>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
   deps: TDeps

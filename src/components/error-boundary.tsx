@@ -61,7 +61,7 @@ function createBoundaryVNode(
   };
 }
 
-/** Renders fallback content when a descendant throws during rendering or commit. */
+/** Creates a render-time boundary whose fallback handles descendant render/commit errors. */
 export function ErrorBoundary(props: ErrorBoundaryProps): JSXElement {
   const instance = getCurrentComponentInstance();
   if (!instance) {
