@@ -231,12 +231,21 @@
     "InvalidationRecorder",
     "MockQueryOptions",
     "MockRefresh",
+    "RenderOptions",
+    "RenderResult",
     "RoutePatternWarning",
+    "RouteRenderOptions",
+    "cleanup",
     "createInvalidationRecorder",
+    "dispatch",
+    "flush",
     "getRouteWarnings",
     "matchRoute",
     "mockQuery",
-    "queryState"
+    "mount",
+    "queryState",
+    "render",
+    "renderRoute"
   ],
   "./fx": [
     "DebounceOptions",

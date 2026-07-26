@@ -42,6 +42,74 @@ playwright install chromium firefox webkit
 When in doubt, start lower. Move up only when the lower layer cannot observe the
 behavior honestly.
 
+## Testing Components As A Consumer
+
+Use the supported component harness from `@askrjs/askr/testing`. It mounts
+through the production renderer and scheduler; it does not install or replace
+DOM globals.
+
+Configure Vitest with jsdom and Askr's automatic JSX runtime:
+
+```ts
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  oxc: {
+    jsx: {
+      runtime: 'automatic',
+      importSource: '@askrjs/askr',
+    },
+  },
+  test: {
+    environment: 'jsdom',
+  },
+});
+```
+
+Render a component, dispatch a bubbling event, flush pending work, and clean up
+the owned root after each test:
+
+```tsx
+import { afterEach, expect, test } from 'vitest';
+import { state } from '@askrjs/askr';
+import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
+
+let view: RenderResult | undefined;
+
+afterEach(() => view?.cleanup());
+
+test('increments the counter', () => {
+  view = render(() => {
+    const count = state(0);
+    return <button onClick={() => count.set(count() + 1)}>{count()}</button>;
+  });
+
+  const button = view.root.querySelector('button')!;
+  dispatch(button, 'click');
+  view.flush();
+
+  expect(button.textContent).toBe('1');
+});
+```
+
+Pass `container` to `render` or `mount` to retain an existing container after
+cleanup. Without one, the harness creates and removes a managed container.
+`renderRoute({ registry, url })` uses the production SPA router and restores the
+previous URL during cleanup.
+
+Each result owns its cleanup, so sibling renders can be torn down independently.
+Test files remain isolated by the test runner's jsdom realm. The harness fails
+with a configuration hint when no DOM environment exists.
+
+Ordinary `render` and `mount` results can coexist in one realm. Because
+`renderRoute` uses the production SPA router and browser history, keep only one
+routed render active per jsdom realm and clean it up before starting another.
+
+`@askrjs/askr/testing` covers component, renderer, and router tests.
+`@askrjs/testing` is a separate package for HTTP and server test clients; it
+does not mount Askr components.
+
 ## Benchmarks
 
 ```bash

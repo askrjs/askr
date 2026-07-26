@@ -35,6 +35,8 @@ try {
       '--no-audit',
       '--no-fund',
       tarball,
+      'vitest@4.1.10',
+      'jsdom@29.1.1',
     ],
     { cwd: consumerRoot, stdio: 'pipe' }
   );
@@ -76,6 +78,40 @@ try {
       stdio: 'pipe',
     }
   );
+  writeFileSync(
+    join(consumerRoot, 'vitest.config.ts'),
+    [
+      'import { defineConfig } from "vitest/config";',
+      'export default defineConfig({',
+      '  oxc: { jsx: { runtime: "automatic", importSource: "@askrjs/askr" } },',
+      '  test: { environment: "jsdom" },',
+      '});',
+    ].join('\n')
+  );
+  writeFileSync(
+    join(consumerRoot, 'harness.test.tsx'),
+    [
+      'import { expect, test } from "vitest";',
+      'import { state } from "@askrjs/askr";',
+      'import { dispatch, render } from "@askrjs/askr/testing";',
+      'test("renders a packed consumer component", () => {',
+      '  const view = render(() => {',
+      '    const count = state(0);',
+      '    return <button onClick={() => count.set(count() + 1)}>{count()}</button>;',
+      '  });',
+      '  const button = view.root.querySelector("button")!;',
+      '  dispatch(button, "click");',
+      '  view.flush();',
+      '  expect(button.textContent).toBe("1");',
+      '  view.cleanup();',
+      '  expect(document.body.contains(view.root)).toBe(false);',
+      '});',
+    ].join('\n')
+  );
+  execFileSync(npm, ['exec', '--', 'vitest', 'run', '-c', 'vitest.config.ts'], {
+    cwd: consumerRoot,
+    stdio: 'pipe',
+  });
 } finally {
   rmSync(consumerRoot, { recursive: true, force: true });
 }
