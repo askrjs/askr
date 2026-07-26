@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as pathModule from 'node:path';
 import type { RouteRenderStatus, SSGMode } from './types';
+import { resolveSsgOutputPath } from './output-path';
 
 export const SSG_MANIFEST_SCHEMA_VERSION = 1;
 const MANIFEST_DIR = '.askr';
@@ -101,7 +102,7 @@ export function getExistingOutputFileSize(
   outputDir: string,
   filePath: string
 ): number {
-  const fullPath = pathModule.join(outputDir, filePath);
+  const fullPath = resolveSsgOutputPath(outputDir, filePath);
   if (!fs.existsSync(fullPath)) {
     return 0;
   }
@@ -114,5 +115,5 @@ export function getExistingOutputFileSize(
 }
 
 export function outputFileExists(outputDir: string, filePath: string): boolean {
-  return fs.existsSync(pathModule.join(outputDir, filePath));
+  return fs.existsSync(resolveSsgOutputPath(outputDir, filePath));
 }
