@@ -124,4 +124,28 @@ describe('testing render harness', () => {
       '@askrjs/askr/testing dispatch requires an Event instance or event type string'
     );
   });
+
+  it('should construct event-specific instances in the target realm', () => {
+    let clickEvent: MouseEvent | undefined;
+    let keyEvent: KeyboardEvent | undefined;
+    const result = render(() => (
+      <div>
+        <button onClick={(event) => (clickEvent = event)}>{'click'}</button>
+        <input onKeyDown={(event) => (keyEvent = event)} />
+      </div>
+    ));
+    mounted.push(result);
+
+    dispatch(result.root.querySelector('button')!, 'click', {
+      clientX: 42,
+    } as MouseEventInit);
+    dispatch(result.root.querySelector('input')!, 'keydown', {
+      key: 'Enter',
+    } as KeyboardEventInit);
+
+    expect(clickEvent).toBeInstanceOf(MouseEvent);
+    expect(clickEvent?.clientX).toBe(42);
+    expect(keyEvent).toBeInstanceOf(KeyboardEvent);
+    expect(keyEvent?.key).toBe('Enter');
+  });
 });

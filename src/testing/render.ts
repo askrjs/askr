@@ -20,6 +20,19 @@ export interface RouteRenderOptions extends RenderOptions {
   auth?: RouteAuthOptions;
 }
 
+type DispatchEventInit =
+  | EventInit
+  | UIEventInit
+  | FocusEventInit
+  | MouseEventInit
+  | WheelEventInit
+  | KeyboardEventInit
+  | InputEventInit
+  | CompositionEventInit
+  | PointerEventInit
+  | TouchEventInit
+  | DragEventInit;
+
 export interface RenderResult {
   readonly container: HTMLElement;
   readonly root: HTMLElement;
@@ -27,7 +40,7 @@ export interface RenderResult {
   dispatch(
     target: EventTarget,
     event: Event | string,
-    init?: EventInit
+    init?: DispatchEventInit
   ): boolean;
   unmount(): void;
   cleanup(): void;
@@ -41,6 +54,54 @@ interface RenderState {
 }
 
 const renderStates = new WeakMap<HTMLElement, RenderState>();
+
+type EventConstructor = new (type: string, init?: EventInit) => Event;
+
+const eventConstructorNames: Readonly<Record<string, readonly string[]>> = {
+  auxclick: ['MouseEvent'],
+  click: ['MouseEvent'],
+  contextmenu: ['MouseEvent'],
+  dblclick: ['MouseEvent'],
+  mousedown: ['MouseEvent'],
+  mouseenter: ['MouseEvent'],
+  mouseleave: ['MouseEvent'],
+  mousemove: ['MouseEvent'],
+  mouseout: ['MouseEvent'],
+  mouseover: ['MouseEvent'],
+  mouseup: ['MouseEvent'],
+  pointercancel: ['PointerEvent', 'MouseEvent'],
+  pointerdown: ['PointerEvent', 'MouseEvent'],
+  pointerenter: ['PointerEvent', 'MouseEvent'],
+  pointerleave: ['PointerEvent', 'MouseEvent'],
+  pointermove: ['PointerEvent', 'MouseEvent'],
+  pointerout: ['PointerEvent', 'MouseEvent'],
+  pointerover: ['PointerEvent', 'MouseEvent'],
+  pointerup: ['PointerEvent', 'MouseEvent'],
+  keydown: ['KeyboardEvent'],
+  keypress: ['KeyboardEvent'],
+  keyup: ['KeyboardEvent'],
+  blur: ['FocusEvent'],
+  focus: ['FocusEvent'],
+  focusin: ['FocusEvent'],
+  focusout: ['FocusEvent'],
+  beforeinput: ['InputEvent'],
+  input: ['InputEvent'],
+  compositionend: ['CompositionEvent'],
+  compositionstart: ['CompositionEvent'],
+  compositionupdate: ['CompositionEvent'],
+  drag: ['DragEvent', 'MouseEvent'],
+  dragend: ['DragEvent', 'MouseEvent'],
+  dragenter: ['DragEvent', 'MouseEvent'],
+  dragleave: ['DragEvent', 'MouseEvent'],
+  dragover: ['DragEvent', 'MouseEvent'],
+  dragstart: ['DragEvent', 'MouseEvent'],
+  drop: ['DragEvent', 'MouseEvent'],
+  touchcancel: ['TouchEvent'],
+  touchend: ['TouchEvent'],
+  touchmove: ['TouchEvent'],
+  touchstart: ['TouchEvent'],
+  wheel: ['WheelEvent', 'MouseEvent'],
+};
 
 function requireDocument(): Document {
   if (
@@ -111,15 +172,40 @@ function prepareContainer(options?: RenderOptions): {
   return { container, state };
 }
 
-function getEventConstructor(target: EventTarget): typeof Event {
+function getBaseEventConstructor(target: EventTarget): typeof Event {
   if (typeof Element !== 'undefined' && target instanceof Element) {
     return target.ownerDocument.defaultView?.Event ?? Event;
   }
   return Event;
 }
 
+function getEventConstructor(
+  target: EventTarget,
+  type: string
+): EventConstructor {
+  const targetView =
+    typeof Element !== 'undefined' && target instanceof Element
+      ? target.ownerDocument.defaultView
+      : typeof window !== 'undefined'
+        ? window
+        : undefined;
+  const realm = (targetView ?? globalThis) as unknown as Record<
+    string,
+    unknown
+  >;
+
+  for (const name of eventConstructorNames[type] ?? []) {
+    const constructor = realm[name];
+    if (typeof constructor === 'function') {
+      return constructor as EventConstructor;
+    }
+  }
+
+  return getBaseEventConstructor(target);
+}
+
 function isEventForTarget(target: EventTarget, value: unknown): value is Event {
-  const TargetEvent = getEventConstructor(target);
+  const TargetEvent = getBaseEventConstructor(target);
   if (value instanceof TargetEvent) {
     return true;
   }
@@ -134,7 +220,7 @@ export function flush(): void {
 export function dispatch(
   target: EventTarget,
   event: Event | string,
-  init: EventInit = {}
+  init: DispatchEventInit = {}
 ): boolean {
   if (!target || typeof target.dispatchEvent !== 'function') {
     throw new TypeError(
@@ -149,7 +235,7 @@ export function dispatch(
 
   const dispatchedEvent =
     typeof event === 'string'
-      ? new (getEventConstructor(target))(event, {
+      ? new (getEventConstructor(target, event))(event, {
           bubbles: true,
           cancelable: true,
           ...init,

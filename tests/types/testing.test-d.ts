@@ -123,6 +123,8 @@ expectType<void>(rendered.unmount());
 expectType<void>(rendered.cleanup());
 expectType<void>(flush());
 expectType<boolean>(dispatch(rendered.root, new Event('click')));
+expectType<boolean>(dispatch(rendered.root, 'click', { clientX: 42 }));
+expectType<boolean>(dispatch(rendered.root, 'keydown', { key: 'Enter' }));
 expectType<void>(cleanup(rendered));
 expectType<void>(cleanup(rendered.root));
 
