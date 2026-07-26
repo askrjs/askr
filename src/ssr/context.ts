@@ -200,13 +200,7 @@ export async function withRenderContextAsync<T>(
 ): Promise<T> {
   const accessor = await getAsyncRenderContextAccessor();
   if (accessor) return accessor.run(ctx, () => Promise.resolve(fn()));
-  const previous = fallbackStack;
-  fallbackStack = ctx;
-  try {
-    return await fn();
-  } finally {
-    fallbackStack = previous;
-  }
+  throw new Error(FALLBACK_ASYNC_CONTEXT_ERROR);
 }
 
 /**
