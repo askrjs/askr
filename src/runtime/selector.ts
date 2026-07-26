@@ -1,4 +1,8 @@
-import { claimHookIndex, getCurrentInstance, type ComponentInstance } from "./component";
+import {
+  claimHookIndex,
+  getCurrentInstance,
+  type ComponentInstance,
+} from './component';
 import {
   clearDerivedDependencySubscriptions,
   markReadableDerivedSubscribersDirty,
@@ -10,17 +14,27 @@ import {
   withDerivedReadTracking,
   type DerivedSubscriber,
   type ReadableSource,
-} from "./readable";
-import { getPerfMetricsStore, incrementPerfMetric } from "./perf-metrics";
-import { markDirtySelectorRecord, takeDirtySelectorRecords } from "./selector-store";
-import { adjustOwnershipDiagnostic } from "./ownership-diagnostics";
+} from './readable';
+import { getPerfMetricsStore, incrementPerfMetric } from './perf-metrics';
+import {
+  markDirtySelectorRecord,
+  takeDirtySelectorRecords,
+} from './selector-store';
+import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 const PERF_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__ || __ASKR_BENCH_BUILD__;
 
-type PrimitiveKey = string | number | boolean | symbol | bigint | null | undefined;
+type PrimitiveKey =
+  | string
+  | number
+  | boolean
+  | symbol
+  | bigint
+  | null
+  | undefined;
 
 export interface Selector<T> {
   (candidate: T): boolean;
@@ -32,7 +46,7 @@ interface SelectorCandidateSource<T> extends ReadableSource<boolean> {
 
 type SelectorEquals<T> = {
   bivarianceHack(a: T, b: T): boolean;
-}["bivarianceHack"];
+}['bivarianceHack'];
 
 interface SelectorLane<T> {
   _record: SelectorSourceRecord<T>;
@@ -68,9 +82,14 @@ interface SelectorHook<T> extends Selector<T> {
 }
 
 const selectorCells = new WeakMap<object, Map<number, SelectorHook<unknown>>>();
-const selectorRecords = new WeakMap<ReadableSource<unknown>, SelectorSourceRecord<unknown>>();
+const selectorRecords = new WeakMap<
+  ReadableSource<unknown>,
+  SelectorSourceRecord<unknown>
+>();
 
-function getSelectorStore(instance: ComponentInstance): Map<number, SelectorHook<unknown>> {
+function getSelectorStore(
+  instance: ComponentInstance
+): Map<number, SelectorHook<unknown>> {
   const generation = instance._ownershipGeneration;
   let store = selectorCells.get(generation);
   if (!store) {
@@ -85,7 +104,9 @@ function markSelectorRecordDirty(record: SelectorSourceRecord<unknown>): void {
 }
 
 function flushDirtySelectorRecords(): void {
-  for (const record of takeDirtySelectorRecords<SelectorSourceRecord<unknown>>()) {
+  for (const record of takeDirtySelectorRecords<
+    SelectorSourceRecord<unknown>
+  >()) {
     record._scheduled = false;
     if (!record._dirty) {
       continue;
@@ -95,7 +116,9 @@ function flushDirtySelectorRecords(): void {
 }
 
 function isObjectCandidate(value: unknown): value is object {
-  return (typeof value === "object" && value !== null) || typeof value === "function";
+  return (
+    (typeof value === 'object' && value !== null) || typeof value === 'function'
+  );
 }
 
 function isDefaultSelectorEquals<T>(equals: SelectorEquals<T>): boolean {
@@ -109,7 +132,10 @@ function createCandidateSource<T>(candidate: T): SelectorCandidateSource<T> {
   return { _candidate: candidate } as unknown as SelectorCandidateSource<T>;
 }
 
-function getCandidateSource<T>(lane: SelectorLane<T>, candidate: T): SelectorCandidateSource<T> {
+function getCandidateSource<T>(
+  lane: SelectorLane<T>,
+  candidate: T
+): SelectorCandidateSource<T> {
   if (isObjectCandidate(candidate)) {
     const cached = lane._objectCandidates.get(candidate);
     if (cached) {
@@ -135,7 +161,7 @@ function getCandidateSource<T>(lane: SelectorLane<T>, candidate: T): SelectorCan
 
 function peekCandidateSource<T>(
   lane: SelectorLane<T>,
-  candidate: T,
+  candidate: T
 ): SelectorCandidateSource<T> | undefined {
   if (isObjectCandidate(candidate)) {
     return lane._objectCandidates.get(candidate);
@@ -154,7 +180,9 @@ function getSelectorSourceRecord<T>(source: () => T): SelectorSourceRecord<T> {
   return record;
 }
 
-function createSelectorSourceRecord<T>(source: () => T): SelectorSourceRecord<T> {
+function createSelectorSourceRecord<T>(
+  source: () => T
+): SelectorSourceRecord<T> {
   let record!: SelectorSourceRecord<T>;
 
   record = {
@@ -186,7 +214,7 @@ function createSelectorSourceRecord<T>(source: () => T): SelectorSourceRecord<T>
 
 function getSelectorLane<T>(
   record: SelectorSourceRecord<T>,
-  equals: SelectorEquals<T>,
+  equals: SelectorEquals<T>
 ): SelectorLane<T> {
   const cached = record._lanes.get(equals);
   if (cached) {
@@ -200,7 +228,7 @@ function getSelectorLane<T>(
 
 function createSelectorLane<T>(
   record: SelectorSourceRecord<T>,
-  equals: SelectorEquals<T>,
+  equals: SelectorEquals<T>
 ): SelectorLane<T> {
   const lane: SelectorLane<T> = {
     _record: record,
@@ -214,7 +242,7 @@ function createSelectorLane<T>(
         const readerCount = sourceRef._readers?.size ?? 0;
         sourceRef._readers?.clear();
         if (__ASKR_DEVELOPMENT_BUILD__ && readerCount > 0) {
-          adjustOwnershipDiagnostic("readableReaders", -readerCount);
+          adjustOwnershipDiagnostic('readableReaders', -readerCount);
         }
         sourceRef._derivedSubscribers?.clear();
       }
@@ -222,7 +250,7 @@ function createSelectorLane<T>(
         const readerCount = sourceRef._readers?.size ?? 0;
         sourceRef._readers?.clear();
         if (__ASKR_DEVELOPMENT_BUILD__ && readerCount > 0) {
-          adjustOwnershipDiagnostic("readableReaders", -readerCount);
+          adjustOwnershipDiagnostic('readableReaders', -readerCount);
         }
         sourceRef._derivedSubscribers?.clear();
       }
@@ -237,7 +265,7 @@ function createSelectorLane<T>(
 
 function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
   if (PERF_BUILD_ENABLED) {
-    incrementPerfMetric("selectorInvalidations");
+    incrementPerfMetric('selectorInvalidations');
   }
   markReadableDerivedSubscribersDirty(source);
   markReactivePropsDirtySource(source);
@@ -253,7 +281,11 @@ function notifyAllSelectorSources<T>(lane: SelectorLane<T>): void {
   }
 }
 
-function notifySelectorLaneValueChange<T>(lane: SelectorLane<T>, prevValue: T, nextValue: T): void {
+function notifySelectorLaneValueChange<T>(
+  lane: SelectorLane<T>,
+  prevValue: T,
+  nextValue: T
+): void {
   if (!lane._bindingCount) {
     return;
   }
@@ -285,14 +317,14 @@ function notifySelectorLaneValueChange<T>(lane: SelectorLane<T>, prevValue: T, n
 
 function recomputeSelectorSourceRecord<T>(
   record: SelectorSourceRecord<T>,
-  notifyDownstream: boolean,
+  notifyDownstream: boolean
 ): T {
   if (!record._dirty && record._hasValue) {
     return record._value;
   }
 
   if (record._evaluating) {
-    throw new Error("selector() cannot read itself recursively");
+    throw new Error('selector() cannot read itself recursively');
   }
 
   record._evaluating = true;
@@ -335,7 +367,7 @@ function recomputeSelectorSourceRecord<T>(
 function attachSelectorHookBinding<T>(
   hook: SelectorHook<T>,
   source: () => T,
-  equals: SelectorEquals<T>,
+  equals: SelectorEquals<T>
 ): void {
   const record = getSelectorSourceRecord(source);
   const lane = getSelectorLane(record, equals);
@@ -374,7 +406,9 @@ function detachSelectorHookBinding<T>(hook: SelectorHook<T>): void {
   }
 }
 
-function ensureSelectorHookBinding<T>(hook: SelectorHook<T>): SelectorSourceRecord<T> {
+function ensureSelectorHookBinding<T>(
+  hook: SelectorHook<T>
+): SelectorSourceRecord<T> {
   const record = hook._record;
   const lane = hook._lane;
 
@@ -402,14 +436,15 @@ function createSelectorHook<T>(
   store: Map<number, SelectorHook<unknown>>,
   hookIndex: number,
   source: () => T,
-  equals: SelectorEquals<T>,
+  equals: SelectorEquals<T>
 ): SelectorHook<T> {
   const hook = function selectorPredicate(candidate: T): boolean {
     const selectorHook = hook as SelectorHook<T>;
-    const record = selectorHook._record ?? ensureSelectorHookBinding(selectorHook);
+    const record =
+      selectorHook._record ?? ensureSelectorHookBinding(selectorHook);
     const lane = selectorHook._lane;
     if (!lane) {
-      throw new Error("selector() binding could not be established.");
+      throw new Error('selector() binding could not be established.');
     }
 
     const sourceRef = getCandidateSource(lane, candidate);
@@ -457,7 +492,7 @@ function getOrCreateSelectorHook<T>(
   instance: ComponentInstance,
   hookIndex: number,
   source: () => T,
-  equals: SelectorEquals<T>,
+  equals: SelectorEquals<T>
 ): SelectorHook<T> {
   const store = getSelectorStore(instance);
   const existing = store.get(hookIndex) as SelectorHook<T> | undefined;
@@ -477,7 +512,7 @@ function getOrCreateSelectorHook<T>(
     store,
     hookIndex,
     source,
-    equals,
+    equals
   );
   store.set(hookIndex, created as unknown as SelectorHook<unknown>);
   return created;
@@ -491,21 +526,24 @@ function getOrCreateSelectorHook<T>(
  * subscribes the affected rows and updates them without rebuilding the list.
  * Must be called during component render.
  */
-export function selector<T>(source: () => T, equals: SelectorEquals<T> = Object.is): Selector<T> {
+export function selector<T>(
+  source: () => T,
+  equals: SelectorEquals<T> = Object.is
+): Selector<T> {
   markReadableUsage(source);
 
   const instance = getCurrentInstance();
   if (!instance) {
     throw new Error(
-      "selector() can only be called during component render execution. " +
-        "Move selector() calls to the top level of your component function.",
+      'selector() can only be called during component render execution. ' +
+        'Move selector() calls to the top level of your component function.'
     );
   }
 
-  const hookIndex = claimHookIndex(instance, "selector");
+  const hookIndex = claimHookIndex(instance, 'selector');
   const hook = getOrCreateSelectorHook(instance, hookIndex, source, equals);
   if (!hook._record) {
-    throw new Error("selector() record binding was not established.");
+    throw new Error('selector() record binding was not established.');
   }
 
   if (!hook._record._hasValue) {

@@ -74,7 +74,7 @@ children contracts are part of the supported public API.
 ## Examples
 
 ```ts
-import { derive, state } from "@askrjs/askr";
+import { derive, state } from '@askrjs/askr';
 
 const [count, setCount] = state(0);
 const doubled = derive(() => count() * 2);
