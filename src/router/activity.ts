@@ -27,6 +27,7 @@ export type RouteChangeCleanup = void | (() => void);
 type RouteChangeSlot = {
   kind: 'route-change';
   previous: RouteSnapshot | null;
+  pending: RouteSnapshot | null;
   cleanup: (() => void) | null;
   cleanupRegistered: boolean;
   callback: (
@@ -66,12 +67,14 @@ export function onRouteChange(
   const slot = (existing ?? {
     kind: 'route-change',
     previous: null,
+    pending: null,
     cleanup: null,
     cleanupRegistered: false,
     callback: fn,
     immediate: options.immediate === true,
   }) as RouteChangeSlot;
   slots[index] = slot as never;
+  slot.pending = route;
   slot.callback = fn;
   slot.immediate = options.immediate === true;
   if (!slot.cleanupRegistered) {
@@ -82,24 +85,24 @@ export function onRouteChange(
     });
     slot.cleanupRegistered = true;
   }
-  const previous = slot.previous;
-  if (!previous) {
+  if (!slot.previous) {
     registerCommitOperation(() => {
-      if (slot.immediate) slot.cleanup = slot.callback(route, null) ?? null;
-      slot.previous = route;
+      const committed = slot.pending;
+      if (!committed) return;
+      if (slot.immediate) slot.cleanup = slot.callback(committed, null) ?? null;
+      slot.previous = committed;
     });
     return;
   }
-  if (routeSignature(previous) === routeSignature(route)) return;
+  if (routeSignature(slot.previous) === routeSignature(route)) return;
   registerCommitOperation(() => {
-    if (
-      slot.previous &&
-      routeSignature(slot.previous) === routeSignature(route)
-    )
+    const previous = slot.previous;
+    const committed = slot.pending;
+    if (!previous || !committed || routeSignature(previous) === routeSignature(committed))
       return;
     slot.cleanup?.();
-    slot.cleanup = slot.callback(route, previous) ?? null;
-    slot.previous = route;
+    slot.cleanup = slot.callback(committed, previous) ?? null;
+    slot.previous = committed;
   });
 }
 
