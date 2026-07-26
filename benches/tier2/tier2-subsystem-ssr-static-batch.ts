@@ -1,15 +1,23 @@
 import fs from 'node:fs';
 import { bench, describe, expect } from 'vite-plus/test';
 import { createStaticGen } from '../../src/ssg/create-static-gen';
+import { createRouteRegistry, route } from '../../src/router';
 import { buildStaticBatchRoutes, tier2BenchOptions } from '../shared/_shared';
 import { createBenchTempDir, removeBenchTempDir } from '../shared/node';
 
 const staticRoutes = buildStaticBatchRoutes(64);
+const registry = createRouteRegistry(() => {
+  for (const entry of staticRoutes) {
+    route(entry.path, entry.handler, {
+      entries: entry.entries,
+    });
+  }
+});
 
 await (async () => {
   const tempDir = await createBenchTempDir('askr-bench-ssg-preflight');
   const ssg = createStaticGen({
-    routes: staticRoutes,
+    registry,
     outputDir: tempDir.dir,
     concurrency: 8,
   });
@@ -38,7 +46,7 @@ describe('tier2 ssr static batch', () => {
       async setup() {
         tempDir = await createBenchTempDir('askr-bench-ssg');
         ssg = createStaticGen({
-          routes: staticRoutes,
+          registry,
           outputDir: tempDir.dir,
           concurrency: 8,
         });

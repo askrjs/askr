@@ -1,5 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { renderToStream, renderToString } from '../../src/ssr';
+import { createRouteRegistry, route } from '../../src/router';
 import { tier2BenchOptions } from '../shared/_shared';
 
 const routes = [
@@ -20,16 +21,19 @@ const routes = [
     ),
   },
 ];
+const registry = createRouteRegistry(() => {
+  for (const entry of routes) route(entry.path, entry.handler);
+});
 
 {
   const chunks: string[] = [];
   renderToStream({
     url: '/',
-    routes,
+    registry,
     onChunk: (chunk) => chunks.push(chunk),
     onComplete: () => undefined,
   });
-  expect(chunks.join('')).toBe(renderToString({ url: '/', routes }));
+  expect(chunks.join('')).toBe(renderToString({ url: '/', registry }));
 }
 
 describe('tier2 ssr streaming', () => {
@@ -39,7 +43,7 @@ describe('tier2 ssr streaming', () => {
       const chunks: string[] = [];
       renderToStream({
         url: '/',
-        routes,
+        registry,
         onChunk: (chunk) => chunks.push(chunk),
         onComplete: () => undefined,
       });

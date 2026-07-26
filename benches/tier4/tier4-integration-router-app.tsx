@@ -1,6 +1,7 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { createSPA } from '../../src/boot';
 import { navigate } from '../../src/router/navigate';
+import { createRouteRegistry, route } from '../../src/router';
 import {
   createTestContainer,
   flushScheduler,
@@ -40,12 +41,15 @@ const routes = [
     ),
   },
 ];
+const registry = createRouteRegistry(() => {
+  for (const entry of routes) route(entry.path, entry.handler);
+});
 
 await (async () => {
   const { container, cleanup } = createTestContainer();
   try {
     setLocationPath('/dashboard');
-    await createSPA({ root: container, routes });
+    await createSPA({ root: container, registry });
     flushScheduler();
     const shell = container.querySelector('.shell');
     navigate('/reports');
@@ -77,7 +81,7 @@ describe('tier4 integration router app', () => {
         const result = createTestContainer();
         cleanup = result.cleanup;
         setLocationPath('/dashboard');
-        await createSPA({ root: result.container, routes });
+        await createSPA({ root: result.container, registry });
         flushScheduler();
       },
       teardown() {
