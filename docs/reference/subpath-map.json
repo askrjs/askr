@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "subpaths": {
+    ".": { "purpose": "core runtime and reactivity", "stability": "stable" },
+    "./boot": { "purpose": "browser application boot", "stability": "stable" },
+    "./components": {
+      "purpose": "public components and ErrorBoundary",
+      "stability": "stable"
+    },
+    "./control": {
+      "purpose": "conditional and repeated controls",
+      "stability": "stable"
+    },
+    "./foundations": {
+      "purpose": "structural foundations",
+      "stability": "stable"
+    },
+    "./foundations/utilities": {
+      "purpose": "foundation utilities",
+      "stability": "stable"
+    },
+    "./foundations/interactions": {
+      "purpose": "interaction policies",
+      "stability": "stable"
+    },
+    "./foundations/state": {
+      "purpose": "state foundations",
+      "stability": "stable"
+    },
+    "./foundations/structures": {
+      "purpose": "layout and portal structures",
+      "stability": "stable"
+    },
+    "./foundations/icon": {
+      "purpose": "icon contracts",
+      "stability": "stable"
+    },
+    "./resources": {
+      "purpose": "async lifecycle helpers",
+      "stability": "stable"
+    },
+    "./data": {
+      "purpose": "query and mutation helpers",
+      "stability": "stable"
+    },
+    "./testing": { "purpose": "consumer test helpers", "stability": "stable" },
+    "./fx": { "purpose": "timing and effects", "stability": "stable" },
+    "./router": {
+      "purpose": "route declarations and navigation",
+      "stability": "stable"
+    },
+    "./actions": {
+      "purpose": "action descriptors and forms",
+      "stability": "stable"
+    },
+    "./ssr": { "purpose": "server rendering", "stability": "stable" },
+    "./ssg": { "purpose": "static generation", "stability": "stable" },
+    "./jsx-runtime": {
+      "purpose": "automatic JSX runtime",
+      "stability": "stable"
+    },
+    "./jsx-dev-runtime": {
+      "purpose": "development JSX runtime",
+      "stability": "stable"
+    },
+    "./package.json": { "purpose": "package metadata", "stability": "stable" },
+    "./capabilities.json": {
+      "purpose": "versioned capability discovery",
+      "stability": "stable"
+    }
+  }
+}

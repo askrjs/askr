@@ -15,6 +15,7 @@
     "Props",
     "QueryDefinition",
     "QueryPrefetchContext",
+    "Ref",
     "RuntimeKeyedReorderDecision",
     "RuntimeRendererHost",
     "Scope",
@@ -26,6 +27,7 @@
     "StateSetter",
     "StateTuple",
     "createQuery",
+    "createRef",
     "createRuntime",
     "cspNonce",
     "defineQuery",
@@ -173,6 +175,7 @@
   ],
   "./resources": [
     "ActivityPredicate",
+    "ListenerTarget",
     "ResourceResult",
     "StreamOptions",
     "StreamResult",

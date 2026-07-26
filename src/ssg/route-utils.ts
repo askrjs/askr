@@ -8,7 +8,22 @@ export interface ResolvedRouteDescriptor {
   invalidationKeys: string[];
 }
 
+function assertSafeRoutePath(pathStr: string): void {
+  if (
+    !pathStr.startsWith('/') ||
+    pathStr.startsWith('//') ||
+    pathStr.includes('\\') ||
+    pathStr.includes('\0') ||
+    pathStr.split('/').some((segment) => segment === '.' || segment === '..')
+  ) {
+    throw new Error(
+      `SSG route path must be an absolute URL path without dot segments or backslashes: ${pathStr}`
+    );
+  }
+}
+
 export function getOutputFilePath(pathStr: string): string {
+  assertSafeRoutePath(pathStr);
   if (pathStr === '/') {
     return 'index.html';
   }

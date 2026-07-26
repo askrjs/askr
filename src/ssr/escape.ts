@@ -4,6 +4,7 @@
  * Centralizes text and attribute escaping to avoid duplication
  * between sync and streaming SSR renderers.
  */
+import { sanitizeCssValue } from '../common/css';
 
 // HTML5 void elements that don't have closing tags
 export const VOID_ELEMENTS = new Set([
@@ -28,53 +29,6 @@ const escapeCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 256;
 
 const _TEXT_ESCAPE_RE = /[&<>]/g;
-
-const CSS_UNSAFE_RE = /[{}<>\\]/g;
-const CSS_URI_SCHEME_RE = /(?:^|[\s(,])([a-z][a-z0-9+.-]*):/i;
-const CSS_FUNCTION_NAME_RE = /([a-z-][a-z0-9-]*)\s*\(/gi;
-
-const CSS_ALLOWED_FUNCTIONS = new Set([
-  'var',
-  'calc',
-  'min',
-  'max',
-  'clamp',
-  'rgb',
-  'rgba',
-  'hsl',
-  'hsla',
-  'lab',
-  'lch',
-  'oklab',
-  'oklch',
-  'color',
-  'color-mix',
-  'translate',
-  'translatex',
-  'translatey',
-  'translatez',
-  'scale',
-  'scalex',
-  'scaley',
-  'scalez',
-  'rotate',
-  'rotatex',
-  'rotatey',
-  'rotatez',
-  'skew',
-  'skewx',
-  'skewy',
-  'matrix',
-  'matrix3d',
-  'linear-gradient',
-  'radial-gradient',
-  'conic-gradient',
-  'repeating-linear-gradient',
-  'repeating-radial-gradient',
-  'repeating-conic-gradient',
-  'cubic-bezier',
-  'steps',
-]);
 
 const STYLE_PROP_CACHE = new Map<string, string>();
 const MAX_STYLE_PROP_CACHE_SIZE = 512;
@@ -200,30 +154,7 @@ export function escapeAttr(value: string): string {
 }
 
 /**
- * Escape CSS value to prevent injection attacks.
- * Removes characters that could break out of CSS context.
- */
-function escapeCssValue(value: string): string {
-  const str = String(value);
-
-  if (CSS_URI_SCHEME_RE.test(str)) {
-    return '';
-  }
-
-  if (str.includes('(')) {
-    for (const match of str.matchAll(CSS_FUNCTION_NAME_RE)) {
-      if (!CSS_ALLOWED_FUNCTIONS.has(match[1].toLowerCase())) {
-        return '';
-      }
-    }
-  }
-
-  // Remove characters that could break out of CSS value context
-  return str.replace(CSS_UNSAFE_RE, '');
-}
-
-/**
- * Convert style object to CSS string with value escaping
+ * Convert a style object to a CSS string, omitting unsafe values.
  * Optimized to avoid Object.entries allocation
  */
 export function styleObjToCss(value: unknown): string | null {
@@ -237,7 +168,7 @@ export function styleObjToCss(value: unknown): string | null {
     if (v === null || v === undefined || v === false) continue;
 
     const prop = toKebabCached(k);
-    const safeValue = escapeCssValue(String(v));
+    const safeValue = sanitizeCssValue(String(v));
     if (safeValue) {
       result += `${prop}:${safeValue};`;
     }

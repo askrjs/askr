@@ -1,4 +1,6 @@
 import type { Props } from '../common/props';
+import { sanitizeCssValue } from '../common/css';
+import { isSafeHref } from '../common/url';
 import { incrementPerfMetric } from '../runtime';
 import {
   extractKey,
@@ -115,7 +117,10 @@ function normalizeStyleEntries(value: unknown): StyleEntries | null {
       continue;
     }
 
-    entries.set(normalizeStylePropertyName(key), String(entryValue));
+    const safeValue = sanitizeCssValue(String(entryValue));
+    if (safeValue) {
+      entries.set(normalizeStylePropertyName(key), safeValue);
+    }
   }
 
   return entries;
@@ -213,6 +218,8 @@ export function applyStaticScalarPropsToElement(
       applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
+    } else if (key.toLowerCase() === 'href' && !isSafeHref(String(value))) {
+      removeRenderedAttribute(el, key);
     } else {
       setRenderedAttribute(el, key, String(value));
     }
@@ -353,6 +360,8 @@ export function applyScalarPropValue(
     applyStylePropValue(el, value);
   } else if (key === 'value' || key === 'checked') {
     applyFormControlProp(el, key, value, tagName);
+  } else if (key.toLowerCase() === 'href' && !isSafeHref(String(value))) {
+    removeRenderedAttribute(el, key);
   } else {
     setRenderedAttribute(el, key, String(value));
   }

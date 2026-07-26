@@ -40,6 +40,8 @@ export { jsx, jsxs, Fragment } from './jsx-runtime';
 
 // Public types
 export type { Props } from './common/props';
+export { createRef } from './ref';
+export type { Ref } from './ref';
 export {
   createQuery,
   defineQuery,

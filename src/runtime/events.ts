@@ -76,6 +76,24 @@ interface DelegatedHandler {
   options?: AddEventListenerOptions;
 }
 
+function createDelegatedEventFacade(
+  event: Event,
+  currentTarget: Element
+): Event {
+  return new Proxy(event, {
+    get(target, property, receiver) {
+      if (property === 'currentTarget') {
+        return currentTarget;
+      }
+
+      // Native event accessors require the original event as their receiver;
+      // using the proxy here triggers Illegal invocation in browser engines.
+      const value = Reflect.get(target, property, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
 type DelegatedHandlerStore = DelegatedHandler | Map<string, DelegatedHandler>;
 
 const DELEGATED_HANDLERS = Symbol('askr.delegated-handlers');
@@ -254,6 +272,10 @@ function attachDelegatedListener(
             }
           }
         }
+        const dispatchPath: Array<{
+          node: Element;
+          entry: DelegatedHandler;
+        }> = [];
         for (const node of path) {
           if (node === container) break;
           if (!isElementNode(node)) continue;
@@ -269,11 +291,15 @@ function attachDelegatedListener(
                 ? store
                 : undefined;
           if (entry) {
-            try {
-              entry.handler(e);
-            } catch (error) {
-              logger.error('[Askr] Delegated event error:', error);
-            }
+            dispatchPath.push({ node, entry });
+          }
+        }
+
+        for (const { node, entry } of dispatchPath) {
+          try {
+            entry.handler(createDelegatedEventFacade(e, node));
+          } catch (error) {
+            logger.error('[Askr] Delegated event error:', error);
           }
 
           if (e.cancelBubble) {

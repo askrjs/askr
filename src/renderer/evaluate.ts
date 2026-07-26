@@ -185,7 +185,7 @@ function evaluateInLifecycleBatch(
     ) {
       smartUpdateElement(firstChild, vnode as DOMElement, cleanupRangeNode);
     } else {
-      for (let node = target.firstChild; node;) {
+      for (let node = target.firstChild; node; ) {
         const next = node.nextSibling;
         cleanupRangeNode(node);
         node = next;

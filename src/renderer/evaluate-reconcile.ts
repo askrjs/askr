@@ -288,7 +288,7 @@ export function updateElementChildren(
   const domHost = getRendererDOMHost();
 
   if (vnodeChildren === null || vnodeChildren === undefined) {
-    for (let n = element.firstChild; n;) {
+    for (let n = element.firstChild; n; ) {
       const next = n.nextSibling;
       cleanupRangeNode(n);
       n = next;
@@ -317,7 +317,7 @@ export function updateElementChildren(
   }
 
   if (!Array.isArray(vnodeChildren)) {
-    for (let n = element.firstChild; n;) {
+    for (let n = element.firstChild; n; ) {
       const next = n.nextSibling;
       cleanupRangeNode(n);
       n = next;

@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as pathModule from 'node:path';
 import type { RouteRenderStatus, SSGMode } from './types';
+import { resolveSsgOutputPath } from './output-path';
 
 export const SSG_MANIFEST_SCHEMA_VERSION = 1;
 const MANIFEST_DIR = '.askr';
@@ -34,7 +35,10 @@ export function hashHtml(html: string): string {
 }
 
 export function getIncrementalManifestPath(outputDir: string): string {
-  return pathModule.join(outputDir, MANIFEST_DIR, MANIFEST_FILE);
+  return resolveSsgOutputPath(
+    outputDir,
+    pathModule.join(MANIFEST_DIR, MANIFEST_FILE)
+  );
 }
 
 export function readIncrementalManifest(
@@ -64,6 +68,7 @@ export function readIncrementalManifest(
         typeof entry.routeId === 'string' &&
         typeof entry.path === 'string' &&
         typeof entry.filePath === 'string' &&
+        isContainedManifestFilePath(outputDir, entry.filePath) &&
         Array.isArray(entry.invalidationKeys) &&
         (entry.htmlHash === null || typeof entry.htmlHash === 'string') &&
         (entry.lastStatus === 'success' || entry.lastStatus === 'error')
@@ -84,10 +89,29 @@ export function readIncrementalManifest(
   }
 }
 
+function isContainedManifestFilePath(
+  outputDir: string,
+  filePath: string
+): boolean {
+  try {
+    resolveSsgOutputPath(outputDir, filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function writeIncrementalManifest(
   manifest: IncrementalManifest,
   outputDir: string
 ): Promise<void> {
+  if (
+    !manifest.routes.every((entry) =>
+      isContainedManifestFilePath(outputDir, entry.filePath)
+    )
+  ) {
+    throw new Error('SSG manifest contains a path outside outputDir.');
+  }
   const manifestPath = getIncrementalManifestPath(outputDir);
   await fsPromises.mkdir(pathModule.dirname(manifestPath), { recursive: true });
   await fsPromises.writeFile(
@@ -101,7 +125,7 @@ export function getExistingOutputFileSize(
   outputDir: string,
   filePath: string
 ): number {
-  const fullPath = pathModule.join(outputDir, filePath);
+  const fullPath = resolveSsgOutputPath(outputDir, filePath);
   if (!fs.existsSync(fullPath)) {
     return 0;
   }
@@ -114,5 +138,5 @@ export function getExistingOutputFileSize(
 }
 
 export function outputFileExists(outputDir: string, filePath: string): boolean {
-  return fs.existsSync(pathModule.join(outputDir, filePath));
+  return fs.existsSync(resolveSsgOutputPath(outputDir, filePath));
 }

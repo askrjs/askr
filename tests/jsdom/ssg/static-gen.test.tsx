@@ -447,6 +447,25 @@ describe('Static Site Generation', () => {
       expect(result.routes[1].html).toContain('second-post');
     });
 
+    it('should reject route params that escape the output directory', async () => {
+      const escapedFile = path.resolve(tempDir, '..', 'escaped', 'index.html');
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/{slug}',
+            component: BlogPost,
+            params: { slug: '../../escaped' },
+          },
+        ],
+        outputDir: tempDir,
+      });
+
+      await expect(ssg.generate()).rejects.toThrow(
+        'without dot segments or backslashes'
+      );
+      expect(fs.existsSync(escapedFile)).toBe(false);
+    });
+
     it('should pass concrete paths and template paths to the SSG document renderer', async () => {
       const contexts: DocumentRenderContext[] = [];
       const ssg = createStaticGen({
@@ -1043,6 +1062,46 @@ describe('Static Site Generation', () => {
       ).toBe(false);
     });
 
+    it('should reject direct static writes outside outputDir', async () => {
+      const escapedFile = path.resolve(tempDir, '..', 'escaped.html');
+      await expect(
+        writeStaticFiles(
+          [
+            {
+              path: '/escaped',
+              filePath: '../escaped.html',
+              html: 'escaped',
+              fileSize: 7,
+              renderDuration: 0,
+              resourceCount: 0,
+              status: 'success',
+              written: true,
+            },
+          ],
+          tempDir
+        )
+      ).rejects.toThrow('must stay inside outputDir');
+      expect(fs.existsSync(escapedFile)).toBe(false);
+
+      await expect(
+        writeStaticFiles(
+          [
+            {
+              path: '/escaped',
+              filePath: '../escaped.html',
+              html: '',
+              fileSize: 0,
+              renderDuration: 0,
+              resourceCount: 0,
+              status: 'removed',
+              written: false,
+            },
+          ],
+          tempDir
+        )
+      ).rejects.toThrow('must stay inside outputDir');
+    });
+
     it('should return failed route errors without publishing partial metadata', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const BrokenComponent = (): JSXElement => {
@@ -1060,11 +1119,37 @@ describe('Static Site Generation', () => {
 
         expect(failedRoute.status).toBe('error');
         expect(failedRoute.error).toContain('Test error message');
+        expect(failedRoute.errorCause).toBeInstanceOf(Error);
+        expect(failedRoute.errorContext).toEqual({
+          route: '/broken',
+          phase: 'render',
+        });
         expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
         expect(warn).not.toHaveBeenCalled();
       } finally {
         warn.mockRestore();
       }
+    });
+
+    it('should report render phase when a loader succeeds before component failure', async () => {
+      const BrokenComponent = (): JSXElement => {
+        throw new Error('render failure');
+      };
+      const result = await createStaticGen({
+        routes: [
+          {
+            path: '/loaded-broken',
+            component: BrokenComponent,
+            loader: async () => ({ ok: true }),
+          },
+        ],
+        outputDir: tempDir,
+      }).generate();
+
+      expect(result.routes[0].errorContext).toEqual({
+        route: '/loaded-broken',
+        phase: 'render',
+      });
     });
 
     it('should write metadata JSON with proper formatting', async () => {
@@ -1567,6 +1652,62 @@ describe('Static Site Generation', () => {
       expect(result.mode).toBe('full');
       expect(result.rebuilt).toBe(2);
       expect(result.skipped).toBe(0);
+    });
+
+    it('should reject poisoned manifest paths without deleting outside outputDir', async () => {
+      const escapedFile = path.resolve(
+        tempDir,
+        '..',
+        `askr-manifest-poison-${path.basename(tempDir)}.html`
+      );
+      fs.writeFileSync(escapedFile, 'must survive', 'utf8');
+      try {
+        const initial = createStaticGen({
+          routes: [
+            {
+              path: '/',
+              component: Home,
+              invalidationKeys: ['home'],
+            },
+            {
+              path: '/stale',
+              component: About,
+              invalidationKeys: ['stale'],
+            },
+          ],
+          outputDir: tempDir,
+        });
+        await initial.generate();
+
+        const manifestPath = path.join(tempDir, '.askr', 'ssg-manifest.json');
+        const manifest = readManifest(tempDir);
+        const stale = manifest.routes.find((route) => route.path === '/stale');
+        if (!stale) throw new Error('Expected stale manifest route');
+        stale.filePath = path.relative(tempDir, escapedFile);
+        fs.writeFileSync(
+          manifestPath,
+          JSON.stringify(manifest, null, 2),
+          'utf8'
+        );
+
+        const updated = createStaticGen({
+          routes: [
+            {
+              path: '/',
+              component: Home,
+              invalidationKeys: ['home'],
+            },
+          ],
+          outputDir: tempDir,
+        });
+        const result = await updated.generate({ mode: 'incremental' });
+
+        expect(result.mode).toBe('full');
+        expect(result.removed).toBe(0);
+        expect(fs.readFileSync(escapedFile, 'utf8')).toBe('must survive');
+      } finally {
+        fs.rmSync(escapedFile, { force: true });
+      }
     });
   });
 });

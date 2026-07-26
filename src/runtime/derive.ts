@@ -248,6 +248,7 @@ function createMappedSelector<TIn, TOut>(
   };
 }
 
+/** Creates a render-scoped derived value; must be called during component render. */
 export function derive<TOut>(fn: () => TOut): Derived<TOut>;
 
 export function derive<TIn, TOut>(

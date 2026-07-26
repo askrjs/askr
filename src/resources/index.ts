@@ -18,6 +18,7 @@ export {
 export type { ResourceResult } from '../runtime';
 export type {
   ActivityPredicate,
+  ListenerTarget,
   StreamOptions,
   StreamResult,
   StreamStatus,
