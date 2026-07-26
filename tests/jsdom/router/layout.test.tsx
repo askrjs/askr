@@ -7,6 +7,7 @@ import {
 } from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
+import { onRouteChange } from '../../../src/router/activity';
 import { createSPA } from '@askrjs/askr/boot';
 import {
   createTestContainer,
@@ -54,6 +55,37 @@ describe('layout scoping (ROUTER)', () => {
     expect(container.querySelector('.shell')).not.toBeNull();
     expect(container.querySelector('.home')).not.toBeNull();
     expect(container.querySelector('.home')?.textContent).toBe('Home');
+  });
+
+  it('should publish committed route changes from a persistent layout', async () => {
+    const events: string[] = [];
+    const AppLayout = ({ children }: { children?: unknown }) => {
+      onRouteChange((current, previous) => {
+        events.push(`change:${current.path}:${previous?.path ?? ''}`);
+        return () => events.push(`cleanup:${current.path}`);
+      });
+      return <div class="shell">{children as never}</div>;
+    };
+
+    group({ layout: AppLayout }, () => {
+      route('/first', () => <span>first</span>);
+      route('/second', () => <span>second</span>);
+    });
+
+    window.history.replaceState({}, '', '/first');
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+    navigate('/second');
+    await flushScheduler();
+
+    expect(events).toEqual(['change:/second:/first']);
+    navigate('/first');
+    await flushScheduler();
+    expect(events).toEqual([
+      'change:/second:/first',
+      'cleanup:/second',
+      'change:/first:/second',
+    ]);
   });
 
   it('should not apply layout to routes declared outside the scope', async () => {
