@@ -46,6 +46,10 @@ Public types:
 - `@askrjs/askr/components` - `ErrorBoundary`
 - `@askrjs/askr/actions` - browser-safe `defineAction`, reactive `action`, and native-first `ActionForm`
 - `@askrjs/askr/control` - JSX control-flow helpers
+  - For reactive list rows, see the [control-flow guide](../guides/control-flow.md)
+    for the `selector()` and thunk-prop patterns. A row callback is reconciled by
+    `<For>` and should not rely on plain closure captures of changing parent state.
+
 - `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - test helpers such as `mockQuery`, `queryState`, and `createInvalidationRecorder`
 - `@askrjs/askr/resources` - async resource helpers such as `resource`, `stream`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`
