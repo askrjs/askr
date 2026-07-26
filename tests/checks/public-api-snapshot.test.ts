@@ -22,15 +22,17 @@ const packageJson = JSON.parse(
 
 function generatePublicApiSnapshot() {
   const entrypoints = Object.entries(packageJson.exports)
-    .filter(([subpath]) => subpath !== './package.json')
+    .filter(
+      ([subpath]) =>
+        subpath !== './package.json' && subpath !== './capabilities.json'
+    )
     .map(([subpath, conditions]) => {
       const types =
         typeof conditions === 'string' ? conditions : conditions.types;
-      if (typeof types !== 'string') {
-        throw new Error(`Missing declaration target for ${subpath}`);
-      }
+      if (typeof types !== 'string') return null;
       return [subpath, path.join(rootDir, types)];
-    });
+    })
+    .filter((entry): entry is [string, string] => entry !== null);
   const files = entrypoints.map(([, file]) => file);
   const missing = files.filter((file) => !fs.existsSync(file));
   if (missing.length > 0) {

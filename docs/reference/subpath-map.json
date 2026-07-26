@@ -63,6 +63,10 @@
       "purpose": "development JSX runtime",
       "stability": "stable"
     },
-    "./package.json": { "purpose": "package metadata", "stability": "stable" }
+    "./package.json": { "purpose": "package metadata", "stability": "stable" },
+    "./capabilities.json": {
+      "purpose": "versioned capability discovery",
+      "stability": "stable"
+    }
   }
 }
