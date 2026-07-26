@@ -8,6 +8,7 @@ import type { AnchorIntrinsicProps, Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
 import { navigate } from '../router/navigate';
 import type { RouteDestination } from '../common/router';
+import { applyInteractionPolicy } from '../foundations/interactions';
 import { mergeProps } from '../foundations/utilities';
 
 type LinkBaseProps = Omit<
@@ -113,9 +114,7 @@ export function Link({
 }: LinkProps): JSXElement {
   const href = to?.href ?? suppliedHref;
   if (!href) throw new Error('Link requires href or to.');
-  const handleActivation = (e: Event) => {
-    onPress?.(e);
-    onClick?.(e as MouseEvent);
+  const handleNavigation = (e: Event) => {
     if (e.defaultPrevented) {
       return;
     }
@@ -143,8 +142,19 @@ export function Link({
     navigate(href);
   };
 
-  const props = mergeProps(rest, {
-    onClick: handleActivation,
+  const interaction = applyInteractionPolicy({
+    isNative: true,
+    disabled: false,
+    onPress: handleNavigation,
+  });
+  const consumerActivation = (e: Event) => {
+    onPress?.(e);
+    onClick?.(e as MouseEvent);
+  };
+
+  const props = mergeProps(interaction, {
+    ...rest,
+    onClick: consumerActivation,
     href,
     class: className,
     rel,

@@ -111,6 +111,22 @@ describe('Link component navigation', () => {
     expect(window.location.pathname).toBe('/');
   });
 
+  it('should let onPress cancel same-origin navigation', async () => {
+    route('/', () => (
+      <Link href="/about" onPress={(event) => event.preventDefault()}>
+        About
+      </Link>
+    ));
+    route('/about', () => <div>{'About'}</div>);
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+
+    (container.querySelector('a') as HTMLAnchorElement).click();
+    await Promise.resolve();
+
+    expect(window.location.pathname).toBe('/');
+  });
+
   it('should preserve custom anchor attributes', async () => {
     route('/', () => (
       <div>
