@@ -130,7 +130,15 @@ async function pruneEmptyDirs(
   let current = startDir;
   const normalizedRoot = pathModule.resolve(rootDir);
 
-  while (current.startsWith(normalizedRoot)) {
+  while (pathModule.resolve(current) !== normalizedRoot) {
+    const relative = pathModule.relative(normalizedRoot, current);
+    if (
+      relative === '..' ||
+      relative.startsWith(`..${pathModule.sep}`) ||
+      pathModule.isAbsolute(relative)
+    ) {
+      break;
+    }
     if (!fsSync.existsSync(current)) {
       break;
     }
@@ -140,9 +148,6 @@ async function pruneEmptyDirs(
     }
 
     await fileOperations.rmdir(current);
-    if (pathModule.resolve(current) === normalizedRoot) {
-      break;
-    }
     current = pathModule.dirname(current);
   }
 }
