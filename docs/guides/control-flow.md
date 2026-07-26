@@ -24,9 +24,7 @@ export function Navigation() {
       <button onClick={() => setSelected('c')}>Choose C</button>
       <For each={ITEMS} by={(item) => item.id}>
         {(item) => (
-          <a data-active={isSelected(item.id) ? 'true' : 'false'}>
-            {item.id}
-          </a>
+          <a data-active={isSelected(item.id) ? 'true' : 'false'}>{item.id}</a>
         )}
       </For>
     </>

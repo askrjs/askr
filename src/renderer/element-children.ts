@@ -64,7 +64,7 @@ export function updateElementChildren(
   clearControlBoundaryCommitOwner(el);
 
   if (children === null || children === undefined) {
-    for (let n = el.firstChild; n;) {
+    for (let n = el.firstChild; n; ) {
       const next = n.nextSibling;
       teardownNodeSubtree(n);
       n = next;
@@ -91,7 +91,7 @@ export function updateElementChildren(
       const t = el.firstChild as Text;
       if (t.data !== s) t.data = s;
     } else {
-      for (let n = el.firstChild; n;) {
+      for (let n = el.firstChild; n; ) {
         const next = n.nextSibling;
         teardownNodeSubtree(n);
         n = next;
@@ -151,7 +151,7 @@ export function updateElementChildren(
     return;
   }
 
-  for (let n = el.firstChild; n;) {
+  for (let n = el.firstChild; n; ) {
     const next = n.nextSibling;
     teardownNodeSubtree(n);
     n = next;
@@ -547,7 +547,7 @@ export function updateUnkeyedChildren(
   }
 
   if (existing.length === 0 && parent.childNodes.length > 0) {
-    for (let n = parent.firstChild; n;) {
+    for (let n = parent.firstChild; n; ) {
       const next = n.nextSibling;
       teardownNodeSubtree(n);
       n = next;
