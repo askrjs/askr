@@ -518,7 +518,14 @@ function getOrCreateSelectorHook<T>(
   return created;
 }
 
-/** Creates a render-scoped predicate; must be called during component render. */
+/**
+ * Create a keyed membership predicate for reactive list rows.
+ *
+ * Use this when a `<For>` child needs to compare each stable item with a
+ * changing selected value. Unlike a plain closure capture, the predicate
+ * subscribes the affected rows and updates them without rebuilding the list.
+ * Must be called during component render.
+ */
 export function selector<T>(
   source: () => T,
   equals: SelectorEquals<T> = Object.is
