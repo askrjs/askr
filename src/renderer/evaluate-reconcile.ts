@@ -17,7 +17,10 @@ import {
   performBulkTextReplace,
 } from './children';
 import { getRendererDOMHost } from './dom-host';
-import { updateUnkeyedChildren } from './element-children';
+import {
+  updateMixedControlChildren,
+  updateUnkeyedChildren,
+} from './element-children';
 import { setDevValue, incDevCounter } from '../runtime';
 import { Fragment } from '../common/jsx';
 import {
@@ -335,6 +338,18 @@ export function updateElementChildren(
     (vnodeChildren[0] as DOMElement).type === __CONTROL_BOUNDARY__
   ) {
     updateForBoundaryChildren(element, vnodeChildren[0] as DOMElement);
+    return;
+  }
+
+  if (
+    vnodeChildren.some(
+      (child) =>
+        _isDOMElement(child) &&
+        (child as DOMElement).type === __CONTROL_BOUNDARY__
+    )
+  ) {
+    updateMixedControlChildren(element, vnodeChildren as VNode[], false);
+    keyedElements.delete(element);
     return;
   }
 
