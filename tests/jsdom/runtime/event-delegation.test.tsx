@@ -112,6 +112,29 @@ describe('event delegation', () => {
       expect(clicks).toBe(1);
     });
 
+    it('should supplement an incomplete composed path with target ancestry', () => {
+      let clicks = 0;
+      const Component = () => (
+        <button id="incomplete-path" onClick={() => (clicks += 1)}>
+          Click me
+        </button>
+      );
+
+      setGlobalDelegationContainer(document.body);
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const button = container.querySelector('#incomplete-path')!;
+      const event = new MouseEvent('click', { bubbles: true });
+      Object.defineProperty(event, 'composedPath', {
+        value: () => [window, document.body, document],
+      });
+      button.dispatchEvent(event);
+      flushScheduler();
+
+      expect(clicks).toBe(1);
+    });
+
     it('should update delegated handlers in place across rerenders', () => {
       let mode: ReturnType<typeof state<'a' | 'b'>> | null = null;
       const calls: string[] = [];

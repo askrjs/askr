@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.69",
+  "version": "0.0.70",
   "description": "Actor-backed deterministic UI framework",
   "keywords": [
     "askr",

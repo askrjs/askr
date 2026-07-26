@@ -228,18 +228,30 @@ function attachDelegatedListener(
     const delegatedHandler = (e: Event) => {
       runRuntimeHandlerScope(() => {
         const path: EventTarget[] = [];
-        if (typeof e.composedPath === 'function') {
-          path.push(...e.composedPath());
-        } else {
-          let node = e.target;
-          while (node) {
+        // Some browser hosts expose a composedPath that omits ordinary DOM
+        // ancestors (notably across document/container boundaries). Always
+        // supplement it with the native target ancestry so delegated
+        // handlers remain reliable after navigation and hydration.
+        const seenPathNodes = new Set<EventTarget>();
+        let node = e.target;
+        while (node) {
+          if (!seenPathNodes.has(node)) {
+            seenPathNodes.add(node);
             path.push(node);
-            if (node === container) {
-              break;
+          }
+          if (node === container) {
+            break;
+          }
+          node = isElementNode(node)
+            ? node.parentNode
+            : (node as Node).parentNode;
+        }
+        if (typeof e.composedPath === 'function') {
+          for (const composedNode of e.composedPath()) {
+            if (!seenPathNodes.has(composedNode)) {
+              seenPathNodes.add(composedNode);
+              path.push(composedNode);
             }
-            node = isElementNode(node)
-              ? node.parentNode
-              : (node as Node).parentNode;
           }
         }
         for (const node of path) {
