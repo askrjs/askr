@@ -102,7 +102,7 @@ safe to use with browser globals in SSR components.
 import { on } from '@askrjs/askr/resources';
 
 function SearchBox() {
-  on(window, 'focus', () => {
+  on(() => window, 'focus', () => {
     // refresh visible state
   });
 
@@ -112,6 +112,28 @@ function SearchBox() {
 
 When the owner rerenders, `on()` keeps one listener attached and calls the latest handler.
 If `target`, `event`, or listener options change, the listener is moved after the committed render.
+
+The resolver form is evaluated only during a client commit. Use it for browser
+globals so SSR and SSG rendering do not evaluate `window` or `document`.
+
+### `createRef<T>()`
+
+`createRef<T>()` returns a stable holder for an intrinsic element ref. Create it
+outside the component render body and reuse it across renders:
+
+```tsx
+import { createRef } from '@askrjs/askr';
+
+const inputRef = createRef<HTMLInputElement>();
+
+function SearchBox() {
+  return <input ref={inputRef} type="search" />;
+}
+```
+
+The renderer updates `current` after commit and clears it on unmount. Changing
+`current` does not schedule a render. Inline callback refs remain supported when
+callback semantics are preferred.
 
 ### `task(callback)`
 

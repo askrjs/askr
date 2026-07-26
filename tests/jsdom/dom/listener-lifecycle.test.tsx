@@ -126,12 +126,16 @@ describe('listener lifecycle (DOM)', () => {
     let calls = 0;
 
     const Component = () => {
-      on(() => {
-        resolveCalls += 1;
-        return target;
-      }, 'ready', () => {
-        calls += 1;
-      });
+      on(
+        () => {
+          resolveCalls += 1;
+          return target;
+        },
+        'ready',
+        () => {
+          calls += 1;
+        }
+      );
       return <div>{'ready'}</div>;
     };
 
