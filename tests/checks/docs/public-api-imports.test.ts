@@ -480,6 +480,12 @@ function probeDistExports(): unknown {
                 invalidateOnInterval: typeof dataModule.invalidateOnInterval,
               },
               testing: {
+                render: typeof testingModule.render,
+                mount: typeof testingModule.mount,
+                renderRoute: typeof testingModule.renderRoute,
+                dispatch: typeof testingModule.dispatch,
+                flush: typeof testingModule.flush,
+                cleanup: typeof testingModule.cleanup,
                 mockQuery: typeof testingModule.mockQuery,
                 queryState: typeof testingModule.queryState,
                 createInvalidationRecorder:
@@ -780,6 +786,12 @@ describe('public docs and examples', () => {
         invalidateOnInterval: 'function',
       },
       testing: {
+        render: 'function',
+        mount: 'function',
+        renderRoute: 'function',
+        dispatch: 'function',
+        flush: 'function',
+        cleanup: 'function',
         mockQuery: 'function',
         queryState: 'object',
         createInvalidationRecorder: 'function',

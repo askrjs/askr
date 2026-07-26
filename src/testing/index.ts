@@ -11,6 +11,9 @@ import {
 } from '../data/testing';
 import { computeRouteActivityMatches } from '../router/testing';
 
+export { cleanup, dispatch, flush, mount, render, renderRoute } from './render';
+export type { RenderOptions, RenderResult, RouteRenderOptions } from './render';
+
 export type MockRefresh = () => void | Promise<void>;
 
 export interface MockQueryOptions {
