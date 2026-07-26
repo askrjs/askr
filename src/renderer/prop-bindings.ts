@@ -116,11 +116,11 @@ function addTrackedListener(
 
   if (effectiveForceDirect && isHydrationDirectListener(el, listenerKey)) {
     const existing = elementListeners.get(el)?.get(listenerKey);
-    existing?.updateHandler?.(handler);
     if (existing) {
+      existing.updateHandler?.(handler);
       existing.original = handler;
+      return;
     }
-    return;
   }
 
   if (
