@@ -519,7 +519,7 @@ function getOrCreateSelectorHook<T>(
 }
 
 /**
- * Create a keyed membership predicate for reactive list rows.
+ * Creates a render-scoped predicate for keyed membership in reactive list rows.
  *
  * Use this when a `<For>` child needs to compare each stable item with a
  * changing selected value. Unlike a plain closure capture, the predicate
