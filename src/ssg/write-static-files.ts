@@ -48,10 +48,15 @@ export async function writeStaticFiles(
   }
 
   const pendingWrites: RouteRenderResult[] = [];
+  const reportedErrors = new Set<string>();
   for (let index = 0; index < results.length; index += 1) {
     const result = results[index];
     if (result.status === 'error') {
-      console.warn(`Skipping failed route: ${result.path} - ${result.error}`);
+      const diagnostic = `Skipping failed route: ${result.path} - ${result.error}`;
+      if (!reportedErrors.has(diagnostic)) {
+        reportedErrors.add(diagnostic);
+        console.warn(diagnostic);
+      }
       continue;
     }
     if (result.status === 'success' && result.written) {

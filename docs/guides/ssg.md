@@ -184,6 +184,14 @@ The generator writes `metadata.json` into the output directory with:
 - `totalDuration`
 - `routes[]`: per-route `path`, `filePath`, `fileSize`, `renderDuration`, `resourceCount`, `status`, `error`
 
+The in-memory `SSGResult.routes[]` entries also preserve the original exception
+as `errorCause` and identify the failing route and phase (`load` or `render`) in
+`errorContext`. These fields are intentionally omitted from `metadata.json`
+because exceptions are not serializable. With source maps enabled, the cause's
+stack points back to authored component and loader sources; without source maps,
+the same route and phase context remains available even when the stack contains
+bundled locations.
+
 ## Current limits
 
 - Config is TypeScript-only for CLI mode.
