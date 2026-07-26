@@ -36,6 +36,7 @@ export interface RenderResult {
 interface RenderState {
   active: boolean;
   managed: boolean;
+  restoreHistory?: History;
   restoreUrl?: string;
 }
 
@@ -54,6 +55,22 @@ function requireDocument(): Document {
   }
 
   return document;
+}
+
+function requireWindow(): Window {
+  if (
+    typeof window === 'undefined' ||
+    !window.location ||
+    !window.history ||
+    typeof window.history.replaceState !== 'function'
+  ) {
+    throw new Error(
+      '@askrjs/askr/testing renderRoute requires a browser-like DOM environment. ' +
+        'Configure Vitest with environment: "jsdom".'
+    );
+  }
+
+  return window;
 }
 
 function prepareContainer(options?: RenderOptions): {
@@ -128,8 +145,8 @@ function cleanupContainer(container: HTMLElement): void {
     if (state.managed) {
       container.remove();
     }
-    if (state.restoreUrl && typeof window !== 'undefined') {
-      window.history.replaceState({}, '', state.restoreUrl);
+    if (state.restoreHistory && state.restoreUrl) {
+      state.restoreHistory.replaceState({}, '', state.restoreUrl);
     }
     renderStates.delete(container);
   }
@@ -197,11 +214,13 @@ export async function renderRoute(
     );
   }
 
+  const currentWindow = requireWindow();
   const { container, state } = prepareContainer(options);
   try {
     if (options.url !== undefined) {
-      state.restoreUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      window.history.replaceState({}, '', options.url);
+      state.restoreHistory = currentWindow.history;
+      state.restoreUrl = `${currentWindow.location.pathname}${currentWindow.location.search}${currentWindow.location.hash}`;
+      currentWindow.history.replaceState({}, '', options.url);
     }
     await createSPA({
       root: container,

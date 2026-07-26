@@ -102,6 +102,10 @@ Each result owns its cleanup, so sibling renders can be torn down independently.
 Test files remain isolated by the test runner's jsdom realm. The harness fails
 with a configuration hint when no DOM environment exists.
 
+Ordinary `render` and `mount` results can coexist in one realm. Because
+`renderRoute` uses the production SPA router and browser history, keep only one
+routed render active per jsdom realm and clean it up before starting another.
+
 `@askrjs/askr/testing` covers component, renderer, and router tests.
 `@askrjs/testing` is a separate package for HTTP and server test clients; it
 does not mount Askr components.

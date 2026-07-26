@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { currentRoute, createRouteRegistry, route } from '@askrjs/askr/router';
 import { renderRoute, type RenderResult } from '@askrjs/askr/testing';
 
@@ -10,6 +10,21 @@ afterEach(() => {
 });
 
 describe('testing routed render harness', () => {
+  it('should fail clearly without a browser-like window', async () => {
+    const registry = createRouteRegistry(() => {
+      route('/', () => <h1>{'home'}</h1>);
+    });
+    const currentWindow = globalThis.window;
+    vi.stubGlobal('window', undefined);
+
+    await expect(renderRoute({ registry })).rejects.toThrow(
+      '@askrjs/askr/testing renderRoute requires a browser-like DOM environment'
+    );
+
+    vi.stubGlobal('window', currentWindow);
+    vi.unstubAllGlobals();
+  });
+
   it('should render with the production router context', async () => {
     const registry = createRouteRegistry(() => {
       route('/teams/{team}', () => {
