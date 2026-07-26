@@ -1,14 +1,14 @@
-import { getRuntimeEnv } from "./env";
-import type { ComponentFunction, ComponentInstance } from "../runtime";
-import { removeAllListeners } from "./cleanup";
-import { createDOMNode, syncComponentElement } from "./dom";
-import type { ElementWithContext } from "./dom-host";
+import { getRuntimeEnv } from './env';
+import type { ComponentFunction, ComponentInstance } from '../runtime';
+import { removeAllListeners } from './cleanup';
+import { createDOMNode, syncComponentElement } from './dom';
+import type { ElementWithContext } from './dom-host';
 import {
   cleanupRangeNode,
   createDOMRange,
   hasDOMRange,
   updateDOMRangeForContext,
-} from "./evaluate-dom-range";
+} from './evaluate-dom-range';
 import {
   getFragmentChildren,
   getRetainedHostOwnerChain,
@@ -20,31 +20,31 @@ import {
   tryFirstRenderKeyedChildren,
   updateElementChildren,
   updateForBoundaryChildren,
-} from "./evaluate-reconcile";
-import { _isDOMElement, type DOMElement } from "./types";
-import { __CONTROL_BOUNDARY__ } from "../common/vnode";
+} from './evaluate-reconcile';
+import { _isDOMElement, type DOMElement } from './types';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import {
   beginLifecycleCommitBatch,
   discardLifecycleCommitBatch,
   flushLifecycleCommitBatch,
   getCurrentLifecycleCommitBatch,
-} from "../runtime";
+} from '../runtime';
 
-export { clearDOMRange } from "./evaluate-dom-range";
+export { clearDOMRange } from './evaluate-dom-range';
 
-export const IS_DOM_AVAILABLE = typeof document !== "undefined";
+export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 
 export function evaluate(
   node: unknown,
   target: Element | null,
   context?: object,
-  retainedOwner?: ComponentInstance,
+  retainedOwner?: ComponentInstance
 ): void {
   if (!target) return;
-  if (typeof document === "undefined") {
-    if (getRuntimeEnv().NODE_ENV !== "production") {
+  if (typeof document === 'undefined') {
+    if (getRuntimeEnv().NODE_ENV !== 'production') {
       try {
-        console.warn("[Askr] evaluate() called in non-DOM environment; no-op.");
+        console.warn('[Askr] evaluate() called in non-DOM environment; no-op.');
       } catch (e) {
         void e;
       }
@@ -67,7 +67,7 @@ function evaluateInLifecycleBatch(
   node: unknown,
   target: Element | null,
   context?: object,
-  retainedOwner?: ComponentInstance,
+  retainedOwner?: ComponentInstance
 ): void {
   if (!target) return;
 
@@ -92,7 +92,7 @@ function evaluateInLifecycleBatch(
       if (
         childArray.length === 1 &&
         _isDOMElement(childArray[0]) &&
-        typeof (childArray[0] as DOMElement).type === "string"
+        typeof (childArray[0] as DOMElement).type === 'string'
       ) {
         vnode = childArray[0];
       } else {
@@ -101,7 +101,10 @@ function evaluateInLifecycleBatch(
       }
     }
 
-    if (_isDOMElement(vnode) && (vnode as DOMElement).type === __CONTROL_BOUNDARY__) {
+    if (
+      _isDOMElement(vnode) &&
+      (vnode as DOMElement).type === __CONTROL_BOUNDARY__
+    ) {
       updateForBoundaryChildren(target, vnode as DOMElement);
       return;
     }
@@ -115,24 +118,34 @@ function evaluateInLifecycleBatch(
       __ASKR_INSTANCE?: ComponentInstance;
     };
     const targetInstance =
-      retainedOwner?.target === target ? retainedOwner : targetWithInstance.__ASKR_INSTANCE;
+      retainedOwner?.target === target
+        ? retainedOwner
+        : targetWithInstance.__ASKR_INSTANCE;
     if (targetInstance && targetInstance.target === target) {
-      const retainedHostInstances = getRetainedHostOwnerChain(targetWithInstance, targetInstance);
+      const retainedHostInstances = getRetainedHostOwnerChain(
+        targetWithInstance,
+        targetInstance
+      );
 
-      if (_isDOMElement(vnode) && typeof vnode.type === "function") {
+      if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
         const syncedDom = syncComponentElement(
           target,
           vnode as unknown as ElementWithContext,
           vnode.type as ComponentFunction,
-          (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {},
+          (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) ||
+            {},
           undefined,
           false,
-          retainedHostInstances,
+          retainedHostInstances
         );
 
         if (syncedDom) {
           if (syncedDom instanceof Element) {
-            retainHostOwnerChain(syncedDom, targetInstance, retainedHostInstances);
+            retainHostOwnerChain(
+              syncedDom,
+              targetInstance,
+              retainedHostInstances
+            );
             targetInstance.target = syncedDom;
           }
           return;
@@ -141,7 +154,7 @@ function evaluateInLifecycleBatch(
 
       if (
         _isDOMElement(vnode) &&
-        typeof vnode.type === "string" &&
+        typeof vnode.type === 'string' &&
         tagNamesEqualIgnoreCase(target.tagName, vnode.type)
       ) {
         smartUpdateElement(target, vnode as DOMElement, cleanupRangeNode);
@@ -151,8 +164,9 @@ function evaluateInLifecycleBatch(
       const newDom = createDOMNode(vnode);
       if (newDom && target.parentNode) {
         if (newDom instanceof Element) {
-          (newDom as Element & { __ASKR_INSTANCE?: ComponentInstance }).__ASKR_INSTANCE =
-            targetInstance;
+          (
+            newDom as Element & { __ASKR_INSTANCE?: ComponentInstance }
+          ).__ASKR_INSTANCE = targetInstance;
           targetInstance.target = newDom as Element;
         }
         removeAllListeners(target);
@@ -166,21 +180,21 @@ function evaluateInLifecycleBatch(
     if (
       firstChild &&
       _isDOMElement(vnode) &&
-      typeof vnode.type === "string" &&
+      typeof vnode.type === 'string' &&
       tagNamesEqualIgnoreCase(firstChild.tagName, vnode.type)
     ) {
       smartUpdateElement(firstChild, vnode as DOMElement, cleanupRangeNode);
     } else {
-      for (let node = target.firstChild; node;) {
+      for (let node = target.firstChild; node; ) {
         const next = node.nextSibling;
         cleanupRangeNode(node);
         node = next;
       }
-      target.textContent = "";
+      target.textContent = '';
 
       if (
         _isDOMElement(vnode) &&
-        typeof vnode.type === "string" &&
+        typeof vnode.type === 'string' &&
         tryFirstRenderKeyedChildren(target, vnode as DOMElement)
       ) {
         return;
