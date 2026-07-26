@@ -1653,5 +1653,61 @@ describe('Static Site Generation', () => {
       expect(result.rebuilt).toBe(2);
       expect(result.skipped).toBe(0);
     });
+
+    it('should reject poisoned manifest paths without deleting outside outputDir', async () => {
+      const escapedFile = path.resolve(
+        tempDir,
+        '..',
+        `askr-manifest-poison-${path.basename(tempDir)}.html`
+      );
+      fs.writeFileSync(escapedFile, 'must survive', 'utf8');
+      try {
+        const initial = createStaticGen({
+          routes: [
+            {
+              path: '/',
+              component: Home,
+              invalidationKeys: ['home'],
+            },
+            {
+              path: '/stale',
+              component: About,
+              invalidationKeys: ['stale'],
+            },
+          ],
+          outputDir: tempDir,
+        });
+        await initial.generate();
+
+        const manifestPath = path.join(tempDir, '.askr', 'ssg-manifest.json');
+        const manifest = readManifest(tempDir);
+        const stale = manifest.routes.find((route) => route.path === '/stale');
+        if (!stale) throw new Error('Expected stale manifest route');
+        stale.filePath = path.relative(tempDir, escapedFile);
+        fs.writeFileSync(
+          manifestPath,
+          JSON.stringify(manifest, null, 2),
+          'utf8'
+        );
+
+        const updated = createStaticGen({
+          routes: [
+            {
+              path: '/',
+              component: Home,
+              invalidationKeys: ['home'],
+            },
+          ],
+          outputDir: tempDir,
+        });
+        const result = await updated.generate({ mode: 'incremental' });
+
+        expect(result.mode).toBe('full');
+        expect(result.removed).toBe(0);
+        expect(fs.readFileSync(escapedFile, 'utf8')).toBe('must survive');
+      } finally {
+        fs.rmSync(escapedFile, { force: true });
+      }
+    });
   });
 });
