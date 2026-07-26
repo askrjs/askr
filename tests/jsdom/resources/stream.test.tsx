@@ -83,7 +83,7 @@ async function settle(): Promise<void> {
 }
 
 describe('stream()', () => {
-  it('starts after commit and exposes one stable latest-value snapshot', async () => {
+  it('should start after commit and expose one stable latest-value snapshot', async () => {
     const source = new ControlledAsyncIterable<number>();
     let calls = 0;
     let rendering = false;
@@ -137,7 +137,7 @@ describe('stream()', () => {
     }
   });
 
-  it('supports promised sources and renders initial data as stale', async () => {
+  it('should support promised sources and render initial data as stale', async () => {
     const source = new ControlledAsyncIterable<string>();
     let resolveSource!: (source: AsyncIterable<string>) => void;
     const promisedSource = new Promise<AsyncIterable<string>>((resolve) => {
@@ -168,7 +168,7 @@ describe('stream()', () => {
     }
   });
 
-  it('treats an explicitly supplied null initial value as retained data', async () => {
+  it('should treat an explicitly supplied null initial value as retained data', async () => {
     const source = new ControlledAsyncIterable<string | null>();
     let current: StreamResult<string | null> | undefined;
     const { container, cleanup } = createTestContainer();
@@ -197,7 +197,7 @@ describe('stream()', () => {
     }
   });
 
-  it('retains values across failures, restart, and manual close', async () => {
+  it('should retain values across failures, restart, and manual close', async () => {
     const sources = [
       new ControlledAsyncIterable<string>(),
       new ControlledAsyncIterable<string>(),
@@ -264,7 +264,7 @@ describe('stream()', () => {
     }
   });
 
-  it('restarts active streams for dependency changes but not source identity', async () => {
+  it('should restart active streams for dependency changes but not source identity', async () => {
     const first = new ControlledAsyncIterable<number>();
     const second = new ControlledAsyncIterable<number>();
     const replacement = new ControlledAsyncIterable<number>();
@@ -307,7 +307,7 @@ describe('stream()', () => {
     }
   });
 
-  it('aborts and returns an iterator exactly once while ignoring late work', async () => {
+  it('should abort and return an iterator exactly once while ignoring late work', async () => {
     const source = new ControlledAsyncIterable<string>();
     let signal: AbortSignal | undefined;
     let current: StreamResult<string> | undefined;
@@ -338,7 +338,7 @@ describe('stream()', () => {
     expect(current?.value).toBe('live');
   });
 
-  it('never executes a source during synchronous SSR', () => {
+  it('should never execute a source during synchronous SSR', () => {
     let calls = 0;
 
     const html = renderToStringSync(() => {
