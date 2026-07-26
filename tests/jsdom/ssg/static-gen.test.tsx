@@ -1060,6 +1060,11 @@ describe('Static Site Generation', () => {
 
         expect(failedRoute.status).toBe('error');
         expect(failedRoute.error).toContain('Test error message');
+        expect(failedRoute.errorCause).toBeInstanceOf(Error);
+        expect(failedRoute.errorContext).toEqual({
+          route: '/broken',
+          phase: 'render',
+        });
         expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
         expect(warn).not.toHaveBeenCalled();
       } finally {
