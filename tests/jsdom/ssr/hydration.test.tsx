@@ -187,6 +187,7 @@ describe('hydration (SSR)', () => {
 
       // Click should invoke handler
       const btn = container.querySelector('#btn') as HTMLButtonElement;
+      expect(getDelegatedHandlerForElement(btn, 'click')).toBeUndefined();
       btn.click();
       expect(clicks).toBe(1);
 
