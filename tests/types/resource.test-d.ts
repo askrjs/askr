@@ -13,6 +13,7 @@ import {
   type ActivityPredicate,
   type ResourceResult,
   type StreamResult,
+  type StreamOptions,
   type StreamStatus,
   type TimerOptions,
 } from '@askrjs/askr/resources';
@@ -21,6 +22,11 @@ declare const eventSource: EventTarget;
 declare const transformer: () => void;
 
 const readonlyDeps = ['user', 1] as const;
+const streamOptions: StreamOptions<string> = {
+  deps: readonlyDeps,
+  initialValue: 'cached',
+};
+expectType<StreamOptions<string>>(streamOptions);
 const timerOptions: TimerOptions = { when: [documentVisible()] };
 expectType<TimerOptions>(timerOptions);
 
