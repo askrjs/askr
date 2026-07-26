@@ -52,14 +52,44 @@ const res = await fetch('/api/data', { signal: getSignal() });
 
 ### `stream(source, options?)`
 
-`stream()` is currently a placeholder public surface. It preserves a stable
-import and return-shape contract while the streaming source API is still being
-designed.
+`stream()` owns an async iterable for the lifetime of its component. The source
+is started after the first committed client mount and receives an
+`AbortSignal`; it is never opened during SSR/SSG.
 
-Today it returns an object shaped like `{ value: null, pending: true, error: null }`.
+```ts
+import { stream } from '@askrjs/askr/resources';
 
-Do not rely on it for real streaming behavior yet. Use `resource()`, `task()`,
-`on()`, or `timer()` for implemented lifecycle-aware work.
+declare function connectToCountStream(input: {
+  cursor: string;
+  signal: AbortSignal;
+}): AsyncIterable<number>;
+
+function LiveCount({ cursor }: { cursor: string }) {
+  const count = stream(
+    ({ signal }) => connectToCountStream({ cursor, signal }),
+    { deps: [cursor], initialValue: 0 }
+  );
+
+  return <output data-status={count.status}>{count.value ?? 'connecting'}</output>;
+}
+```
+
+The result object has stable identity and exposes:
+
+- `value`: the latest item, including an explicitly supplied `null` value
+- `status`: `connecting`, `connected`, `reconnecting`, `closed`, or `error`
+- `pending`: `true` only while connecting without a retained value
+- `stale`: `true` while a retained value is not from the current live generation
+- `error`: the latest non-abort error, or `null`
+- `restart()`: aborts the current generation and starts a new one
+- `close()`: aborts the current generation and remains closed until `restart()`
+
+Dependency entries use shallow `Object.is` comparison. Changing `deps` restarts
+an active stream; changing only the source function does not. The adapter owns
+cursor resume, deduplication, gap recovery, retry, and backoff policy. On
+completion the status becomes `closed`; non-abort failures become `error` while
+retaining the latest value. Component cleanup aborts the generation, calls the
+iterator's `return()` at most once, and ignores late yields or rejections.
 
 ### `timer(intervalMs, callback, options?)`
 

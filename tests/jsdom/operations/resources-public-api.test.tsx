@@ -92,16 +92,21 @@ describe('resources public API', () => {
     cleanup();
   });
 
-  it('should keep capture() snapshots stable and expose the current stream() placeholder shape', () => {
+  it('should keep capture() snapshots stable and expose the stream result shape', () => {
     let value = 1;
     const snapshot = capture(() => value);
     value = 2;
 
     expect(snapshot()).toBe(1);
-    expect(stream<string>('source')).toEqual({
-      value: null,
-      pending: true,
-      error: null,
+    const result = stream<string>(async function* () {
+      yield 'value';
     });
+    expect(result.value).toBeNull();
+    expect(result.pending).toBe(true);
+    expect(result.status).toBe('connecting');
+    expect(result.stale).toBe(false);
+    expect(result.error).toBeNull();
+    expect(typeof result.restart).toBe('function');
+    expect(typeof result.close).toBe('function');
   });
 });

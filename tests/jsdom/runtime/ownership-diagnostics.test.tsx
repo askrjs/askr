@@ -11,6 +11,7 @@ import { createDataRuntime, createQuery } from '../../../src/data';
 import { Portal } from '../../../src/runtime/portal';
 import { resource } from '../../../src/runtime/resource-operation';
 import { timer } from '../../../src/runtime/lifecycle-operations';
+import { stream } from '../../../src/runtime/stream-operation';
 import { getOwnershipDiagnostics } from '../../../src/runtime/ownership-diagnostics';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
@@ -47,6 +48,11 @@ describe('ownership diagnostics', () => {
       });
       const currentResource = resource(() => 'resource', []);
       timer(60_000, () => {});
+      stream(async function* ({ signal }) {
+        await new Promise<void>((resolve) => {
+          signal.addEventListener('abort', () => resolve(), { once: true });
+        });
+      });
       Portal({
         children: <aside data-diagnostic-portal={'true'}>{'portal'}</aside>,
       });
@@ -75,6 +81,7 @@ describe('ownership diagnostics', () => {
     expect(activePlateau.queryCells).toBe(baseline.queryCells + 1);
     expect(activePlateau.timers).toBe(baseline.timers + 1);
     expect(activePlateau.resources).toBe(baseline.resources + 1);
+    expect(activePlateau.streams).toBe(baseline.streams + 1);
     expect(activePlateau.portals).toBe(baseline.portals + 1);
     expect(activePlateau.readableReaders).toBeGreaterThan(
       baseline.readableReaders
@@ -91,6 +98,7 @@ describe('ownership diagnostics', () => {
       expect(plainPlateau.queryCells).toBe(baseline.queryCells);
       expect(plainPlateau.timers).toBe(baseline.timers);
       expect(plainPlateau.resources).toBe(baseline.resources);
+      expect(plainPlateau.streams).toBe(baseline.streams);
       expect(plainPlateau.portals).toBe(baseline.portals);
       expect(plainPlateau.queuedSchedulerWork).toBe(0);
 

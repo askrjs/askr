@@ -79,6 +79,51 @@ The timer is cleaned up when `DashboardPage` is removed. The `when` checks skip 
 while the page is inactive or the document is hidden. Rerenders keep the latest callback and
 checks without creating duplicate intervals.
 
+## Async iterable streams
+
+Use `stream()` when an adapter exposes a sequence of values rather than one
+request result. Keep transport concerns in the adapter and pass the component
+signal through to the transport:
+
+```tsx
+import { stream } from '@askrjs/askr/resources';
+
+type Activity = { id: string; label: string };
+declare function connectActivityFeed(input: {
+  cursor: string;
+  signal: AbortSignal;
+}): AsyncIterable<{ id: string; label: string }>;
+declare function projectLatestActivity(event: {
+  id: string;
+  label: string;
+}): Activity[];
+declare function ActivityList(props: {
+  items: Activity[];
+  stale: boolean;
+}): JSX.Element;
+
+function ActivityFeed({ cursor }: { cursor: string }) {
+  const feed = stream(
+    async function* ({ signal }) {
+      for await (const event of connectActivityFeed({ cursor, signal })) {
+        yield projectLatestActivity(event);
+      }
+    },
+    { deps: [cursor], initialValue: [] as Activity[] }
+  );
+
+  if (feed.status === 'error') {
+    return <p>Live updates paused; showing the last received activity.</p>;
+  }
+  return <ActivityList items={feed.value ?? []} stale={feed.stale} />;
+}
+```
+
+The adapter should bound its projection, preserve any server cursor, deduplicate
+replayed events, and decide how to reconnect. `stream()` supplies cancellation
+and latest-value lifecycle state; it does not infer replay or retry semantics.
+SSR and SSG render the initial value, when supplied, without opening the source.
+
 ## SSR with preloaded data
 
 During synchronous SSR, pass resolved resource values through `renderToStringSync`

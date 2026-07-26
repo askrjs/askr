@@ -337,15 +337,7 @@ export function timer(
   });
 }
 
-export function stream<T>(
-  _source: unknown,
-  _options?: Record<string, unknown>
-): { value: T | null; pending: boolean; error: Error | null } {
-  // Stub implementation: no-op.
-  return { value: null, pending: true, error: null };
-}
-
-/** Runs an owned task after commit; outside a component instance it is a no-op. */
+/** Runs an owned task after commit. */
 export function task(
   fn: () => void | (() => void) | PromiseLike<void | (() => void)>
 ): void {
