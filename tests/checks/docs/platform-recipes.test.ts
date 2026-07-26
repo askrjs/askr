@@ -32,13 +32,16 @@ describe('verified platform recipe documentation', () => {
       expect(recipes).toContain(`## ${heading}`);
     }
     expect(recipes).toMatch(
-      /Active navigation in a persistent layout[\s\S]*Yes \| Yes \| Yes/
+      /Active navigation in a persistent layout[^\n]*\|\s*Yes\s*\|\s*Yes\s*\|\s*Yes\s*\|/
     );
     expect(recipes).toMatch(
-      /Browser listeners and controlled search[\s\S]*Yes \| Yes \| Yes/
+      /Browser listeners and controlled search[^\n]*\|\s*Yes\s*\|\s*Yes\s*\|\s*Yes\s*\|/
     );
     expect(recipes).toMatch(
-      /Loading, failure, invalidation, hydration[\s\S]*Yes \| Yes \| Yes/
+      /Loading, failure, invalidation, hydration[^\n]*\|\s*Yes\s*\|\s*Yes\s*\|\s*Yes\s*\|/
+    );
+    expect(recipes).toMatch(
+      /Local and route-level recovery[^\n]*\|\s*Yes\s*\|\s*Local\s*\|\s*Local\s*\|/
     );
   });
 

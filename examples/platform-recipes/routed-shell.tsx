@@ -15,11 +15,19 @@ const navigation = [
   { href: '/settings', label: 'Settings' },
 ] as const;
 
-function AppShell({ children }: { children?: unknown }) {
+export type RouteCommitObserver = (path: string) => void;
+
+function AppShell({
+  children,
+  onRouteCommitted,
+}: {
+  children?: unknown;
+  onRouteCommitted: RouteCommitObserver;
+}) {
   const activeRoute = currentRoute();
 
   onRouteChange((current) => {
-    document.title = `Askr recipe - ${current.path}`;
+    onRouteCommitted(current.path);
   });
 
   return (
@@ -29,6 +37,7 @@ function AppShell({ children }: { children?: unknown }) {
           const active = activeRoute.path === item.href;
           return (
             <Link
+              key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
               data-active={active ? 'true' : undefined}
@@ -60,12 +69,23 @@ function NotFoundPage() {
   );
 }
 
-export function createRoutedShellRegistry() {
+export function createRoutedShellRegistry(
+  onRouteCommitted: RouteCommitObserver = () => undefined
+) {
   return createRouteRegistry(() => {
-    group({ layout: AppShell }, () => {
-      route('/dashboard', DashboardPage);
-      route('/settings', SettingsPage);
-      fallback(NotFoundPage);
-    });
+    group(
+      {
+        layout: ({ children }: { children?: unknown }) => (
+          <AppShell onRouteCommitted={onRouteCommitted}>
+            {children as never}
+          </AppShell>
+        ),
+      },
+      () => {
+        route('/dashboard', DashboardPage);
+        route('/settings', SettingsPage);
+        fallback(NotFoundPage);
+      }
+    );
   });
 }

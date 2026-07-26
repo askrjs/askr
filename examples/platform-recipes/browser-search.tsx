@@ -20,6 +20,12 @@ export type SearchLoader = (
   signal: AbortSignal
 ) => Promise<SearchResult[]>;
 
+export function createSearchRenderData(
+  results: SearchResult[] = []
+): Record<string, unknown> {
+  return { 'r:0': results };
+}
+
 async function loadSearchResults(
   query: string,
   signal: AbortSignal
@@ -52,6 +58,12 @@ function SearchPage({ load = loadSearchResults }: { load?: SearchLoader }) {
         paletteOpen.set(true);
       }
     }
+  );
+
+  const resultRows = (
+    <For each={results.value ?? []} by={(result) => result.id}>
+      {(result) => <li>{result.label}</li>}
+    </For>
   );
 
   return (
@@ -95,11 +107,7 @@ function SearchPage({ load = loadSearchResults }: { load?: SearchLoader }) {
       ) : results.value.length === 0 ? (
         <p>No results found.</p>
       ) : (
-        <ul>
-          <For each={results.value} by={(result) => result.id}>
-            {(result) => <li>{result.label}</li>}
-          </For>
-        </ul>
+        <ul>{resultRows}</ul>
       )}
     </section>
   );

@@ -24,13 +24,13 @@ instead of copying their recipes.
 
 ## Recipe index
 
-| Need                                      | Recipe                                                        | SPA | SSR | SSG |
-| ----------------------------------------- | ------------------------------------------------------------- | --- | --- | --- |
-| Active navigation in a persistent layout  | [Persistent routed shell](#persistent-routed-shell)           | Yes | Yes | Yes |
-| Browser listeners and controlled search   | [SSR-safe route-driven search](#ssr-safe-route-driven-search) | Yes | Yes | Yes |
-| Loading, failure, invalidation, hydration | [Hydrated query data](#hydrated-query-data)                   | Yes | Yes | Yes |
-| Local and route-level recovery            | [Error boundary placement](#error-boundary-placement)         | Yes | Yes | Yes |
-| Public component and router tests         | [Test the recipes](#test-the-recipes)                         | Yes | N/A | N/A |
+| Need                                      | Recipe                                                        | SPA | SSR   | SSG   |
+| ----------------------------------------- | ------------------------------------------------------------- | --- | ----- | ----- |
+| Active navigation in a persistent layout  | [Persistent routed shell](#persistent-routed-shell)           | Yes | Yes   | Yes   |
+| Browser listeners and controlled search   | [SSR-safe route-driven search](#ssr-safe-route-driven-search) | Yes | Yes   | Yes   |
+| Loading, failure, invalidation, hydration | [Hydrated query data](#hydrated-query-data)                   | Yes | Yes   | Yes   |
+| Local and route-level recovery            | [Error boundary placement](#error-boundary-placement)         | Yes | Local | Local |
+| Public component and router tests         | [Test the recipes](#test-the-recipes)                         | Yes | N/A   | N/A   |
 
 SSR and SSG entries describe render safety. Client-only lifecycle callbacks run
 after hydration, not while server or static output is generated.
@@ -127,8 +127,10 @@ Lifecycle and cleanup:
 - `on(() => window, ...)` attaches after mount and detaches on unmount.
 - `resource()` aborts superseded and unmounted search requests. Pass its
   `signal` to `fetch()`.
-- SSR and SSG render the initial pending state; client hydration starts the
-  browser request.
+- SSR and SSG must receive the first resource value as render data. The example
+  exports `createSearchRenderData()` for that first `resource()` slot.
+- Hydration adopts the server value without a duplicate request. A query change
+  or explicit refresh starts the next browser request.
 
 Failure and empty states:
 
@@ -189,6 +191,12 @@ Failure and empty states:
 Place a local boundary around an optional or independently recoverable widget.
 Place a boundary in a route layout when navigation should remain available but
 the route body may fail.
+
+Local descendant boundaries render their fallback in SPA, SSR, and SSG. During
+SSR and SSG, a route handler can fail before its layout wrapper is constructed;
+let the server adapter or static-generation failure policy handle that route
+failure. The route-layout boundary remains useful for client navigation and
+commit failures.
 
 The tested placements are in
 [error-boundaries.tsx](../../examples/platform-recipes/error-boundaries.tsx).
