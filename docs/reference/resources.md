@@ -94,6 +94,9 @@ polling case.
 ### `on(target, event, handler, options?)`
 
 Registers an event listener after the owning component mounts and removes it during cleanup.
+The target may be an `EventTarget` or a resolver returning an `EventTarget` (or
+`null` when unavailable). Resolvers run only during client commits, so they are
+safe to use with browser globals in SSR components.
 
 ```ts
 import { on } from '@askrjs/askr/resources';
