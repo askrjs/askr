@@ -17,7 +17,10 @@ import { getRendererDOMHost, type ElementWithContext } from './dom-host';
 import { keyedElements } from './keyed';
 import { getMaterializedKey } from './utils';
 import { getParentNamespace } from './namespaces';
-import { trySyncScalarChildSequenceInPlace, type ReactiveChildDOMHost } from './reactive-children';
+import {
+  trySyncScalarChildSequenceInPlace,
+  type ReactiveChildDOMHost,
+} from './reactive-children';
 import { reconcileKeyedChildren } from './reconcile';
 import { tagsEqualIgnoreCase } from './static-reuse';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
@@ -41,13 +44,15 @@ export const rendererReactiveChildDOMHost: ReactiveChildDOMHost = {
 export function updateElementChildren(
   el: Element,
   children: VNode | VNode[] | undefined,
-  forceUpdate = false,
+  forceUpdate = false
 ): void {
   const directControlBoundary = getDirectControlBoundaryVNode(children);
   if (directControlBoundary) {
     const controlState = getControlBoundaryState(directControlBoundary);
     if (!controlState) {
-      throw new Error('[updateElementChildren] Control boundary missing internal state');
+      throw new Error(
+        '[updateElementChildren] Control boundary missing internal state'
+      );
     }
 
     registerControlBoundaryCommitOwner(el, controlState);
@@ -69,11 +74,18 @@ export function updateElementChildren(
   }
 
   if (!Array.isArray(children) && isFragmentVNode(children)) {
-    updateUnkeyedChildren(el, normalizeComponentChildren(children), forceUpdate);
+    updateUnkeyedChildren(
+      el,
+      normalizeComponentChildren(children),
+      forceUpdate
+    );
     return;
   }
 
-  if (!Array.isArray(children) && (typeof children === 'string' || typeof children === 'number')) {
+  if (
+    !Array.isArray(children) &&
+    (typeof children === 'string' || typeof children === 'number')
+  ) {
     if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
       const s = String(children);
       const t = el.firstChild as Text;
@@ -92,7 +104,13 @@ export function updateElementChildren(
   if (Array.isArray(children)) {
     const normalizedChildren = normalizeComponentChildren(children) as VNode[];
 
-    if (trySyncScalarChildSequenceInPlace(el, normalizedChildren, rendererReactiveChildDOMHost)) {
+    if (
+      trySyncScalarChildSequenceInPlace(
+        el,
+        normalizedChildren,
+        rendererReactiveChildDOMHost
+      )
+    ) {
       keyedElements.delete(el);
       return;
     }
@@ -111,7 +129,11 @@ export function updateElementChildren(
 
     if (hasKeyedVNodeChildren(normalizedChildren)) {
       const oldKeyMap = getOrBuildDomKeyMap(el);
-      const newKeyMap = reconcileKeyedChildren(el, normalizedChildren, oldKeyMap);
+      const newKeyMap = reconcileKeyedChildren(
+        el,
+        normalizedChildren,
+        oldKeyMap
+      );
       keyedElements.set(el, newKeyMap);
       return;
     }
@@ -176,7 +198,7 @@ function removeRangeAtCursor(parent: Element, cursor: Node): Node | null {
 function updateMixedControlChildren(
   parent: Element,
   children: VNode[],
-  forceUpdate: boolean,
+  forceUpdate: boolean
 ): void {
   const parentNamespace = getParentNamespace(parent);
   const domHost = getRendererDOMHost();
@@ -186,7 +208,9 @@ function updateMixedControlChildren(
     if (isControlBoundaryVNode(child)) {
       const controlState = getControlBoundaryState(child);
       if (!controlState) {
-        throw new Error('[updateElementChildren] Control boundary missing internal state');
+        throw new Error(
+          '[updateElementChildren] Control boundary missing internal state'
+        );
       }
 
       registerControlBoundaryCommitOwner(parent, controlState);
@@ -196,10 +220,19 @@ function updateMixedControlChildren(
           ? (findRangeEnd(cursor)?.nextSibling ?? cursor.nextSibling)
           : cursor.nextSibling
         : null;
-      const ranges = syncControlBoundaryInMixedParent(parent, controlState, childVNodes, cursor);
+      const ranges = syncControlBoundaryInMixedParent(
+        parent,
+        controlState,
+        childVNodes,
+        cursor
+      );
       for (const range of ranges) {
         if (range.start.parentNode !== parent) {
-          moveRange(parent, range, cursor?.parentNode === parent ? cursor : null);
+          moveRange(
+            parent,
+            range,
+            cursor?.parentNode === parent ? cursor : null
+          );
         } else if (cursor?.parentNode === parent) {
           moveRange(parent, range, cursor);
         }
@@ -207,7 +240,8 @@ function updateMixedControlChildren(
 
       const last = ranges[ranges.length - 1];
       if (last) {
-        const cursorWasReplaced = cursor && !ranges.some((range) => range.start === cursor);
+        const cursorWasReplaced =
+          cursor && !ranges.some((range) => range.start === cursor);
         if (!cursor?.parentNode) {
           cursor = last.end.nextSibling;
         } else if (cursorWasReplaced && isRangeStart(cursor)) {
@@ -220,7 +254,10 @@ function updateMixedControlChildren(
           cursor = last.end.nextSibling;
         }
       } else if (cursor?.parentNode !== parent) {
-        cursor = cursorAfterBoundary?.parentNode === parent ? cursorAfterBoundary : null;
+        cursor =
+          cursorAfterBoundary?.parentNode === parent
+            ? cursorAfterBoundary
+            : null;
       }
       continue;
     }
@@ -257,7 +294,7 @@ function updateMixedControlChildren(
         child.type as ComponentFunction,
         ((child.props ?? {}) as Record<string, unknown>) || {},
         parentNamespace,
-        forceUpdate,
+        forceUpdate
       );
       if (synced) {
         cursor = synced.nextSibling;
@@ -291,11 +328,17 @@ function isEmptyChild(child: unknown): boolean {
   return child === null || child === undefined || child === false;
 }
 
-function getOrBuildDomKeyMap(parent: Element): Map<string | number, Element> | undefined {
+function getOrBuildDomKeyMap(
+  parent: Element
+): Map<string | number, Element> | undefined {
   let keyMap = keyedElements.get(parent);
   if (!keyMap) {
     keyMap = new Map<string | number, Element>();
-    for (let child = parent.firstElementChild; child; child = child.nextElementSibling) {
+    for (
+      let child = parent.firstElementChild;
+      child;
+      child = child.nextElementSibling
+    ) {
       const key = getMaterializedKey(child);
       if (key !== undefined) {
         keyMap.set(key, child);
@@ -309,12 +352,15 @@ function getOrBuildDomKeyMap(parent: Element): Map<string | number, Element> | u
 export function updateUnkeyedChildren(
   parent: Element,
   newChildren: unknown[],
-  forceUpdate = false,
+  forceUpdate = false
 ): void {
   const parentNamespace = getParentNamespace(parent);
   const domHost = getRendererDOMHost();
 
-  const trySyncComponentChild = (currentDom: Node, next: DOMElement): Node | null => {
+  const trySyncComponentChild = (
+    currentDom: Node,
+    next: DOMElement
+  ): Node | null => {
     if (typeof next.type !== 'function') {
       return null;
     }
@@ -325,17 +371,20 @@ export function updateUnkeyedChildren(
       next.type as ComponentFunction,
       (((next as DOMElement).props ?? {}) as Record<string, unknown>) || {},
       parentNamespace,
-      forceUpdate,
+      forceUpdate
     );
   };
 
-  const hasText = newChildren.some((c) => typeof c === 'string' || typeof c === 'number');
+  const hasText = newChildren.some(
+    (c) => typeof c === 'string' || typeof c === 'number'
+  );
   const hasElements = newChildren.some((c) => _isDOMElement(c));
   const hasEmptyChildren = newChildren.some(isEmptyChild);
   const hasComponentChildren = newChildren.some(
-    (c) => _isDOMElement(c) && typeof (c as DOMElement).type === 'function',
+    (c) => _isDOMElement(c) && typeof (c as DOMElement).type === 'function'
   );
-  const hasNonElementDomChildren = parent.childNodes.length !== parent.children.length;
+  const hasNonElementDomChildren =
+    parent.childNodes.length !== parent.children.length;
 
   if (
     !hasEmptyChildren &&
@@ -390,7 +439,12 @@ export function updateUnkeyedChildren(
 
   const existing = Array.from(parent.children);
 
-  if (hasText || hasComponentChildren || hasEmptyChildren || hasNonElementDomChildren) {
+  if (
+    hasText ||
+    hasComponentChildren ||
+    hasEmptyChildren ||
+    hasNonElementDomChildren
+  ) {
     const allNodes = Array.from(parent.childNodes);
     const max = Math.max(allNodes.length, newChildren.length);
 
@@ -426,7 +480,12 @@ export function updateUnkeyedChildren(
           const currentEl = currentNode as Element;
           if (typeof next.type === 'string') {
             if (tagsEqualIgnoreCase(currentEl.tagName, next.type)) {
-              domHost.updateElementFromVnode(currentEl, next, true, forceUpdate);
+              domHost.updateElementFromVnode(
+                currentEl,
+                next,
+                true,
+                forceUpdate
+              );
             } else {
               const dom = domHost.createDOMNode(next, parentNamespace);
               if (dom) {
@@ -453,7 +512,10 @@ export function updateUnkeyedChildren(
             }
           }
         } else {
-          if (typeof next.type === 'function' && trySyncComponentChild(currentNode, next)) {
+          if (
+            typeof next.type === 'function' &&
+            trySyncComponentChild(currentNode, next)
+          ) {
             continue;
           }
           const dom = domHost.createDOMNode(next, parentNamespace);
@@ -467,11 +529,16 @@ export function updateUnkeyedChildren(
     return;
   }
 
-  if (newChildren.length === 1 && existing.length === 0 && parent.childNodes.length === 1) {
+  if (
+    newChildren.length === 1 &&
+    existing.length === 0 &&
+    parent.childNodes.length === 1
+  ) {
     const firstNewChild = newChildren[0];
     const firstExisting = parent.firstChild;
     if (
-      (typeof firstNewChild === 'string' || typeof firstNewChild === 'number') &&
+      (typeof firstNewChild === 'string' ||
+        typeof firstNewChild === 'number') &&
       firstExisting?.nodeType === 3
     ) {
       (firstExisting as Text).data = String(firstNewChild);

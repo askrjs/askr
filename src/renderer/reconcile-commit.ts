@@ -1,7 +1,10 @@
 import { teardownNodeSubtree } from './cleanup';
 import { recordDOMReplace } from './utils';
 
-export function commitReconciliation(parent: Element, finalNodes: Node[]): void {
+export function commitReconciliation(
+  parent: Element,
+  finalNodes: Node[]
+): void {
   try {
     const finalSet = new Set<Node>(finalNodes);
 

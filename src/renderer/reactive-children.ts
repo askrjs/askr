@@ -7,7 +7,10 @@ import {
 } from '../runtime';
 import { getCurrentInstance } from '../runtime';
 import { incDevCounter } from '../runtime';
-import { createFineGrainedEffect, type FineGrainedEffectHandle } from '../runtime';
+import {
+  createFineGrainedEffect,
+  type FineGrainedEffectHandle,
+} from '../runtime';
 import {
   elementReactivePropsCleanup,
   getElementReactivePropsCleanupMap,
@@ -48,14 +51,16 @@ export type { ReactiveChildDOMHost } from './reactive-child-dom';
 
 let reactiveChildScopeId = 0;
 
-function getOrCreateElementReactiveCleanupMap(el: Element): Map<string, ReactivePropCleanupEntry> {
+function getOrCreateElementReactiveCleanupMap(
+  el: Element
+): Map<string, ReactivePropCleanupEntry> {
   return getElementReactivePropsCleanupMap(el, true)!;
 }
 
 export function trySyncScalarChildSequenceInPlace(
   el: Element,
   children: unknown[],
-  host: ReactiveChildDOMHost,
+  host: ReactiveChildDOMHost
 ): boolean {
   const normalized = normalizeReactiveScalarSequenceValues(children);
   if (!normalized) {
@@ -79,7 +84,7 @@ export function trySyncScalarChildSequenceInPlace(
 function setupReactiveScalarChild(
   el: Element,
   source: ReactiveScalarChildSource,
-  host: ReactiveChildDOMHost,
+  host: ReactiveChildDOMHost
 ): {
   cleanup: () => void;
   updateFn: (nextSource: ReactiveScalarChildSource) => void;
@@ -92,56 +97,67 @@ function setupReactiveScalarChild(
         ? (el.firstChild as Text)
         : null;
 
-    let effectHandle: FineGrainedEffectHandle<string> | null = createFineGrainedEffect({
-      lane: 'reactive',
-      compute: () => {
-        const currentSlot = currentSource[0];
-        if (!currentSlot || currentSlot.kind !== 'dynamic') {
-          throw new Error('[Askr] Direct reactive text bindings require a single dynamic slot.');
-        }
+    let effectHandle: FineGrainedEffectHandle<string> | null =
+      createFineGrainedEffect({
+        lane: 'reactive',
+        compute: () => {
+          const currentSlot = currentSource[0];
+          if (!currentSlot || currentSlot.kind !== 'dynamic') {
+            throw new Error(
+              '[Askr] Direct reactive text bindings require a single dynamic slot.'
+            );
+          }
 
-        const rawValue = currentSlot.compute();
-        const normalized = normalizeOwnedReactiveTextValue(rawValue);
-        return normalized ?? (rawValue as string);
-      },
-      commit: (value) => {
-        const normalized = normalizeOwnedReactiveTextValue(value);
+          const rawValue = currentSlot.compute();
+          const normalized = normalizeOwnedReactiveTextValue(rawValue);
+          return normalized ?? (rawValue as string);
+        },
+        commit: (value) => {
+          const normalized = normalizeOwnedReactiveTextValue(value);
 
-        if (normalized === null) {
-          ownedTextNode = null;
-          host.updateElementChildren(el, value as unknown as VNode | VNode[] | undefined);
-          return;
-        }
+          if (normalized === null) {
+            ownedTextNode = null;
+            host.updateElementChildren(
+              el,
+              value as unknown as VNode | VNode[] | undefined
+            );
+            return;
+          }
 
-        if (!ownedTextNode && el.childNodes.length === 0) {
-          ownedTextNode = el.ownerDocument.createTextNode(normalized);
-          el.appendChild(ownedTextNode);
-          return;
-        }
+          if (!ownedTextNode && el.childNodes.length === 0) {
+            ownedTextNode = el.ownerDocument.createTextNode(normalized);
+            el.appendChild(ownedTextNode);
+            return;
+          }
 
-        if (!ownedTextNode || el.childNodes.length !== 1 || el.firstChild !== ownedTextNode) {
-          host.updateElementChildren(el, normalized);
-          ownedTextNode =
-            el.childNodes.length === 1 && el.firstChild?.nodeType === Node.TEXT_NODE
-              ? (el.firstChild as Text)
-              : null;
-        }
+          if (
+            !ownedTextNode ||
+            el.childNodes.length !== 1 ||
+            el.firstChild !== ownedTextNode
+          ) {
+            host.updateElementChildren(el, normalized);
+            ownedTextNode =
+              el.childNodes.length === 1 &&
+              el.firstChild?.nodeType === Node.TEXT_NODE
+                ? (el.firstChild as Text)
+                : null;
+          }
 
-        if (!ownedTextNode) {
-          return;
-        }
+          if (!ownedTextNode) {
+            return;
+          }
 
-        if (ownedTextNode.data !== normalized) {
-          ownedTextNode.data = normalized;
-          incDevCounter('textNodeWrites');
-        }
-      },
-      onError: (err) => {
-        if (getRuntimeEnv().NODE_ENV !== 'production') {
-          logger.warn('[Askr] Reactive child update failed:', err);
-        }
-      },
-    });
+          if (ownedTextNode.data !== normalized) {
+            ownedTextNode.data = normalized;
+            incDevCounter('textNodeWrites');
+          }
+        },
+        onError: (err) => {
+          if (getRuntimeEnv().NODE_ENV !== 'production') {
+            logger.warn('[Askr] Reactive child update failed:', err);
+          }
+        },
+      });
 
     return {
       cleanup: () => {
@@ -157,7 +173,9 @@ function setupReactiveScalarChild(
         effectHandle.updateCompute(() => {
           const currentSlot = currentSource[0];
           if (!currentSlot || currentSlot.kind !== 'dynamic') {
-            throw new Error('[Askr] Direct reactive text bindings require a single dynamic slot.');
+            throw new Error(
+              '[Askr] Direct reactive text bindings require a single dynamic slot.'
+            );
           }
 
           const rawValue = currentSlot.compute();
@@ -168,64 +186,70 @@ function setupReactiveScalarChild(
     };
   }
 
-  let effectHandle: FineGrainedEffectHandle<unknown> | null = createFineGrainedEffect({
-    lane: 'reactive',
-    compute: () =>
-      currentSource.map((slot) => (slot.kind === 'static' ? slot.value : slot.compute())),
-    commit: (values) => {
-      if (!Array.isArray(values)) {
-        throw new Error('[Askr] Reactive scalar children must evaluate to a slot array.');
-      }
+  let effectHandle: FineGrainedEffectHandle<unknown> | null =
+    createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () =>
+        currentSource.map((slot) =>
+          slot.kind === 'static' ? slot.value : slot.compute()
+        ),
+      commit: (values) => {
+        if (!Array.isArray(values)) {
+          throw new Error(
+            '[Askr] Reactive scalar children must evaluate to a slot array.'
+          );
+        }
 
-      const normalized = normalizeReactiveScalarSequenceValues(values);
-      if (normalized) {
-        syncReactiveScalarTextNodes(el, values, normalized, host);
-        return;
-      }
+        const normalized = normalizeReactiveScalarSequenceValues(values);
+        if (normalized) {
+          syncReactiveScalarTextNodes(el, values, normalized, host);
+          return;
+        }
 
-      const nextChildren: VNode[] = [];
-      collectReactiveChildValuesAsVNodes(values, nextChildren);
+        const nextChildren: VNode[] = [];
+        collectReactiveChildValuesAsVNodes(values, nextChildren);
 
-      const boundaryHost = createReactiveChildBoundaryHost(el);
-      for (let node = el.firstChild; node;) {
-        const next = node.nextSibling;
-        boundaryHost.appendChild(node);
-        node = next;
-      }
+        const boundaryHost = createReactiveChildBoundaryHost(el);
+        for (let node = el.firstChild; node;) {
+          const next = node.nextSibling;
+          boundaryHost.appendChild(node);
+          node = next;
+        }
 
-      host.updateElementChildren(boundaryHost, nextChildren);
-      syncReactiveChildExpectedNodes(el, Array.from(boundaryHost.childNodes));
-    },
-    equals: (previousValue, nextValue) => {
-      if (!Array.isArray(previousValue) || !Array.isArray(nextValue)) {
-        return false;
-      }
-
-      const previousNormalized = normalizeReactiveScalarSequenceValues(previousValue);
-      const nextNormalized = normalizeReactiveScalarSequenceValues(nextValue);
-
-      if (!previousNormalized || !nextNormalized) {
-        return false;
-      }
-
-      if (previousNormalized.length !== nextNormalized.length) {
-        return false;
-      }
-
-      for (let index = 0; index < previousNormalized.length; index += 1) {
-        if (previousNormalized[index] !== nextNormalized[index]) {
+        host.updateElementChildren(boundaryHost, nextChildren);
+        syncReactiveChildExpectedNodes(el, Array.from(boundaryHost.childNodes));
+      },
+      equals: (previousValue, nextValue) => {
+        if (!Array.isArray(previousValue) || !Array.isArray(nextValue)) {
           return false;
         }
-      }
 
-      return true;
-    },
-    onError: (err) => {
-      if (getRuntimeEnv().NODE_ENV !== 'production') {
-        logger.warn('[Askr] Reactive child update failed:', err);
-      }
-    },
-  });
+        const previousNormalized =
+          normalizeReactiveScalarSequenceValues(previousValue);
+        const nextNormalized = normalizeReactiveScalarSequenceValues(nextValue);
+
+        if (!previousNormalized || !nextNormalized) {
+          return false;
+        }
+
+        if (previousNormalized.length !== nextNormalized.length) {
+          return false;
+        }
+
+        for (let index = 0; index < previousNormalized.length; index += 1) {
+          if (previousNormalized[index] !== nextNormalized[index]) {
+            return false;
+          }
+        }
+
+        return true;
+      },
+      onError: (err) => {
+        if (getRuntimeEnv().NODE_ENV !== 'production') {
+          logger.warn('[Askr] Reactive child update failed:', err);
+        }
+      },
+    });
 
   return {
     cleanup: () => {
@@ -239,7 +263,9 @@ function setupReactiveScalarChild(
 
       currentSource = nextSource;
       effectHandle.updateCompute(() =>
-        currentSource.map((slot) => (slot.kind === 'static' ? slot.value : slot.compute())),
+        currentSource.map((slot) =>
+          slot.kind === 'static' ? slot.value : slot.compute()
+        )
       );
     },
   };
@@ -249,7 +275,7 @@ function setupReactiveScalarChild(
 export function createReactiveScalarChildCleanupEntry(
   el: Element,
   source: ReactiveScalarChildSource,
-  host: ReactiveChildDOMHost,
+  host: ReactiveChildDOMHost
 ): ReactivePropCleanupEntry {
   const reactive = setupReactiveScalarChild(el, source, host);
   return {
@@ -258,7 +284,11 @@ export function createReactiveScalarChildCleanupEntry(
       reactive.updateFn(nextValue as ReactiveScalarChildSource);
     },
     restoreFn: (nextValue) =>
-      createReactiveScalarChildCleanupEntry(el, nextValue as ReactiveScalarChildSource, host),
+      createReactiveScalarChildCleanupEntry(
+        el,
+        nextValue as ReactiveScalarChildSource,
+        host
+      ),
     fnRef: source,
   };
 }
@@ -266,7 +296,7 @@ export function createReactiveScalarChildCleanupEntry(
 function setupReactiveChildBoundary(
   el: Element,
   childFn: () => VNode,
-  host: ReactiveChildDOMHost,
+  host: ReactiveChildDOMHost
 ): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
   let currentChildFn = childFn;
   const parentInstance = getCurrentInstance();
@@ -275,15 +305,24 @@ function setupReactiveChildBoundary(
       parentInstance,
       `__reactive-child__:${(reactiveChildScopeId += 1)}`,
       () => {
-        const expectedNodes = commitReactiveChildBoundaryEntryNodes(el, entry, host);
+        const expectedNodes = commitReactiveChildBoundaryEntryNodes(
+          el,
+          entry,
+          host
+        );
         syncReactiveChildExpectedNodes(el, expectedNodes);
-      },
+      }
     ),
     nodes: [],
   };
 
-  entry.scope.render(() => normalizeReactiveChildBoundaryVNode(currentChildFn()));
-  syncReactiveChildExpectedNodes(el, commitReactiveChildBoundaryEntryNodes(el, entry, host));
+  entry.scope.render(() =>
+    normalizeReactiveChildBoundaryVNode(currentChildFn())
+  );
+  syncReactiveChildExpectedNodes(
+    el,
+    commitReactiveChildBoundaryEntryNodes(el, entry, host)
+  );
 
   return {
     cleanup: () => {
@@ -305,7 +344,11 @@ function setupReactiveChildBoundary(
     updateFn: (nextValue: unknown) => {
       currentChildFn = nextValue as () => VNode;
       rerenderChildScope(entry.scope);
-      const expectedNodes = commitReactiveChildBoundaryEntryNodes(el, entry, host);
+      const expectedNodes = commitReactiveChildBoundaryEntryNodes(
+        el,
+        entry,
+        host
+      );
       syncReactiveChildExpectedNodes(el, expectedNodes);
     },
   };
@@ -314,7 +357,7 @@ function setupReactiveChildBoundary(
 function setupReactiveChildBoundarySequence(
   el: Element,
   source: ReactiveChildBoundarySequenceSource,
-  host: ReactiveChildDOMHost,
+  host: ReactiveChildDOMHost
 ): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
   let currentSource = source;
   const parentInstance = getCurrentInstance();
@@ -325,7 +368,9 @@ function setupReactiveChildBoundarySequence(
   }> = [];
 
   if (!currentSource.some((slot) => slot.kind === 'dynamic')) {
-    throw new Error('[Askr] Reactive child boundary sequence requires at least one dynamic slot.');
+    throw new Error(
+      '[Askr] Reactive child boundary sequence requires at least one dynamic slot.'
+    );
   }
 
   const syncSequence = () => {
@@ -351,7 +396,11 @@ function setupReactiveChildBoundarySequence(
     if (slot.kind === 'static-node') {
       entries.push({
         kind: 'static',
-        nodes: materializeReactiveChildBoundaryNodes(slot.value, parentNamespace, host),
+        nodes: materializeReactiveChildBoundaryNodes(
+          slot.value,
+          parentNamespace,
+          host
+        ),
       });
       continue;
     }
@@ -359,10 +408,13 @@ function setupReactiveChildBoundarySequence(
     const scope = createChildScope(
       parentInstance,
       `__reactive-child-seq__:${(reactiveChildScopeId += 1)}`,
-      syncSequence,
+      syncSequence
     );
 
-    const dynamicEntry: Extract<ReactiveChildBoundarySequenceEntry, { kind: 'dynamic' }> = {
+    const dynamicEntry: Extract<
+      ReactiveChildBoundarySequenceEntry,
+      { kind: 'dynamic' }
+    > = {
       kind: 'dynamic',
       scope,
       nodes: [],
@@ -379,8 +431,8 @@ function setupReactiveChildBoundarySequence(
             kind: 'dynamic';
             compute: () => VNode;
           }
-        ).compute(),
-      ),
+        ).compute()
+      )
     );
   }
 
@@ -423,15 +475,20 @@ function setupReactiveChildBoundarySequence(
 export function syncReactiveScalarChild(
   el: Element,
   children: unknown,
-  host: ReactiveChildDOMHost,
+  host: ReactiveChildDOMHost
 ): boolean {
   const reactiveChildSource = getReactiveScalarChildSource(children);
   const reactiveChildBoundary = getSingleReactiveChildBoundarySource(children);
-  const reactiveChildBoundarySequence = getReactiveChildBoundarySequenceSource(children);
+  const reactiveChildBoundarySequence =
+    getReactiveChildBoundarySequenceSource(children);
   const cleanupMap = getElementReactivePropsCleanupMap(el);
   const existingReactiveEntry = cleanupMap?.get(REACTIVE_CHILDREN_KEY);
 
-  if (!reactiveChildSource && !reactiveChildBoundary && !reactiveChildBoundarySequence) {
+  if (
+    !reactiveChildSource &&
+    !reactiveChildBoundary &&
+    !reactiveChildBoundarySequence
+  ) {
     if (existingReactiveEntry) {
       existingReactiveEntry.cleanup();
       cleanupMap?.delete(REACTIVE_CHILDREN_KEY);
@@ -459,12 +516,18 @@ export function syncReactiveScalarChild(
     if (
       existingReactiveEntry &&
       Array.isArray(existingReactiveEntry.fnRef) &&
-      areReactiveScalarChildSourcesEqual(existingReactiveEntry.fnRef, reactiveChildSource)
+      areReactiveScalarChildSourcesEqual(
+        existingReactiveEntry.fnRef,
+        reactiveChildSource
+      )
     ) {
       return true;
     }
 
-    if (existingReactiveEntry?.updateFn && Array.isArray(existingReactiveEntry.fnRef)) {
+    if (
+      existingReactiveEntry?.updateFn &&
+      Array.isArray(existingReactiveEntry.fnRef)
+    ) {
       existingReactiveEntry.updateFn(reactiveChildSource);
       existingReactiveEntry.fnRef = reactiveChildSource;
       return true;
@@ -475,7 +538,7 @@ export function syncReactiveScalarChild(
     try {
       getOrCreateElementReactiveCleanupMap(el).set(
         REACTIVE_CHILDREN_KEY,
-        createReactiveScalarChildCleanupEntry(el, reactiveChildSource, host),
+        createReactiveScalarChildCleanupEntry(el, reactiveChildSource, host)
       );
       return true;
     } catch (error) {
@@ -491,7 +554,7 @@ export function syncReactiveScalarChild(
       Array.isArray(existingReactiveEntry.fnRef) &&
       areReactiveChildBoundarySequenceSourcesEqual(
         existingReactiveEntry.fnRef,
-        reactiveChildBoundarySequence,
+        reactiveChildBoundarySequence
       )
     ) {
       return true;
@@ -502,7 +565,7 @@ export function syncReactiveScalarChild(
       Array.isArray(existingReactiveEntry.fnRef) &&
       canUpdateReactiveChildBoundarySequenceSource(
         existingReactiveEntry.fnRef,
-        reactiveChildBoundarySequence,
+        reactiveChildBoundarySequence
       )
     ) {
       existingReactiveEntry.updateFn(reactiveChildBoundarySequence);
@@ -512,7 +575,11 @@ export function syncReactiveScalarChild(
 
     existingReactiveEntry?.cleanup();
 
-    const reactive = setupReactiveChildBoundarySequence(el, reactiveChildBoundarySequence, host);
+    const reactive = setupReactiveChildBoundarySequence(
+      el,
+      reactiveChildBoundarySequence,
+      host
+    );
     getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
       cleanup: reactive.cleanup,
       updateFn: reactive.updateFn,
@@ -525,7 +592,10 @@ export function syncReactiveScalarChild(
     return true;
   }
 
-  if (existingReactiveEntry?.updateFn && !Array.isArray(existingReactiveEntry.fnRef)) {
+  if (
+    existingReactiveEntry?.updateFn &&
+    !Array.isArray(existingReactiveEntry.fnRef)
+  ) {
     existingReactiveEntry.updateFn(reactiveChildBoundary);
     existingReactiveEntry.fnRef = reactiveChildBoundary;
     return true;

@@ -25,7 +25,7 @@ export const IS_DOM_AVAILABLE = typeof document !== 'undefined';
 export function applyRendererFastPath(
   parent: Element,
   keyedVnodes: KeyedVnode[],
-  oldKeyMap?: Map<string | number, Element>,
+  oldKeyMap?: Map<string | number, Element>
 ): Map<string | number, Element> | null {
   // SSR guard: fast-path is DOM-specific
   if (typeof document === 'undefined') return null;
@@ -36,7 +36,7 @@ export function applyRendererFastPath(
   // Dev invariant: ensure we are executing inside the scheduler/commit flush
   if (DEVELOPMENT_BUILD_ENABLED && !isRuntimeSchedulerExecuting()) {
     logger.warn(
-      '[Askr][FASTPATH][DEV] Fast-path reconciliation invoked outside scheduler execution',
+      '[Askr][FASTPATH][DEV] Fast-path reconciliation invoked outside scheduler execution'
     );
   }
 
@@ -47,7 +47,10 @@ export function applyRendererFastPath(
   if (totalKeyed <= 20) {
     // Small lists: use array scan (faster than Map overhead for ≤20 items)
     try {
-      parentChildrenArr = Array.from(parent.children, (child) => child as Element);
+      parentChildrenArr = Array.from(
+        parent.children,
+        (child) => child as Element
+      );
     } catch (e) {
       parentChildrenArr = undefined;
       void e;
@@ -109,9 +112,13 @@ export function applyRendererFastPath(
   try {
     const tCommitStart = Date.now();
     const fragmentAppendCount = finalNodes.length;
-    const useDirectReplace = canUseDirectReplaceChildrenSpread(finalNodes.length);
+    const useDirectReplace = canUseDirectReplaceChildrenSpread(
+      finalNodes.length
+    );
     const finalNodeSet = useDirectReplace ? new Set<Node>(finalNodes) : null;
-    const fragment = useDirectReplace ? null : parent.ownerDocument.createDocumentFragment();
+    const fragment = useDirectReplace
+      ? null
+      : parent.ownerDocument.createDocumentFragment();
 
     if (fragment) {
       for (let i = 0; i < finalNodes.length; i++) {
@@ -201,10 +208,13 @@ export function applyRendererFastPath(
           incDevCounter('fastpathHistoryPush');
         }
         const env = getRuntimeEnv();
-        if (env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true') {
+        if (
+          env.ASKR_FASTPATH_DEBUG === '1' ||
+          env.ASKR_FASTPATH_DEBUG === 'true'
+        ) {
           logger.warn(
             '[Askr][FASTPATH]',
-            JSON.stringify({ n: totalKeyed, createdNodes, reusedCount }),
+            JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })
           );
         }
       } catch (e) {
