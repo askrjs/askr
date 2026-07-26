@@ -1,7 +1,12 @@
 /**
- * For JSX primitive
+ * Render a reactive list as keyed child scopes.
  *
- * Creates a keyed child-scope boundary for efficient list rendering.
+ * The `children` callback receives a snapshot item during boundary
+ * reconciliation. A plain closure read of parent state is therefore not a
+ * dependency of an existing row. Use `selector(() => value())` for keyed
+ * membership reads, or a function-valued prop when only a DOM property needs
+ * to update. See the reactive control-flow guide for the supported patterns:
+ * https://github.com/askrjs/askr/blob/main/docs/guides/control-flow.md
  */
 
 import {
@@ -21,6 +26,11 @@ import { type BoundaryChild, normalizeBoundaryChild } from './shared';
 type ForBaseProps<T> = {
   each: ForEachSource<T>;
   fallback?: BoundaryChild;
+  /**
+   * Row renderer. Parent reactive reads must use `selector()` or thunk props;
+   * closure-captured values are snapshotted when the row is created or
+   * reconciled; changing the parent source does not rerun an existing row.
+   */
   children: (item: T, index: () => number) => VNode;
 };
 
