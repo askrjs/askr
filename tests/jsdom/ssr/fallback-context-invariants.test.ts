@@ -5,7 +5,7 @@ type SSRContextModule = typeof import('../../../src/ssr/context');
 const FALLBACK_ASYNC_ERROR =
   '[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage.';
 
-async function importFallbackContextModule(): Promise<SSRContextModule> {
+async function withFallbackProcess<T>(work: () => Promise<T>): Promise<T> {
   const globalRecord = globalThis as unknown as Record<string, unknown>;
   const originalProcess = globalRecord.process;
   const fallbackProcess =
@@ -20,11 +20,9 @@ async function importFallbackContextModule(): Promise<SSRContextModule> {
         })
       : { versions: {} };
 
-  vi.resetModules();
-
   try {
     globalRecord.process = fallbackProcess;
-    return await import('../../../src/ssr/context');
+    return await work();
   } finally {
     if (originalProcess === undefined) {
       delete globalRecord.process;
@@ -32,6 +30,11 @@ async function importFallbackContextModule(): Promise<SSRContextModule> {
       globalRecord.process = originalProcess;
     }
   }
+}
+
+async function importFallbackContextModule(): Promise<SSRContextModule> {
+  vi.resetModules();
+  return withFallbackProcess(() => import('../../../src/ssr/context'));
 }
 
 afterEach(() => {
@@ -77,6 +80,33 @@ describe('SSR fallback render context invariants', () => {
         },
       }))
     ).toThrow(FALLBACK_ASYNC_ERROR);
+    expect(getRenderContext()).toBeNull();
+  });
+
+  it('should reject async fallback contexts before request work begins', async () => {
+    const { createRenderContext, getRenderContext, withRenderContextAsync } =
+      await importFallbackContextModule();
+    const first = createRenderContext(1, { url: '/first' });
+    const second = createRenderContext(2, { url: '/second' });
+    const firstWork = vi.fn(async () => getRenderContext()?.url);
+    const secondWork = vi.fn(async () => getRenderContext()?.url);
+
+    const results = await withFallbackProcess(() =>
+      Promise.allSettled([
+        withRenderContextAsync(first, firstWork),
+        withRenderContextAsync(second, secondWork),
+      ])
+    );
+
+    expect(results).toHaveLength(2);
+    for (const result of results) {
+      expect(result.status).toBe('rejected');
+      if (result.status === 'rejected') {
+        expect(result.reason).toEqual(new Error(FALLBACK_ASYNC_ERROR));
+      }
+    }
+    expect(firstWork).not.toHaveBeenCalled();
+    expect(secondWork).not.toHaveBeenCalled();
     expect(getRenderContext()).toBeNull();
   });
 });
