@@ -121,10 +121,6 @@ const forbiddenPatterns = [
     pattern: /\[Data API Reference\]\(\.\/data\.md\)/,
   },
   {
-    label: 'premature stream() usage example',
-    pattern: /const\s+\w+\s*=\s*stream\(/,
-  },
-  {
     label: 'source-relative import',
     pattern: /\.\.\/src\//,
   },
@@ -689,7 +685,7 @@ describe('public docs and examples', () => {
     }
   });
 
-  it('should describe stream as a placeholder public surface', () => {
+  it('should describe the lifecycle-owned stream public surface', () => {
     const resourcesReference = fs.readFileSync(
       path.join(rootDir, 'docs', 'reference', 'resources.md'),
       'utf8'
@@ -699,8 +695,9 @@ describe('public docs and examples', () => {
       'utf8'
     );
 
-    expect(resourcesReference).toMatch(/placeholder public surface/i);
-    expect(apiOverview).toMatch(/placeholder `stream` surface/i);
+    expect(resourcesReference).toMatch(/async iterable/i);
+    expect(resourcesReference).toMatch(/AbortSignal/i);
+    expect(apiOverview).not.toMatch(/placeholder `stream` surface/i);
   });
 
   it('should publish representative root and router exports from dist', () => {

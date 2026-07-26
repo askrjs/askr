@@ -13,6 +13,9 @@ import {
   type ActivityPredicate,
   type ListenerTarget,
   type ResourceResult,
+  type StreamResult,
+  type StreamOptions,
+  type StreamStatus,
   type TimerOptions,
 } from '@askrjs/askr/resources';
 
@@ -22,6 +25,11 @@ declare const resolveEventSource: () => EventTarget | null;
 expectAssignable<ListenerTarget>(resolveEventSource);
 
 const readonlyDeps = ['user', 1] as const;
+const streamOptions: StreamOptions<string> = {
+  deps: readonlyDeps,
+  initialValue: 'cached',
+};
+expectType<StreamOptions<string>>(streamOptions);
 const timerOptions: TimerOptions = { when: [documentVisible()] };
 expectType<TimerOptions>(timerOptions);
 
@@ -60,11 +68,24 @@ expectType<void>(task(async () => {}));
 const snapshot = capture(() => 123);
 expectType<() => number>(snapshot);
 
-const pendingStream = stream<string>('source');
+const pendingStream = stream<string>(
+  async function* ({ signal }) {
+    expectType<AbortSignal>(signal);
+    yield 'value';
+  },
+  { deps: readonlyDeps, initialValue: 'cached' }
+);
+expectType<StreamResult<string>>(pendingStream);
 expectType<string | null>(pendingStream.value);
+expectType<StreamStatus>(pendingStream.status);
 expectType<boolean>(pendingStream.pending);
+expectType<boolean>(pendingStream.stale);
 expectType<Error | null>(pendingStream.error);
+expectType<void>(pendingStream.restart());
+expectType<void>(pendingStream.close());
 
 expectError(on(eventSource, transformer));
 expectError(timer(1000));
 expectError(timer(1000, () => {}, { when: [123] }));
+expectError(stream('source'));
+expectError(stream(() => Promise.resolve('not iterable')));

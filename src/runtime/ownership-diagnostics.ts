@@ -9,6 +9,7 @@ export type OwnershipDiagnosticKey =
   | 'queryCells'
   | 'timers'
   | 'resources'
+  | 'streams'
   | 'portals'
   | 'queuedSchedulerWork';
 
@@ -22,6 +23,7 @@ const EMPTY_DIAGNOSTICS: OwnershipDiagnostics = {
   queryCells: 0,
   timers: 0,
   resources: 0,
+  streams: 0,
   portals: 0,
   queuedSchedulerWork: 0,
 };
