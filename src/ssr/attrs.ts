@@ -108,7 +108,7 @@ export function renderAttrsDirect(
 
     // Regular attributes
     const strValue = String(value);
-    if (attrName === 'href' && !isSafeHref(strValue)) continue;
+    if (attrName.toLowerCase() === 'href' && !isSafeHref(strValue)) continue;
     sink.write(' ');
     sink.write(attrName);
     sink.write('="');
@@ -184,7 +184,7 @@ export function renderAttrs(
       continue;
     } else {
       const strValue = String(value);
-      if (attrName === 'href' && !isSafeHref(strValue)) continue;
+      if (attrName.toLowerCase() === 'href' && !isSafeHref(strValue)) continue;
       attrParts.push(` ${attrName}="${getEscapedAttrValue(strValue)}"`);
     }
   }

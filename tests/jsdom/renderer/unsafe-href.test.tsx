@@ -40,6 +40,27 @@ describe('unsafe href schemes', () => {
     }
   });
 
+  it('should reject case-insensitive intrinsic href attribute names', () => {
+    const unsafeProps = { HREF: 'javascript:alert(1)' };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => <a {...unsafeProps}>unsafe</a>,
+      });
+      flushScheduler();
+      expect(container.querySelector('a')?.hasAttribute('href')).toBe(false);
+
+      const html = renderToStringSync(
+        () => <a {...unsafeProps}>unsafe</a>,
+        {}
+      );
+      expect(html).toBe('<a>unsafe</a>');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should preserve relative, web, mail, and telephone hrefs', () => {
     for (const href of [
       '/docs',

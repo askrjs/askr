@@ -218,7 +218,7 @@ export function applyStaticScalarPropsToElement(
       applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
-    } else if (key === 'href' && !isSafeHref(String(value))) {
+    } else if (key.toLowerCase() === 'href' && !isSafeHref(String(value))) {
       removeRenderedAttribute(el, key);
     } else {
       setRenderedAttribute(el, key, String(value));
@@ -360,7 +360,7 @@ export function applyScalarPropValue(
     applyStylePropValue(el, value);
   } else if (key === 'value' || key === 'checked') {
     applyFormControlProp(el, key, value, tagName);
-  } else if (key === 'href' && !isSafeHref(String(value))) {
+  } else if (key.toLowerCase() === 'href' && !isSafeHref(String(value))) {
     removeRenderedAttribute(el, key);
   } else {
     setRenderedAttribute(el, key, String(value));
