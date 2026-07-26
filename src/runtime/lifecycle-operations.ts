@@ -345,6 +345,7 @@ export function stream<T>(
   return { value: null, pending: true, error: null };
 }
 
+/** Runs an owned task after commit; outside a component instance it is a no-op. */
 export function task(
   fn: () => void | (() => void) | PromiseLike<void | (() => void)>
 ): void {

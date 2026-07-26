@@ -518,6 +518,7 @@ function getOrCreateSelectorHook<T>(
   return created;
 }
 
+/** Creates a render-scoped predicate; must be called during component render. */
 export function selector<T>(
   source: () => T,
   equals: SelectorEquals<T> = Object.is
