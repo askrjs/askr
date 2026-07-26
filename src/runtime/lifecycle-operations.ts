@@ -5,6 +5,8 @@ import {
   type ComponentInstance,
 } from './component';
 import { isRouteActivityActive } from '../common/route-activity';
+import { currentRoute } from '../router/activity';
+import type { RouteSnapshot } from '../common/router';
 import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -13,6 +15,28 @@ export type ActivityPredicate = () => boolean;
 
 export interface TimerOptions {
   when?: ActivityPredicate | readonly ActivityPredicate[];
+}
+
+export interface RouteChangeOptions {
+  /** Invoke the callback for the first committed route as well. */
+  immediate?: boolean;
+}
+
+export type RouteChangeCleanup = void | (() => void);
+
+type RouteChangeSlot = LifecycleSlot & {
+  kind: 'route-change';
+  previous: RouteSnapshot | null;
+  pending: RouteSnapshot | null;
+  cleanup: (() => void) | null;
+  cleanupRegistered: boolean;
+  initialized: boolean;
+  callback: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup;
+  immediate: boolean;
+};
+
+function routeSignature(route: RouteSnapshot): string {
+  return `${route.path}\u0000${JSON.stringify(route.query.toJSON())}\u0000${route.hash ?? ''}`;
 }
 
 function normalizePredicates(
@@ -35,7 +59,7 @@ function allPredicatesPass(predicates: readonly ActivityPredicate[]): boolean {
   return true;
 }
 
-type LifecycleSlotKind = 'timer' | 'listener' | 'task';
+type LifecycleSlotKind = 'timer' | 'listener' | 'task' | 'route-change';
 
 type LifecycleSlot = {
   kind: LifecycleSlotKind;
@@ -378,6 +402,76 @@ export function task(
       return await slot.task();
     });
   }
+}
+
+/**
+ * Run an owned callback after each committed route change in a persistent
+ * component. The initial route is skipped unless `immediate` is true.
+ * Cleanup from the previous callback runs before the next callback and when
+ * the component unmounts. This is mount-scoped setup only; use onRouteChange
+ * for route-aware work instead of re-running task().
+ */
+export function onRouteChange(
+  fn: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup,
+  options: RouteChangeOptions = {}
+): void {
+  const instance = getCurrentComponentInstance();
+  if (!instance) return;
+
+  const route = currentRoute();
+  const index = claimHookIndex(instance, 'route-change');
+  const slot = getLifecycleSlot<RouteChangeSlot>(
+    instance,
+    index,
+    'route-change',
+    () => ({
+      kind: 'route-change',
+      previous: null,
+      pending: null,
+      cleanup: null,
+      cleanupRegistered: false,
+      initialized: false,
+      callback: fn,
+      immediate: options.immediate === true,
+    })
+  );
+  slot.callback = fn;
+  slot.immediate = options.immediate === true;
+  slot.pending = route;
+
+  if (!slot.previous) {
+    if (!slot.cleanupRegistered) {
+      instance.cleanupFns ??= [];
+      instance.cleanupFns.push(() => {
+        slot.cleanup?.();
+        slot.cleanup = null;
+      });
+      slot.cleanupRegistered = true;
+    }
+    if (slot.immediate) {
+      registerCommitOperation(() => {
+        slot.cleanup = slot.callback(route, null) ?? null;
+        slot.previous = route;
+        slot.initialized = true;
+      });
+    } else {
+      registerCommitOperation(() => {
+        slot.previous = route;
+      });
+      slot.initialized = true;
+    }
+    return;
+  }
+
+  const previous = slot.previous;
+  if (!previous || routeSignature(previous) === routeSignature(route)) return;
+  registerCommitOperation(() => {
+    if (slot.previous && routeSignature(slot.previous) === routeSignature(route)) return;
+    slot.cleanup?.();
+    slot.cleanup = null;
+    slot.cleanup = slot.callback(route, previous) ?? null;
+    slot.previous = route;
+  });
 }
 
 /**

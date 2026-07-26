@@ -4,6 +4,7 @@ import {
   documentVisible,
   getSignal,
   on,
+  onRouteChange,
   resource,
   routeActive,
   stream,
@@ -13,6 +14,7 @@ import {
   type ActivityPredicate,
   type ListenerTarget,
   type ResourceResult,
+  type RouteChangeOptions,
   type TimerOptions,
 } from '@askrjs/askr/resources';
 
@@ -56,6 +58,12 @@ expectType<ActivityPredicate>(documentVisible());
 expectType<ActivityPredicate>(windowFocused());
 expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
+expectType<void>(onRouteChange(() => {}));
+expectType<void>(onRouteChange((current, previous) => {
+  current.path;
+  previous?.path;
+  return () => {};
+}, { immediate: true } satisfies RouteChangeOptions));
 
 const snapshot = capture(() => 123);
 expectType<() => number>(snapshot);

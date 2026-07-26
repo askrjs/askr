@@ -7,7 +7,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
-import { capture, on, stream, task, timer } from '@askrjs/askr/resources';
+import { capture, on, onRouteChange, stream, task, timer } from '@askrjs/askr/resources';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 beforeEach(() => {
@@ -89,6 +89,25 @@ describe('resources public API', () => {
 
     expect(dispose).toHaveBeenCalledTimes(1);
 
+    cleanup();
+  });
+
+  it('should run onRouteChange immediately and clean up on unmount', () => {
+    const { container, cleanup } = createTestContainer();
+    const run = vi.fn();
+    const dispose = vi.fn();
+    const App = () => {
+      onRouteChange((current, previous) => {
+        run(current.path, previous?.path);
+        return dispose;
+      }, { immediate: true });
+      return <div data-testid="app">ready</div>;
+    };
+
+    createIsland({ root: container, component: App });
+    expect(run).toHaveBeenCalledWith('/', undefined);
+    cleanupApp(container);
+    expect(dispose).toHaveBeenCalledTimes(1);
     cleanup();
   });
 

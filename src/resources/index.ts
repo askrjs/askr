@@ -8,6 +8,7 @@ export { resource } from '../runtime';
 export {
   documentVisible,
   on,
+  onRouteChange,
   routeActive,
   timer,
   task,
@@ -19,6 +20,8 @@ export type { ResourceResult } from '../runtime';
 export type {
   ActivityPredicate,
   ListenerTarget,
+  RouteChangeCleanup,
+  RouteChangeOptions,
   TimerOptions,
 } from '../runtime';
 
