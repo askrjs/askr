@@ -4,6 +4,7 @@
 
 import type { Props } from '../common/props';
 import { getPublicAttributeName } from '../common/attr-names';
+import { isSafeHref } from '../common/url';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
 
@@ -107,6 +108,7 @@ export function renderAttrsDirect(
 
     // Regular attributes
     const strValue = String(value);
+    if (attrName.toLowerCase() === 'href' && !isSafeHref(strValue)) continue;
     sink.write(' ');
     sink.write(attrName);
     sink.write('="');
@@ -182,6 +184,7 @@ export function renderAttrs(
       continue;
     } else {
       const strValue = String(value);
+      if (attrName.toLowerCase() === 'href' && !isSafeHref(strValue)) continue;
       attrParts.push(` ${attrName}="${getEscapedAttrValue(strValue)}"`);
     }
   }
