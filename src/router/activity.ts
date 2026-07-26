@@ -5,7 +5,10 @@ import { getActiveRenderContext } from '../common/render-context';
 import {
   getCurrentAppRenderRuntime,
   getCurrentComponentInstance,
+  claimHookIndex,
+  registerCommitOperation,
 } from '../runtime';
+import type { ComponentInstance } from '../runtime';
 import {
   markReadableDerivedSubscribersDirty,
   markReactivePropsDirtySource,
@@ -17,6 +20,25 @@ import { deepFreeze, makeQuery, parseLocation } from './route-context';
 import { computeMatchesFromRoutes } from './route-matching';
 import { getActiveRoutes } from './store';
 
+export interface RouteChangeOptions {
+  immediate?: boolean;
+}
+export type RouteChangeCleanup = void | (() => void);
+type RouteChangeSlot = {
+  kind: 'route-change';
+  previous: RouteSnapshot | null;
+  cleanup: (() => void) | null;
+  cleanupRegistered: boolean;
+  callback: (
+    current: RouteSnapshot,
+    previous: RouteSnapshot | null
+  ) => RouteChangeCleanup;
+  immediate: boolean;
+};
+function routeSignature(route: RouteSnapshot): string {
+  return `${route.path}\u0000${JSON.stringify(route.query.toJSON())}\u0000${route.hash ?? ''}`;
+}
+
 let currentRouteSnapshot = buildRouteSnapshot('/', '', '');
 
 const currentRouteSource = (() =>
@@ -24,6 +46,62 @@ const currentRouteSource = (() =>
   (() => RouteSnapshot);
 
 currentRouteSource._readers = new Map();
+
+export function onRouteChange(
+  fn: (
+    current: RouteSnapshot,
+    previous: RouteSnapshot | null
+  ) => RouteChangeCleanup,
+  options: RouteChangeOptions = {}
+): void {
+  const instance = getCurrentComponentInstance();
+  if (!instance) return;
+  const route = currentRoute();
+  const index = claimHookIndex(instance, 'route-change');
+  const slots = (instance.lifecycleSlots ??= []);
+  const existing = slots[index] as RouteChangeSlot | undefined;
+  if (existing && existing.kind !== 'route-change') {
+    throw new Error('route-change() lifecycle order violation');
+  }
+  const slot = (existing ?? {
+    kind: 'route-change',
+    previous: null,
+    cleanup: null,
+    cleanupRegistered: false,
+    callback: fn,
+    immediate: options.immediate === true,
+  }) as RouteChangeSlot;
+  slots[index] = slot as never;
+  slot.callback = fn;
+  slot.immediate = options.immediate === true;
+  if (!slot.cleanupRegistered) {
+    instance.cleanupFns ??= [];
+    instance.cleanupFns.push(() => {
+      slot.cleanup?.();
+      slot.cleanup = null;
+    });
+    slot.cleanupRegistered = true;
+  }
+  const previous = slot.previous;
+  if (!previous) {
+    registerCommitOperation(() => {
+      if (slot.immediate) slot.cleanup = slot.callback(route, null) ?? null;
+      slot.previous = route;
+    });
+    return;
+  }
+  if (routeSignature(previous) === routeSignature(route)) return;
+  registerCommitOperation(() => {
+    if (
+      slot.previous &&
+      routeSignature(slot.previous) === routeSignature(route)
+    )
+      return;
+    slot.cleanup?.();
+    slot.cleanup = slot.callback(route, previous) ?? null;
+    slot.previous = route;
+  });
+}
 
 let serverLocation: string | null = null;
 

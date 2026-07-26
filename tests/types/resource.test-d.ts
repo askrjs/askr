@@ -14,9 +14,11 @@ import {
   type ActivityPredicate,
   type ListenerTarget,
   type ResourceResult,
+  type RouteChangeCleanup,
   type RouteChangeOptions,
   type TimerOptions,
 } from '@askrjs/askr/resources';
+import type { RouteChangeCleanup as RouterRouteChangeCleanup } from '@askrjs/askr/router';
 
 declare const eventSource: EventTarget;
 declare const transformer: () => void;
@@ -59,6 +61,8 @@ expectType<ActivityPredicate>(windowFocused());
 expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
 expectType<void>(onRouteChange(() => {}));
+expectType<RouteChangeCleanup>(() => {});
+expectType<RouterRouteChangeCleanup>(() => {});
 expectType<void>(
   onRouteChange(
     (current, previous) => {

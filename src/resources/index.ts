@@ -5,10 +5,14 @@
  */
 
 export { resource } from '../runtime';
+export { onRouteChange } from '../router/activity';
+export type {
+  RouteChangeCleanup,
+  RouteChangeOptions,
+} from '../router/activity';
 export {
   documentVisible,
   on,
-  onRouteChange,
   routeActive,
   timer,
   task,
@@ -20,8 +24,6 @@ export type { ResourceResult } from '../runtime';
 export type {
   ActivityPredicate,
   ListenerTarget,
-  RouteChangeCleanup,
-  RouteChangeOptions,
   TimerOptions,
 } from '../runtime';
 

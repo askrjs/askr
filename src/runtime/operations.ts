@@ -4,7 +4,6 @@ export {
   capture,
   documentVisible,
   on,
-  onRouteChange,
   routeActive,
   stream,
   task,
@@ -14,7 +13,5 @@ export {
 export type {
   ActivityPredicate,
   ListenerTarget,
-  RouteChangeCleanup,
-  RouteChangeOptions,
   TimerOptions,
 } from './lifecycle-operations';
