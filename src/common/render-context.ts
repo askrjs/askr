@@ -12,6 +12,22 @@ export interface DeferredBoundaryRegistration {
   rejected(error: unknown): RenderableChild;
 }
 
+export interface SSRPortalHostRegistration {
+  token: string;
+  automatic: boolean;
+}
+
+export interface SSRPortalSlot {
+  hasValue: boolean;
+  value: RenderableChild | undefined;
+  hosts: SSRPortalHostRegistration[];
+}
+
+export interface SSRPortalState {
+  slots: Map<object, SSRPortalSlot>;
+  nextHostId: number;
+}
+
 export interface ActiveRenderContext {
   url: string;
   data?: SSRData;
@@ -29,6 +45,7 @@ export interface ActiveRenderContext {
   renderData: PageRenderEnvelope | null;
   hydrationData: PageRenderEnvelope | null;
   deferredBoundaries: DeferredBoundaryRegistration[];
+  ssrPortals: SSRPortalState;
 }
 
 export interface RenderContextProvider {
