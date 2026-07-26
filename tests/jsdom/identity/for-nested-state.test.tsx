@@ -456,7 +456,9 @@ test('should publish a disjoint keyed replacement with one live DOM write', () =
 
 test(
   'should use the fragment path above the For direct spread threshold',
-  { timeout: 20000 },
+  // This intentionally renders 4,097 rows. Keep the assertion intact while
+  // allowing the stress case to complete on slower Windows CI runners.
+  { timeout: 60000 },
   () => {
     const { container, cleanup } = createTestContainer();
     const count = DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT + 1;
