@@ -4,7 +4,8 @@ import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { Fragment } from '../jsx';
 import { logger } from '../common/logger';
-import { getVNodeContextFrame, SSR_PORTAL_HOST } from '../runtime';
+import { getVNodeContextFrame } from '../runtime';
+import { SSR_PORTAL_HOST } from '../common/portal';
 import {
   createRenderContext,
   withRenderContext,
@@ -171,6 +172,39 @@ function resolveSSRPortals(html: string, ctx: RenderContext): string {
     if (!foundHost) {
       return resolved;
     }
+  }
+}
+
+class SSRPortalSink {
+  private bufferedChunks: string[] | null = null;
+
+  constructor(
+    private readonly sink: {
+      write(html: string): void;
+    }
+  ) {}
+
+  write(html: string): void {
+    if (!html) {
+      return;
+    }
+    if (this.bufferedChunks) {
+      this.bufferedChunks.push(html);
+      return;
+    }
+    this.sink.write(html);
+  }
+
+  writePortalHost(token: string): void {
+    this.bufferedChunks ??= [];
+    this.bufferedChunks.push(token);
+  }
+
+  flush(ctx: RenderContext): void {
+    if (!this.bufferedChunks) {
+      return;
+    }
+    this.sink.write(resolveSSRPortals(this.bufferedChunks.join(''), ctx));
   }
 }
 
@@ -428,7 +462,15 @@ function renderNodeSyncToSink(
 
   if (typeof type === 'symbol') {
     if (type === SSR_PORTAL_HOST) {
-      sink.write(String(props?.token ?? ''));
+      const token = String(props?.token ?? '');
+      const portalSink = sink as typeof sink & {
+        writePortalHost?(token: string): void;
+      };
+      if (portalSink.writePortalHost) {
+        portalSink.writePortalHost(token);
+      } else {
+        sink.write(token);
+      }
       return;
     }
     if (type === Fragment) {
@@ -636,25 +678,9 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
         params,
         ctx
       );
-      const appChunks: string[] = [];
-      const appSink = {
-        write(html: string) {
-          if (html) {
-            appChunks.push(html);
-          }
-        },
-      };
+      const appSink = new SSRPortalSink(sink);
       renderRenderableSyncToSink(wrapWithDefaultPortal(app), appSink, ctx);
-      const hasPortalContent = Array.from(ctx.ssrPortals.slots.values()).some(
-        (slot) => slot.hasValue
-      );
-      if (hasPortalContent) {
-        sink.write(resolveSSRPortals(appChunks.join(''), ctx));
-      } else {
-        for (const chunk of appChunks) {
-          sink.write(chunk.replace(/<!--askr-portal:\d+-->/g, ''));
-        }
-      }
+      appSink.flush(ctx);
       if (ctx.deferredBoundaries.length === 0) {
         sink.write(
           serializeHydrationRenderData(

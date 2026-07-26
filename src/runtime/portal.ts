@@ -1,6 +1,7 @@
 import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
 import { getActiveRenderContext } from '../common/render-context';
+import { SSR_PORTAL_HOST } from '../common/portal';
 import { ELEMENT_TYPE } from '../jsx';
 import {
   markReactivePropsDirtySource,
@@ -36,8 +37,6 @@ export interface Portal<T extends RenderableChild = RenderableChild> {
 export interface PortalProps {
   children?: RenderableChild;
 }
-
-export const SSR_PORTAL_HOST = Symbol.for('askr.ssr-portal-host');
 
 const DEFAULT_SSR_PORTAL_KEY = {};
 
