@@ -8,7 +8,6 @@ import {
   claimHookIndex,
   registerCommitOperation,
 } from '../runtime';
-import type { ComponentInstance } from '../runtime';
 import {
   markReadableDerivedSubscribersDirty,
   markReactivePropsDirtySource,
@@ -60,9 +59,12 @@ export function onRouteChange(
   const route = currentRoute();
   const index = claimHookIndex(instance, 'route-change');
   const slots = (instance.lifecycleSlots ??= []);
-  const existing = slots[index] as RouteChangeSlot | undefined;
+  const existing = slots[index] as { kind: string } | undefined;
   if (existing && existing.kind !== 'route-change') {
-    throw new Error('route-change() lifecycle order violation');
+    throw new Error(
+      `onRouteChange() lifecycle order violation: slot ${index} already belongs to ${existing.kind}(). ` +
+        'Keep lifecycle primitives in a stable top-level order.'
+    );
   }
   const slot = (existing ?? {
     kind: 'route-change',
