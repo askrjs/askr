@@ -17,8 +17,6 @@ export type { JSXComponent, JSXElement, JSXElementType } from '../common/jsx';
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
-    type ElementType = string | symbol | ((props: never) => unknown);
-
     // Components must be synchronous
     interface Element extends JSXElement {
       readonly __askrJsxElementBrand?: never;
