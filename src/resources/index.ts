@@ -16,6 +16,10 @@ export {
   windowFocused,
 } from '../runtime';
 export type { ResourceResult } from '../runtime';
-export type { ActivityPredicate, TimerOptions } from '../runtime';
+export type {
+  ActivityPredicate,
+  ListenerTarget,
+  TimerOptions,
+} from '../runtime';
 
 export { getSignal } from '../runtime';

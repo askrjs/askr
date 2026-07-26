@@ -10,4 +10,8 @@ export {
   timer,
   windowFocused,
 } from './lifecycle-operations';
-export type { ActivityPredicate, TimerOptions } from './lifecycle-operations';
+export type {
+  ActivityPredicate,
+  ListenerTarget,
+  TimerOptions,
+} from './lifecycle-operations';
