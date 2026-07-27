@@ -23,6 +23,7 @@ import {
   jsxDEV,
   type JSX as DevRuntimeJSX,
 } from '@askrjs/askr/jsx-dev-runtime';
+import type { KnownIntrinsicElementProps } from '../../src/common/props';
 
 expectAssignable<typeof jsx>(rootJsx);
 expectAssignable<typeof jsxs>(rootJsxs);
@@ -32,6 +33,11 @@ expectAssignable<JSXElement>({} as RuntimeJSX.Element);
 expectAssignable<JSXElement>({} as DevRuntimeJSX.Element);
 expectType<Props>({} as RuntimeJSX.ElementAttributesProperty['props']);
 expectType<unknown>({} as RuntimeJSX.ElementChildrenAttribute['children']);
+type KnownIntrinsicKeysMissingFromGlobal = Exclude<
+  keyof KnownIntrinsicElementProps,
+  keyof JSX.IntrinsicElements
+>;
+expectType<never>({} as KnownIntrinsicKeysMissingFromGlobal);
 
 const rootProps: Props = {
   id: 'demo',
