@@ -17,6 +17,7 @@ import {
 } from '../runtime';
 import { materializeFreshKey, materializeKey } from './attributes';
 import { normalizeComponentChildren } from './child-shape';
+import { syncComponentFragmentRange } from './component-fragment-range';
 import { pruneComponentHostInstances } from './component-host-cleanup';
 import {
   getRendererDOMHost,
@@ -298,6 +299,18 @@ export function syncComponentElement(
       existingHost,
       normalizeComponentChildren(wrapperResult) as VNode[]
     );
+    return existingHost;
+  }
+
+  if (
+    existingHost instanceof Comment &&
+    syncComponentFragmentRange(
+      existingHost,
+      existingInstance,
+      scopedResult,
+      forceChildrenUpdate || existingInstance.mounted === false
+    )
+  ) {
     return existingHost;
   }
 

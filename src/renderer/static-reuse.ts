@@ -2,19 +2,10 @@
  * Static subtree reuse checks for intrinsic DOM children.
  */
 
-import { Fragment } from '../jsx/jsx-runtime';
 import { hasMatchingStaticProps } from './attributes';
+import { isFragmentVNode } from './child-shape';
 import { _isDOMElement, type DOMElement } from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
-
-function isFragmentVNode(node: unknown): node is DOMElement {
-  return (
-    _isDOMElement(node) &&
-    typeof (node as DOMElement).type === 'symbol' &&
-    ((node as DOMElement).type === Fragment ||
-      String((node as DOMElement).type) === 'Symbol(askr.fragment)')
-  );
-}
 
 function upperCommonTagName(tag: string): string | null {
   switch (tag) {

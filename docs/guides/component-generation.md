@@ -56,12 +56,15 @@ Do:
 - compose `askr-ui` primitives when behavior is non-trivial
 - model variants with semantic props (`tone`, `size`, `intent`) and CSS selectors
 - keep rendering deterministic and side-effect free
+- return a Fragment when a component must contribute multiple direct siblings
+  without changing the parent element's child topology
 
 Do not:
 
 - hardcode `--ak-*` token strings in runtime TS/JS
 - call APIs directly in leaf UI components
 - add component-specific business rules in generic primitives
+- add a wrapper element solely to satisfy a component return shape
 
 ## Checklist for AI-generated Components
 
