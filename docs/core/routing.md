@@ -155,3 +155,14 @@ const destination = to(postRoute, { slug: 'release' }, { view: 'summary' });
 ```
 
 Raw `href` remains available for intentionally untyped or external links.
+
+`Link` is the headless routing primitive. Applications using the optional
+`@askrjs/themes` package can import `NavLink` from
+`@askrjs/themes/components` when they want a styled navigation link that
+tracks the active route automatically:
+
+```tsx
+import { NavLink } from '@askrjs/themes/components';
+
+<NavLink href="/settings">Settings</NavLink>;
+```

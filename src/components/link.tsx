@@ -94,6 +94,8 @@ function isSameOriginNavigableHref(href: string): boolean {
  * - Use target="_blank" with rel="noopener noreferrer" for external links
  * - Use aria-current="page" for the current page in navigation
  * - Provide descriptive link text or aria-label
+ * - For a styled link with automatic active-route state, install
+ *   `@askrjs/themes` and use `NavLink` from `@askrjs/themes/components`
  *
  * Uses applyInteractionPolicy to enforce pit-of-success principles:
  * - Interaction behavior centralized in foundations
