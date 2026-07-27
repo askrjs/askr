@@ -3,6 +3,7 @@ import type { Props } from '../common/props';
 import { isProductionEnvironment } from '../common/env';
 import { getCurrentInstance, type ComponentInstance } from '../runtime';
 import { getDevValue, incDevCounter } from '../runtime';
+import { getOwnedRange, RANGE_START_MARKER } from './dom-range';
 import type { InstanceHostNode } from './dom-host';
 import type { DOMElement } from './types';
 import { extractKey } from './utils';
@@ -245,8 +246,9 @@ export function findHostInstanceByType(
 
 /**
  * Resolve an instance on a comment host only when the vnode carries durable
- * identity. Fresh unkeyed null components intentionally supersede the old
- * generation instead of falling back to type-only reuse.
+ * identity. An unkeyed multi-node range can also move through transparent
+ * wrapper owners while its recorded owner generation remains live. Fresh
+ * unkeyed null components still supersede the old generation.
  */
 export function findStableHostInstanceByType(
   host: InstanceHostNode,
@@ -271,7 +273,25 @@ export function findStableHostInstanceByType(
   }
 
   const key = extractKey(node as DOMElement);
-  if (key === undefined) return null;
+  if (key === undefined) {
+    const rangeMatches = Array.from(instances).filter((instance) => {
+      const range = getOwnedRange(instance);
+      return (
+        instance.fn === type &&
+        instance._vnodeParent !== parent &&
+        instance._vnodeParent != null &&
+        instance._vnodeParentGeneration ===
+          instance._vnodeParent._ownershipGeneration &&
+        instance._vnodeKey === undefined &&
+        instance._wrapperDepth === wrapperDepth &&
+        ((range?.single === false && range.start === host) ||
+          (host instanceof Comment &&
+            host.data === RANGE_START_MARKER &&
+            instance._placeholder === host))
+      );
+    });
+    return rangeMatches.length === 1 ? rangeMatches[0]! : null;
+  }
 
   const matches = Array.from(instances).filter(
     (instance) =>
