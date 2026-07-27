@@ -15,10 +15,10 @@ child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
 
-### Component Fragment results
+### Transparent component ranges
 
-A component may return a Fragment when it needs multiple sibling nodes without
-an application-visible wrapper:
+A component may return a Fragment or an array when it needs multiple sibling
+nodes without an application-visible wrapper:
 
 ```tsx
 function PageHeader() {
@@ -31,10 +31,17 @@ function PageHeader() {
 }
 ```
 
-The Fragment remains structurally transparent in SPA rendering, SSR, SSG, and
-hydration. Its nodes are direct siblings at the component call site. Askr uses
-internal comment-anchored ranges to retain update and cleanup ownership; it
-does not insert a `div` or another visible host element.
+Fragments and arrays remain structurally transparent in SPA rendering, SSR,
+SSG, and hydration. Their nodes are direct siblings at the component call
+site. This includes context scopes that return their marked children together
+with an automatic portal host. Askr uses internal comment-anchored ranges to
+retain update and cleanup ownership; it does not insert a `div` or another
+visible host element.
+
+During hydration, a keyed `For` adopts only its own server-rendered rows even
+when a static or component child precedes it in the same parent. The unrelated
+sibling and every adopted row keep their DOM identity through later reorder
+and removal commits.
 
 ### Imperative widget hosts
 
