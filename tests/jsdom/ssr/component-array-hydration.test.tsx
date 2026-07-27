@@ -18,7 +18,7 @@ describe('component array hydration', () => {
     }
   });
 
-  it('hydrates defineScope children and a portal host without a visible context wrapper', async () => {
+  it('should hydrate defineScope children and a portal host without a visible context wrapper', async () => {
     const DialogContext = defineScope('closed');
     const DialogPortal = definePortal();
     let update!: () => void;
