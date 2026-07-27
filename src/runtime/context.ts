@@ -36,6 +36,7 @@ export type ContextKey = symbol;
 const TransparentContextScopeComponent = markTransparentComponentResult(
   ContextScopeComponent
 );
+let nextScopeIdentityKey = 0;
 
 type Renderable = RenderableChild;
 type ContextScopeChildren = Renderable | (() => Renderable);
@@ -455,13 +456,14 @@ export function withAsyncResourceContext<T>(
 
 export function defineScope<T>(defaultValue: T): Scope<T> {
   const key = Symbol('AskrContext');
+  const identityKey = nextScopeIdentityKey++;
   const scope = markEagerControlPrimitive(
     (props: { value: T; children?: ContextScopeChildren }): JSXElement =>
       ({
         $$typeof: ELEMENT_TYPE,
         type: TransparentContextScopeComponent,
         props: {
-          __askrIdentityKey: key,
+          __askrIdentityKey: identityKey,
           __scopeKey: key,
           value: props.value,
           children: props.children,

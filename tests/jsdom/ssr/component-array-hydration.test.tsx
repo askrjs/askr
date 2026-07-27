@@ -236,4 +236,80 @@ describe('component array hydration', () => {
       'STRONG',
     ]);
   });
+
+  it('should keep sibling scope providers distinct during hydration and updates', async () => {
+    const LeftScope = defineScope('left-default');
+    const RightScope = defineScope('right-default');
+    const leftIdentity = (
+      LeftScope({ value: 'left' }).props as Record<string, unknown>
+    )['__askrIdentityKey'];
+    const rightIdentity = (
+      RightScope({ value: 'right' }).props as Record<string, unknown>
+    )['__askrIdentityKey'];
+    let updateLeft!: () => void;
+    let updateRight!: () => void;
+
+    expect(typeof leftIdentity).toBe('number');
+    expect(typeof rightIdentity).toBe('number');
+    expect(leftIdentity).not.toBe(rightIdentity);
+
+    function LeftLabel() {
+      return <span data-left={'true'}>{readScope(LeftScope)}</span>;
+    }
+
+    function RightLabel() {
+      return <span data-right={'true'}>{readScope(RightScope)}</span>;
+    }
+
+    function App() {
+      const left = state('left');
+      const right = state('right');
+      updateLeft = () => left.set('left-updated');
+      updateRight = () => right.set('right-updated');
+      return (
+        <nav>
+          <LeftScope value={left()}>
+            <LeftLabel />
+          </LeftScope>
+          <RightScope value={right()}>
+            <RightLabel />
+          </RightScope>
+          <strong>tail</strong>
+        </nav>
+      );
+    }
+
+    const { container, cleanup } = createTestContainer();
+    cleanups.push(cleanup);
+    container.innerHTML = renderToStringSync(App);
+    const nav = container.querySelector('nav')!;
+    const leftLabel = nav.querySelector('[data-left]');
+    const rightLabel = nav.querySelector('[data-right]');
+
+    await hydrateSPA({
+      root: container,
+      registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+    });
+
+    expect.soft(nav.querySelector('[data-left]')).toBe(leftLabel);
+    expect.soft(nav.querySelector('[data-right]')).toBe(rightLabel);
+
+    updateLeft();
+    flushScheduler();
+
+    expect(nav.querySelector('[data-left]')).toBe(leftLabel);
+    expect(nav.querySelector('[data-left]')?.textContent).toBe('left-updated');
+    expect(nav.querySelector('[data-right]')).toBe(rightLabel);
+    expect(nav.querySelector('[data-right]')?.textContent).toBe('right');
+
+    updateRight();
+    flushScheduler();
+
+    expect(nav.querySelector('[data-left]')).toBe(leftLabel);
+    expect(nav.querySelector('[data-left]')?.textContent).toBe('left-updated');
+    expect(nav.querySelector('[data-right]')).toBe(rightLabel);
+    expect(nav.querySelector('[data-right]')?.textContent).toBe(
+      'right-updated'
+    );
+  });
 });
