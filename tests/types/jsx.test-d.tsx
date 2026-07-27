@@ -32,6 +32,31 @@ expectAssignable<JSXElement>({} as RuntimeJSX.Element);
 expectAssignable<JSXElement>({} as DevRuntimeJSX.Element);
 expectType<Props>({} as RuntimeJSX.ElementAttributesProperty['props']);
 expectType<unknown>({} as RuntimeJSX.ElementChildrenAttribute['children']);
+type RuntimeIntrinsicKeysMissingFromGlobal = Exclude<
+  keyof RuntimeJSX.KnownIntrinsicElements,
+  keyof JSX.IntrinsicElements
+>;
+type GlobalIntrinsicKeysMissingFromRuntime = Exclude<
+  keyof JSX.IntrinsicElements,
+  keyof RuntimeJSX.KnownIntrinsicElements
+>;
+expectType<never>({} as RuntimeIntrinsicKeysMissingFromGlobal);
+expectType<never>({} as GlobalIntrinsicKeysMissingFromRuntime);
+expectType<RuntimeJSX.IntrinsicElements['output']>(
+  {} as JSX.IntrinsicElements['output']
+);
+expectType<RuntimeJSX.IntrinsicElements['rect']>(
+  {} as JSX.IntrinsicElements['rect']
+);
+expectType<RuntimeJSX.IntrinsicElements['small']>(
+  {} as JSX.IntrinsicElements['small']
+);
+expectType<RuntimeJSX.IntrinsicElements['tfoot']>(
+  {} as JSX.IntrinsicElements['tfoot']
+);
+expectType<RuntimeJSX.IntrinsicElements['title']>(
+  {} as JSX.IntrinsicElements['title']
+);
 
 const rootProps: Props = {
   id: 'demo',
