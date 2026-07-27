@@ -30,7 +30,9 @@ export interface RendererDOMHost {
     props: Record<string, unknown>,
     parentNamespace?: string,
     forceChildrenUpdate?: boolean,
-    retainedHostInstances?: Iterable<ComponentInstance>
+    retainedHostInstances?: Iterable<ComponentInstance>,
+    hydrationRangeEnd?: Node | null,
+    preserveHydrationCursorOnEmpty?: boolean
   ): Node | null;
   updateElementFromVnode(
     el: Element,

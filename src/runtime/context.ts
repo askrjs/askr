@@ -460,7 +460,12 @@ export function defineScope<T>(defaultValue: T): Scope<T> {
       ({
         $$typeof: ELEMENT_TYPE,
         type: TransparentContextScopeComponent,
-        props: { key, value: props.value, children: props.children },
+        props: {
+          __askrIdentityKey: key,
+          __scopeKey: key,
+          value: props.value,
+          children: props.children,
+        },
         key: null,
       }) as JSXElement
   );
@@ -524,7 +529,7 @@ export function readScope<T>(context: Scope<T>): T {
  */
 function ContextScopeComponent(props: Props): Renderable {
   // Extract expected properties (we accept a loose shape so this can be used as a component type)
-  const key = props['key'] as ContextKey;
+  const key = props['__scopeKey'] as ContextKey;
   const value = props['value'];
   const children = props['children'] as ContextScopeChildren;
 

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { For } from '../../../src/control';
 import { defineScope, readScope, state } from '../../../src';
 import { hydrateSPA } from '../../../src/boot';
 import { definePortal } from '../../../src/foundations/structures/portal';
@@ -137,6 +138,100 @@ describe('component array hydration', () => {
     expect(Array.from(mobileBar.children, (child) => child.tagName)).toEqual([
       'BUTTON',
       'SPAN',
+      'ASIDE',
+      'STRONG',
+    ]);
+  });
+
+  it('should preserve nested scope, keyed row, and portal identities during hydration', async () => {
+    const Scope = defineScope('initial');
+    const Portal = definePortal();
+    const initialRows = ['one', 'two', 'three'];
+    let setLabel!: (value: string) => void;
+    let setRows!: (value: string[]) => void;
+
+    function StaticLink() {
+      return <a data-static={'true'}>{readScope(Scope)}</a>;
+    }
+
+    function Row(props: { name: string }) {
+      return <a data-row={props.name}>{`${props.name}:${readScope(Scope)}`}</a>;
+    }
+
+    function PortalWriter() {
+      Portal.render({
+        children: <aside data-portal={'true'}>{readScope(Scope)}</aside>,
+      });
+      return null;
+    }
+
+    function App() {
+      const label = state('initial');
+      const rows = state(initialRows);
+      setLabel = label.set;
+      setRows = rows.set;
+      return (
+        <nav>
+          <Scope value={label()}>
+            <StaticLink />
+            <For each={rows} by={(name) => name}>
+              {(name) => <Row key={name} name={name} />}
+            </For>
+            <PortalWriter />
+            <Portal key={'component-array-portal'} />
+          </Scope>
+          <strong>tail</strong>
+        </nav>
+      );
+    }
+
+    const { container, cleanup } = createTestContainer();
+    cleanups.push(cleanup);
+    container.innerHTML = renderToStringSync(App);
+    const nav = container.querySelector('nav')!;
+    const staticLink = nav.querySelector('[data-static]');
+    const rowNodes = new Map(
+      Array.from(nav.querySelectorAll('[data-row]'), (row) => [
+        row.getAttribute('data-row'),
+        row,
+      ])
+    );
+    const portal = nav.querySelector('[data-portal]');
+
+    await hydrateSPA({
+      root: container,
+      registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+    });
+
+    expect.soft(nav.querySelector('[data-static]')).toBe(staticLink);
+    for (const [name, row] of rowNodes) {
+      expect.soft(nav.querySelector(`[data-row="${name}"]`)).toBe(row);
+    }
+    expect.soft(nav.querySelector('[data-portal]')).toBe(portal);
+    expect(nav.querySelector('div[data-key="Symbol(AskrContext)"]')).toBeNull();
+
+    setLabel('updated');
+    setRows(['three', 'one']);
+    flushScheduler();
+
+    expect(nav.querySelector('[data-static]')).toBe(staticLink);
+    expect(nav.querySelector('[data-static]')?.textContent).toBe('updated');
+    expect(
+      Array.from(nav.querySelectorAll('[data-row]'), (row) =>
+        row.getAttribute('data-row')
+      )
+    ).toEqual(['three', 'one']);
+    expect(nav.querySelector('[data-row="three"]')).toBe(rowNodes.get('three'));
+    expect(nav.querySelector('[data-row="one"]')).toBe(rowNodes.get('one'));
+    expect(nav.querySelector('[data-row="three"]')?.textContent).toBe(
+      'three:updated'
+    );
+    expect(nav.querySelector('[data-portal]')).toBe(portal);
+    expect(nav.querySelector('[data-portal]')?.textContent).toBe('updated');
+    expect(Array.from(nav.children, (child) => child.tagName)).toEqual([
+      'A',
+      'A',
+      'A',
       'ASIDE',
       'STRONG',
     ]);

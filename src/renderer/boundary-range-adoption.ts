@@ -5,6 +5,7 @@ import {
   restoreDomCommitScope,
   type ChildScope,
   type ComponentFunction,
+  type ComponentInstance,
 } from '../runtime';
 import {
   createDetachedRange,
@@ -29,7 +30,11 @@ export type BoundaryRangeDOMHost = {
     node: DOMElement,
     type: ComponentFunction,
     props: Record<string, unknown>,
-    parentNamespace?: string
+    parentNamespace?: string,
+    forceChildrenUpdate?: boolean,
+    retainedHostInstances?: Iterable<ComponentInstance>,
+    hydrationRangeEnd?: Node | null,
+    preserveHydrationCursorOnEmpty?: boolean
   ): Node | null;
   updateElementFromVnode(
     el: Element,

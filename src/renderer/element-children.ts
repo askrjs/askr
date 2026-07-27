@@ -299,7 +299,10 @@ export function updateMixedControlChildren(
         child.type as ComponentFunction,
         ((child.props ?? {}) as Record<string, unknown>) || {},
         parentNamespace,
-        forceUpdate
+        forceUpdate,
+        undefined,
+        undefined,
+        true
       );
       if (synced) {
         cursor = synced.nextSibling;
@@ -364,7 +367,8 @@ export function updateUnkeyedChildren(
 
   const trySyncComponentChild = (
     currentDom: Node,
-    next: DOMElement
+    next: DOMElement,
+    hydrationRangeEnd?: Node | null
   ): Node | null => {
     if (typeof next.type !== 'function') {
       return null;
@@ -376,7 +380,10 @@ export function updateUnkeyedChildren(
       next.type as ComponentFunction,
       (((next as DOMElement).props ?? {}) as Record<string, unknown>) || {},
       parentNamespace,
-      forceUpdate
+      forceUpdate,
+      undefined,
+      hydrationRangeEnd,
+      true
     );
   };
 
@@ -450,17 +457,15 @@ export function updateUnkeyedChildren(
     hasEmptyChildren ||
     hasNonElementDomChildren
   ) {
-    const allNodes = Array.from(parent.childNodes);
-    const max = Math.max(allNodes.length, newChildren.length);
-
-    for (let i = 0; i < max; i++) {
+    const allNodes: Node[] = Array.from(parent.childNodes);
+    for (let i = 0; i < Math.max(allNodes.length, newChildren.length); i += 1) {
       const currentNode = allNodes[i];
       const next = newChildren[i];
       const nextIsEmpty = isEmptyChild(next);
 
       if (nextIsEmpty && currentNode) {
         teardownNodeSubtree(currentNode);
-        currentNode.remove();
+        currentNode.parentNode?.removeChild(currentNode);
         continue;
       }
 
@@ -507,7 +512,33 @@ export function updateUnkeyedChildren(
               continue;
             }
 
-            const synced = trySyncComponentChild(currentEl, next);
+            const remainingExpected = newChildren.length - i - 1;
+            const hydrationRangeEndIndex = allNodes.length - remainingExpected;
+            const hydrationRangeEnd =
+              hydrationRangeEndIndex > i
+                ? (allNodes[hydrationRangeEndIndex] ?? null)
+                : undefined;
+            const synced = trySyncComponentChild(
+              currentEl,
+              next,
+              hydrationRangeEnd
+            );
+            if (synced && isRangeStart(synced)) {
+              allNodes.splice(
+                i,
+                Math.max(1, hydrationRangeEndIndex - i),
+                synced
+              );
+              continue;
+            }
+            if (
+              synced &&
+              synced !== currentNode &&
+              synced.nextSibling === currentNode
+            ) {
+              allNodes.splice(i, 0, synced);
+              continue;
+            }
             if (!synced) {
               const dom = domHost.createDOMNode(next, parentNamespace);
               if (dom) {
@@ -517,11 +548,37 @@ export function updateUnkeyedChildren(
             }
           }
         } else {
-          if (
-            typeof next.type === 'function' &&
-            trySyncComponentChild(currentNode, next)
-          ) {
-            continue;
+          if (typeof next.type === 'function') {
+            const remainingExpected = newChildren.length - i - 1;
+            const hydrationRangeEndIndex = allNodes.length - remainingExpected;
+            const hydrationRangeEnd =
+              hydrationRangeEndIndex > i
+                ? (allNodes[hydrationRangeEndIndex] ?? null)
+                : undefined;
+            const synced = trySyncComponentChild(
+              currentNode,
+              next,
+              hydrationRangeEnd
+            );
+            if (synced && isRangeStart(synced)) {
+              allNodes.splice(
+                i,
+                Math.max(1, hydrationRangeEndIndex - i),
+                synced
+              );
+              continue;
+            }
+            if (
+              synced &&
+              synced !== currentNode &&
+              synced.nextSibling === currentNode
+            ) {
+              allNodes.splice(i, 0, synced);
+              continue;
+            }
+            if (synced) {
+              continue;
+            }
           }
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
