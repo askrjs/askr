@@ -44,6 +44,23 @@ expectAssignable<JSXElement>(
   </For>
 );
 
+const readonlyCatalog = [
+  { id: 'docs', label: 'Docs' },
+  { id: 'api', label: 'API' },
+] as const;
+type ReadonlyCatalogItem = (typeof readonlyCatalog)[number];
+
+expectAssignable<ForProps<ReadonlyCatalogItem>>({
+  each: readonlyCatalog,
+  by: (item) => item.id,
+  children: (item) => <span>{item.label}</span>,
+});
+expectAssignable<ForProps<ReadonlyCatalogItem>>({
+  each: () => readonlyCatalog,
+  by: (item) => item.id,
+  children: (item) => <span>{item.label}</span>,
+});
+
 expectError(
   For<number>({
     each: [1, 2, 3],

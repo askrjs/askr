@@ -8,9 +8,11 @@ import { createElementForNamespace, getParentNamespace } from './namespaces';
 import { reconcileKeyedChildren } from './reconcile';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { __CONTROL_BOUNDARY__ } from '../common/vnode';
-import { evaluateForState } from '../runtime';
-import { evaluateCaseState, evaluateShowState } from '../runtime';
-import { commitForBoundaryChildren } from './boundaries';
+import {
+  commitForBoundaryChildren,
+  evaluateControlBoundaryState,
+  getControlBoundaryState,
+} from './boundaries';
 import {
   isBulkTextFastPathEligible,
   performBulkPositionalKeyedTextUpdate,
@@ -271,15 +273,10 @@ export function updateForBoundaryChildren(
   element: Element,
   forVnode: DOMElement
 ): void {
-  const controlState = forVnode._controlState;
+  const controlState = getControlBoundaryState(forVnode);
   if (!controlState) return;
 
-  const childrenVNodes =
-    controlState.kind === 'for'
-      ? evaluateForState(controlState)
-      : controlState.kind === 'show'
-        ? evaluateShowState(controlState)
-        : evaluateCaseState(controlState);
+  const childrenVNodes = evaluateControlBoundaryState(controlState);
   commitForBoundaryChildren(element, controlState, childrenVNodes);
 }
 

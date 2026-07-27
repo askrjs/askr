@@ -97,6 +97,41 @@ describe('component fragment structure', () => {
     ).toEqual(['OPTION', 'OPTION']);
   });
 
+  it('should preserve a component-owned multi-node range during parent reconciliation', () => {
+    let updateParent!: () => void;
+
+    function Rows() {
+      return (
+        <For each={[1, 2]} by={(value) => value}>
+          {(value) => <span data-row={value}>{value}</span>}
+        </For>
+      );
+    }
+
+    function App() {
+      const revision = state('before');
+      updateParent = () => revision.set('after');
+      return (
+        <>
+          <Rows />
+          <strong data-revision={revision()}>{revision()}</strong>
+        </>
+      );
+    }
+
+    root = document.createElement('div');
+    document.body.appendChild(root);
+    createIsland({ root, component: App });
+
+    updateParent();
+    flushScheduler();
+
+    expect(
+      Array.from(root.querySelectorAll('[data-row]'), (row) => row.textContent)
+    ).toEqual(['1', '2']);
+    expect(root.querySelector('[data-revision]')?.textContent).toBe('after');
+  });
+
   it('should keep a single-item control boundary transparent across updates', () => {
     let append!: () => void;
 

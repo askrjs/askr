@@ -32,7 +32,10 @@ function failForValidation(message: string): never {
   throw new Error(message);
 }
 
-function validateForKeys<T>(forState: ForState<T>, newArray: T[]): void {
+function validateForKeys<T>(
+  forState: ForState<T>,
+  newArray: readonly T[]
+): void {
   if (!isDevelopmentEnvironment()) {
     return;
   }
@@ -71,7 +74,7 @@ function validateForKeys<T>(forState: ForState<T>, newArray: T[]): void {
 
 export function reconcileForItems<T>(
   forState: ForState<T>,
-  newArray: T[]
+  newArray: readonly T[]
 ): VNode[] {
   forState.currentItems = newArray;
   validateForKeys(forState, newArray);

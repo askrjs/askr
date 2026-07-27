@@ -20,7 +20,8 @@ import { state } from '../../../src/index';
 import { createDataRuntime } from '../../../src/data';
 import { resource } from '../../../src/resources';
 import { getDelegatedHandlerForElement } from '../../../src/runtime/events';
-import { For } from '@askrjs/askr/control';
+import { defineScope, readScope } from '../../../src/runtime/context';
+import { Case, For, Match, Show } from '../../../src/control';
 import {
   DefaultPortal,
   Portal,
@@ -237,6 +238,39 @@ describe('hydration (SSR)', () => {
       expect(container.querySelectorAll('#list li')).toHaveLength(2);
       expect(container.textContent).toContain('alpha');
       expect(container.textContent).toContain('beta');
+    });
+
+    it('should verify provider context through hydrated control boundaries', async () => {
+      const ThemeScope = defineScope('light');
+      const Consumer = (props: { label: string }) => (
+        <span>{`${props.label}:${readScope(ThemeScope)}`}</span>
+      );
+      const Component = () => (
+        <ThemeScope value={'dark'}>
+          <For each={['for']} by={(item) => item}>
+            {(item) => <Consumer label={item} />}
+          </For>
+          <Show when={true}>
+            <Consumer label={'show'} />
+          </Show>
+          <Case>
+            <Match when={true}>
+              <Consumer label={'case'} />
+            </Match>
+          </Case>
+        </ThemeScope>
+      );
+      const html = renderToStringSync(Component);
+      container.innerHTML = html;
+
+      await expect(
+        hydrateSPA({
+          root: container,
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+        })
+      ).resolves.not.toThrow();
+
+      expect(container.textContent).toBe('for:darkshow:darkcase:dark');
     });
 
     it('should hydrate keyed component rows without replacing server DOM', async () => {

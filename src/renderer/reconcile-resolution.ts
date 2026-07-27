@@ -18,6 +18,7 @@ import {
 } from './namespaces';
 import type { DOMElement, VNode } from './types';
 import { extractKey, getMaterializedKey } from './utils';
+import { getControlBoundaryState } from './boundary-state';
 
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 type ComponentVNode = DOMElement & { type: ComponentFunction };
@@ -277,7 +278,7 @@ function prepareControlBoundaryResolution(child: VNode): {
     return null;
   }
 
-  const controlState = child._controlState;
+  const controlState = getControlBoundaryState(child);
   if (!controlState) {
     return null;
   }
