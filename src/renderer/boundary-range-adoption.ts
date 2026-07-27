@@ -63,6 +63,12 @@ export function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
   return dom.tagName.toLowerCase() !== vnode.type.toLowerCase();
 }
 
+export function canAdoptHydratedElement(dom: Element, vnode: VNode): boolean {
+  if (!_isDOMElement(vnode)) return false;
+  if (typeof vnode.type === 'function') return true;
+  return !checkVNodeShapeChanged(dom, vnode);
+}
+
 export function adoptHydratedRange(
   parent: Element,
   scope: ChildScope,
