@@ -71,7 +71,9 @@ export function adoptEmptySSRPortalHydrationHost(
   }
   const instanceHost = host as InstanceHostNode;
   instanceHost.__ASKR_INSTANCE = instance;
-  instanceHost.__ASKR_INSTANCES = Array.from(retainedInstances);
+  instanceHost.__ASKR_INSTANCES = Array.from(
+    new Set<ComponentInstance>([instance, ...retainedInstances])
+  );
   instance._placeholder = instanceHost as Comment;
   mountInstanceInline(instance, null);
   retainReplacementOwnerChain(instanceHost, instance, retainedInstances);
