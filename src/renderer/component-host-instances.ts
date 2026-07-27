@@ -152,6 +152,27 @@ export function inheritComponentKey(
   return target;
 }
 
+function extractComponentIdentityKey(
+  node: unknown
+): string | number | undefined {
+  const publicKey = extractKey(node);
+  if (publicKey !== undefined) {
+    return publicKey;
+  }
+  if (typeof node !== 'object' || node === null) {
+    return undefined;
+  }
+  const internalKey = (
+    (node as DOMElement).props as Record<string, unknown> | undefined
+  )?.['__askrIdentityKey'];
+  if (internalKey === undefined || internalKey === null) {
+    return undefined;
+  }
+  return typeof internalKey === 'symbol'
+    ? String(internalKey)
+    : (internalKey as string | number);
+}
+
 export function setComponentOwnershipIdentity(
   instance: ComponentInstance,
   node: unknown,
@@ -163,7 +184,7 @@ export function setComponentOwnershipIdentity(
     typeof node === 'object' && node !== null ? node : undefined;
   instance._vnodeParent = parent;
   instance._vnodeParentGeneration = parent?._ownershipGeneration;
-  const key = extractKey(node as DOMElement);
+  const key = extractComponentIdentityKey(node as DOMElement);
   if (key === undefined) {
     delete instance._vnodeKey;
   } else {
@@ -191,7 +212,7 @@ export function findHostInstanceByType(
       return vnodeOwner;
     }
 
-    const key = extractKey(node as DOMElement);
+    const key = extractComponentIdentityKey(node as DOMElement);
     const identityMatches = instances.filter((instance) => {
       if (instance.fn !== type) return false;
       if (parent !== undefined && instance._vnodeParent !== parent) {
@@ -224,7 +245,7 @@ export function findHostInstanceByType(
 
   if (host.__ASKR_INSTANCE?.fn === type) {
     const instance = host.__ASKR_INSTANCE;
-    const key = extractKey(node as DOMElement);
+    const key = extractComponentIdentityKey(node as DOMElement);
     if (
       (parent === undefined || instance._vnodeParent === parent) &&
       (key === undefined || instance._vnodeKey === key) &&
@@ -272,7 +293,7 @@ export function findStableHostInstanceByType(
     return vnodeOwner;
   }
 
-  const key = extractKey(node as DOMElement);
+  const key = extractComponentIdentityKey(node as DOMElement);
   if (key === undefined) {
     const rangeMatches = Array.from(instances).filter((instance) => {
       const range = getOwnedRange(instance);
@@ -301,5 +322,25 @@ export function findStableHostInstanceByType(
       instance._vnodeKey === key &&
       instance._wrapperDepth === wrapperDepth
   );
-  return matches.length > 0 ? matches[matches.length - 1]! : null;
+  if (matches.length > 0) {
+    return matches[matches.length - 1]!;
+  }
+
+  const rangeMatches = Array.from(instances).filter((instance) => {
+    const range = getOwnedRange(instance);
+    return (
+      instance.fn === type &&
+      instance._vnodeParent !== parent &&
+      instance._vnodeParent != null &&
+      instance._vnodeParentGeneration ===
+        instance._vnodeParent._ownershipGeneration &&
+      instance._vnodeKey === key &&
+      instance._wrapperDepth === wrapperDepth &&
+      ((range?.single === false && range.start === host) ||
+        (host instanceof Comment &&
+          host.data === RANGE_START_MARKER &&
+          instance._placeholder === host))
+    );
+  });
+  return rangeMatches.length === 1 ? rangeMatches[0]! : null;
 }

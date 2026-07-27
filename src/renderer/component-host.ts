@@ -16,8 +16,14 @@ import {
   withContext,
 } from '../runtime';
 import { materializeFreshKey, materializeKey } from './attributes';
-import { normalizeComponentChildren } from './child-shape';
-import { syncComponentFragmentRange } from './component-fragment-range';
+import {
+  isTransparentComponentRangeResult,
+  normalizeComponentChildren,
+} from './child-shape';
+import {
+  adoptHydratedComponentRange,
+  syncComponentFragmentRange,
+} from './component-fragment-range';
 import { pruneComponentHostInstances } from './component-host-cleanup';
 import {
   getRendererDOMHost,
@@ -65,7 +71,6 @@ export {
 } from './component-host-instances';
 
 // Provisional component cleanup is owned by component-host-replacement.ts.
-
 export function syncComponentElement(
   currentDom: Node | null,
   node: ElementWithContext,
@@ -73,7 +78,9 @@ export function syncComponentElement(
   props: Record<string, unknown>,
   parentNamespace?: string,
   forceChildrenUpdate = false,
-  retainedHostInstances?: Iterable<ComponentInstance>
+  retainedHostInstances?: Iterable<ComponentInstance>,
+  hydrationRangeEnd?: Node | null,
+  preserveHydrationCursorOnEmpty = false
 ): Node | null {
   const existingHost =
     currentDom instanceof Element || currentDom instanceof Comment
@@ -164,6 +171,44 @@ export function syncComponentElement(
       );
 
       if (
+        preserveHydrationCursorOnEmpty &&
+        (scopedResult === null ||
+          scopedResult === undefined ||
+          scopedResult === false)
+      ) {
+        const placeholder = existingHost.ownerDocument.createComment('');
+        existingHost.parentNode?.insertBefore(placeholder, existingHost);
+        const host = placeholder as InstanceHostNode;
+        host.__ASKR_INSTANCE = hydrationInstance;
+        host.__ASKR_INSTANCES = [hydrationInstance];
+        hydrationInstance._placeholder = placeholder;
+        mountInstanceInline(hydrationInstance, null);
+        retainReplacementOwnerChain(
+          placeholder,
+          hydrationInstance,
+          liveRetainedInstances
+        );
+        return placeholder;
+      }
+
+      if (
+        hydrationRangeEnd !== undefined &&
+        isTransparentComponentRangeResult(scopedResult)
+      ) {
+        const adoptedHost = adoptHydratedComponentRange(
+          existingHost,
+          hydrationInstance,
+          scopedResult,
+          hydrationRangeEnd,
+          forceChildrenUpdate || hydrationInstance.mounted === false,
+          liveRetainedInstances
+        );
+        if (adoptedHost) {
+          return adoptedHost;
+        }
+      }
+
+      if (
         scopedResult &&
         typeof scopedResult === 'object' &&
         'type' in (scopedResult as DOMElement) &&
@@ -194,6 +239,22 @@ export function syncComponentElement(
         snapshot ?? null,
         liveRetainedInstances
       );
+      if (
+        hydrationRangeEnd !== undefined &&
+        isTransparentComponentRangeResult(resolvedResult)
+      ) {
+        const adoptedHost = adoptHydratedComponentRange(
+          existingHost,
+          hydrationInstance,
+          resolvedResult,
+          hydrationRangeEnd,
+          forceChildrenUpdate || hydrationInstance.mounted === false,
+          liveRetainedInstances
+        );
+        if (adoptedHost) {
+          return adoptedHost;
+        }
+      }
       if (
         _isDOMElement(resolvedResult) &&
         typeof resolvedResult.type === 'string' &&
