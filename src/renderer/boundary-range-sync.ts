@@ -15,6 +15,7 @@ import { insertRangeBefore, rangeContains, removeRange } from './dom-range';
 import {
   adoptHydratedRange,
   assignScopeRange,
+  canAdoptHydratedElement,
   checkVNodeShapeChanged,
   getBoundaryParentNamespace,
   getBoundaryRangeHost,
@@ -296,7 +297,7 @@ export function syncControlBoundaryInMixedParent(
           !item.scope.range &&
           syncBefore instanceof Element &&
           getMaterializedKey(syncBefore) === controlState.orderedKeys[index] &&
-          !checkVNodeShapeChanged(syncBefore, vnode)
+          canAdoptHydratedElement(syncBefore, vnode)
         ) {
           assignScopeRange(item.scope, {
             start: syncBefore,
