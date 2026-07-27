@@ -264,6 +264,16 @@ Raw `href` values may be relative URLs or use `http`, `https`, `mailto`,
 `sms`, or `tel`. `Link` rejects other explicit schemes, including executable
 and local-file URLs.
 
+For styled navigation with automatic active-route state, install the optional
+`@askrjs/themes` package and use `NavLink` from
+`@askrjs/themes/components`:
+
+```tsx
+import { NavLink } from '@askrjs/themes/components';
+
+<NavLink href="/settings">Settings</NavLink>;
+```
+
 ## Types
 
 | Type               | Description                                         |
