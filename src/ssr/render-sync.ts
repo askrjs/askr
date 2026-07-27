@@ -1,8 +1,7 @@
-import type { JSXElement } from '../common/jsx';
+import { isFragmentType, type JSXElement } from '../common/jsx';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
-import { Fragment } from '../jsx';
 import { logger } from '../common/logger';
 import { getVNodeContextFrame } from '../runtime';
 import { SSR_PORTAL_HOST } from '../common/portal';
@@ -62,7 +61,7 @@ function isMultiRangeChild(child: unknown): boolean {
     return false;
   }
   const vnode = child as VNode;
-  if (vnode.type !== Fragment) {
+  if (!isFragmentType(vnode.type)) {
     return false;
   }
   return (getRenderableChildren(vnode)?.length ?? 0) !== 1;
@@ -362,7 +361,7 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     if (type === SSR_PORTAL_HOST) {
       return String(props?.token ?? '');
     }
-    if (type === Fragment) {
+    if (isFragmentType(type)) {
       const childrenArr = getRenderableChildren(node);
       /* istanbul ignore if - dev-only debug */
       if (__SSR_DEBUG) {
@@ -474,7 +473,7 @@ function renderNodeSyncToSink(
       }
       return;
     }
-    if (type === Fragment) {
+    if (isFragmentType(type)) {
       const childrenArr = getRenderableChildren(node);
       renderChildrenSyncToSink(childrenArr, sink, ctx);
       return;

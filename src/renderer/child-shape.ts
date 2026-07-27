@@ -1,7 +1,6 @@
-import { STATIC_CHILDREN } from '../common/jsx';
+import { isFragmentType, STATIC_CHILDREN } from '../common/jsx';
 import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
-import { Fragment } from '../jsx/jsx-runtime';
 import { getCurrentInstance } from '../runtime';
 import { getRuntimeEnv } from './env';
 import { _isDOMElement, type DOMElement } from './types';
@@ -12,12 +11,7 @@ export type StaticCreateChildShape = {
 };
 
 export function isFragmentVNode(node: unknown): node is DOMElement {
-  return (
-    _isDOMElement(node) &&
-    typeof (node as DOMElement).type === 'symbol' &&
-    ((node as DOMElement).type === Fragment ||
-      String((node as DOMElement).type) === 'Symbol(askr.fragment)')
-  );
+  return _isDOMElement(node) && isFragmentType((node as DOMElement).type);
 }
 
 export function normalizeComponentChildren(result: unknown): unknown[] {

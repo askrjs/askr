@@ -1,9 +1,8 @@
 import { getPublicAttributeName } from '../common/attr-names';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
-import type { JSXElement } from '../common/jsx';
+import { isFragmentType, type JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
-import { Fragment } from '../jsx';
 import { getVNodeContextFrame } from '../runtime';
 import {
   createErrorBoundaryReset,
@@ -35,7 +34,8 @@ function isMultiRangeChild(child: unknown): boolean {
   }
   const vnode = child as VNode;
   return (
-    vnode.type === Fragment && (getRenderableChildren(vnode)?.length ?? 0) !== 1
+    isFragmentType(vnode.type) &&
+    (getRenderableChildren(vnode)?.length ?? 0) !== 1
   );
 }
 
@@ -301,7 +301,7 @@ function verifyExpectedNode(
       );
       return verifyRenderableNode(fallbackNode, state, ctx);
     }
-    if (type !== Fragment) {
+    if (!isFragmentType(type)) {
       throw new Error(
         `verifyHydrationSyncForUrl: unsupported VNode symbol type: ${String(type)}`
       );

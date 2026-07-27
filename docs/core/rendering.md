@@ -15,6 +15,27 @@ child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
 
+### Component Fragment results
+
+A component may return a Fragment when it needs multiple sibling nodes without
+an application-visible wrapper:
+
+```tsx
+function PageHeader() {
+  return (
+    <>
+      <h1>Dashboard</h1>
+      <nav>...</nav>
+    </>
+  );
+}
+```
+
+The Fragment remains structurally transparent in SPA rendering, SSR, SSG, and
+hydration. Its nodes are direct siblings at the component call site. Askr uses
+internal comment-anchored ranges to retain update and cleanup ownership; it
+does not insert a `div` or another visible host element.
+
 ### Imperative widget hosts
 
 Use `imperativeChildren` when a third-party widget owns all descendants of an
