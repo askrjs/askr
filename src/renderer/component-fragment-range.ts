@@ -117,7 +117,7 @@ function isAutomaticPortalHost(node: Node): boolean {
 }
 
 export function adoptHydratedComponentRange(
-  existingHost: Element,
+  existingHost: Element | Comment,
   instance: ComponentInstance,
   result: unknown,
   endExclusive: Node | null,

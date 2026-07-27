@@ -1,7 +1,12 @@
 import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
 import { getActiveRenderContext } from '../common/render-context';
-import { SSR_PORTAL_HOST } from '../common/portal';
+import {
+  createSSRPortalAnchorToken,
+  createSSRPortalHostToken,
+  SSR_PORTAL_ANCHOR,
+  SSR_PORTAL_HOST,
+} from '../common/portal';
 import { ELEMENT_TYPE } from '../jsx';
 import {
   markReactivePropsDirtySource,
@@ -67,7 +72,9 @@ function createSSRPortalHost(
     return null;
   }
 
-  const token = `<!--askr-portal:${current.context.ssrPortals.nextHostId++}-->`;
+  const token = createSSRPortalHostToken(
+    current.context.ssrPortals.nextHostId++
+  );
   current.slot.hosts.push({ token, automatic });
   return {
     $$typeof: ELEMENT_TYPE,
@@ -87,6 +94,21 @@ function writeSSRPortal(
   current.slot.hasValue = true;
   current.slot.value = children;
   return true;
+}
+
+function createSSRPortalAnchor(): JSXElement | null {
+  const context = getActiveRenderContext();
+  if (context?.mode !== 'ssr') {
+    return null;
+  }
+  const token = createSSRPortalAnchorToken(
+    context.ssrPortals.nextHostId++
+  );
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: SSR_PORTAL_ANCHOR,
+    props: { token },
+  } as unknown as JSXElement;
 }
 
 function createPortalSlot<T>(): {
@@ -714,9 +736,9 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
   return Host as Portal<RenderableChild>;
 })();
 
-export function Portal(props: PortalProps): null {
+export function Portal(props: PortalProps): JSXElement | null {
   if (writeSSRPortal(DEFAULT_SSR_PORTAL_KEY, props.children)) {
-    return null;
+    return createSSRPortalAnchor();
   }
 
   const owner = getCurrentComponentInstance();

@@ -407,10 +407,14 @@ describe('Static Site Generation', () => {
       expect(result.failed).toBe(0);
       expect(
         fs.readFileSync(path.join(tempDir, 'explicit', 'index.html'), 'utf8')
-      ).toBe('<main><strong>explicit portal</strong></main>');
+      ).toBe(
+        '<main><strong>explicit portal</strong><!--askr-portal-anchor:1--></main>'
+      );
       expect(
         fs.readFileSync(path.join(tempDir, 'automatic', 'index.html'), 'utf8')
-      ).toBe('<main></main><strong>automatic portal</strong>');
+      ).toBe(
+        '<main><!--askr-portal-anchor:0--></main><strong>automatic portal</strong>'
+      );
     });
 
     it('should generate HTML files in correct directory structure', async () => {

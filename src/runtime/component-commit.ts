@@ -124,7 +124,9 @@ function commitPlaceholderReplacement(
       const onlyChild =
         hostElement.childNodes.length === 1 ? hostElement.firstChild : null;
       const replacement =
-        onlyChild instanceof Element ? onlyChild : hostElement;
+        onlyChild instanceof Element || onlyChild instanceof Comment
+          ? onlyChild
+          : hostElement;
       if (replacement === hostElement) {
         (
           hostElement as Element & { __ASKR_WRAPPER_HOST?: boolean }
@@ -132,8 +134,11 @@ function commitPlaceholderReplacement(
       }
       parent.replaceChild(replacement, placeholder);
 
-      instance.target = replacement;
-      const instanceHost = replacement as Element & {
+      instance.target =
+        replacement instanceof Element ? replacement : null;
+      instance._placeholder =
+        replacement instanceof Comment ? replacement : undefined;
+      const instanceHost = replacement as Node & {
         __ASKR_INSTANCE?: ComponentInstance;
         __ASKR_INSTANCES?: ComponentInstance[];
       };
@@ -147,8 +152,6 @@ function commitPlaceholderReplacement(
       discardLifecycleCommitBatch(lifecycleBatch);
       throw err;
     }
-
-    instance._placeholder = undefined;
 
     host.finalizeReadSubscriptions(instance);
     host.commitRenderedComponent(instance);
