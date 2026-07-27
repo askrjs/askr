@@ -1,5 +1,6 @@
 import type { ComponentInstance } from '../runtime';
 import { cleanupDetachedComponentHost } from './component-host-cleanup';
+import { syncComponentFragmentRange } from './component-fragment-range';
 import { materializeComponentResultNode } from './component-host-results';
 import {
   createDetachedRange,
@@ -24,6 +25,10 @@ export function replaceComponentRange(
     !(parent instanceof Element)
   ) {
     return null;
+  }
+
+  if (syncComponentFragmentRange(placeholder, instance, result, false)) {
+    return placeholder;
   }
 
   const materialized = materializeComponentResultNode(

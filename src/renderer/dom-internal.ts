@@ -1,5 +1,5 @@
 import { logger } from '../common/logger';
-import { Fragment } from '../jsx/jsx-runtime';
+import { isFragmentType } from '../common/jsx';
 import {
   beginLifecycleCommitBatch,
   discardLifecycleCommitBatch,
@@ -219,10 +219,7 @@ export function createDOMNode(
       );
     }
 
-    if (
-      typeof type === 'symbol' &&
-      (type === Fragment || String(type) === 'Symbol(Fragment)')
-    ) {
+    if (isFragmentType(type)) {
       return createFragmentElement(node as DOMElement, props, parentNamespace);
     }
   }

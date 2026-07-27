@@ -22,6 +22,7 @@ import {
   cleanupProvisionalComponentInstances,
   registerVNodeComponentInstanceRollback,
 } from './component-host-replacement';
+import { isFragmentVNode } from './child-shape';
 import {
   findHostInstanceByType,
   getVNodeComponentInstance,
@@ -69,7 +70,8 @@ export function materializeComponentResultNode(
   }
   if (
     !_isDOMElement(result) ||
-    (result as DOMElement).type !== __CONTROL_BOUNDARY__
+    ((result as DOMElement).type !== __CONTROL_BOUNDARY__ &&
+      !isFragmentVNode(result))
   ) {
     const host = document.createElement('div') as InstanceHostElement;
     host.appendChild(dom);

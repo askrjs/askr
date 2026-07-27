@@ -8,6 +8,13 @@ export const ELEMENT_TYPE = Symbol.for('askr.element');
 export const Fragment = Symbol.for('askr.fragment');
 export const STATIC_CHILDREN = Symbol.for('askr.static-children');
 
+export function isFragmentType(type: unknown): type is symbol {
+  if (typeof type !== 'symbol') return false;
+  if (type === Fragment) return true;
+  const label = String(type);
+  return label === 'Symbol(askr.fragment)' || label === 'Symbol(Fragment)';
+}
+
 export type JSXComponent<TProps extends object = Props> = {
   bivarianceHack(props: TProps): unknown;
 }['bivarianceHack'];

@@ -196,6 +196,60 @@ describe('hydration (SSR)', () => {
       expect(container.querySelector('#btn')).not.toBeNull();
     });
 
+    it('should hydrate plain component Fragment siblings without changing topology', async () => {
+      let update!: () => void;
+
+      function Navigation() {
+        const revision = state('before');
+        update = () => revision.set('after');
+        return (
+          <>
+            <section data-navigation={revision()}>{revision()}</section>
+            <div data-links={'true'}>Links</div>
+          </>
+        );
+      }
+
+      function App() {
+        return (
+          <article data-frame={'true'}>
+            <Navigation />
+            <main>Content</main>
+          </article>
+        );
+      }
+
+      const html = renderToStringSync(() => <App />);
+      container.innerHTML = html;
+      const frame = container.querySelector('[data-frame]')!;
+      const initialChildren = Array.from(frame.children);
+
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+      });
+
+      expect(container.querySelector('[data-frame]')).toBe(frame);
+      expect(Array.from(frame.children)).toEqual(initialChildren);
+      expect(Array.from(frame.children, (child) => child.tagName)).toEqual([
+        'SECTION',
+        'DIV',
+        'MAIN',
+      ]);
+
+      update();
+      flushScheduler();
+
+      expect(Array.from(frame.children, (child) => child.tagName)).toEqual([
+        'SECTION',
+        'DIV',
+        'MAIN',
+      ]);
+      expect(
+        frame.querySelector(':scope > [data-navigation]')?.textContent
+      ).toBe('after');
+    });
+
     it('should throw when hydrate encounters a mismatch', async () => {
       const Component = () => <div id="root">server</div>;
       container.innerHTML = '<div>client</div>';

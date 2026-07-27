@@ -1,4 +1,4 @@
-import { Fragment } from '../jsx';
+import { isFragmentType } from '../common/jsx';
 import type { DOMRange } from '../common/dom-range';
 import {
   enterDomCommitScope,
@@ -75,7 +75,7 @@ export function adoptHydratedRange(
   const range: DOMRange = { start: before, end, single: false };
   const contentNodes = getRangeNodes(range);
   const expectedChildren =
-    _isDOMElement(vnode) && vnode.type === Fragment
+    _isDOMElement(vnode) && isFragmentType(vnode.type)
       ? ((vnode.props?.children as VNode[] | undefined) ?? [])
       : [vnode];
   if (contentNodes.length !== expectedChildren.length) return null;

@@ -24,7 +24,7 @@ import {
   updateUnkeyedChildren,
 } from './element-children';
 import { setDevValue, incDevCounter } from '../runtime';
-import { Fragment } from '../common/jsx';
+import { isFragmentType } from '../common/jsx';
 import {
   createWrappedHandler,
   extractKey,
@@ -494,12 +494,7 @@ export function tryFirstRenderKeyedChildren(
 }
 
 export function isFragment(vnode: unknown): vnode is DOMElement {
-  return (
-    _isDOMElement(vnode) &&
-    typeof (vnode as DOMElement).type === 'symbol' &&
-    ((vnode as DOMElement).type === Fragment ||
-      String((vnode as DOMElement).type) === 'Symbol(askr.fragment)')
-  );
+  return _isDOMElement(vnode) && isFragmentType((vnode as DOMElement).type);
 }
 
 export function getFragmentChildren(vnode: DOMElement): unknown[] {

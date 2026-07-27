@@ -7,7 +7,7 @@ import {
 } from './access';
 import type { ComponentInstance } from './component';
 import { finalizeReadableSubscriptions } from './readable';
-import { Fragment } from '../common/jsx';
+import { isFragmentType } from '../common/jsx';
 import { setDevValue, getDevValue, getDevNamespace } from './dev-namespace';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -73,10 +73,7 @@ function unwrapFragmentForFastPath(vnode: unknown): unknown {
     props?: { children?: unknown };
   };
   // Check if it's a Fragment
-  if (
-    typeof v.type === 'symbol' &&
-    (v.type === Fragment || String(v.type) === 'Symbol(askr.fragment)')
-  ) {
+  if (isFragmentType(v.type)) {
     const children = v.props?.children ?? v.children;
     if (Array.isArray(children) && children.length > 0) {
       // Return the first child that's an intrinsic element
