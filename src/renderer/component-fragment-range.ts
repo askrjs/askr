@@ -1,4 +1,5 @@
 import {
+  mountInstanceInline,
   registerLifecycleTransaction,
   type ComponentInstance,
 } from '../runtime';
@@ -6,7 +7,14 @@ import {
   isTransparentComponentRangeResult,
   normalizeComponentChildren,
 } from './child-shape';
-import { getOwnedRange, rangeContains, type DOMRange } from './dom-range';
+import {
+  getOwnedRange,
+  RANGE_END_MARKER,
+  RANGE_START_MARKER,
+  rangeContains,
+  registerRange,
+  type DOMRange,
+} from './dom-range';
 import { getRendererDOMHost, type InstanceHostNode } from './dom-host';
 import type { VNode } from './types';
 
@@ -106,6 +114,73 @@ function isAutomaticPortalHost(node: Node): boolean {
         ).__askrAutoDefaultPortal === true
     )
   );
+}
+
+export function adoptHydratedComponentRange(
+  existingHost: Element,
+  instance: ComponentInstance,
+  result: unknown,
+  endExclusive: Node | null,
+  forceChildrenUpdate: boolean,
+  retainedInstances: Iterable<ComponentInstance>
+): Comment | null {
+  const parent = existingHost.parentNode;
+  if (
+    !(parent instanceof Element) ||
+    (endExclusive !== null && endExclusive.parentNode !== parent)
+  ) {
+    return null;
+  }
+
+  if (endExclusive !== null) {
+    let current: Node | null = existingHost;
+    while (current && current !== endExclusive) {
+      current = current.nextSibling;
+    }
+    if (current !== endExclusive) {
+      return null;
+    }
+  }
+
+  const start = existingHost.ownerDocument.createComment(RANGE_START_MARKER);
+  const end = existingHost.ownerDocument.createComment(RANGE_END_MARKER);
+  parent.insertBefore(start, existingHost);
+  parent.insertBefore(end, endExclusive);
+  registerRange({ start, end, single: false }, instance);
+
+  const host = start as InstanceHostNode;
+  const owners = new Set(retainedInstances);
+  owners.add(instance);
+  host.__ASKR_INSTANCE = instance;
+  host.__ASKR_INSTANCES = Array.from(owners);
+  instance.target = null;
+  instance._placeholder = start;
+  mountInstanceInline(instance, null);
+
+  const registered = registerLifecycleTransaction(
+    {},
+    () => {},
+    () => {
+      start.parentNode?.removeChild(start);
+      end.parentNode?.removeChild(end);
+    }
+  );
+
+  try {
+    if (
+      !syncComponentFragmentRange(host, instance, result, forceChildrenUpdate)
+    ) {
+      throw new Error('[askr] Failed to adopt hydrated component range.');
+    }
+  } catch (error) {
+    if (!registered) {
+      start.remove();
+      end.remove();
+    }
+    throw error;
+  }
+
+  return start;
 }
 
 export function syncComponentFragmentRange(
