@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { state } from '../../../src';
 import { cleanupApp, createIsland } from '../../../src/boot';
-import type { DOMElement } from '../../../src/renderer';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 describe('component array structure', () => {
@@ -15,7 +14,7 @@ describe('component array structure', () => {
     }
   });
 
-  it('keeps component-returned array siblings transparent across updates and cleanup', () => {
+  it('should keep component-returned array siblings transparent across updates and cleanup', () => {
     let update!: () => void;
     let remove!: () => void;
 
@@ -90,7 +89,7 @@ describe('component array structure', () => {
     expect(action.isConnected).toBe(false);
   });
 
-  it('rolls back a partially reconciled component array without replacing siblings', () => {
+  it('should roll back a partially reconciled component array without replacing siblings', () => {
     let fail!: () => void;
 
     function ArrayContent(props: { failing: boolean }) {
@@ -108,19 +107,10 @@ describe('component array structure', () => {
       }
 
       return [
-        {
-          type: 'span',
-          key: 'first',
-          props: {
-            id: 'array-first',
-            children: props.failing ? 'changed' : 'before',
-          },
-        } as DOMElement,
-        {
-          type: 'span',
-          key: 'second',
-          props: secondProps,
-        } as DOMElement,
+        <span key={'first'} id={'array-first'}>
+          {props.failing ? 'changed' : 'before'}
+        </span>,
+        <span key={'second'} {...secondProps} />,
       ];
     }
 
