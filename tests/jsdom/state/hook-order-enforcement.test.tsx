@@ -1,6 +1,6 @@
 // tests/state/hook_order_enforcement.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { state } from '../../../src/index';
+import { For, state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
@@ -116,6 +116,65 @@ describe('hook order enforcement (STATE)', () => {
     // Second render would call state at indices [0, 1, 2, 3] - violates hook order
     expect(error?.message).toMatch(
       /loop|conditionally|hook order|State index/i
+    );
+  });
+
+  it('should give conditional child components an independent hook scope', () => {
+    let open: ReturnType<typeof state<boolean>> | null = null;
+
+    const Dialog = ({ items }: { items: string[] }) => (
+      <ul>
+        <For each={items} by={(item) => item}>
+          {(item) => <li>{item}</li>}
+        </For>
+      </ul>
+    );
+
+    const Widget = () => {
+      open = state(false);
+      return (
+        <div>{open() ? <Dialog items={['first', 'second']} /> : null}</div>
+      );
+    };
+
+    createIsland({ root: container, component: Widget });
+    flushScheduler();
+
+    expect(() => {
+      open!.set(true);
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.textContent).toContain('firstsecond');
+  });
+
+  it('should explain conditional control-boundary violations without blaming component structure', () => {
+    let open: ReturnType<typeof state<boolean>> | null = null;
+
+    const Component = () => {
+      open = state(false);
+      return (
+        <div>
+          {open() ? (
+            <For each={['first', 'second']} by={(item) => item}>
+              {(item) => <span>{item}</span>}
+            </For>
+          ) : null}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    expect(() => {
+      open!.set(true);
+      flushScheduler();
+    }).toThrow(
+      expect.objectContaining({
+        message: expect.stringMatching(
+          /conditional subtree.*control boundary.*<Show>.*<Case>.*<Match>/is
+        ),
+      })
     );
   });
 });
