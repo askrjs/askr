@@ -357,6 +357,21 @@ export function syncControlBoundaryInMixedParent(
   }
   const activeScope = controlState.activeScope;
   const activeVNode = childrenVNodes[0];
+  if (
+    activeScope?.hydrationPending &&
+    activeVNode !== undefined &&
+    !activeScope.range &&
+    controlState.lastRemovedRanges.length === 0 &&
+    before instanceof Element &&
+    canAdoptHydratedElement(before, activeVNode)
+  ) {
+    assignScopeRange(activeScope, {
+      start: before,
+      end: before,
+      single: true,
+    });
+    activeScope.hydrationPending = false;
+  }
   const nextRange =
     activeScope && activeVNode !== undefined
       ? syncControlBoundaryScopeDom(
