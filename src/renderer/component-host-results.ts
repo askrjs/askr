@@ -1,6 +1,5 @@
 import { isPromiseLike } from '../common/promise';
 import type { Props } from '../common/props';
-import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import {
   captureInlineRenderSnapshot,
   cleanupComponent,
@@ -22,7 +21,7 @@ import {
   cleanupProvisionalComponentInstances,
   registerVNodeComponentInstanceRollback,
 } from './component-host-replacement';
-import { isFragmentVNode } from './child-shape';
+import { isTransparentComponentResult } from './child-shape';
 import {
   findHostInstanceByType,
   getVNodeComponentInstance,
@@ -68,11 +67,7 @@ export function materializeComponentResultNode(
     mountInstanceInline(childInstance, null);
     return placeholder;
   }
-  if (
-    !_isDOMElement(result) ||
-    ((result as DOMElement).type !== __CONTROL_BOUNDARY__ &&
-      !isFragmentVNode(result))
-  ) {
+  if (!isTransparentComponentResult(result)) {
     const host = document.createElement('div') as InstanceHostElement;
     host.appendChild(dom);
     host.__ASKR_WRAPPER_HOST = true;
