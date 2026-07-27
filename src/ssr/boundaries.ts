@@ -6,7 +6,11 @@ import type { JSXElement } from '../common/jsx';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { ELEMENT_TYPE } from '../jsx';
-import type { ComponentInstance } from '../runtime';
+import {
+  getVNodeContextFrame,
+  setControlBoundaryContextFrame,
+  type ComponentInstance,
+} from '../runtime';
 import {
   type ControlBoundaryState,
   evaluateCaseState,
@@ -168,8 +172,13 @@ export function getControlBoundaryState(
   node: VNode | JSXElement
 ): ControlBoundaryState | null {
   const boundaryNode = node as DOMElement;
+  const controlState = boundaryNode._controlState ?? null;
+  const frame = getVNodeContextFrame(boundaryNode);
+  if (controlState && frame) {
+    setControlBoundaryContextFrame(controlState, frame);
+  }
 
-  return boundaryNode._controlState ?? null;
+  return controlState;
 }
 
 export function evaluateControlBoundaryChildren(

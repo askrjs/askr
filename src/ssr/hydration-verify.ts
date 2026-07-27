@@ -2,11 +2,12 @@ import { getPublicAttributeName } from '../common/attr-names';
 import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { JSXElement } from '../common/jsx';
 import type { Props } from '../common/props';
-import { __ERROR_BOUNDARY__, type DOMElement } from '../common/vnode';
+import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { Fragment } from '../jsx';
 import { getVNodeContextFrame } from '../runtime';
 import {
   createErrorBoundaryReset,
+  getControlBoundaryState,
   getErrorBoundaryState,
   getRenderableChildren,
   normalizeRenderableChildren,
@@ -219,7 +220,7 @@ function verifyExpectedNode(
         if (!children || children.length === 0) {
           return true;
         }
-        const controlState = (vnode as DOMElement)._controlState;
+        const controlState = getControlBoundaryState(vnode);
         if (controlState?.kind === 'for') {
           for (const child of children) {
             if (!verifyExpectedRangeChild(child, state, ctx)) return false;
