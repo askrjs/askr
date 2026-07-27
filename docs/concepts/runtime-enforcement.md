@@ -2,37 +2,60 @@
 
 Askr checks your component structure as it runs.
 
-## Hook Order
+## Render-scoped hook order
 
-State hooks must be called in the same order every render.
+Render-scoped hooks and eager control primitives must be evaluated in the same
+order every render. This includes `state()`, `derive()`, lifecycle operations,
+`<For>`, and the other primitives that retain render-owned state.
 
 ### Caught at Runtime
 
-```typescript
+```tsx
 function Component() {
-  if (condition) {
-    const [x, setX] = state(0); // NO Error
+  const [condition] = state(false);
+
+  if (condition()) {
+    state(0);
   }
+
+  return null;
 }
 ```
 
-**Error message:**
+The same invariant applies when a plain conditional skips an eager control
+primitive:
 
+```tsx
+{
+  open() ? (
+    <For each={items} by={(item) => item.id}>
+      {(item) => <Row item={item} />}
+    </For>
+  ) : null;
+}
 ```
-Hook order violation at index 1.
 
-This happens when state() is called conditionally.
+The runtime reports that the render-scoped sequence changed and covers both
+possible causes: a conditional hook call, or a conditional subtree that skips
+its outer control boundary. It recommends keeping the render-scoped call
+unconditional and using `<Show>` or `<Match>` for conditional branches.
 
-Fix: Move all state() calls to the top level:
-  const [x, setX] = state(0);
-  if (condition) {
-    setX(value);
-  }
+```tsx
+<Show when={open}>
+  {() => (
+    <For each={items} by={(item) => item.id}>
+      {(item) => <Row item={item} />}
+    </For>
+  )}
+</Show>
 ```
 
 ### Why This Matters
 
-Conditional hooks break component identity. Askr catches this before it causes bugs.
+Changing the render-scoped sequence breaks retained identity. The runtime can
+observe the sequence change, but it cannot infer the exact source construct
+that caused it, so the diagnostic describes both supported fixes instead of
+blaming component structure.
 
 ## Render Mutations
 

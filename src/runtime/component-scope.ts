@@ -259,6 +259,16 @@ export function getNextStateIndex(): number {
   return stateIndex++;
 }
 
+function hookOrderGuidance(hookName: string): string {
+  return (
+    `The render-scoped hook sequence changed between renders. ` +
+    `This can happen when ${hookName}() is called conditionally, or when a conditional subtree ` +
+    `skips an outer control boundary through a plain if, ternary, && branch, or loop. ` +
+    `Keep render-scoped hooks and their outer control boundaries unconditional. ` +
+    `Use <Show> or <Match> for conditional branches, and <For> for changing collections.`
+  );
+}
+
 export function claimHookIndex(
   instance: ComponentInstance,
   hookName: string
@@ -269,9 +279,7 @@ export function claimHookIndex(
     throw new Error(
       `Hook index violation: ${hookName}() call at index ${index}, ` +
         `but previously saw index ${instance.stateIndexCheck}. ` +
-        `This happens when render-scoped hooks are called conditionally (inside if/for/etc). ` +
-        `Move all ${hookName}() calls to the top level of your component function, ` +
-        `before any conditionals.`
+        hookOrderGuidance(hookName)
     );
   }
 
@@ -284,8 +292,7 @@ export function claimHookIndex(
       throw new Error(
         `Hook order violation: ${hookName}() called at index ${index}, ` +
           `but this index was not in the first render's sequence [${expectedStateIndices.join(', ')}]. ` +
-          `This usually means ${hookName}() is inside a conditional or loop. ` +
-          `Move all render-scoped hooks to the top level of your component function.`
+          hookOrderGuidance(hookName)
       );
     }
   } else {
