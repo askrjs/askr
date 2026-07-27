@@ -26,12 +26,16 @@ The same invariant applies when a plain conditional skips an eager control
 primitive:
 
 ```tsx
-{
-  open() ? (
-    <For each={items} by={(item) => item.id}>
-      {(item) => <Row item={item} />}
-    </For>
-  ) : null;
+function Component() {
+  return (
+    <div>
+      {open() ? (
+        <For each={items} by={(item) => item.id}>
+          {(item) => <Row item={item} />}
+        </For>
+      ) : null}
+    </div>
+  );
 }
 ```
 

@@ -97,13 +97,17 @@ render-scoped state. Do not make the primitive call itself appear or disappear
 behind a plain `if`, ternary, `&&` branch, or changing loop:
 
 ```tsx
-// Avoid: the For call is skipped while open() is false.
-{
-  open() ? (
-    <For each={items} by={(item) => item.id}>
-      {(item) => <Row item={item} />}
-    </For>
-  ) : null;
+function Rows() {
+  // Avoid: the For call is skipped while open() is false.
+  return (
+    <div>
+      {open() ? (
+        <For each={items} by={(item) => item.id}>
+          {(item) => <Row item={item} />}
+        </For>
+      ) : null}
+    </div>
+  );
 }
 ```
 
