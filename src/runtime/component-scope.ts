@@ -265,7 +265,8 @@ function hookOrderGuidance(hookName: string): string {
     `This can happen when ${hookName}() is called conditionally, or when a conditional subtree ` +
     `skips an outer control boundary through a plain if, ternary, && branch, or loop. ` +
     `Keep render-scoped hooks and their outer control boundaries unconditional. ` +
-    `Use <Show> or <Match> for conditional branches, and <For> for changing collections.`
+    `Use <Show> or <Case> with <Match> children for conditional branches, ` +
+    `and <For> for changing collections.`
   );
 }
 

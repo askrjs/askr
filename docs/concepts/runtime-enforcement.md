@@ -42,7 +42,8 @@ function Component() {
 The runtime reports that the render-scoped sequence changed and covers both
 possible causes: a conditional hook call, or a conditional subtree that skips
 its outer control boundary. It recommends keeping the render-scoped call
-unconditional and using `<Show>` or `<Match>` for conditional branches.
+unconditional and using `<Show>` or `<Case>` with `<Match>` children for
+conditional branches.
 
 ```tsx
 <Show when={open}>

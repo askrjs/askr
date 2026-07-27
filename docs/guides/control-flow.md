@@ -112,7 +112,7 @@ function Rows() {
 ```
 
 Keep the outer control boundary unconditional and put the conditional branch
-inside `<Show>` or `<Match>`:
+inside `<Show>`, or use a `<Case>` boundary with `<Match>` children:
 
 ```tsx
 <Show when={open}>

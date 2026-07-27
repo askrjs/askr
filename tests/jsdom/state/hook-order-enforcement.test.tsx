@@ -172,7 +172,7 @@ describe('hook order enforcement (STATE)', () => {
     }).toThrow(
       expect.objectContaining({
         message: expect.stringMatching(
-          /conditional subtree.*control boundary.*<Show>/is
+          /conditional subtree.*control boundary.*<Show>.*<Case>.*<Match>/is
         ),
       })
     );
