@@ -28,6 +28,7 @@ import {
   createRouteRegistry,
   fallback,
   group,
+  lazy,
   route,
 } from '../../../src/router/route';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
@@ -248,6 +249,49 @@ describe('Static Site Generation', () => {
       expect(result.totalRoutes).toBe(1);
       expect(result.successful).toBe(1);
       expect(result.routes[0].html).toBe('<main>Registry Home</main>');
+    });
+
+    it('should preload lazy registry pages and layouts before rendering', async () => {
+      const LazyLayout = lazy(async () => ({
+        default: ({ children }: { children?: unknown }) => (
+          <section>{children}</section>
+        ),
+      }));
+      const LazyPage = lazy(async () => ({
+        default: () => <main>{'Lazy registry page'}</main>,
+      }));
+      const registry = createRouteRegistry(() => {
+        group({ layout: LazyLayout }, () => {
+          route('/lazy', LazyPage);
+        });
+      });
+      const ssg = createStaticGen({ registry, outputDir: tempDir });
+
+      const result = await ssg.generate();
+
+      expect(result.failed).toBe(0);
+      expect(result.routes[0].html).toBe(
+        '<section><main>Lazy registry page</main></section>'
+      );
+    });
+
+    it('should preserve lazy import failures in route diagnostics', async () => {
+      const BrokenPage = lazy(async () => {
+        throw new Error('lazy module unavailable');
+      });
+      const registry = createRouteRegistry(() => {
+        route('/broken', BrokenPage);
+      });
+      const ssg = createStaticGen({ registry, outputDir: tempDir });
+
+      const result = await ssg.generate();
+
+      expect(result.failed).toBe(1);
+      expect(result.routes[0]).toMatchObject({
+        path: '/broken',
+        status: 'error',
+        error: 'lazy module unavailable',
+      });
     });
 
     it('should render stateful registry routes inside their layout render scope', async () => {

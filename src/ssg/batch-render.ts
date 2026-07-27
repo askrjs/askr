@@ -13,6 +13,7 @@ import { resolveSsgRouteData } from './resolve-ssg-data';
 import { getOutputFilePath, interpolateRoutePath } from './route-utils';
 import { resolveDeferredValues } from '../router/deferred';
 import { bindResolvedRouteData } from '../router/resolution';
+import { _preloadRouteHandler } from '../router/lazy';
 
 interface BatchRenderOptions {
   seed?: number;
@@ -59,6 +60,8 @@ export async function batchRenderRoutes(
 
     let phase: 'load' | 'render' = route.loader ? 'load' : 'render';
     try {
+      await _preloadRouteHandler(mergedHandler);
+
       let routeData: unknown;
       let hasRouteData = false;
       if (route.loader) {
