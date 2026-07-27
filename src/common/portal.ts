@@ -24,8 +24,7 @@ function isSSRPortalMarkerData(data: string, prefix: string): boolean {
   }
   const id = data.slice(prefix.length);
   return (
-    id.length > 0 &&
-    Array.from(id).every((char) => char >= '0' && char <= '9')
+    id.length > 0 && Array.from(id).every((char) => char >= '0' && char <= '9')
   );
 }
 
