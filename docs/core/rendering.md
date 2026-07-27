@@ -174,6 +174,12 @@ Portal values are scoped to one server render root. A portal created with
 between routes or requests. Hydration adopts the server-rendered portal
 content and attaches its normal bindings.
 
+SSR and SSG retain internal comment anchors at default-portal writer positions
+and at a written automatic host whose current value is empty. Hydration adopts
+those anchors so adjacent application nodes keep their identity without a
+visible wrapper element. Unused or explicitly suppressed automatic hosts are
+omitted.
+
 ## Static Site Generation (SSG)
 
 SSG pre-renders Askr routes into `.html` files at build time.

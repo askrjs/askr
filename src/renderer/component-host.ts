@@ -1,5 +1,6 @@
 import { isPromiseLike } from '../common/promise';
 import type { Props } from '../common/props';
+import { isSSRPortalHydrationAnchor } from '../common/portal';
 import {
   captureInlineRenderSnapshot,
   createComponentInstance,
@@ -57,7 +58,11 @@ import {
   registerVNodeComponentInstanceRollback,
 } from './component-host-replacement';
 import {
+  adoptEmptySSRPortalHydrationHost,
+  itemInstanceHydrationComplete,
   materializeComponentResultNode,
+  materializeEmptyHydrationPlaceholder,
+  retainReplacementOwnerChain,
   resolveHostNestedComponentResult,
   resolveWrapperHostResult,
 } from './component-host-results';
@@ -110,14 +115,19 @@ export function syncComponentElement(
   const domHost = getRendererDOMHost();
 
   if (!existingInstance || existingInstance.fn !== type) {
-    if (!(existingHost instanceof Element)) return null;
+    if (
+      !(existingHost instanceof Element) &&
+      !isSSRPortalHydrationAnchor(existingHost)
+    ) {
+      return null;
+    }
     const snapshot =
       getVNodeContextFrame(node) || getCurrentContextFrame() || null;
     const hydrationInstance = createComponentInstance(
       nextComponentInstanceId(),
       type,
       props || {},
-      existingHost
+      existingHost instanceof Element ? existingHost : null
     );
     setComponentOwnershipIdentity(
       hydrationInstance,
@@ -170,25 +180,15 @@ export function syncComponentElement(
         snapshot ?? null
       );
 
-      if (
-        preserveHydrationCursorOnEmpty &&
-        (scopedResult === null ||
-          scopedResult === undefined ||
-          scopedResult === false)
-      ) {
-        const placeholder = existingHost.ownerDocument.createComment('');
-        existingHost.parentNode?.insertBefore(placeholder, existingHost);
-        const host = placeholder as InstanceHostNode;
-        host.__ASKR_INSTANCE = hydrationInstance;
-        host.__ASKR_INSTANCES = [hydrationInstance];
-        hydrationInstance._placeholder = placeholder;
-        mountInstanceInline(hydrationInstance, null);
-        retainReplacementOwnerChain(
-          placeholder,
-          hydrationInstance,
-          liveRetainedInstances
-        );
-        return placeholder;
+      const emptyPlaceholder = materializeEmptyHydrationPlaceholder(
+        existingHost,
+        hydrationInstance,
+        liveRetainedInstances,
+        scopedResult,
+        preserveHydrationCursorOnEmpty
+      );
+      if (emptyPlaceholder) {
+        return emptyPlaceholder;
       }
 
       if (
@@ -209,6 +209,7 @@ export function syncComponentElement(
       }
 
       if (
+        existingHost instanceof Element &&
         scopedResult &&
         typeof scopedResult === 'object' &&
         'type' in (scopedResult as DOMElement) &&
@@ -240,6 +241,16 @@ export function syncComponentElement(
         liveRetainedInstances
       );
       if (
+        adoptEmptySSRPortalHydrationHost(
+          existingHost,
+          hydrationInstance,
+          liveRetainedInstances,
+          resolvedResult
+        )
+      ) {
+        return existingHost;
+      }
+      if (
         hydrationRangeEnd !== undefined &&
         isTransparentComponentRangeResult(resolvedResult)
       ) {
@@ -256,6 +267,7 @@ export function syncComponentElement(
         }
       }
       if (
+        existingHost instanceof Element &&
         _isDOMElement(resolvedResult) &&
         typeof resolvedResult.type === 'string' &&
         tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.type)
@@ -407,6 +419,17 @@ export function syncComponentElement(
   );
   if (
     existingHost instanceof Comment &&
+    syncComponentFragmentRange(
+      existingHost,
+      existingInstance,
+      resolvedResult,
+      forceChildrenUpdate || existingInstance.mounted === false
+    )
+  ) {
+    return existingHost;
+  }
+  if (
+    existingHost instanceof Comment &&
     (resolvedResult === null ||
       resolvedResult === undefined ||
       resolvedResult === false)
@@ -462,35 +485,6 @@ export function syncComponentElement(
   );
 
   return nextDom;
-}
-
-function retainReplacementOwnerChain(
-  host: Node,
-  owner: ComponentInstance,
-  retainedInstances: Iterable<ComponentInstance>
-): void {
-  const componentHost = host as InstanceHostNode;
-  const current = componentHost.__ASKR_INSTANCES ?? [];
-  const next = [...current];
-  for (const instance of retainedInstances) {
-    if (!next.includes(instance)) {
-      next.push(instance);
-    }
-  }
-  componentHost.__ASKR_INSTANCES = next;
-  componentHost.__ASKR_INSTANCE = owner;
-}
-
-function itemInstanceHydrationComplete(host: InstanceHostElement): void {
-  const instance = host.__ASKR_INSTANCE;
-  if (instance) {
-    const scope = (
-      instance as unknown as { scope?: { hydrationPending?: boolean } }
-    ).scope;
-    if (scope) {
-      scope.hydrationPending = false;
-    }
-  }
 }
 
 export function createComponentElement(

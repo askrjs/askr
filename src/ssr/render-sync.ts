@@ -4,7 +4,10 @@ import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
 import { getVNodeContextFrame } from '../runtime';
-import { SSR_PORTAL_HOST } from '../common/portal';
+import {
+  SSR_PORTAL_ANCHOR,
+  SSR_PORTAL_HOST,
+} from '../common/portal';
 import {
   createRenderContext,
   withRenderContext,
@@ -164,7 +167,14 @@ function resolveSSRPortals(html: string, ctx: RenderContext): string {
           activeHosts.has(host.token) && slot.hasValue
             ? renderRenderableSync(slot.value, ctx)
             : '';
-        resolved = resolved.replace(host.token, () => content);
+        resolved = resolved.replace(host.token, () =>
+          host.automatic &&
+          content === '' &&
+          slot.hasValue &&
+          explicitHosts.length === 0
+            ? host.token
+            : content
+        );
         renderedHosts.add(host.token);
       }
     }
@@ -361,6 +371,9 @@ function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
     if (type === SSR_PORTAL_HOST) {
       return String(props?.token ?? '');
     }
+    if (type === SSR_PORTAL_ANCHOR) {
+      return String(props?.token ?? '');
+    }
     if (isFragmentType(type)) {
       const childrenArr = getRenderableChildren(node);
       /* istanbul ignore if - dev-only debug */
@@ -471,6 +484,10 @@ function renderNodeSyncToSink(
       } else {
         sink.write(token);
       }
+      return;
+    }
+    if (type === SSR_PORTAL_ANCHOR) {
+      sink.write(String(props?.token ?? ''));
       return;
     }
     if (isFragmentType(type)) {

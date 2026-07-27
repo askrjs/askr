@@ -32,7 +32,9 @@ describe('SSR portal rendering', () => {
       </main>
     ));
 
-    expect(html).toBe('<main><div class="overlay">Portalled</div></main>');
+    expect(html).toBe(
+      '<main><!--askr-portal-anchor:0--><div class="overlay">Portalled</div></main>'
+    );
   });
 
   it('should render default portal content at an explicit host before its writer', () => {
@@ -47,7 +49,7 @@ describe('SSR portal rendering', () => {
     ));
 
     expect(html).toBe(
-      '<main><div class="overlay">Portalled</div><span>middle</span></main>'
+      '<main><div class="overlay">Portalled</div><span>middle</span><!--askr-portal-anchor:1--></main>'
     );
   });
 
@@ -60,7 +62,9 @@ describe('SSR portal rendering', () => {
       </main>
     ));
 
-    expect(html).toBe('<main></main><div class="overlay">Portalled</div>');
+    expect(html).toBe(
+      '<main><!--askr-portal-anchor:0--></main><div class="overlay">Portalled</div>'
+    );
   });
 
   it('should insert portal HTML containing replacement tokens verbatim', () => {
@@ -73,7 +77,9 @@ describe('SSR portal rendering', () => {
       </main>
     ));
 
-    expect(html).toBe("<main><div>cash $&amp; $1 $$ $` $'</div></main>");
+    expect(html).toBe(
+      "<main><!--askr-portal-anchor:0--><div>cash $&amp; $1 $$ $` $'</div></main>"
+    );
   });
 
   it('should render a defined portal independent of host evaluation order', () => {
