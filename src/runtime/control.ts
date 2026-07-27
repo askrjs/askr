@@ -1,5 +1,6 @@
 import type { DOMRange } from '../common/dom-range';
 import type { VNode } from '../common/vnode';
+import { haveEquivalentContextFrames, type ContextFrame } from './context';
 import {
   captureChildScopeTransactionSnapshot,
   createChildScope,
@@ -19,6 +20,7 @@ export interface MatchBranch {
 }
 
 interface BranchControlStateBase {
+  _contextFrame: ContextFrame | null;
   activeKey: string | number | null;
   activeScope: ChildScope | null;
   activeVNodes: VNode[];
@@ -46,6 +48,40 @@ export interface CaseState extends BranchControlStateBase {
 }
 
 export type ControlBoundaryState = ForState<unknown> | ShowState | CaseState;
+
+function setScopeContextFrame(
+  scope: ChildScope | null,
+  frame: ContextFrame
+): void {
+  if (scope) {
+    scope.componentInstance.ownerFrame = frame;
+  }
+}
+
+export function setControlBoundaryContextFrame(
+  controlState: ControlBoundaryState,
+  frame: ContextFrame
+): void {
+  const previousFrame = controlState._contextFrame;
+  controlState._contextFrame = frame;
+
+  if (controlState.kind === 'for') {
+    controlState._contextFrameChanged ||=
+      previousFrame !== null &&
+      !haveEquivalentContextFrames(previousFrame, frame);
+    setScopeContextFrame(controlState.fallbackScope, frame);
+    for (const item of controlState.items.values()) {
+      setScopeContextFrame(item.scope, frame);
+    }
+    return;
+  }
+
+  setScopeContextFrame(controlState.activeScope, frame);
+  if (controlState.kind === 'show') {
+    setScopeContextFrame(controlState.truthyScope, frame);
+    setScopeContextFrame(controlState.fallbackScope, frame);
+  }
+}
 
 const SHOW_TRUTHY_KEY = '__show-truthy__';
 const SHOW_FALLBACK_KEY = '__show-fallback__';
@@ -239,7 +275,7 @@ function createBranchScope(
   state: BranchControlStateBase,
   key: string | number
 ): ChildScope {
-  return createChildScope(state.parentInstance, key, () => {
+  const scope = createChildScope(state.parentInstance, key, () => {
     if (state._enqueueBoundaryCommit) {
       state._enqueueBoundaryCommit();
       return;
@@ -247,6 +283,10 @@ function createBranchScope(
 
     state.parentInstance?._enqueueRun?.();
   });
+  if (state._contextFrame) {
+    scope.componentInstance.ownerFrame = state._contextFrame;
+  }
+  return scope;
 }
 
 export function createShowState(
@@ -256,6 +296,7 @@ export function createShowState(
 ): ShowState {
   return {
     kind: 'show',
+    _contextFrame: null,
     activeKey: null,
     activeScope: null,
     activeVNodes: [],
@@ -349,6 +390,7 @@ export function createCaseState(
 ): CaseState {
   return {
     kind: 'case',
+    _contextFrame: null,
     activeKey: null,
     activeScope: null,
     activeVNodes: [],

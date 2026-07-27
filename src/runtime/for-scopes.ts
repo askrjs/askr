@@ -114,6 +114,9 @@ function createForOwnedChildScope<T>(
     enqueueForBoundaryScopeCommit,
     forState._scopeOwnership
   );
+  if (forState._contextFrame) {
+    scope.componentInstance.ownerFrame = forState._contextFrame;
+  }
   return scope;
 }
 
@@ -407,6 +410,13 @@ function rerenderItemInstance<T>(
     itemInstance.indexSignal,
     itemInstance.key
   );
+}
+
+export function refreshForContextScopes<T>(forState: ForState<T>): void {
+  for (const itemInstance of forState.items.values()) {
+    captureForItemTransactionSnapshot(forState, itemInstance);
+    rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+  }
 }
 
 export function updateItemInstance<T>(

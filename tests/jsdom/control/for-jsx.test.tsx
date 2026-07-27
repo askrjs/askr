@@ -12,6 +12,40 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('For JSX primitive', () => {
+  it('should render frozen readonly array sources without copying or mutation', () => {
+    const { container, cleanup } = createTestContainer();
+    const items = Object.freeze([
+      Object.freeze({ id: 'docs', label: 'Docs' }),
+      Object.freeze({ id: 'api', label: 'API' }),
+    ]);
+    const App = () => (
+      <div>
+        <For each={items} by={(item) => item.id}>
+          {(item) => <span data-source={'direct'}>{item.label}</span>}
+        </For>
+        <For each={() => items} by={(item) => item.id}>
+          {(item) => <span data-source={'accessor'}>{item.label}</span>}
+        </For>
+      </div>
+    );
+
+    createIsland({ root: container, component: App });
+
+    expect(
+      Array.from(container.querySelectorAll('[data-source="direct"]')).map(
+        (node) => node.textContent
+      )
+    ).toEqual(['Docs', 'API']);
+    expect(
+      Array.from(container.querySelectorAll('[data-source="accessor"]')).map(
+        (node) => node.textContent
+      )
+    ).toEqual(['Docs', 'API']);
+    expect(Object.isFrozen(items)).toBe(true);
+    expect(items.map((item) => item.id)).toEqual(['docs', 'api']);
+    cleanup();
+  });
+
   it('should register one parent ownership boundary for all keyed rows', () => {
     const { container, cleanup } = createTestContainer();
     let appInstance: ReturnType<typeof getCurrentComponentInstance> = null;

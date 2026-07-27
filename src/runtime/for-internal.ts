@@ -14,7 +14,7 @@ import {
   type ChildScope,
   type ChildScopeTransactionSnapshot,
 } from './child-scope';
-import type { ForItemInstance } from './for-scopes';
+import { refreshForContextScopes, type ForItemInstance } from './for-scopes';
 import {
   notifyForSignalReaders,
   removeForParentReaders,
@@ -31,6 +31,7 @@ import { registerLifecycleTransaction } from './component-lifecycle';
 import { getRuntimeRenderer } from './access';
 import { logger } from '../common/logger';
 import type { DOMRange } from '../common/dom-range';
+import type { ContextFrame } from './context';
 import { recordBenchCounter, recordBenchTiming } from './for-bench';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
@@ -59,8 +60,10 @@ export type ForCommitStrategy =
 
 export interface ForState<T> {
   kind: 'for';
-  currentItems: T[];
-  _committedItems: T[];
+  _contextFrame: ContextFrame | null;
+  _contextFrameChanged: boolean;
+  currentItems: readonly T[];
+  _committedItems: readonly T[];
   eachSource: ForEachSource<T>;
   fallback: VNode | null;
   fallbackScope: ChildScope | null;
@@ -82,7 +85,7 @@ export interface ForState<T> {
   pendingAppendStart: number | null;
   _hasResolvedItemDom: boolean;
   _needsSourceReconcile: boolean;
-  _sourceEffect: FineGrainedEffectHandle<T[]> | null;
+  _sourceEffect: FineGrainedEffectHandle<readonly T[]> | null;
   _suspendSourceCommit: boolean;
   _enqueueBoundaryCommit?: (() => void) | null;
   _hasPendingBoundaryCommit?: boolean;
@@ -112,7 +115,7 @@ export interface ForItemTransactionSnapshot<T> {
 
 export interface ForTransaction<T> {
   collectionSnapshotMode: 'copy' | 'reset-empty' | 'preserve-clear' | 'reuse';
-  currentItems: T[];
+  currentItems: readonly T[];
   items: Map<string | number, ForItemInstance<T>>;
   orderedKeys: Array<string | number>;
   orderedItems: ForItemInstance<T>[];
@@ -207,6 +210,8 @@ export function createForState<T>(
 
   return {
     kind: 'for',
+    _contextFrame: null,
+    _contextFrameChanged: false,
     currentItems: [],
     _committedItems: [],
     eachSource,
@@ -288,7 +293,12 @@ export function evaluateForState<T>(forState: ForState<T>): VNode[] {
   beginForStateTransaction(forState);
   forState._needsSourceReconcile = false;
   try {
-    return reconcileForItems(forState, forState.currentItems);
+    if (forState._contextFrameChanged) {
+      refreshForContextScopes(forState);
+    }
+    const result = reconcileForItems(forState, forState.currentItems);
+    forState._contextFrameChanged = false;
+    return result;
   } catch (error) {
     rollbackForStateTransaction(forState);
     throw error;

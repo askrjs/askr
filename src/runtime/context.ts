@@ -45,6 +45,50 @@ export interface ContextFrame {
   values: Map<ContextKey, unknown> | null;
 }
 
+/** @internal Compare immutable context snapshots by provider identity and value. */
+export function haveEquivalentContextFrames(
+  left: ContextFrame | null,
+  right: ContextFrame | null
+): boolean {
+  let leftFrame = left;
+  let rightFrame = right;
+
+  while (true) {
+    while (leftFrame && !leftFrame.values?.size) {
+      leftFrame = leftFrame.parent;
+    }
+    while (rightFrame && !rightFrame.values?.size) {
+      rightFrame = rightFrame.parent;
+    }
+
+    if (leftFrame === rightFrame) {
+      return true;
+    }
+    if (!leftFrame || !rightFrame) {
+      return false;
+    }
+
+    const leftValues = leftFrame.values;
+    const rightValues = rightFrame.values;
+    if (leftValues?.size !== rightValues?.size) {
+      return false;
+    }
+    if (leftValues) {
+      if (!rightValues) {
+        return false;
+      }
+      for (const [key, value] of leftValues) {
+        if (!rightValues.has(key) || !Object.is(rightValues.get(key), value)) {
+          return false;
+        }
+      }
+    }
+
+    leftFrame = leftFrame.parent;
+    rightFrame = rightFrame.parent;
+  }
+}
+
 const ROOT_EXECUTION_FRAME: ContextFrame = {
   parent: null,
   values: null,
@@ -197,6 +241,134 @@ export function markVNodeTreeWithContextFrame(
     for (const key in props) {
       if (key !== 'children') {
         markContextPropValue(props[key], frame, overwrite);
+      }
+    }
+  }
+
+  return node;
+}
+
+function isContextFrameDescendantOf(
+  frame: ContextFrame,
+  ancestor: ContextFrame
+): boolean {
+  let current: ContextFrame | null = frame;
+  while (current) {
+    if (current === ancestor) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function rebaseContextFrame(
+  frame: ContextFrame,
+  previousOwnerFrame: ContextFrame | null,
+  ownerFrame: ContextFrame
+): ContextFrame {
+  if (isContextFrameDescendantOf(frame, ownerFrame)) {
+    return frame;
+  }
+  if (
+    !previousOwnerFrame ||
+    !isContextFrameDescendantOf(frame, previousOwnerFrame)
+  ) {
+    return ownerFrame;
+  }
+
+  const nestedFrames: ContextFrame[] = [];
+  let current: ContextFrame | null = frame;
+  while (current && current !== previousOwnerFrame) {
+    nestedFrames.push(current);
+    current = current.parent;
+  }
+
+  let rebasedFrame = ownerFrame;
+  for (let index = nestedFrames.length - 1; index >= 0; index -= 1) {
+    const nestedFrame = nestedFrames[index]!;
+    rebasedFrame = {
+      parent: rebasedFrame,
+      values: nestedFrame.values ? new Map(nestedFrame.values) : null,
+    };
+  }
+  return rebasedFrame;
+}
+
+/**
+ * Stamp a child-scope result with its current owner while retaining frames
+ * introduced by providers nested beneath that owner. Frames from an unrelated
+ * or previous owner are rebased so reused vnodes cannot keep stale context.
+ */
+export function rebaseVNodeTreeWithContextFrame(
+  node: unknown,
+  ownerFrame: ContextFrame | null,
+  previousOwnerFrame: ContextFrame | null = null
+): unknown {
+  if (!ownerFrame) return node;
+
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      rebaseVNodeTreeWithContextFrame(child, ownerFrame, previousOwnerFrame);
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    return node;
+  }
+
+  const existingFrame = getVNodeContextFrame(node);
+  const inheritedFrame = existingFrame
+    ? rebaseContextFrame(existingFrame, previousOwnerFrame, ownerFrame)
+    : ownerFrame;
+  markVNodeWithContextFrame(node, inheritedFrame, true);
+  const inheritedPreviousFrame = existingFrame ?? previousOwnerFrame;
+
+  const objectNode = node as Record<string | symbol, unknown>;
+  const props =
+    typeof objectNode.props === 'object' && objectNode.props !== null
+      ? (objectNode.props as Record<string, unknown>)
+      : null;
+  const children = (props?.children ?? objectNode.children) as unknown;
+
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      rebaseVNodeTreeWithContextFrame(
+        child,
+        inheritedFrame,
+        inheritedPreviousFrame
+      );
+    }
+  } else if (children) {
+    rebaseVNodeTreeWithContextFrame(
+      children,
+      inheritedFrame,
+      inheritedPreviousFrame
+    );
+  }
+
+  if (props) {
+    for (const key in props) {
+      if (key !== 'children') {
+        const value = props[key];
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            if (isVNodeLike(item)) {
+              rebaseVNodeTreeWithContextFrame(
+                item,
+                inheritedFrame,
+                inheritedPreviousFrame
+              );
+            }
+          }
+        } else if (isVNodeLike(value)) {
+          rebaseVNodeTreeWithContextFrame(
+            value,
+            inheritedFrame,
+            inheritedPreviousFrame
+          );
+        }
       }
     }
   }

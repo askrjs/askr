@@ -1,5 +1,9 @@
 import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import {
+  getVNodeContextFrame,
+  setControlBoundaryContextFrame,
+} from '../runtime';
+import {
   clearCaseDomUpdateState,
   clearForDomUpdateState,
   clearShowDomUpdateState,
@@ -35,7 +39,12 @@ export function clearControlBoundaryDomUpdateState(
 export function getControlBoundaryState(
   node: DOMElement
 ): ControlBoundaryState | null {
-  return node._controlState ?? null;
+  const controlState = node._controlState ?? null;
+  const frame = getVNodeContextFrame(node);
+  if (controlState && frame) {
+    setControlBoundaryContextFrame(controlState, frame);
+  }
+  return controlState;
 }
 
 export function getDirectControlBoundaryVNode(

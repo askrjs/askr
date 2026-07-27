@@ -48,7 +48,7 @@ export type ForProps<T, K extends string | number = string | number> =
   | KeyedForProps<T, K>
   | IndexedForProps<T>;
 
-function resolveEach<T>(each: ForEachSource<T>): T[] {
+function resolveEach<T>(each: ForEachSource<T>): readonly T[] {
   const resolved = typeof each === 'function' ? each() : each;
   if (!Array.isArray(resolved)) {
     throw new Error('For each must resolve to an array.');

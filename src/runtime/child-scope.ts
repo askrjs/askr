@@ -14,6 +14,7 @@ import { finalizeInlineReadSubscriptions } from './component-lifecycle';
 import { clearRenderTracking } from './component-scope';
 import { isDevelopmentEnvironment } from '../common/env';
 import type { DOMRange } from '../common/dom-range';
+import { rebaseVNodeTreeWithContextFrame, type ContextFrame } from './context';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -53,6 +54,7 @@ export interface ChildScopeTransactionSnapshot {
   needsDomUpdate: boolean;
   hydrationPending: boolean;
   renderFn: (() => VNode) | undefined;
+  renderedOwnerFrame: ContextFrame | null;
 }
 
 interface MutableChildScope extends ChildScope {
@@ -61,6 +63,7 @@ interface MutableChildScope extends ChildScope {
   _onDirty?: (() => void) | undefined;
   _parent?: ComponentInstance | null;
   _disposed: boolean;
+  _renderedOwnerFrame: ContextFrame | null;
 }
 
 const childScopesByInstance = new WeakMap<
@@ -109,6 +112,7 @@ class ChildScopeImpl implements MutableChildScope {
   _parent: ComponentInstance | null;
   _ownership?: ChildScopeOwnership;
   _disposed = false;
+  _renderedOwnerFrame: ContextFrame | null = null;
 
   constructor(
     parent: ComponentInstance | null,
@@ -188,11 +192,15 @@ function renderScope(scope: MutableChildScope): VNode | undefined {
   const previousVNode = scope.vnode;
 
   try {
-    const nextVNode = renderScopedComponent(
-      componentInstance,
-      scope._startStateIndex,
-      scope._renderFn
-    );
+    const nextVNode = rebaseVNodeTreeWithContextFrame(
+      renderScopedComponent(
+        componentInstance,
+        scope._startStateIndex,
+        scope._renderFn
+      ),
+      componentInstance.ownerFrame,
+      scope._renderedOwnerFrame
+    ) as VNode;
     if (
       previousVNode &&
       nextVNode &&
@@ -215,6 +223,7 @@ function renderScope(scope: MutableChildScope): VNode | undefined {
     }
     scope.previousVnode = previousVNode;
     scope.vnode = nextVNode;
+    scope._renderedOwnerFrame = componentInstance.ownerFrame;
     scope.markDirty();
     if ((componentInstance._pendingReadSources?.size ?? 0) > 0) {
       ensureChildScopeFlushTask(scope);
@@ -252,6 +261,7 @@ export function captureChildScopeTransactionSnapshot(
     needsDomUpdate: scope.needsDomUpdate,
     hydrationPending: scope.hydrationPending,
     renderFn: mutableScope._renderFn,
+    renderedOwnerFrame: mutableScope._renderedOwnerFrame,
   };
 }
 
@@ -271,6 +281,7 @@ export function restoreChildScopeTransactionSnapshot(
   scope.needsDomUpdate = snapshot.needsDomUpdate;
   scope.hydrationPending = snapshot.hydrationPending;
   mutableScope._renderFn = snapshot.renderFn;
+  mutableScope._renderedOwnerFrame = snapshot.renderedOwnerFrame;
 }
 
 export function disposeChildScope(scope: ChildScope): void {

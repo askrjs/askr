@@ -7,7 +7,7 @@ import {
 } from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
-import { For } from '../../../src/control';
+import { Case, For, Match, Show } from '../../../src/control';
 import { defineScope, readScope } from '../../../src/runtime/context';
 import { fallback, route } from '../../../src/router/route';
 import { Fragment, jsx, jsxs } from '../../../src/jsx/jsx-runtime';
@@ -227,6 +227,32 @@ describe('SSR child normalization', () => {
         </Provider>
       ))
     ).toBe('<div><section><span>dark</span></section></div>');
+  });
+
+  it('should preserve provider context through SSR control boundaries', () => {
+    const ThemeScope = defineScope('light');
+    const Consumer = (props: { label: string }) => (
+      <span>{`${props.label}:${readScope(ThemeScope)}`}</span>
+    );
+    const App = () => (
+      <ThemeScope value={'dark'}>
+        <For each={['for']} by={(item) => item}>
+          {(item) => <Consumer label={item} />}
+        </For>
+        <Show when={true}>
+          <Consumer label={'show'} />
+        </Show>
+        <Case>
+          <Match when={true}>
+            <Consumer label={'case'} />
+          </Match>
+        </Case>
+      </ThemeScope>
+    );
+
+    expect(renderToStringSync(App)).toBe(
+      '<span data-key="for" data-askr-key-kind="string">for:dark</span><span>show:dark</span><span>case:dark</span>'
+    );
   });
 
   it('should preserve Context sibling children through route-based SSR', () => {

@@ -22,6 +22,7 @@ import {
 import {
   createErrorBoundaryReset,
   getErrorBoundaryState,
+  getControlBoundaryState,
   getRenderableChildren,
   normalizeRenderableChildren,
   resolveErrorBoundaryFallbackNode,
@@ -71,7 +72,7 @@ function renderControlChildrenSync(
   node: VNode | JSXElement,
   ctx: RenderContext
 ): string {
-  const controlState = (node as DOMElement)._controlState;
+  const controlState = getControlBoundaryState(node);
 
   return withControlBoundaryChildren(node, (children) => {
     const values = children ?? [];

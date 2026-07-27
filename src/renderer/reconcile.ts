@@ -15,6 +15,7 @@ import type { VNode } from './types';
 import { keyedElements } from './keyed';
 import { buildDOMKeyMap, extractKeyedVnodes } from './keyed-children';
 import { commitReconciliation } from './reconcile-commit';
+import { findRangeAtNode, getRangeNodes } from './dom-range';
 import { tryFastPaths } from './reconcile-fastpaths';
 import {
   collectUnkeyedElements,
@@ -76,7 +77,14 @@ function performFullReconciliation(
       usedOldEls,
       newKeyMap
     );
-    if (node) finalNodes.push(node);
+    if (node) {
+      const range = findRangeAtNode(node);
+      if (range && !range.single && range.start === node) {
+        finalNodes.push(range.start, ...getRangeNodes(range), range.end);
+      } else {
+        finalNodes.push(node);
+      }
+    }
   }
 
   if (typeof document === 'undefined') return newKeyMap;
