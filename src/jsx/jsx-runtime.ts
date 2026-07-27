@@ -33,7 +33,9 @@ export namespace JSX {
     readonly __askrJsxElementBrand?: never;
   }
 
-  export interface IntrinsicElements extends KnownIntrinsicElementProps {
+  export interface KnownIntrinsicElements extends KnownIntrinsicElementProps {}
+
+  export interface IntrinsicElements extends KnownIntrinsicElements {
     [elem: string]:
       | IntrinsicFallbackProps
       | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];
