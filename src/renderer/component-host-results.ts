@@ -86,8 +86,7 @@ export function materializeEmptyHydrationPlaceholder(
   preserveHydrationCursor: boolean
 ): Comment | null {
   if (
-    (!preserveHydrationCursor &&
-      !isSSRPortalHydrationAnchor(existingHost)) ||
+    (!preserveHydrationCursor && !isSSRPortalHydrationAnchor(existingHost)) ||
     (result !== null && result !== undefined && result !== false)
   ) {
     return null;
@@ -107,9 +106,7 @@ export function materializeEmptyHydrationPlaceholder(
   return placeholder;
 }
 
-export function itemInstanceHydrationComplete(
-  host: InstanceHostElement
-): void {
+export function itemInstanceHydrationComplete(host: InstanceHostElement): void {
   const instance = host.__ASKR_INSTANCE;
   const scope = (
     instance as unknown as

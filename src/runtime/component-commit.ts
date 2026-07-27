@@ -134,8 +134,7 @@ function commitPlaceholderReplacement(
       }
       parent.replaceChild(replacement, placeholder);
 
-      instance.target =
-        replacement instanceof Element ? replacement : null;
+      instance.target = replacement instanceof Element ? replacement : null;
       instance._placeholder =
         replacement instanceof Comment ? replacement : undefined;
       const instanceHost = replacement as Node & {

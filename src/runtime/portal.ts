@@ -101,9 +101,7 @@ function createSSRPortalAnchor(): JSXElement | null {
   if (context?.mode !== 'ssr') {
     return null;
   }
-  const token = createSSRPortalAnchorToken(
-    context.ssrPortals.nextHostId++
-  );
+  const token = createSSRPortalAnchorToken(context.ssrPortals.nextHostId++);
   return {
     $$typeof: ELEMENT_TYPE,
     type: SSR_PORTAL_ANCHOR,

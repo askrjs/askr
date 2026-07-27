@@ -4,10 +4,7 @@ import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
 import { getVNodeContextFrame } from '../runtime';
-import {
-  SSR_PORTAL_ANCHOR,
-  SSR_PORTAL_HOST,
-} from '../common/portal';
+import { SSR_PORTAL_ANCHOR, SSR_PORTAL_HOST } from '../common/portal';
 import {
   createRenderContext,
   withRenderContext,
