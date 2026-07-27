@@ -122,4 +122,155 @@ describe('empty Show hydration cursor', () => {
       cleanup();
     }
   });
+
+  it('should adopt populated and component siblings after an empty Show boundary', async () => {
+    let setFirst!: (value: boolean) => void;
+    let setSecond!: (value: boolean) => void;
+
+    function Tail() {
+      return <nav data-tail={'true'}>tail</nav>;
+    }
+
+    function App() {
+      const first = state(false);
+      const second = state(true);
+      setFirst = first.set;
+      setSecond = second.set;
+      return (
+        <main>
+          <Show when={first()}>
+            <section data-first={'true'}>first</section>
+          </Show>
+          <Show when={second()}>
+            <section data-visible={'true'}>visible</section>
+          </Show>
+          <Tail />
+        </main>
+      );
+    }
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      container.innerHTML = renderToStringSync(App);
+      const serverVisible = container.querySelector('[data-visible]');
+      const serverTail = container.querySelector('[data-tail]');
+
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+      });
+
+      expect(container.querySelectorAll('[data-tail]')).toHaveLength(1);
+      expect(container.querySelector('[data-tail]')).toBe(serverTail);
+      expect(container.querySelector('[data-visible]')).toBe(serverVisible);
+
+      setFirst(true);
+      flushScheduler();
+      expect(container.querySelector('[data-first]')).not.toBeNull();
+      expect(container.querySelector('[data-visible]')).toBe(serverVisible);
+      expect(container.querySelector('[data-tail]')).toBe(serverTail);
+
+      setSecond(false);
+      flushScheduler();
+      expect(container.querySelector('[data-visible]')).toBeNull();
+      expect(container.querySelectorAll('[data-tail]')).toHaveLength(1);
+      expect(container.querySelector('[data-tail]')).toBe(serverTail);
+
+      setSecond(true);
+      flushScheduler();
+      expect(container.querySelector('[data-visible]')).not.toBeNull();
+      expect(container.querySelectorAll('[data-tail]')).toHaveLength(1);
+      expect(container.querySelector('[data-tail]')).toBe(serverTail);
+
+      setFirst(false);
+      flushScheduler();
+      expect(container.querySelector('[data-first]')).toBeNull();
+      expect(container.querySelector('[data-visible]')).not.toBeNull();
+      expect(container.querySelectorAll('[data-tail]')).toHaveLength(1);
+      expect(container.querySelector('[data-tail]')).toBe(serverTail);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should retain adopted sibling ownership when opening the empty Show fails', async () => {
+    let setFirst!: (value: boolean) => void;
+    let incrementVisible!: () => void;
+    let shouldFail = true;
+
+    function FailingFirst() {
+      if (shouldFail) {
+        throw new Error('first Show failed');
+      }
+      return <section data-first={'true'}>first</section>;
+    }
+
+    function Visible() {
+      const count = state(0);
+      incrementVisible = () => count.set((value) => value + 1);
+      return (
+        <button data-visible={'true'} onClick={incrementVisible}>
+          {String(count())}
+        </button>
+      );
+    }
+
+    function Tail() {
+      return <nav data-tail={'true'}>tail</nav>;
+    }
+
+    function App() {
+      const first = state(false);
+      setFirst = first.set;
+      return (
+        <main>
+          <Show when={first()}>
+            <FailingFirst />
+          </Show>
+          <Show when={true}>
+            <Visible />
+          </Show>
+          <Tail />
+        </main>
+      );
+    }
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      container.innerHTML = renderToStringSync(App);
+      const serverVisible = container.querySelector('[data-visible]');
+      const serverTail = container.querySelector('[data-tail]');
+
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+      });
+
+      expect(container.querySelector('[data-visible]')).toBe(serverVisible);
+      expect(container.querySelector('[data-tail]')).toBe(serverTail);
+
+      setFirst(true);
+      expect(() => flushScheduler()).toThrow('first Show failed');
+
+      expect(container.querySelector('[data-first]')).toBeNull();
+      expect(container.querySelector('[data-visible]')).toBe(serverVisible);
+      expect(container.querySelector('[data-tail]')).toBe(serverTail);
+
+      incrementVisible();
+      flushScheduler();
+      expect(serverVisible?.textContent).toBe('1');
+
+      setFirst(false);
+      flushScheduler();
+      shouldFail = false;
+      setFirst(true);
+      flushScheduler();
+
+      expect(container.querySelector('[data-first]')).not.toBeNull();
+      expect(container.querySelector('[data-visible]')).toBe(serverVisible);
+      expect(container.querySelector('[data-tail]')).toBe(serverTail);
+    } finally {
+      cleanup();
+    }
+  });
 });
