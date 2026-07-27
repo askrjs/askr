@@ -89,3 +89,42 @@ expect(active()).toEqual(['c']);
 
 `waitForNextEvaluation()` is provided by the repository test setup; it is not
 part of the published `@askrjs/askr` package.
+
+## Keep control boundaries in the render sequence
+
+`<For>`, `<Show>`, and the other eager control primitives retain
+render-scoped state. Do not make the primitive call itself appear or disappear
+behind a plain `if`, ternary, `&&` branch, or changing loop:
+
+```tsx
+function Rows() {
+  // Avoid: the For call is skipped while open() is false.
+  return (
+    <div>
+      {open() ? (
+        <For each={items} by={(item) => item.id}>
+          {(item) => <Row item={item} />}
+        </For>
+      ) : null}
+    </div>
+  );
+}
+```
+
+Keep the outer control boundary unconditional and put the conditional branch
+inside `<Show>`, or use a `<Case>` boundary with `<Match>` children:
+
+```tsx
+<Show when={open}>
+  {() => (
+    <For each={items} by={(item) => item.id}>
+      {(item) => <Row item={item} />}
+    </For>
+  )}
+</Show>
+```
+
+This rule is about primitives evaluated in the current component's render
+scope. A normal JSX child such as `<Dialog />` is reconciled as its own
+component instance; its internal hooks do not become conditional hooks in the
+parent merely because the parent selected that child with ordinary JavaScript.
