@@ -258,11 +258,21 @@ export function updateMixedControlChildren(
         } else {
           cursor = last.end.nextSibling;
         }
-      } else if (cursor?.parentNode !== parent) {
-        cursor =
-          cursorAfterBoundary?.parentNode === parent
-            ? cursorAfterBoundary
+      } else {
+        const inactiveBoundaryCursor =
+          cursor?.parentNode === parent
+            ? cursor
+            : cursorAfterBoundary?.parentNode === parent
+              ? cursorAfterBoundary
+              : null;
+        const inactiveBoundaryEnd =
+          inactiveBoundaryCursor && isRangeStart(inactiveBoundaryCursor)
+            ? findRangeEnd(inactiveBoundaryCursor)
             : null;
+        cursor =
+          inactiveBoundaryEnd?.previousSibling === inactiveBoundaryCursor
+            ? inactiveBoundaryEnd.nextSibling
+            : inactiveBoundaryCursor;
       }
       continue;
     }
