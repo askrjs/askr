@@ -1,5 +1,6 @@
 import { isFragmentType, STATIC_CHILDREN } from '../common/jsx';
 import { __CONTROL_BOUNDARY__ } from '../common/vnode';
+import { hasTransparentComponentResult } from '../common/control';
 import { logger } from '../common/logger';
 import { getCurrentInstance } from '../runtime';
 import { getRuntimeEnv } from './env';
@@ -12,6 +13,20 @@ export type StaticCreateChildShape = {
 
 export function isFragmentVNode(node: unknown): node is DOMElement {
   return _isDOMElement(node) && isFragmentType((node as DOMElement).type);
+}
+
+export function isTransparentComponentResult(result: unknown): boolean {
+  return (
+    Array.isArray(result) ||
+    (_isDOMElement(result) &&
+      ((result as DOMElement).type === __CONTROL_BOUNDARY__ ||
+        hasTransparentComponentResult((result as DOMElement).type) ||
+        isFragmentVNode(result)))
+  );
+}
+
+export function isTransparentComponentRangeResult(result: unknown): boolean {
+  return Array.isArray(result) || isFragmentVNode(result);
 }
 
 export function normalizeComponentChildren(result: unknown): unknown[] {

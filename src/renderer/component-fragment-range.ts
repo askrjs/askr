@@ -2,7 +2,10 @@ import {
   registerLifecycleTransaction,
   type ComponentInstance,
 } from '../runtime';
-import { isFragmentVNode, normalizeComponentChildren } from './child-shape';
+import {
+  isTransparentComponentRangeResult,
+  normalizeComponentChildren,
+} from './child-shape';
 import { getOwnedRange, rangeContains, type DOMRange } from './dom-range';
 import { getRendererDOMHost, type InstanceHostNode } from './dom-host';
 import type { VNode } from './types';
@@ -86,13 +89,32 @@ function createAttributeFreeStagingHost(parent: Element): Element {
   );
 }
 
+function isAutomaticPortalHost(node: Node): boolean {
+  const host = node as InstanceHostNode;
+  const instances = new Set(host.__ASKR_INSTANCES ?? []);
+  if (host.__ASKR_INSTANCE) {
+    instances.add(host.__ASKR_INSTANCE);
+  }
+  return (
+    instances.size > 0 &&
+    Array.from(instances).some(
+      (candidate) =>
+        (
+          candidate.props as {
+            __askrAutoDefaultPortal?: boolean;
+          }
+        ).__askrAutoDefaultPortal === true
+    )
+  );
+}
+
 export function syncComponentFragmentRange(
   host: InstanceHostNode,
   instance: ComponentInstance,
   result: unknown,
   forceUpdate: boolean
 ): boolean {
-  if (!isFragmentVNode(result)) {
+  if (!isTransparentComponentRangeResult(result)) {
     return false;
   }
 
@@ -108,6 +130,8 @@ export function syncComponentFragmentRange(
   }
 
   const restoreFocus = captureRangeFocus(range, parent);
+  const normalizedChildren = normalizeComponentChildren(result) as VNode[];
+  const preserveForeignHosts = Array.isArray(result);
   const staging = createAttributeFreeStagingHost(parent);
   try {
     parent.insertBefore(staging, range.end);
@@ -120,8 +144,13 @@ export function syncComponentFragmentRange(
     restoreFocus();
     return false;
   }
-  while (range.start.nextSibling && range.start.nextSibling !== staging) {
-    staging.appendChild(range.start.nextSibling);
+  let current = range.start.nextSibling;
+  while (current && current !== staging) {
+    const next = current.nextSibling;
+    if (!preserveForeignHosts || !isAutomaticPortalHost(current)) {
+      staging.appendChild(current);
+    }
+    current = next;
   }
 
   const rollbackStaging = registerLifecycleTransaction(
@@ -133,7 +162,7 @@ export function syncComponentFragmentRange(
   try {
     getRendererDOMHost().updateElementChildren(
       staging,
-      normalizeComponentChildren(result) as VNode[],
+      normalizedChildren,
       forceUpdate
     );
   } catch (error) {

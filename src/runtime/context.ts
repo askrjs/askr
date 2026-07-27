@@ -26,9 +26,16 @@ import type { Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
 import { getCurrentComponentInstance } from './component';
 import type { ComponentInstance } from './component';
-import { markEagerControlPrimitive } from '../common/control';
+import {
+  markEagerControlPrimitive,
+  markTransparentComponentResult,
+} from '../common/control';
 
 export type ContextKey = symbol;
+
+const TransparentContextScopeComponent = markTransparentComponentResult(
+  ContextScopeComponent
+);
 
 type Renderable = RenderableChild;
 type ContextScopeChildren = Renderable | (() => Renderable);
@@ -452,7 +459,7 @@ export function defineScope<T>(defaultValue: T): Scope<T> {
     (props: { value: T; children?: ContextScopeChildren }): JSXElement =>
       ({
         $$typeof: ELEMENT_TYPE,
-        type: ContextScopeComponent,
+        type: TransparentContextScopeComponent,
         props: { key, value: props.value, children: props.children },
         key: null,
       }) as JSXElement
