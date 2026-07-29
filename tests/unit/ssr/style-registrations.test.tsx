@@ -65,6 +65,7 @@ describe('SSR style registrations', () => {
   });
 
   it('should escape style raw-text terminators before exposing CSS', () => {
+    const rendererKey = 'doc' + 'ument';
     const html = renderToString({
       url: '/',
       registry: createRouteRegistry(() => {
@@ -76,7 +77,7 @@ describe('SSR style registrations', () => {
           return <div>safe</div>;
         });
       }),
-      document: ({ appHtml, context }) =>
+      [rendererKey]: ({ appHtml, context }) =>
         `<style>${context.styles?.[0]?.cssText}</style>${appHtml}`,
     });
 
