@@ -16,6 +16,7 @@ export type {
   DocumentRenderArgs,
   DocumentRenderContext,
   DocumentRenderer,
+  SSRStyleRegistration,
 } from '../common/ssr';
 export type { SSRRoute } from './route-render';
 export type { VNode, SSRComponent } from './types';

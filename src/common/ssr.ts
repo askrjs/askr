@@ -4,6 +4,12 @@
 
 export type SSRData = Record<string, unknown>;
 
+/** Styles produced while rendering a request, kept with that request's SSR context. */
+export interface SSRStyleRegistration {
+  id: string;
+  cssText: string;
+}
+
 export interface DocumentRenderRoute {
   path: string;
   namespace?: string;
@@ -20,6 +26,7 @@ export interface DocumentRenderContext {
   seed: number;
   route: DocumentRenderRoute;
   cspNonce?: string;
+  styles?: readonly SSRStyleRegistration[];
 }
 
 export interface DocumentRenderArgs {

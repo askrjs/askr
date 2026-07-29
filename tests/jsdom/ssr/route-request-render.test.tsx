@@ -37,6 +37,7 @@ describe('single-pass route request rendering', () => {
     expect(result).toEqual({
       kind: 'render',
       html: '<div>42</div>',
+      styles: [],
       params: { id: '42' },
     });
     expect(requirements).toBe(1);
