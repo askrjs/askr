@@ -42,6 +42,7 @@
     "jsxs",
     "prefetchQuery",
     "readScope",
+    "registerSSRStyle",
     "selector",
     "serveQuery",
     "state"
@@ -362,6 +363,7 @@
     "SSRComponent",
     "SSRDataMissingError",
     "SSRRoute",
+    "SSRStyleRegistration",
     "VNode",
     "createRenderContext",
     "getRenderContext",

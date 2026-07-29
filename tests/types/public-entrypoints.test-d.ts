@@ -4,6 +4,7 @@ import type {
   AskrRuntimeOptions,
   RuntimeKeyedReorderDecision,
   RuntimeRendererHost,
+  registerSSRStyle,
 } from '@askrjs/askr';
 import {
   createIsland,
@@ -55,6 +56,7 @@ expectType<typeof rootSurface.jsxs>(rootSurface.jsxs);
 expectType<typeof rootSurface.Fragment>(rootSurface.Fragment);
 expectType<typeof rootSurface.createRuntime>(rootSurface.createRuntime);
 expectType<typeof rootSurface.getDefaultRuntime>(rootSurface.getDefaultRuntime);
+expectType<typeof registerSSRStyle>(rootSurface.registerSSRStyle);
 expectType<typeof rootSurface.AskrRuntime>(rootSurface.AskrRuntime);
 expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
 expectType<rootSurface.AskrRuntime>(rootSurface.getDefaultRuntime());
