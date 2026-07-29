@@ -1,9 +1,9 @@
 import {
+  renderDocument,
   type DocumentRenderArgs,
   type DocumentRenderContext,
   type DocumentRenderer,
   type SSRStyleRegistration,
-  renderDocument,
 } from '../common/ssr';
 import type {
   RouteAuthOptions,

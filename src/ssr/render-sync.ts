@@ -659,9 +659,10 @@ export function renderToStringSync(
       const sink = new StringSink();
       renderNodeSyncToSink(node, sink, ctx);
       sink.end();
+      const html = resolveSSRPortals(sink.toString(), ctx);
       options?.onContext?.(ctx);
       return (
-        resolveSSRPortals(sink.toString(), ctx) +
+        html +
         serializeHydrationRenderData(
           ctx.hydrationData ?? undefined,
           ctx.dataRuntime as import('../data/types').DataRuntime | undefined

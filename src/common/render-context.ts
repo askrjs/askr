@@ -76,13 +76,15 @@ export function registerSSRStyle(id: string, cssText: string): void {
   const context = getActiveRenderContext();
   if (!context?.ssrStyles) return;
 
+  const safeCssText = cssText.replace(/<\/style/gi, '<\\/style');
+
   const existing = context.ssrStyles.get(id);
-  if (existing && existing.cssText !== cssText) {
+  if (existing && existing.cssText !== safeCssText) {
     throw new RangeError(
       `SSR style registration collision for ${JSON.stringify(id)}.`
     );
   }
-  context.ssrStyles.set(id, { id, cssText });
+  context.ssrStyles.set(id, { id, cssText: safeCssText });
 }
 
 export function getCurrentRenderData(): PageRenderEnvelope | null {

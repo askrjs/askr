@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { defer, Resolve } from '../../../src/router/deferred';
 import { createRouteRegistry, route } from '../../../src/router/route';
+import { definePortal } from '../../../src/foundations/structures/portal';
 import { registerSSRStyle } from '../../../src';
-import { renderRouteRequestToString, renderToString } from '../../../src/ssr';
+import {
+  renderRouteRequestToString,
+  renderToString,
+  renderToStringSync,
+} from '../../../src/ssr';
 
 function StyledBoundaryResult(): JSX.Element {
   registerSSRStyle('ak-style-deferred', '.ak-style-deferred{color:red}');
@@ -26,6 +31,57 @@ describe('SSR style registrations', () => {
     });
 
     expect(html).toContain('.ak-style-initial{color:blue}');
+  });
+
+  it('should capture styles registered while resolving portals', () => {
+    const OverlayPortal = definePortal();
+    const StyledPortal = () => {
+      registerSSRStyle('ak-style-portal', '.ak-style-portal{color:red}');
+      return <div class="ak-style-portal">portal</div>;
+    };
+    const PortalWriter = () =>
+      OverlayPortal.render({
+        children: <StyledPortal />,
+      });
+    const styles: string[] = [];
+    const html = renderToStringSync(
+      () => (
+        <main>
+          <PortalWriter />
+          <OverlayPortal />
+        </main>
+      ),
+      {},
+      {
+        onContext: (context) =>
+          styles.push(
+            ...context.ssrStyles.values().map((style) => style.cssText)
+          ),
+      }
+    );
+
+    expect(html).toContain('ak-style-portal');
+    expect(styles).toEqual(['.ak-style-portal{color:red}']);
+  });
+
+  it('should escape style raw-text terminators before exposing CSS', () => {
+    const html = renderToString({
+      url: '/',
+      registry: createRouteRegistry(() => {
+        route('/', () => {
+          registerSSRStyle(
+            'ak-style-safe',
+            '</style><script>alert(1)</script>'
+          );
+          return <div>safe</div>;
+        });
+      }),
+      document: ({ appHtml, context }) =>
+        `<style>${context.styles?.[0]?.cssText}</style>${appHtml}`,
+    });
+
+    expect(html).toContain('<\\/style><script>alert(1)</script>');
+    expect(html).not.toContain('</style><script>alert(1)</script>');
   });
 
   it('should carry styles from deferred boundary renders into the patch', async () => {
