@@ -1,17 +1,32 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { defer, Resolve } from '../../../src/router/deferred';
 import { createRouteRegistry, route } from '../../../src/router/route';
-import { getRenderContext, renderRouteRequestToString } from '../../../src/ssr';
+import { registerSSRStyle } from '../../../src';
+import { renderRouteRequestToString, renderToString } from '../../../src/ssr';
 
 function StyledBoundaryResult(): JSX.Element {
-  getRenderContext()?.ssrStyles.set('ak-style-deferred', {
-    id: 'ak-style-deferred',
-    cssText: '.ak-style-deferred{color:red}',
-  });
+  registerSSRStyle('ak-style-deferred', '.ak-style-deferred{color:red}');
   return <div class="ak-style-deferred">done</div>;
 }
 
 describe('SSR style registrations', () => {
+  it('should expose request-local styles to document renderers', () => {
+    const registry = createRouteRegistry(() => {
+      route('/', () => {
+        registerSSRStyle('ak-style-initial', '.ak-style-initial{color:blue}');
+        return <div class="ak-style-initial">initial</div>;
+      });
+    });
+    const html = renderToString({
+      url: '/',
+      registry,
+      document: ({ appHtml, context }) =>
+        `<html><head>${context.styles?.map((style) => `<style>${style.cssText}</style>`).join('')}</head><body>${appHtml}</body></html>`,
+    });
+
+    expect(html).toContain('.ak-style-initial{color:blue}');
+  });
+
   it('should carry styles from deferred boundary renders into the patch', async () => {
     const registry = createRouteRegistry(() => {
       route('/', () => {

@@ -71,6 +71,18 @@ export function getActiveRenderContext(): ActiveRenderContext | null {
   return provider.getRenderContext();
 }
 
+/** Register request-local CSS produced during SSR without importing the SSR renderer in clients. */
+export function registerSSRStyle(id: string, cssText: string): void {
+  const context = getActiveRenderContext();
+  if (!context?.ssrStyles) return;
+
+  const existing = context.ssrStyles.get(id);
+  if (existing && existing.cssText !== cssText) {
+    throw new RangeError(`SSR style registration collision for ${JSON.stringify(id)}.`);
+  }
+  context.ssrStyles.set(id, { id, cssText });
+}
+
 export function getCurrentRenderData(): PageRenderEnvelope | null {
   const ctx = getActiveRenderContext();
   return ctx?.renderData ?? hydrationRenderData;
