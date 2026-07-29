@@ -16,11 +16,15 @@ import {
   type RenderRouteRequestOptions,
   type RenderRouteRequestResult,
   type SSRComponent,
+  type SSRStyleRegistration,
   type VNode,
 } from '@askrjs/askr/ssr';
 import type { RouteRegistry, RouteRequestResult } from '@askrjs/askr/router';
 
 declare const registry: RouteRegistry;
+
+declare const styleRegistration: SSRStyleRegistration;
+expectAssignable<SSRStyleRegistration>(styleRegistration);
 
 const renderContext = createRenderContext(42, { url: '/users/42' });
 expectType<ReturnType<typeof createRenderContext>>(renderContext);

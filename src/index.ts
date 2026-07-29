@@ -34,6 +34,7 @@ export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
 export { defineScope, readScope } from './runtime';
 export type { Scope } from './runtime';
 export { CspNonceScope, cspNonce } from './csp-nonce';
+export { registerSSRStyle } from './common/render-context';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
 export { jsx, jsxs, Fragment } from './jsx-runtime';

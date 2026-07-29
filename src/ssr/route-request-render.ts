@@ -24,6 +24,7 @@ import type { DeferredBoundaryRegistration } from '../common/render-context';
 import { serializeHydrationRenderData } from './hydration-data';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import { validateCspNonce } from '../csp-nonce';
+import type { SSRStyleRegistration } from '../common/ssr';
 
 export interface RenderRouteRequestOptions {
   url: string;
@@ -48,6 +49,7 @@ export type RenderRouteRequestResult =
       kind: 'render';
       html: string;
       stream?: ReadableStream<Uint8Array>;
+      styles: readonly SSRStyleRegistration[];
       params: Record<string, string>;
       record?: import('../common/router').RouteRecord;
     }
@@ -96,28 +98,52 @@ function renderBoundary(
   seed: number | undefined,
   data: PageRenderEnvelope | null,
   cspNonce: string | undefined
-): string {
-  return stripHydrationPayload(
-    renderToStringSync(
-      () =>
-        (state === 'fulfilled'
-          ? boundary.fulfilled(payload)
-          : boundary.rejected(payload)) as unknown as import('./types').VNode,
-      {},
-      { seed, envelope: data ?? undefined, cspNonce }
-    )
+): { html: string; styles: SSRStyleRegistration[] } {
+  const styles: SSRStyleRegistration[] = [];
+  const html = renderToStringSync(
+    () =>
+      (state === 'fulfilled'
+        ? boundary.fulfilled(payload)
+        : boundary.rejected(payload)) as unknown as import('./types').VNode,
+    {},
+    {
+      seed,
+      envelope: data ?? undefined,
+      cspNonce,
+      onContext: (context) => styles.push(...context.ssrStyles.values()),
+    }
   );
+  return { html: stripHydrationPayload(html), styles };
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeStyleRawText(value: string): string {
+  return value.replace(/<\/style/gi, '<\\/style');
 }
 
 function patchChunk(
   id: string,
   html: string,
+  styles: readonly SSRStyleRegistration[],
   cspNonce: string | undefined
 ): string {
   const selector = `askr-resolve[data-askr-deferred=${JSON.stringify(id)}]`;
+  const styleCarrier =
+    styles.length === 0
+      ? ''
+      : `<style data-askr-style-registry="true" data-askr-deferred-style="true"${
+          cspNonce ? ` nonce="${escapeHtmlAttribute(cspNonce)}"` : ''
+        }>${escapeStyleRawText(styles.map((style) => style.cssText).join('\n'))}\n</style>`;
   return (
-    `<template data-askr-deferred-patch="${id}">${html}</template>` +
-    `<script${cspNonce ? ` nonce="${cspNonce}"` : ''} data-askr-deferred-apply="${id}">(function(s){var t=s.previousElementSibling;var b=document.querySelector(${JSON.stringify(selector)});if(b&&t){b.replaceWith(t.content.cloneNode(true));}if(t)t.remove();s.remove();})(document.currentScript)</script>`
+    `${styleCarrier}<template data-askr-deferred-patch="${escapeHtmlAttribute(id)}">${html}</template>` +
+    `<script${cspNonce ? ` nonce="${escapeHtmlAttribute(cspNonce)}"` : ''} data-askr-deferred-apply="${escapeHtmlAttribute(id)}">(function(s){var t=s.previousElementSibling;var c=t&&t.previousElementSibling;var r=document.querySelector('style[data-askr-style-registry="true"]:not([data-askr-deferred-style])');if(c&&c.tagName==='STYLE'&&r&&r!==c){r.append(c.textContent||'');c.remove();}else if(c&&c.tagName==='STYLE'){c.removeAttribute('data-askr-deferred-style');}var b=document.querySelector(${JSON.stringify(selector)});if(b&&t){b.replaceWith(t.content.cloneNode(true));}if(t)t.remove();s.remove();})(document.currentScript)</script>`
   );
 }
 
@@ -167,18 +193,20 @@ function createDeferredRenderStream(
         try {
           const value = await settleWithSignal(boundary.promise, local.signal);
           if (!cancelled && !closed) {
+            const rendered = renderBoundary(
+              boundary,
+              'fulfilled',
+              value,
+              seed,
+              data,
+              cspNonce
+            );
             controller.enqueue(
               encoder.encode(
                 patchChunk(
                   boundary.id,
-                  renderBoundary(
-                    boundary,
-                    'fulfilled',
-                    value,
-                    seed,
-                    data,
-                    cspNonce
-                  ),
+                  rendered.html,
+                  rendered.styles,
                   cspNonce
                 )
               )
@@ -190,18 +218,20 @@ function createDeferredRenderStream(
             return;
           }
           if (!cancelled && !closed) {
+            const rendered = renderBoundary(
+              boundary,
+              'rejected',
+              error,
+              seed,
+              data,
+              cspNonce
+            );
             controller.enqueue(
               encoder.encode(
                 patchChunk(
                   boundary.id,
-                  renderBoundary(
-                    boundary,
-                    'rejected',
-                    error,
-                    seed,
-                    data,
-                    cspNonce
-                  ),
+                  rendered.html,
+                  rendered.styles,
                   cspNonce
                 )
               )
@@ -304,6 +334,7 @@ async function renderRouteRequestInternal(
       const result: Extract<RenderRouteRequestResult, { kind: 'render' }> = {
         kind: 'render',
         html,
+        styles: Array.from(context.ssrStyles.values()),
         ...(boundaries.length > 0
           ? {
               stream: createDeferredRenderStream(
