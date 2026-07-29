@@ -9,7 +9,35 @@ permissions:
   contents: read
 
 jobs:
-  sequence-and-browser:
+  seeded-lifecycle:
+    name: Seeded lifecycle traces
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 'lts/*'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run replayable lifecycle sequences
+        env:
+          ASKR_QUALITY_SEEDS: 0..99
+        run: npm run test:jsdom -- --testNamePattern="lifecycle sequence"
+
+      - name: Upload failing seed traces
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: quality-seed-traces
+          path: .askr-quality-traces/
+          if-no-files-found: ignore
+
+  browser:
     name: ${{ matrix.browser }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -40,23 +68,17 @@ jobs:
       - run: npx playwright install ${{ matrix.browser }}
         if: runner.os != 'Linux'
 
-      - name: Run replayable lifecycle sequences
-        env:
-          ASKR_QUALITY_SEEDS: 0..99
-        run: npm run test:jsdom -- --testNamePattern="lifecycle sequence"
-
       - name: Run browser coverage
         env:
           ASKR_BROWSER: ${{ matrix.browser }}
         run: npm run test:browser
 
-      - name: Upload failing seed traces
+      - name: Upload browser diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: quality-traces-${{ matrix.os }}-${{ matrix.browser }}
+          name: quality-browser-${{ matrix.os }}-${{ matrix.browser }}
           path: |
             test-results/
             playwright-report/
-            .askr-quality-traces/
           if-no-files-found: ignore

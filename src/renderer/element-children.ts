@@ -1,5 +1,6 @@
 import type { ComponentFunction } from '../runtime';
 import { __CONTROL_BOUNDARY__ } from '../common/vnode';
+import { isSSRPortalHydrationAnchor } from '../common/portal';
 import { clearControlBoundaryCommitOwner } from './boundaries';
 import {
   commitForBoundaryChildren,
@@ -33,6 +34,7 @@ import {
   removeRange,
   type DOMRange,
 } from './dom-range';
+import { isHydrationAdoptionScopeActive } from './intrinsic-hydration-adoption';
 
 export const rendererReactiveChildDOMHost: ReactiveChildDOMHost = {
   createDOMNode: (node, parentNamespace) =>
@@ -189,6 +191,36 @@ function removeRangeAtCursor(parent: Element, cursor: Node): Node | null {
   return next;
 }
 
+function consumeUnmatchedTailAtCursor(
+  parent: Element,
+  cursor: Node
+): Node | null {
+  const instanceHost = cursor as Node & {
+    __ASKR_INSTANCE?: unknown;
+    __ASKR_INSTANCES?: unknown[];
+  };
+  if (
+    isSSRPortalHydrationAnchor(cursor) &&
+    (isHydrationAdoptionScopeActive() ||
+      Boolean(instanceHost.__ASKR_INSTANCE) ||
+      Boolean(instanceHost.__ASKR_INSTANCES?.length))
+  ) {
+    return cursor.nextSibling;
+  }
+
+  if (isRangeStart(cursor)) {
+    const next = removeRangeAtCursor(parent, cursor);
+    if (next !== cursor) return next;
+  }
+
+  const next = cursor.nextSibling;
+  teardownNodeSubtree(cursor);
+  if (cursor.parentNode === parent) {
+    parent.removeChild(cursor);
+  }
+  return next;
+}
+
 export function updateMixedControlChildren(
   parent: Element,
   children: VNode[],
@@ -337,8 +369,7 @@ export function updateMixedControlChildren(
   }
 
   while (cursor) {
-    const next = removeRangeAtCursor(parent, cursor);
-    cursor = next === cursor ? cursor.nextSibling : next;
+    cursor = consumeUnmatchedTailAtCursor(parent, cursor);
   }
 }
 
