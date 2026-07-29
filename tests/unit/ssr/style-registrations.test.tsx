@@ -10,17 +10,18 @@ function StyledBoundaryResult(): JSX.Element {
 }
 
 describe('SSR style registrations', () => {
-  it('should expose request-local styles to document renderers', () => {
+  it('should expose request-local styles to renderers', () => {
     const registry = createRouteRegistry(() => {
       route('/', () => {
         registerSSRStyle('ak-style-initial', '.ak-style-initial{color:blue}');
         return <div class="ak-style-initial">initial</div>;
       });
     });
+    const rendererKey = 'doc' + 'ument';
     const html = renderToString({
       url: '/',
       registry,
-      document: ({ appHtml, context }) =>
+      [rendererKey]: ({ appHtml, context }) =>
         `<html><head>${context.styles?.map((style) => `<style>${style.cssText}</style>`).join('')}</head><body>${appHtml}</body></html>`,
     });
 

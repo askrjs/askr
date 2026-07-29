@@ -49,6 +49,7 @@ export type RenderRouteRequestResult =
       kind: 'render';
       html: string;
       stream?: ReadableStream<Uint8Array>;
+      styles: readonly SSRStyleRegistration[];
       params: Record<string, string>;
       record?: import('../common/router').RouteRecord;
     }
@@ -333,6 +334,7 @@ async function renderRouteRequestInternal(
       const result: Extract<RenderRouteRequestResult, { kind: 'render' }> = {
         kind: 'render',
         html,
+        styles: Array.from(context.ssrStyles.values()),
         ...(boundaries.length > 0
           ? {
               stream: createDeferredRenderStream(

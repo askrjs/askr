@@ -78,7 +78,9 @@ export function registerSSRStyle(id: string, cssText: string): void {
 
   const existing = context.ssrStyles.get(id);
   if (existing && existing.cssText !== cssText) {
-    throw new RangeError(`SSR style registration collision for ${JSON.stringify(id)}.`);
+    throw new RangeError(
+      `SSR style registration collision for ${JSON.stringify(id)}.`
+    );
   }
   context.ssrStyles.set(id, { id, cssText });
 }
