@@ -130,7 +130,7 @@ export function applyRendererFastPath(
     try {
       // Keep reused nodes alive, but clean up anything still attached to the
       // parent that will be removed by replaceChildren.
-      for (let n = parent.firstChild; n; ) {
+      for (let n = parent.firstChild; n;) {
         const next = n.nextSibling;
         if (finalNodeSet?.has(n)) {
           n = next;
