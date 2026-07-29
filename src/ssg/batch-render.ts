@@ -111,7 +111,7 @@ export async function batchRenderRoutes(
         document:
           document === undefined
             ? undefined
-            : ({ appHtml }) =>
+            : ({ appHtml, context }) =>
                 renderDocument(
                   document,
                   {
@@ -129,6 +129,8 @@ export async function batchRenderRoutes(
                         path: route.path,
                         namespace: route.namespace,
                       },
+                      cspNonce: context.cspNonce,
+                      styles: context.styles,
                     },
                   },
                   'createStaticGen()'

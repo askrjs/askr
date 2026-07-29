@@ -1,7 +1,8 @@
 import {
   type DocumentRenderArgs,
-  type DocumentRenderContext,
-  type DocumentRenderer,
+    type DocumentRenderContext,
+    type DocumentRenderer,
+    type SSRStyleRegistration,
   renderDocument,
 } from '../common/ssr';
 import type {
@@ -162,6 +163,7 @@ function buildDocumentRenderArgs(
       namespace: resolved.route.namespace,
     },
     cspNonce: resolved.cspNonce,
+    styles: Array.from(resolved.ctx.ssrStyles.values()) as readonly SSRStyleRegistration[],
   };
 
   return {

@@ -1,4 +1,4 @@
-import type { SSRData } from './ssr';
+import type { SSRData, SSRStyleRegistration } from './ssr';
 import type { Route, RouteAuthOptions } from './router';
 import { SSRDataMissingError } from './ssr-errors';
 import type { RenderableChild } from './vnode';
@@ -45,6 +45,7 @@ export interface ActiveRenderContext {
   renderData: PageRenderEnvelope | null;
   hydrationData: PageRenderEnvelope | null;
   deferredBoundaries: DeferredBoundaryRegistration[];
+  ssrStyles: Map<string, SSRStyleRegistration>;
   ssrPortals: SSRPortalState;
 }
 

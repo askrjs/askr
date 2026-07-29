@@ -13,7 +13,7 @@ import { configureRenderContextProvider } from '../common/render-context';
 import { createDataRuntime } from '../data/data-runtime';
 
 export type { SSRData } from '../common/ssr';
-import type { SSRData } from '../common/ssr';
+import type { SSRData, SSRStyleRegistration } from '../common/ssr';
 import type { Route, RouteAuthOptions } from '../common/router';
 import { createPageRenderEnvelope } from '../common/page-render-envelope';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
@@ -42,6 +42,7 @@ export interface RenderContext {
   renderData: PageRenderEnvelope | null;
   hydrationData: PageRenderEnvelope | null;
   deferredBoundaries: import('../common/render-context').DeferredBoundaryRegistration[];
+  ssrStyles: Map<string, SSRStyleRegistration>;
   ssrPortals: import('../common/render-context').SSRPortalState;
   cspNonce?: string;
 }
@@ -144,6 +145,7 @@ export function createRenderContext(
     renderData: envelope,
     hydrationData: envelope,
     deferredBoundaries: [],
+    ssrStyles: new Map(),
     ssrPortals: {
       slots: new Map(),
       nextHostId: 0,

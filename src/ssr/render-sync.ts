@@ -625,6 +625,8 @@ export function renderToStringSync(
     /** @internal A composed page render envelope. */
     envelope?: import('../common/page-render-envelope').PageRenderEnvelope;
     cspNonce?: string;
+    /** @internal Capture request-local registrations produced by this pass. */
+    onContext?: (ctx: RenderContext) => void;
   }
 ): string {
   const seed = options?.seed ?? 12345;
@@ -632,6 +634,7 @@ export function renderToStringSync(
   const ctx = createRenderContext(seed, {
     data: options?.data,
     envelope: options?.envelope,
+    cspNonce: nonce,
   });
 
   return withRenderContext(ctx, () => {
@@ -656,6 +659,7 @@ export function renderToStringSync(
       const sink = new StringSink();
       renderNodeSyncToSink(node, sink, ctx);
       sink.end();
+      options?.onContext?.(ctx);
       return (
         resolveSSRPortals(sink.toString(), ctx) +
         serializeHydrationRenderData(
