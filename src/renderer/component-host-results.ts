@@ -33,6 +33,7 @@ import {
   setComponentOwnershipIdentity,
   setVNodeComponentInstance,
 } from './component-host-instances';
+import { markHydrationHostAdopted } from './intrinsic-hydration-adoption';
 import {
   getRendererDOMHost,
   type InstanceHostElement,
@@ -77,6 +78,7 @@ export function adoptEmptySSRPortalHydrationHost(
   instance._placeholder = instanceHost as Comment;
   mountInstanceInline(instance, null);
   retainReplacementOwnerChain(instanceHost, instance, retainedInstances);
+  markHydrationHostAdopted(instanceHost);
   return true;
 }
 

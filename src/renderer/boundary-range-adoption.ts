@@ -17,6 +17,7 @@ import {
 } from './dom-range';
 import { getParentNamespace } from './namespaces';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
+import { isHydrationAdoptionScopeActive } from './intrinsic-hydration-adoption';
 
 export type BoundaryRangeDOMHost = {
   createDOMNode(vnode: unknown, parentNamespace?: string): Node | null;
@@ -80,7 +81,14 @@ export function adoptHydratedRange(
   before: Node | null,
   vnode: VNode
 ): DOMRange | null {
-  if (!scope.hydrationPending || !before || !isRangeStart(before)) return null;
+  if (
+    !isHydrationAdoptionScopeActive() ||
+    !scope.hydrationPending ||
+    !before ||
+    !isRangeStart(before)
+  ) {
+    return null;
+  }
   const end = findRangeEnd(before);
   if (!end || end.parentNode !== parent) return null;
   const range: DOMRange = { start: before, end, single: false };
