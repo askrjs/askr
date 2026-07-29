@@ -73,7 +73,7 @@ export function syncReactiveChildExpectedNodes(
 ): void {
   const expectedNodeSet = new Set(expectedNodes);
 
-  for (let node = el.firstChild; node;) {
+  for (let node = el.firstChild; node; ) {
     const next = node.nextSibling;
     if (!expectedNodeSet.has(node)) {
       teardownNodeSubtree(node);
@@ -220,7 +220,7 @@ export function syncReactiveScalarTextNodes(
   }
 
   const boundaryHost = createReactiveChildBoundaryHost(el);
-  for (let node = el.firstChild; node;) {
+  for (let node = el.firstChild; node; ) {
     const next = node.nextSibling;
     boundaryHost.appendChild(node);
     node = next;
