@@ -50,6 +50,7 @@ import {
   type JSXComponent,
   type VNode,
 } from './types';
+import { canReconcileComponentHost } from './intrinsic-hydration-adoption';
 import { tagNamesEqualIgnoreCase } from './utils';
 import {
   beginComponentHostReplacement,
@@ -111,6 +112,9 @@ export function syncComponentElement(
   if (!existingHost) {
     return null;
   }
+
+  if (!canReconcileComponentHost(existingHost, Boolean(existingInstance)))
+    return null;
 
   const domHost = getRendererDOMHost();
 

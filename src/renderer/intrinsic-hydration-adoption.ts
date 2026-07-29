@@ -8,6 +8,35 @@ import { _isDOMElement, type DOMElement } from './types';
 import { extractKey, parseEventProp, tagNamesEqualIgnoreCase } from './utils';
 
 let hydrationAdoptionDepth = 0;
+const adoptedHydrationHosts = new WeakSet<Node>();
+
+export function isHydrationAdoptionScopeActive(): boolean {
+  return hydrationAdoptionDepth > 0;
+}
+
+export function markHydrationHostAdopted(host: Node): void {
+  adoptedHydrationHosts.add(host);
+}
+
+export function isAdoptedHydrationHost(host: Node): boolean {
+  return adoptedHydrationHosts.has(host);
+}
+
+export function canReconcileComponentHost(
+  host: Node & {
+    __ASKR_INSTANCE?: unknown;
+    __ASKR_INSTANCES?: unknown[];
+  },
+  hasMatchingInstance: boolean
+): boolean {
+  return (
+    hasMatchingInstance ||
+    Boolean(host.__ASKR_INSTANCE) ||
+    Boolean(host.__ASKR_INSTANCES?.length) ||
+    isAdoptedHydrationHost(host) ||
+    isHydrationAdoptionScopeActive()
+  );
+}
 
 export function withIntrinsicHydrationAdoption<T>(work: () => T): T {
   hydrationAdoptionDepth += 1;
@@ -117,7 +146,7 @@ export function tryAdoptMatchingIntrinsicSubtree(
   element: Element,
   vnode: DOMElement
 ): boolean {
-  if (hydrationAdoptionDepth === 0) return false;
+  if (!isHydrationAdoptionScopeActive()) return false;
   if (!canAdoptMatchingIntrinsicSubtree(element, vnode)) return false;
   adoptMatchingIntrinsicSubtree(element, vnode);
   return true;

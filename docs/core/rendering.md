@@ -133,9 +133,19 @@ await hydrateSPA({ root: 'app', registry });
 When a server-rendered subtree is entirely intrinsic and its tags, attributes,
 form state, text, and child shape already match, hydration adopts those nodes
 in place and publishes only refs and event bindings. The adoption is scoped to
-the synchronous hydration mount and remains transactional. Keyed trees,
-components, reactive props, and any mismatch use the normal reconciliation
-path.
+the hydration mount or a deferred-boundary activation and remains
+transactional. Range markers, matching elements, empty placeholders,
+transparent component ranges, and SSR portal hosts are eligible for adoption
+only inside that scope. Keyed trees, reactive props, and any mismatch use the
+normal reconciliation path.
+
+Ordinary client reconciliation never infers ownership from matching-looking
+DOM. Unmatched nodes and ranges are removed from a captured next sibling,
+their component subtrees are torn down exactly once, and newly rendered
+content receives fresh ownership. This distinction prevents stale server-like
+or consumer-inserted DOM from surviving a control-boundary update while
+preserving node identity, focus, selection, context, and portal anchors during
+real hydration.
 
 When `hydrate.deferBelowFold` is enabled, each deferred marker owns a local
 hydration record. Revealing one boundary activates only that boundary inside a

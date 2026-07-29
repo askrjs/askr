@@ -8,7 +8,7 @@ import {
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vite-plus/test';
-import { cleanupApp, createSPA } from '../../../src/boot';
+import { cleanupApp, createSPA, hydrateSPA } from '../../../src/boot';
 import { Case, For, Match, Show } from '../../../src/control';
 import { navigate } from '../../../src/router/navigate';
 import { createRouteRegistry, route } from '../../../src/router/route';
@@ -20,6 +20,7 @@ import {
 import { enqueueRuntimeLane } from '../../../src/runtime/access';
 import { state, type State } from '../../../src/runtime/state';
 import { Portal, _resetDefaultPortal } from '../../../src/runtime/portal';
+import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
   flushScheduler,
@@ -58,6 +59,7 @@ type QualityModel = {
 };
 
 type QualityTrace = {
+  bootMode: 'client' | 'hydration';
   seed: number;
   environment: {
     node: string;
@@ -160,7 +162,7 @@ const RANDOM_TRACE_OPERATIONS: QualityOperation[] = [
 function createTrace(seed: number): QualityOperation[] {
   const next = seeded(seed);
   const operations = [...REQUIRED_TRACE_OPERATIONS];
-  const randomOperationCount = 24;
+  const randomOperationCount = 28;
   for (let index = 0; index < randomOperationCount; index += 1) {
     operations.push(
       RANDOM_TRACE_OPERATIONS[next() % RANDOM_TRACE_OPERATIONS.length]!
@@ -204,6 +206,7 @@ function observeQualityState(
 }
 
 function writeQualityTrace(
+  bootMode: QualityTrace['bootMode'],
   seed: number,
   operations: QualityOperation[],
   executedOperations: QualityOperation[],
@@ -214,6 +217,7 @@ function writeQualityTrace(
   const traceDirectory = path.resolve(process.cwd(), '.askr-quality-traces');
   fs.mkdirSync(traceDirectory, { recursive: true });
   const trace: QualityTrace = {
+    bootMode,
     seed,
     environment: {
       node: process.version,
@@ -231,7 +235,7 @@ function writeQualityTrace(
     error: errorDetails(error),
   };
   fs.writeFileSync(
-    path.join(traceDirectory, `seed-${seed}-${Date.now()}.json`),
+    path.join(traceDirectory, `${bootMode}-seed-${seed}-${Date.now()}.json`),
     `${JSON.stringify(trace, null, 2)}\n`
   );
 }
@@ -243,9 +247,16 @@ function expectSchedulerQuiescent(): void {
 }
 
 describe('lifecycle sequence invariants', () => {
-  it.each(resolveLifecycleQualitySeeds())(
-    'replays lifecycle sequence trace for seed %i',
-    async (seed) => {
+  const traceCases = resolveLifecycleQualitySeeds().flatMap((seed) =>
+    (['client', 'hydration'] as const).map((bootMode) => ({
+      seed,
+      bootMode,
+    }))
+  );
+
+  it.each(traceCases)(
+    'replays lifecycle sequence trace for $bootMode seed $seed',
+    async ({ seed, bootMode }) => {
       _resetDefaultPortal();
 
       const { container, cleanup } = createTestContainer();
@@ -295,13 +306,16 @@ describe('lifecycle sequence invariants', () => {
         resourceEpoch = state(0);
         branchFailure = state(false);
 
-        const currentResource = resource<string>(
-          ({ signal }) => {
-            latestSignal = signal;
-            return getResourceDeferred(resourceEpoch()).promise;
-          },
-          [resourceEpoch()]
-        );
+        const currentResource =
+          bootMode === 'hydration'
+            ? ({ value: 'hydrated', error: null } as const)
+            : resource<string>(
+                ({ signal }) => {
+                  latestSignal = signal;
+                  return getResourceDeferred(resourceEpoch()).promise;
+                },
+                [resourceEpoch()]
+              );
 
         return (
           <main>
@@ -402,10 +416,15 @@ describe('lifecycle sequence invariants', () => {
       });
 
       window.history.replaceState({}, '', '/quality/a');
-      await createSPA({
-        root: container,
-        registry: qualityRegistry,
-      });
+      if (bootMode === 'hydration') {
+        container.innerHTML = renderToStringSync(QualityApp);
+        await hydrateSPA({ root: container, registry: qualityRegistry });
+      } else {
+        await createSPA({
+          root: container,
+          registry: qualityRegistry,
+        });
+      }
       await createSPA({
         root: navigation.container,
         registry: navigationRegistry,
@@ -481,6 +500,12 @@ describe('lifecycle sequence invariants', () => {
             const nextEpoch = resourceEpoch() + 1;
             resourceEpoch.set(nextEpoch);
             flushScheduler();
+            if (bootMode === 'hydration') {
+              expect(
+                container.querySelector('[data-quality-resource]')?.textContent
+              ).toBe('hydrated');
+              break;
+            }
             getResourceDeferred(nextEpoch).resolve(`ready-${nextEpoch}`);
             await Promise.resolve();
             await Promise.resolve();
@@ -494,6 +519,12 @@ describe('lifecycle sequence invariants', () => {
             const nextEpoch = resourceEpoch() + 1;
             resourceEpoch.set(nextEpoch);
             flushScheduler();
+            if (bootMode === 'hydration') {
+              expect(
+                container.querySelector('[data-quality-resource]')?.textContent
+              ).toBe('hydrated');
+              break;
+            }
             getResourceDeferred(nextEpoch).reject(
               new Error(`reject-${nextEpoch}`)
             );
@@ -593,6 +624,7 @@ describe('lifecycle sequence invariants', () => {
       } catch (error) {
         failure = error;
         writeQualityTrace(
+          bootMode,
           seed,
           operations,
           operations.slice(0, operationIndex + 1),
