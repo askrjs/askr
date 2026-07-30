@@ -19,6 +19,7 @@ import {
   checkVNodeShapeChanged,
   getBoundaryParentNamespace,
   getBoundaryRangeHost,
+  getRangeComponentFunction,
   getScopeRange,
   materializeChildScopeRange,
 } from './boundary-range-adoption';
@@ -55,14 +56,22 @@ export function syncControlBoundaryScopeDom(
       return resolvedRange;
     }
     if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
+      if (
+        resolvedRange &&
+        !resolvedRange.single &&
+        getRangeComponentFunction(resolvedRange) === vnode.type
+      ) {
+        return resolvedRange;
+      }
       const synced = host.syncComponentElement(
-        dom,
+        resolvedRange?.start ?? dom,
         vnode as DOMElement,
         vnode.type as ComponentFunction,
         ((vnode.props ?? {}) as Record<string, unknown>) || {},
         getBoundaryParentNamespace(parent)
       );
       if (synced) {
+        if (resolvedRange && !resolvedRange.single) return getScopeRange(scope);
         const nextRange: DOMRange = {
           start: synced,
           end: synced,
@@ -164,22 +173,6 @@ function teardownBoundaryRangeNode(node: Node): void {
   // ownership path.
   teardownNodeSubtree(node);
   node.parentNode?.removeChild(node);
-}
-
-export function syncControlBoundaryScopeNode(
-  parent: Element,
-  scope: ChildScope,
-  vnode: VNode
-): Node | null {
-  const range = syncControlBoundaryScopeDom(
-    parent,
-    scope,
-    vnode,
-    null,
-    true,
-    false
-  );
-  return range?.single ? range.start : null;
 }
 
 export function getControlBoundaryRanges(
