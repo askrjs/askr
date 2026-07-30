@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vite-plus/test';
 import { state } from '../../../src';
 import { For, Show } from '../../../src/control';
 import { createQuery } from '../../../src/data';
-import { Presence } from '../../../src/foundations';
+import {
+  DefaultPortal,
+  definePortal,
+  Portal,
+  Presence,
+} from '../../../src/foundations';
 import { resource } from '../../../src/resources';
 import { getCurrentComponentInstance } from '../../../src/runtime/component';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -12,6 +17,194 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('client control-boundary reconciliation', () => {
+  it('should retain the cursor after an empty accessor For in a mixed parent', () => {
+    const { container, cleanup } = createTestContainer();
+    let updateLabel!: (label: string) => void;
+
+    const App = () => {
+      const rows = state<Array<{ id: string }>>([]);
+      const label = state('one');
+      updateLabel = label.set;
+      return (
+        <main>
+          <For each={() => rows()} by={(row) => row.id}>
+            {(row) => <p data-row={row.id}>{row.id}</p>}
+          </For>
+          <div data-first-sibling={'true'}>{label()}</div>
+          <footer data-tail-sibling={'true'}>{'tail'}</footer>
+        </main>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const firstSibling = container.querySelector('[data-first-sibling]');
+      const tailSibling = container.querySelector('[data-tail-sibling]');
+
+      updateLabel('updated');
+      flushScheduler();
+
+      expect(container.querySelectorAll('[data-first-sibling]')).toHaveLength(
+        1
+      );
+      expect(container.querySelectorAll('[data-tail-sibling]')).toHaveLength(1);
+      expect(container.querySelector('[data-first-sibling]')).toBe(
+        firstSibling
+      );
+      expect(container.querySelector('[data-tail-sibling]')).toBe(tailSibling);
+      expect(firstSibling?.textContent).toBe('updated');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should reconcile the Cassie mixed workspace boundary from its post-boundary cursor', () => {
+    const { container, cleanup } = createTestContainer();
+    let setTabs!: (tabs: Array<{ id: string }>) => void;
+    let setActive!: (id: string | null) => void;
+    let mounts = 0;
+    let cleanups = 0;
+    const firstTab = { id: 'one' };
+    const QueryStatus = definePortal();
+
+    const QueryWorkspace = ({ id }: { id: string }) => {
+      const draft = state('');
+      const instance = getCurrentComponentInstance();
+      if (!instance) throw new Error('expected query workspace instance');
+      if (!instance.mounted) {
+        mounts += 1;
+        (instance.cleanupFns ??= []).push(() => {
+          cleanups += 1;
+        });
+      }
+      return (
+        <section data-query-workspace={id}>
+          <Portal>
+            <span data-active-query={id}>{`Query ${id}`}</span>
+          </Portal>
+          <input
+            aria-label={`SQL ${id}`}
+            value={draft()}
+            onInput={(event: Event) => {
+              draft.set((event.target as HTMLInputElement).value);
+            }}
+          />
+        </section>
+      );
+    };
+
+    const EmptyTabsPortal = () => (
+      <Portal>
+        <span data-empty-query-tab={'true'}>{'No query'}</span>
+      </Portal>
+    );
+
+    const QueryStatusPortal = () =>
+      QueryStatus.render({
+        children: <span data-query-status={'true'}>{'Ready'}</span>,
+      });
+
+    const App = () => {
+      const tabs = state<Array<{ id: string }>>([]);
+      const active = state<string | null>(null);
+      setTabs = tabs.set;
+      setActive = active.set;
+      return (
+        <>
+          <aside data-query-tabs={'true'}>
+            <DefaultPortal />
+          </aside>
+          <aside data-query-status-host={'true'}>
+            <QueryStatus />
+          </aside>
+          <main>
+            {tabs().length === 0 ? <EmptyTabsPortal /> : null}
+            {tabs().length === 0 ? (
+              <h1 data-new-query={'true'}>{'New Query'}</h1>
+            ) : null}
+            {tabs().length === 0 ? (
+              <p data-empty-help={'true'}>{'Create a query to begin.'}</p>
+            ) : null}
+            <For
+              each={() => tabs().filter((tab) => tab.id === active())}
+              by={(tab) => tab.id}
+            >
+              {(tab) => <QueryWorkspace id={tab.id} />}
+            </For>
+            <QueryStatusPortal />
+            <Show when={false}>
+              <p data-dialog={'true'}>{'Dialog'}</p>
+            </Show>
+          </main>
+        </>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.querySelector('[data-new-query]')).not.toBeNull();
+
+      setTabs([firstTab]);
+      setActive('one');
+      flushScheduler();
+
+      expect(container.querySelector('[data-new-query]')).toBeNull();
+      expect(container.querySelector('[data-empty-help]')).toBeNull();
+      expect(container.querySelectorAll('[data-query-workspace]')).toHaveLength(
+        1
+      );
+      expect(container.querySelector('[data-active-query]')?.textContent).toBe(
+        'Query one'
+      );
+      expect(container.querySelectorAll('[data-query-status]')).toHaveLength(1);
+      expect(mounts).toBe(1);
+      expect(cleanups).toBe(0);
+
+      const workspace = container.querySelector('[data-query-workspace="one"]');
+      const editor = container.querySelector(
+        'input[aria-label="SQL one"]'
+      ) as HTMLInputElement;
+      editor.value = 'select 1';
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      flushScheduler();
+      expect(container.querySelector('[data-query-workspace="one"]')).toBe(
+        workspace
+      );
+      expect(container.querySelector('input[aria-label="SQL one"]')).toBe(
+        editor
+      );
+      expect(
+        (
+          container.querySelector(
+            'input[aria-label="SQL one"]'
+          ) as HTMLInputElement
+        ).value
+      ).toBe('select 1');
+      expect(mounts).toBe(1);
+      expect(cleanups).toBe(0);
+
+      setTabs([firstTab, { id: 'two' }]);
+      setActive('two');
+      flushScheduler();
+      expect(container.querySelectorAll('[data-query-workspace]')).toHaveLength(
+        1
+      );
+      expect(
+        container.querySelector('[data-query-workspace="two"]')
+      ).not.toBeNull();
+      expect(container.querySelector('[data-active-query]')?.textContent).toBe(
+        'Query two'
+      );
+      expect(mounts).toBe(2);
+      expect(cleanups).toBe(1);
+    } finally {
+      cleanup();
+    }
+    expect(cleanups).toBe(mounts);
+  });
+
   it('should insert a newly opened branch before its sibling given adjacent same-tag Show boundaries', () => {
     let setFirst!: (value: boolean) => void;
     let setSecond!: (value: boolean) => void;
