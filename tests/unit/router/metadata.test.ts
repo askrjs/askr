@@ -26,6 +26,39 @@ const context: RouteContext = {
 };
 
 describe('route metadata', () => {
+  it('should emit deterministic route metadata given nested layouts when SSG generates the same route repeatedly', async () => {
+    const registry = createRouteRegistry(() => {
+      group({ meta: { title: 'Docs', html: { lang: 'en' } } }, () => {
+        page(
+          '/guides/{id}',
+          () => null,
+          { meta: { description: 'Guides' } },
+          () => {
+            route('', () => null, {
+              meta: ({ params }) => ({
+                title: `Guide ${params.id}`,
+                canonical: `/guides/${params.id}`,
+              }),
+            });
+          }
+        );
+      });
+    });
+    const record = registry.manifest.records[0];
+    const ssgContext = { ...context, mode: 'ssr' as const };
+
+    const first = serializeRouteMeta(
+      await resolveRouteMeta(record, ssgContext)
+    );
+    const second = serializeRouteMeta(
+      await resolveRouteMeta(record, ssgContext)
+    );
+
+    expect(second).toBe(first);
+    expect(first).toContain('<title data-askr-head="">Guide 42</title>');
+    expect(first).toContain('href="/guides/42"');
+  });
+
   it('should compose group page and route metadata from outermost to leaf', async () => {
     const registry = createRouteRegistry(() => {
       group(

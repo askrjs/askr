@@ -2,6 +2,26 @@ import { describe, it, expect, vi } from 'vite-plus/test';
 import { pressable } from '../../../src/foundations/interactions/pressable';
 
 describe('pressable (FOUNDATIONS)', () => {
+  it('should suppress press callbacks given pointer cancellation when a press starts on one node and ends elsewhere', () => {
+    const onPress = vi.fn();
+    const first = document.createElement('div');
+    const elsewhere = document.createElement('div');
+    const props = pressable({ onPress });
+    first.addEventListener('click', props.onClick);
+    document.body.append(first, elsewhere);
+
+    try {
+      first.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      first.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true }));
+      elsewhere.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+
+      expect(onPress).not.toHaveBeenCalled();
+    } finally {
+      first.remove();
+      elsewhere.remove();
+    }
+  });
+
   describe('non-native button (default)', () => {
     it('should provide button role and tabIndex', () => {
       const props = pressable({ onPress: vi.fn() });
