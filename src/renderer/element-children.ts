@@ -246,21 +246,14 @@ export function updateMixedControlChildren(
           ? (findRangeEnd(cursor)?.nextSibling ?? cursor.nextSibling)
           : cursor.nextSibling
         : null;
-      const ranges = syncControlBoundaryInMixedParent(
+      const [ranges, postBoundaryCursor] = syncControlBoundaryInMixedParent(
         parent,
         controlState,
         childVNodes,
         cursor
       );
       if (controlState.kind === 'for') {
-        const last = ranges[ranges.length - 1];
-        cursor = last
-          ? last.end.nextSibling
-          : cursorAfterBoundary?.parentNode === parent
-            ? cursorAfterBoundary
-            : cursor?.parentNode === parent
-              ? cursor
-              : null;
+        cursor = postBoundaryCursor;
         continue;
       }
       for (const range of ranges) {
