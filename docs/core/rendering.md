@@ -43,6 +43,12 @@ when a static or component child precedes it in the same parent. The unrelated
 sibling and every adopted row keep their DOM identity through later reorder
 and removal commits.
 
+In a mixed parent, an empty or newly emptied `For` also preserves the first
+following sibling as its reconciliation cursor. Later static nodes, components,
+and control boundaries are updated in place instead of being duplicated,
+reordered, or remounted. This applies equally to accessor-backed collections
+and parents that contain portal writers.
+
 ### Imperative widget hosts
 
 Use `imperativeChildren` when a third-party widget owns all descendants of an

@@ -204,7 +204,7 @@ export function syncControlBoundaryInMixedParent(
   controlState: ControlBoundaryState,
   childrenVNodes: VNode[],
   before: Node | null
-): DOMRange[] {
+): [ranges: DOMRange[], postBoundaryCursor: Node | null] {
   if (controlState.kind === 'for') {
     const ownedNodes = new Set<Node>();
     const collectRangeNodes = (range: DOMRange): void => {
@@ -319,7 +319,6 @@ export function syncControlBoundaryInMixedParent(
         }
       }
     }
-
     const previousAfterBoundary = afterBoundary;
     if (
       previousAfterBoundary &&
@@ -328,7 +327,6 @@ export function syncControlBoundaryInMixedParent(
       afterBoundary =
         nextRanges[nextRanges.length - 1]?.end.nextSibling ?? null;
     }
-
     const nextRangeSet = new Set(nextRanges);
     for (const range of controlState.lastRemovedRanges) {
       if (!nextRangeSet.has(range)) {
@@ -343,16 +341,17 @@ export function syncControlBoundaryInMixedParent(
         teardownBoundaryRangeNode(node);
       }
     }
-
     let anchor = afterBoundary?.parentNode === parent ? afterBoundary : null;
     for (let index = nextRanges.length - 1; index >= 0; index -= 1) {
       const range = nextRanges[index]!;
       insertRangeBefore(parent, range, anchor);
       anchor = range.start;
     }
-
     clearBoundaryState(controlState);
-    return nextRanges;
+    return [
+      nextRanges,
+      afterBoundary?.parentNode === parent ? afterBoundary : null,
+    ];
   }
   const activeScope = controlState.activeScope;
   const activeVNode = childrenVNodes[0];
@@ -390,7 +389,7 @@ export function syncControlBoundaryInMixedParent(
     if (node.parentNode === parent) teardownBoundaryRangeNode(node);
   }
   clearBoundaryState(controlState);
-  return nextRange ? [nextRange] : [];
+  return [nextRange ? [nextRange] : [], nextRange?.end.nextSibling ?? null];
 }
 
 export function removeBoundaryRange(range: DOMRange): void {
