@@ -295,6 +295,18 @@ function attachDelegatedListener(
           }
         }
 
+        // Delegated focus/blur/scroll listeners are installed in capture
+        // phase because these events do not bubble. Capture semantics require
+        // ancestors to run before the target (the native dispatch order),
+        // while ordinary delegated events retain target-first bubbling order.
+        if (
+          eventName === 'focus' ||
+          eventName === 'blur' ||
+          eventName === 'scroll'
+        ) {
+          dispatchPath.reverse();
+        }
+
         for (const { node, entry } of dispatchPath) {
           try {
             entry.handler(createDelegatedEventFacade(e, node));
@@ -311,7 +323,7 @@ function attachDelegatedListener(
 
     const passiveOptions = getPassiveOptions(eventName);
     const nonBubblingCapture =
-      eventName === 'focus' || eventName === 'blur';
+      eventName === 'focus' || eventName === 'blur' || eventName === 'scroll';
     const listenerOptions = nonBubblingCapture
       ? { ...(passiveOptions ?? options), capture: true }
       : passiveOptions ?? options;

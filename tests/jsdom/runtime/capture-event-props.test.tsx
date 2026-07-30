@@ -44,6 +44,21 @@ describe('capture event props', () => {
     expect(events).toEqual(['focus']);
   });
 
+  it('should dispatch non-bubbling scroll handlers given a scrolled descendant', () => {
+    const events: string[] = [];
+    const Component = () => (
+      <main onScroll={() => events.push('outer')}>
+        <div onScroll={() => events.push('inner')} />
+      </main>
+    );
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    const inner = container.querySelector('div div') ?? container.querySelector('main > div');
+    inner!.dispatchEvent(new Event('scroll', { bubbles: false }));
+    flushScheduler();
+    expect(events).toEqual(['outer', 'inner']);
+  });
+
   it('should preserve capture and bubble listeners for the same DOM event', () => {
     const events: string[] = [];
 

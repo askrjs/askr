@@ -36,17 +36,26 @@ describe('derive reactivity', () => {
   });
 
   it('should return null given a branded pending snapshot when derive maps its value', () => {
+    let mapped = false;
     const snapshot = brandSnapshotSource({
-      value: null,
+      value: ['stale'],
       pending: true,
       error: null,
       refresh: () => undefined,
     });
-    const App = () => <output>{derive(snapshot, (rows: string[]) => rows.join(','))()}</output>;
+    const App = () => (
+      <output>
+        {derive(snapshot, (rows: string[]) => {
+          mapped = true;
+          return rows.join(',');
+        })()}
+      </output>
+    );
 
     expect(() => createIsland({ root: container, component: App })).not.toThrow();
     flushScheduler();
     expect(container.querySelector('output')?.textContent).toBe('');
+    expect(mapped).toBe(false);
   });
 
   it('should suppress downstream reactive prop updates when the projection is unchanged', () => {
