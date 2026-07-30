@@ -49,4 +49,15 @@ describe('rovingFocus contract helpers (FOUNDATIONS)', () => {
     expect(preventDefault).not.toHaveBeenCalled();
     expect(stopPropagation).not.toHaveBeenCalled();
   });
+
+  it('should preserve roving focus given active-item removal when the collection updates', () => {
+    const navigation = rovingFocus({
+      currentIndex: 2,
+      itemCount: 2,
+      onNavigate: vi.fn(),
+    });
+
+    expect(navigation.item(0).tabIndex).toBe(0);
+    expect(navigation.item(1).tabIndex).toBe(-1);
+  });
 });

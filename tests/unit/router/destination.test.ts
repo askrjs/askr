@@ -24,6 +24,14 @@ describe('typed route destinations', () => {
     });
   });
 
+  it('should encode route search parameters losslessly given reserved and Unicode values when navigating', () => {
+    const ref = route('/search', () => null);
+
+    expect(to(ref, {}, { q: 'a&b=✓', tags: ['x/y', 'ümlaut'] })).toEqual({
+      href: '/search?q=a%26b%3D%E2%9C%93&tags=x%2Fy&tags=%C3%BCmlaut',
+    });
+  });
+
   it('should reject a destination given missing params', () => {
     const ref = route('/users/{id}', () => null);
 

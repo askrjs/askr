@@ -111,10 +111,15 @@ export function action<
     initialStatus<TResult>(descriptor.id)
   );
   const setValue = value.set;
+  let submissionGeneration = 0;
   return {
     state: value,
     async submit(input: TInput): Promise<TResult> {
-      setValue({ pending: true });
+      const generation = ++submissionGeneration;
+      // Keep the last settled result visible while a replacement submission
+      // is in flight. This is important for hydrated forms, where users may
+      // submit again before the first request settles.
+      setValue((previous) => ({ pending: true, result: previous.result }));
       try {
         const response = await fetch(location.href, {
           method: 'POST',
@@ -153,13 +158,17 @@ export function action<
               (prefix): prefix is string => typeof prefix === 'string'
             )
           : descriptor.invalidates;
-        for (const prefix of invalidates)
-          invalidateQueriesForRuntime(runtime, prefix, true);
-        setValue({ pending: false, result: envelope.result });
-        if (redirect) location.assign(redirect);
+        if (generation === submissionGeneration) {
+          for (const prefix of invalidates)
+            invalidateQueriesForRuntime(runtime, prefix, true);
+          setValue({ pending: false, result: envelope.result });
+          if (redirect) location.assign(redirect);
+        }
         return envelope.result as TResult;
       } catch (error) {
-        setValue({ pending: false, error });
+        if (generation === submissionGeneration) {
+          setValue({ pending: false, error });
+        }
         throw error;
       }
     },
