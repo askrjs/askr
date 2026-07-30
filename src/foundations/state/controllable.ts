@@ -74,7 +74,8 @@ export function controllableState<T>(options: {
   onChange?: (next: T) => void;
 }): ControllableState<T> {
   const isControlled = options.value !== undefined;
-  const internal = isControlled ? null : state<T>(options.defaultValue);
+  const internal = state<T>(options.defaultValue);
+  internal();
 
   function read(): T {
     if (isControlled) {

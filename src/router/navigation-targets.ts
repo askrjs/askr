@@ -940,7 +940,8 @@ export function applyNavigationTargets(
     }
 
     if (isStaleRouteRequest(requestId)) {
-      restoreOnExit();
+      // A nested navigation may have committed a newer destination while the
+      // lifecycle batch was flushing. Never roll that destination back.
       return;
     }
 
@@ -955,7 +956,7 @@ export function applyNavigationTargets(
     syncRegisteredRouteSnapshot();
     reconcileNavigationMetadata(matchedTargets);
 
-    if (pathname !== previousPathname) {
+    if (pathname !== previousPathname || parseTargetUrl(href).hash) {
       applyNavigationScroll(options.scroll);
     }
 
@@ -1026,6 +1027,7 @@ export function applyPopStateNavigationTargets(
   }
 
   const previousPathname = getCurrentPathname();
+  saveScrollPosition(previousHref);
   const rollbackSnapshots = matchedTargets.map((target) =>
     captureDeferredRouteCleanup(target.app.instance)
   );

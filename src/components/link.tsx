@@ -144,6 +144,10 @@ export function Link({
       return;
     }
 
+    if ((rest as Record<string, unknown>).download !== undefined) {
+      return;
+    }
+
     event.preventDefault();
     navigate(href);
   };
@@ -152,6 +156,7 @@ export function Link({
     isNative: true,
     disabled: false,
     onPress: handleNavigation,
+    ref: (rest as Record<string, unknown>).ref as never,
   });
   const consumerActivation = (e: Event) => {
     onPress?.(e);

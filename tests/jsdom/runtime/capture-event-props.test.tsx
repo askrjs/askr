@@ -6,6 +6,7 @@ import {
 import { createIsland } from '../../../src/boot';
 import { state } from '../../../src/runtime/state';
 import { dismissable } from '../../../src/foundations/interactions/dismissable';
+import { parseEventProp, getPassiveOptions } from '../../../src/renderer/utils';
 
 describe('capture event props', () => {
   let container: HTMLDivElement;
@@ -19,6 +20,51 @@ describe('capture event props', () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('should preserve pointer-capture event names given onGotPointerCapture props', () => {
+    expect(parseEventProp('onGotPointerCapture')).toEqual({
+      eventName: 'gotpointercapture',
+      capture: false,
+    });
+  });
+
+  it('should allow cancellation given wheel and touch handlers when they call preventDefault', () => {
+    expect(getPassiveOptions('wheel')).toBeUndefined();
+    expect(getPassiveOptions('touchmove')).toBeUndefined();
+  });
+
+  it('should dispatch non-bubbling focus handlers given a focused descendant', () => {
+    const events: string[] = [];
+    const Component = () => (
+      <main onFocus={() => events.push('focus')}>
+        <input />
+      </main>
+    );
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    container
+      .querySelector('input')!
+      .dispatchEvent(new FocusEvent('focus', { bubbles: false }));
+    flushScheduler();
+    expect(events).toEqual(['focus']);
+  });
+
+  it('should dispatch non-bubbling scroll handlers given a scrolled descendant', () => {
+    const events: string[] = [];
+    const Component = () => (
+      <main onScroll={() => events.push('outer')}>
+        <div onScroll={() => events.push('inner')} />
+      </main>
+    );
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    const inner =
+      container.querySelector('div div') ??
+      container.querySelector('main > div');
+    inner!.dispatchEvent(new Event('scroll', { bubbles: false }));
+    flushScheduler();
+    expect(events).toEqual(['outer', 'inner']);
   });
 
   it('should preserve capture and bubble listeners for the same DOM event', () => {

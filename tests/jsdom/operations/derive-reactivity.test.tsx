@@ -17,6 +17,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { allowFrameworkWarnings } from '../../setup-env';
+import { brandSnapshotSource } from '../../../src/runtime/snapshot-source';
 
 const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
 
@@ -32,6 +33,31 @@ describe('derive reactivity', () => {
     delete (globalThis as unknown as Record<string | symbol, unknown>)[
       EXECUTION_MODEL_KEY
     ];
+  });
+
+  it('should return null given a branded pending snapshot when derive maps its value', () => {
+    let mapped = false;
+    const snapshot = brandSnapshotSource({
+      value: ['stale'],
+      pending: true,
+      error: null,
+      refresh: () => undefined,
+    });
+    const App = () => (
+      <output>
+        {derive(snapshot, (rows: string[]) => {
+          mapped = true;
+          return rows.join(',');
+        })()}
+      </output>
+    );
+
+    expect(() =>
+      createIsland({ root: container, component: App })
+    ).not.toThrow();
+    flushScheduler();
+    expect(container.querySelector('output')?.textContent).toBe('');
+    expect(mapped).toBe(false);
   });
 
   it('should suppress downstream reactive prop updates when the projection is unchanged', () => {

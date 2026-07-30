@@ -18,6 +18,41 @@ describe('selector reactivity', () => {
     cleanup();
   });
 
+  it('should retain candidate subscriptions given an owner rerender when a selector source closure changes', () => {
+    let tick!: ReturnType<typeof state<number>>;
+    let selected!: ReturnType<typeof state<string>>;
+    const App = () => {
+      tick = state(0);
+      selected = state('a');
+      const isActive = selector(() => selected());
+      return (
+        <ul data-tick={tick()}>
+          {['a', 'b', 'c'].map((item) => (
+            <li
+              key={item}
+              data-id={item}
+              data-active={isActive(item) ? 'true' : 'false'}
+            />
+          ))}
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    tick.set(1);
+    flushScheduler();
+    selected.set('c');
+    flushScheduler();
+
+    expect(container.querySelector('[data-id="a"]')?.dataset.active).toBe(
+      'false'
+    );
+    expect(container.querySelector('[data-id="c"]')?.dataset.active).toBe(
+      'true'
+    );
+  });
+
   it('should invalidate only the previous and next keyed candidates', () => {
     let selected!: ReturnType<typeof state<number | null>>;
     const classEvaluations = new Map<number, number>();

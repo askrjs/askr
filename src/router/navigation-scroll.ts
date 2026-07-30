@@ -127,6 +127,16 @@ export function applyNavigationScroll(
     return;
   }
 
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  if (hash && typeof document !== 'undefined') {
+    const id = decodeURIComponent(hash.slice(1));
+    const target = document.getElementById(id);
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'auto' });
+      return;
+    }
+  }
+
   scrollToPosition({ x: 0, y: 0 });
 }
 
