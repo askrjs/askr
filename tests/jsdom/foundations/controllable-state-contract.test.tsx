@@ -153,7 +153,10 @@ describe('controllable state contract helpers (FOUNDATIONS)', () => {
   it('should preserve hook order given a controllable value when its mode changes', () => {
     let setValue!: (value: number | undefined) => void;
     const Child = (props: { value?: number }) => {
-      const controlled = controllableState({ value: props.value, defaultValue: 0 });
+      const controlled = controllableState({
+        value: props.value,
+        defaultValue: 0,
+      });
       const count = state(100);
       return <output data-value={`${controlled()}|${count()}`} />;
     };

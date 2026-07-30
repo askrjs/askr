@@ -20,7 +20,16 @@ describe('client control-boundary reconciliation', () => {
       const second = state(true);
       setFirst = first.set;
       setSecond = second.set;
-      return <main><Show when={first()}><p data-first="true">first</p></Show><Show when={second()}><p data-second="true">second</p></Show></main>;
+      return (
+        <main>
+          <Show when={first()}>
+            <p data-first="true">first</p>
+          </Show>
+          <Show when={second()}>
+            <p data-second="true">second</p>
+          </Show>
+        </main>
+      );
     };
     const { container, cleanup } = createTestContainer();
     try {

@@ -326,7 +326,7 @@ function attachDelegatedListener(
       eventName === 'focus' || eventName === 'blur' || eventName === 'scroll';
     const listenerOptions = nonBubblingCapture
       ? { ...(passiveOptions ?? options), capture: true }
-      : passiveOptions ?? options;
+      : (passiveOptions ?? options);
 
     container.addEventListener(eventName, delegatedHandler, listenerOptions);
     containerListener = { handler: delegatedHandler, usage: 0 };

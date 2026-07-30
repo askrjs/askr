@@ -208,7 +208,9 @@ describe('history integration (ROUTER)', () => {
 
       scrollToSpy.mockClear();
       window.history.pushState({ path: '/page2' }, '', '/page2');
-      window.dispatchEvent(new PopStateEvent('popstate', { state: { path: '/page2' } }));
+      window.dispatchEvent(
+        new PopStateEvent('popstate', { state: { path: '/page2' } })
+      );
       flushScheduler();
       expect(scrollToSpy).toHaveBeenCalledWith(0, 320);
     });

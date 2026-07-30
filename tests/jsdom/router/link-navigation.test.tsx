@@ -132,11 +132,19 @@ describe('Link component navigation', () => {
   });
 
   it('should preserve browser downloads given a same-origin download link when it is clicked', async () => {
-    route('/', () => <Link href="/files/report.pdf" download="report.pdf">Download</Link>);
+    route('/', () => (
+      <Link href="/files/report.pdf" download="report.pdf">
+        Download
+      </Link>
+    ));
     await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
-    const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    const event = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+    });
     container.querySelector('a')!.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(false);
@@ -145,7 +153,16 @@ describe('Link component navigation', () => {
 
   it('should invoke a consumer ref given an anchor Link when it mounts', async () => {
     let captured: HTMLAnchorElement | null = null;
-    route('/', () => <Link href="/about" ref={(node: HTMLAnchorElement | null) => { captured = node; }}>About</Link>);
+    route('/', () => (
+      <Link
+        href="/about"
+        ref={(node: HTMLAnchorElement | null) => {
+          captured = node;
+        }}
+      >
+        About
+      </Link>
+    ));
     await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 

@@ -52,7 +52,9 @@ describe('derive reactivity', () => {
       </output>
     );
 
-    expect(() => createIsland({ root: container, component: App })).not.toThrow();
+    expect(() =>
+      createIsland({ root: container, component: App })
+    ).not.toThrow();
     flushScheduler();
     expect(container.querySelector('output')?.textContent).toBe('');
     expect(mapped).toBe(false);

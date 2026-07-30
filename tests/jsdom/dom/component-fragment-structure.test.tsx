@@ -27,7 +27,15 @@ describe('component fragment structure', () => {
 
     root = document.createElement('div');
     document.body.appendChild(root);
-    createIsland({ root, component: () => <main><Body /><span data-after="true" /></main> });
+    createIsland({
+      root,
+      component: () => (
+        <main>
+          <Body />
+          <span data-after="true" />
+        </main>
+      ),
+    });
     flushScheduler();
     hide(false);
     flushScheduler();

@@ -36,10 +36,16 @@ describe('capture event props', () => {
 
   it('should dispatch non-bubbling focus handlers given a focused descendant', () => {
     const events: string[] = [];
-    const Component = () => <main onFocus={() => events.push('focus')}><input /></main>;
+    const Component = () => (
+      <main onFocus={() => events.push('focus')}>
+        <input />
+      </main>
+    );
     createIsland({ root: container, component: Component });
     flushScheduler();
-    container.querySelector('input')!.dispatchEvent(new FocusEvent('focus', { bubbles: false }));
+    container
+      .querySelector('input')!
+      .dispatchEvent(new FocusEvent('focus', { bubbles: false }));
     flushScheduler();
     expect(events).toEqual(['focus']);
   });
@@ -53,7 +59,9 @@ describe('capture event props', () => {
     );
     createIsland({ root: container, component: Component });
     flushScheduler();
-    const inner = container.querySelector('div div') ?? container.querySelector('main > div');
+    const inner =
+      container.querySelector('div div') ??
+      container.querySelector('main > div');
     inner!.dispatchEvent(new Event('scroll', { bubbles: false }));
     flushScheduler();
     expect(events).toEqual(['outer', 'inner']);

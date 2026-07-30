@@ -28,7 +28,11 @@ describe('selector reactivity', () => {
       return (
         <ul data-tick={tick()}>
           {['a', 'b', 'c'].map((item) => (
-            <li key={item} data-id={item} data-active={isActive(item) ? 'true' : 'false'} />
+            <li
+              key={item}
+              data-id={item}
+              data-active={isActive(item) ? 'true' : 'false'}
+            />
           ))}
         </ul>
       );
@@ -41,8 +45,12 @@ describe('selector reactivity', () => {
     selected.set('c');
     flushScheduler();
 
-    expect(container.querySelector('[data-id="a"]')?.dataset.active).toBe('false');
-    expect(container.querySelector('[data-id="c"]')?.dataset.active).toBe('true');
+    expect(container.querySelector('[data-id="a"]')?.dataset.active).toBe(
+      'false'
+    );
+    expect(container.querySelector('[data-id="c"]')?.dataset.active).toBe(
+      'true'
+    );
   });
 
   it('should invalidate only the previous and next keyed candidates', () => {
