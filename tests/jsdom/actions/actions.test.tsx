@@ -33,7 +33,8 @@ describe('actions', () => {
     let resolveSecond!: (response: Response) => void;
     vi.stubGlobal(
       'fetch',
-      vi.fn()
+      vi
+        .fn()
         .mockImplementationOnce(
           () => new Promise<Response>((resolve) => (resolveFirst = resolve))
         )
@@ -41,7 +42,9 @@ describe('actions', () => {
           () => new Promise<Response>((resolve) => (resolveSecond = resolve))
         )
     );
-    let command!: ReturnType<typeof action<{ name: string }, { saved: string }>>;
+    let command!: ReturnType<
+      typeof action<{ name: string }, { saved: string }>
+    >;
     const App = () => {
       command = action<{ name: string }, { saved: string }>(save);
       return <div>{command.state().result?.saved ?? 'idle'}</div>;
