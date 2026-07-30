@@ -55,7 +55,8 @@ export function getRangeBeforeNode(range: DOMRange): Node | null {
 export function createDetachedRange(
   nodes: Node | DocumentFragment | null,
   owner?: object,
-  forceAnchors = false
+  forceAnchors = false,
+  preserveExistingOwner = false
 ): { range: DOMRange; fragment: DocumentFragment | null } {
   if (nodes instanceof DocumentFragment) {
     const first = nodes.firstChild;
@@ -70,7 +71,7 @@ export function createDetachedRange(
       existingRange.start === first &&
       existingRange.end === last
     ) {
-      if (owner) registerRange(existingRange, owner);
+      if (owner && !preserveExistingOwner) registerRange(existingRange, owner);
       return { range: existingRange, fragment: nodes };
     }
   }
