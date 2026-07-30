@@ -31,7 +31,6 @@ function clearBoundaryState(controlState: ControlBoundaryState): void {
   else if (controlState.kind === 'show') clearShowDomUpdateState(controlState);
   else clearCaseDomUpdateState(controlState);
 }
-
 export function syncControlBoundaryScopeDom(
   parent: Element,
   scope: ChildScope,
@@ -55,7 +54,6 @@ export function syncControlBoundaryScopeDom(
       scope.hydrationPending = false;
       return resolvedRange;
     }
-
     if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
       const synced = host.syncComponentElement(
         dom,
@@ -74,7 +72,6 @@ export function syncControlBoundaryScopeDom(
         return nextRange;
       }
     }
-
     if (!resolvedRange) {
       const nextRange = materializeChildScopeRange(
         vnode,
@@ -87,7 +84,6 @@ export function syncControlBoundaryScopeDom(
       if (insertDetached) insertRangeBefore(parent, nextRange, before);
       return nextRange;
     }
-
     if (
       resolvedRange.single &&
       dom?.nodeType === 3 &&
@@ -113,7 +109,6 @@ export function syncControlBoundaryScopeDom(
       host.updateElementFromVnode(dom, vnode, true);
       return currentRange;
     }
-
     const nextRange = materializeChildScopeRange(
       vnode,
       getBoundaryParentNamespace(parent),
