@@ -235,7 +235,14 @@ function createMappedSelector<TIn, TOut>(
     if (typeof source === 'function') {
       value = (source as () => TIn)();
     } else if (isSnapshotSource(source)) {
-      value = (source as SnapshotSource<TIn>).value ?? (source as TIn);
+      const snapshot = source as SnapshotSource<TIn>;
+      // A pending resource snapshot is not a usable input, even when it
+      // retains its previous value. Do not invoke user mapping functions
+      // until the snapshot has settled.
+      if (snapshot.pending) {
+        return null;
+      }
+      value = snapshot.value as TIn;
     } else {
       value = source as TIn;
     }

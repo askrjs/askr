@@ -22,6 +22,7 @@ import {
   getScopeRange,
   materializeChildScopeRange,
 } from './boundary-range-adoption';
+import { isHydrationAdoptionScopeActive } from './intrinsic-hydration-adoption';
 import { getMaterializedKey, tagNamesEqualIgnoreCase } from './utils';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 
@@ -30,7 +31,6 @@ function clearBoundaryState(controlState: ControlBoundaryState): void {
   else if (controlState.kind === 'show') clearShowDomUpdateState(controlState);
   else clearCaseDomUpdateState(controlState);
 }
-
 export function syncControlBoundaryScopeDom(
   parent: Element,
   scope: ChildScope,
@@ -54,7 +54,6 @@ export function syncControlBoundaryScopeDom(
       scope.hydrationPending = false;
       return resolvedRange;
     }
-
     if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
       const synced = host.syncComponentElement(
         dom,
@@ -73,7 +72,6 @@ export function syncControlBoundaryScopeDom(
         return nextRange;
       }
     }
-
     if (!resolvedRange) {
       const nextRange = materializeChildScopeRange(
         vnode,
@@ -82,10 +80,10 @@ export function syncControlBoundaryScopeDom(
         true
       );
       assignScopeRange(scope, nextRange);
+      scope.hydrationPending = false;
       if (insertDetached) insertRangeBefore(parent, nextRange, before);
       return nextRange;
     }
-
     if (
       resolvedRange.single &&
       dom?.nodeType === 3 &&
@@ -111,7 +109,6 @@ export function syncControlBoundaryScopeDom(
       host.updateElementFromVnode(dom, vnode, true);
       return currentRange;
     }
-
     const nextRange = materializeChildScopeRange(
       vnode,
       getBoundaryParentNamespace(parent),
@@ -256,6 +253,7 @@ export function syncControlBoundaryInMixedParent(
       const fallbackVNode = childrenVNodes[0];
       if (fallbackScope && fallbackVNode !== undefined) {
         if (
+          isHydrationAdoptionScopeActive() &&
           fallbackScope.hydrationPending &&
           !fallbackScope.range &&
           syncBefore instanceof Element &&
@@ -293,6 +291,7 @@ export function syncControlBoundaryInMixedParent(
           continue;
         }
         if (
+          isHydrationAdoptionScopeActive() &&
           item.scope.hydrationPending &&
           !item.scope.range &&
           syncBefore instanceof Element &&
@@ -358,6 +357,7 @@ export function syncControlBoundaryInMixedParent(
   const activeScope = controlState.activeScope;
   const activeVNode = childrenVNodes[0];
   if (
+    isHydrationAdoptionScopeActive() &&
     activeScope?.hydrationPending &&
     activeVNode !== undefined &&
     !activeScope.range &&

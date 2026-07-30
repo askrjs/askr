@@ -228,7 +228,7 @@ describe('state/resource correctness probes', () => {
       createIsland({ root: container, component: App });
       flushScheduler();
       await settleResourceWork();
-      expect(container.textContent).toBe('missing');
+      expect(container.textContent).toBe('');
 
       resolveUser({ name: 'Ada' });
       await settleResourceWork();

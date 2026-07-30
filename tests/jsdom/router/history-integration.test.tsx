@@ -189,6 +189,8 @@ describe('history integration (ROUTER)', () => {
       navigate('/page2');
       flushScheduler();
 
+      window.scrollY = 320;
+
       scrollToSpy.mockClear();
       window.history.pushState(
         { path: '/page1', scroll: { x: 0, y: 240 } },
@@ -203,6 +205,14 @@ describe('history integration (ROUTER)', () => {
       flushScheduler();
 
       expect(scrollToSpy).toHaveBeenCalledWith(0, 240);
+
+      scrollToSpy.mockClear();
+      window.history.pushState({ path: '/page2' }, '', '/page2');
+      window.dispatchEvent(
+        new PopStateEvent('popstate', { state: { path: '/page2' } })
+      );
+      flushScheduler();
+      expect(scrollToSpy).toHaveBeenCalledWith(0, 320);
     });
 
     it('should create entries that can be traversed', async () => {

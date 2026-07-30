@@ -498,8 +498,19 @@ function getOrCreateSelectorHook<T>(
   const existing = store.get(hookIndex) as SelectorHook<T> | undefined;
   if (existing) {
     if (existing._source !== source || existing._equals !== equals) {
-      detachSelectorHookBinding(existing);
-      attachSelectorHookBinding(existing, source, equals);
+      if (existing._equals === equals && existing._record && existing._lane) {
+        const record = existing._record;
+        selectorRecords.delete(record._source);
+        record._source = source;
+        selectorRecords.set(source, record);
+        existing._source = source;
+        record._dirty = true;
+        recomputeSelectorSourceRecord(record, false);
+        ensureSelectorHookBinding(existing);
+      } else {
+        detachSelectorHookBinding(existing);
+        attachSelectorHookBinding(existing, source, equals);
+      }
     } else {
       ensureSelectorHookBinding(existing);
     }
