@@ -49,6 +49,12 @@ and control boundaries are updated in place instead of being duplicated,
 reordered, or remounted. This applies equally to accessor-backed collections
 and parents that contain portal writers.
 
+When a keyed row renders a transparent component range, the row continues to
+follow the component's current owned range after reactive resource, portal, or
+result updates. Parent reconciliation preserves that live range and its editor
+or widget identity instead of restoring a stale pre-update range. Cleanup
+ownership remains balanced when the row is later replaced or removed.
+
 ### Imperative widget hosts
 
 Use `imperativeChildren` when a third-party widget owns all descendants of an

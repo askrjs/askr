@@ -8,10 +8,7 @@ import { commitForStateBoundaryChildren } from './for-commit';
 import { keyedElements } from './keyed';
 import { type DOMElement, type VNode } from './types';
 import { configureBoundaryRangeHost } from './boundary-range-adoption';
-import {
-  syncControlBoundaryScopeDom,
-  syncControlBoundaryScopeNode,
-} from './boundary-range-sync';
+import { syncControlBoundaryScopeDom } from './boundary-range-sync';
 import { configureBoundaryCommitOwnerHost } from './boundary-commit-owner';
 export {
   clearControlBoundaryCommitOwner,
@@ -21,7 +18,6 @@ export {
   getControlBoundaryRanges,
   syncControlBoundaryInMixedParent,
   syncControlBoundaryScopeDom,
-  syncControlBoundaryScopeNode,
 } from './boundary-range-sync';
 import {
   getRangeNodes,
@@ -29,6 +25,22 @@ import {
   rangeContains,
   removeRange,
 } from './dom-range';
+
+export function syncControlBoundaryScopeNode(
+  parent: Element,
+  scope: Parameters<typeof syncControlBoundaryScopeDom>[1],
+  vnode: VNode
+): Node | null {
+  const range = syncControlBoundaryScopeDom(
+    parent,
+    scope,
+    vnode,
+    null,
+    true,
+    false
+  );
+  return range?.single ? range.start : null;
+}
 import {
   clearControlBoundaryDomUpdateState,
   evaluateControlBoundaryState,

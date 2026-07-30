@@ -59,17 +59,60 @@ describe('client control-boundary reconciliation', () => {
     }
   });
 
-  it('should reconcile the Cassie mixed workspace boundary from its post-boundary cursor', () => {
+  it('should reconcile the Cassie mixed workspace boundary from its post-boundary cursor', async () => {
     const { container, cleanup } = createTestContainer();
     let setTabs!: (tabs: Array<{ id: string }>) => void;
     let setActive!: (id: string | null) => void;
+    let setDialogOpen!: (open: boolean) => void;
+    let setResult!: (value: string) => void;
+    let refreshSchema!: () => Promise<void>;
     let mounts = 0;
     let cleanups = 0;
     const firstTab = { id: 'one' };
-    const QueryStatus = definePortal();
+    const SidebarPortal = definePortal();
+    const SidebarPortalContent = ({ children }: { children: unknown }) =>
+      SidebarPortal.render({ children });
+    const SidebarPortalHost = () => SidebarPortal();
+    const QuerySidebar = ({
+      queries,
+    }: {
+      queries: () => Array<{ id: string }>;
+    }) => (
+      <nav>
+        <button aria-label={'New query'}>{'New query'}</button>
+        <For each={() => queries()} by={(query) => query.id}>
+          {(query) => <button data-sidebar-query={query.id}>{query.id}</button>}
+        </For>
+      </nav>
+    );
+
+    const WorkspaceSidebar = ({
+      id,
+      queries,
+    }: {
+      id: string;
+      queries: () => Array<{ id: string }>;
+    }) => (
+      <SidebarPortalContent>
+        <div data-active-query={id}>
+          <QuerySidebar queries={queries} />
+        </div>
+      </SidebarPortalContent>
+    );
+
+    const QueryToast = ({ id }: { id: string }) => (
+      <output data-query-toast={id}>{''}</output>
+    );
 
     const QueryWorkspace = ({ id }: { id: string }) => {
       const draft = state('');
+      const result = state('');
+      const schema = createQuery({
+        key: `cassie-schema:${id}`,
+        fetch: async () => ({ label: `schema:${id}` }),
+      });
+      setResult = result.set;
+      refreshSchema = () => schema.refresh();
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected query workspace instance');
       if (!instance.mounted) {
@@ -79,52 +122,69 @@ describe('client control-boundary reconciliation', () => {
         });
       }
       return (
-        <section data-query-workspace={id}>
-          <Portal>
-            <span data-active-query={id}>{`Query ${id}`}</span>
-          </Portal>
-          <input
-            aria-label={`SQL ${id}`}
-            value={draft()}
-            onInput={(event: Event) => {
-              draft.set((event.target as HTMLInputElement).value);
-            }}
-          />
-        </section>
+        <>
+          <WorkspaceSidebar id={id} queries={() => [{ id }]} />
+          <QueryToast id={id} />
+          <section data-query-workspace={id}>
+            <p data-query-schema={id}>
+              {schema.loading ? 'loading' : schema.data?.label}
+            </p>
+            <p data-query-result={id}>{result()}</p>
+            <input
+              aria-label={`SQL ${id}`}
+              value={draft()}
+              onInput={(event: Event) => {
+                draft.set((event.target as HTMLInputElement).value);
+              }}
+            />
+          </section>
+        </>
       );
     };
 
-    const EmptyTabsPortal = () => (
-      <Portal>
-        <span data-empty-query-tab={'true'}>{'No query'}</span>
-      </Portal>
+    const EmptyTabsPortal = ({
+      queries,
+    }: {
+      queries: () => Array<{ id: string }>;
+    }) => (
+      <SidebarPortalContent>
+        <div data-empty-query-tab={'true'}>
+          <QuerySidebar queries={queries} />
+        </div>
+      </SidebarPortalContent>
     );
-
-    const QueryStatusPortal = () =>
-      QueryStatus.render({
-        children: <span data-query-status={'true'}>{'Ready'}</span>,
-      });
+    const Button = ({ children }: { children: unknown }) => (
+      <button type={'button'}>{children}</button>
+    );
 
     const App = () => {
       const tabs = state<Array<{ id: string }>>([]);
       const active = state<string | null>(null);
+      const dialogOpen = state(false);
+      const persistenceOperation = state('');
+      const databases = createQuery({
+        key: 'cassie-boundary-databases',
+        fetch: async () => [{ name: 'cassie' }],
+      });
       setTabs = tabs.set;
       setActive = active.set;
+      setDialogOpen = dialogOpen.set;
       return (
         <>
           <aside data-query-tabs={'true'}>
-            <DefaultPortal />
+            <SidebarPortalHost />
           </aside>
-          <aside data-query-status-host={'true'}>
-            <QueryStatus />
-          </aside>
-          <main>
-            {tabs().length === 0 ? <EmptyTabsPortal /> : null}
-            {tabs().length === 0 ? (
-              <h1 data-new-query={'true'}>{'New Query'}</h1>
+          <main data-persistence-operation={persistenceOperation()}>
+            {tabs().length < 0 ? (
+              <p data-persistence-error={'true'}>{'error'}</p>
             ) : null}
+            {tabs().length === 0 ? <EmptyTabsPortal queries={tabs} /> : null}
             {tabs().length === 0 ? (
-              <p data-empty-help={'true'}>{'Create a query to begin.'}</p>
+              <section data-new-query={'true'}>
+                <h1>{'New Query'}</h1>
+                <p>{'Create a query to begin.'}</p>
+                <Button>{'New Query'}</Button>
+              </section>
             ) : null}
             <For
               each={() => tabs().filter((tab) => tab.id === active())}
@@ -132,10 +192,26 @@ describe('client control-boundary reconciliation', () => {
             >
               {(tab) => <QueryWorkspace id={tab.id} />}
             </For>
-            <QueryStatusPortal />
-            <Show when={false}>
-              <p data-dialog={'true'}>{'Dialog'}</p>
+            <Show when={() => dialogOpen()}>
+              <div data-dialog={'true'}>
+                <For
+                  each={() => databases.data ?? []}
+                  by={(database) => database.name}
+                >
+                  {(database) => (
+                    <button data-database={database.name}>
+                      {database.name}
+                    </button>
+                  )}
+                </For>
+              </div>
             </Show>
+            {tabs().length < 0 ? (
+              <p data-create-database={'true'}>{'Create database'}</p>
+            ) : null}
+            {tabs().length < 0 ? (
+              <p data-close-query={'true'}>{'Close query'}</p>
+            ) : null}
           </main>
         </>
       );
@@ -144,21 +220,30 @@ describe('client control-boundary reconciliation', () => {
     try {
       createIsland({ root: container, component: App });
       flushScheduler();
+      await Promise.resolve();
+      flushScheduler();
       expect(container.querySelector('[data-new-query]')).not.toBeNull();
+
+      setDialogOpen(true);
+      flushScheduler();
+      expect(container.querySelector('[data-dialog]')).not.toBeNull();
+      expect(container.querySelector('[data-database]')?.textContent).toBe(
+        'cassie'
+      );
 
       setTabs([firstTab]);
       setActive('one');
+      setDialogOpen(false);
       flushScheduler();
 
+      expect(container.querySelector('[data-dialog]')).toBeNull();
       expect(container.querySelector('[data-new-query]')).toBeNull();
-      expect(container.querySelector('[data-empty-help]')).toBeNull();
       expect(container.querySelectorAll('[data-query-workspace]')).toHaveLength(
         1
       );
       expect(container.querySelector('[data-active-query]')?.textContent).toBe(
-        'Query one'
+        'New queryone'
       );
-      expect(container.querySelectorAll('[data-query-status]')).toHaveLength(1);
       expect(mounts).toBe(1);
       expect(cleanups).toBe(0);
 
@@ -166,6 +251,14 @@ describe('client control-boundary reconciliation', () => {
       const editor = container.querySelector(
         'input[aria-label="SQL one"]'
       ) as HTMLInputElement;
+      await Promise.resolve();
+      flushScheduler();
+      expect(container.querySelector('[data-query-workspace="one"]')).toBe(
+        workspace
+      );
+      expect(container.querySelector('input[aria-label="SQL one"]')).toBe(
+        editor
+      );
       editor.value = 'select 1';
       editor.dispatchEvent(new Event('input', { bubbles: true }));
       flushScheduler();
@@ -185,6 +278,31 @@ describe('client control-boundary reconciliation', () => {
       expect(mounts).toBe(1);
       expect(cleanups).toBe(0);
 
+      setTabs([firstTab]);
+      flushScheduler();
+      expect(container.querySelector('[data-new-query]')).toBeNull();
+      expect(container.querySelector('[data-query-workspace="one"]')).toBe(
+        workspace
+      );
+
+      setResult('1 row');
+      flushScheduler();
+      expect(container.querySelectorAll('[data-query-workspace]')).toHaveLength(
+        1
+      );
+      expect(container.querySelector('[data-query-result]')?.textContent).toBe(
+        '1 row'
+      );
+
+      await refreshSchema();
+      flushScheduler();
+      expect(container.querySelectorAll('[data-query-workspace]')).toHaveLength(
+        1
+      );
+      expect(container.querySelector('[data-query-schema]')?.textContent).toBe(
+        'schema:one'
+      );
+
       setTabs([firstTab, { id: 'two' }]);
       setActive('two');
       flushScheduler();
@@ -195,7 +313,7 @@ describe('client control-boundary reconciliation', () => {
         container.querySelector('[data-query-workspace="two"]')
       ).not.toBeNull();
       expect(container.querySelector('[data-active-query]')?.textContent).toBe(
-        'Query two'
+        'New querytwo'
       );
       expect(mounts).toBe(2);
       expect(cleanups).toBe(1);
@@ -203,6 +321,172 @@ describe('client control-boundary reconciliation', () => {
       cleanup();
     }
     expect(cleanups).toBe(mounts);
+  });
+
+  it('should preserve a keyed Cassie workspace while its parent resource resolves', async () => {
+    const { container, cleanup } = createTestContainer();
+    let resolveDatabases!: (databases: Array<{ name: string }>) => void;
+    let setResult!: (value: string) => void;
+
+    const QueryToast = ({ value }: { value: string }) => (
+      <div data-query-toast={'true'} hidden={value === ''}>
+        {value}
+      </div>
+    );
+
+    const QueryEditor = ({
+      query,
+      onQueryChange,
+    }: {
+      query: string;
+      onQueryChange: (sql: string) => void;
+    }) => {
+      const unavailable = state(false);
+      unavailable();
+      return (
+        <div data-query-editor={'true'}>
+          <input
+            aria-label={'SQL one'}
+            value={query}
+            onInput={(event: Event) =>
+              onQueryChange((event.target as HTMLInputElement).value)
+            }
+          />
+        </div>
+      );
+    };
+
+    const QueryWorkspace = ({
+      tab,
+      active,
+      availability,
+      onSqlChange,
+    }: {
+      tab: { id: string; database: string; sql: string };
+      active: boolean;
+      availability: () => string;
+      onSqlChange: (sql: string) => void;
+    }) => {
+      const result = state('');
+      setResult = result.set;
+      return (
+        <>
+          {active ? (
+            <Portal>
+              <span data-sidebar-workspace={'true'}>{'Query 1'}</span>
+            </Portal>
+          ) : null}
+          <QueryToast value={result()} />
+          <section data-query-workspace={'one'} hidden={!active}>
+            <div>
+              <p data-availability={'true'}>{availability()}</p>
+              <p data-result={'true'}>{result()}</p>
+              <QueryEditor query={tab.sql} onQueryChange={onSqlChange} />
+            </div>
+          </section>
+        </>
+      );
+    };
+
+    const App = () => {
+      const tabs = state([{ id: 'one', database: 'missing', sql: 'SELECT 1' }]);
+      const active = state<string | null>('one');
+      const persistenceOperation = state('');
+      const databases = createQuery({
+        key: 'cassie-parent-databases',
+        fetch: () =>
+          new Promise<Array<{ name: string }>>((resolve) => {
+            resolveDatabases = resolve;
+          }),
+      });
+      const availability = (database: string) => () =>
+        databases.loading && !databases.data
+          ? 'checking'
+          : (databases.data ?? []).some(
+                (candidate) => candidate.name === database
+              )
+            ? 'available'
+            : 'unavailable';
+
+      return (
+        <>
+          <aside>
+            <DefaultPortal />
+          </aside>
+          <main data-persistence-operation={persistenceOperation()}>
+            {tabs().length < 0 ? <p>{'persistence error'}</p> : null}
+            {tabs().length === 0 ? <p>{'empty sidebar'}</p> : null}
+            {tabs().length === 0 ? <section>{'New Query'}</section> : null}
+            <For
+              each={() => tabs().filter((tab) => tab.id === active())}
+              by={(tab) => tab.id}
+            >
+              {(tab) => (
+                <QueryWorkspace
+                  tab={tab}
+                  active={active() === tab.id}
+                  availability={availability(tab.database)}
+                  onSqlChange={(sql) => (
+                    tabs.set(
+                      tabs().map((candidate) => {
+                        if (candidate.id === tab.id) {
+                          Object.assign(candidate, { sql });
+                        }
+                        return candidate;
+                      })
+                    ),
+                    active.set(active()),
+                    persistenceOperation.set('updated')
+                  )}
+                />
+              )}
+            </For>
+            <Show when={() => tabs().length < 0}>
+              <p>{'dialog'}</p>
+            </Show>
+            {tabs().length < 0 ? <p>{'create database'}</p> : null}
+            {tabs().length < 0 ? <p>{'close query'}</p> : null}
+          </main>
+        </>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const workspace = container.querySelector('[data-query-workspace]');
+      const editor = container.querySelector('input[aria-label="SQL one"]');
+      expect(container.querySelector('[data-availability]')?.textContent).toBe(
+        'checking'
+      );
+
+      resolveDatabases([{ name: 'postgres' }]);
+      await Promise.resolve();
+      flushScheduler();
+
+      expect(container.querySelector('[data-query-workspace]')).toBe(workspace);
+      expect(container.querySelector('input[aria-label="SQL one"]')).toBe(
+        editor
+      );
+      expect(container.querySelector('[data-availability]')?.textContent).toBe(
+        'unavailable'
+      );
+
+      (editor as HTMLInputElement).value = 'SELECT 2';
+      editor?.dispatchEvent(new Event('input', { bubbles: true }));
+      flushScheduler();
+      expect(container.querySelector('input[aria-label="SQL one"]')).toBe(
+        editor
+      );
+
+      setResult('1 row');
+      flushScheduler();
+      expect(container.querySelector('[data-result]')?.textContent).toBe(
+        '1 row'
+      );
+    } finally {
+      cleanup();
+    }
   });
 
   it('should insert a newly opened branch before its sibling given adjacent same-tag Show boundaries', () => {
