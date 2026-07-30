@@ -11,6 +11,7 @@ import {
   createRouteRegistry,
   fallback,
   page,
+  resolveRouteRequest,
   route,
 } from '../../../src/router/route';
 import { deny } from '../../../src/router/policy';
@@ -86,6 +87,36 @@ describe('SSR request resolution', () => {
       kind: 'deny',
       status: 403,
     });
+  });
+
+  it('should preserve auth decisions given denied principals when the same route is rendered through SPA and SSR', async () => {
+    const member = {
+      authenticated: true,
+      principal: { id: 'user-1', roles: ['member'] },
+      session: null,
+      tenant: null,
+    };
+    const registry = createRouteRegistry(() => {
+      route('/admin', () => <div>admin</div>, {
+        auth: requireRole('admin'),
+      });
+    });
+
+    const [spa, ssr] = await Promise.all([
+      resolveRouteRequest('/admin', {
+        registry,
+        mode: 'spa',
+        authContext: member,
+      }),
+      resolveRouteRequest('/admin', {
+        registry,
+        mode: 'ssr',
+        authContext: member,
+      }),
+    ]);
+
+    expect(spa).toEqual({ kind: 'deny', status: 403 });
+    expect(ssr).toEqual(spa);
   });
 
   it('should render denied SSR requests without invoking protected content', () => {

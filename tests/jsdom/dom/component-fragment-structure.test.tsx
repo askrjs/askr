@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { For, state } from '../../../src';
 import { cleanupApp, createIsland } from '../../../src/boot';
 import { captureRangeFocus } from '../../../src/renderer/component-fragment-range';
+import { getCurrentComponentInstance } from '../../../src/runtime/component';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 describe('component fragment structure', () => {
@@ -14,6 +15,79 @@ describe('component fragment structure', () => {
       root.remove();
       root = undefined;
     }
+  });
+
+  it('should preserve node identity and lifecycle cleanup given transparent scalar, array, Fragment, and component-result transitions when the result shape changes', () => {
+    let setShape!: (shape: 'scalar' | 'array' | 'fragment' | 'empty') => void;
+    let setLabel!: (label: string) => void;
+    const cleanupCalls: string[] = [];
+    const Body = () => {
+      const instance = getCurrentComponentInstance();
+      if (!instance) throw new Error('expected component instance');
+      if (!instance.mounted) {
+        (instance.cleanupFns ??= []).push(() => cleanupCalls.push('body'));
+      }
+      const shape = state<'scalar' | 'array' | 'fragment' | 'empty'>('array');
+      const label = state('stable');
+      setShape = shape.set;
+      setLabel = label.set;
+      const stable = (
+        <button key="stable" data-stable="true">
+          {label()}
+        </button>
+      );
+      if (shape() === 'empty') return null;
+      if (shape() === 'array') {
+        return [stable, <span key="tail">array</span>];
+      }
+      if (shape() === 'fragment') {
+        return (
+          <>
+            {stable}
+            <span key="tail">fragment</span>
+          </>
+        );
+      }
+      return [stable, 'scalar'];
+    };
+
+    root = document.createElement('div');
+    document.body.appendChild(root);
+    createIsland({
+      root,
+      component: () => (
+        <main>
+          <Body />
+        </main>
+      ),
+    });
+    flushScheduler();
+    const stableNode = root.querySelector('[data-stable]');
+
+    setLabel('updated');
+    flushScheduler();
+    expect(root.querySelector('[data-stable]')).toBe(stableNode);
+    expect(stableNode?.textContent).toBe('updated');
+
+    setShape('fragment');
+    flushScheduler();
+    expect(root.querySelectorAll('[data-stable]')).toHaveLength(1);
+    expect(cleanupCalls).toEqual([]);
+
+    setShape('scalar');
+    flushScheduler();
+    expect(root.querySelectorAll('[data-stable]')).toHaveLength(1);
+    expect(cleanupCalls).toEqual([]);
+
+    setShape('empty');
+    flushScheduler();
+    expect(root.querySelector('[data-stable]')).toBeNull();
+    expect(cleanupCalls).toEqual([]);
+
+    cleanupApp(root);
+    expect(cleanupCalls).toEqual(['body']);
+    root.remove();
+    root = undefined;
   });
 
   it('should remove a transparent component range given a state transition to null', () => {
