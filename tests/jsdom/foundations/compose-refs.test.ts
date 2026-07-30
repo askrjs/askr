@@ -14,4 +14,15 @@ describe('composeRefs (FOUNDATIONS)', () => {
     expect(a).toHaveBeenCalledWith(value);
     expect(b).toHaveBeenCalledWith(value);
   });
+
+  it('should compose refs and handlers given Slot or asChild composition when the child rerenders and unmounts', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const ref = composeRefs(first, second);
+    const node = { id: 'child' };
+    ref(node);
+    ref(null);
+    expect(first.mock.calls).toEqual([[node], [null]]);
+    expect(second.mock.calls).toEqual([[node], [null]]);
+  });
 });

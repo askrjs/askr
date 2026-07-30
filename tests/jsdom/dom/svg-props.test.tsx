@@ -118,4 +118,22 @@ describe('SVG intrinsic prop normalization', () => {
     expect(html).not.toContain('fillRule=');
     expect(html).not.toContain('clipRule=');
   });
+
+  it('should preserve SVG and form property semantics given reactive prop updates when values transition through null and false', () => {
+    let checked!: ReturnType<typeof state<boolean | null>>;
+    const Component = () => {
+      checked = state<boolean | null>(false);
+      return <input type="checkbox" checked={() => checked()} />;
+    };
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    const input = container.querySelector('input') as HTMLInputElement;
+    expect(input.checked).toBe(false);
+    checked.set(true);
+    flushScheduler();
+    expect(input.checked).toBe(true);
+    checked.set(null);
+    flushScheduler();
+    expect(input.checked).toBe(false);
+  });
 });

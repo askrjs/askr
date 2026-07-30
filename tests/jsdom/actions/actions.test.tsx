@@ -28,6 +28,46 @@ afterEach(() => {
 });
 
 describe('actions', () => {
+  it('should ignore stale action results given overlapping submissions when the newer submission completes first', async () => {
+    let resolveFirst!: (response: Response) => void;
+    let resolveSecond!: (response: Response) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementationOnce(
+          () => new Promise<Response>((resolve) => (resolveFirst = resolve))
+        )
+        .mockImplementationOnce(
+          () => new Promise<Response>((resolve) => (resolveSecond = resolve))
+        )
+    );
+    let command!: ReturnType<
+      typeof action<{ name: string }, { saved: string }>
+    >;
+    const App = () => {
+      command = action<{ name: string }, { saved: string }>(save);
+      return <div>{command.state().result?.saved ?? 'idle'}</div>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const first = command.submit({ name: 'first' });
+      const second = command.submit({ name: 'second' });
+      resolveSecond(Response.json({ result: { saved: 'second' } }));
+      await expect(second).resolves.toEqual({ saved: 'second' });
+      resolveFirst(Response.json({ result: { saved: 'first' } }));
+      await expect(first).resolves.toEqual({ saved: 'first' });
+      expect(command.state()).toEqual({
+        pending: false,
+        result: { saved: 'second' },
+      });
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should emit CSRF and expose native replay given scoped SSR action data', () => {
     let status: ActionStatus | undefined;
     const replay = {

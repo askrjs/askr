@@ -108,6 +108,15 @@ export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
     isDisabled,
   } = options;
 
+  // Collections can remove their active item between renders. Keep a single
+  // tab stop by selecting the first remaining enabled item in that case.
+  const effectiveCurrentIndex =
+    currentIndex >= 0 && currentIndex < itemCount && !isDisabled?.(currentIndex)
+      ? currentIndex
+      : Array.from({ length: itemCount }, (_, index) => index).find(
+          (index) => !isDisabled?.(index)
+        );
+
   function findNextIndex(from: number, direction: 1 | -1): number | undefined {
     let next = from;
 
@@ -145,7 +154,7 @@ export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
 
     if (direction === undefined) return;
 
-    const nextIndex = findNextIndex(currentIndex, direction);
+    const nextIndex = findNextIndex(effectiveCurrentIndex ?? 0, direction);
     if (nextIndex === undefined) return;
 
     e.preventDefault?.();
@@ -159,7 +168,7 @@ export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
       onKeyDown: handleKeyDown,
     },
     item: (index: number) => ({
-      tabIndex: index === currentIndex ? 0 : -1,
+      tabIndex: index === effectiveCurrentIndex ? 0 : -1,
       'data-roving-index': index,
     }),
   };
