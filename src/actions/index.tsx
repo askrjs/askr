@@ -158,9 +158,9 @@ export function action<
               (prefix): prefix is string => typeof prefix === 'string'
             )
           : descriptor.invalidates;
-        for (const prefix of invalidates)
-          invalidateQueriesForRuntime(runtime, prefix, true);
         if (generation === submissionGeneration) {
+          for (const prefix of invalidates)
+            invalidateQueriesForRuntime(runtime, prefix, true);
           setValue({ pending: false, result: envelope.result });
           if (redirect) location.assign(redirect);
         }
