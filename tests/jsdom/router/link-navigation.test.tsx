@@ -131,6 +131,27 @@ describe('Link component navigation', () => {
     expect(window.location.pathname).toBe('/');
   });
 
+  it('should preserve browser downloads given a same-origin download link when it is clicked', async () => {
+    route('/', () => <Link href="/files/report.pdf" download="report.pdf">Download</Link>);
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    container.querySelector('a')!.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('should invoke a consumer ref given an anchor Link when it mounts', async () => {
+    let captured: HTMLAnchorElement | null = null;
+    route('/', () => <Link href="/about" ref={(node: HTMLAnchorElement | null) => { captured = node; }}>About</Link>);
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+
+    expect(captured).toBe(container.querySelector('a'));
+  });
+
   it('should preserve custom anchor attributes', async () => {
     route('/', () => (
       <div>

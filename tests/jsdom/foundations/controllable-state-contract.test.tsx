@@ -13,6 +13,7 @@ import {
   makeControllable,
   resolveControllable,
 } from '@askrjs/askr/foundations/state';
+import { state } from '../../../src/runtime';
 import {
   createTestContainer,
   flushScheduler,
@@ -147,5 +148,25 @@ describe('controllable state contract helpers (FOUNDATIONS)', () => {
 
     expect(button.textContent).toBe('2');
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('should preserve hook order given a controllable value when its mode changes', () => {
+    let setValue!: (value: number | undefined) => void;
+    const Child = (props: { value?: number }) => {
+      const controlled = controllableState({ value: props.value, defaultValue: 0 });
+      const count = state(100);
+      return <output data-value={`${controlled()}|${count()}`} />;
+    };
+    const App = () => {
+      const value = state<number | undefined>(undefined);
+      setValue = value.set;
+      return <Child value={value()} />;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    setValue(5);
+    expect(() => flushScheduler()).not.toThrow();
+    expect(container.querySelector('output')?.dataset.value).toBe('5|100');
   });
 });

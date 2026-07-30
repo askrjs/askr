@@ -235,7 +235,7 @@ function createMappedSelector<TIn, TOut>(
     if (typeof source === 'function') {
       value = (source as () => TIn)();
     } else if (isSnapshotSource(source)) {
-      value = (source as SnapshotSource<TIn>).value ?? (source as TIn);
+      value = (source as SnapshotSource<TIn>).value as TIn;
     } else {
       value = source as TIn;
     }

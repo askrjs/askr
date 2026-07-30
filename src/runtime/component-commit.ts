@@ -81,6 +81,19 @@ function commitPlaceholderReplacement(
   host: ScheduledComponentCommitHost
 ): void {
   if (result === null || result === undefined) {
+    const placeholder = instance._placeholder;
+    if (placeholder) {
+      const replacement = getRuntimeRenderer().replaceComponentRange(
+        instance,
+        result,
+        placeholder
+      );
+      if (replacement) {
+        instance.target = replacement instanceof Element ? replacement : null;
+        instance._placeholder =
+          replacement instanceof Comment ? replacement : undefined;
+      }
+    }
     host.finalizeReadSubscriptions(instance);
     host.commitRenderedComponent(instance);
     return;

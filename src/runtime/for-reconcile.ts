@@ -173,6 +173,9 @@ export function reconcileForItems<T>(
       forState.pendingSwapIndices = null;
       forState.pendingMoveOnly = false;
       forState.pendingInsertedIndex = insertedIndex;
+      for (let index = insertedIndex; index < resultItems.length; index += 1) {
+        syncForItemIndex(forState, resultItems[index]!, index);
+      }
 
       if (BENCH_BUILD_ENABLED) {
         recordBenchTiming('reconcile', performance.now() - reconcileStartMs);

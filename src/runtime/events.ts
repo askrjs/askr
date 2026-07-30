@@ -310,7 +310,11 @@ function attachDelegatedListener(
     };
 
     const passiveOptions = getPassiveOptions(eventName);
-    const listenerOptions = passiveOptions ?? options;
+    const nonBubblingCapture =
+      eventName === 'focus' || eventName === 'blur';
+    const listenerOptions = nonBubblingCapture
+      ? { ...(passiveOptions ?? options), capture: true }
+      : passiveOptions ?? options;
 
     container.addEventListener(eventName, delegatedHandler, listenerOptions);
     containerListener = { handler: delegatedHandler, usage: 0 };
@@ -362,11 +366,7 @@ function setDelegatedHandlerForElement(
 function getPassiveOptions(
   eventName: string
 ): AddEventListenerOptions | undefined {
-  if (
-    eventName === 'wheel' ||
-    eventName === 'scroll' ||
-    eventName.startsWith('touch')
-  ) {
+  if (eventName === 'scroll') {
     return { passive: true };
   }
   return undefined;

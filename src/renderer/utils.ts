@@ -71,7 +71,9 @@ export function parseEventProp(propName: string): ParsedEventProp | null {
   if (propName === 'onClickCapture') return CLICK_CAPTURE_EVENT_PROP;
   if (!propName.startsWith('on') || propName.length <= 2) return null;
   const capture =
-    propName.endsWith('Capture') && propName.length > 'onCapture'.length;
+    propName.endsWith('Capture') &&
+    !propName.endsWith('PointerCapture') &&
+    propName.length > 'onCapture'.length;
   const normalizedPropName = capture
     ? propName.slice(0, -'Capture'.length)
     : propName;
@@ -113,11 +115,7 @@ export function getEventListenerOptions(
 export function getPassiveOptions(
   eventName: string
 ): AddEventListenerOptions | undefined {
-  if (
-    eventName === 'wheel' ||
-    eventName === 'scroll' ||
-    eventName.startsWith('touch')
-  ) {
+  if (eventName === 'scroll') {
     return { passive: true };
   }
   return undefined;

@@ -16,6 +16,27 @@ describe('component fragment structure', () => {
     }
   });
 
+  it('should remove a transparent component range given a state transition to null', () => {
+    let hide!: (value: boolean) => void;
+    const Row = () => <button data-row="true">row</button>;
+    const Body = () => {
+      const visible = state(true);
+      hide = visible.set;
+      return visible() ? [<Row key="row" />, <em key="tail">tail</em>] : null;
+    };
+
+    root = document.createElement('div');
+    document.body.appendChild(root);
+    createIsland({ root, component: () => <main><Body /><span data-after="true" /></main> });
+    flushScheduler();
+    hide(false);
+    flushScheduler();
+
+    expect(root.querySelector('[data-row]')).toBeNull();
+    expect(root.querySelector('em')).toBeNull();
+    expect(root.querySelector('[data-after]')).not.toBeNull();
+  });
+
   it('should keep plain component Fragment siblings structurally transparent across updates', () => {
     let update!: () => void;
     let remove!: () => void;

@@ -12,6 +12,32 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('client control-boundary reconciliation', () => {
+  it('should insert a newly opened branch before its sibling given adjacent same-tag Show boundaries', () => {
+    let setFirst!: (value: boolean) => void;
+    let setSecond!: (value: boolean) => void;
+    const App = () => {
+      const first = state(false);
+      const second = state(true);
+      setFirst = first.set;
+      setSecond = second.set;
+      return <main><Show when={first()}><p data-first="true">first</p></Show><Show when={second()}><p data-second="true">second</p></Show></main>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const second = container.querySelector('[data-second]')!;
+      setFirst(true);
+      flushScheduler();
+      expect(container.querySelector('[data-first]')).not.toBeNull();
+      expect(container.querySelector('[data-second]')).toBe(second);
+      setSecond(false);
+      flushScheduler();
+      expect(container.querySelector('[data-first]')).not.toBeNull();
+    } finally {
+      cleanup();
+    }
+  });
   it('should mount an each-accessor workspace with a resource after empty boundaries', async () => {
     const { container, cleanup } = createTestContainer();
     let setRows!: (rows: Array<{ id: string }>) => void;

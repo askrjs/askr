@@ -22,6 +22,7 @@ import {
   getScopeRange,
   materializeChildScopeRange,
 } from './boundary-range-adoption';
+import { isHydrationAdoptionScopeActive } from './intrinsic-hydration-adoption';
 import { getMaterializedKey, tagNamesEqualIgnoreCase } from './utils';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 
@@ -82,6 +83,7 @@ export function syncControlBoundaryScopeDom(
         true
       );
       assignScopeRange(scope, nextRange);
+      scope.hydrationPending = false;
       if (insertDetached) insertRangeBefore(parent, nextRange, before);
       return nextRange;
     }
@@ -256,6 +258,7 @@ export function syncControlBoundaryInMixedParent(
       const fallbackVNode = childrenVNodes[0];
       if (fallbackScope && fallbackVNode !== undefined) {
         if (
+          isHydrationAdoptionScopeActive() &&
           fallbackScope.hydrationPending &&
           !fallbackScope.range &&
           syncBefore instanceof Element &&
@@ -293,6 +296,7 @@ export function syncControlBoundaryInMixedParent(
           continue;
         }
         if (
+          isHydrationAdoptionScopeActive() &&
           item.scope.hydrationPending &&
           !item.scope.range &&
           syncBefore instanceof Element &&
@@ -358,6 +362,7 @@ export function syncControlBoundaryInMixedParent(
   const activeScope = controlState.activeScope;
   const activeVNode = childrenVNodes[0];
   if (
+    isHydrationAdoptionScopeActive() &&
     activeScope?.hydrationPending &&
     activeVNode !== undefined &&
     !activeScope.range &&
