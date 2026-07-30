@@ -65,4 +65,4 @@ jobs:
           git checkout "$tag"
 
       - name: Publish to npm
-        uses: askrjs/actions/actions/publish-package@cfbfac63066d778fa1fa99247f6af43515155e4f
+        run: npm publish --provenance --access public
