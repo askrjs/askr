@@ -152,7 +152,9 @@ export function materializeChildScopeRange(
   if (!dom) return createEmptyRange(document, scope).range;
   if (!(dom instanceof DocumentFragment))
     return createSingleNodeRange(dom, scope);
-  return createDetachedRange(dom, scope).range;
+  // Keep the transparent component's range owner so async rerenders can
+  // recover its anchored host; this scope retains the range directly.
+  return createDetachedRange(dom, scope, false, true).range;
 }
 
 export function getBoundaryParentNamespace(
