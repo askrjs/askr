@@ -12,6 +12,7 @@ import {
   createEmptyRange,
   createSingleNodeRange,
   findRangeEnd,
+  getOwnedRange,
   getRangeNodes,
   isRangeStart,
 } from './dom-range';
@@ -116,11 +117,32 @@ export function adoptHydratedRange(
 }
 
 export function getScopeRange(scope: ChildScope): DOMRange | null {
-  if (scope.range) return scope.range;
+  if (scope.range) {
+    const host = scope.range.start as Node & {
+      __ASKR_INSTANCE?: ComponentInstance;
+    };
+    const ownedRange = host.__ASKR_INSTANCE
+      ? getOwnedRange(host.__ASKR_INSTANCE)
+      : undefined;
+    if (ownedRange?.start === scope.range.start) {
+      scope.range = ownedRange;
+    }
+    return scope.range;
+  }
   if (!scope.dom) return null;
   const range = { start: scope.dom, end: scope.dom, single: true } as DOMRange;
   scope.range = range;
   return range;
+}
+
+export function getRangeComponentFunction(
+  range: DOMRange | null
+): ComponentFunction | undefined {
+  if (!range) return undefined;
+  const host = range.start as Node & {
+    __ASKR_INSTANCE?: ComponentInstance;
+  };
+  return host.__ASKR_INSTANCE?.fn;
 }
 
 export function materializeChildScopeRange(
