@@ -85,3 +85,29 @@ test('should allow normal focus loss when the focused key is deleted', async () 
     .toBeNull();
   expect(document.activeElement).not.toBe(fixture.input);
 });
+
+test('should retain focused keyed state during tail truncation', async () => {
+  const app = await loadBrowserHarness();
+  app.mountFocusReorderScenario(100);
+  const fixture = prepareFocusedRow(50);
+  fixture.localButton.click();
+  expect(fixture.localButton.textContent).toContain('Local count 1');
+
+  app.reorderFocusRows('truncate', 75);
+
+  expect(fixture.row.isConnected).toBe(true);
+  expect(fixture.row.querySelector('input')).toBe(fixture.input);
+  expect(document.activeElement).toBe(fixture.input);
+  expect(fixture.input.value).toBe('uncontrolled retained value');
+  expect(fixture.input.selectionStart).toBe(3);
+  expect(fixture.input.selectionEnd).toBe(12);
+  expect(fixture.input.selectionDirection).toBe('forward');
+  expect(fixture.focusExitCount()).toBe(0);
+  expect(fixture.localButton.textContent).toContain('Local count 1');
+
+  fixture.input.dispatchEvent(new Event('input', { bubbles: true }));
+  expect(fixture.nativeInputCount()).toBe(1);
+  expect(fixture.frameworkCount.textContent).toBe('1');
+  fixture.localButton.click();
+  expect(fixture.localButton.textContent).toContain('Local count 2');
+});

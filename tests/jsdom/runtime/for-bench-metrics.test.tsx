@@ -203,18 +203,18 @@ describe('for bench metrics', () => {
     expect(metrics.itemsReused).toBe(99);
   });
 
-  it('should record truncate metrics for clearing the list', () => {
+  it('should skip retained DOM synchronization for unchanged truncation', () => {
     let rowsState: ReturnType<
       typeof state<Array<{ id: number; label: string }>>
     > | null = null;
 
+    const rows = Array.from({ length: 2_000 }, (_, index) => ({
+      id: index + 1,
+      label: `Row ${index + 1}`,
+    }));
+
     const Component = () => {
-      rowsState = state(
-        Array.from({ length: 50 }, (_, index) => ({
-          id: index + 1,
-          label: `Row ${index + 1}`,
-        }))
-      );
+      rowsState = state(rows);
 
       return (
         <table>
@@ -236,14 +236,65 @@ describe('for bench metrics', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    rowsState!.set([]);
+    rowsState!.set(rows.slice(0, 1_000));
     flushScheduler();
 
     const metrics = getBenchMetrics();
     expect(metrics.fastLaneName).toBe('TRUNCATE');
-    expect(metrics.itemsRemoved).toBe(50);
+    expect(metrics.itemsRemoved).toBe(1_000);
     expect(metrics.rowFactoryInvocations).toBe(0);
-    expect(metrics.itemsReused).toBe(0);
+    expect(metrics.itemsReused).toBe(1_000);
+    expect(metrics.itemsCreated).toBe(0);
+    expect(metrics.itemsMoved).toBe(0);
+    expect(metrics.itemDomSyncCalls).toBe(0);
+  });
+
+  it('should synchronize only a changed retained row during truncation', () => {
+    let rowsState: ReturnType<
+      typeof state<Array<{ id: number; label: string }>>
+    > | null = null;
+
+    const rows = Array.from({ length: 20 }, (_, index) => ({
+      id: index + 1,
+      label: `Row ${index + 1}`,
+    }));
+
+    const Component = () => {
+      rowsState = state(rows);
+
+      return (
+        <table>
+          <tbody>
+            <For each={() => rowsState!()} by={(row) => row.id}>
+              {(row) => (
+                <tr>
+                  <td>{row.label}</td>
+                </tr>
+              )}
+            </For>
+          </tbody>
+        </table>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    rowsState!.set([
+      ...rows.slice(0, 4),
+      { ...rows[4]!, label: 'Row 5 updated' },
+      ...rows.slice(5, 10),
+    ]);
+    flushScheduler();
+
+    const metrics = getBenchMetrics();
+    expect(metrics.fastLaneName).toBe('TRUNCATE');
+    expect(metrics.itemsRemoved).toBe(10);
+    expect(metrics.rowFactoryInvocations).toBe(1);
+    expect(metrics.itemDomSyncCalls).toBe(1);
+    expect(container.querySelector('[data-key="5"]')?.textContent).toBe(
+      'Row 5 updated'
+    );
   });
 
   it('should record a two-move swap without row recreation', () => {

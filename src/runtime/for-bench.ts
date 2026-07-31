@@ -27,6 +27,7 @@ export interface BenchMetrics {
   domNodesCreated: number;
   listenerBindings: number;
   reactivePropsMounted: number;
+  itemDomSyncCalls: number;
   replaceChildrenCommits: number;
   bulkClearCommits: number;
   reconcilePhaseMs: number;
@@ -81,6 +82,7 @@ function createInitialBenchMetrics(): BenchMetrics {
     domNodesCreated: 0,
     listenerBindings: 0,
     reactivePropsMounted: 0,
+    itemDomSyncCalls: 0,
     replaceChildrenCommits: 0,
     bulkClearCommits: 0,
     reconcilePhaseMs: 0,
@@ -109,6 +111,7 @@ type BenchCounter =
   | 'domNodesCreated'
   | 'listenerBindings'
   | 'reactivePropsMounted'
+  | 'itemDomSyncCalls'
   | 'replaceChildrenCommits'
   | 'bulkClearCommits'
   | 'shiftedItemsVisited'
@@ -175,6 +178,7 @@ function resetBenchMetricsLive(metrics: BenchMetrics): void {
   metrics.domNodesCreated = 0;
   metrics.listenerBindings = 0;
   metrics.reactivePropsMounted = 0;
+  metrics.itemDomSyncCalls = 0;
   metrics.replaceChildrenCommits = 0;
   metrics.bulkClearCommits = 0;
   metrics.reconcilePhaseMs = 0;

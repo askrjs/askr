@@ -18,6 +18,10 @@ describe('tier3 system table truncate rows', () => {
     ...tier3BenchOptions,
     setup() {
       mounted = mountTableBenchmark(fullRows);
+      mounted.benchmark.setRows(truncatedRows);
+      assertRowCountTransition(mounted.container, 1_000);
+      mounted.benchmark.setRows(fullRows);
+      assertRowCountTransition(mounted.container, 2_000);
       cycle = createDirectionalBenchCycle({
         label: 'truncate 2,000 to 1,000 rows',
         forward: () => mounted!.benchmark.setRows(truncatedRows),

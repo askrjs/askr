@@ -163,6 +163,9 @@ function commitForStateBoundaryChildrenImpl(
     item: (typeof forState.orderedItems)[number],
     vnode: VNode
   ): Node | null => {
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchCounter('itemDomSyncCalls');
+    }
     captureItemBeforeCommit(item);
     const range = preResolvedRanges.has(item.scope)
       ? (preResolvedRanges.get(item.scope) ?? null)
@@ -268,7 +271,7 @@ function commitForStateBoundaryChildrenImpl(
 
   const getDirtyForIndices = (): number[] => {
     const pendingDirtyIndices = forState.pendingDirtyIndices;
-    if (pendingDirtyIndices && pendingDirtyIndices.length > 0) {
+    if (pendingDirtyIndices !== null) {
       return pendingDirtyIndices;
     }
 
@@ -295,7 +298,8 @@ function commitForStateBoundaryChildrenImpl(
 
   const dirtyIndices =
     forState.lastCommitStrategy === 'NO_REORDER' ||
-    forState.lastCommitStrategy === 'REMOVE_ONE'
+    forState.lastCommitStrategy === 'REMOVE_ONE' ||
+    forState.lastCommitStrategy === 'TRUNCATE'
       ? ensureDirtyIndices()
       : [];
   let boundaryChildrenExact = false;
@@ -308,6 +312,9 @@ function commitForStateBoundaryChildrenImpl(
 
     const orderedItems = forState.orderedItems;
     const childNodes = parent.childNodes;
+    const canPatchStableDirtyItems =
+      forState.lastCommitStrategy !== 'TRUNCATE' ||
+      dirtyIndices.length < orderedItems.length;
 
     for (let dirtyIndex = 0; dirtyIndex < dirtyIndices.length; dirtyIndex++) {
       const i = dirtyIndices[dirtyIndex];
@@ -318,9 +325,13 @@ function commitForStateBoundaryChildrenImpl(
 
       captureItemBeforeCommit(itemInstance);
       if (
+        canPatchStableDirtyItems &&
         !preResolvedRanges.has(itemInstance.scope) &&
         runtime.tryPatchStableForDirtyItem(itemInstance.scope)
       ) {
+        if (BENCH_BUILD_ENABLED) {
+          recordBenchCounter('itemDomSyncCalls');
+        }
         continue;
       }
 
@@ -331,28 +342,6 @@ function commitForStateBoundaryChildrenImpl(
 
       const anchor = childNodes[i] ?? null;
       if (dom.parentNode !== parent || dom !== anchor) {
-        recordBenchEvent('domInsert');
-        parent.insertBefore(dom, anchor);
-      }
-    }
-
-    boundaryChildrenExact = true;
-  };
-
-  const commitPositional = (): void => {
-    for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const itemInstance = forState.orderedItems[i];
-      if (!itemInstance) {
-        continue;
-      }
-
-      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-      if (!dom) {
-        continue;
-      }
-
-      if (dom.parentNode !== parent) {
-        const anchor = parent.childNodes[i] ?? null;
         recordBenchEvent('domInsert');
         parent.insertBefore(dom, anchor);
       }
@@ -707,7 +696,7 @@ function commitForStateBoundaryChildrenImpl(
       commitDirtyNoReorder(dirtyIndices);
       break;
     case 'TRUNCATE':
-      commitPositional();
+      commitDirtyNoReorder(dirtyIndices);
       break;
     case 'APPEND':
       commitAppend();

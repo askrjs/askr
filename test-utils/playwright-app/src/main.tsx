@@ -759,7 +759,7 @@ function mountFocusReorderScenario(count: number): void {
 }
 
 function reorderFocusRows(
-  mode: 'reverse' | 'reverse-fresh' | 'sparse-front' | 'delete',
+  mode: 'reverse' | 'reverse-fresh' | 'sparse-front' | 'delete' | 'truncate',
   focusedId?: number
 ): void {
   if (!focusReorderRows)
@@ -767,6 +767,10 @@ function reorderFocusRows(
   const current = focusReorderRows();
   if (mode === 'delete') {
     focusReorderRows.set(current.filter((row) => row.id !== focusedId));
+    return;
+  }
+  if (mode === 'truncate') {
+    focusReorderRows.set(current.slice(0, focusedId));
     return;
   }
   if (mode === 'sparse-front') {
