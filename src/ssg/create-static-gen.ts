@@ -71,8 +71,8 @@ function resolveParallelism(requested: number | 'auto' | undefined): number {
     return Math.max(1, maybeNavigator.navigator.hardwareConcurrency);
   }
 
-  // availableParallelism() is not present in Node 18. Keep that release line
-  // supported by falling back to cpu count when the modern API is unavailable.
+  // Retain the CPU-count fallback for environments that do not expose
+  // availableParallelism().
   const availableParallelism = (
     os as typeof os & {
       availableParallelism?: () => number;

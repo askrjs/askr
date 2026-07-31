@@ -163,8 +163,7 @@ entries can override the canonical URL, `lastModified`, `changeFrequency`,
 `sitemap: false` to explicitly disable sitemap generation.
 
 Set `parallelism: 'auto'` when host CPU-based worker selection is desired. It
-uses the Node 18-compatible CPU-count fallback when `availableParallelism()` is
-not available.
+falls back to `os.cpus()` when `availableParallelism()` is unavailable.
 
 ## Output safety
 

@@ -35,9 +35,8 @@ The release flow is split across dedicated workflows:
 - `prepublishOnly`: runs `npm run release:verify`; manual npm publishing cannot
   skip lint, build, checks, public types, test suites, or the packed consumer
   contract. The Chromium browser integration suite is part of that gate.
-- The packed consumer is also executed under Node 18 after the fresh build.
-  Development checks use the current LTS toolchain; Node 18 is a post-build
-  compatibility check.
+- The packed consumer and development checks run on the current LTS toolchain,
+  which must satisfy the package's declared Node.js engine.
 
 The packed consumer contract imports every exported subpath from a fresh ESM
 install, verifies the matching emitted declaration files, runs a minimal
