@@ -4,7 +4,7 @@ How to contribute to the `@askrjs/askr` runtime and platform docs.
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 24.15+ (LTS)
 - npm 10+
 
 ## Setup

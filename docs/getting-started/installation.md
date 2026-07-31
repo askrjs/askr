@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 24.15+
 - npm 10+
 
 ## Install package

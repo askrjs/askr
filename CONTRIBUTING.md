@@ -9,7 +9,7 @@ repositories.
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 24.15+ (LTS)
 - npm 10+
 
 ## Local Setup
