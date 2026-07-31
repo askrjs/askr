@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- breaking(runtime): require Node.js 24.15 or newer.
+
 ### 0.0.52 — audit remediation
 
 - fix(release): rebuild packed artifacts from an absent `dist`, verify every
