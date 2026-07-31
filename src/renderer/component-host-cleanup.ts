@@ -190,27 +190,14 @@ export function pruneComponentHostInstances(
   const previousInstances = collectHostInstances(host);
 
   const commit = (): void => {
-    // Keep the iterable live until commit. Nested component resolution can
-    // register pruning before render, then add every successfully retained
-    // owner before the lifecycle batch is finalized.
-    const retained = new Set(retainedInstances);
-    const currentInstances = collectHostInstances(host);
-    const nextInstances = Array.from(currentInstances).filter((instance) =>
-      retained.has(instance)
-    );
-
-    for (const instance of retained) {
-      if (
-        (instance.target === host || instance._placeholder === host) &&
-        !nextInstances.includes(instance)
-      ) {
-        nextInstances.push(instance);
-      }
-    }
-
+    // Keep the desired iterable live until commit. Nested resolution adds only
+    // wrappers that completed successfully; old host metadata remains a
+    // lookup ledger and never contributes owners to the next generation.
+    const nextInstances = orderHostInstances(retainedInstances);
+    const retained = new Set(nextInstances);
     writeHostInstances(host, nextInstances);
     cleanupHostInstances(
-      Array.from(currentInstances).filter(
+      Array.from(previousInstances).filter(
         (instance) => !retained.has(instance)
       ),
       'Component host pruning failed'
@@ -219,6 +206,9 @@ export function pruneComponentHostInstances(
 
   const rollback = (): void => {
     const currentInstances = collectHostInstances(host);
+    for (const instance of retainedInstances) {
+      currentInstances.add(instance);
+    }
 
     try {
       if (hadInstanceList) {
@@ -247,6 +237,44 @@ export function pruneComponentHostInstances(
   if (!registerLifecycleTransaction({}, commit, rollback)) {
     commit();
   }
+}
+
+function orderHostInstances(
+  instances: Iterable<ComponentInstance>
+): ComponentInstance[] {
+  const ordered = Array.from(new Set(instances));
+  const candidates = new Set(ordered);
+  const originalIndex = new Map(
+    ordered.map((instance, index) => [instance, index] as const)
+  );
+  const depthCache = new Map<ComponentInstance, number>();
+
+  const getDepth = (
+    instance: ComponentInstance,
+    visiting = new Set<ComponentInstance>()
+  ): number => {
+    const cached = depthCache.get(instance);
+    if (cached !== undefined) {
+      return cached;
+    }
+    if (visiting.has(instance)) {
+      return 0;
+    }
+
+    visiting.add(instance);
+    const parent = instance._vnodeParent ?? instance.parentInstance;
+    const depth =
+      parent && candidates.has(parent) ? getDepth(parent, visiting) + 1 : 0;
+    visiting.delete(instance);
+    depthCache.set(instance, depth);
+    return depth;
+  };
+
+  return ordered.sort(
+    (left, right) =>
+      getDepth(right) - getDepth(left) ||
+      originalIndex.get(left)! - originalIndex.get(right)!
+  );
 }
 
 function collectHostInstances(host: InstanceHostNode): Set<ComponentInstance> {

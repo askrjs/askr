@@ -19,6 +19,7 @@ import {
 import type { DOMElement, VNode } from './types';
 import { extractKey, getMaterializedKey } from './utils';
 import { getControlBoundaryState } from './boundary-state';
+import { getLogicalChildHosts } from './dom-range';
 
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 type ComponentVNode = DOMElement & { type: ComponentFunction };
@@ -47,7 +48,8 @@ function scanForElementByKey(
   usedOldEls: WeakSet<Node>
 ): Element | undefined {
   try {
-    for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
+    for (const ch of getLogicalChildHosts(parent)) {
+      if (!(ch instanceof Element)) continue;
       if (usedOldEls.has(ch)) continue;
       if (getMaterializedKey(ch) === k) {
         usedOldEls.add(ch);
@@ -67,7 +69,8 @@ export function reconcileSingleChild(
   resolveOldElOnce: (k: string | number) => Element | undefined,
   resolveUnkeyedOnce: () => Element | undefined,
   usedOldEls: WeakSet<Node>,
-  newKeyMap: Map<string | number, Element>
+  newKeyMap: Map<string | number, Element>,
+  oldChildHosts: Node[] = getLogicalChildHosts(parent)
 ): Node | null {
   const resolvedControlBoundary = prepareControlBoundaryResolution(child);
   if (resolvedControlBoundary !== null) {
@@ -85,7 +88,8 @@ export function reconcileSingleChild(
       resolveOldElOnce,
       resolveUnkeyedOnce,
       usedOldEls,
-      newKeyMap
+      newKeyMap,
+      oldChildHosts
     );
   }
 
@@ -104,10 +108,10 @@ export function reconcileSingleChild(
 
   return reconcileUnkeyedChild(
     child,
-    index,
     parent,
     resolveUnkeyedOnce,
-    usedOldEls
+    usedOldEls,
+    oldChildHosts[index]
   );
 }
 
@@ -185,7 +189,7 @@ function findKeyedComponentHost(
   key: string | number,
   usedOldEls: WeakSet<Node>
 ): Node | undefined {
-  for (const node of parent.childNodes) {
+  for (const node of getLogicalChildHosts(parent)) {
     if (usedOldEls.has(node)) continue;
     const host = node as InstanceHostNode;
     const instances = new Set(host.__ASKR_INSTANCES ?? []);
@@ -200,15 +204,13 @@ function findKeyedComponentHost(
 
 function reconcileUnkeyedChild(
   child: VNode,
-  index: number,
   parent: Element,
   resolveUnkeyedOnce: () => Element | undefined,
-  usedOldEls: WeakSet<Node>
+  usedOldEls: WeakSet<Node>,
+  existing: Node | undefined
 ): Node | null {
   const parentNamespace = getParentNamespace(parent);
   const domHost = getRendererDOMHost();
-
-  const existing = parent.childNodes[index] as Node | undefined;
 
   if (typeof child === 'string' || typeof child === 'number') {
     if (existing && existing.nodeType === 3) {
@@ -362,9 +364,10 @@ function canReuseElement(
   );
 }
 
-export function collectUnkeyedElements(parent: Element): Element[] {
+export function collectUnkeyedElements(hosts: Node[]): Element[] {
   const elements: Element[] = [];
-  for (let ch = parent.firstElementChild; ch; ch = ch.nextElementSibling) {
+  for (const ch of hosts) {
+    if (!(ch instanceof Element)) continue;
     if (ch.getAttribute('data-key') === null) elements.push(ch);
   }
   return elements;

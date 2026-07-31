@@ -23,6 +23,7 @@ type LifecycleCommitBatchEntry = {
 
 type ReadSubscriptionCommit = {
   instance: ComponentInstance;
+  ownershipGeneration: object;
   token: number;
   pendingReadSources: Set<ReadableSource<unknown>> | undefined;
   pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined;
@@ -182,16 +183,19 @@ function enqueueReadSubscriptionCommit(
   instance: ComponentInstance,
   token: number,
   pendingReadSources: Set<ReadableSource<unknown>> | undefined,
-  pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined
+  pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined,
+  ownershipGeneration: object = instance._ownershipGeneration
 ): void {
   const existing = batch.readCommitsByInstance.get(instance);
   const commit = existing ?? {
     instance,
+    ownershipGeneration,
     token,
     pendingReadSources,
     pendingReadSourceVersions,
   };
 
+  commit.ownershipGeneration = ownershipGeneration;
   commit.token = token;
   commit.pendingReadSources = pendingReadSources
     ? new Set(pendingReadSources)
@@ -262,7 +266,8 @@ export function finalizeInlineReadSubscriptions(
     instance,
     token,
     pendingReadSources,
-    pendingReadSourceVersions
+    pendingReadSourceVersions,
+    instance._ownershipGeneration
   );
 }
 
@@ -298,7 +303,8 @@ export function flushLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
         commit.instance,
         commit.token,
         commit.pendingReadSources,
-        commit.pendingReadSourceVersions
+        commit.pendingReadSourceVersions,
+        commit.ownershipGeneration
       );
     }
     for (const entry of batch.entries) {
@@ -315,7 +321,8 @@ export function flushLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
         commit.instance,
         commit.token,
         commit.pendingReadSources,
-        commit.pendingReadSourceVersions
+        commit.pendingReadSourceVersions,
+        commit.ownershipGeneration
       );
     } catch (error) {
       commitErrors.push(error);

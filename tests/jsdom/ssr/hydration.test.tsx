@@ -451,6 +451,92 @@ describe('hydration (SSR)', () => {
       ).toBe('beta updated');
     });
 
+    it('should hydrate transparent keyed component ranges in place and reorder them', async () => {
+      type Item = { id: number; label: string };
+      const initialRows: Item[] = [
+        { id: 1, label: 'alpha' },
+        { id: 2, label: 'beta' },
+      ];
+      let setRows!: (rows: Item[]) => void;
+
+      function Row({ item }: { item: Item }) {
+        return (
+          <>
+            <button data-range-start={item.id}>{item.label}</button>
+            <span data-range-end={item.id}>{`${item.label}:end`}</span>
+          </>
+        );
+      }
+
+      function Component() {
+        const rows = state<Item[]>(initialRows);
+        setRows = rows.set;
+        return (
+          <section data-range-list={'true'}>
+            <For each={rows} by={(row) => row.id}>
+              {(item) => <Row item={item} />}
+            </For>
+          </section>
+        );
+      }
+
+      const routes = [{ path: '/', handler: Component }];
+      const html = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
+      expect(html.match(/<!--askr-range-start-->/g)).toHaveLength(2);
+      expect(html.match(/<!--askr-range-end-->/g)).toHaveLength(2);
+      container.innerHTML = html;
+
+      const firstStart = container.querySelector('[data-range-start="1"]');
+      const firstEnd = container.querySelector('[data-range-end="1"]');
+      const secondStart = container.querySelector('[data-range-start="2"]');
+      const secondEnd = container.querySelector('[data-range-end="2"]');
+
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+      });
+      flushScheduler();
+      flushScheduler();
+
+      expect(
+        container.querySelector('[data-range-start="1"]'),
+        container.innerHTML
+      ).toBe(firstStart);
+      expect(container.querySelector('[data-range-end="1"]')).toBe(firstEnd);
+      expect(container.querySelector('[data-range-start="2"]')).toBe(
+        secondStart
+      );
+      expect(container.querySelector('[data-range-end="2"]')).toBe(secondEnd);
+
+      setRows([
+        { id: 2, label: 'beta' },
+        { id: 1, label: 'alpha updated' },
+      ]);
+      flushScheduler();
+
+      expect(
+        Array.from(
+          container.querySelector('[data-range-list]')!.children,
+          (node) =>
+            node.getAttribute('data-range-start') ??
+            node.getAttribute('data-range-end')
+        )
+      ).toEqual(['2', '2', '1', '1']);
+      expect(container.querySelector('[data-range-start="1"]')).toBe(
+        firstStart
+      );
+      expect(container.querySelector('[data-range-end="1"]')).toBe(firstEnd);
+      expect(container.querySelector('[data-range-start="2"]')).toBe(
+        secondStart
+      );
+      expect(container.querySelector('[data-range-end="2"]')).toBe(secondEnd);
+      expect(firstStart?.textContent).toBe('alpha updated');
+      expect(firstEnd?.textContent).toBe('alpha updated:end');
+    });
+
     it('should hydrate static keyed rows in place', async () => {
       const rows = [
         { id: 1, label: 'alpha' },

@@ -173,6 +173,24 @@ function extractComponentIdentityKey(
     : (internalKey as string | number);
 }
 
+export function hasComponentOwnershipIdentity(
+  instance: ComponentInstance,
+  type: (props: Props) => unknown,
+  node: unknown,
+  parent: ComponentInstance | null,
+  wrapperDepth: number,
+  position?: number
+): boolean {
+  return (
+    instance.fn === type &&
+    instance._vnodeParent === parent &&
+    instance._vnodeParentGeneration === parent?._ownershipGeneration &&
+    instance._vnodeKey === extractComponentIdentityKey(node) &&
+    instance._wrapperDepth === wrapperDepth &&
+    instance._vnodePosition === position
+  );
+}
+
 export function setComponentOwnershipIdentity(
   instance: ComponentInstance,
   node: unknown,
@@ -206,7 +224,14 @@ export function findHostInstanceByType(
     const vnodeOwner = getVNodeComponentInstance(node);
     if (
       vnodeOwner &&
-      vnodeOwner.fn === type &&
+      (parent === undefined ||
+        hasComponentOwnershipIdentity(
+          vnodeOwner,
+          type,
+          node,
+          parent,
+          wrapperDepth ?? vnodeOwner._wrapperDepth ?? 0
+        )) &&
       instances.includes(vnodeOwner)
     ) {
       return vnodeOwner;
@@ -218,7 +243,13 @@ export function findHostInstanceByType(
       if (parent !== undefined && instance._vnodeParent !== parent) {
         return false;
       }
-      if (key !== undefined && instance._vnodeKey !== key) return false;
+      if (
+        parent !== undefined &&
+        instance._vnodeParentGeneration !== parent?._ownershipGeneration
+      ) {
+        return false;
+      }
+      if (node !== undefined && instance._vnodeKey !== key) return false;
       if (
         wrapperDepth !== undefined &&
         instance._wrapperDepth !== wrapperDepth
@@ -248,7 +279,9 @@ export function findHostInstanceByType(
     const key = extractComponentIdentityKey(node as DOMElement);
     if (
       (parent === undefined || instance._vnodeParent === parent) &&
-      (key === undefined || instance._vnodeKey === key) &&
+      (parent === undefined ||
+        instance._vnodeParentGeneration === parent?._ownershipGeneration) &&
+      (node === undefined || instance._vnodeKey === key) &&
       (wrapperDepth === undefined || instance._wrapperDepth === wrapperDepth)
     ) {
       return instance;
@@ -297,18 +330,20 @@ export function findStableHostInstanceByType(
   if (key === undefined) {
     const rangeMatches = Array.from(instances).filter((instance) => {
       const range = getOwnedRange(instance);
+      const exactParent =
+        instance._vnodeParent === parent &&
+        instance._vnodeParentGeneration === parentGeneration;
       return (
         instance.fn === type &&
-        instance._vnodeParent !== parent &&
-        instance._vnodeParent != null &&
-        instance._vnodeParentGeneration ===
-          instance._vnodeParent._ownershipGeneration &&
+        (exactParent ||
+          (instance._vnodeParent !== parent &&
+            instance._vnodeParent != null &&
+            instance._vnodeParentGeneration ===
+              instance._vnodeParent._ownershipGeneration)) &&
         instance._vnodeKey === undefined &&
         instance._wrapperDepth === wrapperDepth &&
         ((range?.single === false && range.start === host) ||
-          (host instanceof Comment &&
-            host.data === RANGE_START_MARKER &&
-            instance._placeholder === host))
+          (exactParent && instance._placeholder === host))
       );
     });
     return rangeMatches.length === 1 ? rangeMatches[0]! : null;

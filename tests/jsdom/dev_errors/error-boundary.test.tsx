@@ -166,6 +166,42 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
     errorSpy.mockRestore();
   });
 
+  it('should recover the parent boundary given a child render error when the child later becomes valid', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let setValid!: (valid: boolean) => void;
+
+    const Child = ({ valid }: { valid: boolean }) => {
+      if (!valid) throw new Error('temporarily invalid');
+      return <p id="valid-child">valid child</p>;
+    };
+
+    const App = () => {
+      const valid = state(false);
+      setValid = valid.set;
+      return (
+        <ErrorBoundary
+          resetKey={valid()}
+          fallback={<p id="parent-fallback">invalid child</p>}
+        >
+          <Child valid={valid()} />
+        </ErrorBoundary>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.querySelector('#parent-fallback')).not.toBeNull();
+
+    setValid(true);
+    flushScheduler();
+
+    expect(container.querySelector('#parent-fallback')).toBeNull();
+    expect(container.querySelector('#valid-child')?.textContent).toBe(
+      'valid child'
+    );
+    errorSpy.mockRestore();
+  });
+
   it('should keep the outer boundary healthy when an inner boundary handles the error', () => {
     const OuterFallback = () => <p id="outer-fallback">outer</p>;
     const InnerFallback = () => <p id="inner-fallback">inner</p>;

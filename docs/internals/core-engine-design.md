@@ -107,6 +107,9 @@ flowchart TB
     domCore[dom-internal.ts]
     domHost[dom-host.ts]
     componentHost[component-host.ts]
+    componentCreation[component-host-creation.ts]
+    componentNested[component-host-nested-results.ts]
+    componentResults[component-host-results.ts]
     componentInstances[component-host-instances.ts]
     componentCleanup[component-host-cleanup.ts]
     elementChildren[element-children.ts]
@@ -114,6 +117,9 @@ flowchart TB
     stablePatch[stable-patch.ts]
     attrs[attributes.ts]
     boundaries[boundaries.ts]
+    boundaryPlacement[boundary-range-placement.ts]
+    boundaryCleanup[boundary-range-cleanup.ts]
+    boundarySync[boundary-range-sync.ts]
     childShape[child-shape.ts]
     propBindings[prop-bindings.ts]
     reactiveChildren[reactive-children.ts]
@@ -128,6 +134,7 @@ flowchart TB
     keyedChildren[keyed-children.ts]
     namespaces[namespaces.ts]
     forCommit[for-commit.ts]
+    forCommitRanges[for-commit-ranges.ts]
     forCommitMap[for-commit-dom-map.ts]
     forCommitRemoval[for-commit-removal.ts]
     forCommitReorder[for-commit-reorder.ts]
@@ -219,6 +226,9 @@ flowchart TB
   domFacade --> domCore
   domCore --> domHost
   domCore --> componentHost
+  componentHost --> componentCreation
+  componentHost --> componentNested
+  componentHost --> componentResults
   componentHost --> componentInstances
   domCore --> componentCleanup
   domCore --> elementChildren
@@ -226,6 +236,9 @@ flowchart TB
   domCore --> stablePatch
   domCore --> attrs
   domCore --> boundaries
+  boundaries --> boundaryPlacement
+  boundaries --> boundaryCleanup
+  boundaries --> boundarySync
   domCore --> childShape
   domCore --> propBindings
   domCore --> reactiveChildren
@@ -234,6 +247,7 @@ flowchart TB
   domCore --> staticReuse
   domCore --> namespaces
   domCore --> forCommit
+  forCommit --> forCommitRanges
   forCommit --> forCommitMap
   forCommit --> forCommitRemoval
   forCommit --> forCommitReorder
@@ -321,10 +335,16 @@ diagrams:
   `src/renderer/prop-bindings.ts`, `src/renderer/reactive-children.ts`,
   `src/renderer/reactive-child-dom.ts`,
   `src/renderer/reactive-child-sources.ts`, `src/renderer/boundaries.ts`,
-  `src/renderer/component-host.ts`,
+  `src/renderer/boundary-range-placement.ts`,
+  `src/renderer/boundary-range-cleanup.ts`,
+  `src/renderer/boundary-range-sync.ts`, `src/renderer/component-host.ts`,
+  `src/renderer/component-host-creation.ts`,
+  `src/renderer/component-host-nested-results.ts`,
+  `src/renderer/component-host-results.ts`,
   `src/renderer/component-host-instances.ts`,
   `src/renderer/component-host-cleanup.ts`, `src/renderer/element-children.ts`,
-  `src/renderer/error-boundary-dom.ts`, and `src/renderer/stable-patch.ts` are
+  `src/renderer/error-boundary-dom.ts`, `src/renderer/stable-patch.ts`, and
+  `src/renderer/for-commit-ranges.ts` are
   active DOM renderer owners wired through `dom-internal.ts` or
   `component-host.ts`.
 - `src/boot/index.ts` is the public lifecycle facade. `boot/root-lifecycle.ts`
@@ -375,11 +395,12 @@ The diagrams above are backed by architecture checks:
   renderer.
 - The renderer helper owners (`attributes.ts`, `child-shape.ts`,
   `prop-bindings.ts`, `reactive-children.ts`, `reactive-child-dom.ts`,
-  `reactive-child-sources.ts`, `boundaries.ts`, `component-host.ts`,
+  `reactive-child-sources.ts`, `boundaries.ts`, the boundary-range helpers,
+  `component-host.ts`, the component-host creation/result helpers,
   `component-host-instances.ts`, `element-children.ts`, `stable-patch.ts`, and
-  the reconcile/For commit helpers) are active dependencies. Future extraction
-  should keep the running path wired to the owner modules rather than
-  duplicating behavior.
+  the reconcile/For commit helpers) are active dependencies. Future
+  extraction should keep the running path wired to the owner modules rather
+  than duplicating behavior.
 - `For` state/hook ownership, reconciliation strategy, child-scope lifecycle,
   and item/index/property signal behavior are now split across
   `runtime/for-internal.ts`, `runtime/for-reconcile.ts`,

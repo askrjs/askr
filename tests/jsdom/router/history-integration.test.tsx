@@ -25,7 +25,12 @@ import { createSPA } from '@askrjs/askr/boot';
 import { state } from '../../../src/index';
 import { task } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
-import { createRouteRegistry, lazy, route } from '../../../src/router/route';
+import {
+  createRouteRegistry,
+  group,
+  lazy,
+  route,
+} from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
@@ -66,6 +71,63 @@ describe('history integration (ROUTER)', () => {
       writable: true,
       configurable: true,
     });
+  });
+
+  it('should preserve scroll and focus restoration given back/forward navigation when nested routes replace their content', async () => {
+    const Shell = ({ children }: { children?: unknown }) => (
+      <section>
+        <input id="persistent-search" />
+        <div id="nested-content">{children as never}</div>
+      </section>
+    );
+    group({ layout: Shell }, () => {
+      route('/nested/a', () => <p id="page-a">page a</p>);
+      route('/nested/b', () => <p id="page-b">page b</p>);
+    });
+
+    window.history.replaceState({}, '', '/nested/a');
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    const search = container.querySelector(
+      '#persistent-search'
+    ) as HTMLInputElement;
+    search.focus();
+
+    navigate('/nested/b');
+    await settleNavigation();
+    expect(container.querySelector('#persistent-search')).toBe(search);
+    expect(document.activeElement).toBe(search);
+
+    window.history.replaceState(
+      { path: '/nested/a', scroll: { x: 12, y: 34 } },
+      '',
+      '/nested/a'
+    );
+    window.dispatchEvent(
+      new PopStateEvent('popstate', {
+        state: { path: '/nested/a', scroll: { x: 12, y: 34 } },
+      })
+    );
+    await settleNavigation();
+    expect(container.querySelector('#page-a')).not.toBeNull();
+    expect(container.querySelector('#persistent-search')).toBe(search);
+    expect(document.activeElement).toBe(search);
+    expect(scrollToSpy).toHaveBeenLastCalledWith(12, 34);
+
+    window.history.replaceState(
+      { path: '/nested/b', scroll: { x: 56, y: 78 } },
+      '',
+      '/nested/b'
+    );
+    window.dispatchEvent(
+      new PopStateEvent('popstate', {
+        state: { path: '/nested/b', scroll: { x: 56, y: 78 } },
+      })
+    );
+    await settleNavigation();
+    expect(container.querySelector('#page-b')).not.toBeNull();
+    expect(container.querySelector('#persistent-search')).toBe(search);
+    expect(document.activeElement).toBe(search);
+    expect(scrollToSpy).toHaveBeenLastCalledWith(56, 78);
   });
 
   afterEach(() => {

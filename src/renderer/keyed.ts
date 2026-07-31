@@ -3,9 +3,9 @@ import { extractKeyedVnodes, type KeyedVnode } from './keyed-children';
 import {
   isIgnoredForPropChanges,
   hasPropChanged,
-  buildKeyMapFromChildren,
   getMaterializedKey,
 } from './utils';
+import { getLogicalChildHosts } from './dom-range';
 
 export type { KeyedVnode } from './keyed-children';
 
@@ -33,13 +33,21 @@ export function populateKeyMapForElement(parent: Element): void {
   try {
     if (keyedElements.has(parent)) return;
 
-    let domMap = buildKeyMapFromChildren(parent);
+    let domMap = new Map<string | number, Element>();
+    const logicalHosts = getLogicalChildHosts(parent);
+    for (const host of logicalHosts) {
+      if (!(host instanceof Element)) continue;
+      const key = getMaterializedKey(host);
+      if (key !== undefined) {
+        domMap.set(key, host);
+      }
+    }
 
     // Fallback: map by textContent when keys are not materialized as attrs
     if (domMap.size === 0) {
       domMap = new Map();
-      const children = Array.from(parent.children);
-      for (const ch of children) {
+      for (const ch of logicalHosts) {
+        if (!(ch instanceof Element)) continue;
         const text = (ch.textContent || '').trim();
         if (text) {
           domMap.set(text, ch);
@@ -125,8 +133,9 @@ function collectCurrentKeyOrder(
   let keyCount = 0;
 
   try {
-    for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
-      const key = getMaterializedKey(el);
+    for (const host of getLogicalChildHosts(parent)) {
+      if (!(host instanceof Element)) continue;
+      const key = getMaterializedKey(host);
       if (key === undefined) {
         continue;
       }

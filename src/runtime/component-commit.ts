@@ -193,7 +193,14 @@ function commitToTarget(
     try {
       try {
         withContext(executionFrame, () => {
-          renderer.evaluate(result, target, undefined, instance);
+          const replacement = renderer.replaceComponentRange(
+            instance,
+            result,
+            target
+          );
+          if (!replacement) {
+            renderer.evaluate(result, target, undefined, instance);
+          }
         });
       } catch (err) {
         discardLifecycleCommitBatch(lifecycleBatch);

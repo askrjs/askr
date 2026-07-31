@@ -26,6 +26,7 @@ import { isKeyedReorderFastPathEligible, getKeyMapForElement } from './keyed';
 import { populateKeyMapForElement } from './keyed';
 import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
 import { replaceComponentRange } from './component-range-commit';
+import { getScopeRange } from './boundary-range-adoption';
 import { getDefaultRuntimeInstance } from '../runtime';
 import {
   configureRuntimeRenderer,
@@ -38,6 +39,7 @@ export function createRendererHost(): RuntimeRendererHost {
     evaluate: _evaluate,
     cleanupInstancesUnder,
     replaceComponentRange,
+    resolveChildScopeRange: getScopeRange,
     teardownNodeSubtree,
     populateKeyMapForElement,
     getKeyMapForElement,

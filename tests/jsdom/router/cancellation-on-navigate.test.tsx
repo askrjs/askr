@@ -23,6 +23,7 @@ import {
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
+import { defer } from '../../../src/router/deferred';
 import { resource } from '../../../src/runtime/operations';
 import { getSignal } from '../../../src/runtime/component';
 import {
@@ -101,6 +102,31 @@ describe('cancellation on navigate (ROUTER)', () => {
     flushScheduler();
 
     expect(renderCount).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should cancel deferred route data given route replacement when the previous route is no longer active', async () => {
+    let loaderSignal: AbortSignal | null = null;
+
+    route('/deferred', () => <div>deferred</div>, {
+      loader: ({ signal }) => {
+        loaderSignal = signal;
+        return { result: defer(new Promise(() => {})) };
+      },
+    });
+    route('/replacement', () => <div>replacement</div>);
+    route('/', () => <div>home</div>);
+
+    window.history.replaceState({}, '', '/');
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    navigate('/deferred');
+    flushScheduler();
+    expect(loaderSignal?.aborted).toBe(false);
+
+    navigate('/replacement');
+    flushScheduler();
+
+    expect(loaderSignal?.aborted).toBe(true);
+    expect(container.textContent).toContain('replacement');
   });
 
   it('should abort route-owned resource signal when route unmounts via navigate', async () => {

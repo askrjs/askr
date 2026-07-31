@@ -11,6 +11,7 @@ import { createQuery } from '../../../src/data';
 import { resource } from '../../../src/resources';
 import { getNextKey, getCurrentRenderData } from '../../../src/ssr/render-keys';
 import { getRenderContext } from '../../../src/ssr/context';
+import { registerSSRStyle } from '../../../src/common/render-context';
 import {
   createRouteRegistry,
   currentRoute,
@@ -20,6 +21,46 @@ import {
 import { routeRegistryFromTable } from '../../router-test-utils';
 
 describe('SSR concurrency isolation', () => {
+  it('should isolate request-local SSR registries given concurrent requests when both requests generate styles and data', async () => {
+    const contexts: Array<{
+      data: unknown;
+      styles: string[];
+    }> = [];
+    const render = (name: string) =>
+      Promise.resolve().then(() =>
+        renderToStringSync(
+          () => {
+            registerSSRStyle(`style-${name}`, `.${name}{color:${name}}`);
+            return <div>{getCurrentRenderData()?.source as string}</div>;
+          },
+          {},
+          {
+            data: { source: name },
+            onContext: (context) =>
+              contexts.push({
+                data: context.renderData,
+                styles: [...context.ssrStyles.keys()],
+              }),
+          }
+        )
+      );
+
+    const [alpha, beta] = await Promise.all([render('red'), render('blue')]);
+
+    expect(alpha).toContain('red');
+    expect(beta).toContain('blue');
+    expect(contexts).toEqual([
+      {
+        data: expect.objectContaining({ resources: { source: 'red' } }),
+        styles: ['style-red'],
+      },
+      {
+        data: expect.objectContaining({ resources: { source: 'blue' } }),
+        styles: ['style-blue'],
+      },
+    ]);
+  });
+
   it('should isolate render context between concurrent renders', async () => {
     // Track keys generated during each render
     const keysA: string[] = [];

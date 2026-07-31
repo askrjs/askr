@@ -17,6 +17,65 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('client control-boundary reconciliation', () => {
+  it('should remove raw empty siblings before a newly populated keyed For', () => {
+    const { container, cleanup } = createTestContainer();
+    let openWorkspace!: () => void;
+
+    const Workspace = ({ id }: { id: string }) => (
+      <>
+        <output data-workspace-status={id}>{'Ready'}</output>
+        <section data-workspace={id}>
+          <input aria-label={`SQL ${id}`} />
+        </section>
+      </>
+    );
+
+    const App = () => {
+      const rows = state<Array<{ id: string }>>([]);
+      openWorkspace = () => rows.set([{ id: 'one' }]);
+      return (
+        <main>
+          {null}
+          {rows().length === 0 ? (
+            <section data-empty-workspace={'true'}>{'New Query'}</section>
+          ) : undefined}
+          {false}
+          <For each={() => rows()} by={(row) => row.id}>
+            {(row) => <Workspace id={row.id} />}
+          </For>
+          {undefined}
+          <footer data-workspace-tail={'true'}>{'tail'}</footer>
+          {null}
+        </main>
+      );
+    };
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.querySelector('[data-empty-workspace]')).not.toBeNull();
+      const tail = container.querySelector('[data-workspace-tail]');
+
+      openWorkspace();
+      flushScheduler();
+
+      expect(container.querySelector('[data-empty-workspace]')).toBeNull();
+      expect(container.querySelectorAll('[data-workspace]')).toHaveLength(1);
+      expect(
+        container.querySelectorAll('input[aria-label="SQL one"]')
+      ).toHaveLength(1);
+      expect(container.querySelector('[data-workspace-tail]')).toBe(tail);
+      expect(
+        Array.from(
+          container.querySelector('main')!.children,
+          (child) => child.tagName
+        )
+      ).toEqual(['OUTPUT', 'SECTION', 'FOOTER']);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should retain the cursor after an empty accessor For in a mixed parent', () => {
     const { container, cleanup } = createTestContainer();
     let updateLabel!: (label: string) => void;

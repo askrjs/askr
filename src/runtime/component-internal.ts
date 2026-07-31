@@ -141,6 +141,12 @@ function ensurePendingRunTask(instance: ComponentInstance): () => void {
   }
 
   const task = () => {
+    // An ancestor reconciliation can render this instance inline before its
+    // queued descendant task runs. The inline render has already consumed the
+    // pending update, so the queued task must not commit it a second time.
+    if (!instance.hasPendingUpdate) {
+      return;
+    }
     instance.hasPendingUpdate = false;
     if (instance.notifyUpdate === null) {
       return;
@@ -348,6 +354,9 @@ export function renderComponentInline(
 
   try {
     const result = executeComponentSync(instance);
+    if (!hadToken) {
+      instance.hasPendingUpdate = false;
+    }
     // If we set the token for inline execution, finalize subscriptions now
     // unless the parent DOM commit is still provisional. Renderer commit
     // batches flush these reads only after DOM evaluation succeeds.
@@ -442,7 +451,8 @@ export function executeComponent(instance: ComponentInstance): void {
   // Setup notifyUpdate callback using prebound helper to avoid per-call closures
   instance.notifyUpdate = instance._enqueueRun!;
 
-  // Enqueue the initial component run
+  // Initial renders use the same cancellable task as state-driven rerenders.
+  instance.hasPendingUpdate = true;
   enqueueRuntimeTask(ensurePendingRunTask(instance));
 }
 

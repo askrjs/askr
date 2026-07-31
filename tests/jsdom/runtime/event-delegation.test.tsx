@@ -76,6 +76,46 @@ describe('event delegation', () => {
   });
 
   describe('delegated click events', () => {
+    it('should isolate delegated events given multiple runtime roots when identical event names are registered', () => {
+      const second = createTestContainer();
+      const calls: string[] = [];
+
+      try {
+        createIsland({
+          root: container,
+          component: () => (
+            <button id="first-root-button" onClick={() => calls.push('first')}>
+              first
+            </button>
+          ),
+        });
+        createIsland({
+          root: second.container,
+          component: () => (
+            <button
+              id="second-root-button"
+              onClick={() => calls.push('second')}
+            >
+              second
+            </button>
+          ),
+        });
+        flushScheduler();
+
+        fireEvent.click(container.querySelector('#first-root-button')!);
+        expect(calls).toEqual(['first']);
+
+        fireEvent.click(second.container.querySelector('#second-root-button')!);
+        expect(calls).toEqual(['first', 'second']);
+
+        cleanupApp(container);
+        fireEvent.click(second.container.querySelector('#second-root-button')!);
+        expect(calls).toEqual(['first', 'second', 'second']);
+      } finally {
+        second.cleanup();
+      }
+    });
+
     it('should handle click events when delegation enabled', () => {
       let clicks = 0;
       const Component = () => (

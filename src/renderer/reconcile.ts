@@ -15,7 +15,11 @@ import type { VNode } from './types';
 import { keyedElements } from './keyed';
 import { buildDOMKeyMap, extractKeyedVnodes } from './keyed-children';
 import { commitReconciliation } from './reconcile-commit';
-import { findRangeAtNode, getRangeNodes } from './dom-range';
+import {
+  findRangeAtNode,
+  getLogicalChildHosts,
+  getRangeNodes,
+} from './dom-range';
 import { tryFastPaths } from './reconcile-fastpaths';
 import {
   collectUnkeyedElements,
@@ -54,9 +58,10 @@ function performFullReconciliation(
   const newKeyMap = new Map<string | number, Element>();
   const finalNodes: Node[] = [];
   const usedOldEls = new WeakSet<Node>();
+  const oldChildHosts = getLogicalChildHosts(parent);
 
   const resolveOldElOnce = createOldElResolver(parent, oldKeyMap, usedOldEls);
-  const unkeyedEls = collectUnkeyedElements(parent);
+  const unkeyedEls = collectUnkeyedElements(oldChildHosts);
   let unkeyedIndex = 0;
   const resolveUnkeyedOnce = (): Element | undefined => {
     while (unkeyedIndex < unkeyedEls.length) {
@@ -75,9 +80,14 @@ function performFullReconciliation(
       resolveOldElOnce,
       resolveUnkeyedOnce,
       usedOldEls,
-      newKeyMap
+      newKeyMap,
+      oldChildHosts
     );
     if (node) {
+      if (node instanceof DocumentFragment) {
+        finalNodes.push(...Array.from(node.childNodes));
+        continue;
+      }
       const range = findRangeAtNode(node);
       if (range && !range.single && range.start === node) {
         finalNodes.push(range.start, ...getRangeNodes(range), range.end);

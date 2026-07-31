@@ -563,8 +563,8 @@ export function reconcileForItems<T>(
       const firstItem = newArray[firstMismatch];
       const secondItem = newArray[secondMismatch];
       const nextOrderedItems = forState.orderedItems.slice();
-      nextOrderedItems[firstMismatch] = secondExisting;
-      nextOrderedItems[secondMismatch] = firstExisting;
+      nextOrderedItems[firstMismatch] = firstExisting;
+      nextOrderedItems[secondMismatch] = secondExisting;
 
       if (BENCH_BUILD_ENABLED) {
         recordBenchEvent('itemReused');

@@ -3,8 +3,32 @@ import {
   applyInteractionPolicy,
   mergeInteractionProps,
 } from '@askrjs/askr/foundations/interactions';
+import { focusable } from '../../../src/foundations/interactions/focusable';
+import { hoverable } from '../../../src/foundations/interactions/hoverable';
 
 describe('interaction policy contract helpers (FOUNDATIONS)', () => {
+  it('should preserve focusable and hoverable disabled semantics given keyboard and pointer input when interaction policy changes', () => {
+    const onEnter = vi.fn();
+    const onLeave = vi.fn();
+    const enabledFocus = focusable({ disabled: false, tabIndex: 2 });
+    const enabledHover = hoverable({ disabled: false, onEnter, onLeave });
+
+    enabledHover.onPointerEnter?.({});
+    enabledHover.onPointerLeave?.({});
+    expect(enabledFocus).toEqual({ tabIndex: 2 });
+    expect(onEnter).toHaveBeenCalledTimes(1);
+    expect(onLeave).toHaveBeenCalledTimes(1);
+
+    const disabledFocus = focusable({ disabled: true, tabIndex: 2 });
+    const disabledHover = hoverable({ disabled: true, onEnter, onLeave });
+    expect(disabledFocus).toEqual({
+      tabIndex: -1,
+      'aria-disabled': 'true',
+    });
+    expect(disabledHover.onPointerEnter).toBeUndefined();
+    expect(disabledHover.onPointerLeave).toBeUndefined();
+  });
+
   it('should preserve non-native disabled button semantics from pressable', () => {
     const onPress = vi.fn();
     const props = applyInteractionPolicy({

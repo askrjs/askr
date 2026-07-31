@@ -16,6 +16,8 @@ import {
   getRangeNodes,
   isRangeStart,
 } from './dom-range';
+import { getVNodeComponentInstance } from './component-host-instances';
+import { normalizeComponentChildren } from './child-shape';
 import { getParentNamespace } from './namespaces';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { isHydrationAdoptionScopeActive } from './intrinsic-hydration-adoption';
@@ -94,14 +96,21 @@ export function adoptHydratedRange(
   if (!end || end.parentNode !== parent) return null;
   const range: DOMRange = { start: before, end, single: false };
   const contentNodes = getRangeNodes(range);
-  const expectedChildren =
-    _isDOMElement(vnode) && isFragmentType(vnode.type)
-      ? ((vnode.props?.children as VNode[] | undefined) ?? [])
-      : [vnode];
+  const expectedChildren = normalizeComponentChildren(
+    Array.isArray(vnode)
+      ? vnode
+      : _isDOMElement(vnode) && isFragmentType(vnode.type)
+        ? (vnode.props?.children ?? vnode.children ?? [])
+        : [vnode]
+  ) as VNode[];
   if (contentNodes.length !== expectedChildren.length) return null;
   for (let index = 0; index < expectedChildren.length; index += 1) {
     const expected = expectedChildren[index];
     const actual = contentNodes[index];
+    if (typeof expected === 'string' || typeof expected === 'number') {
+      if (actual?.nodeType !== Node.TEXT_NODE) return null;
+      continue;
+    }
     if (
       _isDOMElement(expected) &&
       typeof expected.type === 'string' &&
@@ -111,12 +120,46 @@ export function adoptHydratedRange(
       return null;
     }
   }
+
+  const host = getBoundaryRangeHost();
+  for (let index = 0; index < expectedChildren.length; index += 1) {
+    const expected = expectedChildren[index];
+    const actual = contentNodes[index]!;
+    if (typeof expected === 'string' || typeof expected === 'number') {
+      (actual as Text).data = String(expected);
+      continue;
+    }
+    if (!_isDOMElement(expected)) continue;
+    if (typeof expected.type === 'string') {
+      host.updateElementFromVnode(actual as Element, expected, true);
+      continue;
+    }
+    if (typeof expected.type === 'function') {
+      const synced = host.syncComponentElement(
+        actual,
+        expected,
+        expected.type as ComponentFunction,
+        ((expected.props ?? {}) as Record<string, unknown>) || {},
+        getBoundaryParentNamespace(parent)
+      );
+      if (!synced) return null;
+    }
+  }
   assignScopeRange(scope, range);
   scope.hydrationPending = false;
   return range;
 }
 
 export function getScopeRange(scope: ChildScope): DOMRange | null {
+  const vnodeInstance = getVNodeComponentInstance(scope.vnode);
+  const vnodeOwnedRange = vnodeInstance
+    ? getOwnedRange(vnodeInstance)
+    : undefined;
+  if (vnodeOwnedRange) {
+    assignScopeRange(scope, vnodeOwnedRange);
+    return vnodeOwnedRange;
+  }
+
   if (scope.range) {
     const host = scope.range.start as Node & {
       __ASKR_INSTANCE?: ComponentInstance;
@@ -125,7 +168,7 @@ export function getScopeRange(scope: ChildScope): DOMRange | null {
       ? getOwnedRange(host.__ASKR_INSTANCE)
       : undefined;
     if (ownedRange?.start === scope.range.start) {
-      scope.range = ownedRange;
+      assignScopeRange(scope, ownedRange);
     }
     return scope.range;
   }
@@ -133,6 +176,28 @@ export function getScopeRange(scope: ChildScope): DOMRange | null {
   const range = { start: scope.dom, end: scope.dom, single: true } as DOMRange;
   scope.range = range;
   return range;
+}
+
+export function getAttachedScopeRange(
+  parent: Element,
+  scope: ChildScope
+): DOMRange | null {
+  const range = scope.range;
+  if (range?.single) {
+    if (range.start === scope.dom && range.start.parentNode === parent) {
+      return range;
+    }
+  } else if (
+    range &&
+    range.start.parentNode === parent &&
+    range.end.parentNode === parent
+  ) {
+    return range;
+  }
+  if (!range && scope.dom?.parentNode === parent) {
+    return { start: scope.dom, end: scope.dom, single: true };
+  }
+  return getScopeRange(scope);
 }
 
 export function getRangeComponentFunction(

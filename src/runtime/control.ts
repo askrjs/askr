@@ -12,6 +12,7 @@ import {
 import { getCurrentInstance, type ComponentInstance } from './component';
 import type { ForState } from './for';
 import { registerLifecycleTransaction } from './component-lifecycle';
+import { getRuntimeRenderer } from './access';
 
 export interface MatchBranch {
   key: string | number;
@@ -170,12 +171,14 @@ function stageBranchRemoval(
     disposeChildScope(scope);
   }
 
-  const removedDom = scope.dom;
+  const removedRange =
+    getRuntimeRenderer().resolveChildScopeRange?.(scope) ?? scope.range;
+  const removedDom = removedRange?.single ? removedRange.start : scope.dom;
   if (removedDom) {
     state.lastRemovedNodes.push(removedDom);
   }
-  if (scope.range) {
-    state.lastRemovedRanges.push(scope.range);
+  if (removedRange) {
+    state.lastRemovedRanges.push(removedRange);
   }
 }
 

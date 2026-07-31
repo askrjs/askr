@@ -17,8 +17,9 @@ export {
 export {
   getControlBoundaryRanges,
   syncControlBoundaryInMixedParent,
-  syncControlBoundaryScopeDom,
-} from './boundary-range-sync';
+} from './boundary-range-placement';
+export { removeBoundaryRange } from './boundary-range-cleanup';
+export { syncControlBoundaryScopeDom } from './boundary-range-sync';
 import {
   getRangeNodes,
   insertRangeBefore,
@@ -29,17 +30,20 @@ import {
 export function syncControlBoundaryScopeNode(
   parent: Element,
   scope: Parameters<typeof syncControlBoundaryScopeDom>[1],
-  vnode: VNode
+  vnode: VNode,
+  before: Node | null = null
 ): Node | null {
-  const range = syncControlBoundaryScopeDom(
-    parent,
-    scope,
-    vnode,
-    null,
-    true,
-    false
-  );
+  const range = syncControlBoundaryScopeRange(parent, scope, vnode, before);
   return range?.single ? range.start : null;
+}
+
+export function syncControlBoundaryScopeRange(
+  parent: Element,
+  scope: Parameters<typeof syncControlBoundaryScopeDom>[1],
+  vnode: VNode,
+  before: Node | null = null
+): ReturnType<typeof syncControlBoundaryScopeDom> {
+  return syncControlBoundaryScopeDom(parent, scope, vnode, before, true, false);
 }
 import {
   clearControlBoundaryDomUpdateState,
@@ -120,13 +124,6 @@ export function commitForBoundaryChildren(
 
     for (const removedRange of controlState.lastRemovedRanges) {
       removeRange(removedRange, (node) => {
-        if (
-          !removedRange.single &&
-          (node === removedRange.start || node === removedRange.end)
-        ) {
-          node.parentNode?.removeChild(node);
-          return;
-        }
         teardownNodeSubtree(node);
         node.parentNode?.removeChild(node);
       });
@@ -168,7 +165,7 @@ export function commitForBoundaryChildren(
 
   commitForStateBoundaryChildren(parent, controlState, childrenVNodes, {
     isProduction: () => getRuntimeEnv().NODE_ENV === 'production',
-    syncForItemDom: syncControlBoundaryScopeNode,
+    syncForItemRange: syncControlBoundaryScopeRange,
     tryPatchStableForDirtyItem: (scope) =>
       getBoundaryDOMHost().tryPatchStableForDirtyItem(scope),
   });
@@ -198,13 +195,6 @@ export function trySyncControlBoundaryChild(
 
   for (const removedRange of controlState.lastRemovedRanges) {
     removeRange(removedRange, (node) => {
-      if (
-        !removedRange.single &&
-        (node === removedRange.start || node === removedRange.end)
-      ) {
-        node.parentNode?.removeChild(node);
-        return;
-      }
       teardownNodeSubtree(node);
       node.parentNode?.removeChild(node);
     });

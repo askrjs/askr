@@ -3,12 +3,17 @@ import {
   registerLifecycleTransaction,
   type ComponentInstance,
 } from '../runtime';
+import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import {
   isTransparentComponentRangeResult,
   normalizeComponentChildren,
 } from './child-shape';
 import {
+  clearRangeOwner,
+  findRangeAtNode,
+  findRangeEnd,
   getOwnedRange,
+  getRangeOwner,
   RANGE_END_MARKER,
   RANGE_START_MARKER,
   rangeContains,
@@ -16,7 +21,9 @@ import {
   type DOMRange,
 } from './dom-range';
 import { getRendererDOMHost, type InstanceHostNode } from './dom-host';
-import type { VNode } from './types';
+import { getControlBoundaryState } from './boundary-state';
+import { registerControlBoundaryRangeCommitOwner } from './boundary-commit-owner';
+import { _isDOMElement, type VNode } from './types';
 
 export function captureRangeFocus(
   range: DOMRange,
@@ -116,6 +123,59 @@ function isAutomaticPortalHost(node: Node): boolean {
   );
 }
 
+function findTransparentHydrationEnd(
+  start: Node,
+  limit: Node | null,
+  result: unknown
+): Node | null | undefined {
+  const expectedChildren = normalizeComponentChildren(result);
+  let current: Node | null = start;
+
+  for (const expected of expectedChildren) {
+    if (!current || current === limit) {
+      return undefined;
+    }
+
+    if (typeof expected === 'string' || typeof expected === 'number') {
+      if (current.nodeType !== Node.TEXT_NODE) {
+        return undefined;
+      }
+      current = current.nextSibling;
+      continue;
+    }
+
+    if (!_isDOMElement(expected)) {
+      return undefined;
+    }
+
+    if (typeof expected.type === 'string') {
+      if (
+        !(current instanceof Element) ||
+        current.tagName.toLowerCase() !== expected.type.toLowerCase()
+      ) {
+        return undefined;
+      }
+      current = current.nextSibling;
+      continue;
+    }
+
+    if (!isRangeStartNode(current)) {
+      return undefined;
+    }
+    const end = findRangeEnd(current);
+    if (!end) {
+      return undefined;
+    }
+    current = end.nextSibling;
+  }
+
+  return current;
+}
+
+function isRangeStartNode(node: Node): node is Comment {
+  return node instanceof Comment && node.data === RANGE_START_MARKER;
+}
+
 export function adoptHydratedComponentRange(
   existingHost: Element | Comment,
   instance: ComponentInstance,
@@ -142,10 +202,17 @@ export function adoptHydratedComponentRange(
     }
   }
 
+  const matchedEnd = findTransparentHydrationEnd(
+    existingHost,
+    endExclusive,
+    result
+  );
+  const resolvedEndExclusive =
+    matchedEnd === undefined ? endExclusive : matchedEnd;
   const start = existingHost.ownerDocument.createComment(RANGE_START_MARKER);
   const end = existingHost.ownerDocument.createComment(RANGE_END_MARKER);
   parent.insertBefore(start, existingHost);
-  parent.insertBefore(end, endExclusive);
+  parent.insertBefore(end, resolvedEndExclusive);
   registerRange({ start, end, single: false }, instance);
 
   const host = start as InstanceHostNode;
@@ -183,24 +250,111 @@ export function adoptHydratedComponentRange(
   return start;
 }
 
+export function adoptMarkedHydratedComponentRange(
+  start: Comment,
+  end: Comment,
+  instance: ComponentInstance,
+  result: unknown,
+  forceChildrenUpdate: boolean,
+  retainedInstances: Iterable<ComponentInstance>
+): Comment | null {
+  const parent = start.parentNode;
+  if (
+    !(parent instanceof Element) ||
+    end.parentNode !== parent ||
+    start.data !== RANGE_START_MARKER ||
+    end.data !== RANGE_END_MARKER ||
+    findRangeEnd(start) !== end
+  ) {
+    return null;
+  }
+
+  const range: DOMRange = { start, end, single: false };
+  const previousOwner = getRangeOwner(start);
+  const previousRange = previousOwner
+    ? getOwnedRange(previousOwner)
+    : undefined;
+  const host = start as InstanceHostNode;
+  const previousInstance = host.__ASKR_INSTANCE;
+  const previousInstances = host.__ASKR_INSTANCES;
+
+  registerRange(range, instance);
+  const owners = new Set(retainedInstances);
+  owners.add(instance);
+  host.__ASKR_INSTANCE = instance;
+  host.__ASKR_INSTANCES = Array.from(owners);
+  instance.target = null;
+  instance._placeholder = start;
+  mountInstanceInline(instance, null);
+
+  const rollback = (): void => {
+    clearRangeOwner(range, instance);
+    if (previousOwner && previousRange) {
+      registerRange(previousRange, previousOwner);
+    }
+    host.__ASKR_INSTANCE = previousInstance;
+    host.__ASKR_INSTANCES = previousInstances;
+  };
+  const registered = registerLifecycleTransaction({}, () => {}, rollback);
+
+  try {
+    if (
+      !syncComponentFragmentRange(host, instance, result, forceChildrenUpdate)
+    ) {
+      throw new Error(
+        '[askr] Failed to adopt marked hydrated component range.'
+      );
+    }
+  } catch (error) {
+    if (!registered) rollback();
+    throw error;
+  }
+
+  return start;
+}
+
 export function syncComponentFragmentRange(
   host: InstanceHostNode,
   instance: ComponentInstance,
   result: unknown,
   forceUpdate: boolean
 ): boolean {
-  if (!isTransparentComponentRangeResult(result)) {
+  const hostInstances = new Set(host.__ASKR_INSTANCES ?? []);
+  if (host.__ASKR_INSTANCE) {
+    hostInstances.add(host.__ASKR_INSTANCE);
+  }
+  const range =
+    getOwnedRange(instance) ??
+    (instance._placeholder === host && hostInstances.has(instance)
+      ? (findRangeAtNode(host) ?? undefined)
+      : undefined);
+  if (!range || range.single || range.start !== host) {
     return false;
   }
 
-  const range = getOwnedRange(instance);
-  const parent = range?.start.parentNode;
+  return syncTransparentRange(range, result, forceUpdate);
+}
+
+export function syncTransparentRange(
+  range: DOMRange,
+  result: unknown,
+  forceUpdate: boolean
+): boolean {
+  const emptyResult =
+    result === null || result === undefined || result === false;
+  const controlBoundaryResult =
+    _isDOMElement(result) && result.type === __CONTROL_BOUNDARY__;
   if (
-    !range ||
-    range.single ||
-    range.start !== host ||
-    !(parent instanceof Element)
+    (!emptyResult &&
+      !controlBoundaryResult &&
+      !isTransparentComponentRangeResult(result)) ||
+    range.single
   ) {
+    return false;
+  }
+
+  const parent = range.start.parentNode;
+  if (!(parent instanceof Element) || range.end.parentNode !== parent) {
     return false;
   }
 
@@ -255,6 +409,14 @@ export function syncComponentFragmentRange(
     )
   ) {
     unwrapStagingHost(staging, parent, restoreFocus);
+  }
+  if (controlBoundaryResult) {
+    const controlState = getControlBoundaryState(result);
+    if (controlState) {
+      registerControlBoundaryRangeCommitOwner(range, controlState, () => {
+        syncTransparentRange(range, result, false);
+      });
+    }
   }
   return true;
 }

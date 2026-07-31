@@ -1,12 +1,13 @@
 import { isPromiseLike } from '../common/promise';
-import type { Props } from '../common/props';
 import { isSSRPortalHydrationAnchor } from '../common/portal';
 import {
   captureInlineRenderSnapshot,
   createComponentInstance,
+  enterDomCommitScope,
   getCurrentInstance,
   mountInstanceInline,
   renderComponentInline,
+  restoreDomCommitScope,
   type ComponentFunction,
   type ComponentInstance,
 } from '../runtime';
@@ -16,13 +17,14 @@ import {
   markVNodeTreeWithContextFrame,
   withContext,
 } from '../runtime';
-import { materializeFreshKey, materializeKey } from './attributes';
+import { materializeKey } from './attributes';
 import {
   isTransparentComponentRangeResult,
   normalizeComponentChildren,
 } from './child-shape';
 import {
   adoptHydratedComponentRange,
+  adoptMarkedHydratedComponentRange,
   syncComponentFragmentRange,
 } from './component-fragment-range';
 import { pruneComponentHostInstances } from './component-host-cleanup';
@@ -44,12 +46,7 @@ import {
   setComponentOwnershipIdentity,
   setVNodeComponentInstance,
 } from './component-host-instances';
-import {
-  _isDOMElement,
-  type DOMElement,
-  type JSXComponent,
-  type VNode,
-} from './types';
+import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { canReconcileComponentHost } from './intrinsic-hydration-adoption';
 import { tagNamesEqualIgnoreCase } from './utils';
 import {
@@ -58,16 +55,19 @@ import {
   createRetainedHostInstanceSet,
   registerVNodeComponentInstanceRollback,
 } from './component-host-replacement';
+import { findRangeEnd, isRangeStart } from './dom-range';
 import {
   adoptEmptySSRPortalHydrationHost,
   itemInstanceHydrationComplete,
   materializeComponentResultNode,
   materializeEmptyHydrationPlaceholder,
   retainReplacementOwnerChain,
+} from './component-host-results';
+import {
   resolveHostNestedComponentResult,
   resolveWrapperHostResult,
-} from './component-host-results';
-export { resolveNestedComponentResult } from './component-host-results';
+} from './component-host-nested-results';
+export { resolveNestedComponentResult } from './component-host-nested-results';
 export {
   findHostInstanceByType,
   inheritComponentCleanupStrict,
@@ -75,6 +75,7 @@ export {
   isRouteRootComponentVNode,
   nextComponentInstanceId,
 } from './component-host-instances';
+export { createComponentElement } from './component-host-creation';
 
 // Provisional component cleanup is owned by component-host-replacement.ts.
 export function syncComponentElement(
@@ -113,6 +114,14 @@ export function syncComponentElement(
     return null;
   }
 
+  const markedHydrationEnd =
+    existingHost instanceof Comment &&
+    hydrationRangeEnd instanceof Comment &&
+    isRangeStart(existingHost) &&
+    findRangeEnd(existingHost) === hydrationRangeEnd
+      ? hydrationRangeEnd
+      : null;
+
   if (!canReconcileComponentHost(existingHost, Boolean(existingInstance)))
     return null;
 
@@ -121,7 +130,8 @@ export function syncComponentElement(
   if (!existingInstance || existingInstance.fn !== type) {
     if (
       !(existingHost instanceof Element) &&
-      !isSSRPortalHydrationAnchor(existingHost)
+      !isSSRPortalHydrationAnchor(existingHost) &&
+      !markedHydrationEnd
     ) {
       return null;
     }
@@ -197,16 +207,29 @@ export function syncComponentElement(
 
       if (
         hydrationRangeEnd !== undefined &&
-        isTransparentComponentRangeResult(scopedResult)
+        (isTransparentComponentRangeResult(scopedResult) ||
+          (markedHydrationEnd &&
+            (scopedResult === null ||
+              scopedResult === undefined ||
+              scopedResult === false)))
       ) {
-        const adoptedHost = adoptHydratedComponentRange(
-          existingHost,
-          hydrationInstance,
-          scopedResult,
-          hydrationRangeEnd,
-          forceChildrenUpdate || hydrationInstance.mounted === false,
-          liveRetainedInstances
-        );
+        const adoptedHost = markedHydrationEnd
+          ? adoptMarkedHydratedComponentRange(
+              existingHost as Comment,
+              markedHydrationEnd,
+              hydrationInstance,
+              scopedResult,
+              forceChildrenUpdate || hydrationInstance.mounted === false,
+              liveRetainedInstances
+            )
+          : adoptHydratedComponentRange(
+              existingHost as Element | Comment,
+              hydrationInstance,
+              scopedResult,
+              hydrationRangeEnd,
+              forceChildrenUpdate || hydrationInstance.mounted === false,
+              liveRetainedInstances
+            );
         if (adoptedHost) {
           return adoptedHost;
         }
@@ -249,37 +272,53 @@ export function syncComponentElement(
           existingHost,
           hydrationInstance,
           liveRetainedInstances,
-          resolvedResult
+          resolvedResult.result
         )
       ) {
         return existingHost;
       }
       if (
         hydrationRangeEnd !== undefined &&
-        isTransparentComponentRangeResult(resolvedResult)
+        (isTransparentComponentRangeResult(resolvedResult.result) ||
+          (markedHydrationEnd &&
+            (resolvedResult.result === null ||
+              resolvedResult.result === undefined ||
+              resolvedResult.result === false)))
       ) {
-        const adoptedHost = adoptHydratedComponentRange(
-          existingHost,
-          hydrationInstance,
-          resolvedResult,
-          hydrationRangeEnd,
-          forceChildrenUpdate || hydrationInstance.mounted === false,
-          liveRetainedInstances
-        );
+        const adoptedHost = markedHydrationEnd
+          ? adoptMarkedHydratedComponentRange(
+              existingHost as Comment,
+              markedHydrationEnd,
+              hydrationInstance,
+              resolvedResult.result,
+              forceChildrenUpdate || hydrationInstance.mounted === false,
+              liveRetainedInstances
+            )
+          : adoptHydratedComponentRange(
+              existingHost as Element | Comment,
+              hydrationInstance,
+              resolvedResult.result,
+              hydrationRangeEnd,
+              forceChildrenUpdate || hydrationInstance.mounted === false,
+              liveRetainedInstances
+            );
         if (adoptedHost) {
           return adoptedHost;
         }
       }
       if (
         existingHost instanceof Element &&
-        _isDOMElement(resolvedResult) &&
-        typeof resolvedResult.type === 'string' &&
-        tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.type)
+        _isDOMElement(resolvedResult.result) &&
+        typeof resolvedResult.result.type === 'string' &&
+        tagNamesEqualIgnoreCase(
+          existingHost.tagName,
+          resolvedResult.result.type
+        )
       ) {
         withContext(snapshot, () => {
           domHost.updateElementFromVnode(
             existingHost,
-            inheritComponentKey(resolvedResult, node),
+            inheritComponentKey(resolvedResult.result as DOMElement, node),
             true,
             forceChildrenUpdate || hydrationInstance.mounted === false
           );
@@ -328,7 +367,6 @@ export function syncComponentElement(
     existingInstance,
     retainedHostInstances
   );
-  pruneComponentHostInstances(existingHost, liveRetainedInstances);
   const replacement = beginComponentHostReplacement(
     existingHost,
     existingInstance,
@@ -368,14 +406,21 @@ export function syncComponentElement(
   ) {
     const wrapperResult = resolveWrapperHostResult(
       existingHost,
+      existingInstance,
       scopedResult,
       snapshot ?? null,
       liveRetainedInstances
     );
-    domHost.updateElementChildren(
-      existingHost,
-      normalizeComponentChildren(wrapperResult) as VNode[]
-    );
+    const previousInstance = enterDomCommitScope(wrapperResult.owner);
+    try {
+      domHost.updateElementChildren(
+        existingHost,
+        normalizeComponentChildren(wrapperResult.result) as VNode[]
+      );
+    } finally {
+      restoreDomCommitScope(previousInstance);
+    }
+    pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
   }
 
@@ -388,6 +433,12 @@ export function syncComponentElement(
       forceChildrenUpdate || existingInstance.mounted === false
     )
   ) {
+    retainReplacementOwnerChain(
+      existingHost,
+      existingInstance,
+      liveRetainedInstances
+    );
+    pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
   }
 
@@ -411,6 +462,7 @@ export function syncComponentElement(
       );
       materializeKey(existingHost, node, props);
     });
+    pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
   }
 
@@ -421,22 +473,34 @@ export function syncComponentElement(
     snapshot ?? null,
     liveRetainedInstances
   );
-  if (
-    existingHost instanceof Comment &&
-    syncComponentFragmentRange(
+  let didSyncResolvedRange = false;
+  if (existingHost instanceof Comment) {
+    const previousInstance = enterDomCommitScope(resolvedResult.owner);
+    try {
+      didSyncResolvedRange = syncComponentFragmentRange(
+        existingHost,
+        existingInstance,
+        resolvedResult.result,
+        forceChildrenUpdate || existingInstance.mounted === false
+      );
+    } finally {
+      restoreDomCommitScope(previousInstance);
+    }
+  }
+  if (didSyncResolvedRange) {
+    retainReplacementOwnerChain(
       existingHost,
       existingInstance,
-      resolvedResult,
-      forceChildrenUpdate || existingInstance.mounted === false
-    )
-  ) {
+      liveRetainedInstances
+    );
+    pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
   }
   if (
     existingHost instanceof Comment &&
-    (resolvedResult === null ||
-      resolvedResult === undefined ||
-      resolvedResult === false)
+    (resolvedResult.result === null ||
+      resolvedResult.result === undefined ||
+      resolvedResult.result === false)
   ) {
     retainReplacementOwnerChain(
       existingHost,
@@ -449,23 +513,25 @@ export function syncComponentElement(
         instance._placeholder = existingHost;
       }
     }
+    pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
   }
   if (
     existingHost instanceof Element &&
-    _isDOMElement(resolvedResult) &&
-    typeof resolvedResult.type === 'string' &&
-    tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.type)
+    _isDOMElement(resolvedResult.result) &&
+    typeof resolvedResult.result.type === 'string' &&
+    tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.result.type)
   ) {
     withContext(snapshot, () => {
       domHost.updateElementFromVnode(
         existingHost,
-        inheritComponentKey(resolvedResult, node),
+        inheritComponentKey(resolvedResult.result as DOMElement, node),
         true,
         forceChildrenUpdate || existingInstance.mounted === false
       );
       materializeKey(existingHost, node, props);
     });
+    pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
   }
 
@@ -489,99 +555,4 @@ export function syncComponentElement(
   );
 
   return nextDom;
-}
-
-export function createComponentElement(
-  node: ElementWithContext,
-  type: JSXComponent,
-  props: Record<string, unknown>,
-  parentNamespace?: string
-): Node {
-  const frame = getVNodeContextFrame(node);
-  const snapshot = frame || getCurrentContextFrame();
-
-  const componentFn = type as unknown as (props: Props) => unknown;
-  const isAsync = componentFn.constructor.name === 'AsyncFunction';
-
-  if (isAsync) {
-    throw new Error(
-      'Async components are not supported. Use resource() for async work.'
-    );
-  }
-
-  let childInstance = getVNodeComponentInstance(node);
-  const hadChildInstance = !!childInstance;
-  const previousVNodeInstance = childInstance;
-  if (!childInstance) {
-    childInstance = createComponentInstance(
-      nextComponentInstanceId(),
-      componentFn as ComponentFunction,
-      props || {},
-      null
-    );
-    registerVNodeComponentInstanceRollback(
-      node,
-      previousVNodeInstance,
-      childInstance
-    );
-    setVNodeComponentInstance(node, childInstance);
-  }
-
-  try {
-    if (hadChildInstance) {
-      captureInlineRenderSnapshot(childInstance);
-    }
-
-    childInstance.portalScope =
-      getCurrentInstance()?.portalScope ?? childInstance.portalScope;
-    setComponentOwnershipIdentity(childInstance, node, getCurrentInstance(), 0);
-    childInstance.parentInstance = getCurrentInstance();
-    childInstance.props = props || {};
-    childInstance.isRoot = isRouteRootComponentVNode(node);
-    inheritComponentCleanupStrict(childInstance);
-
-    if (snapshot) {
-      childInstance.ownerFrame = snapshot;
-    }
-
-    const result = snapshot
-      ? withContext(snapshot, () => renderComponentInline(childInstance))
-      : renderComponentInline(childInstance);
-
-    if (isPromiseLike(result)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
-
-    const scopedResult = markVNodeTreeWithContextFrame(
-      result,
-      snapshot ?? null
-    );
-
-    const dom = snapshot
-      ? withContext(snapshot, () =>
-          materializeComponentResultNode(
-            childInstance,
-            scopedResult,
-            parentNamespace
-          )
-        )
-      : materializeComponentResultNode(
-          childInstance,
-          scopedResult,
-          parentNamespace
-        );
-
-    if (dom instanceof Element) {
-      materializeFreshKey(dom, node, props);
-    }
-    return dom;
-  } catch (error) {
-    if (!hadChildInstance) {
-      restoreVNodeComponentInstance(node, previousVNodeInstance);
-      cleanupProvisionalComponentInstance(childInstance);
-    }
-    throw error;
-  }
 }

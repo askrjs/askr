@@ -1,9 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src';
 import {
+  createComponentInstance,
   getCurrentComponentInstance,
   type ComponentInstance,
 } from '../../../src/runtime/component';
+import {
+  beginLifecycleCommitBatch,
+  finalizeInlineReadSubscriptions,
+  flushLifecycleCommitBatch,
+} from '../../../src/runtime/component-lifecycle';
 import { definePortal } from '../../../src/runtime/portal';
 import type { ReadableSource } from '../../../src/runtime/readable';
 import { globalScheduler } from '../../../src/runtime/scheduler';
@@ -153,5 +159,27 @@ describe('cleanup with queued updates', () => {
     expect(portalSource?._readers?.size ?? 0).toBe(0);
     expect(container.textContent).not.toContain('overlay:1');
     expect(getSchedulerState().queueLength).toBe(0);
+
+    const deferredReader = createComponentInstance(
+      'deferred-reader-generation',
+      () => null,
+      {},
+      null
+    );
+    deferredReader.mounted = true;
+    deferredReader.notifyUpdate = () => {};
+    const deferredSource = (() => 0) as ReadableSource<number>;
+    deferredSource._version = 0;
+    const deferredBatch = beginLifecycleCommitBatch();
+    finalizeInlineReadSubscriptions(
+      deferredReader,
+      1,
+      new Set([deferredSource]),
+      new Map([[deferredSource, 0]])
+    );
+    deferredReader._ownershipGeneration = {};
+    flushLifecycleCommitBatch(deferredBatch);
+
+    expect(deferredSource._readers?.has(deferredReader)).not.toBe(true);
   });
 });

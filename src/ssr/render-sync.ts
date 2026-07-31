@@ -54,17 +54,35 @@ function renderDeferredBoundarySync(
 }
 
 function isMultiRangeChild(child: unknown): boolean {
-  if (Array.isArray(child)) {
-    return child.length !== 1;
-  }
+  if (Array.isArray(child)) return true;
   if (!child || typeof child !== 'object' || !('type' in child)) {
     return false;
   }
   const vnode = child as VNode;
-  if (!isFragmentType(vnode.type)) {
-    return false;
+  return isFragmentType(vnode.type);
+}
+
+function renderForRangeChildSync(child: unknown, ctx: RenderContext): string {
+  if (
+    child &&
+    typeof child === 'object' &&
+    'type' in child &&
+    typeof (child as VNode).type === 'function'
+  ) {
+    const vnode = child as VNode | JSXElement;
+    const result = executeComponentSync(
+      vnode.type as Component,
+      vnode.props,
+      ctx,
+      getVNodeContextFrame(vnode) ?? null
+    );
+    return renderForRangeChildSync(inheritRenderableKey(vnode, result), ctx);
   }
-  return (getRenderableChildren(vnode)?.length ?? 0) !== 1;
+
+  const rendered = renderChildSync(child, ctx);
+  return isMultiRangeChild(child)
+    ? `${RANGE_START}${rendered}${RANGE_END}`
+    : rendered;
 }
 
 function renderControlChildrenSync(
@@ -77,12 +95,7 @@ function renderControlChildrenSync(
     const values = children ?? [];
     if (controlState?.kind === 'for') {
       return values
-        .map((child) => {
-          const rendered = renderChildSync(child, ctx);
-          return isMultiRangeChild(child)
-            ? `${RANGE_START}${rendered}${RANGE_END}`
-            : rendered;
-        })
+        .map((child) => renderForRangeChildSync(child, ctx))
         .join('');
     }
 

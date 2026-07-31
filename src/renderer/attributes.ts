@@ -1,4 +1,3 @@
-import type { Props } from '../common/props';
 import { sanitizeCssValue } from '../common/css';
 import { isSafeHref } from '../common/url';
 import { incrementPerfMetric } from '../runtime';
@@ -46,15 +45,32 @@ export function applyFormControlProp(
   tagName: string
 ): void {
   if (key === 'value') {
-    if (
+    const stringValue = String(value);
+    if (tagNamesEqualIgnoreCase(tagName, 'select')) {
+      const select = el as HTMLSelectElement;
+      if (select.multiple && Array.isArray(value)) {
+        const selectedValues = new Set(value.map(String));
+        for (const option of Array.from(select.options)) {
+          const selected = selectedValues.has(option.value);
+          if (option.selected !== selected) {
+            option.selected = selected;
+          }
+        }
+      } else if (select.value !== stringValue) {
+        select.value = stringValue;
+      }
+    } else if (
       tagNamesEqualIgnoreCase(tagName, 'input') ||
-      tagNamesEqualIgnoreCase(tagName, 'textarea') ||
-      tagNamesEqualIgnoreCase(tagName, 'select')
+      tagNamesEqualIgnoreCase(tagName, 'textarea')
     ) {
-      (el as HTMLInputElement & Props).value = String(value);
-      el.setAttribute('value', String(value));
-    } else {
-      el.setAttribute('value', String(value));
+      const control = el as HTMLInputElement | HTMLTextAreaElement;
+      if (control.value !== stringValue) {
+        control.value = stringValue;
+      }
+    }
+
+    if (el.getAttribute('value') !== stringValue) {
+      el.setAttribute('value', stringValue);
     }
     return;
   }
@@ -62,16 +78,27 @@ export function applyFormControlProp(
   if (key === 'checked') {
     if (tagNamesEqualIgnoreCase(tagName, 'input')) {
       const checked = Boolean(value);
-      (el as HTMLInputElement & Props).checked = checked;
+      const input = el as HTMLInputElement;
+      if (input.checked !== checked) {
+        input.checked = checked;
+      }
       if (checked) {
-        el.setAttribute('checked', '');
+        if (!el.hasAttribute('checked')) {
+          el.setAttribute('checked', '');
+        }
       } else {
-        el.removeAttribute('checked');
+        if (el.hasAttribute('checked')) {
+          el.removeAttribute('checked');
+        }
       }
     } else if (value) {
-      el.setAttribute('checked', '');
+      if (!el.hasAttribute('checked')) {
+        el.setAttribute('checked', '');
+      }
     } else {
-      el.removeAttribute('checked');
+      if (el.hasAttribute('checked')) {
+        el.removeAttribute('checked');
+      }
     }
   }
 }
@@ -484,8 +511,38 @@ function hasMatchingStaticPropsInternal(
       continue;
     }
 
-    if (key === 'value' || key === 'checked') {
-      if ((el as HTMLElement & Record<string, unknown>)[key] !== value) {
+    if (key === 'value') {
+      const stringValue = String(value);
+      if (
+        tagNamesEqualIgnoreCase(vnodeType, 'select') &&
+        (el as HTMLSelectElement).multiple &&
+        Array.isArray(value)
+      ) {
+        const selectedValues = new Set(value.map(String));
+        for (const option of Array.from((el as HTMLSelectElement).options)) {
+          if (option.selected !== selectedValues.has(option.value)) {
+            return false;
+          }
+        }
+      } else if (
+        (el as HTMLElement & { value?: string }).value !== stringValue
+      ) {
+        return false;
+      }
+      if (el.getAttribute('value') !== stringValue) {
+        return false;
+      }
+      staticPropCount += 1;
+      continue;
+    }
+
+    if (key === 'checked') {
+      if (
+        (el as HTMLElement & { checked?: boolean }).checked !== Boolean(value)
+      ) {
+        return false;
+      }
+      if (Boolean(value) !== el.hasAttribute('checked')) {
         return false;
       }
       staticPropCount += 1;
