@@ -4,10 +4,10 @@ Askr does not keep numeric performance targets in source control. Benchmark
 workloads, browser versions, and host hardware change often enough that a
 copied result becomes a misleading release gate.
 
-Use the raw JSON and `metadata.json` uploaded by the benchmark workflow as the
-baseline for a focused change. Capture the baseline and candidate back-to-back
-on the same pinned CI runner, repeat each capture three times, and compare the
-median for the identical workload name.
+Use the raw JSON and `provenance.txt` uploaded in the `bench-results-stable`
+workflow artifact as the baseline for a focused change. Capture the baseline
+and candidate back-to-back on the same pinned CI runner, repeat each capture
+three times, and compare the median for the identical workload name.
 
 ## Acceptance Rules
 
@@ -61,6 +61,7 @@ source files stable, and do not compare a renamed workload as if it were the sam
 | `tier2.ssr.layout-route`            | tier2 | render a nested layout route with params query and hash      |
 | `tier3.table.partial-update`        | tier3 | update every 10th row in a 1,000-row table                   |
 | `tier3.table.swap-rows`             | tier3 | swap two distant rows in a 1,000-row table                   |
+| `tier3.table.truncate-rows`         | tier3 | truncate a 2,000-row table to its first 1,000 keyed rows     |
 | `tier3.hydration.listener-adoption` | tier3 | hydrate a listener-heavy intrinsic SSR tree in Chromium      |
 | `tier4.routing.shell-retention`     | tier4 | navigate routed shell layouts in the integration app         |
 | `tier4.ssr.attr-heavy`              | tier4 | render 400 attr-heavy nodes with escaped attributes          |

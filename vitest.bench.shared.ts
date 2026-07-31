@@ -16,7 +16,12 @@ export {
   tier4BenchIncludes,
 };
 
-export const benchDefine = createNodeEnvDefine('production', { bench: true });
+export const benchInstrumentationEnabled =
+  process.env.ASKR_BENCH_INSTRUMENTATION === '1';
+
+export const benchDefine = createNodeEnvDefine('production', {
+  bench: benchInstrumentationEnabled,
+});
 
 export const benchOxc = {
   jsx: {

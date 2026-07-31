@@ -40,6 +40,9 @@ describe('production artifact purity', () => {
     expect(source).not.toContain('__ENQUEUE_LOGS');
     expect(source).not.toContain('ASKR_FASTPATH_DEBUG');
     expect(source).not.toContain('recordBenchCounter');
+    expect(source).not.toContain('recordBenchTiming');
+    expect(source).not.toContain('withBenchMetricScope');
+    expect(source).not.toContain('coldCreate');
     expect(source).not.toContain('isBenchMetricScopeActive');
     expect(source).not.toContain('__OWNERSHIP_DIAGNOSTICS');
     expect(source).not.toContain('adjustOwnershipDiagnostic');

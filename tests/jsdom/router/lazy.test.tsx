@@ -1,9 +1,7 @@
 import {
   resetRouteState,
   currentRouteManifest,
-  currentRouteList,
   currentRouteRegistry,
-  routeRegistryFromTable,
 } from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA, hydrateSPA } from '@askrjs/askr/boot';

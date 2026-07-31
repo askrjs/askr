@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { currentRouteRegistry } from '../../router-test-utils';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * tests/router/cancellation_on_navigate.test.ts

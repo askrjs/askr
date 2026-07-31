@@ -70,12 +70,12 @@ expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
 expectType<void>(onRouteChange(() => {}));
 const routeCleanup: RouteChangeCleanup = () => {};
-const routerRouteCleanup: RouterRouteChangeCleanup = routeCleanup;
+expectAssignable<RouterRouteChangeCleanup>(routeCleanup);
 expectType<void>(
   onRouteChange(
     (current, previous) => {
-      current.path;
-      previous?.path;
+      expectType<string>(current.path);
+      expectType<string | undefined>(previous?.path);
       return () => {};
     },
     { immediate: true } satisfies RouteChangeOptions

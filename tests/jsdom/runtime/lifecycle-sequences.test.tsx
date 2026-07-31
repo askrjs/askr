@@ -1,10 +1,3 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vite-plus/test';

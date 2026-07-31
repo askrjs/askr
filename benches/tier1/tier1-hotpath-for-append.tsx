@@ -11,6 +11,7 @@ import {
   replaceAllRows,
   tier1BenchOptions,
   verifyTier1Invariant,
+  verifyBenchInstrumentation,
   withForBenchDiagnostics,
 } from '../shared/_shared';
 
@@ -45,12 +46,14 @@ verifyTier1Invariant('tier1 hotpath for append', () => {
       }
     );
 
-    expect(metrics.fastLaneName).toBe('APPEND');
-    expect(metrics.domNodesCreated).toBe(8_000);
-    expect(metrics.listenerBindings).toBe(2_000);
-    expect(metrics.reactivePropsMounted).toBe(1_000);
-    expect(metrics.replaceChildrenCommits).toBe(0);
-    expect(metrics.bulkClearCommits).toBe(0);
+    verifyBenchInstrumentation(() => {
+      expect(metrics.fastLaneName).toBe('APPEND');
+      expect(metrics.domNodesCreated).toBe(8_000);
+      expect(metrics.listenerBindings).toBe(2_000);
+      expect(metrics.reactivePropsMounted).toBe(1_000);
+      expect(metrics.replaceChildrenCommits).toBe(0);
+      expect(metrics.bulkClearCommits).toBe(0);
+    });
   } finally {
     mounted.cleanup();
   }
@@ -101,12 +104,14 @@ verifyTier1Invariant('tier1 hotpath for replace all', () => {
       }
     );
 
-    expect(metrics.fastLaneName).toBe('FULL_KEYED');
-    expect(metrics.domNodesCreated).toBe(8_000);
-    expect(metrics.listenerBindings).toBe(2_000);
-    expect(metrics.reactivePropsMounted).toBe(1_000);
-    expect(metrics.replaceChildrenCommits).toBe(1);
-    expect(metrics.bulkClearCommits).toBe(0);
+    verifyBenchInstrumentation(() => {
+      expect(metrics.fastLaneName).toBe('FULL_KEYED');
+      expect(metrics.domNodesCreated).toBe(8_000);
+      expect(metrics.listenerBindings).toBe(2_000);
+      expect(metrics.reactivePropsMounted).toBe(1_000);
+      expect(metrics.replaceChildrenCommits).toBe(1);
+      expect(metrics.bulkClearCommits).toBe(0);
+    });
   } finally {
     mounted.cleanup();
   }

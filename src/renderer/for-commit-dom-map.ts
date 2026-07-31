@@ -10,6 +10,29 @@ declare const __ASKR_BENCH_BUILD__: boolean;
 
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
+/** Whether publishing a successful commit can mutate the current keyed map. */
+export function canSyncKeyedMapMutate(
+  existing: Map<string | number, Element> | undefined,
+  forState: ForState<unknown>,
+  strategy: ForCommitStrategy,
+  removedNodes: Node[]
+): boolean {
+  if (strategy === 'SWAP' && existing) return false;
+  if (strategy === 'FULL_KEYED' && existing && removedNodes.length === 0) {
+    return false;
+  }
+  if (strategy === 'NO_REORDER' && existing && removedNodes.length === 0) {
+    return false;
+  }
+  if (strategy === 'REMOVE_ONE') {
+    return Boolean(existing && forState.pendingRemovedKey !== null);
+  }
+  if (strategy === 'TRUNCATE' && forState.orderedKeys.length === 0) {
+    return Boolean(existing);
+  }
+  return true;
+}
+
 export function getOrBuildDomKeyMap(
   parent: Element
 ): Map<string | number, Element> | undefined {

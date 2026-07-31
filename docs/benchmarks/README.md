@@ -28,22 +28,29 @@ npm run bench:tier3
 npm run bench:tier4
 ```
 
+Normal lane runs compile the production hot path without benchmark counters,
+phase timers, or diagnostic wrappers. To investigate attribution rather than
+capture production timing, opt in explicitly:
+
+```bash
+ASKR_BENCH_INSTRUMENTATION=1 npm run bench:tier1
+```
+
 The maintained comparison contract is documented in
 [performance targets](./performance-targets.md) and implemented by the tracked
 benchmark files selected by the four `vitest.bench.tier*.config.ts` files. Keep
 documented workload IDs and labels aligned with those implementations.
 
-For release-style review, capture JSON and inspect lane artifacts:
-
-```bash
-cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts --outputJson bench-results/tier4.json
-```
-
 ## Reading Results
 
 The generated [stability workflow](./stability.md) and [performance targets](./performance-targets.md) docs explain how to use the output.
 
-The consolidated JSON artifacts include hz, mean, p75, p99, p995, p999, tail ratio, RME, and sample count for each numeric benchmark, plus variance signals for noisy lanes, wide tails, and timer-resolution failures. Browser operations with a zero p75 or p99 should be batched before they are used for tuning decisions.
+JSON files contain the raw fields emitted by the benchmark reporter. Provenance
+(Node/npm versions, commit and dirty state, runner image, CPU/architecture,
+Playwright revision, lockfile hash, and instrumentation mode) is recorded beside
+them. Tail ratios and median-of-three comparisons are derived during analysis;
+they are not raw reporter fields. A row is eligible only with at least 10
+samples, RME no greater than 15%, and nonzero p75 and p99.
 
 The lane-specific diagnostics in this repo are intentionally separated so cleanup
 cost can be reviewed independently from ordered work loops and ordered DOM
@@ -62,8 +69,9 @@ columns; a faster script phase does not imply a faster end-to-end row.
 Hydration/adoption and deferred activation are separate phases and must not be
 collapsed into one root-wide timing.
 
-The keyed movement-density diagnostic sweeps 10%, 25%, 50%, 75%, and 100%
-movement on a 2,000-row table. Full append/clear teardown is reported
+The keyed movement-density diagnostic uses permutations requiring exactly 200,
+500, 1,000, 1,500, and 1,999 moves on a 2,000-row table, with the LIS length
+verified independently. Full append/clear teardown is reported
 separately so cleanup cost does not get misattributed to the reorder path. The
 `tier3-system-table-keyed-movement-density.tsx` diagnostic provides a matching
 Chromium workload for the component-boundary keyed reorder subsystem; use it

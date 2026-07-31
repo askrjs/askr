@@ -21,7 +21,16 @@ try {
       { cwd: repositoryRoot, encoding: 'utf8' }
     )
   );
-  const tarball = join(consumerRoot, packResult[0].filename);
+  const packEntries = Array.isArray(packResult)
+    ? packResult
+    : packResult && typeof packResult === 'object'
+      ? Object.values(packResult)
+      : [];
+  const filename = packEntries[0]?.filename;
+  if (typeof filename !== 'string') {
+    throw new Error('npm pack did not report a tarball filename');
+  }
+  const tarball = join(consumerRoot, filename);
   writeFileSync(
     join(consumerRoot, 'package.json'),
     JSON.stringify({ name: 'askr-consumer', private: true, type: 'module' })
