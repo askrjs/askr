@@ -177,9 +177,14 @@ export function finalizeReadableSubscriptionsFromSnapshot(
   newSet: Set<ReadableSource<unknown>> | undefined,
   pendingReadSourceVersions:
     | Map<ReadableSource<unknown>, number>
-    | undefined = instance._pendingReadSourceVersions
+    | undefined = instance._pendingReadSourceVersions,
+  ownershipGeneration: object = instance._ownershipGeneration
 ): void {
-  if (token === undefined) {
+  if (
+    token === undefined ||
+    instance._ownershipGeneration !== ownershipGeneration ||
+    (!instance.mounted && instance.notifyUpdate === null)
+  ) {
     return;
   }
 

@@ -28,15 +28,12 @@ const RANGE_START = 'askr-range-start';
 const RANGE_END = 'askr-range-end';
 
 function isMultiRangeChild(child: unknown): boolean {
-  if (Array.isArray(child)) return child.length !== 1;
+  if (Array.isArray(child)) return true;
   if (!child || typeof child !== 'object' || !('type' in child)) {
     return false;
   }
   const vnode = child as VNode;
-  return (
-    isFragmentType(vnode.type) &&
-    (getRenderableChildren(vnode)?.length ?? 0) !== 1
-  );
+  return isFragmentType(vnode.type);
 }
 
 function verifyExpectedRangeChild(
@@ -44,6 +41,28 @@ function verifyExpectedRangeChild(
   state: VerifyState,
   ctx: RenderContext
 ): boolean {
+  if (
+    child &&
+    typeof child === 'object' &&
+    'type' in child &&
+    typeof (child as VNode).type === 'function'
+  ) {
+    const vnode = child as VNode | JSXElement;
+    return verifyExpectedRangeChild(
+      inheritRenderableKey(
+        vnode,
+        executeComponentSync(
+          vnode.type as Component,
+          vnode.props,
+          ctx,
+          getVNodeContextFrame(vnode) ?? null
+        )
+      ),
+      state,
+      ctx
+    );
+  }
+
   if (!isMultiRangeChild(child)) {
     return verifyExpectedNode(child, state, ctx);
   }

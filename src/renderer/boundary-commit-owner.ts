@@ -7,6 +7,7 @@ import {
   type ControlBoundaryState,
 } from '../runtime';
 import { getControlBoundaryCommitChildren } from './boundary-state';
+import type { DOMRange } from './dom-range';
 import type { VNode } from './types';
 
 type BoundaryCommitOwnerState = ControlBoundaryState & {
@@ -132,4 +133,68 @@ export function registerControlBoundaryCommitOwner(
   });
 
   assignControlBoundaryCommitOwner(parent, controlState);
+}
+
+export function registerControlBoundaryRangeCommitOwner(
+  range: DOMRange,
+  controlState: ControlBoundaryState,
+  commitRange: () => void
+): void {
+  const ownerState = controlState as BoundaryCommitOwnerState;
+  const previousParent = ownerState._commitOwner;
+  const previousEnqueue = controlState._enqueueBoundaryCommit;
+  const previousPending = controlState._hasPendingBoundaryCommit;
+
+  if (
+    previousParent &&
+    controlBoundaryOwners.get(previousParent) === controlState
+  ) {
+    controlBoundaryOwners.delete(previousParent);
+  }
+  ownerState._commitOwner = null;
+
+  const enqueueRangeCommit = (): void => {
+    if (
+      controlState._enqueueBoundaryCommit !== enqueueRangeCommit ||
+      controlState._hasPendingBoundaryCommit
+    ) {
+      return;
+    }
+
+    controlState._hasPendingBoundaryCommit = true;
+    enqueueRuntimeTask(() => {
+      controlState._hasPendingBoundaryCommit = false;
+      if (
+        controlState._enqueueBoundaryCommit !== enqueueRangeCommit ||
+        !range.start.parentNode ||
+        range.start.parentNode !== range.end.parentNode
+      ) {
+        return;
+      }
+
+      const lifecycleBatch = beginLifecycleCommitBatch();
+      try {
+        commitRange();
+        flushLifecycleCommitBatch(lifecycleBatch);
+      } catch (error) {
+        discardLifecycleCommitBatch(lifecycleBatch);
+        throw error;
+      }
+    });
+  };
+
+  controlState._enqueueBoundaryCommit = enqueueRangeCommit;
+  controlState._hasPendingBoundaryCommit = false;
+
+  registerLifecycleRollback(() => {
+    if (controlState._enqueueBoundaryCommit !== enqueueRangeCommit) {
+      return;
+    }
+    controlState._enqueueBoundaryCommit = previousEnqueue;
+    controlState._hasPendingBoundaryCommit = previousPending;
+    ownerState._commitOwner = previousParent ?? null;
+    if (previousParent) {
+      controlBoundaryOwners.set(previousParent, controlState);
+    }
+  });
 }

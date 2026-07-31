@@ -7,6 +7,32 @@ import {
 } from '../../../src/foundations/structures/portal';
 
 describe('SSR streaming: parity and chunk boundaries', () => {
+  it('should preserve escaped attributes and text given adversarial SSR values when rendering HTML and streaming output', () => {
+    const adversarial = `"><script>alert('xss')</script>&`;
+    const registry = routeRegistryFromTable([
+      {
+        path: '/',
+        handler: () => <div title={adversarial}>{adversarial}</div>,
+      },
+    ]);
+    const chunks: string[] = [];
+
+    renderToStream({
+      url: '/',
+      registry,
+      onChunk: (chunk) => chunks.push(chunk),
+      onComplete: () => {},
+    });
+    const html = renderToString({ url: '/', registry });
+    const streamed = chunks.join('');
+
+    expect(streamed).toBe(html);
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).toContain('&quot;&gt;');
+    expect(html).toContain('&amp;');
+  });
+
   it('should stream output equal renderToString (byte-for-byte)', () => {
     const routes = [
       {

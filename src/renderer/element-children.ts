@@ -5,6 +5,7 @@ import { clearControlBoundaryCommitOwner } from './boundaries';
 import {
   commitForBoundaryChildren,
   evaluateControlBoundaryState,
+  getControlBoundaryRanges,
   getControlBoundaryState,
   getDirectControlBoundaryVNode,
   registerControlBoundaryCommitOwner,
@@ -29,8 +30,10 @@ import { extractKey } from './utils';
 import {
   createDetachedRange,
   findRangeEnd,
+  getLogicalChildHosts,
   isRangeStart,
   moveRange,
+  rangeContains,
   removeRange,
   type DOMRange,
 } from './dom-range';
@@ -221,6 +224,55 @@ function consumeUnmatchedTailAtCursor(
   return next;
 }
 
+function nodeMatchesFollowingVNode(node: Node, vnode: VNode): boolean {
+  if (typeof vnode === 'string' || typeof vnode === 'number') {
+    return node.nodeType === Node.TEXT_NODE;
+  }
+  if (!_isDOMElement(vnode)) return false;
+  if (typeof vnode.type === 'string') {
+    if (
+      !(node instanceof Element) ||
+      !tagsEqualIgnoreCase(node.tagName, vnode.type)
+    ) {
+      return false;
+    }
+    const key = extractKey(vnode);
+    return key === undefined || getMaterializedKey(node) === key;
+  }
+  if (typeof vnode.type === 'function') {
+    const host = node as Node & {
+      __ASKR_INSTANCE?: { fn?: ComponentFunction };
+      __ASKR_INSTANCES?: Array<{ fn?: ComponentFunction }>;
+    };
+    return (
+      host.__ASKR_INSTANCE?.fn === vnode.type ||
+      host.__ASKR_INSTANCES?.some((instance) => instance.fn === vnode.type) ===
+        true
+    );
+  }
+  return false;
+}
+
+function alignCursorToFollowingVNode(
+  parent: Element,
+  cursor: Node,
+  vnode: VNode
+): Node {
+  let matching: Node | null = cursor;
+  while (matching && !nodeMatchesFollowingVNode(matching, vnode)) {
+    matching = isRangeStart(matching)
+      ? (findRangeEnd(matching)?.nextSibling ?? matching.nextSibling)
+      : matching.nextSibling;
+  }
+  if (!matching) return cursor;
+
+  let next: Node | null = cursor;
+  while (next && next !== matching) {
+    next = consumeUnmatchedTailAtCursor(parent, next);
+  }
+  return matching;
+}
+
 export function updateMixedControlChildren(
   parent: Element,
   children: VNode[],
@@ -231,7 +283,8 @@ export function updateMixedControlChildren(
   const domHost = getRendererDOMHost();
   let cursor: Node | null = parent.firstChild;
 
-  for (const child of children) {
+  for (let childIndex = 0; childIndex < children.length; childIndex += 1) {
+    const child = children[childIndex];
     if (isControlBoundaryVNode(child)) {
       const controlState = getControlBoundaryState(child);
       if (!controlState) {
@@ -241,6 +294,37 @@ export function updateMixedControlChildren(
       }
 
       const childVNodes = evaluateControlBoundaryState(controlState);
+
+      if (controlState.kind === 'for') {
+        const currentRanges = getControlBoundaryRanges(controlState);
+        const hydrationOwnsCursor =
+          isHydrationAdoptionScopeActive() &&
+          (controlState.orderedKeys.length > 0
+            ? controlState.orderedItems.some(
+                (item) => item?.scope.hydrationPending
+              )
+            : Boolean(controlState.fallbackScope?.hydrationPending));
+        const boundaryOwnsCursor =
+          cursor !== null &&
+          (hydrationOwnsCursor ||
+            currentRanges.some((range) => rangeContains(range, cursor!)) ||
+            controlState.lastRemovedRanges.some((range) =>
+              rangeContains(range, cursor!)
+            ) ||
+            controlState.lastRemovedNodes.includes(cursor));
+        if (cursor && !boundaryOwnsCursor) {
+          const following = children
+            .slice(childIndex + 1)
+            .find(
+              (candidate) =>
+                !isEmptyChild(candidate) && !isControlBoundaryVNode(candidate)
+            );
+          if (following !== undefined) {
+            cursor = alignCursorToFollowingVNode(parent, cursor, following);
+          }
+        }
+      }
+
       const cursorAfterBoundary = cursor
         ? isRangeStart(cursor)
           ? (findRangeEnd(cursor)?.nextSibling ?? cursor.nextSibling)
@@ -370,20 +454,31 @@ function isEmptyChild(child: unknown): boolean {
   return child === null || child === undefined || child === false;
 }
 
+function replaceHydratedRangeInSnapshot(
+  nodes: Node[],
+  index: number,
+  rangeStart: Comment,
+  fallbackEndIndex: number
+): void {
+  const rangeEnd = findRangeEnd(rangeStart);
+  const following = rangeEnd?.nextSibling ?? null;
+  const followingIndex =
+    following === null ? nodes.length : nodes.indexOf(following, index);
+  const endIndex = followingIndex >= index ? followingIndex : fallbackEndIndex;
+  nodes.splice(index, Math.max(1, endIndex - index), rangeStart);
+}
+
 function getOrBuildDomKeyMap(
   parent: Element
 ): Map<string | number, Element> | undefined {
   let keyMap = keyedElements.get(parent);
   if (!keyMap) {
     keyMap = new Map<string | number, Element>();
-    for (
-      let child = parent.firstElementChild;
-      child;
-      child = child.nextElementSibling
-    ) {
-      const key = getMaterializedKey(child);
+    for (const host of getLogicalChildHosts(parent)) {
+      if (!(host instanceof Element)) continue;
+      const key = getMaterializedKey(host);
       if (key !== undefined) {
-        keyMap.set(key, child);
+        keyMap.set(key, host);
       }
     }
     if (keyMap.size > 0) keyedElements.set(parent, keyMap);
@@ -558,10 +653,11 @@ export function updateUnkeyedChildren(
               hydrationRangeEnd
             );
             if (synced && isRangeStart(synced)) {
-              allNodes.splice(
+              replaceHydratedRangeInSnapshot(
+                allNodes,
                 i,
-                Math.max(1, hydrationRangeEndIndex - i),
-                synced
+                synced,
+                hydrationRangeEndIndex
               );
               continue;
             }
@@ -595,10 +691,11 @@ export function updateUnkeyedChildren(
               hydrationRangeEnd
             );
             if (synced && isRangeStart(synced)) {
-              allNodes.splice(
+              replaceHydratedRangeInSnapshot(
+                allNodes,
                 i,
-                Math.max(1, hydrationRangeEndIndex - i),
-                synced
+                synced,
+                hydrationRangeEndIndex
               );
               continue;
             }

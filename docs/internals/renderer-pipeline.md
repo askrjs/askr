@@ -58,7 +58,10 @@ flowchart TB
   facade[dom.ts facade]
   internal[dom-internal.ts orchestration]
   domHost[dom-host.ts host contract]
-  componentHost[component-host.ts component materialization and sync]
+  componentHost[component-host.ts component host orchestration]
+  componentCreation[component-host-creation.ts host creation]
+  componentNested[component-host-nested-results.ts nested result resolution]
+  componentResults[component-host-results.ts result materialization and owner publication]
   componentInstances[component-host-instances.ts component instance metadata]
   componentCleanup[component-host-cleanup.ts detached host cleanup]
   elementChildren[element-children.ts element child updates]
@@ -73,12 +76,16 @@ flowchart TB
   attributes[attributes.ts scalar props and keys]
   intrinsic[intrinsic element create orchestration]
   boundaries[boundaries.ts control and For boundary commit]
+  boundaryPlacement[boundary-range-placement.ts mixed-parent placement]
+  boundaryCleanup[boundary-range-cleanup.ts range teardown]
+  boundarySync[boundary-range-sync.ts scope range synchronization]
   staticReuse[static subtree and child-slot reuse]
   reconcile[reconcile.ts keyed orchestration]
   reconcileFast[reconcile-fastpaths.ts fast paths]
   reconcileResolution[reconcile-resolution.ts vnode resolution]
   reconcileCommit[reconcile-commit.ts DOM commit]
   forCommit[for-commit.ts For list DOM commit]
+  forRanges[for-commit-ranges.ts exact range commit]
   forMap[for-commit-dom-map.ts DOM key maps]
   forRemoval[for-commit-removal.ts removed node teardown]
   forReorder[for-commit-reorder.ts move-only reorder]
@@ -87,6 +94,9 @@ flowchart TB
   facade --> internal
   internal --> domHost
   internal --> componentHost
+  componentHost --> componentCreation
+  componentHost --> componentNested
+  componentHost --> componentResults
   componentHost --> componentInstances
   internal --> componentCleanup
   internal --> elementChildren
@@ -101,12 +111,16 @@ flowchart TB
   internal --> attributes
   internal --> intrinsic
   internal --> boundaries
+  boundaries --> boundaryPlacement
+  boundaries --> boundaryCleanup
+  boundaries --> boundarySync
   internal --> staticReuse
   internal --> reconcile
   reconcile --> reconcileFast
   reconcile --> reconcileResolution
   reconcile --> reconcileCommit
   internal --> forCommit
+  forCommit --> forRanges
   forCommit --> forMap
   forCommit --> forRemoval
   forCommit --> forReorder
@@ -285,12 +299,13 @@ flowchart LR
   host registration, and helper-owner orchestration.
 - `src/renderer/dom-host.ts` owns the internal host contract used by renderer
   helpers that need DOM operations without importing the facade.
-- `src/renderer/component-host.ts` owns component host reuse, component
-  materialization/synchronization, and nested component resolution.
+- `src/renderer/component-host.ts` orchestrates component host reuse and
+  synchronization. `component-host-creation.ts` owns initial host creation.
 - `src/renderer/component-host-replacement.ts` owns component-host replacement
   transactions, provisional ownership rollback, and retained-host cleanup.
-- `src/renderer/component-host-results.ts` owns nested component result
-  materialization and wrapper-host resolution.
+- `src/renderer/component-host-nested-results.ts` owns nested component and
+  wrapper result resolution, while `component-host-results.ts` owns result
+  materialization and owner-chain publication.
 - `src/renderer/component-host-instances.ts` owns route-root detection,
   cleanup-strict inheritance, vnode component instance storage, component
   instance IDs, component host instance lookup, and component key inheritance.
@@ -334,8 +349,9 @@ flowchart LR
   commit-child selection; `boundary-materialization.ts` owns initial boundary
   result materialization.
 - `src/renderer/boundary-range-adoption.ts` owns hydrated range adoption and
-  child-scope range materialization, while `boundary-range-sync.ts` owns
-  retained range synchronization and removal.
+  child-scope range materialization. `boundary-range-sync.ts` owns retained
+  scope synchronization, `boundary-range-placement.ts` owns mixed-parent
+  placement, and `boundary-range-cleanup.ts` owns teardown.
 - `src/renderer/hydration-boundaries.ts` owns deferred-boundary records and
   activation state; `hydration-listener-transaction.ts` stages direct and
   delegated listener publication until activation commits.
@@ -353,6 +369,8 @@ flowchart LR
   `reconcile-resolution.ts` owns vnode-to-DOM resolution, and
   `reconcile-commit.ts` owns DOM commit application.
 - `src/renderer/for-commit.ts` orchestrates keyed `For` DOM commits.
+  `for-commit-ranges.ts` owns exact range discovery, removal, swaps, and
+  reverse placement.
   `for-commit-dom-map.ts` owns DOM key-map hydration/synchronization and
   `for-commit-removal.ts` owns removed boundary-node teardown and bulk clears,
   while `for-commit-reorder.ts` owns move-only reorders.

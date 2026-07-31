@@ -8,6 +8,7 @@ import {
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createSPA, hydrateSPA } from '@askrjs/askr/boot';
 import { lazy, route, group, _drainLazy } from '../../../src/router/route';
+import { navigate } from '../../../src/router/navigate';
 import {
   createTestContainer,
   flushScheduler,
@@ -35,6 +36,43 @@ afterEach(() => {
 });
 
 describe('lazy()', () => {
+  it('should discard stale lazy-route results given a newer navigation when the older route resolves later', async () => {
+    const { container, cleanup } = createTestContainer();
+    let resolveSlow!: (value: { default: () => unknown }) => void;
+
+    try {
+      route('/', () => <div>home</div>);
+      route(
+        '/slow',
+        lazy(
+          () =>
+            new Promise((resolve) => {
+              resolveSlow = resolve;
+            })
+        )
+      );
+      route('/newer', () => <div>newer route</div>);
+      setGlobalWindow('/');
+
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+      navigate('/slow');
+      await Promise.resolve();
+      navigate('/newer');
+      await Promise.resolve();
+      flushScheduler();
+      expect(container.textContent).toBe('newer route');
+
+      resolveSlow({ default: () => <div>stale route</div> });
+      await Promise.resolve();
+      await Promise.resolve();
+      flushScheduler();
+
+      expect(container.textContent).toBe('newer route');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should preserve an unmatched route factory during SPA creation', async () => {
     const { container, cleanup } = createTestContainer();
     let imports = 0;
