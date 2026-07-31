@@ -5,6 +5,7 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  createDirectionalBenchCycle,
   extendBenchOptions,
   mountTableBenchmark,
   tier3BenchOptions,
@@ -46,24 +47,24 @@ const emptyRows: RowData[] = [];
 
 describe('tier3 system table create many', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
-  let rowsVisible = false;
+  let cycle: ReturnType<typeof createDirectionalBenchCycle> | null = null;
 
-  bench(
-    'toggle 5,000 table rows between empty and populated',
-    () => {
-      rowsVisible = !rowsVisible;
-      mounted!.benchmark.setRows(rowsVisible ? rows : emptyRows);
+  bench('create 5,000 table rows from empty', () => cycle!.runForward(), {
+    ...tableCreateManyBenchOptions,
+    setup() {
+      mounted = mountTableBenchmark();
+      cycle = createDirectionalBenchCycle({
+        label: 'create 5,000 rows',
+        forward: () => mounted!.benchmark.setRows(rows),
+        reset: () => mounted!.benchmark.setRows(emptyRows),
+        verifyInitial: () => assertRowCountTransition(mounted!.container, 0),
+      });
     },
-    {
-      ...tableCreateManyBenchOptions,
-      setup() {
-        mounted = mountTableBenchmark();
-        rowsVisible = false;
-      },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-      },
-    }
-  );
+    teardown() {
+      cycle?.teardown();
+      mounted?.cleanup();
+      mounted = null;
+      cycle = null;
+    },
+  });
 });

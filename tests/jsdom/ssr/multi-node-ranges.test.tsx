@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { routeRegistryFromTable } from '../../router-test-utils';
 import { describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';

@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { routeRegistryFromTable } from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, createSPA, cleanupApp, hasApp } from '@askrjs/askr/boot';
 import { state, type State } from '../../../src';

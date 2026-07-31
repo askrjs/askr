@@ -52,6 +52,8 @@ type RowData = {
   label: string;
 };
 
+type FocusReorderRow = { id: number; label: string };
+
 type OperationProfile = {
   durationMs: number;
   benchMetrics: ReturnType<typeof getBenchMetrics>;
@@ -122,6 +124,7 @@ const root = rootElement;
 ).__ASKR_BENCH__ = true;
 
 let benchmarkApp: ReturnType<typeof mountBenchmark> | null = null;
+let focusReorderRows: ReturnType<typeof state<FocusReorderRow[]>> | null = null;
 let fanoutState: ReturnType<typeof state<number>> | null = null;
 let largeTreeTickState: ReturnType<typeof state<number>> | null = null;
 let typingValueState: ReturnType<typeof state<string>> | null = null;
@@ -707,6 +710,76 @@ function mountBenchmarkScenario(rows = defaultRows()): void {
     throw new Error('Missing benchmark fixture root');
   }
   benchmarkApp = mountBenchmark(benchmarkRoot, rows);
+}
+
+function FocusReorderItem({
+  item,
+  index,
+}: {
+  item: FocusReorderRow;
+  index: () => number;
+}) {
+  const [localCount, setLocalCount] = state(0);
+  const [frameworkInputCount, setFrameworkInputCount] = state(0);
+
+  return (
+    <article data-focus-row={String(item.id)} data-index={String(index())}>
+      <span>{item.label}</span>
+      <input
+        aria-label={`Retained input ${item.id}`}
+        onInput={() => setFrameworkInputCount((count) => count + 1)}
+      />
+      <output data-framework-count>{String(frameworkInputCount())}</output>
+      <button type="button" onClick={() => setLocalCount((count) => count + 1)}>
+        Local count {localCount()}
+      </button>
+    </article>
+  );
+}
+
+function mountFocusReorderScenario(count: number): void {
+  resetRoot();
+  const initialRows = Array.from({ length: count }, (_, index) => ({
+    id: index + 1,
+    label: `Focus row ${index + 1}`,
+  }));
+
+  const App = () => {
+    focusReorderRows = state(initialRows);
+    return (
+      <section aria-label="Retained focus reorder">
+        <For each={() => focusReorderRows!()} by={(item) => item.id}>
+          {(item, index) => <FocusReorderItem item={item} index={index} />}
+        </For>
+      </section>
+    );
+  };
+
+  createIsland({ root, component: App });
+}
+
+function reorderFocusRows(
+  mode: 'reverse' | 'reverse-fresh' | 'sparse-front' | 'delete',
+  focusedId?: number
+): void {
+  if (!focusReorderRows)
+    throw new Error('Focus reorder scenario is not mounted');
+  const current = focusReorderRows();
+  if (mode === 'delete') {
+    focusReorderRows.set(current.filter((row) => row.id !== focusedId));
+    return;
+  }
+  if (mode === 'sparse-front') {
+    focusReorderRows.set([
+      current[current.length - 1]!,
+      ...current.slice(0, -1),
+    ]);
+    return;
+  }
+  const reversed = current.slice().reverse();
+  focusReorderRows.set(
+    mode === 'reverse-fresh' ? reversed.map((row) => ({ ...row })) : reversed
+  );
 }
 
 function mountInteractionScenario(): void {
@@ -1306,6 +1379,7 @@ Object.assign(window, {
     getPerfMetrics,
     getBrowserDevCounters,
     mountBenchmarkScenario,
+    mountFocusReorderScenario,
     mountHydratedBenchmarkTableScenario,
     mountInteractionScenario,
     mountGuardedRouterScenario,
@@ -1318,6 +1392,7 @@ Object.assign(window, {
     setHydratedRows,
     setHydratedSelected,
     setRows,
+    reorderFocusRows,
     async runBrowserPerf() {
       return runBrowserPerf();
     },
@@ -1330,6 +1405,7 @@ export {
   getPerfMetrics,
   getBrowserDevCounters,
   mountBenchmarkScenario,
+  mountFocusReorderScenario,
   mountAccountSettingsScenario,
   mountCustomerSearchScenario,
   mountErrorBoundaryScenario,
@@ -1348,4 +1424,5 @@ export {
   setHydratedRows,
   setHydratedSelected,
   setRows,
+  reorderFocusRows,
 };

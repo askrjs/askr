@@ -1,10 +1,11 @@
 import { bench, describe } from 'vite-plus/test';
-import type { BenchToggle, RowData } from '../shared/_shared';
+import type { RowData } from '../shared/_shared';
 import {
   assertTextTransition,
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  createDirectionalBenchCycle,
   mountTableBenchmark,
   replaceAllRows,
   tier3BenchOptions,
@@ -61,23 +62,35 @@ const replacementRows = replaceAllRows(initialRows, 2001);
 
 describe('tier3 system table replace all', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
-  let toggle: BenchToggle<readonly RowData[]> | null = null;
+  let cycle: ReturnType<typeof createDirectionalBenchCycle> | null = null;
 
   bench(
-    'replace an entire 1,000-row table with new keyed data',
+    'replace 1,000 rows with disjoint keys',
     () => {
-      mounted!.benchmark.setRows(toggle!.next() as RowData[]);
+      cycle!.runForward();
     },
     {
       ...tier3BenchOptions,
       setup() {
         mounted = mountTableBenchmark(initialRows);
-        toggle = createRowToggle(initialRows, replacementRows, 'initial');
+        cycle = createDirectionalBenchCycle({
+          label: 'replace 1,000 disjoint keys',
+          forward: () => mounted!.benchmark.setRows(replacementRows),
+          reset: () => mounted!.benchmark.setRows(initialRows),
+          verifyInitial: () => {
+            assertTextTransition(
+              mounted!.container,
+              'tbody tr:first-child td:first-child',
+              '1'
+            );
+          },
+        });
       },
       teardown() {
+        cycle?.teardown();
         mounted?.cleanup();
         mounted = null;
-        toggle = null;
+        cycle = null;
       },
     }
   );

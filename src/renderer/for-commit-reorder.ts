@@ -74,7 +74,7 @@ function getLISIndices(sequence: number[]): number[] {
 }
 
 export function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
-  const currentNodes = Array.from(parent.childNodes);
+  const currentNodes = parent.childNodes;
   if (currentNodes.length !== nodes.length) {
     return false;
   }
@@ -104,7 +104,16 @@ export function commitMoveOnlyReorder(parent: Element, nodes: Node[]): boolean {
     Math.floor(nodes.length * DENSE_MOVE_RATIO)
   );
 
-  if (moveCount >= denseMoveThreshold) {
+  const activeElement = parent.ownerDocument.activeElement;
+  const retainsActiveElement =
+    activeElement !== null &&
+    nodes.some(
+      (node) =>
+        node === activeElement ||
+        (node instanceof Element && node.contains(activeElement))
+    );
+
+  if (moveCount >= denseMoveThreshold && !retainsActiveElement) {
     if (BENCH_BUILD_ENABLED) {
       recordBenchEvent('domMove', moveCount);
       recordBenchCounter('replaceChildrenCommits');

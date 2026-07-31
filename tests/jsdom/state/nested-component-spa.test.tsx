@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { routeRegistryFromTable } from '../../router-test-utils';
 import { describe, it, expect } from 'vite-plus/test';
 import { createSPA } from '../../../src/boot';
 import { navigate } from '../../../src/router/navigate';

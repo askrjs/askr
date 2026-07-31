@@ -1,7 +1,6 @@
 import {
   resetRouteState,
   currentRouteManifest,
-  currentRouteList,
   currentRouteRegistry,
   routeRegistryFromTable,
 } from '../../router-test-utils';

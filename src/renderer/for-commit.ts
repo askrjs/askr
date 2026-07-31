@@ -22,6 +22,7 @@ import { keyedElements } from './keyed';
 import type { VNode } from './types';
 import { canUseDirectReplaceChildrenSpread } from './utils';
 import {
+  canSyncKeyedMapMutate,
   getOrBuildDomKeyMap,
   hydrateExistingForDomInOrder,
   syncKeyedMapFromForState,
@@ -75,9 +76,14 @@ export function commitForStateBoundaryChildren(
 ): void {
   const previousChildren = Array.from(parent.childNodes);
   const currentKeyedMap = keyedElements.get(parent);
-  const previousKeyedMap = currentKeyedMap
-    ? new Map(currentKeyedMap)
-    : undefined;
+  const keyedMapMayMutate = canSyncKeyedMapMutate(
+    currentKeyedMap,
+    forState,
+    forState.lastCommitStrategy,
+    forState.lastRemovedNodes
+  );
+  const previousKeyedMap =
+    keyedMapMayMutate && currentKeyedMap ? new Map(currentKeyedMap) : undefined;
   const lifecycleBatch = beginLifecycleCommitBatch();
   // A commit-only transaction does not reconcile collection membership. Keep
   // the committed collections by reference and snapshot only scopes that the
@@ -103,10 +109,12 @@ export function commitForStateBoundaryChildren(
       }
     }
     parent.replaceChildren(...previousChildren);
-    if (previousKeyedMap) {
-      keyedElements.set(parent, new Map(previousKeyedMap));
-    } else {
-      keyedElements.delete(parent);
+    if (keyedMapMayMutate) {
+      if (previousKeyedMap) {
+        keyedElements.set(parent, new Map(previousKeyedMap));
+      } else {
+        keyedElements.delete(parent);
+      }
     }
     throw error;
   }
@@ -120,7 +128,13 @@ function commitForStateBoundaryChildrenImpl(
 ): void {
   const domCommitStart = BENCH_BUILD_ENABLED ? performance.now() : 0;
   const { needsAnchoredRanges, preResolvedRanges, previousRanges } =
-    prepareForCommitRanges(parent, forState, childrenVNodes, runtime);
+    BENCH_BUILD_ENABLED &&
+    (forState.lastCommitStrategy === 'APPEND' ||
+      forState.lastCommitStrategy === 'FULL_KEYED')
+      ? withBenchMetricScope('coldCreate', () =>
+          prepareForCommitRanges(parent, forState, childrenVNodes, runtime)
+        )
+      : prepareForCommitRanges(parent, forState, childrenVNodes, runtime);
   if (needsAnchoredRanges) {
     commitForStateBoundaryRanges(
       parent,
@@ -546,24 +560,16 @@ function commitForStateBoundaryChildrenImpl(
         nodes[i] = dom;
       }
 
-      if (!canUseDirectReplaceChildrenSpread(count)) {
-        if (movedCount > 0) {
-          recordBenchEvent('domMove', movedCount);
-        }
-        if (insertedCount > 0) {
-          recordBenchEvent('domInsert', insertedCount);
-        }
-        replaceChildrenInOrder(parent, nodes, false);
-        boundaryChildrenExact = true;
-        return;
-      }
-
       if (insertedCount > 0) {
         if (movedCount > 0) {
           recordBenchEvent('domMove', movedCount);
         }
         recordBenchEvent('domInsert', insertedCount);
-        replaceChildrenInOrder(parent, nodes, true);
+        replaceChildrenInOrder(
+          parent,
+          nodes,
+          canUseDirectReplaceChildrenSpread(count)
+        );
         boundaryChildrenExact = true;
         return;
       }

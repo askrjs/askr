@@ -96,11 +96,12 @@ export interface SSGAssetSource {
 }
 
 /** Options for createStaticGen */
-export type SSGOptions<TRoutes extends readonly RouteConfig[] = RouteConfig[]> =
-  SSGBaseOptions & {
-    /** Explicit route registry captured with `createRouteRegistry()`. */
-    registry: RouteRegistry;
-  };
+export type SSGOptions<
+  _TRoutes extends readonly RouteConfig[] = RouteConfig[],
+> = SSGBaseOptions & {
+  /** Explicit route registry captured with `createRouteRegistry()`. */
+  registry: RouteRegistry;
+};
 
 /** Options for a single generation run */
 export interface SSGGenerateOptions {
