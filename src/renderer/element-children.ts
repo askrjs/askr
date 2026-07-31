@@ -285,6 +285,9 @@ export function updateMixedControlChildren(
 
   for (let childIndex = 0; childIndex < children.length; childIndex += 1) {
     const child = children[childIndex];
+    if (isEmptyChild(child)) {
+      continue;
+    }
     if (isControlBoundaryVNode(child)) {
       const controlState = getControlBoundaryState(child);
       if (!controlState) {
