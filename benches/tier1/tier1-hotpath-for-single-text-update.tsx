@@ -9,6 +9,7 @@ import {
   replaceRowLabelById,
   tier1BenchOptions,
   verifyTier1Invariant,
+  verifyBenchInstrumentation,
   withForBenchDiagnostics,
 } from '../shared/_shared';
 
@@ -57,10 +58,12 @@ verifyTier1Invariant('tier1 hotpath for single text update', () => {
       }
     );
 
-    expect(['APPEND', 'NO_REORDER']).toContain(metrics.fastLaneName);
-    expect(metrics.domMoves).toBe(0);
-    expect(metrics.itemsCreated).toBe(0);
-    expect(metrics.itemsRemoved).toBe(0);
+    verifyBenchInstrumentation(() => {
+      expect(['APPEND', 'NO_REORDER']).toContain(metrics.fastLaneName);
+      expect(metrics.domMoves).toBe(0);
+      expect(metrics.itemsCreated).toBe(0);
+      expect(metrics.itemsRemoved).toBe(0);
+    });
   } finally {
     mounted.cleanup();
   }

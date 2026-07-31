@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { resetRouteState } from '../../router-test-utils';
 // tests/dev_errors/prod_fallbacks.test.ts
 import {
   describe,

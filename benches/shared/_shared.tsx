@@ -104,6 +104,11 @@ export interface CachedElementQuery<T extends Element> {
   invalidate(): void;
 }
 
+export interface DirectionalBenchCycle {
+  runForward(): void;
+  teardown(): void;
+}
+
 export const tier1BenchOptions = {
   time: 400,
   iterations: 5,
@@ -160,6 +165,13 @@ export function verifyTier1Invariant(label: string, verify: () => void): void {
   }
 }
 
+/** Counter contracts are diagnostic-only; DOM preflights always run. */
+export function verifyBenchInstrumentation(verify: () => void): void {
+  if (process.env.ASKR_BENCH_INSTRUMENTATION === '1') {
+    verify();
+  }
+}
+
 export function buildRows(count: number, startId = 1): RowData[] {
   return Array.from({ length: count }, (_, index) => {
     const id = startId + index;
@@ -213,6 +225,55 @@ export function createSelectionToggle<T>(
   start: ToggleStart = 'first'
 ): BenchToggle<T> {
   return createAlternatingToggle(first, second, start);
+}
+
+/**
+ * Keeps inverse state restoration outside the timed callback while ensuring
+ * every sample begins from the exact same verified state.
+ */
+export function createDirectionalBenchCycle(options: {
+  label: string;
+  forward: () => void;
+  reset: () => void;
+  verifyInitial: () => void;
+}): DirectionalBenchCycle {
+  let resetPending = false;
+  let resetError: unknown = null;
+
+  const surfaceResetFailure = (): void => {
+    if (resetError) {
+      const error = resetError;
+      resetError = null;
+      throw error;
+    }
+    if (resetPending) {
+      throw new Error(
+        `Directional benchmark reset for "${options.label}" did not finish before the next sample.`
+      );
+    }
+  };
+
+  return {
+    runForward() {
+      surfaceResetFailure();
+      options.forward();
+      resetPending = true;
+      queueMicrotask(() => {
+        try {
+          options.reset();
+          options.verifyInitial();
+        } catch (error) {
+          resetError = error;
+        } finally {
+          resetPending = false;
+        }
+      });
+    },
+    teardown() {
+      surfaceResetFailure();
+      options.verifyInitial();
+    },
+  };
 }
 
 export function createCachedElementQuery<T extends Element = HTMLElement>(

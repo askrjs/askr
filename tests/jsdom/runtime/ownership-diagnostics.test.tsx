@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import { createDataRuntime, createQuery } from '../../../src/data';
@@ -52,6 +46,7 @@ describe('ownership diagnostics', () => {
         await new Promise<void>((resolve) => {
           signal.addEventListener('abort', () => resolve(), { once: true });
         });
+        yield* [];
       });
       Portal({
         children: <aside data-diagnostic-portal={'true'}>{'portal'}</aside>,

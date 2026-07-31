@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { state } from '../../../src';

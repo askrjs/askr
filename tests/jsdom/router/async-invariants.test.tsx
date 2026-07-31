@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import {
   afterEach,
   beforeEach,

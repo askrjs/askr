@@ -8,6 +8,7 @@ import {
   mountTableBenchmark,
   tier1BenchOptions,
   verifyTier1Invariant,
+  verifyBenchInstrumentation,
   updateEveryNthRow,
   withForBenchDiagnostics,
 } from '../shared/_shared';
@@ -50,7 +51,9 @@ verifyTier1Invariant('tier1 hotpath for stable keyed update', () => {
       }
     );
 
-    expect(['APPEND', 'NO_REORDER']).toContain(metrics.fastLaneName);
+    verifyBenchInstrumentation(() => {
+      expect(['APPEND', 'NO_REORDER']).toContain(metrics.fastLaneName);
+    });
   } finally {
     mounted.cleanup();
   }

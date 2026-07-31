@@ -12,16 +12,36 @@ import {
 
 const initialRows = buildRows(2_000);
 
-function rotatePrefix(rows: RowData[], fraction: number): RowData[] {
-  const count = Math.floor(rows.length * fraction);
-  if (count < 2) return rows;
-  return [...rows.slice(1, count), rows[0], ...rows.slice(count)];
+function reverseMovePrefix(rows: RowData[], moveCount: number): RowData[] {
+  return [
+    ...rows.slice(0, moveCount + 1).reverse(),
+    ...rows.slice(moveCount + 1),
+  ];
 }
 
-const densities = [10, 25, 50, 75, 100].map((percent) => ({
-  percent,
-  rows: rotatePrefix(initialRows, percent / 100),
+function getLisLength(sequence: number[]): number {
+  const tails: number[] = [];
+  for (const value of sequence) {
+    let low = 0;
+    let high = tails.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (tails[middle]! < value) low = middle + 1;
+      else high = middle;
+    }
+    tails[low] = value;
+  }
+  return tails.length;
+}
+
+const densities = [200, 500, 1_000, 1_500, 1_999].map((moveCount) => ({
+  moveCount,
+  rows: reverseMovePrefix(initialRows, moveCount),
 }));
+
+for (const { moveCount, rows } of densities) {
+  expect(getLisLength(rows.map((row) => row.id - 1))).toBe(2_000 - moveCount);
+}
 
 const options = extendBenchOptions(tier3BenchOptions, {
   time: 1200,
@@ -63,12 +83,12 @@ const options = extendBenchOptions(tier3BenchOptions, {
 }
 
 describe('tier3 system table keyed movement density', () => {
-  for (const { percent, rows } of densities) {
+  for (const { moveCount, rows } of densities) {
     let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
     let toggle: BenchToggle<readonly RowData[]> | null = null;
 
     bench(
-      `move ${percent}% of 2,000 keyed rows`,
+      `move exactly ${moveCount.toLocaleString('en-US')} of 2,000 keyed rows`,
       () => {
         mounted!.benchmark.setRows(toggle!.next() as RowData[]);
       },

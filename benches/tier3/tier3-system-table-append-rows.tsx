@@ -5,6 +5,7 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  createDirectionalBenchCycle,
   extendBenchOptions,
   mountTableBenchmark,
   tier3BenchOptions,
@@ -46,24 +47,25 @@ const appendedRows = buildRows(2000);
 
 describe('tier3 system table append rows', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
-  let appended = false;
+  let cycle: ReturnType<typeof createDirectionalBenchCycle> | null = null;
 
-  bench(
-    'toggle between 1,000 and 2,000 table rows',
-    () => {
-      appended = !appended;
-      mounted!.benchmark.setRows(appended ? appendedRows : initialRows);
+  bench('append 1,000 rows to a 1,000-row table', () => cycle!.runForward(), {
+    ...tableHeavyBenchOptions,
+    setup() {
+      mounted = mountTableBenchmark(initialRows);
+      cycle = createDirectionalBenchCycle({
+        label: 'append 1,000 to 1,000 rows',
+        forward: () => mounted!.benchmark.setRows(appendedRows),
+        reset: () => mounted!.benchmark.setRows(initialRows),
+        verifyInitial: () =>
+          assertRowCountTransition(mounted!.container, 1_000),
+      });
     },
-    {
-      ...tableHeavyBenchOptions,
-      setup() {
-        mounted = mountTableBenchmark(initialRows);
-        appended = false;
-      },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-      },
-    }
-  );
+    teardown() {
+      cycle?.teardown();
+      mounted?.cleanup();
+      mounted = null;
+      cycle = null;
+    },
+  });
 });

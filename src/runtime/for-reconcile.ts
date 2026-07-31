@@ -28,6 +28,18 @@ declare const __ASKR_BENCH_BUILD__: boolean;
 
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
+type ComponentInstanceHost = Node & {
+  __ASKR_INSTANCE?: { mounted: boolean };
+  __ASKR_INSTANCES?: Array<{ mounted: boolean }>;
+};
+
+function hasUnmountedComponentHost(node: Node | undefined): boolean {
+  if (!node) return false;
+  const host = node as ComponentInstanceHost;
+  if (host.__ASKR_INSTANCE?.mounted === false) return true;
+  return host.__ASKR_INSTANCES?.some((instance) => !instance.mounted) ?? false;
+}
+
 function failForValidation(message: string): never {
   throw new Error(message);
 }
@@ -403,14 +415,25 @@ export function reconcileForItems<T>(
       resultVNodes.length = newLen;
       resultItems.length = newLen;
       const isFullClear = newLen === 0;
+      const dirtyIndices: number[] = [];
 
       // Update existing rows in-place
       for (let i = 0; i < newLen; i++) {
         const item = newArray[i];
         const key = orderedKeys[i];
         const existing = items.get(key)!;
+        const itemChanged = existing.item !== item;
+        const scopeNeedsDomUpdate =
+          existing.scope.needsDomUpdate ||
+          hasUnmountedComponentHost(existing.scope.dom);
 
-        updateItemInstance(forState, existing, item);
+        if (itemChanged) {
+          updateItemInstance(forState, existing, item);
+        }
+
+        if (itemChanged || scopeNeedsDomUpdate) {
+          dirtyIndices.push(i);
+        }
 
         resultItems[i] = existing;
         resultVNodes[i] = existing.scope.vnode as VNode;
@@ -442,7 +465,7 @@ export function reconcileForItems<T>(
       }
 
       forState.orderedVNodes = resultVNodes;
-      forState.pendingDirtyIndices = null;
+      forState.pendingDirtyIndices = dirtyIndices;
       forState.pendingSwapIndices = null;
       forState.pendingMoveOnly = false;
 

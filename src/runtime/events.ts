@@ -81,7 +81,7 @@ function createDelegatedEventFacade(
   currentTarget: Element
 ): Event {
   return new Proxy(event, {
-    get(target, property, receiver) {
+    get(target, property, _receiver) {
       if (property === 'currentTarget') {
         return currentTarget;
       }

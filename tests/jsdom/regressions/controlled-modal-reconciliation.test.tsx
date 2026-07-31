@@ -191,6 +191,8 @@ describe('controlled modal reconciliation', () => {
     const NewQueryDialog = () => {
       const name = state('');
       const database = state('');
+      const loading = false;
+      const error: string | null = null;
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected modal component instance');
       modalOwner = instance;
@@ -208,7 +210,7 @@ describe('controlled modal reconciliation', () => {
               <DialogOverlay />
               <DialogContent>
                 <h1>{'New Query'}</h1>
-                {false ? <p>{'loading'}</p> : null}
+                {loading ? <p>{'loading'}</p> : null}
                 <label>
                   {'Query name'}
                   <input
@@ -242,7 +244,7 @@ describe('controlled modal reconciliation', () => {
                     </SelectContent>
                   </SelectPortal>
                 </SelectRoot>
-                {false ? <p>{'error'}</p> : null}
+                {error ? <p>{error}</p> : null}
                 <button
                   type={'button'}
                   data-create={'true'}

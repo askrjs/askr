@@ -256,15 +256,38 @@ export function moveRange(
     return false;
   }
 
-  const restoreFocus = captureRangeFocus(range, parent);
+  const active = parent.ownerDocument?.activeElement ?? null;
+  const retainedFocusedRange =
+    range.start.parentNode === parent &&
+    active !== null &&
+    parent.contains(active) &&
+    (() => {
+      let directChild: Node = active;
+      while (directChild.parentNode && directChild.parentNode !== parent) {
+        directChild = directChild.parentNode;
+      }
+      return (
+        directChild.parentNode === parent && rangeContains(range, directChild)
+      );
+    })();
+  const restoreFocus = retainedFocusedRange
+    ? () => undefined
+    : captureRangeFocus(range, parent);
   if (range.single) {
     parent.insertBefore(range.start, before);
     restoreFocus();
     return true;
   }
 
-  const fragment = parent.ownerDocument!.createDocumentFragment();
   const nodes = [range.start, ...getRangeNodes(range), range.end];
+  if (retainedFocusedRange) {
+    for (const node of nodes) {
+      parent.insertBefore(node, before);
+    }
+    return true;
+  }
+
+  const fragment = parent.ownerDocument!.createDocumentFragment();
   for (const node of nodes) {
     fragment.appendChild(node);
   }

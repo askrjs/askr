@@ -5,6 +5,7 @@ import {
   assertToggleMutationGuard,
   buildRows,
   createRowToggle,
+  createDirectionalBenchCycle,
   extendBenchOptions,
   mountTableBenchmark,
   tier3BenchOptions,
@@ -46,24 +47,25 @@ const emptyRows: RowData[] = [];
 
 describe('tier3 system table clear rows', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
-  let rowsVisible = true;
+  let cycle: ReturnType<typeof createDirectionalBenchCycle> | null = null;
 
-  bench(
-    'toggle a 1,000-row table between populated and empty',
-    () => {
-      rowsVisible = !rowsVisible;
-      mounted!.benchmark.setRows(rowsVisible ? initialRows : emptyRows);
+  bench('clear a 1,000-row table', () => cycle!.runForward(), {
+    ...tableHeavyBenchOptions,
+    setup() {
+      mounted = mountTableBenchmark(initialRows);
+      cycle = createDirectionalBenchCycle({
+        label: 'clear 1,000 rows',
+        forward: () => mounted!.benchmark.setRows(emptyRows),
+        reset: () => mounted!.benchmark.setRows(initialRows),
+        verifyInitial: () =>
+          assertRowCountTransition(mounted!.container, 1_000),
+      });
     },
-    {
-      ...tableHeavyBenchOptions,
-      setup() {
-        mounted = mountTableBenchmark(initialRows);
-        rowsVisible = true;
-      },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-      },
-    }
-  );
+    teardown() {
+      cycle?.teardown();
+      mounted?.cleanup();
+      mounted = null;
+      cycle = null;
+    },
+  });
 });

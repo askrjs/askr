@@ -5,7 +5,6 @@
  */
 
 import type {
-  RouteConfig,
   RouteRenderResult,
   SSGAssetSource,
   SSGGenerateOptions,

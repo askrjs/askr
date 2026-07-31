@@ -1,10 +1,4 @@
-import {
-  resetRouteState,
-  currentRouteManifest,
-  currentRouteList,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { resetRouteState } from '../../router-test-utils';
 import { describe, it, expect, beforeEach, vi } from 'vite-plus/test';
 import { requireAnonymous, requireRole, requireUser } from '@askrjs/auth';
 import {

@@ -22,6 +22,7 @@ import { keyedElements } from './keyed';
 import type { VNode } from './types';
 import { canUseDirectReplaceChildrenSpread } from './utils';
 import {
+  canSyncKeyedMapMutate,
   getOrBuildDomKeyMap,
   hydrateExistingForDomInOrder,
   syncKeyedMapFromForState,
@@ -75,9 +76,14 @@ export function commitForStateBoundaryChildren(
 ): void {
   const previousChildren = Array.from(parent.childNodes);
   const currentKeyedMap = keyedElements.get(parent);
-  const previousKeyedMap = currentKeyedMap
-    ? new Map(currentKeyedMap)
-    : undefined;
+  const keyedMapMayMutate = canSyncKeyedMapMutate(
+    currentKeyedMap,
+    forState,
+    forState.lastCommitStrategy,
+    forState.lastRemovedNodes
+  );
+  const previousKeyedMap =
+    keyedMapMayMutate && currentKeyedMap ? new Map(currentKeyedMap) : undefined;
   const lifecycleBatch = beginLifecycleCommitBatch();
   // A commit-only transaction does not reconcile collection membership. Keep
   // the committed collections by reference and snapshot only scopes that the
@@ -103,10 +109,12 @@ export function commitForStateBoundaryChildren(
       }
     }
     parent.replaceChildren(...previousChildren);
-    if (previousKeyedMap) {
-      keyedElements.set(parent, new Map(previousKeyedMap));
-    } else {
-      keyedElements.delete(parent);
+    if (keyedMapMayMutate) {
+      if (previousKeyedMap) {
+        keyedElements.set(parent, new Map(previousKeyedMap));
+      } else {
+        keyedElements.delete(parent);
+      }
     }
     throw error;
   }
@@ -120,7 +128,13 @@ function commitForStateBoundaryChildrenImpl(
 ): void {
   const domCommitStart = BENCH_BUILD_ENABLED ? performance.now() : 0;
   const { needsAnchoredRanges, preResolvedRanges, previousRanges } =
-    prepareForCommitRanges(parent, forState, childrenVNodes, runtime);
+    BENCH_BUILD_ENABLED &&
+    (forState.lastCommitStrategy === 'APPEND' ||
+      forState.lastCommitStrategy === 'FULL_KEYED')
+      ? withBenchMetricScope('coldCreate', () =>
+          prepareForCommitRanges(parent, forState, childrenVNodes, runtime)
+        )
+      : prepareForCommitRanges(parent, forState, childrenVNodes, runtime);
   if (needsAnchoredRanges) {
     commitForStateBoundaryRanges(
       parent,
@@ -149,6 +163,9 @@ function commitForStateBoundaryChildrenImpl(
     item: (typeof forState.orderedItems)[number],
     vnode: VNode
   ): Node | null => {
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchCounter('itemDomSyncCalls');
+    }
     captureItemBeforeCommit(item);
     const range = preResolvedRanges.has(item.scope)
       ? (preResolvedRanges.get(item.scope) ?? null)
@@ -254,7 +271,7 @@ function commitForStateBoundaryChildrenImpl(
 
   const getDirtyForIndices = (): number[] => {
     const pendingDirtyIndices = forState.pendingDirtyIndices;
-    if (pendingDirtyIndices && pendingDirtyIndices.length > 0) {
+    if (pendingDirtyIndices !== null) {
       return pendingDirtyIndices;
     }
 
@@ -281,7 +298,8 @@ function commitForStateBoundaryChildrenImpl(
 
   const dirtyIndices =
     forState.lastCommitStrategy === 'NO_REORDER' ||
-    forState.lastCommitStrategy === 'REMOVE_ONE'
+    forState.lastCommitStrategy === 'REMOVE_ONE' ||
+    forState.lastCommitStrategy === 'TRUNCATE'
       ? ensureDirtyIndices()
       : [];
   let boundaryChildrenExact = false;
@@ -294,6 +312,9 @@ function commitForStateBoundaryChildrenImpl(
 
     const orderedItems = forState.orderedItems;
     const childNodes = parent.childNodes;
+    const canPatchStableDirtyItems =
+      forState.lastCommitStrategy !== 'TRUNCATE' ||
+      dirtyIndices.length < orderedItems.length;
 
     for (let dirtyIndex = 0; dirtyIndex < dirtyIndices.length; dirtyIndex++) {
       const i = dirtyIndices[dirtyIndex];
@@ -304,9 +325,13 @@ function commitForStateBoundaryChildrenImpl(
 
       captureItemBeforeCommit(itemInstance);
       if (
+        canPatchStableDirtyItems &&
         !preResolvedRanges.has(itemInstance.scope) &&
         runtime.tryPatchStableForDirtyItem(itemInstance.scope)
       ) {
+        if (BENCH_BUILD_ENABLED) {
+          recordBenchCounter('itemDomSyncCalls');
+        }
         continue;
       }
 
@@ -317,28 +342,6 @@ function commitForStateBoundaryChildrenImpl(
 
       const anchor = childNodes[i] ?? null;
       if (dom.parentNode !== parent || dom !== anchor) {
-        recordBenchEvent('domInsert');
-        parent.insertBefore(dom, anchor);
-      }
-    }
-
-    boundaryChildrenExact = true;
-  };
-
-  const commitPositional = (): void => {
-    for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const itemInstance = forState.orderedItems[i];
-      if (!itemInstance) {
-        continue;
-      }
-
-      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-      if (!dom) {
-        continue;
-      }
-
-      if (dom.parentNode !== parent) {
-        const anchor = parent.childNodes[i] ?? null;
         recordBenchEvent('domInsert');
         parent.insertBefore(dom, anchor);
       }
@@ -546,24 +549,16 @@ function commitForStateBoundaryChildrenImpl(
         nodes[i] = dom;
       }
 
-      if (!canUseDirectReplaceChildrenSpread(count)) {
-        if (movedCount > 0) {
-          recordBenchEvent('domMove', movedCount);
-        }
-        if (insertedCount > 0) {
-          recordBenchEvent('domInsert', insertedCount);
-        }
-        replaceChildrenInOrder(parent, nodes, false);
-        boundaryChildrenExact = true;
-        return;
-      }
-
       if (insertedCount > 0) {
         if (movedCount > 0) {
           recordBenchEvent('domMove', movedCount);
         }
         recordBenchEvent('domInsert', insertedCount);
-        replaceChildrenInOrder(parent, nodes, true);
+        replaceChildrenInOrder(
+          parent,
+          nodes,
+          canUseDirectReplaceChildrenSpread(count)
+        );
         boundaryChildrenExact = true;
         return;
       }
@@ -701,7 +696,7 @@ function commitForStateBoundaryChildrenImpl(
       commitDirtyNoReorder(dirtyIndices);
       break;
     case 'TRUNCATE':
-      commitPositional();
+      commitDirtyNoReorder(dirtyIndices);
       break;
     case 'APPEND':
       commitAppend();

@@ -17,27 +17,28 @@ Use the aggregate script for normal local coverage:
 npm run bench
 ```
 
-Capture all lanes as JSON when you need a reviewable artifact:
-
-```bash
-cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts --outputJson bench-results/tier1.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts --outputJson bench-results/tier2.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts --outputJson bench-results/tier3.json && cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts --outputJson bench-results/tier4.json
-```
-
-The generated lane JSON files summarize hz, mean, p75, p99, p995, p999, tail ratio,
-RME, and sample count for every numeric benchmark. For stability review, compare
-same-host captures and treat variance, wide tails, and timer-resolution edges as
-signals to re-run and investigate before tuning.
+The generated lane JSON files contain raw benchmark reporter fields. Record
+environment provenance separately and calculate tail ratios and
+median-of-three comparisons during analysis. For stability review, compare
+same-host captures and treat variance, wide tails, and timer-resolution edges
+as signals to re-run and investigate before tuning.
 
 ## Repeatability Check
 
-Before trusting optimization deltas, run three consecutive captures under the same machine conditions:
+Before trusting optimization deltas, run each tier three consecutive times under
+the same machine conditions, using distinct output files. For example:
 
 ```bash
-cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts --outputJson bench-results/tier1.json
-cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts --outputJson bench-results/tier2.json
-cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts --outputJson bench-results/tier3.json
-cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts --outputJson bench-results/tier4.json
+npm run bench:tier1 -- --outputJson bench-results/tier1-run1.json
+npm run bench:tier1 -- --outputJson bench-results/tier1-run2.json
+npm run bench:tier1 -- --outputJson bench-results/tier1-run3.json
 ```
+
+Repeat that explicit sequence for tiers 2 through 4. Do not use a workflow
+matrix or run captures concurrently. Tier 3 create, append, truncate, clear,
+and disjoint-replacement rows time only the forward mutation; their inverse
+reset runs in a microtask before the next sample. Tier 4 toggle rows remain
+bidirectional churn diagnostics and must not be used for phase attribution.
 
 If hotspot medians drift by more than 5%, retry under cleaner machine conditions before drawing conclusions. Do not compare local output to a CI capture or compare renamed/changed workloads; use the matching raw JSON row and environment metadata.
 

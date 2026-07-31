@@ -10,6 +10,7 @@ import {
   mountTableBenchmark,
   shuffleRows,
   tier1BenchOptions,
+  verifyBenchInstrumentation,
   verifyTier1Invariant,
   withForBenchDiagnostics,
 } from '../shared/_shared';
@@ -67,9 +68,11 @@ verifyTier1Invariant('tier1 hotpath for random shuffle', () => {
       }
     );
 
-    expect(metrics.fastLaneName).toBe('FULL_KEYED');
-    expect(metrics.itemsCreated).toBe(0);
-    expect(metrics.itemsRemoved).toBe(0);
+    verifyBenchInstrumentation(() => {
+      expect(metrics.fastLaneName).toBe('FULL_KEYED');
+      expect(metrics.itemsCreated).toBe(0);
+      expect(metrics.itemsRemoved).toBe(0);
+    });
   } finally {
     mounted.cleanup();
   }

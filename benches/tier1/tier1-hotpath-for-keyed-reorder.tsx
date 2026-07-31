@@ -9,6 +9,7 @@ import {
   swapRows,
   tier1BenchOptions,
   verifyTier1Invariant,
+  verifyBenchInstrumentation,
   withForBenchDiagnostics,
 } from '../shared/_shared';
 
@@ -56,7 +57,9 @@ verifyTier1Invariant('tier1 hotpath for keyed reorder', () => {
       }
     );
 
-    expect(metrics.fastLaneName).toBe('SWAP');
+    verifyBenchInstrumentation(() => {
+      expect(metrics.fastLaneName).toBe('SWAP');
+    });
   } finally {
     mounted.cleanup();
   }
