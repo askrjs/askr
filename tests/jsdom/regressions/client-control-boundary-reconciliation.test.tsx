@@ -10,6 +10,8 @@ import {
 } from '../../../src/foundations';
 import { resource } from '../../../src/resources';
 import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { createDetachedRange } from '../../../src/renderer/dom-range';
+import { updateMixedControlChildren } from '../../../src/renderer/element-children';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -17,6 +19,33 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('client control-boundary reconciliation', () => {
+  it('should treat empty mixed children as zero-width before replacing a range', () => {
+    const { container, cleanup } = createTestContainer();
+    const parent = document.createElement('main');
+    container.appendChild(parent);
+    const detachedRange = createDetachedRange(
+      document.createDocumentFragment()
+    );
+    parent.appendChild(detachedRange.fragment!);
+    const staleDialog = document.createElement('div');
+    staleDialog.dataset.dialogContent = 'true';
+    parent.appendChild(staleDialog);
+
+    try {
+      updateMixedControlChildren(
+        parent,
+        [null, <section data-empty={'true'} />],
+        false
+      );
+
+      expect(staleDialog.parentNode).toBeNull();
+      expect(parent.querySelector('[data-dialog-content]')).toBeNull();
+      expect(parent.querySelectorAll('[data-empty]')).toHaveLength(1);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should remove raw empty siblings before a newly populated keyed For', () => {
     const { container, cleanup } = createTestContainer();
     let openWorkspace!: () => void;
