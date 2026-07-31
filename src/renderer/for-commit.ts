@@ -1,5 +1,4 @@
 import type { ChildScope } from '../runtime';
-import type { DOMRange } from '../common/dom-range';
 import {
   beginForStateTransaction,
   captureForFallbackTransactionSnapshot,
@@ -17,7 +16,6 @@ import {
   beginLifecycleCommitBatch,
   discardLifecycleCommitBatch,
   flushLifecycleCommitBatch,
-  registerLifecycleTransaction,
 } from '../runtime';
 import { teardownNodeSubtree } from './cleanup';
 import { keyedElements } from './keyed';
@@ -33,8 +31,12 @@ import {
   replaceChildrenInOrder,
 } from './for-commit-reorder';
 import { removeForBoundaryNodes } from './for-commit-removal';
-import { getRangeNodes, moveRange } from './dom-range';
-import { isFragment } from './evaluate-reconcile';
+import {
+  commitForStateBoundaryRanges,
+  deferBoundaryNodeFinalization,
+  prepareForCommitRanges,
+  type ForRangeCommitRuntime,
+} from './for-commit-ranges';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 
@@ -60,157 +62,9 @@ function isExactRemovedBoundary(
   return true;
 }
 
-export interface ForCommitRuntime {
+export interface ForCommitRuntime extends ForRangeCommitRuntime {
   isProduction(): boolean;
-  syncForItemDom(parent: Element, scope: ChildScope, vnode: VNode): Node | null;
   tryPatchStableForDirtyItem(scope: ChildScope): boolean;
-}
-
-function isMultiNodeVNode(vnode: VNode): boolean {
-  if (vnode === null || vnode === undefined || vnode === false) {
-    return true;
-  }
-  return (
-    Array.isArray(vnode) ||
-    (typeof vnode === 'object' && vnode !== null && isFragment(vnode))
-  );
-}
-
-function getScopeRange(scope: ChildScope, node: Node | null): DOMRange | null {
-  if (scope.range) {
-    return scope.range;
-  }
-  if (!node) {
-    return null;
-  }
-  return { start: node, end: node, single: true };
-}
-
-function detachRange(range: DOMRange): void {
-  const parent = range.start.parentNode;
-  if (!parent) return;
-  const fragment = parent.ownerDocument?.createDocumentFragment();
-  if (fragment) {
-    moveRange(fragment, range);
-  }
-}
-
-function detachRemovedForNodes(
-  parent: Element,
-  forState: ForState<unknown>
-): void {
-  for (const range of forState.lastRemovedRanges) {
-    detachRange(range);
-  }
-  for (const node of forState.lastRemovedNodes) {
-    if (node.parentNode === parent) {
-      node.parentNode.removeChild(node);
-    }
-  }
-}
-
-function deferBoundaryNodeFinalization(
-  nodes: Node[],
-  forState: ForState<unknown>
-): void {
-  if (nodes.length === 0) {
-    return;
-  }
-
-  // Normal list removals are already finalized by the For transaction. This
-  // path owns only predecessor DOM displaced by a fresh boundary generation.
-  if (
-    forState.lastRemovedNodes.length > 0 ||
-    forState.lastRemovedRanges.length > 0
-  ) {
-    return;
-  }
-  const pending = nodes.slice();
-
-  const finalize = (): void => {
-    const errors: unknown[] = [];
-    for (const node of pending) {
-      try {
-        teardownNodeSubtree(node);
-      } catch (error) {
-        errors.push(error);
-      }
-    }
-    pending.length = 0;
-    if (errors.length > 0) {
-      throw new AggregateError(errors, 'For boundary handoff cleanup failed');
-    }
-  };
-
-  if (!registerLifecycleTransaction(pending, finalize, () => undefined)) {
-    finalize();
-  }
-}
-
-function commitForStateBoundaryRanges(
-  parent: Element,
-  forState: ForState<unknown>,
-  childrenVNodes: VNode[],
-  runtime: ForCommitRuntime
-): void {
-  const desiredRanges: DOMRange[] = [];
-
-  if (forState.orderedKeys.length === 0) {
-    const fallbackScope = forState.fallbackScope;
-    const fallbackVNode = childrenVNodes[0];
-    if (fallbackScope && fallbackVNode !== undefined) {
-      const node = !fallbackScope.needsDomUpdate
-        ? null
-        : runtime.syncForItemDom(parent, fallbackScope, fallbackVNode);
-      const range = getScopeRange(fallbackScope, node);
-      if (range) desiredRanges.push(range);
-    }
-  } else {
-    for (let index = 0; index < forState.orderedItems.length; index += 1) {
-      const item = forState.orderedItems[index];
-      if (!item) continue;
-      captureItemBeforeRangeCommit(forState, item);
-      const node = !item.scope.needsDomUpdate
-        ? null
-        : runtime.syncForItemDom(parent, item.scope, childrenVNodes[index]);
-      const range = getScopeRange(item.scope, node);
-      if (range) desiredRanges.push(range);
-    }
-  }
-
-  const desiredNodes = new Set<Node>();
-  for (const range of desiredRanges) {
-    desiredNodes.add(range.start);
-    for (const node of getRangeNodes(range)) desiredNodes.add(node);
-    if (!range.single) desiredNodes.add(range.end);
-  }
-
-  detachRemovedForNodes(parent, forState);
-
-  let anchor: Node | null = null;
-  for (let index = desiredRanges.length - 1; index >= 0; index -= 1) {
-    const range = desiredRanges[index]!;
-    moveRange(parent, range, anchor);
-    anchor = range.start;
-  }
-
-  for (const node of Array.from(parent.childNodes)) {
-    if (desiredNodes.has(node)) continue;
-    node.parentNode?.removeChild(node);
-    deferBoundaryNodeFinalization([node], forState);
-  }
-
-  forState._hasResolvedItemDom = true;
-  clearForDomUpdateState(forState);
-}
-
-function captureItemBeforeRangeCommit(
-  forState: ForState<unknown>,
-  item: (typeof forState.orderedItems)[number]
-): void {
-  if (item.scope.needsDomUpdate || item.scope.hydrationPending) {
-    captureForItemTransactionSnapshot(forState, item);
-  }
 }
 
 export function commitForStateBoundaryChildren(
@@ -265,17 +119,17 @@ function commitForStateBoundaryChildrenImpl(
   runtime: ForCommitRuntime
 ): void {
   const domCommitStart = BENCH_BUILD_ENABLED ? performance.now() : 0;
-
-  const needsAnchoredRanges =
-    childrenVNodes.some(isMultiNodeVNode) ||
-    forState.orderedItems.some(
-      (item) => item.scope.range && !item.scope.range.single
-    ) ||
-    Boolean(
-      forState.fallbackScope?.range && !forState.fallbackScope.range.single
-    );
+  const { needsAnchoredRanges, preResolvedRanges, previousRanges } =
+    prepareForCommitRanges(parent, forState, childrenVNodes, runtime);
   if (needsAnchoredRanges) {
-    commitForStateBoundaryRanges(parent, forState, childrenVNodes, runtime);
+    commitForStateBoundaryRanges(
+      parent,
+      forState,
+      childrenVNodes,
+      runtime,
+      preResolvedRanges,
+      previousRanges
+    );
     if (BENCH_BUILD_ENABLED) {
       recordBenchTiming('domCommit', performance.now() - domCommitStart);
     }
@@ -296,7 +150,10 @@ function commitForStateBoundaryChildrenImpl(
     vnode: VNode
   ): Node | null => {
     captureItemBeforeCommit(item);
-    return runtime.syncForItemDom(parent, item.scope, vnode);
+    const range = preResolvedRanges.has(item.scope)
+      ? (preResolvedRanges.get(item.scope) ?? null)
+      : runtime.syncForItemRange(parent, item.scope, vnode);
+    return range?.single ? range.start : null;
   };
 
   const hydrateExistingForDom = (): void => {
@@ -346,10 +203,13 @@ function commitForStateBoundaryChildrenImpl(
     ) {
       captureForFallbackTransactionSnapshot(forState, fallbackScope);
     }
-    const nextDom =
+    const fallbackRange =
       fallbackScope && fallbackVNode !== undefined
-        ? runtime.syncForItemDom(parent, fallbackScope, fallbackVNode)
+        ? preResolvedRanges.has(fallbackScope)
+          ? (preResolvedRanges.get(fallbackScope) ?? null)
+          : runtime.syncForItemRange(parent, fallbackScope, fallbackVNode)
         : null;
+    const nextDom = fallbackRange?.single ? fallbackRange.start : null;
 
     if (nextDom && isExactRemovedBoundary(parent, forState.lastRemovedNodes)) {
       recordBenchEvent('domRemove', forState.lastRemovedNodes.length);
@@ -443,7 +303,10 @@ function commitForStateBoundaryChildrenImpl(
       }
 
       captureItemBeforeCommit(itemInstance);
-      if (runtime.tryPatchStableForDirtyItem(itemInstance.scope)) {
+      if (
+        !preResolvedRanges.has(itemInstance.scope) &&
+        runtime.tryPatchStableForDirtyItem(itemInstance.scope)
+      ) {
         continue;
       }
 

@@ -1,44 +1,149 @@
-import { getVNodeContextFrame, type ComponentInstance } from '../runtime';
+import {
+  enterDomCommitScope,
+  getVNodeContextFrame,
+  restoreDomCommitScope,
+  type ComponentInstance,
+} from '../runtime';
 import { hasTransparentComponentResult } from '../common/control';
-import { cleanupDetachedComponentHost } from './component-host-cleanup';
+import { pruneComponentHostInstances } from './component-host-cleanup';
+import {
+  isTransparentComponentResult,
+  normalizeComponentChildren,
+} from './child-shape';
 import { syncComponentFragmentRange } from './component-fragment-range';
 import {
   materializeComponentResultNode,
-  resolveHostNestedComponentResult,
+  retainReplacementOwnerChain,
 } from './component-host-results';
-import { createRetainedHostInstanceSet } from './component-host-replacement';
 import {
-  createDetachedRange,
-  getOwnedRange,
-  registerRange,
-  removeRange,
-} from './dom-range';
-import type { InstanceHostNode } from './dom-host';
+  resolveHostNestedComponentResult,
+  resolveWrapperHostResult,
+} from './component-host-nested-results';
+import {
+  beginComponentHostReplacement,
+  createRetainedHostInstanceSet,
+} from './component-host-replacement';
+import { findRangeAtNode, getOwnedRange, isRangeStart } from './dom-range';
+import {
+  getRendererDOMHost,
+  type InstanceHostElement,
+  type InstanceHostNode,
+} from './dom-host';
 import { getParentNamespace } from './namespaces';
-import { _isDOMElement } from './types';
+import { _isDOMElement, type VNode } from './types';
 
 export function replaceComponentRange(
   instance: ComponentInstance,
   result: unknown,
-  placeholder: Comment
+  host: Element | Comment
 ): Node | null {
-  const previousRange = getOwnedRange(instance);
-  const parent = placeholder.parentNode;
+  if (
+    instance._rootComponentFn ||
+    (
+      instance.props as {
+        __askrAutoDefaultPortal?: boolean;
+      }
+    ).__askrAutoDefaultPortal === true
+  ) {
+    return null;
+  }
+  if (
+    host instanceof Element &&
+    (host as InstanceHostElement).__ASKR_WRAPPER_HOST
+  ) {
+    const retainedInstances = createRetainedHostInstanceSet(
+      instance,
+      (host as InstanceHostNode).__ASKR_INSTANCES
+    );
+    const snapshot =
+      getVNodeContextFrame(result) ?? instance.ownerFrame ?? null;
+    const wrapperResult = resolveWrapperHostResult(
+      host,
+      instance,
+      result,
+      snapshot,
+      retainedInstances
+    );
+    const previousInstance = enterDomCommitScope(wrapperResult.owner);
+    try {
+      getRendererDOMHost().updateElementChildren(
+        host,
+        normalizeComponentChildren(wrapperResult.result) as VNode[]
+      );
+    } finally {
+      restoreDomCommitScope(previousInstance);
+    }
+    retainReplacementOwnerChain(host, instance, retainedInstances);
+    pruneComponentHostInstances(host, retainedInstances);
+    return host;
+  }
+
+  const instanceHost = host as InstanceHostNode;
+  const hostInstances = new Set(instanceHost.__ASKR_INSTANCES ?? []);
+  if (instanceHost.__ASKR_INSTANCE) {
+    hostInstances.add(instanceHost.__ASKR_INSTANCE);
+  }
+  const sharedRange =
+    instance._placeholder === host && hostInstances.has(instance)
+      ? (findRangeAtNode(host) ?? undefined)
+      : undefined;
+  const previousRange =
+    getOwnedRange(instance) ??
+    sharedRange ??
+    (instance.target === host ||
+    (instance._placeholder === host && !isRangeStart(host))
+      ? { start: host, end: host, single: true }
+      : undefined);
+  const parent = host.parentNode;
   if (
     !previousRange ||
-    previousRange.single ||
-    previousRange.start !== placeholder ||
+    previousRange.start !== host ||
     !(parent instanceof Element)
   ) {
     return null;
   }
+  const retainedInstances = createRetainedHostInstanceSet(
+    instance,
+    instanceHost.__ASKR_INSTANCES
+  );
+  if (previousRange.single) {
+    const emptyResult =
+      result === null || result === undefined || result === false;
+    if (host instanceof Comment && emptyResult) {
+      return host;
+    }
+    if (
+      !(host instanceof Comment) &&
+      !emptyResult &&
+      !isTransparentComponentResult(result)
+    ) {
+      return null;
+    }
 
+    const replacement = beginComponentHostReplacement(
+      instanceHost,
+      instance,
+      instance.target,
+      retainedInstances
+    );
+    return replacement.replace(
+      () =>
+        materializeComponentResultNode(
+          instance,
+          result,
+          getParentNamespace(parent)
+        ),
+      (nextHost) =>
+        retainReplacementOwnerChain(nextHost, instance, retainedInstances)
+    );
+  }
+
+  const placeholder = host as Comment;
   if (syncComponentFragmentRange(placeholder, instance, result, false)) {
     return placeholder;
   }
 
   if (_isDOMElement(result) && hasTransparentComponentResult(result.type)) {
-    const retainedInstances = createRetainedHostInstanceSet(instance);
     const resolvedResult = resolveHostNestedComponentResult(
       placeholder,
       instance,
@@ -46,28 +151,37 @@ export function replaceComponentRange(
       getVNodeContextFrame(result) ?? instance.ownerFrame ?? null,
       retainedInstances
     );
-    if (
-      syncComponentFragmentRange(placeholder, instance, resolvedResult, false)
-    ) {
-      return placeholder;
+    const previousInstance = enterDomCommitScope(resolvedResult.owner);
+    try {
+      if (
+        syncComponentFragmentRange(
+          placeholder,
+          instance,
+          resolvedResult.result,
+          false
+        )
+      ) {
+        return placeholder;
+      }
+    } finally {
+      restoreDomCommitScope(previousInstance);
     }
   }
 
-  const materialized = materializeComponentResultNode(
+  const replacement = beginComponentHostReplacement(
+    instanceHost,
     instance,
-    result,
-    getParentNamespace(parent)
+    instance.target,
+    retainedInstances
   );
-  const next = createDetachedRange(materialized, instance);
-  const nextHost = next.range.start as InstanceHostNode;
-  nextHost.__ASKR_INSTANCE = instance;
-  nextHost.__ASKR_INSTANCES = [instance];
-
-  parent.insertBefore(next.fragment ?? next.range.start, previousRange.start);
-  removeRange(previousRange, (node) => {
-    cleanupDetachedComponentHost(node as InstanceHostNode, [instance]);
-    node.parentNode?.removeChild(node);
-  });
-  registerRange(next.range, instance);
-  return nextHost;
+  return replacement.replace(
+    () =>
+      materializeComponentResultNode(
+        instance,
+        result,
+        getParentNamespace(parent)
+      ),
+    (nextHost) =>
+      retainReplacementOwnerChain(nextHost, instance, retainedInstances)
+  );
 }

@@ -186,18 +186,81 @@ export function appendRange(
   }
 }
 
+export function captureRangeFocus(range: DOMRange, parent: Node): () => void {
+  const active = parent.ownerDocument?.activeElement;
+  if (
+    typeof HTMLElement === 'undefined' ||
+    !(active instanceof HTMLElement) ||
+    !parent.contains(active)
+  ) {
+    return () => {};
+  }
+
+  let rangeChild: Node = active;
+  while (rangeChild.parentNode && rangeChild.parentNode !== parent) {
+    rangeChild = rangeChild.parentNode;
+  }
+  if (rangeChild.parentNode !== parent || !rangeContains(range, rangeChild)) {
+    return () => {};
+  }
+
+  const selection =
+    active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement
+      ? {
+          start: active.selectionStart,
+          end: active.selectionEnd,
+          direction: active.selectionDirection,
+        }
+      : null;
+
+  return () => {
+    if (!active.isConnected || active.ownerDocument.activeElement === active) {
+      return;
+    }
+
+    try {
+      active.focus({ preventScroll: true });
+    } catch {
+      active.focus();
+    }
+    if (
+      selection &&
+      (active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement) &&
+      selection.start !== null &&
+      selection.end !== null
+    ) {
+      active.setSelectionRange(
+        selection.start,
+        selection.end,
+        selection.direction ?? undefined
+      );
+    }
+  };
+}
+
 export function moveRange(
   parent: Node,
   range: DOMRange,
   before: Node | null = null
-): void {
-  if (before && rangeContains(range, before)) {
-    return;
+): boolean {
+  if (
+    range.start.parentNode === parent &&
+    range.end.parentNode === parent &&
+    range.end.nextSibling === before
+  ) {
+    return false;
   }
 
+  if (before && rangeContains(range, before)) {
+    return false;
+  }
+
+  const restoreFocus = captureRangeFocus(range, parent);
   if (range.single) {
     parent.insertBefore(range.start, before);
-    return;
+    restoreFocus();
+    return true;
   }
 
   const fragment = parent.ownerDocument!.createDocumentFragment();
@@ -206,6 +269,8 @@ export function moveRange(
     fragment.appendChild(node);
   }
   parent.insertBefore(fragment, before);
+  restoreFocus();
+  return true;
 }
 
 export function insertRangeBefore(
@@ -281,11 +346,11 @@ export function rangeContains(range: DOMRange, node: Node): boolean {
   return false;
 }
 
-export function isRangeStart(node: Node): boolean {
+export function isRangeStart(node: Node): node is Comment {
   return isRangeMarker(node) && node.data === RANGE_START_MARKER;
 }
 
-export function isRangeEnd(node: Node): boolean {
+export function isRangeEnd(node: Node): node is Comment {
   return isRangeMarker(node) && node.data === RANGE_END_MARKER;
 }
 
@@ -304,6 +369,29 @@ export function findRangeEnd(start: Node): Node | null {
     }
   }
   return null;
+}
+
+/**
+ * Return direct logical children without exposing the interior of an
+ * anchor-backed range to its parent's sibling reconciler.
+ */
+export function getLogicalChildHosts(parent: Node): Node[] {
+  const hosts: Node[] = [];
+  let current: Node | null = parent.firstChild;
+
+  while (current) {
+    hosts.push(current);
+    if (isRangeStart(current)) {
+      const end = findRangeEnd(current);
+      if (end?.parentNode === parent) {
+        current = end.nextSibling;
+        continue;
+      }
+    }
+    current = current.nextSibling;
+  }
+
+  return hosts;
 }
 
 export function findRangeAtNode(node: Node): DOMRange | null {

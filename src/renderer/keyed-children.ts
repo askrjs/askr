@@ -1,5 +1,6 @@
 import type { VNode } from './types';
 import { extractKey, getMaterializedKey } from './utils';
+import { getLogicalChildHosts } from './dom-range';
 
 export interface KeyedVnode {
   key: string | number;
@@ -23,10 +24,11 @@ export function extractKeyedVnodes(newChildren: VNode[]): KeyedVnode[] {
 export function buildDOMKeyMap(parent: Element): Map<string | number, Element> {
   const keyMap = new Map<string | number, Element>();
   try {
-    for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
-      const key = getMaterializedKey(el);
+    for (const host of getLogicalChildHosts(parent)) {
+      if (!(host instanceof Element)) continue;
+      const key = getMaterializedKey(host);
       if (key !== undefined) {
-        keyMap.set(key, el);
+        keyMap.set(key, host);
       }
     }
   } catch {

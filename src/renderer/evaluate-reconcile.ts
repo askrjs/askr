@@ -39,6 +39,7 @@ import {
 } from './utils';
 import { runRetainedElementUpdate } from './retained-element-rollback';
 import { tryAdoptMatchingIntrinsicSubtree } from './intrinsic-hydration-adoption';
+import { getLogicalChildHosts } from './dom-range';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -121,14 +122,11 @@ function tryUpdateTextInPlace(element: Element, text: string): boolean {
 
 function buildKeyMapFromDOM(parent: Element): Map<string | number, Element> {
   const keyMap = new Map<string | number, Element>();
-  for (
-    let child = parent.firstElementChild;
-    child;
-    child = child.nextElementSibling
-  ) {
-    const key = getMaterializedKey(child);
+  for (const host of getLogicalChildHosts(parent)) {
+    if (!(host instanceof Element)) continue;
+    const key = getMaterializedKey(host);
     if (key !== undefined) {
-      keyMap.set(key, child);
+      keyMap.set(key, host);
     }
   }
   return keyMap;
@@ -495,6 +493,11 @@ export function tryFirstRenderKeyedChildren(
 
 export function isFragment(vnode: unknown): vnode is DOMElement {
   return _isDOMElement(vnode) && isFragmentType((vnode as DOMElement).type);
+}
+
+export function isMultiNodeVNode(vnode: VNode): boolean {
+  if (vnode === null || vnode === undefined || vnode === false) return true;
+  return Array.isArray(vnode) || isFragment(vnode);
 }
 
 export function getFragmentChildren(vnode: DOMElement): unknown[] {

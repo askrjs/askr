@@ -1,6 +1,8 @@
 import { globalScheduler, type Scheduler } from './scheduler';
 import type { ComponentInstance } from './component';
+import type { ChildScope } from './child-scope';
 import type { ReadableSource } from './readable';
+import type { DOMRange } from '../common/dom-range';
 
 export interface RuntimeKeyedReorderDecision {
   useFastPath: boolean;
@@ -24,8 +26,9 @@ export interface RuntimeRendererHost {
   replaceComponentRange(
     instance: ComponentInstance,
     result: unknown,
-    placeholder: Comment
+    host: Element | Comment
   ): Node | null;
+  resolveChildScopeRange?(scope: ChildScope): DOMRange | null;
   teardownNodeSubtree(root: Node): void;
   populateKeyMapForElement(parent: Element): void;
   getKeyMapForElement(
