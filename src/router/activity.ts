@@ -285,8 +285,7 @@ function readCurrentRouteSnapshot<
     );
   }
 
-  const { pathname, search, hash, withinBasePath } =
-    readCurrentRouteLocation();
+  const { pathname, search, hash, withinBasePath } = readCurrentRouteLocation();
 
   const query = makeQuery(search);
   const matches = withinBasePath
