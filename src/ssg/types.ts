@@ -2,7 +2,10 @@
  * Type definitions for Static Site Generation.
  */
 
-import type { DocumentRenderer } from '../common/ssr';
+import type {
+  DocumentRenderer,
+  SSRStyleRegistrationValidation,
+} from '../common/ssr';
 import type {
   RouteHandler,
   RouteOptions,
@@ -80,6 +83,8 @@ interface SSGBaseOptions {
   dataOverrides?: Record<string, unknown>;
   /** Optional document wrapper for full HTML output */
   document?: DocumentRenderer;
+  /** Diagnose document renderers that omit request-local SSR style registrations. */
+  styleRegistrationValidation?: SSRStyleRegistrationValidation;
   /** Static files or directories published with the generated routes. */
   assets?: readonly SSGAssetSource[];
   /** Optional concurrency limit for rendering (default: 1) */

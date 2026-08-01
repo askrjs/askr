@@ -15,6 +15,7 @@ import {
   type SSGMode,
   type SSGOptions,
   type SSGResult,
+  type SSRStyleRegistrationValidation,
 } from '@askrjs/askr/ssg';
 import type { RouteHandler, RouteRegistry } from '@askrjs/askr/router';
 
@@ -43,6 +44,9 @@ const documentRenderer: DocumentRenderer = ({ appHtml, context }) => {
   return `<html>${appHtml}</html>`;
 };
 expectAssignable<DocumentRenderer>(documentRenderer);
+expectAssignable<SSRStyleRegistrationValidation>('warn');
+expectAssignable<SSRStyleRegistrationValidation>('error');
+expectAssignable<SSRStyleRegistrationValidation>('off');
 
 const documentArgs: DocumentRenderArgs = {
   appHtml: '<main>ok</main>',
@@ -66,6 +70,7 @@ const options: SSGOptions = {
   registry,
   outputDir: './dist',
   document: documentRenderer,
+  styleRegistrationValidation: 'error',
   parallelism: 'auto',
 };
 expectAssignable<SSGOptions>(options);

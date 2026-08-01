@@ -269,6 +269,7 @@ export function createStaticGen(options: SSGOptions) {
               dataMap,
               concurrency: resolvedConcurrency,
               document: options.document,
+              styleRegistrationValidation: options.styleRegistrationValidation,
             })
           : [];
       addPerfDuration('ssgRenderTimeMs', performance.now() - renderStartTime);

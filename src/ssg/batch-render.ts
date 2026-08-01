@@ -3,7 +3,11 @@
  */
 
 import { renderToString } from '../ssr';
-import { renderDocument, type DocumentRenderer } from '../common/ssr';
+import {
+  renderDocument,
+  type DocumentRenderer,
+  type SSRStyleRegistrationValidation,
+} from '../common/ssr';
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteHandler } from '../common/router';
 import type { RouteContext } from '../common/router';
@@ -20,6 +24,7 @@ interface BatchRenderOptions {
   dataMap?: Record<string, SSRData>;
   concurrency?: number;
   document?: DocumentRenderer;
+  styleRegistrationValidation?: SSRStyleRegistrationValidation;
 }
 
 /**
@@ -29,7 +34,13 @@ export async function batchRenderRoutes(
   routes: RouteConfig[],
   options: BatchRenderOptions = {}
 ): Promise<RouteRenderResult[]> {
-  const { seed = 12345, dataMap = {}, concurrency = 1, document } = options;
+  const {
+    seed = 12345,
+    dataMap = {},
+    concurrency = 1,
+    document,
+    styleRegistrationValidation = 'warn',
+  } = options;
 
   const workerCount = Math.max(1, Math.min(concurrency, routes.length || 1));
   const results: RouteRenderResult[] = [];
@@ -108,6 +119,7 @@ export async function batchRenderRoutes(
         registry,
         seed,
         data: baseData,
+        styleRegistrationValidation: 'off',
         document:
           document === undefined
             ? undefined
@@ -133,7 +145,8 @@ export async function batchRenderRoutes(
                       styles: context.styles,
                     },
                   },
-                  'createStaticGen()'
+                  'createStaticGen()',
+                  styleRegistrationValidation
                 ),
       });
 

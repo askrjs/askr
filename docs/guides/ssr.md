@@ -105,6 +105,13 @@ template. Pass the same request nonce as `cspNonce` to SSR and browser
 boot/hydration. Askr validates it before rendering, exposes it through
 `cspNonce()` during component render, and applies it to deferred-patch scripts.
 
+Components may also register request-local styles in `context.styles`. When that
+collection is non-empty, Askr checks that the returned document represents each
+registration and warns if the renderer silently drops one. Select strict build
+or server enforcement with `styleRegistrationValidation: 'error'`. Set it to
+`'off'` only when omission is intentional, such as when an application has
+already externalized those rules.
+
 Do not put a nonce in static-generation options. A build-time nonce is reusable;
 SSG deployments should use external styles, CSP hashes, or per-response edge
 injection.

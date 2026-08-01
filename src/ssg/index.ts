@@ -26,6 +26,7 @@ export type {
   DocumentRenderArgs,
   DocumentRenderContext,
   DocumentRenderer,
+  SSRStyleRegistrationValidation,
 } from '../common/ssr';
 export type {
   RouteConfig,
