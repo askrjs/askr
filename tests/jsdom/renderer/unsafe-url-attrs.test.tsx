@@ -52,9 +52,9 @@ describe('unsafe URL-bearing attributes beyond href', () => {
         ),
       });
       flushScheduler();
-      expect(
-        container.querySelector('use')?.hasAttribute('xlink:href')
-      ).toBe(false);
+      expect(container.querySelector('use')?.hasAttribute('xlink:href')).toBe(
+        false
+      );
 
       const html = renderToStringSync(
         () => (
@@ -87,9 +87,9 @@ describe('unsafe URL-bearing attributes beyond href', () => {
         ),
       });
       flushScheduler();
-      expect(container.querySelector('button')?.getAttribute('formaction')).toBe(
-        '/submit'
-      );
+      expect(
+        container.querySelector('button')?.getAttribute('formaction')
+      ).toBe('/submit');
       expect(container.querySelector('use')?.getAttribute('xlink:href')).toBe(
         '#icon'
       );

@@ -71,9 +71,7 @@ describe('default-portal-multi-node-clear', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    expect(
-      document.querySelectorAll('.toast[data-toast-id]').length
-    ).toBe(2);
+    expect(document.querySelectorAll('.toast[data-toast-id]').length).toBe(2);
 
     toasts!.set([]);
     flushScheduler();

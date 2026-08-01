@@ -67,9 +67,7 @@ describe('for-fragment-child-prop-update-remount', () => {
     flushScheduler();
 
     expect(container.querySelector('ul')).toBe(ulBefore);
-    expect((container.querySelector('ul') as HTMLElement).className).toBe(
-      'on'
-    );
+    expect((container.querySelector('ul') as HTMLElement).className).toBe('on');
     expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
     expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
   });

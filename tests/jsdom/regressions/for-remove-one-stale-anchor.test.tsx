@@ -72,9 +72,9 @@ describe('for-remove-one-stale-anchor', () => {
     const finalKeys = Array.from(container.querySelectorAll('[data-key]')).map(
       (el) => el.getAttribute('data-key')
     );
-    const finalTexts = Array.from(
-      container.querySelectorAll('[data-key]')
-    ).map((el) => el.textContent);
+    const finalTexts = Array.from(container.querySelectorAll('[data-key]')).map(
+      (el) => el.textContent
+    );
 
     expect(finalKeys).toEqual(['a', 'c', 'd', 'e']);
     expect(finalTexts).toEqual(['A', 'C', 'D', 'E2']);
