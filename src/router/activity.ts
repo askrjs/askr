@@ -17,7 +17,8 @@ import {
 } from '../runtime';
 import { deepFreeze, makeQuery, parseLocation } from './route-context';
 import { computeMatchesFromRoutes } from './route-matching';
-import { getActiveRoutes } from './store';
+import { getActiveRouteBasePath, getActiveRoutes } from './store';
+import { removeRouteBasePath } from './base-path';
 
 export interface RouteChangeOptions {
   immediate?: boolean;
@@ -114,13 +115,19 @@ export function onRouteChange(
 
 let serverLocation: string | null = null;
 
+function logicalRoutePathname(pathname: string): string {
+  const logical = removeRouteBasePath(pathname, getActiveRouteBasePath());
+  return logical === undefined ? pathname : parseLocation(logical).pathname;
+}
+
 export function setServerLocation(url: string | null): void {
   serverLocation = url;
   if (url) {
     const parsed = parseLocation(url);
+    const pathname = logicalRoutePathname(parsed.pathname);
     syncRouteActivitySnapshot(
-      parsed.pathname,
-      computeMatchesFromRoutes(parsed.pathname, getActiveRoutes())
+      pathname,
+      computeMatchesFromRoutes(pathname, getActiveRoutes())
     );
     return;
   }
@@ -136,6 +143,7 @@ function buildRouteSnapshot(
   search: string,
   hash: string
 ): RouteSnapshot {
+  pathname = logicalRoutePathname(pathname);
   const query = makeQuery(search);
   const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
 
@@ -156,7 +164,7 @@ function setCurrentRouteSnapshot(
 ): void {
   currentRouteSnapshot = buildRouteSnapshot(pathname, search, hash);
   syncRouteActivitySnapshot(
-    pathname,
+    currentRouteSnapshot.path,
     activityMatches ?? currentRouteSnapshot.matches
   );
 
@@ -182,26 +190,38 @@ function readCurrentRouteLocation(): {
 } {
   const renderContext = getActiveRenderContext();
   if (renderContext?.url) {
-    return parseLocation(renderContext.url);
+    const parsed = parseLocation(renderContext.url);
+    return {
+      ...parsed,
+      pathname: logicalRoutePathname(parsed.pathname),
+    };
   }
 
   const stagedRouteLocation = getStagedAppRenderRouteLocation(
     getCurrentAppRenderRuntime()
   );
   if (stagedRouteLocation) {
-    return parseLocation(stagedRouteLocation);
+    const parsed = parseLocation(stagedRouteLocation);
+    return {
+      ...parsed,
+      pathname: logicalRoutePathname(parsed.pathname),
+    };
   }
 
   if (typeof window !== 'undefined' && window.location) {
     return {
-      pathname: window.location.pathname || '/',
+      pathname: logicalRoutePathname(window.location.pathname || '/'),
       search: window.location.search || '',
       hash: window.location.hash || '',
     };
   }
 
   if (serverLocation) {
-    return parseLocation(serverLocation);
+    const parsed = parseLocation(serverLocation);
+    return {
+      ...parsed,
+      pathname: logicalRoutePathname(parsed.pathname),
+    };
   }
 
   return {

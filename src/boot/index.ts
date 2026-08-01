@@ -174,9 +174,14 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (isProductionEnvironment()) lockRouteRegistration();
 
   // Mount the currently-resolved route handler (if any)
-  const { path, resolved } = await resolveInitialRoute(routeAuth, {
+  const {
+    path,
+    href: currentUrl,
+    resolved,
+  } = await resolveInitialRoute(routeAuth, {
     registry: config.registry,
   });
+  setServerLocation(currentUrl);
   const appRuntime = createAppRenderRuntime(
     resolved?.kind === 'render' && hasRouteRenderData(resolved)
       ? { route: getRouteRenderData(resolved), hasRoute: true }

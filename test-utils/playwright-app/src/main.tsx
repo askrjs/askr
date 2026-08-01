@@ -40,6 +40,8 @@ import {
 import { BenchmarkTable } from '../../../src/bench/components/benchmark-table';
 import { mountFormsScenario } from './scenarios/forms';
 import { mountHydrationFormScenario } from './scenarios/hydration-form';
+import { mountRouteDataDehydrationScenario as mountRouteDataDehydrationFixture } from './scenarios/route-data-dehydration';
+import { mountBasePathScenario as mountBasePathFixture } from './scenarios/base-path';
 import { mountOrderTableScenario } from './scenarios/order-table';
 import {
   mountRoutedShellScenario as mountRealRoutedShellScenario,
@@ -1245,6 +1247,16 @@ async function mountSignupHydrationScenario(): Promise<void> {
   await mountHydrationFormScenario(root);
 }
 
+async function mountRouteDataDehydrationScenario(): Promise<void> {
+  resetRoot();
+  await mountRouteDataDehydrationFixture(root);
+}
+
+async function mountBasePathScenario(): Promise<void> {
+  resetRoot();
+  await mountBasePathFixture(root);
+}
+
 function mountAdjacentForBoundariesScenario(): void {
   resetRoot();
   mountAdjacentForBoundariesFixture(root);
@@ -1388,6 +1400,8 @@ Object.assign(window, {
     mountInteractionScenario,
     mountGuardedRouterScenario,
     mountRoutedShellScenario,
+    mountRouteDataDehydrationScenario,
+    mountBasePathScenario,
     mountNavLinkForScenario,
     mountAdjacentForBoundariesScenario,
     profileBenchmarkOperations,
@@ -1420,6 +1434,8 @@ export {
   mountAdjacentForBoundariesScenario,
   mountOrdersScenario,
   mountRoutedShellScenario,
+  mountRouteDataDehydrationScenario,
+  mountBasePathScenario,
   mountSignupHydrationScenario,
   profileBenchmarkOperations,
   runBrowserBench,

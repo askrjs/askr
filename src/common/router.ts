@@ -150,8 +150,23 @@ export interface RouteOptions<
   TSearchSchema extends ObjectSchema<RouteSearch> | undefined =
     | ObjectSchema<RouteSearch>
     | undefined,
+  TLoaderData = unknown,
+  TDehydratedData = TLoaderData,
 > extends CommonAccessOptions {
-  loader?: (context: RouteContext<TParams> & { request?: Request }) => unknown;
+  loader?: (
+    context: RouteContext<TParams> & { request?: Request }
+  ) => TLoaderData | PromiseLike<TLoaderData>;
+  /**
+   * Select the loader data transported to the browser for initial hydration.
+   *
+   * Server rendering still receives the complete loader value. The selector
+   * must be synchronous; client navigations rerun the loader and receive its
+   * complete result.
+   */
+  dehydrate?: (
+    data: TLoaderData,
+    context: RouteContext<TParams> & { request?: Request }
+  ) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;
   preload?: (
     context: RouteContext<TParams> & {
       request?: Request;
@@ -197,6 +212,8 @@ export interface RouteRef<
   readonly path: string;
   /** @internal Executable schema retained for destination validation. */
   readonly searchSchema?: ObjectSchema<TSearch & RouteSearch>;
+  /** @internal Public mount point captured by createRouteRegistry(). */
+  readonly basePath?: string;
   readonly __params?: TParams;
   readonly __search?: TSearch;
 }
@@ -246,6 +263,8 @@ export interface PageScopeRecord {
 
 export interface RouteRegistryOptions {
   auth?: RouteAuthOptions;
+  /** Public pathname prefix for applications mounted below the origin root. */
+  basePath?: string;
 }
 
 export type RouteDefinition = () => void;
@@ -330,6 +349,8 @@ export interface RouteRecord {
 export interface RouteManifest {
   records: RouteRecord[];
   auth?: RouteAuthOptions;
+  /** Normalized public pathname prefix. Empty and root mounts omit it. */
+  basePath?: string;
 }
 
 declare const routeRegistryBrand: unique symbol;

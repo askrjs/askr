@@ -91,4 +91,91 @@ describe('SSG deferred route data', () => {
       'previous'
     );
   });
+
+  it('should render with complete loader data and hydrate the selected subset', async () => {
+    const registry = createRouteRegistry(() => {
+      route(
+        '/subset',
+        () => {
+          const data = routeData<{ public: string; secret: string }>();
+          return <p>{`${data.public}:${data.secret}`}</p>;
+        },
+        {
+          loader: () => ({ public: 'safe', secret: 'server-only' }),
+          dehydrate: (data) => ({ public: data.public }),
+        }
+      );
+    });
+    const outputDir = outputDirectory();
+
+    const result = await createStaticGen({ registry, outputDir }).generate();
+
+    expect(result.failed).toBe(0);
+    const html = fs.readFileSync(
+      path.join(outputDir, 'subset/index.html'),
+      'utf8'
+    );
+    expect(html).toContain('<p>safe:server-only</p>');
+    expect(html).toContain('"route":{"public":"safe"}');
+    expect(html).not.toContain('"secret":"server-only"');
+  });
+
+  it('should reject invalid route data and preserve the previous site', async () => {
+    const registry = createRouteRegistry(() => {
+      route('/invalid', () => <p>invalid</p>, {
+        loader: () => ({ nested: { component: () => null } }),
+      });
+    });
+    const outputDir = outputDirectory();
+    fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(path.join(outputDir, 'index.html'), 'previous');
+
+    const result = await createStaticGen({ registry, outputDir }).generate();
+
+    expect(result.failed).toBe(1);
+    expect(result.routes[0].error).toMatch(
+      /\/invalid.*\$\.nested\.component.*functions/
+    );
+    expect(fs.readFileSync(path.join(outputDir, 'index.html'), 'utf8')).toBe(
+      'previous'
+    );
+  });
+
+  it('should dehydrate settled deferred values without changing server data', async () => {
+    const registry = createRouteRegistry(() => {
+      route(
+        '/deferred-subset',
+        () => {
+          const data = routeData<{
+            serverOnly: string;
+            message: Deferred<string>;
+          }>();
+          return (
+            <Resolve value={data.message} pending={<p>pending</p>}>
+              {(message) => <p>{`${data.serverOnly}:${message}`}</p>}
+            </Resolve>
+          );
+        },
+        {
+          loader: () => ({
+            serverOnly: 'full',
+            message: defer(Promise.resolve('ready')),
+          }),
+          dehydrate: (data) => ({ message: data.message }),
+        }
+      );
+    });
+    const outputDir = outputDirectory();
+
+    const result = await createStaticGen({ registry, outputDir }).generate();
+
+    expect(result.failed).toBe(0);
+    const html = fs.readFileSync(
+      path.join(outputDir, 'deferred-subset/index.html'),
+      'utf8'
+    );
+    expect(html).toContain('<p>full:ready</p>');
+    expect(html).toContain('"__askr_deferred__":"fulfilled"');
+    expect(html).not.toContain('"serverOnly":"full"');
+  });
 });

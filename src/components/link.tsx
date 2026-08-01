@@ -11,6 +11,8 @@ import type { RouteDestination } from '../common/router';
 import { applyInteractionPolicy } from '../foundations/interactions';
 import { mergeProps } from '../foundations/utilities';
 import { isSafeHref } from '../common/url';
+import { addRouteBasePath } from '../router/base-path';
+import { getActiveRouteBasePath } from '../router/store';
 
 type LinkBaseProps = Omit<
   Props,
@@ -115,7 +117,10 @@ export function Link({
   onClick,
   ...rest
 }: LinkProps): JSXElement {
-  const href = to?.href ?? suppliedHref;
+  const supplied = to?.href ?? suppliedHref;
+  const href = supplied
+    ? addRouteBasePath(supplied, getActiveRouteBasePath())
+    : supplied;
   if (!href) throw new Error('Link requires href or to.');
   if (!isSafeHref(href)) {
     throw new TypeError('Link href uses an unsafe URL scheme.');

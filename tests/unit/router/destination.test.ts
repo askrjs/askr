@@ -1,6 +1,7 @@
 import { schema } from '@askrjs/schema';
 import { describe, expect, it } from 'vite-plus/test';
-import { route, to } from '../../../src/router';
+import { createRouteRegistry, route, to } from '../../../src/router';
+import type { RouteRef } from '../../../src/common/router';
 
 describe('typed route destinations', () => {
   it('should construct an encoded destination given typed params and search', () => {
@@ -48,5 +49,19 @@ describe('typed route destinations', () => {
     expect(() => to(ref, {}, { tab: 'security' } as never)).toThrow(
       'Invalid route search. tab: Invalid enum value.'
     );
+  });
+
+  it('should construct physical destinations from a mounted registry', () => {
+    let ref!: RouteRef<{ slug: string }>;
+    createRouteRegistry(
+      () => {
+        ref = route('/reviews/{slug}', () => null);
+      },
+      { basePath: '/website/' }
+    );
+
+    expect(to(ref, { slug: 'the zoo box' })).toEqual({
+      href: '/website/reviews/the%20zoo%20box',
+    });
   });
 });

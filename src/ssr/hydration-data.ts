@@ -9,6 +9,10 @@ import {
   isPageRenderEnvelope,
   type PageRenderEnvelope,
 } from '../common/page-render-envelope';
+import {
+  getRouteHydrationMetadata,
+  validateRouteHydrationData,
+} from '../router/route-hydration';
 
 const DEFERRED_PAYLOAD = '__askr_deferred__';
 
@@ -42,6 +46,10 @@ export function serializeHydrationRenderData(
     route: current.route,
     framework: current.framework,
   });
+  const routeHydration = getRouteHydrationMetadata(payload.framework);
+  if (routeHydration) {
+    validateRouteHydrationData(payload.route, routeHydration.r);
+  }
   if (isEmptyPageRenderEnvelope(payload)) return '';
   return `<script type="application/json" ${SSR_RENDER_DATA_ATTR}="true">${JSON.stringify(
     payload,

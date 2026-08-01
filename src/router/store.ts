@@ -25,6 +25,7 @@ const registrationScopeStack: RegistrationScope[] = [];
 let registrationLocked = false;
 let defaultRouteAuthOptions: RouteAuthOptions | undefined;
 let activeClientRouteAuthOptions: RouteAuthOptions | undefined;
+let defaultRouteBasePath = '';
 
 type RouteStateSnapshot = {
   routes: InternalRoute[];
@@ -33,6 +34,7 @@ type RouteStateSnapshot = {
   registrationLocked: boolean;
   defaultRouteAuthOptions: RouteAuthOptions | undefined;
   activeClientRouteAuthOptions: RouteAuthOptions | undefined;
+  defaultRouteBasePath: string;
   routesByDepth: Array<[number, Route[]]>;
   registrationScopeStack: RegistrationScope[];
 };
@@ -112,6 +114,18 @@ export function setDefaultRouteAuthOptions(
   auth: RouteAuthOptions | undefined
 ): void {
   defaultRouteAuthOptions = auth;
+}
+
+export function getDefaultRouteBasePath(): string {
+  return defaultRouteBasePath;
+}
+
+export function setDefaultRouteBasePath(basePath: string): void {
+  defaultRouteBasePath = basePath;
+}
+
+export function getActiveRouteBasePath(): string {
+  return getActiveRenderContext()?.basePath ?? defaultRouteBasePath;
 }
 
 export function getCurrentLayoutChain(): LayoutScopeRecord[] {
@@ -274,6 +288,7 @@ export function clearRouteState(): void {
   registrationLocked = false;
   defaultRouteAuthOptions = undefined;
   activeClientRouteAuthOptions = undefined;
+  defaultRouteBasePath = '';
 }
 
 export function snapshotRouteState(): RouteStateSnapshot {
@@ -284,6 +299,7 @@ export function snapshotRouteState(): RouteStateSnapshot {
     registrationLocked,
     defaultRouteAuthOptions,
     activeClientRouteAuthOptions,
+    defaultRouteBasePath,
     routesByDepth: [...routesByDepth.entries()].map(([depth, depthRoutes]) => [
       depth,
       [...depthRoutes],
@@ -315,4 +331,5 @@ export function restoreRouteState(snapshot: RouteStateSnapshot): void {
   registrationLocked = snapshot.registrationLocked;
   defaultRouteAuthOptions = snapshot.defaultRouteAuthOptions;
   activeClientRouteAuthOptions = snapshot.activeClientRouteAuthOptions;
+  defaultRouteBasePath = snapshot.defaultRouteBasePath;
 }

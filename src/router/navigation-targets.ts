@@ -47,6 +47,7 @@ import {
   getRouteRenderData,
   hasRouteRenderData,
 } from './resolution';
+import { withoutRouteHydrationMetadata } from './route-hydration';
 import { reconcileRouteMeta, resolveRouteMeta } from './metadata';
 import {
   clearStagedAppRenderRouteLocation,
@@ -697,7 +698,7 @@ function updateRouteRuntime(
 ): void {
   const current = instance._appRenderRuntime;
   const runtime = createAppRenderRuntime({
-    framework: current?.framework,
+    framework: withoutRouteHydrationMetadata(current?.framework),
     route:
       resolved?.kind === 'render' ? getRouteRenderData(resolved) : undefined,
     hasRoute: resolved?.kind === 'render' && hasRouteRenderData(resolved),

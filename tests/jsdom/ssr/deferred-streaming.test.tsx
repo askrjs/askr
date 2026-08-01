@@ -228,4 +228,44 @@ describe('deferred route streaming', () => {
       cleanup();
     }
   });
+
+  it('should stream a dehydrated deferred subset while rendering with complete data', async () => {
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const registry = createRouteRegistry(() => {
+      route(
+        '/subset',
+        () => {
+          const data = routeData<{
+            serverOnly: string;
+            message: ReturnType<typeof defer<string>>;
+          }>();
+          return (
+            <Resolve value={data.message} pending={<p>pending</p>}>
+              {(message) => <p>{`${data.serverOnly}:${message}`}</p>}
+            </Resolve>
+          );
+        },
+        {
+          loader: () => ({
+            serverOnly: 'full',
+            message: defer(pending),
+          }),
+          dehydrate: (data) => ({ message: data.message }),
+        }
+      );
+    });
+
+    const result = await renderRouteRequest({ url: '/subset', registry });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+    release('ready');
+    const html = await new Response(result.stream).text();
+
+    expect(html).toContain('<p>full:ready</p>');
+    expect(html).toContain('"__askr_deferred__":"fulfilled"');
+    expect(html).not.toContain('"serverOnly":"full"');
+  });
 });
