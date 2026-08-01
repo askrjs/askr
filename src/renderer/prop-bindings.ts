@@ -18,10 +18,7 @@ import {
   removeDelegatedListener,
   isDelegatedEvent,
 } from '../runtime';
-import {
-  applyScalarPropValue,
-  removeStaleAttributes,
-} from './attributes';
+import { applyScalarPropValue, removeStaleAttributes } from './attributes';
 import {
   elementListeners,
   elementReactivePropsCleanup,

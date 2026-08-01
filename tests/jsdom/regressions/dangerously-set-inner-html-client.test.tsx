@@ -187,10 +187,7 @@ describe('dangerouslySetInnerHTML on the client renderer', () => {
     function ManagedChild() {
       count = state(0);
       return (
-        <button
-          data-managed={'true'}
-          ref={managedRef}
-        >
+        <button data-managed={'true'} ref={managedRef}>
           {`count:${count()}`}
         </button>
       );
@@ -212,9 +209,15 @@ describe('dangerouslySetInnerHTML on the client renderer', () => {
     const managed = container.querySelector('[data-managed]')!;
     expect(refValues).toEqual([managed]);
 
-    for (const invalidPayload of [null, false, {}, 'invalid', () => ({
-      __html: '<i>not evaluated</i>',
-    })]) {
+    for (const invalidPayload of [
+      null,
+      false,
+      {},
+      'invalid',
+      () => ({
+        __html: '<i>not evaluated</i>',
+      }),
+    ]) {
       payload.set(
         typeof invalidPayload === 'function'
           ? () => invalidPayload

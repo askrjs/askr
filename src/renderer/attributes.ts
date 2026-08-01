@@ -19,9 +19,7 @@ export function isDangerousInnerHTMLPayload(
   value: unknown
 ): value is { __html: unknown } {
   return (
-    value !== null &&
-    typeof value === 'object' &&
-    '__html' in (value as object)
+    value !== null && typeof value === 'object' && '__html' in (value as object)
   );
 }
 

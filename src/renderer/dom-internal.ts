@@ -294,11 +294,7 @@ function createIntrinsicElement(
 
     applyPropsToElement(el, props, type, isHydrationSkipped);
 
-    if (
-      !usesDangerousHTML &&
-      children !== null &&
-      children !== undefined
-    ) {
+    if (!usesDangerousHTML && children !== null && children !== undefined) {
       const controlBoundaryVNode = getDirectControlBoundaryVNode(children);
       if (controlBoundaryVNode) {
         const controlState = getControlBoundaryState(controlBoundaryVNode);
@@ -402,9 +398,7 @@ function applyElementUpdateFromVnode(
     props.dangerouslySetInnerHTML
   );
   const shouldUpdateChildren =
-    updateChildren &&
-    props.imperativeChildren !== true &&
-    !usesDangerousHTML;
+    updateChildren && props.imperativeChildren !== true && !usesDangerousHTML;
 
   if (isHydrationSkipped(el)) {
     rememberDeferredHydrationVNode(
