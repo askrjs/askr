@@ -79,9 +79,15 @@ export function updateElementChildren(
   }
 
   if (!Array.isArray(children) && isFragmentVNode(children)) {
-    updateUnkeyedChildren(
+    // Recurse rather than calling updateUnkeyedChildren directly: a bare
+    // Fragment can wrap a control-boundary vnode (e.g. a lone <For>), and
+    // only re-entering this dispatcher re-runs the control-boundary
+    // detection above on the normalized array. Calling updateUnkeyedChildren
+    // directly bypassed that detection and forced a full teardown/recreate
+    // of the wrapped boundary's content on every update.
+    updateElementChildren(
       el,
-      normalizeComponentChildren(children),
+      normalizeComponentChildren(children) as VNode[],
       forceUpdate
     );
     return;

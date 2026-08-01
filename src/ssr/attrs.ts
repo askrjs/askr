@@ -21,6 +21,22 @@ function isEventHandler(key: string): boolean {
   return key.length >= 2 && key.slice(0, 2).toLowerCase() === 'on';
 }
 
+// Kept in sync with UNSAFE_URL_SCHEME_ATTRIBUTES in ../renderer/attributes.ts
+// so client and SSR output stay symmetric.
+const UNSAFE_URL_SCHEME_ATTRIBUTES = new Set([
+  'href',
+  'formaction',
+  'action',
+  'xlink:href',
+]);
+
+function isUnsafeUrlAttribute(attrName: string, strValue: string): boolean {
+  return (
+    UNSAFE_URL_SCHEME_ATTRIBUTES.has(attrName.toLowerCase()) &&
+    !isSafeHref(strValue)
+  );
+}
+
 function assertAttributeName(name: string): void {
   if (!/^[A-Za-z_:][A-Za-z0-9_.:-]*$/.test(name)) {
     throw new TypeError(`Invalid SSR attribute name: ${JSON.stringify(name)}`);
@@ -108,7 +124,7 @@ export function renderAttrsDirect(
 
     // Regular attributes
     const strValue = String(value);
-    if (attrName.toLowerCase() === 'href' && !isSafeHref(strValue)) continue;
+    if (isUnsafeUrlAttribute(attrName, strValue)) continue;
     sink.write(' ');
     sink.write(attrName);
     sink.write('="');
@@ -184,7 +200,7 @@ export function renderAttrs(
       continue;
     } else {
       const strValue = String(value);
-      if (attrName.toLowerCase() === 'href' && !isSafeHref(strValue)) continue;
+      if (isUnsafeUrlAttribute(attrName, strValue)) continue;
       attrParts.push(` ${attrName}="${getEscapedAttrValue(strValue)}"`);
     }
   }

@@ -1,5 +1,7 @@
 import { sanitizeCssValue } from '../common/css';
 import { isSafeHref } from '../common/url';
+import { isDevelopmentEnvironment } from '../common/env';
+import { logger } from '../common/logger';
 import { incrementPerfMetric } from '../runtime';
 import {
   extractKey,
@@ -12,6 +14,47 @@ import {
   tagNamesEqualIgnoreCase,
   writeElementClassName,
 } from './utils';
+
+// Attribute names (lowercased) that can carry a browser-navigable/executable
+// URL and must be checked against isSafeHref, in addition to the historically
+// special-cased `href`. Deliberately excludes `src`: it covers a much wider
+// range of legitimate non-navigable values (data: image URIs, blob: URLs,
+// etc.) where the same scheme allowlist would be overly aggressive.
+const UNSAFE_URL_SCHEME_ATTRIBUTES = new Set([
+  'href',
+  'formaction',
+  'action',
+  'xlink:href',
+]);
+
+function isUnsafeUrlAttribute(key: string, value: unknown): boolean {
+  return (
+    UNSAFE_URL_SCHEME_ATTRIBUTES.has(key.toLowerCase()) &&
+    !isSafeHref(String(value))
+  );
+}
+
+function applyDangerousInnerHTMLValue(el: Element, value: unknown): void {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    !('__html' in (value as object))
+  ) {
+    return;
+  }
+
+  if (isDevelopmentEnvironment()) {
+    logger.warn(
+      '[Askr] dangerouslySetInnerHTML is being used, which bypasses the ' +
+        "framework's normal rendering and can introduce XSS vulnerabilities " +
+        'if the HTML is derived from untrusted input. Make sure the value is ' +
+        'sanitized.'
+    );
+  }
+
+  const html = (value as { __html: unknown }).__html;
+  el.innerHTML = html === null || html === undefined ? '' : String(html);
+}
 
 type ClassTokenDescriptor = {
   lastClassTokens: string[] | null;
@@ -245,7 +288,9 @@ export function applyStaticScalarPropsToElement(
       applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
-    } else if (key.toLowerCase() === 'href' && !isSafeHref(String(value))) {
+    } else if (key === 'dangerouslySetInnerHTML') {
+      applyDangerousInnerHTMLValue(el, value);
+    } else if (isUnsafeUrlAttribute(key, value)) {
       removeRenderedAttribute(el, key);
     } else {
       setRenderedAttribute(el, key, String(value));
@@ -375,6 +420,8 @@ export function applyScalarPropValue(
       applyFormControlProp(el, key, false, tagName);
     } else if (key === 'style') {
       applyStylePropValue(el, null);
+    } else if (key === 'dangerouslySetInnerHTML') {
+      el.innerHTML = '';
     } else {
       removeRenderedAttribute(el, key);
     }
@@ -387,7 +434,9 @@ export function applyScalarPropValue(
     applyStylePropValue(el, value);
   } else if (key === 'value' || key === 'checked') {
     applyFormControlProp(el, key, value, tagName);
-  } else if (key.toLowerCase() === 'href' && !isSafeHref(String(value))) {
+  } else if (key === 'dangerouslySetInnerHTML') {
+    applyDangerousInnerHTMLValue(el, value);
+  } else if (isUnsafeUrlAttribute(key, value)) {
     removeRenderedAttribute(el, key);
   } else {
     setRenderedAttribute(el, key, String(value));

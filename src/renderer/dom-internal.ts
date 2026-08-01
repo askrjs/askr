@@ -391,7 +391,9 @@ function applyElementUpdateFromVnode(
   const props = (vnode.props || {}) as Record<string, unknown>;
   const domVNode = vnode as DOMElement;
   const shouldUpdateChildren =
-    updateChildren && props.imperativeChildren !== true;
+    updateChildren &&
+    props.imperativeChildren !== true &&
+    props.dangerouslySetInnerHTML === undefined;
 
   if (isHydrationSkipped(el)) {
     rememberDeferredHydrationVNode(
