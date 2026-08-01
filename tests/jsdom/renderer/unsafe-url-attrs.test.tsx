@@ -40,6 +40,31 @@ describe('unsafe URL-bearing attributes beyond href', () => {
     }
   );
 
+  it.each(['javascript:alert(1)', 'data:text/html,phish'])(
+    'should omit an unsafe action on a client-rendered form (%s)',
+    (unsafe) => {
+      const { container, cleanup } = createTestContainer();
+      try {
+        createIsland({
+          root: container,
+          component: () => <form action={unsafe}>go</form>,
+        });
+        flushScheduler();
+        expect(container.querySelector('form')?.hasAttribute('action')).toBe(
+          false
+        );
+
+        const html = renderToStringSync(
+          () => <form action={unsafe}>go</form>,
+          {}
+        );
+        expect(html).not.toContain(' action');
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
   it('should omit an unsafe xlink:href on a client-rendered SVG <use> element', () => {
     const { container, cleanup } = createTestContainer();
     try {

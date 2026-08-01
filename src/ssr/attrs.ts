@@ -4,7 +4,7 @@
 
 import type { Props } from '../common/props';
 import { getPublicAttributeName } from '../common/attr-names';
-import { isSafeHref } from '../common/url';
+import { isUnsafeUrlAttribute } from '../common/url';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
 
@@ -19,22 +19,6 @@ const escapedAttrValueCache = new Map<string, string>();
 
 function isEventHandler(key: string): boolean {
   return key.length >= 2 && key.slice(0, 2).toLowerCase() === 'on';
-}
-
-// Kept in sync with UNSAFE_URL_SCHEME_ATTRIBUTES in ../renderer/attributes.ts
-// so client and SSR output stay symmetric.
-const UNSAFE_URL_SCHEME_ATTRIBUTES = new Set([
-  'href',
-  'formaction',
-  'action',
-  'xlink:href',
-]);
-
-function isUnsafeUrlAttribute(attrName: string, strValue: string): boolean {
-  return (
-    UNSAFE_URL_SCHEME_ATTRIBUTES.has(attrName.toLowerCase()) &&
-    !isSafeHref(strValue)
-  );
 }
 
 function assertAttributeName(name: string): void {

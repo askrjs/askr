@@ -1,5 +1,5 @@
 import { sanitizeCssValue } from '../common/css';
-import { isSafeHref } from '../common/url';
+import { isUnsafeUrlAttribute } from '../common/url';
 import { isDevelopmentEnvironment } from '../common/env';
 import { logger } from '../common/logger';
 import { incrementPerfMetric } from '../runtime';
@@ -14,25 +14,6 @@ import {
   tagNamesEqualIgnoreCase,
   writeElementClassName,
 } from './utils';
-
-// Attribute names (lowercased) that can carry a browser-navigable/executable
-// URL and must be checked against isSafeHref, in addition to the historically
-// special-cased `href`. Deliberately excludes `src`: it covers a much wider
-// range of legitimate non-navigable values (data: image URIs, blob: URLs,
-// etc.) where the same scheme allowlist would be overly aggressive.
-const UNSAFE_URL_SCHEME_ATTRIBUTES = new Set([
-  'href',
-  'formaction',
-  'action',
-  'xlink:href',
-]);
-
-function isUnsafeUrlAttribute(key: string, value: unknown): boolean {
-  return (
-    UNSAFE_URL_SCHEME_ATTRIBUTES.has(key.toLowerCase()) &&
-    !isSafeHref(String(value))
-  );
-}
 
 function applyDangerousInnerHTMLValue(el: Element, value: unknown): void {
   if (

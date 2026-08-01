@@ -53,4 +53,43 @@ describe('InlineRenderSnapshot rollback', () => {
     expect(instance._wrapperDepth).toBe(0);
     expect(instance.cleanupStrict).toBe(false);
   });
+
+  it('should restore an absent key to absent, and a falsy-but-present key correctly', () => {
+    const parent = createComponentInstance('parent', () => null, {}, null);
+
+    // Case 1: key absent before the render, assigned during it - rollback
+    // must delete it again, not leave it set to the mutated value.
+    const noKeyInstance = createComponentInstance(
+      'no-key-child',
+      () => null,
+      {},
+      parent
+    );
+    delete noKeyInstance._vnodeKey;
+
+    const batch1 = beginLifecycleCommitBatch();
+    captureInlineRenderSnapshot(noKeyInstance);
+    noKeyInstance._vnodeKey = 'assigned-during-render';
+    discardLifecycleCommitBatch(batch1);
+
+    expect('_vnodeKey' in noKeyInstance).toBe(false);
+
+    // Case 2: a falsy-but-present key (0) must round-trip as 0, not be
+    // confused with "absent" by the hasVNodeKey/undefined distinction.
+    const falsyKeyInstance = createComponentInstance(
+      'falsy-key-child',
+      () => null,
+      {},
+      parent
+    );
+    falsyKeyInstance._vnodeKey = 0;
+
+    const batch2 = beginLifecycleCommitBatch();
+    captureInlineRenderSnapshot(falsyKeyInstance);
+    falsyKeyInstance._vnodeKey = 'reassigned';
+    discardLifecycleCommitBatch(batch2);
+
+    expect('_vnodeKey' in falsyKeyInstance).toBe(true);
+    expect(falsyKeyInstance._vnodeKey).toBe(0);
+  });
 });
