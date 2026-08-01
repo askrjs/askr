@@ -115,19 +115,31 @@ export function onRouteChange(
 
 let serverLocation: string | null = null;
 
-function logicalRoutePathname(pathname: string): string {
+function logicalRoutePathname(pathname: string): string | undefined {
   const logical = removeRouteBasePath(pathname, getActiveRouteBasePath());
-  return logical === undefined ? pathname : parseLocation(logical).pathname;
+  return logical === undefined ? undefined : parseLocation(logical).pathname;
+}
+
+function routePathname(pathname: string): {
+  pathname: string;
+  withinBasePath: boolean;
+} {
+  const logical = logicalRoutePathname(pathname);
+  return logical === undefined
+    ? { pathname: parseLocation(pathname).pathname, withinBasePath: false }
+    : { pathname: logical, withinBasePath: true };
 }
 
 export function setServerLocation(url: string | null): void {
   serverLocation = url;
   if (url) {
     const parsed = parseLocation(url);
-    const pathname = logicalRoutePathname(parsed.pathname);
+    const location = routePathname(parsed.pathname);
     syncRouteActivitySnapshot(
-      pathname,
-      computeMatchesFromRoutes(pathname, getActiveRoutes())
+      location.pathname,
+      location.withinBasePath
+        ? computeMatchesFromRoutes(location.pathname, getActiveRoutes())
+        : []
     );
     return;
   }
@@ -143,9 +155,12 @@ function buildRouteSnapshot(
   search: string,
   hash: string
 ): RouteSnapshot {
-  pathname = logicalRoutePathname(pathname);
+  const location = routePathname(pathname);
+  pathname = location.pathname;
   const query = makeQuery(search);
-  const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
+  const matches = location.withinBasePath
+    ? computeMatchesFromRoutes(pathname, getActiveRoutes())
+    : [];
 
   return Object.freeze({
     path: pathname,
@@ -187,13 +202,15 @@ function readCurrentRouteLocation(): {
   pathname: string;
   search: string;
   hash: string;
+  withinBasePath: boolean;
 } {
   const renderContext = getActiveRenderContext();
   if (renderContext?.url) {
     const parsed = parseLocation(renderContext.url);
+    const location = routePathname(parsed.pathname);
     return {
       ...parsed,
-      pathname: logicalRoutePathname(parsed.pathname),
+      ...location,
     };
   }
 
@@ -202,15 +219,17 @@ function readCurrentRouteLocation(): {
   );
   if (stagedRouteLocation) {
     const parsed = parseLocation(stagedRouteLocation);
+    const location = routePathname(parsed.pathname);
     return {
       ...parsed,
-      pathname: logicalRoutePathname(parsed.pathname),
+      ...location,
     };
   }
 
   if (typeof window !== 'undefined' && window.location) {
+    const location = routePathname(window.location.pathname || '/');
     return {
-      pathname: logicalRoutePathname(window.location.pathname || '/'),
+      ...location,
       search: window.location.search || '',
       hash: window.location.hash || '',
     };
@@ -218,14 +237,16 @@ function readCurrentRouteLocation(): {
 
   if (serverLocation) {
     const parsed = parseLocation(serverLocation);
+    const location = routePathname(parsed.pathname);
     return {
       ...parsed,
-      pathname: logicalRoutePathname(parsed.pathname),
+      ...location,
     };
   }
 
+  const location = routePathname(currentRouteSnapshot.path);
   return {
-    pathname: currentRouteSnapshot.path,
+    ...location,
     search: '',
     hash: currentRouteSnapshot.hash ?? '',
   };
@@ -240,9 +261,9 @@ export function isRoutePathActive(
     )
   );
 
-  const activePath = normalizeRouteActivityPath(
-    readCurrentRouteLocation().pathname
-  );
+  const location = readCurrentRouteLocation();
+  if (!location.withinBasePath) return false;
+  const activePath = normalizeRouteActivityPath(location.pathname);
   if (candidates.has(activePath)) {
     return true;
   }
@@ -264,12 +285,17 @@ function readCurrentRouteSnapshot<
     );
   }
 
-  const { pathname, search, hash } = readCurrentRouteLocation();
+  const { pathname, search, hash, withinBasePath } =
+    readCurrentRouteLocation();
 
   const query = makeQuery(search);
-  const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
+  const matches = withinBasePath
+    ? computeMatchesFromRoutes(pathname, getActiveRoutes())
+    : [];
   const routeParams =
-    getActiveRenderContext()?.params ?? matches[0]?.params ?? {};
+    (withinBasePath ? getActiveRenderContext()?.params : undefined) ??
+    matches[0]?.params ??
+    {};
   const params = deepFreeze({
     ...routeParams,
   });

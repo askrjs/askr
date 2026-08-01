@@ -124,4 +124,20 @@ describe('client route base paths', () => {
     expect(container.querySelector('h1')?.textContent).toBe('hydrated');
     expect(loads).toBe(1);
   });
+
+  it('should not treat physical paths outside the mount as logical routes', async () => {
+    const registry = createRouteRegistry(
+      () => {
+        route('/', () => <main>Home</main>);
+        route('/outside', () => <main>Logical outside</main>);
+      },
+      { basePath: '/website' }
+    );
+    window.history.replaceState({}, '', '/website/');
+    await createSPA({ root: container, registry });
+
+    window.history.replaceState({}, '', '/outside');
+
+    expect(isRoutePathActive('/outside')).toBe(false);
+  });
 });
