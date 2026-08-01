@@ -1,6 +1,4 @@
 import { logger } from '../common/logger';
-import type { Props } from '../common/props';
-import type { ContextFrame } from './context';
 import type { ComponentInstance } from './component-internal';
 import {
   type ReadableSource,
@@ -10,6 +8,11 @@ import {
   discardCommitOperations,
   executeCommittedLifecycleOperations,
 } from './lifecycle-operation-settlement';
+import {
+  createInlineRenderSnapshot,
+  restoreInlineRenderSnapshot,
+  type InlineRenderSnapshot,
+} from './inline-render-snapshot';
 
 export type LifecycleOperation = () =>
   | void
@@ -27,16 +30,6 @@ type ReadSubscriptionCommit = {
   token: number;
   pendingReadSources: Set<ReadableSource<unknown>> | undefined;
   pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined;
-};
-
-type InlineRenderSnapshot = {
-  instance: ComponentInstance;
-  props: Props;
-  ownerFrame: ContextFrame | null;
-  portalScope: object | null;
-  parentInstance: ComponentInstance | null;
-  isRoot: boolean | undefined;
-  vnodeParentGeneration: object | undefined;
 };
 
 export type LifecycleTransaction = {
@@ -227,15 +220,10 @@ export function captureInlineRenderSnapshot(instance: ComponentInstance): void {
     return;
   }
 
-  enqueueInlineRenderSnapshot(currentLifecycleCommitBatch, {
-    instance,
-    props: instance.props,
-    ownerFrame: instance.ownerFrame,
-    portalScope: instance.portalScope,
-    parentInstance: instance.parentInstance,
-    isRoot: instance.isRoot,
-    vnodeParentGeneration: instance._vnodeParentGeneration,
-  });
+  enqueueInlineRenderSnapshot(
+    currentLifecycleCommitBatch,
+    createInlineRenderSnapshot(instance)
+  );
 }
 
 export function finalizeInlineReadSubscriptions(
@@ -381,13 +369,7 @@ export function discardLifecycleCommitBatch(batch: LifecycleCommitBatch): void {
   }
 
   for (let index = batch.renderSnapshots.length - 1; index >= 0; index -= 1) {
-    const snapshot = batch.renderSnapshots[index]!;
-    snapshot.instance.props = snapshot.props;
-    snapshot.instance.ownerFrame = snapshot.ownerFrame;
-    snapshot.instance.portalScope = snapshot.portalScope;
-    snapshot.instance.parentInstance = snapshot.parentInstance;
-    snapshot.instance.isRoot = snapshot.isRoot;
-    snapshot.instance._vnodeParentGeneration = snapshot.vnodeParentGeneration;
+    restoreInlineRenderSnapshot(batch.renderSnapshots[index]!);
   }
 
   for (const entry of batch.entries) {
