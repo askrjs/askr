@@ -3,6 +3,7 @@ import {
   type DocumentRenderArgs,
   type DocumentRenderContext,
   type DocumentRenderer,
+  type SSRStyleRegistrationValidation,
   type SSRStyleRegistration,
 } from '../common/ssr';
 import type {
@@ -45,6 +46,8 @@ export type RouteRenderOptions = SSRRouteSource & {
   /** @internal Precomposed page state used by hydration verification. */
   envelope?: PageRenderEnvelope;
   cspNonce?: string;
+  /** Diagnose document renderers that omit request-local SSR style registrations. */
+  styleRegistrationValidation?: SSRStyleRegistrationValidation;
 };
 
 export type RouteStreamOptions = RouteRenderOptions & {
@@ -62,6 +65,7 @@ type ResolvedSSRRouteRender = {
   ctx: RenderContext;
   document?: DocumentRenderer;
   cspNonce?: string;
+  styleRegistrationValidation: SSRStyleRegistrationValidation;
 };
 
 export type RouteAppRenderInput = {
@@ -115,7 +119,12 @@ function resolveSSRRouteSource(source: SSRRouteSource): SSRRoute[] {
 function resolveSSRRouteRender(
   opts: RouteRenderOptions
 ): ResolvedSSRRouteRender {
-  const { seed = 12345, data, document } = opts;
+  const {
+    seed = 12345,
+    data,
+    document,
+    styleRegistrationValidation = 'warn',
+  } = opts;
   const cspNonce = validateCspNonce(opts.cspNonce);
   const routeTable = resolveSSRRouteSource(opts);
   const resolvedRoute = resolvePolicyAwareSSRRoute(opts, routeTable);
@@ -142,6 +151,7 @@ function resolveSSRRouteRender(
     ctx,
     document,
     cspNonce,
+    styleRegistrationValidation,
   };
 }
 
@@ -208,7 +218,8 @@ function renderToSinkInternal(
       renderDocument(
         resolved.document,
         buildDocumentRenderArgs(resolved, appSink.toString()),
-        'renderToString()/renderToStream()'
+        'renderToString()/renderToStream()',
+        resolved.styleRegistrationValidation
       )
     );
   });

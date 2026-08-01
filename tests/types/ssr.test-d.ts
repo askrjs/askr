@@ -17,6 +17,7 @@ import {
   type RenderRouteRequestResult,
   type SSRComponent,
   type SSRStyleRegistration,
+  type SSRStyleRegistrationValidation,
   type VNode,
 } from '@askrjs/askr/ssr';
 import type { RouteRegistry, RouteRequestResult } from '@askrjs/askr/router';
@@ -25,6 +26,9 @@ declare const registry: RouteRegistry;
 
 declare const styleRegistration: SSRStyleRegistration;
 expectAssignable<SSRStyleRegistration>(styleRegistration);
+expectAssignable<SSRStyleRegistrationValidation>('warn');
+expectAssignable<SSRStyleRegistrationValidation>('error');
+expectAssignable<SSRStyleRegistrationValidation>('off');
 
 const renderContext = createRenderContext(42, { url: '/users/42' });
 expectType<ReturnType<typeof createRenderContext>>(renderContext);
@@ -72,6 +76,13 @@ expectType<string>(documentRenderer(documentArgs));
 expectType<string>(renderToStringSync(() => 'ok'));
 expectType<string>(renderToString(() => 'ok'));
 expectType<string>(renderToString({ url: '/users/42', registry }));
+expectType<string>(
+  renderToString({
+    url: '/users/42',
+    registry,
+    styleRegistrationValidation: 'error',
+  })
+);
 expectType<void>(
   renderToStream({
     url: '/users/42',
