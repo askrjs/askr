@@ -538,7 +538,15 @@ export function reconcileForItems<T>(
       const key = byFn(newArray[i], i);
       if (key === orderedKeys[i]) {
         const existing = items.get(key);
-        if (existing && existing.item !== item) {
+        if (
+          existing &&
+          (existing.item !== item || existing.scope.needsDomUpdate)
+        ) {
+          // An untouched (non-swapped) row may already have a pending DOM
+          // update queued (e.g. from an indirect index-signal read). SWAP
+          // only ever syncs the two swapped indices, so a row with a
+          // pending update here would silently lose it. Mirror the
+          // INSERT_ONE guard above and bail to full reconciliation instead.
           canUseSwapPath = false;
           break;
         }

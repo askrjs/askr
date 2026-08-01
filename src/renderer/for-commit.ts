@@ -693,6 +693,15 @@ function commitForStateBoundaryChildrenImpl(
       commitDirtyNoReorder(dirtyIndices);
       break;
     case 'REMOVE_ONE':
+      // Physically remove the node for the removed key first: commitDirtyNoReorder
+      // anchors dirty items via `parent.childNodes[i]`, and `i` is the item's
+      // POST-removal index. Computing that anchor while the removed node is
+      // still attached reads the wrong sibling for every dirty index at or
+      // after the removed slot, which can silently reorder unrelated rows.
+      removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
+        teardown: false,
+      });
+      removedBoundaryConsumed = true;
       commitDirtyNoReorder(dirtyIndices);
       break;
     case 'TRUNCATE':

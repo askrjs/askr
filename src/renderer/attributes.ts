@@ -1,5 +1,7 @@
 import { sanitizeCssValue } from '../common/css';
-import { isSafeHref } from '../common/url';
+import { isUnsafeUrlAttribute } from '../common/url';
+import { isDevelopmentEnvironment } from '../common/env';
+import { logger } from '../common/logger';
 import { incrementPerfMetric } from '../runtime';
 import {
   extractKey,
@@ -12,6 +14,32 @@ import {
   tagNamesEqualIgnoreCase,
   writeElementClassName,
 } from './utils';
+
+export function isDangerousInnerHTMLPayload(
+  value: unknown
+): value is { __html: unknown } {
+  return (
+    value !== null && typeof value === 'object' && '__html' in (value as object)
+  );
+}
+
+function applyDangerousInnerHTMLValue(el: Element, value: unknown): void {
+  if (!isDangerousInnerHTMLPayload(value)) {
+    return;
+  }
+
+  if (isDevelopmentEnvironment()) {
+    logger.warn(
+      '[Askr] dangerouslySetInnerHTML is being used, which bypasses the ' +
+        "framework's normal rendering and can introduce XSS vulnerabilities " +
+        'if the HTML is derived from untrusted input. Make sure the value is ' +
+        'sanitized.'
+    );
+  }
+
+  const html = value.__html;
+  el.innerHTML = html === null || html === undefined ? '' : String(html);
+}
 
 type ClassTokenDescriptor = {
   lastClassTokens: string[] | null;
@@ -245,7 +273,9 @@ export function applyStaticScalarPropsToElement(
       applyStylePropValue(el, value);
     } else if (key === 'value' || key === 'checked') {
       applyFormControlProp(el, key, value, tagName);
-    } else if (key.toLowerCase() === 'href' && !isSafeHref(String(value))) {
+    } else if (key === 'dangerouslySetInnerHTML') {
+      applyDangerousInnerHTMLValue(el, value);
+    } else if (isUnsafeUrlAttribute(key, value)) {
       removeRenderedAttribute(el, key);
     } else {
       setRenderedAttribute(el, key, String(value));
@@ -357,6 +387,13 @@ export function applyScalarPropValue(
   previousValue?: unknown,
   descriptor?: ClassTokenDescriptor
 ): void {
+  if (
+    key === 'dangerouslySetInnerHTML' &&
+    !isDangerousInnerHTMLPayload(value)
+  ) {
+    return;
+  }
+
   if (value === undefined || value === null || value === false) {
     if (key === 'class' || key === 'className') {
       const previousTokens = descriptor?.lastClassTokens;
@@ -387,7 +424,9 @@ export function applyScalarPropValue(
     applyStylePropValue(el, value);
   } else if (key === 'value' || key === 'checked') {
     applyFormControlProp(el, key, value, tagName);
-  } else if (key.toLowerCase() === 'href' && !isSafeHref(String(value))) {
+  } else if (key === 'dangerouslySetInnerHTML') {
+    applyDangerousInnerHTMLValue(el, value);
+  } else if (isUnsafeUrlAttribute(key, value)) {
     removeRenderedAttribute(el, key);
   } else {
     setRenderedAttribute(el, key, String(value));

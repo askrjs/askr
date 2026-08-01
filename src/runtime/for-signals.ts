@@ -9,6 +9,8 @@ import {
   type ReadableSource,
 } from './readable';
 import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
+import { isDevelopmentEnvironment } from '../common/env';
+import { logger } from '../common/logger';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -406,5 +408,37 @@ const REACTIVE_FOR_ITEM_PROXY_HANDLER: ProxyHandler<ReactiveForItemTarget> = {
     const itemSignal = getWholeItemSignal(metadata);
     recordReadableRead(itemSignal);
     return Object.getPrototypeOf(Object(metadata.currentItem));
+  },
+  set(target, prop, value) {
+    // First write to a given key: define it with a full, always-writable
+    // descriptor. Without this explicit trap, the default Proxy [[Set]]
+    // forwards through getOwnPropertyDescriptor (which, for a key that
+    // collides with a live source-item property, returns that property's
+    // descriptor) and ends up defining a non-writable/non-configurable
+    // shadow on the first write - the second write to the same key then
+    // throws "Cannot assign to read only property" in strict mode (all ESM).
+    const alreadyOwned = prop in target;
+    if (
+      !alreadyOwned &&
+      typeof prop !== 'symbol' &&
+      isDevelopmentEnvironment()
+    ) {
+      const metadata = getReactiveForItemState(target);
+      if (prop in Object(metadata.currentItem)) {
+        logger.warn(
+          `[Askr] Assigning to "${String(prop)}" on a <For> item shadows a ` +
+            `property from the source data - it will not update when the ` +
+            `source item changes and does not trigger a re-render. Use a ` +
+            `different property name for cached/derived per-row values, or ` +
+            `a state() cell for values that should be reactive.`
+        );
+      }
+    }
+    return Reflect.defineProperty(target, prop, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
   },
 };
