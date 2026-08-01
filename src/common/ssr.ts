@@ -36,10 +36,42 @@ export interface DocumentRenderArgs {
 
 export type DocumentRenderer = (args: DocumentRenderArgs) => string;
 
+export type SSRStyleRegistrationValidation = 'warn' | 'error' | 'off';
+
+function escapedStyleRawText(value: string): string {
+  return value.replace(/<\//gi, '<\\/');
+}
+
+function validateDocumentStyleRegistrations(
+  html: string,
+  styles: readonly SSRStyleRegistration[] | undefined,
+  apiName: string,
+  validation: SSRStyleRegistrationValidation
+): void {
+  if (validation === 'off' || !styles || styles.length === 0) return;
+
+  const dropped = styles.filter(
+    ({ cssText }) =>
+      !html.includes(cssText) && !html.includes(escapedStyleRawText(cssText))
+  );
+  if (dropped.length === 0) return;
+
+  const registrations = dropped.map(({ id }) => JSON.stringify(id)).join(', ');
+  const message =
+    `${apiName} document() dropped ${dropped.length} registered SSR style` +
+    `${dropped.length === 1 ? '' : 's'}: ${registrations}. ` +
+    'Serialize context.styles into the returned document, or set ' +
+    'styleRegistrationValidation to "off" when omission is intentional.';
+
+  if (validation === 'error') throw new Error(message);
+  console.warn(message);
+}
+
 export function renderDocument(
   document: DocumentRenderer,
   args: DocumentRenderArgs,
-  apiName: string
+  apiName: string,
+  styleRegistrationValidation: SSRStyleRegistrationValidation = 'warn'
 ): string {
   const html: unknown = document(args);
 
@@ -62,6 +94,12 @@ export function renderDocument(
     );
   }
 
+  validateDocumentStyleRegistrations(
+    html,
+    args.context.styles,
+    apiName,
+    styleRegistrationValidation
+  );
   return html;
 }
 

@@ -364,6 +364,7 @@
     "SSRDataMissingError",
     "SSRRoute",
     "SSRStyleRegistration",
+    "SSRStyleRegistrationValidation",
     "VNode",
     "createRenderContext",
     "getRenderContext",
@@ -392,6 +393,7 @@
     "SSGMode",
     "SSGOptions",
     "SSGResult",
+    "SSRStyleRegistrationValidation",
     "createStaticGen"
   ],
   "./jsx-runtime": [

@@ -63,6 +63,11 @@ const ssg = createStaticGen({
 
 The callback receives the concrete route URL plus the matched route template, so
 parameterized routes can share one app route table across SPA, SSR, and SSG.
+Generated component styles are exposed as request-local `context.styles`. Askr
+warns when a document renderer omits a non-empty registration set; use
+`styleRegistrationValidation: 'error'` to make that omission fail the affected
+route during a build. Applications that intentionally externalize all generated
+rules can opt out with `styleRegistrationValidation: 'off'`.
 
 ## Route config
 
