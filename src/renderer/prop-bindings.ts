@@ -18,7 +18,10 @@ import {
   removeDelegatedListener,
   isDelegatedEvent,
 } from '../runtime';
-import { applyScalarPropValue, removeStaleAttributes } from './attributes';
+import {
+  applyScalarPropValue,
+  removeStaleAttributes,
+} from './attributes';
 import {
   elementListeners,
   elementReactivePropsCleanup,
@@ -416,6 +419,10 @@ export function applyPropsToElement(
       continue;
     }
     if (isSkippedProp(key)) continue;
+    if (key === 'dangerouslySetInnerHTML') {
+      applyScalarPropValue(el, key, value, tagName);
+      continue;
+    }
     if (value === undefined || value === null || value === false) continue;
 
     const eventProp = parseEventProp(key);
@@ -498,6 +505,16 @@ export function syncElementPropBindings(
     const value = props[key];
     if (key === 'ref') continue;
     if (isSkippedProp(key)) continue;
+
+    if (key === 'dangerouslySetInnerHTML') {
+      const existingEntry = existingReactiveProps?.get(key);
+      if (existingEntry) {
+        existingEntry.cleanup();
+        existingReactiveProps?.delete(key);
+      }
+      applyScalarPropValue(el, key, value, domVNode.type as string);
+      continue;
+    }
 
     const eventProp = parseEventProp(key);
     const eventName = eventProp?.eventName;

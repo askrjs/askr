@@ -81,6 +81,9 @@ function classifyProp(value: unknown, key: string): BlueprintPropShape | null {
   if (key === 'ref') {
     return { kind: 'ref' };
   }
+  if (key === 'dangerouslySetInnerHTML') {
+    return null;
+  }
   if (key.startsWith('on') && key.length > 2) {
     return typeof value === 'function' ? { kind: 'event' } : null;
   }

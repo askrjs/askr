@@ -15,12 +15,18 @@ import {
   writeElementClassName,
 } from './utils';
 
+export function isDangerousInnerHTMLPayload(
+  value: unknown
+): value is { __html: unknown } {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    '__html' in (value as object)
+  );
+}
+
 function applyDangerousInnerHTMLValue(el: Element, value: unknown): void {
-  if (
-    value === null ||
-    typeof value !== 'object' ||
-    !('__html' in (value as object))
-  ) {
+  if (!isDangerousInnerHTMLPayload(value)) {
     return;
   }
 
@@ -33,7 +39,7 @@ function applyDangerousInnerHTMLValue(el: Element, value: unknown): void {
     );
   }
 
-  const html = (value as { __html: unknown }).__html;
+  const html = value.__html;
   el.innerHTML = html === null || html === undefined ? '' : String(html);
 }
 
@@ -383,6 +389,13 @@ export function applyScalarPropValue(
   previousValue?: unknown,
   descriptor?: ClassTokenDescriptor
 ): void {
+  if (
+    key === 'dangerouslySetInnerHTML' &&
+    !isDangerousInnerHTMLPayload(value)
+  ) {
+    return;
+  }
+
   if (value === undefined || value === null || value === false) {
     if (key === 'class' || key === 'className') {
       const previousTokens = descriptor?.lastClassTokens;
@@ -401,8 +414,6 @@ export function applyScalarPropValue(
       applyFormControlProp(el, key, false, tagName);
     } else if (key === 'style') {
       applyStylePropValue(el, null);
-    } else if (key === 'dangerouslySetInnerHTML') {
-      el.innerHTML = '';
     } else {
       removeRenderedAttribute(el, key);
     }

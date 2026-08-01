@@ -13,6 +13,7 @@ import {
   applyFormControlProp,
   applyStaticScalarPropsToElement,
   hasMatchingStaticProps,
+  isDangerousInnerHTMLPayload,
   materializeFreshKey,
   materializeKey,
 } from './attributes';
@@ -262,6 +263,9 @@ function createIntrinsicElement(
   parentNamespace?: string
 ): Element {
   const children = props.children ?? node.children;
+  const usesDangerousHTML = isDangerousInnerHTMLPayload(
+    props.dangerouslySetInnerHTML
+  );
   const elementNamespace = resolveChildNamespace(type, parentNamespace);
   const el = createElementForNamespace(type, parentNamespace);
 
@@ -290,7 +294,11 @@ function createIntrinsicElement(
 
     applyPropsToElement(el, props, type, isHydrationSkipped);
 
-    if (children !== null && children !== undefined) {
+    if (
+      !usesDangerousHTML &&
+      children !== null &&
+      children !== undefined
+    ) {
       const controlBoundaryVNode = getDirectControlBoundaryVNode(children);
       if (controlBoundaryVNode) {
         const controlState = getControlBoundaryState(controlBoundaryVNode);
@@ -390,10 +398,13 @@ function applyElementUpdateFromVnode(
 
   const props = (vnode.props || {}) as Record<string, unknown>;
   const domVNode = vnode as DOMElement;
+  const usesDangerousHTML = isDangerousInnerHTMLPayload(
+    props.dangerouslySetInnerHTML
+  );
   const shouldUpdateChildren =
     updateChildren &&
     props.imperativeChildren !== true &&
-    props.dangerouslySetInnerHTML === undefined;
+    !usesDangerousHTML;
 
   if (isHydrationSkipped(el)) {
     rememberDeferredHydrationVNode(
@@ -408,6 +419,10 @@ function applyElementUpdateFromVnode(
 
   materializeKey(el, vnode, props);
   updateElementRef(el, props.ref);
+
+  if (usesDangerousHTML) {
+    updateElementChildren(el, undefined, forceChildrenUpdate);
+  }
 
   if (!hasTrackedElementPropBindings(el)) {
     if (

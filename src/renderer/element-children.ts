@@ -69,6 +69,7 @@ export function updateElementChildren(
   clearControlBoundaryCommitOwner(el);
 
   if (children === null || children === undefined) {
+    keyedElements.delete(el);
     for (let n = el.firstChild; n;) {
       const next = n.nextSibling;
       teardownNodeSubtree(n);
