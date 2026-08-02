@@ -6,10 +6,11 @@ How to contribute to the `@askrjs/askr` runtime and platform docs.
 
 All contributions follow the
 [Askr organization contribution policy](https://github.com/askrjs/.github/blob/main/CONTRIBUTING.md).
-Contributors should have a genuine Askr use case, integration, community
+Contributors must have a genuine Askr use case, integration, community
 resource, or concrete evaluation and must describe that context in the pull
 request. AI and automation are welcome when disclosed and personally reviewed
-by someone who can explain, maintain, and follow through on the contribution.
+by the person opening the pull request, who must be able to explain, maintain,
+and follow through on the contribution.
 
 ## Prerequisites
 
