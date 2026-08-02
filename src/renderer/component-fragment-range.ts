@@ -62,7 +62,7 @@ export function captureRangeFocus(
 
     const currentActive = active.ownerDocument.activeElement;
     if (
-      currentActive instanceof HTMLElement &&
+      currentActive instanceof Element &&
       currentActive !== active.ownerDocument.body &&
       currentActive !== active.ownerDocument.documentElement &&
       currentActive.isConnected

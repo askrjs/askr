@@ -289,6 +289,27 @@ describe('component fragment structure', () => {
     expect(document.activeElement).toBe(destination);
   });
 
+  it('should not override focus intentionally moved to an SVG during a range commit', () => {
+    root = document.createElement('div');
+    document.body.appendChild(root);
+    const start = document.createComment('start');
+    const input = document.createElement('input');
+    const end = document.createComment('end');
+    const destination = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'svg'
+    );
+    destination.setAttribute('tabindex', '0');
+    root.append(start, input, end, destination);
+    input.focus();
+
+    const restoreFocus = captureRangeFocus({ start, end, single: false }, root);
+    destination.focus();
+    restoreFocus();
+
+    expect(document.activeElement).toBe(destination);
+  });
+
   it('should keep legacy Fragment symbols transparent across component updates', () => {
     let update!: () => void;
     const LegacyFragment = Symbol('Fragment') as unknown as (props: {
