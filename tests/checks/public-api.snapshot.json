@@ -155,9 +155,11 @@
     "PresenceProps",
     "Slot",
     "SlotProps",
+    "cloneElement",
     "createCollection",
     "createLayer",
     "definePortal",
+    "isElement",
     "layout"
   ],
   "./foundations/icon": [

@@ -32,6 +32,12 @@ import {
   getDelegatedHandlerForElement,
 } from '../../../src/runtime/events';
 import { state } from '../../../src/runtime/state';
+import {
+  enterDomCommitScope,
+  getCurrentComponentInstance,
+  restoreDomCommitScope,
+  type ComponentInstance,
+} from '../../../src/runtime/component';
 
 describe('event delegation', () => {
   let container: HTMLElement;
@@ -301,6 +307,32 @@ describe('event delegation', () => {
   });
 
   describe('delegation with state updates', () => {
+    it('should allow event state updates while DOM reconciliation owns the component scope', () => {
+      let instance: ComponentInstance | null = null;
+      const Component = () => {
+        instance = getCurrentComponentInstance();
+        const count = state(0);
+        return (
+          <button id="commit-event" onClick={() => count.set(count() + 1)}>
+            {count()}
+          </button>
+        );
+      };
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const previousInstance = enterDomCommitScope(instance!);
+      try {
+        container.querySelector<HTMLButtonElement>('#commit-event')!.click();
+      } finally {
+        restoreDomCommitScope(previousInstance);
+      }
+      flushScheduler();
+
+      expect(container.querySelector('#commit-event')?.textContent).toBe('1');
+    });
+
     it('should trigger reactivity when delegated handler updates state', () => {
       let getCount: (() => number) | undefined;
       const Component = () => {
@@ -497,6 +529,50 @@ describe('event delegation', () => {
         );
       } finally {
         removeEventListener.mockRestore();
+        setGlobalDelegationContainer(document.body);
+        customContainer.remove();
+      }
+    });
+
+    it('should not retain capture-phase listeners after the last handler is cleaned up', () => {
+      const customContainer = document.createElement('div');
+      document.body.appendChild(customContainer);
+      setGlobalDelegationContainer(customContainer);
+
+      try {
+        for (let index = 0; index < 3; index += 1) {
+          const root = document.createElement('div');
+          customContainer.appendChild(root);
+          createIsland({
+            root,
+            component: () => <div onScroll={() => {}}>{'old'}</div>,
+          });
+          flushScheduler();
+          cleanupApp(root);
+          root.remove();
+        }
+
+        let calls = 0;
+        const activeRoot = document.createElement('div');
+        customContainer.appendChild(activeRoot);
+        createIsland({
+          root: activeRoot,
+          component: () => (
+            <div id={'active-scroll-target'} onScroll={() => calls++}>
+              {'active'}
+            </div>
+          ),
+        });
+        flushScheduler();
+
+        activeRoot
+          .querySelector('#active-scroll-target')!
+          .dispatchEvent(new Event('scroll', { bubbles: true }));
+
+        expect(calls).toBe(1);
+        cleanupApp(activeRoot);
+        activeRoot.remove();
+      } finally {
         setGlobalDelegationContainer(document.body);
         customContainer.remove();
       }
