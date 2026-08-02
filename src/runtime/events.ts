@@ -187,10 +187,26 @@ export function setGlobalDelegationContainer(container: Element): void {
 function cleanupAllDelegatedListeners(): void {
   for (const [container, listeners] of containerDelegatedListeners) {
     for (const [eventName, entry] of listeners) {
-      container.removeEventListener(eventName, entry.handler);
+      removeContainerDelegatedListener(container, eventName, entry.handler);
     }
   }
   containerDelegatedListeners.clear();
+}
+
+function usesDelegatedCapture(eventName: string): boolean {
+  return eventName === 'focus' || eventName === 'blur' || eventName === 'scroll';
+}
+
+function removeContainerDelegatedListener(
+  container: Element,
+  eventName: string,
+  handler: EventListener
+): void {
+  if (usesDelegatedCapture(eventName)) {
+    container.removeEventListener(eventName, handler, true);
+    return;
+  }
+  container.removeEventListener(eventName, handler);
 }
 
 function decrementContainerListenerUsage(entry: DelegatedHandler): void {
@@ -205,7 +221,11 @@ function decrementContainerListenerUsage(entry: DelegatedHandler): void {
     return;
   }
 
-  entry.container.removeEventListener(entry.eventName, listener.handler);
+  removeContainerDelegatedListener(
+    entry.container,
+    entry.eventName,
+    listener.handler
+  );
   listeners?.delete(entry.eventName);
 
   if (listeners?.size === 0) {
@@ -322,8 +342,7 @@ function attachDelegatedListener(
     };
 
     const passiveOptions = getPassiveOptions(eventName);
-    const nonBubblingCapture =
-      eventName === 'focus' || eventName === 'blur' || eventName === 'scroll';
+    const nonBubblingCapture = usesDelegatedCapture(eventName);
     const listenerOptions = nonBubblingCapture
       ? { ...(passiveOptions ?? options), capture: true }
       : (passiveOptions ?? options);

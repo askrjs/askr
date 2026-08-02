@@ -5,6 +5,10 @@ import {
   type RuntimeRendererHost,
 } from './runtime';
 import type { Scheduler, SchedulerLane } from './scheduler';
+import {
+  clearCurrentComponentScope,
+  restoreCurrentComponentScope,
+} from './component-scope';
 
 type RuntimeTask = () => void;
 
@@ -35,7 +39,12 @@ export function runRuntimeHandlerScope<T>(
   fn: () => T,
   flushMode: 'defer' | 'sync' = 'defer'
 ): T {
-  return getRuntimeScheduler().runInHandlerScope(fn, flushMode);
+  const savedScope = clearCurrentComponentScope();
+  try {
+    return getRuntimeScheduler().runInHandlerScope(fn, flushMode);
+  } finally {
+    restoreCurrentComponentScope(savedScope);
+  }
 }
 
 export function runRuntimeWithSyncProgress<T>(fn: () => T): T {

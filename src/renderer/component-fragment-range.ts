@@ -60,6 +60,16 @@ export function captureRangeFocus(
       return;
     }
 
+    const currentActive = active.ownerDocument.activeElement;
+    if (
+      currentActive instanceof HTMLElement &&
+      currentActive !== active.ownerDocument.body &&
+      currentActive !== active.ownerDocument.documentElement &&
+      currentActive.isConnected
+    ) {
+      return;
+    }
+
     try {
       active.focus({ preventScroll: true });
     } catch {
