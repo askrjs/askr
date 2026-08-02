@@ -58,7 +58,9 @@ Public types:
 - `@askrjs/askr/ssr` - synchronous rendering plus `renderRouteRequest()` for explicitly deferred Web streams
 - `@askrjs/askr/ssg` - static-site generation helpers
 - `@askrjs/askr/foundations` - structural primitives such as `layout`, `Slot`, `Presence`, plus runtime-backed portal helpers like `definePortal`, `DefaultPortal`, and `Portal`
-- `@askrjs/askr/foundations/structures` - structural registries and layering helpers such as `createCollection` and `createLayer`
+- `@askrjs/askr/foundations/structures` - structural registries and layering
+  helpers such as `createCollection` and `createLayer`, plus `isElement` and
+  `cloneElement` for framework-compatible JSX composition
 - `@askrjs/askr/foundations/utilities` - prop composition and ID helpers
 - `@askrjs/askr/foundations/interactions` - interaction-policy helpers
 - `@askrjs/askr/foundations/state` - controllable-state helpers

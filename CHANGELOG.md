@@ -8,6 +8,10 @@
   retains complete loader results.
 - feat(router): add registry `basePath` support for mounted SPA, SSR, and SSG
   routing, destinations, navigation, redirects, activity, and metadata context.
+- fix(jsx): expose safe element inspection and cloning from the structures
+  foundation without carrying renderer-private cache metadata into clones.
+- fix(renderer): retain intrinsic hosts and nested interactive descendants when
+  a rerender passes through a transparent context scope.
 
 ### 0.0.52 — audit remediation
 

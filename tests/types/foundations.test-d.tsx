@@ -58,8 +58,10 @@ import {
   type ControllableState,
 } from '@askrjs/askr/foundations/state';
 import {
+  cloneElement,
   createCollection,
   createLayer,
+  isElement,
   type Collection,
   type CollectionItem,
   type Layer,
@@ -128,6 +130,9 @@ expectError(
 expectError(Portal({ children: document.createElement('div') }));
 expectError(DefaultPortal.render({ children: document.createElement('div') }));
 expectError(defaultPortal.render({ children: document.createElement('div') }));
+const cloned = cloneElement(<span>clone</span>, { title: 'cloned' });
+expectType<JSXElement>(cloned);
+expectType<boolean>(isElement(cloned));
 expectError(
   layout(layoutComponent)(document.createElement('div'), { title: 'page' })
 );

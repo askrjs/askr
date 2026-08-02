@@ -2,6 +2,7 @@ import {
   enterDomCommitScope,
   getVNodeContextFrame,
   restoreDomCommitScope,
+  type ComponentFunction,
   type ComponentInstance,
 } from '../runtime';
 import { hasTransparentComponentResult } from '../common/control';
@@ -26,6 +27,7 @@ import {
 import { findRangeAtNode, getOwnedRange, isRangeStart } from './dom-range';
 import {
   getRendererDOMHost,
+  type ElementWithContext,
   type InstanceHostElement,
   type InstanceHostNode,
 } from './dom-host';
@@ -118,6 +120,26 @@ export function replaceComponentRange(
       !isTransparentComponentResult(result)
     ) {
       return null;
+    }
+
+    if (
+      host instanceof Element &&
+      _isDOMElement(result) &&
+      hasTransparentComponentResult(result.type)
+    ) {
+      const syncedHost = getRendererDOMHost().syncComponentElement(
+        host,
+        result as ElementWithContext,
+        result.type as ComponentFunction,
+        (result.props ?? {}) as Record<string, unknown>,
+        getParentNamespace(parent),
+        false,
+        retainedInstances
+      );
+      if (syncedHost) {
+        retainReplacementOwnerChain(syncedHost, instance, retainedInstances);
+        return syncedHost;
+      }
     }
 
     const replacement = beginComponentHostReplacement(
