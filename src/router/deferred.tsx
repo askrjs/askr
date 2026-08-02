@@ -6,6 +6,7 @@ import { getCurrentAppRenderRuntime } from '../runtime';
 import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
 import { resource } from '../runtime';
+import { guardHydratedRouteData } from './route-hydration';
 
 const DEFERRED_VALUE = Symbol.for('@askrjs/askr/deferred-value');
 export const DEFERRED_BOUNDARY = Symbol.for('@askrjs/askr/deferred-boundary');
@@ -148,14 +149,15 @@ export async function resolveDeferredValues<T>(
 
 export function routeData<T>(): T {
   const envelope = getCurrentRenderData();
-  if (envelope) return envelope.route as T;
+  if (envelope)
+    return guardHydratedRouteData(envelope.route, envelope.framework) as T;
   const runtime = getCurrentAppRenderRuntime();
   if (!runtime?.hasRoute) {
     throw new Error(
       'routeData() can only be read while rendering a route with loader data.'
     );
   }
-  return runtime.route as T;
+  return guardHydratedRouteData(runtime.route, runtime.framework) as T;
 }
 
 function rejectedChild<T>(

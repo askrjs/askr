@@ -3,6 +3,11 @@
 ## Unreleased
 
 - breaking(runtime): require Node.js 24.15 or newer.
+- feat(router): validate route hydration data and add synchronous `dehydrate`
+  selectors so SSR/SSG can omit server-only fields while client navigation
+  retains complete loader results.
+- feat(router): add registry `basePath` support for mounted SPA, SSR, and SSG
+  routing, destinations, navigation, redirects, activity, and metadata context.
 
 ### 0.0.52 — audit remediation
 

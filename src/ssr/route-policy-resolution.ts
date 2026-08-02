@@ -8,6 +8,10 @@ import * as RouteModule from '../router/route';
 import { _resolveRouteMatchFromRoutes } from '../router/route-matching';
 import { throwSSRDataMissing } from './context';
 import type { RouteRenderOptions, SSRRoute } from './route-render';
+import {
+  normalizeRouteBasePath,
+  removeRouteBasePath,
+} from '../router/base-path';
 
 const MAX_SSR_REDIRECTS = 20;
 
@@ -66,9 +70,16 @@ export function resolvePolicyAwareSSRRoute(
   const visited = new Set<string>();
 
   for (let redirects = 0; redirects <= MAX_SSR_REDIRECTS; redirects += 1) {
-    const requestUrl = new URL(href, 'http://localhost');
+    const logicalHref = removeRouteBasePath(
+      href,
+      normalizeRouteBasePath(manifest.basePath)
+    );
+    if (logicalHref === undefined) {
+      throw new Error(`SSR: no route found for url: ${href}`);
+    }
+    const logicalUrl = new URL(logicalHref, 'http://localhost');
     const matched = _resolveRouteMatchFromRoutes(
-      requestUrl.pathname,
+      logicalUrl.pathname,
       routeTable
     );
 

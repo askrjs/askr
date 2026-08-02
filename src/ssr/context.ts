@@ -29,6 +29,7 @@ export interface RenderContext {
   params?: Record<string, string>;
   routes?: readonly Route[];
   routeAuth?: RouteAuthOptions;
+  basePath?: string;
   authContext?: AuthContext;
   signal?: AbortSignal;
   dataRuntime?: unknown;
@@ -107,6 +108,7 @@ export function createRenderContext(
     params?: Record<string, string>;
     routes?: readonly Route[];
     routeAuth?: RouteAuthOptions;
+    basePath?: string;
     signal?: AbortSignal;
     dataRuntime?: unknown;
     mode?: 'ssr' | 'spa';
@@ -132,6 +134,7 @@ export function createRenderContext(
     params: opts.params,
     routes: opts.routes,
     routeAuth: opts.routeAuth,
+    basePath: opts.basePath,
     signal: opts.signal,
     dataRuntime: opts.dataRuntime ?? createDataRuntime({ queryCache }),
     mode: opts.mode ?? 'ssr',

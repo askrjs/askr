@@ -5,6 +5,7 @@ import type {
   RouteRegistry,
   ResolvedRoute,
 } from '../common/router';
+import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
 import { deepFreeze, parseLocation } from './route-context';
 import {
   computeRank,
@@ -274,8 +275,13 @@ export function computeRouteActivityMatches(
   pathname: string,
   options: { registry: RouteRegistry }
 ): RouteMatch[] {
-  return computeMatchesFromRouteRecords(
+  const logicalPath = removeRouteBasePath(
     pathname,
+    normalizeRouteBasePath(options.registry.manifest.basePath)
+  );
+  if (logicalPath === undefined) return [];
+  return computeMatchesFromRouteRecords(
+    logicalPath,
     options.registry.manifest.records
   );
 }

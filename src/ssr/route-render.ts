@@ -132,6 +132,7 @@ function resolveSSRRouteRender(
 
   const ctx = createRenderContext(seed, {
     url: resolvedRoute.url,
+    basePath: opts.registry.manifest.basePath,
     data,
     params: resolvedRoute.params,
     routes: routeTable,

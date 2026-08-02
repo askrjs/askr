@@ -155,6 +155,24 @@ route('/users/{id}', (params) => params.id, {
   entries: () => [{ id: '1' }],
 });
 
+route('/dehydrate/{id}', () => null, {
+  loader: ({ params }) => ({
+    visible: params.id,
+    secret: 42,
+  }),
+  dehydrate: (data, context) => {
+    expectType<{ visible: string; secret: number }>(data);
+    expectType<{ id: string }>(context.params);
+    return { visible: data.visible };
+  },
+});
+expectError(
+  route('/async-dehydrate', () => null, {
+    loader: () => ({ visible: 'value' }),
+    dehydrate: async (data) => ({ visible: data.visible }),
+  })
+);
+
 page(
   '/settings',
   () => null,
@@ -320,6 +338,7 @@ expectAssignable<RouteAuthOptions>(routeAuthOptions);
 
 const routeRegistryOptions: RouteRegistryOptions = {
   auth: routeAuthOptions,
+  basePath: '/website',
 };
 expectAssignable<RouteRegistryOptions>(routeRegistryOptions);
 

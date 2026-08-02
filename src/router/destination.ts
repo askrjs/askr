@@ -5,6 +5,7 @@ import type {
   RouteSearch,
   RouteSearchValue,
 } from '../common/router';
+import { addRouteBasePath } from './base-path';
 
 function routeParameterName(
   segment: string
@@ -79,7 +80,7 @@ export function to<
   params: TParams,
   search?: TSearch
 ): RouteDestination {
-  const path = buildPath(route, params);
+  const path = addRouteBasePath(buildPath(route, params), route.basePath ?? '');
   const parsedSearch = route.searchSchema?.safeParse(search ?? {});
   if (parsedSearch && !parsedSearch.success) {
     throw new Error(

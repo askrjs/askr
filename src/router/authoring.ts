@@ -29,6 +29,7 @@ import {
   getCurrentPageScope,
   getCurrentPathPrefix,
   getCurrentScopeKind,
+  getDefaultRouteBasePath,
   hasActivePageScope,
   insertRecordSorted,
   pushRegistrationScope,
@@ -75,12 +76,29 @@ type RouteOptionsForComponent<
     | undefined =
     | ObjectSchema<import('../common/router').RouteSearch>
     | undefined,
+  TLoaderData = unknown,
+  TDehydratedData = TLoaderData,
 > =
   Parameters<TComponent> extends []
-    ? RouteOptions<RoutePathParams<Path>, TSearchSchema>
+    ? RouteOptions<
+        RoutePathParams<Path>,
+        TSearchSchema,
+        TLoaderData,
+        TDehydratedData
+      >
     : RouteComponentParam<TComponent> extends RouteParams
-      ? RouteOptions<RouteComponentParam<TComponent>, TSearchSchema>
-      : RouteOptions<RoutePathParams<Path>, TSearchSchema>;
+      ? RouteOptions<
+          RouteComponentParam<TComponent>,
+          TSearchSchema,
+          TLoaderData,
+          TDehydratedData
+        >
+      : RouteOptions<
+          RoutePathParams<Path>,
+          TSearchSchema,
+          TLoaderData,
+          TDehydratedData
+        >;
 
 function validateRoutePath(path: string): void {
   if (!path.startsWith('/')) {
@@ -270,11 +288,13 @@ function normalizeRouteOptions(
   }
 
   const loader = options.loader;
+  const dehydrate = options.dehydrate;
   const preload = options.preload;
   const policies = compileNodePolicies(options);
 
   if (
     !loader &&
+    !dehydrate &&
     !preload &&
     !options.entries &&
     policies.length === 0 &&
@@ -290,6 +310,7 @@ function normalizeRouteOptions(
 
   return {
     ...(loader ? { loader } : {}),
+    ...(dehydrate ? { dehydrate } : {}),
     ...(preload ? { preload } : {}),
     ...(options.entries ? { entries: options.entries } : {}),
     ...(options.auth !== undefined ? { auth: options.auth } : {}),
@@ -490,10 +511,17 @@ export function route<
   const TSearchSchema extends
     | ObjectSchema<import('../common/router').RouteSearch>
     | undefined = undefined,
+  TLoaderData = unknown,
+  TDehydratedData = TLoaderData,
 >(
   path: TPath,
   Component: RouteComponent<RoutePathParams<TPath>>,
-  options?: RouteOptions<RoutePathParams<TPath>, TSearchSchema>
+  options?: RouteOptions<
+    RoutePathParams<TPath>,
+    TSearchSchema,
+    TLoaderData,
+    TDehydratedData
+  >
 ): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;
 export function route<
   const TPath extends string,
@@ -501,10 +529,18 @@ export function route<
   const TSearchSchema extends
     | ObjectSchema<import('../common/router').RouteSearch>
     | undefined = undefined,
+  TLoaderData = unknown,
+  TDehydratedData = TLoaderData,
 >(
   path: TPath,
   Component: CompatibleRouteComponent<TPath, TComponent>,
-  options?: RouteOptionsForComponent<TPath, TComponent, TSearchSchema>
+  options?: RouteOptionsForComponent<
+    TPath,
+    TComponent,
+    TSearchSchema,
+    TLoaderData,
+    TDehydratedData
+  >
 ): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;
 export function route(
   path: string,
@@ -550,6 +586,9 @@ export function route(
   );
   return Object.freeze({
     path: resolveRouteRegistrationPath(path),
+    ...(getDefaultRouteBasePath()
+      ? { basePath: getDefaultRouteBasePath() }
+      : {}),
     ...(options?.search ? { searchSchema: options.search } : {}),
   });
 }

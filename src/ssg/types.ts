@@ -57,6 +57,10 @@ export interface RouteConfig<Path extends string = string> {
   invalidationKeys?: string[];
   /** Route loader resolved completely before static HTML is rendered. */
   loader?: RouteOptions['loader'];
+  /** Select the loader data transported for initial hydration. */
+  dehydrate?: RouteOptions['dehydrate'];
+  /** @internal Public mount point inherited from the owning registry. */
+  basePath?: string;
   /**
    * SSG entry generator for parameterized routes.
    *

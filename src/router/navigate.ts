@@ -21,6 +21,8 @@ import {
   type NavigateOptions,
   type NavigationRedirectState,
 } from './navigation-targets';
+import { addRouteBasePath } from './base-path';
+import { getActiveRouteBasePath } from './store';
 
 export { configureScrollRestoration } from './navigation-scroll';
 export type {
@@ -53,8 +55,9 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
     return;
   }
 
-  const initialTarget = parseTargetUrl(path);
-  navigateWithRedirectState(path, options, {
+  const targetPath = addRouteBasePath(path, getActiveRouteBasePath());
+  const initialTarget = parseTargetUrl(targetPath);
+  navigateWithRedirectState(targetPath, options, {
     redirects: 0,
     visited: new Set([
       `${initialTarget.pathname}${initialTarget.search}${initialTarget.hash}`,

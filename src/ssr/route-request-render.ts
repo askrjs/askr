@@ -299,6 +299,9 @@ async function renderRouteRequestInternal(
     });
   const context = createRenderContext(options.seed, {
     url: options.url,
+    basePath: manifest.basePath,
+    routes: options.registry.routes,
+    routeAuth: options.auth ?? manifest.auth,
     data: options.data,
     framework: options.framework,
     signal,
@@ -320,6 +323,7 @@ async function renderRouteRequestInternal(
       });
       if (!resolved) return { kind: 'no-match' };
       if (resolved.kind !== 'render') return resolved;
+      context.params = resolved.params;
       const sink = new StringSink();
       renderSSRRouteAppToSink({
         route: { path: '', handler: resolved.handler },

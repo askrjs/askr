@@ -18,6 +18,8 @@ import { getOutputFilePath, interpolateRoutePath } from './route-utils';
 import { resolveDeferredValues } from '../router/deferred';
 import { bindResolvedRouteData } from '../router/resolution';
 import { _preloadRouteHandler } from '../router/lazy';
+import { prepareRouteHydrationData } from '../router/route-hydration';
+import { addRouteBasePath } from '../router/base-path';
 
 interface BatchRenderOptions {
   seed?: number;
@@ -48,19 +50,26 @@ export async function batchRenderRoutes(
   let nextIndex = 0;
   const hasUniquePaths =
     new Set(routes.map((route) => route.path)).size === routes.length;
-  const sharedRegistry = hasUniquePaths
-    ? createRouteRegistry(() => {
-        for (const route of routes) {
-          defineRoute(route.path, route.handler, {
-            namespace: route.namespace,
-          });
-        }
-      })
-    : undefined;
+  const basePaths = new Set(routes.map((route) => route.basePath ?? ''));
+  const sharedBasePath = basePaths.size === 1 ? routes[0]?.basePath : undefined;
+  const sharedRegistry =
+    hasUniquePaths && basePaths.size <= 1
+      ? createRouteRegistry(
+          () => {
+            for (const route of routes) {
+              defineRoute(route.path, route.handler, {
+                namespace: route.namespace,
+              });
+            }
+          },
+          { basePath: sharedBasePath }
+        )
+      : undefined;
 
   const renderOne = async (route: RouteConfig): Promise<RouteRenderResult> => {
     const startTime = performance.now();
     const url = interpolateRoutePath(route.path, route.params);
+    const publicUrl = addRouteBasePath(url, route.basePath ?? '');
     const requestUrl = new URL(url, 'http://localhost');
     const resolvedData = resolveSsgRouteData(dataMap, route.path, url);
     const baseData = resolvedData.hasData ? resolvedData.data : undefined;
@@ -74,6 +83,9 @@ export async function batchRenderRoutes(
       await _preloadRouteHandler(mergedHandler);
 
       let routeData: unknown;
+      let routeHydration:
+        | ReturnType<typeof prepareRouteHydrationData>
+        | undefined;
       let hasRouteData = false;
       if (route.loader) {
         const controller = new AbortController();
@@ -92,30 +104,40 @@ export async function batchRenderRoutes(
           },
           signal: controller.signal,
         };
+        const request = new Request(requestUrl);
         const loaded = await route.loader({
           ...loadContext,
-          request: new Request(requestUrl),
+          request,
         });
         await resolveDeferredValues(loaded, controller.signal);
         routeData = loaded;
+        routeHydration = prepareRouteHydrationData(
+          loaded,
+          route.dehydrate,
+          { ...loadContext, request },
+          url
+        );
         hasRouteData = true;
       }
 
       const renderedHandler = hasRouteData
-        ? bindResolvedRouteData(mergedHandler, routeData)
+        ? bindResolvedRouteData(mergedHandler, routeData, routeHydration)
         : mergedHandler;
       const registry =
         hasRouteData || !sharedRegistry
-          ? createRouteRegistry(() => {
-              defineRoute(route.path, renderedHandler, {
-                namespace: route.namespace,
-              });
-            })
+          ? createRouteRegistry(
+              () => {
+                defineRoute(route.path, renderedHandler, {
+                  namespace: route.namespace,
+                });
+              },
+              { basePath: route.basePath }
+            )
           : sharedRegistry;
 
       phase = 'render';
       const html = renderToString({
-        url,
+        url: publicUrl,
         registry,
         seed,
         data: baseData,

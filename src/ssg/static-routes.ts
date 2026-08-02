@@ -133,6 +133,8 @@ function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
       policies: options.policies,
       entries: options.entries,
       loader: options.loader,
+      dehydrate: options.dehydrate,
+      basePath: registry.manifest.basePath,
     });
   }
 

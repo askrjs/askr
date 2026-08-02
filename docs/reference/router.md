@@ -129,12 +129,35 @@ Renders the active child route inside the current `page()` host.
 Registers a route declaration, returns a typed `RouteRef`, and must be called
 during route registration.
 
+### Applications mounted below the origin root
+
+Set one logical-to-public pathname boundary on the registry:
+
+```tsx
+const registry = createRouteRegistry(
+  () => {
+    route('/', HomePage);
+    route('/reviews/{slug}', ReviewPage);
+  },
+  { basePath: '/website' }
+);
+```
+
+Route declarations, loader and metadata contexts, `currentRoute()`, activity
+checks, and SSG output paths remain logical (`/reviews/book`). Browser and SSR
+matching remove `/website` first; typed destinations, `<Link>`, `navigate()`,
+guard/auth redirects, popstate, and query updates use the public mounted URL
+(`/website/reviews/book`). The same registry must be used for server rendering
+and hydration. Use `basePath: ''` or omit it for an origin-root deployment.
+Vite's `base` remains responsible for JavaScript, CSS, and other asset URLs.
+
 - `path`: route template using `{name}` for params and `/*` for catch-all. Inside `page()`, child routes must use relative paths like `tabs`.
 - `Component`: page component function; receives URL params as props and returns normal renderable content
 - `options`
   - `auth`: an `AuthRequirement` such as `requireUser()` or `requireRole('admin')`
   - `policies`: ordered access checks
   - `loader`: route loader `({ params }) => unknown`
+  - `dehydrate`: synchronous selector for the loader data embedded in initial hydration
   - `preload`: query prefetch work for SSR and hydration
   - `entries`: SSG entry generator
   - `search`: executable schema used by typed destinations
@@ -153,6 +176,28 @@ route('/posts/{slug}', PostPage, {
 });
 ```
 
+`loader` data has two consumers during SSR and SSG: the server component and
+the browser hydration envelope. By default both receive the same value. Use
+`dehydrate(data, context)` when the server needs fields that the hydrated page
+does not:
+
+```tsx
+route('/account/{id}', AccountPage, {
+  loader: ({ params }) => loadAccountViewModel(params.id),
+  dehydrate: (data) => ({
+    account: data.account,
+    permissions: data.permissions,
+  }),
+});
+```
+
+The selector runs synchronously after the loader and receives typed loader data
+plus the concrete route context. SSR/SSG components still see the complete
+loader result. Only its return value crosses the HTML transport boundary.
+Initial hydration reads the selected value; reading a branch intentionally
+omitted by the selector throws with the route and property path. A later client
+navigation reruns the loader and exposes the complete result.
+
 Group, page, and leaf metadata compose in declaration order. The deepest scalar
 value wins; Open Graph maps merge, while link and JSON-LD entries append in a
 deterministic order.
@@ -161,6 +206,8 @@ deterministic order.
 
 Builds an immutable typed destination. Missing path params throw, and a
 route's executable search schema rejects invalid values before navigation.
+Destinations declared inside a registry with `basePath` include that public
+prefix.
 
 ```tsx
 const postRoute = route('/posts/{slug}', PostPage, { search: PostSearch });
@@ -175,6 +222,15 @@ const destination = to(postRoute, { slug: 'release' }, { view: 'summary' });
 `routeData<T>()` reads loader output while the matched route renders. Critical
 loader work is awaited. Wrap only non-critical promises in `defer()` and render
 them through `Resolve`, which owns pending, fulfilled, and rejected output.
+
+Hydration transport accepts `null`, strings, booleans, finite numbers, dense
+arrays, plain objects, and Askr `defer()` values. It rejects `undefined`,
+functions, symbols, bigint, non-finite numbers, accessors, class instances,
+`Date`, `Map`, `Set`, sparse arrays, and cycles before a page is published. The
+error identifies the concrete route and property path. Convert richer domain
+objects to transport objects in `dehydrate`; omit credentials, tokens, private
+records, and server-only helpers there rather than relying on `JSON.stringify`
+to drop them.
 
 ```tsx
 const reportRoute = route('/report', ReportPage, {
