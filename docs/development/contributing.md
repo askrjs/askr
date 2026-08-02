@@ -11,6 +11,8 @@ resource, or concrete evaluation and must describe that context in the pull
 request. AI and automation are welcome when disclosed and personally reviewed
 by the person opening the pull request, who must be able to explain, maintain,
 and follow through on the contribution.
+Unattended or mass-generated contributions from parties without a genuine
+interest in Askr are not accepted.
 
 ## Prerequisites
 
