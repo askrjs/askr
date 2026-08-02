@@ -17,7 +17,8 @@ import {
 } from '../runtime';
 import { deepFreeze, makeQuery, parseLocation } from './route-context';
 import { computeMatchesFromRoutes } from './route-matching';
-import { getActiveRoutes } from './store';
+import { getActiveRouteBasePath, getActiveRoutes } from './store';
+import { removeRouteBasePath } from './base-path';
 
 export interface RouteChangeOptions {
   immediate?: boolean;
@@ -114,13 +115,31 @@ export function onRouteChange(
 
 let serverLocation: string | null = null;
 
+function logicalRoutePathname(pathname: string): string | undefined {
+  const logical = removeRouteBasePath(pathname, getActiveRouteBasePath());
+  return logical === undefined ? undefined : parseLocation(logical).pathname;
+}
+
+function routePathname(pathname: string): {
+  pathname: string;
+  withinBasePath: boolean;
+} {
+  const logical = logicalRoutePathname(pathname);
+  return logical === undefined
+    ? { pathname: parseLocation(pathname).pathname, withinBasePath: false }
+    : { pathname: logical, withinBasePath: true };
+}
+
 export function setServerLocation(url: string | null): void {
   serverLocation = url;
   if (url) {
     const parsed = parseLocation(url);
+    const location = routePathname(parsed.pathname);
     syncRouteActivitySnapshot(
-      parsed.pathname,
-      computeMatchesFromRoutes(parsed.pathname, getActiveRoutes())
+      location.pathname,
+      location.withinBasePath
+        ? computeMatchesFromRoutes(location.pathname, getActiveRoutes())
+        : []
     );
     return;
   }
@@ -136,8 +155,12 @@ function buildRouteSnapshot(
   search: string,
   hash: string
 ): RouteSnapshot {
+  const location = routePathname(pathname);
+  pathname = location.pathname;
   const query = makeQuery(search);
-  const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
+  const matches = location.withinBasePath
+    ? computeMatchesFromRoutes(pathname, getActiveRoutes())
+    : [];
 
   return Object.freeze({
     path: pathname,
@@ -156,7 +179,7 @@ function setCurrentRouteSnapshot(
 ): void {
   currentRouteSnapshot = buildRouteSnapshot(pathname, search, hash);
   syncRouteActivitySnapshot(
-    pathname,
+    currentRouteSnapshot.path,
     activityMatches ?? currentRouteSnapshot.matches
   );
 
@@ -179,33 +202,51 @@ function readCurrentRouteLocation(): {
   pathname: string;
   search: string;
   hash: string;
+  withinBasePath: boolean;
 } {
   const renderContext = getActiveRenderContext();
   if (renderContext?.url) {
-    return parseLocation(renderContext.url);
+    const parsed = parseLocation(renderContext.url);
+    const location = routePathname(parsed.pathname);
+    return {
+      ...parsed,
+      ...location,
+    };
   }
 
   const stagedRouteLocation = getStagedAppRenderRouteLocation(
     getCurrentAppRenderRuntime()
   );
   if (stagedRouteLocation) {
-    return parseLocation(stagedRouteLocation);
+    const parsed = parseLocation(stagedRouteLocation);
+    const location = routePathname(parsed.pathname);
+    return {
+      ...parsed,
+      ...location,
+    };
   }
 
   if (typeof window !== 'undefined' && window.location) {
+    const location = routePathname(window.location.pathname || '/');
     return {
-      pathname: window.location.pathname || '/',
+      ...location,
       search: window.location.search || '',
       hash: window.location.hash || '',
     };
   }
 
   if (serverLocation) {
-    return parseLocation(serverLocation);
+    const parsed = parseLocation(serverLocation);
+    const location = routePathname(parsed.pathname);
+    return {
+      ...parsed,
+      ...location,
+    };
   }
 
+  const location = routePathname(currentRouteSnapshot.path);
   return {
-    pathname: currentRouteSnapshot.path,
+    ...location,
     search: '',
     hash: currentRouteSnapshot.hash ?? '',
   };
@@ -220,9 +261,9 @@ export function isRoutePathActive(
     )
   );
 
-  const activePath = normalizeRouteActivityPath(
-    readCurrentRouteLocation().pathname
-  );
+  const location = readCurrentRouteLocation();
+  if (!location.withinBasePath) return false;
+  const activePath = normalizeRouteActivityPath(location.pathname);
   if (candidates.has(activePath)) {
     return true;
   }
@@ -244,12 +285,16 @@ function readCurrentRouteSnapshot<
     );
   }
 
-  const { pathname, search, hash } = readCurrentRouteLocation();
+  const { pathname, search, hash, withinBasePath } = readCurrentRouteLocation();
 
   const query = makeQuery(search);
-  const matches = computeMatchesFromRoutes(pathname, getActiveRoutes());
+  const matches = withinBasePath
+    ? computeMatchesFromRoutes(pathname, getActiveRoutes())
+    : [];
   const routeParams =
-    getActiveRenderContext()?.params ?? matches[0]?.params ?? {};
+    (withinBasePath ? getActiveRenderContext()?.params : undefined) ??
+    matches[0]?.params ??
+    {};
   const params = deepFreeze({
     ...routeParams,
   });

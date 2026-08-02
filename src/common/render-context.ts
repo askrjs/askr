@@ -34,6 +34,7 @@ export interface ActiveRenderContext {
   params?: Record<string, string>;
   routes?: readonly Route[];
   routeAuth?: RouteAuthOptions;
+  basePath?: string;
   authContext?: AuthContext;
   signal?: AbortSignal;
   dataRuntime?: unknown;

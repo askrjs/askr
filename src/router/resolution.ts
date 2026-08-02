@@ -22,6 +22,18 @@ import { getMatchingRouteRecord } from './route-matching';
 import { getActiveRouteAuthOptions } from './store';
 import { setCurrentAuth } from './auth';
 import { _preloadRouteRecord } from './lazy';
+import {
+  prepareRouteHydrationData,
+  ROUTE_HYDRATION_METADATA,
+  withoutRouteHydrationMetadata,
+  type PreparedRouteHydrationData,
+} from './route-hydration';
+import { withPageFramework } from '../common/page-render-envelope';
+import {
+  addRouteBasePath,
+  normalizeRouteBasePath,
+  removeRouteBasePath,
+} from './base-path';
 
 export { resolveRoute } from './route-matching';
 
@@ -64,17 +76,38 @@ function getDefaultRouteMode(): RouteContext['mode'] {
   return typeof window !== 'undefined' ? 'spa' : 'ssr';
 }
 
+function withoutInitialRouteHydrationMetadata(
+  envelope: ReturnType<typeof replacePageRoute>
+) {
+  return withPageFramework(
+    envelope,
+    withoutRouteHydrationMetadata(envelope.framework) ?? {}
+  );
+}
+
 /** @internal Bind resolved loader output to one route subtree and its hydration envelope. */
 export function bindResolvedRouteData(
   handler: RouteHandler,
-  data: unknown
+  data: unknown,
+  hydration?: PreparedRouteHydrationData
 ): RouteHandler {
   return (params, context) => {
     const renderContext = getActiveRenderContext();
     if (renderContext) {
       const envelope = replacePageRoute(renderContext.renderData, data);
-      renderContext.renderData = envelope;
-      renderContext.hydrationData = envelope;
+      renderContext.renderData = hydration
+        ? envelope
+        : withoutInitialRouteHydrationMetadata(envelope);
+      const hydrationEnvelope = replacePageRoute(
+        renderContext.hydrationData,
+        hydration?.data ?? data
+      );
+      renderContext.hydrationData = hydration
+        ? withPageFramework(hydrationEnvelope, {
+            ...hydrationEnvelope.framework,
+            [ROUTE_HYDRATION_METADATA]: hydration.metadata,
+          })
+        : withoutInitialRouteHydrationMetadata(hydrationEnvelope);
     }
     return handler(params, context);
   };
@@ -144,11 +177,20 @@ function buildLoadedRenderResult(
       );
     const loaded = runPreload ? runPreload.then(load) : load();
     const finalize = (data: unknown): RouteRenderResult => {
+      const hydration =
+        context.mode === 'ssr'
+          ? prepareRouteHydrationData(
+              data,
+              record.options?.dehydrate,
+              { ...context, params, request },
+              context.href || context.pathname || record.path
+            )
+          : undefined;
       const result = createRouteRenderResult(
         record,
         params,
         context,
-        bindResolvedRouteData(renderHandler, data)
+        bindResolvedRouteData(renderHandler, data, hydration)
       );
       routeRenderData.set(result, data);
       return result;
@@ -299,9 +341,12 @@ export function resolveRouteRequest(
   if (!options?.registry) {
     throw new TypeError('resolveRouteRequest requires options.registry.');
   }
+  const basePath = normalizeRouteBasePath(options.registry.manifest.basePath);
+  const logicalTarget = removeRouteBasePath(target, basePath);
+  if (logicalTarget === undefined) return null;
   return withTelemetry(options.telemetry?.routeMatch, {}, () => {
     const records = options.registry.manifest.records;
-    const match = getMatchingRouteRecord(target, records);
+    const match = getMatchingRouteRecord(logicalTarget, records);
     if (!match) return null;
     const mode = options.mode ?? getDefaultRouteMode();
     const signal =
@@ -311,18 +356,36 @@ export function resolveRouteRequest(
     const authOptions = getActiveRouteAuthOptions(
       options.auth ?? options.registry.manifest.auth
     );
-    const base = buildRouteContextBase(target, match.params, { mode, signal });
+    const base = buildRouteContextBase(logicalTarget, match.params, {
+      mode,
+      signal,
+    });
+    const exposeRedirect = (result: RouteRequestResult): RouteRequestResult =>
+      result?.kind === 'redirect'
+        ? {
+            ...result,
+            to: addRouteBasePath(result.to, basePath),
+          }
+        : result;
     const finalize = (authContext: AuthContext) => {
       setCurrentAuth(authContext);
-      return resolveMatchedRoute(
+      const result = resolveMatchedRoute(
         match.record,
         match.params,
-        buildRouteContext(target, match.params, { mode, signal, authContext }),
+        buildRouteContext(logicalTarget, match.params, {
+          mode,
+          signal,
+          authContext,
+        }),
         authOptions,
         options.request,
         options.telemetry,
         options.load !== false
       );
+      if (!basePath) return result;
+      return isPromiseLike(result)
+        ? Promise.resolve(result).then(exposeRedirect)
+        : exposeRedirect(result);
     };
     if (options.authContext) return finalize(options.authContext);
     if (!authOptions?.resolve) return finalize(anonymous());

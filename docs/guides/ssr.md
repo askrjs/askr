@@ -52,6 +52,34 @@ function Report() {
 Hydration revives settled deferred data and adopts the streamed DOM; it does
 not rerun the server loader.
 
+## Route data transport and field omission
+
+Route loader values are validated before hydratable output is returned. The
+transport is deliberately JSON-shaped: primitives (with finite numbers), dense
+arrays, plain objects, and Askr deferred-value encoding are supported. Values
+whose JSON representation is lossy or ambiguous are rejected with the concrete
+route and property path.
+
+Use a synchronous route `dehydrate` selector to keep server-only or sensitive
+fields out of the browser payload:
+
+```tsx
+route('/reports/{id}', Report, {
+  loader: ({ params }) => loadReport(params.id),
+  dehydrate: (report) => ({
+    title: report.title,
+    interactiveSeries: report.interactiveSeries,
+  }),
+});
+```
+
+The server render receives the full report. Initial hydration receives only the
+selected object, and an attempted read of a known omitted branch throws an
+actionable error. Normal client navigation reruns the loader and receives the
+complete report. The selector is a transport/security boundary, not a static
+subtree declaration: hydrated components must still be able to render from the
+selected data.
+
 ## URL-based rendering
 
 Use the URL-based helpers when the server should resolve routes explicitly.
@@ -70,6 +98,26 @@ const html = renderToString({
   registry,
 });
 ```
+
+For a deployment mounted below the origin root, configure the registry once:
+
+```ts
+const registry = createRouteRegistry(
+  () => route('/users/{id}', ({ id }) => <div>User {id}</div>),
+  { basePath: '/website' }
+);
+const html = renderToString({
+  url: '/website/users/42?q=active',
+  registry,
+});
+```
+
+SSR matches the physical request after removing the base, while route loaders,
+policies, metadata, and `currentRoute()` observe `/users/42`. Rendered internal
+links include `/website`. Registry-based SSG keeps logical output paths but
+renders the same mounted links, so the hosting layer can publish the artifact
+at either `/website` or `/` by changing `basePath` at build time. Bundler asset
+prefixes are configured separately.
 
 When you pass a registry, URL-based SSR applies the registry's synchronous route
 auth and policy decisions before rendering. Denied routes render the same

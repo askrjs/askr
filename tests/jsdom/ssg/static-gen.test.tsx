@@ -32,6 +32,7 @@ import {
   route,
 } from '../../../src/router/route';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
+import { Link } from '../../../src/components/link';
 
 /** Convert the historical fixture shorthand into the explicit registry API. */
 function createStaticGen(
@@ -960,6 +961,43 @@ describe('Static Site Generation', () => {
       await expect(ssg.generate()).rejects.toThrow(
         'route "/blog/{slug}" missing required param "slug"'
       );
+    });
+
+    it('should render mounted registry links while keeping logical SSG output paths', async () => {
+      let loaderPathname = '';
+      const registry = createRouteRegistry(
+        () => {
+          route(
+            '/reviews/{slug}',
+            ({ slug }) => (
+              <main>
+                {slug}
+                <Link href="/about">About</Link>
+              </main>
+            ),
+            {
+              entries: () => [{ slug: 'book' }],
+              loader: (context) => {
+                loaderPathname = context.pathname;
+                return { slug: context.params.slug };
+              },
+            }
+          );
+        },
+        { basePath: '/website' }
+      );
+      const ssg = createStaticGen({ registry, outputDir: tempDir });
+
+      const result = await ssg.generate();
+
+      expect(result.failed).toBe(0);
+      expect(loaderPathname).toBe('/reviews/book');
+      const html = fs.readFileSync(
+        path.join(tempDir, 'reviews/book/index.html'),
+        'utf8'
+      );
+      expect(html).toContain('href="/website/about"');
+      expect(fs.existsSync(path.join(tempDir, 'website'))).toBe(false);
     });
   });
 

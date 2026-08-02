@@ -85,6 +85,18 @@ export function withPageResources(
   });
 }
 
+export function withPageFramework(
+  value: unknown,
+  framework: Readonly<Record<string, unknown>> | null | undefined
+): PageRenderEnvelope {
+  const current = pageRenderEnvelope(value);
+  return createPageRenderEnvelope({
+    resources: current.resources,
+    route: current.route,
+    framework,
+  });
+}
+
 export function isEmptyPageRenderEnvelope(value: PageRenderEnvelope): boolean {
   return (
     value.route === undefined &&
