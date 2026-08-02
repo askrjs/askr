@@ -3,6 +3,7 @@ export type { LayoutComponent } from './layout';
 
 export { Slot } from './slot';
 export type { SlotProps } from './slot';
+export { cloneElement, isElement } from '../../jsx';
 export type { JSXElement } from '../../jsx';
 
 export { Presence } from './presence';

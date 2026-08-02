@@ -69,11 +69,13 @@ describe('foundations resolution', () => {
     const structures =
       (await import('@askrjs/askr/foundations/structures')) as {
         Slot: unknown;
+        cloneElement: unknown;
         createCollection: unknown;
         createLayer: unknown;
         definePortal: unknown;
         layout: unknown;
         Presence: unknown;
+        isElement: unknown;
       };
 
     expect(typeof structures.layout).toBe('function');
@@ -82,6 +84,8 @@ describe('foundations resolution', () => {
     expect(typeof structures.Presence).toBe('function');
     expect(typeof structures.createCollection).toBe('function');
     expect(typeof structures.createLayer).toBe('function');
+    expect(typeof structures.cloneElement).toBe('function');
+    expect(typeof structures.isElement).toBe('function');
 
     const icon = (await import('@askrjs/askr/foundations/icon')) as {
       IconBase: unknown;

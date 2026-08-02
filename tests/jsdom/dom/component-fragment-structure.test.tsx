@@ -251,12 +251,11 @@ describe('component fragment structure', () => {
     const start = document.createComment('start');
     const input = document.createElement('input');
     const end = document.createComment('end');
-    const outside = document.createElement('button');
-    root.append(start, input, end, outside);
+    root.append(start, input, end);
     input.focus();
 
     const restoreFocus = captureRangeFocus({ start, end, single: false }, root);
-    outside.focus();
+    input.blur();
     const nativeFocus = input.focus.bind(input);
     const focusSpy = vi
       .spyOn(input, 'focus')
@@ -271,6 +270,44 @@ describe('component fragment structure', () => {
     expect(focusSpy).toHaveBeenNthCalledWith(1, { preventScroll: true });
     expect(focusSpy).toHaveBeenNthCalledWith(2);
     expect(document.activeElement).toBe(input);
+  });
+
+  it('should not override focus intentionally moved during a range commit', () => {
+    root = document.createElement('div');
+    document.body.appendChild(root);
+    const start = document.createComment('start');
+    const input = document.createElement('input');
+    const end = document.createComment('end');
+    const destination = document.createElement('button');
+    root.append(start, input, end, destination);
+    input.focus();
+
+    const restoreFocus = captureRangeFocus({ start, end, single: false }, root);
+    destination.focus();
+    restoreFocus();
+
+    expect(document.activeElement).toBe(destination);
+  });
+
+  it('should not override focus intentionally moved to an SVG during a range commit', () => {
+    root = document.createElement('div');
+    document.body.appendChild(root);
+    const start = document.createComment('start');
+    const input = document.createElement('input');
+    const end = document.createComment('end');
+    const destination = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'svg'
+    );
+    destination.setAttribute('tabindex', '0');
+    root.append(start, input, end, destination);
+    input.focus();
+
+    const restoreFocus = captureRangeFocus({ start, end, single: false }, root);
+    destination.focus();
+    restoreFocus();
+
+    expect(document.activeElement).toBe(destination);
   });
 
   it('should keep legacy Fragment symbols transparent across component updates', () => {

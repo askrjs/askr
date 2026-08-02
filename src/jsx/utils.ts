@@ -13,7 +13,9 @@ export function cloneElement(
   props: Record<string, unknown>
 ): JSXElement {
   return {
-    ...element,
+    $$typeof: element.$$typeof,
+    type: element.type,
+    key: element.key,
     props: { ...element.props, ...props },
   };
 }

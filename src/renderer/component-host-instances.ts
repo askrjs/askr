@@ -268,7 +268,7 @@ export function findHostInstanceByType(
     // A single unannotated owner is safe for legacy hydration hosts. Do not
     // fall back to type-only reuse when a wrapper chain has several owners.
     const sameType = instances.filter((instance) => instance.fn === type);
-    if (sameType.length === 1) {
+    if (key === undefined && sameType.length === 1) {
       return sameType[0]!;
     }
     return null;
