@@ -194,7 +194,9 @@ function cleanupAllDelegatedListeners(): void {
 }
 
 function usesDelegatedCapture(eventName: string): boolean {
-  return eventName === 'focus' || eventName === 'blur' || eventName === 'scroll';
+  return (
+    eventName === 'focus' || eventName === 'blur' || eventName === 'scroll'
+  );
 }
 
 function removeContainerDelegatedListener(

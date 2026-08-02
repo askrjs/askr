@@ -112,7 +112,9 @@ describe('nested scope descendant identity', () => {
     let showSecond!: (value: boolean) => void;
 
     function FirstProbe() {
-      return <output data-first-provider={'true'}>{readScope(FirstScope)}</output>;
+      return (
+        <output data-first-provider={'true'}>{readScope(FirstScope)}</output>
+      );
     }
 
     function SecondProbe() {
