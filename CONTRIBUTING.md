@@ -7,6 +7,21 @@ documentation. Related packages such as `askr-ui`, `askr-themes`, `askr-cli`,
 `askr-vite`, `askr-lucide`, and `askr-charts` are maintained in sibling
 repositories.
 
+## Organization Contribution Requirements
+
+This repository follows the
+[Askr organization contribution policy](https://github.com/askrjs/.github/blob/main/CONTRIBUTING.md).
+Contributors must be using Askr, maintaining an Askr integration or community
+resource, or evaluating Askr for a concrete project. Pull requests must briefly
+describe that Askr context.
+
+AI-assisted development and automation are welcome when disclosed. The person
+opening the pull request must personally review the contribution, be able to
+explain and maintain it, and remain available for substantive review follow-up.
+Unattended contributions and mass-generated changes from parties without a
+genuine interest in Askr are not accepted. New contributors should keep one
+pull request open at a time unless a maintainer agrees otherwise.
+
 ## Prerequisites
 
 - Node.js 24.15+ (LTS)
@@ -76,11 +91,13 @@ Primary entry points:
 
 Include:
 
+- Your concrete Askr use, integration, or evaluation context
 - What changed
 - Why it changed
 - Any migration impact
 - Test coverage added or updated
 - Docs updated, when applicable
+- Any material AI or automation assistance, or `None`
 
 ## Release and Versioning
 

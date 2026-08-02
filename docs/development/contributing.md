@@ -2,6 +2,18 @@
 
 How to contribute to the `@askrjs/askr` runtime and platform docs.
 
+## Contributor Eligibility and Automation
+
+All contributions follow the
+[Askr organization contribution policy](https://github.com/askrjs/.github/blob/main/CONTRIBUTING.md).
+Contributors must have a genuine Askr use case, integration, community
+resource, or concrete evaluation and must describe that context in the pull
+request. AI and automation are welcome when disclosed and personally reviewed
+by the person opening the pull request, who must be able to explain, maintain,
+and follow through on the contribution.
+Unattended or mass-generated contributions from parties without a genuine
+interest in Askr are not accepted.
+
 ## Prerequisites
 
 - Node.js 24.15+ (LTS)
