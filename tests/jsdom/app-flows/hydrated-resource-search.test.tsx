@@ -368,16 +368,12 @@ describe('hydrated resource search app flow', () => {
         .mockImplementation((...args) => errors.push(args));
 
       function SearchPage() {
-        const browserReady =
-          clientRender && typeof window !== 'undefined';
-        const results = resource(
-          () => {
-            if (!clientRender || typeof window === 'undefined') return null;
-            starts.push('browser');
-            return request.promise;
-          },
-          [browserReady]
-        );
+        const browserReady = clientRender && typeof window !== 'undefined';
+        const results = resource(() => {
+          if (!clientRender || typeof window === 'undefined') return null;
+          starts.push('browser');
+          return request.promise;
+        }, [browserReady]);
 
         return renderResult(results as ReturnType<typeof resource<string>>);
       }

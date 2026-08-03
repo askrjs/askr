@@ -22,9 +22,9 @@ const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { recursive: true, force: true })
-    )
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true }))
   );
 });
 
@@ -32,7 +32,9 @@ function outputs(
   result: Rollup.RollupOutput | Rollup.RollupOutput[] | Rollup.RollupWatcher
 ): Array<Rollup.OutputAsset | Rollup.OutputChunk> {
   if ('on' in result) {
-    throw new Error('The SSG hydration fixture unexpectedly entered watch mode.');
+    throw new Error(
+      'The SSG hydration fixture unexpectedly entered watch mode.'
+    );
   }
   return (Array.isArray(result) ? result : [result]).flatMap(
     (output) => output.output

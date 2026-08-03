@@ -152,9 +152,8 @@ export function isHydrationVerificationRender(): boolean {
 export function getResourceVerificationSnapshot(
   key: string
 ): ResourceVerificationSnapshot | null {
-  const snapshots = getCurrentRenderData()?.framework[
-    RESOURCE_VERIFICATION_SNAPSHOTS
-  ];
+  const snapshots =
+    getCurrentRenderData()?.framework[RESOURCE_VERIFICATION_SNAPSHOTS];
   if (!snapshots || typeof snapshots !== 'object' || Array.isArray(snapshots)) {
     return null;
   }
