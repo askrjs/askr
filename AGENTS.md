@@ -35,6 +35,7 @@ tests/checks/ - repository validation helpers
 Run the checks that match the change:
 
 ```bash
+npm run fmt -- --check
 npm run lint
 npm run build
 npm test
