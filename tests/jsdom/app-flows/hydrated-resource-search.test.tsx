@@ -334,4 +334,112 @@ describe('hydrated resource search app flow', () => {
     expect(container.textContent).toContain('Grace Hopper');
     expect(container.textContent).not.toContain('Ada Lovelace');
   });
+
+  it.each([
+    {
+      label: 'a direct snapshot conditional',
+      renderResult: (results: ReturnType<typeof resource<string>>) =>
+        results.value ? (
+          <p role="status">{results.value}</p>
+        ) : (
+          <p role="status">Loading...</p>
+        ),
+    },
+    {
+      label: 'Show',
+      renderResult: (results: ReturnType<typeof resource<string>>) => (
+        <Show
+          when={() => results.value}
+          fallback={<p role="status">Loading...</p>}
+        >
+          {(value) => <p role="status">{value}</p>}
+        </Show>
+      ),
+    },
+  ])(
+    'should start a browser-only resource after verified SSG hydration through $label',
+    async ({ renderResult }) => {
+      const request = createControlledDeferred<string>();
+      const starts: string[] = [];
+      let clientRender = false;
+      const errors: unknown[][] = [];
+      const errorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation((...args) => errors.push(args));
+
+      function SearchPage() {
+        const browserReady =
+          clientRender && typeof window !== 'undefined';
+        const results = resource(
+          () => {
+            if (!clientRender || typeof window === 'undefined') return null;
+            starts.push('browser');
+            return request.promise;
+          },
+          [browserReady]
+        );
+
+        return renderResult(results as ReturnType<typeof resource<string>>);
+      }
+
+      try {
+        const routes = [{ path: '/', handler: SearchPage }];
+        const registry = routeRegistryFromTable(routes);
+        container.innerHTML = renderToString({ url: '/', registry });
+        clientRender = true;
+
+        await hydrateSPA({
+          root: container,
+          registry,
+          hydrate: { verifyMarkup: true },
+        });
+        await settleAsyncWork();
+
+        expect(starts).toEqual(['browser']);
+        expect(container.querySelector('[role="status"]')?.textContent).toBe(
+          'Loading...'
+        );
+
+        request.resolve('Search ready');
+        await settleAsyncWork();
+
+        expect(container.querySelector('[role="status"]')?.textContent).toBe(
+          'Search ready'
+        );
+        expect(starts).toEqual(['browser']);
+        expect(errors).toEqual([]);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    }
+  );
+
+  it('should continue verifying synchronous resource output', async () => {
+    const starts: string[] = [];
+
+    function StatusPage() {
+      const status = resource(() => {
+        starts.push('sync');
+        return 'Ready';
+      });
+      return <p role="status">{status.value}</p>;
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: StatusPage },
+    ]);
+    container.innerHTML = renderToString({ url: '/', registry });
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+    await settleAsyncWork();
+
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Ready'
+    );
+    expect(starts).toEqual(['sync', 'sync', 'sync']);
+  });
 });

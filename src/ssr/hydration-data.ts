@@ -2,7 +2,7 @@ import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
 import type { SSRData } from './context';
 import type { DataRuntime } from '../data/types';
 import { dehydrateDataRuntime } from '../data/query-registry';
-import { isDeferred } from '../router/deferred';
+import { isDeferred } from '../common/deferred-value';
 import {
   createPageRenderEnvelope,
   isEmptyPageRenderEnvelope,

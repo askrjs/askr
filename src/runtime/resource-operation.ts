@@ -13,6 +13,9 @@ import {
   getActiveRenderContext,
   getCurrentRenderData,
   getNextRenderKey,
+  getResourceVerificationSnapshot,
+  isHydrationVerificationRender,
+  recordResourceVerificationSnapshot,
   throwSSRDataMissing,
 } from '../common/render-context';
 
@@ -21,6 +24,15 @@ export interface ResourceResult<T> {
   pending: boolean;
   error: Error | null;
   refresh(): void;
+}
+
+function hydrationVerificationSnapshot<T>(): ResourceResult<T> {
+  return brandSnapshotSource({
+    value: null,
+    pending: true,
+    error: null,
+    refresh: () => {},
+  }) as ResourceResult<T>;
 }
 
 /** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
@@ -124,6 +136,17 @@ export function resource<T>(
     return h.snapshot;
   }
 
+  const ssrRenderKey = inst.ssr ? getNextRenderKey() : null;
+  if (isHydrationVerificationRender() && ssrRenderKey) {
+    const snapshot = getResourceVerificationSnapshot(ssrRenderKey);
+    if (snapshot) {
+      const result = hydrationVerificationSnapshot<T>();
+      result.value = snapshot.value as T;
+      result.pending = snapshot.pending;
+      return result;
+    }
+  }
+
   // Persist a holder so the snapshot identity is stable across renders.
   const holder = state<{ cell?: ResourceCell<T>; snapshot: ResourceResult<T> }>(
     {
@@ -178,6 +201,12 @@ export function resource<T>(
         cur.snapshot.value = cell.value;
         cur.snapshot.pending = cell.pending;
         cur.snapshot.error = cell.error;
+      }
+      if (ssrRenderKey && cell.value === null && cell.error === null) {
+        recordResourceVerificationSnapshot(ssrRenderKey, {
+          value: null,
+          pending: cell.pending,
+        });
       }
     } else {
       // Client loaders belong to the successful render transaction. A post

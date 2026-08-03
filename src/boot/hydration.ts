@@ -9,7 +9,7 @@ import type { ComponentFunction } from '../runtime';
 import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
 import { registerDeferredHydrationBoundary } from '../renderer';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
-import { reviveDeferredValue } from '../router/deferred';
+import { reviveDeferredValue } from '../common/deferred-value';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 
 const DEFERRED_PAYLOAD = '__askr_deferred__';

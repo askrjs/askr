@@ -2,7 +2,10 @@ import type { SSRData, SSRStyleRegistration } from './ssr';
 import type { Route, RouteAuthOptions } from './router';
 import { SSRDataMissingError } from './ssr-errors';
 import type { RenderableChild } from './vnode';
-import type { PageRenderEnvelope } from './page-render-envelope';
+import {
+  withPageFramework,
+  type PageRenderEnvelope,
+} from './page-render-envelope';
 import type { AuthContext } from '@askrjs/auth';
 
 export interface DeferredBoundaryRegistration {
@@ -61,6 +64,13 @@ let provider: RenderContextProvider = {
 };
 let hydrationRenderData: PageRenderEnvelope | null = null;
 let hydrationKeyCounter = 0;
+let hydrationVerificationDepth = 0;
+const RESOURCE_VERIFICATION_SNAPSHOTS = 'rv';
+
+export interface ResourceVerificationSnapshot {
+  readonly value: unknown;
+  readonly pending: boolean;
+}
 
 export function configureRenderContextProvider(
   nextProvider: RenderContextProvider
@@ -121,6 +131,65 @@ export function startHydrationRenderPhase(data: PageRenderEnvelope): void {
 export function stopHydrationRenderPhase(): void {
   hydrationRenderData = null;
   hydrationKeyCounter = 0;
+}
+
+/** @internal Run one synchronous client-side markup verification pass. */
+export function withHydrationVerificationRender<T>(fn: () => T): T {
+  hydrationVerificationDepth += 1;
+  try {
+    return fn();
+  } finally {
+    hydrationVerificationDepth -= 1;
+  }
+}
+
+/** @internal Whether resources should reflect their server pending snapshot. */
+export function isHydrationVerificationRender(): boolean {
+  return hydrationVerificationDepth > 0;
+}
+
+/** @internal Read a server-captured resource branch without invoking its loader. */
+export function getResourceVerificationSnapshot(
+  key: string
+): ResourceVerificationSnapshot | null {
+  const snapshots = getCurrentRenderData()?.framework[
+    RESOURCE_VERIFICATION_SNAPSHOTS
+  ];
+  if (!snapshots || typeof snapshots !== 'object' || Array.isArray(snapshots)) {
+    return null;
+  }
+  if (!Object.prototype.hasOwnProperty.call(snapshots, key)) return null;
+  const snapshot = (snapshots as Record<string, unknown>)[key];
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return null;
+  }
+  const candidate = snapshot as Partial<ResourceVerificationSnapshot>;
+  return typeof candidate.pending === 'boolean'
+    ? { value: candidate.value, pending: candidate.pending }
+    : null;
+}
+
+/** @internal Preserve a JSON-safe server branch solely for markup verification. */
+export function recordResourceVerificationSnapshot(
+  key: string,
+  snapshot: ResourceVerificationSnapshot
+): void {
+  const ctx = getActiveRenderContext();
+  const envelope = ctx?.hydrationData;
+  if (!ctx || !envelope) return;
+
+  const current = envelope.framework[RESOURCE_VERIFICATION_SNAPSHOTS];
+  const snapshots =
+    current && typeof current === 'object' && !Array.isArray(current)
+      ? (current as Readonly<Record<string, unknown>>)
+      : {};
+  ctx.hydrationData = withPageFramework(envelope, {
+    ...envelope.framework,
+    [RESOURCE_VERIFICATION_SNAPSHOTS]: {
+      ...snapshots,
+      [key]: snapshot,
+    },
+  });
 }
 
 export function startRenderPhase(data: PageRenderEnvelope | null): void {

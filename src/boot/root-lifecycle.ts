@@ -1,7 +1,10 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
-import { DefaultPortal, disposeDefaultPortalScope } from '../runtime';
+import {
+  disposeRegisteredDefaultPortalScope,
+  getDefaultPortalHost,
+} from '../common/default-portal-runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import {
   initializeNavigation,
@@ -198,7 +201,7 @@ export function mountOrUpdate(
     }
     const portalVNode = {
       $$typeof: ELEMENT_TYPE,
-      type: DefaultPortal,
+      type: getDefaultPortalHost(),
       props: { __askrAutoDefaultPortal: true },
       key: '__default_portal',
     } as unknown;
@@ -290,7 +293,7 @@ export function mountOrUpdate(
 
   attachCleanupForRoot(rootElement, instance);
   registerRootCleanupCallback(rootElement, () => {
-    disposeDefaultPortalScope(instance.portalScope ?? instance);
+    disposeRegisteredDefaultPortalScope(instance.portalScope ?? instance);
   });
   executeComponent(instance);
   flushRuntimeScheduler();
@@ -328,7 +331,9 @@ export function replaceMountedRootInstance(
   nextInstance.isRoot = true;
   attachCleanupForRoot(rootElement, nextInstance);
   registerRootCleanupCallback(rootElement, () => {
-    disposeDefaultPortalScope(nextInstance.portalScope ?? nextInstance);
+    disposeRegisteredDefaultPortalScope(
+      nextInstance.portalScope ?? nextInstance
+    );
   });
   previousInstance.target = null;
 }

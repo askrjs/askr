@@ -11,14 +11,16 @@ import {
   callWithContext,
   cleanupComponent,
   createComponentInstance,
-  DefaultPortal,
-  disposeDefaultPortalScope,
   getExecutionContextFrame,
   getCurrentComponentInstance,
   markVNodeTreeWithContextFrame,
   setCurrentComponentInstance,
 } from '../runtime';
 import type { ContextFrame } from '../runtime';
+import {
+  disposeRegisteredDefaultPortalScope,
+  getDefaultPortalHost,
+} from '../common/default-portal-runtime';
 import { throwSSRDataMissing, type RenderContext } from './context';
 import type { SSRComponent, VNode } from './types';
 
@@ -85,7 +87,7 @@ export function executeComponentSync(
       }
 
       try {
-        disposeDefaultPortalScope(temp);
+        disposeRegisteredDefaultPortalScope(temp);
       } catch (error) {
         if (cleanupError) {
           throw new AggregateError(
@@ -174,7 +176,7 @@ export function wrapWithDefaultPortal(out: unknown): VNode | JSXElement {
 
   const portalVNode = {
     $$typeof: ELEMENT_TYPE,
-    type: DefaultPortal,
+    type: getDefaultPortalHost(),
     props: { __askrAutoDefaultPortal: true },
     key: '__default_portal',
   } as unknown;
