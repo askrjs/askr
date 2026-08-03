@@ -99,53 +99,62 @@ export function resource<T>(
   // to keep component wiring separate and ensure no component access here.
   // (See ./resource-cell.ts)
 
-  // If we're in a synchronous SSR render that was supplied resolved data, use it
+  // Allocate one deterministic key for SSR resources and client hydration
+  // resources backed by preloaded data. Verification snapshots and preloaded
+  // values must consult the same key so mixed pages stay aligned.
   const renderData = getCurrentRenderData()?.resources;
-  if (
+  const hasPreloadedResourceData = Boolean(
     renderData &&
     (getActiveRenderContext()?.resourceDataProvided ||
       Object.keys(renderData).some((key) => key.startsWith('r:')))
-  ) {
-    // Deterministic key generation: the collection step and render step use
-    // the same incremental key generation to align resources.
-    const key = getNextRenderKey();
-    if (!(key in renderData)) {
-      throwSSRDataMissing();
-    }
+  );
+  const renderKey =
+    inst.ssr || hasPreloadedResourceData ? getNextRenderKey() : null;
+  const verificationSnapshot = renderKey
+    ? getResourceVerificationSnapshot(renderKey)
+    : null;
 
-    // Commit synchronous value from render data and return a stable snapshot
-    const val = renderData[key] as T;
-
-    const holder = state<{
-      cell?: ResourceCell<T>;
-      snapshot: ResourceResult<T>;
-    }>({
-      cell: undefined,
-      snapshot: brandSnapshotSource({
-        value: val,
-        pending: false,
-        error: null,
-        refresh: () => {},
-      }) as ResourceResult<T>,
-    });
-
-    const h = holder();
-    h.snapshot.value = val;
-    h.snapshot.pending = false;
-    h.snapshot.error = null;
-    return h.snapshot;
+  if (isHydrationVerificationRender() && verificationSnapshot) {
+    const result = hydrationVerificationSnapshot<T>();
+    result.value = verificationSnapshot.value as T;
+    result.pending = verificationSnapshot.pending;
+    return result;
   }
 
-  const ssrRenderKey = inst.ssr ? getNextRenderKey() : null;
-  if (isHydrationVerificationRender() && ssrRenderKey) {
-    const snapshot = getResourceVerificationSnapshot(ssrRenderKey);
-    if (snapshot) {
-      const result = hydrationVerificationSnapshot<T>();
-      result.value = snapshot.value as T;
-      result.pending = snapshot.pending;
-      return result;
+  // If we're in a synchronous SSR render that was supplied resolved data, use
+  // it. During actual client hydration, only a server-recorded verification
+  // snapshot may identify an intentionally browser-only missing entry.
+  if (renderData && hasPreloadedResourceData && renderKey) {
+    if (!(renderKey in renderData)) {
+      if (inst.ssr || !verificationSnapshot) {
+        throwSSRDataMissing();
+      }
+    } else {
+      // Commit synchronous value from render data and return a stable snapshot
+      const val = renderData[renderKey] as T;
+
+      const holder = state<{
+        cell?: ResourceCell<T>;
+        snapshot: ResourceResult<T>;
+      }>({
+        cell: undefined,
+        snapshot: brandSnapshotSource({
+          value: val,
+          pending: false,
+          error: null,
+          refresh: () => {},
+        }) as ResourceResult<T>,
+      });
+
+      const h = holder();
+      h.snapshot.value = val;
+      h.snapshot.pending = false;
+      h.snapshot.error = null;
+      return h.snapshot;
     }
   }
+
+  const ssrRenderKey = inst.ssr ? renderKey : null;
 
   // Persist a holder so the snapshot identity is stable across renders.
   const holder = state<{ cell?: ResourceCell<T>; snapshot: ResourceResult<T> }>(

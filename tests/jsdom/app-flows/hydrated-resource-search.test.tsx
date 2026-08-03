@@ -410,6 +410,73 @@ describe('hydrated resource search app flow', () => {
     }
   );
 
+  it('should hydrate preloaded and browser-only resources on the same page', async () => {
+    const request = createControlledDeferred<string>();
+    const preloadedStarts: string[] = [];
+    const browserStarts: string[] = [];
+    let clientRender = false;
+
+    function SearchPage() {
+      const profile = resource(() => {
+        preloadedStarts.push(clientRender ? 'client' : 'server');
+        return 'Ada Lovelace';
+      });
+      const browserReady = clientRender && typeof window !== 'undefined';
+      const results = resource(() => {
+        if (!clientRender || typeof window === 'undefined') return null;
+        browserStarts.push('browser');
+        return request.promise;
+      }, [browserReady]);
+
+      return (
+        <main>
+          <p data-profile="true">{profile.value}</p>
+          <p role="status">{results.value ?? 'Loading...'}</p>
+        </main>
+      );
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: SearchPage },
+    ]);
+    container.innerHTML = renderToString({ url: '/', registry });
+
+    const dataScript = container.querySelector(
+      'script[data-askr-render-data="true"]'
+    );
+    const envelope = JSON.parse(dataScript?.textContent ?? '{}') as {
+      resources: Record<string, unknown>;
+    };
+    envelope.resources['r:0'] = 'Ada Lovelace';
+    dataScript!.textContent = JSON.stringify(envelope);
+    clientRender = true;
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+    await settleAsyncWork();
+
+    expect(container.querySelector('[data-profile]')?.textContent).toBe(
+      'Ada Lovelace'
+    );
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Loading...'
+    );
+    expect(preloadedStarts).toEqual(['server']);
+    expect(browserStarts).toEqual(['browser']);
+
+    request.resolve('Search ready');
+    await settleAsyncWork();
+
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Search ready'
+    );
+    expect(preloadedStarts).toEqual(['server', 'client']);
+    expect(browserStarts).toEqual(['browser']);
+  });
+
   it('should continue verifying synchronous resource output', async () => {
     const starts: string[] = [];
 
