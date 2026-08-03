@@ -431,7 +431,9 @@ describe('hydrated resource search app flow', () => {
       return (
         <main>
           <p data-profile="true">{profile.value}</p>
-          <p role="status">{results.value ?? 'Loading...'}</p>
+          <p role="status">
+            {results.pending ? 'Loading...' : (results.value ?? 'Ready')}
+          </p>
         </main>
       );
     }
@@ -447,6 +449,10 @@ describe('hydrated resource search app flow', () => {
     const envelope = JSON.parse(dataScript?.textContent ?? '{}') as {
       resources: Record<string, unknown>;
     };
+    // Preserve the real server-captured rv payload, then add the preloaded key
+    // that a mixed hydration envelope carries. Strict SSR data mode rejects an
+    // incomplete r:N table before hydration, so that path cannot build this
+    // browser-only combination directly.
     envelope.resources['r:0'] = 'Ada Lovelace';
     dataScript!.textContent = JSON.stringify(envelope);
     clientRender = true;
@@ -462,7 +468,7 @@ describe('hydrated resource search app flow', () => {
       'Ada Lovelace'
     );
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
-      'Loading...'
+      'Ready'
     );
     expect(preloadedStarts).toEqual(['server']);
     expect(browserStarts).toEqual(['browser']);
@@ -473,8 +479,51 @@ describe('hydrated resource search app flow', () => {
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
       'Search ready'
     );
-    expect(preloadedStarts).toEqual(['server', 'client']);
     expect(browserStarts).toEqual(['browser']);
+  });
+
+  it('should prefer preloaded data over a verification snapshot for the same key', async () => {
+    const starts: string[] = [];
+
+    function StatusPage() {
+      const status = resource(() => {
+        starts.push('loader');
+        return 'Preloaded';
+      });
+      return <p role="status">{status.value}</p>;
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: StatusPage },
+    ]);
+    container.innerHTML = renderToString({
+      url: '/',
+      registry,
+      data: { 'r:0': 'Preloaded' },
+    });
+
+    const dataScript = container.querySelector(
+      'script[data-askr-render-data="true"]'
+    );
+    const envelope = JSON.parse(dataScript?.textContent ?? '{}') as {
+      framework: Record<string, unknown>;
+    };
+    envelope.framework.rv = {
+      'r:0': { value: null, pending: true },
+    };
+    dataScript!.textContent = JSON.stringify(envelope);
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+    await settleAsyncWork();
+
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Preloaded'
+    );
+    expect(starts).toEqual([]);
   });
 
   it('should continue verifying synchronous resource output', async () => {

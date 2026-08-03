@@ -114,6 +114,36 @@ export function resource<T>(
     ? getResourceVerificationSnapshot(renderKey)
     : null;
 
+  // A concrete preloaded value is authoritative even if stale framework
+  // metadata also contains a verification snapshot for the same key.
+  if (
+    renderData &&
+    hasPreloadedResourceData &&
+    renderKey &&
+    renderKey in renderData
+  ) {
+    const val = renderData[renderKey] as T;
+
+    const holder = state<{
+      cell?: ResourceCell<T>;
+      snapshot: ResourceResult<T>;
+    }>({
+      cell: undefined,
+      snapshot: brandSnapshotSource({
+        value: val,
+        pending: false,
+        error: null,
+        refresh: () => {},
+      }) as ResourceResult<T>,
+    });
+
+    const h = holder();
+    h.snapshot.value = val;
+    h.snapshot.pending = false;
+    h.snapshot.error = null;
+    return h.snapshot;
+  }
+
   if (isHydrationVerificationRender() && verificationSnapshot) {
     const result = hydrationVerificationSnapshot<T>();
     result.value = verificationSnapshot.value as T;
@@ -121,48 +151,29 @@ export function resource<T>(
     return result;
   }
 
-  // If we're in a synchronous SSR render that was supplied resolved data, use
-  // it. During actual client hydration, only a server-recorded verification
+  // During actual client hydration, only a server-recorded verification
   // snapshot may identify an intentionally browser-only missing entry.
-  if (renderData && hasPreloadedResourceData && renderKey) {
-    if (!(renderKey in renderData)) {
-      if (inst.ssr || !verificationSnapshot) {
-        throwSSRDataMissing();
-      }
-    } else {
-      // Commit synchronous value from render data and return a stable snapshot
-      const val = renderData[renderKey] as T;
-
-      const holder = state<{
-        cell?: ResourceCell<T>;
-        snapshot: ResourceResult<T>;
-      }>({
-        cell: undefined,
-        snapshot: brandSnapshotSource({
-          value: val,
-          pending: false,
-          error: null,
-          refresh: () => {},
-        }) as ResourceResult<T>,
-      });
-
-      const h = holder();
-      h.snapshot.value = val;
-      h.snapshot.pending = false;
-      h.snapshot.error = null;
-      return h.snapshot;
-    }
+  if (
+    renderData &&
+    hasPreloadedResourceData &&
+    renderKey &&
+    (inst.ssr || !verificationSnapshot)
+  ) {
+    throwSSRDataMissing();
   }
 
   const ssrRenderKey = inst.ssr ? renderKey : null;
+  const clientHydrationSnapshot = inst.ssr ? null : verificationSnapshot;
 
   // Persist a holder so the snapshot identity is stable across renders.
   const holder = state<{ cell?: ResourceCell<T>; snapshot: ResourceResult<T> }>(
     {
       cell: undefined,
       snapshot: brandSnapshotSource({
-        value: null,
-        pending: true,
+        value: clientHydrationSnapshot
+          ? (clientHydrationSnapshot.value as T)
+          : null,
+        pending: clientHydrationSnapshot?.pending ?? true,
         error: null,
         refresh: () => {},
       }) as ResourceResult<T>,
@@ -175,6 +186,12 @@ export function resource<T>(
   if (!h.cell) {
     const frame = getCurrentContextFrame();
     const cell = new ResourceCell<T>(fn, deps, frame);
+    if (clientHydrationSnapshot) {
+      cell.value = clientHydrationSnapshot.value as T;
+      cell.pending = clientHydrationSnapshot.pending;
+      cell.snapshot.value = clientHydrationSnapshot.value as T;
+      cell.snapshot.pending = clientHydrationSnapshot.pending;
+    }
     // Attach debug label (component name) for richer logs
     cell.ownerName = inst.fn?.name || '<anonymous>';
     h.cell = cell;
