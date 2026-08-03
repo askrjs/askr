@@ -311,6 +311,11 @@ describe('architecture boundaries', () => {
   });
 
   it('should keep runtime internals behind the runtime facade for external consumers', () => {
+    const optionalCapabilityEdges = new Set([
+      // The foundations entry is the explicit opt-in boundary that registers
+      // portal support without retaining it in every runtime consumer.
+      'src/foundations/structures/portal.tsx -> src/runtime/portal.ts',
+    ]);
     const forbidden = edges
       .filter((edge) => !edge.typeOnly && area(edge.from) !== 'runtime')
       .filter(
@@ -319,6 +324,7 @@ describe('architecture boundaries', () => {
           relative(edge.to) !== 'src/runtime/index.ts'
       )
       .map(format)
+      .filter((edge) => !optionalCapabilityEdges.has(edge))
       .sort();
     expect(forbidden).toEqual([]);
   });

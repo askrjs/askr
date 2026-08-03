@@ -25,7 +25,6 @@ export {
   trackRouteGeneration,
 } from './ownership-diagnostics';
 export * from './perf-metrics';
-export * from './portal';
 export * from './readable';
 export * from './runtime';
 export {

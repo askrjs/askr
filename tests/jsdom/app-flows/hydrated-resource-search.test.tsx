@@ -334,4 +334,224 @@ describe('hydrated resource search app flow', () => {
     expect(container.textContent).toContain('Grace Hopper');
     expect(container.textContent).not.toContain('Ada Lovelace');
   });
+
+  it.each([
+    {
+      label: 'a direct snapshot conditional',
+      renderResult: (results: ReturnType<typeof resource<string>>) =>
+        results.value ? (
+          <p role="status">{results.value}</p>
+        ) : (
+          <p role="status">Loading...</p>
+        ),
+    },
+    {
+      label: 'Show',
+      renderResult: (results: ReturnType<typeof resource<string>>) => (
+        <Show
+          when={() => results.value}
+          fallback={<p role="status">Loading...</p>}
+        >
+          {(value) => <p role="status">{value}</p>}
+        </Show>
+      ),
+    },
+  ])(
+    'should start a browser-only resource after verified SSG hydration through $label',
+    async ({ renderResult }) => {
+      const request = createControlledDeferred<string>();
+      const starts: string[] = [];
+      let clientRender = false;
+      const errors: unknown[][] = [];
+      const errorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation((...args) => errors.push(args));
+
+      function SearchPage() {
+        const browserReady = clientRender && typeof window !== 'undefined';
+        const results = resource(() => {
+          if (!clientRender || typeof window === 'undefined') return null;
+          starts.push('browser');
+          return request.promise;
+        }, [browserReady]);
+
+        return renderResult(results as ReturnType<typeof resource<string>>);
+      }
+
+      try {
+        const routes = [{ path: '/', handler: SearchPage }];
+        const registry = routeRegistryFromTable(routes);
+        container.innerHTML = renderToString({ url: '/', registry });
+        clientRender = true;
+
+        await hydrateSPA({
+          root: container,
+          registry,
+          hydrate: { verifyMarkup: true },
+        });
+        await settleAsyncWork();
+
+        expect(starts).toEqual(['browser']);
+        expect(container.querySelector('[role="status"]')?.textContent).toBe(
+          'Loading...'
+        );
+
+        request.resolve('Search ready');
+        await settleAsyncWork();
+
+        expect(container.querySelector('[role="status"]')?.textContent).toBe(
+          'Search ready'
+        );
+        expect(starts).toEqual(['browser']);
+        expect(errors).toEqual([]);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    }
+  );
+
+  it('should hydrate preloaded and browser-only resources on the same page', async () => {
+    const request = createControlledDeferred<string>();
+    const preloadedStarts: string[] = [];
+    const browserStarts: string[] = [];
+    let clientRender = false;
+
+    function SearchPage() {
+      const profile = resource(() => {
+        preloadedStarts.push(clientRender ? 'client' : 'server');
+        return 'Ada Lovelace';
+      });
+      const browserReady = clientRender && typeof window !== 'undefined';
+      const results = resource(() => {
+        if (!clientRender || typeof window === 'undefined') return null;
+        browserStarts.push('browser');
+        return request.promise;
+      }, [browserReady]);
+
+      return (
+        <main>
+          <p data-profile="true">{profile.value}</p>
+          <p role="status">
+            {results.pending ? 'Loading...' : (results.value ?? 'Ready')}
+          </p>
+        </main>
+      );
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: SearchPage },
+    ]);
+    container.innerHTML = renderToString({ url: '/', registry });
+
+    const dataScript = container.querySelector(
+      'script[data-askr-render-data="true"]'
+    );
+    const envelope = JSON.parse(dataScript?.textContent ?? '{}') as {
+      resources: Record<string, unknown>;
+    };
+    // Preserve the real server-captured rv payload, then add the preloaded key
+    // that a mixed hydration envelope carries. Strict SSR data mode rejects an
+    // incomplete r:N table before hydration, so that path cannot build this
+    // browser-only combination directly.
+    envelope.resources['r:0'] = 'Ada Lovelace';
+    dataScript!.textContent = JSON.stringify(envelope);
+    clientRender = true;
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+    await settleAsyncWork();
+
+    expect(container.querySelector('[data-profile]')?.textContent).toBe(
+      'Ada Lovelace'
+    );
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Ready'
+    );
+    expect(preloadedStarts).toEqual(['server']);
+    expect(browserStarts).toEqual(['browser']);
+
+    request.resolve('Search ready');
+    await settleAsyncWork();
+
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Search ready'
+    );
+    expect(browserStarts).toEqual(['browser']);
+  });
+
+  it('should prefer preloaded data over a verification snapshot for the same key', async () => {
+    const starts: string[] = [];
+
+    function StatusPage() {
+      const status = resource(() => {
+        starts.push('loader');
+        return 'Preloaded';
+      });
+      return <p role="status">{status.value}</p>;
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: StatusPage },
+    ]);
+    container.innerHTML = renderToString({
+      url: '/',
+      registry,
+      data: { 'r:0': 'Preloaded' },
+    });
+
+    const dataScript = container.querySelector(
+      'script[data-askr-render-data="true"]'
+    );
+    const envelope = JSON.parse(dataScript?.textContent ?? '{}') as {
+      framework: Record<string, unknown>;
+    };
+    envelope.framework.rv = {
+      'r:0': { value: null, pending: true },
+    };
+    dataScript!.textContent = JSON.stringify(envelope);
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+    await settleAsyncWork();
+
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Preloaded'
+    );
+    expect(starts).toEqual([]);
+  });
+
+  it('should continue verifying synchronous resource output', async () => {
+    const starts: string[] = [];
+
+    function StatusPage() {
+      const status = resource(() => {
+        starts.push('sync');
+        return 'Ready';
+      });
+      return <p role="status">{status.value}</p>;
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: StatusPage },
+    ]);
+    container.innerHTML = renderToString({ url: '/', registry });
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+    await settleAsyncWork();
+
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Ready'
+    );
+    expect(starts).toEqual(['sync', 'sync', 'sync']);
+  });
 });

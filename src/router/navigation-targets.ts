@@ -5,7 +5,10 @@ import type {
   RouteRenderResult,
   RouteRequestResult,
 } from '../common/router';
-import { DefaultPortal, clearDefaultPortalForInstance } from '../runtime';
+import {
+  clearRegisteredDefaultPortalForInstance,
+  getDefaultPortalHost,
+} from '../common/default-portal-runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import { CspNonceScope } from '../csp-nonce';
 import { logger } from '../common/logger';
@@ -187,7 +190,7 @@ function wrapRootRouteHandler(
     }
     const portalVNode = {
       $$typeof: ELEMENT_TYPE,
-      type: DefaultPortal,
+      type: getDefaultPortalHost(),
       props: { __askrAutoDefaultPortal: true },
       key: '__default_portal',
     } as unknown;
@@ -615,7 +618,7 @@ function remountResolvedRoute(
   // renderer commit path, after the new tree has been accepted.
   const deferredCleanup =
     existingSnapshot ?? captureDeferredRouteCleanup(instance);
-  clearDefaultPortalForInstance(instance);
+  clearRegisteredDefaultPortalForInstance(instance);
   instance.fn = wrapRootRouteHandler(
     bindResolvedRouteHandler(resolved),
     instance._cspNonce

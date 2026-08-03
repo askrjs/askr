@@ -1,7 +1,6 @@
 import type { RouteHandler, RouteRegistry } from '../common/router';
 import type { DataRuntime } from '../data/types';
 import { resolveRouteFromRoutes } from '../router/route-matching';
-import { createRouteRegistry, route as defineRoute } from '../router/route';
 import type { SSRData } from './context';
 import { renderToString } from './index';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
@@ -65,11 +64,35 @@ export function renderResolvedToStringSync(opts: {
   const effectiveRoutes = routes.map((route, index) =>
     index === matchedIndex ? { ...route, handler } : route
   );
-  const effectiveRegistry = createRouteRegistry(() => {
-    for (const route of effectiveRoutes) {
-      defineRoute(route.path, route.handler, { namespace: route.namespace });
-    }
+  const matchedRoute = routes[matchedIndex]!;
+  const effectiveRecords = registry.manifest.records.map((record) => {
+    const isMatchedRecord =
+      record.path === matchedRoute.path &&
+      record.handler === matchedRoute.handler &&
+      record.options.namespace === matchedRoute.namespace;
+    const effectiveHandler = isMatchedRecord ? handler : record.handler;
+
+    return {
+      ...record,
+      component: effectiveHandler,
+      handler: effectiveHandler,
+      layoutChain: [],
+      pageChain: [],
+      options: record.options.namespace
+        ? { namespace: record.options.namespace }
+        : {},
+      metaChain: undefined,
+    };
   });
+  const effectiveRegistry = {
+    manifest: {
+      records: effectiveRecords,
+      ...(registry.manifest.basePath
+        ? { basePath: registry.manifest.basePath }
+        : {}),
+    },
+    routes: effectiveRoutes,
+  } as unknown as RouteRegistry;
 
   return renderToString({
     url,

@@ -13,6 +13,9 @@ import {
   getActiveRenderContext,
   getCurrentRenderData,
   getNextRenderKey,
+  getResourceVerificationSnapshot,
+  isHydrationVerificationRender,
+  recordResourceVerificationSnapshot,
   throwSSRDataMissing,
 } from '../common/render-context';
 
@@ -21,6 +24,15 @@ export interface ResourceResult<T> {
   pending: boolean;
   error: Error | null;
   refresh(): void;
+}
+
+function hydrationVerificationSnapshot<T>(): ResourceResult<T> {
+  return brandSnapshotSource({
+    value: null,
+    pending: true,
+    error: null,
+    refresh: () => {},
+  }) as ResourceResult<T>;
 }
 
 /** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
@@ -87,22 +99,30 @@ export function resource<T>(
   // to keep component wiring separate and ensure no component access here.
   // (See ./resource-cell.ts)
 
-  // If we're in a synchronous SSR render that was supplied resolved data, use it
+  // Allocate one deterministic key for SSR resources and client hydration
+  // resources backed by preloaded data. Verification snapshots and preloaded
+  // values must consult the same key so mixed pages stay aligned.
   const renderData = getCurrentRenderData()?.resources;
-  if (
+  const hasPreloadedResourceData = Boolean(
     renderData &&
     (getActiveRenderContext()?.resourceDataProvided ||
       Object.keys(renderData).some((key) => key.startsWith('r:')))
-  ) {
-    // Deterministic key generation: the collection step and render step use
-    // the same incremental key generation to align resources.
-    const key = getNextRenderKey();
-    if (!(key in renderData)) {
-      throwSSRDataMissing();
-    }
+  );
+  const renderKey =
+    inst.ssr || hasPreloadedResourceData ? getNextRenderKey() : null;
+  const verificationSnapshot = renderKey
+    ? getResourceVerificationSnapshot(renderKey)
+    : null;
 
-    // Commit synchronous value from render data and return a stable snapshot
-    const val = renderData[key] as T;
+  // A concrete preloaded value is authoritative even if stale framework
+  // metadata also contains a verification snapshot for the same key.
+  if (
+    renderData &&
+    hasPreloadedResourceData &&
+    renderKey &&
+    renderKey in renderData
+  ) {
+    const val = renderData[renderKey] as T;
 
     const holder = state<{
       cell?: ResourceCell<T>;
@@ -124,13 +144,36 @@ export function resource<T>(
     return h.snapshot;
   }
 
+  if (isHydrationVerificationRender() && verificationSnapshot) {
+    const result = hydrationVerificationSnapshot<T>();
+    result.value = verificationSnapshot.value as T;
+    result.pending = verificationSnapshot.pending;
+    return result;
+  }
+
+  // During actual client hydration, only a server-recorded verification
+  // snapshot may identify an intentionally browser-only missing entry.
+  if (
+    renderData &&
+    hasPreloadedResourceData &&
+    renderKey &&
+    (inst.ssr || !verificationSnapshot)
+  ) {
+    throwSSRDataMissing();
+  }
+
+  const ssrRenderKey = inst.ssr ? renderKey : null;
+  const clientHydrationSnapshot = inst.ssr ? null : verificationSnapshot;
+
   // Persist a holder so the snapshot identity is stable across renders.
   const holder = state<{ cell?: ResourceCell<T>; snapshot: ResourceResult<T> }>(
     {
       cell: undefined,
       snapshot: brandSnapshotSource({
-        value: null,
-        pending: true,
+        value: clientHydrationSnapshot
+          ? (clientHydrationSnapshot.value as T)
+          : null,
+        pending: clientHydrationSnapshot?.pending ?? true,
         error: null,
         refresh: () => {},
       }) as ResourceResult<T>,
@@ -143,6 +186,12 @@ export function resource<T>(
   if (!h.cell) {
     const frame = getCurrentContextFrame();
     const cell = new ResourceCell<T>(fn, deps, frame);
+    if (clientHydrationSnapshot) {
+      cell.value = clientHydrationSnapshot.value as T;
+      cell.pending = clientHydrationSnapshot.pending;
+      cell.snapshot.value = clientHydrationSnapshot.value as T;
+      cell.snapshot.pending = clientHydrationSnapshot.pending;
+    }
     // Attach debug label (component name) for richer logs
     cell.ownerName = inst.fn?.name || '<anonymous>';
     h.cell = cell;
@@ -178,6 +227,12 @@ export function resource<T>(
         cur.snapshot.value = cell.value;
         cur.snapshot.pending = cell.pending;
         cur.snapshot.error = cell.error;
+      }
+      if (ssrRenderKey && cell.value === null && cell.error === null) {
+        recordResourceVerificationSnapshot(ssrRenderKey, {
+          value: null,
+          pending: cell.pending,
+        });
       }
     } else {
       // Client loaders belong to the successful render transaction. A post

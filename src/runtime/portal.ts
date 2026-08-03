@@ -31,6 +31,7 @@ import {
   registerLifecycleTransaction,
   type LifecycleCommitBatch,
 } from './component-lifecycle';
+import { registerDefaultPortalRuntime } from '../common/default-portal-runtime';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -746,3 +747,11 @@ export function Portal(props: PortalProps): JSXElement | null {
   writeDefaultPortal(props, owner);
   return null;
 }
+
+registerDefaultPortalRuntime({
+  host: DefaultPortal,
+  clearForInstance(instance) {
+    clearDefaultPortalForInstance(instance as ComponentInstance);
+  },
+  disposeScope: disposeDefaultPortalScope,
+});
