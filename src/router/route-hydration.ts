@@ -1,20 +1,16 @@
 import type { RouteContext, RouteOptions } from '../common/router';
 import { isPromiseLike } from '../common/promise';
-
-const DEFERRED_VALUE = Symbol.for('@askrjs/askr/deferred-value');
+import { isDeferred } from '../common/deferred-value';
 
 type DeferredHydrationValue = {
   readonly state: 'pending' | 'fulfilled' | 'rejected';
   readonly value?: unknown;
-  readonly [DEFERRED_VALUE]: true;
 };
 
 function isDeferredHydrationValue(
   value: unknown
 ): value is DeferredHydrationValue {
-  if (!value || typeof value !== 'object') return false;
-  const marker = Object.getOwnPropertyDescriptor(value, DEFERRED_VALUE);
-  return Boolean(marker && 'value' in marker && marker.value === true);
+  return isDeferred(value);
 }
 
 /** Compact, framework-owned route hydration metadata key. */

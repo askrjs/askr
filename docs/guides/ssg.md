@@ -8,6 +8,28 @@ SSG can await build-time route expansion such as `entries()`, but each page is
 rendered by the synchronous SSR engine. Async components, async `resource()`
 loaders, and async document renderers are rejected during the page render.
 
+## Hydration bundle boundaries
+
+The browser boot path loads only the runtime needed for the hydrated route.
+Portal hosting, deferred route rendering, and route-authoring implementation
+are not retained by `hydrateSPA()` itself. They enter a client bundle only when
+application code imports those capabilities. In particular, a client route
+module that imports `route()`, `group()`, or other declaration helpers is an
+explicit authoring import; hydration verification does not add a second
+framework-owned dependency on that authoring implementation.
+
+Import `Portal`, `DefaultPortal`, or `definePortal` from the foundations entry
+when a route needs portals. Loading that entry also installs the automatic
+default host used by SPA, SSR, and SSG rendering. Routes that do not import the
+portal capability do not pay for its runtime.
+
+Hydration markup verification preserves the server-rendered loading branch for
+a `resource()` without preloaded resource data. This supports browser-only
+loaders that return a synchronous placeholder on the server: verification does
+not start the loader, and the real client component starts it only after
+hydration commits. SSR and SSG remain strict when an async resource is
+encountered during the actual server render.
+
 ## What SSG generates
 
 - Route HTML files: `/` -> `index.html`, `/about` -> `about/index.html`

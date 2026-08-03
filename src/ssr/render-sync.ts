@@ -34,7 +34,7 @@ import { startRenderPhase, stopRenderPhase } from './render-keys';
 import type { RouteAppRenderInput } from './route-render';
 import { StringSink } from './sink';
 import type { VNode } from './types';
-import { DEFERRED_BOUNDARY } from '../router/deferred';
+import { DEFERRED_BOUNDARY } from '../common/deferred-value';
 import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 
 const __SSR_DEBUG =
