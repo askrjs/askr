@@ -21,6 +21,10 @@ function isEventHandler(key: string): boolean {
   return key.length >= 2 && key.slice(0, 2).toLowerCase() === 'on';
 }
 
+function isAriaAttribute(key: string): boolean {
+  return key.length > 5 && key.slice(0, 5).toLowerCase() === 'aria-';
+}
+
 function assertAttributeName(name: string): void {
   if (!/^[A-Za-z_:][A-Za-z0-9_.:-]*$/.test(name)) {
     throw new TypeError(`Invalid SSR attribute name: ${JSON.stringify(name)}`);
@@ -104,7 +108,12 @@ export function renderAttrsDirect(
       continue;
     }
 
-    if (value === false || value === null || value === undefined) continue;
+    if (
+      value === null ||
+      value === undefined ||
+      (value === false && !isAriaAttribute(attrName))
+    )
+      continue;
 
     // Regular attributes
     const strValue = String(value);
@@ -180,7 +189,11 @@ export function renderAttrs(
     // Boolean attributes
     if (value === true) {
       attrParts.push(` ${attrName}`);
-    } else if (value === false || value === null || value === undefined) {
+    } else if (
+      value === null ||
+      value === undefined ||
+      (value === false && !isAriaAttribute(attrName))
+    ) {
       continue;
     } else {
       const strValue = String(value);
