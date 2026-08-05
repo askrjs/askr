@@ -414,10 +414,12 @@ function executeComponentSync(
     if (trackRenderTime) {
       const renderTime = Date.now() - renderStartTime;
       if (renderTime > 5) {
+        const componentName = instance.fn?.name || '<anonymous>';
         warnInstanceOnce(
           instance,
           'slow-render',
-          `[askr] Slow render detected: ${renderTime}ms. Consider optimizing component performance.`
+          `[askr] Slow render detected in ${componentName}: ${renderTime}ms. ` +
+            'Consider optimizing component performance.'
         );
       }
     }
