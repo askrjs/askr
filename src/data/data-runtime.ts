@@ -20,6 +20,7 @@ export type DataRuntimeState = {
   >;
   queryCleanupRegistered: WeakSet<object>;
   mutationCleanupRegistered: WeakSet<object>;
+  queryTestOverrides: Map<string, unknown>;
 };
 
 const dataRuntimeStates = new WeakMap<DataRuntime, DataRuntimeState>();
@@ -30,7 +31,8 @@ const dataRuntimeByQueryCache = new WeakMap<
 
 function createDataRuntimeState(
   queryCache: Map<string, unknown>,
-  queryData: Map<string, unknown>
+  queryData: Map<string, unknown>,
+  queryTestOverrides: Map<string, unknown>
 ): DataRuntimeState {
   return {
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
@@ -39,6 +41,7 @@ function createDataRuntimeState(
     mutationSlotsByGeneration: new WeakMap(),
     queryCleanupRegistered: new WeakSet(),
     mutationCleanupRegistered: new WeakSet(),
+    queryTestOverrides,
   };
 }
 
@@ -48,10 +51,16 @@ export function createDataRuntime(
   const runtime: DataRuntime = Object.freeze({
     queryCache: options.queryCache ?? new Map<string, unknown>(),
     queryData: options.queryData ?? new Map<string, unknown>(),
+    queryTestOverrides:
+      options.queryTestOverrides ?? new Map<string, unknown>(),
   });
   dataRuntimeStates.set(
     runtime,
-    createDataRuntimeState(runtime.queryCache, runtime.queryData)
+    createDataRuntimeState(
+      runtime.queryCache,
+      runtime.queryData,
+      runtime.queryTestOverrides
+    )
   );
   dataRuntimeByQueryCache.set(runtime.queryCache, runtime);
   return runtime;

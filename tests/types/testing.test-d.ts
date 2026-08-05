@@ -1,7 +1,9 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   cleanup,
+  click,
   createInvalidationRecorder,
+  createQueryTestRegistry,
   dispatch,
   flush,
   getRouteWarnings,
@@ -19,6 +21,7 @@ import {
   type RoutePatternWarning,
   type MockQueryOptions,
   type MockRefresh,
+  type QueryTestRegistry,
 } from '@askrjs/askr/testing';
 import type { Query } from '@askrjs/askr/data';
 import { createRouteRegistry, route } from '@askrjs/askr/router';
@@ -123,6 +126,12 @@ expectType<void>(rendered.unmount());
 expectType<void>(rendered.cleanup());
 expectType<void>(flush());
 expectType<boolean>(dispatch(rendered.root, new Event('click')));
+expectType<boolean>(click(rendered.root));
+const queryRegistry = createQueryTestRegistry();
+expectType<QueryTestRegistry>(queryRegistry);
+expectType<void>(queryRegistry.set('users:all', friendlyFresh));
+expectType<void>(queryRegistry.delete('users:all'));
+expectType<void>(queryRegistry.clear());
 expectType<boolean>(dispatch(rendered.root, 'click', { clientX: 42 }));
 expectType<boolean>(dispatch(rendered.root, 'keydown', { key: 'Enter' }));
 expectType<void>(cleanup(rendered));

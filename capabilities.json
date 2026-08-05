@@ -13,6 +13,31 @@
       "docsPath": "docs/guides/state.md"
     },
     {
+      "intent": "data queries and mutations",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/data",
+      "exports": ["createQuery", "defineQuery", "queryScope", "createMutation"],
+      "constraints": [
+        "query keys identify shared cache entries",
+        "fetches are cancellable"
+      ],
+      "stability": "stable",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/core/data.md",
+      "docsPath": "docs/core/data.md"
+    },
+    {
+      "intent": "test query-state fixtures",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/testing",
+      "exports": ["queryState"],
+      "constraints": [
+        "fixtures are test-only and do not perform network requests"
+      ],
+      "stability": "stable",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/contributing/testing.md",
+      "docsPath": "docs/contributing/testing.md"
+    },
+    {
       "intent": "routing and navigation",
       "package": "@askrjs/askr",
       "import": "@askrjs/askr/router",

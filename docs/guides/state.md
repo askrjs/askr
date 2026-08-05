@@ -131,3 +131,23 @@ content, including fragments and sibling arrays.
 4. Do not mutate during render.
 
 These rules are enforced at runtime.
+
+## Reactive reads in JSX
+
+Signal getters are tracked only when they are called while the component is
+rendering. A value assigned from a getter is an ordinary JavaScript snapshot:
+
+```tsx
+const active = activeTab(); // snapshot; later JSX uses this fixed value
+return <Panel active={active} />;
+```
+
+Read the getter at the JSX binding site when the prop must update:
+
+```tsx
+return <Panel active={activeTab()} />;
+```
+
+This distinction is intentional and applies to child props, attributes, and
+text children. Use `derive()` when a named reactive value is useful across
+multiple bindings.

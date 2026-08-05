@@ -24,6 +24,7 @@
   },
   "files": [
     "capabilities.json",
+    "CHANGELOG.md",
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],

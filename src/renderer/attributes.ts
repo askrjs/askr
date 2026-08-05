@@ -47,6 +47,10 @@ type ClassTokenDescriptor = {
 
 type StyleEntries = Map<string, string>;
 
+function isAriaAttribute(key: string): boolean {
+  return key.length > 5 && key.slice(0, 5).toLowerCase() === 'aria-';
+}
+
 type Ref<T> =
   | ((value: T | null) => void)
   | { current: T | null }
@@ -263,7 +267,11 @@ export function applyStaticScalarPropsToElement(
     }
 
     const value = props[key];
-    if (value === undefined || value === null || value === false) {
+    if (
+      value === undefined ||
+      value === null ||
+      (value === false && !isAriaAttribute(key))
+    ) {
       continue;
     }
 
@@ -394,7 +402,11 @@ export function applyScalarPropValue(
     return;
   }
 
-  if (value === undefined || value === null || value === false) {
+  if (
+    value === undefined ||
+    value === null ||
+    (value === false && !isAriaAttribute(key))
+  ) {
     if (key === 'class' || key === 'className') {
       const previousTokens = descriptor?.lastClassTokens;
       if (previousTokens && previousTokens.length > 0) {
@@ -451,7 +463,12 @@ export function removeStaleAttributes(
     if (parseEventName(propName)) continue;
 
     const value = props[propName];
-    if (value === undefined || value === null || value === false) continue;
+    if (
+      value === undefined ||
+      value === null ||
+      (value === false && !isAriaAttribute(propName))
+    )
+      continue;
 
     desiredAttributes.add(getRenderedAttributeName(el, propName));
   }
