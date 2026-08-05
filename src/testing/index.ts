@@ -1,4 +1,4 @@
-import type { Query, QueryStaleReason } from '../data';
+import type { Query, QueryStaleReason, DataRuntime } from '../data';
 import type {
   ParsedSegment,
   RouteRegistry,
@@ -10,9 +10,74 @@ import {
   addInvalidationListener,
 } from '../data/testing';
 import { computeRouteActivityMatches } from '../router/testing';
+import { createDataRuntime } from '../data';
+
+import { dispatch as dispatchEvent } from './render';
 
 export { cleanup, dispatch, flush, mount, render, renderRoute } from './render';
 export type { RenderOptions, RenderResult, RouteRenderOptions } from './render';
+
+/** Dispatch the browser click sequence expected by Askr's delegated events. */
+export function click(element: Element): boolean {
+  if (!element || typeof element.dispatchEvent !== 'function') {
+    throw new TypeError('@askrjs/askr/testing click requires an Element.');
+  }
+  return dispatchEvent(element, 'click');
+}
+
+/** Set a text control's value and emit an input event for each character. */
+export function type(
+  element: HTMLInputElement | HTMLTextAreaElement,
+  text: string
+): void {
+  if (!element || typeof element.dispatchEvent !== 'function') {
+    throw new TypeError('@askrjs/askr/testing type requires a text control.');
+  }
+  for (const character of text) {
+    element.value += character;
+    dispatchEvent(element, 'input', {
+      inputType: 'insertText',
+      data: character,
+    });
+  }
+}
+
+/** Dispatch a cancelable bubbling submit event on a form. */
+export function submit(form: HTMLFormElement): boolean {
+  if (!form || typeof form.dispatchEvent !== 'function') {
+    throw new TypeError('@askrjs/askr/testing submit requires a form.');
+  }
+  return dispatchEvent(form, 'submit');
+}
+
+export interface QueryTestRegistry {
+  readonly runtime: DataRuntime;
+  set<T extends {}>(key: string, query: Query<T>): void;
+  delete(key: string): void;
+  clear(): void;
+}
+
+/** Create a keyed query fixture registry for a test render runtime. */
+export function createQueryTestRegistry(): QueryTestRegistry {
+  const runtime = createDataRuntime();
+  return {
+    runtime,
+    set<T extends {}>(key: string, query: Query<T>) {
+      if (typeof key !== 'string' || key.length === 0) {
+        throw new TypeError(
+          '@askrjs/askr/testing query registry keys must be non-empty strings.'
+        );
+      }
+      runtime.queryTestOverrides.set(key, query);
+    },
+    delete(key: string) {
+      runtime.queryTestOverrides.delete(key);
+    },
+    clear() {
+      runtime.queryTestOverrides.clear();
+    },
+  };
+}
 
 export type MockRefresh = () => void | Promise<void>;
 

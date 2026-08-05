@@ -9,11 +9,14 @@ export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
 export interface DataRuntime {
   readonly queryCache: Map<string, unknown>;
   readonly queryData: Map<string, unknown>;
+  /** Test-only query overrides keyed by the canonical query key. */
+  readonly queryTestOverrides: Map<string, unknown>;
 }
 
 export interface DataRuntimeOptions {
   queryCache?: Map<string, unknown>;
   queryData?: Map<string, unknown>;
+  queryTestOverrides?: Map<string, unknown>;
 }
 
 export interface QueryDefinition<TInput, TResult extends {}> {

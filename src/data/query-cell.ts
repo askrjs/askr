@@ -503,7 +503,11 @@ function createLegacyQuery<T extends {}>(
   const instance = getCurrentComponentInstance();
   const runtimeState = resolveDataRuntimeState(options.runtime);
   const cache = runtimeState.queryCache;
+  const override = runtimeState.queryTestOverrides.get(options.key) as
+    | Query<T>
+    | undefined;
   if (!instance) {
+    if (override) return override;
     let cell = cache.get(options.key) as QueryCell<T> | undefined;
     if (!cell) {
       cell = new QueryCell(options, options.key, cache);
@@ -528,6 +532,8 @@ function createLegacyQuery<T extends {}>(
   if (existingSlot) {
     existingSlot.cell.detach(instance._ownershipGeneration, hookIndex);
   }
+
+  if (override) return override;
 
   let cell = cache.get(options.key) as QueryCell<T> | undefined;
   if (!cell) {
