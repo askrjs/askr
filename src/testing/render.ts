@@ -18,6 +18,7 @@ export interface RouteRenderOptions extends RenderOptions {
   /** Initial path, query, and hash for the routed render. */
   url?: string;
   auth?: RouteAuthOptions;
+  dataRuntime?: import('../data/types').DataRuntime;
 }
 
 type DispatchEventInit =
@@ -340,6 +341,7 @@ export async function renderRoute(
       root: container,
       registry: options.registry,
       auth: options.auth,
+      dataRuntime: options.dataRuntime,
       cleanupStrict: options.cleanupStrict,
     });
     flush();

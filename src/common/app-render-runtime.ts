@@ -2,6 +2,7 @@ export interface AppRenderRuntime {
   framework: Readonly<Record<string, unknown>>;
   route: unknown;
   hasRoute: boolean;
+  dataRuntime?: import('../data/types').DataRuntime;
 }
 
 const stagedRouteLocations = new WeakMap<AppRenderRuntime, string>();
@@ -13,6 +14,7 @@ export function createAppRenderRuntime(
     framework: Object.freeze({ ...input.framework }),
     route: input.route,
     hasRoute: input.hasRoute ?? false,
+    dataRuntime: input.dataRuntime,
   };
 }
 

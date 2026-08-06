@@ -23,6 +23,8 @@ type BootRouteSource = { registry: RouteRegistry };
 export type SPAConfig = BootRouteSource & {
   root: Element | string;
   cspNonce?: string;
+  /** Optional data runtime, primarily for routed test fixtures. */
+  dataRuntime?: import('../data/types').DataRuntime;
   /** Pass a route registry built via `createRouteRegistry(() => { ... })`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
