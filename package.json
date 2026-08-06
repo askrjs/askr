@@ -153,13 +153,14 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/browser-playwright": "4.1.10",
     "cross-env": "^10.1.0",
     "jsdom": "^30.0.0",
     "playwright": "^1.61.1",
     "publint": "^0.3.21",
     "tsd": "^0.33.0",
-    "typescript": "6.0.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vite": "^8.1.4",
     "vite-plus": "^0.2.4"
   },
