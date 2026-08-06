@@ -109,8 +109,11 @@ expectType<JSXElement>(callButton);
 
 const callInput = jsx('input', {
   autocomplete: 'off',
+  maxlength: 120,
+  minlength: 3,
   name: 'firstName',
   placeholder: 'Ada',
+  readonly: false,
   required: true,
   value: () => 'Ada',
   checked: () => true,
@@ -356,11 +359,15 @@ expectAssignable<JSXElement>(
   <form action="/submit" method="POST" noValidate>
     <input
       autocomplete="off"
+      maxLength={254}
+      minLength={3}
       name="email"
       placeholder="you@example.com"
+      readOnly={false}
       required
       type="email"
     />
+    <textarea maxlength={4000} minlength={10} readOnly={false} rows={6} />
     <button type="submit">Submit</button>
   </form>
 );
@@ -479,6 +486,10 @@ expectError(jsx('g', { checked: true }));
 expectError(jsx('form', { method: 123 }));
 expectError(jsx('input', { value: () => ({ bad: true }) }));
 expectError(jsx('input', { checked: 'yes' }));
+expectError(jsx('input', { maxlength: '120' }));
+expectError(jsx('input', { readonly: 'true' }));
 expectError(jsx('input', { required: 'true' }));
+expectError(jsx('textarea', { minlength: '10' }));
+expectError(jsx('textarea', { readonly: 'true' }));
 expectError(jsx('label', { htmlFor: 5 }));
 expectError(jsx(Badge, { label: 42 }));
