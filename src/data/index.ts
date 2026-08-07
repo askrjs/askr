@@ -4,6 +4,7 @@ export type {
   InvalidateOnIntervalOptions,
   InvalidateOptions,
   Mutation,
+  MutationOptions,
   Query,
   QueryConsistency,
   QueryKeyPart,

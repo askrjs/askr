@@ -2,6 +2,7 @@ import { expectAssignable, expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
 import type {
   AskrRuntimeOptions,
+  RenderDiagnosticsOptions,
   RuntimeKeyedReorderDecision,
   RuntimeRendererHost,
   registerSSRStyle,
@@ -56,6 +57,13 @@ expectType<typeof rootSurface.jsxs>(rootSurface.jsxs);
 expectType<typeof rootSurface.Fragment>(rootSurface.Fragment);
 expectType<typeof rootSurface.createRuntime>(rootSurface.createRuntime);
 expectType<typeof rootSurface.getDefaultRuntime>(rootSurface.getDefaultRuntime);
+expectType<typeof rootSurface.configureRenderDiagnostics>(
+  rootSurface.configureRenderDiagnostics
+);
+expectAssignable<RenderDiagnosticsOptions>({
+  slowRenderWarnings: false,
+  slowRenderThresholdMs: 20,
+});
 expectType<typeof registerSSRStyle>(rootSurface.registerSSRStyle);
 expectType<typeof rootSurface.AskrRuntime>(rootSurface.AskrRuntime);
 expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
@@ -74,6 +82,10 @@ expectAssignable<RuntimeKeyedReorderDecision>({
 });
 expectType<typeof testingSurface.mockQuery>(testingSurface.mockQuery);
 expectType<typeof testingSurface.queryState>(testingSurface.queryState);
+expectType<typeof testingSurface.mutationState>(testingSurface.mutationState);
+expectType<typeof testingSurface.createMutationTestRegistry>(
+  testingSurface.createMutationTestRegistry
+);
 expectType<typeof testingSurface.createInvalidationRecorder>(
   testingSurface.createInvalidationRecorder
 );

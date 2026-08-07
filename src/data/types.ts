@@ -11,12 +11,15 @@ export interface DataRuntime {
   readonly queryData: Map<string, unknown>;
   /** Test-only query overrides keyed by the canonical query key. */
   readonly queryTestOverrides: Map<string, unknown>;
+  /** Test-only mutation overrides keyed by the canonical mutation key. */
+  readonly mutationTestOverrides: Map<string, unknown>;
 }
 
 export interface DataRuntimeOptions {
   queryCache?: Map<string, unknown>;
   queryData?: Map<string, unknown>;
   queryTestOverrides?: Map<string, unknown>;
+  mutationTestOverrides?: Map<string, unknown>;
 }
 
 export interface QueryDefinition<TInput, TResult extends {}> {
@@ -214,6 +217,8 @@ export type QueryOptions<T> = {
 };
 
 export type MutationOptions<TInput, TResult> = {
+  /** Stable identity used by runtime-scoped mutation test overrides. */
+  key?: string;
   action: (input: TInput, ctx: { signal: AbortSignal }) => Promise<TResult>;
   affects?: (input: TInput, result: TResult) => string[];
   afterSuccess?: 'invalidate';

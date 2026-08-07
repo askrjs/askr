@@ -26,7 +26,7 @@ export {
   _setActiveRouteAuthOptions,
   _unlockRouteRegistrationForTests,
 } from './store';
-export { _drainLazy, _snapshotLazy, lazy } from './lazy';
+export { _drainLazy, _snapshotLazy, lazy, lazyRouteData } from './lazy';
 export { Outlet } from './rendering';
 
 export type {
@@ -60,4 +60,6 @@ export type {
   RouteManifest,
   RouteRegistry,
 } from '../common/router';
-export type { LazyRouteComponent } from './lazy';
+export type { LazyRouteComponent, LazyRouteDataLoader } from './lazy';
+export type { RouteDataLoadPhase } from './route-data-loader';
+export { RouteDataLoadError } from './route-data-loader';

@@ -7,8 +7,9 @@ import {
   afterEach,
   vi,
 } from 'vite-plus/test';
-import { state } from '../../../src/index';
+import { configureRenderDiagnostics, state } from '../../../src/index';
 import { For } from '../../../src/control';
+import { getDevValue } from '../../../src/runtime/dev-namespace';
 import {
   createTestContainer,
   flushScheduler,
@@ -84,6 +85,61 @@ describe('dev warnings (DEV_ERRORS)', () => {
       );
     } finally {
       now.mockRestore();
+    }
+  });
+
+  it('should honor a configured slow-render threshold', () => {
+    const restore = configureRenderDiagnostics({
+      slowRenderThresholdMs: 20,
+    });
+    const now = vi
+      .spyOn(Date, 'now')
+      .mockReturnValueOnce(100)
+      .mockReturnValue(110);
+
+    try {
+      createIsland({
+        root: container,
+        component: () => <div>{'below configured threshold'}</div>,
+      });
+      flushScheduler();
+
+      expect(now).toHaveBeenCalled();
+      expect(getCapturedFrameworkWarnings().join('\n')).not.toContain(
+        '[askr] Slow render detected'
+      );
+    } finally {
+      now.mockRestore();
+      restore();
+    }
+  });
+
+  it('should suppress slow-render output without disabling diagnostics', () => {
+    const before = getDevValue<number>('componentRuns') ?? 0;
+    const restore = configureRenderDiagnostics({
+      slowRenderThresholdMs: 0,
+      slowRenderWarnings: false,
+    });
+    const now = vi
+      .spyOn(Date, 'now')
+      .mockReturnValueOnce(100)
+      .mockReturnValue(110);
+
+    try {
+      createIsland({
+        root: container,
+        component: () => <div>{'quiet diagnostics'}</div>,
+      });
+      flushScheduler();
+
+      expect(now).toHaveBeenCalled();
+      expect(getDevValue<number>('componentRuns')).toBeGreaterThan(before);
+      expect(getCapturedFrameworkWarnings().join('\n')).not.toContain(
+        '[askr] Slow render detected'
+      );
+    } finally {
+      now.mockRestore();
+      restore();
     }
   });
 

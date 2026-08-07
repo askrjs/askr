@@ -152,7 +152,7 @@
     "@askrjs/schema": ">=0.0.5 <0.1.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/browser-playwright": "4.1.10",
     "cross-env": "^10.1.0",

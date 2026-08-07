@@ -11,17 +11,20 @@ export type QuerySlot = {
   cell: QueryCell<unknown>;
 };
 
+export type MutationSlot = {
+  key: string | undefined;
+  cell: MutationCell<unknown, unknown>;
+};
+
 export type DataRuntimeState = {
   queryCache: Map<string, QueryCell<unknown>>;
   queryData: Map<string, unknown>;
   querySlotsByGeneration: WeakMap<object, Map<number, QuerySlot>>;
-  mutationSlotsByGeneration: WeakMap<
-    object,
-    Map<number, MutationCell<unknown, unknown>>
-  >;
+  mutationSlotsByGeneration: WeakMap<object, Map<number, MutationSlot>>;
   queryCleanupRegistered: WeakSet<object>;
   mutationCleanupRegistered: WeakSet<object>;
   queryTestOverrides: Map<string, unknown>;
+  mutationTestOverrides: Map<string, unknown>;
 };
 
 const dataRuntimeStates = new WeakMap<DataRuntime, DataRuntimeState>();
@@ -33,7 +36,8 @@ const dataRuntimeByQueryCache = new WeakMap<
 function createDataRuntimeState(
   queryCache: Map<string, unknown>,
   queryData: Map<string, unknown>,
-  queryTestOverrides: Map<string, unknown>
+  queryTestOverrides: Map<string, unknown>,
+  mutationTestOverrides: Map<string, unknown>
 ): DataRuntimeState {
   return {
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
@@ -43,6 +47,7 @@ function createDataRuntimeState(
     queryCleanupRegistered: new WeakSet(),
     mutationCleanupRegistered: new WeakSet(),
     queryTestOverrides,
+    mutationTestOverrides,
   };
 }
 
@@ -54,13 +59,16 @@ export function createDataRuntime(
     queryData: options.queryData ?? new Map<string, unknown>(),
     queryTestOverrides:
       options.queryTestOverrides ?? new Map<string, unknown>(),
+    mutationTestOverrides:
+      options.mutationTestOverrides ?? new Map<string, unknown>(),
   });
   dataRuntimeStates.set(
     runtime,
     createDataRuntimeState(
       runtime.queryCache,
       runtime.queryData,
-      runtime.queryTestOverrides
+      runtime.queryTestOverrides,
+      runtime.mutationTestOverrides
     )
   );
   dataRuntimeByQueryCache.set(runtime.queryCache, runtime);
@@ -146,7 +154,7 @@ export function getQuerySlotStore(
 export function getMutationSlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
-): Map<number, MutationCell<unknown, unknown>> {
+): Map<number, MutationSlot> {
   const generation = instance._ownershipGeneration;
   let store = runtimeState.mutationSlotsByGeneration.get(generation);
   if (!store) {
@@ -190,8 +198,8 @@ export function ensureMutationCleanup(
   runtimeState.mutationCleanupRegistered.add(generation);
   const slots = getMutationSlotStore(runtimeState, instance);
   (instance.cleanupFns ??= []).push(() => {
-    for (const cell of slots.values()) {
-      cell.abort();
+    for (const slot of slots.values()) {
+      slot.cell.abort();
     }
 
     slots.clear();

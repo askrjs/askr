@@ -26,6 +26,10 @@ export {
 } from './ownership-diagnostics';
 export * from './perf-metrics';
 export * from './readable';
+export {
+  configureRenderDiagnostics,
+  type RenderDiagnosticsOptions,
+} from './render-diagnostics';
 export * from './runtime';
 export {
   scheduleEventHandler,

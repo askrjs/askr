@@ -330,6 +330,7 @@ type User = {
 };
 
 const saveUser = createMutation<{ id: string; name: string }, User>({
+  key: 'user/save',
   action: (input, { signal }) => userService.updateUser(input, { signal }),
   affects: (input, result) => ['user:123'],
   afterSuccess: 'invalidate',
@@ -345,6 +346,32 @@ if (saveUser.status === 'error') {
   console.error(saveUser.error);
 }
 ```
+
+Give mutations used in component tests a stable `key`. A runtime-scoped test
+registry can then replace the normal mutation cell without mocking the feature
+module:
+
+```tsx
+import {
+  createMutationTestRegistry,
+  mutationState,
+} from '@askrjs/askr/testing';
+
+const mutations = createMutationTestRegistry();
+const save = mutationState<{ id: string }, boolean>();
+mutations.set('user/save', save);
+
+const pending = save.execute({ id: '123' });
+save.succeed(true);
+await pending;
+
+mutations.clear();
+```
+
+Fixtures expose `setPending()`, `succeed(result)`, `fail(error)`, `abort()`,
+and `reset()` for deterministic state changes. Registry `delete()` and
+`clear()` reset removed mutations, and each registry owns an isolated data
+runtime. Pass that runtime as `dataRuntime` to `renderRoute()`.
 
 Mutations own their own `AbortController`, abort the previous request when a new execution
 starts, and can mark affected queries as `pending-write` before refreshing them.

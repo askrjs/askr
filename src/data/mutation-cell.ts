@@ -147,10 +147,20 @@ export class MutationCell<TInput, TResult> {
 export function createMutation<TInput, TResult>(
   options: MutationOptions<TInput, TResult>
 ): Mutation<TInput, TResult> {
+  if (options.key !== undefined && options.key.length === 0) {
+    throw new TypeError('createMutation key must be a non-empty string.');
+  }
+
   const instance = getCurrentComponentInstance();
   const runtimeState = resolveDataRuntimeState(options.runtime);
+  const override = options.key
+    ? (runtimeState.mutationTestOverrides.get(options.key) as
+        | Mutation<TInput, TResult>
+        | undefined)
+    : undefined;
 
   if (!instance) {
+    if (override) return override;
     return new MutationCell(options, runtimeState) as unknown as Mutation<
       TInput,
       TResult
@@ -161,15 +171,29 @@ export function createMutation<TInput, TResult>(
   ensureMutationCleanup(runtimeState, instance);
 
   const slotStore = getMutationSlotStore(runtimeState, instance);
-  const existing = slotStore.get(hookIndex) as
-    | MutationCell<TInput, TResult>
-    | undefined;
-  if (existing) {
+  if (override) {
+    const existingSlot = slotStore.get(hookIndex);
+    if (existingSlot) {
+      existingSlot.cell.abort();
+      slotStore.delete(hookIndex);
+    }
+    return override;
+  }
+
+  const existingSlot = slotStore.get(hookIndex);
+  if (existingSlot && existingSlot.key === options.key) {
+    const existing = existingSlot.cell as MutationCell<TInput, TResult>;
     existing.setOptions(options);
     return existing as unknown as Mutation<TInput, TResult>;
   }
+  if (existingSlot) {
+    existingSlot.cell.abort();
+  }
 
   const created = new MutationCell(options, runtimeState);
-  slotStore.set(hookIndex, created as MutationCell<unknown, unknown>);
+  slotStore.set(hookIndex, {
+    key: options.key,
+    cell: created as MutationCell<unknown, unknown>,
+  });
   return created as unknown as Mutation<TInput, TResult>;
 }

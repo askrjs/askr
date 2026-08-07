@@ -21,6 +21,7 @@ import {
 } from '../common/env';
 import { logger } from '../common/logger';
 import { incDevCounter } from './dev-namespace';
+import { shouldWarnSlowRender } from './render-diagnostics';
 import {
   cleanupComponent,
   registerOwnedChildScope,
@@ -413,7 +414,7 @@ function executeComponentSync(
 
     if (trackRenderTime) {
       const renderTime = Date.now() - renderStartTime;
-      if (renderTime > 5) {
+      if (shouldWarnSlowRender(renderTime)) {
         const componentName = instance.fn?.name || '<anonymous>';
         warnInstanceOnce(
           instance,

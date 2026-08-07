@@ -9,8 +9,10 @@ import { installRendererBridge } from './renderer';
 installRendererBridge();
 
 export { createRuntime, getDefaultRuntime } from './runtime';
+export { configureRenderDiagnostics } from './runtime';
 export type {
   AskrRuntimeOptions,
+  RenderDiagnosticsOptions,
   RuntimeRendererHost,
   RuntimeKeyedReorderDecision,
 } from './runtime';
