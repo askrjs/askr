@@ -114,6 +114,72 @@ function createAttributeFreeStagingHost(parent: Element): Element {
   );
 }
 
+function migrateAdoptedRangeOwners(
+  sourceNode: Element | Comment,
+  rangeHost: InstanceHostNode,
+  owners: Set<ComponentInstance>
+): () => void {
+  const sourceHost = sourceNode as InstanceHostNode;
+  const sourceHadInstanceList = Object.prototype.hasOwnProperty.call(
+    sourceHost,
+    '__ASKR_INSTANCES'
+  );
+  const sourceHadPrimaryInstance = Object.prototype.hasOwnProperty.call(
+    sourceHost,
+    '__ASKR_INSTANCE'
+  );
+  const sourceInstanceList = sourceHost.__ASKR_INSTANCES?.slice();
+  const sourcePrimaryInstance = sourceHost.__ASKR_INSTANCE;
+  const previousBindings = new Map<
+    ComponentInstance,
+    { target: Element | null; placeholder: Comment | undefined }
+  >();
+
+  for (const owner of owners) {
+    if (owner.target === sourceNode || owner._placeholder === sourceNode) {
+      previousBindings.set(owner, {
+        target: owner.target,
+        placeholder: owner._placeholder,
+      });
+      owner.target = null;
+      owner._placeholder = rangeHost as Comment;
+    }
+  }
+
+  const sourceInstances = new Set(sourceHost.__ASKR_INSTANCES ?? []);
+  if (sourcePrimaryInstance) sourceInstances.add(sourcePrimaryInstance);
+  const remainingSourceInstances = Array.from(sourceInstances).filter(
+    (owner) => !owners.has(owner)
+  );
+  if (remainingSourceInstances.length > 0) {
+    sourceHost.__ASKR_INSTANCES = remainingSourceInstances;
+    sourceHost.__ASKR_INSTANCE = remainingSourceInstances[0];
+  } else {
+    delete sourceHost.__ASKR_INSTANCES;
+    delete sourceHost.__ASKR_INSTANCE;
+  }
+
+  rangeHost.__ASKR_INSTANCES = Array.from(owners);
+  rangeHost.__ASKR_INSTANCE = rangeHost.__ASKR_INSTANCES[0];
+
+  return () => {
+    if (sourceHadInstanceList) {
+      sourceHost.__ASKR_INSTANCES = sourceInstanceList;
+    } else {
+      delete sourceHost.__ASKR_INSTANCES;
+    }
+    if (sourceHadPrimaryInstance) {
+      sourceHost.__ASKR_INSTANCE = sourcePrimaryInstance;
+    } else {
+      delete sourceHost.__ASKR_INSTANCE;
+    }
+    for (const [owner, binding] of previousBindings) {
+      owner.target = binding.target;
+      owner._placeholder = binding.placeholder;
+    }
+  };
+}
+
 function isAutomaticPortalHost(node: Node): boolean {
   const host = node as InstanceHostNode;
   const instances = new Set(host.__ASKR_INSTANCES ?? []);
@@ -228,8 +294,11 @@ export function adoptHydratedComponentRange(
   const host = start as InstanceHostNode;
   const owners = new Set(retainedInstances);
   owners.add(instance);
-  host.__ASKR_INSTANCE = instance;
-  host.__ASKR_INSTANCES = Array.from(owners);
+  const restoreMigratedOwners = migrateAdoptedRangeOwners(
+    existingHost,
+    host,
+    owners
+  );
   instance.target = null;
   instance._placeholder = start;
   mountInstanceInline(instance, null);
@@ -238,6 +307,7 @@ export function adoptHydratedComponentRange(
     {},
     () => {},
     () => {
+      restoreMigratedOwners();
       start.parentNode?.removeChild(start);
       end.parentNode?.removeChild(end);
     }
@@ -251,6 +321,7 @@ export function adoptHydratedComponentRange(
     }
   } catch (error) {
     if (!registered) {
+      restoreMigratedOwners();
       start.remove();
       end.remove();
     }
