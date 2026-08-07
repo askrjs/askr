@@ -2,7 +2,7 @@ import { defineConfig } from 'vite-plus';
 import {
   createNodeEnvDefine,
   createPackageAliases,
-} from './tooling/askr-tooling';
+} from './tooling/askr-tooling.ts';
 
 export default defineConfig({
   define: createNodeEnvDefine('development', { bench: true }),

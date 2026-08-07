@@ -3,7 +3,7 @@ import { playwright } from 'vite-plus/test/browser-playwright';
 import {
   createNodeEnvDefine,
   createPackageAliases,
-} from './tooling/askr-tooling';
+} from './tooling/askr-tooling.ts';
 
 const browser = (process.env.ASKR_BROWSER ?? 'chromium') as
   | 'chromium'
