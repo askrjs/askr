@@ -19,6 +19,7 @@ import {
   group,
   index,
   lazy,
+  lazyRouteData,
   navigate,
   notFound,
   page,
@@ -37,6 +38,7 @@ import {
   type HistoryScrollBehavior,
   type LayoutScopeRecord,
   type LazyRouteComponent,
+  type LazyRouteDataLoader,
   type LinkProps,
   type NavigateOptions,
   type NavigationScrollBehavior,
@@ -48,6 +50,8 @@ import {
   type RouteContext,
   type RouteDefinition,
   type RouteDestination,
+  RouteDataLoadError,
+  type RouteDataLoadPhase,
   type RouteHandler,
   type RouteManifest,
   type Route,
@@ -83,6 +87,19 @@ const typedUserRoute = route('/typed-users/{id}', (params) => params.id, {
     page: schema.optional(schema.integer()),
   }),
 });
+const lazyDocs = lazyRouteData(
+  async () => ({ pages: { intro: 'Introduction' } }),
+  (module, context) => {
+    expectAssignable<RouteContext>(context);
+    return module.pages.intro;
+  }
+);
+expectType<LazyRouteDataLoader<{ pages: { intro: string } }, string>>(lazyDocs);
+expectType<Promise<void>>(lazyDocs.preload());
+expectAssignable<RouteDataLoadPhase>('client');
+expectType<RouteDataLoadError>(
+  new RouteDataLoadError('/docs', 'client', new Error('failed'))
+);
 expectError(route('/scalar-search', () => null, { search: schema.string() }));
 expectAssignable<
   RouteRef<{ id: string }, { tab: 'profile' | 'security'; page?: number }>

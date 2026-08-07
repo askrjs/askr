@@ -3,6 +3,7 @@ import {
   cleanup,
   click,
   createInvalidationRecorder,
+  createMutationTestRegistry,
   createQueryTestRegistry,
   dispatch,
   flush,
@@ -10,6 +11,7 @@ import {
   matchRoute,
   mount,
   mockQuery,
+  mutationState,
   queryState,
   render,
   renderRoute,
@@ -21,9 +23,12 @@ import {
   type RoutePatternWarning,
   type MockQueryOptions,
   type MockRefresh,
+  type MutationFixture,
+  type MutationFixtureInitial,
+  type MutationTestRegistry,
   type QueryTestRegistry,
 } from '@askrjs/askr/testing';
-import type { Query } from '@askrjs/askr/data';
+import type { Mutation, Query } from '@askrjs/askr/data';
 import { createRouteRegistry, route } from '@askrjs/askr/router';
 import type { RouteMatch } from '@askrjs/askr/router';
 
@@ -132,6 +137,27 @@ expectType<QueryTestRegistry>(queryRegistry);
 expectType<void>(queryRegistry.set('users:all', friendlyFresh));
 expectType<void>(queryRegistry.delete('users:all'));
 expectType<void>(queryRegistry.clear());
+const mutationFixture = mutationState<{ id: string }, boolean>();
+expectType<MutationFixture<{ id: string }, boolean>>(mutationFixture);
+expectType<Promise<boolean>>(mutationFixture.execute({ id: '123' }));
+expectType<void>(mutationFixture.setPending());
+expectType<void>(mutationFixture.succeed(true));
+expectType<void>(mutationFixture.fail(new Error('boom')));
+expectType<readonly { id: string }[]>(mutationFixture.inputs);
+expectAssignable<MutationFixtureInitial<boolean>>({ result: true });
+expectAssignable<Mutation<{ id: string }, boolean>>(
+  mutationState.success<{ id: string }, boolean>(true)
+);
+expectAssignable<Mutation<{ id: string }, boolean>>(
+  mutationState.pending<{ id: string }, boolean>()
+);
+const mutationRegistry = createMutationTestRegistry();
+expectType<MutationTestRegistry>(mutationRegistry);
+expectType<void>(
+  mutationRegistry.set('user/save', mutationState({ result: true }))
+);
+expectType<void>(mutationRegistry.delete('user/save'));
+expectType<void>(mutationRegistry.clear());
 expectType<boolean>(dispatch(rendered.root, 'click', { clientX: 42 }));
 expectType<boolean>(dispatch(rendered.root, 'keydown', { key: 'Enter' }));
 expectType<void>(cleanup(rendered));

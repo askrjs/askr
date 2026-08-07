@@ -19,6 +19,7 @@ import { resolveDeferredValues } from '../router/deferred';
 import { bindResolvedRouteData } from '../router/resolution';
 import { _preloadRouteHandler } from '../router/lazy';
 import { prepareRouteHydrationData } from '../router/route-hydration';
+import { RouteDataLoadError } from '../router/route-data-loader';
 import { addRouteBasePath } from '../router/base-path';
 
 interface BatchRenderOptions {
@@ -197,7 +198,10 @@ export async function batchRenderRoutes(
         reason: 'full',
         written: false,
         error: error instanceof Error ? error.message : String(error),
-        errorCause: error,
+        errorCause:
+          phase === 'load' && error instanceof RouteDataLoadError
+            ? error.cause
+            : error,
         errorContext: { route: url, phase },
       };
     }

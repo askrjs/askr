@@ -12,6 +12,7 @@ export {
   group,
   fallback,
   lazy,
+  lazyRouteData,
   createRouteRegistry,
 } from './route';
 export { onRouteChange } from './activity';
@@ -62,7 +63,9 @@ export type {
   RouteRegistry,
   PageScopeRecord,
 } from '../common/router';
-export type { LazyRouteComponent } from './lazy';
+export type { LazyRouteComponent, LazyRouteDataLoader } from './lazy';
+export type { RouteDataLoadPhase } from './route-data-loader';
+export { RouteDataLoadError } from './route-data-loader';
 export { to } from './destination';
 export {
   reconcileRouteMeta,

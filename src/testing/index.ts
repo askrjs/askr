@@ -1,4 +1,4 @@
-import type { Query, QueryStaleReason, DataRuntime } from '../data';
+import type { Mutation, Query, QueryStaleReason, DataRuntime } from '../data';
 import type {
   ParsedSegment,
   RouteRegistry,
@@ -11,6 +11,12 @@ import {
 } from '../data/testing';
 import { computeRouteActivityMatches } from '../router/testing';
 import { createDataRuntime } from '../data';
+import { recordReadableRead } from '../runtime';
+import {
+  createReadableSource,
+  normalizeAsyncDataError,
+  notifySource,
+} from '../data/shared';
 
 import { dispatch as dispatchEvent } from './render';
 
@@ -78,6 +84,216 @@ export function createQueryTestRegistry(): QueryTestRegistry {
     },
   };
 }
+
+export interface MutationTestRegistry {
+  readonly runtime: DataRuntime;
+  set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>): void;
+  delete(key: string): void;
+  clear(): void;
+}
+
+/** Create a keyed mutation fixture registry for a test render runtime. */
+export function createMutationTestRegistry(): MutationTestRegistry {
+  const runtime = createDataRuntime();
+  return {
+    runtime,
+    set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>) {
+      if (typeof key !== 'string' || key.length === 0) {
+        throw new TypeError(
+          '@askrjs/askr/testing mutation registry keys must be non-empty strings.'
+        );
+      }
+      const previous = runtime.mutationTestOverrides.get(key) as
+        | Mutation<unknown, unknown>
+        | undefined;
+      if (previous && previous !== mutation) previous.reset();
+      runtime.mutationTestOverrides.set(key, mutation);
+    },
+    delete(key: string) {
+      (
+        runtime.mutationTestOverrides.get(key) as
+          | Mutation<unknown, unknown>
+          | undefined
+      )?.reset();
+      runtime.mutationTestOverrides.delete(key);
+    },
+    clear() {
+      for (const mutation of runtime.mutationTestOverrides.values()) {
+        (mutation as Mutation<unknown, unknown>).reset();
+      }
+      runtime.mutationTestOverrides.clear();
+    },
+  };
+}
+
+export type MutationFixtureInitial<TResult> = {
+  pending?: boolean;
+  error?: {} | null;
+  result?: TResult;
+};
+
+export type MutationFixture<TInput, TResult> = Mutation<TInput, TResult> & {
+  /** Inputs received by the fixture's execute method. */
+  readonly inputs: readonly TInput[];
+  /** Move the fixture to pending without starting application work. */
+  setPending(): void;
+  /** Resolve the current fixture execution and expose its result. */
+  succeed(result: TResult): void;
+  /** Reject the current fixture execution and expose its error. */
+  fail(error: {}): void;
+};
+
+type MutableMutationState<TResult> = {
+  status: 'idle' | 'pending' | 'success' | 'error';
+  error: {} | null;
+  result: TResult | null;
+};
+
+type PendingMutation<TResult> = {
+  resolve(result: TResult): void;
+  reject(error: unknown): void;
+};
+
+class MutableMutationFixture<TInput, TResult> {
+  private readonly source = createReadableSource();
+  private readonly receivedInputs: TInput[] = [];
+  private active: PendingMutation<TResult> | null = null;
+  private state: MutableMutationState<TResult>;
+
+  constructor(initial: MutationFixtureInitial<TResult> = {}) {
+    const hasResult = Object.prototype.hasOwnProperty.call(initial, 'result');
+    if (initial.pending && (initial.error != null || hasResult)) {
+      throw new TypeError(
+        '@askrjs/askr/testing mutation fixtures cannot be pending and settled.'
+      );
+    }
+    if (initial.error != null && hasResult) {
+      throw new TypeError(
+        '@askrjs/askr/testing mutation fixtures cannot have both error and result.'
+      );
+    }
+    this.state = initial.pending
+      ? { status: 'pending', error: null, result: null }
+      : initial.error != null
+        ? { status: 'error', error: initial.error, result: null }
+        : hasResult
+          ? {
+              status: 'success',
+              error: null,
+              result: initial.result as TResult,
+            }
+          : { status: 'idle', error: null, result: null };
+  }
+
+  get status(): MutableMutationState<TResult>['status'] {
+    recordReadableRead(this.source);
+    return this.state.status;
+  }
+
+  get pending(): boolean {
+    recordReadableRead(this.source);
+    return this.state.status === 'pending';
+  }
+
+  get error(): {} | null {
+    recordReadableRead(this.source);
+    return this.state.error;
+  }
+
+  get result(): TResult | null {
+    recordReadableRead(this.source);
+    return this.state.result;
+  }
+
+  get inputs(): readonly TInput[] {
+    return this.receivedInputs;
+  }
+
+  execute(input: TInput): Promise<TResult> {
+    this.abort();
+    this.receivedInputs.push(input);
+    this.setPending();
+    return new Promise<TResult>((resolve, reject) => {
+      this.active = { resolve, reject };
+    });
+  }
+
+  setPending(): void {
+    this.setState({ status: 'pending', error: null, result: null });
+  }
+
+  succeed(result: TResult): void {
+    const active = this.active;
+    this.active = null;
+    this.setState({ status: 'success', error: null, result });
+    active?.resolve(result);
+  }
+
+  fail(error: {}): void {
+    const normalized = normalizeAsyncDataError(
+      error,
+      'Unknown mutation fixture error'
+    );
+    const active = this.active;
+    this.active = null;
+    this.setState({ status: 'error', error: normalized, result: null });
+    active?.reject(normalized);
+  }
+
+  abort(): void {
+    const active = this.active;
+    this.active = null;
+    this.setState({ status: 'idle', error: null, result: null });
+    if (active) {
+      const error = new Error('Mutation fixture aborted.');
+      error.name = 'AbortError';
+      active.reject(error);
+    }
+  }
+
+  reset(): void {
+    this.abort();
+  }
+
+  private setState(state: MutableMutationState<TResult>): void {
+    this.state = state;
+    notifySource(this.source);
+  }
+}
+
+function createMutationFixture<TInput = unknown, TResult = unknown>(
+  initial: MutationFixtureInitial<TResult> = {}
+): MutationFixture<TInput, TResult> {
+  return new MutableMutationFixture<TInput, TResult>(
+    initial
+  ) as unknown as MutationFixture<TInput, TResult>;
+}
+
+export const mutationState = Object.assign(createMutationFixture, {
+  idle<TInput = unknown, TResult = unknown>(): MutationFixture<
+    TInput,
+    TResult
+  > {
+    return createMutationFixture();
+  },
+  pending<TInput = unknown, TResult = unknown>(): MutationFixture<
+    TInput,
+    TResult
+  > {
+    return createMutationFixture({ pending: true });
+  },
+  success<TInput = unknown, TResult = unknown>(
+    result: TResult
+  ): MutationFixture<TInput, TResult> {
+    return createMutationFixture({ result });
+  },
+  error<TInput = unknown, TResult = unknown>(error: {}): MutationFixture<
+    TInput,
+    TResult
+  > {
+    return createMutationFixture({ error });
+  },
+});
 
 export type MockRefresh = () => void | Promise<void>;
 
