@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { currentRoute, createRouteRegistry, route } from '@askrjs/askr/router';
+import { createQuery, queryScope } from '@askrjs/askr/data';
+import { createQueryTestRegistry, queryState } from '@askrjs/askr/testing';
 import { renderRoute, type RenderResult } from '@askrjs/askr/testing';
 
 let mounted: RenderResult | undefined;
@@ -39,5 +41,34 @@ describe('testing routed render harness', () => {
     });
 
     expect(mounted.container.textContent).toBe('platform');
+  });
+
+  it('should use an injected test runtime for routed query fixtures', async () => {
+    const queries = queryScope('teams');
+    const testRegistry = createQueryTestRegistry();
+    testRegistry.set(
+      queries.key('platform'),
+      queryState.fresh({ name: 'Platform' })
+    );
+    const registry = createRouteRegistry(() => {
+      route('/teams/{team}', ({ team }) => {
+        const query = createQuery(
+          {
+            key: (input: { team: string }) => queries.key(input.team),
+            fetch: async () => ({ name: 'network' }),
+          },
+          { team }
+        );
+        return <h1>{query.data?.name}</h1>;
+      });
+    });
+
+    mounted = await renderRoute({
+      registry,
+      url: '/teams/platform',
+      dataRuntime: testRegistry.runtime,
+    });
+
+    expect(mounted.container.textContent).toBe('Platform');
   });
 });

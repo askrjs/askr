@@ -184,8 +184,12 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   setServerLocation(currentUrl);
   const appRuntime = createAppRenderRuntime(
     resolved?.kind === 'render' && hasRouteRenderData(resolved)
-      ? { route: getRouteRenderData(resolved), hasRoute: true }
-      : {}
+      ? {
+          route: getRouteRenderData(resolved),
+          hasRoute: true,
+          dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
+        }
+      : { dataRuntime: config.dataRuntime ?? getDefaultDataRuntime() }
   );
 
   if (!resolved) {
@@ -197,6 +201,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
+      runtime: appRuntime,
     });
     return;
   }
@@ -210,6 +215,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
+      runtime: appRuntime,
     });
     return;
   }
@@ -233,6 +239,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
   await registerAppNavigation(rootElement, path, {
     ...appRouteSource,
+    runtime: appRuntime,
   });
 }
 

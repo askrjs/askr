@@ -1,7 +1,11 @@
 import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
 import { adjustOwnershipDiagnostic, enqueueRuntimeTask } from '../runtime';
-import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
+import {
+  claimHookIndex,
+  getCurrentAppRenderRuntime,
+  getCurrentComponentInstance,
+} from '../runtime';
 import { recordReadableRead } from '../runtime';
 import {
   ensureQueryCleanup,
@@ -565,6 +569,7 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     (getActiveRenderContext()?.dataRuntime as
       | import('./types').DataRuntime
       | undefined) ??
+    getCurrentAppRenderRuntime()?.dataRuntime ??
     getDefaultDataRuntime();
   const initialData = dataRuntime?.queryData.get(key) as TResult | undefined;
   return createLegacyQuery({

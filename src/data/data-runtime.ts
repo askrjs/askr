@@ -1,4 +1,5 @@
 import { getActiveRenderContext } from '../common/render-context';
+import { getCurrentAppRenderRuntime } from '../runtime';
 import type { ComponentInstance } from '../runtime';
 import { emitInvalidation } from './invalidation-listeners';
 import type { MutationCell } from './mutation-cell';
@@ -109,6 +110,11 @@ function getActiveDataRuntime(): DataRuntime {
 
   if (ctx?.queryCache) {
     return getDataRuntimeForQueryCache(ctx.queryCache);
+  }
+
+  const appRuntime = getCurrentAppRenderRuntime();
+  if (appRuntime?.dataRuntime) {
+    return appRuntime.dataRuntime;
   }
 
   return defaultDataRuntime;
