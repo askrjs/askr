@@ -103,7 +103,7 @@ try {
       'import { expect, test } from "vitest";',
       'import { state } from "@askrjs/askr";',
       'import { dispatch, render } from "@askrjs/askr/testing";',
-      'test("renders a packed consumer component", () => {',
+      'test("should render a packed consumer component", () => {',
       '  const view = render(() => {',
       '    const count = state(0);',
       '    return <button onClick={() => count.set(count() + 1)}>{count()}</button>;',
