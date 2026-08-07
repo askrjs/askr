@@ -2,6 +2,26 @@
 
 Askr checks your component structure as it runs.
 
+## Render diagnostics
+
+Development builds warn once per component instance when a render takes more
+than 5 ms. Test environments can raise that threshold or suppress warning
+output without disabling render timing or component counters:
+
+```ts
+import { configureRenderDiagnostics } from '@askrjs/askr';
+
+const restoreDiagnostics = configureRenderDiagnostics({
+  slowRenderThresholdMs: 20,
+  slowRenderWarnings: false,
+});
+
+afterAll(restoreDiagnostics);
+```
+
+The returned function restores the previous settings. Production builds keep
+diagnostic timing disabled, and the default development behavior is unchanged.
+
 ## Render-scoped hook order
 
 Render-scoped hooks and eager control primitives must be evaluated in the same

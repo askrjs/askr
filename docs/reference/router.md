@@ -198,6 +198,49 @@ Initial hydration reads the selected value; reading a branch intentionally
 omitted by the selector throws with the route and property path. A later client
 navigation reruns the loader and exposes the complete result.
 
+### Code-split route content
+
+Use `lazyRouteData()` when a content-heavy route should keep only navigation
+and SEO metadata in the route manifest. Its dynamic import starts only after
+that route matches; the imported module is cached and the same loader runs
+during SPA navigation, SSR, and SSG:
+
+```tsx
+import { lazyRouteData, route, routeData } from '@askrjs/askr/router';
+
+const loadMidgeDocs = lazyRouteData(
+  () => import('./docs-content/midge'),
+  (module, { params }) => ({
+    page: module.pages[params.page],
+    navigation: module.navigation,
+  })
+);
+
+route('/docs/midge/{page}', DocsPage, {
+  loader: loadMidgeDocs,
+  entries: () =>
+    docsManifest.midge.pages.map(({ slug }: { slug: string }) => ({
+      page: slug,
+    })),
+  meta: {
+    title: 'Midge documentation',
+    description: 'Small static metadata remains in the route manifest.',
+  },
+  dehydrate: (data) => ({ page: data.page }),
+});
+
+function DocsPage() {
+  const content = routeData<{ page: { title: string; body: string } }>();
+  return <article>{content.page.body}</article>;
+}
+```
+
+`loadMidgeDocs.preload()` is available for an explicit hover or intent
+preload. Loader failures retain the original `cause` and report the concrete
+route plus `client`, `server`, or `ssg` phase. Hydration transport validation
+continues to identify the route and property path; use `dehydrate()` so
+unrelated catalog content never enters the browser payload.
+
 Group, page, and leaf metadata compose in declaration order. The deepest scalar
 value wins; Open Graph maps merge, while link and JSON-LD entries append in a
 deterministic order.

@@ -21,6 +21,7 @@ import {
   type InvalidateOnIntervalOptions,
   type InvalidateOptions,
   type Mutation,
+  type MutationOptions,
   type Query,
   type QueryConsistency,
   type QueryDefinition,
@@ -35,6 +36,8 @@ const dataRuntime = createDataRuntime();
 expectType<DataRuntime>(dataRuntime);
 expectType<Map<string, unknown>>(dataRuntime.queryCache);
 expectType<Map<string, unknown>>(dataRuntime.queryData);
+expectType<Map<string, unknown>>(dataRuntime.queryTestOverrides);
+expectType<Map<string, unknown>>(dataRuntime.mutationTestOverrides);
 expectType<DataRuntime>(getDefaultDataRuntime());
 expectType<DataRuntime>(createDataRuntime({ queryCache: new Map() }));
 const dataRuntimeOptions: DataRuntimeOptions = {
@@ -42,6 +45,10 @@ const dataRuntimeOptions: DataRuntimeOptions = {
   queryData: new Map<string, unknown>(),
 };
 expectType<DataRuntimeOptions>(dataRuntimeOptions);
+expectAssignable<MutationOptions<{ id: string }, boolean>>({
+  key: 'user/save',
+  action: async () => true,
+});
 
 const userDefinition = defineQuery({
   key: (input: { id: string }) => `user:${input.id}`,

@@ -1,10 +1,12 @@
 import type {
+  RouteContext,
   RouteParams,
   RouteComponent,
   RouteHandler,
   RouteRecord,
 } from '../common/router';
 import type { AnyRouteComponent } from './internal-types';
+import { _wrapRouteDataLoadError } from './route-data-loader';
 
 const pendingLazy = new Set<Promise<unknown>>();
 type LazyState<TComponent extends AnyRouteComponent> = {
@@ -15,6 +17,9 @@ type LazyState<TComponent extends AnyRouteComponent> = {
 };
 export type LazyRouteComponent<TComponent extends AnyRouteComponent> =
   TComponent & { preload(): Promise<void> };
+export type LazyRouteDataLoader<TModule, TData = TModule> = ((
+  context: RouteContext & { request?: Request }
+) => Promise<TData>) & { preload(): Promise<void> };
 const lazyStates = new WeakMap<
   AnyRouteComponent,
   LazyState<AnyRouteComponent>
@@ -70,6 +75,33 @@ export function lazy<TComponent extends AnyRouteComponent>(
   });
   lazyStates.set(component, state as LazyState<AnyRouteComponent>);
   return component;
+}
+
+/**
+ * Create a cached route loader backed by a dynamic import. The module is only
+ * requested when the owning route matches, unless preload() is called.
+ */
+export function lazyRouteData<TModule, TData = TModule>(
+  factory: () => PromiseLike<TModule>,
+  select?: (
+    module: TModule,
+    context: RouteContext & { request?: Request }
+  ) => TData | PromiseLike<TData>
+): LazyRouteDataLoader<TModule, TData> {
+  let imported: Promise<TModule> | null = null;
+  const load = () => (imported ??= Promise.resolve().then(factory));
+  const loader = ((context: RouteContext & { request?: Request }) =>
+    load()
+      .then((module) =>
+        select ? select(module, context) : (module as unknown as TData)
+      )
+      .catch((error) =>
+        _wrapRouteDataLoadError(error, context)
+      )) as LazyRouteDataLoader<TModule, TData>;
+  Object.defineProperty(loader, 'preload', {
+    value: () => load().then(() => undefined),
+  });
+  return loader;
 }
 
 export function _preloadRouteRecord(record: RouteRecord): Promise<void> | null {
