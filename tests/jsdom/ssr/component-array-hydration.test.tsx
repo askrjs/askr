@@ -143,6 +143,85 @@ describe('component array hydration', () => {
     ]);
   });
 
+  it('should mount one portal child given a wrapped empty server host when the parent refreshes before opening', async () => {
+    const DialogContext = defineScope<{
+      open: boolean;
+      setOpen(nextOpen: boolean): void;
+    } | null>(null);
+    const DialogPortal = definePortal();
+    let refresh!: () => void;
+
+    function DialogTrigger() {
+      const dialog = readScope(DialogContext);
+      return (
+        <button
+          data-dialog-trigger={'true'}
+          onClick={() => dialog?.setOpen(true)}
+        >
+          Open
+        </button>
+      );
+    }
+
+    function DialogContent() {
+      const dialog = readScope(DialogContext);
+      return dialog?.open ? <aside data-dialog-portal={'true'} /> : null;
+    }
+
+    function DialogPortalWriter() {
+      readScope(DialogContext);
+      DialogPortal.render({
+        children: <DialogContent />,
+      });
+      return null;
+    }
+
+    function DialogRoot() {
+      const openState = state(false);
+      return (
+        <DialogContext value={{ open: openState(), setOpen: openState.set }}>
+          <DialogTrigger />
+          <DialogPortalWriter />
+          <DialogPortal key={'dialog-root-portal'} />
+        </DialogContext>
+      );
+    }
+
+    function AlertDialog() {
+      return <DialogRoot />;
+    }
+
+    function App() {
+      const version = state(0);
+      refresh = () => version.set(version() + 1);
+      return (
+        <main data-version={version()}>
+          <AlertDialog />
+        </main>
+      );
+    }
+
+    const { container, cleanup } = createTestContainer();
+    cleanups.push(cleanup);
+    container.innerHTML = renderToStringSync(App);
+
+    expect(container.querySelectorAll('[data-dialog-portal]')).toHaveLength(0);
+
+    await hydrateSPA({
+      root: container,
+      registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+    });
+
+    refresh();
+    flushScheduler();
+    (
+      container.querySelector('[data-dialog-trigger]') as HTMLButtonElement
+    ).click();
+    flushScheduler();
+
+    expect(container.querySelectorAll('[data-dialog-portal]')).toHaveLength(1);
+  });
+
   it('should preserve nested scope, keyed row, and portal identities during hydration', async () => {
     const Scope = defineScope('initial');
     const Portal = definePortal();
