@@ -354,6 +354,43 @@ async function mountHydratedBenchmarkTableScenario(
   globalScheduler.flush();
 }
 
+function StaticQueryDeepLinkPage() {
+  const snapshot = currentRoute();
+  return (
+    <p>{`${snapshot.query.get('q') ?? ''}|${snapshot.query.get('page') ?? '1'}|${snapshot.hash ?? ''}`}</p>
+  );
+}
+
+async function mountStaticQueryDeepLinkScenario(): Promise<{
+  preserved: boolean;
+  text: string;
+}> {
+  resetRoot();
+  const registry = createRouteRegistry(
+    () => route('/search', StaticQueryDeepLinkPage),
+    { basePath: '/website' }
+  );
+  window.history.replaceState({}, '', '/website/search/');
+  root.innerHTML = renderToString({
+    url: '/website/search/',
+    registry,
+  });
+  const paragraph = root.querySelector('p');
+  window.history.replaceState({}, '', '/website/search/?q=pig&page=2#results');
+
+  await hydrateSPA({
+    root,
+    registry,
+    hydrate: { verifyMarkup: true },
+  });
+  globalScheduler.flush();
+
+  return {
+    preserved: root.querySelector('p') === paragraph,
+    text: root.querySelector('p')?.textContent ?? '',
+  };
+}
+
 function setHydratedRows(rows: RowData[]): void {
   hydrationRowsState?.set(rows);
   globalScheduler.flush();
@@ -1429,6 +1466,7 @@ export {
   mountErrorBoundaryScenario,
   mountGuardedRouterScenario,
   mountHydratedBenchmarkTableScenario,
+  mountStaticQueryDeepLinkScenario,
   mountInteractionScenario,
   mountNavLinkForScenario,
   mountAdjacentForBoundariesScenario,

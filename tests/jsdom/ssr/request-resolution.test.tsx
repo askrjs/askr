@@ -172,7 +172,9 @@ describe('SSR request resolution', () => {
     });
 
     expect(renderedDashboard).toBe(false);
-    expect(html).toBe('<div>login-page</div>');
+    expect(html).toBe(
+      '<div>login-page</div><script type="application/json" data-askr-render-data="true">{"version":1,"resources":{},"framework":{"hu":"/login?next=%2Fdashboard%3Ftab%3Dusage"}}</script>'
+    );
   });
 
   it('should reject plain route tables without a registry', async () => {

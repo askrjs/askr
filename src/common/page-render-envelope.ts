@@ -1,4 +1,5 @@
 const PAGE_RENDER_ENVELOPE_VERSION = 1 as const;
+const HYDRATION_RENDER_URL = 'hu';
 
 export interface PageRenderEnvelope {
   readonly version: typeof PAGE_RENDER_ENVELOPE_VERSION;
@@ -95,6 +96,26 @@ export function withPageFramework(
     route: current.route,
     framework,
   });
+}
+
+export function withHydrationRenderUrl(
+  value: unknown,
+  url: string
+): PageRenderEnvelope {
+  const current = pageRenderEnvelope(value);
+  const parsed = new URL(url, 'http://localhost');
+  if (!parsed.search && !parsed.hash) return current;
+  const renderTarget = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  return withPageFramework(current, {
+    ...current.framework,
+    [HYDRATION_RENDER_URL]: renderTarget,
+  });
+}
+
+export function getHydrationRenderUrl(value: unknown): string | undefined {
+  if (!isPageRenderEnvelope(value)) return undefined;
+  const url = value.framework[HYDRATION_RENDER_URL];
+  return typeof url === 'string' ? url : undefined;
 }
 
 export function isEmptyPageRenderEnvelope(value: PageRenderEnvelope): boolean {

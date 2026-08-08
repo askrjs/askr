@@ -6,7 +6,7 @@ tables, and other styled compositions remain package-owned recipes.
 
 ## Prerequisites and version contract
 
-The examples are verified against `@askrjs/askr@0.0.90`. Use one locked
+The examples are verified against `@askrjs/askr@0.0.91`. Use one locked
 `@askrjs/askr` version for the root entry point and every subpath; do not resolve
 subpaths independently.
 
