@@ -127,6 +127,67 @@ describe('client route base paths', () => {
     expect(loads).toBe(1);
   });
 
+  it('should verify static mounted markup before applying a deep-link query', async () => {
+    const registry = createRouteRegistry(
+      () => {
+        route('/search', () => {
+          const snapshot = currentRoute();
+          return (
+            <p>{`${snapshot.query.get('q') ?? ''}|${snapshot.query.get('page') ?? '1'}|${snapshot.hash ?? ''}`}</p>
+          );
+        });
+      },
+      { basePath: '/website' }
+    );
+    const rendered = await renderRouteRequestToString({
+      url: '/website/search/',
+      registry,
+    });
+    if (rendered.kind !== 'render') throw new Error('expected render');
+    container.innerHTML = rendered.html;
+    const paragraph = container.querySelector('p');
+    expect(paragraph?.textContent).toBe('|1|');
+    window.history.replaceState(
+      {},
+      '',
+      '/website/search/?q=pig&page=2#results'
+    );
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+
+    expect(container.querySelector('p')).toBe(paragraph);
+    expect(paragraph?.textContent).toBe('pig|2|#results');
+  });
+
+  it('should reject changed server markup for a query-rendered mounted page', async () => {
+    const registry = createRouteRegistry(
+      () => {
+        route('/search', () => (
+          <p>{currentRoute().query.get('q') ?? 'missing'}</p>
+        ));
+      },
+      { basePath: '/website' }
+    );
+    const url = '/website/search/?q=server';
+    const rendered = await renderRouteRequestToString({ url, registry });
+    if (rendered.kind !== 'render') throw new Error('expected render');
+    container.innerHTML = rendered.html;
+    container.querySelector('p')!.textContent = 'changed';
+    window.history.replaceState({}, '', url);
+
+    await expect(
+      hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      })
+    ).rejects.toThrow('Hydration mismatch detected');
+  });
+
   it('should not treat physical paths outside the mount as logical routes', async () => {
     const registry = createRouteRegistry(
       () => {

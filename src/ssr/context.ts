@@ -15,7 +15,10 @@ import { createDataRuntime } from '../data/data-runtime';
 export type { SSRData } from '../common/ssr';
 import type { SSRData, SSRStyleRegistration } from '../common/ssr';
 import type { Route, RouteAuthOptions } from '../common/router';
-import { createPageRenderEnvelope } from '../common/page-render-envelope';
+import {
+  createPageRenderEnvelope,
+  withHydrationRenderUrl,
+} from '../common/page-render-envelope';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import type { AuthContext } from '@askrjs/auth';
 
@@ -127,6 +130,9 @@ export function createRenderContext(
       resources: opts.data,
       framework: opts.framework,
     });
+  const hydrationEnvelope = opts.url
+    ? withHydrationRenderUrl(envelope, opts.url)
+    : envelope;
   return {
     url: opts.url ?? '',
     seed,
@@ -146,7 +152,7 @@ export function createRenderContext(
     ssrCleanupFns: [],
     keyCounter: 0,
     renderData: envelope,
-    hydrationData: envelope,
+    hydrationData: hydrationEnvelope,
     deferredBoundaries: [],
     ssrStyles: new Map(),
     ssrPortals: {

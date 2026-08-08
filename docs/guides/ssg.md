@@ -30,6 +30,12 @@ not start the loader, and the real client component starts it only after
 hydration commits. SSR and SSG remain strict when an async resource is
 encountered during the actual server render.
 
+Static pages can also be opened with client-only query strings or hashes. Strict
+verification compares the DOM with the queryless URL that generated the static
+HTML, then hydration applies the browser URL to the adopted route tree. For SSR
+responses that were rendered from a query or hash, Askr records that render URL
+in the hydration envelope and verifies against it exactly.
+
 ## What SSG generates
 
 - Route HTML files: `/` -> `index.html`, `/about` -> `about/index.html`
