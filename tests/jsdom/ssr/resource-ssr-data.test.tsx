@@ -122,7 +122,7 @@ describe('SSR resource() with preloaded data', () => {
     });
 
     expect(html).toBe(
-      '<main>42:Ada:profile</main><script type="application/json" data-askr-render-data="true">{"version":1,"resources":{"r:0":"Ada","r:1":"profile"},"framework":{}}</script>'
+      '<main>42:Ada:profile</main><script type="application/json" data-askr-render-data="true">{"version":1,"resources":{"r:0":"Ada","r:1":"profile"},"framework":{"hu":"/users/42?tab=profile"}}</script>'
     );
     expect(nameLoader).not.toHaveBeenCalled();
     expect(tabLoader).not.toHaveBeenCalled();

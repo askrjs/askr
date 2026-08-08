@@ -4,6 +4,7 @@ import type { DataRuntime } from '../data/types';
 import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
 import { renderResolvedToStringSync } from './render-resolved';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
+import { getHydrationRenderUrl } from '../common/page-render-envelope';
 import { withHydrationVerificationRender } from '../common/render-context';
 
 function normalizeHydrationHtml(html: string): string {
@@ -31,9 +32,12 @@ export function verifyHydrationSyncForUrl(opts: {
   };
 }): boolean {
   const { root, url, registry, resolved, options } = opts;
+  const verificationUrl =
+    getHydrationRenderUrl(options?.envelope) ??
+    new URL(url, 'http://localhost').pathname;
   const expected = withHydrationVerificationRender(() =>
     renderResolvedToStringSync({
-      url,
+      url: verificationUrl,
       registry,
       handler: resolved.handler,
       params: resolved.params,
