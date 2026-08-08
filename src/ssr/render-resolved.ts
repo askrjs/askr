@@ -4,6 +4,10 @@ import { resolveRouteFromRoutes } from '../router/route-matching';
 import type { SSRData } from './context';
 import { renderToString } from './index';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
+import {
+  normalizeRouteBasePath,
+  removeRouteBasePath,
+} from '../router/base-path';
 
 function sameRouteParams(
   left: Record<string, string> | undefined,
@@ -44,9 +48,17 @@ export function renderResolvedToStringSync(opts: {
   const { url, registry, handler, params, options } = opts;
   const routes = registry.routes;
   const requestUrl = new URL(url, 'http://localhost');
+  const logicalTarget = removeRouteBasePath(
+    `${requestUrl.pathname}${requestUrl.search}${requestUrl.hash}`,
+    normalizeRouteBasePath(registry.manifest.basePath)
+  );
 
   const matchedIndex = routes.findIndex((route) => {
-    const resolved = resolveRouteFromRoutes(requestUrl.pathname, [route]);
+    if (logicalTarget === undefined) return false;
+    const resolved = resolveRouteFromRoutes(
+      new URL(logicalTarget, 'http://localhost').pathname,
+      [route]
+    );
 
     return (
       resolved !== null &&

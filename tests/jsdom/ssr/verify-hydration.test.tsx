@@ -4,8 +4,48 @@ import { routeRegistryFromTable } from '../../router-test-utils';
 import { createDataRuntime, createQuery, defineQuery } from '../../../src/data';
 import { verifyHydrationSyncForUrl } from '../../../src/ssr/verify-hydration';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
+import { createRouteRegistry, Link, route } from '../../../src/router';
 
 describe('verifyHydrationSyncForUrl', () => {
+  it('should verify mounted route markup using the logical route path', () => {
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      const Component = () => (
+        <main>
+          Search <Link href="/results?q=pig#top">Results</Link>
+        </main>
+      );
+      const registry = createRouteRegistry(() => route('/search', Component), {
+        basePath: '/website',
+      });
+      const url = '/website/search/?q=pig#results';
+      container.innerHTML = renderToString({ url, registry });
+
+      expect(container.querySelector('a')?.getAttribute('href')).toBe(
+        '/website/results?q=pig#top'
+      );
+      expect(
+        verifyHydrationSyncForUrl({
+          root: container,
+          url,
+          registry,
+          resolved: { handler: Component, params: {} },
+        })
+      ).toBe(true);
+      expect(() =>
+        verifyHydrationSyncForUrl({
+          root: container,
+          url: '/search/?q=pig#results',
+          registry,
+          resolved: { handler: Component, params: {} },
+        })
+      ).toThrow('no route found');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should ignore multiline HTML comments when comparing markup', () => {
     const { container, cleanup } = createTestContainer();
 
