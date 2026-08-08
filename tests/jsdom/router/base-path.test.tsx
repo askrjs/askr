@@ -113,15 +113,17 @@ describe('client route base paths', () => {
     });
     if (rendered.kind !== 'render') throw new Error('expected render');
     container.innerHTML = rendered.html;
+    const heading = container.querySelector('h1');
     window.history.replaceState({}, '', '/website/reviews/hydrated');
 
     await hydrateSPA({
       root: container,
       registry,
-      hydrate: { verifyMarkup: false },
+      hydrate: { verifyMarkup: true },
     });
 
     expect(container.querySelector('h1')?.textContent).toBe('hydrated');
+    expect(container.querySelector('h1')).toBe(heading);
     expect(loads).toBe(1);
   });
 
