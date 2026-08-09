@@ -2,6 +2,7 @@ import { setDevValue, incDevCounter } from '../runtime';
 import { getRuntimeEnv } from './env';
 import { keyedElements } from './keyed';
 import { teardownNodeSubtree } from './cleanup';
+import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { createDOMNode, updateElementFromVnode } from './dom';
 import { tagsEqualIgnoreCase } from './children-fastpath';
 import type { DOMElement, VNode } from './types';
@@ -93,6 +94,7 @@ function processElementVnode(
       tagsEqualIgnoreCase((existingNode as Element).tagName, tag)
     ) {
       updateElementFromVnode(existingNode as Element, vnode);
+      retireComponentOwnersForIntrinsicReuse(existingNode as Element);
       finalNodes.push(existingNode);
       return 'reused';
     }

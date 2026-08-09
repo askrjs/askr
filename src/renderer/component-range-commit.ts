@@ -14,6 +14,7 @@ import {
 import { syncComponentFragmentRange } from './component-fragment-range';
 import {
   materializeComponentResultNode,
+  retainMaterializedReplacementOwnerChain,
   retainReplacementOwnerChain,
 } from './component-host-results';
 import {
@@ -156,7 +157,11 @@ export function replaceComponentRange(
           getParentNamespace(parent)
         ),
       (nextHost) =>
-        retainReplacementOwnerChain(nextHost, instance, retainedInstances)
+        retainMaterializedReplacementOwnerChain(
+          nextHost,
+          instance,
+          retainedInstances
+        )
     );
   }
 
@@ -204,6 +209,10 @@ export function replaceComponentRange(
         getParentNamespace(parent)
       ),
     (nextHost) =>
-      retainReplacementOwnerChain(nextHost, instance, retainedInstances)
+      retainMaterializedReplacementOwnerChain(
+        nextHost,
+        instance,
+        retainedInstances
+      )
   );
 }

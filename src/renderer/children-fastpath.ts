@@ -1,6 +1,7 @@
 import { getRuntimeEnv } from './env';
 import { keyedElements } from './keyed';
 import { teardownNodeSubtree } from './cleanup';
+import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { createDOMNode, updateElementFromVnode } from './dom';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import {
@@ -95,6 +96,7 @@ export function performBulkPositionalKeyedTextUpdate(
         }
 
         updateTextContent(child, children, vnode as DOMElement);
+        retireComponentOwnersForIntrinsicReuse(child);
         setDataKey(child, key, () => (updatedKeys += 1));
         reused += 1;
         continue;

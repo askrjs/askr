@@ -15,6 +15,7 @@ import {
 import { isBulkTextFastPathEligible, performBulkTextReplace } from './children';
 import { isFragmentVNode, normalizeComponentChildren } from './child-shape';
 import { teardownNodeSubtree } from './cleanup';
+import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { getRendererDOMHost, type ElementWithContext } from './dom-host';
 import { keyedElements } from './keyed';
 import { getMaterializedKey } from './utils';
@@ -417,6 +418,7 @@ export function updateMixedControlChildren(
       tagsEqualIgnoreCase(cursor.tagName, child.type)
     ) {
       domHost.updateElementFromVnode(cursor, child, true, forceUpdate);
+      retireComponentOwnersForIntrinsicReuse(cursor);
       cursor = cursor.nextSibling;
       continue;
     }
@@ -553,6 +555,7 @@ export function updateUnkeyedChildren(
       if (_isDOMElement(next) && typeof next.type === 'string') {
         if (tagsEqualIgnoreCase(current.tagName, next.type)) {
           domHost.updateElementFromVnode(current, next, true, forceUpdate);
+          retireComponentOwnersForIntrinsicReuse(current);
         } else {
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
@@ -635,6 +638,7 @@ export function updateUnkeyedChildren(
                 true,
                 forceUpdate
               );
+              retireComponentOwnersForIntrinsicReuse(currentEl);
             } else {
               const dom = domHost.createDOMNode(next, parentNamespace);
               if (dom) {
@@ -786,6 +790,7 @@ export function updateUnkeyedChildren(
       if (typeof next.type === 'string') {
         if (tagsEqualIgnoreCase(current.tagName, next.type)) {
           domHost.updateElementFromVnode(current, next, true, forceUpdate);
+          retireComponentOwnersForIntrinsicReuse(current);
         } else {
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {

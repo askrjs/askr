@@ -19,6 +19,7 @@ import {
 import type { DOMElement, VNode } from './types';
 import { extractKey, getMaterializedKey } from './utils';
 import { getControlBoundaryState } from './boundary-state';
+import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { getLogicalChildHosts } from './dom-range';
 
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
@@ -138,6 +139,7 @@ function reconcileKeyedChild(
         canReuseIntrinsicElementInNamespace(el, childObj.type, parentNamespace)
       ) {
         domHost.updateElementFromVnode(el, child);
+        retireComponentOwnersForIntrinsicReuse(el);
         newKeyMap.set(key, el);
         return el;
       }
@@ -236,6 +238,7 @@ function reconcileUnkeyedChild(
     canReuseElement(existing, child, parentNamespace)
   ) {
     domHost.updateElementFromVnode(existing, child);
+    retireComponentOwnersForIntrinsicReuse(existing);
     usedOldEls.add(existing);
     return existing;
   }
@@ -400,6 +403,7 @@ function tryReuseElement(
       canReuseIntrinsicElementInNamespace(avail, childObj.type, parentNamespace)
     ) {
       getRendererDOMHost().updateElementFromVnode(avail, child);
+      retireComponentOwnersForIntrinsicReuse(avail);
       usedOldEls.add(avail);
       return avail;
     }

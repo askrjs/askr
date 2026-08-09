@@ -4,6 +4,7 @@ import {
   getCurrentInstance,
   renderComponentInline,
   type ComponentFunction,
+  type ComponentInstance,
 } from '../runtime';
 import {
   getCurrentContextFrame,
@@ -19,6 +20,7 @@ import {
   isRouteRootComponentVNode,
   resolveNestedComponentResult,
 } from './component-host';
+import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { getRendererDOMHost, type InstanceHostElement } from './dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
@@ -102,16 +104,18 @@ function patchStableIntrinsicElement(
   return true;
 }
 
-function resolveStableIntrinsicPatchVNode(
+function resolveStableIntrinsicPatch(
   dom: Element,
   vnode: VNode
-): DOMElement | null {
+): { vnode: DOMElement; retainedOwner: ComponentInstance | null } | null {
   if (!_isDOMElement(vnode)) {
     return null;
   }
 
   if (typeof vnode.type === 'string') {
-    return tagNamesEqualIgnoreCase(dom.tagName, vnode.type) ? vnode : null;
+    return tagNamesEqualIgnoreCase(dom.tagName, vnode.type)
+      ? { vnode, retainedOwner: null }
+      : null;
   }
 
   if (typeof vnode.type !== 'function') {
@@ -171,7 +175,10 @@ function resolveStableIntrinsicPatchVNode(
     typeof resolvedResult.type === 'string' &&
     tagNamesEqualIgnoreCase(dom.tagName, resolvedResult.type)
   ) {
-    return inheritComponentKey(resolvedResult, vnode as DOMElement);
+    return {
+      vnode: inheritComponentKey(resolvedResult, vnode as DOMElement),
+      retainedOwner: existingInstance,
+    };
   }
 
   return null;
@@ -186,17 +193,15 @@ export function tryPatchStableForDirtyItem(scope: {
     return false;
   }
 
-  const nextIntrinsic = resolveStableIntrinsicPatchVNode(
-    scope.dom,
-    scope.vnode
-  );
-  if (!nextIntrinsic) {
+  const patch = resolveStableIntrinsicPatch(scope.dom, scope.vnode);
+  if (!patch) {
     return false;
   }
 
-  const didPatch = patchStableIntrinsicElement(scope.dom, nextIntrinsic);
+  const didPatch = patchStableIntrinsicElement(scope.dom, patch.vnode);
 
   if (didPatch) {
+    retireComponentOwnersForIntrinsicReuse(scope.dom, patch.retainedOwner);
     incDevCounter('stableForPatchHit');
   }
 
