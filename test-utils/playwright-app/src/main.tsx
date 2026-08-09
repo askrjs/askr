@@ -1,6 +1,6 @@
 /** @jsxImportSource @askrjs/askr */
 
-import { state } from '@askrjs/askr';
+import { derive, state } from '@askrjs/askr';
 import {
   requireAnonymous,
   requirePermission,
@@ -23,6 +23,7 @@ import {
   lazy,
   navigate,
   route,
+  updateRouteQuery,
 } from '@askrjs/askr/router';
 import { renderToString } from '@askrjs/askr/ssr';
 import { selector } from '../../../src/runtime/selector';
@@ -127,6 +128,8 @@ const root = rootElement;
 
 let benchmarkApp: ReturnType<typeof mountBenchmark> | null = null;
 let focusReorderRows: ReturnType<typeof state<FocusReorderRow[]>> | null = null;
+let bulkCommitReplayRows: ReturnType<typeof state<number[]>> | null = null;
+let bulkCommitReplayObserverRoot: HTMLDivElement | null = null;
 let fanoutState: ReturnType<typeof state<number>> | null = null;
 let largeTreeTickState: ReturnType<typeof state<number>> | null = null;
 let typingValueState: ReturnType<typeof state<string>> | null = null;
@@ -146,10 +149,19 @@ const BROWSER_DEV_COUNTER_KEYS = [
 ] as const;
 
 function resetRoot(): void {
+  cleanupBulkCommitStateReplayObserver();
   cleanupApp(root);
   root.innerHTML = '';
   benchmarkApp = null;
+  bulkCommitReplayRows = null;
   setErrorBoundaryRecovery = null;
+}
+
+function cleanupBulkCommitStateReplayObserver(): void {
+  if (!bulkCommitReplayObserverRoot) return;
+  cleanupApp(bulkCommitReplayObserverRoot);
+  bulkCommitReplayObserverRoot.remove();
+  bulkCommitReplayObserverRoot = null;
 }
 
 function defaultRows(): RowData[] {
@@ -364,6 +376,7 @@ function StaticQueryDeepLinkPage() {
 async function mountStaticQueryDeepLinkScenario(): Promise<{
   preserved: boolean;
   text: string;
+  updatedText: string;
 }> {
   resetRoot();
   const registry = createRouteRegistry(
@@ -385,9 +398,14 @@ async function mountStaticQueryDeepLinkScenario(): Promise<{
   });
   globalScheduler.flush();
 
+  const text = root.querySelector('p')?.textContent ?? '';
+  updateRouteQuery({ q: 'owl', page: 3 });
+  globalScheduler.flush();
+
   return {
     preserved: root.querySelector('p') === paragraph,
-    text: root.querySelector('p')?.textContent ?? '',
+    text,
+    updatedText: root.querySelector('p')?.textContent ?? '',
   };
 }
 
@@ -823,6 +841,80 @@ function reorderFocusRows(
   focusReorderRows.set(
     mode === 'reverse-fresh' ? reversed.map((row) => ({ ...row })) : reversed
   );
+}
+
+function mountBulkCommitStateReplayScenario(): void {
+  resetRoot();
+  const initialRows = Array.from({ length: 200 }, (_, index) => index);
+  let blurCountCell: ReturnType<typeof state<number>> | null = null;
+  let derivedBlurCount: (() => number) | null = null;
+  let derivedReadDuringBlur: number | null = null;
+
+  const App = () => {
+    bulkCommitReplayRows = state(initialRows);
+    const blurCount = state(0);
+    blurCountCell = blurCount;
+
+    return (
+      <ul
+        aria-label="Bulk commit state replay"
+        data-blur-count={String(blurCount())}
+        data-derived-read-during-blur={
+          derivedReadDuringBlur === null
+            ? 'pending'
+            : String(derivedReadDuringBlur)
+        }
+      >
+        {bulkCommitReplayRows().map((row) => (
+          <li key={row} data-row={String(row)}>
+            <input
+              aria-label={`Bulk row ${row}`}
+              onBlur={() => {
+                blurCount.set((count) => count + 1);
+                if (!derivedBlurCount) {
+                  throw new Error('Bulk commit observer is not mounted');
+                }
+                derivedReadDuringBlur = derivedBlurCount();
+                document
+                  .querySelector('[aria-label="Bulk commit state replay"]')
+                  ?.setAttribute(
+                    'data-derived-read-during-blur',
+                    String(derivedReadDuringBlur)
+                  );
+              }}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  createIsland({ root, component: App });
+
+  if (!blurCountCell) {
+    throw new Error('Bulk commit state replay app did not mount');
+  }
+  const observerBlurCount = blurCountCell;
+  const Observer = () => {
+    derivedBlurCount = derive(() => observerBlurCount());
+    return (
+      <output aria-label="Bulk commit blur observer">
+        {String(derivedBlurCount())}
+      </output>
+    );
+  };
+
+  bulkCommitReplayObserverRoot = document.createElement('div');
+  bulkCommitReplayObserverRoot.hidden = true;
+  document.body.appendChild(bulkCommitReplayObserverRoot);
+  createIsland({ root: bulkCommitReplayObserverRoot, component: Observer });
+}
+
+function reverseBulkCommitStateReplayRows(): void {
+  if (!bulkCommitReplayRows) {
+    throw new Error('Bulk commit state replay scenario is not mounted');
+  }
+  bulkCommitReplayRows.set([...bulkCommitReplayRows()].reverse());
 }
 
 function mountInteractionScenario(): void {
@@ -1431,7 +1523,9 @@ Object.assign(window, {
     getBenchMetrics,
     getPerfMetrics,
     getBrowserDevCounters,
+    cleanupBulkCommitStateReplayObserver,
     mountBenchmarkScenario,
+    mountBulkCommitStateReplayScenario,
     mountFocusReorderScenario,
     mountHydratedBenchmarkTableScenario,
     mountInteractionScenario,
@@ -1447,6 +1541,7 @@ Object.assign(window, {
     setHydratedRows,
     setHydratedSelected,
     setRows,
+    reverseBulkCommitStateReplayRows,
     reorderFocusRows,
     async runBrowserPerf() {
       return runBrowserPerf();
@@ -1459,7 +1554,9 @@ export {
   getBenchMetrics,
   getPerfMetrics,
   getBrowserDevCounters,
+  cleanupBulkCommitStateReplayObserver,
   mountBenchmarkScenario,
+  mountBulkCommitStateReplayScenario,
   mountFocusReorderScenario,
   mountAccountSettingsScenario,
   mountCustomerSearchScenario,
@@ -1482,5 +1579,6 @@ export {
   setHydratedRows,
   setHydratedSelected,
   setRows,
+  reverseBulkCommitStateReplayRows,
   reorderFocusRows,
 };

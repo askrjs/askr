@@ -4,17 +4,20 @@ import {
   cleanupComponent,
   createComponentInstance,
 } from '../../../src/runtime/component';
-import { enterBulkCommit, exitBulkCommit } from '../../../src/runtime/fastlane';
+import {
+  enterBulkCommit,
+  exitBulkCommit,
+  isBulkCommitActive,
+} from '../../../src/runtime/fastlane';
 import { state, type State } from '../../../src/runtime/state';
 import * as readable from '../../../src/runtime/readable';
-import { logger } from '../../../src/common/logger';
 
 describe('state.set() during an active bulk commit', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('should update the backing value without notifying readers', () => {
+  it('should defer reader notifications until the bulk commit exits', () => {
     const parent = createComponentInstance('parent', () => null, {}, null);
     const scope = createChildScope(parent, 'cell');
     let counter!: State<number>;
@@ -34,23 +37,61 @@ describe('state.set() during an active bulk commit', () => {
     enterBulkCommit();
     try {
       counter.set(1);
+      counter.set(2);
+
+      expect(counter()).toBe(2);
+      expect(notifySpy).not.toHaveBeenCalled();
+      expect(markDerivedSpy).not.toHaveBeenCalled();
+      expect(markPropsSpy).not.toHaveBeenCalled();
     } finally {
       exitBulkCommit();
     }
 
-    // The value itself must still update (bulk-commit reads later in the
-    // same commit still need to see the new value)...
-    expect(counter()).toBe(1);
-    // ...but per the documented "must be side-effect free" contract of a
-    // bulk commit, no reader notification path runs.
-    expect(notifySpy).not.toHaveBeenCalled();
-    expect(markDerivedSpy).not.toHaveBeenCalled();
-    expect(markPropsSpy).not.toHaveBeenCalled();
+    expect(notifySpy).toHaveBeenCalledTimes(1);
+    expect(markDerivedSpy).toHaveBeenCalledTimes(1);
+    expect(markPropsSpy).toHaveBeenCalledTimes(1);
 
     cleanupComponent(parent);
   });
 
-  it('should warn in dev that the update will not be reactively observed', () => {
+  it.each(['development', 'production'] as const)(
+    'should replay bulk-commit writes in %s mode',
+    (environment) => {
+      const previousEnvironment = process.env.NODE_ENV;
+      process.env.NODE_ENV = environment;
+      const parent = createComponentInstance('parent', () => null, {}, null);
+      const scope = createChildScope(parent, 'cell');
+      let counter!: State<number>;
+      scope.render(() => {
+        const [get] = state(0);
+        counter = get;
+        return counter();
+      });
+      const notifySpy = vi.spyOn(readable, 'notifyReadableReaders');
+
+      try {
+        enterBulkCommit();
+        try {
+          counter.set(1);
+          expect(notifySpy).not.toHaveBeenCalled();
+        } finally {
+          exitBulkCommit();
+        }
+
+        expect(counter()).toBe(1);
+        expect(notifySpy).toHaveBeenCalledTimes(1);
+      } finally {
+        if (previousEnvironment === undefined) {
+          delete process.env.NODE_ENV;
+        } else {
+          process.env.NODE_ENV = previousEnvironment;
+        }
+        cleanupComponent(parent);
+      }
+    }
+  );
+
+  it('should not defer a notification for a no-op set', () => {
     const parent = createComponentInstance('parent', () => null, {}, null);
     const scope = createChildScope(parent, 'cell');
     let counter!: State<number>;
@@ -60,32 +101,7 @@ describe('state.set() during an active bulk commit', () => {
       return counter();
     });
 
-    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
-
-    enterBulkCommit();
-    try {
-      counter.set(1);
-    } finally {
-      exitBulkCommit();
-    }
-
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy.mock.calls[0]?.[0]).toMatch(/bulk commit/i);
-
-    cleanupComponent(parent);
-  });
-
-  it('should not warn for a no-op set (value unchanged)', () => {
-    const parent = createComponentInstance('parent', () => null, {}, null);
-    const scope = createChildScope(parent, 'cell');
-    let counter!: State<number>;
-    scope.render(() => {
-      const [get] = state(0);
-      counter = get;
-      return counter();
-    });
-
-    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    const notifySpy = vi.spyOn(readable, 'notifyReadableReaders');
 
     enterBulkCommit();
     try {
@@ -94,7 +110,45 @@ describe('state.set() during an active bulk commit', () => {
       exitBulkCommit();
     }
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(notifySpy).not.toHaveBeenCalled();
+
+    cleanupComponent(parent);
+  });
+
+  it('should retain deferred writes until the outermost bulk commit exits', () => {
+    const parent = createComponentInstance('parent', () => null, {}, null);
+    const scope = createChildScope(parent, 'cell');
+    let outerCounter!: State<number>;
+    let innerCounter!: State<number>;
+    scope.render(() => {
+      const [getOuter] = state(0);
+      const [getInner] = state(0);
+      outerCounter = getOuter;
+      innerCounter = getInner;
+      return outerCounter() + innerCounter();
+    });
+
+    const notifySpy = vi.spyOn(readable, 'notifyReadableReaders');
+
+    enterBulkCommit();
+    try {
+      outerCounter.set(1);
+      enterBulkCommit();
+      try {
+        innerCounter.set(1);
+      } finally {
+        exitBulkCommit();
+      }
+
+      expect(isBulkCommitActive()).toBe(true);
+      expect(notifySpy).not.toHaveBeenCalled();
+      outerCounter.set(2);
+    } finally {
+      exitBulkCommit();
+    }
+
+    expect(isBulkCommitActive()).toBe(false);
+    expect(notifySpy).toHaveBeenCalledTimes(2);
 
     cleanupComponent(parent);
   });

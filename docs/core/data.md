@@ -171,7 +171,8 @@ Query state is shared by key through a simple in-memory cache. `refresh()` retur
 preserves the last value while refreshing, and surfaces `fresh`, `stale`, `refreshing`, and
 `pending-write` explicitly through `consistency`. `loading` represents the first unresolved
 load only, while `refreshing` and `pending-write` always imply `stale: true` and keep the
-previous value available.
+previous value available. A mutation-driven invalidation commits `pending-write` first, then
+moves to `refreshing` when the confirming fetch starts.
 `staleReason` narrows settled stale states into `inconsistent`, `aborted`, or `error`.
 Manual calls to `refresh()` coalesce while a request is pending. `invalidate()`
 is the distinct operation that replaces stale work. A `reconcile` callback may

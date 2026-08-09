@@ -8,6 +8,7 @@ import {
 } from 'vite-plus/test';
 import { createSPA, hydrateSPA } from '../../../src/boot';
 import { Link } from '../../../src/components/link';
+import { state } from '../../../src/runtime/state';
 import { isRoutePathActive } from '../../../src/router/activity';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
 import {
@@ -16,7 +17,10 @@ import {
   route,
 } from '../../../src/router/route';
 import { renderRouteRequestToString } from '../../../src/ssr';
-import { createTestContainer } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 import { resetRouteState } from '../../router-test-utils';
 
 describe('client route base paths', () => {
@@ -98,12 +102,23 @@ describe('client route base paths', () => {
     let loads = 0;
     const registry = createRouteRegistry(
       () => {
-        route('/reviews/{slug}', ({ slug }) => <h1>{slug}</h1>, {
-          loader: () => {
-            loads += 1;
-            return { ready: true };
+        route(
+          '/reviews/{slug}',
+          ({ slug }) => {
+            const count = state(0);
+            return (
+              <button onClick={() => count.set((value) => value + 1)}>
+                {`${slug}:${String(count())}`}
+              </button>
+            );
           },
-        });
+          {
+            loader: () => {
+              loads += 1;
+              return { ready: true };
+            },
+          }
+        );
       },
       { basePath: '/website' }
     );
@@ -113,7 +128,7 @@ describe('client route base paths', () => {
     });
     if (rendered.kind !== 'render') throw new Error('expected render');
     container.innerHTML = rendered.html;
-    const heading = container.querySelector('h1');
+    const button = container.querySelector('button') as HTMLButtonElement;
     window.history.replaceState({}, '', '/website/reviews/hydrated');
 
     await hydrateSPA({
@@ -122,9 +137,15 @@ describe('client route base paths', () => {
       hydrate: { verifyMarkup: true },
     });
 
-    expect(container.querySelector('h1')?.textContent).toBe('hydrated');
-    expect(container.querySelector('h1')).toBe(heading);
+    expect(container.querySelector('button')).toBe(button);
+    expect(button.textContent).toBe('hydrated:0');
     expect(loads).toBe(1);
+
+    button.click();
+    flushScheduler();
+
+    expect(container.querySelector('button')).toBe(button);
+    expect(button.textContent).toBe('hydrated:1');
   });
 
   it('should verify static mounted markup before applying a deep-link query', async () => {

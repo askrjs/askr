@@ -22,6 +22,7 @@ import {
   materializeChildScopeRange,
 } from './boundary-range-adoption';
 import { teardownBoundaryRangeNode } from './boundary-range-cleanup';
+import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { isHydrationAdoptionScopeActive } from './intrinsic-hydration-adoption';
 import { tagNamesEqualIgnoreCase } from './utils';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
@@ -135,6 +136,7 @@ export function syncControlBoundaryScopeDom(
       tagNamesEqualIgnoreCase(dom.tagName, vnode.type)
     ) {
       host.updateElementFromVnode(dom, vnode, true);
+      retireComponentOwnersForIntrinsicReuse(dom);
       return currentRange;
     }
     if (

@@ -3,6 +3,7 @@ import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../common/logger';
 import { getRuntimeEnv } from './env';
 import { cleanupInstanceIfPresent, removeAllListeners } from './cleanup';
+import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { recordBenchCounter, recordBenchEvent } from '../runtime';
 import { setDevValue, incDevCounter } from '../runtime';
 import { isRuntimeSchedulerExecuting } from '../runtime';
@@ -97,6 +98,7 @@ export function applyRendererFastPath(
 
     if (el) {
       updateElementFromVnode(el, vnode);
+      retireComponentOwnersForIntrinsicReuse(el);
       finalNodes.push(el);
       reusedCount++;
     } else {
