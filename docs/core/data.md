@@ -284,6 +284,13 @@ const admin = queryScope('admin');
 admin.invalidate(['buckets', 'main']);
 ```
 
+The raw `invalidate(prefix)` API performs a literal string-prefix match. For
+example, `invalidate('user:1')` also matches `user:10` and
+`user:1:permissions`. Include an unambiguous delimiter in hand-built prefix
+schemes, or prefer `queryScope()` when key segments can share textual prefixes;
+scoped keys encode segment boundaries so a `user` scope never invalidates a
+`users` scope.
+
 For route-owned dashboards, use the small route-aware invalidation helper:
 
 ```tsx
