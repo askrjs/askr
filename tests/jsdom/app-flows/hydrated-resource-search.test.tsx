@@ -131,6 +131,85 @@ describe('hydrated resource search app flow', () => {
     expect(container.textContent).not.toContain('Ada Lovelace');
   });
 
+  it('should ignore an older hydrated search result that resolves last', async () => {
+    const requests = new Map<
+      string,
+      ReturnType<typeof createControlledDeferred<SearchResult[]>>
+    >();
+    const starts: string[] = [];
+
+    function SearchPage() {
+      const query = state('');
+      const results = resource<SearchResult[]>(() => {
+        const currentQuery = query();
+        if (!currentQuery) return [];
+
+        starts.push(currentQuery);
+        const request = createControlledDeferred<SearchResult[]>();
+        requests.set(currentQuery, request);
+        return request.promise;
+      }, [query()]);
+
+      return (
+        <main aria-label="Customer search">
+          <input
+            aria-label="Search customers"
+            value={query()}
+            onInput={(event: Event) =>
+              query.set((event.target as HTMLInputElement).value)
+            }
+          />
+          <ul>
+            <For each={results.value ?? []} by={(result) => result.id}>
+              {(result) => <li>{result.name}</li>}
+            </For>
+          </ul>
+        </main>
+      );
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: SearchPage },
+    ]);
+    container.innerHTML = renderToString({
+      url: '/',
+      registry,
+      data: { 'r:0': [] },
+    });
+
+    const serverInput = container.querySelector(
+      '[aria-label="Search customers"]'
+    ) as HTMLInputElement;
+    await hydrateSPA({ root: container, registry });
+
+    serverInput.value = 'slow';
+    serverInput.dispatchEvent(new Event('input', { bubbles: true }));
+    flushScheduler();
+
+    serverInput.value = 'fast';
+    serverInput.dispatchEvent(new Event('input', { bubbles: true }));
+    flushScheduler();
+
+    expect(starts).toEqual(['slow', 'fast']);
+
+    requests
+      .get('fast')!
+      .resolve([{ id: 'customer-fast', name: 'Fast Result' }]);
+    await settleAsyncWork();
+
+    expect(container.textContent).toContain('Fast Result');
+    expect(container.textContent).not.toContain('Slow Result');
+
+    requests
+      .get('slow')!
+      .resolve([{ id: 'customer-slow', name: 'Slow Result' }]);
+    await settleAsyncWork();
+
+    expect(container.textContent).toContain('Fast Result');
+    expect(container.textContent).not.toContain('Slow Result');
+    expect(container.querySelectorAll('li')).toHaveLength(1);
+  });
+
   it('should recover from a failed hydrated search without duplicating retry work', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const requests = new Map<
