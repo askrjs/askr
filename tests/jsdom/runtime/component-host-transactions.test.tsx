@@ -8,6 +8,10 @@ import {
 } from 'vite-plus/test';
 import { For } from '../../../src/control';
 import { beginComponentHostReplacement } from '../../../src/renderer/component-host-replacement';
+import {
+  materializeComponentResultNode,
+  retainMaterializedReplacementOwnerChain,
+} from '../../../src/renderer/component-host-results';
 import type { InstanceHostElement } from '../../../src/renderer/dom-host';
 import { getSignal, resource, task } from '../../../src/resources';
 import {
@@ -89,6 +93,67 @@ describe('component host transactions', () => {
     expect(wrapper.target).toBe(nextHost);
     expect(existingHost.__ASKR_INSTANCE).toBeUndefined();
     expect(existingHost.__ASKR_INSTANCES).toBeUndefined();
+  });
+
+  it('should clean a materialized nested owner when host replacement rolls back', () => {
+    const existingHost = document.createElement('div') as InstanceHostElement;
+    container.appendChild(existingHost);
+
+    const owner = createComponentInstance(
+      'replacement-owner',
+      () => null,
+      {},
+      existingHost
+    );
+    owner.mounted = true;
+    existingHost.__ASKR_INSTANCE = owner;
+    existingHost.__ASKR_INSTANCES = [owner];
+
+    let nestedSignal!: AbortSignal;
+    let nestedAborts = 0;
+    let ownerCleanups = 0;
+    (owner.cleanupFns ??= []).push(() => {
+      ownerCleanups += 1;
+    });
+
+    function NestedOwner() {
+      nestedSignal = getSignal();
+      nestedSignal.addEventListener('abort', () => {
+        nestedAborts += 1;
+      });
+      return <span data-provisional-owner={'true'}>{'provisional'}</span>;
+    }
+
+    const replacement = beginComponentHostReplacement(
+      existingHost,
+      owner,
+      existingHost,
+      [owner]
+    );
+    const replaceChild = vi
+      .spyOn(container, 'replaceChild')
+      .mockImplementationOnce(() => {
+        throw new Error('replacement insertion failed');
+      });
+
+    try {
+      expect(() =>
+        replacement.replace(
+          () => materializeComponentResultNode(owner, <NestedOwner />),
+          (nextHost) =>
+            retainMaterializedReplacementOwnerChain(nextHost, owner, [owner])
+        )
+      ).toThrow('replacement insertion failed');
+    } finally {
+      replaceChild.mockRestore();
+    }
+
+    expect(nestedSignal.aborted).toBe(true);
+    expect(nestedAborts).toBe(1);
+    expect(ownerCleanups).toBe(0);
+    expect(owner.target).toBe(existingHost);
+    expect(existingHost.isConnected).toBe(true);
+    expect(container.querySelector('[data-provisional-owner]')).toBeNull();
   });
 
   it('should preserve a same-host owner on sibling failure and clean it once on recovery', async () => {

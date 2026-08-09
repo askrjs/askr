@@ -9,7 +9,6 @@ import {
 } from './route-render';
 import { renderSSRRouteAppToSink, renderToStringSync } from './render-sync';
 import type { VNode } from './types';
-import './hydration-verify';
 
 export { SSRDataMissingError } from './context';
 export type {
