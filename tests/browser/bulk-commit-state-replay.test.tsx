@@ -1,75 +1,59 @@
 import { expect, test } from 'vite-plus/test';
-import { state, type State } from '../../src';
-import { isBulkCommitActive } from '../../src/runtime/fastlane';
-import { createIsland } from '../../test-utils/render/create-island';
-import {
-  createTestContainer,
-  flushScheduler,
-} from '../../test-utils/render/test-renderer';
+import { loadBrowserHarness } from './_helpers';
 
-test('should replay state written by blur during a keyed bulk reorder', () => {
-  const { container, cleanup } = createTestContainer();
-  let rows!: State<number[]>;
+test('should replay state written by blur during a keyed bulk reorder', async () => {
+  const app = await loadBrowserHarness();
+  app.mountBulkCommitStateReplayScenario();
+
+  const list = document.querySelector<HTMLUListElement>(
+    '[aria-label="Bulk commit state replay"]'
+  )!;
+  const input = document.querySelector<HTMLInputElement>(
+    '[aria-label="Bulk row 100"]'
+  )!;
+  const originalReplaceChildren = list.replaceChildren;
   let replaceChildrenActive = false;
   let replaceChildrenCalls = 0;
   let blurredDuringReplaceChildren = false;
-  let blurredDuringBulkCommit = false;
-
-  function App() {
-    rows = state(Array.from({ length: 200 }, (_, index) => index));
-    const blurCount = state(0);
-
-    return (
-      <ul data-blur-count={String(blurCount())}>
-        {rows().map((row) => (
-          <li key={row} data-row={String(row)}>
-            <input
-              aria-label={`Row ${row}`}
-              onBlur={() => {
-                blurredDuringReplaceChildren = replaceChildrenActive;
-                blurredDuringBulkCommit = isBulkCommitActive();
-                blurCount.set((count) => count + 1);
-              }}
-            />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
+  let derivedReadDuringBlur: string | undefined;
+  list.replaceChildren = (...nodes: Array<Node | string>) => {
+    replaceChildrenCalls += 1;
+    replaceChildrenActive = true;
+    try {
+      originalReplaceChildren.call(list, ...nodes);
+    } finally {
+      replaceChildrenActive = false;
+    }
+  };
+  input.addEventListener(
+    'blur',
+    () => {
+      blurredDuringReplaceChildren = replaceChildrenActive;
+      derivedReadDuringBlur = list.dataset.derivedReadDuringBlur;
+    },
+    { once: true }
+  );
   try {
-    createIsland({ root: container, component: App });
-    flushScheduler();
-
-    const list = container.querySelector('ul')!;
-    const replaceChildren = list.replaceChildren;
-    list.replaceChildren = (...nodes: Array<Node | string>) => {
-      replaceChildrenCalls += 1;
-      replaceChildrenActive = true;
-      try {
-        replaceChildren.call(list, ...nodes);
-      } finally {
-        replaceChildrenActive = false;
-      }
-    };
-
-    const input = container.querySelector<HTMLInputElement>(
-      '[aria-label="Row 100"]'
-    )!;
     input.focus();
     expect(document.activeElement).toBe(input);
 
-    rows.set([...rows()].reverse());
-    flushScheduler();
+    app.reverseBulkCommitStateReplayRows();
 
-    expect(input.isConnected).toBe(true);
+    await expect.poll(() => list.dataset.blurCount).toBe('1');
     expect(replaceChildrenCalls).toBe(1);
     expect(blurredDuringReplaceChildren).toBe(true);
-    expect(blurredDuringBulkCommit).toBe(true);
-    expect(container.firstElementChild?.getAttribute('data-blur-count')).toBe(
-      '1'
-    );
+    expect(derivedReadDuringBlur).toBe('0');
+    expect(list.dataset.derivedReadDuringBlur).toBe('0');
+    await expect
+      .poll(
+        () =>
+          document.querySelector('[aria-label="Bulk commit blur observer"]')
+            ?.textContent
+      )
+      .toBe('1');
+    expect(list.firstElementChild?.getAttribute('data-row')).toBe('199');
+    expect(input.isConnected).toBe(true);
   } finally {
-    cleanup();
+    app.cleanupBulkCommitStateReplayObserver();
   }
 });
