@@ -211,11 +211,10 @@ export function finalizeReadableSubscriptionsFromSnapshot(
   if (newSet) {
     for (const source of newSet) {
       // Existing sources and first mounts always receive the torn-read replay.
-      // A source newly entered by a mounted branch normally keeps the prior
-      // scheduler-visible behavior, unless it changed after this render read
-      // while the same scheduler flush is still committing. In that case the
-      // component was not a reader yet, so no normal notification can recover
-      // the value it is about to commit.
+      // For a newly entered branch, every version change after the render read
+      // but before its scheduler-driven subscription commit is a missed
+      // notification: this instance was not a reader yet. Multiple changed
+      // sources still coalesce through the single follow-up update below.
       if (pendingVersions) {
         const sourceVersion = source._version ?? 0;
         const readVersion = pendingVersions.get(source);

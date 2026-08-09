@@ -598,9 +598,27 @@ class FineGrainedEffectImpl<T>
       return;
     }
 
+    const previousCompute = this.compute;
+    const previousReadSources = this.readSources;
+    const previousReadSource2 = this.readSource2;
+    const previousHasValue = this.hasValue;
+    const previousLastValue = this.lastValue;
     this.compute = nextCompute;
     unscheduleEffect(this);
-    recomputeEffectNow(this);
+    try {
+      recomputeEffectNow(this);
+    } catch (error) {
+      // A handled failure accepts the replacement compute and returns above.
+      // When the error propagates, keep the existing effect coherent for its
+      // caller's rollback/recovery path instead of pairing the replacement
+      // compute with the last committed dependency set.
+      this.compute = previousCompute;
+      unscheduleEffect(this);
+      commitEffectSubscriptions(this, previousReadSources, previousReadSource2);
+      this.hasValue = previousHasValue;
+      this.lastValue = previousLastValue;
+      throw error;
+    }
   }
 
   flush(): void {
@@ -608,6 +626,8 @@ class FineGrainedEffectImpl<T>
       return;
     }
 
+    // An unhandled direct failure propagates while the existing effect keeps
+    // its last complete subscriptions, allowing a later source write to retry.
     unscheduleEffect(this);
     recomputeEffectNow(this);
   }
@@ -632,6 +652,7 @@ export function createFineGrainedEffect<T>(
   try {
     recomputeEffectNow(effect);
   } catch (error) {
+    // Construction returned no handle that could later retire the effect.
     effect.cleanup();
     throw error;
   }
@@ -660,6 +681,7 @@ export function createOwnedFineGrainedEffect<T>(
   try {
     recomputeEffectNow(effect);
   } catch (error) {
+    // Construction returned no handle that could later retire the effect.
     effect.cleanup();
     throw error;
   }

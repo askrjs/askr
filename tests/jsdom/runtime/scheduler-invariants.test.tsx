@@ -21,6 +21,7 @@ describe('scheduler invariants', () => {
   it('should replay a newly entered source changed before its branch commits', () => {
     const { container, cleanup } = createTestContainer();
     let sharedValue = 'old';
+    let secondaryValue = 'secondary-old';
     let enterBranch!: () => void;
     let mountWriter!: () => void;
     let readerRenders = 0;
@@ -33,10 +34,19 @@ describe('scheduler invariants', () => {
       sharedValue = value;
       notifyReadableReaders(shared);
     };
+    const secondary = (() => {
+      recordReadableRead(secondary);
+      return secondaryValue;
+    }) as ReadableSource<string>;
+    const writeSecondary = (value: string): void => {
+      secondaryValue = value;
+      notifyReadableReaders(secondary);
+    };
 
     const Writer = () => {
       task(() => {
         writeShared('new');
+        writeSecondary('secondary-new');
       });
       return <span>{'writer'}</span>;
     };
@@ -51,7 +61,9 @@ describe('scheduler invariants', () => {
       readerRenders += 1;
       const open = state(false);
       enterBranch = () => open.set(true);
-      return <output>{open() ? shared() : 'closed'}</output>;
+      return (
+        <output>{open() ? `${shared()}:${secondary()}` : 'closed'}</output>
+      );
     };
 
     const App = () => (
@@ -74,7 +86,11 @@ describe('scheduler invariants', () => {
       enterBranch();
       flushScheduler();
 
-      expect(container.querySelector('output')?.textContent).toBe('new');
+      expect(container.querySelector('output')?.textContent).toBe(
+        'new:secondary-new'
+      );
+      // Both sources missed their notification, but the component receives a
+      // single coalesced follow-up rather than one render per source.
       expect(readerRenders).toBe(3);
     } finally {
       cleanup();

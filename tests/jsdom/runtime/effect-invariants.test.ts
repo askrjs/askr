@@ -97,6 +97,94 @@ describe('fine-grained effect invariants', () => {
     expect(runs).toBe(1);
   });
 
+  it('should roll back an unhandled updateCompute replacement', () => {
+    const original = createSource(1);
+    const replacement = createSource(10);
+    const commits: number[] = [];
+    let originalRuns = 0;
+    let replacementRuns = 0;
+    let shouldThrowCommit = false;
+
+    const effect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => {
+        originalRuns += 1;
+        return original.read();
+      },
+      commit: (value) => {
+        if (shouldThrowCommit) {
+          throw new Error('unhandled-update-commit-boom');
+        }
+        commits.push(value);
+      },
+    });
+
+    expect(() =>
+      effect.updateCompute(() => {
+        replacementRuns += 1;
+        replacement.read();
+        throw new Error('unhandled-update-compute-boom');
+      })
+    ).toThrow(/unhandled-update-compute-boom/);
+
+    replacement.set(11);
+    expect(() => globalScheduler.flush()).not.toThrow();
+    expect(replacementRuns).toBe(1);
+
+    shouldThrowCommit = true;
+    expect(() =>
+      effect.updateCompute(() => {
+        replacementRuns += 1;
+        return replacement.read();
+      })
+    ).toThrow(/unhandled-update-commit-boom/);
+    shouldThrowCommit = false;
+
+    replacement.set(12);
+    expect(() => globalScheduler.flush()).not.toThrow();
+    expect(replacementRuns).toBe(2);
+
+    original.set(2);
+    expect(() => globalScheduler.flush()).not.toThrow();
+    expect(originalRuns).toBe(2);
+    expect(commits).toEqual([1, 2]);
+
+    effect.cleanup();
+  });
+
+  it('should keep an existing effect recoverable after an unhandled flush', () => {
+    const source = createSource(1);
+    const commits: number[] = [];
+    let shouldThrow = false;
+    let runs = 0;
+
+    const effect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => {
+        runs += 1;
+        const value = source.read();
+        if (shouldThrow) {
+          throw new Error('unhandled-flush-boom');
+        }
+        return value;
+      },
+      commit: (value) => {
+        commits.push(value);
+      },
+    });
+
+    shouldThrow = true;
+    expect(() => effect.flush()).toThrow(/unhandled-flush-boom/);
+
+    shouldThrow = false;
+    source.set(2);
+    expect(() => globalScheduler.flush()).not.toThrow();
+    expect(runs).toBe(3);
+    expect(commits).toEqual([1, 2]);
+
+    effect.cleanup();
+  });
+
   it('should publish successful compute subscriptions when commit throws', () => {
     const branch = createSource(0);
     const first = createSource(1);

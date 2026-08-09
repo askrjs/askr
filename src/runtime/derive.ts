@@ -170,6 +170,11 @@ function createDerivedCell<T>(
   const cell = function derivedGetter(): T {
     const derivedCell = cell as DerivedCell<T>;
     if (!derivedCell._active) {
+      if (!derivedCell._hasValue) {
+        throw new Error(
+          '[Askr] derive() was disposed before producing a value.'
+        );
+      }
       if (__ASKR_DEVELOPMENT_BUILD__) {
         throw new Error(
           '[Askr] derive() was called after its owning component was disposed.'
