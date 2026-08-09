@@ -1,5 +1,6 @@
 import { expect, test } from 'vite-plus/test';
 import { state, type State } from '../../src';
+import { isBulkCommitActive } from '../../src/runtime/fastlane';
 import { createIsland } from '../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -12,6 +13,7 @@ test('should replay state written by blur during a keyed bulk reorder', () => {
   let replaceChildrenActive = false;
   let replaceChildrenCalls = 0;
   let blurredDuringReplaceChildren = false;
+  let blurredDuringBulkCommit = false;
 
   function App() {
     rows = state(Array.from({ length: 200 }, (_, index) => index));
@@ -25,6 +27,7 @@ test('should replay state written by blur during a keyed bulk reorder', () => {
               aria-label={`Row ${row}`}
               onBlur={() => {
                 blurredDuringReplaceChildren = replaceChildrenActive;
+                blurredDuringBulkCommit = isBulkCommitActive();
                 blurCount.set((count) => count + 1);
               }}
             />
@@ -62,6 +65,7 @@ test('should replay state written by blur during a keyed bulk reorder', () => {
     expect(input.isConnected).toBe(true);
     expect(replaceChildrenCalls).toBe(1);
     expect(blurredDuringReplaceChildren).toBe(true);
+    expect(blurredDuringBulkCommit).toBe(true);
     expect(container.firstElementChild?.getAttribute('data-blur-count')).toBe(
       '1'
     );
