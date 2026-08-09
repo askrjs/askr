@@ -3,7 +3,12 @@
  * Consolidates common patterns to reduce code duplication.
  */
 
-import { runRuntimeHandlerScope } from '../runtime';
+import {
+  getCurrentAppRenderRuntime,
+  runRuntimeHandlerScope,
+  withAppRenderRuntime,
+} from '../runtime';
+import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
 import { getPublicAttributeName } from '../common/attr-names';
 import { getRuntimeEnv } from './env';
@@ -53,9 +58,17 @@ const CLICK_CAPTURE_EVENT_PROP: ParsedEventProp = {
 // Event Handler Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Handler pooling cache to avoid recreating wrapped handlers
-// Key: handler reference, Value: { wrapped: EventListener, flushAfter: boolean }
-const handlerCache = new WeakMap<EventListener, Map<boolean, EventListener>>();
+interface RuntimeHandlerCache {
+  unscoped?: EventListener;
+  scoped: WeakMap<AppRenderRuntime, EventListener>;
+}
+
+// Handler pooling cache to avoid recreating wrapped handlers without retaining
+// application runtimes after their roots and listeners are released.
+const handlerCache = new WeakMap<
+  EventListener,
+  Map<boolean, RuntimeHandlerCache>
+>();
 let cacheSize = 0;
 const MAX_CACHE_SIZE = 1000;
 
@@ -129,23 +142,28 @@ export function createWrappedHandler(
   handler: EventListener,
   flushAfter = false
 ): EventListener {
+  const appRuntime = getCurrentAppRenderRuntime();
   // Check cache first
   const cachedByFlush = handlerCache.get(handler);
   if (cachedByFlush) {
-    const cached = cachedByFlush.get(flushAfter);
+    const cachedByRuntime = cachedByFlush.get(flushAfter);
+    const cached = appRuntime
+      ? cachedByRuntime?.scoped.get(appRuntime)
+      : cachedByRuntime?.unscoped;
     if (cached) return cached;
   }
 
   const wrapped: EventListener = (event: Event) => {
     try {
       runRuntimeHandlerScope(
-        () => {
-          try {
-            handler(event);
-          } catch (error) {
-            logger.error('[Askr] Event handler error:', error);
-          }
-        },
+        () =>
+          withAppRenderRuntime(appRuntime, () => {
+            try {
+              handler(event);
+            } catch (error) {
+              logger.error('[Askr] Event handler error:', error);
+            }
+          }),
         flushAfter ? 'sync' : 'defer'
       );
     } catch (err) {
@@ -170,7 +188,15 @@ export function createWrappedHandler(
         handlerCache.set(handler, new Map());
       }
     }
-    handlerCache.get(handler)?.set(flushAfter, wrapped);
+    const cachedByRuntime = handlerCache.get(handler)?.get(flushAfter) ?? {
+      scoped: new WeakMap<AppRenderRuntime, EventListener>(),
+    };
+    if (appRuntime) {
+      cachedByRuntime.scoped.set(appRuntime, wrapped);
+    } else {
+      cachedByRuntime.unscoped = wrapped;
+    }
+    handlerCache.get(handler)?.set(flushAfter, cachedByRuntime);
   } catch {
     // WeakMap can throw if handler is not a valid key
   }
@@ -186,17 +212,19 @@ export function createMutableWrappedHandler(
   updateHandler: (nextHandler: EventListener) => void;
 } {
   let currentHandler = handler;
+  let appRuntime = getCurrentAppRenderRuntime();
 
   const wrapped: EventListener = (event: Event) => {
     try {
       runRuntimeHandlerScope(
-        () => {
-          try {
-            currentHandler(event);
-          } catch (error) {
-            logger.error('[Askr] Event handler error:', error);
-          }
-        },
+        () =>
+          withAppRenderRuntime(appRuntime, () => {
+            try {
+              currentHandler(event);
+            } catch (error) {
+              logger.error('[Askr] Event handler error:', error);
+            }
+          }),
         flushAfter ? 'sync' : 'defer'
       );
     } catch (err) {
@@ -214,6 +242,7 @@ export function createMutableWrappedHandler(
     handler: wrapped,
     updateHandler(nextHandler: EventListener) {
       currentHandler = nextHandler;
+      appRuntime = getCurrentAppRenderRuntime();
     },
   };
 }

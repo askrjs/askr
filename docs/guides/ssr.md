@@ -52,6 +52,13 @@ function Report() {
 Hydration revives settled deferred data and adopts the streamed DOM; it does
 not rerun the server loader.
 
+Start browser hydration from a normal, non-async `type="module"` entry placed
+after the app markup. Module execution waits for the streamed document to
+finish parsing, so deferred boundary patches and their hydration data are in
+place before `hydrateSPA()` runs. Do not start hydration from an async module
+or an early classic script while the response stream is still open; that
+ordering is outside the deferred-stream hydration contract.
+
 ## Route data transport and field omission
 
 Route loader values are validated before hydratable output is returned. The

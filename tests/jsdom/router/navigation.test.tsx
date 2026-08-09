@@ -590,6 +590,7 @@ describe('route navigation (ROUTER)', () => {
       flushScheduler();
 
       expect(container.querySelector('#click-count')?.textContent).toBe('1');
+      const renderCountBeforeQueryUpdate = renderCount;
 
       updateRouteQuery({ q: 'northwind' });
       flushScheduler();
@@ -605,7 +606,7 @@ describe('route navigation (ROUTER)', () => {
       expect(container.querySelector('#query-value')?.textContent).toBe(
         'northwind'
       );
-      expect(renderCount).toBeGreaterThanOrEqual(2);
+      expect(renderCount).toBe(renderCountBeforeQueryUpdate + 1);
 
       historyReplaceSpy.mockRestore();
     });
