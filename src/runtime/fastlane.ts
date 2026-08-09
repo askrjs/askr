@@ -6,7 +6,13 @@ import {
   setRuntimeBulkCommitProbe,
 } from './access';
 import type { ComponentInstance } from './component';
-import { finalizeReadableSubscriptions } from './readable';
+import {
+  finalizeReadableSubscriptions,
+  markReadableDerivedSubscribersDirty,
+  markReactivePropsDirtySource,
+  notifyReadableReaders,
+  type ReadableSource,
+} from './readable';
 import { isFragmentType } from '../common/jsx';
 import { setDevValue, getDevValue, getDevNamespace } from './dev-namespace';
 
@@ -15,23 +21,49 @@ declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
 
 let _bulkCommitActive = false;
+let _bulkCommitDepth = 0;
 let _appliedParents: WeakSet<Element> | null = null;
+let _deferredReadableSources: Set<ReadableSource<unknown>> | null = null;
 
 export function enterBulkCommit(): void {
+  _bulkCommitDepth += 1;
+  if (_bulkCommitDepth > 1) return;
+
   _bulkCommitActive = true;
   // Initialize registry of parents that had fast-path applied during this bulk commit
   _appliedParents = new WeakSet<Element>();
+  _deferredReadableSources = new Set<ReadableSource<unknown>>();
   setDevValue('__FASTLANE_CLEARED_TASKS', 0);
 }
 
 export function exitBulkCommit(): void {
+  if (_bulkCommitDepth === 0) return;
+
+  _bulkCommitDepth -= 1;
+  if (_bulkCommitDepth > 0) return;
+
   _bulkCommitActive = false;
+  const deferredReadableSources = _deferredReadableSources;
   // Clear registry to avoid leaking across commits
   _appliedParents = null;
+  _deferredReadableSources = null;
+
+  if (!deferredReadableSources) return;
+  for (const source of deferredReadableSources) {
+    markReadableDerivedSubscribersDirty(source);
+    markReactivePropsDirtySource(source);
+    void notifyReadableReaders(source);
+  }
 }
 
 export function isBulkCommitActive(): boolean {
   return _bulkCommitActive;
+}
+
+export function deferBulkCommitReadableNotification(
+  source: ReadableSource<unknown>
+): void {
+  _deferredReadableSources?.add(source);
 }
 
 // Mark that a fast-path was applied on a parent element during the active

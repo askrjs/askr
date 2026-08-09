@@ -38,6 +38,12 @@ describe('conditional state errors (STATE)', () => {
       show!.set(true);
       flushScheduler();
     }).toThrow(/hook order|conditionally/i);
+
+    expect(() => {
+      show!.set(false);
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.textContent).toContain('ok');
   });
 
   it('should not throw when unreachable state() calls exist after return (static heuristics removed)', () => {

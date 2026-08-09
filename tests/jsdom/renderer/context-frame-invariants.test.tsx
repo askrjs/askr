@@ -459,6 +459,70 @@ describe('renderer context frame invariants', () => {
     expect(container.querySelector('#case-theme')?.textContent).toBe('dark');
   });
 
+  it('should refresh Case and Portal consumers when provider context changes', () => {
+    const ThemeScope = defineScope('light');
+    let setTheme = (_value: string) => undefined;
+    let caseRenderCount = 0;
+    let portalRenderCount = 0;
+
+    const CaseReader = () => {
+      caseRenderCount += 1;
+      return <span id={'reactive-case-theme'}>{readScope(ThemeScope)}</span>;
+    };
+    const PortalReader = () => {
+      portalRenderCount += 1;
+      return <span id={'reactive-portal-theme'}>{readScope(ThemeScope)}</span>;
+    };
+
+    const App = () => {
+      const theme = state('dark');
+      setTheme = theme.set;
+
+      return (
+        <ThemeScope value={theme()}>
+          <Case>
+            <Match when={true}>
+              <CaseReader />
+            </Match>
+          </Case>
+          <Portal>
+            <PortalReader />
+          </Portal>
+        </ThemeScope>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    expect(container.querySelector('#reactive-case-theme')?.textContent).toBe(
+      'dark'
+    );
+    expect(container.querySelector('#reactive-portal-theme')?.textContent).toBe(
+      'dark'
+    );
+    expect(caseRenderCount).toBe(1);
+    expect(portalRenderCount).toBe(1);
+
+    setTheme('dark');
+    flushScheduler();
+
+    expect(caseRenderCount).toBe(1);
+    expect(portalRenderCount).toBe(1);
+
+    setTheme('contrast');
+    flushScheduler();
+
+    expect(container.querySelector('#reactive-case-theme')?.textContent).toBe(
+      'contrast'
+    );
+    expect(container.querySelector('#reactive-portal-theme')?.textContent).toBe(
+      'contrast'
+    );
+    expect(caseRenderCount).toBe(2);
+    expect(portalRenderCount).toBeGreaterThan(1);
+  });
+
   it('should preserve context for keyed computed-array children', () => {
     const ThemeScope = defineScope('light');
 

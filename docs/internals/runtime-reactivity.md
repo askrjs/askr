@@ -270,6 +270,10 @@ flowchart LR
   reads for object/function row items, native array pass-through, signal
   notification, and parent-reader pruning.
 - `src/runtime/state.ts` stores component-local writable cells.
+  `src/runtime/fastlane.ts` keeps bulk DOM reorder commits free of reactive
+  work while the commit is active, then replays one deduplicated notification
+  per state source written by a synchronous native event before the commit
+  exits.
 - `src/runtime/derive.ts` tracks dependency reads and recomputes in the
   scheduler's `derived` lane.
 - `src/runtime/readable.ts` is the shared substrate connecting state, derived
