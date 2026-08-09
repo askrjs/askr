@@ -9,6 +9,7 @@ import type {
 } from '../common/router';
 import type { AuthRequirement } from '@askrjs/auth';
 import { getActiveRenderContext } from '../common/render-context';
+import { getCurrentAppRenderRuntime } from '../runtime';
 import type {
   InternalRoute,
   InternalRouteRecord,
@@ -82,7 +83,11 @@ export function addRouteToStores(routeObj: InternalRoute): void {
 
 export function getActiveRoutes(): readonly Route[] {
   const renderContext = getActiveRenderContext();
-  return renderContext?.routes ?? routes;
+  return (
+    renderContext?.routes ??
+    getCurrentAppRenderRuntime()?.routeRegistry?.routes ??
+    routes
+  );
 }
 
 export function getActiveRouteAuthOptions(
@@ -92,9 +97,8 @@ export function getActiveRouteAuthOptions(
     return override;
   }
 
-  const renderContext = getActiveRenderContext();
   return (
-    renderContext?.routeAuth ??
+    getActiveRenderContext()?.routeAuth ??
     activeClientRouteAuthOptions ??
     defaultRouteAuthOptions
   );
@@ -125,7 +129,17 @@ export function setDefaultRouteBasePath(basePath: string): void {
 }
 
 export function getActiveRouteBasePath(): string {
-  return getActiveRenderContext()?.basePath ?? defaultRouteBasePath;
+  const renderContext = getActiveRenderContext();
+  if (renderContext?.basePath !== undefined) {
+    return renderContext.basePath;
+  }
+
+  const appRegistry = getCurrentAppRenderRuntime()?.routeRegistry;
+  if (appRegistry) {
+    return appRegistry.manifest.basePath ?? '';
+  }
+
+  return defaultRouteBasePath;
 }
 
 export function getCurrentLayoutChain(): LayoutScopeRecord[] {

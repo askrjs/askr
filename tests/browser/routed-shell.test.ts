@@ -57,11 +57,13 @@ test.describe('real routed app shell workflow', () => {
 
     const search = page.getByLabelText('Search customers');
     await search.click();
+    const input = search.element();
     await userEvent.keyboard('globex');
 
     await expect
       .poll(() => window.location.pathname + window.location.search)
       .toBe('/customers/search?q=globex');
+    expect(search.element()).toBe(input);
     await expect.element(search).toHaveFocus();
     await expect(page.getByRole('heading', { name: 'Askr CRM' })).toBeVisible();
     await expect(

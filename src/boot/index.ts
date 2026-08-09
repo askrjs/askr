@@ -182,15 +182,16 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     registry: config.registry,
   });
   setServerLocation(currentUrl);
-  const appRuntime = createAppRenderRuntime(
-    resolved?.kind === 'render' && hasRouteRenderData(resolved)
+  const appRuntime = createAppRenderRuntime({
+    ...(resolved?.kind === 'render' && hasRouteRenderData(resolved)
       ? {
           route: getRouteRenderData(resolved),
           hasRoute: true,
-          dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
         }
-      : { dataRuntime: config.dataRuntime ?? getDefaultDataRuntime() }
-  );
+      : {}),
+    dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
+    routeRegistry: config.registry,
+  });
 
   if (!resolved) {
     mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
@@ -290,6 +291,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       framework: hydrationRenderData?.framework,
       route: hydrationRenderData?.route,
       hasRoute: hydrationRenderData !== null,
+      routeRegistry: config.registry,
     }),
   };
   _setActiveRouteAuthOptions(routeAuth);

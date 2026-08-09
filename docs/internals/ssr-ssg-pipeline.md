@@ -44,7 +44,6 @@ flowchart LR
   componentInstance[temp component instances]
   syncRender[sync component render]
   attrs[attr escaping and serialization]
-  verify[hydration-verify.ts]
   html[HTML string or stream]
   hydrateData[serialized hydration data]
 
@@ -54,7 +53,6 @@ flowchart LR
   routeRender --> ssrContext
   routeRender --> internal
   internal --> renderSync
-  internal --> verify
   renderSync --> boundaries
   renderSync --> componentInstance
   componentInstance --> syncRender
@@ -71,19 +69,22 @@ is split between route/document orchestration in `route-render.ts` and
 synchronous serialization in `render-sync.ts`. `index-internal.ts` keeps the
 public SSR orchestration and route render host. `component-runtime.ts` owns
 synchronous component execution. `hydration-data.ts` owns render-data script
-serialization and `hydration-verify.ts` owns hydration verifier state.
-`boundaries.ts` owns error/control boundary state helpers, renderable child
-normalization, and default fallback construction. Helper modules own escaping,
-attributes, sinks, render context, and resolved-route rendering.
+serialization. `boundaries.ts` owns error/control boundary state helpers,
+renderable child normalization, and default fallback construction. The client
+boot path calls `verify-hydration.ts` when markup verification is enabled; that
+helper renders the resolved route to a normalized string and compares it with
+the adopted DOM. Helper modules own escaping, attributes, sinks, render
+context, and resolved-route rendering.
 
 ```mermaid
 flowchart TB
   facade[index.ts facade]
   routeRender[route-render.ts]
   internal[index-internal.ts]
+  boot[hydrateSPA]
   renderSync[render-sync.ts]
   hydrationData[hydration-data.ts]
-  hydrationVerify[hydration-verify.ts]
+  hydrationVerify[verify-hydration.ts]
   boundaries[boundaries.ts]
   componentRuntime[component-runtime.ts]
   serialize[renderable and node serialization]
@@ -97,7 +98,7 @@ flowchart TB
   facade --> internal
   internal --> routeRender
   internal --> renderSync
-  internal --> hydrationVerify
+  boot --> hydrationVerify
   renderSync --> componentRuntime
   renderSync --> boundaries
   renderSync --> serialize
@@ -213,12 +214,13 @@ flowchart LR
   keeps public SSR orchestration and the route render host.
   `src/ssr/render-sync.ts` owns synchronous HTML serialization and
   component-form `renderToString()`. `src/ssr/hydration-data.ts` owns
-  hydration render-data serialization, and `src/ssr/hydration-verify.ts` owns
-  hydration verifier state. `src/ssr/boundaries.ts` owns error/control
-  boundary state helpers, renderable child normalization, and default fallback
-  construction. `src/ssr/component-runtime.ts` owns synchronous component
-  execution, strict-purity guards, temporary owner cleanup, and default portal
-  wrapping.
+  hydration render-data serialization. `src/ssr/verify-hydration.ts` is called
+  by `hydrateSPA()` to compare adopted DOM with a normalized synchronous route
+  render when verification is enabled. `src/ssr/boundaries.ts` owns
+  error/control boundary state helpers, renderable child normalization, and
+  default fallback construction. `src/ssr/component-runtime.ts` owns
+  synchronous component execution, strict-purity guards, temporary owner
+  cleanup, and default portal wrapping.
 - `src/ssr/route-render.ts` owns object-form `renderToString()`,
   `renderToStream()`, route source normalization, route match resolution,
   `resolveRequest()`, document render argument construction, and string/stream
@@ -237,8 +239,9 @@ flowchart LR
 
 The SSR and SSG diagrams are backed by architecture checks:
 
-- `index-internal.ts`, `render-sync.ts`, `hydration-data.ts`, and
-  `hydration-verify.ts` each have explicit ownership and line ceilings.
+- `index-internal.ts`, `render-sync.ts`, and `hydration-data.ts` each have
+  explicit ownership and line ceilings. The client boot dependency on
+  `verify-hydration.ts` is an explicit architecture-check exception.
 - `create-static-gen.ts`, `static-routes.ts`, and `generation-plan.ts` have
   explicit ownership and line ceilings.
 - SSG should remain an orchestration layer over route expansion and repeated

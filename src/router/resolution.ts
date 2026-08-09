@@ -19,7 +19,6 @@ import { createQueryPrefetchContext } from '../data/query-registry';
 import { buildRouteContext, buildRouteContextBase } from './route-context';
 import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
-import { getActiveRouteAuthOptions } from './store';
 import { setCurrentAuth } from './auth';
 import { _preloadRouteRecord } from './lazy';
 import {
@@ -353,9 +352,7 @@ export function resolveRouteRequest(
       options.signal ??
       getActiveRenderContext()?.signal ??
       new AbortController().signal;
-    const authOptions = getActiveRouteAuthOptions(
-      options.auth ?? options.registry.manifest.auth
-    );
+    const authOptions = options.auth ?? options.registry.manifest.auth;
     const base = buildRouteContextBase(logicalTarget, match.params, {
       mode,
       signal,

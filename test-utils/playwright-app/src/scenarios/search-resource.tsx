@@ -2,7 +2,7 @@
 
 import { For } from '@askrjs/askr/control';
 import { resource } from '@askrjs/askr/resources';
-import { currentRoute, navigate } from '@askrjs/askr/router';
+import { currentRoute, updateRouteQuery } from '@askrjs/askr/router';
 
 type Customer = {
   id: string;
@@ -15,26 +15,15 @@ type CustomerSearchResponse = {
   customers: Customer[];
 };
 
-function customerSearchUrl(query: string): string {
-  const params = new URLSearchParams();
-  const trimmed = query.trim();
-
-  if (trimmed) {
-    params.set('q', trimmed);
-  }
-
-  const search = params.toString();
-  return search ? `/customers/search?${search}` : '/customers/search';
-}
-
 function SearchBox({ query }: { query: string }) {
   const updateQuery = (event: Event) => {
-    const input = event.target as HTMLInputElement;
-    navigate(customerSearchUrl(input.value), { history: 'replace' });
+    const input = event.currentTarget as HTMLInputElement;
+    const value = input.value.trim();
+    updateRouteQuery({ q: value || null });
   };
 
   const clearSearch = () => {
-    navigate('/customers/search', { history: 'replace' });
+    updateRouteQuery({ q: null });
   };
 
   return (

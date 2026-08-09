@@ -703,6 +703,7 @@ function updateRouteRuntime(
   const runtime = createAppRenderRuntime({
     framework: withoutRouteHydrationMetadata(current?.framework),
     dataRuntime: current?.dataRuntime,
+    routeRegistry: current?.routeRegistry,
     route:
       resolved?.kind === 'render' ? getRouteRenderData(resolved) : undefined,
     hasRoute: resolved?.kind === 'render' && hasRouteRenderData(resolved),

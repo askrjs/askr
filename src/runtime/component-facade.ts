@@ -32,6 +32,7 @@ export {
   restoreDomCommitScope,
   setCurrentComponentInstance,
   setStateIndex,
+  withAppRenderRuntime,
 } from './component-scope';
 export {
   beginLifecycleCommitBatch,
