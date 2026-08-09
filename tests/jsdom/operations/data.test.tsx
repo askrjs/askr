@@ -2,6 +2,7 @@ import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { state } from '../../../src';
+import { Show } from '../../../src/control';
 import {
   createDataRuntime,
   createQuery,
@@ -207,6 +208,52 @@ describe('data layer', () => {
     } finally {
       recorder.stop();
     }
+  });
+
+  it('should keep scoped invalidation isolated from near-miss namespaces', async () => {
+    const runtime = createDataRuntime();
+    const user = queryScope('user');
+    const users = queryScope('users');
+    const userFetch = vi.fn(async () => 'user');
+    const usersFetch = vi.fn(async () => 'users');
+
+    createQuery({
+      runtime,
+      key: user.key('1'),
+      fetch: userFetch,
+    });
+    createQuery({
+      runtime,
+      key: users.key('1'),
+      fetch: usersFetch,
+    });
+    await settle();
+
+    user.invalidate([], { runtime });
+    await settle();
+
+    expect(userFetch).toHaveBeenCalledTimes(2);
+    expect(usersFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should treat raw invalidation keys as literal string prefixes', async () => {
+    const runtime = createDataRuntime();
+    const fetches = new Map<string, ReturnType<typeof vi.fn>>();
+
+    for (const key of ['user:1', 'user:10', 'user:123', 'user:2']) {
+      const fetch = vi.fn(async () => key);
+      fetches.set(key, fetch);
+      createQuery({ runtime, key, fetch });
+    }
+    await settle();
+
+    invalidate('user:1', { runtime });
+    await settle();
+
+    expect(fetches.get('user:1')).toHaveBeenCalledTimes(2);
+    expect(fetches.get('user:10')).toHaveBeenCalledTimes(2);
+    expect(fetches.get('user:123')).toHaveBeenCalledTimes(2);
+    expect(fetches.get('user:2')).toHaveBeenCalledTimes(1);
   });
 
   it('should invalidate on an interval owned by a component', () => {
@@ -508,6 +555,85 @@ describe('data layer', () => {
       await settle();
 
       expect(container.textContent).toBe('AdaAda');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should retain a shared query until its last reader unmounts', async () => {
+    const runtime = createDataRuntime();
+    const resolvers: Array<(value: string) => void> = [];
+    const loadUser = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolvers.push(resolve);
+        })
+    );
+    let setFirstVisible!: (value: boolean) => void;
+    let setSecondVisible!: (value: boolean) => void;
+
+    const UserCard = ({ label }: { label: string }): JSXElement => {
+      const query = createQuery({
+        runtime,
+        key: 'users:shared-owner',
+        fetch: loadUser,
+      });
+
+      return <span data-label={label}>{query.data ?? 'loading'}</span>;
+    };
+
+    const App = (): JSXElement => {
+      const firstVisible = state(true);
+      const secondVisible = state(true);
+      setFirstVisible = firstVisible.set;
+      setSecondVisible = secondVisible.set;
+
+      return (
+        <section>
+          <Show when={firstVisible()}>
+            <UserCard label="first" />
+          </Show>
+          <Show when={secondVisible()}>
+            <UserCard label="second" />
+          </Show>
+        </section>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(loadUser).toHaveBeenCalledTimes(1);
+      resolvers[0]?.('Ada');
+      await settle();
+      expect(container.textContent).toBe('AdaAda');
+
+      setFirstVisible(false);
+      flushScheduler();
+
+      expect(container.textContent).toBe('Ada');
+      expect(loadUser).toHaveBeenCalledTimes(1);
+      expect(runtime.queryCache.has('users:shared-owner')).toBe(true);
+
+      setSecondVisible(false);
+      flushScheduler();
+
+      expect(container.textContent).toBe('');
+      expect(runtime.queryCache.has('users:shared-owner')).toBe(false);
+
+      setFirstVisible(true);
+      flushScheduler();
+      await settle();
+
+      expect(loadUser).toHaveBeenCalledTimes(2);
+      expect(container.textContent).toBe('loading');
+
+      resolvers[1]?.('Grace');
+      await settle();
+      expect(container.textContent).toBe('Grace');
     } finally {
       cleanup();
     }
