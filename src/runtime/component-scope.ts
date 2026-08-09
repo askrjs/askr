@@ -27,6 +27,7 @@ type InlineRenderTrackingSnapshot = {
 
 let currentInstance: ComponentInstance | null = null;
 let currentPortalScope: object | null = null;
+let scopedAppRenderRuntime: AppRenderRuntime | undefined;
 let stateIndex = 0;
 let globalRenderCounter = 0;
 let renderScopedDepth = 0;
@@ -82,7 +83,21 @@ export function getCurrentAppRenderRuntime(): AppRenderRuntime | undefined {
     if (instance._appRenderRuntime) return instance._appRenderRuntime;
     instance = instance.parentInstance;
   }
-  return undefined;
+  return scopedAppRenderRuntime;
+}
+
+/** @internal Preserve root ownership without exposing component hook scope. */
+export function withAppRenderRuntime<T>(
+  runtime: AppRenderRuntime | undefined,
+  fn: () => T
+): T {
+  const previous = scopedAppRenderRuntime;
+  scopedAppRenderRuntime = runtime;
+  try {
+    return fn();
+  } finally {
+    scopedAppRenderRuntime = previous;
+  }
 }
 
 export function setCurrentComponentInstance(

@@ -7,6 +7,10 @@ import {
 } from '@askrjs/auth';
 import { createRouteRegistry, route } from '../../../src/router/route';
 import { resolveRouteRequest } from '../../../src/router/resolution';
+import {
+  createRenderContext,
+  withRenderContext,
+} from '../../../src/ssr/context';
 
 const anonymous: AuthContext = {
   authenticated: false,
@@ -67,6 +71,23 @@ describe('route auth requirements', () => {
     });
     expect(result?.kind).toBe('render');
     expect(resolutions).toBe(0);
+  });
+
+  it('should inherit request-local auth when the registry has no auth config', async () => {
+    const registry = createRouteRegistry(() =>
+      route('/account', () => 'account', { auth: requireUser() })
+    );
+    const context = createRenderContext(1, {
+      routeAuth: { resolve: () => user },
+    });
+
+    const result = withRenderContext(context, () =>
+      resolveRouteRequest('/account', { registry })
+    );
+
+    await expect(Promise.resolve(result)).resolves.toMatchObject({
+      kind: 'render',
+    });
   });
 
   it('should evaluate the same AuthRequirement during SPA and SSR resolution', async () => {

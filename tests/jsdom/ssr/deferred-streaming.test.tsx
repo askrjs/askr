@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { createRouteRegistry, route } from '../../../src/router/route';
 import { defer, Resolve, routeData } from '../../../src/router/deferred';
+import { state } from '../../../src/runtime/state';
 import { renderRouteRequest } from '../../../src/ssr';
-import { createTestContainer } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 type DeferredPageData = { message: ReturnType<typeof defer<string>> };
 
@@ -17,6 +21,26 @@ function deferredPage() {
         rejected={(error) => <p id="rejected">{String(error)}</p>}
       >
         {(message) => <p id="ready">{message}</p>}
+      </Resolve>
+    </main>
+  );
+}
+
+function DeferredCounter({ message }: { message: string }) {
+  const count = state(0);
+  return (
+    <button id="ready" onClick={() => count.set((value) => value + 1)}>
+      {`${message}:${String(count())}`}
+    </button>
+  );
+}
+
+function reactiveDeferredPage() {
+  const data = routeData<DeferredPageData>();
+  return (
+    <main>
+      <Resolve value={data.message} pending={<p id="pending">loading</p>}>
+        {(message) => <DeferredCounter message={message} />}
       </Resolve>
     </main>
   );
@@ -150,7 +174,7 @@ describe('deferred route streaming', () => {
     );
   });
 
-  it('should hydrate the streamed result from settled data without rerunning the loader', async () => {
+  it('should hydrate a reactive streamed result without rerunning the loader', async () => {
     const { container, cleanup } = createTestContainer();
     let loads = 0;
     let release!: (value: string) => void;
@@ -158,7 +182,7 @@ describe('deferred route streaming', () => {
       release = resolve;
     });
     const registry = createRouteRegistry(() => {
-      route('/', deferredPage, {
+      route('/', reactiveDeferredPage, {
         loader: () => {
           loads += 1;
           return { message: defer(pending) };
@@ -181,9 +205,16 @@ describe('deferred route streaming', () => {
         hydrate: { verifyMarkup: false },
       });
 
-      expect(container.querySelector('#ready')?.textContent).toBe('adopted');
+      const button = container.querySelector('#ready') as HTMLButtonElement;
+      expect(button.textContent).toBe('adopted:0');
       expect(container.querySelector('#pending')).toBeNull();
       expect(loads).toBe(1);
+
+      button.click();
+      flushScheduler();
+
+      expect(container.querySelector('#ready')).toBe(button);
+      expect(button.textContent).toBe('adopted:1');
     } finally {
       cleanup();
     }

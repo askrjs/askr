@@ -6,7 +6,16 @@ import {
 import { createIsland } from '../../../src/boot';
 import { state } from '../../../src/runtime/state';
 import { dismissable } from '../../../src/foundations/interactions/dismissable';
-import { parseEventProp, getPassiveOptions } from '../../../src/renderer/utils';
+import {
+  createWrappedHandler,
+  parseEventProp,
+  getPassiveOptions,
+} from '../../../src/renderer/utils';
+import { createAppRenderRuntime } from '../../../src/common/app-render-runtime';
+import {
+  getCurrentAppRenderRuntime,
+  withAppRenderRuntime,
+} from '../../../src/runtime';
 
 describe('capture event props', () => {
   let container: HTMLDivElement;
@@ -32,6 +41,37 @@ describe('capture event props', () => {
   it('should allow cancellation given wheel and touch handlers when they call preventDefault', () => {
     expect(getPassiveOptions('wheel')).toBeUndefined();
     expect(getPassiveOptions('touchmove')).toBeUndefined();
+  });
+
+  it('should pool shared handlers without crossing application runtime scopes', () => {
+    const firstRuntime = createAppRenderRuntime();
+    const secondRuntime = createAppRenderRuntime();
+    const observedRuntimes: Array<typeof firstRuntime | undefined> = [];
+    const sharedHandler: EventListener = () => {
+      observedRuntimes.push(getCurrentAppRenderRuntime());
+    };
+
+    const firstWrapped = withAppRenderRuntime(firstRuntime, () =>
+      createWrappedHandler(sharedHandler, true)
+    );
+    const firstWrappedAgain = withAppRenderRuntime(firstRuntime, () =>
+      createWrappedHandler(sharedHandler, true)
+    );
+    const secondWrapped = withAppRenderRuntime(secondRuntime, () =>
+      createWrappedHandler(sharedHandler, true)
+    );
+    const unscopedWrapped = createWrappedHandler(sharedHandler, true);
+    const unscopedWrappedAgain = createWrappedHandler(sharedHandler, true);
+
+    expect(firstWrappedAgain).toBe(firstWrapped);
+    expect(secondWrapped).not.toBe(firstWrapped);
+    expect(unscopedWrappedAgain).toBe(unscopedWrapped);
+
+    firstWrapped(new Event('click'));
+    secondWrapped(new Event('click'));
+    unscopedWrapped(new Event('click'));
+
+    expect(observedRuntimes).toEqual([firstRuntime, secondRuntime, undefined]);
   });
 
   it('should dispatch non-bubbling focus handlers given a focused descendant', () => {

@@ -173,7 +173,6 @@ flowchart TB
     ssrCore[index-internal.ts]
     renderSync[render-sync.ts]
     hydrationData[hydration-data.ts]
-    hydrationVerify[hydration-verify.ts]
     ssrBoundaries[boundaries.ts]
     ssrComponents[component-runtime.ts]
     ssrRoute[route-render.ts]
@@ -181,12 +180,15 @@ flowchart TB
     ssg[ssg/create-static-gen.ts]
   end
 
+  hydrationVerify[ssr/verify-hydration.ts]
+
   app --> api
   api --> bootIndex
   bootIndex --> bootTypes
   bootIndex --> bootRoot
   bootIndex --> bootStartup
   bootIndex --> bootHydration
+  bootIndex --> hydrationVerify
   bootIndex --> runtime
   bootIndex --> routeFacade
   bootIndex --> nav
@@ -292,7 +294,6 @@ flowchart TB
   ssrFacade --> ssrCore
   ssrCore --> renderSync
   renderSync --> hydrationData
-  ssrCore --> hydrationVerify
   renderSync --> ssrBoundaries
   renderSync --> ssrComponents
   ssrCore --> ssrRoute
@@ -323,8 +324,7 @@ diagrams:
   `for-internal.ts` plus `for-reconcile.ts`, `for-scopes.ts`, and
   `for-signals.ts`, `dom-internal.ts` plus its renderer helper owners, and the
   SSR `index-internal.ts` plus `render-sync.ts`, `hydration-data.ts`,
-  `hydration-verify.ts`, `boundaries.ts`, `component-runtime.ts`, and
-  `route-render.ts`.
+  `boundaries.ts`, `component-runtime.ts`, and `route-render.ts`.
 - `src/runtime/access.ts` is the internal boundary used by runtime, renderer,
   data, and FX implementation paths when they need the default scheduler or
   renderer host. Compatibility globals remain exported from their original
@@ -351,7 +351,9 @@ diagrams:
   owns mounted root instances, cleanup, app navigation registration, and root
   remount behavior. `boot/route-startup.ts` owns initial route resolution and
   route-status component binding, `boot/types.ts` owns boot config contracts,
-  and `boot/hydration.ts` owns selective hydration DOM helpers.
+  `boot/hydration.ts` owns selective hydration DOM helpers, and
+  `ssr/verify-hydration.ts` owns the optional server-markup comparison used by
+  browser hydration.
 - `src/router/route.ts` is a facade. `authoring.ts`, `store.ts`,
   `manifest.ts`, `activity.ts`, and `resolution.ts` own the router
   responsibilities that used to live together, while `match.ts` handles
@@ -370,9 +372,8 @@ diagrams:
   cells.
 - `src/ssr/index.ts` is the stable SSR facade. `index-internal.ts` owns
   public SSR orchestration, `render-sync.ts` owns synchronous serialization,
-  `hydration-data.ts` owns render-data script serialization,
-  `hydration-verify.ts` owns hydration verifier state, `boundaries.ts` owns
-  error/control boundary state helpers and fallback construction,
+  `hydration-data.ts` owns render-data script serialization, `boundaries.ts`
+  owns error/control boundary state helpers and fallback construction,
   `component-runtime.ts` owns synchronous component execution and temporary
   owner cleanup, and `route-render.ts` owns route/document orchestration for
   object-form rendering and streams.

@@ -23,6 +23,7 @@ import {
   lazy,
   navigate,
   route,
+  updateRouteQuery,
 } from '@askrjs/askr/router';
 import { renderToString } from '@askrjs/askr/ssr';
 import { selector } from '../../../src/runtime/selector';
@@ -364,6 +365,7 @@ function StaticQueryDeepLinkPage() {
 async function mountStaticQueryDeepLinkScenario(): Promise<{
   preserved: boolean;
   text: string;
+  updatedText: string;
 }> {
   resetRoot();
   const registry = createRouteRegistry(
@@ -385,9 +387,14 @@ async function mountStaticQueryDeepLinkScenario(): Promise<{
   });
   globalScheduler.flush();
 
+  const text = root.querySelector('p')?.textContent ?? '';
+  updateRouteQuery({ q: 'owl', page: 3 });
+  globalScheduler.flush();
+
   return {
     preserved: root.querySelector('p') === paragraph,
-    text: root.querySelector('p')?.textContent ?? '',
+    text,
+    updatedText: root.querySelector('p')?.textContent ?? '',
   };
 }
 

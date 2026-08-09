@@ -10,6 +10,11 @@
  */
 
 import { runRuntimeHandlerScope } from './access';
+import {
+  getCurrentAppRenderRuntime,
+  withAppRenderRuntime,
+} from './component-scope';
+import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
 import { incrementPerfMetric } from './perf-metrics';
 import { incDevCounter } from './dev-namespace';
@@ -71,6 +76,7 @@ const DELEGATED_EVENTS: (keyof DelegatedEventMap)[] = [
 interface DelegatedHandler {
   handler: EventListener;
   original: EventListener;
+  appRuntime?: AppRenderRuntime;
   container: Element;
   eventName: string;
   options?: AddEventListenerOptions;
@@ -331,7 +337,9 @@ function attachDelegatedListener(
 
         for (const { node, entry } of dispatchPath) {
           try {
-            entry.handler(createDelegatedEventFacade(e, node));
+            withAppRenderRuntime(entry.appRuntime, () =>
+              entry.handler(createDelegatedEventFacade(e, node))
+            );
           } catch (error) {
             logger.error('[Askr] Delegated event error:', error);
           }
@@ -359,6 +367,7 @@ function attachDelegatedListener(
     {
       handler,
       original: originalHandler,
+      appRuntime: getCurrentAppRenderRuntime(),
       container,
       eventName,
       options,
@@ -483,6 +492,7 @@ export function updateDelegatedListener(
 
   existing.handler = handler;
   existing.original = originalHandler;
+  existing.appRuntime = getCurrentAppRenderRuntime();
   existing.options = options;
   return true;
 }
