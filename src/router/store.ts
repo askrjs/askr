@@ -93,15 +93,17 @@ export function getActiveRoutes(): readonly Route[] {
 export function getActiveRouteAuthOptions(
   override?: RouteAuthOptions
 ): RouteAuthOptions | undefined {
-  if (override) {
+  if (override !== undefined) {
     return override;
   }
 
-  return (
-    getActiveRenderContext()?.routeAuth ??
-    activeClientRouteAuthOptions ??
-    defaultRouteAuthOptions
-  );
+  const renderContext = getActiveRenderContext();
+  if (renderContext) return renderContext.routeAuth;
+
+  const appRuntime = getCurrentAppRenderRuntime();
+  if (appRuntime) return appRuntime.routeAuth;
+
+  return activeClientRouteAuthOptions ?? defaultRouteAuthOptions;
 }
 
 export function _setActiveRouteAuthOptions(

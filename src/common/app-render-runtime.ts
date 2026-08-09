@@ -1,4 +1,4 @@
-import type { RouteRegistry } from './router';
+import type { RouteAuthOptions, RouteRegistry } from './router';
 
 export interface AppRenderRuntime {
   framework: Readonly<Record<string, unknown>>;
@@ -6,6 +6,7 @@ export interface AppRenderRuntime {
   hasRoute: boolean;
   dataRuntime?: import('../data/types').DataRuntime;
   routeRegistry?: RouteRegistry;
+  routeAuth?: RouteAuthOptions;
 }
 
 const stagedRouteLocations = new WeakMap<AppRenderRuntime, string>();
@@ -19,6 +20,7 @@ export function createAppRenderRuntime(
     hasRoute: input.hasRoute ?? false,
     dataRuntime: input.dataRuntime,
     routeRegistry: input.routeRegistry,
+    routeAuth: input.routeAuth,
   };
 }
 

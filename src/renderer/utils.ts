@@ -58,11 +58,16 @@ const CLICK_CAPTURE_EVENT_PROP: ParsedEventProp = {
 // Event Handler Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Handler pooling cache to avoid recreating wrapped handlers
-// Key: handler reference, Value: { wrapped: EventListener, flushAfter: boolean }
+interface RuntimeHandlerCache {
+  unscoped?: EventListener;
+  scoped: WeakMap<AppRenderRuntime, EventListener>;
+}
+
+// Handler pooling cache to avoid recreating wrapped handlers without retaining
+// application runtimes after their roots and listeners are released.
 const handlerCache = new WeakMap<
   EventListener,
-  Map<boolean, Map<AppRenderRuntime | undefined, EventListener>>
+  Map<boolean, RuntimeHandlerCache>
 >();
 let cacheSize = 0;
 const MAX_CACHE_SIZE = 1000;
@@ -141,7 +146,10 @@ export function createWrappedHandler(
   // Check cache first
   const cachedByFlush = handlerCache.get(handler);
   if (cachedByFlush) {
-    const cached = cachedByFlush.get(flushAfter)?.get(appRuntime);
+    const cachedByRuntime = cachedByFlush.get(flushAfter);
+    const cached = appRuntime
+      ? cachedByRuntime?.scoped.get(appRuntime)
+      : cachedByRuntime?.unscoped;
     if (cached) return cached;
   }
 
@@ -180,10 +188,14 @@ export function createWrappedHandler(
         handlerCache.set(handler, new Map());
       }
     }
-    const cachedByRuntime =
-      handlerCache.get(handler)?.get(flushAfter) ??
-      new Map<AppRenderRuntime | undefined, EventListener>();
-    cachedByRuntime.set(appRuntime, wrapped);
+    const cachedByRuntime = handlerCache.get(handler)?.get(flushAfter) ?? {
+      scoped: new WeakMap<AppRenderRuntime, EventListener>(),
+    };
+    if (appRuntime) {
+      cachedByRuntime.scoped.set(appRuntime, wrapped);
+    } else {
+      cachedByRuntime.unscoped = wrapped;
+    }
     handlerCache.get(handler)?.set(flushAfter, cachedByRuntime);
   } catch {
     // WeakMap can throw if handler is not a valid key

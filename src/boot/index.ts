@@ -191,6 +191,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       : {}),
     dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
     routeRegistry: config.registry,
+    routeAuth,
   });
 
   if (!resolved) {
@@ -292,6 +293,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       route: hydrationRenderData?.route,
       hasRoute: hydrationRenderData !== null,
       routeRegistry: config.registry,
+      routeAuth,
     }),
   };
   _setActiveRouteAuthOptions(routeAuth);

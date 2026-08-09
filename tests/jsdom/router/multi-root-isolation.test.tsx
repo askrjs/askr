@@ -10,6 +10,7 @@ import { navigate } from '../../../src/router/navigate';
 import {
   createRouteRegistry,
   currentRoute,
+  resolveRouteRequest,
   route,
 } from '../../../src/router/route';
 import {
@@ -285,6 +286,73 @@ describe('multi-root SPA isolation', () => {
     expect(rootA.textContent).toBe('A next');
     expect(appANavigationAuthenticated).toBe(false);
     expect(appBAuthResolutions).toBe(0);
+  });
+
+  it('should keep config auth scoped to event-triggered route resolution', async () => {
+    let resolvedPrincipal: string | undefined;
+    const authResolutions: string[] = [];
+    let registryA!: ReturnType<typeof createRouteRegistry>;
+    registryA = createRouteRegistry(() => {
+      route('/start', () => (
+        <button
+          id="resolve-a"
+          onClick={() => {
+            resolveRouteRequest('/private', { registry: registryA });
+          }}
+        >
+          Resolve A
+        </button>
+      ));
+      route('/private', () => <div>{'A private'}</div>, {
+        policies: [
+          (context) => {
+            resolvedPrincipal = context.auth.principal?.id;
+            return { kind: 'allow' };
+          },
+        ],
+      });
+    });
+    const registryB = createRouteRegistry(() =>
+      route('/start', () => <div>{'B start'}</div>)
+    );
+
+    await createSPA({
+      root: rootA,
+      registry: registryA,
+      auth: {
+        resolve: () => {
+          authResolutions.push('A');
+          return {
+            authenticated: true,
+            principal: { id: 'app-a-user', roles: ['member'] },
+            session: null,
+            tenant: null,
+          };
+        },
+      },
+    });
+    await createSPA({
+      root: rootB,
+      registry: registryB,
+      auth: {
+        resolve: () => {
+          authResolutions.push('B');
+          return {
+            authenticated: true,
+            principal: { id: 'app-b-user', roles: ['member'] },
+            session: null,
+            tenant: null,
+          };
+        },
+      },
+    });
+    await settleNavigation();
+    authResolutions.length = 0;
+
+    (rootA.querySelector('#resolve-a') as HTMLButtonElement).click();
+
+    expect(authResolutions).toEqual(['A']);
+    expect(resolvedPrincipal).toBe('app-a-user');
   });
 
   it('should keep both SPAs in sync when browser history triggers popstate', async () => {
