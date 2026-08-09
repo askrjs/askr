@@ -636,7 +636,7 @@ describe('lifecycle sequence invariants', () => {
         throw failure;
       }
 
-      expect(trackedCleanupCount).toBeGreaterThanOrEqual(0);
+      expect(trackedCleanupCount).toBeGreaterThan(0);
       await Promise.resolve();
       flushScheduler();
       expectSchedulerQuiescent();

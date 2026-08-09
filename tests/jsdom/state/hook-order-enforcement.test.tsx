@@ -51,6 +51,12 @@ describe('hook order enforcement (STATE)', () => {
 
     // Hook order violation should be detected and throw
     expect(error?.message).toMatch(/hook order|conditionally/i);
+
+    expect(() => {
+      flip!.set(false);
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.textContent).toBe('ab');
   });
 
   it('should throw invariant error when state() is called conditionally', () => {
@@ -81,6 +87,12 @@ describe('hook order enforcement (STATE)', () => {
     expect(error?.message).toMatch(
       /conditionally|hook order|State index violation/i
     );
+
+    expect(() => {
+      flag!.set(false);
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.textContent).toBe('ok');
   });
 
   it('should throw invariant error when state() is called in loops', () => {
@@ -117,6 +129,12 @@ describe('hook order enforcement (STATE)', () => {
     expect(error?.message).toMatch(
       /loop|conditionally|hook order|State index/i
     );
+
+    expect(() => {
+      shouldLoop!.set(false);
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.textContent).toBe('x');
   });
 
   it('should give conditional child components an independent hook scope', () => {
@@ -176,5 +194,11 @@ describe('hook order enforcement (STATE)', () => {
         ),
       })
     );
+
+    expect(() => {
+      open!.set(false);
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.textContent).toBe('');
   });
 });

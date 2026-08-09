@@ -124,4 +124,31 @@ describe('committed lifecycle operation isolation', () => {
       'rollback:parent',
     ]);
   });
+
+  it('should isolate a discarded child batch from a surviving sibling', () => {
+    const calls: string[] = [];
+    const parent = beginLifecycleCommitBatch();
+
+    const survivingChild = beginLifecycleCommitBatch();
+    registerLifecycleTransaction(
+      {},
+      () => calls.push('commit:survivor'),
+      () => calls.push('rollback:survivor')
+    );
+    flushLifecycleCommitBatch(survivingChild);
+
+    const failingChild = beginLifecycleCommitBatch();
+    registerLifecycleTransaction(
+      {},
+      () => calls.push('commit:failed'),
+      () => calls.push('rollback:failed')
+    );
+    discardLifecycleCommitBatch(failingChild);
+
+    expect(calls).toEqual(['rollback:failed']);
+
+    flushLifecycleCommitBatch(parent);
+
+    expect(calls).toEqual(['rollback:failed', 'commit:survivor']);
+  });
 });
