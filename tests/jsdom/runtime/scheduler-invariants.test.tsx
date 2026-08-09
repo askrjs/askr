@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { state, type State } from '../../../src/runtime/state';
 import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { task } from '../../../src/runtime';
 import { createFineGrainedEffect } from '../../../src/runtime/effect';
 import { enterBulkCommit, exitBulkCommit } from '../../../src/runtime/fastlane';
+import {
+  notifyReadableReaders,
+  recordReadableRead,
+  type ReadableSource,
+} from '../../../src/runtime/readable';
 import { globalScheduler, Scheduler } from '../../../src/runtime/scheduler';
 import {
   createTestContainer,
@@ -12,6 +18,85 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('scheduler invariants', () => {
+  it('should replay a newly entered source changed before its branch commits', () => {
+    const { container, cleanup } = createTestContainer();
+    let sharedValue = 'old';
+    let secondaryValue = 'secondary-old';
+    let enterBranch!: () => void;
+    let mountWriter!: () => void;
+    let readerRenders = 0;
+
+    const shared = (() => {
+      recordReadableRead(shared);
+      return sharedValue;
+    }) as ReadableSource<string>;
+    const writeShared = (value: string): void => {
+      sharedValue = value;
+      notifyReadableReaders(shared);
+    };
+    const secondary = (() => {
+      recordReadableRead(secondary);
+      return secondaryValue;
+    }) as ReadableSource<string>;
+    const writeSecondary = (value: string): void => {
+      secondaryValue = value;
+      notifyReadableReaders(secondary);
+    };
+
+    const Writer = () => {
+      task(() => {
+        writeShared('new');
+        writeSecondary('secondary-new');
+      });
+      return <span>{'writer'}</span>;
+    };
+
+    const WriterHost = () => {
+      const visible = state(false);
+      mountWriter = () => visible.set(true);
+      return <section>{visible() ? <Writer /> : null}</section>;
+    };
+
+    const Reader = () => {
+      readerRenders += 1;
+      const open = state(false);
+      enterBranch = () => open.set(true);
+      return (
+        <output>{open() ? `${shared()}:${secondary()}` : 'closed'}</output>
+      );
+    };
+
+    const App = () => (
+      <main>
+        <WriterHost />
+        <Reader />
+      </main>
+    );
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.querySelector('output')?.textContent).toBe('closed');
+      expect(readerRenders).toBe(1);
+
+      // The writer host is queued first. Its commit mounts Writer and runs the
+      // task after Reader has rendered the old value but before Reader commits
+      // its newly entered shared-source subscription.
+      mountWriter();
+      enterBranch();
+      flushScheduler();
+
+      expect(container.querySelector('output')?.textContent).toBe(
+        'new:secondary-new'
+      );
+      // Both sources missed their notification, but the component receives a
+      // single coalesced follow-up rather than one render per source.
+      expect(readerRenders).toBe(3);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should preserve unrelated queued work when a bulk commit starts', () => {
     let ran = false;
 

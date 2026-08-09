@@ -78,6 +78,9 @@ interface SelectorHook<T> extends Selector<T> {
   _equals: SelectorEquals<T>;
   _record: SelectorSourceRecord<T> | null;
   _lane: SelectorLane<T> | null;
+  _active: boolean;
+  _disposedValue: T;
+  _hasDisposedValue: boolean;
   _cleanup(): void;
 }
 
@@ -104,6 +107,7 @@ function markSelectorRecordDirty(record: SelectorSourceRecord<unknown>): void {
 }
 
 function flushDirtySelectorRecords(): void {
+  let failures: unknown[] | null = null;
   for (const record of takeDirtySelectorRecords<
     SelectorSourceRecord<unknown>
   >()) {
@@ -111,7 +115,18 @@ function flushDirtySelectorRecords(): void {
     if (!record._dirty) {
       continue;
     }
-    recomputeSelectorSourceRecord(record, true);
+    try {
+      recomputeSelectorSourceRecord(record, true);
+    } catch (error) {
+      (failures ??= []).push(error);
+    }
+  }
+
+  if (failures?.length === 1) {
+    throw failures[0];
+  }
+  if (failures && failures.length > 1) {
+    throw new AggregateError(failures, 'selector() recompute failures');
   }
 }
 
@@ -267,7 +282,7 @@ function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
   if (PERF_BUILD_ENABLED) {
     incrementPerfMetric('selectorInvalidations');
   }
-  markReadableDerivedSubscribersDirty(source);
+  markReadableDerivedSubscribersDirty(source, true);
   markReactivePropsDirtySource(source);
   notifyReadableReaders(source);
 }
@@ -440,6 +455,18 @@ function createSelectorHook<T>(
 ): SelectorHook<T> {
   const hook = function selectorPredicate(candidate: T): boolean {
     const selectorHook = hook as SelectorHook<T>;
+    if (!selectorHook._active) {
+      if (__ASKR_DEVELOPMENT_BUILD__) {
+        throw new Error(
+          '[Askr] selector() was called after its owning component was disposed.'
+        );
+      }
+      return (
+        selectorHook._hasDisposedValue &&
+        selectorHook._equals(selectorHook._disposedValue, candidate)
+      );
+    }
+
     const record =
       selectorHook._record ?? ensureSelectorHookBinding(selectorHook);
     const lane = selectorHook._lane;
@@ -471,7 +498,18 @@ function createSelectorHook<T>(
   hook._equals = equals;
   hook._record = null;
   hook._lane = null;
+  hook._active = true;
+  hook._disposedValue = undefined as T;
+  hook._hasDisposedValue = false;
   hook._cleanup = () => {
+    if (!hook._active) {
+      return;
+    }
+    if (hook._record?._hasValue) {
+      hook._disposedValue = hook._record._value;
+      hook._hasDisposedValue = true;
+    }
+    hook._active = false;
     detachSelectorHookBinding(hook);
   };
 

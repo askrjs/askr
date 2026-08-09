@@ -115,4 +115,63 @@ describe('selector edge cases', () => {
       flushScheduler();
     }).toThrow(/selector-source-boom/);
   });
+
+  it('should isolate a throwing selector from dirty siblings in the same batch', () => {
+    let throwingSource!: ReturnType<typeof state<number>>;
+    let safeSource!: ReturnType<typeof state<number>>;
+
+    const App = () => {
+      throwingSource = state(0);
+      safeSource = state(0);
+      const isThrowingSelected = selector(() => {
+        const value = throwingSource();
+        if (value === 1) {
+          throw new Error('selector-batch-boom');
+        }
+        return value;
+      });
+      const isSafeSelected = selector(() => safeSource());
+
+      return (
+        <div>
+          <output id="throwing">
+            {() => (isThrowingSelected(1) ? 'yes' : 'no')}
+          </output>
+          <output id="safe">{() => (isSafeSelected(1) ? 'yes' : 'no')}</output>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    throwingSource.set(1);
+    safeSource.set(1);
+    expect(() => flushScheduler()).toThrow(/selector-batch-boom/);
+    expect(container.querySelector('#safe')?.textContent).toBe('yes');
+
+    safeSource.set(2);
+    expect(() => flushScheduler()).not.toThrow();
+    expect(container.querySelector('#safe')?.textContent).toBe('no');
+  });
+
+  it('should reject a leaked selector call after its owner is disposed', () => {
+    let shared!: ReturnType<typeof state<number>>;
+    let leaked!: (candidate: number) => boolean;
+
+    const App = () => {
+      shared = state(2);
+      leaked = selector(shared);
+      return <output>{leaked(2) ? 'yes' : 'no'}</output>;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(shared._derivedSubscribers?.size ?? 0).toBe(1);
+
+    cleanup();
+    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
+    expect(() => leaked(2)).toThrow(/selector.*disposed/i);
+    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
+  });
 });

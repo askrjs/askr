@@ -163,6 +163,94 @@ describe('derive reactivity', () => {
     expect(snapshots).toEqual(['5:8']);
   });
 
+  it('should converge a branch-switched diamond in one downstream recompute', () => {
+    let source!: ReturnType<typeof state<number>>;
+    let includeSource!: ReturnType<typeof state<boolean>>;
+    let downstreamRuns = 0;
+
+    const App = () => {
+      source = state(1);
+      includeSource = state(true);
+      const branch = derive(() => (includeSource() ? source() * 2 : 0));
+      const combined = derive(() => {
+        downstreamRuns += 1;
+        return source() + branch();
+      });
+
+      return <output>{String(combined())}</output>;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    includeSource.set(false);
+    flushScheduler();
+    includeSource.set(true);
+    flushScheduler();
+
+    downstreamRuns = 0;
+    source.set(5);
+    flushScheduler();
+
+    expect(container.querySelector('output')?.textContent).toBe('15');
+    expect(downstreamRuns).toBe(1);
+  });
+
+  it('should isolate a throwing derive from dirty siblings in the same batch', () => {
+    let throwingSource!: ReturnType<typeof state<number>>;
+    let safeSource!: ReturnType<typeof state<number>>;
+
+    const Throwing = () => {
+      const throwing = derive(() => {
+        const value = throwingSource();
+        if (value === 1) {
+          throw new Error('derive-batch-boom');
+        }
+        return value;
+      });
+      return <output id="throwing">{String(throwing())}</output>;
+    };
+
+    const Safe = () => {
+      const safe = derive(() => safeSource() * 2);
+      return <output id="safe">{String(safe())}</output>;
+    };
+
+    const App = () => {
+      throwingSource = state(0);
+      safeSource = state(0);
+
+      return (
+        <div>
+          <Throwing />
+          <Safe />
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+
+    throwingSource.set(1);
+    safeSource.set(5);
+    let thrown: unknown;
+    try {
+      flushScheduler();
+    } catch (error) {
+      thrown = error;
+    }
+    const failures =
+      thrown instanceof AggregateError ? thrown.errors : [thrown];
+    expect(
+      failures.some((error) => String(error).includes('derive-batch-boom'))
+    ).toBe(true);
+    expect(container.querySelector('#safe')?.textContent).toBe('10');
+
+    safeSource.set(9);
+    expect(() => flushScheduler()).not.toThrow();
+    expect(container.querySelector('#safe')?.textContent).toBe('18');
+  });
+
   it('should propagate nested derive changes without rerendering when the outer projection is unchanged', () => {
     let countState!: ReturnType<typeof state<number>>;
     let renders = 0;
@@ -306,6 +394,26 @@ describe('derive reactivity', () => {
     rows.set((current) => current.slice(0, 2));
     flushScheduler();
     expect(selected._derivedSubscribers?.size ?? 0).toBe(2);
+  });
+
+  it('should reject a leaked derive call after its owner is disposed', () => {
+    let shared!: ReturnType<typeof state<number>>;
+    let leaked!: () => number;
+
+    const App = () => {
+      shared = state(2);
+      leaked = derive(() => shared() * 10);
+      return <output>{String(leaked())}</output>;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(shared._derivedSubscribers?.size ?? 0).toBe(1);
+
+    cleanup();
+    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
+    expect(() => leaked()).toThrow(/derive.*disposed/i);
+    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
   });
 
   it('should enforce stable hook order for derive()', () => {

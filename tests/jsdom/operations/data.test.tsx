@@ -1337,6 +1337,7 @@ describe('data layer', () => {
     let resolveRefresh!: (value: { id: string; version: number }) => void;
     let userVersion = 1;
     let queryCalls = 0;
+    let queryRef!: Query<{ id: string; version: number }>;
 
     const saveUser = createMutation({
       action: async (name: string) => {
@@ -1362,6 +1363,7 @@ describe('data layer', () => {
         },
         isConsistent: (data) => data.version >= userVersion,
       });
+      queryRef = query;
 
       return (
         <button onClick={() => void saveUser.execute('Grace')}>
@@ -1369,14 +1371,17 @@ describe('data layer', () => {
             ? 'Saving'
             : query.consistency === 'pending-write'
               ? 'Saved, syncing...'
-              : query.data
-                ? `Saved v${query.data.version}`
-                : 'Loading'}
+              : query.consistency === 'refreshing'
+                ? 'Refreshing...'
+                : query.data
+                  ? `Saved v${query.data.version}`
+                  : 'Loading'}
         </button>
       );
     };
 
     const { container, cleanup } = createTestContainer();
+    let transitionObserver: MutationObserver | null = null;
     try {
       createIsland({ root: container, component: App });
       flushScheduler();
@@ -1388,19 +1393,45 @@ describe('data layer', () => {
       await settle();
       expect(container.textContent).toBe('Saved v1');
 
+      const committedText: string[] = [];
+      const collectTextTransitions = (records: MutationRecord[]): void => {
+        for (const record of records) {
+          if (record.type === 'characterData' && record.oldValue !== null) {
+            committedText.push(record.oldValue);
+          }
+          for (const removed of record.removedNodes) {
+            if (removed.textContent) {
+              committedText.push(removed.textContent);
+            }
+          }
+        }
+      };
+      transitionObserver = new MutationObserver(collectTextTransitions);
+      transitionObserver.observe(container, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        characterDataOldValue: true,
+      });
+
       (container.firstElementChild as HTMLButtonElement).click();
       flushScheduler();
       await settle();
+      collectTextTransitions(transitionObserver.takeRecords());
 
-      expect(container.textContent).toBe('Saved, syncing...');
       expect(saveUser.status).toBe('success');
       expect(saveUser.result).toEqual({ id: '123', name: 'Grace', version: 2 });
+      expect(committedText).toContain('Saved, syncing...');
+      expect(queryCalls).toBe(2);
+      expect(queryRef.consistency).toBe('refreshing');
+      expect(container.textContent).toBe('Refreshing...');
 
       resolveRefresh({ id: '123', version: 2 });
       await settle();
 
       expect(container.textContent).toBe('Saved v2');
     } finally {
+      transitionObserver?.disconnect();
       cleanup();
     }
   });
