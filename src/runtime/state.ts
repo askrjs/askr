@@ -16,9 +16,11 @@ import {
   getCurrentInstance,
   type ComponentInstance,
 } from './component';
+import {
+  deferBulkCommitReadableNotification,
+  isBulkCommitActive,
+} from './fastlane';
 import { isProductionEnvironment } from '../common/env';
-import { isBulkCommitActive } from './fastlane';
-import { logger } from '../common/logger';
 import {
   recordReadableRead,
   type ReadableSource,
@@ -187,26 +189,11 @@ function createStateCell<T>(
     // Skip work if value didn't change
     if (Object.is(value, newValue)) return;
 
-    // If a bulk commit is active, update backing value only and DO NOT notify or enqueue.
-    // Bulk commits must be side-effect silent with respect to runtime notifications.
+    // Keep the DOM commit itself side-effect silent, then replay one deduplicated
+    // notification for this source after the bulk-commit flag is cleared.
     if (isBulkCommitActive()) {
-      // In bulk commit mode we must be side-effect free: update backing
-      // value only and do not notify, enqueue, or log by default. In dev
-      // builds we still surface a diagnostic warning (but do not throw, to
-      // avoid crashing an app due to this framework-internal fast path) so
-      // the resulting stale-until-next-unrelated-render UI is discoverable
-      // instead of failing completely silently.
-      if (!isProductionEnvironment()) {
-        logger.warn(
-          '[Askr] state.set() was called while a bulk commit (fast-lane ' +
-            'reorder) was in progress. The value updated, but subscribers ' +
-            'were not notified, so this change will not be reflected in ' +
-            'the UI until an unrelated update triggers a re-render. This ' +
-            'usually happens from a ref callback or a native focus/blur ' +
-            'event fired synchronously during a large keyed-list reorder.'
-        );
-      }
       value = newValue;
+      deferBulkCommitReadableNotification(read as State<T>);
       return;
     }
 
