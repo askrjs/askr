@@ -1,6 +1,7 @@
 import {
   cleanupComponent,
   clearDelegatedHandlersForElement,
+  getCurrentInstance,
   incDevCounter,
   registerLifecycleTransaction,
   removeDelegatedListener,
@@ -16,6 +17,29 @@ import {
   type ReactivePropCleanupEntry,
 } from './cleanup';
 import type { InstanceHostNode } from './dom-host';
+
+export function retireComponentOwnersForIntrinsicReuse(
+  element: Element,
+  retainedOwner?: ComponentInstance | null
+): void {
+  const host = element as InstanceHostNode;
+  if (host.__ASKR_INSTANCE || host.__ASKR_INSTANCES?.length) {
+    const instances = host.__ASKR_INSTANCES ?? [];
+    // A transparent component may reconcile its own intrinsic result through
+    // a slot-level path. Preserve that active owner and its outer wrappers;
+    // owners before it belong to the departed nested component branch.
+    const activeOwner =
+      retainedOwner === undefined ? getCurrentInstance() : retainedOwner;
+    const activeOwnerIndex = activeOwner ? instances.indexOf(activeOwner) : -1;
+    const retainedInstances =
+      activeOwnerIndex >= 0
+        ? instances.slice(activeOwnerIndex)
+        : activeOwner && host.__ASKR_INSTANCE === activeOwner
+          ? [activeOwner]
+          : [];
+    pruneComponentHostInstances(host, retainedInstances);
+  }
+}
 
 export function cleanupDetachedComponentHost(
   host: InstanceHostNode,
