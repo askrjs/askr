@@ -61,6 +61,7 @@ import {
   itemInstanceHydrationComplete,
   materializeComponentResultNode,
   materializeEmptyHydrationPlaceholder,
+  retainMaterializedReplacementOwnerChain,
   retainReplacementOwnerChain,
 } from './component-host-results';
 import {
@@ -340,7 +341,7 @@ export function syncComponentElement(
           if (replacement instanceof Element) {
             materializeKey(replacement, node, props);
           }
-          retainReplacementOwnerChain(
+          retainMaterializedReplacementOwnerChain(
             replacement,
             hydrationInstance,
             liveRetainedInstances
@@ -546,7 +547,7 @@ export function syncComponentElement(
       if (replacement instanceof Element) {
         materializeKey(replacement, node, props);
       }
-      retainReplacementOwnerChain(
+      retainMaterializedReplacementOwnerChain(
         replacement,
         existingInstance,
         liveRetainedInstances

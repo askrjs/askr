@@ -26,6 +26,25 @@ export function retainReplacementOwnerChain(
   );
 }
 
+export function retainMaterializedReplacementOwnerChain(
+  host: Node,
+  owner: ComponentInstance,
+  retainedInstances: Iterable<ComponentInstance>
+): void {
+  const instanceHost = host as InstanceHostNode;
+  // Keep the replacement baseline unchanged: rollback uses it to identify
+  // provisional owners that must be cleaned from this materialized host.
+  const materializedInstances = new Set<ComponentInstance>([
+    owner,
+    ...retainedInstances,
+    ...(instanceHost.__ASKR_INSTANCES ?? []),
+  ]);
+  if (instanceHost.__ASKR_INSTANCE) {
+    materializedInstances.add(instanceHost.__ASKR_INSTANCE);
+  }
+  pruneComponentHostInstances(instanceHost, materializedInstances);
+}
+
 export function adoptEmptySSRPortalHydrationHost(
   host: InstanceHostNode,
   instance: ComponentInstance,

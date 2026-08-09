@@ -235,7 +235,7 @@ export class QueryCell<T> {
       return;
     }
 
-    this.queueStart('initial');
+    this.queueStart();
   }
 
   refresh(): Promise<void> {
@@ -247,7 +247,7 @@ export class QueryCell<T> {
       return this.pendingRefresh;
     }
 
-    this.queueStart('manual');
+    this.queueStart();
     return this.pendingRefresh ?? Promise.resolve();
   }
 
@@ -263,7 +263,7 @@ export class QueryCell<T> {
       this.finishPendingRefresh(this.pendingRefreshToken);
     }
 
-    this.queueStart('invalidate');
+    this.queueStart();
   }
 
   markPendingWrite(): void {
@@ -285,9 +285,7 @@ export class QueryCell<T> {
     });
   }
 
-  private queueStart(
-    reason: 'initial' | 'manual' | 'invalidate' | 'pending-write'
-  ): void {
+  private queueStart(): void {
     if (this.destroyed) {
       return;
     }
@@ -302,7 +300,7 @@ export class QueryCell<T> {
           this.finishPendingRefresh(token);
           return;
         }
-        void this.start(reason).finally(() => {
+        void this.start().finally(() => {
           this.finishPendingRefresh(token);
         });
       });
@@ -331,9 +329,7 @@ export class QueryCell<T> {
     notifySource(this.source);
   }
 
-  private async start(
-    reason: 'initial' | 'manual' | 'invalidate' | 'pending-write'
-  ): Promise<void> {
+  private async start(): Promise<void> {
     if (this.destroyed) {
       return;
     }
@@ -350,12 +346,7 @@ export class QueryCell<T> {
       loading: !hasData,
       refreshing: hasData,
       stale: hasData,
-      consistency:
-        reason === 'pending-write'
-          ? 'pending-write'
-          : hasData
-            ? 'refreshing'
-            : 'fresh',
+      consistency: hasData ? 'refreshing' : 'fresh',
       error: null,
       staleReason: null,
     });
