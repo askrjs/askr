@@ -214,23 +214,45 @@ function evaluateAndCommitEffect<T>(effect: FineGrainedEffect<T>): void {
     incDevCounter('effectRuns');
   }
   try {
-    const value = withFineGrainedReadTracking(effect, effect.compute);
-    const pendingAdditionalSources = effect._pendingFineGrainedReadSources;
-    const hasPendingCollection = isEffectReadSourceCollection(
-      pendingAdditionalSources
-    );
-    const nextSources = hasPendingCollection
-      ? pendingAdditionalSources
-      : effect._pendingFineGrainedReadSource;
-    const nextSource2 =
-      pendingAdditionalSources && !hasPendingCollection
-        ? pendingAdditionalSources
-        : null;
+    let value: T;
+    try {
+      value = withFineGrainedReadTracking(effect, effect.compute);
+    } catch (error) {
+      // A handled first-run failure needs the sources it reached so a later
+      // write can recover it. Once an effect has committed, keep its last
+      // complete dependency set on compute failure rather than publishing a
+      // partial dynamic branch.
+      if (!effect.hasValue) {
+        const [nextSources, nextSource2] = getPendingEffectSources(effect);
+        commitEffectSubscriptions(effect, nextSources, nextSource2);
+      }
+      throw error;
+    }
+
+    const [nextSources, nextSource2] = getPendingEffectSources(effect);
     commitEffectResult(effect, value, nextSources, nextSource2);
   } finally {
     effect._pendingFineGrainedReadSource = null;
     effect._pendingFineGrainedReadSources = null;
   }
+}
+
+function getPendingEffectSources(
+  effect: FineGrainedEffect<unknown>
+): [EffectReadSources, ReadableSource<unknown> | null] {
+  const pendingAdditionalSources = effect._pendingFineGrainedReadSources;
+  const hasPendingCollection = isEffectReadSourceCollection(
+    pendingAdditionalSources
+  );
+  const nextSources = hasPendingCollection
+    ? pendingAdditionalSources
+    : effect._pendingFineGrainedReadSource;
+  const nextSource2 =
+    pendingAdditionalSources && !hasPendingCollection
+      ? pendingAdditionalSources
+      : null;
+
+  return [nextSources, nextSource2];
 }
 
 function commitEffectSubscriptions(
@@ -377,13 +399,28 @@ function commitEffectResult<T>(
   const shouldCommit =
     !effect.hasValue || !effect.equals(previousValue as T, value);
 
+  // Dependencies describe the successful compute, not the DOM/user commit.
+  // Publish them first so a throwing commit cannot leave the effect inert or
+  // subscribed to the previous branch forever.
+  commitEffectSubscriptions(effect, nextSources, nextSource2);
+
   if (shouldCommit) {
     effect.commit(value, effect.hasValue ? previousValue : undefined);
   }
 
-  commitEffectSubscriptions(effect, nextSources, nextSource2);
   effect.lastValue = value;
   effect.hasValue = true;
+}
+
+function handleEffectError(
+  effect: FineGrainedEffect<unknown>,
+  error: unknown
+): void {
+  if (effect.onError) {
+    effect.onError(error);
+    return;
+  }
+  throw error;
 }
 
 function flushLaneEffects(lane: SchedulerLane): void {
@@ -396,6 +433,7 @@ function flushLaneEffects(lane: SchedulerLane): void {
 
   const pending = effects.values();
   const effectRuns = new Map<FineGrainedEffect<unknown>, number>();
+  let failures: unknown[] | null = null;
   let next = pending.next();
 
   while (!next.done) {
@@ -412,10 +450,10 @@ function flushLaneEffects(lane: SchedulerLane): void {
       const error = new Error(
         `[Askr] fine-grained effect exceeded ${MAX_EFFECT_RUNS_PER_FLUSH} runs in one flush. Likely reactive cycle.`
       );
-      if (effect.onError) {
-        effect.onError(error);
-      } else {
-        throw error;
+      try {
+        handleEffectError(effect, error);
+      } catch (unhandledError) {
+        (failures ??= []).push(unhandledError);
       }
       next = pending.next();
       continue;
@@ -424,10 +462,21 @@ function flushLaneEffects(lane: SchedulerLane): void {
     try {
       evaluateAndCommitEffect(effect);
     } catch (error) {
-      effect.onError?.(error);
+      try {
+        handleEffectError(effect, error);
+      } catch (unhandledError) {
+        (failures ??= []).push(unhandledError);
+      }
     }
 
     next = pending.next();
+  }
+
+  if (failures?.length === 1) {
+    throw failures[0];
+  }
+  if (failures && failures.length > 1) {
+    throw new AggregateError(failures, 'Fine-grained effect failures');
   }
 }
 
@@ -445,7 +494,11 @@ function unscheduleEffect(effect: FineGrainedEffect<unknown>): void {
 }
 
 function recomputeEffectNow<T>(effect: FineGrainedEffect<T>): void {
-  evaluateAndCommitEffect(effect);
+  try {
+    evaluateAndCommitEffect(effect);
+  } catch (error) {
+    handleEffectError(effect, error);
+  }
 }
 
 export function markFineGrainedEffectsDirtySource(
@@ -576,7 +629,12 @@ export function createFineGrainedEffect<T>(
     )._owner
   );
 
-  recomputeEffectNow(effect);
+  try {
+    recomputeEffectNow(effect);
+  } catch (error) {
+    effect.cleanup();
+    throw error;
+  }
 
   return effect;
 }
@@ -599,7 +657,12 @@ export function createOwnedFineGrainedEffect<T>(
     owner
   );
 
-  recomputeEffectNow(effect);
+  try {
+    recomputeEffectNow(effect);
+  } catch (error) {
+    effect.cleanup();
+    throw error;
+  }
 
   return effect;
 }

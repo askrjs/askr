@@ -29,6 +29,157 @@ function createSource(initialValue: number): {
 }
 
 describe('fine-grained effect invariants', () => {
+  it('should handle initial and direct evaluation errors consistently', () => {
+    const source = createSource(1);
+    const errors: unknown[] = [];
+    const commits: number[] = [];
+    let shouldThrow = true;
+
+    const effect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => {
+        const value = source.read();
+        if (shouldThrow) {
+          throw new Error('effect-compute-boom');
+        }
+        return value;
+      },
+      commit: (value) => {
+        commits.push(value);
+      },
+      onError: (error) => {
+        errors.push(error);
+      },
+    });
+
+    expect(errors).toHaveLength(1);
+    expect(String(errors[0])).toContain('effect-compute-boom');
+
+    shouldThrow = false;
+    source.set(2);
+    globalScheduler.flush();
+    expect(commits).toEqual([2]);
+
+    shouldThrow = true;
+    expect(() => effect.flush()).not.toThrow();
+    expect(errors).toHaveLength(2);
+
+    expect(() =>
+      effect.updateCompute(() => {
+        source.read();
+        throw new Error('updated-compute-boom');
+      })
+    ).not.toThrow();
+    expect(errors).toHaveLength(3);
+    expect(String(errors[2])).toContain('updated-compute-boom');
+
+    effect.cleanup();
+  });
+
+  it('should rethrow and retire an unhandled initial evaluation failure', () => {
+    const source = createSource(1);
+    let runs = 0;
+
+    expect(() =>
+      createFineGrainedEffect({
+        lane: 'reactive',
+        compute: () => {
+          runs += 1;
+          source.read();
+          throw new Error('unhandled-initial-boom');
+        },
+        commit: () => {},
+      })
+    ).toThrow(/unhandled-initial-boom/);
+
+    source.set(2);
+    expect(() => globalScheduler.flush()).not.toThrow();
+    expect(runs).toBe(1);
+  });
+
+  it('should publish successful compute subscriptions when commit throws', () => {
+    const branch = createSource(0);
+    const first = createSource(1);
+    const second = createSource(10);
+    const errors: unknown[] = [];
+    const committed: number[] = [];
+    let shouldThrow = true;
+    let runs = 0;
+
+    const effect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => {
+        runs += 1;
+        return branch.read() === 0 ? first.read() : second.read();
+      },
+      commit: (value) => {
+        if (shouldThrow) {
+          throw new Error('effect-commit-boom');
+        }
+        committed.push(value);
+      },
+      onError: (error) => {
+        errors.push(error);
+      },
+    });
+
+    expect(errors).toHaveLength(1);
+    expect(runs).toBe(1);
+
+    shouldThrow = false;
+    first.set(2);
+    globalScheduler.flush();
+    expect(runs).toBe(2);
+    expect(committed).toEqual([2]);
+
+    shouldThrow = true;
+    branch.set(1);
+    globalScheduler.flush();
+    expect(errors).toHaveLength(2);
+    expect(runs).toBe(3);
+
+    shouldThrow = false;
+    first.set(3);
+    globalScheduler.flush();
+    expect(runs).toBe(3);
+
+    second.set(11);
+    globalScheduler.flush();
+    expect(runs).toBe(4);
+    expect(committed).toEqual([2, 11]);
+
+    effect.cleanup();
+  });
+
+  it('should surface unhandled scheduled failures after draining siblings', () => {
+    const source = createSource(0);
+    let safeRuns = 0;
+
+    const throwing = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => source.read(),
+      commit: (value) => {
+        if (value === 1) {
+          throw new Error('unhandled-effect-boom');
+        }
+      },
+    });
+    const safe = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => source.read(),
+      commit: () => {
+        safeRuns += 1;
+      },
+    });
+
+    source.set(1);
+    expect(() => globalScheduler.flush()).toThrow(/unhandled-effect-boom/);
+    expect(safeRuns).toBe(2);
+
+    throwing.cleanup();
+    safe.cleanup();
+  });
+
   it('should preserve outer dependencies across nested effect evaluation', () => {
     const first = createSource(1);
     const second = createSource(10);

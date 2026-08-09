@@ -1,5 +1,6 @@
 import {
   enqueueRuntimeTask,
+  isRuntimeSchedulerExecuting,
   markRuntimeReactivePropsDirtySource,
 } from './access';
 import { getCurrentInstance, type ComponentInstance } from './component';
@@ -209,13 +210,20 @@ export function finalizeReadableSubscriptionsFromSnapshot(
 
   if (newSet) {
     for (const source of newSet) {
-      // Replay only for sources already owned by this instance, or for its
-      // first committed read set. Newly entered branches in mounted components
-      // keep their existing scheduler-visible intermediate states.
-      if (pendingVersions && (!oldSet || oldSet.has(source))) {
+      // Existing sources and first mounts always receive the torn-read replay.
+      // A source newly entered by a mounted branch normally keeps the prior
+      // scheduler-visible behavior, unless it changed after this render read
+      // while the same scheduler flush is still committing. In that case the
+      // component was not a reader yet, so no normal notification can recover
+      // the value it is about to commit.
+      if (pendingVersions) {
         const sourceVersion = source._version ?? 0;
         const readVersion = pendingVersions.get(source);
-        if (readVersion !== undefined && sourceVersion !== readVersion) {
+        if (
+          readVersion !== undefined &&
+          sourceVersion !== readVersion &&
+          (!oldSet || oldSet.has(source) || isRuntimeSchedulerExecuting())
+        ) {
           needsFollowUpUpdate = true;
         }
       }
@@ -328,7 +336,8 @@ export function clearDerivedDependencySubscriptions(
 }
 
 export function markReadableDerivedSubscribersDirty(
-  source: ReadableSource<unknown>
+  source: ReadableSource<unknown>,
+  skipCurrentSubscriber = false
 ): void {
   const subscribers = source._derivedSubscribers;
   if (!subscribers || subscribers.size === 0) {
@@ -336,6 +345,14 @@ export function markReadableDerivedSubscribersDirty(
   }
 
   for (const subscriber of subscribers) {
+    // A parent derived computation that synchronously pulls a dirty child is
+    // already incorporating the child's new value. Re-marking that active
+    // parent would enqueue an identical second pass for the same logical
+    // update when dependency insertion order happens to visit the parent
+    // before the child.
+    if (skipCurrentSubscriber && subscriber === currentDerivedSubscriber) {
+      continue;
+    }
     subscriber._markDirty();
   }
 }

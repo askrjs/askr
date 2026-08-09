@@ -33,6 +33,7 @@ interface DerivedCell<T> extends Derived<T>, DerivedSubscriber {
   _dirty: boolean;
   _scheduled: boolean;
   _evaluating: boolean;
+  _active: boolean;
   _lastRecomputeFlushVersion: number;
   _sources: Set<ReadableSource<unknown>>;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
@@ -84,6 +85,7 @@ function flushDirtyDerivedCells(): void {
   }
 
   const pending = dirtyDerivedCells.values();
+  let failures: unknown[] | null = null;
   let next = pending.next();
 
   while (!next.done) {
@@ -94,8 +96,19 @@ function flushDirtyDerivedCells(): void {
       next = pending.next();
       continue;
     }
-    recomputeDerivedCell(cell, true);
+    try {
+      recomputeDerivedCell(cell, true);
+    } catch (error) {
+      (failures ??= []).push(error);
+    }
     next = pending.next();
+  }
+
+  if (failures?.length === 1) {
+    throw failures[0];
+  }
+  if (failures && failures.length > 1) {
+    throw new AggregateError(failures, 'derive() recompute failures');
   }
 }
 
@@ -139,7 +152,7 @@ function recomputeDerivedCell<T>(
   cell._lastRecomputeFlushVersion = getRuntimeFlushVersion();
 
   if (valueChanged && notifyDownstream) {
-    markReadableDerivedSubscribersDirty(cell);
+    markReadableDerivedSubscribersDirty(cell, true);
     markReactivePropsDirtySource(cell);
     notifyReadableReaders(cell);
   }
@@ -155,11 +168,18 @@ function createDerivedCell<T>(
   compute: () => T
 ): DerivedCell<T> {
   const cell = function derivedGetter(): T {
-    recordReadableRead(cell as DerivedCell<T>);
-    return recomputeDerivedCell(
-      cell as DerivedCell<T>,
-      (cell as DerivedCell<T>)._scheduled
-    );
+    const derivedCell = cell as DerivedCell<T>;
+    if (!derivedCell._active) {
+      if (__ASKR_DEVELOPMENT_BUILD__) {
+        throw new Error(
+          '[Askr] derive() was called after its owning component was disposed.'
+        );
+      }
+      return derivedCell._value;
+    }
+
+    recordReadableRead(derivedCell);
+    return recomputeDerivedCell(derivedCell, derivedCell._scheduled);
   } as DerivedCell<T>;
 
   cell._owner = instance;
@@ -170,15 +190,20 @@ function createDerivedCell<T>(
   cell._dirty = true;
   cell._scheduled = false;
   cell._evaluating = false;
+  cell._active = true;
   cell._lastRecomputeFlushVersion = -1;
   cell._sources = new Set();
   cell._markDirty = () => {
     markDerivedCellDirty(cell);
   };
   cell._cleanup = () => {
+    if (!cell._active) {
+      return;
+    }
+    cell._active = false;
     cell._scheduled = false;
     cell._dirty = false;
-    cell._hasValue = false;
+    cell._pendingDependencySources = undefined;
     dirtyDerivedCells.delete(cell);
     clearDerivedDependencySubscriptions(cell, cell._sources);
     cell._derivedSubscribers?.clear();
