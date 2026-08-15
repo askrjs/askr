@@ -50,6 +50,7 @@ configureNavigationRegistryHost({
   cancelRouteRequests,
 });
 
+/** Navigate the client-side router to `path` using the History API. */
 export function navigate(path: string, options: NavigateOptions = {}): void {
   if (typeof window === 'undefined') {
     return;

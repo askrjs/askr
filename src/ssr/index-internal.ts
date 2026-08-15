@@ -35,6 +35,9 @@ const routeRenderHost: RouteRenderHost = {
   renderAppToSink: renderSSRRouteAppToSink,
 };
 
+/**
+ * Render a component or route request to a complete HTML string, synchronously.
+ */
 export function renderToString(
   component: (
     props?: Record<string, unknown>
@@ -53,6 +56,7 @@ export function renderToString(arg: unknown): string {
   return renderRouteToString(opts, routeRenderHost);
 }
 
+/** Stream a route request's rendered HTML to the response sink described by `opts`. */
 export function renderToStream(opts: RouteStreamOptions): void {
   renderRouteToStream(opts, routeRenderHost);
 }

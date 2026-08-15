@@ -8,6 +8,7 @@ import { createDataRuntime, getDefaultDataRuntime } from './data-runtime';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 
+/** Lookup table of server handlers keyed by their {@link QueryDefinition}, built by {@link defineServerQueries}. */
 export interface ServerQueryRegistry {
   readonly entries: readonly ServerQueryEntry<unknown, {}>[];
   get<TInput, TResult extends {}>(
@@ -15,11 +16,13 @@ export interface ServerQueryRegistry {
   ): ServerQueryHandler<TInput, TResult> | undefined;
 }
 
+/** A query paired with the server handler that resolves it, produced by {@link serveQuery}. */
 export interface ServerQueryEntry<TInput, TResult extends {}> {
   readonly query: QueryDefinition<TInput, TResult>;
   readonly handler: ServerQueryHandler<TInput, TResult>;
 }
 
+/** Pair a {@link QueryDefinition} with the server-side handler that resolves it. */
 export function serveQuery<TInput, TResult extends {}>(
   query: QueryDefinition<TInput, TResult>,
   handler: ServerQueryHandler<TInput, TResult>
@@ -27,6 +30,7 @@ export function serveQuery<TInput, TResult extends {}>(
   return Object.freeze({ query, handler });
 }
 
+/** Build a {@link ServerQueryRegistry} from one or more {@link serveQuery} entries. */
 export function defineServerQueries(
   ...entries: readonly ServerQueryEntry<any, any>[]
 ): ServerQueryRegistry {
@@ -46,12 +50,17 @@ export function defineServerQueries(
   });
 }
 
+/** Freeze and return a reusable {@link QueryDefinition}. */
 export function defineQuery<TInput, TResult extends {}>(
   definition: QueryDefinition<TInput, TResult>
 ): QueryDefinition<TInput, TResult> {
   return Object.freeze({ ...definition });
 }
 
+/**
+ * Create a {@link QueryPrefetchContext} for prefetching query data ahead of
+ * render, e.g. during SSR route resolution.
+ */
 export function createQueryPrefetchContext(
   options: {
     runtime?: DataRuntime;
@@ -107,6 +116,7 @@ export function createQueryPrefetchContext(
   };
 }
 
+/** Prefetch `query` with `input` into a {@link QueryPrefetchContext}'s runtime. */
 export async function prefetchQuery<TInput, TResult extends {}>(
   context: QueryPrefetchContext,
   query: QueryDefinition<TInput, TResult>,
@@ -115,6 +125,7 @@ export async function prefetchQuery<TInput, TResult extends {}>(
   return context.prefetch(query, input);
 }
 
+/** Extract a runtime's cached query data into a JSON-serializable snapshot, dropping non-serializable values. */
 export function dehydrateDataRuntime(
   runtime: DataRuntime
 ): Record<string, unknown> {
@@ -130,6 +141,7 @@ export function dehydrateDataRuntime(
   return result;
 }
 
+/** Load a {@link dehydrateDataRuntime} snapshot back into a runtime's query cache. */
 export function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return;
   for (const [key, value] of Object.entries(data as Record<string, unknown>))

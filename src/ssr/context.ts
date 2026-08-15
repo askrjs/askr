@@ -103,6 +103,7 @@ function ensureRenderContextAccessor(): void {
   }
 }
 
+/** Build a fresh SSR render context (data cache, routes, seed) for a render pass. */
 export function createRenderContext(
   seed = 12345,
   opts: {
@@ -210,6 +211,7 @@ async function getAsyncRenderContextAccessor(): Promise<RenderContextAccessor | 
   return asyncRenderContextAccessor;
 }
 
+/** Run `fn` with `ctx` as the active SSR render context, using async-local storage. */
 export async function withRenderContextAsync<T>(
   ctx: RenderContext,
   fn: () => T | PromiseLike<T>

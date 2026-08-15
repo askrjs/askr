@@ -60,6 +60,7 @@ import { composeHandlers } from '../utilities/compose-handlers';
 import { composeRefs, Ref } from '../utilities/compose-ref';
 import { mergeProps as mergePropsBase } from '../utilities/merge-props';
 
+/** Input to {@link applyInteractionPolicy}. */
 export interface InteractionPolicyInput {
   /** Whether the host element is a native interactive element (button, a, etc) */
   isNative: boolean;

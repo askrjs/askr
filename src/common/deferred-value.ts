@@ -1,8 +1,10 @@
 const DEFERRED_VALUE = Symbol.for('@askrjs/askr/deferred-value');
 export const DEFERRED_BOUNDARY = Symbol.for('@askrjs/askr/deferred-boundary');
 
+/** Lifecycle state of a {@link Deferred} value. */
 export type DeferredState = 'pending' | 'fulfilled' | 'rejected';
 
+/** A promise-backed value that can be read synchronously once settled, produced by {@link defer}. */
 export interface Deferred<T> {
   readonly state: DeferredState;
   readonly value: T | undefined;
@@ -11,6 +13,7 @@ export interface Deferred<T> {
   readonly [DEFERRED_VALUE]: true;
 }
 
+/** Wrap a promise as a {@link Deferred} value that tracks its settled state and result. */
 export function defer<T>(promise: PromiseLike<T>): Deferred<T> {
   let state: DeferredState = 'pending';
   let value: T | undefined;
@@ -41,6 +44,7 @@ export function defer<T>(promise: PromiseLike<T>): Deferred<T> {
   ) as Deferred<T>;
 }
 
+/** Check whether `value` is a {@link Deferred} produced by {@link defer}. */
 export function isDeferred<T = unknown>(value: unknown): value is Deferred<T> {
   if (!value || typeof value !== 'object') return false;
   const marker = Object.getOwnPropertyDescriptor(value, DEFERRED_VALUE);

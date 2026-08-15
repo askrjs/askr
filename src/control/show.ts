@@ -15,6 +15,7 @@ import {
 type ShowSource<T> = T | (() => T);
 type Truthy<T> = T extends false | '' | 0 | 0n | null | undefined ? never : T;
 
+/** Props for {@link Show}. */
 export type ShowProps<T> = {
   when: ShowSource<T>;
   fallback?: BoundaryChild;
@@ -65,6 +66,7 @@ function ShowPrimitive<T>(props: ShowProps<T>): JSXElement {
   } as unknown as JSXElement;
 }
 
+/** Conditionally render children based on `when`, narrowing truthy values for the render function form. */
 export const Show = markEagerControlPrimitive(
   ShowPrimitive as <T>(props: ShowProps<T>) => JSXElement
 ) as <T>(props: ShowProps<T>) => JSXElement;

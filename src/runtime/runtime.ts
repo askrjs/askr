@@ -4,6 +4,7 @@ import type { ChildScope } from './child-scope';
 import type { ReadableSource } from './readable';
 import type { DOMRange } from '../common/dom-range';
 
+/** Diagnostic breakdown of a keyed-list reorder decision, returned by {@link RuntimeRendererHost.isKeyedReorderFastPathEligible}. */
 export interface RuntimeKeyedReorderDecision {
   useFastPath: boolean;
   totalKeyed: number;
@@ -15,6 +16,7 @@ export interface RuntimeKeyedReorderDecision {
   isWholeKeyedList: boolean;
 }
 
+/** The renderer implementation an {@link AskrRuntime} delegates DOM evaluation and cleanup to. */
 export interface RuntimeRendererHost {
   evaluate(
     node: unknown,
@@ -42,6 +44,7 @@ export interface RuntimeRendererHost {
   markReactivePropsDirtySource(source: ReadableSource<unknown>): void;
 }
 
+/** Options for {@link createRuntime}. */
 export interface AskrRuntimeOptions {
   scheduler?: Scheduler;
   renderer?: RuntimeRendererHost;
@@ -91,6 +94,7 @@ function createMissingRendererHost(): RuntimeRendererHost {
   };
 }
 
+/** A scheduler + renderer host pairing; owns scheduling and renderer wiring for an app instance. */
 export class AskrRuntime {
   readonly scheduler: Scheduler;
   private rendererHost: RuntimeRendererHost;
@@ -113,10 +117,12 @@ export const defaultRuntime = new AskrRuntime({
   scheduler: globalScheduler,
 });
 
+/** Create a new {@link AskrRuntime} instance with its own scheduler/renderer wiring. */
 export function createRuntime(options: AskrRuntimeOptions = {}): AskrRuntime {
   return new AskrRuntime(options);
 }
 
+/** Get the process-wide default {@link AskrRuntime}. */
 export function getDefaultRuntime(): AskrRuntime {
   return defaultRuntime;
 }

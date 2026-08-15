@@ -20,9 +20,11 @@ import { computeMatchesFromRoutes } from './route-matching';
 import { getActiveRouteBasePath, getActiveRoutes } from './store';
 import { removeRouteBasePath } from './base-path';
 
+/** Options for {@link onRouteChange}. */
 export interface RouteChangeOptions {
   immediate?: boolean;
 }
+/** Optional cleanup returned by an {@link onRouteChange} callback, run before the next change. */
 export type RouteChangeCleanup = void | (() => void);
 type RouteChangeSlot = {
   kind: 'route-change';
@@ -48,6 +50,7 @@ const currentRouteSource = (() =>
 
 currentRouteSource._readers = new Map();
 
+/** Register a callback to run whenever the active route changes, with optional cleanup. */
 export function onRouteChange(
   fn: (
     current: RouteSnapshot,
@@ -308,6 +311,7 @@ function readCurrentRouteSnapshot<
   }) as RouteSnapshot<TParams>;
 }
 
+/** Read the currently active route's {@link RouteSnapshot}; reactive during component render. */
 export function currentRoute<
   TParams extends RouteParams = RouteParams,
 >(): RouteSnapshot<TParams> {

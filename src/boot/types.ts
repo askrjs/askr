@@ -3,6 +3,7 @@ import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import type { ScrollRestorationOptions } from '../router/navigate';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 
+/** Configuration for {@link createIsland}: mounts one component onto existing DOM. */
 export type IslandConfig = {
   root: Element | string;
   component: ComponentFunction;
@@ -13,6 +14,7 @@ export type IslandConfig = {
   routes?: never;
 };
 
+/** Configuration for {@link createIslands}: mounts several islands at once. */
 export type IslandsConfig = {
   islands: IslandConfig[];
   cspNonce?: string;
@@ -20,6 +22,7 @@ export type IslandsConfig = {
 
 type BootRouteSource = { registry: RouteRegistry };
 
+/** Configuration for {@link createSPA}. */
 export type SPAConfig = BootRouteSource & {
   root: Element | string;
   cspNonce?: string;
@@ -32,6 +35,7 @@ export type SPAConfig = BootRouteSource & {
   component?: never;
 };
 
+/** Configuration for {@link hydrateSPA}. */
 export type HydrateSPAConfig = BootRouteSource & {
   root: Element | string;
   cspNonce?: string;

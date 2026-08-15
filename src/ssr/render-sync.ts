@@ -627,6 +627,7 @@ function renderNodeSyncToSink(
   sinkWrite3(sink, '</', typeStr, '>');
 }
 
+/** Synchronously render a component to an HTML string, without route resolution. */
 export function renderToStringSync(
   component: (
     props?: Record<string, unknown>

@@ -44,6 +44,7 @@ type IndexedForProps<T> = ForBaseProps<T> & {
   byIndex: true;
 };
 
+/** Props for {@link For}. */
 export type ForProps<T, K extends string | number = string | number> =
   | KeyedForProps<T, K>
   | IndexedForProps<T>;
@@ -119,6 +120,7 @@ function ForPrimitive<T>(props: ForProps<T>): JSXElement {
   return createForBoundary(props) as unknown as JSXElement;
 }
 
+/** Render a keyed or indexed list, reconciling items by key instead of position. */
 export const For = markEagerControlPrimitive(
   ForPrimitive as <T, K extends string | number = string | number>(
     props: ForProps<T, K>

@@ -14,6 +14,7 @@ import { _associateLazyHandler } from './lazy';
 
 const outletScope = defineScope<RenderableChild>(null);
 
+/** Renders the nested route content for the enclosing layout or page scope. */
 export function Outlet(): JSXElement {
   return {
     $$typeof: ELEMENT_TYPE,

@@ -51,6 +51,7 @@ function createDataRuntimeState(
   };
 }
 
+/** Create a new, isolated {@link DataRuntime} with its own query/mutation caches. */
 export function createDataRuntime(
   options: DataRuntimeOptions = {}
 ): DataRuntime {
@@ -77,6 +78,7 @@ export function createDataRuntime(
 
 const defaultDataRuntime = createDataRuntime();
 
+/** Get the process-wide default {@link DataRuntime} used when none is provided explicitly. */
 export function getDefaultDataRuntime(): DataRuntime {
   return defaultDataRuntime;
 }
