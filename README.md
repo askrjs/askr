@@ -92,7 +92,9 @@ Query and mutation helpers live in `@askrjs/askr/data`.
 
 `ErrorBoundary` is the opt-in boundary primitive for render-time failures. It
 renders a visible fallback in development, still logs the underlying error, and
-can reset when your app state changes.
+can reset when your app state changes. The boundary protects both initial mount
+and scheduled post-mount updates. Portal content follows its logical writer
+boundary and can also recover through a boundary around its host.
 
 ```ts
 import { ErrorBoundary } from '@askrjs/askr/components';

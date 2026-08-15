@@ -198,6 +198,12 @@ let the server adapter or static-generation failure policy handle that route
 failure. The route-layout boundary remains useful for client navigation and
 commit failures.
 
+On the client, the same boundary also protects scheduled post-mount renders,
+including a `resource()` result that causes a descendant to throw. Portal
+content can recover through the boundary around its logical writer or, when no
+writer boundary exists, a boundary around the portal host. Content with no live
+boundary still propagates its error to the scheduler.
+
 The tested placements are in
 [error-boundaries.tsx](../../examples/platform-recipes/error-boundaries.tsx).
 

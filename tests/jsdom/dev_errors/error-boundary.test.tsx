@@ -11,6 +11,7 @@ import { ErrorBoundary } from '@askrjs/askr/components';
 import {
   DefaultPortal,
   Portal,
+  definePortal,
 } from '../../../src/foundations/structures/portal';
 import { getSignal, resource, task } from '../../../src/resources';
 import {
@@ -242,6 +243,7 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
   it('should catch a descendant error after a resource resolves post-mount', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const deferred = createDeferred<string>();
+    const onError = vi.fn();
 
     function ResourceRow() {
       const result = resource(() => deferred.promise, []);
@@ -253,6 +255,7 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
 
     const App = () => (
       <ErrorBoundary
+        onError={onError}
         fallback={<p id="resource-fallback">{'resource recovered'}</p>}
       >
         <ResourceRow />
@@ -272,6 +275,7 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
     expect(container.querySelector('#resource-fallback')?.textContent).toBe(
       'resource recovered'
     );
+    expect(onError).toHaveBeenCalledOnce();
     errorSpy.mockRestore();
   });
 
@@ -360,6 +364,39 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
     errorSpy.mockRestore();
   });
 
+  it('should route named portal errors to the logical writer boundary', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const OverlayPortal = definePortal();
+
+    function BrokenPortalContent() {
+      throw new Error('named portal crash');
+    }
+
+    function PortalWriter() {
+      return OverlayPortal.render({ children: <BrokenPortalContent /> });
+    }
+
+    const App = () => (
+      <>
+        <OverlayPortal />
+        <ErrorBoundary
+          fallback={<p id="named-portal-fallback">{'named recovered'}</p>}
+        >
+          <PortalWriter />
+        </ErrorBoundary>
+      </>
+    );
+
+    expect(() => {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.querySelector('#named-portal-fallback')?.textContent).toBe(
+      'named recovered'
+    );
+    errorSpy.mockRestore();
+  });
+
   it('should route a post-mount portal update error to the writer boundary', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     let setShouldFail!: (value: boolean) => void;
@@ -401,6 +438,39 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
     expect(container.querySelector('#portal-async-fallback')?.textContent).toBe(
       'async recovered'
     );
+    errorSpy.mockRestore();
+  });
+
+  it('should route a scheduled error to the nearest nested boundary', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let setShouldFail!: (value: boolean) => void;
+
+    function ScheduledFailure() {
+      const shouldFail = state(false);
+      setShouldFail = shouldFail.set;
+      if (shouldFail()) {
+        throw new Error('nested scheduled crash');
+      }
+      return <p id="nested-healthy">{'healthy'}</p>;
+    }
+
+    const App = () => (
+      <ErrorBoundary fallback={<p id="outer-scheduled-fallback">{'outer'}</p>}>
+        <ErrorBoundary
+          fallback={<p id="inner-scheduled-fallback">{'inner'}</p>}
+        >
+          <ScheduledFailure />
+        </ErrorBoundary>
+      </ErrorBoundary>
+    );
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    setShouldFail(true);
+    expect(() => flushScheduler()).not.toThrow();
+
+    expect(container.querySelector('#inner-scheduled-fallback')).not.toBeNull();
+    expect(container.querySelector('#outer-scheduled-fallback')).toBeNull();
     errorSpy.mockRestore();
   });
 
