@@ -117,12 +117,12 @@ function recomputeDerivedCell<T>(
   cell: DerivedCell<T>,
   notifyDownstream: boolean
 ): T {
-  if (!cell._dirty && cell._hasValue) {
-    return cell._value;
-  }
-
   if (cell._evaluating) {
     throw new Error('derive() cannot read itself recursively');
+  }
+
+  if (!cell._dirty && cell._hasValue) {
+    return cell._value;
   }
 
   cell._evaluating = true;
