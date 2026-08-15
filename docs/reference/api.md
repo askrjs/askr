@@ -107,7 +107,7 @@ await createSPA({ root: document.body, registry });
 - `For`, `Show`, `Case`, and `Match` are available from `@askrjs/askr/control`.
 - `Show` render-function children receive the resolved truthy value, and literal falsey branches are excluded from that callback type when TypeScript can see them.
 - A `Scope` component accepts normal renderable children or a zero-argument render callback. Imperative DOM `Node` children are not part of that public contract.
-- `ErrorBoundary` fallbacks accept normal JSX boundary content, and the client runtime also allows an imperative DOM `Node` fallback when you need one.
+- `ErrorBoundary` protects initial and scheduled descendant renders, including portal content associated with a logical writer or bounded host. Fallbacks accept normal JSX boundary content, and the client runtime also allows an imperative DOM `Node` fallback when you need one.
 - `Link`, `layout`, `Slot`, `Presence`, and the default portal surfaces accept normal renderable child content. Imperative DOM `Node` children are not part of that public contract.
 - Router page components, `lazy()` route components, and router layout functions also return normal renderable content rather than imperative DOM `Node` values.
 - `lazy()` preserves its import factory until the route is matched. Call the returned component's `preload()` method when an interaction or application policy should fetch that route earlier.

@@ -186,6 +186,8 @@ export function cleanupComponent(instance: ComponentInstance): void {
     instance.lifecycleSlots = undefined;
     instance.hasPendingUpdate = false;
     instance.notifyUpdate = null;
+    instance._portalErrorParent = undefined;
+    instance._portalErrorParentGeneration = undefined;
     instance._placeholder = undefined;
     instance.mounted = false;
 

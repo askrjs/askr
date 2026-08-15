@@ -271,6 +271,8 @@ export function mountOrUpdate(
       instance._lastReadSources = undefined;
       instance._placeholder = undefined;
       instance.errorBoundaryState = undefined;
+      instance._portalErrorParent = undefined;
+      instance._portalErrorParentGeneration = undefined;
       instance.devWarningsEmitted = undefined;
     }
 

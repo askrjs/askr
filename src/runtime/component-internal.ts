@@ -133,6 +133,10 @@ export interface ComponentInstance {
     resetKey: unknown;
     notified: boolean;
   };
+  /** @internal Logical error ancestry for content materialized by a portal host. */
+  _portalErrorParent?: ComponentInstance | null;
+  /** @internal Ownership identity paired with `_portalErrorParent`. */
+  _portalErrorParentGeneration?: object;
 }
 
 function ensurePendingRunTask(instance: ComponentInstance): () => void {
@@ -226,6 +230,8 @@ export function createComponentInstance(
     _pendingReadSourceVersions: undefined,
     _lastReadSources: undefined,
     devWarningsEmitted: undefined,
+    _portalErrorParent: undefined,
+    _portalErrorParentGeneration: undefined,
   };
 
   instance._enqueueRun = enqueueComponentRun;
