@@ -350,6 +350,11 @@ export async function registerAppNavigation(
   initializeNavigation();
 }
 
+/**
+ * Tear down the app mounted at `root`: runs its cleanup callbacks, clears
+ * route state if it was the last routed root, and removes bookkeeping for
+ * the root element.
+ */
 export function cleanupApp(root: Element | string): void {
   const rootElement = resolveRootElement(root);
 
@@ -375,6 +380,7 @@ export function cleanupApp(root: Element | string): void {
   }
 }
 
+/** Check whether an app instance is currently mounted at `root`. */
 export function hasApp(root: Element | string): boolean {
   const rootElement = resolveRootElement(root);
 

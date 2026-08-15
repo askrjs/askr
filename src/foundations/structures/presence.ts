@@ -2,7 +2,9 @@ import { ELEMENT_TYPE, Fragment } from '../../jsx';
 import type { JSXElement } from '../../jsx';
 import type { RenderableChild } from '../../common/vnode';
 
+/** Props for {@link Presence}. */
 export interface PresenceProps {
+  /** Whether the children should be mounted, or a function returning it. */
   present: boolean | (() => boolean);
   children?: RenderableChild;
 }

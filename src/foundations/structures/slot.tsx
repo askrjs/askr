@@ -2,6 +2,7 @@ import { Fragment, cloneElement, isElement, ELEMENT_TYPE } from '../../jsx';
 import type { JSXElement } from '../../jsx';
 import type { RenderableChild } from '../../common/vnode';
 
+/** Props for {@link Slot}: `asChild` selects prop-merging vs. fragment mode. */
 export type SlotProps =
   | {
       asChild: true;

@@ -11,12 +11,14 @@ import { type BoundaryChild, normalizeBoundaryChild } from './shared';
 
 type MatchChild = BoundaryChild | (() => BoundaryChild);
 
+/** Props for {@link Match}, valid only as a direct child of {@link Case}. */
 export type MatchProps = {
   key?: string | number | null;
   when: unknown;
   children: MatchChild;
 };
 
+/** Props for {@link Case}. */
 export type CaseProps = {
   fallback?: BoundaryChild;
   children?: unknown;
@@ -38,6 +40,7 @@ function flattenChildren(children: unknown): unknown[] {
   return result;
 }
 
+/** Declares one branch of a {@link Case}; only valid as its direct child. */
 export function Match(_props: MatchProps): null {
   if (isDevelopmentEnvironment()) {
     throw new Error(
@@ -127,6 +130,7 @@ function CasePrimitive(props: CaseProps): JSXElement {
   } as unknown as JSXElement;
 }
 
+/** Render the first matching {@link Match} child (by `when`), or `fallback` if none match. */
 export const Case = markEagerControlPrimitive(
   CasePrimitive as (props: CaseProps) => JSXElement
 ) as (props: CaseProps) => JSXElement;

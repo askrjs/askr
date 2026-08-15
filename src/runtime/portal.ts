@@ -35,11 +35,16 @@ import { registerDefaultPortalRuntime } from '../common/default-portal-runtime';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
+/**
+ * A named portal channel created by {@link definePortal}: call it as a
+ * component to render the host, and call `.render(props)` to write content.
+ */
 export interface Portal<T extends RenderableChild = RenderableChild> {
   (): T | JSXElement | null | undefined;
   render(props: { children?: T }): unknown;
 }
 
+/** Props for the {@link Portal} component. */
 export interface PortalProps {
   children?: RenderableChild;
 }
@@ -138,6 +143,7 @@ function createPortalSlot<T>(): {
   };
 }
 
+/** Create a new named {@link Portal} channel with its own host and content. */
 export function definePortal<
   T extends RenderableChild = RenderableChild,
 >(): Portal<T> {
@@ -692,6 +698,10 @@ export function clearDefaultPortalForInstance(
   detachDefaultPortalHostOutput(state);
 }
 
+/**
+ * The implicit portal channel that {@link Portal} writes to and that any
+ * host rendered without an explicit portal falls back to.
+ */
 export const DefaultPortal: Portal<RenderableChild> = (() => {
   function Host(props?: DefaultPortalHostProps) {
     const serverHost = createSSRPortalHost(
@@ -735,6 +745,7 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
   return Host as Portal<RenderableChild>;
 })();
 
+/** Write children to the {@link DefaultPortal} host wherever it is rendered. */
 export function Portal(props: PortalProps): JSXElement | null {
   if (writeSSRPortal(DEFAULT_SSR_PORTAL_KEY, props.children)) {
     return createSSRPortalAnchor();

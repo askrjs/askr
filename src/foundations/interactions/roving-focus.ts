@@ -44,8 +44,10 @@
 
 import type { KeyboardLikeEvent } from '../utilities/event-types';
 
+/** Arrow-key axis for {@link rovingFocus}. */
 export type Orientation = 'horizontal' | 'vertical' | 'both';
 
+/** Options for {@link rovingFocus}. */
 export interface RovingFocusOptions {
   /**
    * Current focused index
@@ -81,6 +83,7 @@ export interface RovingFocusOptions {
   isDisabled?: (index: number) => boolean;
 }
 
+/** Container and per-item props returned by {@link rovingFocus}. */
 export interface RovingFocusResult {
   /**
    * Props for the container element (composes via mergeProps)
@@ -98,6 +101,7 @@ export interface RovingFocusResult {
   };
 }
 
+/** Implement arrow-key roving tabindex navigation over a set of items. */
 export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
   const {
     currentIndex,

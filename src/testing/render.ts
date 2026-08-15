@@ -3,6 +3,7 @@ import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import { cleanupApp, createIsland, createSPA } from '../boot';
 import { flushRuntimeScheduler } from '../runtime';
 
+/** Options for {@link render} and {@link mount}. */
 export interface RenderOptions {
   /**
    * Existing element to own for the duration of the render. When omitted, the
@@ -13,6 +14,7 @@ export interface RenderOptions {
   cleanupStrict?: boolean;
 }
 
+/** Options for {@link renderRoute}. */
 export interface RouteRenderOptions extends RenderOptions {
   registry: RouteRegistry;
   /** Initial path, query, and hash for the routed render. */
@@ -34,6 +36,7 @@ type DispatchEventInit =
   | TouchEventInit
   | DragEventInit;
 
+/** Handle to a mounted test render, returned by {@link render}/{@link mount}/{@link renderRoute}. */
 export interface RenderResult {
   readonly container: HTMLElement;
   readonly root: HTMLElement;
@@ -214,10 +217,12 @@ function isEventForTarget(target: EventTarget, value: unknown): value is Event {
   return typeof Event !== 'undefined' && value instanceof Event;
 }
 
+/** Synchronously flush the runtime's scheduled work (renders, effects). */
 export function flush(): void {
   flushRuntimeScheduler();
 }
 
+/** Dispatch an event (constructed from a type string, or given directly) on `target`. */
 export function dispatch(
   target: EventTarget,
   event: Event | string,
@@ -273,6 +278,7 @@ function isRenderResult(
   return 'container' in target && 'cleanup' in target;
 }
 
+/** Tear down a test render, given either its {@link RenderResult} or container element. */
 export function cleanup(target: RenderResult | HTMLElement): void {
   cleanupContainer(isRenderResult(target) ? target.container : target);
 }
@@ -288,6 +294,7 @@ function createRenderResult(container: HTMLElement): RenderResult {
   };
 }
 
+/** Mount `component` as an island into a test container and flush pending work. */
 export function render(
   component: ComponentFunction,
   options?: RenderOptions
@@ -313,6 +320,7 @@ export function render(
   }
 }
 
+/** Alias for {@link render}. */
 export function mount(
   component: ComponentFunction,
   options?: RenderOptions
@@ -320,6 +328,7 @@ export function mount(
   return render(component, options);
 }
 
+/** Mount a routed app (via {@link createSPA}) into a test container for the given route registry. */
 export async function renderRoute(
   options: RouteRenderOptions
 ): Promise<RenderResult> {

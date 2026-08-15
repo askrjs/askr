@@ -24,10 +24,15 @@ import type { RenderableChild } from '../../common/vnode';
  *    and deterministic — no merging or composition.
  */
 
+/** A component that receives its route children via `props.children`. */
 export type LayoutComponent<P = object> = (
   props: P & { children?: RenderableChild }
 ) => unknown;
 
+/**
+ * Wrap a {@link LayoutComponent} so it can be invoked as `(children, props)`,
+ * matching route layout conventions.
+ */
 export function layout<P = object>(Layout: LayoutComponent<P>) {
   return (children?: RenderableChild, props?: P) => {
     const mergedProps = { ...props, children } as P & {

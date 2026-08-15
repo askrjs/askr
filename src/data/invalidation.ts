@@ -16,6 +16,7 @@ import type {
   QueryScope,
 } from './types';
 
+/** Mark all cached queries whose key starts with `prefix` as stale, triggering a refresh. */
 export function invalidate(prefix: string, options?: InvalidateOptions): void {
   invalidateQueriesForRuntime(
     resolveDataRuntimeState(options?.runtime),
@@ -24,6 +25,7 @@ export function invalidate(prefix: string, options?: InvalidateOptions): void {
   );
 }
 
+/** Create a {@link QueryScope} that namespaces keys and invalidations under `namespace`. */
 export function queryScope(namespace: string): QueryScope {
   return createQueryScope(namespace, invalidate);
 }
@@ -31,6 +33,10 @@ export function queryScope(namespace: string): QueryScope {
 const INVALIDATE_ON_INTERVAL_OPTIONS_ERROR =
   '[Askr] invalidateOnInterval() requires an options object with a finite numeric intervalMs.';
 
+/**
+ * Periodically invalidate queries matching `prefix` on a fixed interval,
+ * optionally gated by active route, document visibility, or window focus.
+ */
 export function invalidateOnInterval(
   prefix: string,
   options: InvalidateOnIntervalOptions

@@ -26,6 +26,7 @@ import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import { validateCspNonce } from '../csp-nonce';
 import type { SSRStyleRegistration } from '../common/ssr';
 
+/** Options for {@link renderRouteRequest} and {@link renderRouteRequestToString}. */
 export interface RenderRouteRequestOptions {
   url: string;
   registry: RouteRegistry;
@@ -44,6 +45,7 @@ export interface RenderRouteRequestOptions {
   cspNonce?: string;
 }
 
+/** Outcome of rendering a route request for SSR: a render, redirect, deny, or no-match. */
 export type RenderRouteRequestResult =
   | {
       kind: 'render';
@@ -255,12 +257,14 @@ function createDeferredRenderStream(
   });
 }
 
+/** Resolve and render a route request for SSR, streaming the body when possible. */
 export async function renderRouteRequest(
   options: RenderRouteRequestOptions
 ): Promise<RenderRouteRequestResult> {
   return renderRouteRequestInternal(options);
 }
 
+/** Resolve and render a route request for SSR, always fully buffering the HTML. */
 export async function renderRouteRequestToString(
   options: RenderRouteRequestOptions
 ): Promise<RenderRouteRequestResult> {

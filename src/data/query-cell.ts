@@ -578,6 +578,11 @@ export function createDefinedQuery<TInput, TResult extends {}>(
   });
 }
 
+/**
+ * Create a reactive {@link Query} cell bound to the current component, either
+ * from inline `options` (key + fetch) or a reusable {@link QueryDefinition}
+ * plus its input.
+ */
 export function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;
 export function createQuery<TInput, TResult extends {}>(
   definition: import('./types').QueryDefinition<TInput, TResult>,

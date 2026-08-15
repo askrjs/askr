@@ -42,6 +42,7 @@
  *   ❌ Can't bypass via direct event listeners - mergeProps composes correctly
  */
 
+/** Options for {@link dismissable}. */
 export interface DismissableOptions {
   /**
    * Reference to the protected element for outside click detection. Attach the
@@ -65,6 +66,7 @@ import type {
   PointerLikeEvent,
 } from '../utilities/event-types';
 
+/** Produce keydown/outside-click props that invoke `onDismiss` on Escape or an outside click. */
 export function dismissable({ node, disabled, onDismiss }: DismissableOptions) {
   function handleKeyDown(e: KeyboardLikeEvent) {
     if (disabled) return;

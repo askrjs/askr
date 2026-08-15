@@ -20,6 +20,7 @@ import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
+/** A reactive derived value produced by {@link derive}; call it to read the current result. */
 export interface Derived<T> extends ReadableSource<T> {
   (): T;
 }

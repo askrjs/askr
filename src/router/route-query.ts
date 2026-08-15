@@ -9,13 +9,18 @@ import {
   syncRegisteredRouteSnapshot,
 } from './navigation-registry';
 
+/** A single query-string value accepted by {@link updateRouteQuery}. */
 export type RouteQueryParamValue = string | number | boolean | null | undefined;
+/** A query-string value, or an array of them for a repeated param. */
 export type RouteQueryParamInput =
   | RouteQueryParamValue
   | readonly RouteQueryParamValue[];
+/** A map of query param updates for {@link updateRouteQuery}; `null`/`undefined` removes the key. */
 export type RouteQueryUpdates = Record<string, RouteQueryParamInput>;
+/** A function that mutates a `URLSearchParams` directly, for {@link updateRouteQuery}. */
 export type RouteQueryUpdater = (searchParams: URLSearchParams) => void;
 
+/** Options for {@link updateRouteQuery}. */
 export type UpdateRouteQueryOptions = {
   /**
    * Defaults to replace so high-frequency controls such as search inputs do not

@@ -24,6 +24,7 @@
  *    Args are readonly to prevent mutation. Return type matches input.
  */
 
+/** Options for {@link composeHandlers}. */
 export interface ComposeHandlersOptions {
   /**
    * When true (default), do not run the second handler if the first prevented default.
@@ -43,6 +44,10 @@ function isDefaultPrevented(
   );
 }
 
+/**
+ * Compose two optional event handlers into one, running `first` then
+ * `second` unless `first` marked the event as default-prevented.
+ */
 export function composeHandlers<A extends readonly unknown[]>(
   first?: (...args: A) => void,
   second?: (...args: A) => void,

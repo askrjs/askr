@@ -1,3 +1,4 @@
+/** Options for {@link formatId}. */
 export interface FormatIdOptions {
   /** Defaults to 'askr' */
   prefix?: string;

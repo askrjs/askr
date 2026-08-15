@@ -60,6 +60,7 @@ import {
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
+/** Options for {@link navigate}. */
 export type NavigateOptions = {
   history?: 'push' | 'replace';
   replace?: boolean;

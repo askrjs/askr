@@ -1,6 +1,9 @@
+/** Scroll behavior for programmatic navigations (`navigate()`). */
 export type NavigationScrollBehavior = 'top' | 'preserve';
+/** Scroll behavior for browser back/forward (popstate) navigations. */
 export type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';
 
+/** Options for {@link configureScrollRestoration}. */
 export type ScrollRestorationOptions = {
   navigation?: NavigationScrollBehavior;
   history?: HistoryScrollBehavior;

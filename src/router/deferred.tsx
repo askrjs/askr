@@ -19,6 +19,7 @@ import {
 export { defer, DEFERRED_BOUNDARY, isDeferred, reviveDeferredValue };
 export type { Deferred, DeferredState };
 
+/** Props for {@link Resolve}. */
 export interface ResolveProps<T> {
   value: Deferred<T>;
   pending?: RenderableChild;
@@ -59,6 +60,7 @@ function awaitWithSignal<T>(
   });
 }
 
+/** Recursively await any {@link Deferred} values nested within `input`, returning it once fully resolved. */
 export async function resolveDeferredValues<T>(
   input: T,
   signal?: AbortSignal
@@ -84,6 +86,7 @@ export async function resolveDeferredValues<T>(
   return input;
 }
 
+/** Read the current route's server loader data during render or hydration. */
 export function routeData<T>(): T {
   const envelope = getCurrentRenderData();
   if (envelope)
@@ -106,6 +109,7 @@ function rejectedChild<T>(
     : (props.rejected ?? null);
 }
 
+/** Render a {@link Deferred} value's fulfilled state, a pending placeholder, or a rejected fallback. */
 export function Resolve<T>(props: ResolveProps<T>): JSXElement {
   if (props.value.state === 'fulfilled') {
     return props.children(props.value.value as T) as unknown as JSXElement;

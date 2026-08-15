@@ -31,6 +31,7 @@
  *    - No debouncing or repeat prevention (platform parity)
  */
 
+/** Options for {@link pressable}. */
 export interface PressableOptions {
   disabled?: boolean;
   onPress?: (e: PressEvent) => void;
@@ -49,6 +50,7 @@ import { ariaDisabled } from '../utilities/aria';
 
 type PressEvent = DefaultPreventable & PropagationStoppable;
 
+/** Element props returned by {@link pressable}. */
 export interface PressableResult {
   onClick: (e: PressEvent) => void;
   disabled?: true;
@@ -59,6 +61,7 @@ export interface PressableResult {
   'aria-disabled'?: 'true';
 }
 
+/** Produce click/keyboard props implementing 'press' semantics for an element. */
 export function pressable({
   disabled,
   onPress,
