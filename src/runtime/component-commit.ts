@@ -17,6 +17,7 @@ import {
 import { getExecutionContextFrame, withContext } from './context';
 import { incDevCounter, setDevValue } from './dev-namespace';
 import { tryRuntimeFastLaneSync } from './fastlane';
+import { routeComponentErrorToBoundary } from './error-boundary';
 import type { ComponentInstance } from './component-internal';
 
 export interface ScheduledComponentCommitHost {
@@ -38,13 +39,21 @@ export function runScheduledComponent(
     result = host.execute(instance);
   } catch (err) {
     discardCommitOperations(instance);
+    if (routeComponentErrorToBoundary(instance, err)) {
+      return;
+    }
     throw err;
   }
 
   if (isPromiseLike(result)) {
-    throw new Error(
+    const error = new Error(
       'Async components are not supported. Components must be synchronous.'
     );
+    discardCommitOperations(instance);
+    if (routeComponentErrorToBoundary(instance, error)) {
+      return;
+    }
+    throw error;
   }
 
   try {
@@ -53,24 +62,33 @@ export function runScheduledComponent(
       return;
     }
   } catch (err) {
+    if (routeComponentErrorToBoundary(instance, err)) {
+      return;
+    }
     if (isDevelopmentEnvironment()) throw err;
   }
 
   enqueueRuntimeTask(() => {
-    if (
-      instance._ownershipGeneration !== ownershipGeneration ||
-      instance.evaluationGeneration !== evaluationGeneration
-    ) {
-      return;
-    }
+    try {
+      if (
+        instance._ownershipGeneration !== ownershipGeneration ||
+        instance.evaluationGeneration !== evaluationGeneration
+      ) {
+        return;
+      }
 
-    if (!instance.target && instance._placeholder) {
-      commitPlaceholderReplacement(instance, result, host);
-      return;
-    }
+      if (!instance.target && instance._placeholder) {
+        commitPlaceholderReplacement(instance, result, host);
+        return;
+      }
 
-    if (instance.target) {
-      commitToTarget(instance, result, host);
+      if (instance.target) {
+        commitToTarget(instance, result, host);
+      }
+    } catch (err) {
+      if (!routeComponentErrorToBoundary(instance, err)) {
+        throw err;
+      }
     }
   });
 }

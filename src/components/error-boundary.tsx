@@ -61,7 +61,10 @@ function createBoundaryVNode(
   };
 }
 
-/** Creates a render-time boundary whose fallback handles descendant render/commit errors. */
+/**
+ * Creates a boundary for descendant mount and post-mount render/commit errors,
+ * including content materialized through a portal host.
+ */
 export function ErrorBoundary(props: ErrorBoundaryProps): JSXElement {
   const instance = getCurrentComponentInstance();
   if (!instance) {
