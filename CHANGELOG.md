@@ -4,6 +4,8 @@
 
 - fix(runtime): reject recursive `derive()` and `selector()` reads before a
   memoized value can bypass the self-evaluation guard.
+- fix(runtime): route scheduled descendant and portal materialization failures
+  to the nearest live `ErrorBoundary` while preserving unbounded propagation.
 
 ## 0.0.85
 
