@@ -98,7 +98,11 @@ describe('scratch: exceptions mid-track leaking currentDerivedSubscriber', () =>
         throwingVal = 'error';
       }
 
-      return <div>{throwingVal}-{innocent()}</div>;
+      return (
+        <div>
+          {throwingVal}-{innocent()}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });

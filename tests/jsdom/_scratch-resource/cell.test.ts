@@ -56,11 +56,7 @@ describe('1. rapid re-invocation ordering', () => {
     const d2 = deferred<string>();
     const promises = [d1.promise, d2.promise];
     let i = 0;
-    const cell = new ResourceCell<string>(
-      () => promises[i++],
-      null,
-      null
-    );
+    const cell = new ResourceCell<string>(() => promises[i++], null, null);
 
     cell.start(false, false);
     cell.refresh();
@@ -102,15 +98,19 @@ describe('2. user code swallows AbortError internally', () => {
     const d2 = deferred<string>();
     let firstSignal: AbortSignal | null = null;
 
-    const cell = new ResourceCell<string>(({ signal }) => {
-      if (!firstSignal) {
-        firstSignal = signal;
-        // Simulate: user's fn internally catches AbortError from a fetch,
-        // and resolves with a normal fallback value anyway.
-        return d1.promise.catch(() => 'fallback-after-swallowed-abort');
-      }
-      return d2.promise;
-    }, null, null);
+    const cell = new ResourceCell<string>(
+      ({ signal }) => {
+        if (!firstSignal) {
+          firstSignal = signal;
+          // Simulate: user's fn internally catches AbortError from a fetch,
+          // and resolves with a normal fallback value anyway.
+          return d1.promise.catch(() => 'fallback-after-swallowed-abort');
+        }
+        return d2.promise;
+      },
+      null,
+      null
+    );
 
     cell.start(false, false); // gen0, signal S0
     cell.refresh(); // gen1 aborts S0, starts gen1 with S1
@@ -140,13 +140,17 @@ describe('2. user code swallows AbortError internally', () => {
 describe('3. abort during synchronous portion (before first await)', () => {
   it('refresh() called synchronously before fn reaches its first await', () => {
     const controllers: AbortController[] = [];
-    const cell = new ResourceCell<string>(({ signal }) => {
-      // capture controller-equivalent via signal; record aborted state
-      controllers.push((cell as any).controller);
-      return new Promise<string>(() => {
-        /* never resolves synchronously */
-      });
-    }, null, null);
+    const cell = new ResourceCell<string>(
+      ({ signal }) => {
+        // capture controller-equivalent via signal; record aborted state
+        controllers.push((cell as any).controller);
+        return new Promise<string>(() => {
+          /* never resolves synchronously */
+        });
+      },
+      null,
+      null
+    );
 
     cell.start(false, false);
     const firstController = cell.controller;
@@ -162,10 +166,14 @@ describe('3. abort during synchronous portion (before first await)', () => {
 
   it('refresh() fired multiple times synchronously in the same tick', () => {
     let calls = 0;
-    const cell = new ResourceCell<string>(() => {
-      calls++;
-      return new Promise<string>(() => {});
-    }, null, null);
+    const cell = new ResourceCell<string>(
+      () => {
+        calls++;
+        return new Promise<string>(() => {});
+      },
+      null,
+      null
+    );
 
     cell.start(false, false);
     cell.refresh();
@@ -242,10 +250,14 @@ describe('5. high-frequency churn', () => {
     const deferreds = Array.from({ length: N }, () => deferred<number>());
     let i = 0;
     const seenControllers: AbortController[] = [];
-    const cell = new ResourceCell<number>(() => {
-      seenControllers.push(cell.controller!);
-      return deferreds[i++].promise;
-    }, null, null);
+    const cell = new ResourceCell<number>(
+      () => {
+        seenControllers.push(cell.controller!);
+        return deferreds[i++].promise;
+      },
+      null,
+      null
+    );
 
     cell.start(false, false);
     for (let g = 1; g < N; g++) {
@@ -285,7 +297,11 @@ describe('5. high-frequency churn', () => {
     const N = 100;
     const deferreds = Array.from({ length: N }, () => deferred<number>());
     let i = 0;
-    const cell = new ResourceCell<number>(() => deferreds[i++].promise, null, null);
+    const cell = new ResourceCell<number>(
+      () => deferreds[i++].promise,
+      null,
+      null
+    );
 
     cell.start(false, false);
     for (let g = 1; g < N; g++) cell.refresh();

@@ -51,7 +51,11 @@ describe('scratch: async gap tracking', () => {
         return c();
       });
 
-      return <div>{weird()}-{clean()}</div>;
+      return (
+        <div>
+          {weird()}-{clean()}
+        </div>
+      );
     };
 
     createIsland({ root: container, component: Component });
