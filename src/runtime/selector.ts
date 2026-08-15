@@ -335,12 +335,12 @@ function recomputeSelectorSourceRecord<T>(
   record: SelectorSourceRecord<T>,
   notifyDownstream: boolean
 ): T {
-  if (!record._dirty && record._hasValue) {
-    return record._value;
-  }
-
   if (record._evaluating) {
     throw new Error('selector() cannot read itself recursively');
+  }
+
+  if (!record._dirty && record._hasValue) {
+    return record._value;
   }
 
   record._evaluating = true;
@@ -477,6 +477,10 @@ function createSelectorHook<T>(
 
     const sourceRef = getCandidateSource(lane, candidate);
     recordReadableRead(sourceRef);
+
+    if (record._evaluating) {
+      throw new Error('selector() cannot read itself recursively');
+    }
 
     if (PERF_BUILD_ENABLED) {
       const perfMetricsStore = getPerfMetricsStore();
