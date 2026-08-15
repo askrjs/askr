@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- fix(runtime): reject recursive `derive()` and `selector()` reads before a
+  memoized value can bypass the self-evaluation guard.
+
 ## 0.0.85
 
 - breaking(runtime): require Node.js 24.15 or newer.
