@@ -7,16 +7,19 @@
 
 import { ariaDisabled } from '../utilities/aria';
 
+/** Options for {@link focusable}. */
 export interface FocusableOptions {
   disabled?: boolean;
   tabIndex?: number | undefined;
 }
 
+/** Element props returned by {@link focusable}. */
 export interface FocusableResult {
   tabIndex?: number;
   'aria-disabled'?: 'true';
 }
 
+/** Normalize `tabIndex`/`aria-disabled` props for a focusable host. */
 export function focusable({
   disabled,
   tabIndex,

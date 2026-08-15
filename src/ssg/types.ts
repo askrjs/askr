@@ -15,10 +15,13 @@ import type {
 } from '../common/router';
 import type { AuthRequirement } from '@askrjs/auth';
 
+/** Whether an SSG run rebuilds every route (`full`) or only changed ones (`incremental`). */
 export type SSGMode = 'full' | 'incremental';
 
+/** Outcome of generating a single route's static HTML. */
 export type RouteRenderStatus = 'success' | 'error' | 'skipped' | 'removed';
 
+/** Why a route was rendered, skipped, or removed during generation. */
 export type RouteRenderReason =
   | 'full'
   | 'changed-key'
@@ -97,6 +100,7 @@ interface SSGBaseOptions {
   parallelism?: number | 'auto';
 }
 
+/** A static file or directory to copy alongside generated routes. */
 export interface SSGAssetSource {
   /** Source file or directory. Relative paths resolve from the current working directory. */
   from: string;

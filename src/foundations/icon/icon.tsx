@@ -6,6 +6,7 @@ import type { IconProps, IconSizeToken, IconStyleObject } from './icon.types';
 
 const ICON_SIZE_TOKENS: readonly IconSizeToken[] = ['sm', 'md', 'lg', 'xl'];
 
+/** Check whether `value` is one of the named icon size tokens ('sm'|'md'|'lg'|'xl'). */
 export function isIconSizeToken(value: unknown): value is IconSizeToken {
   return (
     typeof value === 'string' &&
@@ -13,11 +14,13 @@ export function isIconSizeToken(value: unknown): value is IconSizeToken {
   );
 }
 
+/** Normalize a numeric icon size to a `px` string; strings pass through unchanged. */
 export function normalizeIconSizeValue(size: number | string): string {
   if (typeof size === 'number') return `${size}px`;
   return size;
 }
 
+/** Resolve a size (token or literal) to a CSS `var(--ak-icon-size-*, ...)` expression or literal value. */
 export function resolveIconSizeVariable(size: number | string): string {
   if (isIconSizeToken(size)) {
     return `var(--ak-icon-size-${size}, var(--ak-icon-size-md, 1.25rem))`;
@@ -25,6 +28,7 @@ export function resolveIconSizeVariable(size: number | string): string {
   return normalizeIconSizeValue(size);
 }
 
+/** Resolve a stroke width to a CSS `var(--ak-icon-stroke-width-*, ...)` expression, scoped to `sizeToken` when given. */
 export function resolveIconStrokeWidthVariable(
   strokeWidth: number,
   sizeToken: IconSizeToken | undefined
@@ -39,6 +43,7 @@ function camelToKebab(key: string): string {
   return key.replace(/([A-Z])/g, (match) => `-${match.toLowerCase()}`);
 }
 
+/** Serialize an inline style object (or pass through a string) to a CSS declaration string. */
 export function serializeIconStyle(
   style: string | IconStyleObject | undefined
 ): string {
@@ -50,6 +55,7 @@ export function serializeIconStyle(
     .join(';');
 }
 
+/** Join non-empty CSS declaration fragments with `;`, dropping any that are blank. */
 export function joinIconStyle(
   ...styles: Array<string | undefined>
 ): string | undefined {
@@ -57,6 +63,7 @@ export function joinIconStyle(
   return merged.length > 0 ? merged.join(';') : undefined;
 }
 
+/** Compute the shared SVG attributes and inline style implementing the icon size/stroke/color contract. */
 export function getIconContractProps({
   size = 20,
   strokeWidth = 2,
@@ -109,6 +116,7 @@ export function getIconContractProps({
   };
 }
 
+/** Base `<svg>` wrapper implementing the icon contract; generated icon components render into it. */
 export function IconBase({
   size = 20,
   strokeWidth = 2,

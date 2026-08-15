@@ -15,8 +15,10 @@ type LazyState<TComponent extends AnyRouteComponent> = {
   resolved: TComponent | null;
   loadError: unknown;
 };
+/** A route component loaded on demand via {@link lazy}, with an explicit `preload()`. */
 export type LazyRouteComponent<TComponent extends AnyRouteComponent> =
   TComponent & { preload(): Promise<void> };
+/** A route data loader loaded on demand via {@link lazyRouteData}, with an explicit `preload()`. */
 export type LazyRouteDataLoader<TModule, TData = TModule> = ((
   context: RouteContext & { request?: Request }
 ) => Promise<TData>) & { preload(): Promise<void> };
@@ -51,6 +53,7 @@ function startLazyLoad(state: LazyState<AnyRouteComponent>): Promise<void> {
   return promise;
 }
 
+/** Wrap a dynamic-import factory as a {@link LazyRouteComponent}, loaded on first use. */
 export function lazy<TComponent extends AnyRouteComponent>(
   factory: () => Promise<{ default: TComponent } | TComponent>
 ): LazyRouteComponent<TComponent> {

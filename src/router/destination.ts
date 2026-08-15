@@ -72,6 +72,7 @@ function formatSearchIssues(
     .join('; ');
 }
 
+/** Build a {@link RouteDestination} (with a computed `href`) for a {@link RouteRef} and params/search. */
 export function to<
   TParams extends RouteParams,
   TSearch extends RouteSearch = RouteSearch,

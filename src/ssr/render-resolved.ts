@@ -32,6 +32,7 @@ function sameRouteParams(
   return true;
 }
 
+/** Synchronously render an already-resolved route handler to an HTML string. */
 export function renderResolvedToStringSync(opts: {
   url: string;
   registry: RouteRegistry;

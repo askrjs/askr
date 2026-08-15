@@ -1,7 +1,9 @@
 import type { RouteContext } from '../common/router';
 
+/** Which environment a route's data loader ran (or failed) in. */
 export type RouteDataLoadPhase = 'client' | 'server' | 'ssg';
 
+/** Thrown when a route's `loader` rejects; wraps the original `cause`. */
 export class RouteDataLoadError extends Error {
   readonly route: string;
   readonly phase: RouteDataLoadPhase;

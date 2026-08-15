@@ -9,6 +9,7 @@ import type { CoreTelemetry } from './telemetry';
  * Common call contracts: Router types
  */
 
+/** Path parameters captured for a matched route, keyed by parameter name. */
 export type RouteParams = Record<string, string>;
 
 type StripRoutePathSuffix<Path extends string> =
@@ -55,6 +56,7 @@ type ExtractRoutePathParamNames<Path extends string> =
         TrimRoutePathSlashes<StripRoutePathSuffix<Path>>
       >;
 
+/** Statically infers the param record shape from a route path string literal, e.g. `/posts/{id}`. */
 export type RoutePathParams<Path extends string> = [
   ExtractRoutePathParamNames<Path>,
 ] extends [never]
@@ -74,6 +76,7 @@ export type RouteComponent<TParams extends RouteParams = RouteParams> = (
   props: TParams
 ) => RenderableChild;
 
+/** The rendering mode a route is currently being evaluated under. */
 export type RouteMode = 'spa' | 'ssr' | 'ssg';
 export type AccessRedirectStatus = 301 | 302 | 303 | 307 | 308;
 export type AccessDenyStatus = 401 | 403 | 404;
@@ -82,6 +85,7 @@ export interface AccessAllowDecision {
   kind: 'allow';
 }
 
+/** Policy decision produced by {@link redirect}: sends the visitor to another URL. */
 export interface AccessRedirectDecision {
   kind: 'redirect';
   to: string;
@@ -89,16 +93,19 @@ export interface AccessRedirectDecision {
   replace?: boolean;
 }
 
+/** Policy decision produced by {@link deny}/{@link unauthorized}/{@link forbidden}/{@link notFound}. */
 export interface AccessDenyDecision {
   kind: 'deny';
   status: AccessDenyStatus;
 }
 
+/** Outcome of a {@link RoutePolicy} evaluation: allow, redirect, or deny. */
 export type AccessDecision =
   | AccessAllowDecision
   | AccessRedirectDecision
   | AccessDenyDecision;
 
+/** Context passed to route policies, auth resolvers, and loaders. */
 export interface RouteContext<TParams extends RouteParams = RouteParams> {
   mode: RouteMode;
   params: TParams;
@@ -110,14 +117,17 @@ export interface RouteContext<TParams extends RouteParams = RouteParams> {
   signal: AbortSignal;
 }
 
+/** A route access-control check, evaluated against {@link RouteContext} to produce an {@link AccessDecision}. */
 export type RoutePolicy = (
   context: RouteContext
 ) => AccessDecision | PromiseLike<AccessDecision>;
 
+/** Resolves the {@link AuthContext} for a route request. */
 export type RouteAuthResolver = (
   context: Omit<RouteContext, 'auth'>
 ) => AuthContext | PromiseLike<AuthContext>;
 
+/** Auth configuration shared across a route registry or a single route. */
 export interface RouteAuthOptions {
   resolve: RouteAuthResolver;
   loginPath?:
@@ -133,6 +143,7 @@ export interface CommonAccessOptions {
   policies?: readonly RoutePolicy[];
 }
 
+/** A route's metadata, or a function computing it from the resolved context. */
 export type RouteMetaSource<TParams extends RouteParams = RouteParams> =
   | RouteMeta
   | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);
@@ -203,8 +214,10 @@ export type RouteSearchValue =
   | undefined
   | readonly (string | number | boolean | null)[];
 
+/** A route's query-string parameters, keyed by name. */
 export type RouteSearch = Record<string, RouteSearchValue>;
 
+/** Stable, typed reference to a route returned by `route()`, used to build destinations. */
 export interface RouteRef<
   TParams extends RouteParams = RouteParams,
   TSearch = RouteSearch,
@@ -225,10 +238,12 @@ export type RouteRefSearch<
     ? InferSchema<TSchema>
     : RouteSearch;
 
+/** A resolved navigation target with a computed `href`, produced by {@link to}. */
 export interface RouteDestination {
   readonly href: string;
 }
 
+/** Options accepted by the `page()` route-declaration helper. */
 export interface PageHelperOptions extends CommonAccessOptions {
   preload?: (
     context: RouteContext & { request?: Request; data: QueryPrefetchContext }
@@ -261,14 +276,17 @@ export interface PageScopeRecord {
   component: RouteComponent;
 }
 
+/** Options for {@link createRouteRegistry}. */
 export interface RouteRegistryOptions {
   auth?: RouteAuthOptions;
   /** Public pathname prefix for applications mounted below the origin root. */
   basePath?: string;
 }
 
+/** A callback that declares routes via `route()`/`page()`/`group()`, passed to {@link createRouteRegistry}. */
 export type RouteDefinition = () => void;
 
+/** Options for resolving a route request (used internally by `createSPA`/`hydrateSPA`/SSR). */
 export interface RouteRequestOptions {
   /** Explicit route source shared by the application renderers. */
   registry: RouteRegistry;
@@ -282,6 +300,7 @@ export interface RouteRequestOptions {
   telemetry?: CoreTelemetry;
 }
 
+/** A resolved route request that should render `handler` with `params`. */
 export interface RouteRenderResult<TParams extends RouteParams = RouteParams> {
   kind: 'render';
   handler: RouteHandler<TParams>;
@@ -289,12 +308,14 @@ export interface RouteRenderResult<TParams extends RouteParams = RouteParams> {
   record?: RouteRecord;
 }
 
+/** Outcome of resolving a route request: render, redirect, deny, or no match. */
 export type RouteRequestResult<TParams extends RouteParams = RouteParams> =
   | RouteRenderResult<TParams>
   | AccessRedirectDecision
   | AccessDenyDecision
   | null;
 
+/** Options accepted by the `group()` route-declaration helper. */
 export interface GroupHelperOptions extends CommonAccessOptions {
   layout?: (props: { children?: RenderableChild }) => RenderableChild;
   meta?: RouteMetaSource;
@@ -355,16 +376,19 @@ export interface RouteManifest {
 
 declare const routeRegistryBrand: unique symbol;
 
+/** A function rendering a matched route's page content, with layouts already composed. */
 export interface RouteHandler<TParams extends RouteParams = RouteParams> {
   (params: TParams, context?: { signal: AbortSignal }): RenderableChild;
 }
 
+/** A single path-to-handler binding as seen by low-level navigation code. */
 export interface Route<TParams extends RouteParams = RouteParams> {
   path: string;
   handler: RouteHandler<TParams>;
   namespace?: string;
 }
 
+/** Opaque handle produced by {@link createRouteRegistry}, required by `createSPA`/`hydrateSPA`. */
 export interface RouteRegistry {
   /** Internal brand: registries must come from createRouteRegistry(). */
   readonly [routeRegistryBrand]: true;
@@ -377,6 +401,7 @@ export interface ResolvedRoute<TParams extends RouteParams = RouteParams> {
   params: TParams;
 }
 
+/** A single matched route, as reported by {@link currentRoute} and activity predicates. */
 export interface RouteMatch<TParams extends RouteParams = RouteParams> {
   path: string;
   params: Readonly<TParams>;
@@ -384,6 +409,7 @@ export interface RouteMatch<TParams extends RouteParams = RouteParams> {
   namespace?: string;
 }
 
+/** Read-only accessor for the current route's query-string parameters. */
 export interface RouteQuery {
   get(key: string): string | null;
   getAll(key: string): string[];
@@ -391,6 +417,7 @@ export interface RouteQuery {
   toJSON(): Record<string, string | string[]>;
 }
 
+/** Full description of the currently active route, returned by {@link currentRoute}. */
 export interface RouteSnapshot<TParams extends RouteParams = RouteParams> {
   path: string;
   params: Readonly<TParams>;

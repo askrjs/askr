@@ -9,6 +9,7 @@ import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
+/** Connection status of a {@link stream}. */
 export type StreamStatus =
   | 'connecting'
   | 'connected'
@@ -16,6 +17,7 @@ export type StreamStatus =
   | 'closed'
   | 'error';
 
+/** Reactive result of a {@link stream}: current value, connection status, and controls. */
 export interface StreamResult<T> {
   value: T | null;
   status: StreamStatus;
@@ -26,6 +28,7 @@ export interface StreamResult<T> {
   close(): void;
 }
 
+/** Options for {@link stream}. */
 export interface StreamOptions<T> {
   deps?: readonly unknown[];
   initialValue?: T;
@@ -386,6 +389,7 @@ function getStreamSlot<T>(
   return slot;
 }
 
+/** Subscribe to a streaming data source for the current component's lifetime, with auto reconnect/cleanup. */
 export function stream<T>(
   source: StreamSource<T>,
   options: StreamOptions<T> = {}

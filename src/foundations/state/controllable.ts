@@ -24,10 +24,12 @@
 
 import { state, type State } from '../../runtime';
 
+/** Whether `value` represents controlled mode (not `undefined`). */
 export function isControlled<T>(value: T | undefined): value is T {
   return value !== undefined;
 }
 
+/** Resolve the effective value and controlled-ness for a controllable prop. */
 export function resolveControllable<T>(
   value: T | undefined,
   defaultValue: T
@@ -39,6 +41,10 @@ export function resolveControllable<T>(
   };
 }
 
+/**
+ * Build a `set` function that calls `onChange` in controlled mode, or
+ * updates internal state and then calls `onChange` in uncontrolled mode.
+ */
 export function makeControllable<T>(options: {
   value: T | undefined;
   defaultValue: T;
@@ -60,6 +66,7 @@ export function makeControllable<T>(options: {
   return { set, isControlled };
 }
 
+/** A {@link State} accessor that also reports whether it is controlled. */
 export type ControllableState<T> = State<T> & { isControlled: boolean };
 
 /**

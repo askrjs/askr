@@ -19,6 +19,7 @@ import {
   throwSSRDataMissing,
 } from '../common/render-context';
 
+/** Reactive result of a {@link resource}: current value, loading state, and controls. */
 export interface ResourceResult<T> {
   value: T | null;
   pending: boolean;

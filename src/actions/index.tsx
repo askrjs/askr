@@ -15,6 +15,7 @@ function csrfToken(): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+/** A declared server action, built by {@link defineAction}, bound to a form via {@link ActionForm}. */
 export interface ActionDescriptor<
   TInput extends Record<string, unknown> = Record<string, unknown>,
 > {
@@ -22,6 +23,7 @@ export interface ActionDescriptor<
   readonly input: ObjectSchema<TInput>;
   readonly invalidates: readonly string[];
 }
+/** Declare a server action with a stable id, input schema, and query prefixes to invalidate on success. */
 export function defineAction<TInput extends Record<string, unknown>>(options: {
   readonly id: string;
   readonly input: ObjectSchema<TInput>;
@@ -55,6 +57,7 @@ export function ActionForm<TInput extends Record<string, unknown>>({
     </form>
   );
 }
+/** Server-replayed validation failure for an {@link ActionForm} submission. */
 export interface ActionValidationError {
   readonly kind: 'invalid';
   readonly action: string;
@@ -62,6 +65,7 @@ export interface ActionValidationError {
   readonly issues: readonly unknown[];
   readonly fieldErrors: Readonly<Record<string, readonly string[]>>;
 }
+/** Pending/result/error status for an action, as reported by the `action()` hook. */
 export interface ActionStatus<TResult = unknown> {
   readonly pending: boolean;
   readonly result?: TResult;

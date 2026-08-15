@@ -1,9 +1,16 @@
 import { defineScope, readScope, type Scope } from './runtime';
 
+/** Lexical scope carrying the CSP nonce for the current render, if any. */
 export const CspNonceScope: Scope<string | undefined> = defineScope<
   string | undefined
 >(undefined);
 
+/**
+ * Read the CSP nonce for the current render from {@link CspNonceScope}.
+ *
+ * @returns The active nonce, or `undefined` when called outside of a
+ * component render or when no nonce was configured.
+ */
 export function cspNonce(): string | undefined {
   try {
     return readScope(CspNonceScope);

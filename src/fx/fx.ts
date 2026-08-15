@@ -43,6 +43,7 @@ function enqueueUserCallback(fn: () => void) {
 
 // ---------- Event handlers ----------
 
+/** Wrap an event handler so rapid events are coalesced and delayed by `ms`. */
 export function debounceEvent(
   ms: number,
   handler: EventListener,
@@ -117,6 +118,7 @@ export function debounceEvent(
   return debounced;
 }
 
+/** Wrap an event handler so it runs at most once per `ms` interval. */
 export function throttleEvent(
   ms: number,
   handler: EventListener,
@@ -179,6 +181,7 @@ export function throttleEvent(
   return throttled;
 }
 
+/** Wrap an event handler so it runs at most once per animation frame, using the latest event. */
 export function rafEvent(
   handler: EventListener
 ): EventListener & { cancel(): void } {
@@ -236,6 +239,7 @@ export function rafEvent(
 
 // ---------- Scheduled work ----------
 
+/** Schedule `fn` after `ms`, auto-cancelling on component cleanup; returns a cancel function. */
 export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
   throwIfDuringRender();
   const inst = getCurrentComponentInstance();
@@ -259,6 +263,7 @@ export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
   return cancel;
 }
 
+/** Schedule `fn` during browser idle time, auto-cancelling on component cleanup. */
 export function scheduleIdle(
   fn: () => void,
   options?: { timeout?: number }
@@ -310,6 +315,7 @@ export interface RetryOptions {
   backoff?: (attemptIndex: number) => number;
 }
 
+/** Run `fn`, retrying with backoff on failure, auto-cancelling on component cleanup. */
 export function scheduleRetry<T>(
   fn: () => Promise<T>,
   options?: RetryOptions

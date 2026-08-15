@@ -65,6 +65,7 @@ function metadataSources(record: RouteRecord): readonly RouteMetaSource[] {
   return record.options.meta ? [record.options.meta] : [];
 }
 
+/** Resolve a route's merged {@link RouteMeta} by running its metadata chain against `context`. */
 export async function resolveRouteMeta(
   record: RouteRecord,
   context: RouteContext
@@ -207,6 +208,7 @@ function serializeJsonLd(value: unknown): string {
   return `<script${ownedAttribute()} type="application/ld+json">${json}</script>`;
 }
 
+/** Render a {@link RouteMeta} to the `<title>`/`<meta>`/`<link>`/JSON-LD markup for the document `<head>`. */
 export function serializeRouteMeta(meta: RouteMeta): string {
   const output: string[] = [];
   if (meta.title !== undefined) {

@@ -23,11 +23,13 @@
  *   unregister();
  */
 
+/** A registered node paired with its metadata inside a {@link Collection}. */
 export type CollectionItem<TNode, TMetadata = unknown> = {
   node: TNode;
   metadata: TMetadata;
 };
 
+/** Ordered descendant registry returned by {@link createCollection}. */
 export interface Collection<TNode, TMetadata = unknown> {
   /**
    * Register a node with optional metadata.
@@ -51,6 +53,7 @@ export interface Collection<TNode, TMetadata = unknown> {
   size(): number;
 }
 
+/** Create an empty, insertion-ordered {@link Collection} registry. */
 export function createCollection<TNode, TMetadata = unknown>(): Collection<
   TNode,
   TMetadata

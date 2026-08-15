@@ -144,6 +144,11 @@ export class MutationCell<TInput, TResult> {
   }
 }
 
+/**
+ * Create a reactive {@link Mutation} cell bound to the current component,
+ * running `options.action` on `execute()` and optionally invalidating
+ * affected query prefixes on success.
+ */
 export function createMutation<TInput, TResult>(
   options: MutationOptions<TInput, TResult>
 ): Mutation<TInput, TResult> {

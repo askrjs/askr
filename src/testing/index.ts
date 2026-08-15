@@ -56,6 +56,7 @@ export function submit(form: HTMLFormElement): boolean {
   return dispatchEvent(form, 'submit');
 }
 
+/** Keyed query fixture registry returned by {@link createQueryTestRegistry}. */
 export interface QueryTestRegistry {
   readonly runtime: DataRuntime;
   set<T extends {}>(key: string, query: Query<T>): void;
@@ -85,6 +86,7 @@ export function createQueryTestRegistry(): QueryTestRegistry {
   };
 }
 
+/** Keyed mutation fixture registry returned by {@link createMutationTestRegistry}. */
 export interface MutationTestRegistry {
   readonly runtime: DataRuntime;
   set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>): void;
@@ -126,12 +128,14 @@ export function createMutationTestRegistry(): MutationTestRegistry {
   };
 }
 
+/** Initial state for {@link mutationState}; exactly one of `pending`/`error`/`result` may be set. */
 export type MutationFixtureInitial<TResult> = {
   pending?: boolean;
   error?: {} | null;
   result?: TResult;
 };
 
+/** A {@link Mutation} whose state is driven manually via `setPending`/`succeed`/`fail`. */
 export type MutationFixture<TInput, TResult> = Mutation<TInput, TResult> & {
   /** Inputs received by the fixture's execute method. */
   readonly inputs: readonly TInput[];
@@ -269,6 +273,10 @@ function createMutationFixture<TInput = unknown, TResult = unknown>(
   ) as unknown as MutationFixture<TInput, TResult>;
 }
 
+/**
+ * Build a {@link MutationFixture} for tests: call directly with initial
+ * state, or use `.idle()`/`.pending()`/`.success(result)`/`.error(error)`.
+ */
 export const mutationState = Object.assign(createMutationFixture, {
   idle<TInput = unknown, TResult = unknown>(): MutationFixture<
     TInput,
@@ -295,17 +303,21 @@ export const mutationState = Object.assign(createMutationFixture, {
   },
 });
 
+/** Refresh callback for a {@link mockQuery} fixture, invoked by the query's `refresh()`. */
 export type MockRefresh = () => void | Promise<void>;
 
+/** Options for {@link mockQuery} fixtures. */
 export interface MockQueryOptions {
   refresh?: MockRefresh;
 }
 
+/** A single recorded call to {@link invalidate}, captured by {@link createInvalidationRecorder}. */
 export interface InvalidationRecord {
   prefix: string;
   markPendingWrite: boolean;
 }
 
+/** Recorder returned by {@link createInvalidationRecorder}. */
 export interface InvalidationRecorder {
   readonly calls: readonly InvalidationRecord[];
   readonly prefixes: readonly string[];
@@ -317,6 +329,7 @@ interface MatchRouteOptions {
   registry: RouteRegistry;
 }
 
+/** A splat-route/static-route path collision reported by {@link getRouteWarnings}. */
 export interface RoutePatternWarning {
   kind: 'route-collision';
   path: string;
@@ -362,6 +375,10 @@ function createFreshQuery<T extends {}>(
   );
 }
 
+/**
+ * Build a fresh {@link Query} fixture for tests: call directly with data, or
+ * use `.loading()`/`.error()`/`.refreshing()`/`.stale()`/`.pendingWrite()`.
+ */
 export const mockQuery = Object.assign(createFreshQuery, {
   loading<T extends {} = {}>(options?: MockQueryOptions): Query<T> {
     return makeQuery<T>(
@@ -447,6 +464,7 @@ export const mockQuery = Object.assign(createFreshQuery, {
   },
 });
 
+/** Alias table mirroring {@link mockQuery}'s state builders (`fresh`, `loading`, `error`, ...). */
 export const queryState = {
   fresh: createFreshQuery,
   loading: mockQuery.loading,
@@ -456,6 +474,7 @@ export const queryState = {
   pendingWrite: mockQuery.pendingWrite,
 };
 
+/** Start recording {@link invalidate} calls for assertions; call `stop()` when done. */
 export function createInvalidationRecorder(): InvalidationRecorder {
   const records: InvalidationRecord[] = [];
   let active = true;
@@ -491,6 +510,7 @@ export function createInvalidationRecorder(): InvalidationRecorder {
   };
 }
 
+/** Match `path` against a route registry for tests, without mounting the app. */
 export function matchRoute(
   path: string,
   options: MatchRouteOptions
@@ -550,6 +570,7 @@ function routePrefixMatches(
   return true;
 }
 
+/** Find named-splat routes whose reserved segments collide with sibling static routes. */
 export function getRouteWarnings(
   options: MatchRouteOptions
 ): RoutePatternWarning[] {

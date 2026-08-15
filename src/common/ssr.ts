@@ -2,6 +2,7 @@
  * Common call contracts: SSR types
  */
 
+/** Arbitrary serializable data attached to an SSR render pass (e.g. loader output). */
 export type SSRData = Record<string, unknown>;
 
 /** Styles produced while rendering a request, kept with that request's SSR context. */
@@ -15,6 +16,7 @@ export interface DocumentRenderRoute {
   namespace?: string;
 }
 
+/** Request/render metadata passed to a {@link DocumentRenderer}. */
 export interface DocumentRenderContext {
   mode: 'ssr' | 'ssg';
   url: string;
@@ -29,13 +31,16 @@ export interface DocumentRenderContext {
   styles?: readonly SSRStyleRegistration[];
 }
 
+/** Arguments passed to a {@link DocumentRenderer}: the rendered app HTML and its context. */
 export interface DocumentRenderArgs {
   appHtml: string;
   context: DocumentRenderContext;
 }
 
+/** Wraps rendered app HTML in a full document (`<html>`, `<head>`, etc.) for SSR/SSG output. */
 export type DocumentRenderer = (args: DocumentRenderArgs) => string;
 
+/** How to react when SSR styles were registered but not included in the rendered document. */
 export type SSRStyleRegistrationValidation = 'warn' | 'error' | 'off';
 
 function escapedStyleRawText(value: string): string {

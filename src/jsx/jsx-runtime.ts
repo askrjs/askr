@@ -122,6 +122,7 @@ export function jsxDEV(
 }
 
 // Production-style helpers: alias to the DEV factory for now
+/** JSX factory for elements with a single or no child, used by the `jsxImportSource` transform. */
 export function jsx(
   type: EagerControlPrimitive,
   props: Props | null,
@@ -169,6 +170,7 @@ export function jsx(
   } as JSXElement;
 }
 
+/** JSX factory for elements with multiple static children, used by the `jsxImportSource` transform. */
 export function jsxs(
   type: EagerControlPrimitive,
   props: Props | null,

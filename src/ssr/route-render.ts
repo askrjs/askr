@@ -26,6 +26,7 @@ import { withTelemetry } from '../common/telemetry';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import { validateCspNonce } from '../csp-nonce';
 
+/** A single path-to-handler route binding accepted by low-level SSR route rendering. */
 export type SSRRoute = {
   path: string;
   handler: RouteHandler;
@@ -80,6 +81,7 @@ export interface RouteRenderHost {
   renderAppToSink(input: RouteAppRenderInput): void;
 }
 
+/** Resolve a URL against a route registry for SSR, applying auth/policies before render. */
 export async function resolveRequest(opts: {
   url: string;
   registry: RouteRegistry;

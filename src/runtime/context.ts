@@ -41,6 +41,7 @@ let nextScopeIdentityKey = 0;
 type Renderable = RenderableChild;
 type ContextScopeChildren = Renderable | (() => Renderable);
 
+/** A lexical scope created by {@link defineScope}; render it as a provider component, read it with {@link readScope}. */
 export interface Scope<T> {
   (props: { value: T; children?: ContextScopeChildren }): JSXElement;
   readonly key: ContextKey;
@@ -454,6 +455,7 @@ export function withAsyncResourceContext<T>(
   }
 }
 
+/** Create a new lexical {@link Scope} with `defaultValue`, readable via {@link readScope}. */
 export function defineScope<T>(defaultValue: T): Scope<T> {
   const key = Symbol('AskrContext');
   const identityKey = nextScopeIdentityKey++;
@@ -502,6 +504,7 @@ function isPresentRenderable(
   return value !== null && value !== undefined && value !== false;
 }
 
+/** Read the current value of a {@link Scope} during component render or an async resource. */
 export function readScope<T>(context: Scope<T>): T {
   // Check render frame first (components), then async resource frame (resources)
   const frame = currentContextFrame || currentAsyncResourceFrame;

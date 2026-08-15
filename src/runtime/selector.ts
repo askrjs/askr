@@ -36,6 +36,7 @@ type PrimitiveKey =
   | null
   | undefined;
 
+/** A fine-grained reactive membership check produced by {@link selector}. */
 export interface Selector<T> {
   (candidate: T): boolean;
 }

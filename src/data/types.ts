@@ -1,11 +1,14 @@
+/** Freshness classification for a {@link Query}'s current data. */
 export type QueryConsistency =
   | 'fresh'
   | 'stale'
   | 'refreshing'
   | 'pending-write';
 
+/** Why a {@link Query} is stale. */
 export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
 
+/** Isolated cache/state container backing queries and mutations, e.g. one per test or request. */
 export interface DataRuntime {
   readonly queryCache: Map<string, unknown>;
   readonly queryData: Map<string, unknown>;
@@ -15,6 +18,7 @@ export interface DataRuntime {
   readonly mutationTestOverrides: Map<string, unknown>;
 }
 
+/** Options for {@link createDataRuntime}. */
 export interface DataRuntimeOptions {
   queryCache?: Map<string, unknown>;
   queryData?: Map<string, unknown>;
@@ -22,6 +26,7 @@ export interface DataRuntimeOptions {
   mutationTestOverrides?: Map<string, unknown>;
 }
 
+/** Reusable query definition for {@link defineQuery}: key, fetcher, and freshness checks. */
 export interface QueryDefinition<TInput, TResult extends {}> {
   readonly key: (input: TInput) => string;
   readonly fetch: (
@@ -34,6 +39,7 @@ export interface QueryDefinition<TInput, TResult extends {}> {
   ) => Promise<boolean> | boolean;
 }
 
+/** Context passed to server prefetch callbacks, exposing a scoped `prefetch` helper. */
 export interface QueryPrefetchContext {
   readonly runtime: DataRuntime;
   readonly request?: Request;
@@ -45,17 +51,20 @@ export interface QueryPrefetchContext {
   ): Promise<boolean>;
 }
 
+/** Server-side handler that resolves a {@link QueryDefinition}'s data for `serveQuery`. */
 export type ServerQueryHandler<TInput, TResult extends {}> = (context: {
   input: TInput;
   request?: Request;
   signal: AbortSignal;
 }) => Promise<TResult> | TResult;
 
+/** Options for {@link invalidate} and {@link QueryScope.invalidate}. */
 export interface InvalidateOptions {
   markPendingWrite?: boolean;
   runtime?: DataRuntime;
 }
 
+/** Options for {@link invalidateOnInterval}. */
 export interface InvalidateOnIntervalOptions extends InvalidateOptions {
   intervalMs: number;
   activeOn?: string | readonly string[];
@@ -63,6 +72,7 @@ export interface InvalidateOnIntervalOptions extends InvalidateOptions {
   focusedOnly?: boolean;
 }
 
+/** A JSON-serializable value usable as part of a query key or invalidation prefix. */
 export type QueryKeyPart =
   | string
   | number
@@ -72,6 +82,7 @@ export type QueryKeyPart =
   | readonly QueryKeyPart[]
   | { readonly [key: string]: QueryKeyPart };
 
+/** Namespaced key-building and invalidation helper returned by {@link queryScope}. */
 export interface QueryScope {
   key(...parts: QueryKeyPart[]): string;
   prefix(...parts: QueryKeyPart[]): string;
@@ -152,6 +163,7 @@ type QueryStaleError = {
   staleReason: 'error';
 };
 
+/** Reactive read state for a query cell: data, loading/refresh flags, and freshness. */
 export type Query<T extends {}> = QueryControls &
   (
     | QueryLoading
@@ -197,6 +209,7 @@ type MutationError = {
   result: null;
 };
 
+/** Reactive state for a mutation cell: status, error/result, and execute/abort/reset controls. */
 export type Mutation<TInput, TResult> = MutationControls<TInput, TResult> &
   (MutationIdle | MutationPending | MutationSuccess<TResult> | MutationError);
 
@@ -216,6 +229,7 @@ export type QueryOptions<T> = {
   skipInitialFetch?: boolean;
 };
 
+/** Options for {@link createMutation}. */
 export type MutationOptions<TInput, TResult> = {
   /** Stable identity used by runtime-scoped mutation test overrides. */
   key?: string;

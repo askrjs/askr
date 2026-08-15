@@ -50,6 +50,10 @@ export function _applyManifest(manifest: RouteManifest): void {
   }
 }
 
+/**
+ * Run `definition` to declare routes (via `route`/`page`/`group`/`fallback`)
+ * and build a {@link RouteRegistry} to pass to `createSPA`/`hydrateSPA`.
+ */
 export function createRouteRegistry(
   definition: RouteDefinition,
   options: RouteRegistryOptions = {}

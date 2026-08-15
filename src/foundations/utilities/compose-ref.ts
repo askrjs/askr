@@ -17,12 +17,14 @@
  *    All refs are called even if one fails.
  */
 
+/** A callback ref, an object ref, or a nullish value (no-op). */
 export type Ref<T> =
   | ((value: T | null) => void)
   | { current: T | null }
   | null
   | undefined;
 
+/** Write `value` to a {@link Ref}, ignoring failures on readonly object refs. */
 export function setRef<T>(ref: Ref<T>, value: T | null): void {
   if (!ref) return;
   if (typeof ref === 'function') {
@@ -35,6 +37,7 @@ export function setRef<T>(ref: Ref<T>, value: T | null): void {
   }
 }
 
+/** Combine multiple refs into one callback ref that writes to all of them. */
 export function composeRefs<T>(
   ...refs: Array<Ref<T>>
 ): (value: T | null) => void {

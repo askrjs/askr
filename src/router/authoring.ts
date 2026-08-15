@@ -401,11 +401,16 @@ function registerRouteAtResolvedPath(
   });
 }
 
+/** Declare a group of routes sharing `options` (auth, policies, layout, meta). */
 export function group(options: GroupHelperOptions, fn: RouteDefinition): void;
 export function group(options: GroupHelperOptions, fn: RouteDefinition): void {
   pushGroupScope(options, fn);
 }
 
+/**
+ * Declare a route page at `path`, nesting a sub-scope for `index`/`page`/`fallback`
+ * declarations and options like `preload`/`meta`/`auth`.
+ */
 export function page<const TPath extends string>(
   path: TPath,
   Component: RouteComponent<RoutePathParams<TPath>>,
@@ -459,6 +464,7 @@ export function page(
   pushPageScope(path, Component, options, fn);
 }
 
+/** Declare the index route for the enclosing `page()` scope. */
 export function index(Component: RouteComponent, options?: RouteOptions): void {
   const pageScope = getCurrentPageScope();
   if (pageScope?.hasIndex) {
@@ -472,6 +478,7 @@ export function index(Component: RouteComponent, options?: RouteOptions): void {
   registerRouteAtResolvedPath(resolveIndexPath(), Component, options);
 }
 
+/** Declare the catch-all `/*` fallback route for the enclosing scope. */
 export function fallback(Component: RouteComponent): void {
   if (hasActivePageScope()) {
     if (getCurrentScopeKind() !== 'page') {
@@ -506,6 +513,7 @@ export function fallback(Component: RouteComponent): void {
   });
 }
 
+/** Declare a route at `path` rendering `Component`, returning a typed {@link RouteRef} for building destinations. */
 export function route<
   const TPath extends string,
   const TSearchSchema extends

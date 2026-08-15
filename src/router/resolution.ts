@@ -334,6 +334,7 @@ function resolveMatchedRoute(
     : continueResolution(decision);
 }
 
+/** Resolve `target` against a route registry, applying auth/policies to produce a render/redirect/deny result. */
 export function resolveRouteRequest(
   target: string,
   options: RouteRequestOptions

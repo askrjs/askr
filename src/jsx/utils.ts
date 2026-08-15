@@ -1,5 +1,6 @@
 import { ELEMENT_TYPE, JSXElement } from './types';
 
+/** Check whether `value` is a JSX element vnode. */
 export function isElement(value: unknown): value is JSXElement {
   return (
     typeof value === 'object' &&
@@ -8,6 +9,7 @@ export function isElement(value: unknown): value is JSXElement {
   );
 }
 
+/** Clone a JSX element, shallow-merging `props` over its existing props. */
 export function cloneElement(
   element: JSXElement,
   props: Record<string, unknown>

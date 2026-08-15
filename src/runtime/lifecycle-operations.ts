@@ -9,8 +9,10 @@ import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
+/** A gating condition for lifecycle primitives like {@link timer}; `true` means active. */
 export type ActivityPredicate = () => boolean;
 
+/** Options for {@link timer}. */
 export interface TimerOptions {
   when?: ActivityPredicate | readonly ActivityPredicate[];
 }
@@ -67,17 +69,20 @@ function getLifecycleSlot<TSlot extends LifecycleSlot>(
   return slot;
 }
 
+/** {@link ActivityPredicate} that is true while the current route matches `pathOrPaths`. */
 export function routeActive(
   pathOrPaths: string | readonly string[]
 ): ActivityPredicate {
   return () => isRouteActivityActive(pathOrPaths);
 }
 
+/** {@link ActivityPredicate} that is true while the document is visible. */
 export function documentVisible(): ActivityPredicate {
   return () =>
     typeof document === 'undefined' || document.visibilityState !== 'hidden';
 }
 
+/** {@link ActivityPredicate} that is true while the window has focus. */
 export function windowFocused(): ActivityPredicate {
   return () =>
     typeof document === 'undefined' ||
@@ -85,6 +90,7 @@ export function windowFocused(): ActivityPredicate {
     document.hasFocus();
 }
 
+/** An event target, or a function resolving one, accepted by {@link on}. */
 export type ListenerTarget =
   | EventTarget
   | (() => EventTarget | null | undefined);
@@ -200,6 +206,7 @@ function commitListenerSlot(
   }
 }
 
+/** Attach an owned event listener to `target` for the current component's lifetime. */
 export function on(
   target: ListenerTarget,
   event: string,
@@ -304,6 +311,7 @@ function commitTimerSlot(instance: ComponentInstance, slot: TimerSlot): void {
   }
 }
 
+/** Run `fn` on an owned interval for the current component's lifetime, optionally gated by `options.when`. */
 export function timer(
   intervalMs: number,
   fn: () => void,

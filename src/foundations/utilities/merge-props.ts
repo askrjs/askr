@@ -31,6 +31,10 @@ function isEventHandlerKey(key: string): boolean {
   return key.startsWith('on');
 }
 
+/**
+ * Merge `base` props over `injected` props: non-handler keys in `base` win,
+ * and matching event handlers are composed (`injected` runs first).
+ */
 export function mergeProps<TBase extends object, TInjected extends object>(
   base: TBase,
   injected: TInjected

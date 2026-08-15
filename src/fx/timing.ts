@@ -3,16 +3,19 @@
  * No framework coupling. No lifecycle awareness.
  */
 
+/** Options for {@link debounce}. */
 export interface DebounceOptions {
   leading?: boolean;
   trailing?: boolean;
 }
 
+/** Options for {@link throttle}. */
 export interface ThrottleOptions {
   leading?: boolean;
   trailing?: boolean;
 }
 
+/** Options for {@link retry}. */
 export interface RetryOptions {
   maxAttempts?: number;
   delayMs?: number;

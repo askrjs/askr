@@ -56,6 +56,7 @@ type LinkBaseProps = Omit<
   onClick?: (event: MouseEvent) => void;
 };
 
+/** Props for {@link Link}: either a raw `href` or a typed route `to` destination. */
 export type LinkProps = LinkBaseProps &
   ({ href: string; to?: never } | { href?: never; to: RouteDestination });
 

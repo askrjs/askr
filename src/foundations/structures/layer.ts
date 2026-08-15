@@ -29,6 +29,7 @@
  *   layer.unregister();
  */
 
+/** Options for registering a layer with {@link LayerManager.register}. */
 export interface LayerOptions {
   /**
    * Called when Escape is pressed and this is the top layer
@@ -46,6 +47,7 @@ export interface LayerOptions {
   node?: Node | null;
 }
 
+/** A registered layer entry returned by {@link LayerManager.register}. */
 export interface Layer {
   /**
    * Unique layer ID
@@ -63,6 +65,7 @@ export interface Layer {
   unregister(): void;
 }
 
+/** Stacking coordinator returned by {@link createLayer}. */
 export interface LayerManager {
   /**
    * Register a new layer
@@ -85,6 +88,7 @@ export interface LayerManager {
   handleOutsidePointer(e: PointerEvent): void;
 }
 
+/** Create a new, empty {@link LayerManager} for coordinating overlay stacking. */
 export function createLayer(): LayerManager {
   const stack: Array<{
     id: number;
