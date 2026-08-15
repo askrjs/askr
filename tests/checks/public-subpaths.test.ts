@@ -42,6 +42,8 @@ describe('published subpath map', () => {
     expect(packed).toContain('Creates a render-scoped derived value');
     expect(packed).toContain('Runs an owned task after commit');
     expect(packed).toContain('Creates a render-scoped async resource');
-    expect(packed).toContain('Creates a render-time boundary');
+    expect(packed).toContain(
+      'Creates a boundary for descendant mount and post-mount render/commit errors'
+    );
   });
 });
