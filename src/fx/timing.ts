@@ -52,10 +52,10 @@ export function debounce<T extends AnyFn>(
   const { leading = false, trailing = true } = options || {};
   let lastArgs: unknown[] | null = null;
   let lastThis: unknown = null;
-  let lastCallTime = 0;
+  let trailingPending = false;
 
   const debounced = function (this: unknown, ...args: unknown[]) {
-    const callTime = Date.now();
+    const windowActive = timeoutId !== null;
     lastArgs = args;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     lastThis = this;
@@ -64,18 +64,20 @@ export function debounce<T extends AnyFn>(
       clearTimeout(timeoutId);
     }
 
-    if (leading && callTime - lastCallTime >= ms) {
+    if (leading && !windowActive) {
       callable.apply(this, args);
-      lastCallTime = callTime;
+      trailingPending = false;
+    } else if (trailing) {
+      trailingPending = true;
     }
 
-    if (trailing) {
-      timeoutId = setTimeout(() => {
+    timeoutId = setTimeout(() => {
+      if (trailingPending) {
         callable.apply(lastThis, lastArgs!);
-        timeoutId = null;
-        lastCallTime = Date.now();
-      }, ms);
-    }
+      }
+      timeoutId = null;
+      trailingPending = false;
+    }, ms);
   };
 
   debounced.cancel = () => {
@@ -83,6 +85,7 @@ export function debounce<T extends AnyFn>(
       clearTimeout(timeoutId);
       timeoutId = null;
     }
+    trailingPending = false;
   };
 
   return debounced as unknown as T & { cancel(): void };
@@ -184,13 +187,13 @@ export function once<T extends AnyFn>(fn: T): T {
   let called = false;
   let result: unknown;
 
-  return ((...args: unknown[]) => {
+  return function (this: unknown, ...args: unknown[]) {
     if (!called) {
       called = true;
-      result = callable(...args);
+      result = callable.apply(this, args);
     }
     return result;
-  }) as unknown as T;
+  } as unknown as T;
 }
 
 /**
