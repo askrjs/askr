@@ -187,13 +187,13 @@ export function once<T extends AnyFn>(fn: T): T {
   let called = false;
   let result: unknown;
 
-  return (function (this: unknown, ...args: unknown[]) {
+  return function (this: unknown, ...args: unknown[]) {
     if (!called) {
       called = true;
       result = callable.apply(this, args);
     }
     return result;
-  }) as unknown as T;
+  } as unknown as T;
 }
 
 /**
