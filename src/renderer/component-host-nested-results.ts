@@ -22,6 +22,7 @@ import {
 import {
   findHostInstanceByType,
   getVNodeComponentInstance,
+  hasComponentOwnershipIdentity,
   inheritComponentCleanupStrict,
   isRouteRootComponentVNode,
   nextComponentInstanceId,
@@ -51,6 +52,156 @@ function getNestedComponentVNode(result: unknown): DOMElement | null {
     : null;
 }
 
+const MAX_COMPONENT_CHAIN_DEPTH = 100_000;
+const COMPONENT_CHAIN_ERROR_CONTEXT = 8;
+
+function getComponentName(component: ComponentFunction): string {
+  return component.name || '<anonymous>';
+}
+
+function assertComponentChainDepth(
+  depth: number,
+  instance: ComponentInstance | null
+): void {
+  if (depth < MAX_COMPONENT_CHAIN_DEPTH) return;
+
+  const names: string[] = [];
+  let current: ComponentInstance | null = instance;
+  while (current && names.length < COMPONENT_CHAIN_ERROR_CONTEXT) {
+    names.push(getComponentName(current.fn));
+    current = current.parentInstance;
+  }
+
+  throw new Error(
+    `[Askr] Component chain exceeded ${MAX_COMPONENT_CHAIN_DEPTH.toLocaleString('en-US')} wrappers. ` +
+      `This usually means component output recurses without terminating. ` +
+      `Recent chain: ${names.reverse().join(' -> ')}`
+  );
+}
+
+export interface FreshNestedComponentEntry {
+  instance: ComponentInstance;
+  result: VNode;
+}
+
+export interface FreshNestedComponentResolution {
+  entries: FreshNestedComponentEntry[];
+  createdInstances: ComponentInstance[];
+  vnodeOwners: Array<{
+    node: DOMElement;
+    previous: ComponentInstance | undefined;
+  }>;
+}
+
+export function rollbackFreshNestedComponentResolution(
+  resolution: FreshNestedComponentResolution
+): void {
+  for (let index = resolution.vnodeOwners.length - 1; index >= 0; index -= 1) {
+    const owner = resolution.vnodeOwners[index]!;
+    restoreVNodeComponentInstance(owner.node, owner.previous);
+  }
+  cleanupProvisionalComponentInstances(resolution.createdInstances);
+}
+
+export function resolveFreshNestedComponentResult(
+  result: unknown,
+  snapshot: ContextFrame | null,
+  parentInstance: ComponentInstance
+): FreshNestedComponentResolution {
+  let currentResult = result as VNode;
+  let activeSnapshot = snapshot;
+  let activeParent = parentInstance;
+  let depth = 0;
+  const resolution: FreshNestedComponentResolution = {
+    entries: [],
+    createdInstances: [],
+    vnodeOwners: [],
+  };
+
+  try {
+    let nestedVNode = getNestedComponentVNode(currentResult);
+    while (nestedVNode) {
+      assertComponentChainDepth(depth, activeParent);
+      const nestedSnapshot =
+        getVNodeContextFrame(nestedVNode) ?? activeSnapshot;
+      const componentFn = nestedVNode.type as ComponentFunction;
+      const previous = getVNodeComponentInstance(nestedVNode);
+      let nestedInstance =
+        previous &&
+        hasComponentOwnershipIdentity(
+          previous,
+          componentFn,
+          nestedVNode,
+          activeParent,
+          depth
+        )
+          ? previous
+          : undefined;
+      const hadNestedInstance = !!nestedInstance;
+
+      if (!nestedInstance) {
+        nestedInstance = createComponentInstance(
+          nextComponentInstanceId(),
+          componentFn,
+          (nestedVNode.props ?? {}) as Props,
+          null
+        );
+        resolution.vnodeOwners.push({ node: nestedVNode, previous });
+        registerVNodeComponentInstanceRollback(
+          nestedVNode,
+          previous,
+          nestedInstance
+        );
+        setVNodeComponentInstance(nestedVNode, nestedInstance);
+        resolution.createdInstances.push(nestedInstance);
+      } else {
+        captureInlineRenderSnapshot(nestedInstance);
+      }
+
+      setComponentOwnershipIdentity(
+        nestedInstance,
+        nestedVNode,
+        activeParent,
+        depth
+      );
+      nestedInstance.isRoot = isRouteRootComponentVNode(nestedVNode);
+      nestedInstance.parentInstance = activeParent;
+      nestedInstance.portalScope =
+        activeParent.portalScope ?? nestedInstance.portalScope;
+      nestedInstance.cleanupStrict = activeParent.cleanupStrict;
+      nestedInstance.props = ((nestedVNode.props ?? {}) as Props) || {};
+      if (nestedSnapshot) nestedInstance.ownerFrame = nestedSnapshot;
+
+      const nextResult = withContext(nestedSnapshot ?? null, () =>
+        renderComponentInline(nestedInstance)
+      );
+      if (isPromiseLike(nextResult)) {
+        throw new Error(
+          'Async components are not supported. Components must return synchronously.'
+        );
+      }
+
+      activeParent = nestedInstance;
+      activeSnapshot = nestedSnapshot ?? null;
+      currentResult = markVNodeTreeWithContextFrame(
+        nextResult,
+        activeSnapshot
+      ) as VNode;
+      resolution.entries.push({
+        instance: nestedInstance,
+        result: currentResult,
+      });
+      depth += 1;
+      nestedVNode = getNestedComponentVNode(currentResult);
+    }
+
+    return resolution;
+  } catch (error) {
+    rollbackFreshNestedComponentResolution(resolution);
+    throw error;
+  }
+}
+
 export function resolveNestedComponentResult(
   result: unknown,
   snapshot: ContextFrame | null,
@@ -58,12 +209,13 @@ export function resolveNestedComponentResult(
 ): VNode {
   let currentResult = result as VNode;
   let activeSnapshot = snapshot;
+  let diagnosticParent = parentInstance;
   let depth = 0;
   while (
     _isDOMElement(currentResult) &&
-    typeof currentResult.type === 'function' &&
-    depth < 16
+    typeof currentResult.type === 'function'
   ) {
+    assertComponentChainDepth(depth, diagnosticParent);
     const nestedSnapshot =
       getVNodeContextFrame(currentResult) ?? activeSnapshot;
     const nestedInstance = createComponentInstance(
@@ -94,6 +246,7 @@ export function resolveNestedComponentResult(
       throw error;
     }
     cleanupComponent(nestedInstance);
+    diagnosticParent = nestedInstance;
     activeSnapshot = nestedSnapshot ?? null;
     currentResult = nextResult as VNode;
     depth += 1;
@@ -120,7 +273,8 @@ export function resolveHostNestedComponentResult(
 
   try {
     let nestedVNode = getNestedComponentVNode(currentResult);
-    while (nestedVNode && depth < 16) {
+    while (nestedVNode) {
+      assertComponentChainDepth(depth, activeParent);
       const nestedSnapshot =
         getVNodeContextFrame(nestedVNode) ?? activeSnapshot;
       let nestedInstance = findHostInstanceByType(
@@ -217,7 +371,8 @@ export function resolveWrapperHostResult(
   let activeParent = retainedInstance;
   let depth = 0;
   let nestedVNode = getNestedComponentVNode(currentResult);
-  while (nestedVNode && depth < 16) {
+  while (nestedVNode) {
+    assertComponentChainDepth(depth, activeParent);
     const nestedSnapshot = getVNodeContextFrame(nestedVNode) ?? activeSnapshot;
     const nestedInstance = findHostInstanceByType(
       host,

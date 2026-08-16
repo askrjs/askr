@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr/boot';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
-const nestingDepth = Number(process.env.ASKR_NESTING_DEPTH ?? 5_000);
+const nestingDepth = 10_000;
 
 describe('deep component nesting', () => {
   const fixtures: Array<ReturnType<typeof createTestContainer>> = [];
@@ -34,5 +34,5 @@ describe('deep component nesting', () => {
     expect(
       fixture.container.querySelector('[data-depth-leaf="true"]')?.textContent
     ).toBe('leaf');
-  });
+  }, 15_000);
 });
