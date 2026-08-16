@@ -8,6 +8,7 @@ import {
 } from 'vite-plus/test';
 import {
   defer,
+  debounce,
   idle,
   once,
   raf,
@@ -45,6 +46,41 @@ afterEach(() => {
 });
 
 describe('fx public timing helpers', () => {
+  it('should invoke the first leading debounce call when the clock starts at zero', () => {
+    vi.setSystemTime(0);
+    const handler = vi.fn();
+    const debounced = debounce(handler, 50, { leading: true });
+
+    debounced('first');
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledWith('first');
+  });
+
+  it('should not duplicate an isolated leading debounce call on the trailing edge', () => {
+    const handler = vi.fn();
+    const debounced = debounce(handler, 50, { leading: true, trailing: true });
+
+    debounced('first');
+    vi.advanceTimersByTime(50);
+
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('should invoke the trailing edge with the latest call after a leading debounce call', () => {
+    const handler = vi.fn();
+    const debounced = debounce(handler, 50, { leading: true, trailing: true });
+
+    debounced('first');
+    vi.advanceTimersByTime(10);
+    debounced('second');
+    vi.advanceTimersByTime(50);
+
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(handler).toHaveBeenNthCalledWith(1, 'first');
+    expect(handler).toHaveBeenNthCalledWith(2, 'second');
+  });
+
   it('should invoke the first throttled call immediately even when the clock starts at zero', () => {
     vi.setSystemTime(0);
 
@@ -92,6 +128,18 @@ describe('fx public timing helpers', () => {
 
     expect(initialize('first')).toBe('FIRST');
     expect(initialize('second')).toBe('FIRST');
+  });
+
+  it('should preserve the receiver for once() callbacks', () => {
+    const receiver = {
+      value: 'bound',
+      initialize: once(function () {
+        return this.value;
+      }),
+    };
+
+    expect(receiver.initialize()).toBe('bound');
+    expect(receiver.initialize()).toBe('bound');
   });
 
   it('should defer work onto the microtask queue', async () => {
