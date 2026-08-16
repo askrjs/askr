@@ -123,6 +123,15 @@ export function materializeComponentResultNode(
   } finally {
     restoreDomCommitScope(previousInstance);
   }
+
+  return materializeResolvedComponentResultNode(childInstance, result, dom);
+}
+
+export function materializeResolvedComponentResultNode(
+  childInstance: ComponentInstance,
+  result: unknown,
+  dom: Node | null
+): Node {
   if (dom instanceof Element) {
     mountInstanceInline(childInstance, dom);
     return dom;

@@ -59,6 +59,7 @@ source files stable, and do not compare a renamed workload as if it were the sam
 | `tier1.for.keyed-reorder`           | tier1 | swap distant keyed rows while preserving DOM identity        |
 | `tier2.router.navigation`           | tier2 | navigate between sibling routes with shared layout shape     |
 | `tier2.ssr.layout-route`            | tier2 | render a nested layout route with params query and hash      |
+| `tier2.runtime.component-depth`     | tier2 | mount and clean up a 1,000-component wrapper chain           |
 | `tier3.table.partial-update`        | tier3 | update every 10th row in a 1,000-row table                   |
 | `tier3.table.swap-rows`             | tier3 | swap two distant rows in a 1,000-row table                   |
 | `tier3.table.truncate-rows`         | tier3 | truncate a 2,000-row table to its first 1,000 keyed rows     |
