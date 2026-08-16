@@ -1,0 +1,15 @@
+import { expect, test } from 'vite-plus/test';
+import { loadBrowserHarness } from './_helpers';
+
+const nestingDepth = Number(import.meta.env.VITE_ASKR_NESTING_DEPTH ?? 5_000);
+
+test('mounts a deep component chain without overflowing the browser stack', async () => {
+  const app = await loadBrowserHarness();
+
+  expect(() =>
+    app.mountDeepComponentNestingScenario(nestingDepth)
+  ).not.toThrow();
+  expect(document.querySelector('[data-depth-leaf="true"]')?.textContent).toBe(
+    'leaf'
+  );
+});

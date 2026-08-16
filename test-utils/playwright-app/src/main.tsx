@@ -1391,6 +1391,23 @@ function mountAdjacentForBoundariesScenario(): void {
   mountAdjacentForBoundariesFixture(root);
 }
 
+function mountDeepComponentNestingScenario(depth: number): void {
+  resetRoot();
+
+  function Nested({ remaining }: { remaining: number }) {
+    return remaining === 0 ? (
+      <button data-depth-leaf="true">leaf</button>
+    ) : (
+      <Nested remaining={remaining - 1} />
+    );
+  }
+
+  createIsland({
+    root,
+    component: () => <Nested remaining={depth} />,
+  });
+}
+
 async function runBrowserPerf(): Promise<Record<string, number>> {
   const rows = Array.from({ length: 1000 }, (_, index) => ({
     id: index + 1,
@@ -1535,6 +1552,7 @@ Object.assign(window, {
     mountBasePathScenario,
     mountNavLinkForScenario,
     mountAdjacentForBoundariesScenario,
+    mountDeepComponentNestingScenario,
     profileBenchmarkOperations,
     runBrowserBench,
     runBrowserBenchSuite,
@@ -1567,6 +1585,7 @@ export {
   mountInteractionScenario,
   mountNavLinkForScenario,
   mountAdjacentForBoundariesScenario,
+  mountDeepComponentNestingScenario,
   mountOrdersScenario,
   mountRoutedShellScenario,
   mountRouteDataDehydrationScenario,
