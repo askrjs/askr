@@ -9,6 +9,8 @@ import {
 } from '../data/data-runtime';
 import { readActionFramework } from './runtime';
 
+const actionSubmissionGenerations = new WeakMap<object, number>();
+
 function csrfToken(): string | undefined {
   const value =
     getCurrentRenderData()?.framework.csrf ?? readActionFramework().csrf;
@@ -115,11 +117,11 @@ export function action<
     initialStatus<TResult>(descriptor.id)
   );
   const setValue = value.set;
-  let submissionGeneration = 0;
   return {
     state: value,
     async submit(input: TInput): Promise<TResult> {
-      const generation = ++submissionGeneration;
+      const generation = (actionSubmissionGenerations.get(value) ?? 0) + 1;
+      actionSubmissionGenerations.set(value, generation);
       // Keep the last settled result visible while a replacement submission
       // is in flight. This is important for hydrated forms, where users may
       // submit again before the first request settles.
@@ -162,7 +164,7 @@ export function action<
               (prefix): prefix is string => typeof prefix === 'string'
             )
           : descriptor.invalidates;
-        if (generation === submissionGeneration) {
+        if (generation === actionSubmissionGenerations.get(value)) {
           for (const prefix of invalidates)
             invalidateQueriesForRuntime(runtime, prefix, true);
           setValue({ pending: false, result: envelope.result });
@@ -170,7 +172,7 @@ export function action<
         }
         return envelope.result as TResult;
       } catch (error) {
-        if (generation === submissionGeneration) {
+        if (generation === actionSubmissionGenerations.get(value)) {
           setValue({ pending: false, error });
         }
         throw error;

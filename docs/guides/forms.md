@@ -89,6 +89,12 @@ redirects, then processes the result and declared query invalidations. When the
 outcome includes a redirect, it performs full-document navigation so cookies,
 authentication, loaders, and SSR state all refresh together.
 
+Overlapping client-driven submissions use last-started-wins state semantics,
+including when the first submission's pending state rerenders the component.
+An older request still settles for its direct caller, but it cannot replace the
+newer result or error, invalidate queries, or navigate after a newer submission
+has started from a rerendered `action()` command.
+
 The default CSRF session comes from authenticated session state. Login and
 other pre-authentication forms need a custom server-side CSRF `sessionId`
 strategy. Protocol callbacks such as a SAML ACS should remain protocol routes,
