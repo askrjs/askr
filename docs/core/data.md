@@ -292,6 +292,13 @@ schemes, or prefer `queryScope()` when key segments can share textual prefixes;
 scoped keys encode segment boundaries so a `user` scope never invalidates a
 `users` scope.
 
+Invalidation listeners run synchronously and may invalidate a different prefix
+to form a short, acyclic cascade. Re-entering a prefix that is already active
+throws an Askr cyclic-cascade error naming that prefix. Cascades with changing
+prefixes are capped at 100 nested events and fail with an Askr depth diagnostic
+instead of exhausting the JavaScript call stack. Keep application invalidation
+graphs acyclic and bounded.
+
 For route-owned dashboards, use the small route-aware invalidation helper:
 
 ```tsx
