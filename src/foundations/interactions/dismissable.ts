@@ -14,6 +14,7 @@
  * - Returns standard event handler props (onKeyDown, onPointerDownCapture)
  * - Composable via mergeProps with other foundations
  * - Caller provides the protected node reference for outside detection
+ * - Portaled descendants are registered explicitly as additional inside nodes
  * - Returned capture props must be attached to a surface that can observe both
  *   the protected subtree and the outside interaction path (for example, an
  *   overlay or wrapper around the protected node)
@@ -28,6 +29,7 @@
  * USAGE:
  *   const props = dismissable({
  *     node: elementRef,
+ *     additionalInsideNodes: [dropdownPortalRef],
  *     disabled: false,
  *     onDismiss: () => close()
  *   });
@@ -51,6 +53,12 @@ export interface DismissableOptions {
   node?: Node | null;
 
   /**
+   * Additional roots that are logically inside the protected surface even
+   * when a portal places them outside `node` in the DOM tree.
+   */
+  additionalInsideNodes?: readonly (Node | null | undefined)[];
+
+  /**
    * Whether dismiss is disabled
    */
   disabled?: boolean;
@@ -67,7 +75,12 @@ import type {
 } from '../utilities/event-types';
 
 /** Produce keydown/outside-click props that invoke `onDismiss` on Escape or an outside click. */
-export function dismissable({ node, disabled, onDismiss }: DismissableOptions) {
+export function dismissable({
+  node,
+  additionalInsideNodes,
+  disabled,
+  onDismiss,
+}: DismissableOptions) {
   function handleKeyDown(e: KeyboardLikeEvent) {
     if (disabled) return;
     if (e.key === 'Escape') {
@@ -86,8 +99,13 @@ export function dismissable({ node, disabled, onDismiss }: DismissableOptions) {
     // If no node provided, can't detect outside clicks
     if (!node) return;
 
-    // Check if click is outside the protected node
-    if (!node.contains(target)) {
+    const insideAdditionalNode = additionalInsideNodes?.some((insideNode) =>
+      insideNode?.contains(target)
+    );
+
+    // A portal changes physical DOM ancestry, so registered portal roots are
+    // part of the same logical protected surface.
+    if (!node.contains(target) && !insideAdditionalNode) {
       onDismiss?.('outside');
     }
   }
