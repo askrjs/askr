@@ -36,6 +36,7 @@ import {
 } from './component-host-replacement';
 import type { InstanceHostElement, InstanceHostNode } from './dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
+import { assertComponentChainDepth } from './component-chain-depth';
 
 function getNestedComponentVNode(result: unknown): DOMElement | null {
   if (_isDOMElement(result) && typeof result.type === 'function') {
@@ -58,12 +59,13 @@ export function resolveNestedComponentResult(
 ): VNode {
   let currentResult = result as VNode;
   let activeSnapshot = snapshot;
+  let diagnosticParent = parentInstance;
   let depth = 0;
   while (
     _isDOMElement(currentResult) &&
-    typeof currentResult.type === 'function' &&
-    depth < 16
+    typeof currentResult.type === 'function'
   ) {
+    assertComponentChainDepth(depth, diagnosticParent);
     const nestedSnapshot =
       getVNodeContextFrame(currentResult) ?? activeSnapshot;
     const nestedInstance = createComponentInstance(
@@ -94,6 +96,7 @@ export function resolveNestedComponentResult(
       throw error;
     }
     cleanupComponent(nestedInstance);
+    diagnosticParent = nestedInstance;
     activeSnapshot = nestedSnapshot ?? null;
     currentResult = nextResult as VNode;
     depth += 1;
@@ -120,7 +123,8 @@ export function resolveHostNestedComponentResult(
 
   try {
     let nestedVNode = getNestedComponentVNode(currentResult);
-    while (nestedVNode && depth < 16) {
+    while (nestedVNode) {
+      assertComponentChainDepth(depth, activeParent);
       const nestedSnapshot =
         getVNodeContextFrame(nestedVNode) ?? activeSnapshot;
       let nestedInstance = findHostInstanceByType(
@@ -217,7 +221,8 @@ export function resolveWrapperHostResult(
   let activeParent = retainedInstance;
   let depth = 0;
   let nestedVNode = getNestedComponentVNode(currentResult);
-  while (nestedVNode && depth < 16) {
+  while (nestedVNode) {
+    assertComponentChainDepth(depth, activeParent);
     const nestedSnapshot = getVNodeContextFrame(nestedVNode) ?? activeSnapshot;
     const nestedInstance = findHostInstanceByType(
       host,

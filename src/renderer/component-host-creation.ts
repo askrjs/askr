@@ -28,7 +28,16 @@ import {
   cleanupProvisionalComponentInstance,
   registerVNodeComponentInstanceRollback,
 } from './component-host-replacement';
-import { materializeComponentResultNode } from './component-host-results';
+import {
+  materializeComponentResultNode,
+  materializeResolvedComponentResultNode,
+} from './component-host-results';
+import {
+  prepareFreshNestedComponentResultDom,
+  resolveFreshNestedComponentResult,
+  rollbackFreshNestedComponentResolution,
+  type FreshNestedComponentResolution,
+} from './component-host-fresh-chain';
 import type { ElementWithContext } from './dom-host';
 import type { JSXComponent } from './types';
 
@@ -64,6 +73,7 @@ export function createComponentElement(
       ? previousVNodeInstance
       : undefined;
   const hadChildInstance = !!childInstance;
+  let nestedResolution: FreshNestedComponentResolution | null = null;
   if (!childInstance) {
     childInstance = createComponentInstance(
       nextComponentInstanceId(),
@@ -111,25 +121,57 @@ export function createComponentElement(
       snapshot ?? null
     );
 
-    const dom = snapshot
+    nestedResolution = resolveFreshNestedComponentResult(
+      scopedResult,
+      snapshot ?? null,
+      childInstance
+    );
+
+    const deepestEntry =
+      nestedResolution.entries[nestedResolution.entries.length - 1];
+
+    let dom = snapshot
       ? withContext(snapshot, () =>
           materializeComponentResultNode(
-            childInstance,
-            scopedResult,
+            deepestEntry?.instance ?? childInstance,
+            deepestEntry?.result ?? scopedResult,
             parentNamespace
           )
         )
       : materializeComponentResultNode(
-          childInstance,
-          scopedResult,
+          deepestEntry?.instance ?? childInstance,
+          deepestEntry?.result ?? scopedResult,
           parentNamespace
         );
+
+    if (deepestEntry) {
+      for (
+        let index = nestedResolution.entries.length - 2;
+        index >= 0;
+        index -= 1
+      ) {
+        const entry = nestedResolution.entries[index]!;
+        dom = materializeResolvedComponentResultNode(
+          entry.instance,
+          entry.result,
+          prepareFreshNestedComponentResultDom(entry.result, dom)
+        );
+      }
+      dom = materializeResolvedComponentResultNode(
+        childInstance,
+        scopedResult,
+        prepareFreshNestedComponentResultDom(scopedResult, dom)
+      );
+    }
 
     if (dom instanceof Element) {
       materializeFreshKey(dom, node, props);
     }
     return dom;
   } catch (error) {
+    if (nestedResolution) {
+      rollbackFreshNestedComponentResolution(nestedResolution);
+    }
     if (!hadChildInstance) {
       restoreVNodeComponentInstance(node, previousVNodeInstance);
       cleanupProvisionalComponentInstance(childInstance);
