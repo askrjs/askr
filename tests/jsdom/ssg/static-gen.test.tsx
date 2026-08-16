@@ -1143,6 +1143,100 @@ describe('Static Site Generation', () => {
       ).toContain('Home');
     });
 
+    it('should serialize full generations targeting the same output directory', async () => {
+      let releaseFirst!: () => void;
+      let markFirstStarted!: () => void;
+      let secondStarted = false;
+      const firstMayFinish = new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      const firstStarted = new Promise<void>((resolve) => {
+        markFirstStarted = resolve;
+      });
+      const first = createStaticGen({
+        routes: [
+          {
+            path: '/',
+            component: () => <main>first site</main>,
+            loader: async () => {
+              markFirstStarted();
+              await firstMayFinish;
+              return {};
+            },
+          },
+        ],
+        outputDir: tempDir,
+      });
+      const second = createStaticGen({
+        routes: [
+          {
+            path: '/',
+            component: () => <main>second site</main>,
+            loader: async () => {
+              secondStarted = true;
+              return {};
+            },
+          },
+        ],
+        outputDir: tempDir,
+      });
+
+      const firstGeneration = first.generate();
+      await firstStarted;
+      const secondGeneration = second.generate();
+      await new Promise((resolve) => setImmediate(resolve));
+      const generationsOverlapped = secondStarted;
+      releaseFirst();
+      const generations = await Promise.allSettled([
+        firstGeneration,
+        secondGeneration,
+      ]);
+
+      expect(generationsOverlapped).toBe(false);
+      expect(generations.map(({ status }) => status)).toEqual([
+        'fulfilled',
+        'fulfilled',
+      ]);
+      expect(fs.existsSync(path.join(tempDir, 'index.html'))).toBe(true);
+      expect(
+        fs.readFileSync(path.join(tempDir, 'index.html'), 'utf8')
+      ).toContain('second site');
+    });
+
+    it('should reject dynamic and static routes that resolve to the same output file', async () => {
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/posts/{slug}',
+            params: { slug: 'intro' },
+            component: BlogPost,
+          },
+          { path: '/posts/intro', component: About },
+        ],
+        outputDir: tempDir,
+      });
+
+      await expect(ssg.generate()).rejects.toThrow(
+        /output path collision.*\/posts\/\{slug\}.*\/posts\/intro/i
+      );
+      expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+    });
+
+    it('should reject case-only output path collisions on every host filesystem', async () => {
+      const ssg = createStaticGen({
+        routes: [
+          { path: '/Docs', component: Home },
+          { path: '/docs', component: About },
+        ],
+        outputDir: tempDir,
+      });
+
+      await expect(ssg.generate()).rejects.toThrow(
+        /output path collision.*\/Docs.*\/docs/i
+      );
+      expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+    });
+
     it('should preserve incremental HTML when its temporary write fails', async () => {
       const routeDir = path.join(tempDir, 'reports');
       const outputFile = path.join(routeDir, 'index.html');
@@ -1740,6 +1834,40 @@ describe('Static Site Generation', () => {
       expect(result.mode).toBe('full');
       expect(result.rebuilt).toBe(2);
       expect(result.skipped).toBe(0);
+    });
+
+    it('should not claim successful routes were written when a fallback full build fails', async () => {
+      const BrokenComponent = (): JSXElement => {
+        throw new Error('fallback render failed');
+      };
+      const ssg = createStaticGen({
+        routes: [
+          {
+            path: '/',
+            component: Home,
+            invalidationKeys: ['home'],
+          },
+          {
+            path: '/broken',
+            component: BrokenComponent,
+            invalidationKeys: ['broken'],
+          },
+        ],
+        outputDir: tempDir,
+      });
+
+      const result = await ssg.generate({
+        mode: 'incremental',
+        changedKeys: ['home'],
+      });
+
+      expect(result.mode).toBe('full');
+      expect(result.failed).toBe(1);
+      expect(result.routes.find((route) => route.path === '/')?.written).toBe(
+        false
+      );
+      expect(fs.existsSync(path.join(tempDir, 'index.html'))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
     });
 
     it('should fall back to a full build when the manifest schema is invalid', async () => {

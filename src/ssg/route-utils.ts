@@ -8,6 +8,35 @@ export interface ResolvedRouteDescriptor {
   invalidationKeys: string[];
 }
 
+function getPortableOutputPathKey(filePath: string): string {
+  return filePath.normalize('NFC').replaceAll('\\', '/').toLowerCase();
+}
+
+function describeRoute(descriptor: ResolvedRouteDescriptor): string {
+  if (descriptor.route.path === descriptor.path) {
+    return `"${descriptor.path}"`;
+  }
+  return `"${descriptor.route.path}" (resolved as "${descriptor.path}")`;
+}
+
+/** Reject routes that could overwrite one another on any supported filesystem. */
+export function validateOutputPathCollisions(
+  descriptors: readonly ResolvedRouteDescriptor[]
+): void {
+  const seen = new Map<string, ResolvedRouteDescriptor>();
+
+  for (const descriptor of descriptors) {
+    const key = getPortableOutputPathKey(descriptor.filePath);
+    const existing = seen.get(key);
+    if (existing) {
+      throw new Error(
+        `SSG output path collision: routes ${describeRoute(existing)} and ${describeRoute(descriptor)} both map to "${descriptor.filePath}" after case-insensitive normalization`
+      );
+    }
+    seen.set(key, descriptor);
+  }
+}
+
 function assertSafeRoutePath(pathStr: string): void {
   if (
     !pathStr.startsWith('/') ||

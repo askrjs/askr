@@ -202,10 +202,20 @@ falls back to `os.cpus()` when `availableParallelism()` is unavailable.
 
 Full generation writes into a sibling staging directory and replaces the prior
 site only after every route, metadata file, and manifest is complete. A failed
-full generation therefore leaves the last complete output untouched.
+full generation therefore leaves the last complete output untouched. Calls
+that target the same resolved output directory are serialized within a process
+so their staging-directory swaps cannot interfere with one another.
+
+Before rendering, Askr rejects routes whose concrete output paths collide. The
+comparison is case-insensitive on every host, preventing a configuration that
+works on a case-sensitive development filesystem from overwriting a different
+route on a case-insensitive deployment filesystem.
 
 Incremental route updates use a temporary file and rename it into place, so a
 failed route write also preserves that route's previously published HTML.
+When incremental mode is requested without a compatible manifest, `mode` in the
+result is `full`. If that fallback full build fails, successfully rendered
+routes report `written: false` because the atomic output was not published.
 
 ## metadata.json
 
