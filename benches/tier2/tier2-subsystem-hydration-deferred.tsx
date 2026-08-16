@@ -79,7 +79,12 @@ await (async () => {
       fixture.container.querySelector('#below-button-599') as HTMLElement
     );
     flushScheduler();
-    expect(harness.state.clicks).toEqual(['hero']);
+    expect(harness.state.clicks).toEqual(['hero', 'below-599']);
+    expect(
+      fixture.container
+        .querySelector('#below-button-599')
+        ?.closest('[data-skip-hydrate]')
+    ).toBeNull();
 
     controller.revealAll();
     window.dispatchEvent(new Event('scroll'));
@@ -89,7 +94,7 @@ await (async () => {
       fixture.container.querySelector('#below-button-599') as HTMLElement
     );
     flushScheduler();
-    expect(harness.state.clicks).toEqual(['hero', 'below-599']);
+    expect(harness.state.clicks).toEqual(['hero', 'below-599', 'below-599']);
   } finally {
     controller.restore();
     fixture.cleanup();
