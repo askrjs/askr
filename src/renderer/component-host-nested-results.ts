@@ -37,6 +37,7 @@ import {
 } from './component-host-replacement';
 import type { InstanceHostElement, InstanceHostNode } from './dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
+import { assertComponentChainDepth } from './component-chain-depth';
 
 function getNestedComponentVNode(result: unknown): DOMElement | null {
   if (_isDOMElement(result) && typeof result.type === 'function') {
@@ -50,33 +51,6 @@ function getNestedComponentVNode(result: unknown): DOMElement | null {
   return _isDOMElement(child) && typeof child.type === 'function'
     ? child
     : null;
-}
-
-const MAX_COMPONENT_CHAIN_DEPTH = 100_000;
-const COMPONENT_CHAIN_ERROR_CONTEXT = 8;
-
-function getComponentName(component: ComponentFunction): string {
-  return component.name || '<anonymous>';
-}
-
-function assertComponentChainDepth(
-  depth: number,
-  instance: ComponentInstance | null
-): void {
-  if (depth < MAX_COMPONENT_CHAIN_DEPTH) return;
-
-  const names: string[] = [];
-  let current: ComponentInstance | null = instance;
-  while (current && names.length < COMPONENT_CHAIN_ERROR_CONTEXT) {
-    names.push(getComponentName(current.fn));
-    current = current.parentInstance;
-  }
-
-  throw new Error(
-    `[Askr] Component chain exceeded ${MAX_COMPONENT_CHAIN_DEPTH.toLocaleString('en-US')} wrappers. ` +
-      `This usually means component output recurses without terminating. ` +
-      `Recent chain: ${names.reverse().join(' -> ')}`
-  );
 }
 
 export interface FreshNestedComponentEntry {
@@ -137,8 +111,6 @@ export function resolveFreshNestedComponentResult(
         )
           ? previous
           : undefined;
-      const hadNestedInstance = !!nestedInstance;
-
       if (!nestedInstance) {
         nestedInstance = createComponentInstance(
           nextComponentInstanceId(),
