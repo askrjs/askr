@@ -14,6 +14,7 @@ type LazyState<TComponent extends AnyRouteComponent> = {
   promise: Promise<void> | null;
   resolved: TComponent | null;
   loadError: unknown;
+  hasLoadError: boolean;
 };
 /** A route component loaded on demand via {@link lazy}, with an explicit `preload()`. */
 export type LazyRouteComponent<TComponent extends AnyRouteComponent> =
@@ -40,12 +41,16 @@ function startLazyLoad(state: LazyState<AnyRouteComponent>): Promise<void> {
           typeof mod === 'function'
             ? mod
             : (mod as { default: AnyRouteComponent }).default;
+        state.loadError = null;
+        state.hasLoadError = false;
       },
       (err: unknown) => {
         state.loadError = err;
+        state.hasLoadError = true;
       }
     )
     .finally(() => {
+      if (state.hasLoadError) state.promise = null;
       pendingLazy.delete(promise);
     });
   state.promise = promise;
@@ -62,9 +67,10 @@ export function lazy<TComponent extends AnyRouteComponent>(
     promise: null,
     resolved: null,
     loadError: null,
+    hasLoadError: false,
   };
   const component = ((params: RouteParams) => {
-    if (state.loadError) throw state.loadError as Error;
+    if (state.hasLoadError) throw state.loadError;
     if (!state.resolved) {
       throw new Error(
         'lazy() component used before it was resolved. ' +
@@ -92,7 +98,16 @@ export function lazyRouteData<TModule, TData = TModule>(
   ) => TData | PromiseLike<TData>
 ): LazyRouteDataLoader<TModule, TData> {
   let imported: Promise<TModule> | null = null;
-  const load = () => (imported ??= Promise.resolve().then(factory));
+  const load = () => {
+    if (imported) return imported;
+    imported = Promise.resolve()
+      .then(factory)
+      .catch((error: unknown) => {
+        imported = null;
+        throw error;
+      });
+    return imported;
+  };
   const loader = ((context: RouteContext & { request?: Request }) =>
     load()
       .then((module) =>

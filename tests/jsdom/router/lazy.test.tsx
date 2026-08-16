@@ -209,6 +209,24 @@ describe('lazy()', () => {
     expect(() => stub({})).toThrow('chunk load failed');
   });
 
+  it('should retry a failed lazy import on the next preload', async () => {
+    let attempts = 0;
+    const stub = lazy(() => {
+      attempts += 1;
+      return attempts === 1
+        ? Promise.reject(new Error('chunk load failed'))
+        : Promise.resolve({ default: () => 'recovered' });
+    });
+
+    await stub.preload();
+    expect(() => stub({})).toThrow('chunk load failed');
+
+    await stub.preload();
+
+    expect(attempts).toBe(2);
+    expect(stub({})).toBe('recovered');
+  });
+
   it('should preload multiple lazy imports concurrently', async () => {
     const A = () => 'a';
     const B = () => 'b';

@@ -235,6 +235,10 @@ function DocsPage() {
 }
 ```
 
+Successful lazy component and route-data imports stay cached. If an import
+fails, Askr clears that failed attempt so the next route match or explicit
+`preload()` call retries the factory instead of replaying a stale rejection.
+
 `loadMidgeDocs.preload()` is available for an explicit hover or intent
 preload. Loader failures retain the original `cause` and report the concrete
 route plus `client`, `server`, or `ssg` phase. Hydration transport validation
@@ -305,7 +309,9 @@ Specificity order: static > param > wildcard > catch-all.
 
 Auth requirements, auth resolvers, access policies, and redirect path resolvers
 may return native promises or compatible promise-like values. Decisions are
-awaited in declaration order.
+awaited in declaration order. During client navigation, an auth result that
+settles after its request was aborted by a newer navigation is discarded, so
+`currentAuth()` continues to describe the navigation that actually committed.
 
 ## `fallback(Component)`
 
