@@ -91,8 +91,9 @@ Query and mutation helpers live in `@askrjs/askr/data`.
 ### Developer error boundaries
 
 `ErrorBoundary` is the opt-in boundary primitive for render-time failures. It
-renders a visible fallback in development, still logs the underlying error, and
-can reset when your app state changes. The boundary protects both initial mount
+renders a visible fallback in every environment (with error details expanded
+by default in development), still logs the underlying error, and can reset via
+a `resetKey` tied to your app state. The boundary protects both initial mount
 and scheduled post-mount updates. Portal content follows its logical writer
 boundary and can also recover through a boundary around its host.
 
