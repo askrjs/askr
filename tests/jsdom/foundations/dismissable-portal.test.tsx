@@ -4,7 +4,7 @@ import { dismissable } from '../../../src/foundations/interactions/dismissable';
 import { render } from '../../../src/testing';
 
 describe('dismissable portal composition', () => {
-  it('treats registered portaled content as logically inside', () => {
+  it('should treat registered portaled content as logically inside', () => {
     const DropdownPortal = definePortal();
 
     function DropdownWriter() {
