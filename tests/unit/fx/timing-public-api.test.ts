@@ -81,6 +81,35 @@ describe('fx public timing helpers', () => {
     expect(handler).toHaveBeenNthCalledWith(2, 'second');
   });
 
+  it.each([
+    { leading: false, trailing: false, single: [], multiple: [] },
+    { leading: false, trailing: true, single: ['first'], multiple: ['second'] },
+    { leading: true, trailing: false, single: ['first'], multiple: ['first'] },
+    {
+      leading: true,
+      trailing: true,
+      single: ['first'],
+      multiple: ['first', 'second'],
+    },
+  ])(
+    'should honor leading=$leading trailing=$trailing for isolated and coalesced calls',
+    ({ leading, trailing, single, multiple }) => {
+      const isolatedHandler = vi.fn();
+      const isolated = debounce(isolatedHandler, 50, { leading, trailing });
+      isolated('first');
+      vi.advanceTimersByTime(50);
+      expect(isolatedHandler.mock.calls.flat()).toEqual(single);
+
+      const coalescedHandler = vi.fn();
+      const coalesced = debounce(coalescedHandler, 50, { leading, trailing });
+      coalesced('first');
+      vi.advanceTimersByTime(10);
+      coalesced('second');
+      vi.advanceTimersByTime(50);
+      expect(coalescedHandler.mock.calls.flat()).toEqual(multiple);
+    }
+  );
+
   it('should invoke the first throttled call immediately even when the clock starts at zero', () => {
     vi.setSystemTime(0);
 
