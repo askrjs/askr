@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { state } from '@askrjs/askr';
 import { createIsland } from '@askrjs/askr/boot';
-import { createTestContainer } from '../../../test-utils/render/test-renderer';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 const nestingDepth = 10_000;
 
@@ -34,5 +38,31 @@ describe('deep component nesting', () => {
     expect(
       fixture.container.querySelector('[data-depth-leaf="true"]')?.textContent
     ).toBe('leaf');
+  }, 15_000);
+
+  it('reconciles a retained component chain without recursive rendering', () => {
+    const fixture = createTestContainer();
+    fixtures.push(fixture);
+    let labelState!: ReturnType<typeof state<string>>;
+
+    function Nested({ depth, label }: { depth: number; label: string }) {
+      return depth === 0 ? (
+        <button data-depth-leaf="true">{label}</button>
+      ) : (
+        <Nested depth={depth - 1} label={label} />
+      );
+    }
+
+    function App() {
+      labelState = state('before');
+      return <Nested depth={1_000} label={labelState()} />;
+    }
+
+    createIsland({ root: fixture.container, component: App });
+    labelState.set('after');
+    expect(() => flushScheduler()).not.toThrow();
+    expect(
+      fixture.container.querySelector('[data-depth-leaf="true"]')?.textContent
+    ).toBe('after');
   }, 15_000);
 });
