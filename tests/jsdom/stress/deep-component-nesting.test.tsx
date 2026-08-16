@@ -17,7 +17,7 @@ describe('deep component nesting', () => {
     }
   });
 
-  it('mounts a component chain past the former stack-overflow depth', () => {
+  it('should mount a component chain past the former stack-overflow depth', () => {
     const fixture = createTestContainer();
     fixtures.push(fixture);
 
@@ -40,7 +40,7 @@ describe('deep component nesting', () => {
     ).toBe('leaf');
   }, 15_000);
 
-  it('reconciles a retained component chain without recursive rendering', () => {
+  it('should reconcile a retained component chain without recursive rendering', () => {
     const fixture = createTestContainer();
     fixtures.push(fixture);
     let labelState!: ReturnType<typeof state<string>>;
