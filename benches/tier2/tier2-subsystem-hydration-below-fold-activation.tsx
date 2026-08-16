@@ -95,11 +95,7 @@ await (async () => {
       fixture.container.querySelector('#below-button-599') as HTMLElement
     );
     flushScheduler();
-    expect(harness.state.clicks).toEqual([
-      'hero',
-      'below-599',
-      'below-599',
-    ]);
+    expect(harness.state.clicks).toEqual(['hero', 'below-599', 'below-599']);
   } finally {
     controller.restore();
     fixture.cleanup();
