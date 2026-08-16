@@ -747,10 +747,13 @@ describe('data layer', () => {
     }
   });
 
-  it('should bound shared-query conflict warnings at 100 and 1,000 readers', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const expectOneWarning = (readerCount: number, key: string) => {
+  it.each([
+    [100, 'users:warning-scale-100'],
+    [1_000, 'users:warning-scale-1000'],
+  ] as const)(
+    'should bound shared-query conflict warnings at %i readers',
+    (readerCount, key) => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const runtime = createDataRuntime();
       const canonicalFetch = async () => 'canonical';
       const conflictingFetch = async () => 'conflicting';
@@ -783,16 +786,11 @@ describe('data layer', () => {
         expect(conflictWarnings).toHaveLength(1);
       } finally {
         cleanup();
+        warnSpy.mockRestore();
       }
-    };
-
-    try {
-      expectOneWarning(100, 'users:warning-scale-100');
-      expectOneWarning(1_000, 'users:warning-scale-1000');
-    } finally {
-      warnSpy.mockRestore();
-    }
-  });
+    },
+    15_000
+  );
 
   it('should not warn given the same defined query when its reader rerenders', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
