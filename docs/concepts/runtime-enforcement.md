@@ -22,6 +22,20 @@ afterAll(restoreDiagnostics);
 The returned function restores the previous settings. Production builds keep
 diagnostic timing disabled, and the default development behavior is unchanged.
 
+## Component nesting depth
+
+Askr expands single-child component wrapper chains iteratively during mount and
+reconciliation. The supported runtime guardrail mounts 10,000 nested components
+through the public `createIsland` boundary in Node and the supported browser
+engines, so wrapper-heavy generated UI does not depend on an engine's JavaScript
+call-stack size.
+
+The renderer retains a separate 100,000-wrapper safety limit for component
+output that never terminates. Reaching that limit throws an Askr error with the
+recent component chain instead of leaking an engine-specific `RangeError` or
+continuing until the process exhausts memory. Split intentionally deeper
+generated output into explicit data traversal or multiple render roots.
+
 ## Render-scoped hook order
 
 Render-scoped hooks and eager control primitives must be evaluated in the same
