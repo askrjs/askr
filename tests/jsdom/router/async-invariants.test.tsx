@@ -9,7 +9,11 @@ import {
 } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { allow, redirect } from '../../../src/router/policy';
-import { resolveRouteRequest, route } from '../../../src/router/route';
+import {
+  currentAuth,
+  resolveRouteRequest,
+  route,
+} from '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';
 import {
   createTestContainer,
@@ -58,6 +62,59 @@ describe('router async invariants', () => {
     flushScheduler();
 
     expect(guardAborted).toBe(true);
+  });
+
+  it('should not let abandoned auth resolution overwrite the committed navigation', async () => {
+    const slowAuth = {
+      authenticated: false,
+      principal: null,
+      session: null,
+      tenant: null,
+    };
+    const fastAuth = {
+      authenticated: true,
+      principal: { id: 'fast-user', roles: ['member'] },
+      session: null,
+      tenant: null,
+    };
+    let resolveSlowAuth!: (value: typeof slowAuth) => void;
+
+    route('/', () => <div>{'home'}</div>);
+    route('/slow-auth', () => <div>{'slow'}</div>);
+    route('/fast-auth', () => <div>{'fast'}</div>);
+
+    await createSPA({
+      root: container,
+      registry: currentRouteRegistry(),
+      auth: {
+        resolve: ({ pathname }) => {
+          if (pathname === '/slow-auth') {
+            return new Promise((resolve) => {
+              resolveSlowAuth = resolve;
+            });
+          }
+          return pathname === '/fast-auth' ? fastAuth : slowAuth;
+        },
+      },
+    });
+
+    navigate('/slow-auth');
+    await Promise.resolve();
+    navigate('/fast-auth');
+    await Promise.resolve();
+    await Promise.resolve();
+    flushScheduler();
+
+    expect(container.textContent).toBe('fast');
+    expect(currentAuth().principal?.id).toBe('fast-user');
+
+    resolveSlowAuth(slowAuth);
+    await Promise.resolve();
+    await Promise.resolve();
+    flushScheduler();
+
+    expect(container.textContent).toBe('fast');
+    expect(currentAuth().principal?.id).toBe('fast-user');
   });
 
   it('should fail bounded initial redirect cycles', async () => {
