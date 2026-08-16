@@ -61,12 +61,13 @@ await (async () => {
 
     await hydration;
     flushScheduler();
+    expect(harness.state.clicks).toBe(1);
 
     fireEvent.click(
       fixture.container.querySelector('#idle-button') as HTMLElement
     );
     flushScheduler();
-    expect(harness.state.clicks).toBe(1);
+    expect(harness.state.clicks).toBe(2);
   } finally {
     fixture.cleanup();
   }
