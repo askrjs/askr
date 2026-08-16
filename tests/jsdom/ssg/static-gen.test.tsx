@@ -1198,9 +1198,9 @@ describe('Static Site Generation', () => {
         'fulfilled',
       ]);
       expect(fs.existsSync(path.join(tempDir, 'index.html'))).toBe(true);
-      expect(fs.readFileSync(path.join(tempDir, 'index.html'), 'utf8')).toContain(
-        'second site'
-      );
+      expect(
+        fs.readFileSync(path.join(tempDir, 'index.html'), 'utf8')
+      ).toContain('second site');
     });
 
     it('should reject dynamic and static routes that resolve to the same output file', async () => {
