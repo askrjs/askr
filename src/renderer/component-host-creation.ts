@@ -33,10 +33,11 @@ import {
   materializeResolvedComponentResultNode,
 } from './component-host-results';
 import {
+  prepareFreshNestedComponentResultDom,
   resolveFreshNestedComponentResult,
   rollbackFreshNestedComponentResolution,
   type FreshNestedComponentResolution,
-} from './component-host-nested-results';
+} from './component-host-fresh-chain';
 import type { ElementWithContext } from './dom-host';
 import type { JSXComponent } from './types';
 
@@ -153,13 +154,13 @@ export function createComponentElement(
         dom = materializeResolvedComponentResultNode(
           entry.instance,
           entry.result,
-          dom
+          prepareFreshNestedComponentResultDom(entry.result, dom)
         );
       }
       dom = materializeResolvedComponentResultNode(
         childInstance,
         scopedResult,
-        dom
+        prepareFreshNestedComponentResultDom(scopedResult, dom)
       );
     }
 

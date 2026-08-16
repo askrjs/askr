@@ -22,7 +22,6 @@ import {
 import {
   findHostInstanceByType,
   getVNodeComponentInstance,
-  hasComponentOwnershipIdentity,
   inheritComponentCleanupStrict,
   isRouteRootComponentVNode,
   nextComponentInstanceId,
@@ -51,127 +50,6 @@ function getNestedComponentVNode(result: unknown): DOMElement | null {
   return _isDOMElement(child) && typeof child.type === 'function'
     ? child
     : null;
-}
-
-export interface FreshNestedComponentEntry {
-  instance: ComponentInstance;
-  result: VNode;
-}
-
-export interface FreshNestedComponentResolution {
-  entries: FreshNestedComponentEntry[];
-  createdInstances: ComponentInstance[];
-  vnodeOwners: Array<{
-    node: DOMElement;
-    previous: ComponentInstance | undefined;
-  }>;
-}
-
-export function rollbackFreshNestedComponentResolution(
-  resolution: FreshNestedComponentResolution
-): void {
-  for (let index = resolution.vnodeOwners.length - 1; index >= 0; index -= 1) {
-    const owner = resolution.vnodeOwners[index]!;
-    restoreVNodeComponentInstance(owner.node, owner.previous);
-  }
-  cleanupProvisionalComponentInstances(resolution.createdInstances);
-}
-
-export function resolveFreshNestedComponentResult(
-  result: unknown,
-  snapshot: ContextFrame | null,
-  parentInstance: ComponentInstance
-): FreshNestedComponentResolution {
-  let currentResult = result as VNode;
-  let activeSnapshot = snapshot;
-  let activeParent = parentInstance;
-  let depth = 0;
-  const resolution: FreshNestedComponentResolution = {
-    entries: [],
-    createdInstances: [],
-    vnodeOwners: [],
-  };
-
-  try {
-    let nestedVNode = getNestedComponentVNode(currentResult);
-    while (nestedVNode) {
-      assertComponentChainDepth(depth, activeParent);
-      const nestedSnapshot =
-        getVNodeContextFrame(nestedVNode) ?? activeSnapshot;
-      const componentFn = nestedVNode.type as ComponentFunction;
-      const previous = getVNodeComponentInstance(nestedVNode);
-      let nestedInstance =
-        previous &&
-        hasComponentOwnershipIdentity(
-          previous,
-          componentFn,
-          nestedVNode,
-          activeParent,
-          depth
-        )
-          ? previous
-          : undefined;
-      if (!nestedInstance) {
-        nestedInstance = createComponentInstance(
-          nextComponentInstanceId(),
-          componentFn,
-          (nestedVNode.props ?? {}) as Props,
-          null
-        );
-        resolution.vnodeOwners.push({ node: nestedVNode, previous });
-        registerVNodeComponentInstanceRollback(
-          nestedVNode,
-          previous,
-          nestedInstance
-        );
-        setVNodeComponentInstance(nestedVNode, nestedInstance);
-        resolution.createdInstances.push(nestedInstance);
-      } else {
-        captureInlineRenderSnapshot(nestedInstance);
-      }
-
-      setComponentOwnershipIdentity(
-        nestedInstance,
-        nestedVNode,
-        activeParent,
-        depth
-      );
-      nestedInstance.isRoot = isRouteRootComponentVNode(nestedVNode);
-      nestedInstance.parentInstance = activeParent;
-      nestedInstance.portalScope =
-        activeParent.portalScope ?? nestedInstance.portalScope;
-      nestedInstance.cleanupStrict = activeParent.cleanupStrict;
-      nestedInstance.props = ((nestedVNode.props ?? {}) as Props) || {};
-      if (nestedSnapshot) nestedInstance.ownerFrame = nestedSnapshot;
-
-      const nextResult = withContext(nestedSnapshot ?? null, () =>
-        renderComponentInline(nestedInstance)
-      );
-      if (isPromiseLike(nextResult)) {
-        throw new Error(
-          'Async components are not supported. Components must return synchronously.'
-        );
-      }
-
-      activeParent = nestedInstance;
-      activeSnapshot = nestedSnapshot ?? null;
-      currentResult = markVNodeTreeWithContextFrame(
-        nextResult,
-        activeSnapshot
-      ) as VNode;
-      resolution.entries.push({
-        instance: nestedInstance,
-        result: currentResult,
-      });
-      depth += 1;
-      nestedVNode = getNestedComponentVNode(currentResult);
-    }
-
-    return resolution;
-  } catch (error) {
-    rollbackFreshNestedComponentResolution(resolution);
-    throw error;
-  }
 }
 
 export function resolveNestedComponentResult(
