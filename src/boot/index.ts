@@ -60,6 +60,7 @@ import {
   commitHydrationListenerTransaction,
   discardHydrationListenerTransaction,
 } from '../renderer/hydration-listener-transaction';
+import { beginHydrationInteractionReplay } from './hydration-interaction-replay';
 
 export { cleanupApp, hasApp } from './root-lifecycle';
 export type {
@@ -268,156 +269,169 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
   const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
-  applyDeferredStreamPatches(rootElement);
-  const hydrationRenderData = takeHydrationRenderData(rootElement);
-  const hydrationQueryCache = hydrationRenderData?.resources;
-  if (hydrationQueryCache) {
-    hydrateDataRuntime(
-      config.dataRuntime ?? getDefaultDataRuntime(),
-      hydrationQueryCache
-    );
-  }
-  const hydrationRenderDataForApp = hydrationRenderData;
-
-  configureScrollRestoration(config.scrollRestoration);
-
-  clearRouteState();
-  _applyManifest(manifest);
-
-  const routeAuth = config.auth ?? manifest.auth;
-  const appRouteSource = {
-    registry: config.registry,
-    auth: routeAuth,
-    runtime: createAppRenderRuntime({
-      framework: hydrationRenderData?.framework,
-      route: hydrationRenderData?.route,
-      hasRoute: hydrationRenderData !== null,
-      routeRegistry: config.registry,
-      routeAuth,
-    }),
-  };
-  _setActiveRouteAuthOptions(routeAuth);
-
-  const {
-    path,
-    href: currentUrl,
-    resolved,
-  } = await resolveInitialRoute(routeAuth, {
-    registry: config.registry,
-    load: false,
-  });
-  setServerLocation(currentUrl);
-  if (isProductionEnvironment()) lockRouteRegistration();
-
-  if (!resolved) {
-    throw new Error(`hydrateSPA: no route found for current path (${path}).`);
-  }
-
-  if (resolved.kind === 'redirect') {
-    throw new Error(
-      `hydrateSPA: unresolved redirect for current path (${path}).`
-    );
-  }
-
-  await reconcileInitialRouteMetadata(resolved);
-
-  const hydrationResolvedBase: ResolvedRoute =
-    resolved.kind === 'deny'
-      ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
-      : { handler: resolved.handler, params: resolved.params };
-  const hydrationResolved: ResolvedRoute = hydrationResolvedBase;
-  const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
-    withIntrinsicHydrationAdoption(() =>
-      mountOrUpdate(args[0], args[1], {
-        ...args[2],
-        cspNonce: config.cspNonce,
-      })
-    );
-
-  if (shouldVerifyHydrationMarkup(config)) {
-    const { verifyHydrationSyncForUrl } =
-      await import('../ssr/verify-hydration');
-    if (
-      !verifyHydrationSyncForUrl({
-        root: rootElement,
-        url: currentUrl,
-        registry: config.registry,
-        resolved: hydrationResolved,
-        options: {
-          data: hydrationRenderDataForApp?.resources,
-          dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
-          envelope: hydrationRenderDataForApp ?? undefined,
-          cspNonce: config.cspNonce,
-        },
-      })
-    ) {
-      throw new Error(
-        '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
+  const interactionReplay = beginHydrationInteractionReplay(
+    rootElement,
+    (boundary) => activateHydrationBoundary(rootElement, boundary),
+    config.hydrate?.skipSelectors
+  );
+  try {
+    applyDeferredStreamPatches(rootElement);
+    const hydrationRenderData = takeHydrationRenderData(rootElement);
+    const hydrationQueryCache = hydrationRenderData?.resources;
+    if (hydrationQueryCache) {
+      hydrateDataRuntime(
+        config.dataRuntime ?? getDefaultDataRuntime(),
+        hydrationQueryCache
       );
     }
-  }
+    const hydrationRenderDataForApp = hydrationRenderData;
 
-  const hydrateOptions = config.hydrate;
-  if (hydrateOptions) {
-    if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
-      if (hydrationRenderDataForApp) {
-        startHydrationRenderPhase(hydrationRenderDataForApp);
-      }
-      try {
-        await applySelectiveHydration(
-          rootElement,
-          hydrationResolved,
-          path,
-          config.cleanupStrict,
-          hydrateOptions,
-          appRouteSource,
-          {
-            mountOrUpdate: mountHydratedRoot,
-            registerAppNavigation,
-            registerRootCleanupCallback,
-            activateHydrationBoundary,
-          }
-        );
-      } finally {
-        if (hydrationRenderDataForApp) {
-          stopHydrationRenderPhase();
-        }
-      }
-      return;
+    configureScrollRestoration(config.scrollRestoration);
+
+    clearRouteState();
+    _applyManifest(manifest);
+
+    const routeAuth = config.auth ?? manifest.auth;
+    const appRouteSource = {
+      registry: config.registry,
+      auth: routeAuth,
+      runtime: createAppRenderRuntime({
+        framework: hydrationRenderData?.framework,
+        route: hydrationRenderData?.route,
+        hasRoute: hydrationRenderData !== null,
+        routeRegistry: config.registry,
+        routeAuth,
+      }),
+    };
+    _setActiveRouteAuthOptions(routeAuth);
+
+    const {
+      path,
+      href: currentUrl,
+      resolved,
+    } = await resolveInitialRoute(routeAuth, {
+      registry: config.registry,
+      load: false,
+    });
+    setServerLocation(currentUrl);
+    if (isProductionEnvironment()) lockRouteRegistration();
+
+    if (!resolved) {
+      throw new Error(`hydrateSPA: no route found for current path (${path}).`);
     }
 
-    if (hydrateOptions.skipSelectors?.length) {
-      markSkippedElements(rootElement, hydrateOptions.skipSelectors);
+    if (resolved.kind === 'redirect') {
+      throw new Error(
+        `hydrateSPA: unresolved redirect for current path (${path}).`
+      );
     }
-  }
 
-  if (hydrationRenderDataForApp) {
-    startHydrationRenderPhase(hydrationRenderDataForApp);
-  }
-  const listenerTransaction = beginHydrationListenerTransaction();
-  beginHydrationDirectListenerMode();
-  try {
-    mountHydratedRoot(
-      rootElement,
+    await reconcileInitialRouteMetadata(resolved);
+
+    const hydrationResolvedBase: ResolvedRoute =
       resolved.kind === 'deny'
-        ? bindDeniedStatus(resolved.status)
-        : bindResolvedRouteHandler(hydrationResolved),
-      {
-        cleanupStrict: config.cleanupStrict,
-        appRuntime: appRouteSource.runtime,
+        ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
+        : { handler: resolved.handler, params: resolved.params };
+    const hydrationResolved: ResolvedRoute = hydrationResolvedBase;
+    const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
+      withIntrinsicHydrationAdoption(() =>
+        mountOrUpdate(args[0], args[1], {
+          ...args[2],
+          cspNonce: config.cspNonce,
+        })
+      );
+
+    if (shouldVerifyHydrationMarkup(config)) {
+      const { verifyHydrationSyncForUrl } =
+        await import('../ssr/verify-hydration');
+      if (
+        !verifyHydrationSyncForUrl({
+          root: rootElement,
+          url: currentUrl,
+          registry: config.registry,
+          resolved: hydrationResolved,
+          options: {
+            data: hydrationRenderDataForApp?.resources,
+            dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
+            envelope: hydrationRenderDataForApp ?? undefined,
+            cspNonce: config.cspNonce,
+          },
+        })
+      ) {
+        throw new Error(
+          '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
+        );
       }
-    );
-    commitHydrationListenerTransaction(listenerTransaction);
-  } catch (error) {
-    discardHydrationListenerTransaction(listenerTransaction);
-    throw error;
-  } finally {
-    endHydrationDirectListenerMode();
-    if (hydrationRenderDataForApp) {
-      stopHydrationRenderPhase();
     }
+
+    const hydrateOptions = config.hydrate;
+    if (hydrateOptions) {
+      if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
+        if (hydrationRenderDataForApp) {
+          startHydrationRenderPhase(hydrationRenderDataForApp);
+        }
+        try {
+          await applySelectiveHydration(
+            rootElement,
+            hydrationResolved,
+            path,
+            config.cleanupStrict,
+            hydrateOptions,
+            appRouteSource,
+            {
+              mountOrUpdate: mountHydratedRoot,
+              registerAppNavigation,
+              registerRootCleanupCallback,
+              activateHydrationBoundary,
+            },
+            interactionReplay
+          );
+        } finally {
+          if (hydrationRenderDataForApp) {
+            stopHydrationRenderPhase();
+          }
+        }
+        interactionReplay.complete();
+        return;
+      }
+
+      if (hydrateOptions.skipSelectors?.length) {
+        markSkippedElements(rootElement, hydrateOptions.skipSelectors);
+      }
+    }
+
+    if (hydrationRenderDataForApp) {
+      startHydrationRenderPhase(hydrationRenderDataForApp);
+    }
+    const listenerTransaction = beginHydrationListenerTransaction();
+    beginHydrationDirectListenerMode();
+    try {
+      mountHydratedRoot(
+        rootElement,
+        resolved.kind === 'deny'
+          ? bindDeniedStatus(resolved.status)
+          : bindResolvedRouteHandler(hydrationResolved),
+        {
+          cleanupStrict: config.cleanupStrict,
+          appRuntime: appRouteSource.runtime,
+        }
+      );
+      commitHydrationListenerTransaction(listenerTransaction);
+      interactionReplay.complete();
+    } catch (error) {
+      discardHydrationListenerTransaction(listenerTransaction);
+      throw error;
+    } finally {
+      endHydrationDirectListenerMode();
+      if (hydrationRenderDataForApp) {
+        stopHydrationRenderPhase();
+      }
+    }
+    await registerAppNavigation(rootElement, path, {
+      ...appRouteSource,
+    });
+  } catch (error) {
+    interactionReplay.abort();
+    throw error;
   }
-  await registerAppNavigation(rootElement, path, {
-    ...appRouteSource,
-  });
 }

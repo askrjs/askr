@@ -11,6 +11,7 @@ import { registerDeferredHydrationBoundary } from '../renderer';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
 import { reviveDeferredValue } from '../common/deferred-value';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
+import type { HydrationInteractionReplay } from './hydration-interaction-replay';
 
 const DEFERRED_PAYLOAD = '__askr_deferred__';
 
@@ -227,7 +228,8 @@ export async function applySelectiveHydration(
   cleanupStrict: boolean | undefined,
   hydrateOptions: NonNullable<HydrateSPAConfig['hydrate']>,
   source: BootAppRouteSource,
-  hooks: HydrationRuntimeHooks
+  hooks: HydrationRuntimeHooks,
+  interactionReplay: HydrationInteractionReplay
 ): Promise<void> {
   const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
@@ -254,6 +256,7 @@ export async function applySelectiveHydration(
     staticChildSlotsCacheSuspended = true;
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
     deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
+    interactionReplay.registerDeferredBoundaries(deferredBoundaries);
 
     let selectiveHydrationResourcesReleased = false;
     let unregisterRootCleanupCallback = () => {};
@@ -284,7 +287,12 @@ export async function applySelectiveHydration(
       unregisterRootCleanupCallback();
       window.removeEventListener('scroll', handleScroll);
       restoreStaticChildSlotsCache();
+      interactionReplay.clearDeferredBoundaries();
     };
+
+    interactionReplay.setOnDeferredBoundariesDrained(
+      releaseSelectiveHydrationResources
+    );
 
     unregisterRootCleanupCallback = hooks.registerRootCleanupCallback(
       rootElement,
