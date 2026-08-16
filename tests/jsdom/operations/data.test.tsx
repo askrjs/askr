@@ -15,6 +15,7 @@ import {
 } from '../../../src/data';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import { createInvalidationRecorder } from '../../../src/testing';
+import { addInvalidationListener } from '../../../src/data/testing';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -207,6 +208,52 @@ describe('data layer', () => {
       ]);
     } finally {
       recorder.stop();
+    }
+  });
+
+  it('should diagnose a self-triggering invalidation cascade', () => {
+    const runtime = createDataRuntime();
+    const stop = addInvalidationListener((event) => {
+      if (event.prefix === 'loop:') invalidate('loop:', { runtime });
+    });
+
+    try {
+      expect(() => invalidate('loop:', { runtime })).toThrow(
+        '[Askr] Cyclic invalidation cascade detected for prefix "loop:".'
+      );
+    } finally {
+      stop();
+    }
+  });
+
+  it('should bound a runaway invalidation cascade with changing prefixes', () => {
+    const runtime = createDataRuntime();
+    const stop = addInvalidationListener((event) => {
+      invalidate(`${event.prefix}next:`, { runtime });
+    });
+
+    try {
+      expect(() => invalidate('start:', { runtime })).toThrow(
+        /\[Askr\] Invalidation cascade exceeded \d+ nested events at prefix/
+      );
+    } finally {
+      stop();
+    }
+  });
+
+  it('should preserve a short acyclic invalidation cascade', () => {
+    const runtime = createDataRuntime();
+    const prefixes: string[] = [];
+    const stop = addInvalidationListener((event) => {
+      prefixes.push(event.prefix);
+      if (event.prefix === 'users:') invalidate('teams:', { runtime });
+    });
+
+    try {
+      invalidate('users:', { runtime });
+      expect(prefixes).toEqual(['users:', 'teams:']);
+    } finally {
+      stop();
     }
   });
 
@@ -697,6 +744,53 @@ describe('data layer', () => {
     } finally {
       warnSpy.mockRestore();
       cleanup();
+    }
+  });
+
+  it('should bound shared-query conflict warnings at 100 and 1,000 readers', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const expectOneWarning = (readerCount: number, key: string) => {
+      const runtime = createDataRuntime();
+      const canonicalFetch = async () => 'canonical';
+      const conflictingFetch = async () => 'conflicting';
+      const Reader = ({ canonical }: { canonical: boolean }) => {
+        createQuery({
+          runtime,
+          key,
+          fetch: canonical ? canonicalFetch : conflictingFetch,
+        });
+        return null;
+      };
+      const App = (): JSXElement => (
+        <>
+          {Array.from({ length: readerCount }, (_, index) => (
+            <Reader key={index} canonical={index === 0} />
+          ))}
+        </>
+      );
+      const { container, cleanup } = createTestContainer();
+
+      try {
+        createIsland({ root: container, component: App });
+        flushScheduler();
+
+        const conflictWarnings = warnSpy.mock.calls.filter(([message]) =>
+          String(message).includes(
+            `[askr] Conflicting shared query definition for key "${key}"`
+          )
+        );
+        expect(conflictWarnings).toHaveLength(1);
+      } finally {
+        cleanup();
+      }
+    };
+
+    try {
+      expectOneWarning(100, 'users:warning-scale-100');
+      expectOneWarning(1_000, 'users:warning-scale-1000');
+    } finally {
+      warnSpy.mockRestore();
     }
   });
 
