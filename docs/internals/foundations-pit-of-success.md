@@ -87,6 +87,24 @@ function Dialog({ onClose, open }) {
 }
 ```
 
+When the dialog owns a dropdown, menu, or other surface rendered through a
+portal, register the portal root with the same dismissal policy. The nodes in
+`additionalInsideNodes` are treated as logically inside even though they are
+not DOM descendants of `node`:
+
+```typescript
+const dismiss = dismissable({
+  node: dialogRef.current,
+  additionalInsideNodes: [dropdownPortalRef.current],
+  onDismiss: onClose,
+});
+```
+
+Register the portal container rather than individual options so all current
+and future descendants remain protected. True outside interactions still
+dismiss normally. This explicit registration is the supported way to compose
+portals with `dismissable`; do not add a second outside-click implementation.
+
 ### NO PREVENTED: Creating custom dismissal logic
 
 ```typescript
