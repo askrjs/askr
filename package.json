@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.0.99",
+  "version": "0.2.0",
   "description": "Actor-backed deterministic UI framework",
   "keywords": [
     "askr",
@@ -148,8 +148,8 @@
     "prepublishOnly": "npm run check"
   },
   "dependencies": {
-    "@askrjs/auth": ">=0.0.8 <0.1.0",
-    "@askrjs/schema": ">=0.0.5 <0.1.0"
+    "@askrjs/auth": ">=0.2.0 <0.3.0",
+    "@askrjs/schema": ">=0.2.0 <0.3.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
