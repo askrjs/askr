@@ -63,4 +63,25 @@ describe('lazy route data', () => {
       resolveRouteRequest('/docs/reference', { registry, mode: 'spa' })
     ).rejects.toBeInstanceOf(RouteDataLoadError);
   });
+
+  it('should retry a failed module import on the next route request', async () => {
+    const loadDocs = vi
+      .fn<() => Promise<{ page: string }>>()
+      .mockRejectedValueOnce(new Error('content chunk unavailable'))
+      .mockResolvedValue({ page: 'docs' });
+    const registry = createRouteRegistry(() => {
+      route('/docs', () => null, {
+        loader: lazyRouteData(loadDocs),
+      });
+    });
+
+    await expect(
+      resolveRouteRequest('/docs', { registry, mode: 'spa' })
+    ).rejects.toBeInstanceOf(RouteDataLoadError);
+
+    await expect(
+      resolveRouteRequest('/docs', { registry, mode: 'spa' })
+    ).resolves.toMatchObject({ kind: 'render' });
+    expect(loadDocs).toHaveBeenCalledTimes(2);
+  });
 });
