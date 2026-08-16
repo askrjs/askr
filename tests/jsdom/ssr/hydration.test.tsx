@@ -967,10 +967,11 @@ describe('hydration (SSR)', () => {
 
       await hydration;
       flushScheduler();
+      expect(clicks).toBe(1);
 
       fireEvent.click(container.querySelector('#idle-btn') as HTMLElement);
       flushScheduler();
-      expect(clicks).toBe(1);
+      expect(clicks).toBe(2);
     });
 
     it('should restore the static child slot cache after deferred idle hydration', async () => {
@@ -1214,7 +1215,6 @@ describe('hydration (SSR)', () => {
         flushScheduler();
 
         fireEvent.click(container.querySelector('#hero-btn') as HTMLElement);
-        fireEvent.click(container.querySelector('#below-btn') as HTMLElement);
         flushScheduler();
 
         expect(clicks).toEqual(['hero']);
@@ -1507,9 +1507,14 @@ describe('hydration (SSR)', () => {
         flushScheduler();
 
         const button = container.querySelector('button') as HTMLButtonElement;
-        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         button.dispatchEvent(new Event('magic', { bubbles: true }));
         expect(events).toEqual([]);
+
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(events).toEqual(['capture', 'delegated']);
+
+        button.dispatchEvent(new Event('magic', { bubbles: true }));
+        expect(events).toEqual(['capture', 'delegated', 'custom']);
 
         Element.prototype.getBoundingClientRect = function () {
           return { top: 0 } as DOMRect;
@@ -1517,8 +1522,6 @@ describe('hydration (SSR)', () => {
         window.dispatchEvent(new Event('scroll'));
         flushScheduler();
 
-        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        button.dispatchEvent(new Event('magic', { bubbles: true }));
         expect(events).toEqual(['capture', 'delegated', 'custom']);
 
         cleanup();

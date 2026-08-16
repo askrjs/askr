@@ -40,7 +40,22 @@ await createIsland({ root: container, component: Button });
 // Now the button is interactive
 ```
 
-### 3. State Initializes Correctly
+### 3. Discrete Interactions Replay During Hydration
+
+`hydrateSPA()` installs a temporary root capture before its first asynchronous
+startup step. Clicks, pointer events, key events, input/change events, and form
+submissions that arrive before hydrated listeners commit are held and replayed
+in order once the matching server DOM becomes interactive. The original event
+is stopped while it is queued, so an interaction runs once rather than once
+before and once after hydration.
+
+With `deferBelowFold`, a discrete interaction inside a deferred boundary
+activates that boundary immediately and then replays against its committed
+listeners. Scroll and idle activation continue to work as before. Elements
+matched by `skipSelectors` are permanently static and are excluded from replay,
+so their native progressive-enhancement behavior is not intercepted.
+
+### 4. State Initializes Correctly
 
 State values ARE rendered in SSR:
 

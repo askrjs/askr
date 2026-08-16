@@ -68,7 +68,8 @@ Current behavior:
 
 - Below-fold elements are marked with `data-skip-hydrate="true"` before hydration.
 - Their event listeners and reactive props are not attached during the initial hydration pass.
-- When the subtree becomes visible again during scroll handling, Askr removes the marker and re-runs the root render so those nodes become interactive.
+- When the subtree becomes visible during scroll handling, Askr activates that boundary in place so its nodes become interactive.
+- A discrete interaction inside a still-deferred boundary activates it immediately and replays the interaction after its listeners commit.
 
 ### 2. Defer Until Idle
 
@@ -167,12 +168,13 @@ function DeferredButton() {
 }
 ```
 
-Clicks before activation are ignored. After activation, the button becomes interactive.
+Discrete interactions activate deferred below-fold content and replay once.
+Permanently skipped selectors stay static and are excluded from replay.
 
 ## Trade-offs
 
-1. **Delayed interactivity**: Below-fold content isn't interactive until hydrated
-2. **Rerender activation**: Deferred regions are activated by re-running the root render, so the feature favors coarse-grained deferral over per-island precision
+1. **Deferred work**: Below-fold content is activated by visibility, idle work, or its first discrete interaction
+2. **Boundary activation**: Deferred regions hydrate in place without rerunning the root
 3. **Complexity**: More configuration, harder to debug
 
 ## Best Practices
