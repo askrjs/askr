@@ -19,6 +19,7 @@ export interface ReadableSource<T = unknown> {
   (): T;
   _hasBeenRead?: boolean;
   _hasEverBeenRead?: boolean;
+  _unusedStateDiagnosticEligible?: boolean;
   _readers?: Map<ComponentInstance, { token: number; generation: object }>;
   _derivedSubscribers?: Set<DerivedSubscriber>;
   _version?: number;
@@ -41,7 +42,9 @@ export function markReadableUsage(source: unknown): void {
   ) {
     const readable = source as ReadableSource<unknown>;
     readable._hasBeenRead = true;
-    readable._hasEverBeenRead = true;
+    if (readable._unusedStateDiagnosticEligible === true) {
+      readable._hasEverBeenRead = true;
+    }
   }
 }
 
@@ -68,7 +71,9 @@ function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
 }
 
 export function recordReadableRead(source: ReadableSource<unknown>): void {
-  source._hasEverBeenRead = true;
+  if (source._unusedStateDiagnosticEligible === true) {
+    source._hasEverBeenRead = true;
+  }
 
   if (currentFineGrainedReadCollector) {
     const first = currentFineGrainedReadCollector._pendingFineGrainedReadSource;
