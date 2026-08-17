@@ -21,6 +21,12 @@ function readProductionJavaScript(): string {
 }
 
 describe('production artifact purity', () => {
+  it('should retain lifetime state-read tracking for consumer development diagnostics', () => {
+    const source = readProductionJavaScript();
+
+    expect(source).toContain('source._hasEverBeenRead = true');
+  });
+
   it('should exclude live benchmark and development-only state from dist', () => {
     const source = readProductionJavaScript();
 

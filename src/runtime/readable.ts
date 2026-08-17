@@ -41,9 +41,7 @@ export function markReadableUsage(source: unknown): void {
   ) {
     const readable = source as ReadableSource<unknown>;
     readable._hasBeenRead = true;
-    if (DEVELOPMENT_BUILD_ENABLED) {
-      readable._hasEverBeenRead = true;
-    }
+    readable._hasEverBeenRead = true;
   }
 }
 
@@ -70,9 +68,7 @@ function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
 }
 
 export function recordReadableRead(source: ReadableSource<unknown>): void {
-  if (DEVELOPMENT_BUILD_ENABLED) {
-    source._hasEverBeenRead = true;
-  }
+  source._hasEverBeenRead = true;
 
   if (currentFineGrainedReadCollector) {
     const first = currentFineGrainedReadCollector._pendingFineGrainedReadSource;
