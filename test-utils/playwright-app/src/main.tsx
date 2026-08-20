@@ -9,6 +9,7 @@ import {
 } from '@askrjs/auth';
 import { ErrorBoundary } from '@askrjs/askr/components';
 import { For } from '@askrjs/askr/control';
+import { createQueryCollection, defineQuery } from '@askrjs/askr/data';
 import {
   cleanupApp,
   createIsland,
@@ -1408,6 +1409,59 @@ function mountDeepComponentNestingScenario(depth: number): void {
   });
 }
 
+function mountQueryCollectionScenario(): void {
+  resetRoot();
+
+  type DatabaseInput = { database: string };
+  const schemaByDatabase = defineQuery({
+    key: ({ database }: DatabaseInput) => `browser-schemas:${database}`,
+    fetch: async ({ database, signal }) => {
+      const response = await fetch(`/api/schemas/${database}`, { signal });
+      if (!response.ok) throw new Error(`Schema request failed: ${database}`);
+      return (await response.json()) as { database: string; tables: number };
+    },
+  });
+
+  const App = () => {
+    const databases = state<readonly DatabaseInput[]>([
+      { database: 'postgres' },
+      { database: 'analytics' },
+      { database: 'warehouse' },
+    ]);
+    const catalogs = createQueryCollection({
+      query: schemaByDatabase,
+      inputs: databases,
+      key: ({ database }) => database,
+      concurrency: 2,
+    });
+
+    return (
+      <section aria-label="Dynamic schema browser">
+        <p data-testid="collection-status">
+          {catalogs.settled ? 'Settled' : 'Loading'}
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            databases.set([...databases(), { database: 'archive' }])
+          }
+        >
+          Add archive database
+        </button>
+        <ul>
+          {catalogs.entries.map(({ key, query }) => (
+            <li key={key} data-database={key}>
+              {key}:{query.data?.tables ?? 'loading'}
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  };
+
+  createIsland({ root, component: App });
+}
+
 async function runBrowserPerf(): Promise<Record<string, number>> {
   const rows = Array.from({ length: 1000 }, (_, index) => ({
     id: index + 1,
@@ -1553,6 +1607,7 @@ Object.assign(window, {
     mountNavLinkForScenario,
     mountAdjacentForBoundariesScenario,
     mountDeepComponentNestingScenario,
+    mountQueryCollectionScenario,
     profileBenchmarkOperations,
     runBrowserBench,
     runBrowserBenchSuite,
@@ -1586,6 +1641,7 @@ export {
   mountNavLinkForScenario,
   mountAdjacentForBoundariesScenario,
   mountDeepComponentNestingScenario,
+  mountQueryCollectionScenario,
   mountOrdersScenario,
   mountRoutedShellScenario,
   mountRouteDataDehydrationScenario,

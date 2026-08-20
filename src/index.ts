@@ -47,6 +47,7 @@ export { createRef } from './ref';
 export type { Ref } from './ref';
 export {
   createQuery,
+  createQueryCollection,
   defineQuery,
   serveQuery,
   defineServerQueries,
@@ -56,6 +57,10 @@ export {
 } from './data';
 export type {
   QueryDefinition,
+  QueryCollection,
+  QueryCollectionEntry,
+  QueryCollectionKey,
+  QueryCollectionOptions,
   QueryPrefetchContext,
   ServerQueryHandler,
   DataRuntime,

@@ -16,10 +16,17 @@
       "intent": "data queries and mutations",
       "package": "@askrjs/askr",
       "import": "@askrjs/askr/data",
-      "exports": ["createQuery", "defineQuery", "queryScope", "createMutation"],
+      "exports": [
+        "createQuery",
+        "createQueryCollection",
+        "defineQuery",
+        "queryScope",
+        "createMutation"
+      ],
       "constraints": [
         "query keys identify shared cache entries",
-        "fetches are cancellable"
+        "fetches are cancellable",
+        "query collections require component render scope"
       ],
       "stability": "stable",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/core/data.md",
