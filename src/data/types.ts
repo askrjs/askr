@@ -39,6 +39,48 @@ export interface QueryDefinition<TInput, TResult extends {}> {
   ) => Promise<boolean> | boolean;
 }
 
+/** Stable identity for one member of a {@link QueryCollection}. */
+export type QueryCollectionKey = string | number | symbol;
+
+/** One keyed input and its underlying cache-backed query reader. */
+export interface QueryCollectionEntry<
+  TInput,
+  TResult extends {},
+  TKey extends QueryCollectionKey = string,
+> {
+  readonly key: TKey;
+  readonly input: TInput;
+  readonly query: Query<TResult>;
+}
+
+/** Options for {@link createQueryCollection}. */
+export interface QueryCollectionOptions<
+  TInput,
+  TResult extends {},
+  TKey extends QueryCollectionKey = string,
+> {
+  readonly query: QueryDefinition<TInput, TResult>;
+  readonly inputs: () => readonly TInput[];
+  readonly key: (input: TInput) => TKey;
+  readonly concurrency?: number;
+  readonly runtime?: DataRuntime;
+}
+
+/** Aggregate reactive state for a lifecycle-owned dynamic query collection. */
+export interface QueryCollection<
+  TInput,
+  TResult extends {},
+  TKey extends QueryCollectionKey = string,
+> {
+  readonly entries: readonly QueryCollectionEntry<TInput, TResult, TKey>[];
+  readonly loading: boolean;
+  readonly settled: boolean;
+  readonly results: ReadonlyMap<TKey, TResult>;
+  readonly errors: ReadonlyMap<TKey, {}>;
+  get(key: TKey): QueryCollectionEntry<TInput, TResult, TKey> | undefined;
+  retry(key: TKey): Promise<void>;
+}
+
 /** Context passed to server prefetch callbacks, exposing a scoped `prefetch` helper. */
 export interface QueryPrefetchContext {
   readonly runtime: DataRuntime;

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat(data): add lifecycle-owned dynamic keyed query collections with bounded
+  initial loading, aggregate state, per-key retry, and shared query caching.
 - fix(runtime): reject recursive `derive()` and `selector()` reads before a
   memoized value can bypass the self-evaluation guard.
 - fix(runtime): route scheduled descendant and portal materialization failures
