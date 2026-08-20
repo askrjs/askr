@@ -40,6 +40,7 @@ describe('public entrypoint resolution', () => {
     expect(typeof control.Match).toBe('function');
 
     expect(typeof data.createQuery).toBe('function');
+    expect(typeof data.createQueryCollection).toBe('function');
     expect(typeof data.createMutation).toBe('function');
     expect(typeof data.invalidate).toBe('function');
 

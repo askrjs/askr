@@ -26,6 +26,7 @@ describe('verified platform recipe documentation', () => {
       'Persistent routed shell',
       'SSR-safe route-driven search',
       'Hydrated query data',
+      'Dynamic schema browser',
       'Error boundary placement',
       'Test the recipes',
     ]) {
@@ -41,6 +42,9 @@ describe('verified platform recipe documentation', () => {
       /Loading, failure, invalidation, hydration[^\n]*\|\s*Yes\s*\|\s*Yes\s*\|\s*Yes\s*\|/
     );
     expect(recipes).toMatch(
+      /Dynamic keyed data with bounded loading[^\n]*\|\s*Yes\s*\|\s*Data\s*\|\s*Data\s*\|/
+    );
+    expect(recipes).toMatch(
       /Local and route-level recovery[^\n]*\|\s*Yes\s*\|\s*Local\s*\|\s*Local\s*\|/
     );
   });
@@ -52,6 +56,7 @@ describe('verified platform recipe documentation', () => {
       'routed-shell.tsx',
       'browser-search.tsx',
       'data-hydration.tsx',
+      'dynamic-schema-browser.tsx',
       'error-boundaries.tsx',
     ]) {
       expect(recipes).toContain(`../../examples/platform-recipes/${fileName}`);

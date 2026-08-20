@@ -190,6 +190,72 @@ surface as stale-with-value so apps can keep rendering the last committed data. 
 `null` or `undefined` from `fetch()`. Nullish thrown values are normalized before they reach
 `error`, so any surfaced query error is always non-null.
 
+### Dynamic query collections
+
+Use `createQueryCollection()` when one component owns a changing set of inputs
+for one `QueryDefinition`. The collection uses the same `DataRuntime` cache and
+query cells as `createQuery()`, while bounding the first loads and collection
+retries that it starts:
+
+```tsx
+import { state } from '@askrjs/askr';
+import { createQueryCollection, defineQuery } from '@askrjs/askr/data';
+
+const schemaByDatabase = defineQuery({
+  key: ({ database }: { database: string }) => `schemas:${database}`,
+  fetch: async ({ database, signal }) => {
+    const response = await fetch(`/api/databases/${database}/schema`, {
+      signal,
+    });
+    return (await response.json()) as { tables: readonly string[] };
+  },
+});
+
+function SchemaBrowser() {
+  const databases = state(['postgres', 'analytics', 'warehouse']);
+  const catalogs = createQueryCollection({
+    query: schemaByDatabase,
+    inputs: () => databases().map((database) => ({ database })),
+    key: ({ database }) => database,
+    concurrency: 3,
+  });
+
+  return (
+    <ul>
+      {catalogs.entries.map(({ key, query }) => (
+        <li key={key}>
+          {key}: {query.data?.tables.length ?? 'loading'}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+`entries` preserves the input order and exposes each underlying `query`.
+`results` and `errors` are keyed maps containing settled data and per-key
+errors. `loading` is true while any entry is loading or refreshing, and
+`settled` is its inverse. Use `retry(key)` to retry one entry through the
+collection's concurrency queue.
+
+Collection identity and lifecycle are deterministic:
+
+- The first input for a duplicate collection key wins. Reordering a key keeps
+  its query reader; changing the query key for that collection key replaces it.
+- Growth starts only uncached entries. Shrinkage detaches removed readers and
+  aborts their work when the collection held the last cache reader.
+- Component unmount detaches every reader, cancels queued starts, and aborts
+  in-flight work that no other query reader owns.
+- Query-definition keys still own cache identity, request deduplication,
+  freshness, and prefix invalidation. Two collection keys that resolve to the
+  same query key share one query cell.
+- `concurrency` defaults to 4 and must be a positive integer. It bounds initial
+  collection loads and `retry()` calls. Direct `entry.query.refresh()` and
+  global `invalidate()` retain their existing immediate query semantics.
+- During SSR and SSG rendering, the collection reads hydrated query data but
+  does not start client fetches. Prefetch the definition's inputs into the
+  request-owned runtime before rendering.
+
 ### Query UI cookbook
 
 Use the explicit query fields directly in app UI:

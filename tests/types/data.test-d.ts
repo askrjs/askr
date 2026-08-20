@@ -3,6 +3,7 @@ import {
   createDataRuntime,
   createMutation,
   createQuery,
+  createQueryCollection,
   createQueryPrefetchContext,
   defineServerQueries,
   defineQuery,
@@ -23,6 +24,10 @@ import {
   type Mutation,
   type MutationOptions,
   type Query,
+  type QueryCollection,
+  type QueryCollectionEntry,
+  type QueryCollectionKey,
+  type QueryCollectionOptions,
   type QueryConsistency,
   type QueryDefinition,
   type QueryKeyPart,
@@ -58,6 +63,34 @@ const userDefinition = defineQuery({
   },
 });
 expectType<QueryDefinition<{ id: string }, { id: string }>>(userDefinition);
+
+const userCollectionOptions: QueryCollectionOptions<
+  { id: string },
+  { id: string },
+  string
+> = {
+  runtime: dataRuntime,
+  query: userDefinition,
+  inputs: () => [{ id: '123' }, { id: '456' }] as const,
+  key: ({ id }) => id,
+  concurrency: 2,
+};
+const userCollection = createQueryCollection(userCollectionOptions);
+expectType<QueryCollection<{ id: string }, { id: string }, string>>(
+  userCollection
+);
+expectType<
+  readonly QueryCollectionEntry<{ id: string }, { id: string }, string>[]
+>(userCollection.entries);
+expectType<boolean>(userCollection.loading);
+expectType<boolean>(userCollection.settled);
+expectType<ReadonlyMap<string, { id: string }>>(userCollection.results);
+expectType<ReadonlyMap<string, {}>>(userCollection.errors);
+expectType<
+  QueryCollectionEntry<{ id: string }, { id: string }, string> | undefined
+>(userCollection.get('123'));
+expectType<Promise<void>>(userCollection.retry('123'));
+expectAssignable<QueryCollectionKey>('123');
 
 const userHandler: ServerQueryHandler<{ id: string }, { id: string }> = ({
   input,
@@ -305,6 +338,21 @@ expectError(scoped.invalidate('buckets'));
 expectError(invalidateOnInterval('user:'));
 expectError(invalidateOnInterval('user:', { activeOn: '/' }));
 expectError(invalidateOnInterval('user:', { intervalMs: '1000' }));
+expectError(
+  createQueryCollection({
+    query: userDefinition,
+    inputs: () => [{ id: '123' }],
+    key: ({ id }) => ({ id }),
+  })
+);
+expectError(
+  createQueryCollection({
+    query: userDefinition,
+    inputs: () => [{ id: '123' }],
+    key: ({ id }) => id,
+    concurrency: '2',
+  })
+);
 expectError(
   createQuery({
     key: 'bad',

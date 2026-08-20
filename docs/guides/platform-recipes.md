@@ -15,6 +15,7 @@ subpaths independently.
 | Persistent routed shell   | `@askrjs/askr/router`                                          |
 | Browser-safe search       | `@askrjs/askr`, `/control`, `/resources`, `/router`            |
 | Query hydration           | `@askrjs/askr/data`                                            |
+| Dynamic schema browser    | `@askrjs/askr`, `/data`                                        |
 | Error boundary placement  | `@askrjs/askr`, `/components`, `/router`                       |
 | Consumer behavior testing | `@askrjs/askr/testing` and the application's configured runner |
 
@@ -29,6 +30,7 @@ instead of copying their recipes.
 | Active navigation in a persistent layout  | [Persistent routed shell](#persistent-routed-shell)           | Yes | Yes   | Yes   |
 | Browser listeners and controlled search   | [SSR-safe route-driven search](#ssr-safe-route-driven-search) | Yes | Yes   | Yes   |
 | Loading, failure, invalidation, hydration | [Hydrated query data](#hydrated-query-data)                   | Yes | Yes   | Yes   |
+| Dynamic keyed data with bounded loading   | [Dynamic schema browser](#dynamic-schema-browser)             | Yes | Data  | Data  |
 | Local and route-level recovery            | [Error boundary placement](#error-boundary-placement)         | Yes | Local | Local |
 | Public component and router tests         | [Test the recipes](#test-the-recipes)                         | Yes | N/A   | N/A   |
 
@@ -185,6 +187,50 @@ Failure and empty states:
 - Refresh failure may retain the last data; keep it visible and explain that it
   is stale.
 - Model a valid empty result as an object or array, not `null` or `undefined`.
+
+## Dynamic schema browser
+
+Turn a reactive database list into one lifecycle-owned collection instead of
+calling a changing number of hooks from a loop. The collection shares normal
+query cache entries, starts at most three collection-owned requests at once,
+and keeps per-database retry available through `retry(key)`.
+
+The complete component is
+[dynamic-schema-browser.tsx](../../examples/platform-recipes/dynamic-schema-browser.tsx).
+
+```tsx
+import { createQueryCollection, type QueryDefinition } from '@askrjs/askr/data';
+
+type DatabaseInput = { database: string };
+declare const databases: () => readonly string[];
+declare const schemaByDatabase: QueryDefinition<
+  DatabaseInput,
+  { tables: readonly string[] }
+>;
+
+const catalogs = createQueryCollection({
+  query: schemaByDatabase,
+  inputs: () => databases().map((database) => ({ database })),
+  key: ({ database }: DatabaseInput) => database,
+  concurrency: 3,
+});
+```
+
+Lifecycle and cleanup:
+
+- Reordering preserves keyed readers and does not refetch fresh cache entries.
+- Removed keys and component unmount detach readers; last-reader removal aborts
+  active work and queued collection starts never run.
+- Duplicate collection keys use the first input in the current input order.
+
+Failure and empty states:
+
+- `errors` maps collection keys to their per-query errors; the entry still
+  exposes its complete query state.
+- `results` contains successful values only. An empty input array is already
+  settled and produces empty `entries`, `results`, and `errors`.
+- `loading` covers initial and refresh work; use `settled` for aggregate search
+  progress and `retry(key)` for a bounded per-database retry.
 
 ## Error boundary placement
 

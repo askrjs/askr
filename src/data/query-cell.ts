@@ -224,6 +224,17 @@ export class QueryCell<T> {
     return this.state.staleReason;
   }
 
+  /** @internal Whether a collection should schedule this cell's first load. */
+  needsInitialStart(): boolean {
+    return (
+      !this.destroyed &&
+      this.state.data === null &&
+      this.state.error === null &&
+      !this.pendingRefresh &&
+      !this.startQueued
+    );
+  }
+
   ensureStarted(): void {
     if (
       this.destroyed ||

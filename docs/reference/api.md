@@ -50,7 +50,7 @@ Public types:
     for the `selector()` and thunk-prop patterns. A row callback is reconciled by
     `<For>` and should not rely on plain closure captures of changing parent state.
 
-- `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createMutation`, `invalidate`, and `invalidateOnInterval`
+- `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createQueryCollection`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
 - `@askrjs/askr/resources` - async resource helpers such as `resource`, `stream`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`
 - `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, metadata, critical `routeData`, and deferred `Resolve` boundaries
@@ -112,6 +112,7 @@ await createSPA({ root: document.body, registry });
 - Router page components, `lazy()` route components, and router layout functions also return normal renderable content rather than imperative DOM `Node` values.
 - `lazy()` preserves its import factory until the route is matched. Call the returned component's `preload()` method when an interaction or application policy should fetch that route earlier.
 - `createQuery()` exposes `consistency` plus `staleReason` so settled stale states can be narrowed into `inconsistent`, `aborted`, or `error` without guessing from broad booleans alone.
+- `createQueryCollection()` owns a dynamic keyed set of one query definition, bounds collection-started loads and retries, and exposes aggregate results and per-key errors without introducing another cache.
 - `createDataRuntime()` creates isolated query and mutation state for tests, embedded apps, and multi-root shells; pass it through data operation options with `runtime`.
 - `resource()` is available from `@askrjs/askr/resources`.
 - `renderToString()`, `renderToStream()`, `resolveRequest()`, and `createStaticGen()` accept route registries captured with `createRouteRegistry()`.
