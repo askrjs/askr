@@ -35,6 +35,13 @@ interface LaneQueue {
   head: number;
 }
 
+interface FlushWaiter {
+  target: number;
+  resolve: () => void;
+  reject: (err: unknown) => void;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
 export class Scheduler {
   private bulkCommitProbe: SchedulerBulkCommitProbe = () => false;
 
@@ -60,12 +67,7 @@ export class Scheduler {
   private allowSyncProgress = false;
 
   // Waiters waiting for flushVersion >= target
-  private waiters: Array<{
-    target: number;
-    resolve: () => void;
-    reject: (err: unknown) => void;
-    timer?: ReturnType<typeof setTimeout>;
-  }> = [];
+  private waiters: FlushWaiter[] = [];
 
   // Keep a lightweight taskCount for compatibility/diagnostics
   private taskCount = 0;
@@ -328,7 +330,14 @@ export class Scheduler {
     if (this.flushVersion >= target) return Promise.resolve();
 
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const waiter: FlushWaiter = { target, resolve, reject };
+      waiter.timer = setTimeout(() => {
+        const index = this.waiters.indexOf(waiter);
+        if (index >= 0) {
+          this.waiters.splice(index, 1);
+        }
+        if (waiter.timer !== undefined) clearTimeout(waiter.timer);
+
         const diag = {
           flushVersion: this.flushVersion,
           queueLen: this.getPendingTaskCount(),
@@ -353,7 +362,7 @@ export class Scheduler {
         );
       }, timeoutMs);
 
-      this.waiters.push({ target, resolve, reject, timer });
+      this.waiters.push(waiter);
     });
   }
 
@@ -469,7 +478,7 @@ export class Scheduler {
 
     for (const w of this.waiters) {
       if (this.flushVersion >= w.target) {
-        if (w.timer) clearTimeout(w.timer);
+        if (w.timer !== undefined) clearTimeout(w.timer);
         ready.push(w.resolve);
       } else {
         remaining.push(w);
