@@ -9,6 +9,8 @@ import {
 } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { hydrateSPA } from '../../../src/boot';
+import { applySelectiveHydration } from '../../../src/boot/hydration';
+import type { HydrationInteractionReplay } from '../../../src/boot/hydration-interaction-replay';
 import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
 import { createDataRuntime } from '../../../src/data';
@@ -941,6 +943,74 @@ describe('hydration (SSR)', () => {
       vi.unstubAllGlobals();
     });
 
+    it.each([
+      { deferUntilIdle: false, skipSelectors: false, deferBelowFold: false },
+      { deferUntilIdle: false, skipSelectors: false, deferBelowFold: true },
+      { deferUntilIdle: false, skipSelectors: true, deferBelowFold: false },
+      { deferUntilIdle: false, skipSelectors: true, deferBelowFold: true },
+      { deferUntilIdle: true, skipSelectors: false, deferBelowFold: false },
+      { deferUntilIdle: true, skipSelectors: false, deferBelowFold: true },
+      { deferUntilIdle: true, skipSelectors: true, deferBelowFold: false },
+      { deferUntilIdle: true, skipSelectors: true, deferBelowFold: true },
+    ])(
+      'should preserve initial mount timing for hydrate option matrix %#',
+      async ({ deferUntilIdle, skipSelectors, deferBelowFold }) => {
+        vi.useFakeTimers();
+        container.innerHTML = '<div class="static">static</div>';
+        const mountOrUpdate = vi.fn();
+        const interactionReplay: HydrationInteractionReplay = {
+          registerDeferredBoundaries: vi.fn(),
+          setOnDeferredBoundariesDrained: vi.fn(),
+          clearDeferredBoundaries: vi.fn(),
+          complete: vi.fn(),
+          abort: vi.fn(),
+        };
+
+        try {
+          const hydration = applySelectiveHydration(
+            container,
+            { handler: () => null, params: {} },
+            '/',
+            undefined,
+            {
+              deferUntilIdle,
+              deferBelowFold,
+              foldThreshold: 100,
+              skipSelectors: skipSelectors ? ['.static'] : undefined,
+            },
+            {
+              registry: routeRegistryFromTable([
+                { path: '/', handler: () => null },
+              ]),
+            },
+            {
+              mountOrUpdate,
+              registerAppNavigation: vi.fn(async () => undefined),
+              registerRootCleanupCallback: vi.fn(() => () => undefined),
+              activateHydrationBoundary: vi.fn(() => true),
+            },
+            interactionReplay
+          );
+
+          const delaysInitialMount = deferUntilIdle && !deferBelowFold;
+          expect(mountOrUpdate).toHaveBeenCalledTimes(
+            delaysInitialMount ? 0 : 1
+          );
+
+          await vi.advanceTimersByTimeAsync(1);
+          await hydration;
+          expect(mountOrUpdate).toHaveBeenCalledTimes(1);
+          expect(
+            container
+              .querySelector('.static')
+              ?.hasAttribute('data-skip-hydrate')
+          ).toBe(skipSelectors);
+        } finally {
+          vi.useRealTimers();
+        }
+      }
+    );
+
     it('should defer full hydration until idle when configured', async () => {
       let clicks = 0;
 
@@ -972,6 +1042,38 @@ describe('hydration (SSR)', () => {
       fireEvent.click(container.querySelector('#idle-btn') as HTMLElement);
       flushScheduler();
       expect(clicks).toBe(2);
+    });
+
+    it('should preserve idle deferral when permanent skip selectors are also configured', async () => {
+      let clicks = 0;
+      const Component = () => (
+        <div>
+          <div class="permanently-static">static</div>
+          <button id="idle-skip-btn" onClick={() => (clicks += 1)}>
+            idle
+          </button>
+        </div>
+      );
+      const routes = [{ path: '/', handler: Component }];
+      container.innerHTML = renderToString({
+        url: '/',
+        registry: routeRegistryFromTable(routes),
+      });
+
+      const hydration = hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable(routes),
+        hydrate: {
+          deferUntilIdle: true,
+          skipSelectors: ['.permanently-static'],
+        },
+      });
+
+      fireEvent.click(container.querySelector('#idle-skip-btn') as HTMLElement);
+      expect(clicks).toBe(0);
+      await hydration;
+      flushScheduler();
+      expect(clicks).toBe(1);
     });
 
     it('should restore the static child slot cache after deferred idle hydration', async () => {

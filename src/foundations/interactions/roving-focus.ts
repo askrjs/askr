@@ -147,8 +147,9 @@ export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
     let direction: 1 | -1 | undefined;
 
     if (orientation === 'horizontal' || orientation === 'both') {
-      if (key === 'ArrowRight') direction = 1;
-      if (key === 'ArrowLeft') direction = -1;
+      const textDirection = resolveTextDirection(e);
+      if (key === 'ArrowRight') direction = textDirection === 'rtl' ? -1 : 1;
+      if (key === 'ArrowLeft') direction = textDirection === 'rtl' ? 1 : -1;
     }
 
     if (orientation === 'vertical' || orientation === 'both') {
@@ -176,6 +177,16 @@ export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
       'data-roving-index': index,
     }),
   };
+}
+
+function resolveTextDirection(event: KeyboardLikeEvent): 'ltr' | 'rtl' {
+  const candidate = event.currentTarget ?? event.target;
+  if (typeof Element === 'undefined' || !(candidate instanceof Element)) {
+    return 'ltr';
+  }
+  const direction =
+    candidate.ownerDocument.defaultView?.getComputedStyle(candidate).direction;
+  return direction === 'rtl' ? 'rtl' : 'ltr';
 }
 
 /**

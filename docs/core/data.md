@@ -176,7 +176,8 @@ previous value available. A mutation-driven invalidation commits `pending-write`
 moves to `refreshing` when the confirming fetch starts.
 `staleReason` narrows settled stale states into `inconsistent`, `aborted`, or `error`.
 Manual calls to `refresh()` coalesce while a request is pending. `invalidate()`
-is the distinct operation that replaces stale work. A `reconcile` callback may
+is the distinct operation that replaces stale work; rapid invalidations before
+the replacement begins coalesce into the latest queued refresh. A `reconcile` callback may
 be async; its decision is awaited before any retry is scheduled, and a thrown
 consistency or reconciliation callback becomes a terminal stale error.
 The key also defines the query contract itself. If multiple readers use the same key, or one

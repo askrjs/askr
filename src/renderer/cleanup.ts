@@ -6,6 +6,7 @@ import {
   clearDelegatedHandlersForElement,
   removeDelegatedListener,
 } from '../runtime';
+import { setRef } from '../foundations/utilities/compose-ref';
 
 type InstanceHost = Node & {
   __ASKR_INSTANCE?: unknown;
@@ -53,20 +54,7 @@ export function replaceElementRefBookkeeping(
 }
 
 function applyRefValue<T>(ref: unknown, value: T | null): void {
-  const resolvedRef = ref as Ref<T>;
-
-  if (!resolvedRef) {
-    return;
-  }
-
-  if (typeof resolvedRef === 'function') {
-    resolvedRef(value);
-    return;
-  }
-
-  if (Object.isExtensible(resolvedRef)) {
-    (resolvedRef as { current: T | null }).current = value;
-  }
+  setRef(ref as Ref<T>, value);
 }
 
 export function updateElementRef<T extends Element>(

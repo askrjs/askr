@@ -8,6 +8,7 @@ import {
   resolveDataRuntimeState,
 } from '../data/data-runtime';
 import { readActionFramework } from './runtime';
+import { isCurrentAsyncGeneration } from '../data/shared';
 
 const actionSubmissionGenerations = new WeakMap<object, number>();
 
@@ -164,15 +165,27 @@ export function action<
               (prefix): prefix is string => typeof prefix === 'string'
             )
           : descriptor.invalidates;
-        if (generation === actionSubmissionGenerations.get(value)) {
-          for (const prefix of invalidates)
-            invalidateQueriesForRuntime(runtime, prefix, true);
+        // Every successful server mutation invalidates its confirmed prefixes,
+        // even when a newer submission owns the visible action state.
+        for (const prefix of invalidates)
+          invalidateQueriesForRuntime(runtime, prefix, true);
+        if (
+          isCurrentAsyncGeneration(
+            actionSubmissionGenerations.get(value) ?? 0,
+            generation
+          )
+        ) {
           setValue({ pending: false, result: envelope.result });
           if (redirect) location.assign(redirect);
         }
         return envelope.result as TResult;
       } catch (error) {
-        if (generation === actionSubmissionGenerations.get(value)) {
+        if (
+          isCurrentAsyncGeneration(
+            actionSubmissionGenerations.get(value) ?? 0,
+            generation
+          )
+        ) {
           setValue({ pending: false, error });
         }
         throw error;

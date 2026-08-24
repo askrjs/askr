@@ -112,6 +112,7 @@ export function createRenderContext(
     params?: Record<string, string>;
     routes?: readonly Route[];
     routeAuth?: RouteAuthOptions;
+    authContext?: AuthContext;
     basePath?: string;
     signal?: AbortSignal;
     dataRuntime?: unknown;
@@ -141,6 +142,7 @@ export function createRenderContext(
     params: opts.params,
     routes: opts.routes,
     routeAuth: opts.routeAuth,
+    authContext: opts.authContext,
     basePath: opts.basePath,
     signal: opts.signal,
     dataRuntime: opts.dataRuntime ?? createDataRuntime({ queryCache }),

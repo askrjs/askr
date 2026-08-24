@@ -312,6 +312,8 @@ may return native promises or compatible promise-like values. Decisions are
 awaited in declaration order. During client navigation, an auth result that
 settles after its request was aborted by a newer navigation is discarded, so
 `currentAuth()` continues to describe the navigation that actually committed.
+During server rendering it is scoped to the request render context, including
+deferred streaming boundaries, so concurrent requests cannot replace it.
 
 ## `fallback(Component)`
 

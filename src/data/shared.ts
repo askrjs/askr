@@ -25,6 +25,27 @@ export function isAbortError(error: unknown, signal: AbortSignal): boolean {
   );
 }
 
+/** Whether an async result still belongs to the latest generation. */
+export function isCurrentAsyncGeneration(
+  currentGeneration: number,
+  capturedGeneration: number
+): boolean {
+  return currentGeneration === capturedGeneration;
+}
+
+/** Whether an async result still owns both its generation and controller. */
+export function isCurrentAsyncOperation(
+  currentGeneration: number,
+  capturedGeneration: number,
+  currentController: AbortController | null,
+  capturedController: AbortController
+): boolean {
+  return (
+    isCurrentAsyncGeneration(currentGeneration, capturedGeneration) &&
+    currentController === capturedController
+  );
+}
+
 export function normalizeAsyncDataError(
   error: unknown,
   fallbackMessage: string

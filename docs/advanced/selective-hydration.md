@@ -92,6 +92,7 @@ Uses `requestIdleCallback` internally when available and falls back to `setTimeo
 Current behavior:
 
 - If `deferUntilIdle` is used by itself, Askr delays the hydration pass until the idle callback fires.
+- `skipSelectors` does not change that timing: permanent skips are marked before the same idle-delayed hydration pass.
 - If it is combined with `deferBelowFold`, Askr hydrates the visible shell first and can activate deferred below-fold regions during the later idle pass.
 
 ### 3. Skip Static Content

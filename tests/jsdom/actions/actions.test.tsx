@@ -68,6 +68,53 @@ describe('actions', () => {
     }
   });
 
+  it('should invalidate a successful superseded submission without replacing newer visible state', async () => {
+    let resolveFirst!: (response: Response) => void;
+    let resolveSecond!: (response: Response) => void;
+    getDefaultDataRuntime().queryData.set('first:record', { stale: true });
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementationOnce(
+          () => new Promise<Response>((resolve) => (resolveFirst = resolve))
+        )
+        .mockImplementationOnce(
+          () => new Promise<Response>((resolve) => (resolveSecond = resolve))
+        )
+    );
+    let command!: ReturnType<
+      typeof action<{ name: string }, { saved: string }>
+    >;
+    const App = () => {
+      command = action<{ name: string }, { saved: string }>(save);
+      return <div>{command.state().result?.saved ?? 'idle'}</div>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const first = command.submit({ name: 'first' });
+      const second = command.submit({ name: 'second' });
+
+      resolveFirst(
+        Response.json({
+          result: { saved: 'first' },
+          invalidates: ['first:'],
+        })
+      );
+      await first;
+      expect(getDefaultDataRuntime().queryData.has('first:record')).toBe(false);
+      expect(command.state().pending).toBe(true);
+
+      resolveSecond(Response.json({ result: { saved: 'second' } }));
+      await second;
+      expect(command.state().result).toEqual({ saved: 'second' });
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should ignore a stale action result after the first submission rerenders its owner', async () => {
     let resolveFirst!: (response: Response) => void;
     let resolveSecond!: (response: Response) => void;
