@@ -10,6 +10,10 @@ import {
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { For } from '../../../src/control';
+import {
+  createComponentInstance,
+  mountInstanceInline,
+} from '../../../src/runtime/component';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
 import {
   createTestContainer,
@@ -90,6 +94,34 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       expect(() =>
         createIsland({ root: container, component: Component })
       ).not.toThrow();
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  it('should silently swallow component host bookkeeping failures in production', () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const target = document.createElement('div');
+    Object.defineProperty(target, '__ASKR_INSTANCES', {
+      configurable: true,
+      set() {
+        throw new Error('host is read-only');
+      },
+    });
+    const BrokenHost = () => null;
+    const instance = createComponentInstance(
+      'broken-host',
+      BrokenHost,
+      {},
+      target
+    );
+
+    try {
+      mountInstanceInline(instance, target);
       expect(warn).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();

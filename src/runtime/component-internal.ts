@@ -267,7 +267,7 @@ export function mountInstanceInline(
   // Record backref on host element so renderer can clean up when the
   // node is removed. Avoids leaks if the node is detached or replaced.
   try {
-    if (target instanceof Element) {
+    if (typeof Element !== 'undefined' && target instanceof Element) {
       const host = target as Element & {
         __ASKR_INSTANCE?: ComponentInstance;
         __ASKR_INSTANCES?: ComponentInstance[];
@@ -288,7 +288,19 @@ export function mountInstanceInline(
       }
     }
   } catch (err) {
-    void err;
+    if (isDevelopmentEnvironment()) {
+      const componentName = instance.fn.name || instance.id;
+      let hostName = 'unknown';
+      try {
+        hostName = target?.tagName?.toLowerCase() || hostName;
+      } catch {
+        // Keep the original bookkeeping failure as the useful diagnostic.
+      }
+      logger.warn(
+        `[askr] Failed to record DOM ownership for ${componentName} on <${hostName}>.`,
+        err
+      );
+    }
   }
 
   // Ensure notifyUpdate is available for async resource completions that may

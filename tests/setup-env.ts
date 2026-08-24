@@ -12,6 +12,7 @@ const FRAMEWORK_WARNING_PATTERNS = [
   /Missing keys on dynamic lists/,
   /Invalid For key detected/,
   /Duplicate For key detected/,
+  /Failed to record DOM ownership/,
 ];
 const DIAGNOSTIC_WARNING_PATTERNS = [/\[askr\] Slow render detected/];
 const originalWarn = logger.warn;

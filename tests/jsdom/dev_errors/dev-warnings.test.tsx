@@ -11,6 +11,10 @@ import { configureRenderDiagnostics, state } from '../../../src/index';
 import { For } from '../../../src/control';
 import { getDevValue } from '../../../src/runtime/dev-namespace';
 import {
+  createComponentInstance,
+  mountInstanceInline,
+} from '../../../src/runtime/component';
+import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
@@ -46,6 +50,32 @@ describe('dev warnings (DEV_ERRORS)', () => {
     expect(getCapturedFrameworkWarnings().join('\n')).toContain(
       'Missing keys on dynamic lists'
     );
+  });
+
+  it('should warn when component host bookkeeping fails', () => {
+    allowFrameworkWarnings(/Failed to record DOM ownership for BrokenHost/);
+    const target = document.createElement('div');
+    Object.defineProperty(target, '__ASKR_INSTANCES', {
+      configurable: true,
+      set() {
+        throw new Error('host is read-only');
+      },
+    });
+    const BrokenHost = () => null;
+    const instance = createComponentInstance(
+      'broken-host',
+      BrokenHost,
+      {},
+      target
+    );
+
+    mountInstanceInline(instance, target);
+
+    const warning = getCapturedFrameworkWarnings().join('\n');
+    expect(warning).toContain(
+      'Failed to record DOM ownership for BrokenHost on <div>'
+    );
+    expect(warning).toContain('host is read-only');
   });
 
   it('should warn given unused state variable when rendering', async () => {
