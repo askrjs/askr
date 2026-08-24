@@ -2,14 +2,32 @@
 
 ## Creating State
 
+`state()` supports two equivalent usage forms. The tuple form names the getter
+and setter separately:
+
 ```ts
 const [value, setValue] = state(initialValue);
 ```
 
-`state()` returns a getter and setter pair:
+The direct form keeps the callable state cell and its `.set()` method together:
+
+```ts
+const value = state(initialValue);
+
+value();
+value.set(nextValue);
+```
+
+The returned value is one callable, iterable state cell. Tuple destructuring
+returns that same cell as `getter` and its `.set()` method as `setter`:
 
 - `getter()` reads the current value
 - `setter(valueOrUpdater)` updates the value
+
+Prefer the tuple form when distinct local read/write names improve clarity.
+Prefer the direct form when passing the state cell as one value or keeping its
+read and write operations under one name. Tracking and scheduling semantics are
+identical.
 
 When the state value itself is a function, always use updater form to replace
 it. `setFormatter(() => nextFormatter)` is safe; a direct function argument is
