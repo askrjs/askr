@@ -639,6 +639,8 @@ export function renderToStringSync(
     /** @internal A composed page render envelope. */
     envelope?: import('../common/page-render-envelope').PageRenderEnvelope;
     cspNonce?: string;
+    /** @internal Request-local authentication for deferred SSR passes. */
+    authContext?: import('@askrjs/auth').AuthContext;
     /** @internal Capture request-local registrations produced by this pass. */
     onContext?: (ctx: RenderContext) => void;
   }
@@ -649,6 +651,7 @@ export function renderToStringSync(
     data: options?.data,
     envelope: options?.envelope,
     cspNonce: nonce,
+    authContext: options?.authContext,
   });
 
   return withRenderContext(ctx, () => {

@@ -5,6 +5,8 @@ import type {
   RouteRequestResult,
 } from '../common/router';
 import * as RouteModule from '../router/route';
+import { getRouteRenderContext } from '../router/resolution';
+import type { AuthContext } from '@askrjs/auth';
 import { _resolveRouteMatchFromRoutes } from '../router/route-matching';
 import { throwSSRDataMissing } from './context';
 import type { RouteRenderOptions, SSRRoute } from './route-render';
@@ -19,6 +21,7 @@ type ResolvedPolicyAwareSSRRoute = {
   url: string;
   route: SSRRoute;
   params: Record<string, string>;
+  authContext?: AuthContext;
 };
 
 function getRouteRequestResultSync(
@@ -91,6 +94,10 @@ export function resolvePolicyAwareSSRRoute(
       RouteModule.resolveRouteRequest(href, {
         registry: opts.registry,
         mode: 'ssr',
+        auth: opts.auth,
+        authContext: opts.authContext,
+        request: opts.request,
+        signal: opts.signal,
       })
     );
 
@@ -136,6 +143,7 @@ export function resolvePolicyAwareSSRRoute(
           : matched.route.handler,
       },
       params: matched.params,
+      authContext: getRouteRenderContext(resolved)?.auth,
     };
   }
 

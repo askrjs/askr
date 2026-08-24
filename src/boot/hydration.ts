@@ -231,9 +231,7 @@ export async function applySelectiveHydration(
   hooks: HydrationRuntimeHooks,
   interactionReplay: HydrationInteractionReplay
 ): Promise<void> {
-  const hasPermanentSkips = (hydrateOptions.skipSelectors?.length ?? 0) > 0;
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
-  const hasSelectiveBoundaries = hasPermanentSkips || hasBelowFoldDeferral;
   let staticChildSlotsCacheSuspended = false;
   let releaseSelectiveHydrationResources = () => {};
 
@@ -302,7 +300,7 @@ export async function applySelectiveHydration(
     window.addEventListener('scroll', handleScroll, { passive: true });
   }
 
-  if (hydrateOptions.deferUntilIdle && !hasSelectiveBoundaries) {
+  if (hydrateOptions.deferUntilIdle && !hasBelowFoldDeferral) {
     await queueIdleWork(() => {
       hooks.mountOrUpdate(
         rootElement,

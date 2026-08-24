@@ -13,6 +13,8 @@ export interface PropagationStoppable {
 export interface KeyboardLikeEvent
   extends DefaultPreventable, PropagationStoppable {
   key: string;
+  currentTarget?: unknown;
+  target?: unknown;
 }
 
 /** Structural subset of a pointer event, for handlers that accept native or synthetic events. */

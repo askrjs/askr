@@ -163,6 +163,10 @@ function Menu() {
 }
 ```
 
+Horizontal roving focus follows the computed text direction of the event target:
+Arrow Right advances in LTR and Arrow Left advances in RTL. Vertical navigation
+is unchanged.
+
 ### NO PREVENTED: Custom arrow key handling
 
 ```typescript

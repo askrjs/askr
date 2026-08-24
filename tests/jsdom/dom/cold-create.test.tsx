@@ -4,6 +4,7 @@ import { createDOMNode } from '../../../src/renderer/dom';
 import {
   createDetachedRange,
   getOwnedRange,
+  registerRange,
 } from '../../../src/renderer/dom-range';
 import { state, type State } from '../../../src/runtime/state';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -45,6 +46,23 @@ describe('cold DOM construction', () => {
     expect(adopted.range).toBe(first.range);
     expect(getOwnedRange(firstOwner)).toBeUndefined();
     expect(getOwnedRange(nextOwner)).toBe(first.range);
+  });
+
+  it('should transfer shared anchors when the next owner registers a fresh range object', () => {
+    const firstOwner = {};
+    const nextOwner = {};
+    const input = document.createDocumentFragment();
+    input.append(
+      document.createElement('span'),
+      document.createElement('span')
+    );
+    const first = createDetachedRange(input, firstOwner);
+    const replacement = { ...first.range };
+
+    registerRange(replacement, nextOwner);
+
+    expect(getOwnedRange(firstOwner)).toBeUndefined();
+    expect(getOwnedRange(nextOwner)).toBe(replacement);
   });
 
   it('should append multiple children directly into a detached intrinsic', () => {

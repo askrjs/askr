@@ -10,6 +10,7 @@ import {
 import {
   createReadableSource,
   isAbortError,
+  isCurrentAsyncOperation,
   normalizeAsyncDataError,
   notifySource,
 } from './shared';
@@ -93,7 +94,14 @@ export class MutationCell<TInput, TResult> {
     try {
       result = await action(input, { signal: controller.signal });
     } catch (error) {
-      if (this.generation !== generation || this.controller !== controller) {
+      if (
+        !isCurrentAsyncOperation(
+          this.generation,
+          generation,
+          this.controller,
+          controller
+        )
+      ) {
         throw error;
       }
 
@@ -109,12 +117,20 @@ export class MutationCell<TInput, TResult> {
       throw error;
     }
 
-    if (this.generation !== generation || this.controller !== controller) {
-      return result;
+    const isCurrent = isCurrentAsyncOperation(
+      this.generation,
+      generation,
+      this.controller,
+      controller
+    );
+    if (isCurrent) {
+      // Commit visible mutation state before marking affected queries so the
+      // pending-write frame remains observable to subscribers.
+      this.setState({ status: 'success', error: null, result });
     }
 
-    this.setState({ status: 'success', error: null, result });
-
+    // A superseded operation may still commit remotely when its action ignores
+    // AbortSignal. Its successful effects must still invalidate cached data.
     if (afterSuccess === 'invalidate') {
       const prefixes = affects?.(input, result) ?? [];
       for (const prefix of new Set(prefixes)) {

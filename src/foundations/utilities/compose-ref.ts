@@ -31,9 +31,10 @@ export function setRef<T>(ref: Ref<T>, value: T | null): void {
     ref(value);
     return;
   }
-  // Fast path: use Object.isExtensible check instead of try/catch for better performance
-  if (Object.isExtensible(ref)) {
+  try {
     (ref as { current: T | null }).current = value;
+  } catch {
+    // Readonly object refs are intentionally ignored so later composed refs run.
   }
 }
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { requireUser, type AuthContext } from '@askrjs/auth';
 import { createRouteRegistry, route } from '../../../src/router/route';
-import { renderRouteRequestToString } from '../../../src/ssr';
+import { currentAuth } from '../../../src/router/route';
+import { renderRouteRequestToString, renderToString } from '../../../src/ssr';
 
 const user: AuthContext = {
   authenticated: true,
@@ -11,6 +12,20 @@ const user: AuthContext = {
 };
 
 describe('single-pass route request rendering', () => {
+  it('should expose explicit auth through low-level synchronous route rendering', () => {
+    const registry = createRouteRegistry(() => {
+      route('/account', () => <div>{currentAuth().principal?.id}</div>);
+    });
+
+    const html = renderToString({
+      url: '/account',
+      registry,
+      authContext: user,
+    });
+
+    expect(html).toContain('<div>user-1</div>');
+  });
+
   it('should render the resolved route without matching it again', async () => {
     let requirements = 0;
     let renders = 0;

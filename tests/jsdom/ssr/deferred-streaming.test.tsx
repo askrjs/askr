@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
-import { createRouteRegistry, route } from '../../../src/router/route';
+import {
+  createRouteRegistry,
+  currentAuth,
+  route,
+} from '../../../src/router/route';
 import { defer, Resolve, routeData } from '../../../src/router/deferred';
 import { state } from '../../../src/runtime/state';
-import { renderRouteRequest } from '../../../src/ssr';
+import {
+  renderRouteRequest,
+  renderRouteRequestToString,
+} from '../../../src/ssr';
+import type { AuthContext } from '@askrjs/auth';
 import {
   createTestContainer,
   flushScheduler,
@@ -47,6 +55,65 @@ function reactiveDeferredPage() {
 }
 
 describe('deferred route streaming', () => {
+  it('should retain request-local auth when a deferred boundary renders after another request', async () => {
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const alice: AuthContext = {
+      authenticated: true,
+      principal: { id: 'alice' },
+      session: null,
+      tenant: null,
+    };
+    const bob: AuthContext = {
+      authenticated: true,
+      principal: { id: 'bob' },
+      session: null,
+      tenant: null,
+    };
+    const aliceRegistry = createRouteRegistry(() => {
+      route(
+        '/',
+        () => {
+          const data = routeData<DeferredPageData>();
+          return (
+            <Resolve value={data.message} pending={<p>pending</p>}>
+              {() => <p id="identity">{currentAuth().principal?.id}</p>}
+            </Resolve>
+          );
+        },
+        { loader: () => ({ message: defer(pending) }) }
+      );
+    });
+    const bobRegistry = createRouteRegistry(() => {
+      route('/', () => <p>{currentAuth().principal?.id}</p>);
+    });
+
+    const aliceResult = await renderRouteRequest({
+      url: '/',
+      registry: aliceRegistry,
+      authContext: alice,
+    });
+    if (aliceResult.kind !== 'render' || !aliceResult.stream) {
+      throw new Error('expected Alice stream');
+    }
+    const reader = aliceResult.stream.getReader();
+    await reader.read();
+
+    const bobResult = await renderRouteRequestToString({
+      url: '/',
+      registry: bobRegistry,
+      authContext: bob,
+    });
+    expect(bobResult.kind).toBe('render');
+
+    release('ready');
+    const patch = new TextDecoder().decode((await reader.read()).value);
+    expect(patch).toContain('<p id="identity">alice</p>');
+    expect(patch).not.toContain('bob');
+  });
+
   it('should flush fallback first and then emit a deterministic fulfilled patch', async () => {
     let release!: (value: string) => void;
     const pending = new Promise<string>((resolve) => {

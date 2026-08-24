@@ -128,10 +128,14 @@ export function registerRange(range: DOMRange, owner?: object): void {
   const previousStartOwner = ownersByAnchor.get(range.start);
   const previousEndOwner = ownersByAnchor.get(range.end);
   for (const previousOwner of [previousStartOwner, previousEndOwner]) {
+    const previousRange = previousOwner
+      ? rangesByOwner.get(previousOwner)
+      : undefined;
     if (
       previousOwner &&
       previousOwner !== owner &&
-      rangesByOwner.get(previousOwner) === range
+      previousRange &&
+      (previousRange.start === range.start || previousRange.end === range.end)
     ) {
       rangesByOwner.delete(previousOwner);
     }

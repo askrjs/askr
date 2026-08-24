@@ -99,7 +99,8 @@ function renderBoundary(
   payload: unknown,
   seed: number | undefined,
   data: PageRenderEnvelope | null,
-  cspNonce: string | undefined
+  cspNonce: string | undefined,
+  authContext: AuthContext | undefined
 ): { html: string; styles: SSRStyleRegistration[] } {
   const styles: SSRStyleRegistration[] = [];
   const html = renderToStringSync(
@@ -112,6 +113,7 @@ function renderBoundary(
       seed,
       envelope: data ?? undefined,
       cspNonce,
+      authContext,
       onContext: (context) => styles.push(...context.ssrStyles.values()),
     }
   );
@@ -156,7 +158,8 @@ function createDeferredRenderStream(
   seed: number | undefined,
   data: PageRenderEnvelope | null,
   runtime: DataRuntime,
-  cspNonce: string | undefined
+  cspNonce: string | undefined,
+  authContext: AuthContext | undefined
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const local = new AbortController();
@@ -201,7 +204,8 @@ function createDeferredRenderStream(
               value,
               seed,
               data,
-              cspNonce
+              cspNonce,
+              authContext
             );
             controller.enqueue(
               encoder.encode(
@@ -226,7 +230,8 @@ function createDeferredRenderStream(
               error,
               seed,
               data,
-              cspNonce
+              cspNonce,
+              authContext
             );
             controller.enqueue(
               encoder.encode(
@@ -352,7 +357,8 @@ async function renderRouteRequestInternal(
                 options.seed,
                 context.hydrationData,
                 runtime,
-                cspNonce
+                cspNonce,
+                context.authContext
               ),
             }
           : {}),
