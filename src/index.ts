@@ -1,5 +1,5 @@
 /**
- * Askr: Actor-backed deterministic UI framework
+ * Askr: Lane-scheduled deterministic UI framework
  *
  * Public API surface — only users should import from here
  */

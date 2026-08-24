@@ -3,9 +3,11 @@
 [![CI](https://github.com/askrjs/askr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/askrjs/askr/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40askrjs%2Faskr.svg)](https://www.npmjs.com/package/@askrjs/askr)
 
-Askr is an actor-backed UI runtime for TypeScript applications.
-It provides explicit reactivity, routed application startup, server-side rendering,
-and static-site generation entrypoints.
+Askr is a lane-scheduled UI runtime for TypeScript applications. Its
+single-threaded scheduler serializes queued framework work; it is not a
+message-passing actor system. Askr provides explicit reactivity, routed
+application startup, server-side rendering, and static-site generation
+entrypoints.
 
 ## Quick Start
 
@@ -21,6 +23,9 @@ function Counter() {
 
 createIsland({ root: document.body, component: Counter });
 ```
+
+The tuple form above and the direct callable form below are equivalent; see
+[State usage forms](#state-usage-forms) for when each is convenient.
 
 ## What It Provides
 
@@ -41,11 +46,29 @@ on their own subpaths.
 
 State is read through getter functions and updated through setter functions.
 
+#### State usage forms
+
+`state()` returns one callable state cell that is also iterable. Destructuring
+it gives the cell as the getter and its `.set()` method as the setter:
+
 ```ts
 const [count, setCount] = state(0);
 console.log(count());
 setCount(1);
 ```
+
+The same state can be kept as one value and updated through `.set()`:
+
+```ts
+const count = state(0);
+console.log(count());
+count.set(1);
+```
+
+Prefer destructuring when local getter and setter names make event handlers
+clear. Prefer the direct form when passing the state cell around as one value or
+when keeping reads and writes under one name. Both forms have the same tracking,
+scheduling, and update semantics.
 
 ### Routing and app startup
 
@@ -86,7 +109,12 @@ return <div>{data.value.name}</div>;
 }
 ```
 
-Query and mutation helpers live in `@askrjs/askr/data`.
+`@askrjs/askr/data` is the canonical entrypoint for all query, mutation,
+invalidation, and data-runtime helpers. The root package retains query creation
+and collection, definition and serving, prefetch, and hydration exports for
+compatibility with existing applications. Mutation, invalidation, and
+data-runtime control remain subpath-only. New code should import the whole data surface from
+`@askrjs/askr/data` rather than split related imports across entrypoints.
 
 ### Developer error boundaries
 

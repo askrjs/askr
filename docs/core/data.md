@@ -16,9 +16,10 @@ setCount(1); // set a value
 setCount((n) => n + 1); // update with a function
 ```
 
-`state()` returns a `[getter, setter]` tuple. Always call the getter as a function.
-If the state value itself is a function, replace it with updater form such as
-`setHandler(() => nextHandler)`.
+`state()` returns a callable, iterable state cell. Destructure it as a
+`[getter, setter]` tuple as above, or retain the cell and use `count()` with
+`count.set(1)`; both forms are equivalent. If the state value itself is a
+function, replace it with updater form such as `setHandler(() => nextHandler)`.
 
 ## Derived state
 
