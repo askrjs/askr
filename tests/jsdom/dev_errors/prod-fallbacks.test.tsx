@@ -9,6 +9,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
+import { For } from '../../../src/control';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
 import {
   createTestContainer,
@@ -70,6 +71,28 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
 
       warn.mockRestore();
     } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  it('should omit For key validation in production mode', () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const Component = () => (
+        <For each={['left', 'right']} by={() => 'duplicate'}>
+          {(item) => <span>{item}</span>}
+        </For>
+      );
+
+      expect(() =>
+        createIsland({ root: container, component: Component })
+      ).not.toThrow();
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
       process.env.NODE_ENV = prev;
     }
   });
