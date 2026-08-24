@@ -155,7 +155,7 @@ describe('performance optimizations (RENDERER)', () => {
       expect(refObject.current).toBe(container.firstElementChild);
     });
 
-    it('should handle sealed objects gracefully', () => {
+    it('should update an existing writable current property on sealed refs', () => {
       const refObject = Object.seal({ current: null });
 
       const Component = () => {
@@ -167,8 +167,7 @@ describe('performance optimizations (RENDERER)', () => {
         flushScheduler();
       }).not.toThrow();
 
-      // Should not set current on sealed object (silently skip)
-      expect(refObject.current).toBe(null);
+      expect(refObject.current).toBe(container.firstElementChild);
     });
 
     it('should handle frozen objects gracefully', () => {

@@ -25,4 +25,19 @@ describe('composeRefs (FOUNDATIONS)', () => {
     expect(first.mock.calls).toEqual([[node], [null]]);
     expect(second.mock.calls).toEqual([[node], [null]]);
   });
+
+  it('should continue composing after a readonly object ref rejects assignment', () => {
+    const readonlyRef = {} as { current: { id: string } | null };
+    Object.defineProperty(readonlyRef, 'current', {
+      value: null,
+      writable: false,
+      configurable: true,
+    });
+    const callback = vi.fn();
+    const value = { id: 'reachable' };
+
+    expect(() => composeRefs(readonlyRef, callback)(value)).not.toThrow();
+    expect(readonlyRef.current).toBeNull();
+    expect(callback).toHaveBeenCalledWith(value);
+  });
 });

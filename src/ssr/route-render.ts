@@ -37,6 +37,9 @@ type SSRRouteSource = { registry: RouteRegistry };
 
 export type RouteRenderOptions = SSRRouteSource & {
   url: string;
+  auth?: RouteAuthOptions;
+  authContext?: AuthContext;
+  signal?: AbortSignal;
   seed?: number;
   data?: SSRData;
   document?: DocumentRenderer;
@@ -138,8 +141,11 @@ function resolveSSRRouteRender(
     data,
     params: resolvedRoute.params,
     routes: routeTable,
+    routeAuth: opts.auth ?? opts.registry.manifest.auth,
+    signal: opts.signal ?? opts.request?.signal,
     dataRuntime: opts.dataRuntime,
     queryPrefetch: opts.queryPrefetch,
+    authContext: resolvedRoute.authContext,
     envelope: opts.envelope,
     cspNonce,
   });

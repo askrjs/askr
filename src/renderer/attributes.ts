@@ -3,6 +3,7 @@ import { isUnsafeUrlAttribute } from '../common/url';
 import { isDevelopmentEnvironment } from '../common/env';
 import { logger } from '../common/logger';
 import { incrementPerfMetric } from '../runtime';
+import { setRef } from '../foundations/utilities/compose-ref';
 import {
   extractKey,
   getRenderedAttributeName,
@@ -59,15 +60,7 @@ type Ref<T> =
 
 export function applyRef<T>(el: T, ref: unknown): void {
   const resolvedRef = ref as Ref<T>;
-  if (!resolvedRef) return;
-  if (typeof resolvedRef === 'function') {
-    resolvedRef(el);
-    return;
-  }
-
-  if (Object.isExtensible(resolvedRef)) {
-    (resolvedRef as { current: T | null }).current = el;
-  }
+  setRef(resolvedRef, el);
 }
 
 export function applyFormControlProp(

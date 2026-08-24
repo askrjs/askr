@@ -1,4 +1,5 @@
 import { logger } from '../common/logger';
+import { setRef, type Ref } from '../foundations/utilities/compose-ref';
 import {
   addDelegatedListener,
   getDelegatedHandlersForElement,
@@ -217,19 +218,8 @@ function restoreFormControl(
 }
 
 function applyRefValue<T>(ref: unknown, value: T | null): void {
-  if (!ref) {
-    return;
-  }
-
   try {
-    if (typeof ref === 'function') {
-      (ref as (value: T | null) => void)(value);
-      return;
-    }
-
-    if (Object.isExtensible(ref)) {
-      (ref as { current: T | null }).current = value;
-    }
+    setRef(ref as Ref<T>, value);
   } catch {
     // Rollback must preserve the original render error.
   }

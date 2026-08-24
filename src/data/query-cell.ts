@@ -16,6 +16,7 @@ import { getDefaultDataRuntime } from './data-runtime';
 import {
   createReadableSource,
   isAbortError,
+  isCurrentAsyncOperation,
   normalizeAsyncDataError,
   notifySource,
 } from './shared';
@@ -46,6 +47,7 @@ export class QueryCell<T> {
   private pendingRefreshResolve: (() => void) | null = null;
   private pendingRefreshToken = 0;
   private reconcileAttemptCount = 0;
+  private reconcileSequence = 0;
   private destroyed = false;
   private ownerCount = 0;
   private readonly owners = new Map<object, Set<number>>();
@@ -296,22 +298,31 @@ export class QueryCell<T> {
     });
   }
 
-  private queueStart(): void {
+  private queueStart(reconcileSequence?: number): void {
     if (this.destroyed) {
       return;
     }
 
+    const sequence =
+      reconcileSequence ??
+      (() => {
+        this.reconcileAttemptCount = 0;
+        return ++this.reconcileSequence;
+      })();
     this.startQueued = true;
     const token = ++this.pendingRefreshToken;
     this.pendingRefresh = new Promise<void>((resolve) => {
       this.pendingRefreshResolve = resolve;
       enqueueRuntimeTask(() => {
+        if (token !== this.pendingRefreshToken) {
+          return;
+        }
         this.startQueued = false;
         if (this.destroyed) {
           this.finishPendingRefresh(token);
           return;
         }
-        void this.start().finally(() => {
+        void this.start(sequence).finally(() => {
           this.finishPendingRefresh(token);
         });
       });
@@ -340,7 +351,7 @@ export class QueryCell<T> {
     notifySource(this.source);
   }
 
-  private async start(): Promise<void> {
+  private async start(reconcileSequence: number): Promise<void> {
     if (this.destroyed) {
       return;
     }
@@ -368,8 +379,12 @@ export class QueryCell<T> {
     } catch (error) {
       if (
         this.destroyed ||
-        this.generation !== generation ||
-        this.controller !== controller
+        !isCurrentAsyncOperation(
+          this.generation,
+          generation,
+          this.controller,
+          controller
+        )
       ) {
         return;
       }
@@ -410,8 +425,12 @@ export class QueryCell<T> {
 
     if (
       this.destroyed ||
-      this.generation !== generation ||
-      this.controller !== controller
+      !isCurrentAsyncOperation(
+        this.generation,
+        generation,
+        this.controller,
+        controller
+      )
     ) {
       return;
     }
@@ -440,9 +459,21 @@ export class QueryCell<T> {
         staleReason: 'inconsistent',
       });
       try {
-        await this.reconcile(nextData);
+        await this.reconcile(
+          nextData,
+          generation,
+          controller,
+          reconcileSequence
+        );
       } catch (error) {
-        if (this.generation === generation && this.controller === controller) {
+        if (
+          isCurrentAsyncOperation(
+            this.generation,
+            generation,
+            this.controller,
+            controller
+          )
+        ) {
           this.setState({
             loading: false,
             refreshing: false,
@@ -471,12 +502,27 @@ export class QueryCell<T> {
     });
   }
 
-  private async reconcile(data: T): Promise<void> {
+  private async reconcile(
+    data: T,
+    generation: number,
+    controller: AbortController,
+    reconcileSequence: number
+  ): Promise<void> {
     const shouldRetry = await (this.options.reconcile?.(data, {
       key: this.options.key,
     }) ?? false);
 
-    if (!shouldRetry || this.destroyed) {
+    if (
+      !shouldRetry ||
+      this.destroyed ||
+      reconcileSequence !== this.reconcileSequence ||
+      !isCurrentAsyncOperation(
+        this.generation,
+        generation,
+        this.controller,
+        controller
+      )
+    ) {
       return;
     }
 
@@ -493,13 +539,25 @@ export class QueryCell<T> {
     await new Promise<void>((resolve) =>
       setTimeout(resolve, RECONCILE_RETRY_DELAY_MS)
     );
-    if (this.destroyed || this.state.consistency === 'fresh') {
+    if (
+      this.destroyed ||
+      reconcileSequence !== this.reconcileSequence ||
+      this.state.consistency === 'fresh' ||
+      !isCurrentAsyncOperation(
+        this.generation,
+        generation,
+        this.controller,
+        controller
+      )
+    ) {
       return;
     }
 
     // Reconciliation runs inside the current refresh promise. It must replace
     // that generation rather than coalesce with itself as a manual refresh.
-    this.invalidate();
+    this.controller?.abort();
+    this.finishPendingRefresh(this.pendingRefreshToken);
+    this.queueStart(reconcileSequence);
   }
 }
 

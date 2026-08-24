@@ -60,4 +60,26 @@ describe('rovingFocus contract helpers (FOUNDATIONS)', () => {
     expect(navigation.item(0).tabIndex).toBe(0);
     expect(navigation.item(1).tabIndex).toBe(-1);
   });
+
+  it('should follow computed RTL direction for horizontal arrow navigation', () => {
+    const container = document.createElement('div');
+    container.dir = 'rtl';
+    document.body.append(container);
+    const onNavigate = vi.fn();
+    const navigation = rovingFocus({
+      currentIndex: 0,
+      itemCount: 3,
+      onNavigate,
+    });
+
+    navigation.container.onKeyDown({
+      key: 'ArrowLeft',
+      currentTarget: container,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    });
+
+    expect(onNavigate).toHaveBeenCalledWith(1);
+    container.remove();
+  });
 });
