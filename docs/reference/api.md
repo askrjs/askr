@@ -40,6 +40,12 @@ Public types:
   `className`, `htmlFor`, and those common camelCase SVG props are normalized to their rendered
   attribute names.
 
+The root also retains query creation and collection, definition and serving,
+prefetch, and hydration exports for compatibility. `@askrjs/askr/data` is the
+canonical entrypoint for new data code and owns the complete surface, including
+mutation, invalidation, and data-runtime control APIs that are not exported from
+the root.
+
 ## Feature subpaths
 
 - `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, and `hasApp`
