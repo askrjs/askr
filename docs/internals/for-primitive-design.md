@@ -97,6 +97,13 @@ row-local item signals, proxy object/function property reads, pass array items
 through as native arrays, notify readable subscribers, and prune parent readers
 when a row updates without rerendering the owning component.
 
+Key validation is intentionally development-only. Development builds reject
+null or undefined keys, duplicate keys within one list, and keys whose string or
+number type changes across renders. Production builds do not allocate the
+validation `Set` or `Map`, and they emit no key-validation warning or error.
+Invalid keys therefore violate the `For` contract in production, and resulting
+row identity is unsupported rather than a reconciliation guarantee.
+
 The `each` source is owned by the `For` boundary itself. List-source reads are tracked through a boundary-local fine-grained effect, so source changes dirty the `For` boundary instead of subscribing the parent component render. Same-order keyed updates can therefore stay row-local, while append, truncate, and reorder work still flow through keyed reconciliation.
 
 The runtime keeps the existing fast lanes:

@@ -4,6 +4,14 @@
 created or reconciled; it is not a general reactive scope. This distinction is
 important when a row reads state owned by the parent component.
 
+Keys passed to `by` must be stable, non-null, and unique within the list, and a
+key must keep the same string or number type across renders. Development builds
+validate this contract and throw a descriptive error for invalid, duplicate, or
+type-changing keys. Production builds omit that validation pass and do not warn
+or throw specifically for key violations so keyed reconciliation stays on its
+lean path. Rendering with keys that violate the contract is unsupported and its
+row identity is not guaranteed.
+
 ## Selected-row state
 
 Use `selector()` for a keyed membership test. Only rows whose membership
