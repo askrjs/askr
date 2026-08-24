@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
 import {
@@ -46,6 +53,38 @@ describe('scheduler (SPEC 2.2)', () => {
       expect(events).toEqual(['failed', 'sibling']);
       expect(scheduler.getState().queueLength).toBe(0);
       expect(scheduler.getState().taskCount).toBe(0);
+    });
+
+    it('should remove waiters as soon as they time out', async () => {
+      vi.useFakeTimers();
+      const scheduler = new Scheduler();
+      const waiterCount = () =>
+        (
+          scheduler as unknown as {
+            waiters: unknown[];
+          }
+        ).waiters.length;
+
+      try {
+        const waits = Array.from({ length: 10 }, () =>
+          scheduler.waitForFlush(1, 25).catch((error: unknown) => error)
+        );
+
+        expect(waiterCount()).toBe(10);
+        await vi.advanceTimersByTimeAsync(25);
+        const errors = await Promise.all(waits);
+
+        expect(errors).toEqual(
+          Array.from({ length: 10 }, () =>
+            expect.objectContaining({
+              message: expect.stringContaining('waitForFlush timeout 25ms'),
+            })
+          )
+        );
+        expect(waiterCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('should execute tasks in the order enqueued', async () => {
