@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.2.3 — 2026-08-25
+
+- fix(data): make mutation invalidation and reconcile retries generation-safe
+  when asynchronous submissions are superseded.
+- fix(renderer): keep DOM-range ownership consistent when anchors are
+  re-registered.
+- fix(interactions): respect RTL arrow-key direction in roving focus.
+- fix(runtime): harden scheduler, hydration, SSR, and error-boundary failure
+  paths.
+
 - feat(data): add lifecycle-owned dynamic keyed query collections with bounded
   initial loading, aggregate state, per-key retry, and shared query caching.
 - fix(runtime): reject recursive `derive()` and `selector()` reads before a
