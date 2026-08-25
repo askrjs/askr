@@ -6,7 +6,7 @@ afterEach(() => {
 });
 
 describe('mutation-cell invalidate-even-when-superseded (regression for #357)', () => {
-  it('should invalidate the superseded submission\'s own affected prefix using its own input/result, without letting it overwrite the visible mutation state', async () => {
+  it("should invalidate the superseded submission's own affected prefix using its own input/result, without letting it overwrite the visible mutation state", async () => {
     let resolveFirst!: (value: string) => void;
     let resolveSecond!: (value: string) => void;
     getDefaultDataRuntime().queryData.set('item:a:detail', { stale: true });
@@ -35,9 +35,7 @@ describe('mutation-cell invalidate-even-when-superseded (regression for #357)', 
 
     // Its own prefix is invalidated using the superseded call's own
     // input/result pair, not the newer generation's.
-    expect(getDefaultDataRuntime().queryData.has('item:a:detail')).toBe(
-      false
-    );
+    expect(getDefaultDataRuntime().queryData.has('item:a:detail')).toBe(false);
     // The unrelated prefix for the still-pending current submission must be
     // untouched by the superseded submission's invalidation.
     expect(getDefaultDataRuntime().queryData.has('item:b:detail')).toBe(true);
@@ -49,9 +47,7 @@ describe('mutation-cell invalidate-even-when-superseded (regression for #357)', 
 
     resolveSecond('committed-b');
     await expect(second).resolves.toBe('committed-b');
-    expect(getDefaultDataRuntime().queryData.has('item:b:detail')).toBe(
-      false
-    );
+    expect(getDefaultDataRuntime().queryData.has('item:b:detail')).toBe(false);
     expect(mutation.status).toBe('success');
     expect(mutation.result).toBe('committed-b');
   });

@@ -7,7 +7,7 @@ import {
 } from '../../../src/renderer/dom-range';
 
 describe('dom-range ownership reassignment (regression for #357)', () => {
-  it('should release the previous owner\'s registration when a shared anchor node is re-registered under a new owner', () => {
+  it("should release the previous owner's registration when a shared anchor node is re-registered under a new owner", () => {
     const node = document.createElement('div');
     const previousOwner = {};
     const nextOwner = {};
@@ -30,7 +30,7 @@ describe('dom-range ownership reassignment (regression for #357)', () => {
     expect(getOwnedRange(previousOwner)).toBeUndefined();
   });
 
-  it('should NOT release an unrelated owner\'s range that happens to occupy the same WeakMap chain but shares no anchor node', () => {
+  it("should NOT release an unrelated owner's range that happens to occupy the same WeakMap chain but shares no anchor node", () => {
     const nodeA = document.createElement('div');
     const nodeB = document.createElement('span');
     const ownerA = {};
