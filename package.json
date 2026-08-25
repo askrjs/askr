@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Lane-scheduled deterministic UI framework",
   "keywords": [
     "askr",
