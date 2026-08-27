@@ -105,6 +105,9 @@ export function createIsland(config: IslandConfig): void {
   mountOrUpdate(rootElement, config.component, {
     cleanupStrict: config.cleanupStrict,
     cspNonce: config.cspNonce,
+    appRuntime: createAppRenderRuntime({
+      dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
+    }),
   });
 }
 
