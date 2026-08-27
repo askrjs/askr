@@ -25,6 +25,7 @@ import { task } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
 import {
   createRouteRegistry,
+  currentRoute,
   group,
   lazy,
   route,
@@ -176,6 +177,53 @@ describe('history integration (ROUTER)', () => {
       );
 
       pushStateSpy.mockRestore();
+    });
+
+    it('should keep typed location state on its owning push and replace entries', async () => {
+      route('/page1', () => {
+        const location = currentRoute<
+          Record<never, string>,
+          { step: number }
+        >();
+        return (
+          <div>
+            {location.hasState ? `step-${location.state?.step}` : 'absent'}
+          </div>
+        );
+      });
+      route('/page2', () => {
+        const location = currentRoute<Record<never, string>, undefined>();
+        return <div>{location.hasState ? 'present-undefined' : 'absent'}</div>;
+      });
+
+      window.history.replaceState({}, '', '/');
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+
+      navigate('/page1', { state: { step: 2 } });
+      flushScheduler();
+      expect(window.history.state).toEqual(
+        expect.objectContaining({ askrHasState: true, askrState: { step: 2 } })
+      );
+      expect(container.textContent).toContain('step-2');
+
+      navigate('/page2', { replace: true, state: undefined });
+      flushScheduler();
+      expect(window.history.state).toEqual(
+        expect.objectContaining({ askrHasState: true, askrState: undefined })
+      );
+      expect(container.textContent).toContain('present-undefined');
+
+      window.history.replaceState(
+        { path: '/page1', askrHasState: true, askrState: { step: 1 } },
+        '',
+        '/page1'
+      );
+      window.dispatchEvent(
+        new PopStateEvent('popstate', { state: window.history.state })
+      );
+      await Promise.resolve();
+      flushScheduler();
+      expect(container.textContent).toContain('step-1');
     });
 
     it('should update URL in address bar', async () => {

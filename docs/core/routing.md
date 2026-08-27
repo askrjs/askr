@@ -149,6 +149,7 @@ import { postRoute } from './routes';
 
 navigate('/dashboard');
 navigate('/users/42', { replace: true });
+navigate('/upload/confirm', { state: { uploadId: 'pending-42' } });
 
 const destination = to(postRoute, { slug: 'release' }, { view: 'summary' });
 <Link to={destination}>Release post</Link>;

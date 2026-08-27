@@ -26,6 +26,50 @@ let scrollRestorationOptions: NormalizedScrollRestorationOptions = {
 };
 
 const scrollPositions = new Map<string, { x: number; y: number }>();
+let capturedNavigationFocus: FocusDescriptor | undefined;
+let focusAtHistoryNavigationStart: Element | null = null;
+
+type FocusDescriptor = {
+  attribute: 'data-askr-focus-key' | 'id' | 'name' | 'aria-label' | 'label';
+  value: string;
+};
+
+function readFocusDescriptor(): FocusDescriptor | undefined {
+  if (
+    typeof document === 'undefined' ||
+    !(document.activeElement instanceof HTMLElement)
+  ) {
+    return undefined;
+  }
+  const active = document.activeElement;
+  for (const attribute of [
+    'data-askr-focus-key',
+    'id',
+    'name',
+    'aria-label',
+  ] as const) {
+    const value = active.getAttribute(attribute);
+    if (value) return { attribute, value };
+  }
+  if ('labels' in active) {
+    const label = Array.from((active as HTMLInputElement).labels ?? [])
+      .map((element) => element.textContent?.trim())
+      .find(Boolean);
+    if (label) return { attribute: 'label', value: label };
+  }
+  return undefined;
+}
+
+/** Capture the entry-owned focus before a pointer activation moves focus to a navigation control. */
+export function captureNavigationFocus(): void {
+  capturedNavigationFocus = readFocusDescriptor();
+}
+
+/** Mark the active element so restoration can avoid overwriting focus moved during route commit. */
+export function beginHistoryFocusRestoration(): void {
+  focusAtHistoryNavigationStart =
+    typeof document === 'undefined' ? null : document.activeElement;
+}
 
 function getWindowHref(): string {
   if (typeof window === 'undefined') {
@@ -98,10 +142,12 @@ function writeHistoryScrollPosition(
       ...state,
       path: href,
       scroll: position,
+      focus: capturedNavigationFocus ?? readFocusDescriptor(),
     },
     '',
     href
   );
+  capturedNavigationFocus = undefined;
 }
 
 export function saveScrollPosition(href: string): void {
@@ -172,6 +218,55 @@ export function applyHistoryScroll(
       : scrollPositions.get(href);
 
   scrollToPosition(saved ?? { x: 0, y: 0 });
+
+  const focus =
+    state &&
+    typeof state === 'object' &&
+    state.focus &&
+    typeof state.focus === 'object'
+      ? (state.focus as Partial<FocusDescriptor>)
+      : undefined;
+  if (
+    focus &&
+    (focus.attribute === 'data-askr-focus-key' ||
+      focus.attribute === 'id' ||
+      focus.attribute === 'name' ||
+      focus.attribute === 'aria-label' ||
+      focus.attribute === 'label') &&
+    typeof focus.value === 'string' &&
+    typeof document !== 'undefined' &&
+    (document.activeElement === document.body ||
+      document.activeElement === document.documentElement ||
+      document.activeElement === focusAtHistoryNavigationStart)
+  ) {
+    const target =
+      focus.attribute === 'label'
+        ? Array.from(
+            document.querySelectorAll<HTMLElement>(
+              'input,select,textarea,button'
+            )
+          ).find(
+            (element) =>
+              'labels' in element &&
+              Array.from((element as HTMLInputElement).labels ?? []).some(
+                (label) => label.textContent?.trim() === focus.value
+              )
+          )
+        : Array.from(
+            document.querySelectorAll<HTMLElement>(`[${focus.attribute}]`)
+          ).find(
+            (element) => element.getAttribute(focus.attribute!) === focus.value
+          );
+    if (
+      target?.isConnected &&
+      !target.hasAttribute('disabled') &&
+      target.getAttribute('aria-hidden') !== 'true' &&
+      target.getClientRects().length > 0
+    ) {
+      target.focus({ preventScroll: true });
+    }
+  }
+  focusAtHistoryNavigationStart = null;
 }
 
 export function configureScrollRestoration(

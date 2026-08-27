@@ -112,6 +112,8 @@ test.describe('real routed app shell workflow', () => {
     await expect(
       page.getByRole('heading', { name: 'Customers' })
     ).toBeVisible();
+    await page.getByLabelText('Search customers').click();
+    await expect.element(page.getByLabelText('Search customers')).toHaveFocus();
 
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect
@@ -128,6 +130,11 @@ test.describe('real routed app shell workflow', () => {
     await expect(
       page.getByRole('heading', { name: 'Customers' })
     ).toBeVisible();
+    expect(window.history.state?.focus).toEqual({
+      attribute: 'label',
+      value: 'Search customers',
+    });
+    await expect.element(page.getByLabelText('Search customers')).toHaveFocus();
 
     window.history.forward();
     await expect

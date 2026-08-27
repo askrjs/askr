@@ -164,12 +164,19 @@ function buildRouteSnapshot(
   const matches = location.withinBasePath
     ? computeMatchesFromRoutes(pathname, getActiveRoutes())
     : [];
+  const historyState =
+    typeof window !== 'undefined' && window.history?.state
+      ? window.history.state
+      : null;
+  const hasState = historyState?.askrHasState === true;
 
   return Object.freeze({
     path: pathname,
     params: deepFreeze({ ...matches[0]?.params }),
     query,
     hash: hash || null,
+    hasState,
+    state: hasState ? historyState.askrState : undefined,
     matches: Object.freeze(matches),
   });
 }
@@ -279,7 +286,8 @@ export function isRoutePathActive(
 
 function readCurrentRouteSnapshot<
   TParams extends RouteParams = RouteParams,
->(): RouteSnapshot<TParams> {
+  TState = unknown,
+>(): RouteSnapshot<TParams, TState> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -301,20 +309,28 @@ function readCurrentRouteSnapshot<
   const params = deepFreeze({
     ...routeParams,
   });
+  const historyState =
+    typeof window !== 'undefined' && window.history?.state
+      ? window.history.state
+      : null;
+  const hasState = historyState?.askrHasState === true;
 
   return Object.freeze({
     path: pathname,
     params,
     query,
     hash: hash || null,
+    hasState,
+    state: hasState ? historyState.askrState : undefined,
     matches: Object.freeze(matches),
-  }) as RouteSnapshot<TParams>;
+  }) as RouteSnapshot<TParams, TState>;
 }
 
 /** Read the currently active route's {@link RouteSnapshot}; reactive during component render. */
 export function currentRoute<
   TParams extends RouteParams = RouteParams,
->(): RouteSnapshot<TParams> {
+  TState = unknown,
+>(): RouteSnapshot<TParams, TState> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -324,11 +340,11 @@ export function currentRoute<
   }
 
   if (typeof window === 'undefined' || instance.ssr) {
-    return readCurrentRouteSnapshot<TParams>();
+    return readCurrentRouteSnapshot<TParams, TState>();
   }
 
   recordReadableRead(currentRouteSource);
-  return readCurrentRouteSnapshot<TParams>();
+  return readCurrentRouteSnapshot<TParams, TState>();
 }
 
 export function syncCurrentRouteSnapshot(

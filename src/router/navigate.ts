@@ -23,6 +23,10 @@ import {
 } from './navigation-targets';
 import { addRouteBasePath } from './base-path';
 import { getActiveRouteBasePath } from './store';
+import {
+  beginHistoryFocusRestoration,
+  captureNavigationFocus,
+} from './navigation-scroll';
 
 export { configureScrollRestoration } from './navigation-scroll';
 export type {
@@ -128,6 +132,7 @@ function navigateWithRedirectState(
 }
 
 function handlePopState(event: PopStateEvent): void {
+  beginHistoryFocusRestoration();
   const request = beginRouteRequest();
   const previousHref = getCurrentHref();
   const pathname = window.location.pathname;
@@ -182,6 +187,7 @@ export function initializeNavigation(): void {
 
   navigationInitialized = true;
   window.addEventListener('popstate', handlePopState);
+  document.addEventListener('pointerdown', captureNavigationFocus, true);
 }
 
 export function cleanupNavigation(): void {
@@ -193,4 +199,5 @@ export function cleanupNavigation(): void {
 
   navigationInitialized = false;
   window.removeEventListener('popstate', handlePopState);
+  document.removeEventListener('pointerdown', captureNavigationFocus, true);
 }

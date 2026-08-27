@@ -1476,6 +1476,69 @@ describe('data layer', () => {
     }
   });
 
+  it('should let a manual refresh supersede an older invalidation fetch and publish to every reader', async () => {
+    const pending: Array<(value: { version: number }) => void> = [];
+    let backingVersion = 1;
+    let queryRef!: Query<{ version: number }>;
+    let calls = 0;
+
+    const definition = {
+      key: 'logs:live:publish',
+      fetch: () => {
+        calls += 1;
+        if (calls === 1 || calls === 3) {
+          return Promise.resolve({ version: backingVersion });
+        }
+        return new Promise<{ version: number }>((resolve) =>
+          pending.push(resolve)
+        );
+      },
+    };
+    const Reader = ({ label }: { label: string }) => {
+      const query = createQuery(definition);
+      queryRef = query;
+      return (
+        <span>
+          {label}:{query.data?.version ?? 'loading'};
+        </span>
+      );
+    };
+    const App = () => (
+      <div>
+        <Reader label="first" />
+        <Reader label="second" />
+      </div>
+    );
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('first:1;second:1;');
+
+      invalidate('logs:live:publish');
+      flushScheduler();
+      expect(calls).toBe(2);
+
+      backingVersion = 2;
+      const refresh = queryRef.refresh();
+      flushScheduler();
+      await refresh;
+      await settle();
+
+      expect(calls).toBe(3);
+      expect(queryRef.data).toEqual({ version: 2 });
+      expect(container.textContent).toBe('first:2;second:2;');
+
+      pending[0]?.({ version: 1 });
+      await settle();
+      expect(container.textContent).toBe('first:2;second:2;');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should expose an aborted stale reason when a cached refresh rejects with AbortError', async () => {
     let resolveInitial!: (value: { id: string; version: number }) => void;
     let rejectRefresh!: (error: DOMException) => void;
