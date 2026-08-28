@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
+import { ErrorBoundary } from '@askrjs/askr/components';
 import { derive, state, type State } from '@askrjs/askr';
 import { watch } from '@askrjs/askr/resources';
 import { renderToString } from '@askrjs/askr/ssr';
@@ -129,5 +130,63 @@ describe('watch()', () => {
 
     expect(renderToString(() => <App />)).toContain('server');
     expect(observed).not.toHaveBeenCalled();
+  });
+
+  it('should route callback failures to the owning error boundary', () => {
+    const { container, cleanup } = createTestContainer();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const BrokenWatch = () => {
+      const source = state('ready');
+      watch(source, () => {
+        throw new Error('watch callback failed');
+      });
+      return <p>{source()}</p>;
+    };
+    const App = () => (
+      <ErrorBoundary fallback={<p id="watch-fallback">{'recovered'}</p>}>
+        <BrokenWatch />
+      </ErrorBoundary>
+    );
+
+    expect(() => {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.querySelector('#watch-fallback')?.textContent).toBe(
+      'recovered'
+    );
+    errorSpy.mockRestore();
+    cleanup();
+  });
+
+  it('should bound reactive cycles with an actionable diagnostic', () => {
+    const { container, cleanup } = createTestContainer();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const CyclicWatch = () => {
+      const source = state(0);
+      watch(source, (value) => source.set(value + 1));
+      return <p>{() => source()}</p>;
+    };
+    const App = () => (
+      <ErrorBoundary fallback={<p id="cycle-fallback">{'bounded'}</p>}>
+        <CyclicWatch />
+      </ErrorBoundary>
+    );
+
+    expect(() => {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.querySelector('#cycle-fallback')?.textContent).toBe(
+      'bounded'
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[Askr] ErrorBoundary caught render error:',
+      expect.objectContaining({
+        message: expect.stringMatching(/reactive cycle/i),
+      })
+    );
+    errorSpy.mockRestore();
+    cleanup();
   });
 });
