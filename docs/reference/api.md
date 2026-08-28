@@ -58,7 +58,7 @@ the root.
 
 - `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createQueryCollection`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
-- `@askrjs/askr/resources` - async resource helpers such as `resource`, `stream`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`
+- `@askrjs/askr/resources` - async resource helpers such as `resource`, `watch`, `stream`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`
 - `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, metadata, critical `routeData`, and deferred `Resolve` boundaries
 - `@askrjs/askr/fx` - timing and scheduling helpers
 - `@askrjs/askr/ssr` - synchronous rendering plus `renderRouteRequest()` for explicitly deferred Web streams

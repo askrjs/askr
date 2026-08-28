@@ -454,7 +454,21 @@ mutations.clear();
 Fixtures expose `setPending()`, `succeed(result)`, `fail(error)`, `abort()`,
 and `reset()` for deterministic state changes. Registry `delete()` and
 `clear()` reset removed mutations, and each registry owns an isolated data
-runtime. Pass that runtime as `dataRuntime` to `renderRoute()`.
+runtime. Pass that runtime as `dataRuntime` to `renderRoute()`, or to plain
+`render()`/`mount()` calls when the component does not need a router:
+
+```tsx
+const queries = createQueryTestRegistry();
+queries.set('user:123', queryState.fresh({ name: 'Ada' }));
+
+const rendered = render(AccountSummary, {
+  dataRuntime: queries.runtime,
+});
+```
+
+Each render owns its injected runtime for initial rendering, reactive work,
+delegated events, and cleanup. Omitting `dataRuntime` preserves the default
+runtime behavior.
 
 Mutations own their own `AbortController`, abort the previous request when a new execution
 starts, and can mark affected queries as `pending-write` before refreshing them.

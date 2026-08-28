@@ -445,6 +445,7 @@ function probeDistExports(): unknown {
                 on: typeof resourcesModule.on,
                 timer: typeof resourcesModule.timer,
                 task: typeof resourcesModule.task,
+                watch: typeof resourcesModule.watch,
                 stream: typeof resourcesModule.stream,
                 capture: typeof resourcesModule.capture,
                 hasCreateQuery: Object.prototype.hasOwnProperty.call(
@@ -763,6 +764,7 @@ describe('public docs and examples', () => {
         on: 'function',
         timer: 'function',
         task: 'function',
+        watch: 'function',
         stream: 'function',
         capture: 'function',
         hasCreateQuery: false,

@@ -327,7 +327,8 @@ Registers a pathful miss route.
 
 ## `currentRoute()`
 
-Inside a component, call `currentRoute()` to read the current route snapshot.
+Inside a component, call `currentRoute()` to read the current route snapshot,
+including entry-local `state` and `hasState`.
 
 ## `navigate(path)`
 
@@ -336,6 +337,11 @@ Askr disposes route-local component state, resources, tasks, and abort signals
 before mounting the replacement. Reconciliation can preserve shared layout DOM
 nodes, but state that must survive navigation belongs in a shared layout,
 context, or external store.
+
+`navigate(path, { state })` stores transient state on the destination browser
+history entry without serializing it into the URL. Push, replace, redirects,
+and Back/Forward preserve entry ownership. The state is browser-only and is
+therefore absent from SSR and SSG snapshots.
 
 ## `updateRouteQuery(updates, options)`
 

@@ -65,6 +65,8 @@ export type NavigateOptions = {
   history?: 'push' | 'replace';
   replace?: boolean;
   scroll?: NavigationScrollBehavior;
+  /** Entry-local browser history state. It is not serialized into the URL or sent to the server. */
+  state?: unknown;
 };
 
 export type NavigationRedirectState = {
@@ -958,7 +960,15 @@ export function applyNavigationTargets(
       getNavigationHistoryMode(options) === 'replace'
         ? 'replaceState'
         : 'pushState';
-    window.history[historyMethod]({ path: href }, '', href);
+    window.history[historyMethod](
+      {
+        path: href,
+        askrHasState: Object.prototype.hasOwnProperty.call(options, 'state'),
+        askrState: options.state,
+      },
+      '',
+      href
+    );
     setCurrentRouteLocation(pathname, href);
     clearStagedRouteLocations(matchedTargets);
     syncRegisteredRouteSnapshot();

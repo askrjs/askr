@@ -12,6 +12,8 @@ export interface RenderOptions {
   container?: HTMLElement;
   /** Surface lifecycle cleanup errors during unmount. */
   cleanupStrict?: boolean;
+  /** Isolated data runtime owned by this component render. */
+  dataRuntime?: import('../data/types').DataRuntime;
 }
 
 /** Options for {@link renderRoute}. */
@@ -311,6 +313,7 @@ export function render(
       root: container,
       component,
       cleanupStrict: options?.cleanupStrict,
+      dataRuntime: options?.dataRuntime,
     });
     flush();
     return createRenderResult(container);

@@ -418,11 +418,18 @@ export interface RouteQuery {
 }
 
 /** Full description of the currently active route, returned by {@link currentRoute}. */
-export interface RouteSnapshot<TParams extends RouteParams = RouteParams> {
+export interface RouteSnapshot<
+  TParams extends RouteParams = RouteParams,
+  TState = unknown,
+> {
   path: string;
   params: Readonly<TParams>;
   query: Readonly<RouteQuery>;
   hash: string | null;
+  /** Whether the current browser history entry was given explicit location state. */
+  hasState: boolean;
+  /** Entry-local state supplied to navigate(); absent during SSR and when no state was supplied. */
+  state: TState | undefined;
 
   name?: string;
   namespace?: string;

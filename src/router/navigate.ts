@@ -23,6 +23,13 @@ import {
 } from './navigation-targets';
 import { addRouteBasePath } from './base-path';
 import { getActiveRouteBasePath } from './store';
+import {
+  beginHistoryFocusRestoration,
+  captureNavigationFocus,
+  prepareNavigationFocus,
+  releaseNavigationFocusCapture,
+} from './navigation-scroll';
+import { isRuntimeSchedulerExecuting } from '../runtime';
 
 export { configureScrollRestoration } from './navigation-scroll';
 export type {
@@ -56,14 +63,25 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
     return;
   }
 
+  prepareNavigationFocus();
+
   const targetPath = addRouteBasePath(path, getActiveRouteBasePath());
   const initialTarget = parseTargetUrl(targetPath);
-  navigateWithRedirectState(targetPath, options, {
+  const redirectState: NavigationRedirectState = {
     redirects: 0,
     visited: new Set([
       `${initialTarget.pathname}${initialTarget.search}${initialTarget.hash}`,
     ]),
-  });
+  };
+
+  if (isRuntimeSchedulerExecuting()) {
+    queueMicrotask(() => {
+      navigateWithRedirectState(targetPath, options, redirectState);
+    });
+    return;
+  }
+
+  navigateWithRedirectState(targetPath, options, redirectState);
 }
 
 function navigateWithRedirectState(
@@ -128,6 +146,7 @@ function navigateWithRedirectState(
 }
 
 function handlePopState(event: PopStateEvent): void {
+  beginHistoryFocusRestoration();
   const request = beginRouteRequest();
   const previousHref = getCurrentHref();
   const pathname = window.location.pathname;
@@ -182,6 +201,8 @@ export function initializeNavigation(): void {
 
   navigationInitialized = true;
   window.addEventListener('popstate', handlePopState);
+  document.addEventListener('pointerdown', captureNavigationFocus, true);
+  document.addEventListener('click', releaseNavigationFocusCapture);
 }
 
 export function cleanupNavigation(): void {
@@ -193,4 +214,6 @@ export function cleanupNavigation(): void {
 
   navigationInitialized = false;
   window.removeEventListener('popstate', handlePopState);
+  document.removeEventListener('pointerdown', captureNavigationFocus, true);
+  document.removeEventListener('click', releaseNavigationFocusCapture);
 }

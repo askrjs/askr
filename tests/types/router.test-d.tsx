@@ -252,9 +252,13 @@ expectType<string>(snapshot.path);
 expectType<string | null>(snapshot.query.get('q'));
 expectType<Readonly<RouteQuery>>(snapshot.query);
 expectType<readonly RouteMatch[]>(snapshot.matches);
+expectType<boolean>(snapshot.hasState);
+expectType<unknown>(snapshot.state);
 
 const typedSnapshot = currentRoute<{ id: string }>();
 expectType<string>(typedSnapshot.params.id);
+const typedStateSnapshot = currentRoute<{ id: string }, { fileName: string }>();
+expectType<{ fileName: string } | undefined>(typedStateSnapshot.state);
 
 expectType<RoutePathParams<'/files/*'>>({ '*': 'docs/readme.md' });
 expectType<RoutePathParams<'/files/{*path}'>>({ path: 'docs/readme.md' });

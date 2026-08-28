@@ -193,6 +193,10 @@
     "StreamResult",
     "StreamStatus",
     "TimerOptions",
+    "WatchCallback",
+    "WatchContext",
+    "WatchSource",
+    "WatchValues",
     "capture",
     "documentVisible",
     "getSignal",
@@ -203,6 +207,7 @@
     "stream",
     "task",
     "timer",
+    "watch",
     "windowFocused"
   ],
   "./data": [

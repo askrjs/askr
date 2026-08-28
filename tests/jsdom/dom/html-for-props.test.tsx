@@ -48,6 +48,28 @@ describe('htmlFor intrinsic prop normalization', () => {
     expect(output.getAttribute('htmlfor')).toBeNull();
   });
 
+  it('should render standard global editing and virtual-keyboard hints', () => {
+    const Component = () => (
+      <input
+        contentEditable="plaintext-only"
+        draggable="false"
+        enterKeyHint="next"
+        inputMode="numeric"
+        spellCheck="false"
+      />
+    );
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    expect(input.getAttribute('contenteditable')).toBe('plaintext-only');
+    expect(input.getAttribute('draggable')).toBe('false');
+    expect(input.getAttribute('enterkeyhint')).toBe('next');
+    expect(input.getAttribute('inputmode')).toBe('numeric');
+    expect(input.getAttribute('spellcheck')).toBe('false');
+  });
+
   it('should update and remove htmlFor through reactive props', () => {
     let target!: ReturnType<typeof state<string | null>>;
 

@@ -15,6 +15,7 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { renderToStringSync } from '../../../src/ssr';
 import { createPageRenderEnvelope } from '../../../src/common/page-render-envelope';
+import { state } from '../../../src/runtime';
 
 const save = defineAction({
   id: 'save-item',
@@ -407,6 +408,109 @@ describe('actions', () => {
         fieldErrors: { name: ['Too short.'] },
       });
       expect(assign).not.toHaveBeenCalled();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should settle a completed failure after validation recovery and allow retry', async () => {
+    const invalid = {
+      version: 1,
+      ok: false,
+      kind: 'invalid',
+      action: save.id,
+      values: { name: 'x' },
+      issues: [{ path: ['name'], code: 'too_small', message: 'Too short.' }],
+      fieldErrors: { name: ['Too short.'] },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(invalid), {
+            status: 422,
+            headers: { 'content-type': 'application/json' },
+          })
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ title: 'Save failed' }), {
+            status: 500,
+            headers: { 'content-type': 'application/problem+json' },
+          })
+        )
+        .mockResolvedValueOnce(Response.json({ result: { saved: true } }))
+    );
+    vi.stubGlobal('location', {
+      href: 'http://example.test/items',
+      assign: vi.fn(),
+    });
+    let command!: ReturnType<
+      typeof action<{ name: string }, { saved: boolean }>
+    >;
+    let submitted!: Promise<{ saved: boolean }>;
+    const App = () => {
+      command = action<{ name: string }, { saved: boolean }>(save);
+      const mutationError = state('');
+      return (
+        <ActionForm
+          action={save}
+          onSubmit={(event: Event) => {
+            event.preventDefault();
+            mutationError.set('');
+            submitted = command
+              .submit({ name: 'Ada' })
+              .catch((error: unknown) => {
+                mutationError.set(
+                  error instanceof Error ? error.message : 'failed'
+                );
+                throw error;
+              });
+          }}
+        >
+          <output>
+            {command.state().pending
+              ? 'pending'
+              : mutationError() || command.state().error
+                ? 'error'
+                : 'idle'}
+          </output>
+        </ActionForm>
+      );
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      await expect(command.submit({ name: 'x' })).rejects.toMatchObject({
+        kind: 'invalid',
+      });
+      await waitForNextEvaluation();
+      flushScheduler();
+      expect(container.textContent).toBe('error');
+
+      container
+        .querySelector('form')!
+        .dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true })
+        );
+      await expect(submitted).rejects.toThrow('Action failed (500).');
+      await waitForNextEvaluation();
+      flushScheduler();
+      expect(command.state().pending).toBe(false);
+      expect(command.state().error).toBeInstanceOf(Error);
+
+      container
+        .querySelector('form')!
+        .dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true })
+        );
+      await expect(submitted).resolves.toEqual({ saved: true });
+      expect(command.state()).toEqual({
+        pending: false,
+        result: { saved: true },
+      });
     } finally {
       cleanup();
     }

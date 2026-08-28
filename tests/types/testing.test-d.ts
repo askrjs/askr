@@ -29,6 +29,7 @@ import {
   type QueryTestRegistry,
 } from '@askrjs/askr/testing';
 import type { Mutation, Query } from '@askrjs/askr/data';
+import { createDataRuntime } from '@askrjs/askr/data';
 import { createRouteRegistry, route } from '@askrjs/askr/router';
 import type { RouteMatch } from '@askrjs/askr/router';
 
@@ -38,6 +39,7 @@ const registry = createRouteRegistry(() => {
 });
 const options: MockQueryOptions = { refresh };
 expectAssignable<MockQueryOptions>(options);
+expectAssignable<RenderOptions>({ dataRuntime: createDataRuntime() });
 
 const fresh = mockQuery({ id: '123', name: 'Ada' }, options);
 expectType<Query<{ id: string; name: string }>>(fresh);

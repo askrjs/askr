@@ -20,11 +20,12 @@ import {
 } from 'vite-plus/test';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { createSPA } from '@askrjs/askr/boot';
-import { state } from '../../../src/index';
-import { task } from '../../../src/runtime/operations';
+import { state, type State } from '../../../src/index';
+import { task, watch } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
 import {
   createRouteRegistry,
+  currentRoute,
   group,
   lazy,
   route,
@@ -69,6 +70,63 @@ describe('history integration (ROUTER)', () => {
       writable: true,
       configurable: true,
     });
+  });
+
+  it('should commit a watcher-driven authenticated redirect to URL and DOM exactly once', async () => {
+    let authenticated!: State<boolean>;
+    let redirects = 0;
+    const Login = () => {
+      authenticated = state(false);
+      watch(authenticated, (isAuthenticated) => {
+        if (isAuthenticated) {
+          redirects += 1;
+          navigate('/dashboard', { replace: true });
+        }
+      });
+      return <p>{'login'}</p>;
+    };
+    const registry = createRouteRegistry(() => {
+      route('/login', Login);
+      route('/dashboard', () => <p>{'dashboard'}</p>);
+    });
+
+    window.history.replaceState({ path: '/login' }, '', '/login');
+    await createSPA({ root: container, registry });
+    flushScheduler();
+    expect(container.textContent).toBe('login');
+
+    authenticated.set(true);
+    await settleNavigation();
+
+    expect(redirects).toBe(1);
+    expect(window.location.pathname).toBe('/dashboard');
+    expect(container.textContent).toBe('dashboard');
+  });
+
+  it('should redirect an already-authenticated watcher after its initial commit', async () => {
+    let redirects = 0;
+    const Login = () => {
+      const authenticated = state(true);
+      watch(authenticated, (isAuthenticated) => {
+        if (isAuthenticated) {
+          redirects += 1;
+          navigate('/dashboard', { replace: true });
+        }
+      });
+      return <p>{'login'}</p>;
+    };
+    const registry = createRouteRegistry(() => {
+      route('/login', Login);
+      route('/dashboard', () => <p>{'dashboard'}</p>);
+    });
+
+    window.history.replaceState({ path: '/login' }, '', '/login');
+    await createSPA({ root: container, registry });
+    await settleNavigation();
+
+    expect(redirects).toBe(1);
+    expect(window.location.pathname).toBe('/dashboard');
+    expect(container.textContent).toBe('dashboard');
   });
 
   it('should preserve scroll and focus restoration given back/forward navigation when nested routes replace their content', async () => {
@@ -176,6 +234,97 @@ describe('history integration (ROUTER)', () => {
       );
 
       pushStateSpy.mockRestore();
+    });
+
+    it('should not persist focus captured by an unrelated earlier pointer activation', async () => {
+      route('/page1', () => (
+        <div>
+          <input id="earlier-focus" />
+          <button id="unrelated-action">{'Unrelated action'}</button>
+          <input id="current-focus" />
+        </div>
+      ));
+      route('/page2', () => <div>{'Page 2'}</div>);
+
+      window.history.replaceState({ path: '/page1' }, '', '/page1');
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+      flushScheduler();
+
+      const earlier = container.querySelector('#earlier-focus') as HTMLElement;
+      const unrelated = container.querySelector(
+        '#unrelated-action'
+      ) as HTMLElement;
+      const current = container.querySelector('#current-focus') as HTMLElement;
+      earlier.focus();
+      unrelated.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, button: 0 })
+      );
+      unrelated.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, button: 0 })
+      );
+      current.focus();
+      expect(document.activeElement).toBe(current);
+
+      const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+      navigate('/page2');
+      flushScheduler();
+
+      expect(replaceStateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: '/page1',
+          focus: { attribute: 'id', value: 'current-focus' },
+        }),
+        '',
+        '/page1'
+      );
+      replaceStateSpy.mockRestore();
+    });
+
+    it('should keep typed location state on its owning push and replace entries', async () => {
+      route('/page1', () => {
+        const location = currentRoute<
+          Record<never, string>,
+          { step: number }
+        >();
+        return (
+          <div>
+            {location.hasState ? `step-${location.state?.step}` : 'absent'}
+          </div>
+        );
+      });
+      route('/page2', () => {
+        const location = currentRoute<Record<never, string>, undefined>();
+        return <div>{location.hasState ? 'present-undefined' : 'absent'}</div>;
+      });
+
+      window.history.replaceState({}, '', '/');
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+
+      navigate('/page1', { state: { step: 2 } });
+      flushScheduler();
+      expect(window.history.state).toEqual(
+        expect.objectContaining({ askrHasState: true, askrState: { step: 2 } })
+      );
+      expect(container.textContent).toContain('step-2');
+
+      navigate('/page2', { replace: true, state: undefined });
+      flushScheduler();
+      expect(window.history.state).toEqual(
+        expect.objectContaining({ askrHasState: true, askrState: undefined })
+      );
+      expect(container.textContent).toContain('present-undefined');
+
+      window.history.replaceState(
+        { path: '/page1', askrHasState: true, askrState: { step: 1 } },
+        '',
+        '/page1'
+      );
+      window.dispatchEvent(
+        new PopStateEvent('popstate', { state: window.history.state })
+      );
+      await Promise.resolve();
+      flushScheduler();
+      expect(container.textContent).toContain('step-1');
     });
 
     it('should update URL in address bar', async () => {

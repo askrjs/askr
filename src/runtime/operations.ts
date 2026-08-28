@@ -13,10 +13,15 @@ export {
   routeActive,
   task,
   timer,
+  watch,
   windowFocused,
 } from './lifecycle-operations';
 export type {
   ActivityPredicate,
   ListenerTarget,
   TimerOptions,
+  WatchCallback,
+  WatchContext,
+  WatchSource,
+  WatchValues,
 } from './lifecycle-operations';

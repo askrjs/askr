@@ -75,6 +75,34 @@ The public runtime exposes `createRuntime()` and `getDefaultRuntime()`. Core imp
 default scheduler and renderer access through the internal runtime access
 boundary so hot paths do not import singleton globals directly.
 
+## When work becomes observable
+
+Askr uses signals internally, but its public primitives become observable at
+different lifecycle boundaries. Use this table when composing production code
+and when choosing a test wait:
+
+| Operation                  | First observable point                                                                              | Test contract                                                                                                            |
+| -------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `state.set()` / `derive()` | The scheduled reactive render and DOM commit                                                        | Flush the Askr scheduler, then assert visible DOM.                                                                       |
+| `resource()`               | Its loader starts for the owning render; fulfilled state publishes through a later scheduled commit | Await the transport and flush the scheduler, or assert through a real mounted surface.                                   |
+| `task()`                   | After the owning component commits                                                                  | It runs once per committed mount, not once per rerender. Await returned async work when the assertion depends on it.     |
+| `watch()`                  | After the owning component commits, then after a watched committed value changes                    | `flush()` reaches the initial callback and coalesced source observations. Await only async work started by the callback. |
+| `navigate()`               | After route resolution and the destination lifecycle commit                                         | Assert both the committed URL and destination DOM. Mocking `navigate()` proves invocation only.                          |
+
+A `task()` may call `navigate()` during its commit. That reentrant navigation
+supersedes the route whose commit triggered it; the final URL and mounted DOM
+must both belong to the winning destination. Test mount-time redirects through
+`renderRoute()` or a real browser route. A unit test that replaces `navigate`
+with a mock cannot detect scheduler, ownership, rollback, or DOM/URL divergence.
+The same URL and DOM contract applies when `watch()` initiates navigation. If
+the callback runs inside an active scheduler flush, routing begins at the next
+microtask boundary so route rendering never performs a reentrant flush.
+
+Microtasks and timers are application scheduling choices, not implicit Askr
+flushes. Await a microtask or timer only when the application code explicitly
+uses that boundary; otherwise use the scheduler or routed-render test helper
+that corresponds to the public operation above.
+
 ## Cleanup
 
 ```ts
