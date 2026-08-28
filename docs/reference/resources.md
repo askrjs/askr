@@ -6,8 +6,9 @@ Query and mutation helpers live in `@askrjs/askr/data`.
 
 ## Resource helpers
 
-The resources subpath owns `resource()`, `on()`, `timer()`, `task()`, `stream()`,
-`capture()`, `getSignal()`, `routeActive()`, `documentVisible()`, and `windowFocused()`.
+The resources subpath owns `resource()`, `watch()`, `on()`, `timer()`, `task()`,
+`stream()`, `capture()`, `getSignal()`, `routeActive()`, `documentVisible()`, and
+`windowFocused()`.
 
 ### `resource(loader, deps)`
 
@@ -184,6 +185,48 @@ function ConnectionPanel() {
 
 `task()` runs once per committed mount and runs its cleanup when the owner is removed.
 Rerenders do not rerun the task; remounting the owner runs it again.
+
+### `watch(source, callback)`
+
+Runs owned side-effect work after the component commits and again when the
+committed value of an explicit readable source changes.
+
+```ts
+import { watch } from '@askrjs/askr/resources';
+import { navigate } from '@askrjs/askr/router';
+
+watch(isAuthenticated, (authenticated, { initial, previous, signal }) => {
+  if (authenticated) {
+    navigate('/dashboard', { replace: true });
+  }
+
+  signal.addEventListener('abort', cancelPendingWork);
+  return () => disconnect(previous, initial);
+});
+```
+
+Pass `state()` and `derive()` accessors without calling them. For multiple
+sources, pass an accessor tuple; values and previous values retain tuple
+inference and are compared entry by entry with `Object.is`.
+
+```ts
+watch([authChecked, isAuthenticated] as const, ([checked, authenticated]) => {
+  if (checked && authenticated) navigate('/dashboard', { replace: true });
+});
+```
+
+The initial callback runs after the first successful client commit and is
+reached by the normal scheduler `flush()`. Writes before the next scheduler
+commit are coalesced. Before replacement, Askr aborts the previous generation
+and then runs its synchronous cleanup. Unmounting does the same; remounting
+starts a fresh initial generation. Callback errors follow the owned lifecycle
+error-boundary path. Watchers are inert during SSR and SSG.
+
+`watch()` takes accessors because it subscribes to source identity.
+`resource(loader, deps)` retains its existing value-array contract because its
+dependencies are restart snapshots rather than subscriptions. Create a
+`derive()` first when the watched value is computed. Use `task()` for mount-only
+setup and `resource()` for result-producing asynchronous reads.
 
 ### `onRouteChange(callback, options?)`
 

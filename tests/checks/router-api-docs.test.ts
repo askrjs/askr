@@ -72,6 +72,12 @@ describe('router public contract documentation', () => {
     expect(docs).toMatch(/final URL and mounted DOM/);
     expect(resources).toMatch(/task\(\).*once per committed mount/s);
     expect(resources).toMatch(/Rerenders do not rerun the task/);
+    expect(resources).toMatch(
+      /watch\(\).*Pass `state\(\)` and `derive\(\)` accessors/s
+    );
+    expect(resources).toMatch(
+      /abort.*previous generation.*synchronous cleanup/s
+    );
     expect(docs).not.toMatch(/not signals|periodic(?:ally)? reruns/i);
   });
 });

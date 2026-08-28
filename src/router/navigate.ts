@@ -27,6 +27,7 @@ import {
   beginHistoryFocusRestoration,
   captureNavigationFocus,
 } from './navigation-scroll';
+import { isRuntimeSchedulerExecuting } from '../runtime';
 
 export { configureScrollRestoration } from './navigation-scroll';
 export type {
@@ -62,12 +63,21 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
 
   const targetPath = addRouteBasePath(path, getActiveRouteBasePath());
   const initialTarget = parseTargetUrl(targetPath);
-  navigateWithRedirectState(targetPath, options, {
+  const redirectState: NavigationRedirectState = {
     redirects: 0,
     visited: new Set([
       `${initialTarget.pathname}${initialTarget.search}${initialTarget.hash}`,
     ]),
-  });
+  };
+
+  if (isRuntimeSchedulerExecuting()) {
+    queueMicrotask(() => {
+      navigateWithRedirectState(targetPath, options, redirectState);
+    });
+    return;
+  }
+
+  navigateWithRedirectState(targetPath, options, redirectState);
 }
 
 function navigateWithRedirectState(

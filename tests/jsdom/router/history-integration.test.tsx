@@ -20,8 +20,8 @@ import {
 } from 'vite-plus/test';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { createSPA } from '@askrjs/askr/boot';
-import { state } from '../../../src/index';
-import { task } from '../../../src/runtime/operations';
+import { state, type State } from '../../../src/index';
+import { task, watch } from '../../../src/runtime/operations';
 import { navigate } from '../../../src/router/navigate';
 import {
   createRouteRegistry,
@@ -70,6 +70,63 @@ describe('history integration (ROUTER)', () => {
       writable: true,
       configurable: true,
     });
+  });
+
+  it('should commit a watcher-driven authenticated redirect to URL and DOM exactly once', async () => {
+    let authenticated!: State<boolean>;
+    let redirects = 0;
+    const Login = () => {
+      authenticated = state(false);
+      watch(authenticated, (isAuthenticated) => {
+        if (isAuthenticated) {
+          redirects += 1;
+          navigate('/dashboard', { replace: true });
+        }
+      });
+      return <p>{'login'}</p>;
+    };
+    const registry = createRouteRegistry(() => {
+      route('/login', Login);
+      route('/dashboard', () => <p>{'dashboard'}</p>);
+    });
+
+    window.history.replaceState({ path: '/login' }, '', '/login');
+    await createSPA({ root: container, registry });
+    flushScheduler();
+    expect(container.textContent).toBe('login');
+
+    authenticated.set(true);
+    await settleNavigation();
+
+    expect(redirects).toBe(1);
+    expect(window.location.pathname).toBe('/dashboard');
+    expect(container.textContent).toBe('dashboard');
+  });
+
+  it('should redirect an already-authenticated watcher after its initial commit', async () => {
+    let redirects = 0;
+    const Login = () => {
+      const authenticated = state(true);
+      watch(authenticated, (isAuthenticated) => {
+        if (isAuthenticated) {
+          redirects += 1;
+          navigate('/dashboard', { replace: true });
+        }
+      });
+      return <p>{'login'}</p>;
+    };
+    const registry = createRouteRegistry(() => {
+      route('/login', Login);
+      route('/dashboard', () => <p>{'dashboard'}</p>);
+    });
+
+    window.history.replaceState({ path: '/login' }, '', '/login');
+    await createSPA({ root: container, registry });
+    await settleNavigation();
+
+    expect(redirects).toBe(1);
+    expect(window.location.pathname).toBe('/dashboard');
+    expect(container.textContent).toBe('dashboard');
   });
 
   it('should preserve scroll and focus restoration given back/forward navigation when nested routes replace their content', async () => {
