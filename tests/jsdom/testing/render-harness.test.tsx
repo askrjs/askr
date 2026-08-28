@@ -2,11 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { state } from '@askrjs/askr';
 import { Portal } from '@askrjs/askr/foundations';
 import { on } from '@askrjs/askr/resources';
+import { createMutation, createQuery, queryScope } from '@askrjs/askr/data';
 import {
   cleanup,
+  createMutationTestRegistry,
   dispatch,
   flush,
   mount,
+  mutationState,
+  queryState,
   render,
   type RenderResult,
 } from '@askrjs/askr/testing';
@@ -97,6 +101,41 @@ describe('testing render harness', () => {
     expect(firstListener).not.toHaveBeenCalled();
     expect(secondListener).toHaveBeenCalledOnce();
     expect(second.container.textContent).toBe('second');
+  });
+
+  it('should isolate plain query and mutation renders by injected data runtime', () => {
+    const scope = queryScope('plain-render');
+    const first = createMutationTestRegistry();
+    const second = createMutationTestRegistry();
+    first.runtime.queryTestOverrides.set(
+      scope.key('value'),
+      queryState.fresh({ label: 'first' })
+    );
+    second.runtime.queryTestOverrides.set(
+      scope.key('value'),
+      queryState.fresh({ label: 'second' })
+    );
+    first.set('plain/save', mutationState.success(true));
+    second.set('plain/save', mutationState.error(new Error('second failed')));
+    const definition = {
+      key: () => scope.key('value'),
+      fetch: async () => ({ label: 'network' }),
+    };
+    const App = () => {
+      const query = createQuery(definition, undefined);
+      const mutation = createMutation({
+        key: 'plain/save',
+        action: async () => false,
+      });
+      return <output>{`${query.data?.label}:${mutation.status}`}</output>;
+    };
+
+    const firstRender = render(App, { dataRuntime: first.runtime });
+    const secondRender = mount(App, { dataRuntime: second.runtime });
+    mounted.push(firstRender, secondRender);
+
+    expect(firstRender.container.textContent).toBe('first:success');
+    expect(secondRender.container.textContent).toBe('second:error');
   });
 
   it('should fail clearly without a DOM environment', () => {

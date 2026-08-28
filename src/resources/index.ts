@@ -19,6 +19,7 @@ export {
   stream,
   capture,
   windowFocused,
+  watch,
 } from '../runtime';
 export type { ResourceResult } from '../runtime';
 export type {
@@ -28,6 +29,10 @@ export type {
   StreamResult,
   StreamStatus,
   TimerOptions,
+  WatchCallback,
+  WatchContext,
+  WatchSource,
+  WatchValues,
 } from '../runtime';
 
 export { getSignal } from '../runtime';

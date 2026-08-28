@@ -8,6 +8,8 @@ export type IslandConfig = {
   root: Element | string;
   component: ComponentFunction;
   cspNonce?: string;
+  /** Optional data runtime owned by this island's render and event lifecycle. */
+  dataRuntime?: import('../data/types').DataRuntime;
   // Optional: surface cleanup errors during teardown for this island.
   cleanupStrict?: boolean;
   // Explicitly disallow routes on islands at type level.

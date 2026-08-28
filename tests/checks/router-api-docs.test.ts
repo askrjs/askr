@@ -61,4 +61,23 @@ describe('router public contract documentation', () => {
       /registerRoutes|getManifest|getRoutes|clearRoutes|deprecated|legacy/
     );
   });
+
+  it('should preserve the public timing and production-path navigation test contract', () => {
+    const docs = read('docs/core/runtime.md');
+    const resources = read('docs/reference/resources.md');
+
+    expect(docs).toMatch(/Askr uses signals internally/);
+    expect(docs).toMatch(/task\(\).*once per committed mount/s);
+    expect(docs).toMatch(/Mocking `navigate\(\)` proves invocation only/);
+    expect(docs).toMatch(/final URL and mounted DOM/);
+    expect(resources).toMatch(/task\(\).*once per committed mount/s);
+    expect(resources).toMatch(/Rerenders do not rerun the task/);
+    expect(resources).toMatch(
+      /watch\(\).*Pass `state\(\)` and `derive\(\)` accessors/s
+    );
+    expect(resources).toMatch(
+      /abort.*previous generation.*synchronous cleanup/s
+    );
+    expect(docs).not.toMatch(/not signals|periodic(?:ally)? reruns/i);
+  });
 });

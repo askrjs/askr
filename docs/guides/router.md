@@ -209,6 +209,23 @@ function PostPage() {
 
 `currentRoute()` is the route snapshot API inside components.
 
+For transient, entry-local browser data, pass `state` to `navigate()` and type
+the second `currentRoute` generic. `hasState` distinguishes an omitted state
+from an explicitly supplied `undefined` value. Location state follows its push
+or replace entry through Back/Forward and is absent during SSR; redirects carry
+the original navigation state to the final entry.
+
+```tsx
+navigate('/upload/confirm', { state: { file } });
+
+const location = currentRoute<Record<never, string>, { file: File }>();
+if (location.hasState) preview(location.state?.file);
+```
+
+History navigation also restores the last focused control after the destination
+commits. Controls can provide a stable `data-askr-focus-key`; native `id`,
+`name`, `aria-label`, and associated label text are supported fallbacks.
+
 ## Route options
 
 ```ts

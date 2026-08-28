@@ -44,6 +44,12 @@ export class QueryCell<T> {
   private generation = 0;
   private startQueued = false;
   private pendingRefresh: Promise<void> | null = null;
+  private pendingRefreshKind:
+    | 'initial'
+    | 'manual'
+    | 'invalidation'
+    | 'reconcile'
+    | null = null;
   private pendingRefreshResolve: (() => void) | null = null;
   private pendingRefreshToken = 0;
   private reconcileAttemptCount = 0;
@@ -248,7 +254,7 @@ export class QueryCell<T> {
       return;
     }
 
-    this.queueStart();
+    this.queueStart(undefined, 'initial');
   }
 
   refresh(): Promise<void> {
@@ -257,10 +263,16 @@ export class QueryCell<T> {
     }
 
     if (this.pendingRefresh) {
-      return this.pendingRefresh;
+      if (this.pendingRefreshKind === 'invalidation') {
+        this.controller?.abort();
+        this.queueStart(undefined, 'manual', true);
+        return this.pendingRefresh;
+      } else {
+        return this.pendingRefresh;
+      }
     }
 
-    this.queueStart();
+    this.queueStart(undefined, 'manual');
     return this.pendingRefresh ?? Promise.resolve();
   }
 
@@ -273,10 +285,11 @@ export class QueryCell<T> {
       // Invalidation supersedes stale work. Manual refreshes, by contrast,
       // are equivalent requests and share the in-flight generation.
       this.controller?.abort();
-      this.finishPendingRefresh(this.pendingRefreshToken);
+      this.queueStart(undefined, 'invalidation', true);
+      return;
     }
 
-    this.queueStart();
+    this.queueStart(undefined, 'invalidation');
   }
 
   markPendingWrite(): void {
@@ -298,7 +311,11 @@ export class QueryCell<T> {
     });
   }
 
-  private queueStart(reconcileSequence?: number): void {
+  private queueStart(
+    reconcileSequence?: number,
+    kind: 'initial' | 'manual' | 'invalidation' | 'reconcile' = 'manual',
+    continuePending = false
+  ): void {
     if (this.destroyed) {
       return;
     }
@@ -310,21 +327,24 @@ export class QueryCell<T> {
         return ++this.reconcileSequence;
       })();
     this.startQueued = true;
+    this.pendingRefreshKind = kind;
     const token = ++this.pendingRefreshToken;
-    this.pendingRefresh = new Promise<void>((resolve) => {
-      this.pendingRefreshResolve = resolve;
-      enqueueRuntimeTask(() => {
-        if (token !== this.pendingRefreshToken) {
-          return;
-        }
-        this.startQueued = false;
-        if (this.destroyed) {
-          this.finishPendingRefresh(token);
-          return;
-        }
-        void this.start(sequence).finally(() => {
-          this.finishPendingRefresh(token);
-        });
+    if (!continuePending || !this.pendingRefresh) {
+      this.pendingRefresh = new Promise<void>((resolve) => {
+        this.pendingRefreshResolve = resolve;
+      });
+    }
+    enqueueRuntimeTask(() => {
+      if (token !== this.pendingRefreshToken) {
+        return;
+      }
+      this.startQueued = false;
+      if (this.destroyed) {
+        this.finishPendingRefresh(token);
+        return;
+      }
+      void this.start(sequence).finally(() => {
+        this.finishPendingRefresh(token);
       });
     });
   }
@@ -335,6 +355,7 @@ export class QueryCell<T> {
     }
     const resolve = this.pendingRefreshResolve;
     this.pendingRefresh = null;
+    this.pendingRefreshKind = null;
     this.pendingRefreshResolve = null;
     resolve?.();
   }
@@ -556,8 +577,7 @@ export class QueryCell<T> {
     // Reconciliation runs inside the current refresh promise. It must replace
     // that generation rather than coalesce with itself as a manual refresh.
     this.controller?.abort();
-    this.finishPendingRefresh(this.pendingRefreshToken);
-    this.queueStart(reconcileSequence);
+    this.queueStart(reconcileSequence, 'reconcile', true);
   }
 }
 

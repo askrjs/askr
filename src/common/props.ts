@@ -106,6 +106,11 @@ export interface IntrinsicProps extends IntrinsicEventProps {
   hidden?: ReactiveProp<IntrinsicBooleanValue>;
   dir?: ReactiveProp<IntrinsicTextValue>;
   lang?: ReactiveProp<IntrinsicTextValue>;
+  contentEditable?: ReactiveProp<IntrinsicTextValue>;
+  draggable?: ReactiveProp<IntrinsicTextValue>;
+  enterKeyHint?: ReactiveProp<IntrinsicTextValue>;
+  inputMode?: ReactiveProp<IntrinsicTextValue>;
+  spellCheck?: ReactiveProp<IntrinsicTextValue>;
   [attr: `aria-${string}`]: ReactiveProp<IntrinsicAriaValue>;
   [attr: `data-${string}`]: ReactiveProp<IntrinsicDataValue>;
 }
