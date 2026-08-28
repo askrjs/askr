@@ -154,7 +154,7 @@
   "devDependencies": {
     "@types/node": "^26.3.0",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "@vitest/browser-playwright": "4.1.10",
+    "@vitest/browser-playwright": "4.1.11",
     "cross-env": "^10.1.0",
     "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
