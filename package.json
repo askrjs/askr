@@ -162,7 +162,7 @@
     "tsd": "^0.33.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vite": "^8.2.2",
-    "vite-plus": "^0.2.8"
+    "vite-plus": "^0.3.0"
   },
   "tsd": {
     "compilerOptions": {
