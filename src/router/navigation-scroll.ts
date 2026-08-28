@@ -65,7 +65,7 @@ function clearCapturedNavigationFocus(): void {
   capturedActivationFocus = undefined;
 }
 
-function isSameDocumentNavigationTrigger(event: Event): boolean {
+function isPrimaryPointerActivation(event: Event): boolean {
   if (
     event instanceof MouseEvent &&
     (event.button !== 0 ||
@@ -77,33 +77,13 @@ function isSameDocumentNavigationTrigger(event: Event): boolean {
     return false;
   }
 
-  const trigger = event
-    .composedPath()
-    .find(
-      (candidate): candidate is HTMLAnchorElement =>
-        candidate instanceof HTMLAnchorElement && candidate.hasAttribute('href')
-    );
-  if (!trigger || trigger.hasAttribute('download')) {
-    return false;
-  }
-  const target = trigger.getAttribute('target');
-  if (target && target.toLowerCase() !== '_self') {
-    return false;
-  }
-
-  try {
-    return (
-      new URL(trigger.href, document.baseURI).origin === window.location.origin
-    );
-  } catch {
-    return false;
-  }
+  return true;
 }
 
-/** Capture entry-owned focus only for the pointer activation that can navigate. */
+/** Stage entry-owned focus for the duration of one primary pointer activation. */
 export function captureNavigationFocus(event: Event): void {
   clearCapturedNavigationFocus();
-  if (!isSameDocumentNavigationTrigger(event)) {
+  if (!isPrimaryPointerActivation(event)) {
     return;
   }
 

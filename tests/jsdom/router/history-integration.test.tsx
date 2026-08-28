@@ -259,6 +259,9 @@ describe('history integration (ROUTER)', () => {
       unrelated.dispatchEvent(
         new MouseEvent('pointerdown', { bubbles: true, button: 0 })
       );
+      unrelated.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, button: 0 })
+      );
       current.focus();
       expect(document.activeElement).toBe(current);
 
