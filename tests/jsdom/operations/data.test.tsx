@@ -1539,6 +1539,62 @@ describe('data layer', () => {
     }
   });
 
+  it('should keep a refresh waiter pending when invalidation supersedes its fetch', async () => {
+    const pending: Array<(value: { version: number }) => void> = [];
+    let queryRef!: Query<{ version: number }>;
+    let calls = 0;
+
+    const App = () => {
+      queryRef = createQuery({
+        key: 'logs:refresh:waiter',
+        fetch: () => {
+          calls += 1;
+          if (calls === 1) {
+            return Promise.resolve({ version: 1 });
+          }
+          return new Promise<{ version: number }>((resolve) => {
+            pending.push(resolve);
+          });
+        },
+      });
+      return <output>{queryRef.data?.version ?? 'loading'}</output>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('1');
+
+      let settled = false;
+      const refresh = queryRef.refresh().then(() => {
+        settled = true;
+      });
+      flushScheduler();
+      expect(calls).toBe(2);
+
+      invalidate('logs:refresh:waiter');
+      flushScheduler();
+      await Promise.resolve();
+      expect(calls).toBe(3);
+      expect(settled).toBe(false);
+
+      pending[0]?.({ version: 2 });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      pending[1]?.({ version: 3 });
+      await refresh;
+      await settle();
+      expect(settled).toBe(true);
+      expect(queryRef.data).toEqual({ version: 3 });
+      expect(container.textContent).toBe('3');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should expose an aborted stale reason when a cached refresh rejects with AbortError', async () => {
     let resolveInitial!: (value: { id: string; version: number }) => void;
     let rejectRefresh!: (error: DOMException) => void;

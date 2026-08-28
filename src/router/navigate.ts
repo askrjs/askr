@@ -26,6 +26,8 @@ import { getActiveRouteBasePath } from './store';
 import {
   beginHistoryFocusRestoration,
   captureNavigationFocus,
+  prepareNavigationFocus,
+  releaseNavigationFocusCapture,
 } from './navigation-scroll';
 import { isRuntimeSchedulerExecuting } from '../runtime';
 
@@ -60,6 +62,8 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
   if (typeof window === 'undefined') {
     return;
   }
+
+  prepareNavigationFocus();
 
   const targetPath = addRouteBasePath(path, getActiveRouteBasePath());
   const initialTarget = parseTargetUrl(targetPath);
@@ -198,6 +202,7 @@ export function initializeNavigation(): void {
   navigationInitialized = true;
   window.addEventListener('popstate', handlePopState);
   document.addEventListener('pointerdown', captureNavigationFocus, true);
+  document.addEventListener('click', releaseNavigationFocusCapture);
 }
 
 export function cleanupNavigation(): void {
@@ -210,4 +215,5 @@ export function cleanupNavigation(): void {
   navigationInitialized = false;
   window.removeEventListener('popstate', handlePopState);
   document.removeEventListener('pointerdown', captureNavigationFocus, true);
+  document.removeEventListener('click', releaseNavigationFocusCapture);
 }

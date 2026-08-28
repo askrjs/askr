@@ -236,6 +236,47 @@ describe('history integration (ROUTER)', () => {
       pushStateSpy.mockRestore();
     });
 
+    it('should not persist focus captured by an unrelated earlier pointer activation', async () => {
+      route('/page1', () => (
+        <div>
+          <input id="earlier-focus" />
+          <button id="unrelated-action">{'Unrelated action'}</button>
+          <input id="current-focus" />
+        </div>
+      ));
+      route('/page2', () => <div>{'Page 2'}</div>);
+
+      window.history.replaceState({ path: '/page1' }, '', '/page1');
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+      flushScheduler();
+
+      const earlier = container.querySelector('#earlier-focus') as HTMLElement;
+      const unrelated = container.querySelector(
+        '#unrelated-action'
+      ) as HTMLElement;
+      const current = container.querySelector('#current-focus') as HTMLElement;
+      earlier.focus();
+      unrelated.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, button: 0 })
+      );
+      current.focus();
+      expect(document.activeElement).toBe(current);
+
+      const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+      navigate('/page2');
+      flushScheduler();
+
+      expect(replaceStateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: '/page1',
+          focus: { attribute: 'id', value: 'current-focus' },
+        }),
+        '',
+        '/page1'
+      );
+      replaceStateSpy.mockRestore();
+    });
+
     it('should keep typed location state on its owning push and replace entries', async () => {
       route('/page1', () => {
         const location = currentRoute<

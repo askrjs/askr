@@ -26,7 +26,8 @@ let scrollRestorationOptions: NormalizedScrollRestorationOptions = {
 };
 
 const scrollPositions = new Map<string, { x: number; y: number }>();
-let capturedNavigationFocus: FocusDescriptor | undefined;
+let capturedActivationFocus: FocusDescriptor | undefined;
+let pendingNavigationFocus: FocusDescriptor | undefined;
 let focusAtHistoryNavigationStart: Element | null = null;
 
 type FocusDescriptor = {
@@ -60,9 +61,64 @@ function readFocusDescriptor(): FocusDescriptor | undefined {
   return undefined;
 }
 
-/** Capture the entry-owned focus before a pointer activation moves focus to a navigation control. */
-export function captureNavigationFocus(): void {
-  capturedNavigationFocus = readFocusDescriptor();
+function clearCapturedNavigationFocus(): void {
+  capturedActivationFocus = undefined;
+}
+
+function isSameDocumentNavigationTrigger(event: Event): boolean {
+  if (
+    event instanceof MouseEvent &&
+    (event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey)
+  ) {
+    return false;
+  }
+
+  const trigger = event
+    .composedPath()
+    .find(
+      (candidate): candidate is HTMLAnchorElement =>
+        candidate instanceof HTMLAnchorElement && candidate.hasAttribute('href')
+    );
+  if (!trigger || trigger.hasAttribute('download')) {
+    return false;
+  }
+  const target = trigger.getAttribute('target');
+  if (target && target.toLowerCase() !== '_self') {
+    return false;
+  }
+
+  try {
+    return (
+      new URL(trigger.href, document.baseURI).origin === window.location.origin
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Capture entry-owned focus only for the pointer activation that can navigate. */
+export function captureNavigationFocus(event: Event): void {
+  clearCapturedNavigationFocus();
+  if (!isSameDocumentNavigationTrigger(event)) {
+    return;
+  }
+
+  capturedActivationFocus = readFocusDescriptor();
+}
+
+/** Release pointer activation state after its click has finished dispatching. */
+export function releaseNavigationFocusCapture(): void {
+  clearCapturedNavigationFocus();
+}
+
+/** Preserve the active control before route content can be replaced. */
+export function prepareNavigationFocus(): void {
+  pendingNavigationFocus = capturedActivationFocus ?? readFocusDescriptor();
+  clearCapturedNavigationFocus();
 }
 
 /** Mark the active element so restoration can avoid overwriting focus moved during route commit. */
@@ -142,12 +198,12 @@ function writeHistoryScrollPosition(
       ...state,
       path: href,
       scroll: position,
-      focus: capturedNavigationFocus ?? readFocusDescriptor(),
+      focus: pendingNavigationFocus ?? readFocusDescriptor(),
     },
     '',
     href
   );
-  capturedNavigationFocus = undefined;
+  pendingNavigationFocus = undefined;
 }
 
 export function saveScrollPosition(href: string): void {

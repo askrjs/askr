@@ -265,7 +265,8 @@ export class QueryCell<T> {
     if (this.pendingRefresh) {
       if (this.pendingRefreshKind === 'invalidation') {
         this.controller?.abort();
-        this.finishPendingRefresh(this.pendingRefreshToken);
+        this.queueStart(undefined, 'manual', true);
+        return this.pendingRefresh;
       } else {
         return this.pendingRefresh;
       }
@@ -284,7 +285,8 @@ export class QueryCell<T> {
       // Invalidation supersedes stale work. Manual refreshes, by contrast,
       // are equivalent requests and share the in-flight generation.
       this.controller?.abort();
-      this.finishPendingRefresh(this.pendingRefreshToken);
+      this.queueStart(undefined, 'invalidation', true);
+      return;
     }
 
     this.queueStart(undefined, 'invalidation');
@@ -311,7 +313,8 @@ export class QueryCell<T> {
 
   private queueStart(
     reconcileSequence?: number,
-    kind: 'initial' | 'manual' | 'invalidation' | 'reconcile' = 'manual'
+    kind: 'initial' | 'manual' | 'invalidation' | 'reconcile' = 'manual',
+    continuePending = false
   ): void {
     if (this.destroyed) {
       return;
@@ -326,20 +329,22 @@ export class QueryCell<T> {
     this.startQueued = true;
     this.pendingRefreshKind = kind;
     const token = ++this.pendingRefreshToken;
-    this.pendingRefresh = new Promise<void>((resolve) => {
-      this.pendingRefreshResolve = resolve;
-      enqueueRuntimeTask(() => {
-        if (token !== this.pendingRefreshToken) {
-          return;
-        }
-        this.startQueued = false;
-        if (this.destroyed) {
-          this.finishPendingRefresh(token);
-          return;
-        }
-        void this.start(sequence).finally(() => {
-          this.finishPendingRefresh(token);
-        });
+    if (!continuePending || !this.pendingRefresh) {
+      this.pendingRefresh = new Promise<void>((resolve) => {
+        this.pendingRefreshResolve = resolve;
+      });
+    }
+    enqueueRuntimeTask(() => {
+      if (token !== this.pendingRefreshToken) {
+        return;
+      }
+      this.startQueued = false;
+      if (this.destroyed) {
+        this.finishPendingRefresh(token);
+        return;
+      }
+      void this.start(sequence).finally(() => {
+        this.finishPendingRefresh(token);
       });
     });
   }
@@ -572,8 +577,7 @@ export class QueryCell<T> {
     // Reconciliation runs inside the current refresh promise. It must replace
     // that generation rather than coalesce with itself as a manual refresh.
     this.controller?.abort();
-    this.finishPendingRefresh(this.pendingRefreshToken);
-    this.queueStart(reconcileSequence, 'reconcile');
+    this.queueStart(reconcileSequence, 'reconcile', true);
   }
 }
 

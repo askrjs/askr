@@ -118,6 +118,19 @@ export function onRouteChange(
 
 let serverLocation: string | null = null;
 
+function readLocationState(): { hasState: boolean; state: unknown } {
+  const historyState =
+    typeof window !== 'undefined' && window.history?.state
+      ? window.history.state
+      : null;
+  const hasState = historyState?.askrHasState === true;
+
+  return {
+    hasState,
+    state: hasState ? historyState.askrState : undefined,
+  };
+}
+
 function logicalRoutePathname(pathname: string): string | undefined {
   const logical = removeRouteBasePath(pathname, getActiveRouteBasePath());
   return logical === undefined ? undefined : parseLocation(logical).pathname;
@@ -164,19 +177,14 @@ function buildRouteSnapshot(
   const matches = location.withinBasePath
     ? computeMatchesFromRoutes(pathname, getActiveRoutes())
     : [];
-  const historyState =
-    typeof window !== 'undefined' && window.history?.state
-      ? window.history.state
-      : null;
-  const hasState = historyState?.askrHasState === true;
+  const locationState = readLocationState();
 
   return Object.freeze({
     path: pathname,
     params: deepFreeze({ ...matches[0]?.params }),
     query,
     hash: hash || null,
-    hasState,
-    state: hasState ? historyState.askrState : undefined,
+    ...locationState,
     matches: Object.freeze(matches),
   });
 }
@@ -309,19 +317,14 @@ function readCurrentRouteSnapshot<
   const params = deepFreeze({
     ...routeParams,
   });
-  const historyState =
-    typeof window !== 'undefined' && window.history?.state
-      ? window.history.state
-      : null;
-  const hasState = historyState?.askrHasState === true;
+  const locationState = readLocationState();
 
   return Object.freeze({
     path: pathname,
     params,
     query,
     hash: hash || null,
-    hasState,
-    state: hasState ? historyState.askrState : undefined,
+    ...locationState,
     matches: Object.freeze(matches),
   }) as RouteSnapshot<TParams, TState>;
 }
