@@ -371,7 +371,7 @@ describe('architecture boundaries', () => {
     const text = fs.readFileSync(cleanup!.file, 'utf8');
     expect(text).toContain('scope.dispose()');
     expect(text).toContain('cleanup()');
-    expect(text).toContain('abortController.abort()');
+    expect(text).toContain('abortController.abort(');
     expect(text).toContain('instance.lifecycleGeneration++');
     expect(text).toContain('instance.evaluationGeneration++');
   });

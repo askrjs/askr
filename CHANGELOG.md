@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- fix(runtime): reuse a context-free default abort reason during component
+  teardown so retained signals do not retain departed component generations.
+
 ## 0.2.3 — 2026-08-25
 
 - fix(data): make mutation invalidation and reconcile retries generation-safe

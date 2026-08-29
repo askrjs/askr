@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { state } from '../../../src/index';
+import { getSignal, state } from '../../../src/index';
 import { resource } from '../../../src/resources';
 import {
   createTestContainer,
@@ -68,6 +68,26 @@ describe('cancellation (SPEC 2.6)', () => {
       container.innerHTML = '';
 
       expect(aborted).toBe(true);
+    });
+
+    it('should reuse a context-free abort reason across component generations', () => {
+      const signals: AbortSignal[] = [];
+
+      const Component = () => {
+        signals.push(getSignal());
+        return <div>content</div>;
+      };
+
+      for (let generation = 0; generation < 2; generation += 1) {
+        createIsland({ root: container, component: Component });
+        flushScheduler();
+        container.innerHTML = '';
+      }
+
+      expect(signals).toHaveLength(2);
+      expect(signals[0]?.aborted).toBe(true);
+      expect(signals[0]?.reason).toMatchObject({ name: 'AbortError' });
+      expect(signals[1]?.reason).toBe(signals[0]?.reason);
     });
 
     it('should fire abort signal when component is replaced', async () => {
