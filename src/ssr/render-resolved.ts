@@ -10,6 +10,7 @@ import {
 import { validateCspNonce } from '../csp-nonce';
 import { renderSSRRouteAppToSink } from './render-sync';
 import { StringSink } from './sink';
+import type { AuthContext } from '@askrjs/auth';
 
 function sameRouteParams(
   left: Record<string, string> | undefined,
@@ -48,6 +49,13 @@ export function renderResolvedToStringSync(opts: {
     cspNonce?: string;
   };
 }): string {
+  return renderResolvedRouteToStringSync(opts);
+}
+
+function renderResolvedRouteToStringSync(
+  opts: Parameters<typeof renderResolvedToStringSync>[0],
+  authContext?: AuthContext
+): string {
   const { url, registry, handler, params, options } = opts;
   const routes = registry.routes;
   const requestUrl = new URL(url, 'http://localhost');
@@ -88,6 +96,7 @@ export function renderResolvedToStringSync(opts: {
     params,
     routes: effectiveRoutes,
     routeAuth: registry.manifest.auth,
+    authContext,
     dataRuntime: options?.dataRuntime,
     envelope: options?.envelope,
     cspNonce,
@@ -102,4 +111,12 @@ export function renderResolvedToStringSync(opts: {
   });
   sink.end();
   return sink.toString();
+}
+
+/** @internal Render the resolved hydration route with its request-local auth context. */
+export function renderResolvedForHydrationSync(
+  opts: Parameters<typeof renderResolvedToStringSync>[0],
+  authContext: AuthContext
+): string {
+  return renderResolvedRouteToStringSync(opts, authContext);
 }

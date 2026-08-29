@@ -1,10 +1,16 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { renderToString } from '../../../src/ssr';
+import { renderRouteRequestToString, renderToString } from '../../../src/ssr';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import { createDataRuntime, createQuery, defineQuery } from '../../../src/data';
 import { verifyHydrationSyncForUrl } from '../../../src/ssr/verify-hydration';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
-import { createRouteRegistry, Link, route } from '../../../src/router';
+import {
+  createRouteRegistry,
+  currentAuth,
+  Link,
+  resolveRouteRequest,
+  route,
+} from '../../../src/router';
 
 describe('verifyHydrationSyncForUrl', () => {
   it('should verify mounted route markup using the logical route path', () => {
@@ -98,6 +104,68 @@ describe('verifyHydrationSyncForUrl', () => {
           url: '/',
           registry,
           resolved: { handler: Component, params: {} },
+        })
+      ).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should verify with the auth context attached to the resolved route', async () => {
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      const registry = createRouteRegistry(
+        () => route('/', () => <main>{currentAuth().principal?.id}</main>),
+        {
+          auth: {
+            resolve: () => ({
+              authenticated: true,
+              principal: { id: 'route-a' },
+              session: null,
+              tenant: null,
+            }),
+          },
+        }
+      );
+      const rendered = await renderRouteRequestToString({ url: '/', registry });
+      if (rendered.kind !== 'render') throw new Error('expected render');
+      container.innerHTML = rendered.html;
+      const resolved = await resolveRouteRequest('/', {
+        registry,
+        mode: 'spa',
+        load: false,
+      });
+      if (!resolved || resolved.kind !== 'render') {
+        throw new Error('expected resolved route');
+      }
+
+      const otherRegistry = createRouteRegistry(
+        () => route('/', () => <main>{'other'}</main>),
+        {
+          auth: {
+            resolve: () => ({
+              authenticated: true,
+              principal: { id: 'route-b' },
+              session: null,
+              tenant: null,
+            }),
+          },
+        }
+      );
+      await resolveRouteRequest('/', {
+        registry: otherRegistry,
+        mode: 'spa',
+        load: false,
+      });
+
+      expect(currentAuth().principal?.id).toBe('route-b');
+      expect(
+        verifyHydrationSyncForUrl({
+          root: container,
+          url: '/',
+          registry,
+          resolved,
         })
       ).toBe(true);
     } finally {

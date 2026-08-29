@@ -1,11 +1,17 @@
 import type { SSRData } from './context';
-import type { ResolvedRoute, RouteRegistry } from '../common/router';
+import type {
+  ResolvedRoute,
+  RouteRegistry,
+  RouteRenderResult,
+} from '../common/router';
 import type { DataRuntime } from '../data/types';
 import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
-import { renderResolvedToStringSync } from './render-resolved';
+import { renderResolvedForHydrationSync } from './render-resolved';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import { getHydrationRenderUrl } from '../common/page-render-envelope';
 import { withHydrationVerificationRender } from '../common/render-context';
+import { getRouteRenderContext } from '../router/resolution';
+import { currentAuth } from '../router/auth';
 
 const SSR_STYLE_REGISTRY_SELECTOR = 'style[data-askr-style-registry]';
 
@@ -39,14 +45,19 @@ export function verifyHydrationSyncForUrl(opts: {
   const verificationUrl =
     getHydrationRenderUrl(options?.envelope) ??
     new URL(url, 'http://localhost').pathname;
+  const authContext =
+    getRouteRenderContext(resolved as RouteRenderResult)?.auth ?? currentAuth();
   const expected = withHydrationVerificationRender(() =>
-    renderResolvedToStringSync({
-      url: verificationUrl,
-      registry,
-      handler: resolved.handler,
-      params: resolved.params,
-      options,
-    })
+    renderResolvedForHydrationSync(
+      {
+        url: verificationUrl,
+        registry,
+        handler: resolved.handler,
+        params: resolved.params,
+        options,
+      },
+      authContext
+    )
   );
 
   return (
