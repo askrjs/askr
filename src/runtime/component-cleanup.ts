@@ -19,6 +19,16 @@ import { warnUnusedStateReads } from './state-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
+// AbortController.abort() creates a new DOMException and captures the active
+// teardown stack when no reason is supplied. Capture the platform's default
+// reason once outside component execution so retained signals cannot keep
+// departed component generations alive.
+const COMPONENT_DISPOSED_REASON = (() => {
+  const controller = new AbortController();
+  controller.abort();
+  return controller.signal.reason;
+})();
+
 export type OwnedChildScope = {
   key: string | number;
   dispose(): void;
@@ -95,7 +105,7 @@ export function cleanupComponentGeneration(
         generation.abortController &&
         !generation.abortController.signal.aborted
       ) {
-        generation.abortController.abort();
+        generation.abortController.abort(COMPONENT_DISPOSED_REASON);
       }
     } catch (err) {
       recordCleanupError('[Askr] abort controller cleanup threw:', err);
@@ -172,7 +182,7 @@ export function cleanupComponent(instance: ComponentInstance): void {
         instance.abortController &&
         !instance.abortController.signal.aborted
       ) {
-        instance.abortController.abort();
+        instance.abortController.abort(COMPONENT_DISPOSED_REASON);
       }
     } catch (err) {
       recordCleanupError('[Askr] abort controller cleanup threw:', err);
