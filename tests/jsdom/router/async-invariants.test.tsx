@@ -195,7 +195,7 @@ describe('router async invariants', () => {
     }
   });
 
-  it('should not log a rejected policy after a newer navigation aborts its request', async () => {
+  it('should not log a rejected preload after a newer navigation aborts its request', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
@@ -203,16 +203,14 @@ describe('router async invariants', () => {
     try {
       route('/', () => <div>{'home'}</div>);
       route('/slow', () => <div>{'slow'}</div>, {
-        policies: [
-          ({ signal }) =>
-            new Promise((_resolve, reject) => {
-              signal.addEventListener(
-                'abort',
-                () => reject(new DOMException('superseded', 'AbortError')),
-                { once: true }
-              );
-            }),
-        ],
+        preload: ({ signal }) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => reject(new DOMException('superseded', 'AbortError')),
+              { once: true }
+            );
+          }),
       });
       route('/fast', () => <div>{'fast'}</div>);
 
