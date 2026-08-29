@@ -20,6 +20,10 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
+async function settleAsyncNavigation(): Promise<void> {
+  for (let turn = 0; turn < 6; turn += 1) await Promise.resolve();
+}
+
 describe('router async invariants', () => {
   let { container, cleanup } = createTestContainer();
 
@@ -185,6 +189,101 @@ describe('router async invariants', () => {
       expect(consoleError).toHaveBeenCalledWith(
         '[Askr] navigation failed:',
         policyError
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('should not log a rejected preload after a newer navigation aborts its request', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    try {
+      route('/', () => <div>{'home'}</div>);
+      route('/slow', () => <div>{'slow'}</div>, {
+        preload: ({ signal }) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => reject(new DOMException('superseded', 'AbortError')),
+              { once: true }
+            );
+          }),
+      });
+      route('/fast', () => <div>{'fast'}</div>);
+
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+      navigate('/slow');
+      await Promise.resolve();
+      navigate('/fast');
+      await settleAsyncNavigation();
+      flushScheduler();
+
+      expect(container.textContent).toBe('fast');
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('should not log a rejected popstate policy after a newer request supersedes it', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    try {
+      route('/', () => <div>{'home'}</div>);
+      route('/slow', () => <div>{'slow'}</div>, {
+        policies: [
+          ({ signal }) =>
+            new Promise((_resolve, reject) => {
+              signal.addEventListener(
+                'abort',
+                () => reject(new DOMException('superseded', 'AbortError')),
+                { once: true }
+              );
+            }),
+        ],
+      });
+      route('/fast', () => <div>{'fast'}</div>);
+
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+      window.history.pushState({}, '', '/slow');
+      window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
+      await Promise.resolve();
+      window.history.pushState({}, '', '/fast');
+      window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
+      await settleAsyncNavigation();
+      flushScheduler();
+
+      expect(container.textContent).toBe('fast');
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('should still report an AbortError from the active navigation request', async () => {
+    const abortError = new DOMException('active failure', 'AbortError');
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    try {
+      route('/', () => <div>{'home'}</div>);
+      route('/active-abort', () => <div>{'unreachable'}</div>, {
+        policies: [() => Promise.reject(abortError)],
+      });
+
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+      navigate('/active-abort');
+      await settleAsyncNavigation();
+
+      expect(consoleError).toHaveBeenCalledWith(
+        '[Askr] navigation failed:',
+        abortError
       );
     } finally {
       consoleError.mockRestore();

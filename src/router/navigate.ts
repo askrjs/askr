@@ -127,6 +127,9 @@ function navigateWithRedirectState(
         }
       },
       (error) => {
+        if (isStaleRouteRequest(request.id)) {
+          return;
+        }
         logger.error('[Askr] navigation failed:', error);
       }
     );
@@ -185,6 +188,9 @@ function handlePopState(event: PopStateEvent): void {
         applyResolved(next);
       },
       (error) => {
+        if (isStaleRouteRequest(request.id)) {
+          return;
+        }
         logger.error('[Askr] popstate navigation failed:', error);
       }
     );
