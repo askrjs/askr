@@ -331,11 +331,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
     await reconcileInitialRouteMetadata(resolved);
 
-    const hydrationResolvedBase: ResolvedRoute =
+    const hydrationResolved: ResolvedRoute =
       resolved.kind === 'deny'
         ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
-        : { handler: resolved.handler, params: resolved.params };
-    const hydrationResolved: ResolvedRoute = hydrationResolvedBase;
+        : resolved;
     const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
       withIntrinsicHydrationAdoption(() =>
         mountOrUpdate(args[0], args[1], {
