@@ -216,7 +216,12 @@ flowchart LR
   component-form `renderToString()`. `src/ssr/hydration-data.ts` owns
   hydration render-data serialization. `src/ssr/verify-hydration.ts` is called
   by `hydrateSPA()` to compare adopted DOM with a normalized synchronous route
-  render when verification is enabled. `src/ssr/boundaries.ts` owns
+  render when verification is enabled. That verification render uses the
+  already-resolved handler and params; it does not repeat auth, policy,
+  preload, lazy-loader, redirect, or route-loader resolution.
+  Comparison excludes framework-owned hydration payload and request-local SSR
+  style carrier elements, which are not part of the adopted app subtree.
+  `src/ssr/boundaries.ts` owns
   error/control boundary state helpers, renderable child normalization, and
   default fallback construction. `src/ssr/component-runtime.ts` owns
   synchronous component execution, strict-purity guards, temporary owner

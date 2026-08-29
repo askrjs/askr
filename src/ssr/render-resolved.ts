@@ -1,13 +1,15 @@
 import type { RouteHandler, RouteRegistry } from '../common/router';
 import type { DataRuntime } from '../data/types';
 import { resolveRouteFromRoutes } from '../router/route-matching';
-import type { SSRData } from './context';
-import { renderToString } from './index';
+import { createRenderContext, type SSRData } from './context';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import {
   normalizeRouteBasePath,
   removeRouteBasePath,
 } from '../router/base-path';
+import { validateCspNonce } from '../csp-nonce';
+import { renderSSRRouteAppToSink } from './render-sync';
+import { StringSink } from './sink';
 
 function sameRouteParams(
   left: Record<string, string> | undefined,
@@ -78,42 +80,26 @@ export function renderResolvedToStringSync(opts: {
     index === matchedIndex ? { ...route, handler } : route
   );
   const matchedRoute = routes[matchedIndex]!;
-  const effectiveRecords = registry.manifest.records.map((record) => {
-    const isMatchedRecord =
-      record.path === matchedRoute.path &&
-      record.handler === matchedRoute.handler &&
-      record.options.namespace === matchedRoute.namespace;
-    const effectiveHandler = isMatchedRecord ? handler : record.handler;
-
-    return {
-      ...record,
-      component: effectiveHandler,
-      handler: effectiveHandler,
-      layoutChain: [],
-      pageChain: [],
-      options: record.options.namespace
-        ? { namespace: record.options.namespace }
-        : {},
-      metaChain: undefined,
-    };
-  });
-  const effectiveRegistry = {
-    manifest: {
-      records: effectiveRecords,
-      ...(registry.manifest.basePath
-        ? { basePath: registry.manifest.basePath }
-        : {}),
-    },
-    routes: effectiveRoutes,
-  } as unknown as RouteRegistry;
-
-  return renderToString({
+  const cspNonce = validateCspNonce(options?.cspNonce);
+  const ctx = createRenderContext(options?.seed, {
     url,
-    registry: effectiveRegistry,
-    seed: options?.seed,
+    basePath: registry.manifest.basePath,
     data: options?.data,
+    params,
+    routes: effectiveRoutes,
+    routeAuth: registry.manifest.auth,
     dataRuntime: options?.dataRuntime,
     envelope: options?.envelope,
-    cspNonce: options?.cspNonce,
+    cspNonce,
   });
+  const sink = new StringSink();
+  renderSSRRouteAppToSink({
+    route: { ...matchedRoute, handler },
+    params: params ?? {},
+    data: options?.data,
+    ctx,
+    sink,
+  });
+  sink.end();
+  return sink.toString();
 }

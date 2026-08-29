@@ -1,9 +1,24 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { cleanupApp, hydrateSPA } from '../../../src/boot';
-import { deny } from '../../../src/router/policy';
-import { renderToStringSync } from '../../../src/ssr';
-import { createRouteRegistry, group, route } from '../../../src/router/route';
+import { allow, deny } from '../../../src/router/policy';
+import {
+  renderRouteRequestToString,
+  renderToStringSync,
+} from '../../../src/ssr';
+import {
+  createRouteRegistry,
+  currentAuth,
+  group,
+  route,
+} from '../../../src/router/route';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 describe('hydration route policy invariants', () => {
@@ -86,5 +101,41 @@ describe('hydration route policy invariants', () => {
     expect(renderedDashboard).toBe(false);
     expect(window.location.pathname).toBe('/login');
     expect(container.textContent).toContain('login-page');
+  });
+
+  it('should not repeat async route resolution during hydration verification', async () => {
+    const resolveAuth = vi.fn(async () => ({
+      authenticated: true as const,
+      principal: { id: 'verified-user' },
+      session: null,
+      tenant: null,
+    }));
+    const policy = vi.fn(async () => allow());
+    const loader = vi.fn(async () => ({ ready: true }));
+    const registry = createRouteRegistry(
+      () => {
+        route('/', () => <main>{currentAuth().principal?.id}</main>, {
+          policies: [policy],
+          loader,
+        });
+      },
+      { auth: { resolve: resolveAuth } }
+    );
+
+    const rendered = await renderRouteRequestToString({ url: '/', registry });
+    if (rendered.kind !== 'render') throw new Error('expected render');
+    container.innerHTML = rendered.html;
+    window.history.replaceState({}, '', '/');
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+
+    expect(container.textContent).toContain('verified-user');
+    expect(resolveAuth).toHaveBeenCalledTimes(2);
+    expect(policy).toHaveBeenCalledTimes(2);
+    expect(loader).toHaveBeenCalledTimes(1);
   });
 });

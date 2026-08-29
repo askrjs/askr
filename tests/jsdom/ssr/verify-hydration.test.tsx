@@ -80,6 +80,31 @@ describe('verifyHydrationSyncForUrl', () => {
     }
   });
 
+  it('should ignore the request-local SSR style carrier when comparing app markup', () => {
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      const Component = () => <main>{'ready'}</main>;
+      const registry = routeRegistryFromTable([
+        { path: '/', handler: Component },
+      ]);
+      container.innerHTML =
+        '<style data-askr-style-registry="true">.ready{display:block}</style>' +
+        renderToString({ url: '/', registry });
+
+      expect(
+        verifyHydrationSyncForUrl({
+          root: container,
+          url: '/',
+          registry,
+          resolved: { handler: Component, params: {} },
+        })
+      ).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should verify query-backed markup against the hydrated data runtime', () => {
     const { container, cleanup } = createTestContainer();
 

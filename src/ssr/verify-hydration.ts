@@ -7,13 +7,17 @@ import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import { getHydrationRenderUrl } from '../common/page-render-envelope';
 import { withHydrationVerificationRender } from '../common/render-context';
 
+const SSR_STYLE_REGISTRY_SELECTOR = 'style[data-askr-style-registry]';
+
 function normalizeHydrationHtml(html: string): string {
   const template = document.createElement('template');
   template.innerHTML = html;
-  for (const script of Array.from(
-    template.content.querySelectorAll(`script[${SSR_RENDER_DATA_ATTR}]`)
+  for (const carrier of Array.from(
+    template.content.querySelectorAll(
+      `script[${SSR_RENDER_DATA_ATTR}],${SSR_STYLE_REGISTRY_SELECTOR}`
+    )
   )) {
-    script.remove();
+    carrier.remove();
   }
   return template.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
 }
