@@ -65,6 +65,9 @@ it('should ignore comments, formatting and private class representation', () => 
     contract(`export declare class Runtime { private owners; private cache;
   run(value:string):void; }`)
   );
+  expect(contract("export type Mode = 'sync';")).toEqual(
+    contract('export type Mode = "sync";')
+  );
 });
 
 it('should distinguish same-named types reached through different imports', () => {
@@ -87,4 +90,36 @@ it('should distinguish same-named types reached through different imports', () =
   expect(
     contract(baseline.replaceAll('Left', 'Renamed'), dependencies)
   ).toEqual(snapshot);
+});
+
+it('should compare ascribed values by their exact overload and constructor contracts', () => {
+  const definitions = `
+    export declare function read<T extends string>(value: T): T;
+    export declare function read(value: number): string;
+    export declare class Runtime { constructor(value: string); run(): void; }
+  `;
+  const dependencies = { '/contracts.d.ts': definitions };
+  const direct = `export { read, Runtime } from './contracts.js';`;
+  const ascribed = `
+    import type * as Contract from './contracts.js';
+    export declare const read: typeof Contract.read;
+    export declare const Runtime: typeof Contract.Runtime;
+    export type Runtime = Contract.Runtime;
+  `;
+  expect(contract(ascribed, dependencies)).toEqual(
+    contract(direct, dependencies)
+  );
+  expect(
+    contract(ascribed, {
+      '/contracts.d.ts': definitions.replace('value: number', 'value: boolean'),
+    })
+  ).not.toEqual(contract(direct, dependencies));
+  expect(
+    contract(ascribed, {
+      '/contracts.d.ts': definitions.replace(
+        'constructor(value: string)',
+        'constructor(value: number)'
+      ),
+    })
+  ).not.toEqual(contract(direct, dependencies));
 });

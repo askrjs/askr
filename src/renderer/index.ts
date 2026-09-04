@@ -27,14 +27,9 @@ import { populateKeyMapForElement } from './keyed';
 import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
 import { replaceComponentRange } from './component-range-commit';
 import { getScopeRange } from './boundary-range-adoption';
-import { getDefaultRuntimeInstance } from '../runtime';
-import {
-  configureRuntimeRenderer,
-  type AskrRuntime,
-  type RuntimeRendererHost,
-} from '../runtime';
+import type { RendererCapabilities } from '../runtime';
 
-export function createRendererHost(): RuntimeRendererHost {
+export function createRendererCapabilities(): RendererCapabilities {
   return {
     evaluate: _evaluate,
     cleanupInstancesUnder,
@@ -46,11 +41,4 @@ export function createRendererHost(): RuntimeRendererHost {
     isKeyedReorderFastPathEligible,
     markReactivePropsDirtySource: _markReactivePropsDirtySource,
   };
-}
-
-export function installRendererBridge(
-  runtime: AskrRuntime = getDefaultRuntimeInstance()
-): true {
-  configureRuntimeRenderer(createRendererHost(), runtime);
-  return true;
 }

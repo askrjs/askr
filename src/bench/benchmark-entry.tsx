@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createIsland } from '../boot';
-import { installRendererBridge } from '../renderer';
+import { installRendererBridge } from '../boot/runtime-wiring';
 import { flushRuntimeScheduler } from '../runtime';
 import { selector } from '../runtime';
 import { state, State } from '../runtime';

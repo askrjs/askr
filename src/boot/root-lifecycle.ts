@@ -22,7 +22,6 @@ import {
 } from '../runtime';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import {
-  installRendererBridge,
   removeAllListeners,
   teardownNodeSubtree,
   activateHydrationBoundary as activateRendererHydrationBoundary,
@@ -31,6 +30,7 @@ import {
 import type { BootAppRouteSource } from './types';
 import { resolveRootElement } from './root-element';
 import { CspNonceScope, validateCspNonce } from '../csp-nonce';
+import { installRendererBridge } from './runtime-wiring';
 
 installRendererBridge();
 

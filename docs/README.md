@@ -78,6 +78,8 @@ Benchmark workflow and current optimization goals live under
 
 For contributors who need the runtime shape rather than API-first docs, see
 [Internals: Core engine design](./internals/core-engine-design.md).
+Published contracts and extension wiring are described in the
+[public compatibility boundary](./development/compatibility-boundary.md).
 The detailed drill-downs live in
 [Runtime reactivity](./internals/runtime-reactivity.md),
 [Renderer pipeline](./internals/renderer-pipeline.md), and

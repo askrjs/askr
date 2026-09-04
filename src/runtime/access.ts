@@ -1,9 +1,6 @@
 import type { ReadableSource } from './readable';
-import {
-  getDefaultRuntime,
-  type AskrRuntime,
-  type RuntimeRendererHost,
-} from './runtime';
+import { defaultRuntimeState } from './runtime-state';
+import type { RendererCapabilities } from './renderer-capabilities';
 import type { Scheduler, SchedulerLane } from './scheduler';
 import {
   clearCurrentComponentScope,
@@ -13,15 +10,11 @@ import {
 type RuntimeTask = () => void;
 
 export function getRuntimeScheduler(): Scheduler {
-  return getDefaultRuntime().scheduler;
+  return defaultRuntimeState.scheduler;
 }
 
-export function getDefaultRuntimeInstance(): AskrRuntime {
-  return getDefaultRuntime();
-}
-
-export function getRuntimeRenderer(): RuntimeRendererHost {
-  return getDefaultRuntime().renderer;
+export function getRuntimeRenderer(): RendererCapabilities {
+  return defaultRuntimeState.renderer;
 }
 
 export function enqueueRuntimeTask(task: RuntimeTask): void {
