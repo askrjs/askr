@@ -1,10 +1,20 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
-const consumerRoot = mkdtempSync(join(tmpdir(), 'askr-consumer-'));
+// Windows runners expose TEMP through a DOS short path. Use the same canonical
+// path for npm, TypeScript, and Vite's jsdom module resolver.
+const consumerRoot = realpathSync.native(
+  mkdtempSync(join(tmpdir(), 'askr-consumer-'))
+);
 const npmCli = process.env.npm_execpath;
 if (!npmCli)
   throw new Error('Run this fixture through npm run test:installed.');
@@ -120,7 +130,7 @@ try {
         strict: true,
         noEmit: true,
       },
-      include: ['index.tsx'],
+      include: ['index.tsx', 'contracts/**/*.ts', 'contracts/**/*.tsx'],
     })
   );
   const typescriptCli = resolve(
@@ -132,7 +142,7 @@ try {
     [typescriptCli, '-p', join(consumerRoot, 'tsconfig.json')],
     {
       cwd: consumerRoot,
-      stdio: 'pipe',
+      stdio: 'inherit',
     }
   );
   writeFileSync(

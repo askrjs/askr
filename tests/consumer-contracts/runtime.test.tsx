@@ -10,7 +10,7 @@ import {
   type State,
 } from '@askrjs/askr';
 import { watch } from '@askrjs/askr/resources';
-import { render } from '@askrjs/askr/testing';
+import { render, type RenderResult } from '@askrjs/askr/testing';
 
 test('should preserve synchronous execution and committed watch generations', () => {
   const events: string[] = [];
@@ -62,6 +62,7 @@ test('should preserve runtime configuration, replacement and scheduler callbacks
   const renderer: RuntimeRendererHost = {
     ...original,
     evaluate(node, target, context, owner) {
+      expect(this).toBe(renderer);
       calls.push([node, target, context, owner]);
       original.evaluate(node, target, context, owner);
     },
@@ -90,6 +91,53 @@ test('should preserve runtime configuration, replacement and scheduler callbacks
   }, 'sync');
   expect(events).toEqual(['derived', 'component', 'reactive', 'post']);
   original.teardownNodeSubtree(root);
+});
+
+test('should expose stable callback owners backed by the committed state readers', () => {
+  const runtime = getDefaultRuntime();
+  const original = runtime.renderer;
+  let owner: Parameters<RuntimeRendererHost['evaluate']>[3];
+  let count!: State<number>;
+  let evaluations = 0;
+  let view: RenderResult | undefined;
+  const custom: RuntimeRendererHost = {
+    ...original,
+    evaluate(node, target, context, retainedOwner) {
+      expect(this).toBe(custom);
+      if (retainedOwner) {
+        if (owner) expect(retainedOwner).toBe(owner);
+        owner = retainedOwner;
+        expect(owner.target).toBe(target);
+        evaluations++;
+      }
+      original.evaluate(node, target, context, retainedOwner);
+    },
+  };
+  runtime.configureRenderer(custom);
+  try {
+    view = render(() => {
+      count = state(0);
+      return <output>{String(count())}</output>;
+    });
+    expect(owner).toBeDefined();
+    const generation = owner!._ownershipGeneration;
+    expect(count._readers?.get(owner!)?.generation).toBe(generation);
+    count.set(1);
+    view.flush();
+    expect(view.root.textContent).toBe('1');
+    expect(evaluations).toBeGreaterThanOrEqual(2);
+    expect(owner!._ownershipGeneration).toBe(generation);
+    expect(count._readers?.get(owner!)?.generation).toBe(generation);
+    view.unmount();
+    expect(owner!.notifyUpdate).toBeNull();
+    expect(count._readers?.has(owner!)).not.toBe(true);
+  } finally {
+    try {
+      view?.cleanup();
+    } finally {
+      runtime.configureRenderer(original);
+    }
+  }
 });
 
 test('should drain sibling cleanup before surfacing a strict disposal failure', () => {

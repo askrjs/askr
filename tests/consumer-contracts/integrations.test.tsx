@@ -26,7 +26,9 @@ test('should adopt hydrated inputs and refs before handling interactions', async
           value={value()}
           onInput={(event) => {
             calls++;
-            value.set(event.currentTarget.value);
+            if (event.currentTarget instanceof HTMLInputElement) {
+              value.set(event.currentTarget.value);
+            }
           }}
         />
       );
@@ -62,12 +64,12 @@ test('should publish navigation and retire pending work from the previous route'
   let committedRoutePath: string | undefined;
   const registry = createRouteRegistry(() => {
     route('/pending', () => {
-      const result = resource<string>((context) => {
+      const result = resource((context): Promise<string> => {
         signal = context.signal;
         return new Promise((done) => {
           resolve = done;
         });
-      });
+      }, []);
       return <output>{result.value ?? 'pending'}</output>;
     });
     route('/complete', () => {
