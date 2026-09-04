@@ -29,10 +29,29 @@ export function declarationContract(
     return result;
   }
 
-  const resolve = (symbol: ts.Symbol): ts.Symbol =>
-    symbol.flags & ts.SymbolFlags.Alias
-      ? checker.getAliasedSymbol(symbol)
-      : symbol;
+  const resolve = (symbol: ts.Symbol): ts.Symbol => {
+    const seen = new Set<ts.Symbol>();
+    while (!seen.has(symbol)) {
+      seen.add(symbol);
+      if (symbol.flags & ts.SymbolFlags.Alias) {
+        symbol = checker.getAliasedSymbol(symbol);
+        continue;
+      }
+      // A public value ascribed with `typeof Contract.fn` has precisely the
+      // referenced overloads or constructor. Compare that contract rather than
+      // the location of its implementation alias.
+      const value = symbol.declarations?.find(ts.isVariableDeclaration);
+      if (value?.type && ts.isTypeQueryNode(value.type)) {
+        const target = checker.getSymbolAtLocation(value.type.exprName);
+        if (target) {
+          symbol = target;
+          continue;
+        }
+      }
+      break;
+    }
+    return symbol;
+  };
   const declarations = (symbol: ts.Symbol) =>
     (symbol.declarations ?? []).filter(
       (node) =>
@@ -56,6 +75,9 @@ export function declarationContract(
       const result = ts.transform(declaration, [
         (context) => {
           const visit: ts.Visitor = (node) => {
+            if (ts.isStringLiteral(node)) {
+              return ts.factory.createStringLiteral(node.text);
+            }
             // Private implementation details are not consumer declarations.
             if (
               (ts.canHaveModifiers(node) &&

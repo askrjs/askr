@@ -6,6 +6,9 @@ durable test family that observes it.
 
 ## Dependency and ownership map
 
+- `compatibility` owns published declarations and extension adapters. See the
+  [public compatibility boundary](./compatibility-boundary.md) for contract
+  maintenance, native renderer wiring, and packed consumer validation.
 - `runtime` is platform-neutral. It does not depend on renderer, boot, SSR, or
   SSG implementations. External subsystems use `runtime/index.ts`, while
   default scheduler and runtime access stays behind `runtime/access.ts`.
@@ -100,4 +103,5 @@ entrypoint incompatibility.
 
 Before simplifying internals, first add a characterization test for the
 observable invariant. Remove the superseded ownership or rollback path in the
-same change; do not leave compatibility wrappers or parallel cleanup paths.
+same change; do not leave obsolete internal adapters or parallel cleanup paths.
+The public runtime and renderer compatibility adapters remain supported.

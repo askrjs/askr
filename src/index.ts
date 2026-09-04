@@ -4,19 +4,19 @@
  * Public API surface — only users should import from here
  */
 
-import { installRendererBridge } from './renderer';
+import { installRendererBridge } from './boot/runtime-wiring';
 
 installRendererBridge();
 
-export { createRuntime, getDefaultRuntime } from './runtime';
+export { createRuntime, getDefaultRuntime } from './compatibility/runtime';
 export { configureRenderDiagnostics } from './runtime';
 export type {
   AskrRuntimeOptions,
-  RenderDiagnosticsOptions,
   RuntimeRendererHost,
   RuntimeKeyedReorderDecision,
-} from './runtime';
-export { AskrRuntime } from './runtime';
+} from './compatibility/runtime';
+export type { RenderDiagnosticsOptions } from './runtime';
+export { AskrRuntime } from './compatibility/runtime';
 
 // Runtime primitives
 export { derive, getSignal, selector, state } from './runtime';

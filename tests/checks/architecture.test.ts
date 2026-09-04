@@ -317,7 +317,11 @@ describe('architecture boundaries', () => {
       'src/foundations/structures/portal.tsx -> src/runtime/portal.ts',
     ]);
     const forbidden = edges
-      .filter((edge) => !edge.typeOnly && area(edge.from) !== 'runtime')
+      .filter(
+        (edge) =>
+          !edge.typeOnly &&
+          !['runtime', 'compatibility'].includes(area(edge.from))
+      )
       .filter(
         (edge) =>
           relative(edge.to).startsWith('src/runtime/') &&
@@ -332,7 +336,7 @@ describe('architecture boundaries', () => {
   it('should keep default singletons behind their access boundary', () => {
     const allowed = new Set([
       'src/runtime/access.ts',
-      'src/runtime/runtime.ts',
+      'src/runtime/runtime-state.ts',
       'src/runtime/index.ts',
       'src/fx/index.ts',
     ]);
@@ -340,14 +344,27 @@ describe('architecture boundaries', () => {
       .filter(
         (edge) =>
           !edge.typeOnly &&
-          ['src/runtime/scheduler.ts', 'src/runtime/runtime.ts'].includes(
+          ['src/runtime/scheduler.ts', 'src/runtime/runtime-state.ts'].includes(
             relative(edge.to)
           ) &&
+          area(edge.from) !== 'compatibility' &&
           !allowed.has(relative(edge.from))
       )
       .map(format)
       .sort();
     expect(forbidden).toEqual([]);
+  });
+
+  it('should keep execution and rendering independent of public compatibility shapes', () => {
+    expect(
+      edges
+        .filter(
+          (edge) =>
+            ['runtime', 'renderer'].includes(area(edge.from)) &&
+            area(edge.to) === 'compatibility'
+        )
+        .map(format)
+    ).toEqual([]);
   });
 
   it('should separate server rendering from browser DOM implementation', () => {
