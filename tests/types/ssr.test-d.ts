@@ -31,8 +31,10 @@ expectAssignable<SSRStyleRegistrationValidation>('error');
 expectAssignable<SSRStyleRegistrationValidation>('off');
 
 const renderContext = createRenderContext(42, { url: '/users/42' });
-expectType<ReturnType<typeof createRenderContext>>(renderContext);
-expectType<ReturnType<typeof createRenderContext> | null>(getRenderContext());
+expectType<string>(renderContext.url);
+expectType<number>(renderContext.seed);
+expectType<AbortSignal | undefined>(renderContext.signal);
+expectType<string | undefined>(getRenderContext()?.url);
 expectType<string>(withRenderContext(renderContext, () => 'rendered'));
 expectType<Promise<string>>(
   withRenderContextAsync(renderContext, async () => 'rendered')
@@ -114,6 +116,6 @@ expectType<Promise<RouteRequestResult>>(
   resolveRequest({ url: '/users/42', registry })
 );
 expectError(resolveRequest({ url: '/users/42', routes: [] }));
-expectType<typeof SSRDataMissingError>(SSRDataMissingError);
+expectType<SSRDataMissingError>(new SSRDataMissingError('consumer'));
 
 expectError(resolveRequest({ url: '/users/42' }));

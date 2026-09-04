@@ -118,7 +118,7 @@ export const tier1BenchOptions = {
 
 export const tier2BenchOptions = {
   time: 600,
-  iterations: 4,
+  iterations: 10,
   warmupTime: 150,
   warmupIterations: 1,
 } satisfies Options;
