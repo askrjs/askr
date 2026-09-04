@@ -1,3 +1,4 @@
+import { ownCleanup } from './ownership';
 import {
   claimHookIndex,
   getCurrentInstance,
@@ -94,7 +95,7 @@ const selectorRecords = new WeakMap<
 function getSelectorStore(
   instance: ComponentInstance
 ): Map<number, SelectorHook<unknown>> {
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   let store = selectorCells.get(generation);
   if (!store) {
     store = new Map();
@@ -520,11 +521,14 @@ function createSelectorHook<T>(
 
   attachSelectorHookBinding(hook, source, equals);
 
-  (instance.cleanupFns ??= []).push(() => {
-    hook._cleanup();
-    store.delete(hookIndex);
-    if (store.size === 0 && selectorCells.get(generation) === store) {
-      selectorCells.delete(generation);
+  ownCleanup(instance.ownership, () => {
+    try {
+      hook._cleanup();
+    } finally {
+      store.delete(hookIndex);
+      if (store.size === 0 && selectorCells.get(generation) === store) {
+        selectorCells.delete(generation);
+      }
     }
   });
 
@@ -562,7 +566,7 @@ function getOrCreateSelectorHook<T>(
 
   const created = createSelectorHook(
     instance,
-    instance._ownershipGeneration,
+    instance.ownership.identity,
     store,
     hookIndex,
     source,

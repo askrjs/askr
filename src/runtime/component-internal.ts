@@ -26,8 +26,12 @@ import {
   cleanupComponent,
   registerOwnedChildScope,
   unregisterOwnedChildScope,
-  type OwnedChildScope,
 } from './component-cleanup';
+import {
+  componentRecordPrototype,
+  getOwnershipSignal,
+  OwnershipRecord,
+} from './ownership';
 import { runScheduledComponent } from './component-commit';
 import {
   captureInlineRenderSnapshot as captureLifecycleInlineRenderSnapshot,
@@ -50,7 +54,6 @@ import {
   getCurrentComponentInstance,
   getCurrentInstance,
   getCurrentPortalScope,
-  getSignalForInstance,
   resetRenderState,
   restoreInlineComponentScope,
   restoreInlineRenderTracking,
@@ -72,13 +75,10 @@ export interface ComponentInstance {
   target: Element | null;
   parentInstance: ComponentInstance | null;
   portalScope: object | null;
-  mounted: boolean;
-  abortController: AbortController | null; // Lazily created per-component abort lifecycle
+  ownership: OwnershipRecord;
   ssr?: boolean; // Set to true for SSR temporary instances
   // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
   cleanupStrict?: boolean;
-  /** @internal Private resource-ownership identity for the active mount. */
-  _ownershipGeneration: object;
   stateValues?: State<unknown>[]; // Persistent state storage across renders
   evaluationGeneration: number; // Prevents stale async evaluation completions
   notifyUpdate: (() => void) | null; // Callback for state updates (persisted on instance)
@@ -95,7 +95,6 @@ export interface ComponentInstance {
   commitOperations?: Array<
     () => void | (() => void) | PromiseLike<void | (() => void)>
   >; // Operations to run after a successful committed render
-  cleanupFns?: Array<() => void>; // Cleanup functions to run on unmount
   lifecycleSlots?: unknown[]; // Render-scoped lifecycle primitive storage
   lifecycleGeneration: number; // Invalidates async mount-operation settlement after disposal
   hasPendingUpdate: boolean; // Flag to batch state updates (coalescing)
@@ -121,13 +120,11 @@ export interface ComponentInstance {
   lastRenderToken?: number; // Token of the last *committed* render
   _pendingReadSources?: Set<ReadableSource<unknown>>; // Readables read during the in-progress render
   _pendingReadSourceVersions?: Map<ReadableSource<unknown>, number>; // Source versions captured during the in-progress render
-  _lastReadSources?: Set<ReadableSource<unknown>>; // Readables read during the last committed render
   devWarningsEmitted?: Set<string>; // Dev-only warning dedupe for this instance
 
   // Placeholder for null-returning components. When a component initially returns
   // null, we create a comment placeholder so updates can replace it with content.
   _placeholder?: Comment;
-  _ownedChildScopes?: Set<OwnedChildScope>;
   errorBoundaryState?: {
     error: unknown | null;
     resetKey: unknown;
@@ -170,7 +167,7 @@ function ensurePendingRunTask(instance: ComponentInstance): () => void {
 }
 
 function enqueueComponentRun(this: ComponentInstance): void {
-  if (this.hasPendingUpdate) {
+  if (this.ownership.disposed || this.hasPendingUpdate) {
     return;
   }
 
@@ -179,10 +176,10 @@ function enqueueComponentRun(this: ComponentInstance): void {
 }
 
 class ComponentExecutionContext {
-  constructor(private readonly instance: ComponentInstance) {}
+  constructor(private readonly owner: OwnershipRecord) {}
 
   get signal(): AbortSignal {
-    return getSignalForInstance(this.instance);
+    return getOwnershipSignal(this.owner);
   }
 }
 
@@ -194,15 +191,15 @@ export function createComponentInstance(
 ): ComponentInstance {
   const parentInstance = getCurrentInstance();
   const portalScope = parentInstance?.portalScope ?? getCurrentPortalScope();
-  const instance: ComponentInstance = {
+  const instance: ComponentInstance & { __proto__: object } = {
+    __proto__: componentRecordPrototype,
     id,
     fn,
     props,
     target,
     parentInstance,
     portalScope: portalScope ?? null,
-    mounted: false,
-    abortController: null,
+    ownership: new OwnershipRecord(),
     stateValues: undefined,
     evaluationGeneration: 0,
     notifyUpdate: null,
@@ -220,7 +217,6 @@ export function createComponentInstance(
     ownerFrame: null, // Will be set by renderer when vnode is marked
     ssr: false,
     cleanupStrict: false,
-    _ownershipGeneration: {},
     isRoot: false,
 
     // Render-tracking (for precise state subscriptions)
@@ -228,7 +224,6 @@ export function createComponentInstance(
     lastRenderToken: 0,
     _pendingReadSources: undefined,
     _pendingReadSourceVersions: undefined,
-    _lastReadSources: undefined,
     devWarningsEmitted: undefined,
     _portalErrorParent: undefined,
     _portalErrorParentGeneration: undefined,
@@ -308,8 +303,8 @@ export function mountInstanceInline(
   // Use prebound enqueue helper to avoid allocating a new closure
   instance.notifyUpdate = instance._enqueueRun!;
 
-  const wasFirstMount = !instance.mounted;
-  instance.mounted = true;
+  const wasFirstMount = !instance.ownership.mounted;
+  instance.ownership.mounted = true;
   commitLifecycleForInstance(instance, wasFirstMount);
 }
 
@@ -415,7 +410,7 @@ function executeComponentSync(
     const renderStartTime = trackRenderTime ? Date.now() : 0;
 
     // Create context object with abort signal
-    const context = new ComponentExecutionContext(instance);
+    const context = new ComponentExecutionContext(instance.ownership);
 
     // Execute component within its owner frame (provider chain).
     // This ensures all context reads see the correct provider values.
@@ -466,9 +461,6 @@ function executeComponentSync(
  * Single entry point to avoid lifecycle divergence.
  */
 export function executeComponent(instance: ComponentInstance): void {
-  // Lazily recreate abort controller only when signal is actually requested.
-  instance.abortController = null;
-
   // Setup notifyUpdate callback using prebound helper to avoid per-call closures
   instance.notifyUpdate = instance._enqueueRun!;
 

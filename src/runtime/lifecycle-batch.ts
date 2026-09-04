@@ -177,7 +177,7 @@ function enqueueReadSubscriptionCommit(
   token: number,
   pendingReadSources: Set<ReadableSource<unknown>> | undefined,
   pendingReadSourceVersions: Map<ReadableSource<unknown>, number> | undefined,
-  ownershipGeneration: object = instance._ownershipGeneration
+  ownershipGeneration: object = instance.ownership.identity
 ): void {
   const existing = batch.readCommitsByInstance.get(instance);
   const commit = existing ?? {
@@ -234,7 +234,7 @@ export function finalizeInlineReadSubscriptions(
 ): void {
   if (
     (!pendingReadSources || pendingReadSources.size === 0) &&
-    (!instance._lastReadSources || instance._lastReadSources.size === 0)
+    (!instance.ownership.reads || instance.ownership.reads.size === 0)
   ) {
     return;
   }
@@ -255,7 +255,7 @@ export function finalizeInlineReadSubscriptions(
     token,
     pendingReadSources,
     pendingReadSourceVersions,
-    instance._ownershipGeneration
+    instance.ownership.identity
   );
 }
 

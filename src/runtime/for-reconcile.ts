@@ -29,15 +29,18 @@ declare const __ASKR_BENCH_BUILD__: boolean;
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
 type ComponentInstanceHost = Node & {
-  __ASKR_INSTANCE?: { mounted: boolean };
-  __ASKR_INSTANCES?: Array<{ mounted: boolean }>;
+  __ASKR_INSTANCE?: { ownership: { mounted: boolean } };
+  __ASKR_INSTANCES?: Array<{ ownership: { mounted: boolean } }>;
 };
 
 function hasUnmountedComponentHost(node: Node | undefined): boolean {
   if (!node) return false;
   const host = node as ComponentInstanceHost;
-  if (host.__ASKR_INSTANCE?.mounted === false) return true;
-  return host.__ASKR_INSTANCES?.some((instance) => !instance.mounted) ?? false;
+  if (host.__ASKR_INSTANCE?.ownership.mounted === false) return true;
+  return (
+    host.__ASKR_INSTANCES?.some((instance) => !instance.ownership.mounted) ??
+    false
+  );
 }
 
 function failForValidation(message: string): never {

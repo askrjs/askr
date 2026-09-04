@@ -1,3 +1,4 @@
+import { ownCleanup } from './ownership';
 import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
 import { getActiveRenderContext } from '../common/render-context';
@@ -65,7 +66,7 @@ function setPortalErrorParent(
   }
   if (
     owner &&
-    owner.instance._ownershipGeneration === owner.generation &&
+    owner.instance.ownership.identity === owner.generation &&
     owner.instance.notifyUpdate !== null
   ) {
     host._portalErrorParent = owner.instance;
@@ -205,9 +206,7 @@ export function definePortal<
       const owner = getCurrentComponentInstance();
       slot.write(
         props.children,
-        owner
-          ? { instance: owner, generation: owner._ownershipGeneration }
-          : null
+        owner ? { instance: owner, generation: owner.ownership.identity } : null
       );
       return null;
     };
@@ -469,7 +468,7 @@ function isStaleDefaultPortalScope(scope: object): boolean {
     return true;
   }
 
-  return scope.mounted === false;
+  return scope.ownership.mounted === false;
 }
 
 function pruneStaleDefaultPortalScopes(): void {
@@ -530,7 +529,7 @@ function writeDefaultPortal(
 
   const state = getDefaultPortalState(scope);
   const capturedOwner = owner
-    ? { instance: owner, generation: owner._ownershipGeneration }
+    ? { instance: owner, generation: owner.ownership.identity }
     : null;
   const batch = getCurrentLifecycleCommitBatch();
   if (batch) {
@@ -670,7 +669,7 @@ function registerDefaultPortalOwner(owner: ComponentInstance): void {
   }
 
   const state = getDefaultPortalState(scope);
-  const generation = owner._ownershipGeneration;
+  const generation = owner.ownership.identity;
   if (state.cleanupOwners.has(generation)) {
     return;
   }
@@ -679,7 +678,7 @@ function registerDefaultPortalOwner(owner: ComponentInstance): void {
   if (__ASKR_DEVELOPMENT_BUILD__) {
     adjustPortalRegistrations(state, 1);
   }
-  (owner.cleanupFns ??= []).push(() => {
+  ownCleanup(owner.ownership, () => {
     const currentState = _defaultPortalStates.get(scope);
     if (!currentState) {
       return;
@@ -709,7 +708,7 @@ function registerExplicitDefaultPortalHost(
     return;
   }
 
-  const generation = owner._ownershipGeneration;
+  const generation = owner.ownership.identity;
   if (!state.explicitHostOwners.has(generation)) {
     state.explicitHostOwners.set(generation, owner);
     if (__ASKR_DEVELOPMENT_BUILD__) {
@@ -720,7 +719,7 @@ function registerExplicitDefaultPortalHost(
 
   if (!state.explicitHostCleanupOwners.has(generation)) {
     state.explicitHostCleanupOwners.add(generation);
-    (owner.cleanupFns ??= []).push(() => {
+    ownCleanup(owner.ownership, () => {
       if (_defaultPortalStates.get(scope) !== state) {
         return;
       }
@@ -781,7 +780,7 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
 
     const state = getDefaultPortalState(scope);
     state.host = owner
-      ? { instance: owner, generation: owner._ownershipGeneration }
+      ? { instance: owner, generation: owner.ownership.identity }
       : null;
     const isAutomaticFallback = props?.__askrAutoDefaultPortal === true;
     if (!isAutomaticFallback) {

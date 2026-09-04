@@ -1,3 +1,4 @@
+import { ownCleanup } from '../runtime/ownership';
 import {
   cleanupComponent,
   type ComponentInstance,
@@ -241,7 +242,7 @@ export function registerVNodeComponentInstanceRollback(
     restoreVNodeComponentInstance(node, previousInstance);
   };
 
-  (provisionalInstance.cleanupFns ??= []).push(restoreOwnership);
+  ownCleanup(provisionalInstance.ownership, restoreOwnership);
   registerLifecycleRollback(() => {
     restoreOwnership();
     cleanupProvisionalComponentInstance(provisionalInstance);

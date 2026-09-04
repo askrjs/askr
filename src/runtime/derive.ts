@@ -1,3 +1,4 @@
+import { ownCleanup } from './ownership';
 import {
   claimHookIndex,
   getCurrentInstance,
@@ -54,7 +55,7 @@ let hasPendingDerivedFlush = false;
 function getDeriveStore(
   instance: ComponentInstance
 ): Map<number, DerivedCell<unknown>> {
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   let store = deriveCells.get(generation);
   if (!store) {
     store = new Map();
@@ -220,11 +221,14 @@ function createDerivedCell<T>(
     }
   };
 
-  (instance.cleanupFns ??= []).push(() => {
-    cell._cleanup();
-    store.delete(hookIndex);
-    if (store.size === 0 && deriveCells.get(generation) === store) {
-      deriveCells.delete(generation);
+  ownCleanup(instance.ownership, () => {
+    try {
+      cell._cleanup();
+    } finally {
+      store.delete(hookIndex);
+      if (store.size === 0 && deriveCells.get(generation) === store) {
+        deriveCells.delete(generation);
+      }
     }
   });
 
@@ -248,7 +252,7 @@ function getOrCreateDerivedCell<T>(
 
   const created = createDerivedCell(
     instance,
-    instance._ownershipGeneration,
+    instance.ownership.identity,
     store,
     hookIndex,
     compute

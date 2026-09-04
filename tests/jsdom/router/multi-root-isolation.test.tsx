@@ -128,7 +128,7 @@ describe('multi-root SPA isolation', () => {
               candidateAborts += 1;
             });
             const instance = getCurrentInstance()!;
-            (instance.cleanupFns ??= []).push(() => {
+            (instance.ownership.cleanups ??= []).push(() => {
               candidateCleanups += 1;
               candidateState.set(1);
             });

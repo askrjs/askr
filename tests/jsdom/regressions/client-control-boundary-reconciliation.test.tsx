@@ -203,9 +203,9 @@ describe('client control-boundary reconciliation', () => {
       refreshSchema = () => schema.refresh();
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected query workspace instance');
-      if (!instance.mounted) {
+      if (!instance.ownership.mounted) {
         mounts += 1;
-        (instance.cleanupFns ??= []).push(() => {
+        (instance.ownership.cleanups ??= []).push(() => {
           cleanups += 1;
         });
       }
@@ -913,9 +913,9 @@ describe('client control-boundary reconciliation', () => {
     const Workspace = ({ id }: { id: string }) => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected workspace instance');
-      if (!instance.mounted) {
+      if (!instance.ownership.mounted) {
         mounts += 1;
-        (instance.cleanupFns ??= []).push(() => {
+        (instance.ownership.cleanups ??= []).push(() => {
           cleanups += 1;
         });
       }
@@ -997,9 +997,9 @@ describe('client control-boundary reconciliation', () => {
     const Content = () => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected content instance');
-      if (!instance.mounted) {
+      if (!instance.ownership.mounted) {
         mounts += 1;
-        (instance.cleanupFns ??= []).push(() => {
+        (instance.ownership.cleanups ??= []).push(() => {
           cleanups += 1;
         });
       }

@@ -147,7 +147,7 @@ export function registerAppInstance(
   }
 
   if (__ASKR_DEVELOPMENT_BUILD__) {
-    trackRouteGeneration(instance._ownershipGeneration);
+    trackRouteGeneration(instance.ownership.identity);
   }
 
   currentInstance = instance;

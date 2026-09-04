@@ -395,7 +395,7 @@ describe('Show primitive', () => {
         },
       });
 
-      (instance.cleanupFns ??= []).push(() => {
+      (instance.ownership.cleanups ??= []).push(() => {
         effectCleanups += 1;
         effect.cleanup();
       });

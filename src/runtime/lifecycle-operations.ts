@@ -1,3 +1,4 @@
+import { ownCleanup } from './ownership';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
@@ -205,7 +206,7 @@ function commitListenerSlot(
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    (instance.cleanupFns ??= []).push(() => {
+    ownCleanup(instance.ownership, () => {
       detachListenerSlot(slot);
       slot.cleanupRegistered = false;
     });
@@ -310,7 +311,7 @@ function commitTimerSlot(instance: ComponentInstance, slot: TimerSlot): void {
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    (instance.cleanupFns ??= []).push(() => {
+    ownCleanup(instance.ownership, () => {
       stopTimerSlot(slot);
       slot.cleanupRegistered = false;
     });
@@ -511,7 +512,7 @@ function commitWatchSlot<TValue>(
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    (instance.cleanupFns ??= []).push(() => {
+    ownCleanup(instance.ownership, () => {
       stopWatchSlot(slot);
       slot.cleanupRegistered = false;
     });

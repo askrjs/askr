@@ -614,7 +614,7 @@ function createLegacyQuery<T extends {}>(
   }
 
   if (existingSlot) {
-    existingSlot.cell.detach(instance._ownershipGeneration, hookIndex);
+    existingSlot.cell.detach(instance.ownership.identity, hookIndex);
   }
 
   if (override) return override;
@@ -632,7 +632,7 @@ function createLegacyQuery<T extends {}>(
     key: options.key,
     cell: cell as QueryCell<unknown>,
   });
-  cell.attach(instance._ownershipGeneration, hookIndex);
+  cell.attach(instance.ownership.identity, hookIndex);
   return cell as unknown as Query<T>;
 }
 

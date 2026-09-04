@@ -220,7 +220,8 @@ export function syncComponentElement(
               markedHydrationEnd,
               hydrationInstance,
               scopedResult,
-              forceChildrenUpdate || hydrationInstance.mounted === false,
+              forceChildrenUpdate ||
+                hydrationInstance.ownership.mounted === false,
               liveRetainedInstances
             )
           : adoptHydratedComponentRange(
@@ -228,7 +229,8 @@ export function syncComponentElement(
               hydrationInstance,
               scopedResult,
               hydrationRangeEnd,
-              forceChildrenUpdate || hydrationInstance.mounted === false,
+              forceChildrenUpdate ||
+                hydrationInstance.ownership.mounted === false,
               liveRetainedInstances
             );
         if (adoptedHost) {
@@ -252,7 +254,7 @@ export function syncComponentElement(
             existingHost,
             inheritComponentKey(scopedResult as DOMElement, node),
             true,
-            forceChildrenUpdate || hydrationInstance.mounted === false
+            forceChildrenUpdate || hydrationInstance.ownership.mounted === false
           );
           materializeKey(existingHost, node, props);
         });
@@ -292,7 +294,8 @@ export function syncComponentElement(
               markedHydrationEnd,
               hydrationInstance,
               resolvedResult.result,
-              forceChildrenUpdate || hydrationInstance.mounted === false,
+              forceChildrenUpdate ||
+                hydrationInstance.ownership.mounted === false,
               liveRetainedInstances
             )
           : adoptHydratedComponentRange(
@@ -300,7 +303,8 @@ export function syncComponentElement(
               hydrationInstance,
               resolvedResult.result,
               hydrationRangeEnd,
-              forceChildrenUpdate || hydrationInstance.mounted === false,
+              forceChildrenUpdate ||
+                hydrationInstance.ownership.mounted === false,
               liveRetainedInstances
             );
         if (adoptedHost) {
@@ -321,7 +325,7 @@ export function syncComponentElement(
             existingHost,
             inheritComponentKey(resolvedResult.result as DOMElement, node),
             true,
-            forceChildrenUpdate || hydrationInstance.mounted === false
+            forceChildrenUpdate || hydrationInstance.ownership.mounted === false
           );
           materializeKey(existingHost, node, props);
         });
@@ -352,7 +356,7 @@ export function syncComponentElement(
       return nextDom;
     } catch (error) {
       restoreVNodeComponentInstance(node, previousVNodeInstance);
-      if (!hydrationInstance.mounted) {
+      if (!hydrationInstance.ownership.mounted) {
         cleanupProvisionalComponentInstance(hydrationInstance);
       }
       throw error;
@@ -431,7 +435,7 @@ export function syncComponentElement(
       existingHost,
       existingInstance,
       scopedResult,
-      forceChildrenUpdate || existingInstance.mounted === false
+      forceChildrenUpdate || existingInstance.ownership.mounted === false
     )
   ) {
     retainReplacementOwnerChain(
@@ -459,7 +463,7 @@ export function syncComponentElement(
         existingHost,
         inheritComponentKey(scopedResult as DOMElement, node),
         true,
-        forceChildrenUpdate || existingInstance.mounted === false
+        forceChildrenUpdate || existingInstance.ownership.mounted === false
       );
       materializeKey(existingHost, node, props);
     });
@@ -482,7 +486,7 @@ export function syncComponentElement(
         existingHost,
         existingInstance,
         resolvedResult.result,
-        forceChildrenUpdate || existingInstance.mounted === false
+        forceChildrenUpdate || existingInstance.ownership.mounted === false
       );
     } finally {
       restoreDomCommitScope(previousInstance);
@@ -528,7 +532,7 @@ export function syncComponentElement(
         existingHost,
         inheritComponentKey(resolvedResult.result as DOMElement, node),
         true,
-        forceChildrenUpdate || existingInstance.mounted === false
+        forceChildrenUpdate || existingInstance.ownership.mounted === false
       );
       materializeKey(existingHost, node, props);
     });
