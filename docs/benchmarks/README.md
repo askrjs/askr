@@ -73,6 +73,14 @@ met the sample-count floor; 47 of 55 rows met all quality rules in all three
 runs. The remaining high-RME rows are still ineligible. Structural PRs must
 recapture any affected ineligible row before using it as a comparison guardrail.
 
+The [compatibility boundary qualification](./core-compatibility-658ecbb.json)
+compares refreshed `main` (`c19ff42`) with `658ecbb` on the same host and
+toolchain. Three baseline and three candidate captures per tier cover all 12
+documented guardrails and four additional scheduler/route rows. All 16 rows
+qualified in every capture and stayed within the 5% regression limit; the
+largest median slowdown was 0.74%. This establishes performance preservation
+for the boundary change and makes no optimization claim.
+
 ## External JFB Comparisons
 
 The local `js-framework-benchmark` capture is a separate product-level signal
