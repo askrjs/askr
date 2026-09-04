@@ -21,7 +21,7 @@ The release flow is split across dedicated workflows:
 - `.github/workflows/ci.yml`: lint, build, publint, benchmark-contract,
   architecture checks, public type contracts, unit/jsdom tests, a packed
   clean-consumer smoke test, and Chromium integration coverage.
-- `.github/workflows/quality.yml`: scheduled replayable lifecycle sequences
+- `.github/workflows/quality.yml`: PR and scheduled replayable lifecycle sequences
   plus Chromium and Firefox on Linux and WebKit on macOS. Failed runs retain
   browser reports and seed-trace artifacts.
 - `.github/workflows/publish.yml`: manual release workflow. It installs Chromium
@@ -44,6 +44,11 @@ runtime/SSR render and rejects source maps in the
 tarball. It removes `dist` before rebuilding, so the check cannot pass against
 stale artifacts. Local and CI builds retain maps for debugging; npm packages do
 not.
+
+`npm run test:installed` also runs the frozen public type examples and consumer
+behavior fixtures against the installed tarball. PR CI checks scheduler/host
+configuration, lifecycle ordering, hydration adoption, navigation cancellation,
+and server execution without browser globals from that package boundary.
 
 The intended happy path is:
 

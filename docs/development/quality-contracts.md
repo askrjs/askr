@@ -28,12 +28,23 @@ durable test family that observes it.
   must shrink by at least 35%, extracted implementations stay below 400 lines,
   and the extracted seams remain outside the public type snapshot.
 - `tests/checks/public-api-snapshot.test.ts` compares the emitted declaration
-  exports for every package subpath with `public-api.snapshot.json`. After an
-  intentional public API change, regenerate `public-api.snapshot.json` and
-  review it before review.
+  exports for every package subpath with `public-api.snapshot.json` and follows
+  their normalized declarations into `public-declarations.snapshot.json`.
+  Reachable callback types are consumer contracts even when their names are not
+  exported directly. Private class implementation and generated bundle aliases
+  are excluded. Update a snapshot only for an approved public API change and
+  review the declaration diff, including reachable types.
+- `tests/types/` contains consumer examples for arguments, inferred returns,
+  overloads, callbacks, and rejected usage. `npm run test:installed` runs these
+  same fixtures and `tests/consumer-contracts/` against a packed artifact in an
+  isolated install, without source aliases. Both run on PRs. Keep these fixtures
+  stable during internal refactors; an internal representation change is not a
+  reason to weaken a consumer assertion.
+  To check a reference release with the same fixtures, pass its local tarball:
+  `npm run test:installed -- /path/to/askrjs-askr-0.2.4.tgz`.
 - `tests/jsdom/runtime/lifecycle-sequences.test.tsx` replays deterministic
   mount/update/flush/dispose sequences. PR coverage uses seeds `1`, `7`, `42`,
-  and `0xc0ffee`; scheduled quality coverage uses `0..99`. Add a regression
+  and `0xc0ffee`; extended PR and scheduled quality coverage use `0..99`. Add a regression
   seed to `ASKR_QUALITY_SEEDS` when fixing a sequence failure. The trace covers
   controls, keyed ranges, navigation cancellation/popstate, resources, portals,
   cleanup errors, renderer rollback, and scheduler recovery. A failure writes
@@ -50,6 +61,11 @@ durable test family that observes it.
   `locator.click()` even though raw WebKit preserves the static fixture's
   focus behavior. This is a test-driver compatibility guard, not a runtime
   focus change.
+- Extended PR coverage runs Chromium, Firefox, and WebKit. The bulk-commit
+  replay test dispatches a deterministic synchronous event during DOM
+  application in every engine. Separate native-event coverage expects removal
+  to emit `blur` in Chromium and no `blur` in Firefox or WebKit, while requiring
+  retained input identity and completed reordering in all three engines.
 - SSG tests cover route planning, parameter expansion, incremental cleanup,
   and failed generation behavior.
 

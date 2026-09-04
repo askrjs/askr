@@ -117,6 +117,39 @@ function collectReferencedNames(): Set<string> {
 }
 
 describe('public API type coverage', () => {
+  it('should exercise consumer contracts instead of asserting a function against itself', () => {
+    const selfAssertions: string[] = [];
+    for (const file of fs
+      .readdirSync(testsTypesDir)
+      .filter((name) => /\.test-d\.(ts|tsx)$/.test(name))) {
+      const source = ts.createSourceFile(
+        file,
+        fs.readFileSync(path.join(testsTypesDir, file), 'utf8'),
+        ts.ScriptTarget.Latest,
+        true
+      );
+      const visit = (node: ts.Node) => {
+        if (
+          ts.isCallExpression(node) &&
+          node.expression.getText(source) === 'expectType' &&
+          node.typeArguments?.length === 1 &&
+          node.arguments.length === 1
+        ) {
+          const type = node.typeArguments[0]!;
+          if (
+            ts.isTypeQueryNode(type) &&
+            type.exprName.getText(source) === node.arguments[0]!.getText(source)
+          ) {
+            selfAssertions.push(`${file}: ${node.getText(source)}`);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(selfAssertions).toEqual([]);
+  });
+
   it('should reference every public export directly in tests/types', () => {
     const referencedNames = collectReferencedNames();
     const uncovered: string[] = [];

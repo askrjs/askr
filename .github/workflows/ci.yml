@@ -48,3 +48,6 @@ jobs:
 
       - name: Test
         run: npm test && npm run test:types
+
+      - name: Test packed consumers
+        run: npm run test:installed

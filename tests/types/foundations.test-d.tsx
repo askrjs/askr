@@ -108,7 +108,7 @@ expectType<string | JSXElement | null | undefined>(portal());
 expectAssignable<JSXElement>(<StringPortal />);
 expectAssignable<JSXElement>(<DefaultPortal />);
 expectType<unknown>(DefaultPortal.render({ children: 'toast' }));
-expectType<typeof Portal>(Portal);
+expectType<JSXElement | null>(Portal({ children: 'toast' }));
 layout(layoutComponent)('body', { title: 'page' });
 layout(layoutComponent)(
   [<span key="first">body</span>, <span key="second">copy</span>],
@@ -157,15 +157,6 @@ const layer = layerManager.register(layerOptions);
 expectAssignable<Layer>(layer);
 layerManager.handleEscape();
 
-expectType<typeof composeHandlers>(composeHandlers);
-expectType<typeof mergeProps>(mergeProps);
-expectType<typeof composeRefs>(composeRefs);
-expectType<typeof setRef>(setRef);
-expectType<typeof formatId>(formatId);
-expectType<typeof ariaDisabled>(ariaDisabled);
-expectType<typeof ariaExpanded>(ariaExpanded);
-expectType<typeof ariaSelected>(ariaSelected);
-
 const composeHandlersOptions: ComposeHandlersOptions = {
   checkDefaultPrevented: false,
 };
@@ -204,22 +195,30 @@ expectAssignable<KeyboardLikeEvent>(keyboardLikeEvent);
 expectAssignable<PointerLikeEvent>(pointerLikeEvent);
 expectAssignable<PropagationStoppable>(propagationStoppable);
 
-composeHandlers(undefined, undefined, composeHandlersOptions);
-mergeProps({ id: 'a' }, { role: 'button' });
-composeRefs<HTMLElement>(callbackRef, objectRef);
-setRef<HTMLElement>(objectRef, null);
-formatId(formatIdOptions);
-ariaDisabled(true);
-ariaExpanded(false);
-ariaSelected(true);
-
-expectType<typeof pressable>(pressable);
-expectType<typeof dismissable>(dismissable);
-expectType<typeof focusable>(focusable);
-expectType<typeof hoverable>(hoverable);
-expectType<typeof rovingFocus>(rovingFocus);
-expectType<typeof applyInteractionPolicy>(applyInteractionPolicy);
-expectType<typeof mergeInteractionProps>(mergeInteractionProps);
+expectType<(event: MouseEvent) => void>(
+  composeHandlers(
+    (event: MouseEvent) => {
+      expectType<number>(event.clientX);
+    },
+    (event) => {
+      expectType<MouseEvent>(event);
+    },
+    composeHandlersOptions
+  )
+);
+expectType<{ role: string } & { id: string }>(
+  mergeProps({ id: 'a' }, { role: 'button' })
+);
+expectType<(value: HTMLElement | null) => void>(
+  composeRefs<HTMLElement>(callbackRef, objectRef)
+);
+expectType<void>(setRef<HTMLElement>(objectRef, null));
+expectType<string>(formatId(formatIdOptions));
+expectType<{ 'aria-disabled'?: 'true' }>(ariaDisabled(true));
+expectType<{ 'aria-expanded'?: 'true' | 'false' }>(ariaExpanded(false));
+expectType<{ 'aria-selected'?: 'true' | 'false' }>(ariaSelected(true));
+expectError(formatId({ id: {} }));
+expectError(setRef<HTMLElement>(objectRef, 'element'));
 
 const pressableOptions: PressableOptions = { onPress: () => {} };
 expectAssignable<PressableOptions>(pressableOptions);
@@ -268,33 +267,21 @@ hoverable(hoverableOptions);
 applyInteractionPolicy(interactionPolicyInput);
 mergeInteractionProps({}, {}, {});
 
-expectType<typeof isControlled>(isControlled);
-expectType<typeof resolveControllable>(resolveControllable);
-expectType<typeof makeControllable>(makeControllable);
-expectType<typeof controllableState>(controllableState);
-
-isControlled<string>('value');
-resolveControllable<string>(undefined, 'fallback');
-makeControllable<string>({
+expectType<boolean>(isControlled<string>('value'));
+expectType<{ value: string; isControlled: boolean }>(
+  resolveControllable<string>(undefined, 'fallback')
+);
+const setControllable = makeControllable<string>({
   value: undefined,
   defaultValue: 'fallback',
 });
+expectType<void>(setControllable.set('next'));
+expectError(setControllable.set(42));
 const controllable = controllableState<string>({
   value: undefined,
   defaultValue: 'fallback',
 });
 expectType<ControllableState<string>>(controllable);
-
-expectType<typeof IconBase>(IconBase);
-expectType<typeof getIconContractProps>(getIconContractProps);
-expectType<typeof isIconSizeToken>(isIconSizeToken);
-expectType<typeof normalizeIconSizeValue>(normalizeIconSizeValue);
-expectType<typeof resolveIconSizeVariable>(resolveIconSizeVariable);
-expectType<typeof resolveIconStrokeWidthVariable>(
-  resolveIconStrokeWidthVariable
-);
-expectType<typeof serializeIconStyle>(serializeIconStyle);
-expectType<typeof joinIconStyle>(joinIconStyle);
 
 const iconSizeToken: IconSizeToken = 'md';
 const iconStyleObject: IconStyleObject = { color: 'red' };
@@ -309,3 +296,13 @@ const iconProps: IconProps = {
   children: null,
 };
 expectAssignable<IconProps>(iconProps);
+expectType<JSXElement>(IconBase(iconProps));
+expectType<string | undefined>(getIconContractProps(iconProps).attrs.style);
+declare const possibleSize: unknown;
+if (isIconSizeToken(possibleSize)) expectType<IconSizeToken>(possibleSize);
+expectType<string>(normalizeIconSizeValue(24));
+expectType<string>(resolveIconSizeVariable('md'));
+expectType<string>(resolveIconStrokeWidthVariable(2, 'md'));
+expectType<string>(serializeIconStyle(iconStyleObject));
+expectType<string | undefined>(joinIconStyle('color:red', undefined));
+expectError(normalizeIconSizeValue(false));
