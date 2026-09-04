@@ -4,72 +4,34 @@ import type {
   AskrRuntimeOptions,
   RenderDiagnosticsOptions,
   RuntimeKeyedReorderDecision,
-  RuntimeRendererHost,
-  registerSSRStyle,
 } from '@askrjs/askr';
-import {
-  createIsland,
-  createIslands,
-  createSPA,
-  hydrateSPA,
-  cleanupApp,
-  hasApp,
-} from '@askrjs/askr/boot';
-import { ErrorBoundary } from '@askrjs/askr/components';
 import * as dataSurface from '@askrjs/askr/data';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
-import * as testingSurface from '@askrjs/askr/testing';
 import * as foundationsSurface from '@askrjs/askr/foundations';
-import { createStaticGen } from '@askrjs/askr/ssg';
-import {
-  renderResolvedToStringSync,
-  renderToStream,
-  renderToString,
-  renderToStringSync,
-  resolveRequest,
-} from '@askrjs/askr/ssr';
-import { Fragment, jsx, jsxs } from '@askrjs/askr/jsx-runtime';
-import { jsxDEV } from '@askrjs/askr/jsx-dev-runtime';
+import { renderResolvedToStringSync } from '@askrjs/askr/ssr';
+import type { RouteRegistry } from '@askrjs/askr/router';
 
 // @ts-expect-error root package does not expose JSXElement
 expectType<never>(null as unknown as import('@askrjs/askr').JSXElement);
 
-expectType<typeof createIsland>(createIsland);
-expectType<typeof createIslands>(createIslands);
-expectType<typeof createSPA>(createSPA);
-expectType<typeof hydrateSPA>(hydrateSPA);
-expectType<typeof cleanupApp>(cleanupApp);
-expectType<typeof hasApp>(hasApp);
-expectType<typeof ErrorBoundary>(ErrorBoundary);
-expectType<typeof createStaticGen>(createStaticGen);
-expectType<typeof renderToString>(renderToString);
-expectType<typeof renderToStringSync>(renderToStringSync);
-expectType<typeof renderToStream>(renderToStream);
-expectType<typeof resolveRequest>(resolveRequest);
-expectType<typeof renderResolvedToStringSync>(renderResolvedToStringSync);
-expectType<typeof jsx>(jsx);
-expectType<typeof jsxs>(jsxs);
-expectType<typeof Fragment>(Fragment);
-expectType<typeof jsxDEV>(jsxDEV);
-expectType<typeof rootSurface.jsx>(rootSurface.jsx);
-expectType<typeof rootSurface.jsxs>(rootSurface.jsxs);
-expectType<typeof rootSurface.Fragment>(rootSurface.Fragment);
-expectType<typeof rootSurface.createRuntime>(rootSurface.createRuntime);
-expectType<typeof rootSurface.getDefaultRuntime>(rootSurface.getDefaultRuntime);
-expectType<typeof rootSurface.configureRenderDiagnostics>(
-  rootSurface.configureRenderDiagnostics
-);
 expectAssignable<RenderDiagnosticsOptions>({
   slowRenderWarnings: false,
   slowRenderThresholdMs: 20,
 });
-expectType<typeof registerSSRStyle>(rootSurface.registerSSRStyle);
-expectType<typeof rootSurface.AskrRuntime>(rootSurface.AskrRuntime);
+expectType<void>(
+  rootSurface.registerSSRStyle('consumer-style', '.consumer {}')
+);
+expectType<() => void>(
+  rootSurface.configureRenderDiagnostics({ slowRenderWarnings: false })
+);
+declare const registry: RouteRegistry;
+expectType<string>(
+  renderResolvedToStringSync({ url: '/', registry, handler: () => 'ok' })
+);
 expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
 expectType<rootSurface.AskrRuntime>(rootSurface.getDefaultRuntime());
 expectAssignable<AskrRuntimeOptions>({});
-expectType<RuntimeRendererHost>(null as unknown as RuntimeRendererHost);
 expectAssignable<RuntimeKeyedReorderDecision>({
   useFastPath: false,
   totalKeyed: 0,
@@ -80,26 +42,6 @@ expectAssignable<RuntimeKeyedReorderDecision>({
   hasPropChanges: false,
   isWholeKeyedList: false,
 });
-expectType<typeof testingSurface.mockQuery>(testingSurface.mockQuery);
-expectType<typeof testingSurface.queryState>(testingSurface.queryState);
-expectType<typeof testingSurface.mutationState>(testingSurface.mutationState);
-expectType<typeof testingSurface.createMutationTestRegistry>(
-  testingSurface.createMutationTestRegistry
-);
-expectType<typeof testingSurface.createInvalidationRecorder>(
-  testingSurface.createInvalidationRecorder
-);
-expectType<typeof dataSurface.queryScope>(dataSurface.queryScope);
-expectType<typeof testingSurface.matchRoute>(testingSurface.matchRoute);
-expectType<typeof testingSurface.getRouteWarnings>(
-  testingSurface.getRouteWarnings
-);
-expectType<typeof testingSurface.render>(testingSurface.render);
-expectType<typeof testingSurface.mount>(testingSurface.mount);
-expectType<typeof testingSurface.renderRoute>(testingSurface.renderRoute);
-expectType<typeof testingSurface.dispatch>(testingSurface.dispatch);
-expectType<typeof testingSurface.flush>(testingSurface.flush);
-expectType<typeof testingSurface.cleanup>(testingSurface.cleanup);
 // @ts-expect-error jsx runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-runtime')).ELEMENT_TYPE;
 // @ts-expect-error jsx dev runtime entrypoint no longer exposes element brand

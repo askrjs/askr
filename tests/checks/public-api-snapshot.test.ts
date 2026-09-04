@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vite-plus/test';
+import { declarationContract } from './declaration-contract';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -67,13 +68,30 @@ function generatePublicApiSnapshot() {
       .sort();
   }
 
-  return snapshot;
+  return {
+    names: snapshot,
+    declarations: declarationContract(program, entrypoints, (file) =>
+      path.resolve(file).startsWith(path.join(rootDir, 'dist') + path.sep)
+    ),
+  };
 }
 
 describe('public declaration API snapshot', () => {
+  const snapshot = generatePublicApiSnapshot();
   it('should match every export-map declaration entrypoint', () => {
-    expect(generatePublicApiSnapshot()).toEqual(
+    expect(snapshot.names).toEqual(
       JSON.parse(fs.readFileSync(snapshotPath, 'utf8'))
+    );
+  });
+
+  it('should preserve normalized signatures and reachable consumer types', () => {
+    expect(snapshot.declarations).toEqual(
+      JSON.parse(
+        fs.readFileSync(
+          path.join(rootDir, 'tests/checks/public-declarations.snapshot.json'),
+          'utf8'
+        )
+      )
     );
   });
 });

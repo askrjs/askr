@@ -1,16 +1,23 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const consumerRoot = mkdtempSync(join(tmpdir(), 'askr-consumer-'));
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const npmCli = process.env.npm_execpath;
+if (!npmCli)
+  throw new Error('Run this fixture through npm run test:installed.');
 
-try {
+function runNpm(args, options) {
+  // Invoke npm's JS entrypoint with Node on every OS; .cmd requires a shell
+  // on Windows and would turn consumer paths into shell input.
+  return execFileSync(process.execPath, [npmCli, ...args], options);
+}
+
+function packCandidate() {
   const packResult = JSON.parse(
-    execFileSync(
-      npm,
+    runNpm(
       [
         'pack',
         '--ignore-scripts',
@@ -30,13 +37,29 @@ try {
   if (typeof filename !== 'string') {
     throw new Error('npm pack did not report a tarball filename');
   }
-  const tarball = join(consumerRoot, filename);
+  return join(consumerRoot, filename);
+}
+
+try {
+  const tarball = process.argv[2] ? resolve(process.argv[2]) : packCandidate();
   writeFileSync(
     join(consumerRoot, 'package.json'),
-    JSON.stringify({ name: 'askr-consumer', private: true, type: 'module' })
+    JSON.stringify({
+      name: 'askr-consumer',
+      private: true,
+      type: 'module',
+      tsd: {
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          jsx: 'react-jsx',
+          jsxImportSource: '@askrjs/askr',
+        },
+      },
+    })
   );
-  execFileSync(
-    npm,
+  runNpm(
     [
       'install',
       '--ignore-scripts',
@@ -46,6 +69,31 @@ try {
       tarball,
       'vitest@4.1.10',
       'jsdom@29.1.1',
+      'tsd@0.33.0',
+    ],
+    { cwd: consumerRoot, stdio: 'pipe' }
+  );
+  cpSync(join(repositoryRoot, 'tests/types'), join(consumerRoot, 'types'), {
+    recursive: true,
+  });
+  cpSync(
+    join(repositoryRoot, 'tests/consumer-contracts'),
+    join(consumerRoot, 'contracts'),
+    {
+      recursive: true,
+    }
+  );
+  runNpm(
+    [
+      'exec',
+      '--',
+      'tsd',
+      '--typings',
+      'node_modules/@askrjs/askr/dist/index.d.ts',
+      '--files',
+      'types/**/*.test-d.ts',
+      '--files',
+      'types/**/*.test-d.tsx',
     ],
     { cwd: consumerRoot, stdio: 'pipe' }
   );
@@ -117,9 +165,9 @@ try {
       '});',
     ].join('\n')
   );
-  execFileSync(npm, ['exec', '--', 'vitest', 'run', '-c', 'vitest.config.ts'], {
+  runNpm(['exec', '--', 'vitest', 'run', '-c', 'vitest.config.ts'], {
     cwd: consumerRoot,
-    stdio: 'pipe',
+    stdio: 'inherit',
   });
 } finally {
   rmSync(consumerRoot, { recursive: true, force: true });

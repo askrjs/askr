@@ -1,0 +1,2706 @@
+{
+  "exports": {
+    ".": {
+      "AskrRuntime": [
+        "declare class AskrRuntime {\n    readonly scheduler: Scheduler;\n    constructor(options?: AskrRuntimeOptions);\n    get renderer(): RuntimeRendererHost;\n    configureRenderer(renderer: RuntimeRendererHost): void;\n}"
+      ],
+      "AskrRuntimeOptions": [
+        "interface AskrRuntimeOptions {\n    scheduler?: Scheduler;\n    renderer?: RuntimeRendererHost;\n}"
+      ],
+      "Case": ["Case: (props: CaseProps) => JSXElement"],
+      "CaseProps": [
+        "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
+      ],
+      "configureRenderDiagnostics": [
+        "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
+      ],
+      "createQuery": [
+        "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
+        "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, 'key' | 'fetch'>): Query<TResult>;"
+      ],
+      "createQueryCollection": [
+        "declare function createQueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string>(options: QueryCollectionOptions<TInput, TResult, TKey>): QueryCollection<TInput, TResult, TKey>;"
+      ],
+      "createRef": [
+        "declare function createRef<T extends Element = Element>(): Ref<T>;"
+      ],
+      "createRuntime": [
+        "declare function createRuntime(options?: AskrRuntimeOptions): AskrRuntime;"
+      ],
+      "cspNonce": ["declare function cspNonce(): string | undefined;"],
+      "CspNonceScope": ["CspNonceScope: Scope<string | undefined>"],
+      "DataRuntime": [
+        "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n    readonly queryTestOverrides: Map<string, unknown>;\n    readonly mutationTestOverrides: Map<string, unknown>;\n}"
+      ],
+      "defineQuery": [
+        "declare function defineQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>): QueryDefinition<TInput, TResult>;"
+      ],
+      "defineScope": [
+        "declare function defineScope<T>(defaultValue: T): Scope<T>;"
+      ],
+      "defineServerQueries": [
+        "declare function defineServerQueries(...entries: readonly ServerQueryEntry<any, any>[]): ServerQueryRegistry;"
+      ],
+      "dehydrateDataRuntime": [
+        "declare function dehydrateDataRuntime(runtime: DataRuntime): Record<string, unknown>;"
+      ],
+      "derive": [
+        "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;",
+        "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;"
+      ],
+      "Derived": [
+        "interface Derived<T> extends ReadableSource<T> {\n    (): T;\n}"
+      ],
+      "For": [
+        "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
+      ],
+      "ForProps": [
+        "type ForProps<T, K extends string | number = string | number> = KeyedForProps<T, K> | IndexedForProps<T>;"
+      ],
+      "Fragment": ["Fragment: unique symbol"],
+      "getDefaultRuntime": [
+        "declare function getDefaultRuntime(): AskrRuntime;"
+      ],
+      "getSignal": ["declare function getSignal(): AbortSignal;"],
+      "hydrateDataRuntime": [
+        "declare function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void;"
+      ],
+      "jsx": [
+        "declare function jsx(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
+        "declare function jsx<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number): JSXElement;",
+        "declare function jsx<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number): JSXElement;",
+        "declare function jsx<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
+        "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;"
+      ],
+      "jsxs": [
+        "declare function jsxs(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
+        "declare function jsxs<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number): JSXElement;",
+        "declare function jsxs<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number): JSXElement;",
+        "declare function jsxs<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
+        "declare function jsxs(type: symbol, props: Props | null, key?: string | number): JSXElement;"
+      ],
+      "Match": ["declare function Match(_props: MatchProps): null;"],
+      "MatchProps": [
+        "type MatchProps = {\n    key?: string | number | null;\n    when: unknown;\n    children: MatchChild;\n};"
+      ],
+      "prefetchQuery": [
+        "declare function prefetchQuery<TInput, TResult extends {}>(context: QueryPrefetchContext, query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;"
+      ],
+      "Props": [
+        "interface Props {\n    key?: string | number | symbol;\n    children?: unknown;\n    [attr: string]: unknown;\n}"
+      ],
+      "QueryCollection": [
+        "interface QueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly entries: readonly QueryCollectionEntry<TInput, TResult, TKey>[];\n    readonly loading: boolean;\n    readonly settled: boolean;\n    readonly results: ReadonlyMap<TKey, TResult>;\n    readonly errors: ReadonlyMap<TKey, {}>;\n    get(key: TKey): QueryCollectionEntry<TInput, TResult, TKey> | undefined;\n    retry(key: TKey): Promise<void>;\n}"
+      ],
+      "QueryCollectionEntry": [
+        "interface QueryCollectionEntry<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly key: TKey;\n    readonly input: TInput;\n    readonly query: Query<TResult>;\n}"
+      ],
+      "QueryCollectionKey": [
+        "type QueryCollectionKey = string | number | symbol;"
+      ],
+      "QueryCollectionOptions": [
+        "interface QueryCollectionOptions<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly inputs: () => readonly TInput[];\n    readonly key: (input: TInput) => TKey;\n    readonly concurrency?: number;\n    readonly runtime?: DataRuntime;\n}"
+      ],
+      "QueryDefinition": [
+        "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
+      ],
+      "QueryPrefetchContext": [
+        "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: 'ssr' | 'spa';\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
+      ],
+      "readScope": ["declare function readScope<T>(context: Scope<T>): T;"],
+      "Ref": [
+        "interface Ref<T extends Element = Element> {\n    current: T | null;\n}"
+      ],
+      "registerSSRStyle": [
+        "declare function registerSSRStyle(id: string, cssText: string): void;"
+      ],
+      "RenderDiagnosticsOptions": [
+        "interface RenderDiagnosticsOptions {\n    slowRenderWarnings?: boolean;\n    slowRenderThresholdMs?: number;\n}"
+      ],
+      "RuntimeKeyedReorderDecision": [
+        "interface RuntimeKeyedReorderDecision {\n    useFastPath: boolean;\n    totalKeyed: number;\n    totalChildren: number;\n    currentKeyCount: number;\n    moveCount: number;\n    lisLen: number;\n    hasPropChanges: boolean;\n    isWholeKeyedList: boolean;\n}"
+      ],
+      "RuntimeRendererHost": [
+        "interface RuntimeRendererHost {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: ComponentInstance): void;\n    cleanupInstancesUnder(node: Node): void;\n    replaceComponentRange(instance: ComponentInstance, result: unknown, host: Element | Comment): Node | null;\n    resolveChildScopeRange?(scope: ChildScope): DOMRange | null;\n    teardownNodeSubtree(root: Node): void;\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n    markReactivePropsDirtySource(source: ReadableSource<unknown>): void;\n}"
+      ],
+      "Scope": [
+        "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
+      ],
+      "selector": [
+        "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
+      ],
+      "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
+      "serveQuery": [
+        "declare function serveQuery<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, handler: ServerQueryHandler<TInput, TResult>): ServerQueryEntry<TInput, TResult>;"
+      ],
+      "ServerQueryHandler": [
+        "type ServerQueryHandler<TInput, TResult extends {}> = (context: {\n    input: TInput;\n    request?: Request;\n    signal: AbortSignal;\n}) => Promise<TResult> | TResult;"
+      ],
+      "Show": ["Show: <T>(props: ShowProps<T>) => JSXElement"],
+      "ShowProps": [
+        "type ShowProps<T> = {\n    when: ShowSource<T>;\n    fallback?: BoundaryChild;\n    children: BoundaryChild | ((value: Truthy<T>) => BoundaryChild);\n};"
+      ],
+      "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
+      "State": [
+        "interface State<T> extends ReadableSource<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
+      ],
+      "StateSetter": [
+        "type StateSetter<T> = (...args: StateSetterArgs<T>) => void;"
+      ],
+      "StateTuple": [
+        "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
+      ]
+    },
+    "./boot": {
+      "cleanupApp": [
+        "declare function cleanupApp(root: Element | string): void;"
+      ],
+      "createIsland": [
+        "declare function createIsland(config: IslandConfig): void;"
+      ],
+      "createIslands": [
+        "declare function createIslands(config: IslandsConfig): void;"
+      ],
+      "createSPA": [
+        "declare function createSPA(config: SPAConfig): Promise<void>;"
+      ],
+      "hasApp": ["declare function hasApp(root: Element | string): boolean;"],
+      "hydrateSPA": [
+        "declare function hydrateSPA(config: HydrateSPAConfig): Promise<void>;"
+      ],
+      "HydrateSPAConfig": [
+        "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
+      ],
+      "IslandConfig": [
+        "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
+      ],
+      "IslandsConfig": [
+        "type IslandsConfig = {\n    islands: IslandConfig[];\n    cspNonce?: string;\n};"
+      ],
+      "SPAConfig": [
+        "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
+      ]
+    },
+    "./components": {
+      "ErrorBoundary": [
+        "declare function ErrorBoundary(props: ErrorBoundaryProps): JSXElement;"
+      ],
+      "ErrorBoundaryFallbackRender": [
+        "type ErrorBoundaryFallbackRender = (error: unknown, reset: () => void) => ErrorBoundaryFallbackValue;"
+      ],
+      "ErrorBoundaryProps": [
+        "interface ErrorBoundaryProps extends Props {\n    children?: ErrorBoundaryContent;\n    fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;\n    onError?: (error: unknown) => void;\n    resetKey?: unknown;\n}"
+      ]
+    },
+    "./control": {
+      "Case": ["Case: (props: CaseProps) => JSXElement"],
+      "CaseProps": [
+        "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
+      ],
+      "For": [
+        "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
+      ],
+      "ForProps": [
+        "type ForProps<T, K extends string | number = string | number> = KeyedForProps<T, K> | IndexedForProps<T>;"
+      ],
+      "Match": ["declare function Match(_props: MatchProps): null;"],
+      "MatchProps": [
+        "type MatchProps = {\n    key?: string | number | null;\n    when: unknown;\n    children: MatchChild;\n};"
+      ],
+      "Show": ["Show: <T>(props: ShowProps<T>) => JSXElement"],
+      "ShowProps": [
+        "type ShowProps<T> = {\n    when: ShowSource<T>;\n    fallback?: BoundaryChild;\n    children: BoundaryChild | ((value: Truthy<T>) => BoundaryChild);\n};"
+      ]
+    },
+    "./foundations": {
+      "DefaultPortal": ["DefaultPortal: Portal<RenderableChild>"],
+      "definePortal": [
+        "declare function definePortal<T extends RenderableChild = RenderableChild>(): Portal<T>;"
+      ],
+      "JSXElement": [
+        "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
+      ],
+      "layout": [
+        "declare function layout<P = object>(Layout: LayoutComponent<P>): (children?: RenderableChild, props?: P) => unknown;"
+      ],
+      "LayoutComponent": [
+        "type LayoutComponent<P = object> = (props: P & {\n    children?: RenderableChild;\n}) => unknown;"
+      ],
+      "Portal": [
+        "declare function Portal(props: PortalProps): JSXElement | null;",
+        "interface Portal<T extends RenderableChild = RenderableChild> {\n    (): T | JSXElement | null | undefined;\n    render(props: {\n        children?: T;\n    }): unknown;\n}"
+      ],
+      "PortalProps": [
+        "interface PortalProps {\n    children?: RenderableChild;\n}"
+      ],
+      "Presence": [
+        "declare function Presence({ present, children }: PresenceProps): JSXElement | null;"
+      ],
+      "PresenceProps": [
+        "interface PresenceProps {\n    present: boolean | (() => boolean);\n    children?: RenderableChild;\n}"
+      ],
+      "Slot": ["declare function Slot(props: SlotProps): JSXElement | null;"],
+      "SlotProps": [
+        "type SlotProps = {\n    asChild: true;\n    children: JSXElement;\n    [key: string]: unknown;\n} | {\n    asChild?: false;\n    children?: RenderableChild;\n};"
+      ]
+    },
+    "./foundations/utilities": {
+      "ariaDisabled": [
+        "declare function ariaDisabled(disabled?: boolean): {\n    'aria-disabled'?: 'true';\n};"
+      ],
+      "ariaExpanded": [
+        "declare function ariaExpanded(expanded?: boolean): {\n    'aria-expanded'?: 'true' | 'false';\n};"
+      ],
+      "ariaSelected": [
+        "declare function ariaSelected(selected?: boolean): {\n    'aria-selected'?: 'true' | 'false';\n};"
+      ],
+      "composeHandlers": [
+        "declare function composeHandlers<A extends readonly unknown[]>(first?: (...args: A) => void, second?: (...args: A) => void, options?: ComposeHandlersOptions): (...args: A) => void;"
+      ],
+      "ComposeHandlersOptions": [
+        "interface ComposeHandlersOptions {\n    checkDefaultPrevented?: boolean;\n}"
+      ],
+      "composeRefs": [
+        "declare function composeRefs<T>(...refs: Array<Ref$2<T>>): (value: T | null) => void;"
+      ],
+      "DefaultPreventable": [
+        "interface DefaultPreventable {\n    defaultPrevented?: boolean;\n    preventDefault?: () => void;\n}"
+      ],
+      "FocusLikeEvent": [
+        "interface FocusLikeEvent extends DefaultPreventable, PropagationStoppable {\n    relatedTarget?: unknown;\n}"
+      ],
+      "formatId": [
+        "declare function formatId(options: FormatIdOptions): string;"
+      ],
+      "FormatIdOptions": [
+        "interface FormatIdOptions {\n    prefix?: string;\n    id: string | number;\n}"
+      ],
+      "KeyboardLikeEvent": [
+        "interface KeyboardLikeEvent extends DefaultPreventable, PropagationStoppable {\n    key: string;\n    currentTarget?: unknown;\n    target?: unknown;\n}"
+      ],
+      "mergeProps": [
+        "declare function mergeProps<TBase extends object, TInjected extends object>(base: TBase, injected: TInjected): TInjected & TBase;"
+      ],
+      "PointerLikeEvent": [
+        "interface PointerLikeEvent extends DefaultPreventable, PropagationStoppable {\n    target?: unknown;\n}"
+      ],
+      "PropagationStoppable": [
+        "interface PropagationStoppable {\n    stopPropagation?: () => void;\n}"
+      ],
+      "Ref": [
+        "type Ref$2<T> = ((value: T | null) => void) | {\n    current: T | null;\n} | null | undefined;"
+      ],
+      "setRef": [
+        "declare function setRef<T>(ref: Ref$2<T>, value: T | null): void;"
+      ]
+    },
+    "./foundations/interactions": {
+      "applyInteractionPolicy": [
+        "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    'aria-disabled'?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
+      ],
+      "dismissable": [
+        "declare function dismissable({ node, additionalInsideNodes, disabled, onDismiss }: DismissableOptions): {\n    onKeyDown: (e: KeyboardLikeEvent) => void;\n    onPointerDownCapture: (e: PointerLikeEvent) => void;\n};"
+      ],
+      "DismissableOptions": [
+        "interface DismissableOptions {\n    node?: Node | null;\n    additionalInsideNodes?: readonly (Node | null | undefined)[];\n    disabled?: boolean;\n    onDismiss?: (trigger: 'escape' | 'outside') => void;\n}"
+      ],
+      "focusable": [
+        "declare function focusable({ disabled, tabIndex }: FocusableOptions): FocusableResult;"
+      ],
+      "FocusableOptions": [
+        "interface FocusableOptions {\n    disabled?: boolean;\n    tabIndex?: number | undefined;\n}"
+      ],
+      "FocusableResult": [
+        "interface FocusableResult {\n    tabIndex?: number;\n    'aria-disabled'?: 'true';\n}"
+      ],
+      "hoverable": [
+        "declare function hoverable({ disabled, onEnter, onLeave }: HoverableOptions): HoverableResult;"
+      ],
+      "HoverableOptions": [
+        "interface HoverableOptions {\n    disabled?: boolean;\n    onEnter?: (e: HoverEvent) => void;\n    onLeave?: (e: HoverEvent) => void;\n}"
+      ],
+      "HoverableResult": [
+        "interface HoverableResult {\n    onPointerEnter?: (e: HoverEvent) => void;\n    onPointerLeave?: (e: HoverEvent) => void;\n}"
+      ],
+      "InteractionPolicyInput": [
+        "interface InteractionPolicyInput {\n    isNative: boolean;\n    disabled: boolean;\n    onPress?: (e: Event) => void;\n    ref?: Ref$2<unknown>;\n}"
+      ],
+      "mergeInteractionProps": [
+        "declare function mergeInteractionProps(childProps: Record<string, unknown>, policyProps: Record<string, unknown>, userProps?: Record<string, unknown>): Record<string, unknown>;"
+      ],
+      "Orientation": ["type Orientation = 'horizontal' | 'vertical' | 'both';"],
+      "pressable": [
+        "declare function pressable({ disabled, onPress, isNativeButton }: PressableOptions): PressableResult;"
+      ],
+      "PressableOptions": [
+        "interface PressableOptions {\n    disabled?: boolean;\n    onPress?: (e: PressEvent) => void;\n    isNativeButton?: boolean;\n}"
+      ],
+      "PressableResult": [
+        "interface PressableResult {\n    onClick: (e: PressEvent) => void;\n    disabled?: true;\n    role?: 'button';\n    tabIndex?: number;\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n    'aria-disabled'?: 'true';\n}"
+      ],
+      "rovingFocus": [
+        "declare function rovingFocus(options: RovingFocusOptions): RovingFocusResult;"
+      ],
+      "RovingFocusOptions": [
+        "interface RovingFocusOptions {\n    currentIndex: number;\n    itemCount: number;\n    orientation?: Orientation;\n    loop?: boolean;\n    onNavigate?: (index: number) => void;\n    isDisabled?: (index: number) => boolean;\n}"
+      ],
+      "RovingFocusResult": [
+        "interface RovingFocusResult {\n    container: {\n        onKeyDown: (e: KeyboardLikeEvent) => void;\n    };\n    item: (index: number) => {\n        tabIndex: number;\n        'data-roving-index': number;\n    };\n}"
+      ]
+    },
+    "./foundations/state": {
+      "controllableState": [
+        "declare function controllableState<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n}): ControllableState<T>;"
+      ],
+      "ControllableState": [
+        "type ControllableState<T> = State<T> & {\n    isControlled: boolean;\n};"
+      ],
+      "isControlled": [
+        "declare function isControlled<T>(value: T | undefined): value is T;"
+      ],
+      "makeControllable": [
+        "declare function makeControllable<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n    setInternal?: (next: T) => void;\n}): {\n    set: (next: T) => void;\n    isControlled: boolean;\n};"
+      ],
+      "resolveControllable": [
+        "declare function resolveControllable<T>(value: T | undefined, defaultValue: T): {\n    value: T;\n    isControlled: boolean;\n};"
+      ]
+    },
+    "./foundations/structures": {
+      "cloneElement": [
+        "declare function cloneElement(element: JSXElement, props: Record<string, unknown>): JSXElement;"
+      ],
+      "Collection": [
+        "interface Collection<TNode, TMetadata = unknown> {\n    register(node: TNode, metadata: TMetadata): () => void;\n    items(): ReadonlyArray<CollectionItem<TNode, TMetadata>>;\n    clear(): void;\n    size(): number;\n}"
+      ],
+      "CollectionItem": [
+        "type CollectionItem<TNode, TMetadata = unknown> = {\n    node: TNode;\n    metadata: TMetadata;\n};"
+      ],
+      "createCollection": [
+        "declare function createCollection<TNode, TMetadata = unknown>(): Collection<TNode, TMetadata>;"
+      ],
+      "createLayer": ["declare function createLayer(): LayerManager;"],
+      "DefaultPortal": ["DefaultPortal: Portal<RenderableChild>"],
+      "definePortal": [
+        "declare function definePortal<T extends RenderableChild = RenderableChild>(): Portal<T>;"
+      ],
+      "isElement": [
+        "declare function isElement(value: unknown): value is JSXElement;"
+      ],
+      "JSXElement": [
+        "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
+      ],
+      "Layer": [
+        "interface Layer {\n    id: number;\n    isTop(): boolean;\n    unregister(): void;\n}"
+      ],
+      "LayerManager": [
+        "interface LayerManager {\n    register(options: LayerOptions): Layer;\n    layers(): ReadonlyArray<Layer>;\n    handleEscape(): void;\n    handleOutsidePointer(e: PointerEvent): void;\n}"
+      ],
+      "LayerOptions": [
+        "interface LayerOptions {\n    onEscape?: () => void;\n    onOutsidePointer?: (e: PointerEvent) => void;\n    node?: Node | null;\n}"
+      ],
+      "layout": [
+        "declare function layout<P = object>(Layout: LayoutComponent<P>): (children?: RenderableChild, props?: P) => unknown;"
+      ],
+      "LayoutComponent": [
+        "type LayoutComponent<P = object> = (props: P & {\n    children?: RenderableChild;\n}) => unknown;"
+      ],
+      "Portal": [
+        "declare function Portal(props: PortalProps): JSXElement | null;",
+        "interface Portal<T extends RenderableChild = RenderableChild> {\n    (): T | JSXElement | null | undefined;\n    render(props: {\n        children?: T;\n    }): unknown;\n}"
+      ],
+      "PortalProps": [
+        "interface PortalProps {\n    children?: RenderableChild;\n}"
+      ],
+      "Presence": [
+        "declare function Presence({ present, children }: PresenceProps): JSXElement | null;"
+      ],
+      "PresenceProps": [
+        "interface PresenceProps {\n    present: boolean | (() => boolean);\n    children?: RenderableChild;\n}"
+      ],
+      "Slot": ["declare function Slot(props: SlotProps): JSXElement | null;"],
+      "SlotProps": [
+        "type SlotProps = {\n    asChild: true;\n    children: JSXElement;\n    [key: string]: unknown;\n} | {\n    asChild?: false;\n    children?: RenderableChild;\n};"
+      ]
+    },
+    "./foundations/icon": {
+      "getIconContractProps": [
+        "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, 'color' | 'iconName' | 'size' | 'strokeWidth' | 'style' | 'title'>): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        'stroke-width': string;\n        role: string;\n        'aria-hidden': string | undefined;\n        style: string | undefined;\n        'data-slot': string;\n        'data-icon': string | undefined;\n        'data-size': IconSizeToken | undefined;\n        'data-decorative': string | undefined;\n        'data-color': string | undefined;\n    };\n};"
+      ],
+      "IconBase": [
+        "declare function IconBase({ size, strokeWidth, color, title, class: className, style, iconName, children, ref, ...rest }: IconProps): JSXElement;"
+      ],
+      "IconOwnProps": [
+        "type IconOwnProps = {\n    size?: number | string;\n    strokeWidth?: number;\n    color?: string;\n    title?: string;\n    class?: string;\n    style?: string | IconStyleObject;\n    iconName?: string;\n};"
+      ],
+      "IconProps": [
+        "type IconProps = Omit<Props, 'children' | 'class' | 'color' | 'height' | 'ref' | 'role' | 'stroke' | 'stroke-width' | 'style' | 'title' | 'width'> & IconOwnProps & {\n    children?: unknown;\n    ref?: Ref$2<SVGSVGElement>;\n};"
+      ],
+      "IconSizeToken": ["type IconSizeToken = 'sm' | 'md' | 'lg' | 'xl';"],
+      "IconStyleObject": ["type IconStyleObject = Record<string, unknown>;"],
+      "isIconSizeToken": [
+        "declare function isIconSizeToken(value: unknown): value is IconSizeToken;"
+      ],
+      "joinIconStyle": [
+        "declare function joinIconStyle(...styles: Array<string | undefined>): string | undefined;"
+      ],
+      "normalizeIconSizeValue": [
+        "declare function normalizeIconSizeValue(size: number | string): string;"
+      ],
+      "resolveIconSizeVariable": [
+        "declare function resolveIconSizeVariable(size: number | string): string;"
+      ],
+      "resolveIconStrokeWidthVariable": [
+        "declare function resolveIconStrokeWidthVariable(strokeWidth: number, sizeToken: IconSizeToken | undefined): string;"
+      ],
+      "serializeIconStyle": [
+        "declare function serializeIconStyle(style: string | IconStyleObject | undefined): string;"
+      ]
+    },
+    "./resources": {
+      "ActivityPredicate": ["type ActivityPredicate = () => boolean;"],
+      "capture": ["declare function capture<T>(fn: () => T): () => T;"],
+      "documentVisible": [
+        "declare function documentVisible(): ActivityPredicate;"
+      ],
+      "getSignal": ["declare function getSignal(): AbortSignal;"],
+      "ListenerTarget": [
+        "type ListenerTarget = EventTarget | (() => EventTarget | null | undefined);"
+      ],
+      "on": [
+        "declare function on(target: ListenerTarget, event: string, handler: EventListener, options?: ListenerOptions): void;"
+      ],
+      "onRouteChange": [
+        "declare function onRouteChange(fn: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup, options?: RouteChangeOptions): void;"
+      ],
+      "resource": [
+        "declare function resource<T, const TDeps extends readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;"
+      ],
+      "ResourceResult": [
+        "interface ResourceResult<T> {\n    value: T | null;\n    pending: boolean;\n    error: Error | null;\n    refresh(): void;\n}"
+      ],
+      "routeActive": [
+        "declare function routeActive(pathOrPaths: string | readonly string[]): ActivityPredicate;"
+      ],
+      "RouteChangeCleanup": ["type RouteChangeCleanup = void | (() => void);"],
+      "RouteChangeOptions": [
+        "interface RouteChangeOptions {\n    immediate?: boolean;\n}"
+      ],
+      "stream": [
+        "declare function stream<T>(source: StreamSource<T>, options?: StreamOptions<T>): StreamResult<T>;"
+      ],
+      "StreamOptions": [
+        "interface StreamOptions<T> {\n    deps?: readonly unknown[];\n    initialValue?: T;\n}"
+      ],
+      "StreamResult": [
+        "interface StreamResult<T> {\n    value: T | null;\n    status: StreamStatus;\n    pending: boolean;\n    stale: boolean;\n    error: Error | null;\n    restart(): void;\n    close(): void;\n}"
+      ],
+      "StreamStatus": [
+        "type StreamStatus = 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'error';"
+      ],
+      "task": [
+        "declare function task(fn: () => void | (() => void) | PromiseLike<void | (() => void)>): void;"
+      ],
+      "timer": [
+        "declare function timer(intervalMs: number, fn: () => void, options?: TimerOptions): void;"
+      ],
+      "TimerOptions": [
+        "interface TimerOptions {\n    when?: ActivityPredicate | readonly ActivityPredicate[];\n}"
+      ],
+      "watch": [
+        "declare function watch<TValue>(source: WatchSource<TValue>, callback: WatchCallback<TValue>): void;",
+        "declare function watch<const TSources extends readonly WatchSource<unknown>[]>(sources: TSources, callback: WatchCallback<WatchValues<TSources>>): void;"
+      ],
+      "WatchCallback": [
+        "type WatchCallback<TValue> = (value: TValue, context: WatchContext<TValue>) => void | (() => void) | PromiseLike<void>;"
+      ],
+      "WatchContext": [
+        "interface WatchContext<TValue> {\n    readonly initial: boolean;\n    readonly previous: TValue | undefined;\n    readonly signal: AbortSignal;\n}"
+      ],
+      "WatchSource": ["type WatchSource<T> = ReadableSource<T>;"],
+      "WatchValues": [
+        "type WatchValues<TSources extends readonly WatchSource<unknown>[]> = {\n    -readonly [TIndex in keyof TSources]: ReturnType<TSources[TIndex]>;\n};"
+      ],
+      "windowFocused": ["declare function windowFocused(): ActivityPredicate;"]
+    },
+    "./data": {
+      "createDataRuntime": [
+        "declare function createDataRuntime(options?: DataRuntimeOptions): DataRuntime;"
+      ],
+      "createMutation": [
+        "declare function createMutation<TInput, TResult>(options: MutationOptions<TInput, TResult>): Mutation<TInput, TResult>;"
+      ],
+      "createQuery": [
+        "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
+        "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, 'key' | 'fetch'>): Query<TResult>;"
+      ],
+      "createQueryCollection": [
+        "declare function createQueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string>(options: QueryCollectionOptions<TInput, TResult, TKey>): QueryCollection<TInput, TResult, TKey>;"
+      ],
+      "createQueryPrefetchContext": [
+        "declare function createQueryPrefetchContext(options?: {\n    runtime?: DataRuntime;\n    registry?: ServerQueryRegistry;\n    request?: Request;\n    signal?: AbortSignal;\n    mode?: 'ssr' | 'spa';\n    telemetry?: CoreTelemetry;\n}): QueryPrefetchContext;"
+      ],
+      "DataRuntime": [
+        "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n    readonly queryTestOverrides: Map<string, unknown>;\n    readonly mutationTestOverrides: Map<string, unknown>;\n}"
+      ],
+      "DataRuntimeOptions": [
+        "interface DataRuntimeOptions {\n    queryCache?: Map<string, unknown>;\n    queryData?: Map<string, unknown>;\n    queryTestOverrides?: Map<string, unknown>;\n    mutationTestOverrides?: Map<string, unknown>;\n}"
+      ],
+      "defineQuery": [
+        "declare function defineQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>): QueryDefinition<TInput, TResult>;"
+      ],
+      "defineServerQueries": [
+        "declare function defineServerQueries(...entries: readonly ServerQueryEntry<any, any>[]): ServerQueryRegistry;"
+      ],
+      "dehydrateDataRuntime": [
+        "declare function dehydrateDataRuntime(runtime: DataRuntime): Record<string, unknown>;"
+      ],
+      "getDefaultDataRuntime": [
+        "declare function getDefaultDataRuntime(): DataRuntime;"
+      ],
+      "hydrateDataRuntime": [
+        "declare function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void;"
+      ],
+      "invalidate": [
+        "declare function invalidate(prefix: string, options?: InvalidateOptions): void;"
+      ],
+      "invalidateOnInterval": [
+        "declare function invalidateOnInterval(prefix: string, options: InvalidateOnIntervalOptions): void;"
+      ],
+      "InvalidateOnIntervalOptions": [
+        "interface InvalidateOnIntervalOptions extends InvalidateOptions {\n    intervalMs: number;\n    activeOn?: string | readonly string[];\n    visibleOnly?: boolean;\n    focusedOnly?: boolean;\n}"
+      ],
+      "InvalidateOptions": [
+        "interface InvalidateOptions {\n    markPendingWrite?: boolean;\n    runtime?: DataRuntime;\n}"
+      ],
+      "Mutation": [
+        "type Mutation<TInput, TResult> = MutationControls<TInput, TResult> & (MutationIdle | MutationPending | MutationSuccess<TResult> | MutationError);"
+      ],
+      "MutationOptions": [
+        "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: 'invalidate';\n    runtime?: DataRuntime;\n};"
+      ],
+      "prefetchQuery": [
+        "declare function prefetchQuery<TInput, TResult extends {}>(context: QueryPrefetchContext, query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;"
+      ],
+      "Query": [
+        "type Query<T extends {}> = QueryControls & (QueryLoading | QueryFresh<T> | QueryRefreshing<T> | QueryPendingWrite<T> | QueryStaleValue<T> | QueryStaleErrorWithValue<T> | QueryStaleError);"
+      ],
+      "QueryCollection": [
+        "interface QueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly entries: readonly QueryCollectionEntry<TInput, TResult, TKey>[];\n    readonly loading: boolean;\n    readonly settled: boolean;\n    readonly results: ReadonlyMap<TKey, TResult>;\n    readonly errors: ReadonlyMap<TKey, {}>;\n    get(key: TKey): QueryCollectionEntry<TInput, TResult, TKey> | undefined;\n    retry(key: TKey): Promise<void>;\n}"
+      ],
+      "QueryCollectionEntry": [
+        "interface QueryCollectionEntry<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly key: TKey;\n    readonly input: TInput;\n    readonly query: Query<TResult>;\n}"
+      ],
+      "QueryCollectionKey": [
+        "type QueryCollectionKey = string | number | symbol;"
+      ],
+      "QueryCollectionOptions": [
+        "interface QueryCollectionOptions<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly inputs: () => readonly TInput[];\n    readonly key: (input: TInput) => TKey;\n    readonly concurrency?: number;\n    readonly runtime?: DataRuntime;\n}"
+      ],
+      "QueryConsistency": [
+        "type QueryConsistency = 'fresh' | 'stale' | 'refreshing' | 'pending-write';"
+      ],
+      "QueryDefinition": [
+        "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
+      ],
+      "QueryKeyPart": [
+        "type QueryKeyPart = string | number | boolean | null | undefined | readonly QueryKeyPart[] | {\n    readonly [key: string]: QueryKeyPart;\n};"
+      ],
+      "QueryPrefetchContext": [
+        "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: 'ssr' | 'spa';\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
+      ],
+      "queryScope": [
+        "declare function queryScope(namespace: string): QueryScope;"
+      ],
+      "QueryScope": [
+        "interface QueryScope {\n    key(...parts: QueryKeyPart[]): string;\n    prefix(...parts: QueryKeyPart[]): string;\n    invalidate(parts: readonly QueryKeyPart[], options?: InvalidateOptions): void;\n}"
+      ],
+      "QueryStaleReason": [
+        "type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';"
+      ],
+      "serveQuery": [
+        "declare function serveQuery<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, handler: ServerQueryHandler<TInput, TResult>): ServerQueryEntry<TInput, TResult>;"
+      ],
+      "ServerQueryEntry": [
+        "interface ServerQueryEntry<TInput, TResult extends {}> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly handler: ServerQueryHandler<TInput, TResult>;\n}"
+      ],
+      "ServerQueryHandler": [
+        "type ServerQueryHandler<TInput, TResult extends {}> = (context: {\n    input: TInput;\n    request?: Request;\n    signal: AbortSignal;\n}) => Promise<TResult> | TResult;"
+      ],
+      "ServerQueryRegistry": [
+        "interface ServerQueryRegistry {\n    readonly entries: readonly ServerQueryEntry<unknown, {}>[];\n    get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>): ServerQueryHandler<TInput, TResult> | undefined;\n}"
+      ]
+    },
+    "./testing": {
+      "cleanup": [
+        "declare function cleanup(target: RenderResult | HTMLElement): void;"
+      ],
+      "click": ["declare function click(element: Element): boolean;"],
+      "createInvalidationRecorder": [
+        "declare function createInvalidationRecorder(): InvalidationRecorder;"
+      ],
+      "createMutationTestRegistry": [
+        "declare function createMutationTestRegistry(): MutationTestRegistry;"
+      ],
+      "createQueryTestRegistry": [
+        "declare function createQueryTestRegistry(): QueryTestRegistry;"
+      ],
+      "dispatch": [
+        "declare function dispatch(target: EventTarget, event: Event | string, init?: DispatchEventInit): boolean;"
+      ],
+      "flush": ["declare function flush(): void;"],
+      "getRouteWarnings": [
+        "declare function getRouteWarnings(options: MatchRouteOptions): RoutePatternWarning[];"
+      ],
+      "InvalidationRecord": [
+        "interface InvalidationRecord {\n    prefix: string;\n    markPendingWrite: boolean;\n}"
+      ],
+      "InvalidationRecorder": [
+        "interface InvalidationRecorder {\n    readonly calls: readonly InvalidationRecord[];\n    readonly prefixes: readonly string[];\n    clear(): void;\n    stop(): void;\n}"
+      ],
+      "matchRoute": [
+        "declare function matchRoute(path: string, options: MatchRouteOptions): RouteMatch | null;"
+      ],
+      "mockQuery": [
+        "mockQuery: typeof createFreshQuery & {\n    loading<T extends {} = {}>(options?: MockQueryOptions): Query<T>;\n    error<T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions): Query<T>;\n    refreshing<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;\n    stale<T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions): Query<T>;\n    pendingWrite<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;\n}"
+      ],
+      "MockQueryOptions": [
+        "interface MockQueryOptions {\n    refresh?: MockRefresh;\n}"
+      ],
+      "MockRefresh": ["type MockRefresh = () => void | Promise<void>;"],
+      "mount": [
+        "declare function mount(component: ComponentFunction, options?: RenderOptions): RenderResult;"
+      ],
+      "MutationFixture": [
+        "type MutationFixture<TInput, TResult> = Mutation<TInput, TResult> & {\n    readonly inputs: readonly TInput[];\n    setPending(): void;\n    succeed(result: TResult): void;\n    fail(error: {}): void;\n};"
+      ],
+      "MutationFixtureInitial": [
+        "type MutationFixtureInitial<TResult> = {\n    pending?: boolean;\n    error?: {} | null;\n    result?: TResult;\n};"
+      ],
+      "mutationState": [
+        "mutationState: typeof createMutationFixture & {\n    idle<TInput = unknown, TResult = unknown>(): MutationFixture<TInput, TResult>;\n    pending<TInput = unknown, TResult = unknown>(): MutationFixture<TInput, TResult>;\n    success<TInput = unknown, TResult = unknown>(result: TResult): MutationFixture<TInput, TResult>;\n    error<TInput = unknown, TResult = unknown>(error: {}): MutationFixture<TInput, TResult>;\n}"
+      ],
+      "MutationTestRegistry": [
+        "interface MutationTestRegistry {\n    readonly runtime: DataRuntime;\n    set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
+      ],
+      "queryState": [
+        "queryState: {\n    fresh: typeof createFreshQuery;\n    loading: <T extends {} = {}>(options?: MockQueryOptions) => Query<T>;\n    error: <T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions) => Query<T>;\n    refreshing: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n    stale: <T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions) => Query<T>;\n    pendingWrite: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n}"
+      ],
+      "QueryTestRegistry": [
+        "interface QueryTestRegistry {\n    readonly runtime: DataRuntime;\n    set<T extends {}>(key: string, query: Query<T>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
+      ],
+      "render": [
+        "declare function render(component: ComponentFunction, options?: RenderOptions): RenderResult;"
+      ],
+      "RenderOptions": [
+        "interface RenderOptions {\n    container?: HTMLElement;\n    cleanupStrict?: boolean;\n    dataRuntime?: DataRuntime;\n}"
+      ],
+      "RenderResult": [
+        "interface RenderResult {\n    readonly container: HTMLElement;\n    readonly root: HTMLElement;\n    flush(): void;\n    dispatch(target: EventTarget, event: Event | string, init?: DispatchEventInit): boolean;\n    unmount(): void;\n    cleanup(): void;\n}"
+      ],
+      "renderRoute": [
+        "declare function renderRoute(options: RouteRenderOptions): Promise<RenderResult>;"
+      ],
+      "RoutePatternWarning": [
+        "interface RoutePatternWarning {\n    kind: 'route-collision';\n    path: string;\n    conflictingPath: string;\n    segment: string;\n    namespace: string | undefined;\n    message: string;\n}"
+      ],
+      "RouteRenderOptions": [
+        "interface RouteRenderOptions extends RenderOptions {\n    registry: RouteRegistry;\n    url?: string;\n    auth?: RouteAuthOptions;\n    dataRuntime?: DataRuntime;\n}"
+      ],
+      "submit": ["declare function submit(form: HTMLFormElement): boolean;"],
+      "type": [
+        "declare function type(element: HTMLInputElement | HTMLTextAreaElement, text: string): void;"
+      ]
+    },
+    "./fx": {
+      "debounce": [
+        "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): T & {\n    cancel(): void;\n};"
+      ],
+      "debounceEvent": [
+        "declare function debounceEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n    flush(): void;\n};"
+      ],
+      "DebounceOptions": [
+        "interface DebounceOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
+      ],
+      "defer": ["declare function defer(fn: () => void): void;"],
+      "idle": [
+        "declare function idle(fn: () => void, options?: {\n    timeout?: number;\n}): void;"
+      ],
+      "once": ["declare function once<T extends AnyFn>(fn: T): T;"],
+      "raf": ["declare function raf<T extends AnyFn>(fn: T): T;"],
+      "rafEvent": [
+        "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
+      ],
+      "retry": [
+        "declare function retry<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;"
+      ],
+      "RetryOptions": [
+        "interface RetryOptions {\n    maxAttempts?: number;\n    delayMs?: number;\n    backoff?: (attemptIndex: number) => number;\n}"
+      ],
+      "scheduleEventHandler": [
+        "declare function scheduleEventHandler(handler: EventListener): EventListener;"
+      ],
+      "scheduleIdle": [
+        "declare function scheduleIdle(fn: () => void, options?: {\n    timeout?: number;\n}): CancelFn;"
+      ],
+      "scheduleRetry": [
+        "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions$1): {\n    cancel(): void;\n};"
+      ],
+      "scheduleTimeout": [
+        "declare function scheduleTimeout(ms: number, fn: () => void): CancelFn;"
+      ],
+      "throttle": [
+        "declare function throttle<T extends AnyFn>(fn: T, ms: number, options?: ThrottleOptions): T & {\n    cancel(): void;\n};"
+      ],
+      "throttleEvent": [
+        "declare function throttleEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n};"
+      ],
+      "ThrottleOptions": [
+        "interface ThrottleOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
+      ],
+      "timeout": ["declare function timeout(ms: number): Promise<void>;"]
+    },
+    "./router": {
+      "AccessDecision": [
+        "type AccessDecision = AccessAllowDecision | AccessRedirectDecision | AccessDenyDecision;"
+      ],
+      "AccessDenyDecision": [
+        "interface AccessDenyDecision {\n    kind: 'deny';\n    status: AccessDenyStatus;\n}"
+      ],
+      "AccessRedirectDecision": [
+        "interface AccessRedirectDecision {\n    kind: 'redirect';\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
+      ],
+      "allow": ["declare function allow(): AccessAllowDecision;"],
+      "AuthContext": [],
+      "AuthRequirement": [],
+      "createRouteRegistry": [
+        "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
+      ],
+      "currentAuth": ["declare function currentAuth(): AuthContext$1;"],
+      "currentRoute": [
+        "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown>(): RouteSnapshot<TParams, TState>;"
+      ],
+      "defer": [
+        "declare function defer$2<T>(promise: PromiseLike<T>): Deferred<T>;"
+      ],
+      "Deferred": [
+        "interface Deferred<T> {\n    readonly state: DeferredState;\n    readonly value: T | undefined;\n    readonly error: unknown;\n    readonly promise: Promise<T>;\n    readonly [DEFERRED_VALUE]: true;\n}"
+      ],
+      "DeferredState": [
+        "type DeferredState = 'pending' | 'fulfilled' | 'rejected';"
+      ],
+      "deny": [
+        "declare function deny(status: AccessDenyStatus): AccessDenyDecision;"
+      ],
+      "fallback": [
+        "declare function fallback(Component: RouteComponent): void;"
+      ],
+      "forbidden": ["declare function forbidden(): AccessDenyDecision;"],
+      "group": [
+        "declare function group(options: GroupHelperOptions, fn: RouteDefinition): void;"
+      ],
+      "GroupHelperOptions": [
+        "interface GroupHelperOptions extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n}"
+      ],
+      "HistoryScrollBehavior": [
+        "type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';"
+      ],
+      "index": [
+        "declare function index(Component: RouteComponent, options?: RouteOptions): void;"
+      ],
+      "isDeferred": [
+        "declare function isDeferred<T = unknown>(value: unknown): value is Deferred<T>;"
+      ],
+      "LayoutScopeRecord": [
+        "interface LayoutScopeRecord {\n    component: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n}"
+      ],
+      "lazy": [
+        "declare function lazy<TComponent extends AnyRouteComponent>(factory: () => Promise<{\n    default: TComponent;\n} | TComponent>): LazyRouteComponent<TComponent>;"
+      ],
+      "LazyRouteComponent": [
+        "type LazyRouteComponent<TComponent extends AnyRouteComponent> = TComponent & {\n    preload(): Promise<void>;\n};"
+      ],
+      "lazyRouteData": [
+        "declare function lazyRouteData<TModule, TData = TModule>(factory: () => PromiseLike<TModule>, select?: (module: TModule, context: RouteContext & {\n    request?: Request;\n}) => TData | PromiseLike<TData>): LazyRouteDataLoader<TModule, TData>;"
+      ],
+      "LazyRouteDataLoader": [
+        "type LazyRouteDataLoader<TModule, TData = TModule> = ((context: RouteContext & {\n    request?: Request;\n}) => Promise<TData>) & {\n    preload(): Promise<void>;\n};"
+      ],
+      "Link": [
+        "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, 'aria-current': ariaCurrent, 'aria-label': ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
+      ],
+      "LinkProps": [
+        "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
+      ],
+      "navigate": [
+        "declare function navigate(path: string, options?: NavigateOptions): void;"
+      ],
+      "NavigateOptions": [
+        "type NavigateOptions = {\n    history?: 'push' | 'replace';\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
+      ],
+      "NavigationScrollBehavior": [
+        "type NavigationScrollBehavior = 'top' | 'preserve';"
+      ],
+      "notFound": ["declare function notFound(): AccessDenyDecision;"],
+      "onRouteChange": [
+        "declare function onRouteChange(fn: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup, options?: RouteChangeOptions): void;"
+      ],
+      "Outlet": ["declare function Outlet(): JSXElement;"],
+      "page": [
+        "declare function page<const TPath extends string>(path: TPath, Component: RouteComponent<RoutePathParams<TPath>>, fn: RouteDefinition): void;",
+        "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, fn: RouteDefinition): void;",
+        "declare function page<const TPath extends string>(path: TPath, Component: RouteComponent<RoutePathParams<TPath>>, options: PageHelperOptions, fn: RouteDefinition): void;",
+        "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options: PageHelperOptions, fn: RouteDefinition): void;"
+      ],
+      "PageHelperOptions": [
+        "interface PageHelperOptions extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n}"
+      ],
+      "PageScopeRecord": [
+        "interface PageScopeRecord {\n    component: RouteComponent;\n}"
+      ],
+      "ParsedSegment": [
+        "interface ParsedSegment {\n    kind: 'static' | 'param' | 'wildcard' | 'splat' | 'catchall';\n    value: string;\n}"
+      ],
+      "reconcileRouteMeta": [
+        "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
+      ],
+      "redirect": [
+        "declare function redirect(to: string, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
+      ],
+      "Resolve": [
+        "declare function Resolve<T>(props: ResolveProps<T>): JSXElement;"
+      ],
+      "resolveDeferredValues": [
+        "declare function resolveDeferredValues<T>(input: T, signal?: AbortSignal): Promise<T>;"
+      ],
+      "ResolveProps": [
+        "interface ResolveProps<T> {\n    value: Deferred<T>;\n    pending?: RenderableChild;\n    rejected?: RenderableChild | ((error: unknown) => RenderableChild);\n    children: (value: T) => RenderableChild;\n}"
+      ],
+      "resolveRouteMeta": [
+        "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext): Promise<Readonly<RouteMeta>>;"
+      ],
+      "resolveRouteRequest": [
+        "declare function resolveRouteRequest(target: string, options: RouteRequestOptions): RouteRequestResult | Promise<RouteRequestResult>;"
+      ],
+      "route": [
+        "declare function route<const TPath extends string, const TSearchSchema extends ObjectSchema<RouteSearch> | undefined = undefined, TLoaderData = unknown, TDehydratedData = TLoaderData>(path: TPath, Component: RouteComponent<RoutePathParams<TPath>>, options?: RouteOptions<RoutePathParams<TPath>, TSearchSchema, TLoaderData, TDehydratedData>): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;",
+        "declare function route<const TPath extends string, TComponent extends AnyRouteComponent, const TSearchSchema extends ObjectSchema<RouteSearch> | undefined = undefined, TLoaderData = unknown, TDehydratedData = TLoaderData>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options?: RouteOptionsForComponent<TPath, TComponent, TSearchSchema, TLoaderData, TDehydratedData>): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;"
+      ],
+      "Route": [
+        "interface Route<TParams extends RouteParams = RouteParams> {\n    path: string;\n    handler: RouteHandler<TParams>;\n    namespace?: string;\n}"
+      ],
+      "RouteAuthOptions": [
+        "interface RouteAuthOptions {\n    resolve: RouteAuthResolver;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
+      ],
+      "RouteAuthResolver": [
+        "type RouteAuthResolver = (context: Omit<RouteContext, 'auth'>) => AuthContext | PromiseLike<AuthContext>;"
+      ],
+      "RouteChangeCleanup": ["type RouteChangeCleanup = void | (() => void);"],
+      "RouteChangeOptions": [
+        "interface RouteChangeOptions {\n    immediate?: boolean;\n}"
+      ],
+      "RouteComponent": [
+        "type RouteComponent<TParams extends RouteParams = RouteParams> = (props: TParams) => RenderableChild;"
+      ],
+      "RouteContext": [
+        "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n}"
+      ],
+      "routeData": ["declare function routeData<T>(): T;"],
+      "RouteDataLoadError": [
+        "declare class RouteDataLoadError extends Error {\n    readonly route: string;\n    readonly phase: RouteDataLoadPhase;\n    readonly cause: unknown;\n    constructor(route: string, phase: RouteDataLoadPhase, cause: unknown);\n}"
+      ],
+      "RouteDataLoadPhase": [
+        "type RouteDataLoadPhase = 'client' | 'server' | 'ssg';"
+      ],
+      "RouteDefinition": ["type RouteDefinition = () => void;"],
+      "RouteDestination": [
+        "interface RouteDestination {\n    readonly href: string;\n}"
+      ],
+      "RouteHandler": [
+        "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
+      ],
+      "RouteManifest": [
+        "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+      ],
+      "RouteMatch": [
+        "interface RouteMatch<TParams extends RouteParams = RouteParams> {\n    path: string;\n    params: Readonly<TParams>;\n    name?: string;\n    namespace?: string;\n}"
+      ],
+      "RouteMeta": [
+        "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: 'ltr' | 'rtl' | 'auto';\n    };\n}"
+      ],
+      "RouteMetaSource": [
+        "type RouteMetaSource<TParams extends RouteParams = RouteParams> = RouteMeta | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);"
+      ],
+      "RouteMode": ["type RouteMode = 'spa' | 'ssr' | 'ssg';"],
+      "RouteOptions": [
+        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams>;\n    actions?: readonly ActionDescriptor[];\n}"
+      ],
+      "RouteParams": ["type RouteParams = Record<string, string>;"],
+      "RoutePathParams": [
+        "type RoutePathParams<Path extends string> = [\n    ExtractRoutePathParamNames<Path>\n] extends [\n    never\n] ? Record<never, string> : {\n    [Key in ExtractRoutePathParamNames<Path>]: string;\n};"
+      ],
+      "RoutePolicy": [
+        "type RoutePolicy = (context: RouteContext) => AccessDecision | PromiseLike<AccessDecision>;"
+      ],
+      "RouteQuery": [
+        "interface RouteQuery {\n    get(key: string): string | null;\n    getAll(key: string): string[];\n    has(key: string): boolean;\n    toJSON(): Record<string, string | string[]>;\n}"
+      ],
+      "RouteQueryParamInput": [
+        "type RouteQueryParamInput = RouteQueryParamValue | readonly RouteQueryParamValue[];"
+      ],
+      "RouteQueryParamValue": [
+        "type RouteQueryParamValue = string | number | boolean | null | undefined;"
+      ],
+      "RouteQueryUpdater": [
+        "type RouteQueryUpdater = (searchParams: URLSearchParams) => void;"
+      ],
+      "RouteQueryUpdates": [
+        "type RouteQueryUpdates = Record<string, RouteQueryParamInput>;"
+      ],
+      "RouteRecord": [
+        "interface RouteRecord {\n    path: string;\n    component: RouteComponent;\n    segments: ParsedSegment[];\n    rank: number;\n    layoutChain: LayoutScopeRecord[];\n    pageChain: PageScopeRecord[];\n    options: RouteOptions;\n    metaChain?: readonly RouteMetaSource[];\n    isFallback: boolean;\n    handler: RouteHandler;\n}"
+      ],
+      "RouteRef": [
+        "interface RouteRef<TParams extends RouteParams = RouteParams, TSearch = RouteSearch> {\n    readonly path: string;\n    readonly searchSchema?: ObjectSchema<TSearch & RouteSearch>;\n    readonly basePath?: string;\n    readonly __params?: TParams;\n    readonly __search?: TSearch;\n}"
+      ],
+      "RouteRegistry": [
+        "interface RouteRegistry {\n    readonly [routeRegistryBrand]: true;\n    manifest: RouteManifest;\n    routes: readonly Route[];\n}"
+      ],
+      "RouteRegistryOptions": [
+        "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+      ],
+      "RouteRenderResult": [
+        "interface RouteRenderResult<TParams extends RouteParams = RouteParams> {\n    kind: 'render';\n    handler: RouteHandler<TParams>;\n    params: TParams;\n    record?: RouteRecord;\n}"
+      ],
+      "RouteRequestOptions": [
+        "interface RouteRequestOptions {\n    registry: RouteRegistry;\n    mode?: RouteMode;\n    load?: boolean;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    request?: Request;\n    telemetry?: CoreTelemetry;\n}"
+      ],
+      "RouteRequestResult": [
+        "type RouteRequestResult<TParams extends RouteParams = RouteParams> = RouteRenderResult<TParams> | AccessRedirectDecision | AccessDenyDecision | null;"
+      ],
+      "RouteSearch": ["type RouteSearch = Record<string, RouteSearchValue>;"],
+      "RouteSearchValue": [
+        "type RouteSearchValue = string | number | boolean | null | undefined | readonly (string | number | boolean | null)[];"
+      ],
+      "RouteSnapshot": [
+        "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams>[];\n}"
+      ],
+      "ScrollRestorationOptions": [
+        "type ScrollRestorationOptions = {\n    navigation?: NavigationScrollBehavior;\n    history?: HistoryScrollBehavior;\n};"
+      ],
+      "serializeRouteMeta": [
+        "declare function serializeRouteMeta(meta: RouteMeta): string;"
+      ],
+      "to": [
+        "declare function to$1<TParams extends RouteParams, TSearch extends RouteSearch = RouteSearch>(route: RouteRef<TParams, TSearch>, params: TParams, search?: TSearch): RouteDestination;"
+      ],
+      "unauthorized": ["declare function unauthorized(): AccessDenyDecision;"],
+      "updateRouteQuery": [
+        "declare function updateRouteQuery(updates: RouteQueryUpdates | RouteQueryUpdater, options?: UpdateRouteQueryOptions): void;"
+      ],
+      "UpdateRouteQueryOptions": [
+        "type UpdateRouteQueryOptions = {\n    history?: 'push' | 'replace';\n    replace?: boolean;\n};"
+      ]
+    },
+    "./actions": {
+      "action": [
+        "declare function action<TInput extends Record<string, unknown>, TResult = unknown>(descriptor: ActionDescriptor<TInput>): {\n    state: StateTuple<ActionStatus<TResult>>;\n    submit(input: TInput): Promise<TResult>;\n};"
+      ],
+      "ActionDescriptor": [
+        "interface ActionDescriptor<TInput extends Record<string, unknown> = Record<string, unknown>> {\n    readonly id: string;\n    readonly input: ObjectSchema<TInput>;\n    readonly invalidates: readonly string[];\n}"
+      ],
+      "ActionForm": [
+        "declare function ActionForm<TInput extends Record<string, unknown>>({ action, children, ...props }: {\n    readonly action: ActionDescriptor<TInput>;\n    readonly children?: RenderableChild;\n    readonly [key: string]: unknown;\n}): JSXElement;"
+      ],
+      "ActionStatus": [
+        "interface ActionStatus<TResult = unknown> {\n    readonly pending: boolean;\n    readonly result?: TResult;\n    readonly error?: unknown;\n}"
+      ],
+      "ActionValidationError": [
+        "interface ActionValidationError {\n    readonly kind: 'invalid';\n    readonly action: string;\n    readonly values: Readonly<Record<string, unknown>>;\n    readonly issues: readonly unknown[];\n    readonly fieldErrors: Readonly<Record<string, readonly string[]>>;\n}"
+      ],
+      "defineAction": [
+        "declare function defineAction<TInput extends Record<string, unknown>>(options: {\n    readonly id: string;\n    readonly input: ObjectSchema<TInput>;\n    readonly invalidates?: readonly string[];\n}): ActionDescriptor<TInput>;"
+      ]
+    },
+    "./ssr": {
+      "createRenderContext": [
+        "declare function createRenderContext(seed?: number, opts?: {\n    url?: string;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    basePath?: string;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    mode?: 'ssr' | 'spa';\n    queryPrefetch?: QueryPrefetchContext;\n    framework?: Readonly<Record<string, unknown>>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n}): RenderContext;"
+      ],
+      "DocumentRenderArgs": [
+        "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
+      ],
+      "DocumentRenderContext": [
+        "interface DocumentRenderContext {\n    mode: 'ssr' | 'ssg';\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
+      ],
+      "DocumentRenderer": [
+        "type DocumentRenderer = (args: DocumentRenderArgs) => string;"
+      ],
+      "getRenderContext": [
+        "declare function getRenderContext(): RenderContext | null;"
+      ],
+      "renderResolvedToStringSync": [
+        "declare function renderResolvedToStringSync(opts: {\n    url: string;\n    registry: RouteRegistry;\n    handler: RouteHandler;\n    params?: Record<string, string>;\n    options?: {\n        seed?: number;\n        data?: SSRData;\n        dataRuntime?: DataRuntime;\n        envelope?: PageRenderEnvelope;\n        cspNonce?: string;\n    };\n}): string;"
+      ],
+      "renderRouteRequest": [
+        "declare function renderRouteRequest(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
+      ],
+      "RenderRouteRequestOptions": [
+        "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
+      ],
+      "RenderRouteRequestResult": [
+        "type RenderRouteRequestResult = {\n    kind: 'render';\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: 'no-match';\n};"
+      ],
+      "renderRouteRequestToString": [
+        "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
+      ],
+      "renderToStream": [
+        "declare function renderToStream(opts: RouteStreamOptions): void;"
+      ],
+      "renderToString": [
+        "declare function renderToString(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | null): string;",
+        "declare function renderToString(opts: RouteRenderOptions$2): string;"
+      ],
+      "renderToStringSync": [
+        "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: import('@askrjs/auth').AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
+      ],
+      "resolveRequest": [
+        "declare function resolveRequest(opts: {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n}): Promise<RouteRequestResult>;"
+      ],
+      "SSRComponent": [
+        "type SSRComponent = (props: Props, context?: {\n    signal?: AbortSignal;\n    ssr?: RenderContext;\n}) => VNode$2 | JSXElement | string | number | boolean | null | undefined;"
+      ],
+      "SSRDataMissingError": [
+        "declare class SSRDataMissingError extends Error {\n    readonly code = \"SSR_DATA_MISSING\";\n    constructor(message?: string);\n}"
+      ],
+      "SSRRoute": [
+        "type SSRRoute = {\n    path: string;\n    handler: RouteHandler;\n    namespace?: string;\n};"
+      ],
+      "SSRStyleRegistration": [
+        "interface SSRStyleRegistration {\n    id: string;\n    cssText: string;\n}"
+      ],
+      "SSRStyleRegistrationValidation": [
+        "type SSRStyleRegistrationValidation = 'warn' | 'error' | 'off';"
+      ],
+      "VNode": [
+        "type VNode$2 = {\n    type: string | SSRComponent | symbol;\n    props?: Props;\n    children?: unknown[];\n    key?: string | number | null;\n};"
+      ],
+      "withRenderContext": [
+        "declare function withRenderContext<T>(ctx: RenderContext, fn: () => T): T;"
+      ],
+      "withRenderContextAsync": [
+        "declare function withRenderContextAsync<T>(ctx: RenderContext, fn: () => T | PromiseLike<T>): Promise<T>;"
+      ]
+    },
+    "./ssg": {
+      "createStaticGen": [
+        "declare function createStaticGen(options: SSGOptions): {\n    generate(generateOptions?: SSGGenerateOptions): Promise<SSGResult>;\n    getConfig(): {\n        routeCount: number;\n        outputDir: string;\n        seed: number;\n        concurrency: number;\n        parallelism: number;\n        hasDataOverrides: boolean;\n        assetCount: number;\n    };\n    getResult(): SSGResult | null;\n};"
+      ],
+      "DiscoveredResources": [
+        "interface DiscoveredResources {\n    [key: string]: {\n        count: number;\n        dependencies: string[];\n    };\n}"
+      ],
+      "DocumentRenderArgs": [
+        "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
+      ],
+      "DocumentRenderContext": [
+        "interface DocumentRenderContext {\n    mode: 'ssr' | 'ssg';\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
+      ],
+      "DocumentRenderer": [
+        "type DocumentRenderer = (args: DocumentRenderArgs) => string;"
+      ],
+      "RouteConfig": [
+        "interface RouteConfig<Path extends string = string> {\n    path: Path;\n    handler: RouteHandler;\n    props?: Record<string, unknown>;\n    namespace?: string;\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n    params?: RouteConfigParams<Path>;\n    invalidationKeys?: string[];\n    loader?: RouteOptions['loader'];\n    dehydrate?: RouteOptions['dehydrate'];\n    basePath?: string;\n    entries?: () => Array<RouteConfigParams<Path>> | Promise<Array<RouteConfigParams<Path>>>;\n}"
+      ],
+      "RouteRenderReason": [
+        "type RouteRenderReason = 'full' | 'changed-key' | 'changed-route' | 'new-route' | 'no-keys' | 'unchanged' | 'deleted' | 'runtime-only';"
+      ],
+      "RouteRenderResult": [
+        "interface RouteRenderResult$2 {\n    path: string;\n    filePath: string;\n    html: string;\n    fileSize: number;\n    renderDuration: number;\n    resourceCount: number;\n    status: RouteRenderStatus;\n    reason: RouteRenderReason;\n    written: boolean;\n    error?: string;\n    errorCause?: unknown;\n    errorContext?: {\n        route: string;\n        phase: 'load' | 'render' | 'write';\n    };\n}"
+      ],
+      "RouteRenderStatus": [
+        "type RouteRenderStatus = 'success' | 'error' | 'skipped' | 'removed';"
+      ],
+      "SSGAssetSource": [
+        "interface SSGAssetSource {\n    from: string;\n    to?: string;\n}"
+      ],
+      "SSGGenerateOptions": [
+        "interface SSGGenerateOptions {\n    mode?: SSGMode;\n    changedKeys?: string[];\n    changedRoutes?: string[];\n    forceFull?: boolean;\n}"
+      ],
+      "SSGMetadata": [
+        "interface SSGMetadata extends Record<string, unknown> {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: Array<{\n        path: string;\n        filePath: string;\n        fileSize: number;\n        renderDuration: number;\n        resourceCount: number;\n        status: RouteRenderStatus;\n        reason: RouteRenderReason;\n        written: boolean;\n        error?: string;\n    }>;\n}"
+      ],
+      "SSGMode": ["type SSGMode = 'full' | 'incremental';"],
+      "SSGOptions": [
+        "type SSGOptions<_TRoutes extends readonly RouteConfig[] = RouteConfig[]> = SSGBaseOptions & {\n    registry: RouteRegistry;\n};"
+      ],
+      "SSGResult": [
+        "interface SSGResult {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: RouteRenderResult$2[];\n}"
+      ],
+      "SSRStyleRegistrationValidation": [
+        "type SSRStyleRegistrationValidation = 'warn' | 'error' | 'off';"
+      ]
+    },
+    "./jsx-runtime": {
+      "Fragment": ["Fragment: unique symbol"],
+      "jsx": [
+        "declare function jsx(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
+        "declare function jsx<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number): JSXElement;",
+        "declare function jsx<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number): JSXElement;",
+        "declare function jsx<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
+        "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;"
+      ],
+      "JSX": [
+        "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty {\n        props: Props;\n    }\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
+      ],
+      "JSXComponent": [
+        "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}['bivarianceHack'];"
+      ],
+      "jsxDEV": [
+        "declare function jsxDEV(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
+        "declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
+      ],
+      "JSXElement": [
+        "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
+      ],
+      "JSXElementType": [
+        "type JSXElementType = string | JSXComponent | symbol;"
+      ],
+      "jsxs": [
+        "declare function jsxs(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
+        "declare function jsxs<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number): JSXElement;",
+        "declare function jsxs<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number): JSXElement;",
+        "declare function jsxs<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
+        "declare function jsxs(type: symbol, props: Props | null, key?: string | number): JSXElement;"
+      ]
+    },
+    "./jsx-dev-runtime": {
+      "Fragment": ["Fragment: unique symbol"],
+      "JSX": [
+        "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2 {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty$2 {\n        props: Props;\n    }\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
+      ],
+      "JSXComponent": [
+        "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}['bivarianceHack'];"
+      ],
+      "jsxDEV": [
+        "declare function jsxDEV$2(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
+        "declare function jsxDEV$2<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV$2<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV$2<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV$2(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
+      ],
+      "JSXElement": [
+        "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
+      ],
+      "JSXElementType": [
+        "type JSXElementType = string | JSXComponent | symbol;"
+      ]
+    }
+  },
+  "reachable": {
+    "AccessAllowDecision": [
+      "interface AccessAllowDecision {\n    kind: 'allow';\n}"
+    ],
+    "AccessDecision": [
+      "type AccessDecision = AccessAllowDecision | AccessRedirectDecision | AccessDenyDecision;"
+    ],
+    "AccessDenyDecision": [
+      "interface AccessDenyDecision {\n    kind: 'deny';\n    status: AccessDenyStatus;\n}"
+    ],
+    "AccessDenyStatus": ["type AccessDenyStatus = 401 | 403 | 404;"],
+    "AccessRedirectDecision": [
+      "interface AccessRedirectDecision {\n    kind: 'redirect';\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
+    ],
+    "AccessRedirectStatus": [
+      "type AccessRedirectStatus = 301 | 302 | 303 | 307 | 308;"
+    ],
+    "action": [
+      "declare function action<TInput extends Record<string, unknown>, TResult = unknown>(descriptor: ActionDescriptor<TInput>): {\n    state: StateTuple<ActionStatus<TResult>>;\n    submit(input: TInput): Promise<TResult>;\n};"
+    ],
+    "ActionDescriptor": [
+      "interface ActionDescriptor<TInput extends Record<string, unknown> = Record<string, unknown>> {\n    readonly id: string;\n    readonly input: ObjectSchema<TInput>;\n    readonly invalidates: readonly string[];\n}"
+    ],
+    "ActionForm": [
+      "declare function ActionForm<TInput extends Record<string, unknown>>({ action, children, ...props }: {\n    readonly action: ActionDescriptor<TInput>;\n    readonly children?: RenderableChild;\n    readonly [key: string]: unknown;\n}): JSXElement;"
+    ],
+    "ActionStatus": [
+      "interface ActionStatus<TResult = unknown> {\n    readonly pending: boolean;\n    readonly result?: TResult;\n    readonly error?: unknown;\n}"
+    ],
+    "ActionValidationError": [
+      "interface ActionValidationError {\n    readonly kind: 'invalid';\n    readonly action: string;\n    readonly values: Readonly<Record<string, unknown>>;\n    readonly issues: readonly unknown[];\n    readonly fieldErrors: Readonly<Record<string, readonly string[]>>;\n}"
+    ],
+    "ActivityPredicate": ["type ActivityPredicate = () => boolean;"],
+    "allow": ["declare function allow(): AccessAllowDecision;"],
+    "AnchorIntrinsicProps": [
+      "interface AnchorIntrinsicProps extends IntrinsicProps {\n    href?: ReactiveProp<IntrinsicTextValue>;\n    rel?: ReactiveProp<IntrinsicTextValue>;\n    target?: ReactiveProp<IntrinsicTextValue>;\n}"
+    ],
+    "AnyFn": ["type AnyFn = (...args: never[]) => unknown;"],
+    "AnyRouteComponent": [
+      "type AnyRouteComponent = (...args: any[]) => RenderableChild;"
+    ],
+    "applyInteractionPolicy": [
+      "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    'aria-disabled'?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
+    ],
+    "AppRenderRuntime": [
+      "interface AppRenderRuntime {\n    framework: Readonly<Record<string, unknown>>;\n    route: unknown;\n    hasRoute: boolean;\n    dataRuntime?: DataRuntime;\n    routeRegistry?: RouteRegistry;\n    routeAuth?: RouteAuthOptions;\n}"
+    ],
+    "ariaDisabled": [
+      "declare function ariaDisabled(disabled?: boolean): {\n    'aria-disabled'?: 'true';\n};"
+    ],
+    "ariaExpanded": [
+      "declare function ariaExpanded(expanded?: boolean): {\n    'aria-expanded'?: 'true' | 'false';\n};"
+    ],
+    "ariaSelected": [
+      "declare function ariaSelected(selected?: boolean): {\n    'aria-selected'?: 'true' | 'false';\n};"
+    ],
+    "AskrRuntime": [
+      "declare class AskrRuntime {\n    readonly scheduler: Scheduler;\n    constructor(options?: AskrRuntimeOptions);\n    get renderer(): RuntimeRendererHost;\n    configureRenderer(renderer: RuntimeRendererHost): void;\n}"
+    ],
+    "AskrRuntimeOptions": [
+      "interface AskrRuntimeOptions {\n    scheduler?: Scheduler;\n    renderer?: RuntimeRendererHost;\n}"
+    ],
+    "BivariantHandler": [
+      "type BivariantHandler<T> = {\n    bivarianceHack(value: T): void;\n}['bivarianceHack'];"
+    ],
+    "BootRouteSource": [
+      "type BootRouteSource = {\n    registry: RouteRegistry;\n};"
+    ],
+    "BoundaryChild": ["type BoundaryChild = RenderableChild;"],
+    "BranchControlStateBase": [
+      "interface BranchControlStateBase {\n    _contextFrame: ContextFrame | null;\n    activeKey: string | number | null;\n    activeScope: ChildScope | null;\n    activeVNodes: VNode[];\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    parentInstance: ComponentInstance | null;\n    _enqueueBoundaryCommit?: (() => void) | null;\n    _hasPendingBoundaryCommit?: boolean;\n    _transaction?: ControlTransaction | null;\n}"
+    ],
+    "BranchStateSnapshot": [
+      "type BranchStateSnapshot = {\n    activeKey: string | number | null;\n    activeScope: ChildScope | null;\n    activeVNodes: VNode[];\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    scopeSnapshots: Map<ChildScope, ChildScopeTransactionSnapshot>;\n    fallbackScope?: ChildScope | null;\n    truthyScope?: ChildScope | null;\n};"
+    ],
+    "ButtonIntrinsicProps": [
+      "interface ButtonIntrinsicProps extends IntrinsicProps {\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
+    ],
+    "CancelFn": ["type CancelFn = () => void;"],
+    "capture": ["declare function capture<T>(fn: () => T): () => T;"],
+    "Case": ["Case: (props: CaseProps) => JSXElement"],
+    "CaseProps": [
+      "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
+    ],
+    "CaseState": [
+      "interface CaseState extends BranchControlStateBase {\n    kind: 'case';\n    fallback: (() => VNode) | null;\n    matches: MatchBranch[];\n}"
+    ],
+    "ChildScope": [
+      "interface ChildScope {\n    key: string | number;\n    componentInstance: ComponentInstance;\n    previousVnode: VNode | undefined;\n    vnode: VNode | undefined;\n    dom?: Node;\n    range?: DOMRange;\n    needsDomUpdate: boolean;\n    hydrationPending: boolean;\n    blueprintOwner?: object;\n    render(renderFn: () => VNode): VNode;\n    markDirty(): void;\n    dispose(): void;\n}"
+    ],
+    "ChildScopeOwnership": [
+      "interface ChildScopeOwnership {\n    add(scope: ChildScope): void;\n    delete(scope: ChildScope): void;\n    bulkDispose(run: () => void): void;\n}"
+    ],
+    "ChildScopeTransactionSnapshot": [
+      "interface ChildScopeTransactionSnapshot {\n    previousVnode: VNode | undefined;\n    vnode: VNode | undefined;\n    dom: Node | undefined;\n    range: DOMRange | undefined;\n    domTextData: string | undefined;\n    needsDomUpdate: boolean;\n    hydrationPending: boolean;\n    renderFn: (() => VNode) | undefined;\n    renderedOwnerFrame: ContextFrame | null;\n}"
+    ],
+    "cleanup": [
+      "declare function cleanup(target: RenderResult | HTMLElement): void;"
+    ],
+    "cleanupApp": [
+      "declare function cleanupApp(root: Element | string): void;"
+    ],
+    "click": ["declare function click(element: Element): boolean;"],
+    "cloneElement": [
+      "declare function cloneElement(element: JSXElement, props: Record<string, unknown>): JSXElement;"
+    ],
+    "Collection": [
+      "interface Collection<TNode, TMetadata = unknown> {\n    register(node: TNode, metadata: TMetadata): () => void;\n    items(): ReadonlyArray<CollectionItem<TNode, TMetadata>>;\n    clear(): void;\n    size(): number;\n}"
+    ],
+    "CollectionItem": [
+      "type CollectionItem<TNode, TMetadata = unknown> = {\n    node: TNode;\n    metadata: TMetadata;\n};"
+    ],
+    "CommonAccessOptions": [
+      "interface CommonAccessOptions {\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n}"
+    ],
+    "CompatibleAbsoluteRouteComponent": [
+      "type CompatibleAbsoluteRouteComponent<Path extends string, TComponent extends AnyRouteComponent> = Parameters<TComponent> extends [\n] ? TComponent : RoutePathParams<Path> extends RouteComponentParam<TComponent> ? TComponent : never;"
+    ],
+    "CompatibleRelativeRouteComponent": [
+      "type CompatibleRelativeRouteComponent<Path extends string, TComponent extends AnyRouteComponent> = Parameters<TComponent> extends [\n] ? TComponent : RouteComponentParam<TComponent> extends Record<keyof RoutePathParams<Path>, string> ? TComponent : never;"
+    ],
+    "CompatibleRouteComponent": [
+      "type CompatibleRouteComponent<Path extends string, TComponent extends AnyRouteComponent> = Path extends `/${string}` ? CompatibleAbsoluteRouteComponent<Path, TComponent> : CompatibleRelativeRouteComponent<Path, TComponent>;"
+    ],
+    "ComponentContext": [
+      "type ComponentContext = {\n    signal: AbortSignal;\n    ssr?: SSRContext;\n};"
+    ],
+    "ComponentFunction": [
+      "type ComponentFunction = (props: Props, context?: ComponentContext) => JSXElement | VNode;"
+    ],
+    "ComponentInstance": [
+      "interface ComponentInstance {\n    id: string;\n    fn: ComponentFunction;\n    props: Props;\n    target: Element | null;\n    parentInstance: ComponentInstance | null;\n    portalScope: object | null;\n    mounted: boolean;\n    abortController: AbortController | null;\n    ssr?: boolean;\n    cleanupStrict?: boolean;\n    _ownershipGeneration: object;\n    stateValues?: State<unknown>[];\n    evaluationGeneration: number;\n    notifyUpdate: (() => void) | null;\n    _pendingFlushTask?: () => void;\n    _pendingRunTask?: () => void;\n    _enqueueRun?: () => void;\n    stateIndexCheck: number;\n    expectedStateIndices?: number[];\n    firstRenderComplete: boolean;\n    mountOperations?: Array<() => void | (() => void) | PromiseLike<void | (() => void)>>;\n    commitOperations?: Array<() => void | (() => void) | PromiseLike<void | (() => void)>>;\n    cleanupFns?: Array<() => void>;\n    lifecycleSlots?: unknown[];\n    lifecycleGeneration: number;\n    hasPendingUpdate: boolean;\n    ownerFrame: ContextFrame | null;\n    isRoot?: boolean;\n    _rootComponentFn?: ComponentFunction;\n    _appRenderRuntime?: AppRenderRuntime;\n    _cspNonce?: string;\n    _vnodeOwner?: object;\n    _vnodeParent?: ComponentInstance | null;\n    _vnodeParentGeneration?: object;\n    _vnodeKey?: string | number;\n    _vnodePosition?: number;\n    _wrapperDepth?: number;\n    _currentRenderToken?: number;\n    lastRenderToken?: number;\n    _pendingReadSources?: Set<ReadableSource<unknown>>;\n    _pendingReadSourceVersions?: Map<ReadableSource<unknown>, number>;\n    _lastReadSources?: Set<ReadableSource<unknown>>;\n    devWarningsEmitted?: Set<string>;\n    _placeholder?: Comment;\n    _ownedChildScopes?: Set<OwnedChildScope>;\n    errorBoundaryState?: {\n        error: unknown | null;\n        resetKey: unknown;\n        notified: boolean;\n    };\n    _portalErrorParent?: ComponentInstance | null;\n    _portalErrorParentGeneration?: object;\n}"
+    ],
+    "composeHandlers": [
+      "declare function composeHandlers<A extends readonly unknown[]>(first?: (...args: A) => void, second?: (...args: A) => void, options?: ComposeHandlersOptions): (...args: A) => void;"
+    ],
+    "ComposeHandlersOptions": [
+      "interface ComposeHandlersOptions {\n    checkDefaultPrevented?: boolean;\n}"
+    ],
+    "composeRefs": [
+      "declare function composeRefs<T>(...refs: Array<Ref$2<T>>): (value: T | null) => void;"
+    ],
+    "configureRenderDiagnostics": [
+      "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
+    ],
+    "ContextFrame": [
+      "interface ContextFrame {\n    parent: ContextFrame | null;\n    values: Map<ContextKey, unknown> | null;\n}"
+    ],
+    "ContextKey": ["type ContextKey = symbol;"],
+    "ContextScopeChildren": [
+      "type ContextScopeChildren = Renderable | (() => Renderable);"
+    ],
+    "ControlBoundaryState": [
+      "type ControlBoundaryState = ForState<unknown> | ShowState | CaseState;"
+    ],
+    "controllableState": [
+      "declare function controllableState<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n}): ControllableState<T>;"
+    ],
+    "ControllableState": [
+      "type ControllableState<T> = State<T> & {\n    isControlled: boolean;\n};"
+    ],
+    "ControlTransaction": [
+      "interface ControlTransaction {\n    state: ShowState | CaseState;\n    snapshot: BranchStateSnapshot;\n    removedScopes: ChildScope[];\n    shouldClearDomUpdateState: boolean;\n    registered: boolean;\n}"
+    ],
+    "CoreTelemetry": [
+      "interface CoreTelemetry {\n    routeMatch?: TelemetrySpan;\n    loader?: TelemetrySpan;\n    queryPrefetch?: TelemetrySpan;\n    ssrRender?: TelemetrySpan;\n}"
+    ],
+    "createCollection": [
+      "declare function createCollection<TNode, TMetadata = unknown>(): Collection<TNode, TMetadata>;"
+    ],
+    "createDataRuntime": [
+      "declare function createDataRuntime(options?: DataRuntimeOptions): DataRuntime;"
+    ],
+    "createFreshQuery": [
+      "declare function createFreshQuery<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;"
+    ],
+    "createInvalidationRecorder": [
+      "declare function createInvalidationRecorder(): InvalidationRecorder;"
+    ],
+    "createIsland": [
+      "declare function createIsland(config: IslandConfig): void;"
+    ],
+    "createIslands": [
+      "declare function createIslands(config: IslandsConfig): void;"
+    ],
+    "createLayer": ["declare function createLayer(): LayerManager;"],
+    "createMutation": [
+      "declare function createMutation<TInput, TResult>(options: MutationOptions<TInput, TResult>): Mutation<TInput, TResult>;"
+    ],
+    "createMutationFixture": [
+      "declare function createMutationFixture<TInput = unknown, TResult = unknown>(initial?: MutationFixtureInitial<TResult>): MutationFixture<TInput, TResult>;"
+    ],
+    "createMutationTestRegistry": [
+      "declare function createMutationTestRegistry(): MutationTestRegistry;"
+    ],
+    "createQuery": [
+      "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
+      "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, 'key' | 'fetch'>): Query<TResult>;"
+    ],
+    "createQueryCollection": [
+      "declare function createQueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string>(options: QueryCollectionOptions<TInput, TResult, TKey>): QueryCollection<TInput, TResult, TKey>;"
+    ],
+    "createQueryPrefetchContext": [
+      "declare function createQueryPrefetchContext(options?: {\n    runtime?: DataRuntime;\n    registry?: ServerQueryRegistry;\n    request?: Request;\n    signal?: AbortSignal;\n    mode?: 'ssr' | 'spa';\n    telemetry?: CoreTelemetry;\n}): QueryPrefetchContext;"
+    ],
+    "createQueryTestRegistry": [
+      "declare function createQueryTestRegistry(): QueryTestRegistry;"
+    ],
+    "createRef": [
+      "declare function createRef<T extends Element = Element>(): Ref<T>;"
+    ],
+    "createRenderContext": [
+      "declare function createRenderContext(seed?: number, opts?: {\n    url?: string;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    basePath?: string;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    mode?: 'ssr' | 'spa';\n    queryPrefetch?: QueryPrefetchContext;\n    framework?: Readonly<Record<string, unknown>>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n}): RenderContext;"
+    ],
+    "createRouteRegistry": [
+      "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
+    ],
+    "createRuntime": [
+      "declare function createRuntime(options?: AskrRuntimeOptions): AskrRuntime;"
+    ],
+    "createSPA": [
+      "declare function createSPA(config: SPAConfig): Promise<void>;"
+    ],
+    "createStaticGen": [
+      "declare function createStaticGen(options: SSGOptions): {\n    generate(generateOptions?: SSGGenerateOptions): Promise<SSGResult>;\n    getConfig(): {\n        routeCount: number;\n        outputDir: string;\n        seed: number;\n        concurrency: number;\n        parallelism: number;\n        hasDataOverrides: boolean;\n        assetCount: number;\n    };\n    getResult(): SSGResult | null;\n};"
+    ],
+    "cspNonce": ["declare function cspNonce(): string | undefined;"],
+    "CspNonceScope": ["CspNonceScope: Scope<string | undefined>"],
+    "currentAuth": ["declare function currentAuth(): AuthContext$1;"],
+    "currentRoute": [
+      "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown>(): RouteSnapshot<TParams, TState>;"
+    ],
+    "DataRuntime": [
+      "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n    readonly queryTestOverrides: Map<string, unknown>;\n    readonly mutationTestOverrides: Map<string, unknown>;\n}"
+    ],
+    "DataRuntimeOptions": [
+      "interface DataRuntimeOptions {\n    queryCache?: Map<string, unknown>;\n    queryData?: Map<string, unknown>;\n    queryTestOverrides?: Map<string, unknown>;\n    mutationTestOverrides?: Map<string, unknown>;\n}"
+    ],
+    "debounce": [
+      "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): T & {\n    cancel(): void;\n};"
+    ],
+    "debounceEvent": [
+      "declare function debounceEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n    flush(): void;\n};"
+    ],
+    "DebounceOptions": [
+      "interface DebounceOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
+    ],
+    "DefaultPortal": ["DefaultPortal: Portal<RenderableChild>"],
+    "DefaultPreventable": [
+      "interface DefaultPreventable {\n    defaultPrevented?: boolean;\n    preventDefault?: () => void;\n}"
+    ],
+    "defer": ["declare function defer(fn: () => void): void;"],
+    "defer$2": [
+      "declare function defer$2<T>(promise: PromiseLike<T>): Deferred<T>;"
+    ],
+    "Deferred": [
+      "interface Deferred<T> {\n    readonly state: DeferredState;\n    readonly value: T | undefined;\n    readonly error: unknown;\n    readonly promise: Promise<T>;\n    readonly [DEFERRED_VALUE]: true;\n}"
+    ],
+    "DEFERRED_VALUE": ["DEFERRED_VALUE: unique symbol"],
+    "DeferredBoundaryRegistration": [
+      "interface DeferredBoundaryRegistration {\n    id: string;\n    promise: Promise<unknown>;\n    fulfilled(value: unknown): RenderableChild;\n    rejected(error: unknown): RenderableChild;\n}"
+    ],
+    "DeferredState": [
+      "type DeferredState = 'pending' | 'fulfilled' | 'rejected';"
+    ],
+    "defineAction": [
+      "declare function defineAction<TInput extends Record<string, unknown>>(options: {\n    readonly id: string;\n    readonly input: ObjectSchema<TInput>;\n    readonly invalidates?: readonly string[];\n}): ActionDescriptor<TInput>;"
+    ],
+    "definePortal": [
+      "declare function definePortal<T extends RenderableChild = RenderableChild>(): Portal<T>;"
+    ],
+    "defineQuery": [
+      "declare function defineQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>): QueryDefinition<TInput, TResult>;"
+    ],
+    "defineScope": [
+      "declare function defineScope<T>(defaultValue: T): Scope<T>;"
+    ],
+    "defineServerQueries": [
+      "declare function defineServerQueries(...entries: readonly ServerQueryEntry<any, any>[]): ServerQueryRegistry;"
+    ],
+    "dehydrateDataRuntime": [
+      "declare function dehydrateDataRuntime(runtime: DataRuntime): Record<string, unknown>;"
+    ],
+    "deny": [
+      "declare function deny(status: AccessDenyStatus): AccessDenyDecision;"
+    ],
+    "derive": [
+      "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;",
+      "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;"
+    ],
+    "Derived": [
+      "interface Derived<T> extends ReadableSource<T> {\n    (): T;\n}"
+    ],
+    "DerivedSubscriber": [
+      "interface DerivedSubscriber {\n    _markDirty(): void;\n    _pendingDependencySources?: Set<ReadableSource<unknown>>;\n}"
+    ],
+    "DiscoveredResources": [
+      "interface DiscoveredResources {\n    [key: string]: {\n        count: number;\n        dependencies: string[];\n    };\n}"
+    ],
+    "dismissable": [
+      "declare function dismissable({ node, additionalInsideNodes, disabled, onDismiss }: DismissableOptions): {\n    onKeyDown: (e: KeyboardLikeEvent) => void;\n    onPointerDownCapture: (e: PointerLikeEvent) => void;\n};"
+    ],
+    "DismissableOptions": [
+      "interface DismissableOptions {\n    node?: Node | null;\n    additionalInsideNodes?: readonly (Node | null | undefined)[];\n    disabled?: boolean;\n    onDismiss?: (trigger: 'escape' | 'outside') => void;\n}"
+    ],
+    "dispatch": [
+      "declare function dispatch(target: EventTarget, event: Event | string, init?: DispatchEventInit): boolean;"
+    ],
+    "DispatchEventInit": [
+      "type DispatchEventInit = EventInit | UIEventInit | FocusEventInit | MouseEventInit | WheelEventInit | KeyboardEventInit | InputEventInit | CompositionEventInit | PointerEventInit | TouchEventInit | DragEventInit;"
+    ],
+    "DocumentRenderArgs": [
+      "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
+    ],
+    "DocumentRenderContext": [
+      "interface DocumentRenderContext {\n    mode: 'ssr' | 'ssg';\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
+    ],
+    "DocumentRenderer": [
+      "type DocumentRenderer = (args: DocumentRenderArgs) => string;"
+    ],
+    "DocumentRenderRoute": [
+      "interface DocumentRenderRoute {\n    path: string;\n    namespace?: string;\n}"
+    ],
+    "documentVisible": [
+      "declare function documentVisible(): ActivityPredicate;"
+    ],
+    "DOMElement": [
+      "interface DOMElement {\n    type: JSXElementType;\n    props?: Props;\n    children?: VNode[];\n    key?: string | number | null;\n    [Symbol.iterator]?: never;\n    _controlState?: ControlBoundaryState;\n}"
+    ],
+    "DOMRange": [
+      "interface DOMRange {\n    start: Node;\n    end: Node;\n    single: boolean;\n}"
+    ],
+    "EAGER_CONTROL_PRIMITIVE": ["EAGER_CONTROL_PRIMITIVE: unique symbol"],
+    "EagerControlPrimitive": [
+      "type EagerControlPrimitive<P extends Props = Props> = ((props: P) => unknown) & {\n    [EAGER_CONTROL_PRIMITIVE]?: true;\n};"
+    ],
+    "Element": [
+      "interface Element extends JSXElement {\n    readonly __askrJsxElementBrand?: never;\n}"
+    ],
+    "Element$2": [
+      "interface Element$2 extends JSXElement {\n    readonly __askrJsxElementBrand?: never;\n}"
+    ],
+    "ElementAttributesProperty": [
+      "interface ElementAttributesProperty {\n    props: Props;\n}"
+    ],
+    "ElementAttributesProperty$2": [
+      "interface ElementAttributesProperty$2 {\n    props: Props;\n}"
+    ],
+    "ElementChildrenAttribute": [
+      "interface ElementChildrenAttribute {\n    children: unknown;\n}"
+    ],
+    "ElementChildrenAttribute$2": [
+      "interface ElementChildrenAttribute$2 {\n    children: unknown;\n}"
+    ],
+    "ElementType": [
+      "type ElementType = string | symbol | ((props: never) => unknown);"
+    ],
+    "ElementType$2": [
+      "type ElementType$2 = string | symbol | ((props: never) => unknown);"
+    ],
+    "ErrorBoundary": [
+      "declare function ErrorBoundary(props: ErrorBoundaryProps): JSXElement;"
+    ],
+    "ErrorBoundaryContent": [
+      "type ErrorBoundaryContent = VNode | readonly VNode[];"
+    ],
+    "ErrorBoundaryFallbackRender": [
+      "type ErrorBoundaryFallbackRender = (error: unknown, reset: () => void) => ErrorBoundaryFallbackValue;"
+    ],
+    "ErrorBoundaryFallbackValue": [
+      "type ErrorBoundaryFallbackValue = ErrorBoundaryContent | Node;"
+    ],
+    "ErrorBoundaryProps": [
+      "interface ErrorBoundaryProps extends Props {\n    children?: ErrorBoundaryContent;\n    fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;\n    onError?: (error: unknown) => void;\n    resetKey?: unknown;\n}"
+    ],
+    "ExtractRoutePathParamNames": [
+      "type ExtractRoutePathParamNames<Path extends string> = TrimRoutePathSlashes<StripRoutePathSuffix<Path>> extends `${infer Segment}/${infer Rest}` ? ExtractRouteSegmentParam<Segment> | ExtractRoutePathParamNames<Rest> : ExtractRouteSegmentParam<TrimRoutePathSlashes<StripRoutePathSuffix<Path>>>;"
+    ],
+    "ExtractRouteSegmentParam": [
+      "type ExtractRouteSegmentParam<Segment extends string> = Segment extends `{${infer Param}}` ? TrimRoutePathWhitespace<Param> extends `*${infer SplatParam}` ? TrimRoutePathWhitespace<SplatParam> extends '' ? never : TrimRoutePathWhitespace<SplatParam> extends '*' ? never : TrimRoutePathWhitespace<SplatParam> : TrimRoutePathWhitespace<Param> extends '' ? never : TrimRoutePathWhitespace<Param> : Segment extends '*' ? '*' : never;"
+    ],
+    "fallback": ["declare function fallback(Component: RouteComponent): void;"],
+    "FineGrainedEffectHandle": [
+      "interface FineGrainedEffectHandle<T> {\n    cleanup(): void;\n    updateCompute(nextCompute: () => T): void;\n    flush(): void;\n}"
+    ],
+    "flush": ["declare function flush(): void;"],
+    "focusable": [
+      "declare function focusable({ disabled, tabIndex }: FocusableOptions): FocusableResult;"
+    ],
+    "FocusableOptions": [
+      "interface FocusableOptions {\n    disabled?: boolean;\n    tabIndex?: number | undefined;\n}"
+    ],
+    "FocusableResult": [
+      "interface FocusableResult {\n    tabIndex?: number;\n    'aria-disabled'?: 'true';\n}"
+    ],
+    "FocusLikeEvent": [
+      "interface FocusLikeEvent extends DefaultPreventable, PropagationStoppable {\n    relatedTarget?: unknown;\n}"
+    ],
+    "For": [
+      "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
+    ],
+    "ForBaseProps": [
+      "type ForBaseProps<T> = {\n    each: ForEachSource<T>;\n    fallback?: BoundaryChild;\n    children: (item: T, index: () => number) => VNode;\n};"
+    ],
+    "forbidden": ["declare function forbidden(): AccessDenyDecision;"],
+    "ForbiddenLayoutOnlyProps": [
+      "type ForbiddenLayoutOnlyProps = {\n    action?: never;\n    alt?: never;\n    abbr?: never;\n    autoComplete?: never;\n    autocomplete?: never;\n    checked?: never;\n    colSpan?: never;\n    cols?: never;\n    disabled?: never;\n    form?: never;\n    headers?: never;\n    height?: never;\n    href?: never;\n    htmlFor?: never;\n    label?: never;\n    method?: never;\n    maxLength?: never;\n    maxlength?: never;\n    minLength?: never;\n    minlength?: never;\n    multiple?: never;\n    name?: never;\n    noValidate?: never;\n    placeholder?: never;\n    readOnly?: never;\n    readonly?: never;\n    rel?: never;\n    required?: never;\n    rowSpan?: never;\n    rows?: never;\n    scope?: never;\n    selected?: never;\n    src?: never;\n    target?: never;\n    type?: never;\n    value?: never;\n    width?: never;\n};"
+    ],
+    "ForCommitStrategy": [
+      "type ForCommitStrategy = 'APPEND' | 'INSERT_ONE' | 'REMOVE_ONE' | 'TRUNCATE' | 'NO_REORDER' | 'SWAP' | 'FULL_KEYED';"
+    ],
+    "ForEachSource": [
+      "type ForEachSource<T> = readonly T[] | (() => readonly T[]);"
+    ],
+    "ForIndexSignal": [
+      "type ForIndexSignal = ReadableSource<number> & (() => number) & {\n    peek(): number;\n    set(newValue: number | ((prev: number) => number), notifyReaders?: boolean): void;\n};"
+    ],
+    "ForItemInstance": [
+      "interface ForItemInstance<T> {\n    key: string | number;\n    item: T;\n    reactiveItem: T;\n    reactiveItemState: ReactiveForItemState<T> | null;\n    indexSignal: ForIndexSignal;\n    scope: ChildScope;\n}"
+    ],
+    "ForItemPropertySignal": [
+      "type ForItemPropertySignal = ReadableSource<unknown> & (() => unknown) & {\n    peek(): unknown;\n    set(newValue: unknown, notifyReaders?: boolean): void;\n};"
+    ],
+    "ForItemSignal": [
+      "type ForItemSignal<T> = ReadableSource<T> & (() => T) & {\n    peek(): T;\n    set(newValue: T, notifyReaders?: boolean): void;\n};"
+    ],
+    "ForItemTransactionSnapshot": [
+      "interface ForItemTransactionSnapshot<T> {\n    item: T;\n    itemSignalExists: boolean;\n    itemSignalValue: T | undefined;\n    itemSignalHasBeenRead: boolean;\n    indexValue: number;\n    indexHasBeenRead: boolean;\n    propertySignalStore: Map<PropertyKey, ForItemPropertySignal> | null;\n    propertySignals: Map<PropertyKey, {\n        signal: ForItemPropertySignal;\n        value: unknown;\n        hasBeenRead: boolean;\n    }> | null;\n    scope: ChildScopeTransactionSnapshot;\n}"
+    ],
+    "ForKeySelector": [
+      "type ForKeySelector<T> = (item: T, index: number) => string | number;"
+    ],
+    "formatId": [
+      "declare function formatId(options: FormatIdOptions): string;"
+    ],
+    "FormatIdOptions": [
+      "interface FormatIdOptions {\n    prefix?: string;\n    id: string | number;\n}"
+    ],
+    "FormIntrinsicProps": [
+      "interface FormIntrinsicProps extends IntrinsicProps {\n    action?: ReactiveProp<IntrinsicTextValue>;\n    autoComplete?: ReactiveProp<IntrinsicTextValue>;\n    autocomplete?: ReactiveProp<IntrinsicTextValue>;\n    method?: ReactiveProp<IntrinsicTextValue>;\n    noValidate?: ReactiveProp<IntrinsicBooleanValue>;\n}"
+    ],
+    "ForProps": [
+      "type ForProps<T, K extends string | number = string | number> = KeyedForProps<T, K> | IndexedForProps<T>;"
+    ],
+    "ForRenderItem": [
+      "type ForRenderItem<T> = (item: T, index: () => number) => VNode;"
+    ],
+    "ForState": [
+      "interface ForState<T> {\n    kind: 'for';\n    _contextFrame: ContextFrame | null;\n    _contextFrameChanged: boolean;\n    currentItems: readonly T[];\n    _committedItems: readonly T[];\n    eachSource: ForEachSource<T>;\n    fallback: VNode | null;\n    fallbackScope: ChildScope | null;\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    byFn: ForKeySelector<T>;\n    renderFn: ForRenderItem<T>;\n    parentInstance: ComponentInstance | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    _hasResolvedItemDom: boolean;\n    _needsSourceReconcile: boolean;\n    _sourceEffect: FineGrainedEffectHandle<readonly T[]> | null;\n    _suspendSourceCommit: boolean;\n    _enqueueBoundaryCommit?: (() => void) | null;\n    _hasPendingBoundaryCommit?: boolean;\n    devKeyKinds?: Map<string | number, 'number' | 'string'>;\n    _transaction?: ForTransaction<T> | null;\n    _scopeOwnership: ChildScopeOwnership;\n}"
+    ],
+    "ForTransaction": [
+      "interface ForTransaction<T> {\n    collectionSnapshotMode: 'copy' | 'reset-empty' | 'preserve-clear' | 'reuse';\n    currentItems: readonly T[];\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    fallbackScope: ChildScope | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    hasResolvedItemDom: boolean;\n    needsSourceReconcile: boolean;\n    devKeyKinds?: Map<string | number, 'number' | 'string'>;\n    itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;\n    unreadIndexSnapshots: Map<ForIndexSignal, number> | null;\n    fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;\n    removedScopes: ChildScope[] | null;\n    removedScopeNodes: Node[] | null;\n    removeAllItems: boolean;\n    signalEffects: Map<ReadableSource<unknown>, {\n        parentInstance: ComponentInstance | null;\n        notify: boolean;\n        skipInstance: ComponentInstance | null;\n        skipOwnedBy: ComponentInstance | null;\n    }> | null;\n    shouldClearDomUpdateState: boolean;\n}"
+    ],
+    "Fragment": ["Fragment: unique symbol"],
+    "getDefaultDataRuntime": [
+      "declare function getDefaultDataRuntime(): DataRuntime;"
+    ],
+    "getDefaultRuntime": ["declare function getDefaultRuntime(): AskrRuntime;"],
+    "getIconContractProps": [
+      "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, 'color' | 'iconName' | 'size' | 'strokeWidth' | 'style' | 'title'>): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        'stroke-width': string;\n        role: string;\n        'aria-hidden': string | undefined;\n        style: string | undefined;\n        'data-slot': string;\n        'data-icon': string | undefined;\n        'data-size': IconSizeToken | undefined;\n        'data-decorative': string | undefined;\n        'data-color': string | undefined;\n    };\n};"
+    ],
+    "getRenderContext": [
+      "declare function getRenderContext(): RenderContext | null;"
+    ],
+    "getRouteWarnings": [
+      "declare function getRouteWarnings(options: MatchRouteOptions): RoutePatternWarning[];"
+    ],
+    "getSignal": ["declare function getSignal(): AbortSignal;"],
+    "group": [
+      "declare function group(options: GroupHelperOptions, fn: RouteDefinition): void;"
+    ],
+    "GroupHelperOptions": [
+      "interface GroupHelperOptions extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n}"
+    ],
+    "hasApp": ["declare function hasApp(root: Element | string): boolean;"],
+    "HistoryScrollBehavior": [
+      "type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';"
+    ],
+    "hoverable": [
+      "declare function hoverable({ disabled, onEnter, onLeave }: HoverableOptions): HoverableResult;"
+    ],
+    "HoverableOptions": [
+      "interface HoverableOptions {\n    disabled?: boolean;\n    onEnter?: (e: HoverEvent) => void;\n    onLeave?: (e: HoverEvent) => void;\n}"
+    ],
+    "HoverableResult": [
+      "interface HoverableResult {\n    onPointerEnter?: (e: HoverEvent) => void;\n    onPointerLeave?: (e: HoverEvent) => void;\n}"
+    ],
+    "HoverEvent": [
+      "type HoverEvent = DefaultPreventable & PropagationStoppable;"
+    ],
+    "hydrateDataRuntime": [
+      "declare function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void;"
+    ],
+    "hydrateSPA": [
+      "declare function hydrateSPA(config: HydrateSPAConfig): Promise<void>;"
+    ],
+    "HydrateSPAConfig": [
+      "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
+    ],
+    "IconBase": [
+      "declare function IconBase({ size, strokeWidth, color, title, class: className, style, iconName, children, ref, ...rest }: IconProps): JSXElement;"
+    ],
+    "IconOwnProps": [
+      "type IconOwnProps = {\n    size?: number | string;\n    strokeWidth?: number;\n    color?: string;\n    title?: string;\n    class?: string;\n    style?: string | IconStyleObject;\n    iconName?: string;\n};"
+    ],
+    "IconProps": [
+      "type IconProps = Omit<Props, 'children' | 'class' | 'color' | 'height' | 'ref' | 'role' | 'stroke' | 'stroke-width' | 'style' | 'title' | 'width'> & IconOwnProps & {\n    children?: unknown;\n    ref?: Ref$2<SVGSVGElement>;\n};"
+    ],
+    "IconSizeToken": ["type IconSizeToken = 'sm' | 'md' | 'lg' | 'xl';"],
+    "IconStyleObject": ["type IconStyleObject = Record<string, unknown>;"],
+    "idle": [
+      "declare function idle(fn: () => void, options?: {\n    timeout?: number;\n}): void;"
+    ],
+    "ImageIntrinsicProps": [
+      "interface ImageIntrinsicProps extends IntrinsicProps {\n    alt?: ReactiveProp<IntrinsicTextValue>;\n    height?: ReactiveProp<IntrinsicTextLikeValue>;\n    src?: ReactiveProp<IntrinsicTextValue>;\n    width?: ReactiveProp<IntrinsicTextLikeValue>;\n}"
+    ],
+    "index": [
+      "declare function index(Component: RouteComponent, options?: RouteOptions): void;"
+    ],
+    "IndexedForProps": [
+      "type IndexedForProps<T> = ForBaseProps<T> & {\n    by?: never;\n    byIndex: true;\n};"
+    ],
+    "InputIntrinsicProps": [
+      "interface InputIntrinsicProps extends IntrinsicProps {\n    autoComplete?: ReactiveProp<IntrinsicTextValue>;\n    autocomplete?: ReactiveProp<IntrinsicTextValue>;\n    checked?: ReactiveProp<IntrinsicBooleanValue>;\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    maxLength?: ReactiveProp<IntrinsicNumberValue>;\n    maxlength?: ReactiveProp<IntrinsicNumberValue>;\n    minLength?: ReactiveProp<IntrinsicNumberValue>;\n    minlength?: ReactiveProp<IntrinsicNumberValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    placeholder?: ReactiveProp<IntrinsicTextValue>;\n    readOnly?: ReactiveProp<IntrinsicBooleanValue>;\n    readonly?: ReactiveProp<IntrinsicBooleanValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
+    ],
+    "InteractionPolicyInput": [
+      "interface InteractionPolicyInput {\n    isNative: boolean;\n    disabled: boolean;\n    onPress?: (e: Event) => void;\n    ref?: Ref$2<unknown>;\n}"
+    ],
+    "IntrinsicAriaValue": [
+      "type IntrinsicAriaValue = string | number | boolean | null | undefined;"
+    ],
+    "IntrinsicBooleanValue": [
+      "type IntrinsicBooleanValue = boolean | null | undefined;"
+    ],
+    "IntrinsicClassValue": [
+      "type IntrinsicClassValue = string | null | undefined | false;"
+    ],
+    "IntrinsicDataValue": [
+      "type IntrinsicDataValue = string | number | boolean | null | undefined;"
+    ],
+    "IntrinsicElements": [
+      "interface IntrinsicElements extends KnownIntrinsicElements {\n    [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n}"
+    ],
+    "IntrinsicElements$2": [
+      "interface IntrinsicElements$2 extends KnownIntrinsicElements$2 {\n    [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n}"
+    ],
+    "IntrinsicEventProps": [
+      "interface IntrinsicEventProps {\n    onAbort?: BivariantHandler<Event>;\n    onBlur?: BivariantHandler<FocusEvent>;\n    onChange?: BivariantHandler<Event>;\n    onClick?: BivariantHandler<MouseEvent>;\n    onDblClick?: BivariantHandler<MouseEvent>;\n    onFocus?: BivariantHandler<FocusEvent>;\n    onInput?: BivariantHandler<InputEvent>;\n    onKeyDown?: BivariantHandler<KeyboardEvent>;\n    onKeyUp?: BivariantHandler<KeyboardEvent>;\n    onMouseDown?: BivariantHandler<MouseEvent>;\n    onMouseEnter?: BivariantHandler<MouseEvent>;\n    onMouseLeave?: BivariantHandler<MouseEvent>;\n    onMouseMove?: BivariantHandler<MouseEvent>;\n    onMouseOut?: BivariantHandler<MouseEvent>;\n    onMouseOver?: BivariantHandler<MouseEvent>;\n    onMouseUp?: BivariantHandler<MouseEvent>;\n    onPointerDown?: BivariantHandler<PointerEvent>;\n    onPointerDownCapture?: BivariantHandler<PointerEvent>;\n    onPointerEnter?: BivariantHandler<PointerEvent>;\n    onPointerLeave?: BivariantHandler<PointerEvent>;\n    onPointerMove?: BivariantHandler<PointerEvent>;\n    onPointerUp?: BivariantHandler<PointerEvent>;\n    onScroll?: BivariantHandler<Event>;\n    onSubmit?: BivariantHandler<SubmitEvent>;\n    onTouchEnd?: BivariantHandler<TouchEvent>;\n    onTouchStart?: BivariantHandler<TouchEvent>;\n    onWheel?: BivariantHandler<WheelEvent>;\n}"
+    ],
+    "IntrinsicFallbackProps": [
+      "type IntrinsicFallbackProps = IntrinsicProps & Props;"
+    ],
+    "IntrinsicFormValue": [
+      "type IntrinsicFormValue = string | number | readonly string[] | null | undefined;"
+    ],
+    "IntrinsicNumberValue": [
+      "type IntrinsicNumberValue = number | null | undefined;"
+    ],
+    "IntrinsicProps": [
+      "interface IntrinsicProps extends IntrinsicEventProps {\n    key?: string | number | symbol;\n    children?: unknown;\n    imperativeChildren?: boolean;\n    class?: ReactiveProp<IntrinsicClassValue>;\n    className?: ReactiveProp<IntrinsicClassValue>;\n    style?: ReactiveProp<IntrinsicStyleValue>;\n    ref?: IntrinsicRef;\n    id?: ReactiveProp<IntrinsicTextLikeValue>;\n    title?: ReactiveProp<IntrinsicTextValue>;\n    role?: ReactiveProp<IntrinsicTextValue>;\n    tabIndex?: ReactiveProp<IntrinsicNumberValue>;\n    hidden?: ReactiveProp<IntrinsicBooleanValue>;\n    dir?: ReactiveProp<IntrinsicTextValue>;\n    lang?: ReactiveProp<IntrinsicTextValue>;\n    contentEditable?: ReactiveProp<IntrinsicTextValue>;\n    draggable?: ReactiveProp<IntrinsicTextValue>;\n    enterKeyHint?: ReactiveProp<IntrinsicTextValue>;\n    inputMode?: ReactiveProp<IntrinsicTextValue>;\n    spellCheck?: ReactiveProp<IntrinsicTextValue>;\n    [attr: `aria-${string}`]: ReactiveProp<IntrinsicAriaValue>;\n    [attr: `data-${string}`]: ReactiveProp<IntrinsicDataValue>;\n}"
+    ],
+    "IntrinsicRef": [
+      "type IntrinsicRef = BivariantHandler<IntrinsicRefTarget> | {\n    current: IntrinsicRefTarget;\n} | null | undefined;"
+    ],
+    "IntrinsicRefTarget": ["type IntrinsicRefTarget = Element | null;"],
+    "IntrinsicStyleEntryValue": [
+      "type IntrinsicStyleEntryValue = string | number | null | undefined | false;"
+    ],
+    "IntrinsicStyleObject": [
+      "type IntrinsicStyleObject = Record<string, IntrinsicStyleEntryValue>;"
+    ],
+    "IntrinsicStyleValue": [
+      "type IntrinsicStyleValue = string | IntrinsicStyleObject | null | undefined | false;"
+    ],
+    "IntrinsicTextLikeValue": [
+      "type IntrinsicTextLikeValue = string | number | null | undefined;"
+    ],
+    "IntrinsicTextValue": [
+      "type IntrinsicTextValue = string | null | undefined;"
+    ],
+    "invalidate": [
+      "declare function invalidate(prefix: string, options?: InvalidateOptions): void;"
+    ],
+    "invalidateOnInterval": [
+      "declare function invalidateOnInterval(prefix: string, options: InvalidateOnIntervalOptions): void;"
+    ],
+    "InvalidateOnIntervalOptions": [
+      "interface InvalidateOnIntervalOptions extends InvalidateOptions {\n    intervalMs: number;\n    activeOn?: string | readonly string[];\n    visibleOnly?: boolean;\n    focusedOnly?: boolean;\n}"
+    ],
+    "InvalidateOptions": [
+      "interface InvalidateOptions {\n    markPendingWrite?: boolean;\n    runtime?: DataRuntime;\n}"
+    ],
+    "InvalidationRecord": [
+      "interface InvalidationRecord {\n    prefix: string;\n    markPendingWrite: boolean;\n}"
+    ],
+    "InvalidationRecorder": [
+      "interface InvalidationRecorder {\n    readonly calls: readonly InvalidationRecord[];\n    readonly prefixes: readonly string[];\n    clear(): void;\n    stop(): void;\n}"
+    ],
+    "isControlled": [
+      "declare function isControlled<T>(value: T | undefined): value is T;"
+    ],
+    "isDeferred": [
+      "declare function isDeferred<T = unknown>(value: unknown): value is Deferred<T>;"
+    ],
+    "isElement": [
+      "declare function isElement(value: unknown): value is JSXElement;"
+    ],
+    "isIconSizeToken": [
+      "declare function isIconSizeToken(value: unknown): value is IconSizeToken;"
+    ],
+    "IslandConfig": [
+      "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
+    ],
+    "IslandsConfig": [
+      "type IslandsConfig = {\n    islands: IslandConfig[];\n    cspNonce?: string;\n};"
+    ],
+    "joinIconStyle": [
+      "declare function joinIconStyle(...styles: Array<string | undefined>): string | undefined;"
+    ],
+    "jsx": [
+      "declare function jsx(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
+      "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;",
+      "declare function jsx<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
+      "declare function jsx<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number): JSXElement;",
+      "declare function jsx<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number): JSXElement;"
+    ],
+    "JSX": [
+      "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty {\n        props: Props;\n    }\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
+    ],
+    "JSX$2": [
+      "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2 {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty$2 {\n        props: Props;\n    }\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
+    ],
+    "JSXComponent": [
+      "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}['bivarianceHack'];"
+    ],
+    "jsxDEV": [
+      "declare function jsxDEV(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
+      "declare function jsxDEV(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+      "declare function jsxDEV<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+      "declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+      "declare function jsxDEV<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
+    ],
+    "jsxDEV$2": [
+      "declare function jsxDEV$2(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
+      "declare function jsxDEV$2(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+      "declare function jsxDEV$2<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+      "declare function jsxDEV$2<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+      "declare function jsxDEV$2<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
+    ],
+    "JSXElement": [
+      "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
+    ],
+    "JSXElementType": ["type JSXElementType = string | JSXComponent | symbol;"],
+    "jsxs": [
+      "declare function jsxs(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
+      "declare function jsxs(type: symbol, props: Props | null, key?: string | number): JSXElement;",
+      "declare function jsxs<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
+      "declare function jsxs<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[TTag] | null, key?: string | number): JSXElement;",
+      "declare function jsxs<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number): JSXElement;"
+    ],
+    "KeyboardLikeEvent": [
+      "interface KeyboardLikeEvent extends DefaultPreventable, PropagationStoppable {\n    key: string;\n    currentTarget?: unknown;\n    target?: unknown;\n}"
+    ],
+    "KeyedForProps": [
+      "type KeyedForProps<T, K extends string | number> = ForBaseProps<T> & {\n    by: (item: T, index: number) => K;\n    byIndex?: never;\n};"
+    ],
+    "KnownIntrinsicElementProps": [
+      "interface KnownIntrinsicElementProps {\n    a: AnchorIntrinsicProps;\n    article: LayoutIntrinsicProps;\n    aside: LayoutIntrinsicProps;\n    blockquote: LayoutIntrinsicProps;\n    button: ButtonIntrinsicProps;\n    caption: LayoutIntrinsicProps;\n    circle: SvgCircleIntrinsicProps;\n    code: LayoutIntrinsicProps;\n    div: LayoutIntrinsicProps;\n    em: LayoutIntrinsicProps;\n    figcaption: LayoutIntrinsicProps;\n    figure: LayoutIntrinsicProps;\n    form: FormIntrinsicProps;\n    footer: LayoutIntrinsicProps;\n    g: SvgGroupIntrinsicProps;\n    h1: LayoutIntrinsicProps;\n    h2: LayoutIntrinsicProps;\n    h3: LayoutIntrinsicProps;\n    h4: LayoutIntrinsicProps;\n    h5: LayoutIntrinsicProps;\n    h6: LayoutIntrinsicProps;\n    header: LayoutIntrinsicProps;\n    img: ImageIntrinsicProps;\n    input: InputIntrinsicProps;\n    label: LabelIntrinsicProps;\n    li: ListItemIntrinsicProps;\n    main: LayoutIntrinsicProps;\n    nav: LayoutIntrinsicProps;\n    ol: OrderedListIntrinsicProps;\n    option: OptionIntrinsicProps;\n    output: OutputIntrinsicProps;\n    p: LayoutIntrinsicProps;\n    path: SvgPathIntrinsicProps;\n    pre: LayoutIntrinsicProps;\n    rect: SvgRectIntrinsicProps;\n    section: LayoutIntrinsicProps;\n    select: SelectIntrinsicProps;\n    small: LayoutIntrinsicProps;\n    span: LayoutIntrinsicProps;\n    strong: LayoutIntrinsicProps;\n    svg: SvgIntrinsicProps;\n    table: LayoutIntrinsicProps;\n    tbody: LayoutIntrinsicProps;\n    td: TableCellIntrinsicProps;\n    tfoot: LayoutIntrinsicProps;\n    th: TableHeaderIntrinsicProps;\n    thead: LayoutIntrinsicProps;\n    textarea: TextareaIntrinsicProps;\n    title: LayoutIntrinsicProps;\n    tr: LayoutIntrinsicProps;\n    ul: LayoutIntrinsicProps;\n}"
+    ],
+    "KnownIntrinsicElements": [
+      "interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n}"
+    ],
+    "KnownIntrinsicElements$2": [
+      "interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n}"
+    ],
+    "LabelIntrinsicProps": [
+      "interface LabelIntrinsicProps extends IntrinsicProps {\n    htmlFor?: ReactiveProp<IntrinsicTextValue>;\n}"
+    ],
+    "Layer": [
+      "interface Layer {\n    id: number;\n    isTop(): boolean;\n    unregister(): void;\n}"
+    ],
+    "LayerManager": [
+      "interface LayerManager {\n    register(options: LayerOptions): Layer;\n    layers(): ReadonlyArray<Layer>;\n    handleEscape(): void;\n    handleOutsidePointer(e: PointerEvent): void;\n}"
+    ],
+    "LayerOptions": [
+      "interface LayerOptions {\n    onEscape?: () => void;\n    onOutsidePointer?: (e: PointerEvent) => void;\n    node?: Node | null;\n}"
+    ],
+    "layout": [
+      "declare function layout<P = object>(Layout: LayoutComponent<P>): (children?: RenderableChild, props?: P) => unknown;"
+    ],
+    "LayoutComponent": [
+      "type LayoutComponent<P = object> = (props: P & {\n    children?: RenderableChild;\n}) => unknown;"
+    ],
+    "LayoutIntrinsicProps": [
+      "type LayoutIntrinsicProps = StructuredContentIntrinsicProps;"
+    ],
+    "LayoutScopeRecord": [
+      "interface LayoutScopeRecord {\n    component: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n}"
+    ],
+    "lazy": [
+      "declare function lazy<TComponent extends AnyRouteComponent>(factory: () => Promise<{\n    default: TComponent;\n} | TComponent>): LazyRouteComponent<TComponent>;"
+    ],
+    "LazyRouteComponent": [
+      "type LazyRouteComponent<TComponent extends AnyRouteComponent> = TComponent & {\n    preload(): Promise<void>;\n};"
+    ],
+    "lazyRouteData": [
+      "declare function lazyRouteData<TModule, TData = TModule>(factory: () => PromiseLike<TModule>, select?: (module: TModule, context: RouteContext & {\n    request?: Request;\n}) => TData | PromiseLike<TData>): LazyRouteDataLoader<TModule, TData>;"
+    ],
+    "LazyRouteDataLoader": [
+      "type LazyRouteDataLoader<TModule, TData = TModule> = ((context: RouteContext & {\n    request?: Request;\n}) => Promise<TData>) & {\n    preload(): Promise<void>;\n};"
+    ],
+    "Link": [
+      "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, 'aria-current': ariaCurrent, 'aria-label': ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
+    ],
+    "LinkBaseProps": [
+      "type LinkBaseProps = Omit<Props, 'children' | 'href' | 'class' | 'rel' | 'target' | 'aria-current' | 'aria-label'> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    'aria-current'?: 'page' | 'step' | 'location' | 'date' | 'time' | 'true' | 'false';\n    'aria-label'?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n};"
+    ],
+    "LinkProps": [
+      "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
+    ],
+    "ListenerOptions": [
+      "type ListenerOptions = boolean | AddEventListenerOptions | undefined;"
+    ],
+    "ListenerTarget": [
+      "type ListenerTarget = EventTarget | (() => EventTarget | null | undefined);"
+    ],
+    "ListItemIntrinsicProps": [
+      "type ListItemIntrinsicProps = StructuredContentIntrinsicProps<{\n    value?: ReactiveProp<IntrinsicNumberValue>;\n}>;"
+    ],
+    "makeControllable": [
+      "declare function makeControllable<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n    setInternal?: (next: T) => void;\n}): {\n    set: (next: T) => void;\n    isControlled: boolean;\n};"
+    ],
+    "Match": ["declare function Match(_props: MatchProps): null;"],
+    "MatchBranch": [
+      "interface MatchBranch {\n    key: string | number;\n    render: () => VNode;\n    when: unknown;\n}"
+    ],
+    "MatchChild": ["type MatchChild = BoundaryChild | (() => BoundaryChild);"],
+    "MatchProps": [
+      "type MatchProps = {\n    key?: string | number | null;\n    when: unknown;\n    children: MatchChild;\n};"
+    ],
+    "matchRoute": [
+      "declare function matchRoute(path: string, options: MatchRouteOptions): RouteMatch | null;"
+    ],
+    "MatchRouteOptions": [
+      "interface MatchRouteOptions {\n    registry: RouteRegistry;\n}"
+    ],
+    "mergeInteractionProps": [
+      "declare function mergeInteractionProps(childProps: Record<string, unknown>, policyProps: Record<string, unknown>, userProps?: Record<string, unknown>): Record<string, unknown>;"
+    ],
+    "mergeProps": [
+      "declare function mergeProps<TBase extends object, TInjected extends object>(base: TBase, injected: TInjected): TInjected & TBase;"
+    ],
+    "mockQuery": [
+      "mockQuery: typeof createFreshQuery & {\n    loading<T extends {} = {}>(options?: MockQueryOptions): Query<T>;\n    error<T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions): Query<T>;\n    refreshing<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;\n    stale<T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions): Query<T>;\n    pendingWrite<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;\n}"
+    ],
+    "MockQueryOptions": [
+      "interface MockQueryOptions {\n    refresh?: MockRefresh;\n}"
+    ],
+    "MockRefresh": ["type MockRefresh = () => void | Promise<void>;"],
+    "mount": [
+      "declare function mount(component: ComponentFunction, options?: RenderOptions): RenderResult;"
+    ],
+    "Mutation": [
+      "type Mutation<TInput, TResult> = MutationControls<TInput, TResult> & (MutationIdle | MutationPending | MutationSuccess<TResult> | MutationError);"
+    ],
+    "MutationControls": [
+      "type MutationControls<TInput, TResult> = {\n    execute(input: TInput): Promise<TResult>;\n    abort(): void;\n    reset(): void;\n};"
+    ],
+    "MutationError": [
+      "type MutationError = {\n    status: 'error';\n    pending: false;\n    error: {};\n    result: null;\n};"
+    ],
+    "MutationFixture": [
+      "type MutationFixture<TInput, TResult> = Mutation<TInput, TResult> & {\n    readonly inputs: readonly TInput[];\n    setPending(): void;\n    succeed(result: TResult): void;\n    fail(error: {}): void;\n};"
+    ],
+    "MutationFixtureInitial": [
+      "type MutationFixtureInitial<TResult> = {\n    pending?: boolean;\n    error?: {} | null;\n    result?: TResult;\n};"
+    ],
+    "MutationIdle": [
+      "type MutationIdle = {\n    status: 'idle';\n    pending: false;\n    error: null;\n    result: null;\n};"
+    ],
+    "MutationOptions": [
+      "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: 'invalidate';\n    runtime?: DataRuntime;\n};"
+    ],
+    "MutationPending": [
+      "type MutationPending = {\n    status: 'pending';\n    pending: true;\n    error: null;\n    result: null;\n};"
+    ],
+    "mutationState": [
+      "mutationState: typeof createMutationFixture & {\n    idle<TInput = unknown, TResult = unknown>(): MutationFixture<TInput, TResult>;\n    pending<TInput = unknown, TResult = unknown>(): MutationFixture<TInput, TResult>;\n    success<TInput = unknown, TResult = unknown>(result: TResult): MutationFixture<TInput, TResult>;\n    error<TInput = unknown, TResult = unknown>(error: {}): MutationFixture<TInput, TResult>;\n}"
+    ],
+    "MutationSuccess": [
+      "type MutationSuccess<TResult> = {\n    status: 'success';\n    pending: false;\n    error: null;\n    result: TResult;\n};"
+    ],
+    "MutationTestRegistry": [
+      "interface MutationTestRegistry {\n    readonly runtime: DataRuntime;\n    set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
+    ],
+    "navigate": [
+      "declare function navigate(path: string, options?: NavigateOptions): void;"
+    ],
+    "NavigateOptions": [
+      "type NavigateOptions = {\n    history?: 'push' | 'replace';\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
+    ],
+    "NavigationScrollBehavior": [
+      "type NavigationScrollBehavior = 'top' | 'preserve';"
+    ],
+    "normalizeIconSizeValue": [
+      "declare function normalizeIconSizeValue(size: number | string): string;"
+    ],
+    "notFound": ["declare function notFound(): AccessDenyDecision;"],
+    "on": [
+      "declare function on(target: ListenerTarget, event: string, handler: EventListener, options?: ListenerOptions): void;"
+    ],
+    "once": ["declare function once<T extends AnyFn>(fn: T): T;"],
+    "onRouteChange": [
+      "declare function onRouteChange(fn: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup, options?: RouteChangeOptions): void;"
+    ],
+    "OptionIntrinsicProps": [
+      "interface OptionIntrinsicProps extends IntrinsicProps {\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    label?: ReactiveProp<IntrinsicTextValue>;\n    selected?: ReactiveProp<IntrinsicBooleanValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
+    ],
+    "OrderedListIntrinsicProps": [
+      "type OrderedListIntrinsicProps = StructuredContentIntrinsicProps<{\n    reversed?: ReactiveProp<IntrinsicBooleanValue>;\n    start?: ReactiveProp<IntrinsicNumberValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n}>;"
+    ],
+    "Orientation": ["type Orientation = 'horizontal' | 'vertical' | 'both';"],
+    "Outlet": ["declare function Outlet(): JSXElement;"],
+    "OutputIntrinsicProps": [
+      "type OutputIntrinsicProps = StructuredContentIntrinsicProps<{\n    form?: ReactiveProp<IntrinsicTextValue>;\n    htmlFor?: ReactiveProp<IntrinsicTextValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n}>;"
+    ],
+    "OwnedChildScope": [
+      "type OwnedChildScope = {\n    key: string | number;\n    dispose(): void;\n};"
+    ],
+    "page": [
+      "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, fn: RouteDefinition): void;",
+      "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options: PageHelperOptions, fn: RouteDefinition): void;",
+      "declare function page<const TPath extends string>(path: TPath, Component: RouteComponent<RoutePathParams<TPath>>, fn: RouteDefinition): void;",
+      "declare function page<const TPath extends string>(path: TPath, Component: RouteComponent<RoutePathParams<TPath>>, options: PageHelperOptions, fn: RouteDefinition): void;"
+    ],
+    "PAGE_RENDER_ENVELOPE_VERSION": ["PAGE_RENDER_ENVELOPE_VERSION: 1"],
+    "PageHelperOptions": [
+      "interface PageHelperOptions extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n}"
+    ],
+    "PageRenderEnvelope": [
+      "interface PageRenderEnvelope {\n    readonly version: typeof PAGE_RENDER_ENVELOPE_VERSION;\n    readonly resources: Readonly<Record<string, unknown>>;\n    readonly route: unknown;\n    readonly framework: Readonly<Record<string, unknown>>;\n}"
+    ],
+    "PageScopeRecord": [
+      "interface PageScopeRecord {\n    component: RouteComponent;\n}"
+    ],
+    "ParsedSegment": [
+      "interface ParsedSegment {\n    kind: 'static' | 'param' | 'wildcard' | 'splat' | 'catchall';\n    value: string;\n}"
+    ],
+    "PointerLikeEvent": [
+      "interface PointerLikeEvent extends DefaultPreventable, PropagationStoppable {\n    target?: unknown;\n}"
+    ],
+    "Portal": [
+      "declare function Portal(props: PortalProps): JSXElement | null;",
+      "interface Portal<T extends RenderableChild = RenderableChild> {\n    (): T | JSXElement | null | undefined;\n    render(props: {\n        children?: T;\n    }): unknown;\n}"
+    ],
+    "PortalProps": [
+      "interface PortalProps {\n    children?: RenderableChild;\n}"
+    ],
+    "prefetchQuery": [
+      "declare function prefetchQuery<TInput, TResult extends {}>(context: QueryPrefetchContext, query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;"
+    ],
+    "Presence": [
+      "declare function Presence({ present, children }: PresenceProps): JSXElement | null;"
+    ],
+    "PresenceProps": [
+      "interface PresenceProps {\n    present: boolean | (() => boolean);\n    children?: RenderableChild;\n}"
+    ],
+    "pressable": [
+      "declare function pressable({ disabled, onPress, isNativeButton }: PressableOptions): PressableResult;"
+    ],
+    "PressableOptions": [
+      "interface PressableOptions {\n    disabled?: boolean;\n    onPress?: (e: PressEvent) => void;\n    isNativeButton?: boolean;\n}"
+    ],
+    "PressableResult": [
+      "interface PressableResult {\n    onClick: (e: PressEvent) => void;\n    disabled?: true;\n    role?: 'button';\n    tabIndex?: number;\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n    'aria-disabled'?: 'true';\n}"
+    ],
+    "PressEvent": [
+      "type PressEvent = DefaultPreventable & PropagationStoppable;"
+    ],
+    "PropagationStoppable": [
+      "interface PropagationStoppable {\n    stopPropagation?: () => void;\n}"
+    ],
+    "Props": [
+      "interface Props {\n    key?: string | number | symbol;\n    children?: unknown;\n    [attr: string]: unknown;\n}"
+    ],
+    "Query": [
+      "type Query<T extends {}> = QueryControls & (QueryLoading | QueryFresh<T> | QueryRefreshing<T> | QueryPendingWrite<T> | QueryStaleValue<T> | QueryStaleErrorWithValue<T> | QueryStaleError);"
+    ],
+    "QueryCollection": [
+      "interface QueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly entries: readonly QueryCollectionEntry<TInput, TResult, TKey>[];\n    readonly loading: boolean;\n    readonly settled: boolean;\n    readonly results: ReadonlyMap<TKey, TResult>;\n    readonly errors: ReadonlyMap<TKey, {}>;\n    get(key: TKey): QueryCollectionEntry<TInput, TResult, TKey> | undefined;\n    retry(key: TKey): Promise<void>;\n}"
+    ],
+    "QueryCollectionEntry": [
+      "interface QueryCollectionEntry<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly key: TKey;\n    readonly input: TInput;\n    readonly query: Query<TResult>;\n}"
+    ],
+    "QueryCollectionKey": [
+      "type QueryCollectionKey = string | number | symbol;"
+    ],
+    "QueryCollectionOptions": [
+      "interface QueryCollectionOptions<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly inputs: () => readonly TInput[];\n    readonly key: (input: TInput) => TKey;\n    readonly concurrency?: number;\n    readonly runtime?: DataRuntime;\n}"
+    ],
+    "QueryConsistency": [
+      "type QueryConsistency = 'fresh' | 'stale' | 'refreshing' | 'pending-write';"
+    ],
+    "QueryControls": [
+      "type QueryControls = {\n    refresh(): Promise<void>;\n};"
+    ],
+    "QueryDefinition": [
+      "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
+    ],
+    "QueryFresh": [
+      "type QueryFresh<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: false;\n    stale: false;\n    consistency: 'fresh';\n    staleReason: null;\n};"
+    ],
+    "QueryKeyPart": [
+      "type QueryKeyPart = string | number | boolean | null | undefined | readonly QueryKeyPart[] | {\n    readonly [key: string]: QueryKeyPart;\n};"
+    ],
+    "QueryLoading": [
+      "type QueryLoading = {\n    data: null;\n    error: null;\n    loading: true;\n    refreshing: false;\n    stale: false;\n    consistency: 'fresh';\n    staleReason: null;\n};"
+    ],
+    "QueryOptions": [
+      "type QueryOptions<T> = {\n    key: string;\n    fetch: (ctx: {\n        signal: AbortSignal;\n    }) => Promise<T>;\n    isConsistent?: (data: T) => boolean;\n    reconcile?: (data: T, ctx: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n    runtime?: DataRuntime;\n    initialData?: T;\n    skipInitialFetch?: boolean;\n};"
+    ],
+    "QueryPendingWrite": [
+      "type QueryPendingWrite<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: true;\n    stale: true;\n    consistency: 'pending-write';\n    staleReason: null;\n};"
+    ],
+    "QueryPrefetchContext": [
+      "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: 'ssr' | 'spa';\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
+    ],
+    "QueryRefreshing": [
+      "type QueryRefreshing<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: true;\n    stale: true;\n    consistency: 'refreshing';\n    staleReason: null;\n};"
+    ],
+    "queryScope": [
+      "declare function queryScope(namespace: string): QueryScope;"
+    ],
+    "QueryScope": [
+      "interface QueryScope {\n    key(...parts: QueryKeyPart[]): string;\n    prefix(...parts: QueryKeyPart[]): string;\n    invalidate(parts: readonly QueryKeyPart[], options?: InvalidateOptions): void;\n}"
+    ],
+    "QueryStaleError": [
+      "type QueryStaleError = {\n    data: null;\n    error: {};\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: 'stale';\n    staleReason: 'error';\n};"
+    ],
+    "QueryStaleErrorWithValue": [
+      "type QueryStaleErrorWithValue<T> = {\n    data: T;\n    error: {};\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: 'stale';\n    staleReason: 'error';\n};"
+    ],
+    "QueryStaleReason": [
+      "type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';"
+    ],
+    "QueryStaleValue": [
+      "type QueryStaleValue<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: 'stale';\n    staleReason: 'aborted' | 'inconsistent';\n};"
+    ],
+    "queryState": [
+      "queryState: {\n    fresh: typeof createFreshQuery;\n    loading: <T extends {} = {}>(options?: MockQueryOptions) => Query<T>;\n    error: <T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions) => Query<T>;\n    refreshing: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n    stale: <T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions) => Query<T>;\n    pendingWrite: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n}"
+    ],
+    "QueryTestRegistry": [
+      "interface QueryTestRegistry {\n    readonly runtime: DataRuntime;\n    set<T extends {}>(key: string, query: Query<T>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
+    ],
+    "raf": ["declare function raf<T extends AnyFn>(fn: T): T;"],
+    "rafEvent": [
+      "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
+    ],
+    "ReactiveForItemState": [
+      "interface ReactiveForItemState<T> {\n    currentItem: T;\n    itemSignal: ForItemSignal<T> | null;\n    propertySignals: Map<PropertyKey, ForItemPropertySignal> | null;\n    coalescedProperties: PropertyKey | PropertyKey[] | null;\n    coalescedProperty2: PropertyKey | null;\n    wholeItemRead: boolean;\n    proxy: T;\n}"
+    ],
+    "ReactiveProp": ["type ReactiveProp<T> = T | (() => T);"],
+    "ReadableSource": [
+      "interface ReadableSource<T = unknown> {\n    (): T;\n    _hasBeenRead?: boolean;\n    _hasEverBeenRead?: boolean;\n    _unusedStateDiagnosticEligible?: boolean;\n    _readers?: Map<ComponentInstance, {\n        token: number;\n        generation: object;\n    }>;\n    _derivedSubscribers?: Set<DerivedSubscriber>;\n    _version?: number;\n}"
+    ],
+    "readScope": ["declare function readScope<T>(context: Scope<T>): T;"],
+    "reconcileRouteMeta": [
+      "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
+    ],
+    "redirect": [
+      "declare function redirect(to: string, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
+    ],
+    "Ref": [
+      "interface Ref<T extends Element = Element> {\n    current: T | null;\n}"
+    ],
+    "Ref$2": [
+      "type Ref$2<T> = ((value: T | null) => void) | {\n    current: T | null;\n} | null | undefined;"
+    ],
+    "registerSSRStyle": [
+      "declare function registerSSRStyle(id: string, cssText: string): void;"
+    ],
+    "render": [
+      "declare function render(component: ComponentFunction, options?: RenderOptions): RenderResult;"
+    ],
+    "Renderable": ["type Renderable = RenderableChild;"],
+    "RenderableChild": [
+      "type RenderableChild = VNode | JSXElement | readonly RenderableChild[];"
+    ],
+    "RenderContext": [
+      "interface RenderContext {\n    url: string;\n    seed: number;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    basePath?: string;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    queryCache?: Map<string, unknown>;\n    resourceDataProvided: boolean;\n    mode?: 'ssr' | 'spa';\n    queryPrefetch?: QueryPrefetchContext;\n    ssrCleanupFns: Array<() => void>;\n    keyCounter: number;\n    renderData: PageRenderEnvelope | null;\n    hydrationData: PageRenderEnvelope | null;\n    deferredBoundaries: DeferredBoundaryRegistration[];\n    ssrStyles: Map<string, SSRStyleRegistration>;\n    ssrPortals: SSRPortalState;\n    cspNonce?: string;\n}"
+    ],
+    "RenderDiagnosticsOptions": [
+      "interface RenderDiagnosticsOptions {\n    slowRenderWarnings?: boolean;\n    slowRenderThresholdMs?: number;\n}"
+    ],
+    "RenderOptions": [
+      "interface RenderOptions {\n    container?: HTMLElement;\n    cleanupStrict?: boolean;\n    dataRuntime?: DataRuntime;\n}"
+    ],
+    "renderResolvedToStringSync": [
+      "declare function renderResolvedToStringSync(opts: {\n    url: string;\n    registry: RouteRegistry;\n    handler: RouteHandler;\n    params?: Record<string, string>;\n    options?: {\n        seed?: number;\n        data?: SSRData;\n        dataRuntime?: DataRuntime;\n        envelope?: PageRenderEnvelope;\n        cspNonce?: string;\n    };\n}): string;"
+    ],
+    "RenderResult": [
+      "interface RenderResult {\n    readonly container: HTMLElement;\n    readonly root: HTMLElement;\n    flush(): void;\n    dispatch(target: EventTarget, event: Event | string, init?: DispatchEventInit): boolean;\n    unmount(): void;\n    cleanup(): void;\n}"
+    ],
+    "renderRoute": [
+      "declare function renderRoute(options: RouteRenderOptions): Promise<RenderResult>;"
+    ],
+    "renderRouteRequest": [
+      "declare function renderRouteRequest(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
+    ],
+    "RenderRouteRequestOptions": [
+      "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
+    ],
+    "RenderRouteRequestResult": [
+      "type RenderRouteRequestResult = {\n    kind: 'render';\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: 'no-match';\n};"
+    ],
+    "renderRouteRequestToString": [
+      "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
+    ],
+    "renderToStream": [
+      "declare function renderToStream(opts: RouteStreamOptions): void;"
+    ],
+    "renderToString": [
+      "declare function renderToString(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | null): string;",
+      "declare function renderToString(opts: RouteRenderOptions$2): string;"
+    ],
+    "renderToStringSync": [
+      "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: import('@askrjs/auth').AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
+    ],
+    "Resolve": [
+      "declare function Resolve<T>(props: ResolveProps<T>): JSXElement;"
+    ],
+    "resolveControllable": [
+      "declare function resolveControllable<T>(value: T | undefined, defaultValue: T): {\n    value: T;\n    isControlled: boolean;\n};"
+    ],
+    "resolveDeferredValues": [
+      "declare function resolveDeferredValues<T>(input: T, signal?: AbortSignal): Promise<T>;"
+    ],
+    "resolveIconSizeVariable": [
+      "declare function resolveIconSizeVariable(size: number | string): string;"
+    ],
+    "resolveIconStrokeWidthVariable": [
+      "declare function resolveIconStrokeWidthVariable(strokeWidth: number, sizeToken: IconSizeToken | undefined): string;"
+    ],
+    "ResolveProps": [
+      "interface ResolveProps<T> {\n    value: Deferred<T>;\n    pending?: RenderableChild;\n    rejected?: RenderableChild | ((error: unknown) => RenderableChild);\n    children: (value: T) => RenderableChild;\n}"
+    ],
+    "resolveRequest": [
+      "declare function resolveRequest(opts: {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n}): Promise<RouteRequestResult>;"
+    ],
+    "resolveRouteMeta": [
+      "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext): Promise<Readonly<RouteMeta>>;"
+    ],
+    "resolveRouteRequest": [
+      "declare function resolveRouteRequest(target: string, options: RouteRequestOptions): RouteRequestResult | Promise<RouteRequestResult>;"
+    ],
+    "resource": [
+      "declare function resource<T, const TDeps extends readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;"
+    ],
+    "ResourceResult": [
+      "interface ResourceResult<T> {\n    value: T | null;\n    pending: boolean;\n    error: Error | null;\n    refresh(): void;\n}"
+    ],
+    "retry": [
+      "declare function retry<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;"
+    ],
+    "RetryOptions": [
+      "interface RetryOptions {\n    maxAttempts?: number;\n    delayMs?: number;\n    backoff?: (attemptIndex: number) => number;\n}"
+    ],
+    "RetryOptions$1": [
+      "interface RetryOptions$1 {\n    maxAttempts?: number;\n    delayMs?: number;\n    backoff?: (attemptIndex: number) => number;\n}"
+    ],
+    "route": [
+      "declare function route<const TPath extends string, TComponent extends AnyRouteComponent, const TSearchSchema extends ObjectSchema<RouteSearch> | undefined = undefined, TLoaderData = unknown, TDehydratedData = TLoaderData>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options?: RouteOptionsForComponent<TPath, TComponent, TSearchSchema, TLoaderData, TDehydratedData>): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;",
+      "declare function route<const TPath extends string, const TSearchSchema extends ObjectSchema<RouteSearch> | undefined = undefined, TLoaderData = unknown, TDehydratedData = TLoaderData>(path: TPath, Component: RouteComponent<RoutePathParams<TPath>>, options?: RouteOptions<RoutePathParams<TPath>, TSearchSchema, TLoaderData, TDehydratedData>): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;"
+    ],
+    "Route": [
+      "interface Route<TParams extends RouteParams = RouteParams> {\n    path: string;\n    handler: RouteHandler<TParams>;\n    namespace?: string;\n}"
+    ],
+    "routeActive": [
+      "declare function routeActive(pathOrPaths: string | readonly string[]): ActivityPredicate;"
+    ],
+    "RouteAuthOptions": [
+      "interface RouteAuthOptions {\n    resolve: RouteAuthResolver;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
+    ],
+    "RouteAuthResolver": [
+      "type RouteAuthResolver = (context: Omit<RouteContext, 'auth'>) => AuthContext | PromiseLike<AuthContext>;"
+    ],
+    "RouteChangeCleanup": ["type RouteChangeCleanup = void | (() => void);"],
+    "RouteChangeOptions": [
+      "interface RouteChangeOptions {\n    immediate?: boolean;\n}"
+    ],
+    "RouteComponent": [
+      "type RouteComponent<TParams extends RouteParams = RouteParams> = (props: TParams) => RenderableChild;"
+    ],
+    "RouteComponentParam": [
+      "type RouteComponentParam<TComponent extends AnyRouteComponent> = Parameters<TComponent> extends [\n] ? unknown : Parameters<TComponent>[0];"
+    ],
+    "RouteConfig": [
+      "interface RouteConfig<Path extends string = string> {\n    path: Path;\n    handler: RouteHandler;\n    props?: Record<string, unknown>;\n    namespace?: string;\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n    params?: RouteConfigParams<Path>;\n    invalidationKeys?: string[];\n    loader?: RouteOptions['loader'];\n    dehydrate?: RouteOptions['dehydrate'];\n    basePath?: string;\n    entries?: () => Array<RouteConfigParams<Path>> | Promise<Array<RouteConfigParams<Path>>>;\n}"
+    ],
+    "RouteConfigParams": [
+      "type RouteConfigParams<Path extends string> = string extends Path ? Record<string, string> : RoutePathParams<Path>;"
+    ],
+    "RouteContext": [
+      "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n}"
+    ],
+    "routeData": ["declare function routeData<T>(): T;"],
+    "RouteDataLoadError": [
+      "declare class RouteDataLoadError extends Error {\n    readonly route: string;\n    readonly phase: RouteDataLoadPhase;\n    readonly cause: unknown;\n    constructor(route: string, phase: RouteDataLoadPhase, cause: unknown);\n}"
+    ],
+    "RouteDataLoadPhase": [
+      "type RouteDataLoadPhase = 'client' | 'server' | 'ssg';"
+    ],
+    "RouteDefinition": ["type RouteDefinition = () => void;"],
+    "RouteDestination": [
+      "interface RouteDestination {\n    readonly href: string;\n}"
+    ],
+    "RouteHandler": [
+      "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
+    ],
+    "RouteManifest": [
+      "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+    ],
+    "RouteMatch": [
+      "interface RouteMatch<TParams extends RouteParams = RouteParams> {\n    path: string;\n    params: Readonly<TParams>;\n    name?: string;\n    namespace?: string;\n}"
+    ],
+    "RouteMeta": [
+      "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: 'ltr' | 'rtl' | 'auto';\n    };\n}"
+    ],
+    "RouteMetaSource": [
+      "type RouteMetaSource<TParams extends RouteParams = RouteParams> = RouteMeta | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);"
+    ],
+    "RouteMode": ["type RouteMode = 'spa' | 'ssr' | 'ssg';"],
+    "RouteOptions": [
+      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams>;\n    actions?: readonly ActionDescriptor[];\n}"
+    ],
+    "RouteOptionsForComponent": [
+      "type RouteOptionsForComponent<Path extends string, TComponent extends AnyRouteComponent, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> = Parameters<TComponent> extends [\n] ? RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData> : RouteComponentParam<TComponent> extends RouteParams ? RouteOptions<RouteComponentParam<TComponent>, TSearchSchema, TLoaderData, TDehydratedData> : RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData>;"
+    ],
+    "RouteParams": ["type RouteParams = Record<string, string>;"],
+    "RoutePathParams": [
+      "type RoutePathParams<Path extends string> = [\n    ExtractRoutePathParamNames<Path>\n] extends [\n    never\n] ? Record<never, string> : {\n    [Key in ExtractRoutePathParamNames<Path>]: string;\n};"
+    ],
+    "RoutePatternWarning": [
+      "interface RoutePatternWarning {\n    kind: 'route-collision';\n    path: string;\n    conflictingPath: string;\n    segment: string;\n    namespace: string | undefined;\n    message: string;\n}"
+    ],
+    "RoutePolicy": [
+      "type RoutePolicy = (context: RouteContext) => AccessDecision | PromiseLike<AccessDecision>;"
+    ],
+    "RouteQuery": [
+      "interface RouteQuery {\n    get(key: string): string | null;\n    getAll(key: string): string[];\n    has(key: string): boolean;\n    toJSON(): Record<string, string | string[]>;\n}"
+    ],
+    "RouteQueryParamInput": [
+      "type RouteQueryParamInput = RouteQueryParamValue | readonly RouteQueryParamValue[];"
+    ],
+    "RouteQueryParamValue": [
+      "type RouteQueryParamValue = string | number | boolean | null | undefined;"
+    ],
+    "RouteQueryUpdater": [
+      "type RouteQueryUpdater = (searchParams: URLSearchParams) => void;"
+    ],
+    "RouteQueryUpdates": [
+      "type RouteQueryUpdates = Record<string, RouteQueryParamInput>;"
+    ],
+    "RouteRecord": [
+      "interface RouteRecord {\n    path: string;\n    component: RouteComponent;\n    segments: ParsedSegment[];\n    rank: number;\n    layoutChain: LayoutScopeRecord[];\n    pageChain: PageScopeRecord[];\n    options: RouteOptions;\n    metaChain?: readonly RouteMetaSource[];\n    isFallback: boolean;\n    handler: RouteHandler;\n}"
+    ],
+    "RouteRef": [
+      "interface RouteRef<TParams extends RouteParams = RouteParams, TSearch = RouteSearch> {\n    readonly path: string;\n    readonly searchSchema?: ObjectSchema<TSearch & RouteSearch>;\n    readonly basePath?: string;\n    readonly __params?: TParams;\n    readonly __search?: TSearch;\n}"
+    ],
+    "RouteRefSearch": [
+      "type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> = TSchema extends ObjectSchema<RouteSearch> ? InferSchema<TSchema> : RouteSearch;"
+    ],
+    "RouteRegistry": [
+      "interface RouteRegistry {\n    readonly [routeRegistryBrand]: true;\n    manifest: RouteManifest;\n    routes: readonly Route[];\n}"
+    ],
+    "routeRegistryBrand": ["routeRegistryBrand: unique symbol"],
+    "RouteRegistryOptions": [
+      "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+    ],
+    "RouteRenderOptions": [
+      "interface RouteRenderOptions extends RenderOptions {\n    registry: RouteRegistry;\n    url?: string;\n    auth?: RouteAuthOptions;\n    dataRuntime?: DataRuntime;\n}"
+    ],
+    "RouteRenderOptions$2": [
+      "type RouteRenderOptions$2 = SSRRouteSource & {\n    url: string;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    document?: DocumentRenderer;\n    request?: Request;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    telemetry?: Pick<CoreTelemetry, 'ssrRender'>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n};"
+    ],
+    "RouteRenderReason": [
+      "type RouteRenderReason = 'full' | 'changed-key' | 'changed-route' | 'new-route' | 'no-keys' | 'unchanged' | 'deleted' | 'runtime-only';"
+    ],
+    "RouteRenderResult": [
+      "interface RouteRenderResult<TParams extends RouteParams = RouteParams> {\n    kind: 'render';\n    handler: RouteHandler<TParams>;\n    params: TParams;\n    record?: RouteRecord;\n}"
+    ],
+    "RouteRenderResult$2": [
+      "interface RouteRenderResult$2 {\n    path: string;\n    filePath: string;\n    html: string;\n    fileSize: number;\n    renderDuration: number;\n    resourceCount: number;\n    status: RouteRenderStatus;\n    reason: RouteRenderReason;\n    written: boolean;\n    error?: string;\n    errorCause?: unknown;\n    errorContext?: {\n        route: string;\n        phase: 'load' | 'render' | 'write';\n    };\n}"
+    ],
+    "RouteRenderStatus": [
+      "type RouteRenderStatus = 'success' | 'error' | 'skipped' | 'removed';"
+    ],
+    "RouteRequestOptions": [
+      "interface RouteRequestOptions {\n    registry: RouteRegistry;\n    mode?: RouteMode;\n    load?: boolean;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    request?: Request;\n    telemetry?: CoreTelemetry;\n}"
+    ],
+    "RouteRequestResult": [
+      "type RouteRequestResult<TParams extends RouteParams = RouteParams> = RouteRenderResult<TParams> | AccessRedirectDecision | AccessDenyDecision | null;"
+    ],
+    "RouteSearch": ["type RouteSearch = Record<string, RouteSearchValue>;"],
+    "RouteSearchValue": [
+      "type RouteSearchValue = string | number | boolean | null | undefined | readonly (string | number | boolean | null)[];"
+    ],
+    "RouteSnapshot": [
+      "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams>[];\n}"
+    ],
+    "RouteStreamOptions": [
+      "type RouteStreamOptions = RouteRenderOptions$2 & {\n    onChunk(html: string): void;\n    onComplete(): void;\n};"
+    ],
+    "rovingFocus": [
+      "declare function rovingFocus(options: RovingFocusOptions): RovingFocusResult;"
+    ],
+    "RovingFocusOptions": [
+      "interface RovingFocusOptions {\n    currentIndex: number;\n    itemCount: number;\n    orientation?: Orientation;\n    loop?: boolean;\n    onNavigate?: (index: number) => void;\n    isDisabled?: (index: number) => boolean;\n}"
+    ],
+    "RovingFocusResult": [
+      "interface RovingFocusResult {\n    container: {\n        onKeyDown: (e: KeyboardLikeEvent) => void;\n    };\n    item: (index: number) => {\n        tabIndex: number;\n        'data-roving-index': number;\n    };\n}"
+    ],
+    "RuntimeKeyedReorderDecision": [
+      "interface RuntimeKeyedReorderDecision {\n    useFastPath: boolean;\n    totalKeyed: number;\n    totalChildren: number;\n    currentKeyCount: number;\n    moveCount: number;\n    lisLen: number;\n    hasPropChanges: boolean;\n    isWholeKeyedList: boolean;\n}"
+    ],
+    "RuntimeRendererHost": [
+      "interface RuntimeRendererHost {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: ComponentInstance): void;\n    cleanupInstancesUnder(node: Node): void;\n    replaceComponentRange(instance: ComponentInstance, result: unknown, host: Element | Comment): Node | null;\n    resolveChildScopeRange?(scope: ChildScope): DOMRange | null;\n    teardownNodeSubtree(root: Node): void;\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n    markReactivePropsDirtySource(source: ReadableSource<unknown>): void;\n}"
+    ],
+    "scheduleEventHandler": [
+      "declare function scheduleEventHandler(handler: EventListener): EventListener;"
+    ],
+    "scheduleIdle": [
+      "declare function scheduleIdle(fn: () => void, options?: {\n    timeout?: number;\n}): CancelFn;"
+    ],
+    "Scheduler": [
+      "declare class Scheduler {\n    setBulkCommitProbe(probe: SchedulerBulkCommitProbe): void;\n    enqueue(task: Task): void;\n    enqueueInLane(lane: SchedulerLane, task: Task): void;\n    flush(): void;\n    runWithSyncProgress<T>(fn: () => T): T;\n    waitForFlush(targetVersion?: number, timeoutMs?: number): Promise<void>;\n    getState(): {\n        queueLength: number;\n        running: boolean;\n        depth: number;\n        executionDepth: number;\n        taskCount: number;\n        flushVersion: number;\n        laneQueues: {\n            derived: number;\n            component: number;\n            reactive: number;\n            post: number;\n        };\n        inHandler: boolean;\n        allowSyncProgress: boolean;\n    };\n    getFlushVersion(): number;\n    flushIfQueued(): void;\n    runInHandlerScope<T>(fn: () => T, flushMode?: 'defer' | 'sync'): T;\n    setInHandler(v: boolean): void;\n    isInHandler(): boolean;\n    isExecuting(): boolean;\n    clearPendingSyncTasks(): number;\n}"
+    ],
+    "SchedulerBulkCommitProbe": [
+      "type SchedulerBulkCommitProbe = () => boolean;"
+    ],
+    "scheduleRetry": [
+      "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions$1): {\n    cancel(): void;\n};"
+    ],
+    "SchedulerLane": [
+      "type SchedulerLane = 'derived' | 'component' | 'reactive' | 'post';"
+    ],
+    "scheduleTimeout": [
+      "declare function scheduleTimeout(ms: number, fn: () => void): CancelFn;"
+    ],
+    "Scope": [
+      "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
+    ],
+    "ScrollRestorationOptions": [
+      "type ScrollRestorationOptions = {\n    navigation?: NavigationScrollBehavior;\n    history?: HistoryScrollBehavior;\n};"
+    ],
+    "SelectIntrinsicProps": [
+      "interface SelectIntrinsicProps extends IntrinsicProps {\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    multiple?: ReactiveProp<IntrinsicBooleanValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
+    ],
+    "selector": [
+      "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
+    ],
+    "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
+    "SelectorEquals": [
+      "type SelectorEquals<T> = {\n    bivarianceHack(a: T, b: T): boolean;\n}['bivarianceHack'];"
+    ],
+    "serializeIconStyle": [
+      "declare function serializeIconStyle(style: string | IconStyleObject | undefined): string;"
+    ],
+    "serializeRouteMeta": [
+      "declare function serializeRouteMeta(meta: RouteMeta): string;"
+    ],
+    "serveQuery": [
+      "declare function serveQuery<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, handler: ServerQueryHandler<TInput, TResult>): ServerQueryEntry<TInput, TResult>;"
+    ],
+    "ServerQueryEntry": [
+      "interface ServerQueryEntry<TInput, TResult extends {}> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly handler: ServerQueryHandler<TInput, TResult>;\n}"
+    ],
+    "ServerQueryHandler": [
+      "type ServerQueryHandler<TInput, TResult extends {}> = (context: {\n    input: TInput;\n    request?: Request;\n    signal: AbortSignal;\n}) => Promise<TResult> | TResult;"
+    ],
+    "ServerQueryRegistry": [
+      "interface ServerQueryRegistry {\n    readonly entries: readonly ServerQueryEntry<unknown, {}>[];\n    get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>): ServerQueryHandler<TInput, TResult> | undefined;\n}"
+    ],
+    "setRef": [
+      "declare function setRef<T>(ref: Ref$2<T>, value: T | null): void;"
+    ],
+    "Show": ["Show: <T>(props: ShowProps<T>) => JSXElement"],
+    "ShowProps": [
+      "type ShowProps<T> = {\n    when: ShowSource<T>;\n    fallback?: BoundaryChild;\n    children: BoundaryChild | ((value: Truthy<T>) => BoundaryChild);\n};"
+    ],
+    "ShowSource": ["type ShowSource<T> = T | (() => T);"],
+    "ShowState": [
+      "interface ShowState extends BranchControlStateBase {\n    kind: 'show';\n    fallbackScope: ChildScope | null;\n    renderFallback: (() => VNode) | null;\n    renderTruthy: ((value: unknown) => VNode) | (() => VNode);\n    selectedValue: unknown;\n    truthyScope: ChildScope | null;\n}"
+    ],
+    "Slot": ["declare function Slot(props: SlotProps): JSXElement | null;"],
+    "SlotProps": [
+      "type SlotProps = {\n    asChild: true;\n    children: JSXElement;\n    [key: string]: unknown;\n} | {\n    asChild?: false;\n    children?: RenderableChild;\n};"
+    ],
+    "SNAPSHOT_SOURCE_BRAND": ["SNAPSHOT_SOURCE_BRAND: unique symbol"],
+    "SnapshotSource": [
+      "type SnapshotSource<T> = {\n    value: T | null;\n    pending?: boolean;\n    error?: Error | null;\n} & SnapshotSourceBrand;"
+    ],
+    "SnapshotSourceBrand": [
+      "type SnapshotSourceBrand = {\n    readonly [SNAPSHOT_SOURCE_BRAND]: true;\n};"
+    ],
+    "SPAConfig": [
+      "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
+    ],
+    "SSGAssetSource": [
+      "interface SSGAssetSource {\n    from: string;\n    to?: string;\n}"
+    ],
+    "SSGBaseOptions": [
+      "interface SSGBaseOptions {\n    outputDir: string;\n    seed?: number;\n    dataOverrides?: Record<string, unknown>;\n    document?: DocumentRenderer;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n    assets?: readonly SSGAssetSource[];\n    concurrency?: number;\n    parallelism?: number | 'auto';\n}"
+    ],
+    "SSGGenerateOptions": [
+      "interface SSGGenerateOptions {\n    mode?: SSGMode;\n    changedKeys?: string[];\n    changedRoutes?: string[];\n    forceFull?: boolean;\n}"
+    ],
+    "SSGMetadata": [
+      "interface SSGMetadata extends Record<string, unknown> {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: Array<{\n        path: string;\n        filePath: string;\n        fileSize: number;\n        renderDuration: number;\n        resourceCount: number;\n        status: RouteRenderStatus;\n        reason: RouteRenderReason;\n        written: boolean;\n        error?: string;\n    }>;\n}"
+    ],
+    "SSGMode": ["type SSGMode = 'full' | 'incremental';"],
+    "SSGOptions": [
+      "type SSGOptions<_TRoutes extends readonly RouteConfig[] = RouteConfig[]> = SSGBaseOptions & {\n    registry: RouteRegistry;\n};"
+    ],
+    "SSGResult": [
+      "interface SSGResult {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: RouteRenderResult$2[];\n}"
+    ],
+    "SSRComponent": [
+      "type SSRComponent = (props: Props, context?: {\n    signal?: AbortSignal;\n    ssr?: RenderContext;\n}) => VNode$2 | JSXElement | string | number | boolean | null | undefined;"
+    ],
+    "SSRContext": [
+      "type SSRContext = {\n    url: string;\n    seed: number;\n    data?: SSRData;\n    params?: Record<string, string>;\n    signal?: AbortSignal;\n};"
+    ],
+    "SSRData": ["type SSRData = Record<string, unknown>;"],
+    "SSRDataMissingError": [
+      "declare class SSRDataMissingError extends Error {\n    readonly code = \"SSR_DATA_MISSING\";\n    constructor(message?: string);\n}"
+    ],
+    "SSRPortalHostRegistration": [
+      "interface SSRPortalHostRegistration {\n    token: string;\n    automatic: boolean;\n}"
+    ],
+    "SSRPortalSlot": [
+      "interface SSRPortalSlot {\n    hasValue: boolean;\n    value: RenderableChild | undefined;\n    hosts: SSRPortalHostRegistration[];\n}"
+    ],
+    "SSRPortalState": [
+      "interface SSRPortalState {\n    slots: Map<object, SSRPortalSlot>;\n    nextHostId: number;\n}"
+    ],
+    "SSRRoute": [
+      "type SSRRoute = {\n    path: string;\n    handler: RouteHandler;\n    namespace?: string;\n};"
+    ],
+    "SSRRouteSource": [
+      "type SSRRouteSource = {\n    registry: RouteRegistry;\n};"
+    ],
+    "SSRStyleRegistration": [
+      "interface SSRStyleRegistration {\n    id: string;\n    cssText: string;\n}"
+    ],
+    "SSRStyleRegistrationValidation": [
+      "type SSRStyleRegistrationValidation = 'warn' | 'error' | 'off';"
+    ],
+    "StaleValueReason": [
+      "type StaleValueReason = Exclude<QueryStaleReason, 'error'>;"
+    ],
+    "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
+    "State": [
+      "interface State<T> extends ReadableSource<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
+    ],
+    "StateSetter": [
+      "type StateSetter<T> = (...args: StateSetterArgs<T>) => void;"
+    ],
+    "StateSetterArgs": [
+      "type StateSetterArgs<T> = [\n    Extract<T, (...args: any[]) => unknown>\n] extends [\n    never\n] ? [\n    value: T\n] | [\n    updater: StateUpdater<T>\n] : [\n    updater: StateUpdater<T>\n];"
+    ],
+    "StateTuple": [
+      "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
+    ],
+    "StateUpdater": ["type StateUpdater<T> = (prev: T) => T;"],
+    "stream": [
+      "declare function stream<T>(source: StreamSource<T>, options?: StreamOptions<T>): StreamResult<T>;"
+    ],
+    "StreamOptions": [
+      "interface StreamOptions<T> {\n    deps?: readonly unknown[];\n    initialValue?: T;\n}"
+    ],
+    "StreamResult": [
+      "interface StreamResult<T> {\n    value: T | null;\n    status: StreamStatus;\n    pending: boolean;\n    stale: boolean;\n    error: Error | null;\n    restart(): void;\n    close(): void;\n}"
+    ],
+    "StreamSource": [
+      "type StreamSource<T> = (context: {\n    signal: AbortSignal;\n}) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>;"
+    ],
+    "StreamStatus": [
+      "type StreamStatus = 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'error';"
+    ],
+    "StripRoutePathSuffix": [
+      "type StripRoutePathSuffix<Path extends string> = Path extends `${infer Base}?${string}` ? StripRoutePathSuffix<Base> : Path extends `${infer Base}#${string}` ? StripRoutePathSuffix<Base> : Path;"
+    ],
+    "StructuredContentIntrinsicProps": [
+      "type StructuredContentIntrinsicProps<TAllowed extends object = {}> = IntrinsicFallbackProps & Omit<ForbiddenLayoutOnlyProps, keyof TAllowed> & TAllowed;"
+    ],
+    "submit": ["declare function submit(form: HTMLFormElement): boolean;"],
+    "SvgCircleIntrinsicProps": [
+      "type SvgCircleIntrinsicProps = StructuredContentIntrinsicProps<SvgPresentationIntrinsicAllowedProps & {\n    cx?: ReactiveProp<IntrinsicTextLikeValue>;\n    cy?: ReactiveProp<IntrinsicTextLikeValue>;\n    r?: ReactiveProp<IntrinsicTextLikeValue>;\n}>;"
+    ],
+    "SvgGroupIntrinsicProps": [
+      "type SvgGroupIntrinsicProps = StructuredContentIntrinsicProps<SvgPresentationIntrinsicAllowedProps>;"
+    ],
+    "SvgIntrinsicProps": [
+      "type SvgIntrinsicProps = StructuredContentIntrinsicProps<SvgPresentationIntrinsicAllowedProps & {\n    height?: ReactiveProp<IntrinsicTextLikeValue>;\n    viewBox?: ReactiveProp<IntrinsicTextValue>;\n    width?: ReactiveProp<IntrinsicTextLikeValue>;\n    xmlns?: ReactiveProp<IntrinsicTextValue>;\n}>;"
+    ],
+    "SvgPathIntrinsicProps": [
+      "type SvgPathIntrinsicProps = StructuredContentIntrinsicProps<SvgPresentationIntrinsicAllowedProps & {\n    d?: ReactiveProp<IntrinsicTextValue>;\n}>;"
+    ],
+    "SvgPresentationIntrinsicAllowedProps": [
+      "type SvgPresentationIntrinsicAllowedProps = {\n    clipRule?: ReactiveProp<IntrinsicTextValue>;\n    fill?: ReactiveProp<IntrinsicTextValue>;\n    fillRule?: ReactiveProp<IntrinsicTextValue>;\n    stroke?: ReactiveProp<IntrinsicTextValue>;\n    strokeLinecap?: ReactiveProp<IntrinsicTextValue>;\n    strokeLinejoin?: ReactiveProp<IntrinsicTextValue>;\n    strokeWidth?: ReactiveProp<IntrinsicTextLikeValue>;\n};"
+    ],
+    "SvgRectIntrinsicProps": [
+      "type SvgRectIntrinsicProps = StructuredContentIntrinsicProps<SvgPresentationIntrinsicAllowedProps & {\n    height?: ReactiveProp<IntrinsicTextLikeValue>;\n    rx?: ReactiveProp<IntrinsicTextLikeValue>;\n    ry?: ReactiveProp<IntrinsicTextLikeValue>;\n    width?: ReactiveProp<IntrinsicTextLikeValue>;\n    x?: ReactiveProp<IntrinsicTextLikeValue>;\n    y?: ReactiveProp<IntrinsicTextLikeValue>;\n}>;"
+    ],
+    "TableCellIntrinsicAllowedProps": [
+      "type TableCellIntrinsicAllowedProps = {\n    colSpan?: ReactiveProp<IntrinsicNumberValue>;\n    headers?: ReactiveProp<IntrinsicTextValue>;\n    rowSpan?: ReactiveProp<IntrinsicNumberValue>;\n};"
+    ],
+    "TableCellIntrinsicProps": [
+      "type TableCellIntrinsicProps = StructuredContentIntrinsicProps<TableCellIntrinsicAllowedProps>;"
+    ],
+    "TableHeaderIntrinsicProps": [
+      "type TableHeaderIntrinsicProps = StructuredContentIntrinsicProps<TableCellIntrinsicAllowedProps & {\n    abbr?: ReactiveProp<IntrinsicTextValue>;\n    scope?: ReactiveProp<TableHeaderScopeValue>;\n}>;"
+    ],
+    "TableHeaderScopeValue": [
+      "type TableHeaderScopeValue = 'col' | 'colgroup' | 'row' | 'rowgroup' | null | undefined;"
+    ],
+    "task": [
+      "declare function task(fn: () => void | (() => void) | PromiseLike<void | (() => void)>): void;"
+    ],
+    "Task": ["type Task = () => void;"],
+    "TelemetryFields": [
+      "interface TelemetryFields {\n    requestId?: string;\n    traceId?: string;\n    route?: string;\n    action?: string;\n    operation?: string;\n    status?: number;\n    durationMs?: number;\n}"
+    ],
+    "TelemetrySpan": [
+      "type TelemetrySpan = <T>(fields: TelemetryFields, work: () => T) => T;"
+    ],
+    "TextareaIntrinsicProps": [
+      "interface TextareaIntrinsicProps extends IntrinsicProps {\n    autoComplete?: ReactiveProp<IntrinsicTextValue>;\n    autocomplete?: ReactiveProp<IntrinsicTextValue>;\n    cols?: ReactiveProp<IntrinsicNumberValue>;\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    maxLength?: ReactiveProp<IntrinsicNumberValue>;\n    maxlength?: ReactiveProp<IntrinsicNumberValue>;\n    minLength?: ReactiveProp<IntrinsicNumberValue>;\n    minlength?: ReactiveProp<IntrinsicNumberValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    placeholder?: ReactiveProp<IntrinsicTextValue>;\n    readOnly?: ReactiveProp<IntrinsicBooleanValue>;\n    readonly?: ReactiveProp<IntrinsicBooleanValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    rows?: ReactiveProp<IntrinsicNumberValue>;\n    value?: ReactiveProp<IntrinsicTextValue>;\n}"
+    ],
+    "throttle": [
+      "declare function throttle<T extends AnyFn>(fn: T, ms: number, options?: ThrottleOptions): T & {\n    cancel(): void;\n};"
+    ],
+    "throttleEvent": [
+      "declare function throttleEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n};"
+    ],
+    "ThrottleOptions": [
+      "interface ThrottleOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
+    ],
+    "timeout": ["declare function timeout(ms: number): Promise<void>;"],
+    "timer": [
+      "declare function timer(intervalMs: number, fn: () => void, options?: TimerOptions): void;"
+    ],
+    "TimerOptions": [
+      "interface TimerOptions {\n    when?: ActivityPredicate | readonly ActivityPredicate[];\n}"
+    ],
+    "to$1": [
+      "declare function to$1<TParams extends RouteParams, TSearch extends RouteSearch = RouteSearch>(route: RouteRef<TParams, TSearch>, params: TParams, search?: TSearch): RouteDestination;"
+    ],
+    "TrimRoutePathSlashes": [
+      "type TrimRoutePathSlashes<Path extends string> = Path extends `/${infer Rest}` ? TrimRoutePathSlashes<Rest> : Path extends `${infer Rest}/` ? TrimRoutePathSlashes<Rest> : Path;"
+    ],
+    "TrimRoutePathWhitespace": [
+      "type TrimRoutePathWhitespace<Path extends string> = Path extends `${' ' | '\\n' | '\\t' | '\\r'}${infer Rest}` ? TrimRoutePathWhitespace<Rest> : Path extends `${infer Rest}${' ' | '\\n' | '\\t' | '\\r'}` ? TrimRoutePathWhitespace<Rest> : Path;"
+    ],
+    "Truthy": [
+      "type Truthy<T> = T extends false | '' | 0 | 0n | null | undefined ? never : T;"
+    ],
+    "type": [
+      "declare function type(element: HTMLInputElement | HTMLTextAreaElement, text: string): void;"
+    ],
+    "unauthorized": ["declare function unauthorized(): AccessDenyDecision;"],
+    "updateRouteQuery": [
+      "declare function updateRouteQuery(updates: RouteQueryUpdates | RouteQueryUpdater, options?: UpdateRouteQueryOptions): void;"
+    ],
+    "UpdateRouteQueryOptions": [
+      "type UpdateRouteQueryOptions = {\n    history?: 'push' | 'replace';\n    replace?: boolean;\n};"
+    ],
+    "VNode": [
+      "type VNode = DOMElement | string | number | boolean | null | undefined;"
+    ],
+    "VNode$2": [
+      "type VNode$2 = {\n    type: string | SSRComponent | symbol;\n    props?: Props;\n    children?: unknown[];\n    key?: string | number | null;\n};"
+    ],
+    "watch": [
+      "declare function watch<TValue>(source: WatchSource<TValue>, callback: WatchCallback<TValue>): void;",
+      "declare function watch<const TSources extends readonly WatchSource<unknown>[]>(sources: TSources, callback: WatchCallback<WatchValues<TSources>>): void;"
+    ],
+    "WatchCallback": [
+      "type WatchCallback<TValue> = (value: TValue, context: WatchContext<TValue>) => void | (() => void) | PromiseLike<void>;"
+    ],
+    "WatchContext": [
+      "interface WatchContext<TValue> {\n    readonly initial: boolean;\n    readonly previous: TValue | undefined;\n    readonly signal: AbortSignal;\n}"
+    ],
+    "WatchSource": ["type WatchSource<T> = ReadableSource<T>;"],
+    "WatchValues": [
+      "type WatchValues<TSources extends readonly WatchSource<unknown>[]> = {\n    -readonly [TIndex in keyof TSources]: ReturnType<TSources[TIndex]>;\n};"
+    ],
+    "windowFocused": ["declare function windowFocused(): ActivityPredicate;"],
+    "withRenderContext": [
+      "declare function withRenderContext<T>(ctx: RenderContext, fn: () => T): T;"
+    ],
+    "withRenderContextAsync": [
+      "declare function withRenderContextAsync<T>(ctx: RenderContext, fn: () => T | PromiseLike<T>): Promise<T>;"
+    ]
+  }
+}

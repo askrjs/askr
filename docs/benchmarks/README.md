@@ -59,6 +59,14 @@ movement paths.
 CI benchmark artifacts include the raw JSON and are compared only for the same
 benchmark row from three back-to-back captures on the same pinned host.
 
+The [core consolidation baseline](./core-baseline-48a5575.json) records three
+sequential captures of all four tiers at `48a5575`, with environment provenance
+and each row's median, mean, tails, RME, and sample count. All 38 browser rows
+passed the sample-quality rule in every capture. Across all tiers, 81 of 93
+rows qualified in every capture; the remaining 12 are explicitly marked
+ineligible and require fresh captures before a performance comparison. This is
+a local baseline, not an optimization claim or a comparison to CI timings.
+
 ## External JFB Comparisons
 
 The local `js-framework-benchmark` capture is a separate product-level signal

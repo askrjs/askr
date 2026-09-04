@@ -1,6 +1,8 @@
 name: Extended Quality
 
 on:
+  pull_request:
+    branches: [main]
   schedule:
     - cron: '35 3 * * *'
   workflow_dispatch:

@@ -1,0 +1,2914 @@
+{
+  "provenance": {
+    "node": "v24.20.0",
+    "npm": "12.0.1",
+    "commit": "48a557549d2876656b301ad1059b53e91b2b8fe0",
+    "status": "",
+    "cpu": "Apple M5",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "architecture": "arm64",
+    "captured_at": "2026-09-04T21:01:06.294188+00:00",
+    "lock_sha256": "d64e32e822cc8ac82df30d9299ec55194e8f6af2993395abfbbc9b8092402e3f",
+    "instrumentation": false,
+    "playwright": "1.62.1",
+    "published_reference": {
+      "version": "0.2.4",
+      "declaration_files": 31,
+      "byte_identical": true,
+      "tarball_sha256": "1c1c55709fae5086ff65df3afcaf64d47138edfbf01ec7c794cabb812fbb4fa8"
+    }
+  },
+  "units": {
+    "median": "ms",
+    "mean": "ms",
+    "p75": "ms",
+    "p99": "ms",
+    "rme": "percent"
+  },
+  "captures": "Three sequential runs per tier; no tests or builds ran during captures. Runtime and benchmark source are unchanged from the reference commit.",
+  "rows": [
+    {
+      "file": "benches/tier1/tier1-hotpath-derived-fanout.tsx",
+      "name": "propagate one state write through 1,000 derived spans",
+      "runs": [
+        {
+          "median": 12.186541000000034,
+          "mean": 12.45075627272728,
+          "p75": 12.760750000000144,
+          "p99": 17.40508299999999,
+          "rme": 3.5290048127562876,
+          "sampleCount": 33
+        },
+        {
+          "median": 10.641312500000026,
+          "mean": 10.683156710526323,
+          "p75": 10.897707999999966,
+          "p99": 12.574749999999995,
+          "rme": 1.6952061201376263,
+          "sampleCount": 38
+        },
+        {
+          "median": 11.072457999999926,
+          "mean": 11.260899277777774,
+          "p75": 11.567916999999966,
+          "p99": 13.127874999999904,
+          "rme": 1.838989030635756,
+          "sampleCount": 36
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-for-append.tsx",
+      "name": "append then clear 1,000 keyed rows",
+      "runs": [
+        {
+          "median": 167.13975000000028,
+          "mean": 171.8124648450704,
+          "p75": 172.3884999999991,
+          "p99": 293.0309580000012,
+          "rme": 2.247538091738584,
+          "sampleCount": 71
+        },
+        {
+          "median": 170.97556250000025,
+          "mean": 182.32229110606056,
+          "p75": 180.36325000000033,
+          "p99": 437.8591669999996,
+          "rme": 4.976809099838242,
+          "sampleCount": 66
+        },
+        {
+          "median": 186.29470800000036,
+          "mean": 282.61822483720925,
+          "p75": 349.5470829999995,
+          "p99": 1094.5158329999995,
+          "rme": 21.48631280123515,
+          "sampleCount": 43
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-for-keyed-reorder.tsx",
+      "name": "swap distant keyed rows while preserving DOM identity",
+      "runs": [
+        {
+          "median": 0.9706670000000486,
+          "mean": 0.9989506159601049,
+          "p75": 0.9966660000000047,
+          "p99": 1.293042000000014,
+          "rme": 2.2626358621364617,
+          "sampleCount": 401
+        },
+        {
+          "median": 0.9604584999999588,
+          "mean": 0.9867380886699483,
+          "p75": 0.9920419999998558,
+          "p99": 1.2907920000000104,
+          "rme": 1.2761696609730555,
+          "sampleCount": 406
+        },
+        {
+          "median": 2.5702919999998812,
+          "mean": 2.6653233774834524,
+          "p75": 2.988749999999982,
+          "p99": 4.457957999999962,
+          "rme": 4.716464275094393,
+          "sampleCount": 151
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-for-random-shuffle.tsx",
+      "name": "shuffle 1,000 keyed rows with a fixed permutation",
+      "runs": [
+        {
+          "median": 28.85039599999982,
+          "mean": 29.185521436893243,
+          "p75": 29.460875000000215,
+          "p99": 44.651207999999315,
+          "rme": 0.7973979191605838,
+          "sampleCount": 412
+        },
+        {
+          "median": 30.695188000000144,
+          "mean": 32.53708097837835,
+          "p75": 31.474874999999884,
+          "p99": 60.33579099999952,
+          "rme": 2.1288228852924322,
+          "sampleCount": 370
+        },
+        {
+          "median": 30.912417000000005,
+          "mean": 31.406655707571808,
+          "p75": 31.47895900000003,
+          "p99": 50.057166999999026,
+          "rme": 0.8721600582239857,
+          "sampleCount": 383
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-for-reverse.tsx",
+      "name": "reverse 1,000 keyed rows",
+      "runs": [
+        {
+          "median": 35.26300000000015,
+          "mean": 38.99718223376624,
+          "p75": 39.024875000000065,
+          "p99": 79.44654199999968,
+          "rme": 2.9543039935044284,
+          "sampleCount": 308
+        },
+        {
+          "median": 30.94472949999988,
+          "mean": 31.462221499999988,
+          "p75": 31.415500000000065,
+          "p99": 48.677041999999346,
+          "rme": 0.9345923714965868,
+          "sampleCount": 382
+        },
+        {
+          "median": 30.62741649999998,
+          "mean": 31.288870356770868,
+          "p75": 31.260333000000173,
+          "p99": 50.334875000000466,
+          "rme": 1.0501645259266967,
+          "sampleCount": 384
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-for-single-text-update.tsx",
+      "name": "update one keyed row label in a 1,000-row table",
+      "runs": [
+        {
+          "median": 0.44524999999998727,
+          "mean": 0.4581225640732249,
+          "p75": 0.4568329999999605,
+          "p99": 0.668666999999914,
+          "rme": 1.9656311252235055,
+          "sampleCount": 874
+        },
+        {
+          "median": 0.49804199999994125,
+          "mean": 0.629970217322836,
+          "p75": 0.5619590000001153,
+          "p99": 2.606416999999965,
+          "rme": 4.7743262260289105,
+          "sampleCount": 635
+        },
+        {
+          "median": 0.9208750000000236,
+          "mean": 0.9594543117505944,
+          "p75": 1.0655829999998332,
+          "p99": 1.6219160000000556,
+          "rme": 3.750883371435777,
+          "sampleCount": 417
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-for-stable-update.tsx",
+      "name": "update every 10th row without reordering keys",
+      "runs": [
+        {
+          "median": 0.5805419999999799,
+          "mean": 0.5923046124260364,
+          "p75": 0.5908749999999827,
+          "p99": 0.8332080000000133,
+          "rme": 1.2009373087479414,
+          "sampleCount": 676
+        },
+        {
+          "median": 0.6370415000000094,
+          "mean": 0.7088566837455801,
+          "p75": 0.6702080000000024,
+          "p99": 2.9662919999998394,
+          "rme": 5.212201768898771,
+          "sampleCount": 566
+        },
+        {
+          "median": 0.6292290000000094,
+          "mean": 0.6521164674267084,
+          "p75": 0.6531660000000556,
+          "p99": 0.9242080000001351,
+          "rme": 2.4732613227310654,
+          "sampleCount": 614
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-for-truncate.tsx",
+      "name": "clear then restore 1,000 keyed rows",
+      "runs": [
+        {
+          "median": 168.70420900000136,
+          "mean": 175.0437101594202,
+          "p75": 180.83837499999936,
+          "p99": 220.668541,
+          "rme": 1.7528025310676587,
+          "sampleCount": 69
+        },
+        {
+          "median": 168.37989599999992,
+          "mean": 171.99691905714286,
+          "p75": 175.8572919999997,
+          "p99": 202.5931670000009,
+          "rme": 1.29747326265296,
+          "sampleCount": 70
+        },
+        {
+          "median": 167.60814550000032,
+          "mean": 182.52777404545452,
+          "p75": 183.94774999999936,
+          "p99": 449.9047919999998,
+          "rme": 6.083531294520955,
+          "sampleCount": 66
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx",
+      "name": "reorder a large keyed div list",
+      "runs": [
+        {
+          "median": 3.6262500000000273,
+          "mean": 3.8252047714285666,
+          "p75": 3.8209580000000187,
+          "p99": 8.392499999999927,
+          "rme": 4.419386786117627,
+          "sampleCount": 105
+        },
+        {
+          "median": 3.74889550000006,
+          "mean": 3.7771804339622634,
+          "p75": 3.862124999999992,
+          "p99": 4.46795800000001,
+          "rme": 1.173019273240827,
+          "sampleCount": 106
+        },
+        {
+          "median": 3.9336669999999003,
+          "mean": 4.238429336842107,
+          "p75": 4.191915999999992,
+          "p99": 9.896499999999946,
+          "rme": 4.339235584048664,
+          "sampleCount": 95
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-renderer-positional-text.tsx",
+      "name": "update 1,000 positional text nodes in one container",
+      "runs": [
+        {
+          "median": 1.870687499999974,
+          "mean": 1.8892411509433937,
+          "p75": 1.9016249999999673,
+          "p99": 2.1522090000000276,
+          "rme": 0.4802871432216323,
+          "sampleCount": 212
+        },
+        {
+          "median": 1.9892909999999802,
+          "mean": 1.9934839950248826,
+          "p75": 2.0127499999999827,
+          "p99": 2.327666000000022,
+          "rme": 0.6074761596941335,
+          "sampleCount": 201
+        },
+        {
+          "median": 2.146750000000054,
+          "mean": 2.1864011857923518,
+          "p75": 2.250333000000012,
+          "p99": 2.602958000000058,
+          "rme": 0.8764994270800174,
+          "sampleCount": 183
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-router-longest-match.ts",
+      "name": "resolve the most specific route from a 512-route dense table",
+      "runs": [
+        {
+          "median": 0.005750000000006139,
+          "mean": 0.006010708751577944,
+          "p75": 0.00583300000005238,
+          "p99": 0.017125000000021373,
+          "rme": 0.6547488172571457,
+          "sampleCount": 66548
+        },
+        {
+          "median": 0.006333000000040556,
+          "mean": 0.006560088806888067,
+          "p75": 0.006416000000001532,
+          "p99": 0.013374999999996362,
+          "rme": 0.8368325100110544,
+          "sampleCount": 60975
+        },
+        {
+          "median": 0.007604500000013559,
+          "mean": 0.013771004716331907,
+          "p75": 0.01779199999998582,
+          "p99": 0.0645420000000172,
+          "rme": 0.9474976782935478,
+          "sampleCount": 29048
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-router-match.ts",
+      "name": "match literal route segments",
+      "runs": [
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00012445397554045588,
+          "p75": 0.00012500000002546585,
+          "p99": 0.00020800000004328467,
+          "rme": 0.19724048966201585,
+          "sampleCount": 3214041
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.0001304024234635339,
+          "p75": 0.00012500000002546585,
+          "p99": 0.0002500000000509317,
+          "rme": 0.8170243094490699,
+          "sampleCount": 3067428
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.0001737816837617369,
+          "p75": 0.00016699999991942605,
+          "p99": 0.00033400000006622577,
+          "rme": 1.0077185307100092,
+          "sampleCount": 2301739
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-router-match.ts",
+      "name": "match parameterized route segments",
+      "runs": [
+        {
+          "median": 0.00016699999991942605,
+          "mean": 0.00018048083023015156,
+          "p75": 0.00016700000014679972,
+          "p99": 0.00041600000008656934,
+          "rme": 0.5505082198837177,
+          "sampleCount": 2216302
+        },
+        {
+          "median": 0.00016700000014679972,
+          "mean": 0.0001910591509429486,
+          "p75": 0.00020799999992959783,
+          "p99": 0.00041599999985919567,
+          "rme": 0.8814349104043421,
+          "sampleCount": 2093593
+        },
+        {
+          "median": 0.0002500000000509317,
+          "mean": 0.0012617051636955594,
+          "p75": 0.00041699999997035775,
+          "p99": 0.0005000000001018634,
+          "rme": 73.00030055718936,
+          "sampleCount": 358348
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-router-match.ts",
+      "name": "match wildcard route segments",
+      "runs": [
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.0001441047381994513,
+          "p75": 0.00016600000026301132,
+          "p99": 0.0003329999999550637,
+          "rme": 0.43159363891572233,
+          "sampleCount": 2775759
+        },
+        {
+          "median": 0.00016599999980826396,
+          "mean": 0.0001490920964058727,
+          "p75": 0.00016699999969205237,
+          "p99": 0.00020899999981338624,
+          "rme": 0.24878629720348566,
+          "sampleCount": 2682906
+        },
+        {
+          "median": 0.0003329999999550637,
+          "mean": 0.00045841602120476446,
+          "p75": 0.00033300000040981104,
+          "p99": 0.0006669999997939158,
+          "rme": 18.563147688705634,
+          "sampleCount": 872631
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-scheduler-coalesced-state.tsx",
+      "name": "coalesce 100 synchronous state writes before one flush",
+      "runs": [
+        {
+          "median": 0.6464999999999463,
+          "mean": 0.662047183471075,
+          "p75": 0.6719590000000153,
+          "p99": 0.8377500000000282,
+          "rme": 0.5776124364061078,
+          "sampleCount": 605
+        },
+        {
+          "median": 0.6818959999999947,
+          "mean": 0.6903881706896555,
+          "p75": 0.7010420000000295,
+          "p99": 0.9133340000000771,
+          "rme": 0.6392376101918272,
+          "sampleCount": 580
+        },
+        {
+          "median": 0.7334585000000118,
+          "mean": 0.7463082201492486,
+          "p75": 0.7524999999999977,
+          "p99": 0.9887079999999742,
+          "rme": 0.6584299960051667,
+          "sampleCount": 536
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-scheduler-flush.ts",
+      "name": "enqueue and flush a 500-task batch",
+      "runs": [
+        {
+          "median": 0.10041600000005246,
+          "mean": 0.10227604781385903,
+          "p75": 0.10204099999998562,
+          "p99": 0.14020800000002964,
+          "rme": 0.25138330531560127,
+          "sampleCount": 3911
+        },
+        {
+          "median": 0.10020800000000918,
+          "mean": 0.10185116420570314,
+          "p75": 0.1011660000000063,
+          "p99": 0.1427080000000842,
+          "rme": 0.23837334886166345,
+          "sampleCount": 3928
+        },
+        {
+          "median": 0.20679200000006404,
+          "mean": 0.21548697092084013,
+          "p75": 0.23724999999996044,
+          "p99": 0.5214169999999854,
+          "rme": 2.606306709759662,
+          "sampleCount": 1857
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-selector-fanout.tsx",
+      "name": "move selection across 1,000 selector-backed rows",
+      "runs": [
+        {
+          "median": 0.09658300000000963,
+          "mean": 0.09854597610346919,
+          "p75": 0.09737500000028376,
+          "p99": 0.13779100000010658,
+          "rme": 0.3332899996280091,
+          "sampleCount": 24355
+        },
+        {
+          "median": 0.09370899999976245,
+          "mean": 0.09679841981931195,
+          "p75": 0.09483399999999165,
+          "p99": 0.1353329999997186,
+          "rme": 0.416041996079451,
+          "sampleCount": 24794
+        },
+        {
+          "median": 0.10154099999999744,
+          "mean": 0.11162218049483849,
+          "p75": 0.10454200000003766,
+          "p99": 0.2918330000002243,
+          "rme": 0.562846400737721,
+          "sampleCount": 21502
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-ssr-attr-heavy.ts",
+      "name": "render 400 attr-heavy nodes with escaped attributes",
+      "runs": [
+        {
+          "median": 0.8905409999999847,
+          "mean": 0.9208758781609191,
+          "p75": 0.9241670000000113,
+          "p99": 1.2852499999999907,
+          "rme": 1.0851889299844435,
+          "sampleCount": 435
+        },
+        {
+          "median": 0.8945830000000115,
+          "mean": 0.916237491990847,
+          "p75": 0.9213340000000017,
+          "p99": 1.1090419999999312,
+          "rme": 0.6650199186195505,
+          "sampleCount": 437
+        },
+        {
+          "median": 1.878895999999969,
+          "mean": 1.8940307028301893,
+          "p75": 2.02370899999994,
+          "p99": 2.592124999999953,
+          "rme": 1.7817123656670046,
+          "sampleCount": 212
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-ssr-deep-tree.ts",
+      "name": "render a 300-level nested sync tree",
+      "runs": [
+        {
+          "median": 0.18983300000002146,
+          "mean": 0.1945821366731521,
+          "p75": 0.1930409999999938,
+          "p99": 0.29166700000007495,
+          "rme": 0.5442795235549982,
+          "sampleCount": 2056
+        },
+        {
+          "median": 0.18995800000004692,
+          "mean": 0.20468787877237837,
+          "p75": 0.19554200000004585,
+          "p99": 0.5666249999999877,
+          "rme": 1.8407250657273615,
+          "sampleCount": 1955
+        },
+        {
+          "median": 0.3866040000000055,
+          "mean": 0.3970815496031743,
+          "p75": 0.44524999999998727,
+          "p99": 0.8687909999999874,
+          "rme": 2.1558863724651802,
+          "sampleCount": 1008
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-ssr-render.tsx",
+      "name": "render a 250-row sync SSR tree to string",
+      "runs": [
+        {
+          "median": 0.16816599999998516,
+          "mean": 0.1726679538195945,
+          "p75": 0.17104199999999992,
+          "p99": 0.2771250000000123,
+          "rme": 0.5868402750218751,
+          "sampleCount": 2317
+        },
+        {
+          "median": 0.17074999999999818,
+          "mean": 0.17527428558913735,
+          "p75": 0.17370800000003328,
+          "p99": 0.3109999999999786,
+          "rme": 0.6057187370038141,
+          "sampleCount": 2283
+        },
+        {
+          "median": 0.18241599999998925,
+          "mean": 0.18427635697835065,
+          "p75": 0.18845800000002555,
+          "p99": 0.294208000000026,
+          "rme": 0.6172481278124727,
+          "sampleCount": 2171
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-ssr-text-heavy.ts",
+      "name": "render 400 mixed text-boundary nodes",
+      "runs": [
+        {
+          "median": 0.4516669999999863,
+          "mean": 0.4735257715976318,
+          "p75": 0.4698750000000018,
+          "p99": 0.6863329999999905,
+          "rme": 0.9166751402531614,
+          "sampleCount": 845
+        },
+        {
+          "median": 0.42854149999999436,
+          "mean": 0.4359904618736367,
+          "p75": 0.4362910000000113,
+          "p99": 0.5239579999999933,
+          "rme": 0.3253569923700028,
+          "sampleCount": 918
+        },
+        {
+          "median": 0.9059995000000356,
+          "mean": 0.909813352272731,
+          "p75": 1.0130420000000413,
+          "p99": 1.3185829999999896,
+          "rme": 1.722617333379961,
+          "sampleCount": 440
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-ssr-wide-tree.ts",
+      "name": "render a 1,500-sibling sync tree",
+      "runs": [
+        {
+          "median": 1.1916250000000446,
+          "mean": 1.2707302666666642,
+          "p75": 1.24920800000001,
+          "p99": 3.283541000000014,
+          "rme": 3.625482901921137,
+          "sampleCount": 315
+        },
+        {
+          "median": 1.1988125000000025,
+          "mean": 1.2223131463414652,
+          "p75": 1.243249999999989,
+          "p99": 1.5038749999999936,
+          "rme": 0.6312257613187282,
+          "sampleCount": 328
+        },
+        {
+          "median": 2.5348330000000487,
+          "mean": 2.5813048322580654,
+          "p75": 2.7762500000000045,
+          "p99": 3.4945410000000265,
+          "rme": 2.0739864456307493,
+          "sampleCount": 155
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-state-fanout.tsx",
+      "name": "propagate one state write to 1,000 sibling spans",
+      "runs": [
+        {
+          "median": 14.284042,
+          "mean": 15.000561703703704,
+          "p75": 14.698750000000018,
+          "p99": 27.607583999999974,
+          "rme": 7.075624601994857,
+          "sampleCount": 27
+        },
+        {
+          "median": 15.305957999999976,
+          "mean": 15.862828461538458,
+          "p75": 16.14591699999994,
+          "p99": 23.036624999999958,
+          "rme": 4.226375092845646,
+          "sampleCount": 26
+        },
+        {
+          "median": 33.886187500000005,
+          "mean": 34.44361808333332,
+          "p75": 35.187124999999924,
+          "p99": 38.31687499999998,
+          "rme": 3.6569007470599852,
+          "sampleCount": 12
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-control-branch-toggle.tsx",
+      "name": "toggle Case branch selection",
+      "runs": [
+        {
+          "median": 0.1569170000000213,
+          "mean": 0.165618965498208,
+          "p75": 0.1646250000001146,
+          "p99": 0.2390419999999267,
+          "rme": 1.4886460434618172,
+          "sampleCount": 3623
+        },
+        {
+          "median": 0.15724999999997635,
+          "mean": 0.16232826480930396,
+          "p75": 0.16545799999994415,
+          "p99": 0.23049999999989268,
+          "rme": 0.4886000027895258,
+          "sampleCount": 3697
+        },
+        {
+          "median": 0.16383299999984047,
+          "mean": 0.16494216822429983,
+          "p75": 0.16537500000004002,
+          "p99": 0.23424999999997453,
+          "rme": 0.46577561294222247,
+          "sampleCount": 3638
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-control-branch-toggle.tsx",
+      "name": "toggle Show truthy and fallback branches",
+      "runs": [
+        {
+          "median": 0.1635830000000169,
+          "mean": 0.17563728299678133,
+          "p75": 0.17029200000001765,
+          "p99": 0.48024999999995543,
+          "rme": 2.327965144434629,
+          "sampleCount": 3417
+        },
+        {
+          "median": 0.16620799999998326,
+          "mean": 0.16957491777338216,
+          "p75": 0.17279100000007475,
+          "p99": 0.2384169999999699,
+          "rme": 0.5507648707427947,
+          "sampleCount": 3539
+        },
+        {
+          "median": 0.16608300000007148,
+          "mean": 0.17124752197488705,
+          "p75": 0.1705419999999549,
+          "p99": 0.261792000000014,
+          "rme": 0.5930694559468513,
+          "sampleCount": 3504
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-events-burst-delegation.tsx",
+      "name": "dispatch 1,000 delegated clicks across a 500-button tree",
+      "runs": [
+        {
+          "median": 5.070999499999971,
+          "mean": 5.121079432203383,
+          "p75": 5.208082999999988,
+          "p99": 5.804290999999921,
+          "rme": 0.6582242875325144,
+          "sampleCount": 118
+        },
+        {
+          "median": 5.075916499999948,
+          "mean": 5.104498966101695,
+          "p75": 5.20633399999997,
+          "p99": 5.578708000000006,
+          "rme": 0.691185679567799,
+          "sampleCount": 118
+        },
+        {
+          "median": 5.0807289999999625,
+          "mean": 5.1070946525423695,
+          "p75": 5.191708999999946,
+          "p99": 5.934875000000034,
+          "rme": 0.6907465441654319,
+          "sampleCount": 118
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-events-delegation.tsx",
+      "name": "dispatch one delegated click in a 500-button tree",
+      "runs": [
+        {
+          "median": 0.13487499999996544,
+          "mean": 0.13599286196736274,
+          "p75": 0.13804099999993014,
+          "p99": 0.17370800000003328,
+          "rme": 0.35508538842536186,
+          "sampleCount": 4412
+        },
+        {
+          "median": 0.13450000000000273,
+          "mean": 0.13582250497962892,
+          "p75": 0.13675000000000637,
+          "p99": 0.17349999999999,
+          "rme": 0.32041123714267905,
+          "sampleCount": 4418
+        },
+        {
+          "median": 0.14033299999994142,
+          "mean": 0.15080605830610708,
+          "p75": 0.14575000000002092,
+          "p99": 0.35324999999988904,
+          "rme": 1.109294061006235,
+          "sampleCount": 3979
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-basic.tsx",
+      "name": "hydrate a 1,000-row server-rendered table",
+      "runs": [
+        {
+          "median": 145.96079200000077,
+          "mean": 148.4663059512195,
+          "p75": 151.6053750000001,
+          "p99": 168.11195799999996,
+          "rme": 1.404077794689022,
+          "sampleCount": 41
+        },
+        {
+          "median": 145.4692499999992,
+          "mean": 147.21576831707327,
+          "p75": 149.0106249999999,
+          "p99": 164.35833300000013,
+          "rme": 1.2924087967891364,
+          "sampleCount": 41
+        },
+        {
+          "median": 146.18437499999982,
+          "mean": 147.9015223658536,
+          "p75": 149.82470799999965,
+          "p99": 175.97783400000026,
+          "rme": 1.6784452143766047,
+          "sampleCount": 41
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-below-fold-activation.tsx",
+      "name": "hydrate and activate a deferred below-fold subtree",
+      "runs": [
+        {
+          "median": 60.94841700000006,
+          "mean": 62.12131175862065,
+          "p75": 61.95195799999999,
+          "p99": 85.33362499999998,
+          "rme": 3.074524498853109,
+          "sampleCount": 29
+        },
+        {
+          "median": 59.858625000000075,
+          "mean": 60.596526366666716,
+          "p75": 61.14083299999993,
+          "p99": 78.85862499999996,
+          "rme": 2.387540042142902,
+          "sampleCount": 30
+        },
+        {
+          "median": 62.37329099999988,
+          "mean": 63.505880827586225,
+          "p75": 64.23708299999998,
+          "p99": 84.16883400000006,
+          "rme": 2.984846800192194,
+          "sampleCount": 29
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-defer-until-idle.tsx",
+      "name": "defer hydration of a wide page until idle",
+      "runs": [
+        {
+          "median": 86.63272899999993,
+          "mean": 87.67353739999997,
+          "p75": 89.65854100000001,
+          "p99": 97.030667,
+          "rme": 3.5472722469273488,
+          "sampleCount": 10
+        },
+        {
+          "median": 86.4924375,
+          "mean": 85.25719169999999,
+          "p75": 87.05595800000003,
+          "p99": 88.93004099999996,
+          "rme": 2.571914034254472,
+          "sampleCount": 10
+        },
+        {
+          "median": 87.63193749999994,
+          "mean": 88.16850829999998,
+          "p75": 88.30320799999993,
+          "p99": 100.05766599999993,
+          "rme": 4.287217761020863,
+          "sampleCount": 10
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-deferred.tsx",
+      "name": "hydrate visible shell then activate a deferred below-fold subtree",
+      "runs": [
+        {
+          "median": 61.17525000000023,
+          "mean": 70.18432003501941,
+          "p75": 67.38583300000028,
+          "p99": 162.28304200000093,
+          "rme": 4.03484286509245,
+          "sampleCount": 257
+        },
+        {
+          "median": 59.29737499999828,
+          "mean": 61.19392428474572,
+          "p75": 60.75337500000023,
+          "p99": 106.31595900000048,
+          "rme": 1.3368413371054826,
+          "sampleCount": 295
+        },
+        {
+          "median": 95.41587499999969,
+          "mean": 99.78938580662982,
+          "p75": 124.24775000000045,
+          "p99": 175.28508299999885,
+          "rme": 4.442076362341019,
+          "sampleCount": 181
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-form.tsx",
+      "name": "hydrate a 60-field interactive form",
+      "runs": [
+        {
+          "median": 9.509083000000146,
+          "mean": 9.859783524590172,
+          "p75": 9.838042000000087,
+          "p99": 12.585708000000068,
+          "rme": 2.4800382803223564,
+          "sampleCount": 61
+        },
+        {
+          "median": 9.06902100000002,
+          "mean": 9.710968419354831,
+          "p75": 9.798833999999943,
+          "p99": 20.98954100000003,
+          "rme": 4.799566118122154,
+          "sampleCount": 62
+        },
+        {
+          "median": 10.621125000000006,
+          "mean": 10.992517399999981,
+          "p75": 12.014291999999955,
+          "p99": 13.923249999999939,
+          "rme": 3.062373071418906,
+          "sampleCount": 55
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-interactive-table.tsx",
+      "name": "interact with an already hydrated 250-row interactive table",
+      "runs": [
+        {
+          "median": 1.1682909999999538,
+          "mean": 1.2528926450939462,
+          "p75": 1.237666999999874,
+          "p99": 3.2028750000001764,
+          "rme": 2.752444966431828,
+          "sampleCount": 479
+        },
+        {
+          "median": 1.054687999999942,
+          "mean": 1.0830546606498177,
+          "p75": 1.08562500000005,
+          "p99": 1.8140000000000782,
+          "rme": 1.631235679897177,
+          "sampleCount": 554
+        },
+        {
+          "median": 1.059082999999987,
+          "mean": 1.094433426229502,
+          "p75": 1.0898749999998927,
+          "p99": 1.7919999999999163,
+          "rme": 1.6964548055713018,
+          "sampleCount": 549
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-listeners.tsx",
+      "name": "hydrate a listener-heavy interactive tree",
+      "runs": [
+        {
+          "median": 38.56141699999989,
+          "mean": 40.82314544444443,
+          "p75": 41.01899999999978,
+          "p99": 66.93370899999991,
+          "rme": 4.851508350827995,
+          "sampleCount": 45
+        },
+        {
+          "median": 35.890957999999955,
+          "mean": 45.60465004999998,
+          "p75": 37.834749999999985,
+          "p99": 144.14354200000002,
+          "rme": 16.835636184435238,
+          "sampleCount": 40
+        },
+        {
+          "median": 35.269874999999956,
+          "mean": 35.66150403921569,
+          "p75": 36.368625000000065,
+          "p99": 53.159582999999884,
+          "rme": 2.251061114123691,
+          "sampleCount": 51
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-marker-lookup.tsx",
+      "name": "toggle skipped hydration markers on a 1,000-row fixture",
+      "runs": [
+        {
+          "median": 0.5291875000000346,
+          "mean": 0.5406480507507537,
+          "p75": 0.5514170000001286,
+          "p99": 0.7089579999999387,
+          "rme": 1.0800637471744952,
+          "sampleCount": 3330
+        },
+        {
+          "median": 0.5015839999998661,
+          "mean": 0.5154894209622009,
+          "p75": 0.5268750000000182,
+          "p99": 0.6988749999998163,
+          "rme": 1.0476271270560544,
+          "sampleCount": 3492
+        },
+        {
+          "median": 0.5115210000000161,
+          "mean": 0.5320269128250592,
+          "p75": 0.5382080000000542,
+          "p99": 0.7679579999999078,
+          "rme": 1.407020448381285,
+          "sampleCount": 3384
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-mismatch.tsx",
+      "name": "reject hydration when one server cell differs",
+      "runs": [
+        {
+          "median": 86.6115420000001,
+          "mean": 86.4813571428572,
+          "p75": 99.55529200000001,
+          "p99": 100.61762500000009,
+          "rme": 11.481090270372079,
+          "sampleCount": 7
+        },
+        {
+          "median": 39.74033399999996,
+          "mean": 40.29757206666667,
+          "p75": 42.574542000000065,
+          "p99": 43.72829200000001,
+          "rme": 3.1237282478191455,
+          "sampleCount": 15
+        },
+        {
+          "median": 40.426291999999876,
+          "mean": 41.973069333333335,
+          "p75": 44.089000000000055,
+          "p99": 55.641666999999984,
+          "rme": 5.81189804771546,
+          "sampleCount": 15
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-nested-components.tsx",
+      "name": "hydrate a nested dashboard component tree",
+      "runs": [
+        {
+          "median": 21.723687499999983,
+          "mean": 25.328010499999987,
+          "p75": 28.593915999999922,
+          "p99": 47.020167000000015,
+          "rme": 13.25646568044882,
+          "sampleCount": 24
+        },
+        {
+          "median": 17.355957999999987,
+          "mean": 17.32188454285714,
+          "p75": 18.012666999999965,
+          "p99": 20.047250000000076,
+          "rme": 2.1683852866042694,
+          "sampleCount": 35
+        },
+        {
+          "median": 28.390084,
+          "mean": 31.64853726315788,
+          "p75": 36.78591600000004,
+          "p99": 55.73241600000006,
+          "rme": 16.082724117191816,
+          "sampleCount": 19
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-skip-selectors.tsx",
+      "name": "hydrate around skipped static islands",
+      "runs": [
+        {
+          "median": 1.0341249999999036,
+          "mean": 1.1053301086556155,
+          "p75": 1.0854170000000067,
+          "p99": 2.6118750000000546,
+          "rme": 2.819704690708614,
+          "sampleCount": 543
+        },
+        {
+          "median": 0.9963124999999309,
+          "mean": 1.095317658759125,
+          "p75": 1.0429579999999987,
+          "p99": 3.3092080000000124,
+          "rme": 3.3680763500270716,
+          "sampleCount": 548
+        },
+        {
+          "median": 3.0371044999999413,
+          "mean": 7.82570400000001,
+          "p75": 4.310333000000355,
+          "p99": 196.9792910000001,
+          "rme": 64.10811275006033,
+          "sampleCount": 88
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-structural-mismatch.tsx",
+      "name": "reject hydration on attribute drift in a nested control",
+      "runs": [
+        {
+          "median": 0.2684999999999036,
+          "mean": 0.2739742219178071,
+          "p75": 0.27587500000004184,
+          "p99": 0.3928329999998823,
+          "rme": 0.43575009426422373,
+          "sampleCount": 2190
+        },
+        {
+          "median": 0.2681875000000673,
+          "mean": 0.2772940887245843,
+          "p75": 0.27129100000001927,
+          "p99": 0.5520409999999174,
+          "rme": 1.669101438885768,
+          "sampleCount": 2164
+        },
+        {
+          "median": 0.25804199999993216,
+          "mean": 0.2643086988110997,
+          "p75": 0.269832999999835,
+          "p99": 0.3524160000001757,
+          "rme": 0.39898885430004816,
+          "sampleCount": 2271
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-structural-mismatch.tsx",
+      "name": "reject hydration on one extra nested child",
+      "runs": [
+        {
+          "median": 0.27995799999996507,
+          "mean": 0.28755988500239593,
+          "p75": 0.2911659999999756,
+          "p99": 0.4516249999999218,
+          "rme": 0.5707029622482336,
+          "sampleCount": 2087
+        },
+        {
+          "median": 0.28933299999994233,
+          "mean": 0.2981141197218083,
+          "p75": 0.30041700000003857,
+          "p99": 0.48525000000000773,
+          "rme": 0.5900822175231624,
+          "sampleCount": 2013
+        },
+        {
+          "median": 0.2866250000001287,
+          "mean": 0.29477739440078443,
+          "p75": 0.30491699999993216,
+          "p99": 0.4485419999999749,
+          "rme": 0.5199841561883147,
+          "sampleCount": 2036
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-to-navigation.tsx",
+      "name": "hydrate and immediately navigate to a sibling route",
+      "runs": [
+        {
+          "median": 1.7810000000000628,
+          "mean": 1.8598582136222912,
+          "p75": 1.8840420000000222,
+          "p99": 4.3761670000000095,
+          "rme": 2.6986464800885255,
+          "sampleCount": 323
+        },
+        {
+          "median": 1.7667500000000018,
+          "mean": 1.7924314686567155,
+          "p75": 1.8307499999999663,
+          "p99": 2.448750000000018,
+          "rme": 0.7961841286130913,
+          "sampleCount": 335
+        },
+        {
+          "median": 4.53408300000001,
+          "mean": 6.512483838709682,
+          "p75": 6.600999999999885,
+          "p99": 87.84899999999993,
+          "rme": 30.827588378625343,
+          "sampleCount": 93
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-hydration-verify-markup.tsx",
+      "name": "verify markup for a 1,000-row server-rendered table",
+      "runs": [
+        {
+          "median": 44.66362500000014,
+          "mean": 46.35394656410257,
+          "p75": 50.152000000000044,
+          "p99": 75.27641700000004,
+          "rme": 5.018262013094288,
+          "sampleCount": 39
+        },
+        {
+          "median": 39.77837499999987,
+          "mean": 40.44247215555557,
+          "p75": 40.9630830000001,
+          "p99": 52.506415999999945,
+          "rme": 2.5846172911069565,
+          "sampleCount": 45
+        },
+        {
+          "median": 39.41491599999972,
+          "mean": 40.36246382222221,
+          "p75": 41.64449999999988,
+          "p99": 59.30379200000016,
+          "rme": 3.0446534759547292,
+          "sampleCount": 45
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-keyed-lis-prop-boundary.tsx",
+      "name": "reorder 2,000 keyed rows through a component boundary",
+      "runs": [
+        {
+          "median": 107.11704150000014,
+          "mean": 112.08949766666676,
+          "p75": 113.6855000000005,
+          "p99": 148.77900000000045,
+          "rme": 3.4839054327526418,
+          "sampleCount": 36
+        },
+        {
+          "median": 98.09179200000017,
+          "mean": 99.60417892682929,
+          "p75": 101.5151249999999,
+          "p99": 118.77220800000032,
+          "rme": 1.4750645087351628,
+          "sampleCount": 41
+        },
+        {
+          "median": 99.80266650000021,
+          "mean": 101.03156660000002,
+          "p75": 101.4092499999997,
+          "p99": 120.07529199999954,
+          "rme": 1.7761293911408724,
+          "sampleCount": 40
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-resource-cache-dedupe-abort.tsx",
+      "name": "switch a deduped query key and abort the stale fetch",
+      "runs": [
+        {
+          "median": 0.8257920000000922,
+          "mean": 0.8741545342066966,
+          "p75": 0.8505830000000287,
+          "p99": 2.8987079999999423,
+          "rme": 2.950537936204302,
+          "sampleCount": 687
+        },
+        {
+          "median": 0.7757295000000681,
+          "mean": 0.811263298648648,
+          "p75": 0.8009579999999232,
+          "p99": 1.1452500000000327,
+          "rme": 2.9475529710700052,
+          "sampleCount": 740
+        },
+        {
+          "median": 0.8403960000000552,
+          "mean": 0.8912401409495546,
+          "p75": 0.91599999999994,
+          "p99": 1.3852090000000317,
+          "rme": 1.5940033892577765,
+          "sampleCount": 674
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-router-guard-execution.tsx",
+      "name": "evaluate a role-guarded route request",
+      "runs": [
+        {
+          "median": 0.0015419999999721767,
+          "mean": 0.0020779992830919345,
+          "p75": 0.0017080000000078144,
+          "p99": 0.003666999999950349,
+          "rme": 21.346432019440236,
+          "sampleCount": 288740
+        },
+        {
+          "median": 0.0015409999999747015,
+          "mean": 0.001844614497887776,
+          "p75": 0.0017080000000078144,
+          "p99": 0.0026250000000800355,
+          "rme": 8.44465236523228,
+          "sampleCount": 325744
+        },
+        {
+          "median": 0.0015410000000883883,
+          "mean": 0.0020538008263105683,
+          "p75": 0.0017089999998916028,
+          "p99": 0.0027080000000978544,
+          "rme": 23.826101181267912,
+          "sampleCount": 292142
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-router-navigation.tsx",
+      "name": "navigate between sibling routes with shared layout shape",
+      "runs": [
+        {
+          "median": 0.4592500000000541,
+          "mean": 0.47178401650943513,
+          "p75": 0.4816250000000082,
+          "p99": 0.6639590000000908,
+          "rme": 0.6340027085746957,
+          "sampleCount": 1272
+        },
+        {
+          "median": 0.4572499999999309,
+          "mean": 0.4677710865159806,
+          "p75": 0.4728330000000369,
+          "p99": 0.6929999999999836,
+          "rme": 0.6079558435625432,
+          "sampleCount": 1283
+        },
+        {
+          "median": 2.099333000000115,
+          "mean": 5.619110981308419,
+          "p75": 5.183749999999918,
+          "p99": 32.9798330000001,
+          "rme": 36.70818375930039,
+          "sampleCount": 107
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-router-registration.tsx",
+      "name": "clear and register a 250-route table",
+      "runs": [
+        {
+          "median": 0.28320899999994253,
+          "mean": 0.31750486984126836,
+          "p75": 0.2902910000000247,
+          "p99": 2.129000000000019,
+          "rme": 3.4784720429234244,
+          "sampleCount": 1890
+        },
+        {
+          "median": 0.2702079999999114,
+          "mean": 0.30453835109082045,
+          "p75": 0.2777080000000751,
+          "p99": 2.170541999999955,
+          "rme": 3.6079224809371166,
+          "sampleCount": 1971
+        },
+        {
+          "median": 0.9187919999999394,
+          "mean": 2.238884149253726,
+          "p75": 1.418999999999869,
+          "p99": 27.658916999999974,
+          "rme": 24.58319928487519,
+          "sampleCount": 268
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-runtime-component-depth.tsx",
+      "name": "mount and clean up a 1,000-component wrapper chain",
+      "runs": [
+        {
+          "median": 52.254978999999935,
+          "mean": 52.947541583333305,
+          "p75": 53.49629200000004,
+          "p99": 67.93729199999984,
+          "rme": 6.097099369727168,
+          "sampleCount": 12
+        },
+        {
+          "median": 50.30585450000001,
+          "mean": 51.002864666666675,
+          "p75": 51.87354200000004,
+          "p99": 59.33075000000008,
+          "rme": 3.662010415955285,
+          "sampleCount": 12
+        },
+        {
+          "median": 51.083167,
+          "mean": 50.73932991666667,
+          "p75": 51.5034169999999,
+          "p99": 53.644207999999935,
+          "rme": 1.998386956746222,
+          "sampleCount": 12
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-runtime-large-tree.tsx",
+      "name": "update a 1,000-node reactive span tree",
+      "runs": [
+        {
+          "median": 16.12758299999996,
+          "mean": 16.419646351351375,
+          "p75": 17.038125000000036,
+          "p99": 19.136708,
+          "rme": 1.828618079504536,
+          "sampleCount": 37
+        },
+        {
+          "median": 16.26997900000009,
+          "mean": 16.920564888888883,
+          "p75": 16.997749999999996,
+          "p99": 29.31812500000001,
+          "rme": 4.692957771288217,
+          "sampleCount": 36
+        },
+        {
+          "median": 15.827666499999964,
+          "mean": 16.148817868421055,
+          "p75": 16.740415999999982,
+          "p99": 18.270833999999923,
+          "rme": 1.6225885152833939,
+          "sampleCount": 38
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-ssr-concurrent-isolation.ts",
+      "name": "render 16 isolated SSR requests in parallel",
+      "runs": [
+        {
+          "median": 1.7235000000000582,
+          "mean": 1.7533087725947545,
+          "p75": 1.8023340000000303,
+          "p99": 2.3568750000000023,
+          "rme": 0.8988311583151233,
+          "sampleCount": 343
+        },
+        {
+          "median": 1.6475829999999405,
+          "mean": 1.7202027106017168,
+          "p75": 1.7019160000000397,
+          "p99": 3.913749999999993,
+          "rme": 1.912479405110564,
+          "sampleCount": 349
+        },
+        {
+          "median": 3.8761869999999874,
+          "mean": 3.542986241176473,
+          "p75": 4.268000000000029,
+          "p99": 9.319917000000032,
+          "rme": 6.260755520113184,
+          "sampleCount": 170
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-ssr-layout-route.ts",
+      "name": "render a nested layout route with params query and hash",
+      "runs": [
+        {
+          "median": 0.11095799999998235,
+          "mean": 0.11816656262307948,
+          "p75": 0.11316699999997581,
+          "p99": 0.3439170000000331,
+          "rme": 1.3970549035793027,
+          "sampleCount": 5078
+        },
+        {
+          "median": 0.10962499999993724,
+          "mean": 0.11575124749228427,
+          "p75": 0.11220800000000963,
+          "p99": 0.30062499999996817,
+          "rme": 1.322831773905917,
+          "sampleCount": 5184
+        },
+        {
+          "median": 0.24675000000002,
+          "mean": 0.24071840754111412,
+          "p75": 0.28829099999995833,
+          "p99": 0.5968339999999444,
+          "rme": 2.103962063237879,
+          "sampleCount": 2493
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-ssr-static-batch.ts",
+      "name": "generate 64 static routes with metadata",
+      "runs": [
+        {
+          "median": 29.335584000000154,
+          "mean": 28.936932523809517,
+          "p75": 29.832250000000045,
+          "p99": 30.392624999999953,
+          "rme": 2.3967075663761865,
+          "sampleCount": 21
+        },
+        {
+          "median": 28.64489549999996,
+          "mean": 28.434524545454533,
+          "p75": 28.99904099999992,
+          "p99": 29.38562500000012,
+          "rme": 1.1475561021123923,
+          "sampleCount": 22
+        },
+        {
+          "median": 97.1943960000001,
+          "mean": 103.70061133333347,
+          "p75": 146.8818339999998,
+          "p99": 165.65029200000026,
+          "rme": 49.00139889123406,
+          "sampleCount": 6
+        }
+      ],
+      "eligible": false
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-ssr-streaming.tsx",
+      "name": "stream a 250-item article route",
+      "runs": [
+        {
+          "median": 0.15829100000001972,
+          "mean": 0.16531887382920177,
+          "p75": 0.16379200000005767,
+          "p99": 0.2814580000000433,
+          "rme": 0.6806695977444752,
+          "sampleCount": 3630
+        },
+        {
+          "median": 0.15399999999999636,
+          "mean": 0.16684464998609966,
+          "p75": 0.15895799999998417,
+          "p99": 0.433208000000036,
+          "rme": 3.5477579644461077,
+          "sampleCount": 3597
+        },
+        {
+          "median": 0.202021000000002,
+          "mean": 0.28946376711668276,
+          "p75": 0.3779170000000249,
+          "p99": 0.632959000000028,
+          "rme": 2.478463595367575,
+          "sampleCount": 2074
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-stable-update.tsx",
+      "name": "update every 10th row without reordering keys",
+      "runs": [
+        {
+          "median": 0.6201250000003711,
+          "mean": 0.6883749418377879,
+          "p75": 0.6362079999998969,
+          "p99": 2.5175420000005033,
+          "rme": 2.5822925135473196,
+          "sampleCount": 8717
+        },
+        {
+          "median": 0.6269580000002861,
+          "mean": 0.7797889898635495,
+          "p75": 0.6659169999998085,
+          "p99": 2.8994159999992917,
+          "rme": 1.4407902945273392,
+          "sampleCount": 7695
+        },
+        {
+          "median": 0.6315829999996367,
+          "mean": 0.651944333876573,
+          "p75": 0.6496250000000146,
+          "p99": 0.9122090000000753,
+          "rme": 0.7107016133980419,
+          "sampleCount": 9204
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-stream-latest-value.tsx",
+      "name": "emit one stream item and commit its DOM update",
+      "runs": [
+        {
+          "median": 0.21500000000003183,
+          "mean": 0.22356396758569275,
+          "p75": 0.22204099999999016,
+          "p99": 0.5050840000000107,
+          "rme": 1.1554227686976664,
+          "sampleCount": 2684
+        },
+        {
+          "median": 0.21554100000003018,
+          "mean": 0.22501336707911535,
+          "p75": 0.2251659999999447,
+          "p99": 0.4249999999999545,
+          "rme": 1.4443186213788473,
+          "sampleCount": 2667
+        },
+        {
+          "median": 0.5558125000000018,
+          "mean": 0.5378154157706116,
+          "p75": 0.6515839999999571,
+          "p99": 1.342583999999988,
+          "rme": 4.120821671177369,
+          "sampleCount": 1116
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-hydration-listeners.tsx",
+      "name": "hydrate a listener-heavy intrinsic SSR tree in Chromium",
+      "runs": [
+        {
+          "median": 2.5,
+          "mean": 2.7078195487646233,
+          "p75": 2.600000023841858,
+          "p99": 9.799999952316284,
+          "rme": 3.0883471944602827,
+          "sampleCount": 665
+        },
+        {
+          "median": 2.700000047683716,
+          "mean": 2.9852404643844808,
+          "p75": 2.8000000715255737,
+          "p99": 10.600000023841858,
+          "rme": 3.1256112534626963,
+          "sampleCount": 603
+        },
+        {
+          "median": 2.399999976158142,
+          "mean": 2.5693295294480043,
+          "p75": 2.5,
+          "p99": 9.399999976158142,
+          "rme": 2.9874186131240323,
+          "sampleCount": 701
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-keyed-lis-component-boundary.tsx",
+      "name": "reorder 2,000 keyed rows through a component boundary",
+      "runs": [
+        {
+          "median": 1.399999976158142,
+          "mean": 1.4204258677147164,
+          "p75": 1.4000000953674316,
+          "p99": 1.8000000715255737,
+          "rme": 3.3240506483131775,
+          "sampleCount": 1268
+        },
+        {
+          "median": 1.3000000715255737,
+          "mean": 1.3273397200056622,
+          "p75": 1.399999976158142,
+          "p99": 1.7000000476837158,
+          "rme": 0.8345514306711312,
+          "sampleCount": 1357
+        },
+        {
+          "median": 1.2000000476837158,
+          "mean": 1.212188552044056,
+          "p75": 1.2000000476837158,
+          "p99": 1.5,
+          "rme": 0.6351921485213055,
+          "sampleCount": 1485
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-append-rows.tsx",
+      "name": "append 1,000 rows to a 1,000-row table",
+      "runs": [
+        {
+          "median": 7.100000023841858,
+          "mean": 7.712307691574097,
+          "p75": 7.600000023841858,
+          "p99": 17.600000023841858,
+          "rme": 2.7104234223536605,
+          "sampleCount": 325
+        },
+        {
+          "median": 6.399999976158142,
+          "mean": 6.664361695976967,
+          "p75": 6.699999928474426,
+          "p99": 16.700000047683716,
+          "rme": 2.107162259510879,
+          "sampleCount": 376
+        },
+        {
+          "median": 6.799999952316284,
+          "mean": 7.392625367395294,
+          "p75": 7.399999976158142,
+          "p99": 17.899999976158142,
+          "rme": 2.8141947489925725,
+          "sampleCount": 339
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-clear-rows.tsx",
+      "name": "clear a 1,000-row table",
+      "runs": [
+        {
+          "median": 2.600000023841858,
+          "mean": 2.7891861754516296,
+          "p75": 2.799999952316284,
+          "p99": 8.199999928474426,
+          "rme": 2.9249428365538317,
+          "sampleCount": 897
+        },
+        {
+          "median": 2.299999952316284,
+          "mean": 2.5353596767272872,
+          "p75": 2.4000000953674316,
+          "p99": 6,
+          "rme": 3.1997643196322265,
+          "sampleCount": 987
+        },
+        {
+          "median": 2.100000023841858,
+          "mean": 2.309879961876768,
+          "p75": 2.200000047683716,
+          "p99": 5.399999976158142,
+          "rme": 2.707014774597355,
+          "sampleCount": 1083
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-create-many.tsx",
+      "name": "create 5,000 table rows from empty",
+      "runs": [
+        {
+          "median": 32.35000002384186,
+          "mean": 34.604310346060785,
+          "p75": 34,
+          "p99": 50.5,
+          "rme": 3.065098269922897,
+          "sampleCount": 116
+        },
+        {
+          "median": 30.100000023841858,
+          "mean": 32.354032261717705,
+          "p75": 32.299999952316284,
+          "p99": 46.5,
+          "rme": 2.6222812033938947,
+          "sampleCount": 124
+        },
+        {
+          "median": 31.600000023841858,
+          "mean": 33.01065574317682,
+          "p75": 32.699999928474426,
+          "p99": 49.699999928474426,
+          "rme": 3.165103052405655,
+          "sampleCount": 122
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-create-rows.tsx",
+      "name": "create 1,000 table rows from empty",
+      "runs": [
+        {
+          "median": 5.399999976158142,
+          "mean": 6.090510949601222,
+          "p75": 5.600000023841858,
+          "p99": 19.100000023841858,
+          "rme": 3.6773727797307774,
+          "sampleCount": 411
+        },
+        {
+          "median": 5.300000071525574,
+          "mean": 5.874647886540409,
+          "p75": 5.599999904632568,
+          "p99": 16.5,
+          "rme": 2.9157858514398263,
+          "sampleCount": 426
+        },
+        {
+          "median": 5.200000047683716,
+          "mean": 5.757241380077669,
+          "p75": 5.600000023841858,
+          "p99": 17.199999928474426,
+          "rme": 3.050056299544246,
+          "sampleCount": 435
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-keyed-movement-cliffs.tsx",
+      "name": "reverse 10,000 keyed rows",
+      "runs": [
+        {
+          "median": 12.699999928474426,
+          "mean": 12.875531915654527,
+          "p75": 13.199999928474426,
+          "p99": 16.700000047683716,
+          "rme": 1.3396283593114655,
+          "sampleCount": 94
+        },
+        {
+          "median": 10.899999976158142,
+          "mean": 11.145370370811886,
+          "p75": 11.399999976158142,
+          "p99": 15.399999976158142,
+          "rme": 2.5036119532259895,
+          "sampleCount": 108
+        },
+        {
+          "median": 11,
+          "mean": 11.18425926014229,
+          "p75": 11.400000095367432,
+          "p99": 15.199999928474426,
+          "rme": 1.7572882110143622,
+          "sampleCount": 108
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-keyed-movement-cliffs.tsx",
+      "name": "update every 10th row in a 10,000-row table",
+      "runs": [
+        {
+          "median": 3.100000023841858,
+          "mean": 3.3620111729179682,
+          "p75": 4.100000023841858,
+          "p99": 6,
+          "rme": 3.0365844900115646,
+          "sampleCount": 358
+        },
+        {
+          "median": 2.100000023841858,
+          "mean": 2.2121546966594887,
+          "p75": 2.3000000715255737,
+          "p99": 3.6999999284744263,
+          "rme": 1.6110052130107557,
+          "sampleCount": 543
+        },
+        {
+          "median": 2.299999952316284,
+          "mean": 2.495010395555635,
+          "p75": 2.700000047683716,
+          "p99": 4.299999952316284,
+          "rme": 2.162568637660623,
+          "sampleCount": 481
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-keyed-movement-density.tsx",
+      "name": "move exactly 1,000 of 2,000 keyed rows",
+      "runs": [
+        {
+          "median": 0.8999999761581421,
+          "mean": 0.9234615382781396,
+          "p75": 1,
+          "p99": 1.1999999284744263,
+          "rme": 0.6881994013949859,
+          "sampleCount": 1300
+        },
+        {
+          "median": 0.8999999761581421,
+          "mean": 0.8905786349264027,
+          "p75": 0.9000000953674316,
+          "p99": 1.100000023841858,
+          "rme": 0.643229329556092,
+          "sampleCount": 1348
+        },
+        {
+          "median": 0.8999999761581421,
+          "mean": 0.8748542277180419,
+          "p75": 0.8999999761581421,
+          "p99": 1.100000023841858,
+          "rme": 0.6727739287686167,
+          "sampleCount": 1372
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-keyed-movement-density.tsx",
+      "name": "move exactly 1,500 of 2,000 keyed rows",
+      "runs": [
+        {
+          "median": 1.899999976158142,
+          "mean": 1.9124203819757815,
+          "p75": 1.9000000953674316,
+          "p99": 2.5,
+          "rme": 0.8895441977955564,
+          "sampleCount": 628
+        },
+        {
+          "median": 1.7000000476837158,
+          "mean": 1.7293948129205952,
+          "p75": 1.7999999523162842,
+          "p99": 2.600000023841858,
+          "rme": 0.8846101849940122,
+          "sampleCount": 694
+        },
+        {
+          "median": 1.6999999284744263,
+          "mean": 1.7078236129511133,
+          "p75": 1.7000000476837158,
+          "p99": 2.399999976158142,
+          "rme": 0.8877205642694416,
+          "sampleCount": 703
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-keyed-movement-density.tsx",
+      "name": "move exactly 1,999 of 2,000 keyed rows",
+      "runs": [
+        {
+          "median": 1.9000000953674316,
+          "mean": 1.9635620917759689,
+          "p75": 2,
+          "p99": 2.600000023841858,
+          "rme": 0.8306986220326807,
+          "sampleCount": 612
+        },
+        {
+          "median": 1.7000000476837158,
+          "mean": 1.73675832130802,
+          "p75": 1.7999999523162842,
+          "p99": 2.3000000715255737,
+          "rme": 0.772602836736981,
+          "sampleCount": 691
+        },
+        {
+          "median": 1.7000000476837158,
+          "mean": 1.7380607814761215,
+          "p75": 1.7999999523162842,
+          "p99": 2.5,
+          "rme": 0.747496576881545,
+          "sampleCount": 691
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-keyed-movement-density.tsx",
+      "name": "move exactly 200 of 2,000 keyed rows",
+      "runs": [
+        {
+          "median": 0.5999999046325684,
+          "mean": 0.572566793677006,
+          "p75": 0.6000000238418579,
+          "p99": 0.8000000715255737,
+          "rme": 1.086459274266612,
+          "sampleCount": 2096
+        },
+        {
+          "median": 0.5,
+          "mean": 0.5024696524146213,
+          "p75": 0.5,
+          "p99": 0.6999999284744263,
+          "rme": 0.7868815295868626,
+          "sampleCount": 2389
+        },
+        {
+          "median": 0.5,
+          "mean": 0.5020493517755614,
+          "p75": 0.5,
+          "p99": 0.6999999284744263,
+          "rme": 0.7628653188962576,
+          "sampleCount": 2391
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-keyed-movement-density.tsx",
+      "name": "move exactly 500 of 2,000 keyed rows",
+      "runs": [
+        {
+          "median": 0.6999999284744263,
+          "mean": 0.6834282460272448,
+          "p75": 0.7000000476837158,
+          "p99": 0.8999999761581421,
+          "rme": 1.2343372667013712,
+          "sampleCount": 1756
+        },
+        {
+          "median": 0.6000000238418579,
+          "mean": 0.6462574044285632,
+          "p75": 0.7000000476837158,
+          "p99": 0.8000000715255737,
+          "rme": 0.7932227614317482,
+          "sampleCount": 1857
+        },
+        {
+          "median": 0.6000000238418579,
+          "mean": 0.6422685928176342,
+          "p75": 0.7000000476837158,
+          "p99": 0.8000000715255737,
+          "rme": 0.8266896302760713,
+          "sampleCount": 1869
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-partial-update.tsx",
+      "name": "update every 10th row in a 1,000-row table",
+      "runs": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.17258454103400742,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.8888312305510846,
+          "sampleCount": 5796
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.18788504871455106,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9213975919683006,
+          "sampleCount": 5324
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.1690383640035939,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9342968963559677,
+          "sampleCount": 5917
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-production-select.tsx",
+      "name": "select 100 alternating rows through the DOM click path",
+      "runs": [
+        {
+          "median": 0.3999999761581421,
+          "mean": 0.3757985720102252,
+          "p75": 0.3999999761581421,
+          "p99": 0.8000000715255737,
+          "rme": 1.2195544183275828,
+          "sampleCount": 2661
+        },
+        {
+          "median": 0.3999999761581421,
+          "mean": 0.3915068492497483,
+          "p75": 0.3999999761581421,
+          "p99": 0.8999999761581421,
+          "rme": 1.1111488662143554,
+          "sampleCount": 2555
+        },
+        {
+          "median": 0.30000007152557373,
+          "mean": 0.35385704175513094,
+          "p75": 0.3999999761581421,
+          "p99": 0.6000000238418579,
+          "rme": 1.0295640054565864,
+          "sampleCount": 2826
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-remove-row.tsx",
+      "name": "toggle one middle row 100 times in a 100-row table",
+      "runs": [
+        {
+          "median": 2.100000023841858,
+          "mean": 2.1890590809106305,
+          "p75": 2.200000047683716,
+          "p99": 2.899999976158142,
+          "rme": 1.6747022511538947,
+          "sampleCount": 457
+        },
+        {
+          "median": 2.099999964237213,
+          "mean": 2.146995708666134,
+          "p75": 2.200000047683716,
+          "p99": 2.899999976158142,
+          "rme": 2.0501110195719954,
+          "sampleCount": 466
+        },
+        {
+          "median": 2.100000023841858,
+          "mean": 2.1949561400371684,
+          "p75": 2.200000047683716,
+          "p99": 3,
+          "rme": 2.022892749590303,
+          "sampleCount": 456
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-replace-all.tsx",
+      "name": "replace 1,000 rows with disjoint keys",
+      "runs": [
+        {
+          "median": 9.600000023841858,
+          "mean": 11.448314611831409,
+          "p75": 13.200000047683716,
+          "p99": 25.09999990463257,
+          "rme": 7.174074451759203,
+          "sampleCount": 89
+        },
+        {
+          "median": 8.200000047683716,
+          "mean": 9.556190475963412,
+          "p75": 11.200000047683716,
+          "p99": 23.700000047683716,
+          "rme": 6.651922427999455,
+          "sampleCount": 105
+        },
+        {
+          "median": 8.100000023841858,
+          "mean": 9.159090900421143,
+          "p75": 8.699999928474426,
+          "p99": 23.100000023841858,
+          "rme": 6.057632317526707,
+          "sampleCount": 110
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-select-row.tsx",
+      "name": "select 100 alternating rows in a 1,000-row table",
+      "runs": [
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.14046348304895873,
+          "p75": 0.20000004768371582,
+          "p99": 0.2999999523162842,
+          "rme": 0.9922894646519141,
+          "sampleCount": 7120
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.15153811183512653,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9848042006842167,
+          "sampleCount": 6599
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.1392951664577239,
+          "p75": 0.19999992847442627,
+          "p99": 0.2999999523162842,
+          "rme": 1.1600437169375106,
+          "sampleCount": 7179
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-swap-rows.tsx",
+      "name": "swap two distant rows in a 1,000-row table",
+      "runs": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.15322506511779407,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9856370178884397,
+          "sampleCount": 6527
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.1628622597648126,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9691242354734542,
+          "sampleCount": 6142
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.14725371815638344,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9778405989360887,
+          "sampleCount": 6791
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-truncate-rows.tsx",
+      "name": "truncate a 2,000-row table to 1,000 rows",
+      "runs": [
+        {
+          "median": 2.5,
+          "mean": 2.8474431816827166,
+          "p75": 2.600000023841858,
+          "p99": 13.699999928474426,
+          "rme": 5.917257502180511,
+          "sampleCount": 352
+        },
+        {
+          "median": 2.399999976158142,
+          "mean": 3.127812500670552,
+          "p75": 2.600000023841858,
+          "p99": 15.799999952316284,
+          "rme": 8.378839988351084,
+          "sampleCount": 320
+        },
+        {
+          "median": 2.899999976158142,
+          "mean": 3.3356666644414266,
+          "p75": 3.100000023841858,
+          "p99": 13.600000023841858,
+          "rme": 6.781111524251793,
+          "sampleCount": 300
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-app-behaviors.tsx",
+      "name": "render and update 1,000 rows in the integration app",
+      "runs": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.17983455224054892,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.7416071008810109,
+          "sampleCount": 8341
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.16864530636796526,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.7273396366060157,
+          "sampleCount": 8895
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.17522485687025044,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.7262843396749876,
+          "sampleCount": 8561
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-app-behaviors.tsx",
+      "name": "toggle order-table sorting in the integration app",
+      "runs": [
+        {
+          "median": 0.09999990463256836,
+          "mean": 0.061277012949875406,
+          "p75": 0.10000002384185791,
+          "p99": 0.20000004768371582,
+          "rme": 1.2537753779587442,
+          "sampleCount": 24479
+        },
+        {
+          "median": 0.09999990463256836,
+          "mean": 0.0582501650513929,
+          "p75": 0.10000002384185791,
+          "p99": 0.20000004768371582,
+          "rme": 1.2674559326077723,
+          "sampleCount": 25751
+        },
+        {
+          "median": 0.09999990463256836,
+          "mean": 0.06093756346368052,
+          "p75": 0.10000002384185791,
+          "p99": 0.20000004768371582,
+          "rme": 1.2943815413602795,
+          "sampleCount": 24617
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-hydrated-table-retention.tsx",
+      "name": "hydrate, mutate, and tear down the benchmark table",
+      "runs": [
+        {
+          "median": 25.600000023841858,
+          "mean": 26.289285715137208,
+          "p75": 26.399999976158142,
+          "p99": 46.5,
+          "rme": 3.116359284415821,
+          "sampleCount": 84
+        },
+        {
+          "median": 25.100000023841858,
+          "mean": 25.76162790559059,
+          "p75": 26.399999976158142,
+          "p99": 34.60000002384186,
+          "rme": 2.368348949607579,
+          "sampleCount": 86
+        },
+        {
+          "median": 26.69999998807907,
+          "mean": 27.015853659408847,
+          "p75": 27.5,
+          "p99": 34.199999928474426,
+          "rme": 2.122939527161074,
+          "sampleCount": 82
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "remove one row in the JSX app",
+      "runs": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.19450207472744077,
+          "p75": 0.20000004768371582,
+          "p99": 0.40000009536743164,
+          "rme": 0.9502968527783354,
+          "sampleCount": 15424
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.159851875515037,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.5837646518914732,
+          "sampleCount": 18768
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.17258398526970056,
+          "p75": 0.20000004768371582,
+          "p99": 0.3999999761581421,
+          "rme": 0.8727320475799346,
+          "sampleCount": 17384
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "replace all rows in the JSX app",
+      "runs": [
+        {
+          "median": 9.200000047683716,
+          "mean": 10.544912279697886,
+          "p75": 9.700000047683716,
+          "p99": 26.299999952316284,
+          "rme": 3.5465350856942233,
+          "sampleCount": 285
+        },
+        {
+          "median": 8,
+          "mean": 9.149999999781935,
+          "p75": 8.799999952316284,
+          "p99": 24.200000047683716,
+          "rme": 3.5392980013928197,
+          "sampleCount": 328
+        },
+        {
+          "median": 8.199999928474426,
+          "mean": 9.387812500447035,
+          "p75": 8.900000095367432,
+          "p99": 23.5,
+          "rme": 3.7360300243978037,
+          "sampleCount": 320
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "select 100 alternating rows through the JSX app click path",
+      "runs": [
+        {
+          "median": 0.3999999761581421,
+          "mean": 0.3964166798681583,
+          "p75": 0.40000009536743164,
+          "p99": 0.5,
+          "rme": 0.6142224940653512,
+          "sampleCount": 6307
+        },
+        {
+          "median": 0.3999999761581421,
+          "mean": 0.36663733685640737,
+          "p75": 0.3999999761581421,
+          "p99": 0.6000000238418579,
+          "rme": 0.6057838333044306,
+          "sampleCount": 6819
+        },
+        {
+          "median": 0.3999999761581421,
+          "mean": 0.357273506688949,
+          "p75": 0.3999999761581421,
+          "p99": 0.6000000238418579,
+          "rme": 0.5642833875416725,
+          "sampleCount": 6998
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "swap distant rows in the JSX app",
+      "runs": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.1660064180379844,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 1.3669513230145118,
+          "sampleCount": 9037
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.14334034014222,
+          "p75": 0.20000004768371582,
+          "p99": 0.2999999523162842,
+          "rme": 0.8085962263779398,
+          "sampleCount": 10466
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.152103822334995,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 1.2307605864513875,
+          "sampleCount": 9863
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "swap distant rows with selection in the JSX app",
+      "runs": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.17570575144889414,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 1.6227907827552444,
+          "sampleCount": 8537
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.14318029969501123,
+          "p75": 0.20000004768371582,
+          "p99": 0.2999999523162842,
+          "rme": 0.8050996112718839,
+          "sampleCount": 10477
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.15166835188262986,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 1.4170519175537517,
+          "sampleCount": 9890
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "toggle 1,000 JSX rows between empty and populated",
+      "runs": [
+        {
+          "median": 5.599999904632568,
+          "mean": 4.799808061511869,
+          "p75": 5.899999976158142,
+          "p99": 21.700000047683716,
+          "rme": 6.125782492233702,
+          "sampleCount": 521
+        },
+        {
+          "median": 5.100000023841858,
+          "mean": 4.412499999496299,
+          "p75": 5.600000023841858,
+          "p99": 17.299999952316284,
+          "rme": 5.399749380322097,
+          "sampleCount": 568
+        },
+        {
+          "median": 5.100000023841858,
+          "mean": 4.475134167773565,
+          "p75": 5.5,
+          "p99": 21.200000047683716,
+          "rme": 5.759984272176408,
+          "sampleCount": 559
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "toggle 1,000 selected JSX rows between 1,000 and 2,000 rows",
+      "runs": [
+        {
+          "median": 31.100000023841858,
+          "mean": 22.139823008427577,
+          "p75": 35.09999990463257,
+          "p99": 46.5,
+          "rme": 11.27386918765462,
+          "sampleCount": 113
+        },
+        {
+          "median": 25.600000023841858,
+          "mean": 17.354482760100527,
+          "p75": 27.399999976158142,
+          "p99": 37.199999928474426,
+          "rme": 9.975994835393982,
+          "sampleCount": 145
+        },
+        {
+          "median": 26.300000071525574,
+          "mean": 19.115267175754518,
+          "p75": 30.399999976158142,
+          "p99": 42.300000071525574,
+          "rme": 10.52090999932212,
+          "sampleCount": 131
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "toggle all JSX rows between populated and empty",
+      "runs": [
+        {
+          "median": 5.800000071525574,
+          "mean": 4.937049180562379,
+          "p75": 6.299999952316284,
+          "p99": 17.100000023841858,
+          "rme": 6.579353795585711,
+          "sampleCount": 305
+        },
+        {
+          "median": 4.899999976158142,
+          "mean": 4.187186629327226,
+          "p75": 5.300000071525574,
+          "p99": 12.100000023841858,
+          "rme": 5.985657855205961,
+          "sampleCount": 359
+        },
+        {
+          "median": 5.200000047683716,
+          "mean": 4.417941176540712,
+          "p75": 5.5,
+          "p99": 16.299999952316284,
+          "rme": 6.134386772717802,
+          "sampleCount": 340
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "toggle the JSX app between 1,000 and 2,000 rows",
+      "runs": [
+        {
+          "median": 30.40000009536743,
+          "mean": 22.14513274420679,
+          "p75": 34.39999997615814,
+          "p99": 47.39999997615814,
+          "rme": 11.166241104244982,
+          "sampleCount": 113
+        },
+        {
+          "median": 26.300000071525574,
+          "mean": 17.756737587299753,
+          "p75": 28,
+          "p99": 30.700000047683716,
+          "rme": 10.02867719730143,
+          "sampleCount": 141
+        },
+        {
+          "median": 25.600000023841858,
+          "mean": 18.524444444974264,
+          "p75": 29.200000047683716,
+          "p99": 37.699999928474426,
+          "rme": 10.00932869974019,
+          "sampleCount": 135
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-jsx-benchmark-app.tsx",
+      "name": "update every 10th row in the JSX app",
+      "runs": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.1916736947112788,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 1.279136721842313,
+          "sampleCount": 13043
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.16107853870939928,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.6053405010955675,
+          "sampleCount": 15521
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.17315417647873665,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.8803984689793145,
+          "sampleCount": 14438
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-order-table-retention.tsx",
+      "name": "mount, dirty, tear down, and remount the orders app",
+      "runs": [
+        {
+          "median": 0.7000000476837158,
+          "mean": 0.7603317209581877,
+          "p75": 1,
+          "p99": 1.399999976158142,
+          "rme": 1.943524894567126,
+          "sampleCount": 2894
+        },
+        {
+          "median": 0.7000000476837158,
+          "mean": 0.7309634552841566,
+          "p75": 1,
+          "p99": 1.3000000715255737,
+          "rme": 1.8989169970447397,
+          "sampleCount": 3010
+        },
+        {
+          "median": 0.7000000476837158,
+          "mean": 0.7572608396913458,
+          "p75": 1,
+          "p99": 1.4000000953674316,
+          "rme": 1.9585710818496676,
+          "sampleCount": 2906
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-routed-shell-retention.tsx",
+      "name": "mount, churn, and unmount the routed shell",
+      "runs": [
+        {
+          "median": 1.7000000476837158,
+          "mean": 1.8456375838926173,
+          "p75": 1.8000000715255737,
+          "p99": 4.100000023841858,
+          "rme": 1.5437405858290347,
+          "sampleCount": 1192
+        },
+        {
+          "median": 1.7999999523162842,
+          "mean": 1.8942340791943562,
+          "p75": 1.899999976158142,
+          "p99": 3.9000000953674316,
+          "rme": 2.3875228073241734,
+          "sampleCount": 1162
+        },
+        {
+          "median": 1.899999976158142,
+          "mean": 1.985649819408513,
+          "p75": 2,
+          "p99": 4.599999904632568,
+          "rme": 2.213371843314323,
+          "sampleCount": 1108
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-router-app.tsx",
+      "name": "churn across dashboard, reports, and settings",
+      "runs": [
+        {
+          "median": 0.20000004768371582,
+          "mean": 0.2386034674763547,
+          "p75": 0.2999999523162842,
+          "p99": 0.3999999761581421,
+          "rme": 1.3832399779473727,
+          "sampleCount": 6287
+        },
+        {
+          "median": 0.20000004768371582,
+          "mean": 0.23295542789849644,
+          "p75": 0.2999999523162842,
+          "p99": 0.40000009536743164,
+          "rme": 1.3003942427479052,
+          "sampleCount": 6439
+        },
+        {
+          "median": 0.20000004768371582,
+          "mean": 0.24415690106494972,
+          "p75": 0.2999999523162842,
+          "p99": 0.40000009536743164,
+          "rme": 1.6699539600990398,
+          "sampleCount": 6144
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-routing-layouts.tsx",
+      "name": "navigate routed shell layouts in the integration app",
+      "runs": [
+        {
+          "median": 1.100000023841858,
+          "mean": 1.1025716386062094,
+          "p75": 1.1999999284744263,
+          "p99": 1.7999999523162842,
+          "rme": 1.1194423251157883,
+          "sampleCount": 1361
+        },
+        {
+          "median": 1,
+          "mean": 1.0690883190883191,
+          "p75": 1.100000023841858,
+          "p99": 2.100000023841858,
+          "rme": 1.2203476384951661,
+          "sampleCount": 1404
+        },
+        {
+          "median": 1.100000023841858,
+          "mean": 1.0955474451510576,
+          "p75": 1.100000023841858,
+          "p99": 1.6999999284744263,
+          "rme": 0.8191912602052199,
+          "sampleCount": 1370
+        }
+      ],
+      "eligible": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-ssr-attr-heavy.ts",
+      "name": "render 400 attr-heavy nodes with escaped attributes",
+      "runs": [
+        {
+          "median": 0.6999999284744263,
+          "mean": 0.6808896959233814,
+          "p75": 0.7000000476837158,
+          "p99": 0.8999999761581421,
+          "rme": 0.43278954323092134,
+          "sampleCount": 2203
+        },
+        {
+          "median": 0.6999999284744263,
+          "mean": 0.6720430107526881,
+          "p75": 0.7000000476837158,
+          "p99": 0.8999999761581421,
+          "rme": 0.43925280003291217,
+          "sampleCount": 2232
+        },
+        {
+          "median": 0.7000000476837158,
+          "mean": 0.7098864711673054,
+          "p75": 0.7000000476837158,
+          "p99": 0.9000000953674316,
+          "rme": 0.4472920984502528,
+          "sampleCount": 2114
+        }
+      ],
+      "eligible": true
+    }
+  ]
+}
