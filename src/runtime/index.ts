@@ -30,7 +30,7 @@ export {
   configureRenderDiagnostics,
   type RenderDiagnosticsOptions,
 } from './render-diagnostics';
-export * from './runtime';
+export type { RendererCapabilities } from './renderer-capabilities';
 export {
   scheduleEventHandler,
   type Scheduler,

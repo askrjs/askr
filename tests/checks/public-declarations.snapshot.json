@@ -16,7 +16,7 @@
       ],
       "createQuery": [
         "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
-        "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, 'key' | 'fetch'>): Query<TResult>;"
+        "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, \"key\" | \"fetch\">): Query<TResult>;"
       ],
       "createQueryCollection": [
         "declare function createQueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string>(options: QueryCollectionOptions<TInput, TResult, TKey>): QueryCollection<TInput, TResult, TKey>;"
@@ -105,7 +105,7 @@
         "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
       ],
       "QueryPrefetchContext": [
-        "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: 'ssr' | 'spa';\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
+        "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: \"ssr\" | \"spa\";\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
       ],
       "readScope": ["declare function readScope<T>(context: Scope<T>): T;"],
       "Ref": [
@@ -246,13 +246,13 @@
     },
     "./foundations/utilities": {
       "ariaDisabled": [
-        "declare function ariaDisabled(disabled?: boolean): {\n    'aria-disabled'?: 'true';\n};"
+        "declare function ariaDisabled(disabled?: boolean): {\n    \"aria-disabled\"?: \"true\";\n};"
       ],
       "ariaExpanded": [
-        "declare function ariaExpanded(expanded?: boolean): {\n    'aria-expanded'?: 'true' | 'false';\n};"
+        "declare function ariaExpanded(expanded?: boolean): {\n    \"aria-expanded\"?: \"true\" | \"false\";\n};"
       ],
       "ariaSelected": [
-        "declare function ariaSelected(selected?: boolean): {\n    'aria-selected'?: 'true' | 'false';\n};"
+        "declare function ariaSelected(selected?: boolean): {\n    \"aria-selected\"?: \"true\" | \"false\";\n};"
       ],
       "composeHandlers": [
         "declare function composeHandlers<A extends readonly unknown[]>(first?: (...args: A) => void, second?: (...args: A) => void, options?: ComposeHandlersOptions): (...args: A) => void;"
@@ -296,13 +296,13 @@
     },
     "./foundations/interactions": {
       "applyInteractionPolicy": [
-        "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    'aria-disabled'?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
+        "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    \"aria-disabled\"?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
       ],
       "dismissable": [
         "declare function dismissable({ node, additionalInsideNodes, disabled, onDismiss }: DismissableOptions): {\n    onKeyDown: (e: KeyboardLikeEvent) => void;\n    onPointerDownCapture: (e: PointerLikeEvent) => void;\n};"
       ],
       "DismissableOptions": [
-        "interface DismissableOptions {\n    node?: Node | null;\n    additionalInsideNodes?: readonly (Node | null | undefined)[];\n    disabled?: boolean;\n    onDismiss?: (trigger: 'escape' | 'outside') => void;\n}"
+        "interface DismissableOptions {\n    node?: Node | null;\n    additionalInsideNodes?: readonly (Node | null | undefined)[];\n    disabled?: boolean;\n    onDismiss?: (trigger: \"escape\" | \"outside\") => void;\n}"
       ],
       "focusable": [
         "declare function focusable({ disabled, tabIndex }: FocusableOptions): FocusableResult;"
@@ -311,7 +311,7 @@
         "interface FocusableOptions {\n    disabled?: boolean;\n    tabIndex?: number | undefined;\n}"
       ],
       "FocusableResult": [
-        "interface FocusableResult {\n    tabIndex?: number;\n    'aria-disabled'?: 'true';\n}"
+        "interface FocusableResult {\n    tabIndex?: number;\n    \"aria-disabled\"?: \"true\";\n}"
       ],
       "hoverable": [
         "declare function hoverable({ disabled, onEnter, onLeave }: HoverableOptions): HoverableResult;"
@@ -328,7 +328,9 @@
       "mergeInteractionProps": [
         "declare function mergeInteractionProps(childProps: Record<string, unknown>, policyProps: Record<string, unknown>, userProps?: Record<string, unknown>): Record<string, unknown>;"
       ],
-      "Orientation": ["type Orientation = 'horizontal' | 'vertical' | 'both';"],
+      "Orientation": [
+        "type Orientation = \"horizontal\" | \"vertical\" | \"both\";"
+      ],
       "pressable": [
         "declare function pressable({ disabled, onPress, isNativeButton }: PressableOptions): PressableResult;"
       ],
@@ -336,7 +338,7 @@
         "interface PressableOptions {\n    disabled?: boolean;\n    onPress?: (e: PressEvent) => void;\n    isNativeButton?: boolean;\n}"
       ],
       "PressableResult": [
-        "interface PressableResult {\n    onClick: (e: PressEvent) => void;\n    disabled?: true;\n    role?: 'button';\n    tabIndex?: number;\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n    'aria-disabled'?: 'true';\n}"
+        "interface PressableResult {\n    onClick: (e: PressEvent) => void;\n    disabled?: true;\n    role?: \"button\";\n    tabIndex?: number;\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n    \"aria-disabled\"?: \"true\";\n}"
       ],
       "rovingFocus": [
         "declare function rovingFocus(options: RovingFocusOptions): RovingFocusResult;"
@@ -345,7 +347,7 @@
         "interface RovingFocusOptions {\n    currentIndex: number;\n    itemCount: number;\n    orientation?: Orientation;\n    loop?: boolean;\n    onNavigate?: (index: number) => void;\n    isDisabled?: (index: number) => boolean;\n}"
       ],
       "RovingFocusResult": [
-        "interface RovingFocusResult {\n    container: {\n        onKeyDown: (e: KeyboardLikeEvent) => void;\n    };\n    item: (index: number) => {\n        tabIndex: number;\n        'data-roving-index': number;\n    };\n}"
+        "interface RovingFocusResult {\n    container: {\n        onKeyDown: (e: KeyboardLikeEvent) => void;\n    };\n    item: (index: number) => {\n        tabIndex: number;\n        \"data-roving-index\": number;\n    };\n}"
       ]
     },
     "./foundations/state": {
@@ -424,7 +426,7 @@
     },
     "./foundations/icon": {
       "getIconContractProps": [
-        "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, 'color' | 'iconName' | 'size' | 'strokeWidth' | 'style' | 'title'>): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        'stroke-width': string;\n        role: string;\n        'aria-hidden': string | undefined;\n        style: string | undefined;\n        'data-slot': string;\n        'data-icon': string | undefined;\n        'data-size': IconSizeToken | undefined;\n        'data-decorative': string | undefined;\n        'data-color': string | undefined;\n    };\n};"
+        "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, \"color\" | \"iconName\" | \"size\" | \"strokeWidth\" | \"style\" | \"title\">): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        \"stroke-width\": string;\n        role: string;\n        \"aria-hidden\": string | undefined;\n        style: string | undefined;\n        \"data-slot\": string;\n        \"data-icon\": string | undefined;\n        \"data-size\": IconSizeToken | undefined;\n        \"data-decorative\": string | undefined;\n        \"data-color\": string | undefined;\n    };\n};"
       ],
       "IconBase": [
         "declare function IconBase({ size, strokeWidth, color, title, class: className, style, iconName, children, ref, ...rest }: IconProps): JSXElement;"
@@ -433,9 +435,11 @@
         "type IconOwnProps = {\n    size?: number | string;\n    strokeWidth?: number;\n    color?: string;\n    title?: string;\n    class?: string;\n    style?: string | IconStyleObject;\n    iconName?: string;\n};"
       ],
       "IconProps": [
-        "type IconProps = Omit<Props, 'children' | 'class' | 'color' | 'height' | 'ref' | 'role' | 'stroke' | 'stroke-width' | 'style' | 'title' | 'width'> & IconOwnProps & {\n    children?: unknown;\n    ref?: Ref$2<SVGSVGElement>;\n};"
+        "type IconProps = Omit<Props, \"children\" | \"class\" | \"color\" | \"height\" | \"ref\" | \"role\" | \"stroke\" | \"stroke-width\" | \"style\" | \"title\" | \"width\"> & IconOwnProps & {\n    children?: unknown;\n    ref?: Ref$2<SVGSVGElement>;\n};"
       ],
-      "IconSizeToken": ["type IconSizeToken = 'sm' | 'md' | 'lg' | 'xl';"],
+      "IconSizeToken": [
+        "type IconSizeToken = \"sm\" | \"md\" | \"lg\" | \"xl\";"
+      ],
       "IconStyleObject": ["type IconStyleObject = Record<string, unknown>;"],
       "isIconSizeToken": [
         "declare function isIconSizeToken(value: unknown): value is IconSizeToken;"
@@ -495,7 +499,7 @@
         "interface StreamResult<T> {\n    value: T | null;\n    status: StreamStatus;\n    pending: boolean;\n    stale: boolean;\n    error: Error | null;\n    restart(): void;\n    close(): void;\n}"
       ],
       "StreamStatus": [
-        "type StreamStatus = 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'error';"
+        "type StreamStatus = \"connecting\" | \"connected\" | \"reconnecting\" | \"closed\" | \"error\";"
       ],
       "task": [
         "declare function task(fn: () => void | (() => void) | PromiseLike<void | (() => void)>): void;"
@@ -531,13 +535,13 @@
       ],
       "createQuery": [
         "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
-        "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, 'key' | 'fetch'>): Query<TResult>;"
+        "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, \"key\" | \"fetch\">): Query<TResult>;"
       ],
       "createQueryCollection": [
         "declare function createQueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string>(options: QueryCollectionOptions<TInput, TResult, TKey>): QueryCollection<TInput, TResult, TKey>;"
       ],
       "createQueryPrefetchContext": [
-        "declare function createQueryPrefetchContext(options?: {\n    runtime?: DataRuntime;\n    registry?: ServerQueryRegistry;\n    request?: Request;\n    signal?: AbortSignal;\n    mode?: 'ssr' | 'spa';\n    telemetry?: CoreTelemetry;\n}): QueryPrefetchContext;"
+        "declare function createQueryPrefetchContext(options?: {\n    runtime?: DataRuntime;\n    registry?: ServerQueryRegistry;\n    request?: Request;\n    signal?: AbortSignal;\n    mode?: \"ssr\" | \"spa\";\n    telemetry?: CoreTelemetry;\n}): QueryPrefetchContext;"
       ],
       "DataRuntime": [
         "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n    readonly queryTestOverrides: Map<string, unknown>;\n    readonly mutationTestOverrides: Map<string, unknown>;\n}"
@@ -576,7 +580,7 @@
         "type Mutation<TInput, TResult> = MutationControls<TInput, TResult> & (MutationIdle | MutationPending | MutationSuccess<TResult> | MutationError);"
       ],
       "MutationOptions": [
-        "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: 'invalidate';\n    runtime?: DataRuntime;\n};"
+        "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: \"invalidate\";\n    runtime?: DataRuntime;\n};"
       ],
       "prefetchQuery": [
         "declare function prefetchQuery<TInput, TResult extends {}>(context: QueryPrefetchContext, query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;"
@@ -597,7 +601,7 @@
         "interface QueryCollectionOptions<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly inputs: () => readonly TInput[];\n    readonly key: (input: TInput) => TKey;\n    readonly concurrency?: number;\n    readonly runtime?: DataRuntime;\n}"
       ],
       "QueryConsistency": [
-        "type QueryConsistency = 'fresh' | 'stale' | 'refreshing' | 'pending-write';"
+        "type QueryConsistency = \"fresh\" | \"stale\" | \"refreshing\" | \"pending-write\";"
       ],
       "QueryDefinition": [
         "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
@@ -606,7 +610,7 @@
         "type QueryKeyPart = string | number | boolean | null | undefined | readonly QueryKeyPart[] | {\n    readonly [key: string]: QueryKeyPart;\n};"
       ],
       "QueryPrefetchContext": [
-        "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: 'ssr' | 'spa';\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
+        "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: \"ssr\" | \"spa\";\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
       ],
       "queryScope": [
         "declare function queryScope(namespace: string): QueryScope;"
@@ -615,7 +619,7 @@
         "interface QueryScope {\n    key(...parts: QueryKeyPart[]): string;\n    prefix(...parts: QueryKeyPart[]): string;\n    invalidate(parts: readonly QueryKeyPart[], options?: InvalidateOptions): void;\n}"
       ],
       "QueryStaleReason": [
-        "type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';"
+        "type QueryStaleReason = \"aborted\" | \"error\" | \"inconsistent\";"
       ],
       "serveQuery": [
         "declare function serveQuery<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, handler: ServerQueryHandler<TInput, TResult>): ServerQueryEntry<TInput, TResult>;"
@@ -701,7 +705,7 @@
         "declare function renderRoute(options: RouteRenderOptions): Promise<RenderResult>;"
       ],
       "RoutePatternWarning": [
-        "interface RoutePatternWarning {\n    kind: 'route-collision';\n    path: string;\n    conflictingPath: string;\n    segment: string;\n    namespace: string | undefined;\n    message: string;\n}"
+        "interface RoutePatternWarning {\n    kind: \"route-collision\";\n    path: string;\n    conflictingPath: string;\n    segment: string;\n    namespace: string | undefined;\n    message: string;\n}"
       ],
       "RouteRenderOptions": [
         "interface RouteRenderOptions extends RenderOptions {\n    registry: RouteRegistry;\n    url?: string;\n    auth?: RouteAuthOptions;\n    dataRuntime?: DataRuntime;\n}"
@@ -764,10 +768,10 @@
         "type AccessDecision = AccessAllowDecision | AccessRedirectDecision | AccessDenyDecision;"
       ],
       "AccessDenyDecision": [
-        "interface AccessDenyDecision {\n    kind: 'deny';\n    status: AccessDenyStatus;\n}"
+        "interface AccessDenyDecision {\n    kind: \"deny\";\n    status: AccessDenyStatus;\n}"
       ],
       "AccessRedirectDecision": [
-        "interface AccessRedirectDecision {\n    kind: 'redirect';\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
+        "interface AccessRedirectDecision {\n    kind: \"redirect\";\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
       ],
       "allow": ["declare function allow(): AccessAllowDecision;"],
       "AuthContext": [],
@@ -786,7 +790,7 @@
         "interface Deferred<T> {\n    readonly state: DeferredState;\n    readonly value: T | undefined;\n    readonly error: unknown;\n    readonly promise: Promise<T>;\n    readonly [DEFERRED_VALUE]: true;\n}"
       ],
       "DeferredState": [
-        "type DeferredState = 'pending' | 'fulfilled' | 'rejected';"
+        "type DeferredState = \"pending\" | \"fulfilled\" | \"rejected\";"
       ],
       "deny": [
         "declare function deny(status: AccessDenyStatus): AccessDenyDecision;"
@@ -802,7 +806,7 @@
         "interface GroupHelperOptions extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n}"
       ],
       "HistoryScrollBehavior": [
-        "type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';"
+        "type HistoryScrollBehavior = \"restore\" | \"top\" | \"preserve\";"
       ],
       "index": [
         "declare function index(Component: RouteComponent, options?: RouteOptions): void;"
@@ -826,7 +830,7 @@
         "type LazyRouteDataLoader<TModule, TData = TModule> = ((context: RouteContext & {\n    request?: Request;\n}) => Promise<TData>) & {\n    preload(): Promise<void>;\n};"
       ],
       "Link": [
-        "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, 'aria-current': ariaCurrent, 'aria-label': ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
+        "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
       ],
       "LinkProps": [
         "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
@@ -835,10 +839,10 @@
         "declare function navigate(path: string, options?: NavigateOptions): void;"
       ],
       "NavigateOptions": [
-        "type NavigateOptions = {\n    history?: 'push' | 'replace';\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
+        "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
       ],
       "NavigationScrollBehavior": [
-        "type NavigationScrollBehavior = 'top' | 'preserve';"
+        "type NavigationScrollBehavior = \"top\" | \"preserve\";"
       ],
       "notFound": ["declare function notFound(): AccessDenyDecision;"],
       "onRouteChange": [
@@ -858,7 +862,7 @@
         "interface PageScopeRecord {\n    component: RouteComponent;\n}"
       ],
       "ParsedSegment": [
-        "interface ParsedSegment {\n    kind: 'static' | 'param' | 'wildcard' | 'splat' | 'catchall';\n    value: string;\n}"
+        "interface ParsedSegment {\n    kind: \"static\" | \"param\" | \"wildcard\" | \"splat\" | \"catchall\";\n    value: string;\n}"
       ],
       "reconcileRouteMeta": [
         "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
@@ -892,7 +896,7 @@
         "interface RouteAuthOptions {\n    resolve: RouteAuthResolver;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
       ],
       "RouteAuthResolver": [
-        "type RouteAuthResolver = (context: Omit<RouteContext, 'auth'>) => AuthContext | PromiseLike<AuthContext>;"
+        "type RouteAuthResolver = (context: Omit<RouteContext, \"auth\">) => AuthContext | PromiseLike<AuthContext>;"
       ],
       "RouteChangeCleanup": ["type RouteChangeCleanup = void | (() => void);"],
       "RouteChangeOptions": [
@@ -909,7 +913,7 @@
         "declare class RouteDataLoadError extends Error {\n    readonly route: string;\n    readonly phase: RouteDataLoadPhase;\n    readonly cause: unknown;\n    constructor(route: string, phase: RouteDataLoadPhase, cause: unknown);\n}"
       ],
       "RouteDataLoadPhase": [
-        "type RouteDataLoadPhase = 'client' | 'server' | 'ssg';"
+        "type RouteDataLoadPhase = \"client\" | \"server\" | \"ssg\";"
       ],
       "RouteDefinition": ["type RouteDefinition = () => void;"],
       "RouteDestination": [
@@ -925,12 +929,12 @@
         "interface RouteMatch<TParams extends RouteParams = RouteParams> {\n    path: string;\n    params: Readonly<TParams>;\n    name?: string;\n    namespace?: string;\n}"
       ],
       "RouteMeta": [
-        "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: 'ltr' | 'rtl' | 'auto';\n    };\n}"
+        "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: \"ltr\" | \"rtl\" | \"auto\";\n    };\n}"
       ],
       "RouteMetaSource": [
         "type RouteMetaSource<TParams extends RouteParams = RouteParams> = RouteMeta | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);"
       ],
-      "RouteMode": ["type RouteMode = 'spa' | 'ssr' | 'ssg';"],
+      "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
       "RouteOptions": [
         "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams>;\n    actions?: readonly ActionDescriptor[];\n}"
       ],
@@ -969,7 +973,7 @@
         "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
       ],
       "RouteRenderResult": [
-        "interface RouteRenderResult<TParams extends RouteParams = RouteParams> {\n    kind: 'render';\n    handler: RouteHandler<TParams>;\n    params: TParams;\n    record?: RouteRecord;\n}"
+        "interface RouteRenderResult<TParams extends RouteParams = RouteParams> {\n    kind: \"render\";\n    handler: RouteHandler<TParams>;\n    params: TParams;\n    record?: RouteRecord;\n}"
       ],
       "RouteRequestOptions": [
         "interface RouteRequestOptions {\n    registry: RouteRegistry;\n    mode?: RouteMode;\n    load?: boolean;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    request?: Request;\n    telemetry?: CoreTelemetry;\n}"
@@ -998,7 +1002,7 @@
         "declare function updateRouteQuery(updates: RouteQueryUpdates | RouteQueryUpdater, options?: UpdateRouteQueryOptions): void;"
       ],
       "UpdateRouteQueryOptions": [
-        "type UpdateRouteQueryOptions = {\n    history?: 'push' | 'replace';\n    replace?: boolean;\n};"
+        "type UpdateRouteQueryOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n};"
       ]
     },
     "./actions": {
@@ -1015,7 +1019,7 @@
         "interface ActionStatus<TResult = unknown> {\n    readonly pending: boolean;\n    readonly result?: TResult;\n    readonly error?: unknown;\n}"
       ],
       "ActionValidationError": [
-        "interface ActionValidationError {\n    readonly kind: 'invalid';\n    readonly action: string;\n    readonly values: Readonly<Record<string, unknown>>;\n    readonly issues: readonly unknown[];\n    readonly fieldErrors: Readonly<Record<string, readonly string[]>>;\n}"
+        "interface ActionValidationError {\n    readonly kind: \"invalid\";\n    readonly action: string;\n    readonly values: Readonly<Record<string, unknown>>;\n    readonly issues: readonly unknown[];\n    readonly fieldErrors: Readonly<Record<string, readonly string[]>>;\n}"
       ],
       "defineAction": [
         "declare function defineAction<TInput extends Record<string, unknown>>(options: {\n    readonly id: string;\n    readonly input: ObjectSchema<TInput>;\n    readonly invalidates?: readonly string[];\n}): ActionDescriptor<TInput>;"
@@ -1023,13 +1027,13 @@
     },
     "./ssr": {
       "createRenderContext": [
-        "declare function createRenderContext(seed?: number, opts?: {\n    url?: string;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    basePath?: string;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    mode?: 'ssr' | 'spa';\n    queryPrefetch?: QueryPrefetchContext;\n    framework?: Readonly<Record<string, unknown>>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n}): RenderContext;"
+        "declare function createRenderContext(seed?: number, opts?: {\n    url?: string;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    basePath?: string;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    mode?: \"ssr\" | \"spa\";\n    queryPrefetch?: QueryPrefetchContext;\n    framework?: Readonly<Record<string, unknown>>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n}): RenderContext;"
       ],
       "DocumentRenderArgs": [
         "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
       ],
       "DocumentRenderContext": [
-        "interface DocumentRenderContext {\n    mode: 'ssr' | 'ssg';\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
+        "interface DocumentRenderContext {\n    mode: \"ssr\" | \"ssg\";\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
       ],
       "DocumentRenderer": [
         "type DocumentRenderer = (args: DocumentRenderArgs) => string;"
@@ -1047,7 +1051,7 @@
         "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
       ],
       "RenderRouteRequestResult": [
-        "type RenderRouteRequestResult = {\n    kind: 'render';\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: 'no-match';\n};"
+        "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
       ],
       "renderRouteRequestToString": [
         "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
@@ -1060,7 +1064,7 @@
         "declare function renderToString(opts: RouteRenderOptions$2): string;"
       ],
       "renderToStringSync": [
-        "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: import('@askrjs/auth').AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
+        "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: import(\"@askrjs/auth\").AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
       ],
       "resolveRequest": [
         "declare function resolveRequest(opts: {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n}): Promise<RouteRequestResult>;"
@@ -1078,7 +1082,7 @@
         "interface SSRStyleRegistration {\n    id: string;\n    cssText: string;\n}"
       ],
       "SSRStyleRegistrationValidation": [
-        "type SSRStyleRegistrationValidation = 'warn' | 'error' | 'off';"
+        "type SSRStyleRegistrationValidation = \"warn\" | \"error\" | \"off\";"
       ],
       "VNode": [
         "type VNode$2 = {\n    type: string | SSRComponent | symbol;\n    props?: Props;\n    children?: unknown[];\n    key?: string | number | null;\n};"
@@ -1101,22 +1105,22 @@
         "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
       ],
       "DocumentRenderContext": [
-        "interface DocumentRenderContext {\n    mode: 'ssr' | 'ssg';\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
+        "interface DocumentRenderContext {\n    mode: \"ssr\" | \"ssg\";\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
       ],
       "DocumentRenderer": [
         "type DocumentRenderer = (args: DocumentRenderArgs) => string;"
       ],
       "RouteConfig": [
-        "interface RouteConfig<Path extends string = string> {\n    path: Path;\n    handler: RouteHandler;\n    props?: Record<string, unknown>;\n    namespace?: string;\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n    params?: RouteConfigParams<Path>;\n    invalidationKeys?: string[];\n    loader?: RouteOptions['loader'];\n    dehydrate?: RouteOptions['dehydrate'];\n    basePath?: string;\n    entries?: () => Array<RouteConfigParams<Path>> | Promise<Array<RouteConfigParams<Path>>>;\n}"
+        "interface RouteConfig<Path extends string = string> {\n    path: Path;\n    handler: RouteHandler;\n    props?: Record<string, unknown>;\n    namespace?: string;\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n    params?: RouteConfigParams<Path>;\n    invalidationKeys?: string[];\n    loader?: RouteOptions[\"loader\"];\n    dehydrate?: RouteOptions[\"dehydrate\"];\n    basePath?: string;\n    entries?: () => Array<RouteConfigParams<Path>> | Promise<Array<RouteConfigParams<Path>>>;\n}"
       ],
       "RouteRenderReason": [
-        "type RouteRenderReason = 'full' | 'changed-key' | 'changed-route' | 'new-route' | 'no-keys' | 'unchanged' | 'deleted' | 'runtime-only';"
+        "type RouteRenderReason = \"full\" | \"changed-key\" | \"changed-route\" | \"new-route\" | \"no-keys\" | \"unchanged\" | \"deleted\" | \"runtime-only\";"
       ],
       "RouteRenderResult": [
-        "interface RouteRenderResult$2 {\n    path: string;\n    filePath: string;\n    html: string;\n    fileSize: number;\n    renderDuration: number;\n    resourceCount: number;\n    status: RouteRenderStatus;\n    reason: RouteRenderReason;\n    written: boolean;\n    error?: string;\n    errorCause?: unknown;\n    errorContext?: {\n        route: string;\n        phase: 'load' | 'render' | 'write';\n    };\n}"
+        "interface RouteRenderResult$2 {\n    path: string;\n    filePath: string;\n    html: string;\n    fileSize: number;\n    renderDuration: number;\n    resourceCount: number;\n    status: RouteRenderStatus;\n    reason: RouteRenderReason;\n    written: boolean;\n    error?: string;\n    errorCause?: unknown;\n    errorContext?: {\n        route: string;\n        phase: \"load\" | \"render\" | \"write\";\n    };\n}"
       ],
       "RouteRenderStatus": [
-        "type RouteRenderStatus = 'success' | 'error' | 'skipped' | 'removed';"
+        "type RouteRenderStatus = \"success\" | \"error\" | \"skipped\" | \"removed\";"
       ],
       "SSGAssetSource": [
         "interface SSGAssetSource {\n    from: string;\n    to?: string;\n}"
@@ -1127,7 +1131,7 @@
       "SSGMetadata": [
         "interface SSGMetadata extends Record<string, unknown> {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: Array<{\n        path: string;\n        filePath: string;\n        fileSize: number;\n        renderDuration: number;\n        resourceCount: number;\n        status: RouteRenderStatus;\n        reason: RouteRenderReason;\n        written: boolean;\n        error?: string;\n    }>;\n}"
       ],
-      "SSGMode": ["type SSGMode = 'full' | 'incremental';"],
+      "SSGMode": ["type SSGMode = \"full\" | \"incremental\";"],
       "SSGOptions": [
         "type SSGOptions<_TRoutes extends readonly RouteConfig[] = RouteConfig[]> = SSGBaseOptions & {\n    registry: RouteRegistry;\n};"
       ],
@@ -1135,7 +1139,7 @@
         "interface SSGResult {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: RouteRenderResult$2[];\n}"
       ],
       "SSRStyleRegistrationValidation": [
-        "type SSRStyleRegistrationValidation = 'warn' | 'error' | 'off';"
+        "type SSRStyleRegistrationValidation = \"warn\" | \"error\" | \"off\";"
       ]
     },
     "./jsx-runtime": {
@@ -1151,7 +1155,7 @@
         "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty {\n        props: Props;\n    }\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
       ],
       "JSXComponent": [
-        "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}['bivarianceHack'];"
+        "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
       ],
       "jsxDEV": [
         "declare function jsxDEV(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
@@ -1180,7 +1184,7 @@
         "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2 {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty$2 {\n        props: Props;\n    }\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
       ],
       "JSXComponent": [
-        "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}['bivarianceHack'];"
+        "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
       ],
       "jsxDEV": [
         "declare function jsxDEV$2(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
@@ -1199,17 +1203,17 @@
   },
   "reachable": {
     "AccessAllowDecision": [
-      "interface AccessAllowDecision {\n    kind: 'allow';\n}"
+      "interface AccessAllowDecision {\n    kind: \"allow\";\n}"
     ],
     "AccessDecision": [
       "type AccessDecision = AccessAllowDecision | AccessRedirectDecision | AccessDenyDecision;"
     ],
     "AccessDenyDecision": [
-      "interface AccessDenyDecision {\n    kind: 'deny';\n    status: AccessDenyStatus;\n}"
+      "interface AccessDenyDecision {\n    kind: \"deny\";\n    status: AccessDenyStatus;\n}"
     ],
     "AccessDenyStatus": ["type AccessDenyStatus = 401 | 403 | 404;"],
     "AccessRedirectDecision": [
-      "interface AccessRedirectDecision {\n    kind: 'redirect';\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
+      "interface AccessRedirectDecision {\n    kind: \"redirect\";\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
     ],
     "AccessRedirectStatus": [
       "type AccessRedirectStatus = 301 | 302 | 303 | 307 | 308;"
@@ -1227,7 +1231,7 @@
       "interface ActionStatus<TResult = unknown> {\n    readonly pending: boolean;\n    readonly result?: TResult;\n    readonly error?: unknown;\n}"
     ],
     "ActionValidationError": [
-      "interface ActionValidationError {\n    readonly kind: 'invalid';\n    readonly action: string;\n    readonly values: Readonly<Record<string, unknown>>;\n    readonly issues: readonly unknown[];\n    readonly fieldErrors: Readonly<Record<string, readonly string[]>>;\n}"
+      "interface ActionValidationError {\n    readonly kind: \"invalid\";\n    readonly action: string;\n    readonly values: Readonly<Record<string, unknown>>;\n    readonly issues: readonly unknown[];\n    readonly fieldErrors: Readonly<Record<string, readonly string[]>>;\n}"
     ],
     "ActivityPredicate": ["type ActivityPredicate = () => boolean;"],
     "allow": ["declare function allow(): AccessAllowDecision;"],
@@ -1239,19 +1243,19 @@
       "type AnyRouteComponent = (...args: any[]) => RenderableChild;"
     ],
     "applyInteractionPolicy": [
-      "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    'aria-disabled'?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
+      "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    \"aria-disabled\"?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
     ],
     "AppRenderRuntime": [
       "interface AppRenderRuntime {\n    framework: Readonly<Record<string, unknown>>;\n    route: unknown;\n    hasRoute: boolean;\n    dataRuntime?: DataRuntime;\n    routeRegistry?: RouteRegistry;\n    routeAuth?: RouteAuthOptions;\n}"
     ],
     "ariaDisabled": [
-      "declare function ariaDisabled(disabled?: boolean): {\n    'aria-disabled'?: 'true';\n};"
+      "declare function ariaDisabled(disabled?: boolean): {\n    \"aria-disabled\"?: \"true\";\n};"
     ],
     "ariaExpanded": [
-      "declare function ariaExpanded(expanded?: boolean): {\n    'aria-expanded'?: 'true' | 'false';\n};"
+      "declare function ariaExpanded(expanded?: boolean): {\n    \"aria-expanded\"?: \"true\" | \"false\";\n};"
     ],
     "ariaSelected": [
-      "declare function ariaSelected(selected?: boolean): {\n    'aria-selected'?: 'true' | 'false';\n};"
+      "declare function ariaSelected(selected?: boolean): {\n    \"aria-selected\"?: \"true\" | \"false\";\n};"
     ],
     "AskrRuntime": [
       "declare class AskrRuntime {\n    readonly scheduler: Scheduler;\n    constructor(options?: AskrRuntimeOptions);\n    get renderer(): RuntimeRendererHost;\n    configureRenderer(renderer: RuntimeRendererHost): void;\n}"
@@ -1260,7 +1264,7 @@
       "interface AskrRuntimeOptions {\n    scheduler?: Scheduler;\n    renderer?: RuntimeRendererHost;\n}"
     ],
     "BivariantHandler": [
-      "type BivariantHandler<T> = {\n    bivarianceHack(value: T): void;\n}['bivarianceHack'];"
+      "type BivariantHandler<T> = {\n    bivarianceHack(value: T): void;\n}[\"bivarianceHack\"];"
     ],
     "BootRouteSource": [
       "type BootRouteSource = {\n    registry: RouteRegistry;\n};"
@@ -1282,7 +1286,7 @@
       "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
     ],
     "CaseState": [
-      "interface CaseState extends BranchControlStateBase {\n    kind: 'case';\n    fallback: (() => VNode) | null;\n    matches: MatchBranch[];\n}"
+      "interface CaseState extends BranchControlStateBase {\n    kind: \"case\";\n    fallback: (() => VNode) | null;\n    matches: MatchBranch[];\n}"
     ],
     "ChildScope": [
       "interface ChildScope {\n    key: string | number;\n    componentInstance: ComponentInstance;\n    previousVnode: VNode | undefined;\n    vnode: VNode | undefined;\n    dom?: Node;\n    range?: DOMRange;\n    needsDomUpdate: boolean;\n    hydrationPending: boolean;\n    blueprintOwner?: object;\n    render(renderFn: () => VNode): VNode;\n    markDirty(): void;\n    dispose(): void;\n}"
@@ -1394,13 +1398,13 @@
     ],
     "createQuery": [
       "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
-      "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, 'key' | 'fetch'>): Query<TResult>;"
+      "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, \"key\" | \"fetch\">): Query<TResult>;"
     ],
     "createQueryCollection": [
       "declare function createQueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string>(options: QueryCollectionOptions<TInput, TResult, TKey>): QueryCollection<TInput, TResult, TKey>;"
     ],
     "createQueryPrefetchContext": [
-      "declare function createQueryPrefetchContext(options?: {\n    runtime?: DataRuntime;\n    registry?: ServerQueryRegistry;\n    request?: Request;\n    signal?: AbortSignal;\n    mode?: 'ssr' | 'spa';\n    telemetry?: CoreTelemetry;\n}): QueryPrefetchContext;"
+      "declare function createQueryPrefetchContext(options?: {\n    runtime?: DataRuntime;\n    registry?: ServerQueryRegistry;\n    request?: Request;\n    signal?: AbortSignal;\n    mode?: \"ssr\" | \"spa\";\n    telemetry?: CoreTelemetry;\n}): QueryPrefetchContext;"
     ],
     "createQueryTestRegistry": [
       "declare function createQueryTestRegistry(): QueryTestRegistry;"
@@ -1409,7 +1413,7 @@
       "declare function createRef<T extends Element = Element>(): Ref<T>;"
     ],
     "createRenderContext": [
-      "declare function createRenderContext(seed?: number, opts?: {\n    url?: string;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    basePath?: string;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    mode?: 'ssr' | 'spa';\n    queryPrefetch?: QueryPrefetchContext;\n    framework?: Readonly<Record<string, unknown>>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n}): RenderContext;"
+      "declare function createRenderContext(seed?: number, opts?: {\n    url?: string;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    basePath?: string;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    mode?: \"ssr\" | \"spa\";\n    queryPrefetch?: QueryPrefetchContext;\n    framework?: Readonly<Record<string, unknown>>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n}): RenderContext;"
     ],
     "createRouteRegistry": [
       "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
@@ -1460,7 +1464,7 @@
       "interface DeferredBoundaryRegistration {\n    id: string;\n    promise: Promise<unknown>;\n    fulfilled(value: unknown): RenderableChild;\n    rejected(error: unknown): RenderableChild;\n}"
     ],
     "DeferredState": [
-      "type DeferredState = 'pending' | 'fulfilled' | 'rejected';"
+      "type DeferredState = \"pending\" | \"fulfilled\" | \"rejected\";"
     ],
     "defineAction": [
       "declare function defineAction<TInput extends Record<string, unknown>>(options: {\n    readonly id: string;\n    readonly input: ObjectSchema<TInput>;\n    readonly invalidates?: readonly string[];\n}): ActionDescriptor<TInput>;"
@@ -1500,7 +1504,7 @@
       "declare function dismissable({ node, additionalInsideNodes, disabled, onDismiss }: DismissableOptions): {\n    onKeyDown: (e: KeyboardLikeEvent) => void;\n    onPointerDownCapture: (e: PointerLikeEvent) => void;\n};"
     ],
     "DismissableOptions": [
-      "interface DismissableOptions {\n    node?: Node | null;\n    additionalInsideNodes?: readonly (Node | null | undefined)[];\n    disabled?: boolean;\n    onDismiss?: (trigger: 'escape' | 'outside') => void;\n}"
+      "interface DismissableOptions {\n    node?: Node | null;\n    additionalInsideNodes?: readonly (Node | null | undefined)[];\n    disabled?: boolean;\n    onDismiss?: (trigger: \"escape\" | \"outside\") => void;\n}"
     ],
     "dispatch": [
       "declare function dispatch(target: EventTarget, event: Event | string, init?: DispatchEventInit): boolean;"
@@ -1512,7 +1516,7 @@
       "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
     ],
     "DocumentRenderContext": [
-      "interface DocumentRenderContext {\n    mode: 'ssr' | 'ssg';\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
+      "interface DocumentRenderContext {\n    mode: \"ssr\" | \"ssg\";\n    url: string;\n    pathname: string;\n    search: string;\n    hash: string;\n    params: Record<string, string>;\n    data?: SSRData;\n    seed: number;\n    route: DocumentRenderRoute;\n    cspNonce?: string;\n    styles?: readonly SSRStyleRegistration[];\n}"
     ],
     "DocumentRenderer": [
       "type DocumentRenderer = (args: DocumentRenderArgs) => string;"
@@ -1576,7 +1580,7 @@
       "type ExtractRoutePathParamNames<Path extends string> = TrimRoutePathSlashes<StripRoutePathSuffix<Path>> extends `${infer Segment}/${infer Rest}` ? ExtractRouteSegmentParam<Segment> | ExtractRoutePathParamNames<Rest> : ExtractRouteSegmentParam<TrimRoutePathSlashes<StripRoutePathSuffix<Path>>>;"
     ],
     "ExtractRouteSegmentParam": [
-      "type ExtractRouteSegmentParam<Segment extends string> = Segment extends `{${infer Param}}` ? TrimRoutePathWhitespace<Param> extends `*${infer SplatParam}` ? TrimRoutePathWhitespace<SplatParam> extends '' ? never : TrimRoutePathWhitespace<SplatParam> extends '*' ? never : TrimRoutePathWhitespace<SplatParam> : TrimRoutePathWhitespace<Param> extends '' ? never : TrimRoutePathWhitespace<Param> : Segment extends '*' ? '*' : never;"
+      "type ExtractRouteSegmentParam<Segment extends string> = Segment extends `{${infer Param}}` ? TrimRoutePathWhitespace<Param> extends `*${infer SplatParam}` ? TrimRoutePathWhitespace<SplatParam> extends \"\" ? never : TrimRoutePathWhitespace<SplatParam> extends \"*\" ? never : TrimRoutePathWhitespace<SplatParam> : TrimRoutePathWhitespace<Param> extends \"\" ? never : TrimRoutePathWhitespace<Param> : Segment extends \"*\" ? \"*\" : never;"
     ],
     "fallback": ["declare function fallback(Component: RouteComponent): void;"],
     "FineGrainedEffectHandle": [
@@ -1590,7 +1594,7 @@
       "interface FocusableOptions {\n    disabled?: boolean;\n    tabIndex?: number | undefined;\n}"
     ],
     "FocusableResult": [
-      "interface FocusableResult {\n    tabIndex?: number;\n    'aria-disabled'?: 'true';\n}"
+      "interface FocusableResult {\n    tabIndex?: number;\n    \"aria-disabled\"?: \"true\";\n}"
     ],
     "FocusLikeEvent": [
       "interface FocusLikeEvent extends DefaultPreventable, PropagationStoppable {\n    relatedTarget?: unknown;\n}"
@@ -1606,7 +1610,7 @@
       "type ForbiddenLayoutOnlyProps = {\n    action?: never;\n    alt?: never;\n    abbr?: never;\n    autoComplete?: never;\n    autocomplete?: never;\n    checked?: never;\n    colSpan?: never;\n    cols?: never;\n    disabled?: never;\n    form?: never;\n    headers?: never;\n    height?: never;\n    href?: never;\n    htmlFor?: never;\n    label?: never;\n    method?: never;\n    maxLength?: never;\n    maxlength?: never;\n    minLength?: never;\n    minlength?: never;\n    multiple?: never;\n    name?: never;\n    noValidate?: never;\n    placeholder?: never;\n    readOnly?: never;\n    readonly?: never;\n    rel?: never;\n    required?: never;\n    rowSpan?: never;\n    rows?: never;\n    scope?: never;\n    selected?: never;\n    src?: never;\n    target?: never;\n    type?: never;\n    value?: never;\n    width?: never;\n};"
     ],
     "ForCommitStrategy": [
-      "type ForCommitStrategy = 'APPEND' | 'INSERT_ONE' | 'REMOVE_ONE' | 'TRUNCATE' | 'NO_REORDER' | 'SWAP' | 'FULL_KEYED';"
+      "type ForCommitStrategy = \"APPEND\" | \"INSERT_ONE\" | \"REMOVE_ONE\" | \"TRUNCATE\" | \"NO_REORDER\" | \"SWAP\" | \"FULL_KEYED\";"
     ],
     "ForEachSource": [
       "type ForEachSource<T> = readonly T[] | (() => readonly T[]);"
@@ -1645,10 +1649,10 @@
       "type ForRenderItem<T> = (item: T, index: () => number) => VNode;"
     ],
     "ForState": [
-      "interface ForState<T> {\n    kind: 'for';\n    _contextFrame: ContextFrame | null;\n    _contextFrameChanged: boolean;\n    currentItems: readonly T[];\n    _committedItems: readonly T[];\n    eachSource: ForEachSource<T>;\n    fallback: VNode | null;\n    fallbackScope: ChildScope | null;\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    byFn: ForKeySelector<T>;\n    renderFn: ForRenderItem<T>;\n    parentInstance: ComponentInstance | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    _hasResolvedItemDom: boolean;\n    _needsSourceReconcile: boolean;\n    _sourceEffect: FineGrainedEffectHandle<readonly T[]> | null;\n    _suspendSourceCommit: boolean;\n    _enqueueBoundaryCommit?: (() => void) | null;\n    _hasPendingBoundaryCommit?: boolean;\n    devKeyKinds?: Map<string | number, 'number' | 'string'>;\n    _transaction?: ForTransaction<T> | null;\n    _scopeOwnership: ChildScopeOwnership;\n}"
+      "interface ForState<T> {\n    kind: \"for\";\n    _contextFrame: ContextFrame | null;\n    _contextFrameChanged: boolean;\n    currentItems: readonly T[];\n    _committedItems: readonly T[];\n    eachSource: ForEachSource<T>;\n    fallback: VNode | null;\n    fallbackScope: ChildScope | null;\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    byFn: ForKeySelector<T>;\n    renderFn: ForRenderItem<T>;\n    parentInstance: ComponentInstance | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    _hasResolvedItemDom: boolean;\n    _needsSourceReconcile: boolean;\n    _sourceEffect: FineGrainedEffectHandle<readonly T[]> | null;\n    _suspendSourceCommit: boolean;\n    _enqueueBoundaryCommit?: (() => void) | null;\n    _hasPendingBoundaryCommit?: boolean;\n    devKeyKinds?: Map<string | number, \"number\" | \"string\">;\n    _transaction?: ForTransaction<T> | null;\n    _scopeOwnership: ChildScopeOwnership;\n}"
     ],
     "ForTransaction": [
-      "interface ForTransaction<T> {\n    collectionSnapshotMode: 'copy' | 'reset-empty' | 'preserve-clear' | 'reuse';\n    currentItems: readonly T[];\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    fallbackScope: ChildScope | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    hasResolvedItemDom: boolean;\n    needsSourceReconcile: boolean;\n    devKeyKinds?: Map<string | number, 'number' | 'string'>;\n    itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;\n    unreadIndexSnapshots: Map<ForIndexSignal, number> | null;\n    fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;\n    removedScopes: ChildScope[] | null;\n    removedScopeNodes: Node[] | null;\n    removeAllItems: boolean;\n    signalEffects: Map<ReadableSource<unknown>, {\n        parentInstance: ComponentInstance | null;\n        notify: boolean;\n        skipInstance: ComponentInstance | null;\n        skipOwnedBy: ComponentInstance | null;\n    }> | null;\n    shouldClearDomUpdateState: boolean;\n}"
+      "interface ForTransaction<T> {\n    collectionSnapshotMode: \"copy\" | \"reset-empty\" | \"preserve-clear\" | \"reuse\";\n    currentItems: readonly T[];\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    fallbackScope: ChildScope | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    hasResolvedItemDom: boolean;\n    needsSourceReconcile: boolean;\n    devKeyKinds?: Map<string | number, \"number\" | \"string\">;\n    itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;\n    unreadIndexSnapshots: Map<ForIndexSignal, number> | null;\n    fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;\n    removedScopes: ChildScope[] | null;\n    removedScopeNodes: Node[] | null;\n    removeAllItems: boolean;\n    signalEffects: Map<ReadableSource<unknown>, {\n        parentInstance: ComponentInstance | null;\n        notify: boolean;\n        skipInstance: ComponentInstance | null;\n        skipOwnedBy: ComponentInstance | null;\n    }> | null;\n    shouldClearDomUpdateState: boolean;\n}"
     ],
     "Fragment": ["Fragment: unique symbol"],
     "getDefaultDataRuntime": [
@@ -1656,7 +1660,7 @@
     ],
     "getDefaultRuntime": ["declare function getDefaultRuntime(): AskrRuntime;"],
     "getIconContractProps": [
-      "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, 'color' | 'iconName' | 'size' | 'strokeWidth' | 'style' | 'title'>): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        'stroke-width': string;\n        role: string;\n        'aria-hidden': string | undefined;\n        style: string | undefined;\n        'data-slot': string;\n        'data-icon': string | undefined;\n        'data-size': IconSizeToken | undefined;\n        'data-decorative': string | undefined;\n        'data-color': string | undefined;\n    };\n};"
+      "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, \"color\" | \"iconName\" | \"size\" | \"strokeWidth\" | \"style\" | \"title\">): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        \"stroke-width\": string;\n        role: string;\n        \"aria-hidden\": string | undefined;\n        style: string | undefined;\n        \"data-slot\": string;\n        \"data-icon\": string | undefined;\n        \"data-size\": IconSizeToken | undefined;\n        \"data-decorative\": string | undefined;\n        \"data-color\": string | undefined;\n    };\n};"
     ],
     "getRenderContext": [
       "declare function getRenderContext(): RenderContext | null;"
@@ -1673,7 +1677,7 @@
     ],
     "hasApp": ["declare function hasApp(root: Element | string): boolean;"],
     "HistoryScrollBehavior": [
-      "type HistoryScrollBehavior = 'restore' | 'top' | 'preserve';"
+      "type HistoryScrollBehavior = \"restore\" | \"top\" | \"preserve\";"
     ],
     "hoverable": [
       "declare function hoverable({ disabled, onEnter, onLeave }: HoverableOptions): HoverableResult;"
@@ -1703,9 +1707,11 @@
       "type IconOwnProps = {\n    size?: number | string;\n    strokeWidth?: number;\n    color?: string;\n    title?: string;\n    class?: string;\n    style?: string | IconStyleObject;\n    iconName?: string;\n};"
     ],
     "IconProps": [
-      "type IconProps = Omit<Props, 'children' | 'class' | 'color' | 'height' | 'ref' | 'role' | 'stroke' | 'stroke-width' | 'style' | 'title' | 'width'> & IconOwnProps & {\n    children?: unknown;\n    ref?: Ref$2<SVGSVGElement>;\n};"
+      "type IconProps = Omit<Props, \"children\" | \"class\" | \"color\" | \"height\" | \"ref\" | \"role\" | \"stroke\" | \"stroke-width\" | \"style\" | \"title\" | \"width\"> & IconOwnProps & {\n    children?: unknown;\n    ref?: Ref$2<SVGSVGElement>;\n};"
     ],
-    "IconSizeToken": ["type IconSizeToken = 'sm' | 'md' | 'lg' | 'xl';"],
+    "IconSizeToken": [
+      "type IconSizeToken = \"sm\" | \"md\" | \"lg\" | \"xl\";"
+    ],
     "IconStyleObject": ["type IconStyleObject = Record<string, unknown>;"],
     "idle": [
       "declare function idle(fn: () => void, options?: {\n    timeout?: number;\n}): void;"
@@ -1830,7 +1836,7 @@
       "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2 {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty$2 {\n        props: Props;\n    }\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
     ],
     "JSXComponent": [
-      "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}['bivarianceHack'];"
+      "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
     ],
     "jsxDEV": [
       "declare function jsxDEV(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
@@ -1909,10 +1915,10 @@
       "type LazyRouteDataLoader<TModule, TData = TModule> = ((context: RouteContext & {\n    request?: Request;\n}) => Promise<TData>) & {\n    preload(): Promise<void>;\n};"
     ],
     "Link": [
-      "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, 'aria-current': ariaCurrent, 'aria-label': ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
+      "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
     ],
     "LinkBaseProps": [
-      "type LinkBaseProps = Omit<Props, 'children' | 'href' | 'class' | 'rel' | 'target' | 'aria-current' | 'aria-label'> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    'aria-current'?: 'page' | 'step' | 'location' | 'date' | 'time' | 'true' | 'false';\n    'aria-label'?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n};"
+      "type LinkBaseProps = Omit<Props, \"children\" | \"href\" | \"class\" | \"rel\" | \"target\" | \"aria-current\" | \"aria-label\"> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    \"aria-current\"?: \"page\" | \"step\" | \"location\" | \"date\" | \"time\" | \"true\" | \"false\";\n    \"aria-label\"?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n};"
     ],
     "LinkProps": [
       "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
@@ -1966,7 +1972,7 @@
       "type MutationControls<TInput, TResult> = {\n    execute(input: TInput): Promise<TResult>;\n    abort(): void;\n    reset(): void;\n};"
     ],
     "MutationError": [
-      "type MutationError = {\n    status: 'error';\n    pending: false;\n    error: {};\n    result: null;\n};"
+      "type MutationError = {\n    status: \"error\";\n    pending: false;\n    error: {};\n    result: null;\n};"
     ],
     "MutationFixture": [
       "type MutationFixture<TInput, TResult> = Mutation<TInput, TResult> & {\n    readonly inputs: readonly TInput[];\n    setPending(): void;\n    succeed(result: TResult): void;\n    fail(error: {}): void;\n};"
@@ -1975,19 +1981,19 @@
       "type MutationFixtureInitial<TResult> = {\n    pending?: boolean;\n    error?: {} | null;\n    result?: TResult;\n};"
     ],
     "MutationIdle": [
-      "type MutationIdle = {\n    status: 'idle';\n    pending: false;\n    error: null;\n    result: null;\n};"
+      "type MutationIdle = {\n    status: \"idle\";\n    pending: false;\n    error: null;\n    result: null;\n};"
     ],
     "MutationOptions": [
-      "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: 'invalidate';\n    runtime?: DataRuntime;\n};"
+      "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: \"invalidate\";\n    runtime?: DataRuntime;\n};"
     ],
     "MutationPending": [
-      "type MutationPending = {\n    status: 'pending';\n    pending: true;\n    error: null;\n    result: null;\n};"
+      "type MutationPending = {\n    status: \"pending\";\n    pending: true;\n    error: null;\n    result: null;\n};"
     ],
     "mutationState": [
       "mutationState: typeof createMutationFixture & {\n    idle<TInput = unknown, TResult = unknown>(): MutationFixture<TInput, TResult>;\n    pending<TInput = unknown, TResult = unknown>(): MutationFixture<TInput, TResult>;\n    success<TInput = unknown, TResult = unknown>(result: TResult): MutationFixture<TInput, TResult>;\n    error<TInput = unknown, TResult = unknown>(error: {}): MutationFixture<TInput, TResult>;\n}"
     ],
     "MutationSuccess": [
-      "type MutationSuccess<TResult> = {\n    status: 'success';\n    pending: false;\n    error: null;\n    result: TResult;\n};"
+      "type MutationSuccess<TResult> = {\n    status: \"success\";\n    pending: false;\n    error: null;\n    result: TResult;\n};"
     ],
     "MutationTestRegistry": [
       "interface MutationTestRegistry {\n    readonly runtime: DataRuntime;\n    set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
@@ -1996,10 +2002,10 @@
       "declare function navigate(path: string, options?: NavigateOptions): void;"
     ],
     "NavigateOptions": [
-      "type NavigateOptions = {\n    history?: 'push' | 'replace';\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
+      "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
     ],
     "NavigationScrollBehavior": [
-      "type NavigationScrollBehavior = 'top' | 'preserve';"
+      "type NavigationScrollBehavior = \"top\" | \"preserve\";"
     ],
     "normalizeIconSizeValue": [
       "declare function normalizeIconSizeValue(size: number | string): string;"
@@ -2018,7 +2024,9 @@
     "OrderedListIntrinsicProps": [
       "type OrderedListIntrinsicProps = StructuredContentIntrinsicProps<{\n    reversed?: ReactiveProp<IntrinsicBooleanValue>;\n    start?: ReactiveProp<IntrinsicNumberValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n}>;"
     ],
-    "Orientation": ["type Orientation = 'horizontal' | 'vertical' | 'both';"],
+    "Orientation": [
+      "type Orientation = \"horizontal\" | \"vertical\" | \"both\";"
+    ],
     "Outlet": ["declare function Outlet(): JSXElement;"],
     "OutputIntrinsicProps": [
       "type OutputIntrinsicProps = StructuredContentIntrinsicProps<{\n    form?: ReactiveProp<IntrinsicTextValue>;\n    htmlFor?: ReactiveProp<IntrinsicTextValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n}>;"
@@ -2043,7 +2051,7 @@
       "interface PageScopeRecord {\n    component: RouteComponent;\n}"
     ],
     "ParsedSegment": [
-      "interface ParsedSegment {\n    kind: 'static' | 'param' | 'wildcard' | 'splat' | 'catchall';\n    value: string;\n}"
+      "interface ParsedSegment {\n    kind: \"static\" | \"param\" | \"wildcard\" | \"splat\" | \"catchall\";\n    value: string;\n}"
     ],
     "PointerLikeEvent": [
       "interface PointerLikeEvent extends DefaultPreventable, PropagationStoppable {\n    target?: unknown;\n}"
@@ -2071,7 +2079,7 @@
       "interface PressableOptions {\n    disabled?: boolean;\n    onPress?: (e: PressEvent) => void;\n    isNativeButton?: boolean;\n}"
     ],
     "PressableResult": [
-      "interface PressableResult {\n    onClick: (e: PressEvent) => void;\n    disabled?: true;\n    role?: 'button';\n    tabIndex?: number;\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n    'aria-disabled'?: 'true';\n}"
+      "interface PressableResult {\n    onClick: (e: PressEvent) => void;\n    disabled?: true;\n    role?: \"button\";\n    tabIndex?: number;\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n    \"aria-disabled\"?: \"true\";\n}"
     ],
     "PressEvent": [
       "type PressEvent = DefaultPreventable & PropagationStoppable;"
@@ -2098,7 +2106,7 @@
       "interface QueryCollectionOptions<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly inputs: () => readonly TInput[];\n    readonly key: (input: TInput) => TKey;\n    readonly concurrency?: number;\n    readonly runtime?: DataRuntime;\n}"
     ],
     "QueryConsistency": [
-      "type QueryConsistency = 'fresh' | 'stale' | 'refreshing' | 'pending-write';"
+      "type QueryConsistency = \"fresh\" | \"stale\" | \"refreshing\" | \"pending-write\";"
     ],
     "QueryControls": [
       "type QueryControls = {\n    refresh(): Promise<void>;\n};"
@@ -2107,25 +2115,25 @@
       "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
     ],
     "QueryFresh": [
-      "type QueryFresh<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: false;\n    stale: false;\n    consistency: 'fresh';\n    staleReason: null;\n};"
+      "type QueryFresh<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: false;\n    stale: false;\n    consistency: \"fresh\";\n    staleReason: null;\n};"
     ],
     "QueryKeyPart": [
       "type QueryKeyPart = string | number | boolean | null | undefined | readonly QueryKeyPart[] | {\n    readonly [key: string]: QueryKeyPart;\n};"
     ],
     "QueryLoading": [
-      "type QueryLoading = {\n    data: null;\n    error: null;\n    loading: true;\n    refreshing: false;\n    stale: false;\n    consistency: 'fresh';\n    staleReason: null;\n};"
+      "type QueryLoading = {\n    data: null;\n    error: null;\n    loading: true;\n    refreshing: false;\n    stale: false;\n    consistency: \"fresh\";\n    staleReason: null;\n};"
     ],
     "QueryOptions": [
       "type QueryOptions<T> = {\n    key: string;\n    fetch: (ctx: {\n        signal: AbortSignal;\n    }) => Promise<T>;\n    isConsistent?: (data: T) => boolean;\n    reconcile?: (data: T, ctx: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n    runtime?: DataRuntime;\n    initialData?: T;\n    skipInitialFetch?: boolean;\n};"
     ],
     "QueryPendingWrite": [
-      "type QueryPendingWrite<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: true;\n    stale: true;\n    consistency: 'pending-write';\n    staleReason: null;\n};"
+      "type QueryPendingWrite<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: true;\n    stale: true;\n    consistency: \"pending-write\";\n    staleReason: null;\n};"
     ],
     "QueryPrefetchContext": [
-      "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: 'ssr' | 'spa';\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
+      "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: \"ssr\" | \"spa\";\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
     ],
     "QueryRefreshing": [
-      "type QueryRefreshing<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: true;\n    stale: true;\n    consistency: 'refreshing';\n    staleReason: null;\n};"
+      "type QueryRefreshing<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: true;\n    stale: true;\n    consistency: \"refreshing\";\n    staleReason: null;\n};"
     ],
     "queryScope": [
       "declare function queryScope(namespace: string): QueryScope;"
@@ -2134,16 +2142,16 @@
       "interface QueryScope {\n    key(...parts: QueryKeyPart[]): string;\n    prefix(...parts: QueryKeyPart[]): string;\n    invalidate(parts: readonly QueryKeyPart[], options?: InvalidateOptions): void;\n}"
     ],
     "QueryStaleError": [
-      "type QueryStaleError = {\n    data: null;\n    error: {};\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: 'stale';\n    staleReason: 'error';\n};"
+      "type QueryStaleError = {\n    data: null;\n    error: {};\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: \"stale\";\n    staleReason: \"error\";\n};"
     ],
     "QueryStaleErrorWithValue": [
-      "type QueryStaleErrorWithValue<T> = {\n    data: T;\n    error: {};\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: 'stale';\n    staleReason: 'error';\n};"
+      "type QueryStaleErrorWithValue<T> = {\n    data: T;\n    error: {};\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: \"stale\";\n    staleReason: \"error\";\n};"
     ],
     "QueryStaleReason": [
-      "type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';"
+      "type QueryStaleReason = \"aborted\" | \"error\" | \"inconsistent\";"
     ],
     "QueryStaleValue": [
-      "type QueryStaleValue<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: 'stale';\n    staleReason: 'aborted' | 'inconsistent';\n};"
+      "type QueryStaleValue<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: \"stale\";\n    staleReason: \"aborted\" | \"inconsistent\";\n};"
     ],
     "queryState": [
       "queryState: {\n    fresh: typeof createFreshQuery;\n    loading: <T extends {} = {}>(options?: MockQueryOptions) => Query<T>;\n    error: <T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions) => Query<T>;\n    refreshing: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n    stale: <T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions) => Query<T>;\n    pendingWrite: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n}"
@@ -2186,7 +2194,7 @@
       "type RenderableChild = VNode | JSXElement | readonly RenderableChild[];"
     ],
     "RenderContext": [
-      "interface RenderContext {\n    url: string;\n    seed: number;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    basePath?: string;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    queryCache?: Map<string, unknown>;\n    resourceDataProvided: boolean;\n    mode?: 'ssr' | 'spa';\n    queryPrefetch?: QueryPrefetchContext;\n    ssrCleanupFns: Array<() => void>;\n    keyCounter: number;\n    renderData: PageRenderEnvelope | null;\n    hydrationData: PageRenderEnvelope | null;\n    deferredBoundaries: DeferredBoundaryRegistration[];\n    ssrStyles: Map<string, SSRStyleRegistration>;\n    ssrPortals: SSRPortalState;\n    cspNonce?: string;\n}"
+      "interface RenderContext {\n    url: string;\n    seed: number;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    basePath?: string;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    queryCache?: Map<string, unknown>;\n    resourceDataProvided: boolean;\n    mode?: \"ssr\" | \"spa\";\n    queryPrefetch?: QueryPrefetchContext;\n    ssrCleanupFns: Array<() => void>;\n    keyCounter: number;\n    renderData: PageRenderEnvelope | null;\n    hydrationData: PageRenderEnvelope | null;\n    deferredBoundaries: DeferredBoundaryRegistration[];\n    ssrStyles: Map<string, SSRStyleRegistration>;\n    ssrPortals: SSRPortalState;\n    cspNonce?: string;\n}"
     ],
     "RenderDiagnosticsOptions": [
       "interface RenderDiagnosticsOptions {\n    slowRenderWarnings?: boolean;\n    slowRenderThresholdMs?: number;\n}"
@@ -2210,7 +2218,7 @@
       "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
     ],
     "RenderRouteRequestResult": [
-      "type RenderRouteRequestResult = {\n    kind: 'render';\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: 'no-match';\n};"
+      "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
     ],
     "renderRouteRequestToString": [
       "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
@@ -2223,7 +2231,7 @@
       "declare function renderToString(opts: RouteRenderOptions$2): string;"
     ],
     "renderToStringSync": [
-      "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: import('@askrjs/auth').AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
+      "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: import(\"@askrjs/auth\").AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
     ],
     "Resolve": [
       "declare function Resolve<T>(props: ResolveProps<T>): JSXElement;"
@@ -2281,7 +2289,7 @@
       "interface RouteAuthOptions {\n    resolve: RouteAuthResolver;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
     ],
     "RouteAuthResolver": [
-      "type RouteAuthResolver = (context: Omit<RouteContext, 'auth'>) => AuthContext | PromiseLike<AuthContext>;"
+      "type RouteAuthResolver = (context: Omit<RouteContext, \"auth\">) => AuthContext | PromiseLike<AuthContext>;"
     ],
     "RouteChangeCleanup": ["type RouteChangeCleanup = void | (() => void);"],
     "RouteChangeOptions": [
@@ -2294,7 +2302,7 @@
       "type RouteComponentParam<TComponent extends AnyRouteComponent> = Parameters<TComponent> extends [\n] ? unknown : Parameters<TComponent>[0];"
     ],
     "RouteConfig": [
-      "interface RouteConfig<Path extends string = string> {\n    path: Path;\n    handler: RouteHandler;\n    props?: Record<string, unknown>;\n    namespace?: string;\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n    params?: RouteConfigParams<Path>;\n    invalidationKeys?: string[];\n    loader?: RouteOptions['loader'];\n    dehydrate?: RouteOptions['dehydrate'];\n    basePath?: string;\n    entries?: () => Array<RouteConfigParams<Path>> | Promise<Array<RouteConfigParams<Path>>>;\n}"
+      "interface RouteConfig<Path extends string = string> {\n    path: Path;\n    handler: RouteHandler;\n    props?: Record<string, unknown>;\n    namespace?: string;\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n    params?: RouteConfigParams<Path>;\n    invalidationKeys?: string[];\n    loader?: RouteOptions[\"loader\"];\n    dehydrate?: RouteOptions[\"dehydrate\"];\n    basePath?: string;\n    entries?: () => Array<RouteConfigParams<Path>> | Promise<Array<RouteConfigParams<Path>>>;\n}"
     ],
     "RouteConfigParams": [
       "type RouteConfigParams<Path extends string> = string extends Path ? Record<string, string> : RoutePathParams<Path>;"
@@ -2307,7 +2315,7 @@
       "declare class RouteDataLoadError extends Error {\n    readonly route: string;\n    readonly phase: RouteDataLoadPhase;\n    readonly cause: unknown;\n    constructor(route: string, phase: RouteDataLoadPhase, cause: unknown);\n}"
     ],
     "RouteDataLoadPhase": [
-      "type RouteDataLoadPhase = 'client' | 'server' | 'ssg';"
+      "type RouteDataLoadPhase = \"client\" | \"server\" | \"ssg\";"
     ],
     "RouteDefinition": ["type RouteDefinition = () => void;"],
     "RouteDestination": [
@@ -2323,12 +2331,12 @@
       "interface RouteMatch<TParams extends RouteParams = RouteParams> {\n    path: string;\n    params: Readonly<TParams>;\n    name?: string;\n    namespace?: string;\n}"
     ],
     "RouteMeta": [
-      "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: 'ltr' | 'rtl' | 'auto';\n    };\n}"
+      "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: \"ltr\" | \"rtl\" | \"auto\";\n    };\n}"
     ],
     "RouteMetaSource": [
       "type RouteMetaSource<TParams extends RouteParams = RouteParams> = RouteMeta | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);"
     ],
-    "RouteMode": ["type RouteMode = 'spa' | 'ssr' | 'ssg';"],
+    "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
     "RouteOptions": [
       "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams>;\n    actions?: readonly ActionDescriptor[];\n}"
     ],
@@ -2340,7 +2348,7 @@
       "type RoutePathParams<Path extends string> = [\n    ExtractRoutePathParamNames<Path>\n] extends [\n    never\n] ? Record<never, string> : {\n    [Key in ExtractRoutePathParamNames<Path>]: string;\n};"
     ],
     "RoutePatternWarning": [
-      "interface RoutePatternWarning {\n    kind: 'route-collision';\n    path: string;\n    conflictingPath: string;\n    segment: string;\n    namespace: string | undefined;\n    message: string;\n}"
+      "interface RoutePatternWarning {\n    kind: \"route-collision\";\n    path: string;\n    conflictingPath: string;\n    segment: string;\n    namespace: string | undefined;\n    message: string;\n}"
     ],
     "RoutePolicy": [
       "type RoutePolicy = (context: RouteContext) => AccessDecision | PromiseLike<AccessDecision>;"
@@ -2380,19 +2388,19 @@
       "interface RouteRenderOptions extends RenderOptions {\n    registry: RouteRegistry;\n    url?: string;\n    auth?: RouteAuthOptions;\n    dataRuntime?: DataRuntime;\n}"
     ],
     "RouteRenderOptions$2": [
-      "type RouteRenderOptions$2 = SSRRouteSource & {\n    url: string;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    document?: DocumentRenderer;\n    request?: Request;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    telemetry?: Pick<CoreTelemetry, 'ssrRender'>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n};"
+      "type RouteRenderOptions$2 = SSRRouteSource & {\n    url: string;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    document?: DocumentRenderer;\n    request?: Request;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    telemetry?: Pick<CoreTelemetry, \"ssrRender\">;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n};"
     ],
     "RouteRenderReason": [
-      "type RouteRenderReason = 'full' | 'changed-key' | 'changed-route' | 'new-route' | 'no-keys' | 'unchanged' | 'deleted' | 'runtime-only';"
+      "type RouteRenderReason = \"full\" | \"changed-key\" | \"changed-route\" | \"new-route\" | \"no-keys\" | \"unchanged\" | \"deleted\" | \"runtime-only\";"
     ],
     "RouteRenderResult": [
-      "interface RouteRenderResult<TParams extends RouteParams = RouteParams> {\n    kind: 'render';\n    handler: RouteHandler<TParams>;\n    params: TParams;\n    record?: RouteRecord;\n}"
+      "interface RouteRenderResult<TParams extends RouteParams = RouteParams> {\n    kind: \"render\";\n    handler: RouteHandler<TParams>;\n    params: TParams;\n    record?: RouteRecord;\n}"
     ],
     "RouteRenderResult$2": [
-      "interface RouteRenderResult$2 {\n    path: string;\n    filePath: string;\n    html: string;\n    fileSize: number;\n    renderDuration: number;\n    resourceCount: number;\n    status: RouteRenderStatus;\n    reason: RouteRenderReason;\n    written: boolean;\n    error?: string;\n    errorCause?: unknown;\n    errorContext?: {\n        route: string;\n        phase: 'load' | 'render' | 'write';\n    };\n}"
+      "interface RouteRenderResult$2 {\n    path: string;\n    filePath: string;\n    html: string;\n    fileSize: number;\n    renderDuration: number;\n    resourceCount: number;\n    status: RouteRenderStatus;\n    reason: RouteRenderReason;\n    written: boolean;\n    error?: string;\n    errorCause?: unknown;\n    errorContext?: {\n        route: string;\n        phase: \"load\" | \"render\" | \"write\";\n    };\n}"
     ],
     "RouteRenderStatus": [
-      "type RouteRenderStatus = 'success' | 'error' | 'skipped' | 'removed';"
+      "type RouteRenderStatus = \"success\" | \"error\" | \"skipped\" | \"removed\";"
     ],
     "RouteRequestOptions": [
       "interface RouteRequestOptions {\n    registry: RouteRegistry;\n    mode?: RouteMode;\n    load?: boolean;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    request?: Request;\n    telemetry?: CoreTelemetry;\n}"
@@ -2417,7 +2425,7 @@
       "interface RovingFocusOptions {\n    currentIndex: number;\n    itemCount: number;\n    orientation?: Orientation;\n    loop?: boolean;\n    onNavigate?: (index: number) => void;\n    isDisabled?: (index: number) => boolean;\n}"
     ],
     "RovingFocusResult": [
-      "interface RovingFocusResult {\n    container: {\n        onKeyDown: (e: KeyboardLikeEvent) => void;\n    };\n    item: (index: number) => {\n        tabIndex: number;\n        'data-roving-index': number;\n    };\n}"
+      "interface RovingFocusResult {\n    container: {\n        onKeyDown: (e: KeyboardLikeEvent) => void;\n    };\n    item: (index: number) => {\n        tabIndex: number;\n        \"data-roving-index\": number;\n    };\n}"
     ],
     "RuntimeKeyedReorderDecision": [
       "interface RuntimeKeyedReorderDecision {\n    useFastPath: boolean;\n    totalKeyed: number;\n    totalChildren: number;\n    currentKeyCount: number;\n    moveCount: number;\n    lisLen: number;\n    hasPropChanges: boolean;\n    isWholeKeyedList: boolean;\n}"
@@ -2432,7 +2440,7 @@
       "declare function scheduleIdle(fn: () => void, options?: {\n    timeout?: number;\n}): CancelFn;"
     ],
     "Scheduler": [
-      "declare class Scheduler {\n    setBulkCommitProbe(probe: SchedulerBulkCommitProbe): void;\n    enqueue(task: Task): void;\n    enqueueInLane(lane: SchedulerLane, task: Task): void;\n    flush(): void;\n    runWithSyncProgress<T>(fn: () => T): T;\n    waitForFlush(targetVersion?: number, timeoutMs?: number): Promise<void>;\n    getState(): {\n        queueLength: number;\n        running: boolean;\n        depth: number;\n        executionDepth: number;\n        taskCount: number;\n        flushVersion: number;\n        laneQueues: {\n            derived: number;\n            component: number;\n            reactive: number;\n            post: number;\n        };\n        inHandler: boolean;\n        allowSyncProgress: boolean;\n    };\n    getFlushVersion(): number;\n    flushIfQueued(): void;\n    runInHandlerScope<T>(fn: () => T, flushMode?: 'defer' | 'sync'): T;\n    setInHandler(v: boolean): void;\n    isInHandler(): boolean;\n    isExecuting(): boolean;\n    clearPendingSyncTasks(): number;\n}"
+      "declare class Scheduler {\n    setBulkCommitProbe(probe: SchedulerBulkCommitProbe): void;\n    enqueue(task: Task): void;\n    enqueueInLane(lane: SchedulerLane, task: Task): void;\n    flush(): void;\n    runWithSyncProgress<T>(fn: () => T): T;\n    waitForFlush(targetVersion?: number, timeoutMs?: number): Promise<void>;\n    getState(): {\n        queueLength: number;\n        running: boolean;\n        depth: number;\n        executionDepth: number;\n        taskCount: number;\n        flushVersion: number;\n        laneQueues: {\n            derived: number;\n            component: number;\n            reactive: number;\n            post: number;\n        };\n        inHandler: boolean;\n        allowSyncProgress: boolean;\n    };\n    getFlushVersion(): number;\n    flushIfQueued(): void;\n    runInHandlerScope<T>(fn: () => T, flushMode?: \"defer\" | \"sync\"): T;\n    setInHandler(v: boolean): void;\n    isInHandler(): boolean;\n    isExecuting(): boolean;\n    clearPendingSyncTasks(): number;\n}"
     ],
     "SchedulerBulkCommitProbe": [
       "type SchedulerBulkCommitProbe = () => boolean;"
@@ -2441,7 +2449,7 @@
       "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions$1): {\n    cancel(): void;\n};"
     ],
     "SchedulerLane": [
-      "type SchedulerLane = 'derived' | 'component' | 'reactive' | 'post';"
+      "type SchedulerLane = \"derived\" | \"component\" | \"reactive\" | \"post\";"
     ],
     "scheduleTimeout": [
       "declare function scheduleTimeout(ms: number, fn: () => void): CancelFn;"
@@ -2460,7 +2468,7 @@
     ],
     "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
     "SelectorEquals": [
-      "type SelectorEquals<T> = {\n    bivarianceHack(a: T, b: T): boolean;\n}['bivarianceHack'];"
+      "type SelectorEquals<T> = {\n    bivarianceHack(a: T, b: T): boolean;\n}[\"bivarianceHack\"];"
     ],
     "serializeIconStyle": [
       "declare function serializeIconStyle(style: string | IconStyleObject | undefined): string;"
@@ -2489,7 +2497,7 @@
     ],
     "ShowSource": ["type ShowSource<T> = T | (() => T);"],
     "ShowState": [
-      "interface ShowState extends BranchControlStateBase {\n    kind: 'show';\n    fallbackScope: ChildScope | null;\n    renderFallback: (() => VNode) | null;\n    renderTruthy: ((value: unknown) => VNode) | (() => VNode);\n    selectedValue: unknown;\n    truthyScope: ChildScope | null;\n}"
+      "interface ShowState extends BranchControlStateBase {\n    kind: \"show\";\n    fallbackScope: ChildScope | null;\n    renderFallback: (() => VNode) | null;\n    renderTruthy: ((value: unknown) => VNode) | (() => VNode);\n    selectedValue: unknown;\n    truthyScope: ChildScope | null;\n}"
     ],
     "Slot": ["declare function Slot(props: SlotProps): JSXElement | null;"],
     "SlotProps": [
@@ -2509,7 +2517,7 @@
       "interface SSGAssetSource {\n    from: string;\n    to?: string;\n}"
     ],
     "SSGBaseOptions": [
-      "interface SSGBaseOptions {\n    outputDir: string;\n    seed?: number;\n    dataOverrides?: Record<string, unknown>;\n    document?: DocumentRenderer;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n    assets?: readonly SSGAssetSource[];\n    concurrency?: number;\n    parallelism?: number | 'auto';\n}"
+      "interface SSGBaseOptions {\n    outputDir: string;\n    seed?: number;\n    dataOverrides?: Record<string, unknown>;\n    document?: DocumentRenderer;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n    assets?: readonly SSGAssetSource[];\n    concurrency?: number;\n    parallelism?: number | \"auto\";\n}"
     ],
     "SSGGenerateOptions": [
       "interface SSGGenerateOptions {\n    mode?: SSGMode;\n    changedKeys?: string[];\n    changedRoutes?: string[];\n    forceFull?: boolean;\n}"
@@ -2517,7 +2525,7 @@
     "SSGMetadata": [
       "interface SSGMetadata extends Record<string, unknown> {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: Array<{\n        path: string;\n        filePath: string;\n        fileSize: number;\n        renderDuration: number;\n        resourceCount: number;\n        status: RouteRenderStatus;\n        reason: RouteRenderReason;\n        written: boolean;\n        error?: string;\n    }>;\n}"
     ],
-    "SSGMode": ["type SSGMode = 'full' | 'incremental';"],
+    "SSGMode": ["type SSGMode = \"full\" | \"incremental\";"],
     "SSGOptions": [
       "type SSGOptions<_TRoutes extends readonly RouteConfig[] = RouteConfig[]> = SSGBaseOptions & {\n    registry: RouteRegistry;\n};"
     ],
@@ -2553,10 +2561,10 @@
       "interface SSRStyleRegistration {\n    id: string;\n    cssText: string;\n}"
     ],
     "SSRStyleRegistrationValidation": [
-      "type SSRStyleRegistrationValidation = 'warn' | 'error' | 'off';"
+      "type SSRStyleRegistrationValidation = \"warn\" | \"error\" | \"off\";"
     ],
     "StaleValueReason": [
-      "type StaleValueReason = Exclude<QueryStaleReason, 'error'>;"
+      "type StaleValueReason = Exclude<QueryStaleReason, \"error\">;"
     ],
     "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
     "State": [
@@ -2585,7 +2593,7 @@
       "type StreamSource<T> = (context: {\n    signal: AbortSignal;\n}) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>;"
     ],
     "StreamStatus": [
-      "type StreamStatus = 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'error';"
+      "type StreamStatus = \"connecting\" | \"connected\" | \"reconnecting\" | \"closed\" | \"error\";"
     ],
     "StripRoutePathSuffix": [
       "type StripRoutePathSuffix<Path extends string> = Path extends `${infer Base}?${string}` ? StripRoutePathSuffix<Base> : Path extends `${infer Base}#${string}` ? StripRoutePathSuffix<Base> : Path;"
@@ -2622,7 +2630,7 @@
       "type TableHeaderIntrinsicProps = StructuredContentIntrinsicProps<TableCellIntrinsicAllowedProps & {\n    abbr?: ReactiveProp<IntrinsicTextValue>;\n    scope?: ReactiveProp<TableHeaderScopeValue>;\n}>;"
     ],
     "TableHeaderScopeValue": [
-      "type TableHeaderScopeValue = 'col' | 'colgroup' | 'row' | 'rowgroup' | null | undefined;"
+      "type TableHeaderScopeValue = \"col\" | \"colgroup\" | \"row\" | \"rowgroup\" | null | undefined;"
     ],
     "task": [
       "declare function task(fn: () => void | (() => void) | PromiseLike<void | (() => void)>): void;"
@@ -2660,10 +2668,10 @@
       "type TrimRoutePathSlashes<Path extends string> = Path extends `/${infer Rest}` ? TrimRoutePathSlashes<Rest> : Path extends `${infer Rest}/` ? TrimRoutePathSlashes<Rest> : Path;"
     ],
     "TrimRoutePathWhitespace": [
-      "type TrimRoutePathWhitespace<Path extends string> = Path extends `${' ' | '\\n' | '\\t' | '\\r'}${infer Rest}` ? TrimRoutePathWhitespace<Rest> : Path extends `${infer Rest}${' ' | '\\n' | '\\t' | '\\r'}` ? TrimRoutePathWhitespace<Rest> : Path;"
+      "type TrimRoutePathWhitespace<Path extends string> = Path extends `${\" \" | \"\\n\" | \"\\t\" | \"\\r\"}${infer Rest}` ? TrimRoutePathWhitespace<Rest> : Path extends `${infer Rest}${\" \" | \"\\n\" | \"\\t\" | \"\\r\"}` ? TrimRoutePathWhitespace<Rest> : Path;"
     ],
     "Truthy": [
-      "type Truthy<T> = T extends false | '' | 0 | 0n | null | undefined ? never : T;"
+      "type Truthy<T> = T extends false | \"\" | 0 | 0n | null | undefined ? never : T;"
     ],
     "type": [
       "declare function type(element: HTMLInputElement | HTMLTextAreaElement, text: string): void;"
@@ -2673,7 +2681,7 @@
       "declare function updateRouteQuery(updates: RouteQueryUpdates | RouteQueryUpdater, options?: UpdateRouteQueryOptions): void;"
     ],
     "UpdateRouteQueryOptions": [
-      "type UpdateRouteQueryOptions = {\n    history?: 'push' | 'replace';\n    replace?: boolean;\n};"
+      "type UpdateRouteQueryOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n};"
     ],
     "VNode": [
       "type VNode = DOMElement | string | number | boolean | null | undefined;"
