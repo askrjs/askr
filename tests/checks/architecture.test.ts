@@ -387,6 +387,8 @@ describe('architecture boundaries', () => {
       'src/runtime/index.ts',
       'src/runtime/ownership.ts',
       'src/runtime/component-generation.ts',
+      'src/runtime/component-capabilities.ts',
+      'src/runtime/component-scope.ts',
       'src/runtime/component-cleanup.ts',
       'src/runtime/child-scope.ts',
       'src/runtime/transaction-access.ts',

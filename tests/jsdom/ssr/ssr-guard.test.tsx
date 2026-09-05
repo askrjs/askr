@@ -1,8 +1,51 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { renderToStringSync } from '../../../src/ssr';
 import type { JSXElement } from '../../../src/jsx/types';
+import { state } from '../../../src';
+import { createIsland } from '../../../test-utils/render/create-island';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 describe('SSR strict-purity guard (dev-only)', () => {
+  it.each([false, true])(
+    'should restore the surrounding hook cursor after a nested server render throws=%s',
+    (fails) => {
+      const view = createTestContainer();
+      let revision!: ReturnType<typeof state<number>>;
+      let retained!: ReturnType<typeof state<string>>;
+      createIsland({
+        root: view.container,
+        component: () => {
+          revision = state(0);
+          const nestedRevision = revision();
+          try {
+            renderToStringSync(() => {
+              if (nestedRevision === 0) state('server-only');
+              if (fails) throw new Error('nested server failure');
+              return <span>{'server'}</span>;
+            });
+          } catch (error) {
+            if (!fails) throw error;
+          }
+          retained = state('retained');
+          return <p>{retained()}</p>;
+        },
+      });
+      try {
+        flushScheduler();
+        retained.set('updated');
+        flushScheduler();
+        revision.set(1);
+        flushScheduler();
+        expect(view.container.textContent).toBe('updated');
+      } finally {
+        view.cleanup();
+      }
+    }
+  );
+
   it('should allow nested SSR renders without leaking global overrides', () => {
     const Inner = () => (<div>inner</div>) as unknown as JSXElement;
 

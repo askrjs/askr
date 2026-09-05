@@ -61,6 +61,7 @@ package boundaries in the platform.
 | [Compatibility boundary](./development/compatibility-boundary.md) | Published contracts and extension adapters                           |
 | [Runtime ownership](./development/ownership.md)                   | Lifetime identity, cancellation, cleanup, and generation preparation |
 | [Renderer ownership](./development/renderer-ownership.md)         | DOM ranges, host indexes, and platform capabilities                  |
+| [Integration boundaries](./development/integration-boundaries.md) | Root transactions, data attachments, and server request isolation    |
 | [Platform versioning](./development/platform-versioning.md)       | Release coordination policy                                          |
 | [Docs style guide](./contributing/docs-style-guide.md)            | Writing conventions                                                  |
 | [Testing guide](./contributing/testing.md)                        | Test patterns                                                        |

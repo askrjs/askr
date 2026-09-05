@@ -1,3 +1,4 @@
+import { getComponentLifecycleSlot as getLifecycleSlot } from './component-capabilities';
 import { resolveListenerTarget } from '../resources/browser-activity';
 import { ownCleanup } from './ownership';
 import {
@@ -50,32 +51,6 @@ type LifecycleSlotKind = 'timer' | 'listener' | 'task' | 'watch';
 type LifecycleSlot = {
   kind: LifecycleSlotKind;
 };
-
-function getLifecycleSlot<TSlot extends LifecycleSlot>(
-  instance: ComponentInstance,
-  index: number,
-  kind: TSlot['kind'],
-  create: () => TSlot
-): TSlot {
-  const lifecycleSlots = (instance.lifecycleSlots ??= []);
-  const existing = lifecycleSlots[index];
-
-  if (existing) {
-    const slot = existing as LifecycleSlot;
-    if (slot.kind !== kind) {
-      throw new Error(
-        `${kind}() lifecycle order violation: slot ${index} already belongs to ${slot.kind}(). ` +
-          'Keep lifecycle primitives in a stable top-level order.'
-      );
-    }
-
-    return existing as TSlot;
-  }
-
-  const slot = create();
-  lifecycleSlots[index] = slot;
-  return slot;
-}
 
 /** {@link ActivityPredicate} that is true while the current route matches `pathOrPaths`. */
 export function routeActive(

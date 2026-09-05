@@ -1,4 +1,7 @@
-import { ownCleanup } from '../runtime/ownership';
+import {
+  getComponentLifetimeIdentity,
+  ownComponentCleanup,
+} from '../runtime/component-capabilities';
 import { getActiveRenderContext } from '../common/render-context';
 import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
 import { resolveDataRuntimeState, type DataRuntimeState } from './data-runtime';
@@ -341,7 +344,7 @@ export function createQueryCollection<
     );
   }
 
-  const generation = instance.ownership.identity;
+  const generation = getComponentLifetimeIdentity(instance);
   const runtimeState = resolveDataRuntimeState(options.runtime);
   const store = getCollectionStore(generation);
   let slot = store.get(hookIndex);
@@ -363,7 +366,7 @@ export function createQueryCollection<
       >,
     };
     store.set(hookIndex, slot);
-    ownCleanup(instance.ownership, () => {
+    ownComponentCleanup(instance, () => {
       const current = store.get(hookIndex);
       try {
         current?.collection.dispose();
