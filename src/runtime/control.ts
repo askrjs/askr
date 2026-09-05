@@ -13,7 +13,7 @@ import { getCurrentInstance } from './component-scope';
 import { type ComponentInstance } from './component-internal';
 import type { ForState } from './for';
 import { registerCommitParticipant } from './transaction-access';
-import { getRuntimeRenderer } from './access';
+import { getRuntimeEvaluation } from './access';
 
 export interface MatchBranch {
   key: string | number;
@@ -152,6 +152,7 @@ function beginControlTransaction(
   state._transaction = transaction;
   transaction.registered = registerCommitParticipant({
     key: transaction,
+    collision: 'keep-first',
     publish: () => publishControlTransaction(state, transaction),
     settle: () => commitControlTransaction(state, transaction),
     rollback: () => rollbackControlTransaction(state, transaction),
@@ -175,7 +176,7 @@ function stageBranchRemoval(
   }
 
   const removedRange =
-    getRuntimeRenderer().resolveChildScopeRange?.(scope) ?? scope.range;
+    getRuntimeEvaluation().resolveChildScopeRange?.(scope) ?? scope.range;
   const removedDom = removedRange?.single ? removedRange.start : scope.dom;
   if (removedDom) {
     state.lastRemovedNodes.push(removedDom);

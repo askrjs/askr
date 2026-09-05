@@ -1,10 +1,16 @@
+import type {
+  ComponentHooks,
+  ComponentVNodeIdentity,
+  ComponentReads,
+  ComponentDiagnostics,
+  ComponentExecution,
+} from './component-state';
 /**
  * Component instance lifecycle management
  * Internal only — users never see this
  */
 
-import { type State } from './state';
-import { enqueueRuntimeTask, getRuntimeRenderer } from './access';
+import { enqueueRuntimeTask, getRuntimeEvaluation } from './access';
 import type { Props } from '../common/props';
 import type { ComponentFunction } from '../common/component';
 import {
@@ -12,9 +18,7 @@ import {
   callWithContext,
   getExecutionContextFrame,
   withContext,
-  type ContextFrame,
 } from './context';
-import type { ReadableSource } from './readable';
 import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
@@ -62,8 +66,7 @@ import {
   restoreInlineRenderTracking,
   restoreRenderScopedComponent,
 } from './component-scope';
-import type { AppRenderRuntime } from '../common/app-render-runtime';
-import { DIRECT_RANGE_OWNER, type DOMRange } from '../common/dom-range';
+import { DIRECT_RANGE_OWNER } from '../common/dom-range';
 
 Object.defineProperty(componentRecordPrototype, DIRECT_RANGE_OWNER, {
   value: true,
@@ -76,76 +79,13 @@ const PRODUCTION_BUILD_ENABLED = isProductionEnvironment();
 export type { ComponentFunction } from '../common/component';
 export { cleanupComponent, registerOwnedChildScope, unregisterOwnedChildScope };
 
-export interface ComponentInstance {
-  id: string;
-  fn: ComponentFunction;
-  props: Props;
-  target: Element | null;
-  /** Renderer-maintained index of this execution record's current host. */
-  range?: DOMRange;
-  parentInstance: ComponentInstance | null;
-  portalScope: object | null;
-  owner: OwnershipRecord;
-  ssr?: boolean; // Set to true for SSR temporary instances
-  // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
-  cleanupStrict?: boolean;
-  stateValues?: State<unknown>[]; // Persistent state storage across renders
-  evaluationGeneration: number; // Prevents stale async evaluation completions
-  renderRevision: number; // Invalidates prepared output after a newer execution
-  notifyUpdate: (() => void) | null; // Callback for state updates (persisted on instance)
-  // Internal: prebound helpers to avoid per-update closures (allocation hot-path)
-  _pendingFlushTask?: () => void; // Clears hasPendingUpdate and triggers notifyUpdate
-  _pendingRunTask?: () => void; // Clears hasPendingUpdate and runs component
-  _enqueueRun?: () => void; // Batches run requests and enqueues _pendingRunTask
-  stateIndexCheck: number; // Track state indices to catch conditional calls
-  expectedStateIndices?: number[]; // Expected sequence of render-scoped hook indices (frozen after first render)
-  firstRenderComplete: boolean; // Flag to detect transition from first to subsequent renders
-  mountOperations?: Array<
-    () => void | (() => void) | PromiseLike<void | (() => void)>
-  >; // Operations to run when component mounts
-  commitOperations?: Array<
-    () => void | (() => void) | PromiseLike<void | (() => void)>
-  >; // Operations to run after a successful committed render
-  lifecycleSlots?: unknown[]; // Render-scoped lifecycle primitive storage
-  lifecycleGeneration: number; // Invalidates async mount-operation settlement after disposal
-  hasPendingUpdate: boolean; // Flag to batch state updates (coalescing)
-  ownerFrame: ContextFrame | null; // Provider chain for this component (set by Scope, never overwritten)
-  isRoot?: boolean;
-  _rootComponentFn?: ComponentFunction;
-  /** @internal Browser-owned hydration and route state for this app root. */
-  _appRenderRuntime?: AppRenderRuntime;
-  /** @internal CSP nonce retained across browser route navigation. */
-  _cspNonce?: string;
-
-  // Renderer ownership identity. A host can contain a retained wrapper chain,
-  // so component type alone is not a safe reuse key.
-  _vnodeOwner?: object;
-  _vnodeParent?: ComponentInstance | null;
-  _vnodeParentGeneration?: object;
-  _vnodeKey?: string | number;
-  _vnodePosition?: number;
-  _wrapperDepth?: number;
-
-  // Render-tracking for precise subscriptions (internal)
-  _currentRenderToken?: number; // Token for the in-progress render (set before render)
-  lastRenderToken?: number; // Token of the last *committed* render
-  _pendingReadSources?: Set<ReadableSource<unknown>>; // Readables read during the in-progress render
-  _pendingReadSourceVersions?: Map<ReadableSource<unknown>, number>; // Source versions captured during the in-progress render
-  devWarningsEmitted?: Set<string>; // Dev-only warning dedupe for this instance
-
-  // Placeholder for null-returning components. When a component initially returns
-  // null, we create a comment placeholder so updates can replace it with content.
-  _placeholder?: Comment;
-  errorBoundaryState?: {
-    error: unknown | null;
-    resetKey: unknown;
-    notified: boolean;
-  };
-  /** @internal Logical error ancestry for content materialized by a portal host. */
-  _portalErrorParent?: ComponentInstance | null;
-  /** @internal Ownership identity paired with `_portalErrorParent`. */
-  _portalErrorParentGeneration?: object;
-}
+export interface ComponentInstance
+  extends
+    ComponentHooks,
+    ComponentVNodeIdentity,
+    ComponentReads,
+    ComponentDiagnostics,
+    ComponentExecution {}
 
 function ensurePendingRunTask(instance: ComponentInstance): () => void {
   const existing = instance._pendingRunTask;
@@ -276,7 +216,7 @@ export function mountInstanceInline(
   instance: ComponentInstance,
   target: Element | null
 ): void {
-  getRuntimeRenderer().recordInlineComponentHost(instance, target);
+  getRuntimeEvaluation().recordInlineComponentHost(instance, target);
 
   // Ensure notifyUpdate is available for async resource completions that may
   // try to trigger re-render. This mirrors the setup in executeComponent().

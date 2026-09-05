@@ -38,7 +38,7 @@ import type { FineGrainedEffectHandle } from './effect';
 import type { ForEachSource, ForKeySelector, ForRenderItem } from './for-types';
 import { reconcileForItems } from './for-reconcile';
 import { registerCommitParticipant } from './transaction-access';
-import { getRuntimeRenderer } from './access';
+import { getRuntimeScopes, getRuntimeCleanup } from './access';
 import { logger } from '../common/logger';
 import type { DOMRange } from '../common/dom-range';
 import type { ContextFrame } from './context';
@@ -387,6 +387,7 @@ export function registerForStateTransaction<T>(
 
   return registerCommitParticipant({
     key: transaction,
+    collision: 'keep-first',
     publish: () => publishForStateTransaction(forState, transaction),
     settle: () => commitForStateTransaction(forState, transaction),
     rollback: () => rollbackForStateTransaction(forState, transaction),
@@ -426,7 +427,7 @@ function finalizeForStateRemovals<T>(
     }
 
     const teardownStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
-    const count = getRuntimeRenderer().teardownScopeHost(
+    const count = getRuntimeScopes().teardownScopeHost(
       removedDom,
       removedRange,
       (error) => cleanupErrors.push(error)
@@ -460,7 +461,7 @@ function finalizeForStateRemovals<T>(
     const teardownStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
     for (const node of removedScopeNodes) {
       try {
-        getRuntimeRenderer().teardownNodeSubtree(node);
+        getRuntimeCleanup().teardownNodeSubtree(node);
         if (BENCH_BUILD_ENABLED) recordBenchCounter('subtreeTeardowns');
       } catch (error) {
         cleanupErrors.push(error);

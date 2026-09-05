@@ -1,4 +1,4 @@
-import { getRuntimeRenderer } from './access';
+import { getRuntimeScopes } from './access';
 /**
  * For key validation and reconciliation strategy ownership.
  */
@@ -414,7 +414,7 @@ export function reconcileForItems<T>(
         const itemChanged = existing.item !== item;
         const scopeNeedsDomUpdate =
           existing.scope.needsDomUpdate ||
-          getRuntimeRenderer().hasUnmountedComponentHost(existing.scope.dom);
+          getRuntimeScopes().hasUnmountedComponentHost(existing.scope.dom);
 
         if (itemChanged) {
           updateItemInstance(forState, existing, item);

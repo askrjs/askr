@@ -96,6 +96,7 @@ describe('tier1 renderer keyed fastpath', () => {
     },
     {
       ...tier1BenchOptions,
+      iterations: 100,
       setup() {
         const result = createTestContainer();
         cleanup = result.cleanup;

@@ -1,0 +1,112 @@
+{
+  "status": "rejected",
+  "summary": "Declared conservative control comparison fails at +8.96%, with all nine captures meeting sample quality. Profiling and remediation are required before further acceptance captures.",
+  "runs": [
+    {
+      "run": 33978606440,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle 1,000 selected JSX rows between 1,000 and 2,000 rows"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 66.29999999998836,
+            "mean": 63.16099999999977,
+            "rme": 12.21375085684971,
+            "sampleCount": 100,
+            "p75": 98.40000000002328,
+            "p99": 121.20000000006985,
+            "capture": 1
+          },
+          {
+            "median": 65.70000000001164,
+            "mean": 62.87400000000023,
+            "rme": 12.086253852368861,
+            "sampleCount": 100,
+            "p75": 98.5,
+            "p99": 117.5,
+            "capture": 2
+          },
+          {
+            "median": 58.99999999994179,
+            "mean": 62.69900000000023,
+            "rme": 12.1794356419676,
+            "sampleCount": 100,
+            "p75": 98.40000000002328,
+            "p99": 130,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 60.199999999953434,
+            "mean": 62.571000000002094,
+            "rme": 12.225032612994726,
+            "sampleCount": 100,
+            "p75": 98.90000000002328,
+            "p99": 143.20000000006985,
+            "capture": 1
+          },
+          {
+            "median": 72.29999999998836,
+            "mean": 60.666000000000935,
+            "rme": 12.037535723297903,
+            "sampleCount": 100,
+            "p75": 94.70000000006985,
+            "p99": 108.60000000009313,
+            "capture": 2
+          },
+          {
+            "median": 68.44999999995343,
+            "mean": 60.7389999999979,
+            "rme": 12.009649088656902,
+            "sampleCount": 100,
+            "p75": 93.90000000002328,
+            "p99": 112.40000000002328,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 59.699999999953434,
+            "mean": 61.382000000003025,
+            "rme": 12.210878399645573,
+            "sampleCount": 100,
+            "p75": 93.89999999990687,
+            "p99": 117.5,
+            "capture": 1
+          },
+          {
+            "median": 71.60000000003492,
+            "mean": 61.224999999998836,
+            "rme": 12.135752188837042,
+            "sampleCount": 100,
+            "p75": 96,
+            "p99": 113,
+            "capture": 2
+          },
+          {
+            "median": 60.300000000046566,
+            "mean": 62.810000000002326,
+            "rme": 12.064714028825138,
+            "sampleCount": 100,
+            "p75": 97.80000000004657,
+            "p99": 125.09999999997672,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 8.95522388053218,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n58544e7af0c1abe92319f96e7398211caae48ffa\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "harnessCommit": "58544e7af0c1abe92319f96e7398211caae48ffa",
+      "candidateHarnessCommit": "58544e7af0c1abe92319f96e7398211caae48ffa",
+      "baselineHarnessDiff": "diff --git a/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx b/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\nindex c13eeaa..2d61226 100644\n--- a/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\n+++ b/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\n@@ -96,6 +96,7 @@ describe('tier1 renderer keyed fastpath', () => {\n     },\n     {\n       ...tier1BenchOptions,\n+      iterations: 100,\n       setup() {\n         const result = createTestContainer();\n         cleanup = result.cleanup;\ndiff --git a/benches/tier4/tier4-integration-jsx-benchmark-app.tsx b/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\nindex 0e38024..98e1d21 100644\n--- a/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\n+++ b/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\n@@ -41,6 +41,7 @@ const jsxAppSlowBenchOptions = extendBenchOptions(tier4BenchOptions, {\n \n const jsxAppAppendBenchOptions = extendBenchOptions(tier4BenchOptions, {\n   time: 2500,\n+  iterations: 100,\n });\n \n function mountJsxBenchmarkApp(initialRows: RowData[]) {\n",
+      "baselineSelection": "lower median of the two baseline series"
+    }
+  ]
+}

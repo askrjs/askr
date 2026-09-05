@@ -1,3 +1,4 @@
+import { captureGenerationExecution } from './component-state';
 import type { ComponentInstance } from './component-internal';
 import {
   cleanupComponent,
@@ -9,7 +10,7 @@ import {
   adjustOwnershipDiagnostic,
   trackRouteGeneration,
 } from './ownership-diagnostics';
-import { getRuntimeRenderer } from './access';
+import { getRuntimeCleanup } from './access';
 import { attachOwnership } from './ownership';
 import { resetComponentWork } from './component-reset';
 
@@ -50,31 +51,8 @@ export function restartComponentGeneration(
 export function captureComponentGeneration(
   instance: ComponentInstance
 ): PreparedComponentGeneration {
-  const restoreHostIndex = getRuntimeRenderer().captureComponentHost(instance);
-  const snapshot = {
-    owner: instance.owner,
-    fn: instance.fn,
-    props: instance.props,
-    expectedStateIndices: instance.expectedStateIndices,
-    firstRenderComplete: instance.firstRenderComplete,
-    stateIndexCheck: instance.stateIndexCheck,
-    errorBoundaryState: instance.errorBoundaryState,
-    target: instance.target,
-    stateValues: instance.stateValues,
-    mountOperations: instance.mountOperations,
-    commitOperations: instance.commitOperations,
-    lifecycleSlots: instance.lifecycleSlots,
-    lifecycleGeneration: instance.lifecycleGeneration,
-    evaluationGeneration: instance.evaluationGeneration,
-    hasPendingUpdate: instance.hasPendingUpdate,
-    notifyUpdate: instance.notifyUpdate,
-    _placeholder: instance._placeholder,
-    _currentRenderToken: instance._currentRenderToken,
-    lastRenderToken: instance.lastRenderToken,
-    _pendingReadSources: instance._pendingReadSources,
-    _pendingReadSourceVersions: instance._pendingReadSourceVersions,
-    _appRenderRuntime: instance._appRenderRuntime,
-  };
+  const restoreHostIndex = getRuntimeCleanup().captureComponentHost(instance);
+  const snapshot = captureGenerationExecution(instance);
   const reads = instance.owner.reads;
   const readerEntries = Array.from(reads ?? [], (source) => ({
     source,

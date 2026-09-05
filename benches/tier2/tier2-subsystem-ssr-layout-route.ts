@@ -23,6 +23,6 @@ describe('tier2 ssr layout route', () => {
         registry: fixture.registry,
       });
     },
-    tier2BenchOptions
+    { ...tier2BenchOptions, iterations: 100_000 }
   );
 });

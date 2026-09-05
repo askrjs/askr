@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite-plus';
 import { playwright } from 'vite-plus/test/browser-playwright';
 import {
-  benchDefine,
+  benchBrowserDefine,
+  benchBrowserServer,
   benchExcludes,
   benchOxc,
   benchResolve,
@@ -9,7 +10,8 @@ import {
 } from './vitest.bench.shared';
 
 export default defineConfig({
-  define: benchDefine,
+  define: benchBrowserDefine,
+  server: benchBrowserServer,
   oxc: benchOxc,
   test: {
     browser: {

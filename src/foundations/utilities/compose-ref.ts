@@ -43,6 +43,16 @@ export function composeRefs<T>(
   ...refs: Array<Ref<T>>
 ): (value: T | null) => void {
   return (value: T | null) => {
-    for (const ref of refs) setRef(ref, value);
+    const errors: unknown[] = [];
+    for (const ref of refs) {
+      try {
+        setRef(ref, value);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'Composed ref callbacks failed');
+    }
   };
 }

@@ -1,187 +1,60 @@
-import { isPromiseLike } from '../common/promise';
-import {
-  captureInlineRenderSnapshot,
-  getCurrentInstance,
-  renderComponentInline,
-  type ComponentFunction,
-  type ComponentInstance,
-} from '../runtime';
-import {
-  getCurrentContextFrame,
-  getVNodeContextFrame,
-  withContext,
-} from '../runtime';
-import { incDevCounter } from '../runtime';
-import { recordBenchEvent } from '../runtime';
-import {
-  findHostInstanceByType,
-  inheritComponentCleanupStrict,
-  inheritComponentKey,
-  isRouteRootComponentVNode,
-  resolveNestedComponentResult,
-} from './component-host';
+import { incDevCounter, recordBenchEvent } from '../runtime';
 import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
-import { getRendererDOMHost, type InstanceHostElement } from './dom-host';
+import { getRendererDOMHost } from './dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import { tagNamesEqualIgnoreCase } from './utils';
 
-function normalizeStableIntrinsicChildren(
-  children: VNode | VNode[] | undefined
-): VNode[] {
-  if (children === null || children === undefined || children === false) {
-    return [];
-  }
-
-  return Array.isArray(children) ? children : [children];
+interface PreparedElement {
+  dom: Element;
+  vnode: DOMElement;
+  children: PreparedPatch[];
 }
+type PreparedPatch = PreparedElement | { dom: Text; text: string };
 
-function getStableIntrinsicChildren(vnode: DOMElement): VNode[] {
-  return normalizeStableIntrinsicChildren(
-    (vnode.props?.children as VNode | VNode[] | undefined) ?? vnode.children
-  );
-}
-
-function patchStableIntrinsicText(domNode: Node, nextVNode: VNode): boolean {
-  if (
-    domNode.nodeType !== 3 ||
-    (typeof nextVNode !== 'string' && typeof nextVNode !== 'number')
-  ) {
-    return false;
-  }
-
-  const nextText = String(nextVNode);
-  const textNode = domNode as Text;
-  if (textNode.data !== nextText) {
-    recordBenchEvent('domTextSet');
-    textNode.data = nextText;
-  }
-
-  return true;
-}
-
-function patchStableIntrinsicElement(
-  dom: Element,
-  nextVNode: DOMElement
-): boolean {
-  if (
-    typeof nextVNode.type !== 'string' ||
-    !tagNamesEqualIgnoreCase(dom.tagName, nextVNode.type)
-  ) {
-    return false;
-  }
-
-  getRendererDOMHost().updateElementFromVnode(dom, nextVNode, false);
-
-  const nextChildren = getStableIntrinsicChildren(nextVNode);
-  if (dom.childNodes.length !== nextChildren.length) {
-    return false;
-  }
-
-  for (let index = 0; index < nextChildren.length; index += 1) {
-    const nextChild = nextChildren[index];
-
-    const currentChildNode = dom.childNodes[index];
-    if (!currentChildNode) {
-      return false;
-    }
-
-    if (patchStableIntrinsicText(currentChildNode, nextChild)) {
-      continue;
-    }
-
-    if (
-      currentChildNode instanceof Element &&
-      _isDOMElement(nextChild) &&
-      typeof nextChild.type === 'string' &&
-      patchStableIntrinsicElement(currentChildNode, nextChild)
-    ) {
-      continue;
-    }
-
-    return false;
-  }
-
-  return true;
-}
-
-function resolveStableIntrinsicPatch(
-  dom: Element,
-  vnode: VNode
-): { vnode: DOMElement; retainedOwner: ComponentInstance | null } | null {
-  if (!_isDOMElement(vnode)) {
-    return null;
-  }
-
-  if (typeof vnode.type === 'string') {
-    return tagNamesEqualIgnoreCase(dom.tagName, vnode.type)
-      ? { vnode, retainedOwner: null }
+// Eligibility traverses the complete intrinsic tree without evaluating components
+// or installing properties, bindings, refs, or cleanup.
+function prepare(dom: Node, vnode: VNode): PreparedPatch | null {
+  if (typeof vnode === 'string' || typeof vnode === 'number') {
+    return dom.nodeType === 3
+      ? { dom: dom as Text, text: String(vnode) }
       : null;
   }
-
-  if (typeof vnode.type !== 'function') {
-    return null;
-  }
-
-  const host = dom as InstanceHostElement;
-  const existingInstance = findHostInstanceByType(
-    host,
-    vnode.type as ComponentFunction,
-    vnode,
-    getCurrentInstance()
-  );
   if (
-    !existingInstance ||
-    existingInstance.fn !== vnode.type ||
-    host.__ASKR_WRAPPER_HOST
-  ) {
+    !(dom instanceof Element) ||
+    !_isDOMElement(vnode) ||
+    typeof vnode.type !== 'string' ||
+    !tagNamesEqualIgnoreCase(dom.tagName, vnode.type) ||
+    vnode.props?.dangerouslySetInnerHTML !== undefined
+  )
     return null;
+  const raw =
+    (vnode.props?.children as VNode | VNode[] | undefined) ?? vnode.children;
+  const next =
+    raw === null || raw === undefined || raw === false
+      ? []
+      : Array.isArray(raw)
+        ? raw
+        : [raw];
+  if (dom.childNodes.length !== next.length) return null;
+  const children: PreparedPatch[] = [];
+  for (let index = 0; index < next.length; index += 1) {
+    const child = prepare(dom.childNodes[index], next[index]);
+    if (!child) return null;
+    children.push(child);
   }
+  return { dom, vnode, children };
+}
 
-  const snapshot =
-    getVNodeContextFrame(vnode) ||
-    getCurrentContextFrame() ||
-    existingInstance.ownerFrame ||
-    null;
-
-  captureInlineRenderSnapshot(existingInstance);
-
-  existingInstance.props =
-    (((vnode as DOMElement).props ?? {}) as Record<string, unknown>) || {};
-  existingInstance.isRoot = isRouteRootComponentVNode(vnode);
-  existingInstance.portalScope =
-    getCurrentInstance()?.portalScope ?? existingInstance.portalScope;
-  inheritComponentCleanupStrict(existingInstance);
-
-  if (snapshot) {
-    existingInstance.ownerFrame = snapshot;
+function apply(patch: PreparedPatch): void {
+  if ('text' in patch) {
+    if (patch.dom.data !== patch.text) {
+      recordBenchEvent('domTextSet');
+      patch.dom.data = patch.text;
+    }
+    return;
   }
-
-  const result = withContext(snapshot, () =>
-    renderComponentInline(existingInstance)
-  );
-  if (isPromiseLike(result)) {
-    throw new Error(
-      'Async components are not supported. Components must return synchronously.'
-    );
-  }
-
-  const resolvedResult = resolveNestedComponentResult(
-    result,
-    snapshot ?? null,
-    existingInstance
-  );
-  if (
-    _isDOMElement(resolvedResult) &&
-    typeof resolvedResult.type === 'string' &&
-    tagNamesEqualIgnoreCase(dom.tagName, resolvedResult.type)
-  ) {
-    return {
-      vnode: inheritComponentKey(resolvedResult, vnode as DOMElement),
-      retainedOwner: existingInstance,
-    };
-  }
-
-  return null;
+  getRendererDOMHost().updateElementFromVnode(patch.dom, patch.vnode, false);
+  for (const child of patch.children) apply(child);
 }
 
 export function tryPatchStableForDirtyItem(scope: {
@@ -189,21 +62,12 @@ export function tryPatchStableForDirtyItem(scope: {
   vnode?: VNode;
 }): boolean {
   incDevCounter('stableForPatchAttempt');
-  if (!(scope.dom instanceof Element) || scope.vnode === undefined) {
+  if (!(scope.dom instanceof Element) || scope.vnode === undefined)
     return false;
-  }
-
-  const patch = resolveStableIntrinsicPatch(scope.dom, scope.vnode);
-  if (!patch) {
-    return false;
-  }
-
-  const didPatch = patchStableIntrinsicElement(scope.dom, patch.vnode);
-
-  if (didPatch) {
-    retireComponentOwnersForIntrinsicReuse(scope.dom, patch.retainedOwner);
-    incDevCounter('stableForPatchHit');
-  }
-
-  return didPatch;
+  const patch = prepare(scope.dom, scope.vnode);
+  if (!patch) return false;
+  apply(patch);
+  retireComponentOwnersForIntrinsicReuse(scope.dom, null);
+  incDevCounter('stableForPatchHit');
+  return true;
 }

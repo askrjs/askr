@@ -57,6 +57,11 @@ export function getRouteRenderData(result: RouteRenderResult): unknown {
   return routeRenderData.get(result);
 }
 
+/** Router-owned inspection of the record selected by request resolution. */
+export function resolvedRouteHasLoader(result: RouteRenderResult): boolean {
+  return typeof result.record?.options?.loader === 'function';
+}
+
 function createRouteRenderResult(
   record: RouteRecord,
   params: Record<string, string>,

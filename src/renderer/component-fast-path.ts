@@ -1,5 +1,5 @@
 import { isFragmentType } from '../common/jsx';
-import { getRuntimeRenderer, type ComponentInstance } from '../runtime';
+import { getRuntimeKeys, type ComponentInstance } from '../runtime';
 
 // Helper to unwrap Fragment vnodes to get the first intrinsic element child
 function unwrapFragmentForFastPath(vnode: unknown): unknown {
@@ -82,7 +82,7 @@ export function classifyUpdate(instance: ComponentInstance, result: unknown) {
 
   // Ask renderer for keyed reorder eligibility (prop differences & heuristics)
   // Ensure a keyed map is available for the first child by populating it proactively.
-  const renderer = getRuntimeRenderer();
+  const renderer = getRuntimeKeys();
   try {
     renderer.populateKeyMapForElement(firstChild);
   } catch {

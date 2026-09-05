@@ -23,6 +23,23 @@ export const benchDefine = createNodeEnvDefine('production', {
   bench: benchInstrumentationEnabled,
 });
 
+export const benchPreciseClockEnabled =
+  process.env.ASKR_BENCH_PRECISE_CLOCK === '1';
+
+export const benchBrowserDefine = {
+  ...benchDefine,
+  __ASKR_BENCH_PRECISE_CLOCK__: JSON.stringify(benchPreciseClockEnabled),
+};
+
+export const benchBrowserServer = benchPreciseClockEnabled
+  ? {
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+      },
+    }
+  : undefined;
+
 export const benchOxc = {
   jsx: {
     runtime: 'automatic' as const,

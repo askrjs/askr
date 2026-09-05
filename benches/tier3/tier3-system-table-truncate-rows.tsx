@@ -16,6 +16,7 @@ describe('tier3 system table truncate rows', () => {
 
   bench('truncate a 2,000-row table to 1,000 rows', () => cycle!.runForward(), {
     ...tier3BenchOptions,
+    iterations: 1000,
     setup() {
       mounted = mountTableBenchmark(fullRows);
       mounted.benchmark.setRows(truncatedRows);

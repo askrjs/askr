@@ -1,7 +1,7 @@
 import { isPromiseLike } from '../common/promise';
 import {
   enqueueRuntimeTask,
-  getRuntimeRenderer,
+  getRuntimeEvaluation,
   runRuntimeWithSyncProgress,
 } from './access';
 import { commitLifecycleForInstance } from './component-lifecycle';
@@ -46,7 +46,7 @@ export function runScheduledComponent(
       instance._pendingReadSources,
       instance._pendingReadSourceVersions
     );
-    fast = getRuntimeRenderer().classifyComponentUpdate(
+    fast = getRuntimeEvaluation().classifyComponentUpdate(
       instance,
       result
     ).useFastPath;
@@ -79,7 +79,7 @@ export function runScheduledComponent(
       const applied = applyTransaction(transaction, () => {
         const wasFirstMount = !owner.mounted;
         if (
-          !getRuntimeRenderer().applyComponentResult(
+          !getRuntimeEvaluation().applyComponentResult(
             instance,
             result,
             fast ? 'keyed-reorder' : 'ordinary'

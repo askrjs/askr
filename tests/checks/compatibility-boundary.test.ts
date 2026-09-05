@@ -30,13 +30,13 @@ it('should preserve public symbol names and documentation for consumer tooling',
   expect(factory.name).toBe('createRuntime');
   expect(
     ts.displayPartsToString(factory.getDocumentationComment(checker))
-  ).toContain('Create a new');
+  ).toContain('construction-only runtime wiring');
   const runtime = resolve('AskrRuntime');
   expect(runtime.name).toBe('AskrRuntime');
   expect(runtime.declarations?.some(ts.isClassDeclaration)).toBe(true);
   expect(
     ts.displayPartsToString(runtime.getDocumentationComment(checker))
-  ).toContain('scheduler + renderer host');
+  ).toContain('Mounting uses the default runtime');
 });
 
 function declarationFiles(directory: string): string[] {

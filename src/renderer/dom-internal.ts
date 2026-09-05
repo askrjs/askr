@@ -481,19 +481,29 @@ export function activateHydrationBoundary(element: Element): boolean {
   }
 }
 
-configureRendererDOMHost({
-  createDOMNode,
-  createComponentResultNode,
-  syncComponentElement,
-  updateElementFromVnode,
-  updateElementChildren,
-  tryPatchStableForDirtyItem,
-});
+let nativeDOMHostInitialized = false;
 
-configureBoundaryDOMHost({
-  createDOMNode,
-  createResultNodeWithBlueprint: createOwnedResultNodeWithBlueprint,
-  syncComponentElement,
-  updateElementFromVnode,
-  tryPatchStableForDirtyItem,
-});
+/** Ensure native delegation is present even when only the root factory is bundled. */
+export function ensureNativeDOMHost(): void {
+  if (nativeDOMHostInitialized) return;
+  nativeDOMHostInitialized = true;
+
+  configureRendererDOMHost({
+    createDOMNode,
+    createComponentResultNode,
+    syncComponentElement,
+    updateElementFromVnode,
+    updateElementChildren,
+    tryPatchStableForDirtyItem,
+  });
+
+  configureBoundaryDOMHost({
+    createDOMNode,
+    createResultNodeWithBlueprint: createOwnedResultNodeWithBlueprint,
+    syncComponentElement,
+    updateElementFromVnode,
+    tryPatchStableForDirtyItem,
+  });
+}
+
+ensureNativeDOMHost();

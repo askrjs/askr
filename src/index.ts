@@ -9,6 +9,19 @@ import { installRendererBridge } from './boot/runtime-wiring';
 installRendererBridge();
 
 export { createRuntime, getDefaultRuntime } from './compatibility/runtime';
+export { createDOMRendererHost } from './compatibility/dom-renderer';
+export type {
+  DOMComponentOwner,
+  DOMChildScope,
+  DOMReactiveSource,
+  DOMRendererRange,
+  DOMRendererEvaluation,
+  DOMRendererCleanup,
+  DOMRendererScopes,
+  DOMRendererKeys,
+  DOMRendererReactivity,
+  DOMRendererHost,
+} from './compatibility/dom-renderer';
 export { configureRenderDiagnostics } from './runtime';
 export type {
   AskrRuntimeOptions,

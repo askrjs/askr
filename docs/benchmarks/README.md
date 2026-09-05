@@ -148,6 +148,15 @@ capture uses the lower of its two baseline controls. Packed Monaco's initial
 entry is 224,987 bytes against its unchanged 225,000-byte budget, compared with
 214,709 bytes for published 0.2.4. No general optimization claim is made.
 
+The [SOLID remediation qualification](./solid-accepted-497b494.json) covers all
+twelve stable guardrails and six affected diagnostics against `aa45809`, plus a
+separate selected-resize optimization comparison. All 171 accepted captures meet
+quality requirements; the largest regression is 2.66% and the optimization gain
+is 8.50%. Two short browser rows use verified 0.005 ms clocks on both sources,
+with unchanged operations. Rejected captures, clock-resolution limitations, and
+residual source-series drift remain in the evidence and
+[implementation ledger](../development/solid-implementation.md).
+
 ## External JFB Comparisons
 
 The local `js-framework-benchmark` capture is a separate product-level signal

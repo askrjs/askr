@@ -16,7 +16,7 @@ export type {
 
 const defaultRuntimeOptions: AskrRuntimeOptions = {};
 
-/** A scheduler + renderer host pairing; owns scheduling and renderer wiring for an app instance. */
+/** Construction-only scheduler and renderer wiring. Mounting uses the default runtime. */
 export class AskrRuntime {
   readonly scheduler: Scheduler;
   private rendererHost: RuntimeRendererHost;
@@ -52,7 +52,7 @@ export class AskrRuntime {
   }
 }
 
-/** Create a new {@link AskrRuntime} instance with its own scheduler/renderer wiring. */
+/** Create construction-only runtime wiring. Omitted schedulers share the default scheduler; mounting uses the default runtime. */
 export function createRuntime(options: AskrRuntimeOptions = {}): AskrRuntime {
   return new AskrRuntime(options);
 }

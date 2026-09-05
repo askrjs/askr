@@ -37,7 +37,7 @@ describe('router public contract documentation', () => {
   });
 
   it('should document registry as the only preferred SPA route source', () => {
-    const boot = read('src/boot/index.ts');
+    const boot = read('src/boot/spa.ts') + read('src/boot/hydrate-spa.ts');
     const types = read('src/boot/types.ts');
 
     expect(boot).toMatch(/route registry/);

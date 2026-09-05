@@ -380,6 +380,7 @@ export function retireNodeSubtree(node: Node): void {
     !registerCommitParticipant({
       key: node,
       kind: RETIRE_SUBTREE,
+      collision: 'keep-first',
       settle: () => teardownNodeSubtree(node),
     })
   ) {

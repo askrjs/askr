@@ -1,0 +1,1819 @@
+{
+  "status": "rejected",
+  "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+  "reason": "Two resize regressions exceed 5%, keyed reorder has one RME failure, and the separate optimization gain is below 5%.",
+  "comparison": "Median of three candidate captures against the lower of two baseline medians of three, with unchanged sample-quality rules.",
+  "comparisons": [
+    {
+      "run": 33980850161,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-for-keyed-reorder.tsx",
+        "benches/tier1/tier1-hotpath-for-keyed-reorder.tsx > tier1 hotpath for keyed reorder",
+        "swap distant keyed rows while preserving DOM identity"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 4.076000499999964,
+            "mean": 4.470618244444454,
+            "rme": 8.310371159255189,
+            "sampleCount": 90,
+            "p75": 4.468243999999686,
+            "p99": 18.890574000000015,
+            "capture": 1
+          },
+          {
+            "median": 4.018682999999783,
+            "mean": 4.4032066593406824,
+            "rme": 7.9944775237671974,
+            "sampleCount": 91,
+            "p75": 4.32309000000032,
+            "p99": 17.101510999999846,
+            "capture": 2
+          },
+          {
+            "median": 4.025594000000183,
+            "mean": 4.4350505714285715,
+            "rme": 8.278167647549672,
+            "sampleCount": 91,
+            "p75": 4.416131000000405,
+            "p99": 17.427296999999726,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 4.3526630000001205,
+            "mean": 4.799937714285723,
+            "rme": 8.722012035850868,
+            "sampleCount": 84,
+            "p75": 4.886290000000372,
+            "p99": 17.91647200000034,
+            "capture": 1
+          },
+          {
+            "median": 4.241154000000279,
+            "mean": 5.1105418101265805,
+            "rme": 16.677040388265777,
+            "sampleCount": 79,
+            "p75": 5.1417969999997695,
+            "p99": 35.05416100000002,
+            "capture": 2
+          },
+          {
+            "median": 3.9995340000000397,
+            "mean": 4.398364538461554,
+            "rme": 7.692466586270444,
+            "sampleCount": 91,
+            "p75": 4.325072999999975,
+            "p99": 16.497396000000208,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 4.008776000000125,
+            "mean": 4.423275626373637,
+            "rme": 8.62870143769549,
+            "sampleCount": 91,
+            "p75": 4.399274000000332,
+            "p99": 17.270396999999775,
+            "capture": 1
+          },
+          {
+            "median": 4.015357000000222,
+            "mean": 4.404253406593423,
+            "rme": 8.677765381466841,
+            "sampleCount": 91,
+            "p75": 4.35839900000019,
+            "p99": 17.339282000000367,
+            "capture": 2
+          },
+          {
+            "median": 4.042624499999874,
+            "mean": 4.451669788888865,
+            "rme": 8.581165876594007,
+            "sampleCount": 90,
+            "p75": 4.414397999999892,
+            "p99": 17.064590999999837,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 0.25494619780908057,
+      "qualityFailures": [
+        {
+          "label": "control",
+          "median": 4.241154000000279,
+          "mean": 5.1105418101265805,
+          "rme": 16.677040388265777,
+          "sampleCount": 79,
+          "p75": 5.1417969999997695,
+          "p99": 35.05416100000002,
+          "capture": 2
+        }
+      ],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 9V74 80-Core Processor\nCPU family:                              25\nModel:                                   17\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                5192.30\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                2 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 4.025594000000183,
+          "control": 4.241154000000279,
+          "baseline": 4.015357000000222
+        },
+        "lowerBaseline": 4.015357000000222,
+        "changePercent": 0.25494619780908057,
+        "allQualityPass": false,
+        "thresholdPass": false
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980850161"
+    },
+    {
+      "run": 33980851263,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-renderer-keyed-fastpath.tsx",
+        "benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx > tier1 renderer keyed fastpath",
+        "reorder a large keyed div list"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 13.101815500000157,
+            "mean": 13.627923820000008,
+            "rme": 2.793393921079582,
+            "sampleCount": 100,
+            "p75": 13.695193000000017,
+            "p99": 20.668120000000044,
+            "capture": 1
+          },
+          {
+            "median": 13.262219000000186,
+            "mean": 13.950022179999992,
+            "rme": 3.2065844934419543,
+            "sampleCount": 100,
+            "p75": 14.149532999999792,
+            "p99": 21.94008100000019,
+            "capture": 2
+          },
+          {
+            "median": 13.184176000000207,
+            "mean": 13.801950260000018,
+            "rme": 2.7702037530189796,
+            "sampleCount": 100,
+            "p75": 13.926402000000053,
+            "p99": 21.690901000000395,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 13.675295499999947,
+            "mean": 14.341796059999997,
+            "rme": 3.170075772565751,
+            "sampleCount": 100,
+            "p75": 14.565223999999944,
+            "p99": 22.16281200000003,
+            "capture": 1
+          },
+          {
+            "median": 12.953414000000066,
+            "mean": 13.68887048,
+            "rme": 2.841340821132712,
+            "sampleCount": 100,
+            "p75": 13.997445999999854,
+            "p99": 19.78171199999997,
+            "capture": 2
+          },
+          {
+            "median": 12.996471999999812,
+            "mean": 13.72844852000002,
+            "rme": 2.766064231505164,
+            "sampleCount": 100,
+            "p75": 13.950897000000168,
+            "p99": 19.88609499999984,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 13.739131499999985,
+            "mean": 14.846516919999985,
+            "rme": 3.537148830308313,
+            "sampleCount": 100,
+            "p75": 15.277340999999979,
+            "p99": 22.988663000000088,
+            "capture": 1
+          },
+          {
+            "median": 13.242593999999826,
+            "mean": 14.12830594,
+            "rme": 2.8856423900037886,
+            "sampleCount": 100,
+            "p75": 14.73456299999998,
+            "p99": 20.512298999999985,
+            "capture": 2
+          },
+          {
+            "median": 13.063458999999966,
+            "mean": 13.778189679999983,
+            "rme": 2.739758479653999,
+            "sampleCount": 100,
+            "p75": 14.356303000000025,
+            "p99": 20.367385999999897,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 1.4442688754332522,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 13.184176000000207,
+          "control": 12.996471999999812,
+          "baseline": 13.242593999999826
+        },
+        "lowerBaseline": 12.996471999999812,
+        "changePercent": 1.4442688754332522,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980851263"
+    },
+    {
+      "run": 33980852368,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-router-navigation.tsx",
+        "benches/tier2/tier2-subsystem-router-navigation.tsx > tier2 router navigation",
+        "navigate between sibling routes with shared layout shape"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 2.5376209999999446,
+            "mean": 2.5817608626609405,
+            "rme": 1.5776605613052295,
+            "sampleCount": 233,
+            "p75": 2.7220370000000003,
+            "p99": 3.4720969999998488,
+            "capture": 1
+          },
+          {
+            "median": 2.5157790000002933,
+            "mean": 2.5801839828326427,
+            "rme": 1.7086137923611961,
+            "sampleCount": 233,
+            "p75": 2.720082000000275,
+            "p99": 3.5808200000001307,
+            "capture": 2
+          },
+          {
+            "median": 2.500840000000153,
+            "mean": 2.5806463905579307,
+            "rme": 1.676624219590808,
+            "sampleCount": 233,
+            "p75": 2.723837999999887,
+            "p99": 3.8849199999999655,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 2.494498999999905,
+            "mean": 2.562393923404258,
+            "rme": 1.626139064324526,
+            "sampleCount": 235,
+            "p75": 2.7213950000000295,
+            "p99": 3.659127000000126,
+            "capture": 1
+          },
+          {
+            "median": 2.488481999999749,
+            "mean": 2.5911195258620725,
+            "rme": 1.964477935611159,
+            "sampleCount": 232,
+            "p75": 2.7311530000001767,
+            "p99": 4.100806999999804,
+            "capture": 2
+          },
+          {
+            "median": 2.462673999999879,
+            "mean": 2.569974153846141,
+            "rme": 1.89528539430016,
+            "sampleCount": 234,
+            "p75": 2.7263739999998506,
+            "p99": 3.929153999999926,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 2.587704000000258,
+            "mean": 2.658354955752211,
+            "rme": 3.0814336681236,
+            "sampleCount": 226,
+            "p75": 2.742804999999862,
+            "p99": 5.032990000000154,
+            "capture": 1
+          },
+          {
+            "median": 2.478508000000147,
+            "mean": 2.553348748936171,
+            "rme": 1.570667057054051,
+            "sampleCount": 235,
+            "p75": 2.6950159999996686,
+            "p99": 3.3783300000000054,
+            "capture": 2
+          },
+          {
+            "median": 2.6161564999999882,
+            "mean": 2.6392528245614115,
+            "rme": 1.8551755044309857,
+            "sampleCount": 228,
+            "p75": 2.779884000000038,
+            "p99": 4.180847000000085,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 1.0969337933948164,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 2.5157790000002933,
+          "baseline": 2.488481999999749,
+          "control": 2.587704000000258
+        },
+        "lowerBaseline": 2.488481999999749,
+        "changePercent": 1.0969337933948164,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980852368"
+    },
+    {
+      "run": 33980853347,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-runtime-component-depth.tsx",
+        "benches/tier2/tier2-subsystem-runtime-component-depth.tsx > tier2 runtime component depth",
+        "mount and clean up a 1,000-component wrapper chain"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 8.775396999999998,
+            "mean": 9.451007218749993,
+            "rme": 3.6868435825301167,
+            "sampleCount": 64,
+            "p75": 9.075998000000027,
+            "p99": 12.859099999999899,
+            "capture": 1
+          },
+          {
+            "median": 9.008474500000148,
+            "mean": 9.786556580645156,
+            "rme": 3.715238244177842,
+            "sampleCount": 62,
+            "p75": 11.064397000000099,
+            "p99": 13.630448999999771,
+            "capture": 2
+          },
+          {
+            "median": 8.715934500000003,
+            "mean": 9.416221374999992,
+            "rme": 4.154155968475597,
+            "sampleCount": 64,
+            "p75": 9.115412000000106,
+            "p99": 15.162616000000071,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 8.514900999999895,
+            "mean": 9.196961636363643,
+            "rme": 3.6686853086538753,
+            "sampleCount": 66,
+            "p75": 8.872102999999925,
+            "p99": 12.655396999999994,
+            "capture": 1
+          },
+          {
+            "median": 9.195222000000285,
+            "mean": 9.86377501639347,
+            "rme": 3.708509592282124,
+            "sampleCount": 61,
+            "p75": 9.519933000000037,
+            "p99": 13.545450999999957,
+            "capture": 2
+          },
+          {
+            "median": 8.752800000000207,
+            "mean": 9.365369676923072,
+            "rme": 3.516004089863973,
+            "sampleCount": 65,
+            "p75": 9.02449200000001,
+            "p99": 12.678110999999717,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 8.442558500000132,
+            "mean": 9.15443931818181,
+            "rme": 3.6709589858259366,
+            "sampleCount": 66,
+            "p75": 8.928136999999879,
+            "p99": 12.710869000000002,
+            "capture": 1
+          },
+          {
+            "median": 8.46634250000011,
+            "mean": 9.20791092424244,
+            "rme": 3.684981189213415,
+            "sampleCount": 66,
+            "p75": 9.611407999999756,
+            "p99": 12.152442999999948,
+            "capture": 2
+          },
+          {
+            "median": 9.134927999999945,
+            "mean": 9.897621114754104,
+            "rme": 4.1871608299322665,
+            "sampleCount": 61,
+            "p75": 9.48737200000005,
+            "p99": 15.470996000000014,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 3.650389763937434,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.86\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 8.775396999999998,
+          "baseline": 8.752800000000207,
+          "control": 8.46634250000011
+        },
+        "lowerBaseline": 8.46634250000011,
+        "changePercent": 3.650389763937434,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980853347"
+    },
+    {
+      "run": 33980854375,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-resource-cache-dedupe-abort.tsx",
+        "benches/tier2/tier2-subsystem-resource-cache-dedupe-abort.tsx > tier2 subsystem resource cache dedupe abort",
+        "switch a deduped query key and abort the stale fetch"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 4.417137499999967,
+            "mean": 4.49596017164179,
+            "rme": 2.208763722457505,
+            "sampleCount": 134,
+            "p75": 4.823487000000114,
+            "p99": 6.213060999999925,
+            "capture": 1
+          },
+          {
+            "median": 4.454950999999937,
+            "mean": 4.547635053030301,
+            "rme": 2.2632687951929067,
+            "sampleCount": 132,
+            "p75": 4.876709000000119,
+            "p99": 6.3587579999998525,
+            "capture": 2
+          },
+          {
+            "median": 4.3515289999998,
+            "mean": 4.5056033432835765,
+            "rme": 2.2827253198470334,
+            "sampleCount": 134,
+            "p75": 4.900294000000031,
+            "p99": 6.428730000000087,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 4.328145500000005,
+            "mean": 4.420961139705868,
+            "rme": 1.9993043857003197,
+            "sampleCount": 136,
+            "p75": 4.715042999999923,
+            "p99": 6.358952000000045,
+            "capture": 1
+          },
+          {
+            "median": 4.35744700000032,
+            "mean": 4.522973902255647,
+            "rme": 2.2675852504901948,
+            "sampleCount": 133,
+            "p75": 4.850608000000193,
+            "p99": 6.3594560000001366,
+            "capture": 2
+          },
+          {
+            "median": 4.386359000000084,
+            "mean": 4.496201537313414,
+            "rme": 2.163454342612902,
+            "sampleCount": 134,
+            "p75": 4.816718000000037,
+            "p99": 6.6506240000003345,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 4.513056000000233,
+            "mean": 4.53236715037595,
+            "rme": 2.0657985845721627,
+            "sampleCount": 133,
+            "p75": 4.834145999999691,
+            "p99": 6.200265999999829,
+            "capture": 1
+          },
+          {
+            "median": 4.485196000000087,
+            "mean": 4.513992654135307,
+            "rme": 2.034323040880702,
+            "sampleCount": 133,
+            "p75": 4.801167000000078,
+            "p99": 6.226568000000043,
+            "capture": 2
+          },
+          {
+            "median": 4.348211499999934,
+            "mean": 4.488413455223888,
+            "rme": 2.236792374113578,
+            "sampleCount": 134,
+            "p75": 4.8327979999999116,
+            "p99": 6.712247999999818,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 1.3698502815901792,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 4.417137499999967,
+          "baseline": 4.35744700000032,
+          "control": 4.485196000000087
+        },
+        "lowerBaseline": 4.35744700000032,
+        "changePercent": 1.3698502815901792,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980854375"
+    },
+    {
+      "run": 33980855357,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-control-branch-toggle.tsx",
+        "benches/tier2/tier2-subsystem-control-branch-toggle.tsx > tier2 control-flow branch toggles",
+        "toggle Case branch selection"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 0.6806050000000141,
+            "mean": 0.7426456113861357,
+            "rme": 2.057832906517028,
+            "sampleCount": 808,
+            "p75": 0.8079479999998966,
+            "p99": 1.5483990000000176,
+            "capture": 1
+          },
+          {
+            "median": 0.6441119999999501,
+            "mean": 0.7097032257683152,
+            "rme": 1.8612917074563067,
+            "sampleCount": 846,
+            "p75": 0.7842030000001614,
+            "p99": 1.333918999999696,
+            "capture": 2
+          },
+          {
+            "median": 0.6788864999998623,
+            "mean": 0.723152232530123,
+            "rme": 1.863938354594699,
+            "sampleCount": 830,
+            "p75": 0.8076470000000882,
+            "p99": 1.3622519999998985,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 0.6865510000000086,
+            "mean": 0.7356907071078396,
+            "rme": 1.956425040407434,
+            "sampleCount": 816,
+            "p75": 0.8035500000000866,
+            "p99": 1.5085550000001149,
+            "capture": 1
+          },
+          {
+            "median": 0.6846080000000256,
+            "mean": 0.732906069597066,
+            "rme": 2.027468435123354,
+            "sampleCount": 819,
+            "p75": 0.7997129999998833,
+            "p99": 1.4048720000000685,
+            "capture": 2
+          },
+          {
+            "median": 0.7167570000001433,
+            "mean": 0.741920510506801,
+            "rme": 1.6097980669793097,
+            "sampleCount": 809,
+            "p75": 0.818025999999918,
+            "p99": 1.4620380000001205,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 0.699255500000163,
+            "mean": 0.7250422415458864,
+            "rme": 1.585421820150005,
+            "sampleCount": 828,
+            "p75": 0.7947229999999763,
+            "p99": 1.3213059999998222,
+            "capture": 1
+          },
+          {
+            "median": 0.715344499999901,
+            "mean": 0.7657506581632647,
+            "rme": 2.1425335712057283,
+            "sampleCount": 784,
+            "p75": 0.8115950000001249,
+            "p99": 1.3939110000001165,
+            "capture": 2
+          },
+          {
+            "median": 0.6885449999999764,
+            "mean": 0.7296503414337818,
+            "rme": 1.7524308824766657,
+            "sampleCount": 823,
+            "p75": 0.8050619999999071,
+            "p99": 1.4190179999995962,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -1.1163773703841695,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.86\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 0.6788864999998623,
+          "baseline": 0.6865510000000086,
+          "control": 0.699255500000163
+        },
+        "lowerBaseline": 0.6865510000000086,
+        "changePercent": -1.1163773703841695,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980855357"
+    },
+    {
+      "run": 33980856270,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-control-branch-toggle.tsx",
+        "benches/tier2/tier2-subsystem-control-branch-toggle.tsx > tier2 control-flow branch toggles",
+        "toggle Show truthy and fallback branches"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 0.6700400000001991,
+            "mean": 0.724101455971052,
+            "rme": 2.0030384930596927,
+            "sampleCount": 829,
+            "p75": 0.8057019999998829,
+            "p99": 1.299649000000045,
+            "capture": 1
+          },
+          {
+            "median": 0.6556989999999132,
+            "mean": 0.7205086458583404,
+            "rme": 2.168538652358153,
+            "sampleCount": 833,
+            "p75": 0.7899279999996907,
+            "p99": 1.4355719999998655,
+            "capture": 2
+          },
+          {
+            "median": 0.6616424999999708,
+            "mean": 0.7168262947494008,
+            "rme": 2.133150452768173,
+            "sampleCount": 838,
+            "p75": 0.7940050000001975,
+            "p99": 1.396784999999909,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 0.6678360000000794,
+            "mean": 0.7186892323353355,
+            "rme": 1.9782019157572648,
+            "sampleCount": 835,
+            "p75": 0.7962680000000546,
+            "p99": 1.3982949999999619,
+            "capture": 1
+          },
+          {
+            "median": 0.6506410000001779,
+            "mean": 0.7205397070828464,
+            "rme": 2.2466422996816995,
+            "sampleCount": 833,
+            "p75": 0.7937840000004144,
+            "p99": 1.4646649999999681,
+            "capture": 2
+          },
+          {
+            "median": 0.6802404999998544,
+            "mean": 0.7355310502450971,
+            "rme": 2.1468299321340334,
+            "sampleCount": 816,
+            "p75": 0.8123519999999189,
+            "p99": 1.4379250000001775,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 0.701296000000184,
+            "mean": 0.743602219330854,
+            "rme": 2.0027299619697905,
+            "sampleCount": 807,
+            "p75": 0.8250010000001566,
+            "p99": 1.3779960000001665,
+            "capture": 1
+          },
+          {
+            "median": 0.6987575000000561,
+            "mean": 0.7282532063106778,
+            "rme": 1.9213807672861012,
+            "sampleCount": 824,
+            "p75": 0.8076449999998658,
+            "p99": 1.4968639999997322,
+            "capture": 2
+          },
+          {
+            "median": 0.685673000000179,
+            "mean": 0.7372470085995134,
+            "rme": 2.2242480789625043,
+            "sampleCount": 814,
+            "p75": 0.8225479999996423,
+            "p99": 1.316454999999678,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -0.9273983433219835,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 9V74 80-Core Processor\nCPU family:                              25\nModel:                                   17\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                5192.25\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                2 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 0.6616424999999708,
+          "baseline": 0.6678360000000794,
+          "control": 0.6987575000000561
+        },
+        "lowerBaseline": 0.6678360000000794,
+        "changePercent": -0.9273983433219835,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980856270"
+    },
+    {
+      "run": 33980857473,
+      "workload": [
+        3,
+        "tier3/tier3-system-hydration-listeners.tsx",
+        "benches/tier3/tier3-system-hydration-listeners.tsx > tier3 system hydration listeners",
+        "hydrate a listener-heavy intrinsic SSR tree in Chromium"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 8.69999999999709,
+            "mean": 9.484736842105447,
+            "rme": 5.939722757043978,
+            "sampleCount": 190,
+            "p75": 9.10000000000582,
+            "p99": 15.900000000008731,
+            "capture": 1
+          },
+          {
+            "median": 8.19999999999709,
+            "mean": 8.788292682926858,
+            "rme": 3.953204481491516,
+            "sampleCount": 205,
+            "p75": 8.89999999999418,
+            "p99": 14.599999999991269,
+            "capture": 2
+          },
+          {
+            "median": 8.400000000008731,
+            "mean": 9.031499999999943,
+            "rme": 3.878803021672023,
+            "sampleCount": 200,
+            "p75": 9.10000000000582,
+            "p99": 14.39999999999418,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 8.69999999999709,
+            "mean": 9.50999999999997,
+            "rme": 4.585649689514884,
+            "sampleCount": 190,
+            "p75": 9.60000000000582,
+            "p99": 27.89999999999418,
+            "capture": 1
+          },
+          {
+            "median": 8.39999999999418,
+            "mean": 8.920792079207848,
+            "rme": 4.3707791440859864,
+            "sampleCount": 202,
+            "p75": 8.89999999999418,
+            "p99": 14.30000000000291,
+            "capture": 2
+          },
+          {
+            "median": 8.39999999999418,
+            "mean": 9.000499999999883,
+            "rme": 4.318650630822755,
+            "sampleCount": 200,
+            "p75": 9.10000000000582,
+            "p99": 14.5,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 8.60000000000582,
+            "mean": 9.484736842105447,
+            "rme": 8.678441466768467,
+            "sampleCount": 190,
+            "p75": 8.900000000008731,
+            "p99": 15.60000000000582,
+            "capture": 1
+          },
+          {
+            "median": 8.599999999991269,
+            "mean": 9.108585858585858,
+            "rme": 3.934148885876241,
+            "sampleCount": 198,
+            "p75": 9.39999999999418,
+            "p99": 25.80000000000291,
+            "capture": 2
+          },
+          {
+            "median": 8.700000000011642,
+            "mean": 9.231282051281783,
+            "rme": 3.9769831322423217,
+            "sampleCount": 195,
+            "p75": 9.199999999982538,
+            "p99": 29,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 2.380952381092616,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.86\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "baseline": 8.400000000008731,
+          "control": 8.39999999999418,
+          "candidate": 8.60000000000582
+        },
+        "lowerBaseline": 8.39999999999418,
+        "changePercent": 2.380952381092616,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980857473"
+    },
+    {
+      "run": 33980858517,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-partial-update.tsx",
+        "benches/tier3/tier3-system-table-partial-update.tsx > tier3 system table partial update",
+        "update every 10th row in a 1,000-row table"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 0.5,
+            "mean": 0.46887013595872584,
+            "rme": 1.1867769397712424,
+            "sampleCount": 2133,
+            "p75": 0.5,
+            "p99": 0.8999999999941792,
+            "capture": 1
+          },
+          {
+            "median": 0.40000000000873115,
+            "mean": 0.44438027543314856,
+            "rme": 0.9938651577384758,
+            "sampleCount": 2251,
+            "p75": 0.5,
+            "p99": 0.6999999999970896,
+            "capture": 2
+          },
+          {
+            "median": 0.40000000002328306,
+            "mean": 0.4560419516644292,
+            "rme": 0.9478871542748483,
+            "sampleCount": 2193,
+            "p75": 0.5,
+            "p99": 0.7999999999883585,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 0.40000000000873115,
+            "mean": 0.44232640424589215,
+            "rme": 1.0226986562068465,
+            "sampleCount": 2261,
+            "p75": 0.5,
+            "p99": 0.8000000000029104,
+            "capture": 1
+          },
+          {
+            "median": 0.40000000000873115,
+            "mean": 0.45948553054660507,
+            "rme": 0.9998491663376824,
+            "sampleCount": 2177,
+            "p75": 0.5,
+            "p99": 0.8000000000029104,
+            "capture": 2
+          },
+          {
+            "median": 0.40000000002328306,
+            "mean": 0.4536054421769024,
+            "rme": 1.1133346574932392,
+            "sampleCount": 2205,
+            "p75": 0.5,
+            "p99": 0.7999999999883585,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 0.5,
+            "mean": 0.46186518928905634,
+            "rme": 1.1262566696513927,
+            "sampleCount": 2166,
+            "p75": 0.5,
+            "p99": 0.6000000000058208,
+            "capture": 1
+          },
+          {
+            "median": 0.40000000002328306,
+            "mean": 0.45771167048053857,
+            "rme": 0.972106625200436,
+            "sampleCount": 2185,
+            "p75": 0.5,
+            "p99": 0.7999999999883585,
+            "capture": 2
+          },
+          {
+            "median": 0.40000000002328306,
+            "mean": 0.4425221238938079,
+            "rme": 0.9228457873728754,
+            "sampleCount": 2260,
+            "p75": 0.5,
+            "p99": 0.7000000000116415,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 3.637978807091713e-9,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.86\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "baseline": 0.40000000002328306,
+          "control": 0.40000000000873115,
+          "candidate": 0.40000000002328306
+        },
+        "lowerBaseline": 0.40000000000873115,
+        "changePercent": 3.637978807091713e-9,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980858517"
+    },
+    {
+      "run": 33980859580,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-swap-rows.tsx",
+        "benches/tier3/tier3-system-table-swap-rows.tsx > tier3 system table swap rows",
+        "swap two distant rows in a 1,000-row table (32 swaps)"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 12.200000000011642,
+            "mean": 12.792405063291028,
+            "rme": 2.739259897228766,
+            "sampleCount": 79,
+            "p75": 12.89999999999418,
+            "p99": 21.29999999998836,
+            "capture": 1
+          },
+          {
+            "median": 12,
+            "mean": 12.483950617284094,
+            "rme": 2.4975057238581155,
+            "sampleCount": 81,
+            "p75": 12.400000000008731,
+            "p99": 21.10000000000582,
+            "capture": 2
+          },
+          {
+            "median": 12.099999999991269,
+            "mean": 12.583749999999418,
+            "rme": 2.9267859035880135,
+            "sampleCount": 80,
+            "p75": 12.39999999999418,
+            "p99": 20.80000000000291,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 12.80000000000291,
+            "mean": 13.374666666666744,
+            "rme": 3.000209611351248,
+            "sampleCount": 75,
+            "p75": 13.700000000011642,
+            "p99": 21.80000000000291,
+            "capture": 1
+          },
+          {
+            "median": 12,
+            "mean": 12.376543209877262,
+            "rme": 2.512490083038398,
+            "sampleCount": 81,
+            "p75": 12.30000000000291,
+            "p99": 20.80000000000291,
+            "capture": 2
+          },
+          {
+            "median": 12.14999999999418,
+            "mean": 12.603749999999854,
+            "rme": 2.692142218347914,
+            "sampleCount": 80,
+            "p75": 12.5,
+            "p99": 21,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 12.80000000000291,
+            "mean": 13.263157894737034,
+            "rme": 2.495276850652895,
+            "sampleCount": 76,
+            "p75": 13.39999999999418,
+            "p99": 19.60000000000582,
+            "capture": 1
+          },
+          {
+            "median": 12.250000000007276,
+            "mean": 12.528749999999672,
+            "rme": 2.041014645396399,
+            "sampleCount": 80,
+            "p75": 12.5,
+            "p99": 18.10000000000582,
+            "capture": 2
+          },
+          {
+            "median": 12.64999999999418,
+            "mean": 13.18552631578955,
+            "rme": 2.7211623675339442,
+            "sampleCount": 76,
+            "p75": 13.10000000000582,
+            "p99": 18.800000000017462,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 4.545454545481875,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 9V74 80-Core Processor\nCPU family:                              25\nModel:                                   17\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                5192.25\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                2 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "baseline": 12.099999999991269,
+          "control": 12.14999999999418,
+          "candidate": 12.64999999999418
+        },
+        "lowerBaseline": 12.099999999991269,
+        "changePercent": 4.545454545481875,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980859580"
+    },
+    {
+      "run": 33980860581,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-truncate-rows.tsx",
+        "benches/tier3/tier3-system-table-truncate-rows.tsx > tier3 system table truncate rows",
+        "truncate a 2,000-row table to 1,000 rows"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 8.25,
+            "mean": 10.04200000000099,
+            "rme": 11.186737097832388,
+            "sampleCount": 100,
+            "p75": 9.10000000000582,
+            "p99": 34.100000000034925,
+            "capture": 1
+          },
+          {
+            "median": 7.900000000023283,
+            "mean": 9.240366972480375,
+            "rme": 9.788277657946786,
+            "sampleCount": 109,
+            "p75": 8.200000000011642,
+            "p99": 21.29999999998836,
+            "capture": 2
+          },
+          {
+            "median": 6.900000000023283,
+            "mean": 8.551282051281056,
+            "rme": 8.80581798658767,
+            "sampleCount": 117,
+            "p75": 8,
+            "p99": 21.79999999998836,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 7.599999999976717,
+            "mean": 9.13000000000254,
+            "rme": 9.143772782622381,
+            "sampleCount": 110,
+            "p75": 8,
+            "p99": 26.100000000034925,
+            "capture": 1
+          },
+          {
+            "median": 7.400000000023283,
+            "mean": 9.090990990993928,
+            "rme": 8.236492204467119,
+            "sampleCount": 111,
+            "p75": 8,
+            "p99": 20,
+            "capture": 2
+          },
+          {
+            "median": 7.5,
+            "mean": 8.448739495798515,
+            "rme": 7.172697635219273,
+            "sampleCount": 119,
+            "p75": 8,
+            "p99": 22.20000000001164,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 8.400000000023283,
+            "mean": 9.861764705884864,
+            "rme": 8.433973170675992,
+            "sampleCount": 102,
+            "p75": 9.200000000011642,
+            "p99": 24.20000000001164,
+            "capture": 1
+          },
+          {
+            "median": 6.900000000023283,
+            "mean": 8.018110236219922,
+            "rme": 7.286474429718356,
+            "sampleCount": 127,
+            "p75": 7.599999999976717,
+            "p99": 20.20000000001164,
+            "capture": 2
+          },
+          {
+            "median": 7.5499999999883585,
+            "mean": 9.299999999997521,
+            "rme": 8.352997098217058,
+            "sampleCount": 108,
+            "p75": 8.399999999965075,
+            "p99": 19.29999999998836,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 0.6666666665114507,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "baseline": 7.900000000023283,
+          "control": 7.5,
+          "candidate": 7.5499999999883585
+        },
+        "lowerBaseline": 7.5,
+        "changePercent": 0.6666666665114507,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980860581"
+    },
+    {
+      "run": 33980861615,
+      "workload": [
+        4,
+        "tier4/tier4-integration-routing-layouts.tsx",
+        "benches/tier4/tier4-integration-routing-layouts.tsx > tier4 integration routing layouts",
+        "navigate routed shell layouts in the integration app"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 4,
+            "mean": 4.1551246537396525,
+            "rme": 2.0855098623777586,
+            "sampleCount": 361,
+            "p75": 4.2000000000116415,
+            "p99": 6.900000000008731,
+            "capture": 1
+          },
+          {
+            "median": 3.900000000008731,
+            "mean": 4.059677419354713,
+            "rme": 1.8230192689322737,
+            "sampleCount": 372,
+            "p75": 4.2000000000116415,
+            "p99": 6.5,
+            "capture": 2
+          },
+          {
+            "median": 4.19999999999709,
+            "mean": 4.308882521489771,
+            "rme": 1.7997235502838802,
+            "sampleCount": 349,
+            "p75": 4.5,
+            "p99": 6.600000000005821,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 4,
+            "mean": 4.073983739837407,
+            "rme": 1.8588208521807785,
+            "sampleCount": 369,
+            "p75": 4.100000000005821,
+            "p99": 6.69999999999709,
+            "capture": 1
+          },
+          {
+            "median": 4,
+            "mean": 4.227042253521307,
+            "rme": 2.208371407587219,
+            "sampleCount": 355,
+            "p75": 4.400000000008731,
+            "p99": 7.100000000005821,
+            "capture": 2
+          },
+          {
+            "median": 4,
+            "mean": 4.183286908078084,
+            "rme": 1.9193507171899076,
+            "sampleCount": 359,
+            "p75": 4.399999999994179,
+            "p99": 6.80000000000291,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 4.19999999999709,
+            "mean": 4.451928783382841,
+            "rme": 2.2123899485954728,
+            "sampleCount": 337,
+            "p75": 4.899999999994179,
+            "p99": 8.19999999999709,
+            "capture": 1
+          },
+          {
+            "median": 4.100000000005821,
+            "mean": 4.294285714285673,
+            "rme": 2.0190324890889406,
+            "sampleCount": 350,
+            "p75": 4.599999999991269,
+            "p99": 7.30000000000291,
+            "capture": 2
+          },
+          {
+            "median": 3.8999999999941792,
+            "mean": 4.041397849462311,
+            "rme": 1.7949226408163856,
+            "sampleCount": 372,
+            "p75": 4.2000000000116415,
+            "p99": 7.30000000000291,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 0.0,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.86\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 4,
+          "baseline": 4,
+          "control": 4.100000000005821
+        },
+        "lowerBaseline": 4,
+        "changePercent": 0.0,
+        "allQualityPass": true,
+        "thresholdPass": true
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980861615"
+    },
+    {
+      "run": 33980862641,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle the JSX app between 1,000 and 2,000 rows"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 42.04999999993015,
+            "mean": 44.83100000000209,
+            "rme": 11.775847188336536,
+            "sampleCount": 100,
+            "p75": 69.5,
+            "p99": 88.80000000004657,
+            "capture": 1
+          },
+          {
+            "median": 46.5,
+            "mean": 43.435000000002326,
+            "rme": 11.634826913862192,
+            "sampleCount": 100,
+            "p75": 68.20000000006985,
+            "p99": 78.09999999997672,
+            "capture": 2
+          },
+          {
+            "median": 53.899999999965075,
+            "mean": 43.51400000000023,
+            "rme": 11.632465239358677,
+            "sampleCount": 100,
+            "p75": 68.30000000004657,
+            "p99": 76.59999999997672,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 45.350000000034925,
+            "mean": 44.967000000000695,
+            "rme": 11.910217943551135,
+            "sampleCount": 100,
+            "p75": 70.69999999995343,
+            "p99": 90.20000000006985,
+            "capture": 1
+          },
+          {
+            "median": 40.350000000034925,
+            "mean": 42.822999999999304,
+            "rme": 12.077345845666313,
+            "sampleCount": 100,
+            "p75": 67.09999999997672,
+            "p99": 86.90000000002328,
+            "capture": 2
+          },
+          {
+            "median": 51.45000000001164,
+            "mean": 43.517999999996974,
+            "rme": 11.571088402160825,
+            "sampleCount": 100,
+            "p75": 67.59999999997672,
+            "p99": 78.19999999995343,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 49.84999999997672,
+            "mean": 42.17599999999627,
+            "rme": 11.568128611521692,
+            "sampleCount": 100,
+            "p75": 65.90000000002328,
+            "p99": 73.30000000004657,
+            "capture": 1
+          },
+          {
+            "median": 41.649999999965075,
+            "mean": 43.36699999999837,
+            "rme": 11.812092472855532,
+            "sampleCount": 100,
+            "p75": 67.70000000006985,
+            "p99": 82.80000000004657,
+            "capture": 2
+          },
+          {
+            "median": 40.54999999998836,
+            "mean": 42.749999999998835,
+            "rme": 11.953159731522678,
+            "sampleCount": 100,
+            "p75": 67.19999999995343,
+            "p99": 90.29999999993015,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 11.644657863238873,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 57 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               GenuineIntel\nModel name:                              Intel(R) Xeon(R) 6973P-C\nCPU family:                              6\nModel:                                   173\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nCPU(s) scaling MHz:                      152%\nCPU max MHz:                             2600.0000\nCPU min MHz:                             800.0000\nBogoMIPS:                                5199.99\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch tpr_shadow ept vpid ept_ad fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves user_shstk avx_vnni avx512_bf16 vnmi avx512vbmi umip waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq la57 rdpid cldemote movdiri movdir64b fsrm serialize tsxldtrk ibt amx_bf16 avx512_fp16 amx_tile amx_int8 arch_capabilities\nVirtualization:                          VT-x\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               96 KiB (2 instances)\nL1i cache:                               128 KiB (2 instances)\nL2 cache:                                4 MiB (2 instances)\nL3 cache:                                480 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Mitigation; Aligned branch/return thunks\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Vulnerable\nVulnerability Spec rstack overflow:      Not affected\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Retpoline\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 46.5,
+          "baseline": 45.350000000034925,
+          "control": 41.649999999965075
+        },
+        "lowerBaseline": 41.649999999965075,
+        "changePercent": 11.644657863238873,
+        "allQualityPass": true,
+        "thresholdPass": false
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980862641"
+    },
+    {
+      "run": 33980863659,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle 1,000 selected JSX rows between 1,000 and 2,000 rows"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 72.05000000000291,
+            "mean": 68.88400000000023,
+            "rme": 12.214632917576893,
+            "sampleCount": 100,
+            "p75": 108.80000000000291,
+            "p99": 139.90000000000873,
+            "capture": 1
+          },
+          {
+            "median": 68.54999999998836,
+            "mean": 64.73800000000105,
+            "rme": 11.910976214389478,
+            "sampleCount": 100,
+            "p75": 98.89999999999418,
+            "p99": 138.79999999998836,
+            "capture": 2
+          },
+          {
+            "median": 68.5,
+            "mean": 63.044000000000814,
+            "rme": 11.892948219077851,
+            "sampleCount": 100,
+            "p75": 98.60000000000582,
+            "p99": 113.29999999998836,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 58.349999999998545,
+            "mean": 62.27200000000012,
+            "rme": 11.863873805915965,
+            "sampleCount": 100,
+            "p75": 97.19999999999709,
+            "p99": 112.79999999998836,
+            "capture": 1
+          },
+          {
+            "median": 67.09999999999854,
+            "mean": 62.457999999999736,
+            "rme": 11.816357912324776,
+            "sampleCount": 100,
+            "p75": 96.39999999999418,
+            "p99": 113.20000000001164,
+            "capture": 2
+          },
+          {
+            "median": 65.20000000001164,
+            "mean": 65.05700000000012,
+            "rme": 12.267310670703292,
+            "sampleCount": 100,
+            "p75": 101.40000000002328,
+            "p99": 122.30000000001746,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 67.45000000000437,
+            "mean": 65.11999999999985,
+            "rme": 12.032898981653556,
+            "sampleCount": 100,
+            "p75": 99.09999999999127,
+            "p99": 126.19999999999709,
+            "capture": 1
+          },
+          {
+            "median": 60.5,
+            "mean": 64.265,
+            "rme": 12.257348844104946,
+            "sampleCount": 100,
+            "p75": 98.60000000000582,
+            "p99": 134.10000000000582,
+            "capture": 2
+          },
+          {
+            "median": 72.35000000002037,
+            "mean": 66.10300000000018,
+            "rme": 11.657468264595918,
+            "sampleCount": 100,
+            "p75": 101.60000000000582,
+            "p99": 122.69999999998254,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 5.138036809779334,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": false,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 68.54999999998836,
+          "baseline": 65.20000000001164,
+          "control": 67.45000000000437
+        },
+        "lowerBaseline": 65.20000000001164,
+        "changePercent": 5.138036809779334,
+        "allQualityPass": true,
+        "thresholdPass": false
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980863659"
+    },
+    {
+      "run": 33980865796,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle 1,000 selected JSX rows between 1,000 and 2,000 rows"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 54.35000000000582,
+            "mean": 55.812000000001284,
+            "rme": 11.773652118385037,
+            "sampleCount": 100,
+            "p75": 85.89999999996508,
+            "p99": 113.39999999996508,
+            "capture": 1
+          },
+          {
+            "median": 55.250000000029104,
+            "mean": 56.9879999999993,
+            "rme": 11.748500246026762,
+            "sampleCount": 100,
+            "p75": 89.80000000004657,
+            "p99": 114.59999999997672,
+            "capture": 2
+          },
+          {
+            "median": 67.70000000001164,
+            "mean": 56.03,
+            "rme": 11.653705913373463,
+            "sampleCount": 100,
+            "p75": 87.39999999990687,
+            "p99": 107.20000000006985,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 66.95000000001164,
+            "mean": 60.6079999999993,
+            "rme": 12.192596763275391,
+            "sampleCount": 100,
+            "p75": 95.90000000002328,
+            "p99": 131.70000000001164,
+            "capture": 1
+          },
+          {
+            "median": 59.75,
+            "mean": 56.77999999999942,
+            "rme": 11.780585171711882,
+            "sampleCount": 100,
+            "p75": 87.90000000002328,
+            "p99": 107.90000000002328,
+            "capture": 2
+          },
+          {
+            "median": 72.84999999997672,
+            "mean": 58.430999999998605,
+            "rme": 11.909831270497257,
+            "sampleCount": 100,
+            "p75": 90.59999999997672,
+            "p99": 104.39999999996508,
+            "capture": 3
+          }
+        ],
+        "control": [
+          {
+            "median": 56.64999999999418,
+            "mean": 58.25100000000093,
+            "rme": 12.015250888692874,
+            "sampleCount": 100,
+            "p75": 90.39999999996508,
+            "p99": 123.79999999998836,
+            "capture": 1
+          },
+          {
+            "median": 55.89999999999418,
+            "mean": 57.84499999999825,
+            "rme": 11.985463482329397,
+            "sampleCount": 100,
+            "p75": 90.20000000001164,
+            "p99": 125.20000000001164,
+            "capture": 2
+          },
+          {
+            "median": 68.14999999999418,
+            "mean": 57.446999999999534,
+            "rme": 11.63615655432235,
+            "sampleCount": 100,
+            "p75": 89.90000000002328,
+            "p99": 104,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -2.4713150926129246,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n0086048718c3cfd81443a48a1690a4f73b45d64f\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 9V74 80-Core Processor\nCPU family:                              25\nModel:                                   17\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                5192.28\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                2 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\n",
+      "baselineProvenance": "58544e7af0c1abe92319f96e7398211caae48ffa\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "verification": {
+        "gainClaim": true,
+        "candidate": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "baseline": "58544e7af0c1abe92319f96e7398211caae48ffa",
+        "harness": "0086048718c3cfd81443a48a1690a4f73b45d64f",
+        "provenanceVerified": true,
+        "capturedWorkloadVerified": true,
+        "medians": {
+          "candidate": 55.250000000029104,
+          "baseline": 66.95000000001164,
+          "control": 56.64999999999418
+        },
+        "lowerBaseline": 56.64999999999418,
+        "changePercent": -2.4713150926129246,
+        "allQualityPass": true,
+        "thresholdPass": false
+      },
+      "url": "https://github.com/askrjs/askr/actions/runs/33980865796"
+    }
+  ]
+}

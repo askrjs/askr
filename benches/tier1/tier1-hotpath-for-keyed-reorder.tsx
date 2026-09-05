@@ -76,6 +76,7 @@ describe('tier1 hotpath for keyed reorder', () => {
     },
     {
       ...tier1BenchOptions,
+      iterations: 1000,
       setup() {
         mounted = mountTableBenchmark(initialRows);
         toggle = createRowToggle(initialRows, swappedRows, 'initial');

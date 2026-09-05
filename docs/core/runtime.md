@@ -75,6 +75,34 @@ The public runtime exposes `createRuntime()` and `getDefaultRuntime()`. Core imp
 default scheduler and renderer access through the internal runtime access
 boundary so hot paths do not import singleton globals directly.
 
+`createRuntime()` constructs scheduler and renderer wiring only. Mounting uses
+the default runtime; creating another runtime does not isolate mounted trees.
+An omitted scheduler shares the default scheduler.
+
+`createDOMRendererHost(configure)` constructs an adapter accepted by runtime
+`renderer` options and `configureRenderer()`, without installing it. The callback
+receives complete native `evaluation`, `cleanup`, `scopes`, `keys`, and
+`reactivity` roles. Return all five roles and delegate explicitly where needed.
+Later role and method replacement remains observable; callbacks receive their
+role object as `this`. Legacy renderer hosts remain supported.
+
+Component owners, child scopes, and reactive sources cross this API as frozen,
+empty opaque handles. Identity follows the underlying record across rerenders.
+Native delegates reject forged, wrong-kind, and foreign-factory handles before
+mutation. Handles add no disposal or generation semantics. Returned ranges
+expose only readonly `start`, `end`, and `single` fields.
+
+Stable intrinsic patches preflight the complete supported tree. A declined
+patch executes no components and changes no DOM, bindings, refs, or cleanup.
+Components, boundaries, fragments, reactive children, and dangerous HTML use
+ordinary synchronization. Application errors retain transaction rollback.
+
+Commit participants are keyed by kind and identity. Re-registering the same
+object is idempotent; a distinct collision must explicitly keep the first
+participant or merge into it. Nested joins validate all collisions before
+transferring membership. A throwing merge discards affected transactions and
+drains rollback before propagating the initiating error.
+
 ## When work becomes observable
 
 Askr uses signals internally, but its public primitives become observable at

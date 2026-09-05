@@ -1,5 +1,9 @@
 import type { DOMRange } from '../common/dom-range';
-import { getRuntimeRenderer, type ChildScope } from '../runtime';
+import {
+  getRuntimeEvaluation,
+  getRuntimeCleanup,
+  type ChildScope,
+} from '../runtime';
 import type {
   ChildScopeHostSnapshot,
   ScopeBoundary,
@@ -39,7 +43,7 @@ export function captureChildScopeHost(
 
 export function resolveScopeBoundary(scope: ChildScope): ScopeBoundary {
   const range =
-    getRuntimeRenderer().resolveChildScopeRange?.(scope) ?? scope.range;
+    getRuntimeEvaluation().resolveChildScopeRange?.(scope) ?? scope.range;
   return { dom: range?.single ? range.start : scope.dom, range };
 }
 
@@ -78,7 +82,7 @@ export function teardownScopeHost(
   let count = 0;
   const teardown = (node: Node) => {
     try {
-      getRuntimeRenderer().teardownNodeSubtree(node);
+      getRuntimeCleanup().teardownNodeSubtree(node);
       count++;
     } catch (error) {
       if (!onError) throw error;
