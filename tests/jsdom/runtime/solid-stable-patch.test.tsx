@@ -3,11 +3,42 @@ import { createDOMNode } from '../../../src/renderer/dom-internal';
 import { tryPatchStableForDirtyItem } from '../../../src/renderer/stable-patch';
 import { For } from '../../../src/control';
 import { state, type State } from '../../../src';
+import { getSignal } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+
+test('should retire a nested component when a dirty row replaces it with matching intrinsic output', () => {
+  const { container, cleanup } = createTestContainer();
+  let intrinsic!: State<boolean>;
+  let signal!: AbortSignal;
+  function Child() {
+    signal = getSignal();
+    return <span>child</span>;
+  }
+  function App() {
+    intrinsic = state(false);
+    const rows = state([1]);
+    return (
+      <For each={rows} by={(row) => row}>
+        {() => <div>{intrinsic() ? <span>intrinsic</span> : <Child />}</div>}
+      </For>
+    );
+  }
+  try {
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(signal.aborted).toBe(false);
+    intrinsic.set(true);
+    flushScheduler();
+    expect(container.textContent).toBe('intrinsic');
+    expect(signal.aborted).toBe(true);
+  } finally {
+    cleanup();
+  }
+});
 
 test('should execute a component exactly once when a dirty intrinsic row falls back to synchronization', () => {
   const { container, cleanup } = createTestContainer();
