@@ -47,6 +47,22 @@ function indexBoundHost(owner: ComponentInstance, host: Node): void {
   if (!bound || bound === host) indexRangeHostOwner(owner, host);
 }
 
+export function clearHostOwners(
+  host: InstanceHostNode,
+  onError: (error: unknown) => void
+): void {
+  for (const owner of host.__ASKR_INSTANCES ?? [])
+    clearRangeHostOwner(owner, host);
+  if (host.__ASKR_INSTANCE) clearRangeHostOwner(host.__ASKR_INSTANCE, host);
+  for (const property of ['__ASKR_INSTANCE', '__ASKR_INSTANCES'] as const) {
+    try {
+      delete host[property];
+    } catch (error) {
+      onError(error);
+    }
+  }
+}
+
 export function recordInlineComponentHost(
   instance: ComponentInstance,
   target: Element | null

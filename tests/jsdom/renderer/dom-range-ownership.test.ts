@@ -16,6 +16,23 @@ import {
 } from '../../../src/renderer/dom-range';
 
 describe('dom-range ownership reassignment (regression for #357)', () => {
+  it('should refresh shared owner indexes when the same anchors receive a new range', () => {
+    const outer = createComponentInstance('outer', () => null, {}, null);
+    const inner = createComponentInstance('inner', () => null, {}, null);
+    const host = document.createElement('div');
+    writeHostOwners(host, [outer, inner], outer);
+    const previous = createSingleNodeRange(host, outer);
+    expect(getOwnedRange(inner)).toBe(previous);
+    const next = createSingleNodeRange(host, inner);
+    expect(getOwnedRange(outer)).toBe(next);
+    expect(getOwnedRange(inner)).toBe(next);
+    clearRangeOwner(previous, outer);
+    expect(getOwnedRange(outer)).toBe(next);
+    writeHostOwners(host, [inner], inner);
+    expect(getOwnedRange(outer)).toBeUndefined();
+    expect(getRangeOwner(host)).toBe(inner);
+  });
+
   it('should release disposed component indexes and reject stale host publication', () => {
     let owner!: ComponentInstance;
     function Child() {

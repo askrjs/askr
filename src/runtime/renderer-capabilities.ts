@@ -62,11 +62,12 @@ export interface ScopeRendering {
   clearChildScopeHost(scope: ChildScope): void;
   captureChildScopeHost(scope: ChildScope): ChildScopeHostSnapshot | undefined;
   resolveScopeBoundary(scope: ChildScope): ScopeBoundary;
-  appendScopeBoundaryNodes(
-    dom: Node | undefined,
-    range: DOMRange | undefined,
-    nodes: Node[]
-  ): void;
+  prepareScopeRemoval(
+    scope: ChildScope,
+    nodes: Node[],
+    ranges: DOMRange[],
+    rollbackNodes: Node[]
+  ): ScopeBoundary;
   recordRemovedScopeBoundary(
     dom: Node | undefined,
     range: DOMRange | undefined,

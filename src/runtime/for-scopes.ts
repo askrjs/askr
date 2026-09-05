@@ -63,16 +63,18 @@ function recordRemovedBoundary<T>(
   );
 }
 
-function captureRemovedScopeNodes<T>(
-  forState: ForState<T>,
-  dom: Node | undefined,
-  range: DOMRange | undefined
-): void {
+function prepareRemovedScope<T>(forState: ForState<T>, scope: ChildScope) {
   const transaction = forState._transaction;
-  if (!transaction) return;
-
-  const nodes = (transaction.removedScopeNodes ??= []);
-  getRuntimeRenderer().appendScopeBoundaryNodes(dom, range, nodes);
+  if (!transaction) return getRuntimeRenderer().resolveScopeBoundary(scope);
+  const boundary = getRuntimeRenderer().prepareScopeRemoval(
+    scope,
+    forState.lastRemovedNodes,
+    forState.lastRemovedRanges,
+    (transaction.removedScopeNodes ??= [])
+  );
+  if (BENCH_BUILD_ENABLED && (boundary.dom || boundary.range))
+    recordBenchCounter('removedBoundariesRecorded');
+  return boundary;
 }
 
 function enqueueForScopeUpdate(parent: ComponentInstance | null): void {
@@ -318,14 +320,14 @@ export function disposeItemInstance<T>(
   if (BENCH_BUILD_ENABLED) {
     recordBenchEvent('itemRemoved');
   }
-  const { dom: removedDom, range: removedRange } =
-    getRuntimeRenderer().resolveScopeBoundary(itemInstance.scope);
+  const { dom: removedDom, range: removedRange } = prepareRemovedScope(
+    forState,
+    itemInstance.scope
+  );
 
   const transaction = forState._transaction;
   if (transaction) {
     (transaction.removedScopes ??= []).push(itemInstance.scope);
-    captureRemovedScopeNodes(forState, removedDom, removedRange);
-    recordRemovedBoundary(forState, removedDom, removedRange);
     return;
   }
 
@@ -556,12 +558,13 @@ export function disposeFallbackScope<T>(
     return;
   }
 
-  const { dom: removedDom, range: removedRange } =
-    getRuntimeRenderer().resolveScopeBoundary(fallbackScope);
+  const { dom: removedDom, range: removedRange } = prepareRemovedScope(
+    forState,
+    fallbackScope
+  );
   const transaction = forState._transaction;
   if (transaction) {
     (transaction.removedScopes ??= []).push(fallbackScope);
-    captureRemovedScopeNodes(forState, removedDom, removedRange);
   } else {
     disposeChildScope(fallbackScope);
   }
@@ -574,7 +577,7 @@ export function disposeFallbackScope<T>(
   if (domCleanup === 'teardown')
     getRuntimeRenderer().teardownScopeHost(removedDom, undefined);
 
-  recordRemovedBoundary(forState, removedDom, removedRange);
+  if (!transaction) recordRemovedBoundary(forState, removedDom, removedRange);
 }
 
 export function renderFallbackScope<T>(forState: ForState<T>): VNode[] {
@@ -618,13 +621,7 @@ export function disposeAllItems<T>(
     }
     for (let index = 0; index < forState.orderedItems.length; index++) {
       const scope = forState.orderedItems[index]?.scope;
-      const { dom: removedDom, range } = scope
-        ? getRuntimeRenderer().resolveScopeBoundary(scope)
-        : { dom: undefined, range: undefined };
-      if (scope) {
-        captureRemovedScopeNodes(forState, removedDom, range);
-      }
-      recordRemovedBoundary(forState, removedDom, range);
+      if (scope) prepareRemovedScope(forState, scope);
     }
     forState.items = new Map();
     forState.orderedKeys = [];

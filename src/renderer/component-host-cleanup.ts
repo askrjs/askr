@@ -1,4 +1,4 @@
-import { writeHostOwners } from './dom-ownership';
+import { clearHostOwners, writeHostOwners } from './dom-ownership';
 import {
   cleanupComponent,
   getCurrentInstance,
@@ -187,16 +187,11 @@ function clearHostMetadata(
   node: InstanceHostNode,
   cleanupErrors: unknown[]
 ): void {
-  for (const property of [
-    '__ASKR_INSTANCE',
-    '__ASKR_INSTANCES',
-    '__ASKR_WRAPPER_HOST',
-  ] as const) {
-    try {
-      delete node[property];
-    } catch (error) {
-      cleanupErrors.push(error);
-    }
+  clearHostOwners(node, (error) => cleanupErrors.push(error));
+  try {
+    delete node.__ASKR_WRAPPER_HOST;
+  } catch (error) {
+    cleanupErrors.push(error);
   }
 }
 

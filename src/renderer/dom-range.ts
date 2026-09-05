@@ -18,6 +18,9 @@ export function indexRangeHostOwner(owner: object, host: Node): void {
     if (range?.start === previous) clearRangeOwner(range, owner);
   }
   hostsByOwner.set(owner, host);
+  const primary = ownersByAnchor.get(host);
+  const range = primary ? rangesByOwner.get(primary) : rangesByAnchor.get(host);
+  if (range?.start === host) rangesByOwner.set(owner, range);
 }
 
 export function clearRangeHostOwner(owner: object, host: Node): void {
@@ -29,8 +32,12 @@ export function clearRangeHostOwner(owner: object, host: Node): void {
 
 export function releaseOwnerRange(owner: object): void {
   hostsByOwner.delete(owner);
+  releaseRegisteredRange(owner);
+}
+
+export function releaseRegisteredRange(owner: object): void {
   const range = rangesByOwner.get(owner);
-  if (range) clearRangeOwner(range, owner);
+  if (range) clearRegisteredRange(range, owner);
 }
 
 function isRangeMarker(node: Node): node is Comment {
@@ -146,8 +153,9 @@ export function createEmptyRange(
 }
 
 export function registerRange(range: DOMRange, owner?: object): void {
-  rangesByAnchor.set(range.start, range);
-  rangesByAnchor.set(range.end, range);
+  // Only shared component hosts need this lazy lookup index. Ordinary keyed
+  // scopes already retain their registered range and do not allocate an alias.
+  if (rangesByAnchor.has(range.start)) rangesByAnchor.set(range.start, range);
   if (!owner) {
     return;
   }
@@ -176,6 +184,21 @@ export function registerRange(range: DOMRange, owner?: object): void {
   if (range.end !== range.start) {
     ownersByAnchor.set(range.end, owner);
   }
+  const host = range.start as Node & {
+    __ASKR_INSTANCES?: object[];
+    __ASKR_INSTANCE?: object;
+  };
+  for (const shared of host.__ASKR_INSTANCES ?? []) {
+    if (hostsByOwner.get(shared) === range.start)
+      rangesByOwner.set(shared, range);
+  }
+  const primary = host.__ASKR_INSTANCE;
+  if (
+    primary &&
+    primary !== host.__ASKR_INSTANCES?.[0] &&
+    hostsByOwner.get(primary) === range.start
+  )
+    rangesByOwner.set(primary, range);
 }
 
 export function getOwnedRange(owner: object): DOMRange | undefined {
@@ -183,17 +206,25 @@ export function getOwnedRange(owner: object): DOMRange | undefined {
   if (owned) return owned;
   const host = hostsByOwner.get(owner);
   if (!host) return undefined;
+  const primary = ownersByAnchor.get(host);
+  const registered = primary ? rangesByOwner.get(primary) : undefined;
+  if (registered?.start === host) {
+    rangesByOwner.set(owner, registered);
+    return registered;
+  }
   const range = rangesByAnchor.get(host);
   if (range?.start === host) return range;
   if (isRangeStart(host)) {
     const end = findRangeEnd(host);
     if (end) {
       const anchored = { start: host, end, single: false };
-      registerRange(anchored);
+      rangesByAnchor.set(host, anchored);
       return anchored;
     }
   }
-  return createSingleNodeRange(host);
+  const singleton = createSingleNodeRange(host);
+  rangesByAnchor.set(host, singleton);
+  return singleton;
 }
 
 export function getRangeOwner(node: Node): object | undefined {
@@ -204,28 +235,30 @@ export function setRangeOwner(range: DOMRange, owner: object): void {
   registerRange(range, owner);
 }
 
-export function clearRangeOwner(range: DOMRange, owner?: object): void {
-  const startOwner = ownersByAnchor.get(range.start);
-  const endOwner = ownersByAnchor.get(range.end);
-  if (
-    (!owner || startOwner === owner) &&
-    startOwner &&
-    rangesByOwner.get(startOwner) === range
-  ) {
+function clearRegisteredRange(range: DOMRange, owner: object): void {
+  rangesByOwner.delete(owner);
+  if (ownersByAnchor.get(range.start) === owner)
     ownersByAnchor.delete(range.start);
-  }
-  if (
-    (!owner || endOwner === owner) &&
-    endOwner &&
-    rangesByOwner.get(endOwner) === range
-  ) {
+  if (range.end !== range.start && ownersByAnchor.get(range.end) === owner)
     ownersByAnchor.delete(range.end);
+}
+
+export function clearRangeOwner(range: DOMRange, owner?: object): void {
+  if (owner) {
+    if (rangesByOwner.get(owner) === range) clearRegisteredRange(range, owner);
+    return;
   }
-  for (const currentOwner of owner ? [owner] : [startOwner, endOwner]) {
-    if (currentOwner && rangesByOwner.get(currentOwner) === range) {
-      rangesByOwner.delete(currentOwner);
-    }
-  }
+  const startOwner = ownersByAnchor.get(range.start);
+  const endOwner =
+    range.end === range.start ? startOwner : ownersByAnchor.get(range.end);
+  if (startOwner && rangesByOwner.get(startOwner) === range)
+    clearRegisteredRange(range, startOwner);
+  if (
+    endOwner &&
+    endOwner !== startOwner &&
+    rangesByOwner.get(endOwner) === range
+  )
+    clearRegisteredRange(range, endOwner);
 }
 
 export function appendRange(

@@ -5,7 +5,7 @@ import type {
   ScopeBoundary,
 } from '../runtime/renderer-capabilities';
 import type { InstanceHostNode } from './dom-host';
-import { releaseOwnerRange } from './dom-range';
+import { releaseRegisteredRange } from './dom-range';
 
 /** Both fields are indexes of the same renderer-owned boundary. */
 export function writeScopeHost(
@@ -18,7 +18,7 @@ export function writeScopeHost(
 }
 
 export function clearChildScopeHost(scope: ChildScope): void {
-  releaseOwnerRange(scope);
+  releaseRegisteredRange(scope);
   writeScopeHost(scope, undefined);
 }
 
@@ -42,7 +42,7 @@ export function resolveScopeBoundary(scope: ChildScope): ScopeBoundary {
   return { dom: range?.single ? range.start : scope.dom, range };
 }
 
-export function appendScopeBoundaryNodes(
+function appendScopeBoundaryNodes(
   dom: Node | undefined,
   range: DOMRange | undefined,
   nodes: Node[]
@@ -103,4 +103,16 @@ export function hasUnmountedComponentHost(node: Node | undefined): boolean {
     host.__ASKR_INSTANCES?.some((instance) => !instance.ownership.mounted) ??
     false
   );
+}
+
+export function prepareScopeRemoval(
+  scope: ChildScope,
+  nodes: Node[],
+  ranges: DOMRange[],
+  rollbackNodes: Node[]
+): ScopeBoundary {
+  const boundary = resolveScopeBoundary(scope);
+  appendScopeBoundaryNodes(boundary.dom, boundary.range, rollbackNodes);
+  recordRemovedScopeBoundary(boundary.dom, boundary.range, nodes, ranges);
+  return boundary;
 }

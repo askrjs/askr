@@ -25,7 +25,9 @@ function createMissingRendererHost(): RendererCapabilities {
     resolveScopeBoundary() {
       return { dom: undefined, range: undefined };
     },
-    appendScopeBoundaryNodes() {},
+    prepareScopeRemoval() {
+      return { dom: undefined, range: undefined };
+    },
     recordRemovedScopeBoundary() {},
     teardownScopeHost() {
       return 0;

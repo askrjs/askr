@@ -26,6 +26,7 @@ function disposeComponentOwnership(
   active: boolean
 ): void {
   if (owner.disposed) return;
+  const hadRendererHost = Boolean(instance.target || instance._placeholder);
   const savedScope = clearCurrentComponentScope();
   const errors: unknown[] | undefined = instance.cleanupStrict ? [] : undefined;
   try {
@@ -50,7 +51,9 @@ function disposeComponentOwnership(
       },
     });
     if (active && instance.ownership === owner) {
-      getRuntimeRenderer().releaseComponentHost(instance);
+      if (hadRendererHost) {
+        getRuntimeRenderer().releaseComponentHost(instance);
+      }
       instance.hasPendingUpdate = false;
       instance.notifyUpdate = null;
       instance.mountOperations = undefined;
