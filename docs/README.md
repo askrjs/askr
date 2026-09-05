@@ -82,6 +82,8 @@ Published contracts and extension wiring are described in the
 [public compatibility boundary](./development/compatibility-boundary.md) and
 [runtime ownership](./development/ownership.md), and
 [renderer ownership](./development/renderer-ownership.md).
+Root transactions and request isolation are covered in
+[integration boundaries](./development/integration-boundaries.md).
 The detailed drill-downs live in
 [Runtime reactivity](./internals/runtime-reactivity.md),
 [Renderer pipeline](./internals/renderer-pipeline.md), and

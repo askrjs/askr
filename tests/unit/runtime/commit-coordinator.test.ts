@@ -12,6 +12,7 @@ describe('shared commit coordination', () => {
         publish: () => calls.push(`publish:${name}`),
         settle: () => calls.push(`settle:${name}`),
         activate: () => calls.push(`activate:${name}`),
+        complete: () => calls.push(`complete:${name}`),
         rollback: () => calls.push(`rollback:${name}`),
       });
     }
@@ -25,6 +26,8 @@ describe('shared commit coordination', () => {
       'settle:second',
       'activate:first',
       'activate:second',
+      'complete:first',
+      'complete:second',
     ]);
     expect(transaction.phase).toBe('committed');
     expect(coordinator.current).toBeNull();
@@ -36,18 +39,22 @@ describe('shared commit coordination', () => {
     const parent = coordinator.begin();
     coordinator.register({ settle: () => calls.push('parent') });
     const child = coordinator.begin();
-    coordinator.register({ settle: () => calls.push('child') });
+    coordinator.register({
+      settle: () => calls.push('child'),
+      complete: () => calls.push('completed'),
+    });
     coordinator.commit(child);
     expect(calls).toEqual([]);
     expect(coordinator.current).toBe(parent);
     const failed = coordinator.begin();
     coordinator.register({
       settle: () => calls.push('failed'),
+      complete: () => calls.push('failed completion'),
       rollback: () => calls.push('discarded'),
     });
     coordinator.discard(failed);
     coordinator.commit(parent);
-    expect(calls).toEqual(['discarded', 'parent', 'child']);
+    expect(calls).toEqual(['discarded', 'parent', 'child', 'completed']);
     expect(coordinator.current).toBeNull();
   });
 

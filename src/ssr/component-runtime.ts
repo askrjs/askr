@@ -12,10 +12,12 @@ import {
   cleanupComponent,
   createComponentInstance,
   getExecutionContextFrame,
-  getCurrentComponentInstance,
   markVNodeTreeWithContextFrame,
-  setCurrentComponentInstance,
 } from '../runtime';
+import {
+  enterRenderScopedComponent,
+  restoreRenderScopedComponent,
+} from '../runtime/component-scope';
 import type { ContextFrame } from '../runtime';
 import {
   disposeRegisteredDefaultPortalScope,
@@ -67,7 +69,6 @@ export function executeComponentSync(
     if (process.env.NODE_ENV !== 'production') {
       pushSSRStrictPurityGuard();
     }
-    const prev = getCurrentComponentInstance();
     const temp = createComponentInstance(
       'ssr-temp',
       component as ComponentFunction,
@@ -102,7 +103,7 @@ export function executeComponentSync(
         throw cleanupError;
       }
     });
-    setCurrentComponentInstance(temp);
+    const previous = enterRenderScopedComponent(temp, 0);
     try {
       const executionFrame = getExecutionContextFrame(ownerFrame);
       const result = callWithContext(
@@ -137,7 +138,7 @@ export function executeComponentSync(
         | VNode
         | JSXElement;
     } finally {
-      setCurrentComponentInstance(prev);
+      restoreRenderScopedComponent(previous);
     }
   } finally {
     if (process.env.NODE_ENV !== 'production') popSSRStrictPurityGuard();

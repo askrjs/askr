@@ -17,6 +17,9 @@ published runtime and renderer extension contracts remain unchanged.
 4. Settlement drains departed owners, refs, portal writes, and then captured
    lifecycle operations. Errors belong to that transaction. A cleanup callback
    can start a fresh transaction after the previous publication has completed.
+   Integration completion follows all lifecycle activation, allowing navigation
+   to publish history only if its request is still current. These callbacks
+   also join enclosing transactions and never run after rollback.
 
 A failure before publication completes restores participants in reverse order
 and drains provisional cleanup despite restoration errors. A failure after

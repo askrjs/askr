@@ -1,3 +1,4 @@
+import { getComponentLifetimeIdentity } from '../runtime/component-capabilities';
 import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
 import { adjustOwnershipDiagnostic, enqueueRuntimeTask } from '../runtime';
@@ -614,7 +615,7 @@ function createLegacyQuery<T extends {}>(
   }
 
   if (existingSlot) {
-    existingSlot.cell.detach(instance.ownership.identity, hookIndex);
+    existingSlot.cell.detach(getComponentLifetimeIdentity(instance), hookIndex);
   }
 
   if (override) return override;
@@ -632,7 +633,7 @@ function createLegacyQuery<T extends {}>(
     key: options.key,
     cell: cell as QueryCell<unknown>,
   });
-  cell.attach(instance.ownership.identity, hookIndex);
+  cell.attach(getComponentLifetimeIdentity(instance), hookIndex);
   return cell as unknown as Query<T>;
 }
 

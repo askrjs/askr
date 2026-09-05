@@ -17,6 +17,8 @@ export interface CommitParticipant {
   publish?(): void;
   settle?(): void;
   activate?(): void;
+  /** Integration publication that must wait for all lifecycle callbacks. */
+  complete?(): void;
   rollback?(): void;
   merge?(parent: CommitParticipant): void;
 }
@@ -233,6 +235,9 @@ export class CommitCoordinator {
       }
       for (const participant of transaction.participants) {
         if (participant.activate) attempt(() => participant.activate!());
+      }
+      for (const participant of transaction.participants) {
+        if (participant.complete) attempt(() => participant.complete!());
       }
       this.complete(transaction, (error) => transaction.errors.push(error));
       transaction.phase = 'committed';

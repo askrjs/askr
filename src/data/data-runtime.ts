@@ -1,4 +1,8 @@
-import { drainOwnedCleanup, ownCleanup } from '../runtime/ownership';
+import {
+  getComponentLifetimeIdentity,
+  ownComponentCleanup,
+} from '../runtime/component-capabilities';
+import { drainOwnedCleanup } from '../runtime/ownership';
 import { getActiveRenderContext } from '../common/render-context';
 import { getCurrentAppRenderRuntime } from '../runtime';
 import type { ComponentInstance } from '../runtime';
@@ -145,7 +149,7 @@ export function getQuerySlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, QuerySlot> {
-  const generation = instance.ownership.identity;
+  const generation = getComponentLifetimeIdentity(instance);
   let store = runtimeState.querySlotsByGeneration.get(generation);
   if (!store) {
     store = new Map();
@@ -158,7 +162,7 @@ export function getMutationSlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, MutationSlot> {
-  const generation = instance.ownership.identity;
+  const generation = getComponentLifetimeIdentity(instance);
   let store = runtimeState.mutationSlotsByGeneration.get(generation);
   if (!store) {
     store = new Map();
@@ -171,14 +175,14 @@ export function ensureQueryCleanup(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): void {
-  const generation = instance.ownership.identity;
+  const generation = getComponentLifetimeIdentity(instance);
   if (runtimeState.queryCleanupRegistered.has(generation)) {
     return;
   }
 
   runtimeState.queryCleanupRegistered.add(generation);
   const slots = getQuerySlotStore(runtimeState, instance);
-  ownCleanup(instance.ownership, () => {
+  ownComponentCleanup(instance, () => {
     try {
       drainOwnedCleanup(slots, ([hookIndex, slot]) =>
         slot.cell.detach(generation, hookIndex)
@@ -195,14 +199,14 @@ export function ensureMutationCleanup(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): void {
-  const generation = instance.ownership.identity;
+  const generation = getComponentLifetimeIdentity(instance);
   if (runtimeState.mutationCleanupRegistered.has(generation)) {
     return;
   }
 
   runtimeState.mutationCleanupRegistered.add(generation);
   const slots = getMutationSlotStore(runtimeState, instance);
-  ownCleanup(instance.ownership, () => {
+  ownComponentCleanup(instance, () => {
     try {
       drainOwnedCleanup(slots.values(), (slot) => slot.cell.abort());
     } finally {

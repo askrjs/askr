@@ -1,6 +1,7 @@
 import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import { isProductionEnvironment } from '../common/env';
-import { trackRouteGeneration, type ComponentInstance } from '../runtime';
+import type { ComponentInstance } from '../runtime';
+import { trackComponentRouteGeneration } from '../runtime/component-capabilities';
 import { lockRouteRegistration, syncCurrentRouteSnapshot } from './route';
 import { computeRouteActivityMatches } from './route-matching';
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -147,7 +148,7 @@ export function registerAppInstance(
   }
 
   if (__ASKR_DEVELOPMENT_BUILD__) {
-    trackRouteGeneration(instance.ownership.identity);
+    trackComponentRouteGeneration(instance);
   }
 
   currentInstance = instance;
