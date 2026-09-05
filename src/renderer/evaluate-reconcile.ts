@@ -1,3 +1,4 @@
+import { writeHostOwners } from './dom-ownership';
 import { logger } from '../common/logger';
 import { getRuntimeEnv } from './env';
 import type { Props } from '../common/props';
@@ -75,8 +76,7 @@ export function retainHostOwnerChain(
     }
   }
 
-  componentHost.__ASKR_INSTANCES = nextInstances;
-  componentHost.__ASKR_INSTANCE = owner;
+  writeHostOwners(componentHost, nextInstances, owner);
 }
 
 interface SimpleTextResult {

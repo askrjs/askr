@@ -10,7 +10,7 @@ import { allowFrameworkWarnings } from '../../setup-env';
 import {
   disableEventDelegation,
   enableEventDelegation,
-} from '../../../src/runtime/events';
+} from '../../../src/renderer/events';
 
 describe('text node updates (DOM)', () => {
   let { container, cleanup } = createTestContainer();

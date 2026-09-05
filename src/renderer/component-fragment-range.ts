@@ -1,3 +1,4 @@
+import { bindComponentHost, writeHostOwners } from './dom-ownership';
 import {
   mountInstanceInline,
   registerLifecycleTransaction,
@@ -141,8 +142,7 @@ function migrateAdoptedRangeOwners(
         target: owner.target,
         placeholder: owner._placeholder,
       });
-      owner.target = null;
-      owner._placeholder = rangeHost as Comment;
+      bindComponentHost(owner, null, rangeHost as Comment);
     }
   }
 
@@ -152,30 +152,28 @@ function migrateAdoptedRangeOwners(
     (owner) => !owners.has(owner)
   );
   if (remainingSourceInstances.length > 0) {
-    sourceHost.__ASKR_INSTANCES = remainingSourceInstances;
-    sourceHost.__ASKR_INSTANCE = remainingSourceInstances[0];
+    writeHostOwners(
+      sourceHost,
+      remainingSourceInstances,
+      remainingSourceInstances[0]
+    );
   } else {
-    delete sourceHost.__ASKR_INSTANCES;
-    delete sourceHost.__ASKR_INSTANCE;
+    writeHostOwners(sourceHost, undefined, undefined);
   }
 
-  rangeHost.__ASKR_INSTANCES = Array.from(owners);
-  rangeHost.__ASKR_INSTANCE = rangeHost.__ASKR_INSTANCES[0];
+  const rangeOwners = Array.from(owners);
+  writeHostOwners(rangeHost, rangeOwners, rangeOwners[0]);
 
   return () => {
-    if (sourceHadInstanceList) {
-      sourceHost.__ASKR_INSTANCES = sourceInstanceList;
-    } else {
-      delete sourceHost.__ASKR_INSTANCES;
-    }
-    if (sourceHadPrimaryInstance) {
-      sourceHost.__ASKR_INSTANCE = sourcePrimaryInstance;
-    } else {
-      delete sourceHost.__ASKR_INSTANCE;
-    }
+    writeHostOwners(
+      sourceHost,
+      sourceInstanceList,
+      sourcePrimaryInstance,
+      sourceHadInstanceList,
+      sourceHadPrimaryInstance
+    );
     for (const [owner, binding] of previousBindings) {
-      owner.target = binding.target;
-      owner._placeholder = binding.placeholder;
+      bindComponentHost(owner, binding.target, binding.placeholder);
     }
   };
 }
@@ -362,8 +360,7 @@ export function adoptMarkedHydratedComponentRange(
   registerRange(range, instance);
   const owners = new Set(retainedInstances);
   owners.add(instance);
-  host.__ASKR_INSTANCE = instance;
-  host.__ASKR_INSTANCES = Array.from(owners);
+  writeHostOwners(host, Array.from(owners), instance);
   instance.target = null;
   instance._placeholder = start;
   mountInstanceInline(instance, null);
@@ -373,8 +370,7 @@ export function adoptMarkedHydratedComponentRange(
     if (previousOwner && previousRange) {
       registerRange(previousRange, previousOwner);
     }
-    host.__ASKR_INSTANCE = previousInstance;
-    host.__ASKR_INSTANCES = previousInstances;
+    writeHostOwners(host, previousInstances, previousInstance, true, true);
   };
   const registered = registerLifecycleTransaction({}, () => {}, rollback);
 

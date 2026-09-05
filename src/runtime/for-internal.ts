@@ -429,38 +429,18 @@ function finalizeForStateRemovals<T>(
       return;
     }
 
-    if (typeof Element !== 'undefined' && removedDom instanceof Element) {
-      const teardownStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
-      try {
-        getRuntimeRenderer().teardownNodeSubtree(removedDom);
-        if (BENCH_BUILD_ENABLED) recordBenchCounter('subtreeTeardowns');
-      } catch (error) {
-        cleanupErrors.push(error);
-      }
-      if (BENCH_BUILD_ENABLED) {
-        recordBenchTiming(
-          'domMetadataTeardown',
-          performance.now() - teardownStartMs
-        );
-      }
-    }
-    if (removedRange && !removedRange.single) {
-      for (
-        let node = removedRange.start.nextSibling;
-        node && node !== removedRange.end;
-      ) {
-        const next = node.nextSibling;
-        try {
-          // A component may commit to a comment or text host. The keyed DOM
-          // phase detaches ranges without teardown so rollback can restore
-          // them; once commit succeeds, every interior host must be finalized.
-          getRuntimeRenderer().teardownNodeSubtree(node);
-          if (BENCH_BUILD_ENABLED) recordBenchCounter('subtreeTeardowns');
-        } catch (error) {
-          cleanupErrors.push(error);
-        }
-        node = next;
-      }
+    const teardownStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
+    const count = getRuntimeRenderer().teardownScopeHost(
+      removedDom,
+      removedRange,
+      (error) => cleanupErrors.push(error)
+    );
+    if (BENCH_BUILD_ENABLED) {
+      recordBenchCounter('subtreeTeardowns', count);
+      recordBenchTiming(
+        'domMetadataTeardown',
+        performance.now() - teardownStartMs
+      );
     }
   };
 

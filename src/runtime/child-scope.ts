@@ -1,3 +1,5 @@
+import { getRuntimeRenderer } from './access';
+import type { ChildScopeHostSnapshot } from './renderer-capabilities';
 import type { VNode } from '../common/vnode';
 import { _isDOMElement } from '../common/vnode';
 import {
@@ -12,7 +14,7 @@ import {
 import { finalizeInlineReadSubscriptions } from './component-lifecycle';
 import { clearRenderTracking } from './component-scope';
 import { isDevelopmentEnvironment } from '../common/env';
-import type { DOMRange } from '../common/dom-range';
+import { DIRECT_RANGE_OWNER, type DOMRange } from '../common/dom-range';
 import { rebaseVNodeTreeWithContextFrame, type ContextFrame } from './context';
 import type { OwnershipRecord } from './ownership';
 
@@ -48,9 +50,7 @@ export interface ChildScopeOwnership {
 export interface ChildScopeTransactionSnapshot {
   previousVnode: VNode | undefined;
   vnode: VNode | undefined;
-  dom: Node | undefined;
-  range: DOMRange | undefined;
-  domTextData: string | undefined;
+  host: ChildScopeHostSnapshot | undefined;
   needsDomUpdate: boolean;
   hydrationPending: boolean;
   renderFn: (() => VNode) | undefined;
@@ -96,6 +96,9 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
 }
 
 class ChildScopeImpl implements MutableChildScope {
+  get [DIRECT_RANGE_OWNER](): true {
+    return true;
+  }
   key: string | number;
   componentInstance: ComponentInstance;
   previousVnode: VNode | undefined = undefined;
@@ -163,8 +166,7 @@ class ChildScopeImpl implements MutableChildScope {
       this._renderFn = undefined;
       this.previousVnode = undefined;
       this.vnode = undefined;
-      this.dom = undefined;
-      this.range = undefined;
+      getRuntimeRenderer().clearChildScopeHost(this);
       this.needsDomUpdate = false;
       this.hydrationPending = false;
       this.blueprintOwner = undefined;
@@ -257,10 +259,7 @@ export function captureChildScopeTransactionSnapshot(
   return {
     previousVnode: scope.previousVnode,
     vnode: scope.vnode,
-    dom: scope.dom,
-    range: scope.range,
-    domTextData:
-      scope.dom?.nodeType === 3 ? (scope.dom as Text).data : undefined,
+    host: getRuntimeRenderer().captureChildScopeHost(scope),
     needsDomUpdate: scope.needsDomUpdate,
     hydrationPending: scope.hydrationPending,
     renderFn: mutableScope._renderFn,
@@ -276,11 +275,7 @@ export function restoreChildScopeTransactionSnapshot(
   const mutableScope = scope as MutableChildScope;
   scope.previousVnode = snapshot.previousVnode;
   scope.vnode = snapshot.vnode;
-  scope.dom = snapshot.dom;
-  scope.range = snapshot.range;
-  if (snapshot.domTextData !== undefined && snapshot.dom?.nodeType === 3) {
-    (snapshot.dom as Text).data = snapshot.domTextData;
-  }
+  snapshot.host?.restore(scope);
   scope.needsDomUpdate = snapshot.needsDomUpdate;
   scope.hydrationPending = snapshot.hydrationPending;
   mutableScope._renderFn = snapshot.renderFn;

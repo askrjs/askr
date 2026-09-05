@@ -194,8 +194,8 @@ export function resolveHostNestedComponentResult(
         instance._placeholder = undefined;
         mountInstanceInline(instance, host);
       } else {
-        mountInstanceInline(instance, null);
         instance._placeholder = host as Comment;
+        mountInstanceInline(instance, null);
       }
     }
   } catch (error) {

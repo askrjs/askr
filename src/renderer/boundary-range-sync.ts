@@ -1,3 +1,4 @@
+import { writeScopeHost } from './scope-host';
 import type { DOMRange } from '../common/dom-range';
 import {
   enterDomCommitScope,
@@ -167,8 +168,7 @@ export function syncControlBoundaryScopeDom(
               : null
           );
         }
-        scope.range = previousRange;
-        scope.dom = previousDom;
+        writeScopeHost(scope, previousRange, previousDom);
       }
     );
 

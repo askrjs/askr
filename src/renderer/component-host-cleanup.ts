@@ -1,11 +1,14 @@
+import { clearHostOwners, writeHostOwners } from './dom-ownership';
 import {
   cleanupComponent,
-  clearDelegatedHandlersForElement,
   getCurrentInstance,
   incDevCounter,
   registerLifecycleTransaction,
-  removeDelegatedListener,
 } from '../runtime';
+import {
+  clearDelegatedHandlersForElement,
+  removeDelegatedListener,
+} from './events';
 import type { ComponentInstance } from '../runtime';
 import {
   elementListeners,
@@ -184,16 +187,11 @@ function clearHostMetadata(
   node: InstanceHostNode,
   cleanupErrors: unknown[]
 ): void {
-  for (const property of [
-    '__ASKR_INSTANCE',
-    '__ASKR_INSTANCES',
-    '__ASKR_WRAPPER_HOST',
-  ] as const) {
-    try {
-      delete node[property];
-    } catch (error) {
-      cleanupErrors.push(error);
-    }
+  clearHostOwners(node, (error) => cleanupErrors.push(error));
+  try {
+    delete node.__ASKR_WRAPPER_HOST;
+  } catch (error) {
+    cleanupErrors.push(error);
   }
 }
 
@@ -235,17 +233,13 @@ export function pruneComponentHostInstances(
     }
 
     try {
-      if (hadInstanceList) {
-        host.__ASKR_INSTANCES = previousInstanceList;
-      } else {
-        delete host.__ASKR_INSTANCES;
-      }
-
-      if (hadPrimaryInstance) {
-        host.__ASKR_INSTANCE = previousPrimaryInstance;
-      } else {
-        delete host.__ASKR_INSTANCE;
-      }
+      writeHostOwners(
+        host,
+        previousInstanceList,
+        previousPrimaryInstance,
+        hadInstanceList,
+        hadPrimaryInstance
+      );
     } catch {
       // Host metadata restoration is best-effort on readonly DOM shims.
     }
@@ -318,11 +312,9 @@ function writeHostInstances(
 ): void {
   try {
     if (instances.length > 0) {
-      host.__ASKR_INSTANCES = instances;
-      host.__ASKR_INSTANCE = instances[0];
+      writeHostOwners(host, instances, instances[0]);
     } else {
-      delete host.__ASKR_INSTANCES;
-      delete host.__ASKR_INSTANCE;
+      writeHostOwners(host, undefined, undefined);
     }
   } catch {
     // Ignore host metadata cleanup failures.

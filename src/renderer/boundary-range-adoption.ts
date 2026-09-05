@@ -1,3 +1,4 @@
+import { writeScopeHost } from './scope-host';
 import { isFragmentType } from '../common/jsx';
 import type { DOMRange } from '../common/dom-range';
 import {
@@ -62,8 +63,7 @@ export function getBoundaryRangeHost(): BoundaryRangeDOMHost {
 }
 
 export function assignScopeRange(scope: ChildScope, range: DOMRange): void {
-  scope.range = range;
-  scope.dom = range.single ? range.start : undefined;
+  writeScopeHost(scope, range);
 }
 
 export function checkVNodeShapeChanged(dom: Node, vnode: VNode): boolean {
@@ -174,7 +174,7 @@ export function getScopeRange(scope: ChildScope): DOMRange | null {
   }
   if (!scope.dom) return null;
   const range = { start: scope.dom, end: scope.dom, single: true } as DOMRange;
-  scope.range = range;
+  writeScopeHost(scope, range);
   return range;
 }
 

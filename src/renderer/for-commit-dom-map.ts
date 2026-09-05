@@ -1,3 +1,4 @@
+import { writeScopeHost } from './scope-host';
 import {
   recordBenchCounter,
   type ForCommitStrategy,
@@ -73,7 +74,7 @@ export function hydrateExistingForDomInOrder(
       return false;
     }
 
-    itemInstance.scope.dom = currentDom;
+    writeScopeHost(itemInstance.scope, undefined, currentDom);
     itemInstance.scope.needsDomUpdate = true;
   }
 

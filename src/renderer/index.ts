@@ -1,3 +1,14 @@
+import { captureOwnerRange, releaseOwnerRange } from './dom-range';
+import { detachPortalHostOutput, isComponentHostDetached } from './portal-host';
+import {
+  clearChildScopeHost,
+  captureChildScopeHost,
+  resolveScopeBoundary,
+  prepareScopeRemoval,
+  recordRemovedScopeBoundary,
+  teardownScopeHost,
+  hasUnmountedComponentHost,
+} from './scope-host';
 // Renderer barrel entrypoint.
 // Keep this file small: re-export the public surface and provide the runtime
 // renderer host used by browser composition.
@@ -27,10 +38,27 @@ import { populateKeyMapForElement } from './keyed';
 import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
 import { replaceComponentRange } from './component-range-commit';
 import { getScopeRange } from './boundary-range-adoption';
+import { applyComponentResult } from './component-application';
+import { classifyUpdate } from './component-fast-path';
+import { recordInlineComponentHost } from './dom-ownership';
 import type { RendererCapabilities } from '../runtime';
 
 export function createRendererCapabilities(): RendererCapabilities {
   return {
+    captureComponentHost: captureOwnerRange,
+    releaseComponentHost: releaseOwnerRange,
+    detachPortalHostOutput,
+    isComponentHostDetached,
+    clearChildScopeHost,
+    captureChildScopeHost,
+    resolveScopeBoundary,
+    prepareScopeRemoval,
+    recordRemovedScopeBoundary,
+    teardownScopeHost,
+    hasUnmountedComponentHost,
+    recordInlineComponentHost,
+    applyComponentResult,
+    classifyComponentUpdate: classifyUpdate,
     evaluate: _evaluate,
     cleanupInstancesUnder,
     replaceComponentRange,
