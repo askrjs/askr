@@ -98,6 +98,21 @@ failed the truncation guardrail at +13.04% and +8.70% and were rejected.
 The accepted implementation consolidates native range indexes and scope
 boundary work. This is preservation evidence, with no optimization claim.
 
+The [commit protocol qualification](./core-commit-27e1e84.json) compares
+`d11a790` with `27e1e84` across 21 rows. All repeated captures meet the sample
+rules and regression limit; the maximum slowdown is 4.55% for hydration.
+
+The [integration qualification](./core-integration-451497e.json) compares
+`b48c2fb` with `451497e` across 21 rows. The final accepted comparisons meet
+the sample rules and regression limit, with a maximum slowdown of 2.91%.
+The initial dense-route comparison failed at +8.26%. Its complete statistics
+remain in the evidence alongside an isolated baseline/control/candidate
+investigation. The accepted dense-route baseline is the lower of the two
+control medians, captured immediately before the candidate; that comparison
+is +2.91%. No matching code was tuned in response to capture variability.
+The other 20 rows passed the original final-source capture. These structural
+changes make no optimization claim.
+
 ## External JFB Comparisons
 
 The local `js-framework-benchmark` capture is a separate product-level signal

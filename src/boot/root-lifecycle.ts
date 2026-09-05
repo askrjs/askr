@@ -1,11 +1,6 @@
 import { isDevelopmentEnvironment } from '../common/env';
-import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
-import {
-  disposeRegisteredDefaultPortalScope,
-  getDefaultPortalHost,
-} from '../common/default-portal-runtime';
-import { ELEMENT_TYPE, Fragment } from '../jsx';
+import { disposeRegisteredDefaultPortalScope } from '../common/default-portal-runtime';
 import {
   initializeNavigation,
   registerAppInstance,
@@ -29,11 +24,14 @@ import {
 } from '../renderer';
 import type { BootAppRouteSource } from './types';
 import { resolveRootElement } from './root-element';
-import { CspNonceScope, validateCspNonce } from '../csp-nonce';
+import { validateCspNonce } from '../csp-nonce';
+import { wrapRootRouteHandler } from './root-handler';
+import { installRootUpdateHost } from './root-update';
 import { installRendererBridge } from './runtime-wiring';
 import { restartComponentGeneration } from '../runtime/component-generation';
 
 installRendererBridge();
+installRootUpdateHost();
 
 let componentIdCounter = 0;
 
@@ -193,36 +191,7 @@ export function mountOrUpdate(
   }
 ) {
   const nonce = validateCspNonce(options?.cspNonce);
-  const wrappedFn: ComponentFunction = (props, ctx) => {
-    const out = componentFn(props, ctx);
-    if (isPromiseLike(out)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
-    const portalVNode = {
-      $$typeof: ELEMENT_TYPE,
-      type: getDefaultPortalHost(),
-      props: { __askrAutoDefaultPortal: true },
-      key: '__default_portal',
-    } as unknown;
-    const root = {
-      $$typeof: ELEMENT_TYPE,
-      type: Fragment,
-      props: {
-        children:
-          out === undefined || out === null
-            ? [portalVNode]
-            : [out, portalVNode],
-      },
-    } as unknown as ReturnType<ComponentFunction>;
-    return nonce === undefined
-      ? root
-      : CspNonceScope({ value: nonce, children: root });
-  };
-  Object.defineProperty(wrappedFn, 'name', {
-    value: componentFn.name || 'Component',
-  });
+  const wrappedFn = wrapRootRouteHandler(componentFn, nonce);
 
   const existingCleanup = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
   const reusedExistingInstance = typeof existingCleanup === 'function';

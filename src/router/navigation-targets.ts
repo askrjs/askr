@@ -5,23 +5,13 @@ import type {
   RouteRenderResult,
   RouteRequestResult,
 } from '../common/router';
-import {
-  clearRegisteredDefaultPortalForInstance,
-  getDefaultPortalHost,
-} from '../common/default-portal-runtime';
-import { ELEMENT_TYPE, Fragment } from '../jsx';
-import { CspNonceScope } from '../csp-nonce';
 import { logger } from '../common/logger';
 import {
-  cleanupComponent,
   beginCommitTransaction,
   discardTransaction,
   commitTransaction,
   flushRuntimeScheduler,
-  executeComponent,
-  type ComponentInstance,
 } from '../runtime';
-import { teardownNodeSubtree } from '../renderer/cleanup';
 import {
   applyHistoryScroll,
   applyNavigationScroll,
@@ -44,18 +34,13 @@ import {
   getRouteRenderData,
   hasRouteRenderData,
 } from './resolution';
-import { withoutRouteHydrationMetadata } from './route-hydration';
 import { reconcileRouteMeta, resolveRouteMeta } from './metadata';
 import {
-  clearStagedAppRenderRouteLocation,
-  createAppRenderRuntime,
-  stageAppRenderRouteLocation,
-} from '../common/app-render-runtime';
-
-import {
-  captureComponentGeneration,
-  type PreparedComponentGeneration,
-} from '../runtime/component-generation';
+  prepareRootUpdate,
+  type PreparedRootUpdate,
+} from '../common/root-update';
+import type { ComponentFunction } from '../common/component';
+import { registerCommitParticipant } from '../runtime/transaction-access';
 
 /** Options for {@link navigate}. */
 export type NavigateOptions = {
@@ -170,51 +155,9 @@ function createDeniedResolvedRoute(status: number): ResolvedRoute {
   };
 }
 
-function bindResolvedRouteHandler(
-  resolved: ResolvedRoute
-): ComponentInstance['fn'] {
+function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentFunction {
   return () =>
-    resolved.handler(resolved.params) as ReturnType<ComponentInstance['fn']>;
-}
-
-function wrapRootRouteHandler(
-  componentFn: ComponentInstance['fn'],
-  cspNonce?: string
-): ComponentInstance['fn'] {
-  const wrappedFn: ComponentInstance['fn'] = (props, ctx) => {
-    const out = componentFn(props, ctx);
-    if (isPromiseLike(out)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
-    const portalVNode = {
-      $$typeof: ELEMENT_TYPE,
-      type: getDefaultPortalHost(),
-      props: { __askrAutoDefaultPortal: true },
-      key: '__default_portal',
-    } as unknown;
-
-    const root = {
-      $$typeof: ELEMENT_TYPE,
-      type: Fragment,
-      props: {
-        children:
-          out === undefined || out === null
-            ? [portalVNode]
-            : [out, portalVNode],
-      },
-    } as ReturnType<ComponentInstance['fn']>;
-    return cspNonce === undefined
-      ? root
-      : CspNonceScope({ value: cspNonce, children: root });
-  };
-
-  Object.defineProperty(wrappedFn, 'name', {
-    value: componentFn.name || 'Component',
-  });
-
-  return wrappedFn;
+    resolved.handler(resolved.params) as ReturnType<ComponentFunction>;
 }
 
 function flattenLifecycleErrors(error: unknown, result: unknown[]): void {
@@ -236,250 +179,6 @@ function reportRouteCleanupErrors(errors: unknown[]): void {
       logger.error('[Askr] route cleanup failed:', cleanupError);
     }
   }
-}
-
-type DeferredRouteCleanup = {
-  instance: ComponentInstance;
-  generation: PreparedComponentGeneration;
-  previousDom: RouteDomSnapshot | null;
-  previousInstances: ComponentInstance[];
-};
-
-type RouteDomNodeSnapshot = {
-  node: Node;
-  children: Node[];
-  attributes: Array<[string, string]> | null;
-  nodeValue: string | null;
-};
-
-type RouteDomSnapshot = {
-  root: Element;
-  nodes: RouteDomNodeSnapshot[];
-};
-
-function captureRouteDom(root: Element | null): RouteDomSnapshot | null {
-  if (!root) {
-    return null;
-  }
-
-  const nodes: RouteDomNodeSnapshot[] = [];
-  const visit = (node: Node): void => {
-    nodes.push({
-      node,
-      children: Array.from(node.childNodes),
-      attributes:
-        node instanceof Element
-          ? Array.from(node.attributes).map((attribute) => [
-              attribute.name,
-              attribute.value,
-            ])
-          : null,
-      nodeValue: node.nodeValue,
-    });
-
-    for (const child of Array.from(node.childNodes)) {
-      visit(child);
-    }
-  };
-
-  visit(root);
-  return { root, nodes };
-}
-
-function collectProvisionalRouteNodes(snapshot: RouteDomSnapshot): Node[] {
-  const originalNodes = new Set(snapshot.nodes.map((entry) => entry.node));
-  const provisional: Node[] = [];
-  const visit = (node: Node): void => {
-    if (!originalNodes.has(node)) {
-      provisional.push(node);
-      return;
-    }
-
-    for (const child of Array.from(node.childNodes)) {
-      visit(child);
-    }
-  };
-
-  for (const child of Array.from(snapshot.root.childNodes)) {
-    visit(child);
-  }
-
-  return provisional;
-}
-
-function restoreRouteDom(snapshot: RouteDomSnapshot | null): unknown[] {
-  if (!snapshot) {
-    return [];
-  }
-
-  const errors: unknown[] = [];
-  for (const node of collectProvisionalRouteNodes(snapshot)) {
-    try {
-      teardownNodeSubtree(node, { strict: true });
-    } catch (error) {
-      errors.push(error);
-    }
-  }
-
-  for (const entry of snapshot.nodes) {
-    const { node, attributes } = entry;
-    try {
-      if (attributes && node instanceof Element) {
-        const expected = new Map(attributes);
-        for (const attribute of Array.from(node.attributes)) {
-          if (!expected.has(attribute.name)) {
-            node.removeAttribute(attribute.name);
-          }
-        }
-        for (const [name, value] of attributes) {
-          if (node.getAttribute(name) !== value) {
-            node.setAttribute(name, value);
-          }
-        }
-      } else if (!(node instanceof Element)) {
-        node.nodeValue = entry.nodeValue;
-      }
-
-      if (node instanceof Element || node instanceof DocumentFragment) {
-        node.replaceChildren(...entry.children);
-      }
-    } catch (error) {
-      errors.push(error);
-    }
-  }
-
-  return errors;
-}
-
-function collectHostInstances(root: Element): ComponentInstance[] {
-  const instances: ComponentInstance[] = [];
-  const seen = new Set<ComponentInstance>();
-  const pending: Node[] = [root];
-
-  while (pending.length > 0) {
-    const node = pending.pop()!;
-    const host = node as Node & {
-      __ASKR_INSTANCE?: ComponentInstance;
-      __ASKR_INSTANCES?: ComponentInstance[];
-    };
-    for (const instance of host.__ASKR_INSTANCES ?? []) {
-      if (!seen.has(instance)) {
-        seen.add(instance);
-        instances.push(instance);
-      }
-    }
-    if (host.__ASKR_INSTANCE && !seen.has(host.__ASKR_INSTANCE)) {
-      seen.add(host.__ASKR_INSTANCE);
-      instances.push(host.__ASKR_INSTANCE);
-    }
-
-    for (let child = node.lastChild; child; child = child.previousSibling) {
-      pending.push(child);
-    }
-  }
-
-  return instances;
-}
-
-function captureDeferredRouteCleanup(
-  instance: ComponentInstance
-): DeferredRouteCleanup {
-  return {
-    instance,
-    generation: captureComponentGeneration(instance),
-    previousDom: captureRouteDom(instance.target),
-    previousInstances: instance.target
-      ? collectHostInstances(instance.target)
-      : [],
-  };
-}
-
-function restoreDeferredRouteInstance(
-  deferred: DeferredRouteCleanup
-): unknown[] {
-  return deferred.generation.rollback(() =>
-    restoreRouteDom(deferred.previousDom)
-  );
-}
-
-function restoreDeferredRouteInstances(
-  deferredCleanups: DeferredRouteCleanup[]
-): void {
-  const errors: unknown[] = [];
-  for (let index = deferredCleanups.length - 1; index >= 0; index -= 1) {
-    errors.push(...restoreDeferredRouteInstance(deferredCleanups[index]!));
-  }
-
-  if (errors.length > 0) {
-    reportRouteCleanupErrors(errors);
-  }
-}
-
-function cleanupDeferredRouteInstance(
-  deferred: DeferredRouteCleanup
-): unknown[] {
-  const errors: unknown[] = [];
-  const instance = deferred.instance;
-  try {
-    deferred.generation.retire();
-  } catch (error) {
-    errors.push(error);
-  }
-
-  const root = instance.target;
-  const liveInstances = root ? new Set(collectHostInstances(root)) : new Set();
-  for (let index = deferred.previousInstances.length - 1; index >= 0; index--) {
-    const previous = deferred.previousInstances[index]!;
-    if (previous === instance || liveInstances.has(previous)) {
-      continue;
-    }
-
-    try {
-      cleanupComponent(previous);
-    } catch (error) {
-      errors.push(error);
-    }
-  }
-
-  return errors;
-}
-
-function remountResolvedRoute(
-  instance: ComponentInstance,
-  resolved: ResolvedRoute,
-  pathname: string,
-  href: string,
-  existingSnapshot?: DeferredRouteCleanup
-): DeferredRouteCleanup {
-  // Keep the live root and its retained wrapper chain in place while the new
-  // route is evaluated. The renderer can then match shared layout owners and
-  // intrinsic roots against the incoming tree instead of forcing navigation
-  // through a cloned root. Removed descendants are cleaned up by the normal
-  // renderer commit path, after the new tree has been accepted.
-  const deferredCleanup =
-    existingSnapshot ?? captureDeferredRouteCleanup(instance);
-  clearRegisteredDefaultPortalForInstance(instance);
-  deferredCleanup.generation.prepare(
-    wrapRootRouteHandler(
-      bindResolvedRouteHandler(resolved),
-      instance._cspNonce
-    ),
-    {}
-  );
-
-  executeComponent(instance);
-  setCurrentRouteLocation(pathname, href);
-  return deferredCleanup;
-}
-
-function rerenderResolvedRoute(
-  instance: ComponentInstance,
-  pathname: string,
-  href: string
-): boolean {
-  setCurrentRouteLocation(pathname, href);
-  instance._enqueueRun?.();
-  return true;
 }
 
 function resolveAppRouteRequest(
@@ -511,31 +210,21 @@ function getResolvedRouteHandler(resolved: RouteRequestResult): ResolvedRoute {
   };
 }
 
-function updateRouteRuntime(
-  instance: ComponentInstance,
-  resolved: RouteRequestResult,
-  href: string
-): void {
-  const current = instance._appRenderRuntime;
-  const runtime = createAppRenderRuntime({
-    framework: withoutRouteHydrationMetadata(current?.framework),
-    dataRuntime: current?.dataRuntime,
-    routeRegistry: current?.routeRegistry,
-    routeAuth: current?.routeAuth,
-    route:
-      resolved?.kind === 'render' ? getRouteRenderData(resolved) : undefined,
-    hasRoute: resolved?.kind === 'render' && hasRouteRenderData(resolved),
+function prepareNavigationRoot(
+  target: AppNavigationTarget,
+  href: string,
+  replaceLifetime: boolean
+): PreparedRootUpdate {
+  const resolved = target.resolved;
+  return prepareRootUpdate(target.app.instance, {
+    handler: bindResolvedRouteHandler(getResolvedRouteHandler(resolved)),
+    href,
+    routeData: isRenderResult(resolved)
+      ? getRouteRenderData(resolved)
+      : undefined,
+    hasRouteData: isRenderResult(resolved) && hasRouteRenderData(resolved),
+    replaceLifetime,
   });
-  stageAppRenderRouteLocation(runtime, href);
-  instance._appRenderRuntime = runtime;
-}
-
-function clearStagedRouteLocations(
-  targets: readonly AppNavigationTarget[]
-): void {
-  for (const target of targets) {
-    clearStagedAppRenderRouteLocation(target.app.instance._appRenderRuntime);
-  }
 }
 
 export function resolveNavigationTargetsForApps(
@@ -662,148 +351,32 @@ export function applyNavigationTargets(
     return;
   }
 
-  const samePathTargets: AppNavigationTarget[] = [];
-  const rootsToPrepare: AppNavigationTarget[] = [];
-  for (const target of matchedTargets) {
-    const resolved = target.resolved!;
-    if (resolved.kind === 'redirect') {
-      continue;
-    }
-
-    if (pathname === target.app.pathname && isRenderResult(resolved)) {
-      samePathTargets.push(target);
-      continue;
-    }
-    rootsToPrepare.push(target);
-  }
-
-  const rollbackSnapshots = matchedTargets.map((target) =>
-    captureDeferredRouteCleanup(target.app.instance)
-  );
-  const rollbackSnapshotByInstance = new Map(
-    rollbackSnapshots.map((snapshot) => [snapshot.instance, snapshot])
-  );
-  const deferredCleanups: DeferredRouteCleanup[] = [];
-  const cleanupErrors: unknown[] = [];
-  const previousAppLocations = matchedTargets.map((target) => ({
-    app: target.app,
-    pathname: target.app.pathname,
-    href: target.app.href,
-  }));
-  const restoreOnExit = (): void => {
-    if (!navigationBatchClosed) {
-      discardTransaction(navigationBatch);
-      navigationBatchClosed = true;
-    }
-    restoreDeferredRouteInstances(rollbackSnapshots);
-    for (const previous of previousAppLocations) {
-      previous.app.pathname = previous.pathname;
-      previous.app.href = previous.href;
-    }
-    setCurrentRouteLocation(previousPathname, previousHref);
-  };
-  const navigationBatch = beginCommitTransaction();
-  let navigationBatchClosed = false;
-  try {
-    for (const target of rootsToPrepare) {
-      if (isStaleRouteRequest(requestId)) {
-        restoreOnExit();
-        return;
-      }
-      updateRouteRuntime(target.app.instance, target.resolved, href);
-      const deferredCleanup = remountResolvedRoute(
-        target.app.instance,
-        getResolvedRouteHandler(target.resolved),
-        pathname,
-        href,
-        rollbackSnapshotByInstance.get(target.app.instance)
+  commitNavigationRoots(
+    requestId,
+    pathname,
+    href,
+    matchedTargets,
+    () => {
+      saveScrollPosition(previousHref);
+      const historyMethod =
+        getNavigationHistoryMode(options) === 'replace'
+          ? 'replaceState'
+          : 'pushState';
+      window.history[historyMethod](
+        {
+          path: href,
+          askrHasState: Object.prototype.hasOwnProperty.call(options, 'state'),
+          askrState: options.state,
+        },
+        '',
+        href
       );
-      deferredCleanups.push(deferredCleanup);
+    },
+    () => {
+      if (pathname !== previousPathname || parseTargetUrl(href).hash)
+        applyNavigationScroll(options.scroll);
     }
-
-    if (isStaleRouteRequest(requestId)) {
-      restoreOnExit();
-      return;
-    }
-
-    // Route roots remain live during the renderer transaction so retained
-    // layout elements keep their identity. Publication below is still held
-    // until every root has rendered successfully.
-    flushRuntimeScheduler();
-    if (isStaleRouteRequest(requestId)) {
-      restoreOnExit();
-      return;
-    }
-
-    for (const target of samePathTargets) {
-      if (isStaleRouteRequest(requestId)) {
-        restoreOnExit();
-        return;
-      }
-      updateRouteRuntime(target.app.instance, target.resolved, href);
-      rerenderResolvedRoute(target.app.instance, pathname, href);
-    }
-
-    flushRuntimeScheduler();
-
-    if (isStaleRouteRequest(requestId)) {
-      restoreOnExit();
-      return;
-    }
-
-    commitTransaction(navigationBatch);
-    navigationBatchClosed = true;
-    cleanupErrors.push(...navigationBatch.errors);
-
-    for (const target of matchedTargets) {
-      if (target.resolved && target.resolved.kind !== 'redirect') {
-        syncAppRegistrationLocation(target.app, pathname, href);
-      }
-    }
-
-    if (isStaleRouteRequest(requestId)) {
-      // A nested navigation may have committed a newer destination while the
-      // lifecycle batch was flushing. Never roll that destination back.
-      return;
-    }
-
-    saveScrollPosition(previousHref);
-    const historyMethod =
-      getNavigationHistoryMode(options) === 'replace'
-        ? 'replaceState'
-        : 'pushState';
-    window.history[historyMethod](
-      {
-        path: href,
-        askrHasState: Object.prototype.hasOwnProperty.call(options, 'state'),
-        askrState: options.state,
-      },
-      '',
-      href
-    );
-    setCurrentRouteLocation(pathname, href);
-    clearStagedRouteLocations(matchedTargets);
-    syncRegisteredRouteSnapshot();
-    reconcileNavigationMetadata(matchedTargets);
-
-    if (pathname !== previousPathname || parseTargetUrl(href).hash) {
-      applyNavigationScroll(options.scroll);
-    }
-
-    for (const deferredCleanup of deferredCleanups) {
-      cleanupErrors.push(...cleanupDeferredRouteInstance(deferredCleanup));
-    }
-
-    for (const error of cleanupErrors) {
-      reportRouteCleanupErrors([error]);
-    }
-  } catch (error) {
-    restoreOnExit();
-    logger.error('[Askr] navigation failed:', error);
-    throw error;
-  } finally {
-    // Route loader state is owned by each resolved handler's lexical scope.
-  }
+  );
 }
 
 export function applyPopStateNavigationTargets(
@@ -840,128 +413,109 @@ export function applyPopStateNavigationTargets(
     return;
   }
 
-  const samePathTargets: AppNavigationTarget[] = [];
-  const rootsToPrepare: AppNavigationTarget[] = [];
-  for (const target of matchedTargets) {
-    const resolved = target.resolved!;
-    if (pathname === target.app.pathname && isRenderResult(resolved)) {
-      samePathTargets.push(target);
-      continue;
-    }
-
-    if (resolved.kind === 'redirect') {
-      continue;
-    }
-
-    rootsToPrepare.push(target);
-  }
-
-  const previousPathname = getCurrentPathname();
   saveScrollPosition(previousHref);
-  const rollbackSnapshots = matchedTargets.map((target) =>
-    captureDeferredRouteCleanup(target.app.instance)
-  );
-  const rollbackSnapshotByInstance = new Map(
-    rollbackSnapshots.map((snapshot) => [snapshot.instance, snapshot])
-  );
-  const deferredCleanups: DeferredRouteCleanup[] = [];
-  const cleanupErrors: unknown[] = [];
-  const previousAppLocations = matchedTargets.map((target) => ({
-    app: target.app,
-    pathname: target.app.pathname,
-    href: target.app.href,
-  }));
-  const restoreOnExit = (): void => {
-    if (!navigationBatchClosed) {
-      discardTransaction(navigationBatch);
-      navigationBatchClosed = true;
-    }
-    restoreDeferredRouteInstances(rollbackSnapshots);
-    for (const previous of previousAppLocations) {
-      previous.app.pathname = previous.pathname;
-      previous.app.href = previous.href;
-    }
-    setCurrentRouteLocation(previousPathname, previousHref);
-  };
-  const navigationBatch = beginCommitTransaction();
-  let navigationBatchClosed = false;
-  try {
-    for (const target of rootsToPrepare) {
-      if (isStaleRouteRequest(requestId)) {
-        restoreOnExit();
-        return;
-      }
-      updateRouteRuntime(target.app.instance, target.resolved, href);
-      const deferredCleanup = remountResolvedRoute(
-        target.app.instance,
-        getResolvedRouteHandler(target.resolved),
-        pathname,
-        href,
-        rollbackSnapshotByInstance.get(target.app.instance)
-      );
-      deferredCleanups.push(deferredCleanup);
-    }
-    if (isStaleRouteRequest(requestId)) {
-      restoreOnExit();
-      return;
-    }
-    flushRuntimeScheduler();
-    if (isStaleRouteRequest(requestId)) {
-      restoreOnExit();
-      return;
-    }
-
-    for (const target of samePathTargets) {
-      if (isStaleRouteRequest(requestId)) {
-        restoreOnExit();
-        return;
-      }
-      updateRouteRuntime(target.app.instance, target.resolved, href);
-      rerenderResolvedRoute(target.app.instance, pathname, href);
-    }
-    flushRuntimeScheduler();
-    if (isStaleRouteRequest(requestId)) {
-      restoreOnExit();
-      return;
-    }
-
-    commitTransaction(navigationBatch);
-    navigationBatchClosed = true;
-    cleanupErrors.push(...navigationBatch.errors);
-
-    for (const target of matchedTargets) {
-      if (target.resolved && target.resolved.kind !== 'redirect') {
-        syncAppRegistrationLocation(target.app, pathname, href);
-      }
-    }
-    if (isStaleRouteRequest(requestId)) {
-      restoreOnExit();
-      return;
-    }
-    setCurrentRouteLocation(pathname, href);
-    clearStagedRouteLocations(matchedTargets);
-    syncRegisteredRouteSnapshot();
-    reconcileNavigationMetadata(matchedTargets);
-    applyHistoryScroll(href, state);
-    for (const deferredCleanup of deferredCleanups) {
-      cleanupErrors.push(...cleanupDeferredRouteInstance(deferredCleanup));
-    }
-    for (const error of cleanupErrors) {
-      reportRouteCleanupErrors([error]);
-    }
-  } catch (error) {
-    restoreOnExit();
-    try {
+  commitNavigationRoots(
+    requestId,
+    pathname,
+    href,
+    matchedTargets,
+    () => {},
+    () => applyHistoryScroll(href, state),
+    () => {
       window.history.replaceState(previousState, '', previousHref);
       syncRegisteredRouteSnapshot();
-    } catch (rollbackError) {
-      logger.error(
-        '[Askr] failed to restore URL after popstate failure:',
-        rollbackError
-      );
     }
+  );
+}
+
+/** Every root joins one transaction. History remains after lifecycle work,
+ * so a navigation started by that work can supersede this destination. */
+function commitNavigationRoots(
+  requestId: number,
+  pathname: string,
+  href: string,
+  targets: AppNavigationTarget[],
+  updateHistory: () => void,
+  updateScroll: () => void,
+  restoreHistory?: () => void
+): void {
+  const previousPathname = getCurrentPathname();
+  const previousHref = getCurrentHref();
+  const roots = targets.map((target) => {
+    const replaceLifetime =
+      pathname !== target.app.pathname || !isRenderResult(target.resolved);
+    return {
+      target,
+      replaceLifetime,
+      previousPathname: target.app.pathname,
+      previousHref: target.app.href,
+      prepared: prepareNavigationRoot(target, href, replaceLifetime),
+    };
+  });
+  const transaction = beginCommitTransaction();
+  let completionFailure: { error: unknown } | undefined;
+  registerCommitParticipant({
+    rollback() {
+      const errors: unknown[] = [];
+      for (let index = roots.length - 1; index >= 0; index--)
+        errors.push(...roots[index]!.prepared.rollback());
+      for (const root of roots) {
+        root.target.app.pathname = root.previousPathname;
+        root.target.app.href = root.previousHref;
+      }
+      setCurrentRouteLocation(previousPathname, previousHref);
+      try {
+        restoreHistory?.();
+      } catch (error) {
+        errors.push(error);
+      }
+      reportRouteCleanupErrors(errors);
+    },
+    settle() {
+      const errors: unknown[] = [];
+      for (const root of roots) errors.push(...root.prepared.retire());
+      reportRouteCleanupErrors(errors);
+    },
+    complete() {
+      try {
+        if (isStaleRouteRequest(requestId)) return;
+        updateHistory();
+        setCurrentRouteLocation(pathname, href);
+        for (const root of roots) root.prepared.publish();
+        syncRegisteredRouteSnapshot();
+        reconcileNavigationMetadata(targets);
+        updateScroll();
+      } catch (error) {
+        completionFailure = { error };
+        throw error;
+      } finally {
+        for (const root of roots) root.prepared.publish();
+      }
+    },
+  });
+  try {
+    // Preserve replacement-before-refresh scheduling across all roots.
+    for (const replaceLifetime of [true, false]) {
+      for (const root of roots) {
+        if (isStaleRouteRequest(requestId)) return;
+        if (root.replaceLifetime === replaceLifetime) root.prepared.apply();
+      }
+      if (isStaleRouteRequest(requestId)) return;
+      flushRuntimeScheduler();
+      if (isStaleRouteRequest(requestId)) return;
+    }
+    registerCommitParticipant({
+      publish() {
+        for (const root of roots)
+          syncAppRegistrationLocation(root.target.app, pathname, href);
+      },
+    });
+    commitTransaction(transaction);
+    if (completionFailure) throw completionFailure.error;
+  } catch (error) {
+    logger.error('[Askr] navigation failed:', error);
     throw error;
   } finally {
-    // Route loader state is owned by each resolved handler's lexical scope.
+    discardTransaction(transaction);
   }
 }

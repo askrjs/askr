@@ -1,4 +1,8 @@
-import { ownCleanup } from '../runtime/ownership';
+import {
+  getComponentLifecycleSlot,
+  ownComponentCleanup,
+  isServerComponent,
+} from '../runtime/component-capabilities';
 import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
 import { getStagedAppRenderRouteLocation } from '../common/app-render-runtime';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
@@ -63,29 +67,26 @@ export function onRouteChange(
   if (!instance) return;
   const route = currentRoute();
   const index = claimHookIndex(instance, 'route-change');
-  const slots = (instance.lifecycleSlots ??= []);
-  const existing = slots[index] as { kind: string } | undefined;
-  if (existing && existing.kind !== 'route-change') {
-    throw new Error(
-      `onRouteChange() lifecycle order violation: slot ${index} already belongs to ${existing.kind}(). ` +
-        'Keep lifecycle primitives in a stable top-level order.'
-    );
-  }
-  const slot = (existing ?? {
-    kind: 'route-change',
-    previous: null,
-    pending: null,
-    cleanup: null,
-    cleanupRegistered: false,
-    callback: fn,
-    immediate: options.immediate === true,
-  }) as RouteChangeSlot;
-  slots[index] = slot as never;
+  const slot = getComponentLifecycleSlot<RouteChangeSlot>(
+    instance,
+    index,
+    'route-change',
+    () => ({
+      kind: 'route-change',
+      previous: null,
+      pending: null,
+      cleanup: null,
+      cleanupRegistered: false,
+      callback: fn,
+      immediate: options.immediate === true,
+    }),
+    'onRouteChange'
+  );
   slot.pending = route;
   slot.callback = fn;
   slot.immediate = options.immediate === true;
   if (!slot.cleanupRegistered) {
-    ownCleanup(instance.ownership, () => {
+    ownComponentCleanup(instance, () => {
       slot.cleanup?.();
       slot.cleanup = null;
     });
@@ -342,7 +343,7 @@ export function currentRoute<
     );
   }
 
-  if (typeof window === 'undefined' || instance.ssr) {
+  if (typeof window === 'undefined' || isServerComponent(instance)) {
     return readCurrentRouteSnapshot<TParams, TState>();
   }
 
