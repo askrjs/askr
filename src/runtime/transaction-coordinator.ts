@@ -119,7 +119,7 @@ export class CommitCoordinator {
           (transaction.seen ??= new Set()).add(participant);
         } catch (error) {
           transaction.participants.push(participant);
-          this.discard(transaction);
+          this.discardMergedTransactions(transaction);
           throw error;
         }
         return;
@@ -143,6 +143,57 @@ export class CommitCoordinator {
       throw new Error(
         '[Askr] Participant collision requires merge or keep-first.'
       );
+  }
+
+  private discardMergedTransactions(
+    transaction: CommitTransaction,
+    mergedParent?: CommitTransaction
+  ): void {
+    const affected = new Set([transaction]);
+    const participants = new Set(transaction.participants);
+    const ancestors: CommitTransaction[] = [];
+    for (
+      let ancestor = transaction.parent;
+      ancestor;
+      ancestor = ancestor.parent
+    )
+      if (ancestor.active) ancestors.push(ancestor);
+    let changed: boolean;
+    do {
+      changed = false;
+      for (const ancestor of ancestors) {
+        if (
+          !affected.has(ancestor) &&
+          (ancestor === mergedParent ||
+            ancestor.participants.some((participant) =>
+              participants.has(participant)
+            ))
+        ) {
+          affected.add(ancestor);
+          changed = true;
+          for (const participant of ancestor.participants)
+            participants.add(participant);
+        }
+      }
+    } while (changed);
+    const frames = [
+      transaction,
+      ...ancestors.filter((ancestor) => affected.has(ancestor)),
+    ];
+
+    // Invalidate every affected frame before user rollback callbacks can
+    // reenter one. The oldest owner drains each shared participant once.
+    const owners = new Set<CommitParticipant>();
+    for (let index = frames.length - 1; index >= 0; index--) {
+      const frame = frames[index];
+      frame.phase = 'discarding';
+      for (let member = frame.participants.length - 1; member >= 0; member--) {
+        const participant = frame.participants[member];
+        if (owners.has(participant)) frame.participants.splice(member, 1);
+        else owners.add(participant);
+      }
+    }
+    for (const frame of frames) this.drainRollback(frame);
   }
 
   suspend(transaction: CommitTransaction): void {
@@ -219,19 +270,7 @@ export class CommitCoordinator {
           }
         }
       } catch (error) {
-        // An identical participant registered in both frames still has one
-        // rollback owner. The parent drains it after child-only work.
-        for (
-          let index = transaction.participants.length - 1;
-          index >= 0;
-          index--
-        ) {
-          const participant = transaction.participants[index];
-          if (parent.participants.includes(participant))
-            transaction.participants.splice(index, 1);
-        }
-        this.discard(transaction);
-        this.discard(parent);
+        this.discardMergedTransactions(transaction, parent);
         throw error;
       }
       for (const participant of transaction.participants) {
@@ -310,6 +349,10 @@ export class CommitCoordinator {
   discard(transaction: CommitTransaction): void {
     this.assertOwned(transaction);
     if (!transaction.active) return;
+    this.drainRollback(transaction);
+  }
+
+  private drainRollback(transaction: CommitTransaction): void {
     const previous = this.frame;
     this.frame = transaction;
     transaction.phase = 'discarding';
@@ -337,7 +380,10 @@ export class CommitCoordinator {
       this.frame = this.liveFrame(
         previous === transaction ? transaction.parent : previous
       );
-      if (transaction.parent?.active)
+      if (
+        transaction.parent?.active ||
+        transaction.parent?.phase === 'discarding'
+      )
         this.mergeCompletions(transaction, transaction.parent);
       else this.complete(transaction, report);
       this.release(transaction);

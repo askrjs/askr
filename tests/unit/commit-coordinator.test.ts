@@ -1,6 +1,150 @@
 import { expect, test } from 'vite-plus/test';
 import { CommitCoordinator } from '../../src/runtime/transaction-coordinator';
 
+test('should invalidate shared ancestors before draining a direct child merge failure', () => {
+  const failure = new Error('merge failed');
+  const rollbackFailure = new Error('rollback failed');
+  const rollbackErrors: unknown[] = [];
+  const events: string[] = [];
+  const coordinator = new CommitCoordinator({
+    rollbackError: (error) => rollbackErrors.push(error),
+  });
+  const unrelated = coordinator.begin();
+  coordinator.register({ settle: () => events.push('unrelated') });
+  const outer = coordinator.begin();
+  const shared = {
+    key: {},
+    value: 'original',
+    settle: () => events.push(shared.value),
+    rollback: () => {
+      events.push('shared rollback');
+      throw rollbackFailure;
+    },
+  };
+  coordinator.register(shared);
+  const parent = coordinator.begin();
+  coordinator.register(shared);
+  const child = coordinator.begin();
+  coordinator.register(shared);
+  expect(() =>
+    coordinator.register({
+      key: shared.key,
+      merge: () => {
+        shared.value = 'partial';
+        throw failure;
+      },
+      rollback: () => {
+        events.push('incoming rollback');
+        // Rollback callbacks must not be able to publish an affected ancestor.
+        coordinator.commit(parent);
+        coordinator.commit(outer);
+      },
+    })
+  ).toThrow(failure);
+  expect([child.phase, parent.phase, outer.phase]).toEqual([
+    'discarded',
+    'discarded',
+    'discarded',
+  ]);
+  expect(events).toEqual(['incoming rollback', 'shared rollback']);
+  expect(rollbackErrors).toEqual([rollbackFailure]);
+  coordinator.discard(child);
+  coordinator.discard(parent);
+  coordinator.discard(outer);
+  expect(coordinator.current).toBe(unrelated);
+  coordinator.commit(unrelated);
+  expect(events).toEqual(['incoming rollback', 'shared rollback', 'unrelated']);
+});
+
+test('should preserve an unrelated parent after a direct child merge failure', () => {
+  const coordinator = new CommitCoordinator();
+  const events: string[] = [];
+  const parent = coordinator.begin();
+  coordinator.register({ settle: () => events.push('parent') });
+  const child = coordinator.begin();
+  const key = {};
+  coordinator.register({ key, rollback: () => events.push('child') });
+  expect(() =>
+    coordinator.register({
+      key,
+      merge: () => {
+        throw new Error('child merge');
+      },
+    })
+  ).toThrow('child merge');
+  expect(child.phase).toBe('discarded');
+  expect(parent.phase).toBe('preparing');
+  coordinator.commit(parent);
+  expect(events).toEqual(['child', 'parent']);
+});
+
+test('should invalidate ancestors connected through another shared participant', () => {
+  const coordinator = new CommitCoordinator();
+  const events: string[] = [];
+  const outer = coordinator.begin();
+  const first = { key: {}, rollback: () => events.push('first') };
+  const second = { key: {}, rollback: () => events.push('second') };
+  coordinator.register(first);
+  coordinator.register(second);
+  const parent = coordinator.begin();
+  coordinator.register(second);
+  const child = coordinator.begin();
+  coordinator.register(first);
+  expect(() =>
+    coordinator.register({
+      key: first.key,
+      merge: () => {
+        throw new Error('merge failed');
+      },
+    })
+  ).toThrow('merge failed');
+  expect([child.phase, parent.phase, outer.phase]).toEqual([
+    'discarded',
+    'discarded',
+    'discarded',
+  ]);
+  expect(events).toEqual(['second', 'first']);
+  expect(coordinator.current).toBeNull();
+});
+
+test('should finish shared rollback before draining deferred completions', () => {
+  const coordinator = new CommitCoordinator();
+  const events: string[] = [];
+  const parent = coordinator.begin();
+  parent.deferNotifications = true;
+  const shared = {
+    key: {},
+    rollback: () => events.push('shared rollback'),
+  };
+  coordinator.register(shared);
+  const child = coordinator.begin();
+  coordinator.register(shared);
+  coordinator.deferCompletion({}, () => events.push('completion'));
+  expect(() =>
+    coordinator.register({
+      key: shared.key,
+      merge: () => {
+        throw new Error('merge failed');
+      },
+      rollback: () => {
+        events.push('incoming rollback');
+        coordinator.deferCompletion({}, () =>
+          events.push('rollback completion')
+        );
+      },
+    })
+  ).toThrow('merge failed');
+  expect(events).toEqual([
+    'incoming rollback',
+    'shared rollback',
+    'completion',
+    'rollback completion',
+  ]);
+  expect(parent.phase).toBe('discarded');
+  expect(child.phase).toBe('discarded');
+  expect(coordinator.current).toBeNull();
+});
+
 test('should keep unkeyed and already-merged participant registration idempotent', () => {
   const coordinator = new CommitCoordinator();
   const parent = coordinator.begin();
